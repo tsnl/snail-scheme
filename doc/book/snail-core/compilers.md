@@ -163,11 +163,19 @@ function of the expander has `mut` in its row — and where it does not, the
   open tails. Matches are checked with Maranget's usefulness algorithm.
   A use of a definition that requires `(Copy A)` asks that `A`'s
   instantiation be unrestricted, judged under the `Copy` variables of the
-  definition containing the use. `(Drop e T)` and `(Clone e T)` are
-  solved apart: the row is found from `T` (`lifecycle-rows`), and each row
-  a drop or a clone performs is performed in `e`, at the call it was raised
-  in once that call is checked, so a signature is held to what its drops
-  and clones perform.
+  definition containing the use. A class whose methods perform one of its
+  parameters as a row, as `(Drop e T)` and `(Store e S)` do, is solved
+  apart: its rows are found from its types rather than matched, from the
+  structure of `T` for a drop or a clone (`lifecycle-rows`) and from the
+  requirement or instance its types select otherwise
+  (`determined-evidence`), whose requirements are solved with each
+  variable its rows end with standing for a fresh row. Each row found is
+  charged to the constraint's row at the call it was raised in, once that
+  call is checked, so a signature is held to what its drops, clones and
+  methods perform. The expander records a class's row parameters, those
+  its methods write after `!` (`class-rows`), and checks that an instance
+  writes each as a row, closed or ending with a variable its requirements
+  give (`check-head-rows`).
 
   A library's checking goes on past a group, definition or statement that
   fails (`each-recovered`): the checker goes on from where it was before the

@@ -106,7 +106,11 @@
    Class
    Class-name
    Class-params
+   Class-rows
    Class-methods
+   row-arguments
+   type-arguments
+   row-variable
    Instance
    Instance-name
    Instance-class
@@ -149,6 +153,7 @@
    primitive-global
    primitive-delta
    Program-instances
+   Program-classes
    Program-types
    Program-effects
    program-value
@@ -399,8 +404,9 @@
 
     ;; The lifecycle classes, whose methods release a value, `(Drop e T)`,
     ;; and copy one, `(Clone e T)`, performing `e` for a T. What they run,
-    ;; and so their rows, is found from T rather than chosen by matching
-    ;; instances, so the checker and mono treat them apart.
+    ;; and so their rows, is found from T's structure, glue for a type
+    ;; without an instance, rather than chosen by matching instances, so the
+    ;; checker and mono treat them apart from other classes over a row.
     (: drop-class String)
     (define drop-class "snail.core.base:Drop")
 
@@ -735,11 +741,36 @@
        (mutable? Bool)))
 
     ;; Method schemes quantify the class parameters first and require the
-    ;; class itself as their first constraint.
+    ;; class itself as their first constraint. `rows` are the parameters
+    ;; its methods perform, as `e` in (Store e S): an instance writes each
+    ;; as a row in its head, and the other parameters, its types, choose
+    ;; the instance whose row a use performs.
     (struct Class
       ((name String)
        (params (List String))
+       (rows (List String))
        (methods (List String))))
+
+    ;; The arguments a class's constraint or instance head gives its row
+    ;; parameters, and those it gives its types, each in order.
+    (: row-arguments (-> Class (List Type) (List Type)))
+    (define (row-arguments class types)
+      (map Pair-second
+           (filter (lambda (pair) (member? (Pair-first pair) (Class-rows class)))
+                   (zip (Class-params class) types))))
+
+    (: type-arguments (-> Class (List Type) (List Type)))
+    (define (type-arguments class types)
+      (map Pair-second
+           (filter (lambda (pair) (not (member? (Pair-first pair) (Class-rows class))))
+                   (zip (Class-params class) types))))
+
+    ;; The variable a row ends with, as `e` in `(! log e)`, if any.
+    (: row-variable (-> Type (List String)))
+    (define (row-variable row)
+      (match row
+        ((TRow _ (Some (TRigid name))) (list name))
+        (_ (Nil))))
 
     ;; Each method maps to the top-level definition that implements it.
     ;; `copy` names the instance variables its requirements declare ω, as a

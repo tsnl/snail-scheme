@@ -137,6 +137,9 @@ Here `e` is `console`; with a total `action`, `repeat` is total. `map` in
 `(snail core base)` has the same shape:
 `(All (A B e) (-> (-> A B ! e) (List A) (List B) ! e))`.
 
+A class may take a row as a parameter too, so that each of its instances
+performs its own ([rows as parameters](types.md#rows-as-parameters)).
+
 A row with a tail fits a larger row with the same tail: `e` fits
 `console e`, and `fs e` fits `console fs e`. The reverse does not hold, and
 two unrelated tails never fit each other

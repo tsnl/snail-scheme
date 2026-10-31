@@ -153,8 +153,9 @@ Rust.
 
 ### Releasing
 
-`drop` is the method of a class over a row, declared in `(snail core
-base)`:
+`drop` is the method of a class over a row
+([rows as parameters](types.md#rows-as-parameters)), declared in
+`(snail core base)`:
 
 ```scheme
 (typeclass (Drop e T)

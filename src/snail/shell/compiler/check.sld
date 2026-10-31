@@ -377,7 +377,10 @@
                                       (compile-error loc
                                                      (string-append
                                                       "this performs effects its context does not allow:"
-                                                      (labels->string labels))))))))))
+                                                      (labels->string
+                                                       (append labels
+                                                               (tail-variable
+                                                                (Pair-second flat)))))))))))))
 
     ;; In a confining body `mut` is discharged before the row is compared.
     (: performed-labels (-> Checker Type (List String) (Pair (List String) Checker)))
@@ -712,7 +715,7 @@
                       (latent (fresh-meta))
                       (args (unify-call (Expr-type callee) args result latent loc))
                       (then (perform latent row loc))
-                      (then (solve-lifecycles before row)))
+                      (then (solve-found-rows before row)))
                   (Pair (Expr (App callee args) result loc) ck))))
 
     ;; Arguments are compared one by one, so a mismatch names its argument,
@@ -1149,9 +1152,10 @@
     ;; determined default to F64 or I64, every literal is range-checked, and
     ;; every class constraint is solved with the givens it arose under.
     ;; Solving binds no metavariables, so waiting until now loses nothing,
-    ;; except a drop's or a clone's, which charges its row: most are solved
-    ;; at their call (`solve-lifecycles`), and one left until now is of a
-    ;; type that a later use decided.
+    ;; except for a class whose row is found from its types, as a drop's, a
+    ;; clone's or a `(Store e S)`'s is, which charges its row: most are
+    ;; solved at their call (`solve-found-rows`), and one left until now is
+    ;; of a type that a later use decided.
     (: solve-pending (-> Checker Checker ! compile))
     (define (solve-pending ck)
       (let ((pending (reverse (Checker-pending ck))))
@@ -1218,11 +1222,121 @@
     (: solve-class
        (-> Checker Constraint I64 (List Constraint) (List String) Loc Checker ! compile))
     (define (solve-class ck constraint hole givens copy loc)
-      (if (lifecycle-class? (Constraint-class constraint))
-          (solve-lifecycle ck constraint hole givens copy (None) loc)
+      (if (row-class? ck (Constraint-class constraint))
+          (solve-found ck constraint hole givens copy (None) loc)
           (match (find-evidence ck constraint givens copy loc)
             ((Some (Pair evidence ck)) (with-evidence ck hole evidence))
             ((None) (compile-error loc (ambiguous-constraint ck constraint))))))
+
+    ;; A class whose methods perform one of its parameters as a row, as
+    ;; `(Drop e T)` and `(Store e S)` do. Its rows are found from its other
+    ;; arguments, its types, rather than matched: what the instance those
+    ;; select performs is charged to the constraint's rows.
+    (: row-class? (-> Checker String Bool))
+    (define (row-class? ck class)
+      (not (null? (Class-rows (program-class (program-of ck) class)))))
+
+    ;; A row class's constraint, solved in the row of the call it was raised
+    ;; in when `context` gives one.
+    (: solve-found
+       (-> Checker
+           Constraint
+           I64
+           (List Constraint)
+           (List String)
+           (Option Type)
+           Loc
+           Checker
+           ! compile))
+    (define (solve-found ck constraint hole givens copy context loc)
+      (match (found-evidence ck constraint givens copy context loc)
+        ((Pair evidence ck) (with-evidence ck hole evidence))))
+
+    (: found-evidence
+       (-> Checker
+           Constraint
+           (List Constraint)
+           (List String)
+           (Option Type)
+           Loc
+           (Pair Evidence Checker)
+           ! compile))
+    (define (found-evidence ck constraint givens copy context loc)
+      (if (lifecycle-class? (Constraint-class constraint))
+          (lifecycle-evidence ck constraint givens copy context loc)
+          (determined-evidence ck constraint givens copy context loc)))
+
+    ;; A row class other than Drop and Clone is chosen as any class is, by
+    ;; its types alone: the requirement given for them, or the one instance
+    ;; whose head matches them. What that performs at each row parameter is
+    ;; charged to the constraint's row there.
+    (: determined-evidence
+       (-> Checker
+           Constraint
+           (List Constraint)
+           (List String)
+           (Option Type)
+           Loc
+           (Pair Evidence Checker)
+           ! compile))
+    (define (determined-evidence ck constraint givens copy context loc)
+      (let* ((class (program-class (program-of ck) (Constraint-class constraint)))
+             (types (map (lambda (type) (resolve-type (solution ck) type))
+                         (Constraint-types constraint))))
+        (when (any? (lambda (type) (has-meta? (solution ck) type)) (type-arguments class types))
+          (compile-error loc (ambiguous-constraint ck constraint)))
+        (match (determined-source ck class types givens copy loc)
+          ((Pair (Pair evidence performed) ck)
+           (Pair evidence
+                 (fold-left (lambda (ck charged)
+                              (charge ck (Pair-first charged) (Pair-second charged) context loc))
+                            ck
+                            (zip performed (row-arguments class types))))))))
+
+    ;; The evidence for a row class's types, and the row it performs at each
+    ;; row parameter: a requirement given for them performs its own rows.
+    (: determined-source
+       (-> Checker
+           Class
+           (List Type)
+           (List Constraint)
+           (List String)
+           Loc
+           (Pair (Pair Evidence (List Type)) Checker)
+           ! compile))
+    (define (determined-source ck class types givens copy loc)
+      (match (list-index (lambda (given) (given-for? class types given)) givens)
+        ((Some index)
+         (Pair
+          (Pair (EvParam index) (row-arguments class (Constraint-types (list-ref givens index))))
+          ck))
+        ((None) (determined-instance ck class types givens copy loc))))
+
+    (: given-for? (-> Class (List Type) Constraint Bool))
+    (define (given-for? class types given)
+      (and (string=? (Class-name class) (Constraint-class given))
+           (types=? (type-arguments class types) (type-arguments class (Constraint-types given)))))
+
+    ;; The instance whose head matches the types. Its requirements are
+    ;; solved with each variable its rows end with standing for a fresh row,
+    ;; which they charge; its rows, ending with those, are what it performs.
+    (: determined-instance
+       (-> Checker
+           Class
+           (List Type)
+           (List Constraint)
+           (List String)
+           Loc
+           (Pair (Pair Evidence (List Type)) Checker)
+           ! compile))
+    (define (determined-instance ck class types givens copy loc)
+      (match (matching-instance ck class types loc)
+        ((Pair instance bindings)
+         (let ((heads (row-arguments class (Instance-types instance))))
+           (learning ck ((tails (fresh-bindings (concatenate (map row-variable heads))))
+                         (evidence (instance-application instance bindings tails givens copy loc)))
+                     (Pair (Pair evidence (map (lambda (row) (substitute tails row)) heads))
+                           ck))))))
 
     (: with-evidence (-> Checker I64 Evidence Checker))
     (define (with-evidence ck hole evidence)
@@ -1243,24 +1357,8 @@
     ;; matched: dropping or cloning a T runs what the type says
     ;; (`lifecycle-rows`), and each row that performs is performed in `e`.
     ;; Mono finds what runs again from the ground type, so the evidence only
-    ;; says so. `context` is the row of the call the constraint was raised
-    ;; in, when it is solved there.
-    (: solve-lifecycle
-       (-> Checker
-           Constraint
-           I64
-           (List Constraint)
-           (List String)
-           (Option Type)
-           Loc
-           Checker
-           ! compile))
-    (define (solve-lifecycle ck constraint hole givens copy context loc)
-      (match (lifecycle-evidence ck constraint givens copy context loc)
-        ((Pair evidence ck) (with-evidence ck hole evidence))))
-
-    ;; Charges what a drop or a clone of the constraint's type performs to
-    ;; the constraint's row, and records the plan charged as its evidence.
+    ;; records the plan charged. `context` is the row of the call the
+    ;; constraint was raised in, when it is solved there.
     (: lifecycle-evidence
        (-> Checker
            Constraint
@@ -1306,18 +1404,18 @@
                ck))
           ((None) ck))))
 
-    ;; A drop or a clone is charged where it is written: once a call is
-    ;; checked, each lifecycle constraint raised in it whose type is known
-    ;; by now is solved in the call's scope, so a signed body is seen to
-    ;; perform what its drops and clones do. One whose type a later use
+    ;; A row is charged where it is written: once a call is checked, each
+    ;; constraint of a row class raised in it whose types are known by now
+    ;; is solved in the call's scope, so a signed body is seen to perform
+    ;; what its drops, clones and methods do. One whose types a later use
     ;; decides waits for `solve-pending`.
-    (: solve-lifecycles (-> Checker I64 Type Checker ! compile))
-    (define (solve-lifecycles ck before context)
+    (: solve-found-rows (-> Checker I64 Type Checker ! compile))
+    (define (solve-found-rows ck before context)
       (let* ((count (- (Checker-pending-count ck) before))
              (recent (take (Checker-pending ck) count))
              (older (list-drop (Checker-pending ck) count)))
-        (if (any? (lambda (want) (known-lifecycle? ck want)) recent)
-            (match (fold-left (lambda (progress want) (solve-known-lifecycle progress want context))
+        (if (any? (lambda (want) (known-row? ck want)) recent)
+            (match (fold-left (lambda (progress want) (solve-known-row progress want context))
                               (Pair (Nil) ck)
                               (reverse recent))
               ((Pair kept ck)
@@ -1325,29 +1423,30 @@
                                           (+ before (length kept)))))
             ck)))
 
-    ;; One wanted constraint, oldest first: solved when it is a lifecycle
-    ;; constraint of a known type, and otherwise kept, newest first, as
+    ;; One wanted constraint, oldest first: solved when it is a row class's
+    ;; constraint of known types, and otherwise kept, newest first, as
     ;; `pending` keeps them.
-    (: solve-known-lifecycle
+    (: solve-known-row
        (-> (Pair (List Wanted) Checker) Wanted Type (Pair (List Wanted) Checker) ! compile))
-    (define (solve-known-lifecycle progress want context)
+    (define (solve-known-row progress want context)
       (match progress
         ((Pair kept ck)
          (match want
            ((WantClass constraint hole givens copy loc)
-            (if (known-lifecycle? ck want)
-                (Pair kept (solve-lifecycle ck constraint hole givens copy (Some context) loc))
+            (if (known-row? ck want)
+                (Pair kept (solve-found ck constraint hole givens copy (Some context) loc))
                 (Pair (Cons want kept) ck)))
            (_ (Pair (Cons want kept) ck))))))
 
-    (: known-lifecycle? (-> Checker Wanted Bool))
-    (define (known-lifecycle? ck want)
+    (: known-row? (-> Checker Wanted Bool))
+    (define (known-row? ck want)
       (match want
         ((WantClass constraint _ _ _ _)
-         (and (lifecycle-class? (Constraint-class constraint))
-              (match (Constraint-types constraint)
-                ((Cons _ (Cons type (Nil))) (not (has-meta? (solution ck) type)))
-                (_ #f))))
+         (let ((class (Constraint-class constraint)))
+           (and (row-class? ck class)
+                (not (any? (lambda (type) (has-meta? (solution ck) type))
+                           (type-arguments (program-class (program-of ck) class)
+                                           (Constraint-types constraint)))))))
         (_ #f)))
 
     ;; Evidence from the enclosing definition's requirements, or from the
@@ -1390,35 +1489,52 @@
            (Pair Evidence Checker)
            ! compile))
     (define (instance-evidence ck class types givens copy loc)
-      (let loop ((instances (class-instances (program-of ck) class)))
+      (match (matching-instance ck (program-class (program-of ck) class) types loc)
+        ((Pair instance bindings)
+         (instance-application ck instance bindings (Nil) givens copy loc))))
+
+    ;; The instance whose head matches a constraint's types, and what that
+    ;; binds its variables to. Rows take no part: they are found from the
+    ;; instance chosen, so no two instances of a class have the same types.
+    (: matching-instance (-> Checker Class (List Type) Loc (Pair Instance Substitution) ! compile))
+    (define (matching-instance ck class types loc)
+      (let loop ((instances (class-instances (program-of ck) (Class-name class))))
         (match instances
           ((Nil)
-           (compile-error loc (string-append "no instance for " (constraint->string class types))))
+           (compile-error loc
+                          (string-append "no instance for "
+                                         (constraint->string (Class-name class) types))))
           ((Cons instance rest)
-           (match (match-types (Instance-vars instance) (Instance-types instance) types (Nil))
-             ((Some bindings) (instance-application ck instance bindings givens copy loc))
+           (match (match-types (Instance-vars instance)
+                               (type-arguments class (Instance-types instance))
+                               (type-arguments class types)
+                               (Nil))
+             ((Some bindings) (Pair instance bindings))
              ((None) (loop rest)))))))
 
     ;; An instance applied where its head matched with `bindings`: a
     ;; variable it requires Copy must be given an unrestricted type, and
-    ;; each of its requirements is satisfied there in turn.
+    ;; each of its requirements is satisfied there in turn, with `rows`
+    ;; giving the variables a row class's instance ends its rows with.
     (: instance-application
        (-> Checker
            Instance
+           Substitution
            Substitution
            (List Constraint)
            (List String)
            Loc
            (Pair Evidence Checker)
            ! compile))
-    (define (instance-application ck instance bindings givens copy loc)
+    (define (instance-application ck instance bindings rows givens copy loc)
       (match (instance-copy-refusal (program-of ck) copy instance bindings)
         ((Some refusal) (compile-error loc refusal))
         ((None)
          (match (each ck
                       (lambda (ck requirement)
                         (requirement-evidence ck
-                                              (substitute-constraint bindings requirement)
+                                              (substitute-constraint (append rows bindings)
+                                                                     requirement)
                                               givens
                                               copy
                                               loc))
@@ -1436,9 +1552,9 @@
                ((None) (TCon "Unit" (Nil)))))
            (Instance-vars instance)))
 
-    ;; A lifecycle requirement, as `(Drop e A)`, is solved as a drop is:
-    ;; what dropping the type it gives `A` performs is charged to its row
-    ;; `e`. Any other is found as a constraint is.
+    ;; A requirement of a row class, as `(Drop e A)` or `(Store e S)`, is
+    ;; solved as its use is: what the type it gives `A` performs is charged
+    ;; to its row `e`. Any other is found as a constraint is.
     (: requirement-evidence
        (-> Checker
            Constraint
@@ -1448,8 +1564,8 @@
            (Pair Evidence Checker)
            ! compile))
     (define (requirement-evidence ck requirement givens copy loc)
-      (if (lifecycle-class? (Constraint-class requirement))
-          (lifecycle-evidence ck requirement givens copy (None) loc)
+      (if (row-class? ck (Constraint-class requirement))
+          (found-evidence ck requirement givens copy (None) loc)
           (match (find-evidence ck requirement givens copy loc)
             ((Some found) found)
             ((None) (compile-error loc (ambiguous-requirement requirement))))))

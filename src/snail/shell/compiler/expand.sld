@@ -1655,6 +1655,7 @@
        (-> Context (Table (Pair Scheme (Option Loc))) Env Syntax Context ! compile))
     (define (define-top-level cx signatures env form)
       (let ((name (global-binding cx env (definition-name form))))
+        (check-signature cx (table-ref signatures name))
         (expanding cx ((value (definition-value env form))
                        (then (add-value name (match (table-ref signatures name)
                                                ((Some (Pair scheme loc))
@@ -1662,6 +1663,16 @@
                                                ((None)
                                                 (Defined (None) (None) (lambda-expr? value)))))))
                    (add-item cx (Define name (top-level-value value))))))
+
+    ;; A signature's constraints, checked once every class the library
+    ;; declares is in the program.
+    (: check-signature (-> Context (Option (Pair Scheme (Option Loc))) Unit ! compile))
+    (define (check-signature cx signature)
+      (match signature
+        ((Some (Pair scheme (Some loc)))
+         (for-each (lambda (constraint) (check-constraint (Context-program cx) constraint loc))
+                   (Scheme-constraints scheme)))
+        (_ (unit))))
 
     (: definition-value (-> Context Env Syntax (Pair Expr Context) ! compile))
     (define (definition-value cx env form)
@@ -2049,11 +2060,61 @@
                                       (match (form-tail form)
                                         ((Cons _ signatures) signatures)
                                         ((Nil) (Nil))))))
-                   (Context-program-set cx
-                                        (program-with-class (Context-program cx)
-                                                            (Class id
-                                                                   (map Ident-name params)
-                                                                   methods))))))
+                   (Context-program-set
+                    cx
+                    (program-with-class
+                     (Context-program cx)
+                     (Class id
+                            (map Ident-name params)
+                            (class-rows (Context-program cx)
+                                        (map Ident-name params)
+                                        methods
+                                        (syntax-loc form))
+                            methods))))))
+
+    ;; The parameters the class's methods perform as rows, `e` in
+    ;; `(: fetch-object (-> S String String ! e))`, in order; a row's kind
+    ;; is found from its use, as `All`'s variables' are. A parameter a
+    ;; method also writes as a type could not be both.
+    (: class-rows (-> Program (List String) (List String) Loc (List String) ! compile))
+    (define (class-rows program params methods loc)
+      (let* ((types (map (lambda (method) (method-type program method)) methods))
+             (rows (filter (lambda (param)
+                             (any? (lambda (type) (member? param (row-names type))) types))
+                           params)))
+        (for-each (lambda (row)
+                    (when (any? (lambda (type) (member? row (type-names type))) types)
+                      (compile-error loc
+                                     (string-append "the class parameter "
+                                                    row
+                                                    " is written both as a row and as a type"))))
+                  rows)
+        rows))
+
+    (: method-type (-> Program String Type))
+    (define (method-type program method)
+      (match (program-value program method)
+        ((Some (Method _ scheme)) (Scheme-type scheme))
+        (_ (panic "internal error: not a method"))))
+
+    ;; The variables a type ends a row with, and those it writes as types.
+    (: row-names (-> Type (List String)))
+    (define (row-names type)
+      (match type
+        ((TFun params result row)
+         (append (concatenate (map row-names params)) (append (row-names result) (row-names row))))
+        ((TCon _ args) (concatenate (map row-names args)))
+        ((TRow _ (Some (TRigid name))) (list name))
+        ((TRow _ (Some tail)) (row-names tail))
+        (_ (Nil))))
+
+    (: type-names (-> Type (List String)))
+    (define (type-names type)
+      (match type
+        ((TRigid name) (list name))
+        ((TFun params result _) (append (concatenate (map type-names params)) (type-names result)))
+        ((TCon _ args) (concatenate (map type-names args)))
+        (_ (Nil))))
 
     (: declare-method
        (-> Context Env Env String (List Syntax) Constraint Syntax (Pair String Context) ! compile))
@@ -2089,57 +2150,146 @@
                       (check-overlap (Context-program cx) instance loc)
                       (Pair (map MethodDefinition-expand methods)
                             (Context-program-set cx
-                                                 (program-with-instance (lifecycle-program cx
-                                                                                           instance
-                                                                                           loc)
+                                                 (program-with-instance (instance-program cx
+                                                                                          class
+                                                                                          instance
+                                                                                          loc)
                                                                         (instance-with-methods
                                                                          instance
                                                                          methods)))))))
         (_
          (compile-error (syntax-loc form) "expected (instance (Class type ...) definition ...)"))))
 
-    ;; The program after a lifecycle instance's own checks, with a Drop
+    ;; The program after an instance's checks of its head, with a Drop
     ;; instance's type made linear; any other instance changes nothing.
+    (: instance-program (-> Context Class Instance Loc Program ! compile))
+    (define (instance-program cx class instance loc)
+      (let ((name (Class-name class)))
+        (unless (= (length (Instance-types instance)) (length (Class-params class)))
+          (compile-error loc
+                         (string-append (instance-noun name)
+                                        " gives each of the class's parameters, as in ("
+                                        (string-join (Cons (short-name name) (Class-params class))
+                                                     " ")
+                                        ")")))
+        (check-head-rows (Context-program cx) class instance loc)
+        (if (lifecycle-class? name) (lifecycle-program cx instance loc) (Context-program cx))))
+
+    ;; A lifecycle instance is for a declared type, beside it; a Drop
+    ;; instance's type is linear.
     (: lifecycle-program (-> Context Instance Loc Program ! compile))
     (define (lifecycle-program cx instance loc)
       (let ((program (Context-program cx)) (class (Instance-class instance)))
-        (if (lifecycle-class? class)
-            (match (Instance-types instance)
-              ((Cons row (Cons (TCon name args) (Nil)))
-               (check-lifecycle-row program class instance row loc)
-               (check-lifecycle-head cx class name args loc)
-               (if (string=? class drop-class)
-                   (program-with-type program (DataType-owned?-set (program-type program name) #t))
-                   program))
-              (_ (compile-error loc (string-append (instance-noun class)
-                                                   " names a row and a declared type"))))
-            program)))
+        (match (Instance-types instance)
+          ((Cons _ (Cons (TCon name args) (Nil)))
+           (check-lifecycle-head cx class name args loc)
+           (if (string=? class drop-class)
+               (program-with-type program (DataType-owned?-set (program-type program name) #t))
+               program))
+          (_ (compile-error loc (string-append (instance-noun class)
+                                               " names a row and a declared type"))))))
 
-    ;; A lifecycle instance's row is written in its head, `(! label ...)`,
-    ;; since mono finds the instance from a ground type, where no row
-    ;; variable could be solved. It is closed, or it ends with the row `e`
-    ;; of the instance's requirements, as `(Drop e A)`, which the type a
-    ;; drop gives `A` decides (`lifecycle-rows`). It names no control
-    ;; effect: a drop or a clone runs to completion, wherever it is
-    ;; written, glue included.
-    (: check-lifecycle-row (-> Program String Instance Type Loc Unit ! compile))
-    (define (check-lifecycle-row program class instance row loc)
-      (match row
-        ((TRow labels tail)
-         (for-each (lambda (label)
-                     (match (table-ref (Program-effects program) label)
-                       ((Some effect)
-                        (unless (null? (Effect-control effect))
-                          (compile-error loc
-                                         (string-append (if (string=? class drop-class)
-                                                            "a drop"
-                                                            "a clone")
-                                                        " cannot perform the control effect "
-                                                        (short-name label)))))
-                       ((None) (unit))))
-                   labels)
-         (check-lifecycle-requirements class instance tail loc))
-        (_ (compile-error loc (lifecycle-row-usage class)))))
+    ;; An instance writes each row its class's methods perform in its head,
+    ;; `(! label ...)`, since mono finds the instance from ground types,
+    ;; where no row variable could be solved, and gives a type for each
+    ;; other parameter. A row is closed, or ends with the row `e` of the
+    ;; instance's requirements, as `(Drop e A)` or `(Store e S)`, which the
+    ;; types the requirement is given decide. It names no control effect:
+    ;; a drop or a clone runs to completion wherever it is written, glue
+    ;; included, and a method's specializations are not told apart by the
+    ;; control effects its instance performs.
+    (: check-head-rows (-> Program Class Instance Loc Unit ! compile))
+    (define (check-head-rows program class instance loc)
+      (for-each (lambda (argument)
+                  (check-head-argument program
+                                       class
+                                       (Pair-first argument)
+                                       (Pair-second argument)
+                                       loc))
+                (zip (Class-params class) (Instance-types instance)))
+      (cond ((lifecycle-class? (Class-name class))
+             (check-lifecycle-requirements (Class-name class) instance (head-tail instance) loc))
+            ((not (null? (Class-rows class))) (check-row-requirements program class instance loc))
+            (else (unit))))
+
+    (: check-head-argument (-> Program Class String Type Loc Unit ! compile))
+    (define (check-head-argument program class param argument loc)
+      (match argument
+        ((TRow labels _)
+         (unless (member? param (Class-rows class))
+           (compile-error loc
+                          (string-append (instance-noun (Class-name class))
+                                         " gives its type parameter "
+                                         param
+                                         " a row, not a type")))
+         (for-each (lambda (label) (check-head-label program (Class-name class) label loc))
+                   labels))
+        (_ (when (member? param (Class-rows class))
+             (compile-error loc (row-usage (Class-name class)))))))
+
+    (: check-head-label (-> Program String String Loc Unit ! compile))
+    (define (check-head-label program class label loc)
+      (match (table-ref (Program-effects program) label)
+        ((Some effect)
+         (unless (null? (Effect-control effect))
+           (compile-error loc
+                          (string-append (cond ((string=? class drop-class) "a drop")
+                                               ((string=? class clone-class) "a clone")
+                                               (else (instance-noun class)))
+                                         " cannot perform the control effect "
+                                         (short-name label)))))
+        ((None) (unit))))
+
+    ;; The tail of a lifecycle instance's row, its first argument.
+    (: head-tail (-> Instance (Option Type)))
+    (define (head-tail instance)
+      (match (Instance-types instance)
+        ((Cons (TRow _ tail) _) tail)
+        (_ (None))))
+
+    ;; A row class's instance ends its rows with variables its requirements
+    ;; of row classes give their rows, and those requirements give theirs
+    ;; no other variable: the types they are given then decide what the
+    ;; rows hold. A requirement may give a closed row instead, as
+    ;; `(Store (!) S)`, which bounds what its types may perform.
+    (: check-row-requirements (-> Program Class Instance Loc Unit ! compile))
+    (define (check-row-requirements program class instance loc)
+      (let ((tails (concatenate (map row-variable (row-arguments class (Instance-types instance)))))
+            (required (concatenate (map (lambda (constraint)
+                                          (requirement-row-variables program constraint))
+                                        (Instance-requires instance)))))
+        (unless (and (every? (lambda (row) (any? (lambda (tail) (rigid-named? row tail)) tails))
+                             required)
+                     (every? (lambda (tail) (any? (lambda (row) (rigid-named? row tail)) required))
+                             tails))
+          (compile-error loc (row-usage (Class-name class))))))
+
+    ;; The variables a requirement gives its class's row parameters, where
+    ;; it gives a variable rather than a closed row.
+    (: requirement-row-variables (-> Program Constraint (List Type)))
+    (define (requirement-row-variables program constraint)
+      (filter (lambda (row)
+                (match row
+                  ((TRigid _) #t)
+                  (_ #f)))
+              (row-arguments (program-class program (Constraint-class constraint))
+                             (Constraint-types constraint))))
+
+    (: rigid-named? (-> Type String Bool))
+    (define (rigid-named? type name)
+      (match type
+        ((TRigid other) (string=? other name))
+        (_ #f)))
+
+    (: row-usage (-> String String))
+    (define (row-usage class)
+      (if (lifecycle-class? class)
+          (lifecycle-row-usage class)
+          (string-append (instance-noun class)
+                         "'s rows are closed, (! label ...), or end with the row e its"
+                         " requirements give a row class, as (! label ... e) with (requires ("
+                         (short-name class)
+                         " e A))")))
 
     ;; Each requirement runs the class's method at one of the instance's
     ;; variables in the row its head ends with, so one row holds what all
@@ -2651,9 +2801,41 @@
         ((Form (Cons class types) loc)
          (match (resolve cx env (expect-ident class "a typeclass"))
            ((Some (ClassName id))
-            (Constraint id (map (lambda (type) (resolve-type cx env type)) types)))
+            (let ((constraint
+                   (Constraint id (map (lambda (type) (resolve-type cx env type)) types))))
+              (check-constraint (Context-program cx) constraint loc)
+              constraint))
            (_ (compile-error loc "expected a typeclass constraint"))))
         (_ (compile-error (syntax-loc syntax) "expected (Class type ...)"))))
+
+    ;; A constraint gives each of its class's parameters, and a row or a
+    ;; row variable to each its methods perform. While signatures are
+    ;; resolved, a class the same library declares is not in the program
+    ;; yet, so a definition checks its signature's again
+    ;; (`check-signature`).
+    (: check-constraint (-> Program Constraint Loc Unit ! compile))
+    (define (check-constraint program constraint loc)
+      (match (table-ref (Program-classes program) (Constraint-class constraint))
+        ((Some class)
+         (unless (= (length (Constraint-types constraint)) (length (Class-params class)))
+           (compile-error loc
+                          (string-append
+                           "a constraint gives each of the class's parameters, as in ("
+                           (string-join (Cons (short-name (Class-name class))
+                                              (Class-params class))
+                                        " ")
+                           ")")))
+         (for-each (lambda (row)
+                     (match (Pair-second row)
+                       ((TRow _ _) (unit))
+                       ((TRigid _) (unit))
+                       (_ (compile-error loc
+                                         (string-append
+                                          "a constraint gives the class's row parameter "
+                                          (Pair-first row)
+                                          " a row")))))
+                   (zip (Class-rows class) (row-arguments class (Constraint-types constraint)))))
+        ((None) (unit))))
 
     (: resolve-type (-> Context Env Syntax Type ! compile))
     (define (resolve-type cx env syntax)
