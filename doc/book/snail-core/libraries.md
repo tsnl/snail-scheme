@@ -90,10 +90,7 @@ A `(snail runtime …)` library declares one host interface's Wasm imports as
 externs, and nothing else, so it emits no module of its own. A shell library
 imports it under the prefix `host-` and gives each operation of its effect a
 default that names an extern ([defaults from the
-host](effects.md#defaults-from-the-host)). The socket and process
-interfaces, `snail.runtime.native.socket` and `.process`, are still
-declared in `(snail shell socket)` and `(snail shell process)`, because
-their imports take those libraries' structs.
+host](effects.md#defaults-from-the-host)).
 
 | Library | Contents |
 | --- | --- |
@@ -103,6 +100,8 @@ their imports take those libraries' structs.
 | `(snail runtime browser dom)` | The page's document: nodes and listeners as handles, and text as UTF-8 bytes. `(snail shell dom page)` implements `dom` over it. |
 | `(snail runtime browser fetch)` | The page's requests and event streams, staged a part at a time. `(snail shell fetch page)` implements `fetch` over it. |
 | `(snail runtime native files)` | Node's file commands, for permission bits and watch hints. |
+| `(snail runtime native socket)` | Node's TCP and UDP sockets as handles, each wait started under its ticket and answered with numbers, and the bytes an answer holds ([the native boundary](../runtimes/networking.md#wasm-boundary)). |
+| `(snail runtime native process)` | Node's child processes and termination signals, answered as the sockets are, with a command sent a character at a time. |
 | `(snail runtime resource)` | A linked file's length and bytes, on every host. |
 | `(snail runtime wasm)` | Compiling and instantiating modules, and finding their exports, on Node. |
 

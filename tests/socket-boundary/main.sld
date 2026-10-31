@@ -214,10 +214,6 @@
 (: stop-udp (-> UdpSocket Unit ! udp))
 (define (stop-udp socket) (require (close-udp socket)))
 
-(extern stage "snail.test" "stage" (-> Bytes I32))
-(: overwrite-stage (-> I32))
-(define (overwrite-stage) (stage #u8(9 8 7)))
-
 (: begin-open-udp (-> I64 ! mut tcp udp))
 (define (begin-open-udp)
   (request (once (lambda () (type-convert (open-udp) Any)))))
@@ -239,4 +235,3 @@
 (expose packet-size "packet-size")
 (expose packet-byte "packet-byte")
 (expose stop-udp "stop-udp")
-(expose overwrite-stage "overwrite-stage")

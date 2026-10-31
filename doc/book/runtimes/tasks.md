@@ -178,8 +178,9 @@ uses sockets or processes runs on Node.
 
 A host operation's start and finish are synchronous imports.
 `host/browser/tasks.mjs` keeps each outcome under its ticket until the
-finish takes it, and the finish builds the managed result through the
-library's exposed helpers in the waiting task's own call. An outcome
+finish takes it. The finish answers with numbers, from which the library
+builds its result in the waiting task's own call; a host never builds a
+managed value ([the native boundary](networking.md#wasm-boundary)). An outcome
 whose ticket wakes nothing, because its task trapped or its run closed, or
 that is still held when the run closes, is disposed of instead: an
 accepted connection is closed.
