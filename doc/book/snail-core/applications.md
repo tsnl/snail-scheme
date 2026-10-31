@@ -222,7 +222,8 @@ the application's state crosses to the new program:
 
 A failed build is shown over the page, and the old program keeps running.
 A changed [linked file](types.md#linked-files) compiles nothing, but relinks
-the page from the module that links it, which reads the file again; an edit
+the page from the module that links it, whose new handles read the file
+again; an edit
 to the file builds again once a published build links it. A changed
 stylesheet is fetched again; a changed page or host script reloads the page
 after saving. A public tree holds only regular files and directories

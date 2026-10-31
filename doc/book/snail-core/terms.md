@@ -46,8 +46,9 @@ datum into syntax. Every generated form is located at the recipe.
 
 A recipe names the files it reads relative to itself, with the forms any
 library uses: `(include-bytes "data/table.txt")` puts a file's bytes in the
-recipe as a byte vector literal, and `(link-bytes "data/table.txt")` links the
-file for the producer to read with `read-resource`. Both resolve against the
+recipe as a byte vector literal, and `(link-file "data/table.txt")` links the
+file for the producer to read with `read-resource`, since the producer
+computes the recipe's expression in a task. Both resolve against the
 recipe's file wherever the build prints and runs its producer, so a recipe in
 a library directory finds its data from any working directory.
 `tests/programs/lib/sample/blob.sld` uses both.

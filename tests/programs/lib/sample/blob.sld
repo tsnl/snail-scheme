@@ -19,4 +19,4 @@
                                (list (SymbolSyntax "greeting-length")
                                      (IntegerSyntax
                                       (vector-length
-                                       (read-resource (link-bytes "data/greeting.txt")))))))))
+                                       (read-resource (link-file "data/greeting.txt")))))))))

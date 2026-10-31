@@ -91,38 +91,53 @@ function withStubs(module, imports, stubbed, stub) {
 
 // ---- Linked files ----
 
-// A module asks for each file it links, `link-bytes` in (snail shell
-// resource), by importing a function from "snail.runtime.link" named for the file,
-// which answers the file's handle. The host reads every file a module
-// names before it instantiates the module, from resources/NAME beside the
-// payload, so reading one is a synchronous lookup on both hosts, and a
-// payload whose file cannot be read fails to load, not when the program
-// first reads it. Handles index `files`, which only grows: a module
-// instantiated again reads its files again, so it sees them as they are
-// now, while a module kept linked keeps the bytes it was linked with.
-async function linkImports(read, modules, files) {
+// A module asks for each file it links, `link-file` in (snail shell
+// resource), by importing a function from "snail.runtime.link" named for
+// the file, which answers the file's handle. A handle is only a name: the
+// host reads the file, from resources/NAME beside the payload, the first
+// time a task asks for its bytes, and keeps them for the module's later
+// reads, so a file the program never reads is never fetched. Handles index
+// `files`, which only grows: a module instantiated again gets new handles,
+// so it reads its files as they are then, while a module kept linked keeps
+// the bytes it first read.
+function linkImports(read, modules, files) {
   const names = [...new Set(modules.flatMap(module => WebAssembly.Module.imports(module)
     .filter(entry => entry.module === 'snail.runtime.link').map(entry => entry.name)))];
-  const handles = await Promise.all(names.map(async name => files.push(await readLinked(read, name)) - 1));
+  const handles = names.map(name => files.push({name, read, bytes: null}) - 1);
   return Object.fromEntries(names.map((name, index) => [name, () => handles[index]]));
 }
 
-async function readLinked(read, name) {
+async function readLinked({name, read}) {
   try { return new Uint8Array(await read(`resources/${name}`)); }
   catch (error) { throw new Error(`cannot read the linked file ${name}: ${error.message}`, {cause: error}); }
 }
 
-// The `resource` effect of (snail shell resource): a file's length and its
-// bytes, by handle.
-function resourceImports(files) {
-  return {length: handle => files[handle].length, byte: (handle, index) => files[handle][index]};
+// The `resource` effect of (snail shell resource): a task starts reading a
+// file by handle under its ticket (tasks.mjs), finishes the ticket for
+// the file's length, and then reads the bytes held until the next finish.
+// A file that cannot be read traps the task that finishes it.
+function resourceImports(files, tasks) {
+  let held = new Uint8Array();
+  return {
+    read(ticket, handle) {
+      const file = files[handle];
+      file.bytes ??= readLinked(file);
+      tasks().start(Number(ticket), () => file.bytes, bytes => { held = bytes; return bytes.length; });
+    },
+    finish: ticket => tasks().finish(Number(ticket)),
+    byte: index => held[index],
+  };
 }
 
+// The tasks of a host that runs none, for a program that never reads a
+// file it links.
+const noTasks = () => { throw new Error('this host runs no tasks to read a linked file in'); };
+
 // What a single linked module needs for the files it links, read through
-// `read` by their paths beside the payload.
-export async function linkedFileImports(read, module) {
+// `read` by their paths beside the payload in the tasks `tasks` gives.
+export function linkedFileImports(read, module, tasks = noTasks) {
   const files = [];
-  return {'snail.runtime.link': await linkImports(read, [module], files), 'snail.runtime.resource': resourceImports(files)};
+  return {'snail.runtime.link': linkImports(read, [module], files), 'snail.runtime.resource': resourceImports(files, tasks)};
 }
 
 // ---- Linking ----
@@ -140,13 +155,14 @@ function readModules(bytes) {
 // its path, which may be relative to the manifest's. The modules'
 // initializations wait for runProgram, so the caller can keep the program
 // first. A program is the runtime instance, the host's imports, each
-// library's instance by name, the library names in program order, and the
-// files its modules link, read before any of them is instantiated.
-export async function linkProgram(read, manifest, wasi, host) {
+// library's instance by name, the library names in program order, the
+// files its modules link, and the tasks `tasks` gives, in which a program
+// reads them.
+export async function linkProgram(read, manifest, wasi, host, tasks = noTasks) {
   const {runtime, modules} = readModules(await read(manifest));
   const [runtimeModule, compiled] = await Promise.all([compileFile(read, runtime), compileModules(read, modules)]);
   const program = {read, manifest, runtime: await instantiateRuntime(runtimeModule, wasi), host, linked: new Map(),
-                   names: modules.map(entry => entry.name), files: [], links: {}};
+                   names: modules.map(entry => entry.name), files: [], links: {}, tasks};
   await linkModules(program, compiled);
   return program;
 }
@@ -187,12 +203,12 @@ async function instantiateRuntime(module, wasi) {
 export const hostProvided = name => name.startsWith('snail.runtime.') || name === 'snail.core.support';
 
 // Instantiates the modules in order into the program's instances, where a
-// module may take the place of one of the same name, once the files they
-// link are read.
+// module may take the place of one of the same name, with handles for the
+// files they link.
 async function linkModules(program, modules) {
   const reserved = modules.find(entry => hostProvided(entry.name));
   if (reserved) throw new Error(`no library may be linked as ${reserved.name}, which the host provides`);
-  program.links = await linkImports(program.read, modules.map(entry => entry.module), program.files);
+  program.links = linkImports(program.read, modules.map(entry => entry.module), program.files);
   const libraries = new Set(['snail.core.support', ...program.linked.keys(), ...modules.map(entry => entry.name)]);
   for (const {name, module} of modules) program.linked.set(name, await WebAssembly.instantiate(module, moduleImports(program, libraries, module)));
 }
@@ -206,7 +222,7 @@ async function linkModules(program, modules) {
 // still fails to link.
 function moduleImports(program, libraries, module) {
   const imports = {...program.host, 'snail.core.support': program.runtime.exports, 'snail.runtime.link': program.links ?? {},
-                   'snail.runtime.resource': resourceImports(program.files ?? [])};
+                   'snail.runtime.resource': resourceImports(program.files ?? [], program.tasks ?? noTasks)};
   for (const [library, instance] of program.linked) imports[library] = instance.exports;
   const hosted = WebAssembly.Module.imports(module).map(entry => entry.module).filter(from => !libraries.has(from));
   return withStubs(module, imports, hosted, missingHost);
@@ -219,8 +235,8 @@ const missingHost = (from, name) => () => { throw new Error(`this host does not 
 // Links the program again from library `from`, by the modules.json of the
 // build at `manifest`, whose files `read` gives. The modules before `from`
 // cannot import from it, so their instances stay;
-// `from` and every module after it are linked anew, reading the files they
-// link again, and initialized, so their globals start over. Returns the new
+// `from` and every module after it are linked anew, with new handles for
+// the files they link, and initialized, so their globals start over. Returns the new
 // program and leaves the old one as it was, so a relink that fails leaves it
 // running.
 export async function relinkProgram(program, from, manifest, read) {

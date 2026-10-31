@@ -125,14 +125,15 @@ function of the expander has `mut` in its row — and where it does not, the
   is accepted only in that library, whose body holds nothing else, so it
   adds no items and has no module; a session replays its values.
 
-  The core form `link-file`, which `link-bytes` in `(snail shell resource)`
+  The core form `link-handle`, which `link-file` in `(snail shell resource)`
   wraps, parses its path against the directory of the file it is written in
   and records a `LinkedFile` on the library: the name the payload ships it
   under, the library's key and the canonical path, and where the build finds
   it. Its value is a call to an import from `snail.runtime.link` under that name,
   which answers the file's handle, so each module records the files it links
-  where its host must see them. Once a library's body has expanded, each of
-  its files must exist, or the build fails naming the library and the path.
+  where its host must see them; the host reads one only when a task asks for
+  its bytes. Once a library's body has expanded, each of its files must
+  exist, or the build fails naming the library and the path.
   `library-links` and `program-links` give a build's files by library and in
   program order.
 
@@ -641,12 +642,14 @@ producer's output. The expander looks a producer up there first; only a miss
 reaches the provider, which prints the producer into scratch under the same
 key and requests it. The producer names its recipe after its imports,
 `(recipe "lib/sample/blob.sld")`, and a path its own forms write, as a
-`link-bytes` in the recipe's expression, resolves against that file rather
+`link-file` in the recipe's expression, resolves against that file rather
 than the printed copy (`written-in` in `expand.sld`), so a recipe links files
 beside itself wherever its producer is printed. The recipe's path is part of
 the producer's text, and so of its key, since the files it links depend on
 it. The recipe's `include-bytes` were replaced when it was read, so their
-bytes are in the text already. The project builder reads a printed producer back
+bytes are in the text already. The producer computes the recipe's
+expression in a task, as `(write-generated-library (lambda () EXPR))`, so
+the expression may read what the recipe links with `read-resource`. The project builder reads a printed producer back
 (`printed-producer-text`), checks that it has the key it was printed under,
 and adds the output it wrote (`supply-generated`).
 
@@ -762,7 +765,7 @@ file therefore compiles nothing, while every build places every file from the
 modules it returns, compiled or replayed, into its new generation. The
 generation's file digests make the change visible to run targets and to the
 browser reload client, which relinks from the module that uses a changed
-resource and reads its bytes from the new generation.
+resource, whose new handles read its bytes from the new generation.
 
 ## The resident builder
 

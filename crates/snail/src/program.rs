@@ -34,7 +34,8 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use wasmtime::{
-    AsContextMut, Engine, Instance, Linker, Module, Store, TypedFunc, Val, bail, format_err,
+    AsContextMut, Engine, Instance, Linker, Module, Store, TypedFunc, Val, WasmParams, WasmResults,
+    bail, format_err,
 };
 use wasmtime_wasi::I32Exit;
 use wasmtime_wasi::p1::{self, WasiP1Ctx};
@@ -72,12 +73,12 @@ pub fn run(path: &str, arguments: &[String]) -> u8 {
     }
 }
 
-// Every file the program links is read before any module is instantiated.
+// A file the program links is read when a task first asks for it.
 fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
     let engine = engine()?;
     let payload = Payload::compile(&engine, Path::new(path))?;
     let names = links::linked_names(payload.modules());
-    let files = Files::read(Path::new(path).parent().unwrap_or(Path::new("")), &names)?;
+    let files = Files::new(Path::new(path).parent().unwrap_or(Path::new("")), &names);
     let mut linker = host_linker(&engine, &names)?;
     let host = Host {
         wasi: wasi(path, arguments)?,
@@ -147,38 +148,57 @@ fn settle(ran: wasmtime::Result<u8>, closed: wasmtime::Result<i32>) -> wasmtime:
 
 // ---- Tasks ----
 
-// The scheduler's turn, exported by whichever instance holds (snail shell
-// task): the runtime, when the program is one linked module.
-fn turn_export(store: &mut Store<Host>, program: &Linked) -> Option<TypedFunc<i64, i64>> {
+// The scheduler's export `name`, from whichever instance holds (snail
+// shell task): the runtime, when the program is one linked module.
+fn task_export<Params: WasmParams, Results: WasmResults>(
+    store: &mut Store<Host>,
+    program: &Linked,
+    name: &str,
+) -> Option<TypedFunc<Params, Results>> {
     std::iter::once(&program.runtime)
         .chain(&program.mains)
-        .find_map(|instance| instance.get_typed_func(&mut *store, "tasks:turn").ok())
+        .find_map(|instance| instance.get_typed_func(&mut *store, name).ok())
 }
 
 // Turns until no task is live, answering whether a task failed. A turn
 // answers 0 when a task is ready, -1 when none is live, -2 when every task
-// waits on a ticket, which only a host operation's completion wakes and
-// this host starts none, and otherwise how long until the next sleeper
-// wakes. A trap ends only the task that ran, and so does a WASI exit: a
-// panic tells its message and then exits, which unwinds out of the turn,
-// as run-snail.mjs's WASI throws out of one, and its status is lost.
+// waits on a ticket, and otherwise how long until the next sleeper wakes.
+// The only host operations this host completes are reads of linked files,
+// which it wakes after the turn that started them, once their tasks wait;
+// with none to wake, every task waiting on a ticket is a deadlock. A trap
+// ends only the task that ran, and so does a WASI exit: a panic tells its
+// message and then exits, which unwinds out of the turn, as run-snail.mjs's
+// WASI throws out of one, and its status is lost.
 fn drive(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<bool> {
-    let Some(turn) = turn_export(store, program) else {
+    let Some(turn) = task_export::<i64, i64>(store, program, "tasks:turn") else {
         return Ok(false);
     };
+    let wake = task_export::<i64, i32>(store, program, "tasks:wake");
     let mut failed = false;
     loop {
-        match turn.call(&mut *store, now()) {
+        let answer = turn.call(&mut *store, now());
+        let waking = store.data_mut().files.take_waking();
+        match answer {
             Ok(-1) => return Ok(failed),
-            Ok(-2) => bail!("every task waits on a ticket, and this host completes none"),
-            Ok(0) => {}
-            Ok(delay) => thread::sleep(Duration::from_millis(delay as u64)),
+            Ok(-2) if waking.is_empty() => {
+                bail!("every task waits on a ticket, and this host completes none")
+            }
+            Ok(delay) if delay > 0 && waking.is_empty() => {
+                thread::sleep(Duration::from_millis(delay as u64))
+            }
+            Ok(_) => {}
             Err(error) => {
                 if error.downcast_ref::<I32Exit>().is_none() {
                     report(&error, true);
                 }
                 failed = true;
             }
+        }
+        for ticket in waking {
+            let Some(wake) = &wake else {
+                bail!("a read of a linked file finished, and the scheduler exports no tasks:wake")
+            };
+            wake.call(&mut *store, ticket)?;
         }
     }
 }

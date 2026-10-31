@@ -296,7 +296,7 @@
           (write-file (string-append directory "/sample/linked.sld")
                       (string-append
                        "(define-library (sample linked) (export data) (import (snail core forms) (snail core primitive)) "
-                       "(begin (: data I32) (define data (link-file \"./data.bin\"))))"))
+                       "(begin (: data I32) (define data (link-handle \"./data.bin\"))))"))
           (write-file main
                       "(import (snail core forms) (snail core primitive) (sample linked)) data")
           (let* ((first (build-session (make-session (list directory library))

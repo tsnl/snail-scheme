@@ -20,16 +20,16 @@ export async function startInterface({url, container, storageKey}) {
     reportError: reportInterfaceError});
   const dom = createDom(container, runtime), requests = createFetch(runtime);
   const program = await instantiateInterface(url, {...runtime.imports, 'snail.runtime.browser.dom': dom.imports,
-    'snail.runtime.browser.fetch': requests.imports});
+    'snail.runtime.browser.fetch': requests.imports}, () => runtime.execution.tasks);
   addEventListener('visibilitychange', () => { if (document.hidden) runtime.send(HIDDEN); });
   await startCold(runtime, () => { dom.reset(); requests.reset(); }, applicationEntry(program));
   return {runtime, program};
 }
 
-async function instantiateInterface(url, imports) {
+async function instantiateInterface(url, imports, tasks) {
   const wasi = createWasi({print: (fd, text) => (fd === 2 ? console.error : console.log)(text)});
   const module = await WebAssembly.compileStreaming(fetch(url));
-  const linked = await linkedFileImports(fetchRead(url), module);
+  const linked = linkedFileImports(fetchRead(url), module, tasks);
   const instance = await instantiate(module, {...wasi.getImportObject(), ...imports, ...linked});
   wasi.initialize(instance);
   instance.exports.main();

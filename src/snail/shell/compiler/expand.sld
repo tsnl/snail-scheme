@@ -211,7 +211,7 @@
     ;; are being resolved, innermost first, so an alias that refers to itself
     ;; is caught; and what the library itself uses and makes, newest first:
     ;; `artifact-uses`, the targets whose files it embeds, `links`, the
-    ;; files its `link-file` uses name, `items`, the items its body has
+    ;; files its `link-handle` uses name, `items`, the items its body has
     ;; added so far, which join the program as one run when the body is
     ;; done, and `derives`, a declaration it derived instances for, if any,
     ;; which needs the implicit libraries.
@@ -633,7 +633,7 @@
 
     ;; The producer imports what the recipe imports, names the recipe's
     ;; file, and writes the syntax its expression returns, a
-    ;; `(snail shell syntax)` Syntax.
+    ;; `(snail shell syntax)` Syntax, which it computes in a task.
     (: producer (-> String (List Syntax) Syntax Loc (List Syntax)))
     (define (producer recipe imports expression loc)
       (let ((write-library (Ident "write-generated-library" (None) loc)))
@@ -648,7 +648,9 @@
                                               loc))))
                     loc)
               (Form (list (Ident "recipe" (None) loc) (Atom (DString recipe) loc)) loc)
-              (Form (list write-library expression) loc))))
+              (Form (list write-library
+                          (Form (list (Ident "lambda" (None) loc) (Form (Nil) loc) expression) loc))
+                    loc))))
 
     ;; ---- Sources ----
 
@@ -690,19 +692,19 @@
 
     ;; ---- Linked files ----
 
-    ;; `(link-file "path")` names a file the library links: it ships beside
-    ;; the payload instead of in it, and the program gets a handle rather
-    ;; than the bytes. The path is relative to the file it is written in, as
+    ;; `(link-handle "path")` names a file the library links, which
+    ;; `link-file` in (snail shell resource) wraps: it ships beside the
+    ;; payload instead of in it, and the program gets a handle rather than
+    ;; the bytes. The path is relative to the file it is written in, as
     ;; `include-bytes`'s is, and may not leave that file's directory. The
     ;; file ships under a name made from the library and the path, the same
     ;; on every host and in every build: `data/pixel.png` in (sample assets)
     ;; is `sample.assets/data/pixel.png`. The handle is what an import from
-    ;; "snail.runtime.link" under that name returns, so the module records the
-    ;; files it links where its host must see them: a host reads each before
-    ;; it instantiates the module, and a module cannot be instantiated
-    ;; without its files. Only the name enters the build key; the file's
-    ;; bytes do not, so editing the file rebuilds nothing, and the build
-    ;; only places it again.
+    ;; "snail.runtime.link" under that name returns, so the module records
+    ;; the files it links where its host must see them; a host reads a file
+    ;; only when the program asks for its bytes. Only the name enters the
+    ;; build key; the file's bytes do not, so editing the file rebuilds
+    ;; nothing, and the build only places it again.
     (: expand-link-file (-> Context (List Syntax) Loc (Pair Expr Context) ! compile))
     (define (expand-link-file cx items loc)
       (match items
@@ -716,7 +718,7 @@
                                          (Foreign (Import "snail.runtime.link" name)
                                                   (mono-scheme
                                                    (TFun (Nil) (TCon "I32" (Nil)) empty-row)))))))))
-        (_ (compile-error loc "link-bytes expects a literal relative path"))))
+        (_ (compile-error loc "link-file expects a literal relative path"))))
 
     ;; Records the file a use names on the library, once, and returns the
     ;; name it ships under. A macro whose template holds the path names a
@@ -752,7 +754,7 @@
         (match names
           ((Nil)
            (if (null? kept)
-               (compile-error loc (string-append "link-bytes names no file: " path))
+               (compile-error loc (string-append "link-file names no file: " path))
                (string-join (reverse kept) "/")))
           ((Cons "." rest) (loop rest kept))
           ((Cons ".." rest)
@@ -760,12 +762,12 @@
              ((Cons _ parent) (loop rest parent))
              ((Nil)
               (compile-error loc
-                             (string-append "link-bytes may not leave the library's directory: "
+                             (string-append "link-file may not leave the library's directory: "
                                             path)))))
           ((Cons "" _)
            (compile-error loc
                           (string-append
-                           "link-bytes takes a path relative to the library, with no empty names: "
+                           "link-file takes a path relative to the library, with no empty names: "
                            path)))
           ((Cons name rest) (loop rest (Cons name kept))))))
 
@@ -2801,7 +2803,7 @@
         (("let") (expand-let cx env items loc))
         (("match") (expand-match cx env items loc))
         (("artifact-files") (expand-artifact-files cx env items loc))
-        (("link-file") (expand-link-file cx items loc))
+        (("link-handle") (expand-link-file cx items loc))
         (("ann")
          (match items
            ((Cons _ (Cons value (Cons type (Nil))))
@@ -3621,7 +3623,7 @@
                                   (datum->string (DString (string-append (list-ref directories 0)
                                                                          "/sample/made.sld")))
                                   ")")
-                   "(write-generated-library (unit))"))))
+                   "(write-generated-library (lambda () (unit)))"))))
 
       (define (test-library-closure directories)
         (let* ((imports (program-imports (read-text "(import (sample top)) (unit)" "main.sld")))
@@ -3672,19 +3674,19 @@
         (write-file (string-append root "/sample/data/pixel.bin") "pixel")
         (write-file (string-append root "/notes.txt") "notes")
         (write-file (string-append root "/sample/linked.sld")
-                    "(define-library (sample linked) (export pixel) (import (snail core forms)) (begin (define pixel (link-file \"data/./x/../pixel.bin\"))))")
+                    "(define-library (sample linked) (export pixel) (import (snail core forms)) (begin (define pixel (link-handle \"data/./x/../pixel.bin\"))))")
         (let ((expansion (link-expansion root
-                                         "(import (snail core forms) (sample linked)) (define notes (link-file \"notes.txt\")) (link-file \"notes.txt\")")))
+                                         "(import (snail core forms) (sample linked)) (define notes (link-handle \"notes.txt\")) (link-handle \"notes.txt\")")))
           (expect (map LinkedFile-name (program-links expansion))
                   (list "sample.linked/data/pixel.bin" "main/notes.txt"))
           (expect (map LinkedFile-path (library-links expansion "sample.linked"))
                   (list (string-append root "/sample/data/pixel.bin"))))
         (expect (link-error root "../notes.txt")
-                "link-bytes may not leave the library's directory: ../notes.txt")
+                "link-file may not leave the library's directory: ../notes.txt")
         (expect (link-error root "/notes.txt")
-                "link-bytes takes a path relative to the library, with no empty names: /notes.txt")
+                "link-file takes a path relative to the library, with no empty names: /notes.txt")
         (expect (link-error root "./")
-                "link-bytes takes a path relative to the library, with no empty names: ./")
+                "link-file takes a path relative to the library, with no empty names: ./")
         (expect (link-error root "absent.bin")
                 (string-append "the library main links absent.bin, but there is no file at "
                                root
@@ -3702,9 +3704,10 @@
         (let ((message (compile-failure
                         (lambda ()
                           (link-expansion root
-                                          (string-append "(import (snail core forms)) (link-file \""
-                                                         path
-                                                         "\")"))))))
+                                          (string-append
+                                           "(import (snail core forms)) (link-handle \""
+                                           path
+                                           "\")"))))))
           (if message
               (substring message
                          (+ (string-cursor->index message (string-contains message ": ")) 2)

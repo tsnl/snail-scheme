@@ -147,8 +147,8 @@ export const running = [];
 // build's page names its program's modules.json, a module per library, in
 // a meta tag. Without one the page is published, and loads one linked
 // module from `url`, which the meta tag makes the page ignore. Either way
-// the files the program links are fetched from resources/ beside it before
-// it starts.
+// a file the program links is fetched from resources/ beside it when a task
+// first reads it.
 export async function startApplication({url, canvas, overlay, storageKey}) {
   const pictures = createPictures();
   const application = {canvas, program: null, errors: [], capture: null, pictures,
@@ -178,7 +178,7 @@ function applicationImports(application) {
 async function instantiateApplication(application, url) {
   const wasi = createWasi({print: printer(application)});
   const module = await WebAssembly.compileStreaming(fetch(url));
-  const linked = await linkedFileImports(fetchRead(url), module);
+  const linked = linkedFileImports(fetchRead(url), module, () => application.runtime.execution.tasks);
   const instance = await instantiate(module, {...wasi.getImportObject(), ...applicationImports(application), ...linked});
   wasi.initialize(instance);
   instance.exports.main();
@@ -187,7 +187,8 @@ async function instantiateApplication(application, url) {
 
 async function linkApplication(application, manifest, read) {
   const wasi = createWasi({print: printer(application)});
-  application.program = await linkProgram(read, manifest, wasi, applicationImports(application));
+  application.program = await linkProgram(read, manifest, wasi, applicationImports(application),
+                                          () => application.runtime.execution.tasks);
   runProgram(application.program);
 }
 

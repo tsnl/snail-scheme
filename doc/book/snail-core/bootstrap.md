@@ -97,8 +97,9 @@ only WASI, the files it links and loading modules
 (`crates/snail/src/program.rs`).
 PROGRAM is one linked module, or the `modules.json` of a per-library build,
 whose runtime is instantiated first and each library's module after those
-it imports from (`modules.rs`). Every file the program links is read from
-`resources/` beside it before any module is instantiated (`links.rs`).
+it imports from (`modules.rs`). A file the program links is read from
+`resources/` beside it when a task first asks for it, and the host wakes
+the task's ticket between turns (`links.rs`).
 WASI gets PROGRAM and the arguments, the environment with `SNAIL_CWD`
 naming the working directory, and the host's `/` preopened; then
 `_initialize`, and each

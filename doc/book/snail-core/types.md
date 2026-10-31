@@ -155,18 +155,20 @@ expected type ([plugins](compilers.md#plugins)).
 
 ## Linked files
 
-`(snail shell resource)` links a file to a library instead of embedding it, as
-Python's `importlib.resources` addresses a package's data:
+`(snail shell resource)` ties a file to a library as one of its dependencies
+instead of embedding it, as Python's `importlib.resources` addresses a
+package's data, and the library reads it when it needs it:
 
 ```scheme
 (import
  (snail core base)
+ (only (snail shell task) tasks)
  (snail shell resource))
 
 (: hero Resource)
-(define hero (link-bytes "art/hero.png"))
+(define hero (link-file "art/hero.png"))
 
-(: hero-bytes (-> Bytes ! resource))
+(: hero-bytes (-> Bytes ! resource tasks))
 (define (hero-bytes)
   (read-resource hero))
 ```
@@ -184,23 +186,26 @@ Python's `importlib.resources` addresses a package's data:
   produces one: project program and browser targets, `scripts/snail-tool run`
   and `compile`, and the development loop. A file that is missing fails the
   build with the library and the path. The module itself records what it
-  links: `link-bytes` becomes a call to an import from `snail.runtime.link` named for
-  the file, so a host cannot instantiate the module without supplying it.
-- **A handle, not the bytes.** `link-bytes` evaluates to a `Resource`, which
-  names bytes and nothing more. The type is exported without its constructor,
-  so a program cannot make one from a string: holding a `Resource` is evidence
-  that its file ships. `(read-resource r)` returns the file's `Bytes` and
-  performs `resource`, an effect with host defaults on Node and in the
-  browser. It is not `fs`: a page has no filesystem, and a program with none
-  still reads its own files.
+  links: `link-file` becomes a call to an import from `snail.runtime.link`
+  named for the file, which answers its handle.
+- **A handle, not the bytes.** `link-file` evaluates to a `Resource`, which
+  names a file and nothing more. The type is exported without its
+  constructor, so a program cannot make one from a string: holding a
+  `Resource` is evidence that its file ships. `(read-resource r)` returns the
+  file's `Bytes` and performs `resource`, an effect with host defaults on
+  Node, in the browser and on wasmtime. It is not `fs`: a page has no
+  filesystem, and a program with none still reads its own files.
 
-**Resources are loaded before the program starts.** Each host reads every
-file a module links before it instantiates the module, Node from the
-payload's directory and the browser by fetching beside the page's module, so
-`read-resource` is a synchronous lookup on both hosts and never suspends. A
-payload whose files are absent fails to load, not when one is first read.
-A module linked again reads its files again; a module kept linked keeps the
-bytes it was linked with. Loading on demand waits for tasks to become effects.
+**A file is read when the program asks for it.** A host reads nothing a
+module links when it instantiates the module. `read-resource` waits for the
+host as a task does (`through-host` in `(snail shell task)`), so it performs
+`tasks` and runs in a task. The first read of a file reads it, Node and
+wasmtime from the payload's directory and the browser by fetching beside the
+page's module, and later reads of it from the same module return the same
+bytes. A file the program never reads is never fetched, so a library may link
+far more than any one program uses. A file that cannot be read traps the task
+that reads it. A module linked again gets new handles, so it reads its files
+as they are then.
 
 ## Dynamic values
 
