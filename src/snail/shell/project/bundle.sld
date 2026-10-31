@@ -42,8 +42,8 @@
     ;; ---- Builds ----
 
     ;; A build of the application, by its epoch: the directory of its
-    ;; generation, the digests of its files but its modules, by relative
-    ;; name, and how long it took.
+    ;; generation, the digests of its files but its modules and linked
+    ;; files, by relative name, and how long it took.
     (struct BuildDirectory
       ((epoch I64)
        (directory String)
@@ -259,21 +259,31 @@
 
     ;; ---- Responses ----
 
+    ;; A build's modules and linked files are named for their contents, so
+    ;; a browser may keep them for good. Nothing else is cached: `/`
+    ;; changes with each build.
     (: found (-> String Bytes Response))
     (define (found name bytes)
-      (response 200 (content-type name) bytes))
+      (response 200
+                (content-type name)
+                (if (content-named? name) "public, max-age=31536000, immutable" "no-store")
+                bytes))
+
+    (: content-named? (-> String Bool))
+    (define (content-named? name)
+      (match (string-index name #\/)
+        ((Some end) (member? (substring name 0 end) (list "modules" "resources")))
+        ((None) #f)))
 
     (: refusal (-> I32 String Response))
     (define (refusal status message)
-      (response status "text/plain; charset=utf-8" (string->utf8 message)))
+      (response status "text/plain; charset=utf-8" "no-store" (string->utf8 message)))
 
-    ;; Nothing is cached: `/` changes with each build, and a build's files
-    ;; are few enough to fetch again.
-    (: response (-> I32 String Bytes Response))
-    (define (response status type body)
+    (: response (-> I32 String String Bytes Response))
+    (define (response status type caching body)
       (Response status
                 (list (Header "Content-Type" type)
-                      (Header "Cache-Control" "no-store")
+                      (Header "Cache-Control" caching)
                       (Header "X-Content-Type-Options" "nosniff"))
                 body))
 

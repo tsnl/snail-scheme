@@ -25,7 +25,7 @@
    (snail core base)
    (prefix (snail runtime native files) host-)
    (snail core io)
-   (snail shell sha256)
+   (snail shell compiler sha256)
    (snail shell text)
    (snail shell utf8))
   (begin

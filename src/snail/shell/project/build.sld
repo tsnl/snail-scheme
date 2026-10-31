@@ -70,7 +70,7 @@
    (snail shell process)
    (snail shell assembler)
    (snail shell json)
-   (snail shell sha256)
+   (snail shell compiler sha256)
    (snail shell utf8))
   (begin
 
@@ -211,9 +211,9 @@
     ;; it changes and nothing else does. A development build counts the
     ;; modules it holds and how many of those it compiled; a linked build
     ;; holds one, which it compiled. `files` are the digests of its files
-    ;; but its modules, whose names are already the digests of their text,
+    ;; but its modules and linked files, whose names are already digests,
     ;; by relative name. `linked` holds the paths of the files its program
-    ;; links; editing one compiles nothing.
+    ;; links; editing one compiles the library that links it again.
     (struct Output
       ((name String)
        (directory String)
@@ -544,16 +544,31 @@
         (link builder text working output)
         (WholeProgram-links program)))
 
-    ;; Each file the program links goes to resources/NAME beside it, where
-    ;; both hosts read it before the program starts.
+    ;; Each file the program links goes to resources/DIGEST beside it, once
+    ;; however many libraries link its bytes, where its host reads it when
+    ;; the program first asks for it.
     (: place-links (-> String (List LinkedFile) Unit ! fs building))
     (define (place-links directory links)
-      (for-each (lambda (link)
-                  (copy-into (LinkedFile-path link)
-                             (string-append directory "/resources/" (LinkedFile-name link))
-                             (string-append "cannot place the linked file " (LinkedFile-name link)
-                                            " from " (LinkedFile-path link))))
-                links))
+      (for-each (lambda (link) (place-link directory link))
+                (delete-duplicates (lambda (a b)
+                                     (string=? (LinkedFile-digest a) (LinkedFile-digest b)))
+                                   links)))
+
+    ;; A file is named for the digest of the bytes its compile read, so the
+    ;; bytes placed must be those: a file edited since fails the build, and
+    ;; the next one compiles against its new bytes.
+    (: place-link (-> String LinkedFile Unit ! fs building))
+    (define (place-link directory link)
+      (let ((from (LinkedFile-path link))
+            (to (string-append directory "/resources/" (LinkedFile-digest link))))
+        (unless (kind-is? from (RegularFile))
+          (fail-build
+           (string-append "cannot place the linked file " from ": there is no file there")))
+        (let ((bytes (read-bytes from)))
+          (unless (string=? (bytes->hex (sha256 bytes)) (LinkedFile-digest link))
+            (fail-build (string-append "the linked file " from " changed during the build")))
+          (expect-done (make-directories (directory-part to)) (string-append "cannot make " to))
+          (write-bytes to bytes))))
 
     ;; ---- Development builds ----
 
@@ -957,16 +972,21 @@
       (list-sort (lambda (a b) (string<? (Pair-first a) (Pair-first b)))
                  (files-under directory "")))
 
-    ;; The digest of each file of a generation but its modules, by name.
+    ;; The digest of each file of a generation but its modules and linked
+    ;; files, which are named for theirs, by name.
     (: file-digests (-> (List (Pair String String)) (List (Pair String String)) ! fs))
     (define (file-digests files)
       (map (lambda (file)
              (Pair (Pair-first file) (bytes->hex (sha256 (read-bytes (Pair-second file))))))
-           (filter (lambda (file) (not (starts-with? (Pair-first file) "modules/"))) files)))
+           (filter (lambda (file) (not (content-named? (Pair-first file)))) files)))
+
+    (: content-named? (-> String Bool))
+    (define (content-named? name)
+      (or (starts-with? name "modules/") (starts-with? name "resources/")))
 
     ;; A digest of a generation's files: each relative name, with its
-    ;; file's digest, but only the name of a module, which is the digest of
-    ;; the text it was assembled from.
+    ;; file's digest, but only the name of a module or a linked file, which
+    ;; is the digest of the text it was assembled from or of its bytes.
     (: generation-digest (-> (List (Pair String String)) (List (Pair String String)) String))
     (define (generation-digest files digests)
       (bytes->hex

@@ -9,7 +9,7 @@
  (snail core io)
  (snail shell utf8)
  (snail shell json)
- (snail shell sha256))
+ (snail shell compiler sha256))
 
 (: digest (-> Bytes Unit ! console))
 (define (digest bytes)

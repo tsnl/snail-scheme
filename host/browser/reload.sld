@@ -184,55 +184,30 @@
                                             ((None) #t)))
                           these)))
 
-;; The first module, in program order, whose file differs or that links
-;; one of the files in `linking`; the modules before it cannot import from
-;; it, so they stay linked. A module reads the files it links as it is
-;; linked, so relinking it reads them again.
-(: first-changed-module (-> Manifest Manifest (List String) (Option String)))
-(define (first-changed-module old new linking)
+;; The first module, in program order, whose file differs; the modules
+;; before it cannot import from it, so they stay linked. A module's file is
+;; named for its text, which names the digest of each file it links, so
+;; editing a linked file changes the module that links it.
+(: first-changed-module (-> Manifest Manifest (Option String)))
+(define (first-changed-module old new)
   (let loop ((old (Manifest-modules old)) (new (Manifest-modules new)))
     (match new
       ((Cons (Pair name file) rest)
        (match old
          ((Cons (Pair old-name old-file) old-rest)
-          (if (and (string=? name old-name) (string=? file old-file) (not (member? name linking)))
+          (if (and (string=? name old-name) (string=? file old-file))
               (loop old-rest rest)
               (Some name)))
          ((Nil) (Some name))))
       ((Nil) (None)))))
 
-;; A style sheet is fetched again in place, and a linked file, at
-;; resources/LIBRARY/PATH, is read again by relinking its library's module;
-;; any other file changes the page, which must load again.
+;; A style sheet is fetched again in place; any other file changes the
+;; page, which must load again. Modules and linked files are named for
+;; their contents, so the build reports neither.
 (: style-sheet? (-> String Bool))
 (define (style-sheet? file)
   (let ((length (string-length file)))
     (and (> length 4) (string=? (substring file (- length 4) length) ".css"))))
-
-(: linking-library (-> String (Option String)))
-(define (linking-library file)
-  (if (and (> (string-length file) 10) (string=? (substring file 0 10) "resources/"))
-      (let ((path (substring file 10 (string-length file))))
-        (match (string-index path #\/)
-          ((Some end) (Some (substring path 0 end)))
-          ((None) (None))))
-      (None)))
-
-;; The libraries whose linked files are among `files`.
-(: linking-libraries (-> (List String) (List String)))
-(define (linking-libraries files)
-  (concatenate (map (lambda (file)
-                      (match (linking-library file)
-                        ((Some library) (list library))
-                        ((None) (Nil))))
-                    files)))
-
-(: in-place? (-> String Bool))
-(define (in-place? file)
-  (or (style-sheet? file)
-      (match (linking-library file)
-        ((Some _) #t)
-        ((None) #f))))
 
 ;; ---- Decisions ----
 
@@ -267,13 +242,11 @@
 (define (apply-event! event)
   (let* ((manifest (event-manifest event)) (files (changed-files (ref-get loaded) manifest)))
     (cond ((refused? manifest) (unit))
-          ((any? (lambda (file) (not (in-place? file))) files) (reload-page!))
+          ((any? (lambda (file) (not (style-sheet? file))) files) (reload-page!))
           (else (for-each (lambda (file)
                             (restyle! file (digest-of manifest file) (Manifest-base manifest)))
                           (filter style-sheet? files))
-                (match (first-changed-module (ref-get loaded)
-                                             manifest
-                                             (linking-libraries files))
+                (match (first-changed-module (ref-get loaded) manifest)
                   ((Some module)
                    (ref-set! relinking (Some manifest))
                    (relink! module (Manifest-base manifest) #f))

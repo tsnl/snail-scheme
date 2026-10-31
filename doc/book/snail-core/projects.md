@@ -76,7 +76,7 @@ duplicate target errors identify both declarations, duplicate fields the second.
 
 Each build target produces one directory at `PROJECT/build/TARGET`. A static
 program contains `program.wasm`, and each file its libraries link at
-`resources/NAME` ([linked files](types.md#linked-files)). A browser build adds the shared browser host
+`resources/DIGEST`, named for the SHA-256 of its bytes ([linked files](types.md#linked-files)). A browser build adds the shared browser host
 and recursively copies `public`, if specified. Supply `index.html` there; no page
 is generated. Browser pages load `./program.wasm` through `host.mjs`, which
 fetches a linked file beside it when the program first reads it, or through
@@ -111,8 +111,9 @@ source snapshot or power-loss durability.
 
 Development builds contain per-library modules, `modules.json` and `runtime.wasm`
 instead of linked `program.wasm`, with the same `resources/`. Each generation is
-self-contained: a linked file is copied into every generation, so editing one
-compiles nothing again, yet the next generation holds and reads its new bytes. Existing
+self-contained: a linked file is copied into every generation under its digest,
+and editing one compiles again the library that links it, whose module names
+the new digest. Existing
 browser pages receive the module-manifest meta tag understood by `host.mjs`;
 the builder still does not invent a page.
 

@@ -126,16 +126,21 @@ function of the expander has `mut` in its row — and where it does not, the
   adds no items and has no module; a session replays its values.
 
   The core form `link-handle`, which `link-file` in `(snail shell resource)`
-  wraps, parses its path against the directory of the file it is written in
-  and records a `LinkedFile` on the library: the name the payload ships it
-  under, the library's key and the canonical path, and where the build finds
-  it. Its value is a call to an import from `snail.runtime.link` under that name,
-  which answers the file's handle, so each module records the files it links
-  where its host must see them; the host reads one only when a task asks for
-  its bytes. Once a library's body has expanded, each of its files must
-  exist, or the build fails naming the library and the path.
-  `library-links` and `program-links` give a build's files by library and in
-  program order.
+  wraps, parses its path against the directory of the file it is written in,
+  records a `LinkUse` on the library, and evaluates to a call to a global of
+  the library's. Expanding an expression reads no file, so once the
+  library's body has expanded, `bind-links` reads each file, which must
+  exist or the build fails naming the library and the path, and binds the
+  global to an import from `snail.runtime.link` named for the SHA-256 of
+  its bytes, which answers the file's handle. Each module so records the
+  content it links where its host must see it; the host reads a file only
+  when a task asks for its bytes. The library's `LinkedFile`s, each a digest
+  and where the build finds the file, enter its keys (see "Linked files"
+  below). `library-links` and `program-links` give a build's files by
+  library and in program order. The digest is
+  [`sha256.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/sha256.sld)'s,
+  computed over 64-bit words masked to 32 bits, so stage 0, whose integers
+  do not wrap, names each file as Wasm does.
 
   The expander reads each library's file into a `LibraryFile`: a defined
   library's sections, or a generated library's producer program. The same
@@ -381,7 +386,7 @@ function of the expander has `mut` in its row — and where it does not, the
   program's path to WebAssembly text with the files it links, a
   `WholeProgram`, or to one module's text per library. The driver writes the
   files a compile links to `links.datum` in the compile's directory, one
-  `("NAME" "PATH")` per file, for the Chibi build to place.
+  `("DIGEST" "PATH")` per file, for the Chibi build to place.
 
 ## Separate compilation
 
@@ -756,16 +761,23 @@ no runtime file access.
 
 ### Linked files
 
-A linked file is an input of the build, but not of the compile: the module
-depends on its name, which the source text spells and the build key already
-holds, and on its presence, never on its bytes. A replayed library first
-checks that each file it linked still exists; a missing one expands the
-library again, which fails with the library and the path. Editing a linked
-file therefore compiles nothing, while every build places every file from the
-modules it returns, compiled or replayed, into its new generation. The
-generation's file digests make the change visible to run targets and to the
-browser reload client, which relinks from the module that uses a changed
-resource, whose new handles read its bytes from the new generation.
+A linked file's bytes are an input of the compile, as their digest: the
+module imports its handle under that name. A replayed library first checks
+that each file it linked still has the digest it was expanded with; a
+missing or edited one expands the library again, which fails for a missing
+file with the library and the path, and otherwise binds the new digest. The
+digests enter the library's checked-body and interface keys, as an artifact
+stamp does, so an edit compiles the library and its importers, which may
+specialize a generic function that calls one of its handles. Every build
+places every file from the modules it returns, compiled or replayed, into
+its new generation at `resources/DIGEST`, checking that the bytes it copies
+have the digest the compile read; a file edited during the build fails it,
+and the next build compiles against the new bytes. Modules and linked files
+are named for their contents, so a generation's digest takes only their
+names, and the browser reload client sees an edited file as a changed
+module, from which it relinks. The bytes under such a name never change, so
+the development server lets a browser cache them for good, and the page's
+loader keeps the bytes it has read, by digest, across relinks.
 
 ## The resident builder
 

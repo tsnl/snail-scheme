@@ -173,21 +173,23 @@ package's data, and the library reads it when it needs it:
   (read-resource hero))
 ```
 
-- **Addressed by the library.** The path is relative to the file the form is
+- **Found beside the library.** The path is relative to the file the form is
   written in, as `include-bytes`'s is, a `generate-library` recipe's for a
   producer's own forms, and may not leave its directory: `.`
   and `..` are resolved, and an absolute path, an empty name or a path that
-  climbs out is an error. The file ships under a name made from the library
-  and the canonical path, `assets.sprites/art/hero.png` for `(assets sprites)`,
-  or `main/...` for a program's own body. The name is the same on every host
-  and in every build; it is never a filesystem path.
-- **Guaranteed to ship.** The build places the file at `resources/NAME`
-  beside the payload, `program.wasm` or `modules.json`, in every build that
-  produces one: project program and browser targets, `scripts/snail-tool run`
-  and `compile`, and the development loop. A file that is missing fails the
-  build with the library and the path. The module itself records what it
-  links: `link-file` becomes a call to an import from `snail.runtime.link`
-  named for the file, which answers its handle.
+  climbs out is an error. A file that is missing fails the build with the
+  library and the path.
+- **Shipped by content.** The build places the file at `resources/DIGEST`
+  beside the payload, `program.wasm` or `modules.json`, where DIGEST is the
+  SHA-256 of its bytes in hex, in every build that produces one: project
+  program and browser targets, `scripts/snail-tool run` and `compile`, and
+  the development loop. The name is never a path or a library's: libraries
+  that link the same bytes ship one file, and a file's name changes exactly
+  when its bytes do. The module itself records what it links: `link-file`
+  becomes a call to an import from `snail.runtime.link` named for the
+  digest, which answers the file's handle. Editing a linked file therefore
+  compiles again the library that links it, and its importers, whose
+  modules name the new digest.
 - **A handle, not the bytes.** `link-file` evaluates to a `Resource`, which
   names a file and nothing more. The type is exported without its
   constructor, so a program cannot make one from a string: holding a
@@ -204,8 +206,11 @@ wasmtime from the payload's directory and the browser by fetching beside the
 page's module, and later reads of it from the same module return the same
 bytes. A file the program never reads is never fetched, so a library may link
 far more than any one program uses. A file that cannot be read traps the task
-that reads it. A module linked again gets new handles, so it reads its files
-as they are then.
+that reads it. The bytes under a digest never change, so a host keeps what it
+has read by digest: a module linked again reads a file it still links without
+fetching it, and an edited file, under its new digest, is read anew. For the
+same reason a server may let a browser cache `resources/` for good, as the
+development server does.
 
 ## Dynamic values
 

@@ -93,17 +93,23 @@ function withStubs(module, imports, stubbed, stub) {
 
 // A module asks for each file it links, `link-file` in (snail shell
 // resource), by importing a function from "snail.runtime.link" named for
-// the file, which answers the file's handle. A handle is only a name: the
-// host reads the file, from resources/NAME beside the payload, the first
-// time a task asks for its bytes, and keeps them for the module's later
-// reads, so a file the program never reads is never fetched. Handles index
-// `files`, which only grows: a module instantiated again gets new handles,
-// so it reads its files as they are then, while a module kept linked keeps
-// the bytes it first read.
+// the SHA-256 of the file's bytes, which answers the file's handle. A
+// handle is only that name: the host reads the file, from resources/DIGEST
+// beside the payload, the first time a task asks for its bytes, and keeps
+// them, so a file the program never reads is never fetched. Handles index
+// `files`, one for each digest the program has linked, which only grows.
+// The bytes under a digest never change, so a module linked again shares
+// the handles, and the bytes, of the files it still links, while an edited
+// file is a new digest, read from the build that links it.
 function linkImports(read, modules, files) {
   const names = [...new Set(modules.flatMap(module => WebAssembly.Module.imports(module)
     .filter(entry => entry.module === 'snail.runtime.link').map(entry => entry.name)))];
-  const handles = names.map(name => files.push({name, read, bytes: null}) - 1);
+  const known = new Map(files.map((file, handle) => [file.name, handle]));
+  const handles = names.map(name => {
+    if (!known.has(name)) return files.push({name, read, bytes: null}) - 1;
+    files[known.get(name)].read = read;
+    return known.get(name);
+  });
   return Object.fromEntries(names.map((name, index) => [name, () => handles[index]]));
 }
 
@@ -235,8 +241,8 @@ const missingHost = (from, name) => () => { throw new Error(`this host does not 
 // Links the program again from library `from`, by the modules.json of the
 // build at `manifest`, whose files `read` gives. The modules before `from`
 // cannot import from it, so their instances stay;
-// `from` and every module after it are linked anew, with new handles for
-// the files they link, and initialized, so their globals start over. Returns the new
+// `from` and every module after it are linked anew, with handles for the
+// files they link, and initialized, so their globals start over. Returns the new
 // program and leaves the old one as it was, so a relink that fails leaves it
 // running.
 export async function relinkProgram(program, from, manifest, read) {

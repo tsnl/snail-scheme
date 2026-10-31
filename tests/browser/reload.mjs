@@ -127,10 +127,10 @@ try {
   await browser.send('Page.removeScriptToEvaluateOnNewDocument', {identifier: gate.result.identifier});
 
   // A library links a file and, when its module starts, prints the file's
-  // text from a task, which reads it. Editing the file compiles nothing and
-  // leaves every module's file as it was, but the page relinks from the
-  // module that links it, whose start reads the file again, rather than
-  // loading again.
+  // text from a task, which reads it. Editing the file compiles the library
+  // again, whose module names the new bytes' digest, so the page relinks
+  // from that module, whose start reads the new file, rather than loading
+  // again.
   const banner = join(app, 'src/sample/banner.txt');
   const printed = line => browser.evaluate(`globalThis.printed.includes(${JSON.stringify(line)})`);
   await browser.evaluate(`globalThis.printed = []; const log = console.log;
