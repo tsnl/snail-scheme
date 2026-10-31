@@ -98,12 +98,14 @@ cost every caller that work for nothing.
 Some signatures have no body to hold them to. An instance method keeps its
 class method's row, which one instance may need less of than another:
 in `tests/programs/declared-effects.sld`, the `Bool` instance of
-`announce` performs nothing and keeps `! console`. `extern` declarations,
-class method signatures and definitions whose value is not a lambda are
-not compared either. A signature that a macro writes is held to each
-expansion, so a macro that cannot know a row takes the effects as an
-argument. `define-application` cannot know what its reset binder performs,
-so a reset that performs more than the application's loop, such as one
+`announce` performs nothing and keeps `! console`. A default is held to
+its row all the same ([defaults](#defaults-in-snail-core)). `extern`
+declarations, class method signatures and definitions whose value is not
+a lambda are not compared either. A signature that a macro writes is
+held to each expansion, so a macro that cannot know a row takes the
+effects as an argument. `define-application` cannot know what its reset
+binder performs, so a reset that performs more than the application's
+loop, such as one
 whose background tasks write to the console, says `(effects: console)`
 ([application model](applications.md)); claiming `console` for a reset that
 writes nothing is the same error
@@ -331,8 +333,12 @@ operation with a default works much like a Scheme parameter, with `handle`
 in the role of `parameterize`. A default has its operation's type without
 the operation's own effect, so it performs at most the operation's
 [latent row](#latent-rows), here nothing: a default that writes to the
-console is rejected (`tests/programs/error-default-effect.sld`). A default
-is a lambda or a function's name, and an operation has at most one.
+console is rejected (`tests/programs/error-default-effect.sld`). It also
+performs at least that row. Every performer is charged the row, so the
+[unused-effect rule](#claiming-only-what-the-body-performs) holds a
+default to it, at its entry
+(`tests/programs/error-default-unperformed.sld`). A default is a lambda or
+a function's name, and an operation has at most one.
 
 ## Control handlers
 
