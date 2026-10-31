@@ -17,7 +17,7 @@
    Built-text
    Built-links
    LinkedFile
-   LinkedFile-name
+   LinkedFile-digest
    LinkedFile-path
    no-inputs)
   (import

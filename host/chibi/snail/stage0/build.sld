@@ -618,8 +618,8 @@
 
     ;; ---- Linked files ----
 
-    ;; The files a compile reports its program links, as (NAME . PATH)
-    ;; pairs, from the `("NAME" "PATH")` lines the driver writes to
+    ;; The files a compile reports its program links, as (DIGEST . PATH)
+    ;; pairs, from the `("DIGEST" "PATH")` lines the driver writes to
     ;; links.datum in the compile's directory.
     (define (read-links directory)
       (call-with-input-file (path-join directory "links.datum")
@@ -630,8 +630,8 @@
                   (reverse links)
                   (loop (cons (cons (car entry) (cadr entry)) links))))))))
 
-    ;; Each file goes to resources/NAME in `directory`, beside the payload,
-    ;; where both hosts read it before the program starts.
+    ;; Each file goes to resources/DIGEST in `directory`, beside the
+    ;; payload, where its host reads it when the program first asks.
     (define (place-links! links directory)
       (for-each (lambda (link)
                   (let ((to (path-join directory "resources" (car link))))

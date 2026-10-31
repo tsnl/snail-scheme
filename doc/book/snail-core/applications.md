@@ -221,10 +221,11 @@ the application's state crosses to the new program:
   keeps running, and the page offers to start the new one over.
 
 A failed build is shown over the page, and the old program keeps running.
-A changed [linked file](types.md#linked-files) compiles nothing, but relinks
-the page from the module that links it, whose new handles read the file
-again; an edit
-to the file builds again once a published build links it. A changed
+A changed [linked file](types.md#linked-files) compiles again the library
+that links it, whose module names the new bytes' digest, so the page relinks
+from that module and reads the new file; a file whose digest is unchanged is
+not fetched again. An edit to the file builds again once a published build
+links it. A changed
 stylesheet is fetched again; a changed page or host script reloads the page
 after saving. A public tree holds only regular files and directories
 ([projects](projects.md)). The

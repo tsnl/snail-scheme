@@ -69,20 +69,21 @@
     ;; ---- Linked files ----
 
     ;; The files the program links, which the build places beside the
-    ;; payload under their names, as `("NAME" "PATH")` lines in links.datum
-    ;; in the compile's own directory, beside the libraries its producers
-    ;; generate.
+    ;; payload under their digests, as `("DIGEST" "PATH")` lines in
+    ;; links.datum in the compile's own directory, beside the libraries its
+    ;; producers generate; libraries that link the same bytes share a line.
     (: write-links (-> String (List LinkedFile) Unit ! fs))
     (define (write-links directory links)
       (write-file (string-append directory "/links.datum")
-                  (string-concatenate (map (lambda (link)
-                                             (string-append "("
-                                                            (datum->string
-                                                             (DString (LinkedFile-name link)))
-                                                            " "
-                                                            (datum->string
-                                                             (DString (LinkedFile-path link)))
-                                                            ")\n"))
-                                           links))))
+                  (string-concatenate
+                   (map (lambda (link)
+                          (string-append "("
+                                         (datum->string (DString (LinkedFile-digest link)))
+                                         " "
+                                         (datum->string (DString (LinkedFile-path link)))
+                                         ")\n"))
+                        (delete-duplicates (lambda (a b)
+                                             (string=? (LinkedFile-digest a) (LinkedFile-digest b)))
+                                           links)))))
 
     ))
