@@ -324,9 +324,9 @@ reading a field of one compiles as it would for an omega value. `drop`
 releases its argument and does nothing else. The one thing linearity
 changes is a replacement, below.
 
-A struct with no mutable field has no identity, and the language has no
-reference equality, so nothing can tell it from a copy with the same
-fields. The compiler lays such a struct out inline where an immutable
+A struct is a value with no identity, since only `Ref` has a mutable
+field and the language has no reference equality, so nothing can tell it
+from a copy with the same fields. The compiler lays such a struct out inline where an immutable
 field holds it: the parent is one GC struct whose fields include the
 inner struct's, and no object of the inner type exists there. A
 `Segment` of two points and a label is five Wasm fields:
