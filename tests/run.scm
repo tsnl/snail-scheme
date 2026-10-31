@@ -18,6 +18,7 @@
  (snail stage0 process)
  (only (chibi string) string-contains string-cursor->index string-split string-suffix?)
  (srfi 1)
+ (only (srfi 132) list-sort)
  (snail stage0 build)
  (only (snail stage0 forms) test-forms)
  (only (snail shell compiler read) test-read)
@@ -29,24 +30,16 @@
  (only (snail shell compiler control) test-control)
  (only (snail shell compiler wasm) test-wasm)
  (only (snail shell compiler session) test-session)
- (only (snail shell compiler plan) test-plan)
+ (only (snail shell project plan) test-plan)
  (only (snail shell project) test-project))
 
 ;; ---- Cases ----
 
 (define (case-names directory)
-  (sort-strings (filter-map (lambda (file)
-                              (and (string-suffix? ".sld" file)
-                                   (substring file 0 (- (string-length file) 4))))
-                            (directory-files directory))))
-
-(define (sort-strings strings)
-  (if (null? strings)
-      '()
-      (let ((pivot (car strings)))
-        (append (sort-strings (filter (lambda (s) (string<? s pivot)) (cdr strings)))
-                (list pivot)
-                (sort-strings (filter (lambda (s) (string>=? s pivot)) (cdr strings)))))))
+  (list-sort string<? (filter-map (lambda (file)
+                                    (and (string-suffix? ".sld" file)
+                                         (substring file 0 (- (string-length file) 4))))
+                                  (directory-files directory))))
 
 (define (error-text failure)
   (let ((port (open-output-string)))
@@ -182,7 +175,7 @@
                         (run-wasm root tool wat (path-join directory "fibonacci.wasm")))))
       (call-with-output-file manifest
         (lambda (port)
-          (write-string (string-append "{\"runtime\":\"" (build-crate root "snail-core-support")
+          (write-string (string-append "{\"runtime\":\"" (build-runtime root #f)
                                        "\",\"modules\":[{\"name\":\"program\",\"file\":\"fibonacci.wasm\"}]}")
                         port)))
       (let ((expected "assembled the program\nbroken text names its line and column\n"))
@@ -249,7 +242,7 @@
                  (list "node"
                        "--no-warnings"
                        (path-join root "tests/numeric.mjs")
-                       (build-crate root "snail-core-support")))))
+                       (build-runtime root #f)))))
     (or (zero? (caddr result))
         (report "numeric runtime" "conversion failed" (string-append (car result) (cadr result))))))
 
@@ -458,6 +451,12 @@
     (or (zero? (caddr result))
         (report "project attempts" "failed" (string-append (car result) (cadr result))))))
 
+(define (check-project-reload root)
+  (let ((result (capture-process
+                 (list "node" "--no-warnings" (path-join root "tests/project-reload.mjs") root))))
+    (or (zero? (caddr result))
+        (report "project reload" "failed" (string-append (car result) (cadr result))))))
+
 (define (check-development-runs root)
   (let ((result (capture-process
                  (list "node" "--no-warnings" (path-join root "tests/development-runs.mjs") root))))
@@ -547,7 +546,7 @@
                 (string-append (car compiled) (cadr compiled)))
         (let ((result (capture-process
                        (list "node" "--no-warnings" (path-join root "tests/artifacts/check.mjs")
-                             (build-crate root "snail-core-support")
+                             (build-runtime root #f)
                              output
                              (path-join root "tests/artifacts/main.out")))))
           (or (zero? (caddr result))
@@ -773,6 +772,7 @@
                                   (lambda () (check-project-http root))
                                   (lambda () (check-project-bundles root))
                                   (lambda () (check-launcher root))
+                                  (lambda () (check-project-reload root))
                                   (lambda () (check-tcp root))
                                   (lambda () (check-udp root))
                                   (lambda () (check-type-ids root))

@@ -160,7 +160,7 @@
                                      (control-implementation-yields callees
                                                                     effect
                                                                     implementations))))
-          (_ (all (subexpressions expr))))))
+          (_ (all (expr-children expr))))))
 
     (: control-implementation-yields (-> Callees String (List (Pair String Expr)) (List String)))
     (define (control-implementation-yields callees effect implementations)
@@ -187,7 +187,7 @@
       (and (match (Expr-term expr)
              ((App callee _) (null? (callee-row callees callee)))
              (_ #t))
-           (every? (lambda (child) (yield-free? callees child)) (subexpressions expr))))
+           (every? (lambda (child) (yield-free? callees child)) (expr-children expr))))
 
     ;; Whether a let inside `expr`, outside its lambdas, has a value that
     ;; may yield. The backend tests for a yield after such a let and leaves
@@ -198,22 +198,7 @@
         ((Lambda _ _ _) #f)
         ((Let _ value body)
          (or (not (null? (yields callees value))) (holds-yield-point? callees body)))
-        (_ (any? (lambda (child) (holds-yield-point? callees child)) (subexpressions expr)))))
-
-    (: subexpressions (-> Expr (List Expr)))
-    (define (subexpressions expr)
-      (match (Expr-term expr)
-        ((Lambda _ body _) (list body))
-        ((App callee args) (Cons callee args))
-        ((If test then otherwise) (list test then otherwise))
-        ((Let _ value body) (list value body))
-        ((Seq first rest) (list first rest))
-        ((Match scrutinee clauses) (Cons scrutinee (map Clause-body clauses)))
-        ((Handle _ implementations body) (append (map Pair-second implementations) (list body)))
-        ((Ann inner _) (list inner))
-        ((Convert inner _) (list inner))
-        ((TypeTest inner _) (list inner))
-        (_ (Nil))))
+        (_ (any? (lambda (child) (holds-yield-point? callees child)) (expr-children expr)))))
 
     ;; ---- Restrictions ----
 
@@ -295,7 +280,7 @@
          (let ((inside (resuming callees effect implementations)))
            (for-each (lambda (entry) (check-restrictions inside (Pair-second entry)))
                      implementations)))
-        (_ (for-each (lambda (child) (check-restrictions callees child)) (subexpressions expr)))))
+        (_ (for-each (lambda (child) (check-restrictions callees child)) (expr-children expr)))))
 
     ;; A restriction check reads the bodies of the definitions it reaches.
     (: reading (-> Callees Callees))

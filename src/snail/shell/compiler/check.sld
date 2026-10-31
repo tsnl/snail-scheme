@@ -1731,7 +1731,7 @@
     (define (variable-reads expr)
       (match (Expr-term expr)
         ((Var _ _ _) (list expr))
-        (_ (concatenate (map variable-reads (subexpressions expr))))))
+        (_ (concatenate (map variable-reads (expr-children expr))))))
 
     (: binders (-> Expr (List String)))
     (define (binders expr)
@@ -1742,7 +1742,7 @@
                  (concatenate
                   (map (lambda (clause) (pattern-variables (Clause-pattern clause))) clauses)))
                 (_ (Nil)))
-              (concatenate (map binders (subexpressions expr)))))
+              (concatenate (map binders (expr-children expr)))))
 
     (: pattern-variables (-> Pattern (List String)))
     (define (pattern-variables pattern)
@@ -1750,22 +1750,6 @@
         ((PVar name _) (list name))
         ((PCon _ args _) (concatenate (map pattern-variables args)))
         (_ (Nil))))
-
-    (: subexpressions (-> Expr (List Expr)))
-    (define (subexpressions expr)
-      (match (Expr-term expr)
-        ((Lit _) (Nil))
-        ((Var _ _ _) (Nil))
-        ((Lambda _ body _) (list body))
-        ((App callee args) (Cons callee args))
-        ((If test then otherwise) (list test then otherwise))
-        ((Let _ value body) (list value body))
-        ((Seq first rest) (list first rest))
-        ((Match scrutinee clauses) (Cons scrutinee (map Clause-body clauses)))
-        ((Ann inner _) (list inner))
-        ((Convert inner _) (list inner))
-        ((TypeTest inner _) (list inner))
-        ((Handle _ implementations body) (append (map Pair-second implementations) (list body)))))
 
     ;; ---- Closed functions ----
 
@@ -1799,7 +1783,7 @@
         ((Let name value body)
          (check-closed program (list name) value)
          (check-closed program (Nil) body))
-        (_ (for-each (lambda (child) (check-closed program (Nil) child)) (subexpressions expr)))))
+        (_ (for-each (lambda (child) (check-closed program (Nil) child)) (expr-children expr)))))
 
     (: captured-read? (-> Program (List String) Expr Bool))
     (define (captured-read? program own read)
@@ -1844,7 +1828,7 @@
          (refuse-hidden-effects "type-test" target (Expr-loc expr))
          (refuse-function-reference "type-test" target (Expr-loc expr)))
         (_ (unit)))
-      (for-each check-expression-conversions (subexpressions expr)))
+      (for-each check-expression-conversions (expr-children expr)))
 
     ;; A conversion changes nothing, or boxes into Any, or checks a value out
     ;; of it: there is no other representation change for it to make.

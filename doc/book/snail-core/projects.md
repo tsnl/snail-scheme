@@ -142,8 +142,8 @@ libraries and the programs of their producers. An unused macro template makes
 no use. Constructor names retain their definition scope, so importing only
 the macro, renaming it or shadowing constructors does not change its meaning.
 
-The compiler plans a build before running any of it
-(`src/snail/shell/compiler/plan.sld`): a walk of each program's import closure
+The project planner orders a build before running any of it
+(`src/snail/shell/project/plan.sld`): a walk of each program's import closure
 finds the producers it needs, and a discovery expansion, the expander itself
 supplied no files, finds the targets it embeds. There is no source scanner
 that a macro could hide a use from. Each target is built once per invocation,
@@ -152,8 +152,8 @@ before the first phase that embeds it, and a cycle, such as
 embed a target that only its producer's output names, so a phase that waits
 for a producer is planned again once the producer has run, and a cycle it
 closes fails then, before anything after it runs. Missing or non-browser
-targets fail at the using source point. Standalone source commands and the
-older development loop cannot resolve project artifacts.
+targets fail at the using source point. Standalone source commands cannot
+resolve project artifacts; use a project build or `snail dev`.
 
 Packaging and enumeration finish before a generation can supply an artifact.
 The inventory contains canonical relative paths sorted by path, including hidden

@@ -42,7 +42,6 @@
          producer-text
          generated-output
          request-input
-         unsupplied
          generating-stack
          read-source-file)
    (snail shell compiler core)
@@ -1030,13 +1029,12 @@
     (: discover-artifacts (-> (List String) Inputs String (List ArtifactUse) ! fs compile))
     (define (discover-artifacts directories inputs path)
       (match (Context-artifacts
-              (unsupplied (lambda ()
-                            (expand-source (new-context directories
-                                                        unsupplied-producer
-                                                        inputs
-                                                        (Discovering (Nil))
-                                                        empty-expansion)
-                                           path))))
+              (expand-source (new-context directories
+                                          unsupplied-producer
+                                          inputs
+                                          (Discovering (Nil))
+                                          empty-expansion)
+                             path))
         ((Discovering uses) (reverse uses))
         ((Supplied) (Nil))))
 

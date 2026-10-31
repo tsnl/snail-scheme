@@ -1916,8 +1916,9 @@
 (: file-tree (-> (List (Pair (List String) String)) (List Tree)))
 (define (file-tree files)
   (let* ((nested (filter (lambda (file) (> (length (Pair-first file)) 1)) files))
-         (names (sorted-strings
-                 (delete-duplicates string=? (map (lambda (file) (car-part file)) nested)))))
+         (names (list-sort string<?
+                           (delete-duplicates string=?
+                                              (map (lambda (file) (car-part file)) nested)))))
     (append (map (lambda (name)
                    (Folder name
                            (file-tree (map (lambda (file)
@@ -1927,7 +1928,7 @@
                                                    nested)))))
                  names)
             (map (lambda (file) (File (car-part file) (Pair-second file)))
-                 (sorted-by (lambda (a b) (string<? (car-part a) (car-part b)))
+                 (list-sort (lambda (a b) (string<? (car-part a) (car-part b)))
                             (filter (lambda (file) (= (length (Pair-first file)) 1)) files))))))
 
 (: car-part (-> (Pair (List String) String) String))
@@ -1935,22 +1936,6 @@
   (match (Pair-first file)
     ((Cons part _) part)
     ((Nil) "")))
-
-(: sorted-strings (-> (List String) (List String)))
-(define (sorted-strings strings)
-  (sorted-by string<? strings))
-
-;; An insertion sort, for the few entries of a folder.
-(: sorted-by (All (T) (requires (Copy T)) (-> (-> T T Bool) (List T) (List T))))
-(define (sorted-by less items)
-  (fold-left (lambda (sorted item) (inserted less item sorted)) (Nil) items))
-
-(: inserted (All (T) (requires (Copy T)) (-> (-> T T Bool) T (List T) (List T))))
-(define (inserted less item sorted)
-  (match sorted
-    ((Cons first rest)
-     (if (less item first) (Cons item sorted) (Cons first (inserted less item rest))))
-    ((Nil) (list item))))
 
 (: files-view (-> Ide (Html Msg)))
 (define (files-view model)
