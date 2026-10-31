@@ -2180,7 +2180,11 @@
         ((Some (Pair id cx)) (Pair (program-class (Context-program cx) id) cx))
         ((None)
          (match (resolve cx env class-ident)
-           ((Some (ClassName id)) (Pair (program-class (Context-program cx) id) cx))
+           ((Some (ClassName id))
+            (when (string=? id "snail.core.base:Unboxed")
+              (compile-error (syntax-loc class-ident)
+                             "Unboxed is decided by a type's representation; no instance can be declared"))
+            (Pair (program-class (Context-program cx) id) cx))
            (_ (compile-error (syntax-loc class-ident)
                              "instance of something that is not a typeclass"))))))
 
