@@ -172,7 +172,8 @@ Python's `importlib.resources` addresses a package's data:
 ```
 
 - **Addressed by the library.** The path is relative to the file the form is
-  written in, as `include-bytes`'s is, and may not leave its directory: `.`
+  written in, as `include-bytes`'s is, a `generate-library` recipe's for a
+  producer's own forms, and may not leave its directory: `.`
   and `..` are resolved, and an absolute path, an empty name or a path that
   climbs out is an error. The file ships under a name made from the library
   and the canonical path, `assets.sprites/art/hero.png` for `(assets sprites)`,

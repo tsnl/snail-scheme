@@ -1,9 +1,10 @@
 ;; Helpers for `generate-library` recipes that turn the LPC packs into
 ;; libraries a program compiles in: image files become byte vector literals,
 ;; and the packs' JSON palettes become color lists. A recipe runs when its
-;; library is built and reads files relative to the repository's root. It
-;; returns the library as syntax, so an image's bytes reach the compiler as
-;; they are.
+;; library is built and returns the library as syntax, so an image's bytes
+;; reach the compiler as they are. A palette comes from bytes its recipe
+;; includes; images are still read from paths relative to the repository's
+;; root.
 (define-library (lpc embed)
   (export
    embed-library
@@ -11,7 +12,8 @@
   (import
    (snail core base)
    (snail core io)
-   (snail shell syntax))
+   (snail shell syntax)
+   (only (snail shell utf8) utf8->string))
   (begin
 
     ;; `(: name (-> String result))` and `(define (name key) (cond ...))`,
@@ -75,16 +77,22 @@
     ;; ---- Palettes ----
 
     ;; The library `name` exporting `ramp`, which gives the colors, as
-    ;; 0xRRGGBB, of each ramp in the JSON file at `path`: an object whose
-    ;; keys name lists of "#rrggbbaa" strings, as the LPC packs keep their
-    ;; palettes. A missing ramp is empty.
-    (: ramps-library (-> (List String) String Syntax ! fs))
-    (define (ramps-library name path)
+    ;; 0xRRGGBB, of each ramp in `json`, a palette file's bytes: an object
+    ;; whose keys name lists of "#rrggbbaa" strings, as the LPC packs keep
+    ;; their palettes. A missing ramp is empty.
+    (: ramps-library (-> (List String) Bytes Syntax))
+    (define (ramps-library name json)
       (library-syntax name (list "ramp") (list (list "snail" "core" "base"))
                       (lookup-definitions "ramp"
                                           (form "List" (list (SymbolSyntax "I32")))
-                                          (map ramp-entry (json-ramps (read-file path)))
+                                          (map ramp-entry (json-ramps (palette-text json)))
                                           (form "Nil" (Nil)))))
+
+    (: palette-text (-> Bytes String))
+    (define (palette-text json)
+      (match (utf8->string json)
+        ((Ok text) text)
+        ((Err _) (panic "the palette file is not UTF-8"))))
 
     ;; Ramp K gives `(list C ...)`.
     (: ramp-entry (-> (Pair String (List I32)) (Pair String Syntax)))
