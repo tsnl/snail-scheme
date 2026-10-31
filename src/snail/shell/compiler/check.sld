@@ -1224,11 +1224,70 @@
     (: solve-class
        (-> Checker Constraint I64 (List Constraint) (List String) Loc Checker ! compile))
     (define (solve-class ck constraint hole givens copy loc)
-      (if (row-class? ck (Constraint-class constraint))
-          (solve-found ck constraint hole givens copy (None) loc)
-          (match (find-evidence ck constraint givens copy loc)
-            ((Some (Pair evidence ck)) (with-evidence ck hole evidence))
-            ((None) (compile-error loc (unsolved-constraint ck constraint givens))))))
+      (cond ((row-class? ck (Constraint-class constraint))
+             (solve-found ck constraint hole givens copy (None) loc))
+            ((string=? (Constraint-class constraint) unboxed-class)
+             (solve-unboxed ck constraint hole givens loc))
+            (else
+             (match (find-evidence ck constraint givens copy loc)
+               ((Some (Pair evidence ck)) (with-evidence ck hole evidence))
+               ((None) (compile-error loc (unsolved-constraint ck constraint givens)))))))
+
+    ;; `(Unboxed T)` holds when a value of T is one Wasm slot, which the
+    ;; type's representation decides: a scalar, a reference, or a struct of
+    ;; one unboxed field. It has no instances; a type variable needs the
+    ;; requirement in scope. The evidence is derived, as a drop's is, and
+    ;; nothing reads it.
+    (: unboxed-class String)
+    (define unboxed-class "snail.core.base:Unboxed")
+
+    (: solve-unboxed (-> Checker Constraint I64 (List Constraint) Loc Checker ! compile))
+    (define (solve-unboxed ck constraint hole givens loc)
+      (match (Constraint-types constraint)
+        ((Cons type (Nil))
+         (let ((type (resolve-type (solution ck) type)))
+           (cond ((has-meta? (solution ck) type)
+                  (compile-error loc (ambiguous-constraint ck constraint)))
+                 ((unboxed? (program-of ck) type) (with-evidence ck hole (EvDerived (None))))
+                 (else
+                  (match (given-evidence unboxed-class (list type) givens)
+                    ((Some evidence) (with-evidence ck hole evidence))
+                    ((None)
+                     (compile-error loc
+                                    (string-append (type->string type)
+                                                   " is not unboxed: an array element is one Wasm slot, so hold a struct of several fields as a struct of arrays"))))))))
+        (_ (panic "internal error: Unboxed has one type"))))
+
+    (: unboxed? (-> Program Type Bool))
+    (define (unboxed? program type)
+      (match type
+        ((TFun _ _ _) #t)
+        ((TCon name args)
+         (or (member? name
+                      (list "U8"
+                            "I32"
+                            "I64"
+                            "F32"
+                            "F64"
+                            "Bool"
+                            "Char"
+                            "Unit"
+                            "String"
+                            "Any"
+                            "Funcref"
+                            "Array" "Vector" "Ref" "FnOnce" "Fn"))
+             (let ((data (program-type program name)))
+               (or (DataType-enum? data)
+                   (match (DataType-cases data)
+                     ((Cons case _)
+                      (match (Case-fields case)
+                        ((Cons field (Nil))
+                         (unboxed? program
+                                   (substitute (zip (DataType-params data) args)
+                                               (Field-type field))))
+                        (_ #f)))
+                     ((Nil) #f))))))
+        (_ #f)))
 
     ;; An unsolved field constraint whose record type is known names the
     ;; field the type lacks; any other unsolved constraint is ambiguous.
@@ -1866,8 +1925,30 @@
           ((Some (Replacer _ _ _)) #f)
           ((Some (Setter _ _ _)) #f)
           ((Some (Swapper _ _ _)) #f)
-          ((Some value) (holds-storage? program (global-type typed name value)))
+          ((Some value)
+           (and (not (primitive-alias? typed name))
+                (holds-storage? program (global-type typed name value))))
           ((None) (holds-storage? program type)))))
+
+    ;; A definition that is another name for a primitive, as the array
+    ;; operations in (snail core base) are, acts only on its arguments too.
+    ;; The program's items hold every library's definitions, so the alias
+    ;; is found from any library that reads it.
+    (: primitive-alias? (-> Typed String Bool))
+    (define (primitive-alias? typed name)
+      (let ((program (Typed-program typed)))
+        (any? (lambda (item)
+                (match item
+                  ((Define defined value)
+                   (and (string=? defined name)
+                        (match (Expr-term value)
+                          ((Var target _ _)
+                           (match (program-value program target)
+                             ((Some (Primitive _)) #t)
+                             (_ #f)))
+                          (_ #f))))
+                  (_ #f)))
+              (program-items program))))
 
     (: global-type (-> Typed String Value Type))
     (define (global-type typed name value)

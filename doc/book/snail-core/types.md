@@ -5,9 +5,12 @@
 Scalars are `U8`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
 `Any` is a value of any type, used with `type-convert`.
 `String` is an immutable sequence of Unicode scalars. `(Vector T)` is an
-immutable sequence and `(Array T)` a mutable one; `(Ref T)` is a mutable
-cell, the one struct with a mutable field, which `(snail core base)`
-declares ([data](#data)). `Bytes` is `(Vector U8)`, stored packed. A byte vector literal,
+immutable sequence and `(Array T)` a mutable one whose elements are unboxed,
+`(Unboxed T)`: a scalar, a reference or a struct of one unboxed field, each one
+Wasm slot, so an array of points is refused and a struct of arrays stands in
+for it, as typed arrays do in JavaScript; `(MutVector T)` grows at its end over
+such an array. `(Ref T)` is a mutable cell, the one struct with a mutable
+field, which `(snail core base)` declares ([data](#data)). `Bytes` is `(Vector U8)`, stored packed. A byte vector literal,
 `#u8(137 80 78 71)`, compiles to a data segment of exactly its bytes, so a
 program can carry large binary data, such as images; it cannot be a
 pattern. `(include-bytes "pixel.png")` is another spelling of the literal
