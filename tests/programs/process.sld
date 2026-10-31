@@ -74,6 +74,14 @@
          (report-error (spawn (Command "/nonexistent/program" (Nil) ".")))
          (report-error (spawn (Command "/bin/sh" (list "-c" "true") "/nonexistent/directory")))
 
+         ;; A program with no slash is found on PATH and runs as the name it
+         ;; was given, in its directory; one PATH lacks is missing too.
+         (let ((child (require (spawn (Command "sh" (list "-c" "echo $0; pwd") "/")))))
+           (write-string (read-all child (Stdout)))
+           (write-line (exit-text (require (wait-exit child))))
+           (require (close-process child)))
+         (report-error (spawn (Command "no-such-program-on-path" (Nil) ".")))
+
          ;; Closing kills a running child and revokes its handle; closing again
          ;; succeeds, and a token from another handler is no native handle.
          (let ((child (shell "exec sleep 10")))

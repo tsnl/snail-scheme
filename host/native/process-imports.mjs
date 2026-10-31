@@ -3,7 +3,8 @@
 // only.
 import {byteSnapshot, stagedStrings} from '../browser/load.mjs';
 import {heldAnswers, isCoded} from './answers.mjs';
-import {replaceProcess, runChild} from './process.mjs';
+import {resolve} from 'node:path';
+import {isExecutable, replaceProcess, runChild} from './process.mjs';
 
 const fault = code => Object.assign(new Error(code), {code});
 const encode = text => new TextEncoder().encode(text);
@@ -15,15 +16,22 @@ const ended = exit => 'code' in exit ? {value: 0, number: exit.code} : {value: 1
 export function processImports(program, tasks, processes, termination) {
   const {answer, failed, start, immediately, imports} = heldAnswers(tasks);
   const memory = () => program().runtime.exports.memory;
-  // The command sent last: its directory, its program, then its arguments.
+  // The command sent last: its directory, the program's path, the name it
+  // is run as, then its arguments.
   const command = stagedStrings();
 
   return {
     ...imports,
     ...command.imports,
+    // A directory and a path: whether the path, taken from the directory,
+    // names a regular file this process may execute.
+    executable() {
+      const [directory, path] = command.take();
+      return isExecutable(resolve(directory, path)) ? 1 : 0;
+    },
     'start-spawn'(ticket) {
-      const [directory, executable, ...args] = command.take();
-      start(ticket, signal => processes.spawn(signal, directory, executable, args),
+      const [directory, program, name, ...args] = command.take();
+      start(ticket, signal => processes.spawn(signal, directory, program, name, args),
             result => ({value: result.handle, number: result.pid}), result => processes.close(result.handle));
     },
     'start-read-output'(ticket, child, descriptor, maximum) {
@@ -53,9 +61,9 @@ export function processImports(program, tasks, processes, termination) {
     }),
     // The program waits here until the child exits.
     run(pointer) {
-      const input = byteSnapshot(memory(), pointer), [directory, executable, ...args] = command.take();
+      const input = byteSnapshot(memory(), pointer), [directory, program, name, ...args] = command.take();
       let result;
-      try { result = runChild(directory, executable, args, input); }
+      try { result = runChild(directory, program, name, args, input); }
       catch (error) {
         if (!isCoded(error)) throw error;
         return answer(failed(error.code));
@@ -65,8 +73,8 @@ export function processImports(program, tasks, processes, termination) {
     },
     // Answers only when the process could not be replaced.
     exec() {
-      const [directory, executable, ...args] = command.take();
-      return answer(failed(replaceProcess(directory, executable, args)));
+      const [directory, program, name, ...args] = command.take();
+      return answer(failed(replaceProcess(directory, program, name, args)));
     },
   };
 }

@@ -2,9 +2,12 @@
 ;; host/native/process-imports.mjs provides them, answered as
 ;; (snail runtime native socket) answers. A command is sent first, a string
 ;; at a time, each a character at a time and ended by `argument-end`: its
-;; directory, its program, then its arguments. `start-spawn`, `run` and
-;; `exec` take the command sent last. A process crosses as the host's
-;; handle, which is never 0, and a stream as its descriptor.
+;; directory, the program's path, the name it is run as, then its
+;; arguments. `start-spawn`, `run` and `exec` take the command sent last.
+;; `executable` takes a directory and a path sent last, and answers 1 when
+;; the path, taken from the directory, names a regular file this process
+;; may execute, else 0. A process crosses as the host's handle, which is
+;; never 0, and a stream as its descriptor.
 ;;
 ;;   operation          answer                number     byte strings
 ;;   spawn              the handle            its id
@@ -22,6 +25,7 @@
   (export
    argument-character
    argument-end
+   executable
    start-spawn
    start-read-output
    start-write-input
@@ -41,6 +45,7 @@
   (begin
     (extern argument-character "snail.runtime.native.process" "argument-character" (-> Char Unit))
     (extern argument-end "snail.runtime.native.process" "argument-end" (-> Unit))
+    (extern executable "snail.runtime.native.process" "executable" (-> I32))
     (extern start-spawn "snail.runtime.native.process" "start-spawn" (-> I64 Unit))
     (extern start-read-output
             "snail.runtime.native.process"

@@ -2,8 +2,10 @@ exited 3
 from input
 err
 exited 0
+sh
 /
 signaled SIGTERM
+ENOENT
 ENOENT
 ENOENT
 200000 bytes
