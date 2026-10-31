@@ -98,6 +98,41 @@ dictionary exists at run time. Instance heads must not overlap. Classes have
 no superclasses: a signature lists every class it needs. Unbound names in an
 instance head are its type variables.
 
+### Rows as parameters
+
+A class may take a row as a parameter. A parameter its methods write after
+`!` is a row, and the others are types. Each instance writes its row in its
+head, so the instances of one class may perform different effects:
+
+```scheme
+{{#include ../../../tests/programs/classes-effects.sld:store}}
+```
+
+A use performs what its instance's head says. Reading a `Directory`
+prints, so `fetch-twice` at a `Directory` performs `console`; at a `Table`
+it is total, and a total function may call it. The row is found from the
+types, not matched: the types choose the instance, which must be the only
+one for them whatever rows the others write, and its row is charged to the
+call, as a call is charged what its callee performs. A generic function
+that requires `(Store e S)` performs `e`, which its signature names, and
+each caller is charged what its own type's instance performs. A
+requirement may give a closed row instead, as `(Store (!) S)`, which admits
+only the types whose instance performs no more.
+
+An instance's row is closed, or ends with a row variable that its
+requirements of row classes give theirs, which the types they are given
+decide:
+
+```scheme
+{{#include ../../../tests/programs/classes-effects.sld:logged}}
+```
+
+Fetching from a `(Logged Table)` performs `log`, and from a
+`(Logged Directory)`, `log` and `console`. A head's row names no control
+effect. `Drop` and `Clone` are classes over a row too
+([releasing](ownership.md#releasing)), whose rows are found from a type's
+structure where it has no instance.
+
 Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
 `Fractional`; `Show` converts values to text, and `Drop` releases them
 ([ownership](ownership.md#releasing)).
