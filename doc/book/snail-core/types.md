@@ -6,8 +6,8 @@ Scalars are `U8`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
 `Any` is a value of any type, used with `type-convert`.
 `String` is an immutable sequence of Unicode scalars. `(Vector T)` is an
 immutable sequence and `(Array T)` a mutable one; `(Ref T)` is a mutable
-cell, a struct with one [mutable field](#data) that `(snail core base)`
-declares. `Bytes` is `(Vector U8)`, stored packed. A byte vector literal,
+cell, the one struct with a mutable field, which `(snail core base)`
+declares ([data](#data)). `Bytes` is `(Vector U8)`, stored packed. A byte vector literal,
 `#u8(137 80 78 71)`, compiles to a data segment of exactly its bytes, so a
 program can carry large binary data, such as images; it cannot be a
 pattern. `(include-bytes "pixel.png")` is another spelling of the literal
@@ -63,14 +63,13 @@ and polymorphic values that are not functions, need signatures.
 ```
 
 A struct `Name` defines the constructor `Name`, accessors `Name-field` and pure
-replacements `Name-field-set`. A struct's field may be mutable, written
-`(count mut I64)`: it is read and written where the struct is, by
-`Name-count`, `Name-count-set!` and `Name-count-replace!`, which stores a new
-value and returns the old one, and each performs `mut`. A struct with a mutable
-field has identity, so it has no pure replacements and derives no instances,
-and a pattern can only skip a mutable field, with `_`
-([ownership](ownership.md)). An enum defines a constructor and accessors per
-case, and its fields are immutable. Cases are constructors, not types, and are
+replacements `Name-field-set`. A struct is a value: its fields are immutable,
+and a program that changes one holds it in a cell, `(Ref Name)`, and writes a
+*place*, the cell's content or a field read from it, with `set!` or
+`replace!`: `(set! (::count (ref-get r)) 1)`. Reading or writing a cell
+performs `mut`. `Ref` is the one struct with a mutable field, and a pattern can
+only skip its content, with `_` ([ownership](ownership.md)). An enum defines a
+constructor and accessors per case, and its fields are immutable. Cases are constructors, not types, and are
 always applied: `(Empty)`.
 
 A field is also read by its label alone: `(::label s)` reads the field

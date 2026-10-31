@@ -54,8 +54,8 @@ fails to compile:
 {{#include ../../../tests/programs/error-effect.err}}
 ```
 
-`mut` covers reading and writing mutable fields, a `Ref`'s among them, and
-arrays. `(snail core io)` declares `console`, `fs` and `clock`, and other
+`mut` covers reading and writing cells, `Ref`'s content and the places in
+it, and arrays. `(snail core io)` declares `console`, `fs` and `clock`, and other
 libraries declare their own, such as `tcp` in `(snail shell socket)`. A
 program declares more with `effect`, in the [next section](#handlers). Traps
 and non-termination are not tracked: a total function may still panic or
@@ -164,9 +164,9 @@ sum 14
 The checker accepts such a body when nothing the function can reach from
 outside can hold mutable storage: not its parameters, not its result, and
 not any name it reads, including effect operations. Holding storage means
-being an `Array` or an `Any`, data with a mutable field, such as a `Ref`, or
-with a field of such a type, or a function that performs `mut`. Building a
-struct does not perform `mut`, even one with mutable fields. Primitives,
+being an `Array`, an `Any` or a `Ref`, or data with a field of such a type,
+or a function that performs `mut`. Building a struct or a cell does not
+perform `mut`. Primitives,
 constructors and field operations, the cell operations among them, are
 always allowed. A helper defined elsewhere that mutates its argument is
 therefore rejected even when the argument is local; define it inside the

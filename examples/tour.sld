@@ -124,20 +124,21 @@
 
 ;; ---- Mutation ----
 
-;; A value changes only through a field declared `mut`. Reading or writing
-;; one performs `mut`, which the type records after `!`, so a type without
-;; `! mut` promises that the function changes nothing.
+;; A struct is a value. One a program changes lives in a cell, `Ref`, and
+;; `set!` writes a place: the cell's content, or a field of it. Reading or
+;; writing a cell performs `mut`, which the type records after `!`, so a
+;; type without `! mut` promises that the function changes nothing.
 (struct Counter
-  ((count mut I64)))
+  ((count I64)))
 
-(: bump! (-> Counter Unit ! mut))
+(: bump! (-> (Ref Counter) Unit ! mut))
 (define (bump! counter)
-  (Counter-count-set! counter (+ (Counter-count counter) 1)))
+  (set! (::count (ref-get counter)) (+ (::count (ref-get counter)) 1)))
 
-(let ((clicks (Counter 0)))
+(let ((clicks (ref (Counter 0))))
   (bump! clicks)
   (bump! clicks)
-  (display (Counter-count clicks))
+  (display (::count (ref-get clicks)))
   (newline))
 
 ;; ---- Effects ----

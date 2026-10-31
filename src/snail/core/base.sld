@@ -58,6 +58,7 @@
    subvector
    vector-map vector-for-each vector-fold vector->list list->vector
    make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!
+   set! replace!
    Ref-contents
    Ref-contents-set!
    Ref-contents-replace!
@@ -317,14 +318,18 @@
       ((first A)
        (second B)))
 
-    ;; A cell is a struct with one mutable field, as OCaml's `ref` is, and
-    ;; its operations are exported under short names too: `ref` builds one,
-    ;; purely; `ref-get` and `ref-set!` read and write it in place; and
-    ;; `ref-replace!` swaps in a new value and hands back the old. Being the
-    ;; field's own operations, they keep its rules: the handle is
-    ;; unrestricted even when the content is linear, which only
-    ;; `ref-replace!` may move out, and a function whose type has no `mut`
-    ;; may still use them on a cell it allocates.
+    ;; A cell is the one struct with a mutable field, as OCaml's `ref` is;
+    ;; every other struct is a value, and a program that changes one holds
+    ;; it in a cell. The content lies in the cell: a `(Ref Counter)` is one
+    ;; object whose slots are the counter's, and `(set! (::count (ref-get
+    ;; r)) 1)` writes one of them. The field's operations are exported
+    ;; under short names too: `ref` builds a cell, purely; `ref-get` and
+    ;; `ref-set!` read and write its content whole; and `ref-replace!`
+    ;; swaps in a new value and hands back the old. Being the field's own
+    ;; operations, they keep its rules: the handle is unrestricted even
+    ;; when the content is linear, which only a swap may move out, and a
+    ;; function whose type has no `mut` may still use them on a cell it
+    ;; allocates.
     (struct (Ref A)
       ((contents mut A)))
 
