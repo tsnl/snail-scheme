@@ -18,6 +18,7 @@
    SocketError SocketError-code)
   (import
    (snail core base)
+   (prefix (snail runtime native socket) host-)
    (only (snail shell task) tasks through-host))
   (begin
 
@@ -120,134 +121,87 @@
        (finish-connection (-> Connection I32 (Result Unit SocketError) ! tasks))
        (close-listener (-> Listener (Result Unit SocketError)))
        (close-connection (-> Connection (Result Unit SocketError))))
-      (host "snail.runtime.native.socket"
-            ((close-listener "close-listener")
-             (close-connection "close-connection")))
       (default
         ((listen (lambda (endpoint)
-                   (through-host (lambda (ticket)
-                                   (start-listen ticket
-                                                 (address-number endpoint)
-                                                 (Endpoint-port endpoint)
-                                                 accept-backlog))
-                                 finish-listen)))
+                   (native (lambda (ticket)
+                             (host-start-listen ticket
+                                                (address-number endpoint)
+                                                (Endpoint-port endpoint)
+                                                accept-backlog))
+                           listening)))
          (connect (lambda (endpoint)
-                    (through-host (lambda (ticket)
-                                    (start-connect ticket
-                                                   (address-number endpoint)
-                                                   (Endpoint-port endpoint)))
-                                  finish-connect)))
+                    (native (lambda (ticket)
+                              (host-start-connect ticket
+                                                  (address-number endpoint)
+                                                  (Endpoint-port endpoint)))
+                            connected)))
          (accept (lambda (listener)
-                   (through-host (lambda (ticket) (start-accept ticket listener)) finish-accept)))
+                   (native (lambda (ticket) (host-start-accept ticket (listener-handle listener)))
+                           connected)))
          (read (lambda (connection maximum)
                  (if (and (>= maximum 1) (<= maximum read-limit))
-                     (through-host (lambda (ticket) (start-read ticket connection maximum))
-                                   finish-read)
+                     (native (lambda (ticket)
+                               (host-start-read ticket (connection-handle connection) maximum))
+                             held-read)
                      (Err (SocketError "EINVAL")))))
          (write (lambda (connection bytes)
-                  (through-host (lambda (ticket) (start-write ticket connection bytes))
-                                finish-write)))
+                  (native (lambda (ticket)
+                            (host-start-write ticket (connection-handle connection) bytes))
+                          count)))
          (finish-connection
           (lambda (connection grace)
             (if (>= grace 0)
-                (through-host (lambda (ticket) (start-finish-connection ticket connection grace))
-                              finish-finish-connection)
-                (Err (SocketError "EINVAL"))))))))
+                (native (lambda (ticket)
+                          (host-start-finish-connection ticket
+                                                        (connection-handle connection)
+                                                        grace))
+                        done)
+                (Err (SocketError "EINVAL")))))
+         (close-listener (lambda (listener)
+                           (answered (host-close-tcp (listener-handle listener)) done)))
+         (close-connection (lambda (connection)
+                             (answered (host-close-tcp (connection-handle connection)) done))))))
 
     (effect udp
       ((bind (-> Endpoint (Result UdpSocket SocketError) ! tasks))
        (send (-> UdpSocket Endpoint Bytes (Result I32 SocketError) ! tasks))
        (receive (-> UdpSocket I32 (Result Datagram SocketError) ! tasks))
        (close-udp (-> UdpSocket (Result Unit SocketError))))
-      (host "snail.runtime.native.socket"
-            ((close-udp "close-udp")))
       (default
         ((bind (lambda (endpoint)
-                 (through-host (lambda (ticket)
-                                 (start-bind ticket
-                                             (address-number endpoint)
-                                             (Endpoint-port endpoint)
-                                             datagram-queue))
-                               finish-bind)))
+                 (native (lambda (ticket)
+                           (host-start-bind ticket
+                                            (address-number endpoint)
+                                            (Endpoint-port endpoint)
+                                            datagram-queue))
+                         bound)))
          ;; Port 0 names no peer, though a socket may bind to it.
          (send (lambda (socket peer bytes)
                  (cond ((= (Endpoint-port peer) 0) (Err (SocketError "EINVAL")))
                        ((> (vector-length bytes) (i32->i64 datagram-limit))
                         (Err (SocketError "EMSGSIZE")))
-                       (else (through-host (lambda (ticket)
-                                             (start-send ticket
-                                                         socket
-                                                         (address-number peer)
-                                                         (Endpoint-port peer)
-                                                         bytes))
-                                           finish-send)))))
+                       (else (native (lambda (ticket)
+                                       (host-start-send ticket
+                                                        (udp-handle socket)
+                                                        (address-number peer)
+                                                        (Endpoint-port peer)
+                                                        bytes))
+                                     count)))))
          (receive (lambda (socket maximum)
                     (if (and (>= maximum 0) (<= maximum datagram-limit))
-                        (through-host (lambda (ticket) (start-receive ticket socket maximum))
-                                      finish-receive)
-                        (Err (SocketError "EINVAL"))))))))
-
-    ;; ---- Native waits ----
-
-    ;; Each operation that waits starts on the host, which reads its
-    ;; arguments at once, and finishes with the result the host built for
-    ;; its ticket. Both halves return at once.
-    (extern start-listen "snail.runtime.native.socket" "start-listen" (-> I64 I32 I32 I32 Unit))
-    (extern finish-listen
-            "snail.runtime.native.socket"
-            "finish-listen"
-            (-> I64 (Result Listener SocketError)))
-    (extern start-connect "snail.runtime.native.socket" "start-connect" (-> I64 I32 I32 Unit))
-    (extern finish-connect
-            "snail.runtime.native.socket"
-            "finish-connect"
-            (-> I64 (Result Connection SocketError)))
-    (extern start-accept "snail.runtime.native.socket" "start-accept" (-> I64 Listener Unit))
-    (extern finish-accept
-            "snail.runtime.native.socket"
-            "finish-accept"
-            (-> I64 (Result Connection SocketError)))
-    (extern start-read "snail.runtime.native.socket" "start-read" (-> I64 Connection I32 Unit))
-    (extern finish-read
-            "snail.runtime.native.socket"
-            "finish-read"
-            (-> I64 (Result (Option Bytes) SocketError)))
-    (extern start-write "snail.runtime.native.socket" "start-write" (-> I64 Connection Bytes Unit))
-    (extern finish-write
-            "snail.runtime.native.socket"
-            "finish-write"
-            (-> I64 (Result I32 SocketError)))
-    (extern start-finish-connection
-            "snail.runtime.native.socket"
-            "start-finish-connection"
-            (-> I64 Connection I32 Unit))
-    (extern finish-finish-connection
-            "snail.runtime.native.socket"
-            "finish-finish-connection"
-            (-> I64 (Result Unit SocketError)))
-    (extern start-bind "snail.runtime.native.socket" "start-bind" (-> I64 I32 I32 I32 Unit))
-    (extern finish-bind
-            "snail.runtime.native.socket"
-            "finish-bind"
-            (-> I64 (Result UdpSocket SocketError)))
-    (extern start-send
-            "snail.runtime.native.socket"
-            "start-send"
-            (-> I64 UdpSocket I32 I32 Bytes Unit))
-    (extern finish-send
-            "snail.runtime.native.socket"
-            "finish-send"
-            (-> I64 (Result I32 SocketError)))
-    (extern start-receive "snail.runtime.native.socket" "start-receive" (-> I64 UdpSocket I32 Unit))
-    (extern finish-receive
-            "snail.runtime.native.socket"
-            "finish-receive"
-            (-> I64 (Result Datagram SocketError)))
+                        (match (native (lambda (ticket)
+                                         (host-start-receive ticket (udp-handle socket) maximum))
+                                       held-datagram)
+                          ((Ok datagram) datagram)
+                          ((Err error) (Err error)))
+                        (Err (SocketError "EINVAL")))))
+         (close-udp (lambda (socket)
+                      (answered (host-close-udp (udp-handle socket)) done))))))
 
     ;; ---- Native tokens ----
 
     ;; These types are private to the native binding. A mock token reaching
-    ;; that binding becomes EBADF instead of being cast to a native handle.
+    ;; that binding crosses as handle 0, which the host refuses with EBADF.
     (struct NativeListener
       ((handle I32)))
 
@@ -284,104 +238,60 @@
     (define (address-number endpoint)
       (i64->i32 (Ipv4Endpoint-address endpoint)))
 
-    (expose listener-handle "tcp:listener-handle")
-    (expose connection-handle "tcp:connection-handle")
-    (expose udp-handle "udp:socket-handle")
+    ;; ---- Native answers ----
 
-    ;; ---- Host result construction ----
+    ;; An operation that waits on the host: `start` starts it under its
+    ;; ticket, and `success` reads its answer when it did not fail.
+    (: native (All (T) (-> (-> I64 Unit) (-> I32 T) (Result T SocketError) ! tasks)))
+    (define (native start success)
+      (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 
-    ;; JavaScript carries GC references opaquely. These synchronous helpers
-    ;; run only inside a finish, which the waiting task calls.
-    (: buffer (-> I32 (Array U8) ! mut))
-    (define (buffer count)
-      (make-array (i32->i64 count) (i32->u8 0)))
+    ;; What the host holds for an answer is read before the next host call
+    ;; ((snail runtime native socket) has the table); a failure holds its
+    ;; code. A handle in an answer is the shell's from then on.
+    (: answered (All (T) (-> I32 (-> I32 T) (Result T SocketError))))
+    (define (answered answer success)
+      (if (< answer 0)
+          (Err (SocketError (held-text 0)))
+          (Ok (success answer))))
 
-    (: put! (-> (Array U8) I32 I32 Unit ! mut))
-    (define (put! target index byte)
-      (array-set! target (i32->i64 index) (i32->u8 byte)))
+    (: held-bytes (-> I32 Bytes))
+    (define (held-bytes position)
+      (vector-generate (i32->i64 (host-held-length position))
+                       (lambda (index) (i32->u8 (host-held-byte position (i64->i32 index))))))
 
-    (: ascii-text (-> (Array U8) String ! mut))
-    (define (ascii-text bytes)
-      (string-generate (array-length bytes)
-                       (lambda (index) (i32->char (u8->i32 (array-ref bytes index))))))
+    ;; Error codes and addresses are ASCII.
+    (: held-text (-> I32 String))
+    (define (held-text position)
+      (string-generate (i32->i64 (host-held-length position))
+                       (lambda (index) (i32->char (host-held-byte position (i64->i32 index))))))
 
-    (: error-code (-> (Array U8) SocketError ! mut))
-    (define (error-code bytes)
-      (SocketError (ascii-text bytes)))
+    (: listening (-> I32 Listener))
+    (define (listening handle)
+      (Listener (type-convert (NativeListener handle) Any) (host-held-number)))
 
-    (: listening (-> I32 I32 (Result Listener SocketError)))
-    (define (listening handle port)
-      (Ok (Listener (type-convert (NativeListener handle) Any) port)))
-
-    (: connected (-> I32 (Result Connection SocketError)))
+    (: connected (-> I32 Connection))
     (define (connected handle)
-      (Ok (Connection (type-convert (NativeConnection handle) Any))))
+      (Connection (type-convert (NativeConnection handle) Any)))
 
-    (: bound (-> I32 I32 (Result UdpSocket SocketError)))
-    (define (bound handle port)
-      (Ok (UdpSocket (type-convert (NativeUdpSocket handle) Any) port)))
+    (: bound (-> I32 UdpSocket))
+    (define (bound handle)
+      (UdpSocket (type-convert (NativeUdpSocket handle) Any) (host-held-number)))
+
+    (: held-read (-> I32 (Option Bytes)))
+    (define (held-read answer)
+      (if (= answer 0) (None) (Some (held-bytes 0))))
 
     ;; Node names a datagram's sender by its dotted text, which `endpoint`
     ;; parses as it would any other.
-    (: received-datagram (-> (Array U8) I32 (Array U8) (Result Datagram SocketError) ! mut))
-    (define (received-datagram address port bytes)
-      (match (endpoint (ascii-text address) port)
-        ((Ok peer) (Ok (Datagram peer (array->vector bytes))))
+    (: held-datagram (-> I32 (Result Datagram SocketError)))
+    (define (held-datagram _)
+      (match (endpoint (held-text 0) (host-held-number))
+        ((Ok peer) (Ok (Datagram peer (held-bytes 1))))
         ((Err error) (Err error))))
 
-    (: received (-> (Array U8) (Result (Option Bytes) SocketError) ! mut))
-    (define (received bytes)
-      (Ok (Some (array->vector bytes))))
+    (: count (-> I32 I32))
+    (define (count written) written)
 
-    (: eof (-> (Result (Option Bytes) SocketError)))
-    (define (eof)
-      (Ok (None)))
-
-    (: written (-> I32 (Result I32 SocketError)))
-    (define (written count)
-      (Ok count))
-
-    (: closed (-> (Result Unit SocketError)))
-    (define (closed)
-      (Ok (unit)))
-
-    ;; Each Result has its own concrete Wasm type, including its Err variant.
-    (: listen-error (-> SocketError (Result Listener SocketError)))
-    (define (listen-error error) (Err error))
-
-    (: connection-error (-> SocketError (Result Connection SocketError)))
-    (define (connection-error error) (Err error))
-
-    (: bind-error (-> SocketError (Result UdpSocket SocketError)))
-    (define (bind-error error) (Err error))
-
-    (: receive-error (-> SocketError (Result Datagram SocketError)))
-    (define (receive-error error) (Err error))
-
-    (: read-error (-> SocketError (Result (Option Bytes) SocketError)))
-    (define (read-error error) (Err error))
-
-    (: write-error (-> SocketError (Result I32 SocketError)))
-    (define (write-error error) (Err error))
-
-    (: close-error (-> SocketError (Result Unit SocketError)))
-    (define (close-error error) (Err error))
-
-    (expose buffer "socket:buffer")
-    (expose put! "socket:put")
-    (expose error-code "socket:error-code")
-    (expose listening "tcp:listening")
-    (expose connected "tcp:connected")
-    (expose bound "udp:bound")
-    (expose received-datagram "udp:received")
-    (expose received "tcp:received")
-    (expose eof "tcp:eof")
-    (expose written "socket:written")
-    (expose closed "socket:closed")
-    (expose listen-error "tcp:listen-error")
-    (expose connection-error "tcp:connection-error")
-    (expose bind-error "udp:bind-error")
-    (expose receive-error "udp:receive-error")
-    (expose read-error "tcp:read-error")
-    (expose write-error "socket:write-error")
-    (expose close-error "socket:close-error")))
+    (: done (-> I32 Unit))
+    (define (done _) (unit))))

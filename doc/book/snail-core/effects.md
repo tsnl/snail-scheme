@@ -176,11 +176,10 @@ its externs beside its effects, since core imports nothing; a shell
 library imports a `(snail runtime …)` library, which declares the host's
 imports and nothing else, under the prefix `host-`. For example, `(snail
 runtime browser screen)` declares the page's drawing commands, and
-`(snail shell app)`'s `screen` effect defaults each operation to one. The
-TCP, UDP and process effects still name their imports in a `host` clause
-instead, because those imports take the shell's own structs, which a
-runtime library cannot import
-([#566](https://github.com/tsnl/snail-scheme/issues/566)).
+`(snail shell app)`'s `screen` effect defaults each operation to one. An
+interface's imports take and answer scalars, and the shell builds its own
+values from them, as `(snail shell socket)` builds a `Connection` from a
+handle ([the native boundary](../runtimes/networking.md#wasm-boundary)).
 
 A handler can
 still replace them: `tests/programs/files.sld` handles `fs` to answer
