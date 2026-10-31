@@ -81,8 +81,9 @@ so is a second use.
     struct are pure, and so a function may build a counter without `mut`.
   - A struct with a mutable field has identity: two names for it see the
     same writes. So it has no pure replacements and derives no instances.
-    A struct without one has no identity, so it could later be stored
-    inline.
+    A struct without one has no identity, so an immutable field holding
+    one is stored inline, among its parent's fields
+    ([Representation](#representation)).
   - A mutable field never makes its struct linear. Its content leaves only
     by `Counter-count-replace!`, which stores a new value and returns the
     old one. Reading linear content would duplicate it and setting would
@@ -322,6 +323,34 @@ time records it, and calling a `FnOnce`, matching a linear struct or
 reading a field of one compiles as it would for an omega value. `drop`
 releases its argument and does nothing else. The one thing linearity
 changes is a replacement, below.
+
+A struct with no mutable field has no identity, and the language has no
+reference equality, so nothing can tell it from a copy with the same
+fields. The compiler lays such a struct out inline where an immutable
+field holds it: the parent is one GC struct whose fields include the
+inner struct's, and no object of the inner type exists there. A
+`Segment` of two points and a label is five Wasm fields:
+
+```scheme
+{{#include ../../../tests/programs/inline-fields.sld:segment}}
+```
+
+Building one nested, `(Segment (Point 1 2) (Point 3 4) "d")`, writes five
+values into one allocation; `(Point-y (Segment-to s))` is one field read;
+and a nested pattern reads the fields where they lie. A `Point` is its
+own struct only where it is a value on its own: a local, an argument, a
+result, a closure's capture, an Any or an element of an array, and reading
+an inlined field as a whole builds one. A field keeps a reference when it
+is mutable, or holds a struct with a mutable field, an enum, an array, a
+closure or an Any: those have identity, or no single shape. An enum
+case's fields follow the same rule after its tag, and a generic struct is
+laid out at each instantiation, so a `(List Point)` cell holds its point's
+two numbers beside the tail. A replacement of an inlined field copies or
+writes each of its fields, and one that reads the record it replaces
+evaluates every new field before writing any. No program can observe the
+layout, so a later layout, such as arrays of inlined structs, changes
+none. The test program `tests/programs/inline-fields.sld` shows each
+case.
 
 A linear struct leaves only by being taken apart, dropped or replaced, so
 its reference has one owner, and a replacement of one writes the field

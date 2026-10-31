@@ -1,7 +1,8 @@
 ;; Monomorphic program to WasmGC text. This pass decides representations:
 ;; scalars are Wasm numbers, enums whose cases have no fields are i32 tags,
-;; other data are GC structs (enum cases are subtypes of a tagged base),
-;; sequences are GC arrays, and functions are closures holding a typed
+;; other data are GC structs (enum cases are subtypes of a tagged base), an
+;; immutable field holding a struct without mutable fields is laid out
+;; inline, sequences are GC arrays, and functions are closures holding a typed
 ;; function reference. Calls in tail position become `return_call`. A whole
 ;; program becomes one module; one library becomes a module that imports
 ;; what it uses from the modules of other libraries. A control operation
@@ -472,16 +473,14 @@
 
     (: case-fields (-> Module Type Case (List Wat) ! mut))
     ;; A mutable field is a `mut` field of the GC struct, written in place,
-    ;; and so is every field of a struct whose replacements reuse it.
+    ;; and so is every field of a struct whose replacements reuse it. An
+    ;; inlined field is laid out as its type's slots (Inline fields).
     (define (case-fields m type case)
       (let ((reused (reused-in-place? m type)))
-        (map (lambda (pair)
-               (let ((content (rep->wat (rep m (Pair-second pair)))))
-                 (wat "field"
-                      (if (or reused (Field-mutable? (Pair-first pair)))
-                          (wat "mut" content)
-                          content))))
-             (zip (Case-fields case) (case-field-types m type case)))))
+        (map (lambda (slot)
+               (let ((content (rep->wat (rep m (Slot-type slot)))))
+                 (wat "field" (if (or reused (Slot-mutable? slot)) (wat "mut" content) content))))
+             (case-slots m type case))))
 
     ;; A linear struct leaves only by being taken apart, dropped or
     ;; replaced, so its reference has one owner, and a replacement, which
@@ -549,6 +548,98 @@
                                        (wat* "struct"
                                              (Cons (wat "field" (Word "i32"))
                                                    (case-fields m type case)))))))))))
+
+    ;; ---- Inline fields ----
+
+    ;; A struct with no mutable field has no identity: nothing can tell it
+    ;; from a copy with the same fields, since the checker gives it no
+    ;; `set!` or swap and the language has no reference equality. So an
+    ;; immutable field of such a type is stored inline, its fields laid
+    ;; among its parent's, and the parent stays one GC struct, wider. A
+    ;; field holding a struct with a mutable field, an enum, an array, a
+    ;; closure or an Any keeps a reference: those have identity, or no one
+    ;; shape. The expander refuses a struct that contains itself through
+    ;; fields, so laying one out terminates.
+    ;;
+    ;; A standalone value of an inlined type, in a local, a parameter, a
+    ;; closure or an Any, is still its own GC struct. Reading an inlined
+    ;; field as a whole builds one from the parent's slots (`materialize`),
+    ;; and storing a value in one spreads it over the slots (`spread`);
+    ;; nested construction and nested patterns write and read the parent's
+    ;; slots directly, with no struct of the inner type at all, and a chain
+    ;; of accessors reads the outermost struct once (`field-place`).
+
+    ;; One Wasm field of a GC struct: the ground type held there and
+    ;; whether its declaration marked it mutable.
+    (struct Slot
+      ((type Type)
+       (mutable? Bool)))
+
+    ;; The types `rep` represents without a declaration.
+    (: builtin-type-names (List String))
+    (define builtin-type-names
+      (list "U8" "I32" "Bool" "Char" "Unit" "I64" "F32" "F64" "String" "Any" "Funcref" "Array"
+            "Vector" "FnOnce" "Fn"))
+
+    (: inline-type? (-> Module Type Bool))
+    (define (inline-type? m type)
+      (match type
+        ((TCon name _)
+         (and (not (member? name builtin-type-names))
+              (not (DataType-enum? (data-type-of m name)))
+              (let ((fields (Case-fields (struct-case m type))))
+                (and (not (null? fields)) (not (any? Field-mutable? fields))))))
+        (_ #f)))
+
+    ;; A struct is a data type with one case.
+    (: struct-case (-> Module Type Case))
+    (define (struct-case m type)
+      (match (DataType-cases (data-type-of m (type-name type)))
+        ((Cons case _) case)
+        ((Nil) (panic "internal error: a struct has one case"))))
+
+    ;; An immutable field of an inlined type is stored inline.
+    (: field-inline? (-> Module Field Type Bool))
+    (define (field-inline? m field type)
+      (and (not (Field-mutable? field)) (inline-type? m type)))
+
+    ;; Whether the field an accessor reads, of a record of `type`, is inline.
+    (: accessor-inline? (-> Module Case I64 Type Bool))
+    (define (accessor-inline? m case index type)
+      (match (list-ref (case-field-pairs m type case) index)
+        ((Pair field field-type) (field-inline? m field field-type))))
+
+    ;; A case's fields with their ground types.
+    (: case-field-pairs (-> Module Type Case (List (Pair Field Type))))
+    (define (case-field-pairs m type case)
+      (zip (Case-fields case) (case-field-types m type case)))
+
+    ;; The slots a field contributes: its type's when it is inline, else one.
+    (: field-slots (-> Module Field Type (List Slot)))
+    (define (field-slots m field type)
+      (if (field-inline? m field type)
+          (type-slots m type)
+          (list (Slot type (Field-mutable? field)))))
+
+    ;; The slots of a case, in field order.
+    (: case-slots (-> Module Type Case (List Slot)))
+    (define (case-slots m type case)
+      (concatenate (map (lambda (pair) (field-slots m (Pair-first pair) (Pair-second pair)))
+                        (case-field-pairs m type case))))
+
+    ;; The slots of a struct type.
+    (: type-slots (-> Module Type (List Slot)))
+    (define (type-slots m type)
+      (case-slots m type (struct-case m type)))
+
+    ;; The index of a field's first slot among its case's. An enum case's
+    ;; slots follow its tag, which callers count.
+    (: field-offset (-> Module Type Case I64 I64))
+    (define (field-offset m type case index)
+      (fold-left (lambda (sum pair)
+                   (+ sum (length (field-slots m (Pair-first pair) (Pair-second pair)))))
+                 0
+                 (take (case-field-pairs m type case) index)))
 
     ;; ---- Functions ----
 
@@ -1119,12 +1210,13 @@
       (let ((m (Fn-module fn)))
         (match (program-value (program-of m) name)
           ((Some (Constructor case _))
-           (list (construct fn case (Expr-type expr) (emit-args fn args))))
+           (list (construct fn case (Expr-type expr) args)))
           ((Some (Accessor case index _)) (list (field-access fn case index (first-arg args))))
           ((Some (Replacer case index _))
            (list (replace-field fn case index (first-arg args) (list-ref args 1))))
-          ((Some (Setter _ index _))
-           (list (set-field fn index (first-arg args) (list-ref args 1)) (wat "i32.const" (int 0))))
+          ((Some (Setter case index _))
+           (list (set-field fn case index (first-arg args) (list-ref args 1))
+                 (wat "i32.const" (int 0))))
           ((Some (Swapper case index _))
            (list (swap-field fn case index (first-arg args) (list-ref args 1))))
           ((Some (Primitive _)) (emit-primitive fn name args (Expr-type expr)))
@@ -1186,19 +1278,105 @@
         ((Node (Cons (Word head) _)) (or (string=? head "local.get") (string=? head "global.get")))
         (_ #f)))
 
+    ;; The slot values of an expression, one instruction each, in order. A
+    ;; value of an inlined type built by its constructor is its arguments'
+    ;; slots, so nested construction allocates no inner struct; any other
+    ;; is evaluated once, by its first slot, and read slot by slot. A value
+    ;; of any other type is one slot.
+    (: spread (-> Fn Expr (List Wat) ! mut))
+    (define (spread fn expr)
+      (let ((type (Expr-type expr)))
+        (if (inline-type? (Fn-module fn) type)
+            (match (construction fn expr)
+              ((Some args) (spread-args fn args))
+              ((None) (read-slots fn type (emit1 fn expr))))
+            (list (emit1 fn expr)))))
+
+    (: spread-args (-> Fn (List Expr) (List Wat) ! mut))
+    (define (spread-args fn args)
+      (concatenate (map (lambda (arg) (spread fn arg)) args)))
+
+    ;; The arguments of a call to a constructor, when an expression is one.
+    (: construction (-> Fn Expr (Option (List Expr)) ! mut))
+    (define (construction fn expr)
+      (match (Expr-term expr)
+        ((App callee args)
+         (match (builtin-of fn callee)
+           ((Some (Constructor _ _)) (Some args))
+           (_ (None))))
+        ((Ann inner _) (construction fn inner))
+        (_ (None))))
+
+    ;; The program value a callee names, when it is neither a local nor a
+    ;; definition.
+    (: builtin-of (-> Fn Expr (Option Value) ! mut))
+    (define (builtin-of fn callee)
+      (match (Expr-term callee)
+        ((Var name _ _)
+         (if (local? fn name)
+             (None)
+             (match (definition-of (Fn-module fn) name)
+               ((Some _) (None))
+               ((None) (program-value (program-of (Fn-module fn)) name)))))
+        (_ (None))))
+
+    ;; Reads each slot of a struct of an inlined type. The first read
+    ;; evaluates the value into a temporary, unless it is a variable read.
+    (: read-slots (-> Fn Type Wat (List Wat) ! mut))
+    (define (read-slots fn type value)
+      (let* ((m (Fn-module fn)) (type-id (data-type m type)))
+        (if (variable-read? value)
+            (slot-reads m type type-id 0 value)
+            (let ((temp (declare-temp! fn (rep->wat (Reference type-id)))))
+              (match (slot-reads m type type-id 0 (wat "local.get" (id temp)))
+                ((Cons _ rest)
+                 (Cons (wat "struct.get" (id type-id) (int 0) (wat "local.tee" (id temp) value))
+                       rest))
+                ((Nil) (panic "internal error: an inlined type has slots")))))))
+
+    ;; One read per slot of `type`, from slot `offset` on of the struct `read`.
+    (: slot-reads (-> Module Type String I64 Wat (List Wat)))
+    (define (slot-reads m type holder offset read)
+      (map-indexed (lambda (index _) (wat "struct.get" (id holder) (int (+ offset index)) read))
+                   (type-slots m type)))
+
+    ;; A struct of an inlined type built from slots `offset` on of the
+    ;; struct `read`, a variable read.
+    (: materialize (-> Module Type String I64 Wat Wat ! mut))
+    (define (materialize m type holder offset read)
+      (wat* "struct.new" (Cons (id (data-type m type)) (slot-reads m type holder offset read))))
+
+    ;; Each argument is spread when its field is inline, and one slot
+    ;; otherwise: a mutable field holds a reference whatever its type.
+    (: construct (-> Fn Case Type (List Expr) Wat ! mut))
+    (define (construct fn case type args)
+      (construct-slots fn
+                       case
+                       type
+                       (concatenate
+                        (map (lambda (pair) (field-values fn (Pair-first pair) (Pair-second pair)))
+                             (zip (case-field-pairs (Fn-module fn) type case) args)))))
+
+    ;; The slot values of an expression stored in a field.
+    (: field-values (-> Fn (Pair Field Type) Expr (List Wat) ! mut))
+    (define (field-values fn field arg)
+      (if (field-inline? (Fn-module fn) (Pair-first field) (Pair-second field))
+          (spread fn arg)
+          (list (emit1 fn arg))))
+
     ;; Tag enums are i32 constants; field-less cases of other enums are shared
     ;; immutable globals of the base type, so constructing them allocates
-    ;; nothing.
-    (: construct (-> Fn Case Type (List Wat) Wat ! mut))
-    (define (construct fn case type args)
+    ;; nothing. `slots` are the slot values, with inlined arguments spread.
+    (: construct-slots (-> Fn Case Type (List Wat) Wat ! mut))
+    (define (construct-slots fn case type slots)
       (let* ((m (Fn-module fn)) (name (Case-type case)))
         (cond ((tag-enum? m name) (wat "i32.const" (int (Case-tag case))))
               ((not (DataType-enum? (data-type-of m name)))
-               (wat* "struct.new" (Cons (id (data-type m type)) args)))
-              ((null? args) (singleton m type case))
+               (wat* "struct.new" (Cons (id (data-type m type)) slots)))
+              ((null? slots) (singleton m type case))
               (else (wat* "struct.new"
                           (Cons (id (case-type m type case))
-                                (Cons (wat "i32.const" (int (Case-tag case))) args)))))))
+                                (Cons (wat "i32.const" (int (Case-tag case))) slots)))))))
 
     (: singleton (-> Module Type Case Wat ! mut))
     (define (singleton m type case)
@@ -1215,25 +1393,98 @@
                                        (wat "i32.const" (int (Case-tag case))))))
                       (wat "global.get" (id global)))))))
 
-    (: field-access (-> Fn Case I64 Expr Wat ! mut))
-    (define (field-access fn case index value)
-      (let* ((m (Fn-module fn)) (type (Expr-type value)))
+    ;; Where a field is: the instructions that set the place up, the GC
+    ;; struct type holding its slots, a read of that struct, the index of
+    ;; the field's first slot, its ground type and whether it is inline. A
+    ;; field of a struct read out of an inlined field is among the outer
+    ;; struct's slots, so a chain of accessors reads the outermost struct
+    ;; once, however deep the field. `multi?` says the read runs more than
+    ;; once, so a value that is not a variable read is held in a temporary.
+    (struct Place
+      ((setup (List Wat))
+       (holder String)
+       (offset I64)
+       (read Wat)
+       (type Type)
+       (inline? Bool)))
+
+    (: field-place (-> Fn Case I64 Expr Bool Place ! mut))
+    (define (field-place fn case index value multi?)
+      (let* ((m (Fn-module fn))
+             (type (Expr-type value))
+             (field-type (list-ref (case-field-types m type case) index))
+             (inline? (accessor-inline? m case index type))
+             (offset (field-offset m type case index)))
         (if (DataType-enum? (data-type-of m (Case-type case)))
             (let ((case-id (case-type m type case)))
-              (wat "struct.get"
-                   (id case-id)
-                   (int (+ index 1))
-                   (wat "ref.cast" (wat "ref" (id case-id)) (emit1 fn value))))
-            (wat "struct.get" (id (data-type m type)) (int index) (emit1 fn value)))))
+              (match (held-read fn multi? (Reference case-id)
+                                (wat "ref.cast" (wat "ref" (id case-id)) (emit1 fn value)))
+                ((Pair setup read) (Place setup case-id (+ offset 1) read field-type inline?))))
+            (match (inline-access fn value multi?)
+              ((Some outer)
+               (Place (Place-setup outer) (Place-holder outer) (+ (Place-offset outer) offset)
+                      (Place-read outer) field-type inline?))
+              ((None)
+               (let ((type-id (data-type m type)))
+                 (match (held-read fn multi? (Reference type-id) (emit1 fn value))
+                   ((Pair setup read) (Place setup type-id offset read field-type inline?)))))))))
 
-    ;; Only a struct's fields can be mutable.
-    (: set-field (-> Fn I64 Expr Expr Wat ! mut))
-    (define (set-field fn index record content)
-      (wat "struct.set"
-           (id (data-type (Fn-module fn) (Expr-type record)))
-           (int index)
-           (emit1 fn record)
-           (emit1 fn content)))
+    ;; A read of a value that may run more than once: the value itself when
+    ;; it runs once or is a variable read, else a temporary it is first
+    ;; stored in.
+    (: held-read (-> Fn Bool Rep Wat (Pair (List Wat) Wat) ! mut))
+    (define (held-read fn multi? rep value)
+      (if (or (not multi?) (variable-read? value))
+          (Pair (Nil) value)
+          (let ((temp (declare-temp! fn (rep->wat rep))))
+            (Pair (list (wat "local.set" (id temp) value)) (wat "local.get" (id temp))))))
+
+    ;; The place of the inlined field an expression reads, when it is a
+    ;; call to the accessor of one.
+    (: inline-access (-> Fn Expr Bool (Option Place) ! mut))
+    (define (inline-access fn expr multi?)
+      (match (Expr-term expr)
+        ((App callee (Cons arg (Nil)))
+         (match (builtin-of fn callee)
+           ((Some (Accessor case index _))
+            (if (accessor-inline? (Fn-module fn) case index (Expr-type arg))
+                (Some (field-place fn case index arg multi?))
+                (None)))
+           (_ (None))))
+        ((Ann inner _) (inline-access fn inner multi?))
+        (_ (None))))
+
+    ;; Reading an inlined field builds a struct of its type from its slots.
+    (: field-access (-> Fn Case I64 Expr Wat ! mut))
+    (define (field-access fn case index value)
+      (let* ((m (Fn-module fn))
+             (place (field-place fn case index value
+                                 (accessor-inline? m case index (Expr-type value)))))
+        (with-setup fn place
+                    (if (Place-inline? place)
+                        (materialize m (Place-type place) (Place-holder place)
+                                     (Place-offset place) (Place-read place))
+                        (wat "struct.get" (id (Place-holder place)) (int (Place-offset place))
+                             (Place-read place))))))
+
+    ;; The code for a value at a place, after the place's setup.
+    (: with-setup (-> Fn Place Wat Wat ! mut))
+    (define (with-setup fn place code)
+      (match (Place-setup place)
+        ((Nil) code)
+        (setup
+         (wat* "block" (Cons (wat "result" (rep->wat (fn-rep fn (Place-type place))))
+                             (append setup (list code)))))))
+
+    ;; Only a struct's fields can be mutable, and a mutable field is one slot.
+    (: set-field (-> Fn Case I64 Expr Expr Wat ! mut))
+    (define (set-field fn case index record content)
+      (let ((m (Fn-module fn)) (type (Expr-type record)))
+        (wat "struct.set"
+             (id (data-type m type))
+             (int (field-offset m type case index))
+             (emit1 fn record)
+             (emit1 fn content))))
 
     (: swap-field (-> Fn Case I64 Expr Expr Wat ! mut))
     (define (swap-field fn case index record content)
@@ -1241,7 +1492,7 @@
         (wat "call"
              (id (swap-helper m
                               (data-type m type)
-                              index
+                              (field-offset m type case index)
                               (rep m (list-ref (case-field-types m type case) index))))
              (emit1 fn record)
              (emit1 fn content))))
@@ -1272,30 +1523,57 @@
     ;; A replacement copies the record with one field replaced, or writes
     ;; the field of a record it may reuse (`reused-in-place?`) and answers
     ;; the same reference. The record is evaluated before the replacement
-    ;; either way.
+    ;; either way. An inlined field is replaced slot by slot.
     (: replace-field (-> Fn Case I64 Expr Expr Wat ! mut))
     (define (replace-field fn case index value replacement)
       (let* ((m (Fn-module fn))
-             (type-id (data-type m (Expr-type value)))
+             (type (Expr-type value))
+             (type-id (data-type m type))
              (temp (declare-temp! fn (rep->wat (Reference type-id))))
-             (record (wat "local.get" (id temp))))
+             (record (wat "local.get" (id temp)))
+             (offset (field-offset m type case index))
+             (values (field-values fn (list-ref (case-field-pairs m type case) index) replacement)))
         (wat* "block"
               (append (list (wat "result" (wat "ref" (id type-id)))
                             (wat "local.set" (id temp) (emit1 fn value)))
-                      (if (reused-in-place? m (Expr-type value))
-                          (list
-                           (wat "struct.set" (id type-id) (int index) record (emit1 fn replacement))
-                           record)
+                      (if (reused-in-place? m type)
+                          (append (write-slots fn type-id offset record
+                                               (slots-at m type offset (length values)) values)
+                                  (list record))
                           (list (wat* "struct.new"
                                       (Cons (id type-id)
-                                            (map (lambda (i)
-                                                   (if (= i index)
-                                                       (emit1 fn replacement)
-                                                       (wat "struct.get"
-                                                            (id type-id)
-                                                            (int i)
-                                                            record)))
-                                                 (iota (length (Case-fields case))))))))))))
+                                            (map-indexed (lambda (i _)
+                                                           (if (and (>= i offset)
+                                                                    (< i
+                                                                       (+ offset (length values))))
+                                                               (list-ref values (- i offset))
+                                                               (wat "struct.get"
+                                                                    (id type-id)
+                                                                    (int i)
+                                                                    record)))
+                                                         (type-slots m type))))))))))
+
+    ;; `count` slots of a struct type from `offset` on.
+    (: slots-at (-> Module Type I64 I64 (List Slot)))
+    (define (slots-at m type offset count)
+      (take (list-drop (type-slots m type) offset) count))
+
+    ;; Writes slot values from `offset` on. Several are first evaluated into
+    ;; temporaries, since a later one may read a slot an earlier one wrote.
+    (: write-slots (-> Fn String I64 Wat (List Slot) (List Wat) (List Wat) ! mut))
+    (define (write-slots fn holder offset record slots values)
+      (match values
+        ((Cons value (Nil)) (list (wat "struct.set" (id holder) (int offset) record value)))
+        (_
+         (let ((temps
+                (map (lambda (slot) (declare-temp! fn (rep->wat (fn-rep fn (Slot-type slot)))))
+                     slots)))
+           (append (map (lambda (pair) (wat "local.set" (id (Pair-first pair)) (Pair-second pair)))
+                        (zip temps values))
+                   (map-indexed (lambda (i temp)
+                                  (wat "struct.set" (id holder) (int (+ offset i)) record
+                                       (wat "local.get" (id temp))))
+                                temps))))))
 
     ;; ---- Host calls ----
 
@@ -1378,9 +1656,12 @@
       (if (optional-any-type? type)
           (let ((m (Fn-module fn)))
             (wat "if" (wat "result" (rep->wat (rep m type))) (wat "ref.is_null" value)
-                 (wat "then" (construct fn (option-case m #f) type (Nil)))
+                 (wat "then" (construct-slots fn (option-case m #f) type (Nil)))
                  (wat "else"
-                      (construct fn (option-case m #t) type (list (wat "ref.as_non_null" value))))))
+                      (construct-slots fn
+                                       (option-case m #t)
+                                       type
+                                       (list (wat "ref.as_non_null" value))))))
           value))
 
     (: export-handover (-> Fn Type Wat Wat ! mut))
@@ -1508,13 +1789,13 @@
              (case (match (program-value (program-of m) constructor)
                      ((Some (Constructor case _)) case)
                      (_ (panic "internal error: not a constructor"))))
-             (name (Case-type case)) (types (case-field-types m type case)))
+             (name (Case-type case)))
         (cond ((tag-enum? m name)
                (list (wat "br_if"
                           (id fail)
                           (wat "i32.ne" value (wat "i32.const" (int (Case-tag case)))))))
               ((not (DataType-enum? (data-type-of m name)))
-               (fields-code fn (data-type m type) 0 args types value fail))
+               (fields-code fn (data-type m type) 0 case type args value fail))
               (else
                ;; A case's own type is registered only when its fields are
                ;; read, so a field-less case never declares one.
@@ -1531,13 +1812,8 @@
                              (Cons (wat "local.set"
                                         (id cast)
                                         (wat "ref.cast" (wat "ref" (id case-id)) value))
-                                   (fields-code fn
-                                                case-id
-                                                1
-                                                args
-                                                types
-                                                (wat "local.get" (id cast))
-                                                fail))))))))))
+                                   (fields-code fn case-id 1 case type args
+                                                (wat "local.get" (id cast)) fail))))))))))
 
     (: wild? (-> Pattern Bool))
     (define (wild? pattern)
@@ -1546,21 +1822,44 @@
         (_ #f)))
 
     ;; Sub-patterns read their field once, into a temporary unless the
-    ;; pattern is a variable or a wildcard.
-    (: fields-code (-> Fn String I64 (List Pattern) (List Type) Wat String (List Wat) ! mut))
-    (define (fields-code fn type-id offset args types value fail)
-      (concatenate
-       (map-indexed (lambda (index pair)
-                      (let ((arg (Pair-first pair))
-                            (field (wat "struct.get" (id type-id) (int (+ index offset)) value)))
-                        (match arg
-                          ((PWild _) (Nil))
-                          ((PVar _ _) (pattern-code fn arg field fail))
-                          (_ (let ((temp
-                                    (declare-temp! fn (rep->wat (fn-rep fn (Pair-second pair))))))
-                               (Cons (wat "local.set" (id temp) field)
-                                     (pattern-code fn arg (wat "local.get" (id temp)) fail)))))))
-                    (zip args types))))
+    ;; pattern is a variable or a wildcard. A constructor pattern on an
+    ;; inlined field reads the field's slots where they are, in `value`, a
+    ;; variable read; a variable bound to the whole field builds the struct.
+    (: fields-code (-> Fn String I64 Case Type (List Pattern) Wat String (List Wat) ! mut))
+    (define (fields-code fn holder offset case type args value fail)
+      (let ((m (Fn-module fn)))
+        (concatenate
+         (map-indexed
+          (lambda (index arg)
+            (match (list-ref (case-field-pairs m type case) index)
+              ((Pair field field-type)
+               (let ((at (+ offset (field-offset m type case index))))
+                 (cond ((wild? arg) (Nil))
+                       ((field-inline? m field field-type)
+                        (inline-pattern-code fn holder at field-type arg value fail))
+                       (else
+                        (slot-pattern-code fn
+                                           (wat "struct.get" (id holder) (int at) value)
+                                           field-type
+                                           arg
+                                           fail)))))))
+          args))))
+
+    (: inline-pattern-code (-> Fn String I64 Type Pattern Wat String (List Wat) ! mut))
+    (define (inline-pattern-code fn holder at type arg value fail)
+      (let ((m (Fn-module fn)))
+        (match arg
+          ((PCon _ sub-args _)
+           (fields-code fn holder at (struct-case m type) type sub-args value fail))
+          (_ (pattern-code fn arg (materialize m type holder at value) fail)))))
+
+    (: slot-pattern-code (-> Fn Wat Type Pattern String (List Wat) ! mut))
+    (define (slot-pattern-code fn field type arg fail)
+      (match arg
+        ((PVar _ _) (pattern-code fn arg field fail))
+        (_ (let ((temp (declare-temp! fn (rep->wat (fn-rep fn type)))))
+             (Cons (wat "local.set" (id temp) field)
+                   (pattern-code fn arg (wat "local.get" (id temp)) fail))))))
 
     ;; ---- Dynamic values ----
 
@@ -2587,9 +2886,10 @@
                (match (DataType-cases data)
                  ((Cons case _)
                   (wat* "struct.new" (Cons (id (data-type m type))
-                                           (map (lambda (field)
-                                                  (placeholder-value m field (Cons key seen) loc))
-                                                (case-field-types m type case)))))
+                                           (map (lambda (slot)
+                                                  (placeholder-value m (Slot-type slot)
+                                                                     (Cons key seen) loc))
+                                                (case-slots m type case)))))
                  ((Nil) (panic "internal error: a struct has one case")))))))
 
     (: unreachable-code-of (-> Module Type String String ! mut))
