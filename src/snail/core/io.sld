@@ -67,9 +67,10 @@
     (effect console
       ((console-write (-> Char Unit))
        (console-read (-> I32)))
-      (host "snail.core.support"
-            ((console-write "snail:io/console-write")
-             (console-read "snail:io/console-read"))))
+      (default ((console-write support-console-write) (console-read support-console-read))))
+
+    (extern support-console-write "snail.core.support" "snail:io/console-write" (-> Char Unit))
+    (extern support-console-read "snail.core.support" "snail:io/console-read" (-> I32))
 
     ;; ---- Text input ----
 
@@ -142,29 +143,66 @@
        (status-modified (-> I64))
        (path-read-text (-> I64 String I32))
        (path-write-text (-> String I32)))
-      (host "snail.core.support"
-            ((path-exists "snail:io/file-exists")
-             (open-input "snail:io/open-input-file")
-             (open-output "snail:io/open-output-file")
-             (port-read "snail:io/read-character")
-             (port-read-byte "snail:io/read-byte")
-             (port-write "snail:io/write-string")
-             (port-write-byte "snail:io/write-byte")
-             (port-close "snail:io/close")
-             (path-make-directory "snail:io/make-directory")
-             (path-rename "snail:io/rename")
-             (path-remove-file "snail:io/remove-file")
-             (path-remove-directory "snail:io/remove-directory")
-             (path-list "snail:io/list-directory")
-             (path-status "snail:io/file-status")
-             (path-followed-status "snail:io/followed-status")
-             (path-make-link "snail:io/make-symbolic-link")
-             (path-read-link "snail:io/read-symbolic-link")
-             (reply-character "snail:io/reply-character")
-             (status-size "snail:io/status-size")
-             (status-modified "snail:io/status-modified")
-             (path-read-text "snail:io/read-text")
-             (path-write-text "snail:io/write-text"))))
+      (default ((path-exists support-path-exists)
+                (open-input support-open-input)
+                (open-output support-open-output)
+                (port-read support-port-read)
+                (port-read-byte support-port-read-byte)
+                (port-write support-port-write)
+                (port-write-byte support-port-write-byte)
+                (port-close support-port-close)
+                (path-make-directory support-path-make-directory)
+                (path-rename support-path-rename)
+                (path-remove-file support-path-remove-file)
+                (path-remove-directory support-path-remove-directory)
+                (path-list support-path-list)
+                (path-status support-path-status)
+                (path-followed-status support-path-followed-status)
+                (path-make-link support-path-make-link)
+                (path-read-link support-path-read-link)
+                (reply-character support-reply-character)
+                (status-size support-status-size)
+                (status-modified support-status-modified)
+                (path-read-text support-path-read-text)
+                (path-write-text support-path-write-text))))
+
+    (extern support-path-exists "snail.core.support" "snail:io/file-exists" (-> String I32))
+    (extern support-open-input "snail.core.support" "snail:io/open-input-file" (-> String I32))
+    (extern support-open-output "snail.core.support" "snail:io/open-output-file" (-> String I32))
+    (extern support-port-read "snail.core.support" "snail:io/read-character" (-> I32 I32))
+    (extern support-port-read-byte "snail.core.support" "snail:io/read-byte" (-> I32 I32))
+    (extern support-port-write "snail.core.support" "snail:io/write-string" (-> I32 String Unit))
+    (extern support-port-write-byte "snail.core.support" "snail:io/write-byte" (-> I32 I32 Unit))
+    (extern support-port-close "snail.core.support" "snail:io/close" (-> I32 Unit))
+    (extern support-path-make-directory
+            "snail.core.support"
+            "snail:io/make-directory"
+            (-> String I32))
+    (extern support-path-rename "snail.core.support" "snail:io/rename" (-> String I32))
+    (extern support-path-remove-file "snail.core.support" "snail:io/remove-file" (-> String I32))
+    (extern support-path-remove-directory
+            "snail.core.support"
+            "snail:io/remove-directory"
+            (-> String I32))
+    (extern support-path-list "snail.core.support" "snail:io/list-directory" (-> String I32))
+    (extern support-path-status "snail.core.support" "snail:io/file-status" (-> String I32))
+    (extern support-path-followed-status
+            "snail.core.support"
+            "snail:io/followed-status"
+            (-> String I32))
+    (extern support-path-make-link
+            "snail.core.support"
+            "snail:io/make-symbolic-link"
+            (-> String I32))
+    (extern support-path-read-link
+            "snail.core.support"
+            "snail:io/read-symbolic-link"
+            (-> String I32))
+    (extern support-reply-character "snail.core.support" "snail:io/reply-character" (-> I32 Char))
+    (extern support-status-size "snail.core.support" "snail:io/status-size" (-> I64))
+    (extern support-status-modified "snail.core.support" "snail:io/status-modified" (-> I64))
+    (extern support-path-read-text "snail.core.support" "snail:io/read-text" (-> I64 String I32))
+    (extern support-path-write-text "snail.core.support" "snail:io/write-text" (-> String I32))
 
     (: file-exists? (-> String Bool ! fs))
     (define (file-exists? path)
@@ -496,8 +534,9 @@
     ;; the difference between two readings is the time between them.
     (effect clock
       ((monotonic-nanoseconds (-> I64)))
-      (host "snail.core.support"
-            ((monotonic-nanoseconds "snail:clock/monotonic"))))
+      (default ((monotonic-nanoseconds support-monotonic-nanoseconds))))
+
+    (extern support-monotonic-nanoseconds "snail.core.support" "snail:clock/monotonic" (-> I64))
 
     ;; ---- Command line ----
 

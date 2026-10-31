@@ -160,7 +160,10 @@
                   (None))))
 
     ;; Each library's module: the one emitted before, or, for a library just
-    ;; checked, a new one, which this build compiled.
+    ;; checked, a new one, which this build compiled. A library with no items,
+    ;; such as a runtime interface's, which only declares externs, has no
+    ;; module: its importers call the host's imports themselves, and a module
+    ;; of its name would stand where the host's module of that name belongs.
     (: emit-libraries
        (-> ExpandedProgram
            (Table Compiled)
@@ -172,6 +175,7 @@
       (let ((input (prepare-specialization typed)))
         (let loop ((libraries libraries) (compiled compiled) (built (Nil)))
           (match libraries
+            ((Cons (Pair _ (Nil)) rest) (loop rest compiled built))
             ((Cons (Pair name _) rest)
              (let ((before (compiled-of compiled name)))
                (match (Compiled-emission before)
@@ -251,7 +255,8 @@
             (expect (compiled-names body) (list "sample.a"))
             (expect (compiled-names interface) (list "sample.a" "sample.b" "main"))))
         (test-artifact-replay directory library)
-        (test-link-replay directory library))
+        (test-link-replay directory library)
+        (test-extern-library directory library))
 
       (define (no-generation loading forms) (panic "unexpected generated library"))
 
@@ -309,6 +314,25 @@
                     (list (string-append directory "/sample/data.bin")))
             (delete-file data)
             (expect (link-missing? (Pair-second edited) main) #t))))
+
+      ;; A library of externs alone emits no module; its importer calls the
+      ;; host's import.
+      (define (test-extern-library directory library)
+        (let ((main (string-append directory "/clock.sld")))
+          (write-file (string-append directory "/sample/host.sld")
+                      (string-append
+                       "(define-library (sample host) (export now) (import (snail core forms) (snail core primitive)) "
+                       "(begin (extern now \"sample.host\" \"now\" (-> I64))))"))
+          (write-file main "(import (snail core forms) (snail core primitive) (sample host)) (now)")
+          (let ((built (Pair-first (build-session (make-session (list directory library))
+                                                  main
+                                                  no-generation
+                                                  no-inputs))))
+            (expect (map Built-name built) (list "main"))
+            (expect (and (string-contains (Built-text (list-ref built 0))
+                                          "(import \"sample.host\" \"now\"")
+                         #t)
+                    #t))))
 
       (define (link-missing? session main)
         (let ((message

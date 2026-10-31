@@ -19,6 +19,7 @@
    close-watch)
   (import
    (snail core base)
+   (prefix (snail runtime native files) host-)
    (snail core io)
    (snail core table)
    (only (snail shell task) tasks through-host))
@@ -140,17 +141,13 @@
        (hint-end (-> Unit))
        (hint-command (-> I32 I32))
        (next-hint-of (-> I32 Bool ! tasks)))
-      (host "snail.runtime.native.files"
-            ((hint-character "argument-character")
-             (hint-end "argument-end")
-             (hint-command "command")))
       (default
-        ((next-hint-of
+        ((hint-character host-argument-character)
+         (hint-end host-argument-end)
+         (hint-command host-command)
+         (next-hint-of
           (lambda (id)
-            (= (through-host (lambda (ticket) (start-hint ticket id)) finish-hint) 1))))))
-
-    (extern start-hint "snail.runtime.native.files" "start-hint" (-> I64 I32 Unit))
-    (extern finish-hint "snail.runtime.native.files" "finish-hint" (-> I64 I32))
+            (= (through-host (lambda (ticket) (host-start-hint ticket id)) host-finish-hint) 1))))))
 
     ;; A watch the host keeps, by number.
     (struct Watch

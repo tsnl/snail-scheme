@@ -4,12 +4,14 @@
  (snail shell app))
 
 ;; Each task retains the private handler across its waits on storage and
-;; events. Its host default lets the runner detect a leaked handler between
-;; turns.
+;; events. Its default, the host's, lets the runner detect a leaked handler
+;; between turns.
 (effect Marker
   ((marker (-> I32)))
-  (host "snail.test"
-        ((marker "marker"))))
+  (default
+    ((marker host-marker))))
+
+(extern host-marker "snail.test" "marker" (-> I32))
 
 (: reset-test (All (T e) (-> (-> (-> T ! Marker mut tasks e) T ! mut tasks e))))
 (define (reset-test)

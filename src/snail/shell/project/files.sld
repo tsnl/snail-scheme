@@ -23,6 +23,7 @@
    set-file-mode)
   (import
    (snail core base)
+   (prefix (snail runtime native files) host-)
    (snail core io)
    (snail shell sha256)
    (snail shell text)
@@ -309,10 +310,9 @@
       ((mode-character (-> Char Unit))
        (mode-end (-> Unit))
        (mode-command (-> I32 I32)))
-      (host "snail.runtime.native.files"
-            ((mode-character "argument-character")
-             (mode-end "argument-end")
-             (mode-command "command"))))
+      (default ((mode-character host-argument-character)
+                (mode-end host-argument-end)
+                (mode-command host-command))))
 
     (: mode-command-on (-> String String I32 I32 ! modes))
     (define (mode-command-on name path number)
