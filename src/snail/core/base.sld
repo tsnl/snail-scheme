@@ -33,7 +33,7 @@
    fold-left
    fold-right
    list-ref list-tail any? every? find member? iota concatenate
-   delete-duplicates take list-drop last list-index assoc-ref zip
+   delete-duplicates take list-drop list-sort last list-index assoc-ref zip
    i32-and i32-or i32-xor i32-shift-left i32-shift-right i32-shift-right/logical
    i64-and i64-or i64-xor i64-shift-left i64-shift-right i64-shift-right/logical
    char->integer
@@ -490,6 +490,28 @@
           (match items
             ((Cons _ rest) (list-drop rest (- count 1)))
             ((Nil) (Nil)))))
+
+    ;; A stable merge sort: contiguous halves keep their order, and the
+    ;; merge takes the left item first when neither precedes the other.
+    ;; Comparing and splitting read the items, so their type must be Copy.
+    (: list-sort (All (T) (requires (Copy T)) (-> (-> T T Bool) (List T) (List T))))
+    (define (list-sort before? items)
+      (let ((half (quotient (length items) 2)))
+        (if (= half 0)
+            items
+            (merge-sorted before?
+                          (list-sort before? (take items half))
+                          (list-sort before? (list-drop items half))))))
+
+    (: merge-sorted (All (T) (requires (Copy T)) (-> (-> T T Bool) (List T) (List T) (List T))))
+    (define (merge-sorted before? left right)
+      (match (Pair left right)
+        ((Pair (Nil) _) right)
+        ((Pair _ (Nil)) left)
+        ((Pair (Cons a rest-a) (Cons b rest-b))
+         (if (before? b a)
+             (Cons b (merge-sorted before? left rest-b))
+             (Cons a (merge-sorted before? rest-a right))))))
 
     (: last (All (T) (requires (Copy T)) (-> (List T) (Option T))))
     (define (last items)

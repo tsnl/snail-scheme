@@ -60,7 +60,7 @@
                                             source
                                             output
                                             (option options 'release #f)
-                                            (build-crate root "snail-core-support")))))
+                                            (build-runtime root #f)))))
      ((string=? action "compile") (error "source compilation requires -o FILE"))
      ;; Without -o the program lives as long as its run, in a directory of
      ;; its own, so runs at once in one checkout never share a file.
@@ -76,9 +76,8 @@
                                                                       (option options
                                                                               'release
                                                                               #f)
-                                                                      (build-crate
-                                                                       root
-                                                                       "snail-core-support")))))))))
+                                                                      (build-runtime root
+                                                                                     #f)))))))))
 
 (define (run-if-requested root options program)
   (if (string=? (option options 'action "run") "compile")
@@ -90,21 +89,18 @@
   (let ((status (cadr (apply system (append (program-command root program) arguments)))))
     (quotient status 256)))
 
-;; The command line's tools, built if needed, one path a line in the order
-;; build-cli-tools gives them, for the ./snail launcher to read.
-(define (print-lines tools)
-  (for-each (lambda (tool) (write-string (string-append (cdr tool) "\n"))) tools)
+;; Tools in the order their shell launcher consumes them, one path a line.
+(define (print-paths tools)
+  (for-each (lambda (tool) (write-string tool) (newline)) tools)
   0)
 
 (let ((arguments (command-line)))
   (exit (guard (failure (#t (report-failure "snail" failure)))
           (cond ((equal? (cddr arguments) '("bootstrap")) (bootstrap! (cadr arguments)) 0)
                 ((equal? (cddr arguments) '("cli-tools"))
-                 (print-lines (build-cli-tools (cadr arguments))))
-                ;; The same tools a line each, the editor and the reload client first, for
-                ;; ./snail dev.
+                 (print-paths (build-cli-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("dev-tools"))
-                 (print-lines (build-editor-tools (cadr arguments))))
+                 (print-paths (build-editor-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("book-tools"))
-                 (print-lines (build-book-tools (cadr arguments))))
+                 (print-paths (build-book-tools (cadr arguments))))
                 (else (perform (cadr arguments) (request (cddr arguments))))))))

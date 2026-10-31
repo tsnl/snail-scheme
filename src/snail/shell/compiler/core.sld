@@ -84,9 +84,9 @@
    PVar
    PLit
    PCon
-   pattern-type
    lambda-expr?
    expr-references
+   expr-children
    DataType
    DataType-name
    DataType-params
@@ -665,19 +665,29 @@
         (args (List Pattern))
         (type Type))))
 
-    (: pattern-type (-> Pattern Type))
-    (define (pattern-type pattern)
-      (match pattern
-        ((PWild type) type)
-        ((PVar _ type) type)
-        ((PLit _ type) type)
-        ((PCon _ _ type) type)))
-
     (: lambda-expr? (-> Expr Bool))
     (define (lambda-expr? expr)
       (match (Expr-term expr)
         ((Lambda _ _ _) #t)
         (_ #f)))
+
+    ;; Immediate structural children, in source order, including lambda
+    ;; bodies. This describes the IR shape, not when an expression runs.
+    (: expr-children (-> Expr (List Expr)))
+    (define (expr-children expr)
+      (match (Expr-term expr)
+        ((Lit _) (Nil))
+        ((Var _ _ _) (Nil))
+        ((Lambda _ body _) (list body))
+        ((App callee args) (Cons callee args))
+        ((If test then otherwise) (list test then otherwise))
+        ((Let _ value body) (list value body))
+        ((Seq first rest) (list first rest))
+        ((Match scrutinee clauses) (Cons scrutinee (map Clause-body clauses)))
+        ((Ann inner _) (list inner))
+        ((Convert inner _) (list inner))
+        ((TypeTest inner _) (list inner))
+        ((Handle _ implementations body) (append (map Pair-second implementations) (list body)))))
 
     ;; Every name an expression refers to, once each, in order of first
     ;; occurrence. Locals are included, since names are unique.
@@ -690,27 +700,14 @@
     (: collect-references
        (-> (Pair (Table Bool) (List String)) Expr (Pair (Table Bool) (List String))))
     (define (collect-references found expr)
-      (let ((collect collect-references))
-        (match (Expr-term expr)
-          ((Lit _) found)
-          ((Var name _ _)
-           (match found
-             ((Pair seen names)
-              (if (table-contains? seen name)
-                  found
-                  (Pair (table-set seen name #t) (Cons name names))))))
-          ((Lambda _ body _) (collect found body))
-          ((App callee args) (fold-left collect found (Cons callee args)))
-          ((If test then otherwise) (fold-left collect found (list test then otherwise)))
-          ((Let _ value body) (collect (collect found value) body))
-          ((Seq first rest) (collect (collect found first) rest))
-          ((Match scrutinee clauses)
-           (fold-left collect (collect found scrutinee) (map Clause-body clauses)))
-          ((Ann inner _) (collect found inner))
-          ((Convert inner _) (collect found inner))
-          ((TypeTest inner _) (collect found inner))
-          ((Handle _ implementations body)
-           (collect (fold-left collect found (map Pair-second implementations)) body)))))
+      (match (Expr-term expr)
+        ((Var name _ _)
+         (match found
+           ((Pair seen names)
+            (if (table-contains? seen name)
+                found
+                (Pair (table-set seen name #t) (Cons name names))))))
+        (_ (fold-left collect-references found (expr-children expr)))))
 
     ;; ---- Declared entities ----
 
@@ -1334,7 +1331,19 @@
         (expect (wide-hash "") -3750763034362895579)
         (expect (wide-hash "a") -5808556873153909620)
         (expect (wide-hash "foobar") -8821353812377114648)
-        (test-hidden-effects))
+        (test-hidden-effects)
+        (test-references))
+
+      ;; Structural traversal enters latent lambda bodies and handler
+      ;; implementations, preserving first occurrence while deduplicating.
+      (define (test-references)
+        (let* ((at (Loc "references" 1 1))
+               (wrap (lambda (term) (Expr term unchecked at)))
+               (read (lambda (name) (wrap (Var name (Nil) (Nil)))))
+               (body (wrap (App (read "later") (list (read "first") (read "last")))))
+               (handler (wrap (Lambda (list "unused") (read "first") #t)))
+               (expr (wrap (Handle "effect" (list (Pair "operation" handler)) body))))
+          (expect (expr-references expr) (list "first" "later" "last"))))
 
       ;; A total function hides nothing; an effectful one is found at any
       ;; depth of the type, and a type variable may be one.

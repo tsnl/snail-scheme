@@ -109,22 +109,7 @@
     (: check-expression-types (-> Program (List String) Expr Unit ! compile))
     (define (check-expression-types program copy expr)
       (check-type program copy (Expr-type expr) (Expr-loc expr))
-      (for-each (lambda (child) (check-expression-types program copy child)) (children expr)))
-
-    (: children (-> Expr (List Expr)))
-    (define (children expr)
-      (match (Expr-term expr)
-        ((Lambda _ body _) (list body))
-        ((App callee args) (Cons callee args))
-        ((If test then otherwise) (list test then otherwise))
-        ((Let _ value body) (list value body))
-        ((Seq first rest) (list first rest))
-        ((Match value clauses) (Cons value (map Clause-body clauses)))
-        ((Handle _ implementations body) (append (map Pair-second implementations) (list body)))
-        ((Ann inner _) (list inner))
-        ((Convert inner _) (list inner))
-        ((TypeTest inner _) (list inner))
-        (_ (Nil))))
+      (for-each (lambda (child) (check-expression-types program copy child)) (expr-children expr)))
 
     ;; ---- Paths ----
 

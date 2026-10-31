@@ -18,7 +18,6 @@
    parse-request
    request-input
    publish-request
-   unsupplied
    generated-syntax
    print-producer
    printed-producer-text
@@ -106,23 +105,6 @@
     (: publish-request (-> String CompilerRequest Unit ! fs))
     (define (publish-request directory request)
       (write-file (string-append directory "/request.datum") (request->string request)))
-
-    ;; A compile whose caller can supply nothing, as a discovery expansion
-    ;; or the development loop's: its plan has run every producer it reaches,
-    ;; so asking for one's output is an internal error, and only a project
-    ;; build has targets whose files a program could embed, so asking for
-    ;; them is the program's error, at its use. A source error goes on as it
-    ;; came, to the caller's handler.
-    (: unsupplied (All (T e) (-> (-> T ! compile e) T ! compile e)))
-    (define (unsupplied work)
-      (match (compiling work)
-        ((Ok value) value)
-        ((Err (Requested (GenerateInput key)))
-         (panic (string-append "internal error: the plan did not run the producer " key)))
-        ((Err (Requested (ArtifactInput name loc)))
-         (compile-error loc
-                        (string-append "artifact-bundle requires a project build resolver: " name)))
-        ((Err (Failed diagnostics)) (absurd (fail diagnostics)))))
 
     (: request->string (-> CompilerRequest String))
     (define (request->string request)

@@ -1,7 +1,7 @@
 ;; A project's build: each target compiled, linked and packaged into a
 ;; generation of its own, then published by replacing the target's link at
-;; once. The compiler plans the build (snail shell compiler plan) and hands
-;; it out in waves, the phases that can run now, dependencies first: a
+;; once. The project planner (snail shell project plan) hands out waves
+;; of phases that can run now, dependencies first: a
 ;; phase builds a target into its generation, or runs a producer, whose
 ;; output refines the plan. A phase that embeds a target's files is first
 ;; given those of each target it embeds, built in an earlier phase.
@@ -66,7 +66,7 @@
          build-session
          Built-compiled?)
    (snail shell compiler inputs)
-   (snail shell compiler plan)
+   (snail shell project plan)
    (snail shell process)
    (snail shell assembler)
    (snail shell json)
@@ -422,7 +422,7 @@
 
     (: by-node (-> (List Generation) (List Generation)))
     (define (by-node generations)
-      (sort-list (lambda (a b) (< (Generation-node a) (Generation-node b))) generations))
+      (list-sort (lambda (a b) (< (Generation-node a) (Generation-node b))) generations))
 
     ;; ---- Targets ----
 
@@ -954,7 +954,7 @@
     ;; path, in name order, without the root's ownership marker.
     (: generation-files (-> String (List (Pair String String)) ! fs building))
     (define (generation-files directory)
-      (sort-list (lambda (a b) (string<? (Pair-first a) (Pair-first b)))
+      (list-sort (lambda (a b) (string<? (Pair-first a) (Pair-first b)))
                  (files-under directory "")))
 
     ;; The digest of each file of a generation but its modules, by name.
@@ -1126,26 +1126,5 @@
     (: directory-part (-> String String))
     (define (directory-part path)
       (substring path 0 (- (string-length path) (+ (string-length (base-name path)) 1))))
-
-    ;; ---- Sorting ----
-
-    (: sort-list (All (T) (requires (Copy T)) (-> (-> T T Bool) (List T) (List T))))
-    (define (sort-list before? items)
-      (if (<= (length items) 1)
-          items
-          (let ((half (quotient (length items) 2)))
-            (merge-lists before?
-                         (sort-list before? (take items half))
-                         (sort-list before? (list-drop items half))))))
-
-    (: merge-lists (All (T) (requires (Copy T)) (-> (-> T T Bool) (List T) (List T) (List T))))
-    (define (merge-lists before? left right)
-      (match (Pair left right)
-        ((Pair (Nil) _) right)
-        ((Pair _ (Nil)) left)
-        ((Pair (Cons a left-rest) (Cons b right-rest))
-         (if (before? b a)
-             (Cons b (merge-lists before? left right-rest))
-             (Cons a (merge-lists before? left-rest right))))))
 
     ))

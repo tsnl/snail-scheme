@@ -731,19 +731,9 @@
     ;; The effects with a control operation, in order of their names.
     (: control-effects (-> Program (List String)))
     (define (control-effects program)
-      (sort-names (map Effect-name (filter (lambda (effect) (not (null? (Effect-control effect))))
-                                           (table-values (Program-effects program))))))
-
-    (: sort-names (-> (List String) (List String)))
-    (define (sort-names names)
-      (fold-left (lambda (sorted name) (insert-name name sorted)) (Nil) names))
-
-    (: insert-name (-> String (List String) (List String)))
-    (define (insert-name name sorted)
-      (match sorted
-        ((Cons first rest)
-         (if (string<? first name) (Cons first (insert-name name rest)) (Cons name sorted)))
-        ((Nil) (list name))))
+      (list-sort string<?
+                 (map Effect-name (filter (lambda (effect) (not (null? (Effect-control effect))))
+                                          (table-values (Program-effects program))))))
 
     ;; Statements and monomorphic top-level values are roots, so their
     ;; initializers run even when nothing refers to them. Functions are
