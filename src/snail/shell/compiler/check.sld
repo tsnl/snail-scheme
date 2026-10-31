@@ -2043,7 +2043,8 @@
     ;; `check-lambda`, so `performed` holds what its body performed. An
     ;; instance method has its class's row, which this instance may need
     ;; less of, and a value other than a lambda has no body of its own, so
-    ;; neither is held to it.
+    ;; neither is held to it. A default is: its `default` entry is its
+    ;; signature (expand.sld's `snail-defaults`).
     (: check-performed (-> Checker Item Scheme Unit ! compile))
     (define (check-performed ck definition scheme)
       (match (Pair (signature-loc (program-of ck) (Define-name definition))
@@ -2053,13 +2054,23 @@
                     (unperformed-effects row (Checker-performed ck))
                     (Nil))
            ((Nil) (unit))
-           (effects (compile-error loc (unperformed-message (Define-name definition) effects)))))
+           (effects (let ((label (definition-label (program-of ck) (Define-name definition))))
+                      (compile-error loc (unperformed-message label effects))))))
         (_ (unit))))
 
+    ;; How an error names a definition: a default by its operation, since
+    ;; its global's name is generated.
+    (: definition-label (-> Program String String))
+    (define (definition-label program name)
+      (match (find (lambda (default) (string=? (Pair-second default) name))
+                   (concatenate (map Effect-defaults (table-values (Program-effects program)))))
+        ((Some default) (string-append "the default of " (short-name (Pair-first default))))
+        ((None) (short-name name))))
+
     (: unperformed-message (-> String (List String) String))
-    (define (unperformed-message name effects)
+    (define (unperformed-message label effects)
       (let ((one (= (length effects) 1)))
-        (string-append (short-name name)
+        (string-append label
                        " declares the effect"
                        (if one "" "s")
                        (labels->string effects)
@@ -2423,8 +2434,8 @@
                 (list "e"))
         (expect (unperformed-effects (TRow (list "mut") (Some (TRigid "e"))) (list "e" "mut"))
                 (Nil))
-        (expect (unperformed-message "main:double" (list "mut"))
+        (expect (unperformed-message "double" (list "mut"))
                 "double declares the effect mut but never performs it")
-        (expect (unperformed-message "main:f" (list "snail.core.io:console" "e"))
+        (expect (unperformed-message "f" (list "snail.core.io:console" "e"))
                 "f declares the effects console e but never performs them"))))
    (else)))

@@ -2404,8 +2404,10 @@
     ;; `(default ((operation implementation) ...))` defines each
     ;; implementation as a function of this library whose type is its
     ;; operation's, latent row included, as an instance method has its
-    ;; class method's. A control operation has none: no handler is in
-    ;; scope where a default runs, to be handed the rest of the computation.
+    ;; class method's. Its entry is its signature, so the unused-effect
+    ;; rule holds it to that row, which every performer is charged. A
+    ;; control operation has none: no handler is in scope where a default
+    ;; runs, to be handed the rest of the computation.
     (: snail-defaults
        (-> Context
            Env
@@ -2442,7 +2444,7 @@
            (expanding cx ((global (fresh-global (string-append (short-name operation) "-default")))
                           (then (add-value global
                                            (Defined (Some (default-scheme cx operation loc))
-                                             (None)
+                                             (Some loc)
                                              #f))))
                       (Pair (DefaultDefinition operation
                               global
