@@ -1439,8 +1439,21 @@
                                                                    (append
                                                                     (reverse (ref-get (Fn-locals
                                                                                        fn)))
-                                                                    (list value)))))))
+                                                                    (append (entry-clears m)
+                                                                            (list value))))))))
         wrapper))
+
+    ;; A host entry starts with no yield in flight. In a checked program
+    ;; nothing between a yield's record and its catch traps, but for a stack
+    ;; overflow in the call that saves the first frame, and the task loop
+    ;; goes on after a trap (host/browser/tasks.mjs's `drive`), so a record
+    ;; left set would unwind the next task. A program without control
+    ;; effects has no record.
+    (: entry-clears (-> Module (List Wat) ! mut))
+    (define (entry-clears m)
+      (match (Module-callees m)
+        ((Some _) (list (wat "global.set" (id (yielding m)) (wat "ref.null" (id (yield-type m))))))
+        ((None) (Nil))))
 
     ;; ---- Pattern matching ----
 
