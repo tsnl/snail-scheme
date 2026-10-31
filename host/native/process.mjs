@@ -3,7 +3,6 @@
 import {spawn as startChild, spawnSync} from 'node:child_process';
 import {on, once} from 'node:events';
 import {accessSync, constants, statSync} from 'node:fs';
-import {join} from 'node:path';
 
 const chunkSize = 64 * 1024;
 const fault = (code, message) => Object.assign(new Error(message), {code});
@@ -79,11 +78,11 @@ export function createProcesses() {
 
   // Node reports a missing executable or directory asynchronously, as an
   // error instead of `spawn`; an argument it cannot pass at all is EINVAL.
-  async function spawn(signal, directory, program, args) {
+  async function spawn(signal, directory, program, name, args) {
     signal.throwIfAborted();
     if (stopped) throw closedError();
     let child;
-    try { child = startChild(program, args, {cwd: directory, stdio: 'pipe'}); }
+    try { child = startChild(program, args, {cwd: directory, argv0: name, stdio: 'pipe'}); }
     catch (error) { throw String(error.code).startsWith('ERR_') ? fault('EINVAL', error.message) : error; }
     const resource = own(child), abort = () => closeResource(resource, signal.reason);
     signal.addEventListener('abort', abort, {once: true});
@@ -178,9 +177,9 @@ export function createProcesses() {
 // tool that runs once, never a service. The input is written whole, and
 // both outputs are kept whole. A command that cannot start fails with the
 // codes spawn gives.
-export function runChild(directory, program, args, input) {
+export function runChild(directory, program, name, args, input) {
   let result;
-  try { result = spawnSync(program, args, {cwd: directory, input, maxBuffer: Infinity}); }
+  try { result = spawnSync(program, args, {cwd: directory, argv0: name, input, maxBuffer: Infinity}); }
   catch (error) { throw String(error.code).startsWith('ERR_') ? fault('EINVAL', error.message) : error; }
   if (result.error) throw result.error;
   return {code: result.status ?? -1, signal: result.signal ?? '', stdout: result.stdout, stderr: result.stderr};
@@ -190,26 +189,20 @@ export function runChild(directory, program, args, input) {
 
 // `exec` replaces the process. The directory is the process's to change,
 // and it changes back when the attempt fails, which answers its code.
-// execve searches no PATH, so a program with no slash is found on PATH
-// here, as spawn finds one.
-export function replaceProcess(directory, program, args) {
+export function replaceProcess(directory, program, name, args) {
   const home = process.cwd();
   try {
     process.chdir(directory);
-    process.execve(executable(program), [program, ...args], process.env);
+    process.execve(program, [name, ...args], process.env);
   } catch (error) {
     try { process.chdir(home); } catch {}
     return /^E[A-Z0-9]+$/.test(error.code) ? error.code : String(error.code).startsWith('ERR_') ? 'EINVAL' : 'EIO';
   }
 }
 
-function executable(program) {
-  if (program.includes('/')) return program;
-  for (const directory of (process.env.PATH ?? '').split(':')) {
-    const path = join(directory || '.', program);
-    try { accessSync(path, constants.X_OK); if (statSync(path).isFile()) return path; } catch {}
-  }
-  throw fault('ENOENT', `${program} is not on PATH`);
+// (snail shell process) searches PATH; this is the access(2) it asks for.
+export function isExecutable(path) {
+  try { accessSync(path, constants.X_OK); return statSync(path).isFile(); } catch { return false; }
 }
 
 // ---- Termination ----
