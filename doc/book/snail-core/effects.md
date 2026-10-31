@@ -367,7 +367,7 @@ raises again reaches the handler outside it, as an ordinary one does.
 
 A control operation has no default: a default runs where no handler is,
 and nothing there can be handed the rest of a computation
-(`tests/programs/error-control-host-default.sld`). Its implementation runs
+(`tests/programs/error-control-default.sld`). Its implementation runs
 in the handler's outer context, like an ordinary one.
 
 ### Operations that never return
