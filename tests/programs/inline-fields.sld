@@ -93,24 +93,24 @@
           (list (Dot (Point 4 4)) (Line (Segment (Point 0 1) (Point 2 3) "l")) (Empty)))
 (write-line (show (Point-x (Dot-at (Dot (Point 6 0))))))
 
-;; A struct with a mutable field has identity and stays a reference, while
-;; its immutable Point is inline; a mutable field of a Point holds a
-;; reference.
+;; A struct a program changes lives in a cell, whose slots are the
+;; struct's: a cell of a Cursor is one object of five slots, and a field
+;; of a Point inside is one of them.
 (struct Cursor
   ((home Point)
-   (clicks mut I64)
-   (last mut Point)))
+   (clicks I64)
+   (last Point)))
 
-(let ((cursor (Cursor (Point 0 0) 0 (Point 1 1))))
-  (Cursor-clicks-set! cursor (+ (Cursor-clicks cursor) 1))
-  (Cursor-last-set! cursor (Point 2 2))
-  (write-line (string-append (show (Cursor-clicks cursor))
+(let ((cursor (ref (Cursor (Point 0 0) 0 (Point 1 1)))))
+  (set! (::clicks (ref-get cursor)) (+ (::clicks (ref-get cursor)) 1))
+  (set! (::last (ref-get cursor)) (Point 2 2))
+  (write-line (string-append (show (::clicks (ref-get cursor)))
                              " "
-                             (show-point (Cursor-home cursor))
+                             (show-point (::home (ref-get cursor)))
                              " "
-                             (show-point (Cursor-last cursor))))
-  (write-line (show-point (Cursor-last-replace! cursor (Point 3 3))))
-  (write-line (show-point (Cursor-last cursor))))
+                             (show-point (::last (ref-get cursor)))))
+  (write-line (show-point (replace! (::last (ref-get cursor)) (Point 3 3))))
+  (write-line (show-point (::last (ref-get cursor)))))
 
 ;; Accessors are functions too, and an Any holds a Point as itself.
 (write-line (string-join (map show (map Point-x (list (Point 1 0) (Point 2 0)))) " "))

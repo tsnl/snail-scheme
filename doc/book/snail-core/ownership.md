@@ -67,32 +67,43 @@ so is a second use.
   with no owner, and are refused. A replacement's other operand is checked
   first, so it may read the record in place, as `(Job-attempts-set job (+
   (Job-attempts job) 1))` does.
-- **Mutable fields.** Locals are immutable. The writable places are a
-  struct's mutable fields, a `Ref`'s content and an `Array`'s elements,
-  and nothing else: there is no linear memory in the language. A field is
-  mutable when its declaration says so, `(count mut I64)`:
+- **Cells.** Locals are immutable, and so is every struct: a struct is a
+  value with no identity, and a program that changes one holds it in a
+  cell. `Ref` is the one struct with a mutable field, declared in
+  `(snail core base)` as `(struct (Ref A) ((contents mut A)))`, the way
+  OCaml declares `ref`; no other library may declare one. The writable
+  places are a cell's content and an `Array`'s elements, and nothing else:
+  there is no linear memory in the language.
 
   ```scheme
-  {{#include ../../../tests/programs/mutable-fields.sld:counter}}
+  {{#include ../../../tests/programs/cells.sld:counter}}
   ```
 
-  - `Counter-count` reads the field and `Counter-count-set!` writes it,
-    and both perform `mut`. Reading an immutable field and constructing a
-    struct are pure, and so a function may build a counter without `mut`.
-  - A struct with a mutable field has identity: two names for it see the
-    same writes. So it has no pure replacements and derives no instances.
-    A struct without one has no identity, so an immutable field holding
-    one is stored inline, among its parent's fields
-    ([Representation](#representation)).
-  - A mutable field never makes its struct linear. Its content leaves only
-    by `Counter-count-replace!`, which stores a new value and returns the
-    old one. Reading linear content would duplicate it and setting would
-    discard it, so both are refused.
-  - A pattern can only skip a mutable field with `_`, since reading one
-    performs `mut`. Skipping one that holds linear content abandons it if
-    the record is consumed there, as a lost cell abandons its content.
-  - An enum's fields stay immutable: its case accessors are partial. A
-    case that needs one holds a struct with a mutable field.
+  - `(ref v)` builds a cell, purely. `ref-get` reads its content whole
+    and `ref-set!` writes it, and both perform `mut`; `ref-replace!`
+    swaps in a new value and hands back the old. A function whose type
+    has no `mut` may still use them on a cell it allocates.
+  - A *place* is a cell's content, `(ref-get r)`, or a chain of struct
+    fields read from one, `(::count (ref-get r))` or `(::last::x (ref-get
+    c))`. `(set! place v)` writes it and `(replace! place v)` swaps `v` in
+    and answers the old content. The content lies in the cell, so a place
+    is one slot of the cell's object and a write stores there. Each link
+    of a place is a struct's own field: an enum's case, a computed field
+    and a field read through a requirement have no slot to write.
+  - A chain of reads copies one value, the last field, out of its root:
+    the fields along the way are addressed, not read, so `(::live
+    (ref-get scheduler))` reads an unrestricted count out of a cell whose
+    content is linear.
+  - A cell's handle is unrestricted even when its content is linear, so a
+    cell of work items may be shared, captured by an ordinary procedure,
+    or named by a global. Linear content leaves only by a swap, which may
+    reach a field of the content: `ref-get` would duplicate it and
+    `ref-set!` or `set!` discard it, so neither accepts it.
+  - A pattern can only skip a cell's content with `_`, since reading it
+    performs `mut`. Skipping linear content abandons it if the cell is
+    consumed there, as a lost cell abandons its content.
+  - Two names for one cell see the same writes; a cell has identity, so it
+    has no pure replacement and derives no instance.
 - **Captures.** Only a lambda supplied directly to `once` may capture
   linear values, and constructing it moves them in. An ordinary procedure
   is reusable, so capturing a linear value in one is an error. Taking a
@@ -109,17 +120,6 @@ so is a second use.
   and is used only where its head gives that variable an unrestricted
   type: an instance of `(Twice (Option A))` that pairs a value with
   itself cannot be used at `(Option (FnOnce Unit))`.
-- **Cells.** `Ref` is a struct with one mutable field, declared in
-  `(snail core base)` as `(struct (Ref A) ((contents mut A)))`, the way
-  OCaml declares `ref`. `ref`, `ref-get`, `ref-set!` and `ref-replace!`
-  are its constructor and field operations, exported under short names
-  beside their own, so a cell keeps the rules of mutable fields. Its
-  handle is unrestricted even when its content is linear, so a cell of
-  work items may be shared, captured by an ordinary procedure, or named by
-  a global. `ref` moves a value in, and `ref-replace!` swaps in a new one
-  and hands back the old for the caller to consume. `ref-get` would
-  duplicate linear content and `ref-set!` discard it, so neither accepts
-  it.
 - **What cannot hold one.** Linear values cannot be globals, elements of
   `Array` or `Vector`, payloads erased into `Any`, or exports, and a
   statement cannot discard one. A vector is a reference that may be
@@ -340,9 +340,11 @@ values into one allocation; `(Point-y (Segment-to s))` is one field read;
 and a nested pattern reads the fields where they lie. A `Point` is its
 own struct only where it is a value on its own: a local, an argument, a
 result, a closure's capture, an Any or an element of an array, and reading
-an inlined field as a whole builds one. A field keeps a reference when it
-is mutable, or holds a struct with a mutable field, an enum, an array, a
-closure or an Any: those have identity, or no single shape. An enum
+an inlined field as a whole builds one. A cell's content lies in the cell
+the same way: a `(Ref Counter)` is one object whose mutable slots are the
+counter's fields, and a place names one of them. A field keeps a
+reference when it holds a cell, an enum, an array, a closure or an Any:
+those have identity, or no single shape. An enum
 case's fields follow the same rule after its tag, and a generic struct is
 laid out at each instantiation, so a `(List Point)` cell holds its point's
 two numbers beside the tail. A replacement of an inlined field copies or
@@ -377,8 +379,8 @@ runtime owns and cancels those explicitly.
 
 *Proposed, not implemented; the remaining steps are in
 [#550](https://github.com/tsnl/snail-scheme/issues/550).* The grades are
-Rust's, with GC as the only heap; the mutable fields, OCaml's, `Drop`,
-`Clone` and in-place replacement are implemented, above. There are no
+Rust's, with GC as the only heap; cells, OCaml's `ref`, with places,
+`Drop`, `Clone` and in-place replacement are implemented, above. There are no
 borrows, and none are planned: a linear value is passed to each operation
 that uses it and handed back, however many calls that threads it through.
 

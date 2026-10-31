@@ -5,6 +5,6 @@
 ;; no place to stay in: its work item would be left with no owner.
 (struct Task
   ((work (FnOnce Unit))
-   (tries mut I64)))
+   (tries I64)))
 
 (Task-tries (Task (once (lambda () (unit))) 0))

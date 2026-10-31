@@ -112,59 +112,61 @@
     ;; names no wait of this one, unless that one took a thousand tickets a
     ;; millisecond.
     (struct Scheduler
-      ((ready mut (Queue Task))
-       (ready-count mut I64)
-       (timers mut (List Pending))
-       (waiters mut (List Pending))
-       (live mut I64)
-       (running mut I64)
-       (last-task mut I64)
-       (now mut I64)
-       (last-ticket mut I64)))
+      ((ready (Queue Task))
+       (ready-count I64)
+       (timers (List Pending))
+       (waiters (List Pending))
+       (live I64)
+       (running I64)
+       (last-task I64)
+       (now I64)
+       (last-ticket I64)))
 
-    (: scheduler Scheduler)
-    (define scheduler (Scheduler (empty-queue) 0 (Nil) (Nil) 0 0 0 0 0))
+    ;; The scheduler's state is a value in one cell, whose slots are its
+    ;; fields; each operation writes the one field it changes.
+    (: scheduler (Ref Scheduler))
+    (define scheduler (ref (Scheduler (empty-queue) 0 (Nil) (Nil) 0 0 0 0 0)))
 
     ;; A linear field's content moves out by a swap that leaves an empty
     ;; placeholder, and back by a swap that must answer that placeholder:
     ;; anything else would mean a second writer.
     (: take-ready! (-> (Queue Task) ! mut))
     (define (take-ready!)
-      (Scheduler-ready-replace! scheduler (empty-queue)))
+      (replace! (::ready (ref-get scheduler)) (empty-queue)))
 
     (: put-ready! (-> (Queue Task) Unit ! mut))
     (define (put-ready! queue)
-      (match (Scheduler-ready-replace! scheduler queue)
+      (match (replace! (::ready (ref-get scheduler)) queue)
         ((Queue (Nil) (Nil)) (unit))
         ((Queue front back) (panic "the ready queue changed while it was out"))))
 
     (: take-timers! (-> (List Pending) ! mut))
     (define (take-timers!)
-      (Scheduler-timers-replace! scheduler (Nil)))
+      (replace! (::timers (ref-get scheduler)) (Nil)))
 
     (: put-timers! (-> (List Pending) Unit ! mut))
     (define (put-timers! timers)
-      (match (Scheduler-timers-replace! scheduler timers)
+      (match (replace! (::timers (ref-get scheduler)) timers)
         ((Nil) (unit))
         ((Cons first rest) (panic "the timers changed while they were out"))))
 
     (: take-waiters! (-> (List Pending) ! mut))
     (define (take-waiters!)
-      (Scheduler-waiters-replace! scheduler (Nil)))
+      (replace! (::waiters (ref-get scheduler)) (Nil)))
 
     (: put-waiters! (-> (List Pending) Unit ! mut))
     (define (put-waiters! waiters)
-      (match (Scheduler-waiters-replace! scheduler waiters)
+      (match (replace! (::waiters (ref-get scheduler)) waiters)
         ((Nil) (unit))
         ((Cons first rest) (panic "the waiters changed while they were out"))))
 
     (: add-live! (-> I64 Unit ! mut))
     (define (add-live! change)
-      (Scheduler-live-set! scheduler (+ (Scheduler-live scheduler) change)))
+      (set! (::live (ref-get scheduler)) (+ (::live (ref-get scheduler)) change)))
 
     (: add-ready! (-> I64 Unit ! mut))
     (define (add-ready! change)
-      (Scheduler-ready-count-set! scheduler (+ (Scheduler-ready-count scheduler) change)))
+      (set! (::ready-count (ref-get scheduler)) (+ (::ready-count (ref-get scheduler)) change)))
 
     (: push-ready! (-> Task Unit ! mut))
     (define (push-ready! task)
@@ -193,8 +195,8 @@
 
     (: next-ticket! (-> I64 ! mut))
     (define (next-ticket!)
-      (let ((ticket (+ (Scheduler-last-ticket scheduler) 1)))
-        (Scheduler-last-ticket-set! scheduler ticket)
+      (let ((ticket (+ (::last-ticket (ref-get scheduler)) 1)))
+        (set! (::last-ticket (ref-get scheduler)) ticket)
         ticket))
 
     ;; Dispatching charges the work's effects to the dispatcher, so it
@@ -207,8 +209,8 @@
 
     (: dispatch-task (All (e) (-> (FnOnce Unit ! tasks e) I64 ! mut e)))
     (define (dispatch-task work)
-      (let ((id (+ (Scheduler-last-task scheduler) 1)))
-        (Scheduler-last-task-set! scheduler id)
+      (let ((id (+ (::last-task (ref-get scheduler)) 1)))
+        (set! (::last-task (ref-get scheduler)) id)
         (add-live! 1)
         (push-ready! (Task id (inherit-handlers (once (lambda () (start-task work))))))
         id))
@@ -222,10 +224,10 @@
     ;; ticket, and otherwise the milliseconds until the earliest deadline.
     (: turn (-> I64 I64 ! mut host))
     (define (turn now)
-      (when (= (Scheduler-last-ticket scheduler) 0)
-        (Scheduler-last-ticket-set! scheduler (* now 1000)))
-      (Scheduler-now-set! scheduler now)
-      (run-ready! (Scheduler-ready-count scheduler))
+      (when (= (::last-ticket (ref-get scheduler)) 0)
+        (set! (::last-ticket (ref-get scheduler)) (* now 1000)))
+      (set! (::now (ref-get scheduler)) now)
+      (run-ready! (::ready-count (ref-get scheduler)))
       (put-timers! (wake-due! now (take-timers!)))
       (outlook now))
 
@@ -242,9 +244,9 @@
            (put-ready! rest)
            (add-ready! -1)
            (add-live! -1)
-           (Scheduler-running-set! scheduler id)
+           (set! (::running (ref-get scheduler)) id)
            (record! id (run))
-           (Scheduler-running-set! scheduler 0)
+           (set! (::running (ref-get scheduler)) 0)
            (run-ready! (- count 1))))))
 
     (: record! (-> I64 Step Unit ! mut))
@@ -257,7 +259,7 @@
         ((Sleeping delay next)
          (add-live! 1)
          (put-timers!
-          (insert-timer (Pending (+ (Scheduler-now scheduler) delay) id next) (take-timers!))))
+          (insert-timer (Pending (+ (::now (ref-get scheduler)) delay) id next) (take-timers!))))
         ((Waiting ticket next)
          (add-live! 1)
          (put-waiters! (Cons (Pending ticket id next) (take-waiters!))))))
@@ -288,8 +290,8 @@
     (: outlook (-> I64 I64 ! mut))
     (define (outlook now)
       (cond
-       ((> (Scheduler-ready-count scheduler) 0) 0)
-       ((= (Scheduler-live scheduler) 0) -1)
+       ((> (::ready-count (ref-get scheduler)) 0) 0)
+       ((= (::live (ref-get scheduler)) 0) -1)
        (else
         (match (take-timers!)
           ((Nil)
@@ -336,16 +338,16 @@
       (drop (take-ready!))
       (drop (take-timers!))
       (drop (take-waiters!))
-      (Scheduler-ready-count-set! scheduler 0)
-      (Scheduler-live-set! scheduler 0))
+      (set! (::ready-count (ref-get scheduler)) 0)
+      (set! (::live (ref-get scheduler)) 0))
 
     (: running (-> I64 ! mut))
     (define (running)
-      (Scheduler-running scheduler))
+      (::running (ref-get scheduler)))
 
     (: live (-> I64 ! mut))
     (define (live)
-      (Scheduler-live scheduler))
+      (::live (ref-get scheduler)))
 
     (expose turn "tasks:turn")
     (expose wake! "tasks:wake")

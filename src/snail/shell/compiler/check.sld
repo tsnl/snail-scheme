@@ -1957,6 +1957,82 @@
         ((PCon _ args _) (concatenate (map pattern-variables args)))
         (_ (Nil))))
 
+    ;; ---- Places ----
+
+    ;; `set!` and `replace!` write a place: a cell's content, `(ref-get r)`,
+    ;; or a chain of struct-field reads from one, which the backend stores
+    ;; into the slots of the cell. Each link must be a struct's own field,
+    ;; read by its accessor or by a path through the struct's instance: an
+    ;; enum's case, a computed field and a field read through a requirement
+    ;; have no slot to write. Items are checked once their types are final,
+    ;; so a path's instance is known.
+    (: check-places-item (-> Program Item Unit ! compile))
+    (define (check-places-item program item)
+      (match item
+        ((Define _ value) (check-places program value))
+        ((Do value) (check-places program value))
+        (_ (unit))))
+
+    (: check-places (-> Program Expr Unit ! compile))
+    (define (check-places program expr)
+      (match (Expr-term expr)
+        ((App callee (Cons place (Cons _ (Nil))))
+         (match (Expr-term callee)
+           ((Var name _ _)
+            (when (or (string=? name "prim:set!") (string=? name "prim:replace!"))
+              (check-place-links program place)))
+           (_ (unit))))
+        (_ (unit)))
+      (for-each (lambda (child) (check-places program child)) (expr-children expr)))
+
+    ;; Links are followed inward to the first mutable field, whose record is
+    ;; an ordinary expression.
+    (: check-place-links (-> Program Expr Unit ! compile))
+    (define (check-place-links program place)
+      (match (place-link program place)
+        ((Ok (Pair field inner))
+         (unless (Field-mutable? field) (check-place-links program inner)))
+        ((Err problem) (compile-error (Expr-loc place) problem))))
+
+    (: place-link (-> Program Expr (Result (Pair Field Expr) String)))
+    (define (place-link program expr)
+      (match (Expr-term expr)
+        ((Ann inner _) (place-link program inner))
+        ((App callee (Cons record (Nil)))
+         (match (Expr-term callee)
+           ((Var name _ evidence)
+            (match (link-field program name evidence)
+              ((Ok field) (Ok (Pair field record)))
+              ((Err problem) (Err problem))))
+           (_ (Err not-a-place))))
+        (_ (Err not-a-place))))
+
+    (: not-a-place String)
+    (define not-a-place
+      "a place is a cell's content, (ref-get cell), or a chain of struct fields read from one")
+
+    (: link-field (-> Program String (List Evidence) (Result Field String)))
+    (define (link-field program name evidence)
+      (match (program-value program name)
+        ((Some (Accessor case index _)) (struct-field program case index))
+        ((Some (Method class _))
+         (if (field-class? class)
+             (match evidence
+               ((Cons (EvInstance instance _ _) _)
+                (match (field-instance-accessor program class instance)
+                  ((Some (Accessor case index _)) (struct-field program case index))
+                  (_ (Err "cannot write a computed field: its instance has no slot to write"))))
+               (_ (Err
+                   "cannot write a field through a requirement: the record's type must be known")))
+             (Err not-a-place)))
+        (_ (Err not-a-place))))
+
+    (: struct-field (-> Program Case I64 (Result Field String)))
+    (define (struct-field program case index)
+      (if (DataType-enum? (program-type program (Case-type case)))
+          (Err "cannot write through an enum's case; replace the whole enum")
+          (Ok (list-ref (Case-fields case) index))))
+
     ;; ---- Closed functions ----
 
     ;; A closure that may not capture reads no local of the code around it:
@@ -2415,6 +2491,7 @@
     (define (check-final-item program schemes item)
       (check-conversions item)
       (check-closed-item program item)
+      (check-places-item program item)
       (check-item-ownership program schemes item))
 
     (: check-exposures (-> Checker (List Item) Checker ! compile))

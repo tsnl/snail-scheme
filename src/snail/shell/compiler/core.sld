@@ -36,6 +36,7 @@
    field-class-name
    program-with-field-class
    program-with-field-instance
+   field-instance-accessor
    local-name
    string-type?
    bytes-type?
@@ -473,6 +474,21 @@
                                          (Nil)
                                          (Nil)
                                          (list (Pair class accessor))))))
+
+    ;; The accessor a struct's own field instance reads with, when the
+    ;; instance is one; a declared instance computes its field instead.
+    (: field-instance-accessor (-> Program String String (Option Value)))
+    (define (field-instance-accessor program class instance)
+      (match (find (lambda (candidate) (string=? (Instance-name candidate) instance))
+                   (class-instances program class))
+        ((Some found)
+         (match (assoc-ref (Instance-methods found) class)
+           ((Some target)
+            (match (program-value program target)
+              ((Some (Accessor case index scheme)) (Some (Accessor case index scheme)))
+              (_ (None))))
+           ((None) (None))))
+        ((None) (None))))
 
     (: string-type? (-> Type Bool))
     (define (string-type? type)

@@ -598,10 +598,11 @@
         ((Cons case _) case)
         ((Nil) (panic "internal error: a struct has one case"))))
 
-    ;; An immutable field of an inlined type is stored inline.
+    ;; A field of an inlined type is stored inline, mutable or not: a
+    ;; cell's content lies in the cell.
     (: field-inline? (-> Module Field Type Bool))
     (define (field-inline? m field type)
-      (and (not (Field-mutable? field)) (inline-type? m type)))
+      (inline-type? m type))
 
     ;; Whether the field an accessor reads, of a record of `type`, is inline.
     (: accessor-inline? (-> Module Case I64 Type Bool))
@@ -614,11 +615,14 @@
     (define (case-field-pairs m type case)
       (zip (Case-fields case) (case-field-types m type case)))
 
-    ;; The slots a field contributes: its type's when it is inline, else one.
+    ;; The slots a field contributes: its type's when it is inline, each
+    ;; mutable when the field is, else one.
     (: field-slots (-> Module Field Type (List Slot)))
     (define (field-slots m field type)
       (if (field-inline? m field type)
-          (type-slots m type)
+          (map
+           (lambda (slot) (Slot (Slot-type slot) (or (Slot-mutable? slot) (Field-mutable? field))))
+           (type-slots m type))
           (list (Slot type (Field-mutable? field)))))
 
     ;; The slots of a case, in field order.
@@ -1215,8 +1219,8 @@
           ((Some (Replacer case index _))
            (list (replace-field fn case index (first-arg args) (list-ref args 1))))
           ((Some (Setter case index _))
-           (list (set-field fn case index (first-arg args) (list-ref args 1))
-                 (wat "i32.const" (int 0))))
+           (append (set-field fn case index (first-arg args) (list-ref args 1))
+                   (list (wat "i32.const" (int 0)))))
           ((Some (Swapper case index _))
            (list (swap-field fn case index (first-arg args) (list-ref args 1))))
           ((Some (Primitive _)) (emit-primitive fn name args (Expr-type expr)))
@@ -1476,26 +1480,104 @@
          (wat* "block" (Cons (wat "result" (rep->wat (fn-rep fn (Place-type place))))
                              (append setup (list code)))))))
 
-    ;; Only a struct's fields can be mutable, and a mutable field is one slot.
-    (: set-field (-> Fn Case I64 Expr Expr Wat ! mut))
+    ;; Only a struct's fields can be mutable. One holding an inlined struct
+    ;; is written slot by slot (`write-at`).
+    (: set-field (-> Fn Case I64 Expr Expr (List Wat) ! mut))
     (define (set-field fn case index record content)
       (let ((m (Fn-module fn)) (type (Expr-type record)))
-        (wat "struct.set"
-             (id (data-type m type))
-             (int (field-offset m type case index))
-             (emit1 fn record)
-             (emit1 fn content))))
+        (if (accessor-inline? m case index type)
+            (write-at fn
+                      (list-ref (case-field-pairs m type case) index)
+                      (field-place fn case index record #t)
+                      content)
+            (list (wat "struct.set"
+                       (id (data-type m type))
+                       (int (field-offset m type case index))
+                       (emit1 fn record)
+                       (emit1 fn content))))))
 
     (: swap-field (-> Fn Case I64 Expr Expr Wat ! mut))
     (define (swap-field fn case index record content)
       (let* ((m (Fn-module fn)) (type (Expr-type record)))
-        (wat "call"
-             (id (swap-helper m
-                              (data-type m type)
-                              (field-offset m type case index)
-                              (rep m (list-ref (case-field-types m type case) index))))
-             (emit1 fn record)
-             (emit1 fn content))))
+        (if (accessor-inline? m case index type)
+            (swap-at fn
+                     (list-ref (case-field-pairs m type case) index)
+                     (field-place fn case index record #t)
+                     content)
+            (wat "call"
+                 (id (swap-helper m
+                                  (data-type m type)
+                                  (field-offset m type case index)
+                                  (rep m (list-ref (case-field-types m type case) index))))
+                 (emit1 fn record)
+                 (emit1 fn content)))))
+
+    ;; `set!` and `replace!` write a place: a chain of struct-field reads
+    ;; from a cell's content, which the checker verified (`check-places`),
+    ;; so the field lies in the slots of the outermost object and
+    ;; `field-place` finds it there.
+    (: place-write (-> Fn Expr Expr (List Wat) ! mut))
+    (define (place-write fn place value)
+      (match (place-field fn place)
+        ((Pair pair target) (write-at fn pair target value))))
+
+    (: place-swap (-> Fn Expr Expr Wat ! mut))
+    (define (place-swap fn place value)
+      (match (place-field fn place)
+        ((Pair pair target) (swap-at fn pair target value))))
+
+    ;; The field a place names and where it is.
+    (: place-field (-> Fn Expr (Pair (Pair Field Type) Place) ! mut))
+    (define (place-field fn place)
+      (match (Expr-term place)
+        ((Ann inner _) (place-field fn inner))
+        ((App callee (Cons record (Nil)))
+         (match (builtin-of fn callee)
+           ((Some (Accessor case index _))
+            (Pair (list-ref (case-field-pairs (Fn-module fn) (Expr-type record) case) index)
+                  (field-place fn case index record #t)))
+           (_ (panic "internal error: a place reads a field"))))
+        (_ (panic "internal error: a place reads a field"))))
+
+    ;; Writes a value into a field's slots, after the place is set up and
+    ;; the value's slots are evaluated.
+    (: write-at (-> Fn (Pair Field Type) Place Expr (List Wat) ! mut))
+    (define (write-at fn pair target value)
+      (append (Place-setup target)
+              (write-slots fn (Place-holder target) (Place-offset target) (Place-read target)
+                           (field-slots (Fn-module fn) (Pair-first pair) (Pair-second pair))
+                           (field-values fn pair value))))
+
+    ;; Swaps a value into a field's slots and answers the old content: the
+    ;; new slots are evaluated first, then the old content is read, whole,
+    ;; then the new slots are written.
+    (: swap-at (-> Fn (Pair Field Type) Place Expr Wat ! mut))
+    (define (swap-at fn pair target value)
+      (let* ((m (Fn-module fn))
+             (field-type (Pair-second pair))
+             (result (rep->wat (fn-rep fn field-type)))
+             (slots (field-slots m (Pair-first pair) field-type))
+             (temps (map (lambda (slot) (declare-temp! fn (rep->wat (fn-rep fn (Slot-type slot)))))
+                         slots))
+             (old (declare-temp! fn result))
+             (holder (Place-holder target))
+             (offset (Place-offset target))
+             (read (Place-read target)))
+        (wat* "block"
+              (concatenate
+               (list (list (wat "result" result))
+                     (Place-setup target)
+                     (map (lambda (p) (wat "local.set" (id (Pair-first p)) (Pair-second p)))
+                          (zip temps (field-values fn pair value)))
+                     (list (wat "local.set" (id old)
+                                (if (Place-inline? target)
+                                    (materialize m field-type holder offset read)
+                                    (wat "struct.get" (id holder) (int offset) read))))
+                     (map-indexed (lambda (i temp)
+                                    (wat "struct.set" (id holder) (int (+ offset i)) read
+                                         (wat "local.get" (id temp))))
+                                  temps)
+                     (list (wat "local.get" (id old))))))))
 
     ;; Swaps a mutable field's content for a new value and answers the old
     ;; one, which stays on the operand stack while the new one is stored.
@@ -3782,6 +3864,10 @@
           (("string-ref" "vector-ref" "array-ref")
            (let ((array (sequence (first-type types))))
              (list (wat (array-get array) (id array) (arg 0) (index (arg 1))))))
+          (("set!")
+           (append (place-write fn (first-arg args) (list-ref args 1))
+                   (list (wat "i32.const" (int 0)))))
+          (("replace!") (list (place-swap fn (first-arg args) (list-ref args 1))))
           (("array-set!")
            (list
             (wat "array.set" (id (sequence (first-type types))) (arg 0) (index (arg 1)) (arg 2))

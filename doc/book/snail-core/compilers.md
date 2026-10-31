@@ -297,13 +297,14 @@ function of the expander has `mut` in its row — and where it does not, the
 - **[`wasm.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/wasm.sld)** chooses representations and
   emits WebAssembly text. Scalars are Wasm numbers. An enum whose cases have
   no fields is an `i32`; other data are GC structs, and enum cases are final
-  subtypes of a base holding the tag. An immutable field holding a struct
-  without mutable fields is laid out inline, as that struct's fields, so a
-  nested value costs no second object; reading it whole builds one, and a
-  nested pattern or a chain of accessors reads the fields where they lie
-  ("Inline fields"). A mutable field is a `mut` struct
-  field, written with `struct.set`; a swap reads the old content and writes
-  the new in one helper. Every field of a struct whose ground type is
+  subtypes of a base holding the tag. A field holding a struct is laid out
+  inline, as that struct's fields, so a nested value costs no second
+  object and a cell's content lies in the cell; reading it whole builds
+  one, and a nested pattern or a chain of accessors reads the fields where
+  they lie ("Inline fields"). `Ref`'s content is a `mut` struct field, or
+  several; `set!` and `replace!` write a place, a chain of field reads from
+  a cell, into the slots of the cell, and a swap reads the old content
+  before writing the new. Every field of a struct whose ground type is
   linear is `mut` too, since its reference has one owner: a replacement of
   one writes the field in place and answers the same reference, where an
   omega struct's is copied. Sequences are GC arrays. Functions are

@@ -51,7 +51,9 @@
    array->vector
    vector->array
    array-copy!
-   vector-copy!)
+   vector-copy!
+   set!
+   replace!)
   (import
    (snail core forms))
   (begin
@@ -240,4 +242,12 @@
     (primitive array-copy!
                (All (A) (requires (Copy A)) (-> (Array A) I64 (Array A) I64 I64 Unit ! mut)))
     (primitive vector-copy!
-               (All (A) (requires (Copy A)) (-> (Array A) I64 (Vector A) I64 I64 Unit ! mut)))))
+               (All (A) (requires (Copy A)) (-> (Array A) I64 (Vector A) I64 I64 Unit ! mut)))
+
+    ;; `set!` writes a place and `replace!` swaps a value into one and
+    ;; answers the old: a cell's content, `(ref-get r)`, or a chain of struct
+    ;; fields read from one, `(::count (ref-get r))`, which the checker
+    ;; verifies (check.sld, "Places"). Setting discards the old content, so
+    ;; it must be unrestricted; a swap moves it out.
+    (primitive set! (All (A) (requires (Copy A)) (-> A A Unit ! mut)))
+    (primitive replace! (All (A) (-> A A A ! mut)))))

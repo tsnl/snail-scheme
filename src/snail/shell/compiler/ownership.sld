@@ -265,6 +265,10 @@
         ((Pair (Var "prim:once" _ _) (Cons value (Nil)))
          (if (lambda-expr? value) (check-lambda path value #t) (check path value)))
         ((Pair (Var "prim:panic" _ _) _) (Path-returns-set (check-all path args) #f))
+        ((Pair (Var "prim:set!" _ _) (Cons place (Cons value (Nil))))
+         (check (check-place-root path place) value))
+        ((Pair (Var "prim:replace!" _ _) (Cons place (Cons value (Nil))))
+         (check (check-place-root path place) value))
         ((Pair (Var _ _ _) (Cons record rest))
          (match (field-operation path callee)
            ((Some operation)
@@ -274,7 +278,7 @@
               ;; it consumes the record, after its other operand, which may
               ;; read the record in place.
               ((Replacer _ _ _) (check (check-all path rest) record))
-              (_ (check-all (check-place path record) rest))))
+              (_ (check-all (check-chain path record) rest))))
            ((None) (check-all path (Cons callee args)))))
         (_ (check-all path (Cons callee args)))))
 
@@ -299,16 +303,7 @@
     (define (field-method-operation path class evidence)
       (match evidence
         ((Cons (EvInstance instance _ _) _)
-         (match (find (lambda (candidate) (string=? (Instance-name candidate) instance))
-                      (class-instances (Path-program path) class))
-           ((Some found)
-            (match (assoc-ref (Instance-methods found) class)
-              ((Some target)
-               (match (program-value (Path-program path) target)
-                 ((Some (Accessor case index scheme)) (Some (Accessor case index scheme)))
-                 (_ (None))))
-              ((None) (None))))
-           ((None) (None))))
+         (field-instance-accessor (Path-program path) class instance))
         (_ (None))))
 
     (: field-value? (-> Value Bool))
@@ -378,6 +373,36 @@
                                    record
                                    "apply a field operation to a linear record by name; as a value it would consume the record"))))
         (_ (unit))))
+
+    ;; A chain of field reads, `(::x (::from s))` or `(::live (ref-get r))`,
+    ;; copies one value, the last field, out of the record at its root:
+    ;; the fields along the way are addressed, not read, so their grades
+    ;; do not matter, and only the outermost read's result is checked. The
+    ;; root is the record of the innermost read.
+    (: check-chain (-> Path Expr Path ! compile))
+    (define (check-chain path record)
+      (match (chain-record path record)
+        ((Some inner) (check-chain path inner))
+        ((None) (check-place path record))))
+
+    ;; The record a field read reads from, when an expression is one.
+    (: chain-record (-> Path Expr (Option Expr)))
+    (define (chain-record path expr)
+      (match (Expr-term expr)
+        ((Ann inner _) (chain-record path inner))
+        ((App callee (Cons record (Nil)))
+         (match (field-operation path callee)
+           ((Some (Accessor _ _ _)) (Some record))
+           (_ (None))))
+        (_ (None))))
+
+    ;; A written place is addressed down to the cell it is in, whose
+    ;; expression is checked; the checker proved the links are fields.
+    (: check-place-root (-> Path Expr Path ! compile))
+    (define (check-place-root path place)
+      (match (chain-record path place)
+        ((Some inner) (check-place-root path inner))
+        ((None) (check path place))))
 
     ;; The place rule: a field operation reads or writes its record where it
     ;; is, so a linear local it is applied to stays live. A linear record

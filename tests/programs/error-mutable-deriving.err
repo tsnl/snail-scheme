@@ -1,1 +1,0 @@
-a struct with a mutable field has identity, so it cannot derive an instance
