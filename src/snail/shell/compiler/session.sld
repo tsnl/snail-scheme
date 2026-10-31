@@ -18,7 +18,7 @@
    Built-compiled?
    Built-links
    LinkedFile
-   LinkedFile-name
+   LinkedFile-digest
    LinkedFile-path
    build-session)
   (import
@@ -286,9 +286,11 @@
              (compiled-names (build-session (Pair-second empty) main no-generation no-inputs))
              (list "sample.assets" "main")))))
 
-      ;; A linked file's bytes are no build key: editing it compiles
-      ;; nothing, though every build still reports it. Removing it fails
-      ;; even a replay, naming the library and the path.
+      ;; A linked file's digest is in its library's keys and in its
+      ;; importers': a build with the file unchanged compiles nothing, and
+      ;; editing it compiles the library, whose module names the new
+      ;; digest, and its importer. Removing it fails even a replay, naming
+      ;; the library and the path.
       (define (test-link-replay directory library)
         (let ((main (string-append directory "/linked.sld"))
               (data (string-append directory "/sample/data.bin")))
@@ -303,13 +305,15 @@
                                        main
                                        no-generation
                                        no-inputs))
+                 (unchanged (build-session (Pair-second first) main no-generation no-inputs))
                  (edited (begin
                            (write-file data "second")
-                           (build-session (Pair-second first) main no-generation no-inputs))))
-            (expect (compiled-names edited) (Nil))
+                           (build-session (Pair-second unchanged) main no-generation no-inputs))))
+            (expect (compiled-names unchanged) (Nil))
+            (expect (compiled-names edited) (list "sample.linked" "main"))
             (expect
-             (map (lambda (built) (map LinkedFile-name (Built-links built))) (Pair-first edited))
-             (list (list "sample.linked/data.bin") (Nil)))
+             (map (lambda (built) (map LinkedFile-digest (Built-links built))) (Pair-first edited))
+             (list (list "16367aacb67a4a017c8da8ab95682ccb390863780f7114dda0a0e0c55644c7c4") (Nil)))
             (expect (map LinkedFile-path (Built-links (list-ref (Pair-first edited) 0)))
                     (list (string-append directory "/sample/data.bin")))
             (delete-file data)

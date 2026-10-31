@@ -2,12 +2,13 @@
 //! host/browser/load.mjs gives them on Node and in the page.
 //!
 //! A module asks for each file it links by importing a function from
-//! "snail.runtime.link" named for the file, which answers the file's handle.
-//! A handle is only a name: a task reads the file through
+//! "snail.runtime.link" named for the SHA-256 of the file's bytes, in hex,
+//! which answers the file's handle. A handle is only that name: a task
+//! reads the file through
 //! "snail.runtime.resource", starting the read under a ticket of (snail
 //! shell task), and then finishing the ticket for the file's length and
 //! reading the bytes held until the next finish. This host reads the file
-//! from `resources/NAME` beside the payload when the read starts, the
+//! from `resources/DIGEST` beside the payload when the read starts, the
 //! first time it is asked for, and wakes the ticket between turns
 //! (program.rs's `drive`), since a ticket may not wake before its task
 //! waits on it. A file that cannot be read traps the task that finishes it.
@@ -153,11 +154,16 @@ pub fn define(linker: &mut Linker<Host>, names: &[String]) -> wasmtime::Result<(
 mod tests {
     use super::*;
 
+    // The digests of b"hello" and of [1, 2, 30], the bytes the payloads
+    // below hold under them.
+    const GREETING: &str = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+    const PIXEL: &str = "32e3ea041d71f3b22a7424935466262cf12aa55c103be694c4eec92a9e607918";
+
     // A module that links two files, one of them twice.
     const LINKING: &str = r#"(module
-        (import "snail.runtime.link" "main/data/greeting.txt" (func $greeting (result i32)))
-        (import "snail.runtime.link" "lib/data/pixel.png" (func $pixel (result i32)))
-        (import "snail.runtime.link" "main/data/greeting.txt" (func $again (result i32))))"#;
+        (import "snail.runtime.link" "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824" (func $greeting (result i32)))
+        (import "snail.runtime.link" "32e3ea041d71f3b22a7424935466262cf12aa55c103be694c4eec92a9e607918" (func $pixel (result i32)))
+        (import "snail.runtime.link" "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824" (func $again (result i32))))"#;
 
     // A payload directory of its own holding the files `files` names.
     fn payload(name: &str, files: &[(&str, &[u8])]) -> PathBuf {
@@ -172,10 +178,7 @@ mod tests {
     }
 
     fn names() -> Vec<String> {
-        vec![
-            "main/data/greeting.txt".to_string(),
-            "lib/data/pixel.png".to_string(),
-        ]
+        vec![GREETING.to_string(), PIXEL.to_string()]
     }
 
     #[test]
@@ -187,13 +190,7 @@ mod tests {
 
     #[test]
     fn a_read_answers_its_ticket_once_woken_and_holds_the_bytes() {
-        let directory = payload(
-            "reading",
-            &[
-                ("main/data/greeting.txt", b"hello"),
-                ("lib/data/pixel.png", &[1, 2, 30]),
-            ],
-        );
+        let directory = payload("reading", &[(GREETING, b"hello"), (PIXEL, &[1, 2, 30])]);
         let mut files = Files::new(&directory, &names());
         files.start(7, 1).unwrap();
         files.start(8, 0).unwrap();
@@ -206,17 +203,16 @@ mod tests {
         std::fs::remove_dir_all(directory).unwrap();
     }
 
+    // A build never rewrites a file under its digest; this one does, to
+    // see when the host reads it.
     #[test]
     fn a_file_is_read_when_first_asked_for_and_kept() {
-        let directory = payload("lazy", &[("main/data/greeting.txt", b"hello")]);
+        let directory = payload("lazy", &[(GREETING, b"hello")]);
+        let file = directory.join("resources").join(GREETING);
         let mut files = Files::new(&directory, &names());
-        std::fs::write(directory.join("resources/main/data/greeting.txt"), "later").unwrap();
+        std::fs::write(&file, "later").unwrap();
         files.start(1, 0).unwrap();
-        std::fs::write(
-            directory.join("resources/main/data/greeting.txt"),
-            "changed",
-        )
-        .unwrap();
+        std::fs::write(&file, "changed").unwrap();
         files.start(2, 0).unwrap();
         files.finish(1).unwrap();
         assert_eq!(files.byte(0).unwrap(), i32::from(b'l'));
@@ -226,14 +222,14 @@ mod tests {
 
     #[test]
     fn a_file_that_cannot_be_read_fails_the_finish_naming_it() {
-        let directory = payload("unreadable", &[("main/data/greeting.txt", b"hello")]);
+        let directory = payload("unreadable", &[(GREETING, b"hello")]);
         let mut files = Files::new(&directory, &names());
         files.start(3, 1).unwrap();
         let error = files.finish(3).err().unwrap();
         assert!(
             error
                 .to_string()
-                .starts_with("cannot read the linked file lib/data/pixel.png: ")
+                .starts_with(&format!("cannot read the linked file {PIXEL}: "))
         );
         assert!(files.start(4, 2).is_err());
         std::fs::remove_dir_all(directory).unwrap();
