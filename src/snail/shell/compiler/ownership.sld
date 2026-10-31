@@ -247,7 +247,7 @@
     ;; linear is one.
     (: check-reference (-> Path Expr String Path ! compile))
     (define (check-reference path expr name)
-      (match (field-operation path name)
+      (match (field-operation path expr)
         ((Some operation) (check-field-value path operation expr) path)
         ((None)
          (match (program-value (Path-program path) name)
@@ -265,8 +265,8 @@
         ((Pair (Var "prim:once" _ _) (Cons value (Nil)))
          (if (lambda-expr? value) (check-lambda path value #t) (check path value)))
         ((Pair (Var "prim:panic" _ _) _) (Path-returns-set (check-all path args) #f))
-        ((Pair (Var name _ _) (Cons record rest))
-         (match (field-operation path name)
+        ((Pair (Var _ _ _) (Cons record rest))
+         (match (field-operation path callee)
            ((Some operation)
             (check-field-grades path operation (Expr-type callee) (Expr-loc callee))
             (match operation
@@ -280,13 +280,36 @@
 
     ;; ---- Fields ----
 
-    ;; The value `name` denotes when it is an accessor, a replacement, a
-    ;; setter or a swapper.
-    (: field-operation (-> Path String (Option Value)))
-    (define (field-operation path name)
-      (match (program-value (Path-program path) name)
-        ((Some value) (if (field-value? value) (Some value) (None)))
-        ((None) (None))))
+    ;; The value a callee denotes when it is an accessor, a replacement, a
+    ;; setter or a swapper, or a field path read through a struct's own
+    ;; instance, which is that field's accessor. A path read through a
+    ;; requirement is an ordinary call: it consumes a linear record.
+    (: field-operation (-> Path Expr (Option Value)))
+    (define (field-operation path callee)
+      (match (Expr-term callee)
+        ((Var name _ evidence)
+         (match (program-value (Path-program path) name)
+           ((Some (Method class _))
+            (if (field-class? class) (field-method-operation path class evidence) (None)))
+           ((Some value) (if (field-value? value) (Some value) (None)))
+           ((None) (None))))
+        (_ (None))))
+
+    (: field-method-operation (-> Path String (List Evidence) (Option Value)))
+    (define (field-method-operation path class evidence)
+      (match evidence
+        ((Cons (EvInstance instance _ _) _)
+         (match (find (lambda (candidate) (string=? (Instance-name candidate) instance))
+                      (class-instances (Path-program path) class))
+           ((Some found)
+            (match (assoc-ref (Instance-methods found) class)
+              ((Some target)
+               (match (program-value (Path-program path) target)
+                 ((Some (Accessor case index scheme)) (Some (Accessor case index scheme)))
+                 (_ (None))))
+              ((None) (None))))
+           ((None) (None))))
+        (_ (None))))
 
     (: field-value? (-> Value Bool))
     (define (field-value? value)

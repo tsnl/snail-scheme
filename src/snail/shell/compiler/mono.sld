@@ -355,11 +355,17 @@
              (match evidence
                ((Cons (EvInstance instance instance-types subs) rest)
                 (let ((class-arity
-                       (length (Class-params (program-class (program-of state) class)))))
-                  (definition-reference state
-                    (instance-method state instance name)
-                    (append instance-types (list-drop types class-arity))
-                    (append subs rest) type loc)))
+                       (length (Class-params (program-class (program-of state) class))))
+                      (target (instance-method state instance name)))
+                  ;; A struct's own field instance names the field's
+                  ;; accessor, a builtin, which keeps its name.
+                  (match (program-value (program-of state) target)
+                    ((Some (Defined _ _ _))
+                     (definition-reference state
+                       target
+                       (append instance-types (list-drop types class-arity))
+                       (append subs rest) type loc))
+                    (_ (Pair (Expr (Var target (Nil) (Nil)) type loc) state)))))
                (_ (panic "internal error: a method needs instance evidence")))))
         ((Some (Operation effect _)) (operation-reference state effect name type loc))
         (_ (Pair (Expr (Var name (Nil) (Nil)) type loc) state))))

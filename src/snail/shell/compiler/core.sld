@@ -32,6 +32,10 @@
    drop-class
    clone-class
    lifecycle-class?
+   field-class?
+   field-class-name
+   program-with-field-class
+   program-with-field-instance
    local-name
    string-type?
    bytes-type?
@@ -416,6 +420,54 @@
     (: lifecycle-class? (-> String Bool))
     (define (lifecycle-class? class)
       (or (string=? class drop-class) (string=? class clone-class)))
+
+    ;; ---- Field classes ----
+
+    ;; Every field label `f` names a class `::f` over a record type and the
+    ;; field's type, with the one method `::f`, so `(::f r)` reads the field
+    ;; `f` of whatever struct `r` is. A struct without mutable fields has an
+    ;; instance per field whose method is the field's accessor
+    ;; (`with-field-values` in expand.sld), and a library may add an
+    ;; instance for a type that computes the field. The record's type
+    ;; decides the field's: the one instance whose record type matches
+    ;; gives it (`improve-fields` in check.sld). The class is global, with
+    ;; no library prefix: `count` is the same label in every library.
+    (: field-class? (-> String Bool))
+    (define (field-class? class)
+      (and (>= (string-length class) 2) (string=? (substring class 0 2) "::")))
+
+    (: field-class-name (-> String String))
+    (define (field-class-name label)
+      (string-append "::" label))
+
+    ;; The program with a label's class and method declared.
+    (: program-with-field-class (-> Program String Program))
+    (define (program-with-field-class program label)
+      (let ((class (field-class-name label)))
+        (if (table-contains? (Program-classes program) class)
+            program
+            (program-with-value
+             (program-with-class program (Class class (list "R" "T") (Nil) (list class)))
+             class
+             (Method class
+                     (Scheme (list "R" "T")
+                             (list (Constraint class (list (TRigid "R") (TRigid "T"))))
+                             (Nil)
+                             (TFun (list (TRigid "R")) (TRigid "T") empty-row)))))))
+
+    ;; A struct's instance for one of its fields: the record type and the
+    ;; field's type, read by the field's accessor.
+    (: program-with-field-instance (-> Program DataType String Type String Program))
+    (define (program-with-field-instance program data label type accessor)
+      (let ((class (field-class-name label)) (params (DataType-params data)))
+        (program-with-instance (program-with-field-class program label)
+                               (Instance (string-append class "@" (DataType-name data))
+                                         class
+                                         params
+                                         (list (TCon (DataType-name data) (map TRigid params)) type)
+                                         (Nil)
+                                         (Nil)
+                                         (list (Pair class accessor))))))
 
     (: string-type? (-> Type Bool))
     (define (string-type? type)
