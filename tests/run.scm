@@ -580,7 +580,7 @@
     ("tests/programs" "tasks")
     ("tests/programs" "mailbox")
     ("tests/programs" "effect-row-inclusion")
-    ("tests/programs" "link-bytes")
+    ("tests/programs" "link-file")
     ("tests/programs" "control-early-exit")
     ("tests/programs" "control-per-library")
     ("tests/programs" "control-placeholders")

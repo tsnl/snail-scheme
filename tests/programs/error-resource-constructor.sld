@@ -1,4 +1,4 @@
-;; Only `link-bytes` makes a Resource: the type is exported without its
+;; Only `link-file` makes a Resource: the type is exported without its
 ;; constructor, so holding one is evidence that its file ships.
 (import
  (snail core base)

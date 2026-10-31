@@ -21,7 +21,9 @@
    write-generated-library)
   (import
    (snail core base)
-   (snail core io))
+   (snail core io)
+   (only (snail shell task) tasks dispatch-local)
+   (only (snail shell resource) resource))
   (begin
 
     ;; ---- Syntax ----
@@ -113,12 +115,14 @@
 
     ;; ---- Producers ----
 
-    ;; Writes the syntax a recipe returns to the file the driver names as
-    ;; the producer's argument.
-    (: write-generated-library (-> Syntax Unit ! fs))
-    (define (write-generated-library syntax)
+    ;; Writes the syntax a recipe's expression returns to the file the
+    ;; driver names as the producer's argument. The expression runs in a
+    ;; task, so it may read the files its recipe links with `read-resource`.
+    (: write-generated-library (-> (-> Syntax ! fs resource tasks) Unit ! mut fs resource))
+    (define (write-generated-library library)
       (match (command-line)
-        ((Cons _ (Cons path _)) (write-bytes path (syntax->bytes syntax)))
+        ((Cons _ (Cons path _))
+         (dispatch-local (once (lambda () (write-bytes path (syntax->bytes (library)))))))
         (_ (panic "a producer writes its library to the path given as its argument"))))
 
     ))

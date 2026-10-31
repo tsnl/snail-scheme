@@ -19,7 +19,7 @@ import {createHints} from './hints.mjs';
 // load modules while it runs, through (snail shell wasm); a linked module links
 // only against what the program kept exported, which for one linked module
 // is nothing of the runtime's. The files a program links are read from
-// resources/ beside it before it starts.
+// resources/ beside it when a task first reads each.
 
 // The status: the last `main`'s result when it is 0 to 255, and 1
 // otherwise. A WASI exit in a `main` is its own status, and ends the
@@ -71,7 +71,7 @@ async function run(filename, arguments_) {
   // handle keeps Node alive.
   const keepAlive = setInterval(() => {}, 60_000);
   try {
-    program = await loadProgram(resolve(filename), wasi, host);
+    program = await loadProgram(resolve(filename), wasi, host, () => tasks);
     status = resultStatus(runInitializers(program));
     await tasks.drive().catch(report);
     if (failed) status = 1;
@@ -94,11 +94,11 @@ async function run(filename, arguments_) {
   return status;
 }
 
-async function loadProgram(filename, wasi, host) {
+async function loadProgram(filename, wasi, host, tasks) {
   const read = file => readFile(resolve(dirname(filename), file));
-  if (filename.endsWith('.json')) return linkProgram(read, filename, wasi, host);
+  if (filename.endsWith('.json')) return linkProgram(read, filename, wasi, host, tasks);
   const module = await WebAssembly.compile(await readFile(filename));
-  const runtime = await WebAssembly.instantiate(module, {...wasi.getImportObject(), ...host, ...await linkedFileImports(read, module)});
+  const runtime = await WebAssembly.instantiate(module, {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)});
   wasi.initialize(runtime);
   return {runtime, host, linked: new Map()};
 }

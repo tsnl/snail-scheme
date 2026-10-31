@@ -126,24 +126,27 @@ try {
   await until(async () => await text('greeting') === 'after slow startup' && await text('count') === '1', 'the retry followed by relink');
   await browser.send('Page.removeScriptToEvaluateOnNewDocument', {identifier: gate.result.identifier});
 
-  // The greeting becomes the text of a file a library links. Editing the
-  // file compiles nothing and leaves every module's file as it was, but the
-  // page relinks from the module that links it, which reads it again,
-  // rather than loading again.
+  // A library links a file and, when its module starts, prints the file's
+  // text from a task, which reads it. Editing the file compiles nothing and
+  // leaves every module's file as it was, but the page relinks from the
+  // module that links it, whose start reads the file again, rather than
+  // loading again.
   const banner = join(app, 'src/sample/banner.txt');
+  const printed = line => browser.evaluate(`globalThis.printed.includes(${JSON.stringify(line)})`);
+  await browser.evaluate(`globalThis.printed = []; const log = console.log;
+    console.log = (...parts) => { globalThis.printed.push(parts.join(' ')); log(...parts); }`);
   await mkdir(join(app, 'src/sample'), {recursive: true});
   await writeFile(banner, 'linked');
   await writeFile(join(app, 'src/sample/banner.sld'), `(define-library (sample banner) (export banner)
-    (import (snail core base) (snail shell resource))
-    (begin (: banner Resource) (define banner (link-bytes "banner.txt"))))`);
+    (import (snail core base) (snail core io) (only (snail shell task) tasks dispatch-local) (snail shell resource))
+    (begin (: banner Resource) (define banner (link-file "banner.txt"))
+      (dispatch-local (once (lambda () (write-line (list->string (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource banner))))))))))`);
   await edit(join(app, 'project.datum'), '(public "public")', '(public "public")\n    (library-roots ("src"))');
-  await edit(source, '(snail shell app))', '(snail shell app)\n (snail shell resource)\n (sample banner))',
-    '(define greeting "after slow startup")',
-    '(define greeting (list->string (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource banner)))))');
-  await until(async () => await text('greeting') === 'linked', 'the linked greeting');
+  await edit(source, '(snail shell app))', '(snail shell app)\n (sample banner))');
+  await until(() => printed('linked'), 'the linked file read when its module started');
   await browser.evaluate('globalThis.stayed = true');
   await writeFile(banner, 'linked again');
-  await until(async () => await text('greeting') === 'linked again', 'the linked file read again');
+  await until(() => printed('linked again'), 'the linked file read again');
   assert.equal(await browser.evaluate('globalThis.stayed'), true, 'the page relinked rather than loading again');
   assert.equal(await text('count'), '1', 'and kept its state');
   if (screenshot) await browser.screenshot(screenshot);

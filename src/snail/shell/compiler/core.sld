@@ -275,7 +275,7 @@
             "case-id"
             "type-convert"
             "type-test"
-            "artifact-files" "link-file"))
+            "artifact-files" "link-handle"))
 
     (: builtin-types (List (Pair String I64)))
     (define builtin-types
