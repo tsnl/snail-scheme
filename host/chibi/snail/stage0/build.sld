@@ -9,6 +9,8 @@
    program->wat
    program->linked-wat
    place-links!
+   place-object!
+   file-bytes
    program->schemas
    build-program
    build-modules
@@ -53,6 +55,7 @@
          GenerateInput
          ArtifactInput)
    (snail shell compiler inputs)
+   (only (snail shell compiler sha256) sha256 bytes->hex)
    (only (chibi string) string-contains string-cursor->index string-suffix?))
   (begin
 
@@ -437,10 +440,24 @@
       (call-with-output-file path (lambda (port) (write-string text port))))
 
     (define (copy-file! from to)
-      (let ((bytes (call-with-port (open-binary-input-file from)
-                     (lambda (port) (read-bytevector (file-size from) port)))))
-        (call-with-port (open-binary-output-file to)
-          (lambda (port) (write-bytevector bytes port)))))
+      (write-bytes! to (file-bytes from)))
+
+    ;; Stage 0's Bytes are vectors of integers, as (snail core io) reads them.
+    (define (bytevector->vector bytes)
+      (let ((vector (make-vector (bytevector-length bytes))))
+        (let loop ((index 0))
+          (if (= index (bytevector-length bytes))
+              vector
+              (begin (vector-set! vector index (bytevector-u8-ref bytes index))
+                     (loop (+ index 1)))))))
+
+    (define (file-bytes path)
+      (call-with-port (open-binary-input-file path)
+        (lambda (port) (read-bytevector (file-size path) port))))
+
+    (define (write-bytes! path bytes)
+      (call-with-port (open-binary-output-file path)
+        (lambda (port) (write-bytevector bytes port))))
 
     ;; Runs a compiled program, returning (output error status).
     (define (run-wasm root program arguments)
@@ -634,18 +651,26 @@
     ;; `directory`, at store/sha256/DIGEST, where its host reads it when
     ;; the program first asks.
     (define (place-links! links directory)
-      (for-each (lambda (link)
-                  (let ((to (path-join directory "store" "sha256" (car link))))
-                    (create-directory* (path-directory to))
-                    (copy-file! (cdr link) to)))
-                links))
+      (for-each (lambda (link) (place-object! directory (file-bytes (cdr link)))) links))
+
+    ;; Places `bytes` as an object of the store beside the payload in
+    ;; `directory`, unless it is there, answering (DIGEST . SIZE) as a
+    ;; manifest names it.
+    (define (place-object! directory bytes)
+      (let* ((digest (bytes->hex (sha256 (bytevector->vector bytes))))
+             (to (path-join directory "store" "sha256" digest)))
+        (create-directory* (path-directory to))
+        (unless (file-exists? to) (write-bytes! to bytes))
+        (cons digest (bytevector-length bytes))))
 
     ;; ---- Linked modules ----
 
     ;; A program linked when it runs: each library's module, assembled but
-    ;; not optimized, the runtime beside them, the files it links as
-    ;; objects of store/, and modules.json naming the modules in program
-    ;; order and the objects for the loader in host/browser/load.mjs.
+    ;; not optimized, the runtime, and the files it links, all objects of
+    ;; store/ in `output`, and modules.json naming them, the modules in
+    ;; program order, for the loader in host/browser/load.mjs. Each
+    ;; module's NAME.wasm stays beside its text, for a program that loads
+    ;; one by path.
     (define (build-modules root directories source output)
       (create-directory* output)
       (let* ((links (with-private-directory root
@@ -660,10 +685,17 @@
                                               (read-links generated))))
              (names (read-lines (path-join output "modules"))))
         (for-each (lambda (name) (assemble (path-join output name))) names)
-        (copy-file! (build-runtime root #f) (path-join output "runtime.wasm"))
-        (write-file (path-join output "modules.json") (modules-json names links))
-        (place-links! links output)
-        output))
+        (let ((runtime (place-object! output (file-bytes (build-runtime root #f))))
+              (modules (map (lambda (name)
+                              (cons name
+                                    (place-object! output
+                                                   (file-bytes (path-join output
+                                                                          (string-append name
+                                                                                         ".wasm"))))))
+                            names)))
+          (write-file (path-join output "modules.json") (modules-json runtime modules links))
+          (place-links! links output)
+          output)))
 
     ;; PATH.wat to PATH.wasm.
     (define (assemble path)
@@ -687,22 +719,27 @@
                       (substring rest (+ end 1) (string-length rest))))
               (reverse lines)))))
 
-    ;; The manifest: the runtime, the store beside it, each module, and
-    ;; each linked file by digest with its size.
-    (define (modules-json names links)
-      (string-append "{\"runtime\": \"runtime.wasm\", \"store\": \"store/\", \"modules\": ["
-                     (joined (map (lambda (name)
-                                    (string-append "{\"name\": \"" name
-                                                   "\", \"file\": \"" name ".wasm\"}"))
-                                  names))
+    ;; The manifest: the store beside it, the runtime, each module by name,
+    ;; and each linked file, every object by digest with its size.
+    (define (modules-json runtime modules links)
+      (string-append "{\"store\": \"store/\", \"runtime\": " (object-json runtime)
+                     ", \"modules\": ["
+                     (joined (map (lambda (module)
+                                    (string-append "{\"name\": \"" (car module) "\", "
+                                                   (object-members (cdr module)) "}"))
+                                  modules))
                      "], \"files\": ["
                      (joined (map (lambda (link)
-                                    (string-append "{\"digest\": \"" (car link)
-                                                   "\", \"size\": "
-                                                   (number->string (file-size (cdr link)))
-                                                   "}"))
+                                    (object-json (cons (car link) (file-size (cdr link)))))
                                   links))
                      "]}\n"))
+
+    ;; An object as a manifest names it, (DIGEST . SIZE).
+    (define (object-json object)
+      (string-append "{" (object-members object) "}"))
+
+    (define (object-members object)
+      (string-append "\"digest\": \"" (car object) "\", \"size\": " (number->string (cdr object))))
 
     (define (joined items)
       (let loop ((items items) (out ""))

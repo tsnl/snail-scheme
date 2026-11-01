@@ -96,7 +96,8 @@ input, having written its `request.datum` first.
 only WASI, the files it links and loading modules
 (`crates/snail/src/program.rs`).
 PROGRAM is one linked module, or the `modules.json` of a per-library build,
-whose runtime is instantiated first and each library's module after those
+whose runtime and modules are objects of the store it names, by digest; the
+runtime is instantiated first and each library's module after those
 it imports from (`modules.rs`). A file the program links is an object of
 the program's store, `store/` beside a linked module or where its manifest
 says, read when a task first asks for it, and the host wakes the task's

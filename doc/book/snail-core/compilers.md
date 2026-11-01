@@ -814,8 +814,8 @@ client compares, and any diagnostics; the resident holds the candidate until a `
 `discard` names it. Sessions, Plans and inputs stay in the resident and never
 cross. A development build assembles each module the session compiled
 again with `(snail shell assembler)`, in the same process; a module the
-session replayed keeps the file and bytes it was assembled into
-(`Retained`). The service, `(snail shell project service)`, writes the
+session replayed keeps the bytes it was assembled into, and their digest,
+which names its object (`Retained`). The service, `(snail shell project service)`, writes the
 requests and reads the replies.
 
 A build's failures reach the service as `{severity, message, source}`;
