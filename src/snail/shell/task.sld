@@ -334,10 +334,10 @@
                ((Pair found others) (Pair found (Cons first others))))))))
 
     ;; Closing drops every task that is not running, as a relink does with
-    ;; the tasks of the program it replaces: what they hold is abandoned.
-    ;; A task is its rest, a FnOnce, which runs nothing when dropped, so
-    ;; dropping a queue of them discards it whole.
-    (: close! (-> Unit ! mut))
+    ;; the tasks of the program it replaces. A task is its rest, a FnOnce;
+    ;; dropping one unrun drops the linear values its frames hold, which
+    ;; performs what their drops perform, within the task's row, `host`.
+    (: close! (-> Unit ! mut host))
     (define (close!)
       (drop (take-ready!))
       (put-ready! (empty-queue))

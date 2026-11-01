@@ -422,6 +422,7 @@
            (let ((closure (wasm-id key)) (code (wasm-id (string-append "fn." signature))))
              (put! (Module-type-ids m) key closure)
              (put! (Module-type-ids m) (string-append "code:" closure) code)
+             (dropper-type m)
              (register-type! m (string-append "fn." signature) code
                              (wat "type" (id code)
                                   (wat* "func" (append (Cons (wat "param" (wat "ref" (id closure)))
@@ -437,7 +438,28 @@
                              (wat "type"
                                   (id closure)
                                   (wat "sub"
-                                       (wat "struct" (wat "field" (wat "ref" (id code))))))))))))
+                                       (wat "struct"
+                                            (wat "field" (wat "ref" (id code)))
+                                            (wat "field" (wat "mut" (dropper-ref))))))))))))
+
+    ;; Every closure carries, beside its code, a nullable dropper: a thunk
+    ;; closure that drops the linear values it captured, which `drop-once`
+    ;; runs when a FnOnce is dropped unrun (control.sld, "Droppers"). A
+    ;; frame carries one too, for the locals live across its yield point,
+    ;; and a `resume` one that runs its frames' (`resume-dropper-code`).
+    ;; The thunk's own closure type is registered first, since every
+    ;; closure type names it.
+    (: dropper-type (-> Module String ! mut))
+    (define (dropper-type m)
+      (closure-type m (Nil) (Scalar "i32")))
+
+    (: dropper-ref (-> Wat))
+    (define (dropper-ref)
+      (wat "ref" (Word "null") (id "$clo.->i32")))
+
+    (: dropper-null (-> Wat))
+    (define (dropper-null)
+      (wat "ref.null" (id "$clo.->i32")))
 
     ;; Every closure subtype shares its base's code type.
     (: code-type (-> Module String String ! mut))
@@ -876,14 +898,29 @@
     (define (hex-char value)
       (string-ref "0123456789abcdef" value))
 
-    ;; A let whose value may yield tests for the yield before its body.
+    ;; A let whose value may yield tests for the yield before its body. The
+    ;; control pass marks such a value with the dropper of the frame saved
+    ;; there (`with-dropper`), which the frame takes.
     (: emit-let (-> Fn String Expr Expr Bool (List Wat) ! mut))
-    (define (emit-let fn name value body tail?)
-      (let* ((code (if (and (lambda-expr? value) (member? name (expr-references value)))
-                       (closure fn value (Some name))
-                       (emit-let-value fn value)))
-             (local (declare-local! fn name (fn-rep fn (Expr-type value)))))
-        (Cons (wat "local.set" (id local) code) (let-rest fn name value body tail?))))
+    (define (emit-let fn name marked body tail?)
+      (match (dropper-of marked)
+        ((Pair value dropper)
+         (let* ((code (if (and (lambda-expr? value) (member? name (expr-references value)))
+                          (closure fn value (Some name))
+                          (emit-let-value fn value)))
+                (local (declare-local! fn name (fn-rep fn (Expr-type value)))))
+           (Cons (wat "local.set" (id local) code)
+                 (let-rest fn name value dropper body tail?))))))
+
+    ;; A let's value and the dropper it was marked with, if any.
+    (: dropper-of (-> Expr (Pair Expr (Option Expr))))
+    (define (dropper-of marked)
+      (match (Expr-term marked)
+        ((App callee (Cons value (Cons dropper (Nil))))
+         (match (Expr-term callee)
+           ((Var "prim:with-dropper" _ _) (Pair value (Some dropper)))
+           (_ (Pair marked (None)))))
+        (_ (Pair marked (None)))))
 
     ;; ---- Variables ----
 
@@ -1009,7 +1046,10 @@
                              (wat "global"
                                   (id global)
                                   (wat "ref" (id base))
-                                  (wat "struct.new" (id base) (wat "ref.func" (id code)))))
+                                  (wat "struct.new"
+                                       (id base)
+                                       (wat "ref.func" (id code))
+                                       (dropper-null))))
                       (wat "global.get" (id global)))))))
 
     (: closure-with-captures (-> Fn Expr (Option String) (List String) Wat ! mut))
@@ -1022,7 +1062,8 @@
         (wat* "struct.new"
               (Cons (id subtype)
                     (Cons (wat "ref.func" (id code))
-                          (map (lambda (name) (variable fn name unchecked)) captured))))))
+                          (Cons (dropper-null)
+                                (map (lambda (name) (variable fn name unchecked)) captured)))))))
 
     ;; The captures extend the base struct with their fields. Closures with
     ;; one base and one list of representations share the subtype.
@@ -1039,8 +1080,10 @@
                                 (wat "sub" (Word "final") (id base)
                                      (wat* "struct"
                                            (Cons (wat "field" (wat "ref" (id (code-type m base))))
-                                                 (map (lambda (r) (wat "field" (rep->wat r)))
-                                                      reps))))))))))
+                                                 (Cons (wat "field" (wat "mut" (dropper-ref)))
+                                                       (map (lambda (r)
+                                                              (wat "field" (rep->wat r)))
+                                                            reps)))))))))))
 
     (: capture-rep (-> Fn String Rep ! mut))
     (define (capture-rep fn name)
@@ -1110,7 +1153,7 @@
       (map-indexed (lambda (index entry)
                      (wat "local.set"
                           (id (declare-local! fn (Pair-first entry) (Pair-second entry)))
-                          (wat "struct.get" (id closure) (int (+ index 1))
+                          (wat "struct.get" (id closure) (int (+ index 2))
                                (wat "ref.cast"
                                     (wat "ref" (id closure))
                                     (wat "local.get" (Word "$closure"))))))
@@ -2072,6 +2115,7 @@
            (wat "struct.new"
                 (id holder)
                 (wat "ref.func" (id (funcref-code m signature base holder)))
+                (dropper-null)
                 reference)))
         (_ (panic (string-append "unsafe-cast makes a function, not a " (type->string type))))))
 
@@ -2088,6 +2132,7 @@
                                      (id base)
                                      (wat "struct"
                                           (wat "field" (wat "ref" (id (code-type m base))))
+                                          (wat "field" (wat "mut" (dropper-ref)))
                                           (wat "field" (Word "funcref"))))))))))
 
     ;; The code takes the closure, the evidence and the arguments, and calls
@@ -2116,7 +2161,7 @@
       (let ((own (funcref-type m params result))
             (held (wat "struct.get"
                        (id holder)
-                       (int 1)
+                       (int 2)
                        (wat "ref.cast" (wat "ref" (id holder)) (wat "local.get" (int 0))))))
         (wat* "call_ref"
               (append (Cons (id own)
@@ -2293,6 +2338,7 @@
            (wat "struct.new"
                 (id holder)
                 (wat "ref.func" (id (dynamic-code m type base holder)))
+                (dropper-null)
                 reference)))
         (_ (panic (string-append "dynamic-cast makes a function, not a " (type->string type))))))
 
@@ -2324,7 +2370,7 @@
          (let* ((m (Fn-module fn)) (export (dynamic-type m (length params)))
                 (held (wat "struct.get"
                            (id holder)
-                           (int 1)
+                           (int 2)
                            (wat "ref.cast" (wat "ref" (id holder)) (wat "local.get" (int 0)))))
                 (anys (map-indexed
                        (lambda (index param) (to-any m param (wat "local.get" (int (+ index 2)))))
@@ -2678,7 +2724,7 @@
     ;; text never changes.
     (: emit-control-module (-> Program Wat ! mut))
     (define (emit-control-module program)
-      (let ((m (new-module (Mono program (Nil) empty-table (Nil)) (None))))
+      (let ((m (new-module (Mono program (Nil) empty-table (Nil) (None) (None)) (None))))
         (push! (Module-exports m)
                (wat "export" (wat-string "yielding") (wat "global" (id (yielding m)))))
         (emit-main! m (Nil))
@@ -2711,15 +2757,15 @@
     ;; make, so each join holds its body only up to the next yield point.
     ;; A yield that nothing can resume saves nothing, so its test only
     ;; leaves, and the body follows in the same function.
-    (: let-rest (-> Fn String Expr Expr Bool (List Wat) ! mut))
-    (define (let-rest fn name value body tail?)
+    (: let-rest (-> Fn String Expr (Option Expr) Expr Bool (List Wat) ! mut))
+    (define (let-rest fn name value dropper body tail?)
       (cond ((not (may-yield? fn value)) (emit fn body tail?))
             ((aborts? fn value)
              (Cons (wat "if" (yielding? (Fn-module fn)) (wat "then" (leave fn (Expr-loc value))))
                    (emit fn body tail?)))
             ((match (Fn-exit fn) ((Some (ToRunner)) #t) (_ #f))
-             (continue-in-frame fn name value body))
-            (else (let ((test (yield-test fn (frame fn name value body) (Expr-loc value))))
+             (continue-in-frame fn name value dropper body))
+            (else (let ((test (yield-test fn (frame fn name value dropper body) (Expr-loc value))))
                     (append test (emit fn body tail?))))))
 
     ;; Whether every effect `value` may yield to aborts: each of its control
@@ -2741,13 +2787,13 @@
       (let* ((m (Fn-module fn)) (exit (leave fn loc)))
         (list (wat "if" (yielding? m) (wat "then" (wat "call" (id (push-helper m)) saved) exit)))))
 
-    (: continue-in-frame (-> Fn String Expr Expr (List Wat) ! mut))
-    (define (continue-in-frame fn name value body)
+    (: continue-in-frame (-> Fn String Expr (Option Expr) Expr (List Wat) ! mut))
+    (define (continue-in-frame fn name value dropper body)
       (let* ((m (Fn-module fn))
              (base (frame-type m))
              (temp (declare-temp! fn (wat "ref" (id base))))
              (saved (wat "local.get" (id temp)))
-             (set (wat "local.set" (id temp) (frame fn name value body)))
+             (set (wat "local.set" (id temp) (frame fn name value dropper body)))
              (test (yield-test fn saved (Expr-loc value)))
              (argument (box-value m (Expr-type value) (variable fn name unchecked))))
         (Cons set
@@ -2804,13 +2850,16 @@
                                    (wat "param" (wat "ref" (id "$frame")))
                                    (wat "param" (Word "anyref"))
                                    (wat "result" (Word "anyref")))))
+         (dropper-type m)
          (register-type! m
                          "frame"
                          "$frame"
                          (wat "type"
                               (id "$frame")
                               (wat "sub"
-                                   (wat "struct" (wat "field" (wat "ref" (id "$frame.code"))))))))))
+                                   (wat "struct"
+                                        (wat "field" (wat "ref" (id "$frame.code")))
+                                        (wat "field" (wat "mut" (dropper-ref))))))))))
 
     ;; A list of frames. The record's grows at its head as the yield leaves
     ;; each frame, so its outermost frame comes first; a continuation's is
@@ -2829,9 +2878,10 @@
                                      (wat "field" (wat "ref" (Word "null") (id "$frames"))))))))))
 
     ;; The frame of the let binding `name` to `value`: the join function of
-    ;; its body, the locals the body reads, moved, then the evidence.
-    (: frame (-> Fn String Expr Expr Wat ! mut))
-    (define (frame fn name value body)
+    ;; its body, the dropper of the linear locals among those the body
+    ;; reads, those locals, moved, then the evidence.
+    (: frame (-> Fn String Expr (Option Expr) Expr Wat ! mut))
+    (define (frame fn name value dropper body)
       (let* ((m (Fn-module fn))
              (captured (filter (lambda (local) (and (not (string=? local name)) (local? fn local)))
                                (expr-references body)))
@@ -2841,11 +2891,15 @@
                                  (append (map Pair-second entries) (list (evidence-rep m)))))
              (join
               (emit-join! (Fn-exit-set (new-fn m) (Some (ToRunner))) name value body entries type)))
-        (wat* "struct.new" (Cons (id type) (Cons (wat "ref.func" (id join))
-                                                 (append (map (lambda (local)
-                                                                (variable fn local unchecked))
-                                                              captured)
-                                                         (list (Fn-evidence fn))))))))
+        (wat* "struct.new"
+              (Cons (id type)
+                    (Cons (wat "ref.func" (id join))
+                          (Cons (match dropper
+                                  ((Some thunk) (closure fn thunk (None)))
+                                  ((None) (dropper-null)))
+                                (append (map (lambda (local) (variable fn local unchecked))
+                                             captured)
+                                        (list (Fn-evidence fn)))))))))
 
     ;; A let's body as a function of its frame and its boxed value: it
     ;; loads the frame's locals and evidence and binds the value, runs the
@@ -2862,7 +2916,7 @@
              (frame (wat "ref.cast" (wat "ref" (id type)) (wat "local.get" (Word "$closure"))))
              (evidence (wat "local.set"
                             (Word "$ev")
-                            (wat "struct.get" (id type) (int (+ (length entries) 1)) frame)))
+                            (wat "struct.get" (id type) (int (+ (length entries) 2)) frame)))
              (loads (capture-loads join entries type))
              (local (declare-local! join name (fn-rep join (Expr-type value))))
              (argument (wat "local.set"
@@ -2955,7 +3009,8 @@
                 (data-placeholder m type seen loc)))
            (_ (wat "struct.new"
                    (id representation)
-                   (wat "ref.func" (id (unreachable-code m type representation)))))))))
+                   (wat "ref.func" (id (unreachable-code m type representation)))
+                   (dropper-null)))))))
 
     ;; A struct that contains itself has no placeholder.
     (: data-placeholder (-> Module Type (List String) Loc Wat ! mut))
@@ -3246,6 +3301,7 @@
                                 (wat "sub" (Word "final") (id base)
                                      (wat "struct"
                                           (wat "field" (wat "ref" (id (code-type m base))))
+                                          (wat "field" (wat "mut" (dropper-ref)))
                                           (wat "field"
                                                (wat "ref" (id (continuation-type m))))))))))))
 
@@ -3259,7 +3315,58 @@
         (wat "struct.new"
              (id (resume-type m base))
              (wat "ref.func" (id (resume-code m info operation type loc)))
+             (resume-dropper m)
              (wat "local.get" (Word "$continuation")))))
+
+    ;; A resume's dropper: a thunk closed over the continuation, whose code
+    ;; runs each frame's dropper under the continuation's evidence, the
+    ;; handle's node, so a drop that performs the handled effect reaches
+    ;; this handler. Dropping a resume therefore performs no more than the
+    ;; resume's own row, which the checker charged (capabilities.sld,
+    ;; `trivial-rows`).
+    (: resume-dropper (-> Module Wat ! mut))
+    (define (resume-dropper m)
+      (wat "struct.new"
+           (id (resume-dropper-type m))
+           (wat "ref.func" (id (resume-dropper-code m)))
+           (dropper-null)
+           (wat "local.get" (Word "$continuation"))))
+
+    (: resume-dropper-type (-> Module String ! mut))
+    (define (resume-dropper-type m)
+      (capture-type m (dropper-type m) (list (Reference (continuation-type m)))))
+
+    (: resume-dropper-code (-> Module String ! mut))
+    (define (resume-dropper-code m)
+      (let ((base (dropper-type m)))
+        (helper! m "drop" "resume"
+                 (lambda (function-id)
+                   (push! (Module-declared m) function-id)
+                   (Word
+                    (fill
+                     "(func {id} (type {code}) (param $closure (ref {base})) (param $ev (ref {evidence})) (result i32)
+  (local $continuation (ref {continuation}))
+  (local $frames (ref null {frames}))
+  (local $dropper (ref null {base}))
+  (local.set $continuation (struct.get {holder} 2 (ref.cast (ref {holder}) (local.get $closure))))
+  (local.set $frames (struct.get {continuation} 0 (local.get $continuation)))
+  (block $done
+    (loop $next
+      (br_if $done (ref.is_null (local.get $frames)))
+      (local.set $dropper (struct.get {frame} 1 (struct.get {frames} 0 (ref.as_non_null (local.get $frames)))))
+      (if (i32.eqz (ref.is_null (local.get $dropper)))
+        (then (drop (call_ref {code} (ref.as_non_null (local.get $dropper)) (struct.get {continuation} 1 (local.get $continuation)) (struct.get {base} 0 (ref.as_non_null (local.get $dropper)))))))
+      (local.set $frames (struct.get {frames} 1 (ref.as_non_null (local.get $frames))))
+      (br $next)))
+  (i32.const 0))"
+                     (list (Pair "id" function-id)
+                           (Pair "code" (code-type m base))
+                           (Pair "base" base)
+                           (Pair "evidence" (evidence-type m))
+                           (Pair "continuation" (continuation-type m))
+                           (Pair "frames" (frames-type m))
+                           (Pair "frame" (frame-type m))
+                           (Pair "holder" (resume-dropper-type m)))))))))
 
     ;; The code of an operation's `resume`: the handle again, run on the
     ;; boxed answer under the caller's evidence.
@@ -3272,7 +3379,7 @@
                    (Word
                     (fill
                      "(func {id} (type {code}) (param $closure (ref {base})) (param $ev (ref {evidence})) (param $answer {answer}) (result {result})
-  (return_call {rehandle} (struct.get {resume} 1 (ref.cast (ref {resume}) (local.get $closure))) (local.get $ev) {boxed}))"
+  (return_call {rehandle} (struct.get {resume} 2 (ref.cast (ref {resume}) (local.get $closure))) (local.get $ev) {boxed}))"
                      (list (Pair "id" function-id)
                            (Pair "code" (code-type m base))
                            (Pair "base" base)
@@ -3355,6 +3462,7 @@
                                 (wat "sub" (Word "final") (id frame)
                                      (wat "struct"
                                           (wat "field" (wat "ref" (id (code-type m frame))))
+                                          (wat "field" (wat "mut" (dropper-ref)))
                                           (wat "field"
                                                (wat "ref" (id (continuation-type m))))))))))))
 
@@ -3368,7 +3476,7 @@
                     (fill
                      "(func {id} (type {code}) (param $frame (ref {frame})) (param $value anyref) (result anyref)
   (local $continuation (ref {continuation}))
-  (local.set $continuation (struct.get {handled} 1 (ref.cast (ref {handled}) (local.get $frame))))
+  (local.set $continuation (struct.get {handled} 2 (ref.cast (ref {handled}) (local.get $frame))))
   {boxed})"
                      (list (Pair "id" function-id)
                            (Pair "code" (code-type m frame))
@@ -3405,10 +3513,12 @@
       (template-helper! m "control" "enclose"
                         "(func {id} (param $node (ref {evidence})) (param $code (ref {code}))
   (local $record (ref {yield}))
+  (local $continuation (ref {continuation}))
   (local.set $record (ref.as_non_null (global.get {yielding})))
+  (local.set $continuation (struct.new {continuation} (call {reverse} (struct.get {yield} 3 (local.get $record))) (local.get $node)))
   (struct.set {yield} 3 (local.get $record)
     (struct.new {frames}
-      (struct.new {handled} (local.get $code) (struct.new {continuation} (call {reverse} (struct.get {yield} 3 (local.get $record))) (local.get $node)))
+      (struct.new {handled} (local.get $code) (struct.new {holder} (ref.func {dropcode}) (ref.null {dropper}) (local.get $continuation)) (local.get $continuation))
       (ref.null {frames}))))"
                         (list (Pair "evidence" (evidence-type m))
                               (Pair "code" (code-type m (frame-type m)))
@@ -3417,7 +3527,10 @@
                               (Pair "frames" (frames-type m))
                               (Pair "handled" (handled-type m))
                               (Pair "continuation" (continuation-type m))
-                              (Pair "reverse" (reverse-helper m)))))
+                              (Pair "reverse" (reverse-helper m))
+                              (Pair "holder" (resume-dropper-type m))
+                              (Pair "dropcode" (resume-dropper-code m))
+                              (Pair "dropper" (dropper-type m)))))
 
     ;; Runs a continuation: it rebases the node on the caller's evidence
     ;; and takes the frames out, so that neither the continuation nor
@@ -3570,6 +3683,7 @@
           (wat "struct.new"
                (id (forwarding-closure m operation))
                (wat "ref.func" (id (forwarding-code m info operation)))
+               (dropper-null)
                (wat "local.get" (Word "$ev")))))
 
     ;; An ordinary operation's closure that holds the evidence to perform it
@@ -3631,7 +3745,7 @@
     (define (held-capture closure index)
       (wat "struct.get"
            (id closure)
-           (int index)
+           (int (+ index 1))
            (wat "ref.cast" (wat "ref" (id closure)) (wat "local.get" (Word "$closure")))))
 
     ;; A forwarding node's catch: a yield aimed at the node is re-aimed at
@@ -3712,6 +3826,7 @@
            (wat "struct.new"
                 (id (inherit-closure m signature))
                 (wat "ref.func" (id (inherit-code m signature)))
+                (dropper-null)
                 (Fn-evidence fn)
                 procedure)))
         (_ (panic "internal error: inherit-handlers makes a FnOnce"))))
@@ -3852,6 +3967,9 @@
           (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0) (Fn-evidence fn))))
           (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
           (("discard") (list (wat "drop" (arg 0)) (wat "i32.const" (int 0))))
+          (("drop-once") (drop-once fn (first-arg args) (arg 0)))
+          (("once-dropping") (list (once-dropping fn (first-arg args) (arg 0) (arg 1))))
+          (("with-dropper") (panic "internal error: a dropper marks only a let's value"))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
           (("dynamic-cast") (list (dynamic-cast fn type (list-ref types 1) (arg 0) (arg 1))))
@@ -3913,6 +4031,51 @@
                           (list (Pair "closure" closure)
                                 (Pair "code" (code-type m closure))
                                 (Pair "evidence" (evidence-type m))))))
+
+    ;; ---- Droppers ----
+
+    ;; Dropping a FnOnce unrun runs the dropper its closure carries, if any,
+    ;; under the dropper's caller's handlers: what it performs is within the
+    ;; FnOnce's row, which the checker charged where the drop is written.
+    (: drop-once (-> Fn Expr Wat (List Wat) ! mut))
+    (define (drop-once fn value code)
+      (let* ((m (Fn-module fn))
+             (base (reference-type (fn-rep fn (Expr-type value))))
+             (closure (declare-temp! fn (wat "ref" (id base))))
+             (dropper (declare-temp! fn (dropper-ref))))
+        (list (wat "local.set" (id closure) code)
+              (wat "local.set"
+                   (id dropper)
+                   (wat "struct.get" (id base) (int 1) (wat "local.get" (id closure))))
+              (wat "if"
+                   (wat "i32.eqz" (wat "ref.is_null" (wat "local.get" (id dropper))))
+                   (wat "then"
+                        (wat "drop"
+                             (call-dropper m
+                                           (wat "ref.as_non_null" (wat "local.get" (id dropper)))
+                                           (Fn-evidence fn)))))
+              (wat "i32.const" (int 0)))))
+
+    (: call-dropper (-> Module Wat Wat Wat ! mut))
+    (define (call-dropper m dropper evidence)
+      (let ((base (dropper-type m)))
+        (wat "call_ref"
+             (id (code-type m base))
+             dropper
+             evidence
+             (wat "struct.get" (id base) (int 0) dropper))))
+
+    ;; `once` of a lambda with linear captures: the closure, with the
+    ;; dropper of its captures stored beside its code.
+    (: once-dropping (-> Fn Expr Wat Wat Wat ! mut))
+    (define (once-dropping fn value closure dropper)
+      (let* ((base (reference-type (fn-rep fn (Expr-type value))))
+             (temp (declare-temp! fn (wat "ref" (id base)))))
+        (wat "block"
+             (wat "result" (wat "ref" (id base)))
+             (wat "local.set" (id temp) closure)
+             (wat "struct.set" (id base) (int 1) (wat "local.get" (id temp)) dropper)
+             (wat "local.get" (id temp)))))
 
     ;; ---- Runtime helpers ----
 

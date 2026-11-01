@@ -1,0 +1,1 @@
+a once lambda captures handle, which it drops if it is dropped unrun
