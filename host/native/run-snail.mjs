@@ -18,8 +18,9 @@ import {createHints} from './hints.mjs';
 // program compiled one library at a time (host/browser/load.mjs). Either may
 // load modules while it runs, through (snail shell wasm); a linked module links
 // only against what the program kept exported, which for one linked module
-// is nothing of the runtime's. The files a program links are read from
-// resources/ beside it when a task first reads each.
+// is nothing of the runtime's. The files a program links are objects of
+// its store, store/ beside a linked module or where its manifest says,
+// read when a task first reads each.
 
 // The status: the last `main`'s result when it is 0 to 255, and 1
 // otherwise. A WASI exit in a `main` is its own status, and ends the

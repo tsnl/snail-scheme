@@ -70,6 +70,7 @@
    (snail shell process)
    (snail shell assembler)
    (snail shell json)
+   (snail shell json read)
    (snail shell compiler sha256)
    (snail shell utf8))
   (begin
@@ -391,7 +392,7 @@
 
     ;; Each embedded target's files join the inputs once, read as they are
     ;; in its generation.
-    (: supply-embedded (-> Builder (List String) Progress Progress ! fs))
+    (: supply-embedded (-> Builder (List String) Progress Progress ! fs building))
     (define (supply-embedded builder names progress)
       (fold-left (lambda (progress name)
                    (if (member? name (Progress-supplied progress))
@@ -415,10 +416,71 @@
         ((None) (panic (string-append "internal error: the build plan embeds " name
                                       " before building it")))))
 
-    (: snapshot (-> Generation ArtifactFiles ! fs))
+    ;; A development generation holds no objects: its manifest names the
+    ;; store they are in. The snapshot an embedding build gets carries
+    ;; them, each at store/sha256/DIGEST, and a manifest that says so, so
+    ;; an embedded page is complete wherever it is served from.
+    (: snapshot (-> Generation ArtifactFiles ! fs building))
     (define (snapshot generation)
-      (map (lambda (file) (Pair (Pair-first file) (read-bytes (Pair-second file))))
-           (Generation-files generation)))
+      (let ((files (map (lambda (file) (Pair (Pair-first file) (read-bytes (Pair-second file))))
+                        (Generation-files generation))))
+        (match (assoc-ref files "modules.json")
+          ((Some bytes)
+           (with-objects (Output-directory (Generation-output generation)) files bytes))
+          ((None) files))))
+
+    (: with-objects (-> String ArtifactFiles Bytes ArtifactFiles ! fs building))
+    (define (with-objects directory files bytes)
+      (match (manifest-json bytes)
+        ((Some json)
+         (let ((store (string-append directory "/" (json-text json "store"))))
+           (list-sort (lambda (a b) (string<? (Pair-first a) (Pair-first b)))
+                      (append (map (lambda (file)
+                                     (if (string=? (Pair-first file) "modules.json")
+                                         (Pair "modules.json"
+                                               (string->utf8 (json->string (store-set json))))
+                                         file))
+                                   files)
+                              (map (lambda (digest)
+                                     (Pair (object-path "store" digest)
+                                           (read-bytes (object-path store digest))))
+                                   (manifest-digests json))))))
+        ((None) (fail-build (string-append directory "/modules.json is not a manifest")))))
+
+    (: manifest-json (-> Bytes (Option Json)))
+    (define (manifest-json bytes)
+      (match (utf8->string bytes)
+        ((Ok text) (string->json text))
+        ((Err _) (None))))
+
+    ;; The digests of the objects a manifest names.
+    (: manifest-digests (-> Json (List String)))
+    (define (manifest-digests json)
+      (map (lambda (entry) (json-text entry "digest")) (json-array json "files")))
+
+    ;; The manifest with its objects in store/ beside it.
+    (: store-set (-> Json Json))
+    (define (store-set json)
+      (match json
+        ((JsonObject members)
+         (JsonObject (map (lambda (member)
+                            (if (string=? (Pair-first member) "store")
+                                (Pair "store" (JsonString "store/"))
+                                member))
+                          members)))
+        (_ json)))
+
+    (: json-text (-> Json String String))
+    (define (json-text json name)
+      (match (json-member json name)
+        ((Some (JsonString text)) text)
+        (_ "")))
+
+    (: json-array (-> Json String (List Json)))
+    (define (json-array json name)
+      (match (json-member json name)
+        ((Some (JsonArray items)) items)
+        (_ (Nil))))
 
     (: by-node (-> (List Generation) (List Generation)))
     (define (by-node generations)
@@ -494,7 +556,9 @@
                                                   (Progress-inputs progress)
                                                   working
                                                   (string-append directory "/program.wasm"))))
-                         (place-links directory links)
+                         (place-links (string-append directory "/store")
+                                      (base-name directory)
+                                      links)
                          (Program 1
                                   1
                                   (map LinkedFile-path links)
@@ -544,31 +608,65 @@
         (link builder text working output)
         (WholeProgram-links program)))
 
-    ;; Each file the program links goes to resources/DIGEST beside it, once
-    ;; however many libraries link its bytes, where its host reads it when
-    ;; the program first asks for it.
-    (: place-links (-> String (List LinkedFile) Unit ! fs building))
-    (define (place-links directory links)
-      (for-each (lambda (link) (place-link directory link))
-                (delete-duplicates (lambda (a b)
-                                     (string=? (LinkedFile-digest a) (LinkedFile-digest b)))
-                                   links)))
+    ;; ---- Objects ----
+
+    ;; Each file the program links is an object of a store: a file at
+    ;; STORE/sha256/DIGEST, named for the SHA-256 of its bytes, placed once
+    ;; however many libraries link it, where its host reads it when the
+    ;; program first asks for it. A linked program's objects are in store/
+    ;; beside it. A development build's generations share the project's
+    ;; store, build/.snail-store, which their manifests name relative to
+    ;; themselves, so a generation holds no object, and an edit that
+    ;; changes no file adds none. Each object placed is answered with its
+    ;; digest and size, for the manifest.
+    (: place-links (-> String String (List LinkedFile) (List (Pair String I64)) ! fs building))
+    (define (place-links store token links)
+      (map (lambda (link) (place-link store token link))
+           (delete-duplicates (lambda (a b) (string=? (LinkedFile-digest a) (LinkedFile-digest b)))
+                              links)))
 
     ;; A file is named for the digest of the bytes its compile read, so the
     ;; bytes placed must be those: a file edited since fails the build, and
     ;; the next one compiles against its new bytes.
-    (: place-link (-> String LinkedFile Unit ! fs building))
-    (define (place-link directory link)
-      (let ((from (LinkedFile-path link))
-            (to (string-append directory "/resources/" (LinkedFile-digest link))))
+    (: place-link (-> String String LinkedFile (Pair String I64) ! fs building))
+    (define (place-link store token link)
+      (let ((from (LinkedFile-path link)) (digest (LinkedFile-digest link)))
         (unless (kind-is? from (RegularFile))
           (fail-build
            (string-append "cannot place the linked file " from ": there is no file there")))
         (let ((bytes (read-bytes from)))
-          (unless (string=? (bytes->hex (sha256 bytes)) (LinkedFile-digest link))
+          (unless (string=? (bytes->hex (sha256 bytes)) digest)
             (fail-build (string-append "the linked file " from " changed during the build")))
+          (place-object store token digest bytes)
+          (Pair digest (vector-length bytes)))))
+
+    ;; An object already in the store is left as it is: its bytes are what
+    ;; its name says. A new one is written beside its place, under a name
+    ;; this build alone writes, and renamed into it, so a reader never sees
+    ;; a partial object, and two builds placing one object at once each
+    ;; rename the same bytes.
+    (: place-object (-> String String String Bytes Unit ! fs building))
+    (define (place-object store token digest bytes)
+      (let ((to (object-path store digest)))
+        (unless (kind-is? to (RegularFile))
           (expect-done (make-directories (directory-part to)) (string-append "cannot make " to))
-          (write-bytes to bytes))))
+          (let ((writing (string-append to ".writing." token)))
+            (write-bytes writing bytes)
+            (expect-done (rename-file writing to) (string-append "cannot place " to))))))
+
+    (: object-path (-> String String String))
+    (define (object-path store digest)
+      (string-append store "/sha256/" digest))
+
+    ;; The store a project's development builds share.
+    (: project-store (-> Builder String))
+    (define (project-store builder)
+      (string-append (Builder-project builder) "/build/.snail-store"))
+
+    ;; What a manifest says of its store: the path, relative to the
+    ;; manifest, with a trailing slash.
+    (: shared-store String)
+    (define shared-store "../.snail-store/")
 
     ;; ---- Development builds ----
 
@@ -591,8 +689,10 @@
                                                (Progress-inputs progress)))))
              (modules (assemble-modules (Pair-first built) (Retained-modules previous)))
              (links (concatenate (map Built-links (Pair-first built)))))
-        (write-modules builder directory modules)
-        (place-links directory links)
+        (write-modules builder
+                       directory
+                       modules
+                       (place-links (project-store builder) (base-name directory) links))
         (Program (length (filter Built-compiled? (Pair-first built)))
                  (length modules)
                  (map LinkedFile-path links)
@@ -655,10 +755,11 @@
                                       ": "
                                       message))))))
 
-    ;; The modules, modules.json naming them in link order, and the runtime
-    ;; they link with as runtime.wasm.
-    (: write-modules (-> Builder String (List Assembled) Unit ! fs building))
-    (define (write-modules builder directory modules)
+    ;; The modules, modules.json naming them in link order with the files
+    ;; the program links, and the runtime they link with as runtime.wasm.
+    (: write-modules
+       (-> Builder String (List Assembled) (List (Pair String I64)) Unit ! fs building))
+    (define (write-modules builder directory modules files)
       (expect-done (make-directory (string-append directory "/modules"))
                    (string-append "cannot make " directory "/modules"))
       (for-each (lambda (module)
@@ -668,18 +769,29 @@
       (copy-into (Tools-runtime (Builder-tools builder))
                  (string-append directory "/runtime.wasm")
                  "cannot copy the runtime")
-      (write-file (string-append directory "/modules.json") (json->string (manifest modules))))
+      (write-file (string-append directory "/modules.json")
+                  (json->string (manifest modules files))))
 
-    (: manifest (-> (List Assembled) Json))
-    (define (manifest modules)
+    ;; The manifest: the runtime beside it, the store its objects are in,
+    ;; relative to it, each module in link order, and each file the program
+    ;; links, by digest, with its size.
+    (: manifest (-> (List Assembled) (List (Pair String I64)) Json))
+    (define (manifest modules files)
       (JsonObject
        (list (Pair "runtime" (JsonString "runtime.wasm"))
+             (Pair "store" (JsonString shared-store))
              (Pair "modules"
                    (JsonArray (map (lambda (module)
                                      (JsonObject
                                       (list (Pair "name" (JsonString (Assembled-library module)))
                                             (Pair "file" (JsonString (Assembled-file module))))))
-                                   modules))))))
+                                   modules)))
+             (Pair "files"
+                   (JsonArray (map (lambda (file)
+                                     (JsonObject
+                                      (list (Pair "digest" (JsonString (Pair-first file)))
+                                            (Pair "size" (JsonInteger (Pair-second file))))))
+                                   files))))))
 
     ;; ---- Linking ----
 
@@ -786,7 +898,8 @@
                   (lambda (working)
                     (let ((program (string-append working "/producer.wasm"))
                           (output (string-append working "/output.syntax")))
-                      (place-links working
+                      (place-links (string-append working "/store")
+                                   "producer"
                                    (link-program (Builder-mode-set builder (Debug))
                                                  (Producer-source producer)
                                                  (Producer-directories producer)
@@ -828,16 +941,15 @@
             "storage.mjs" "load.mjs" "style.css" "ui.mjs" "dom.mjs" "fetch.mjs"))
 
     ;; The names some build writes at a generation's root, whether or not
-    ;; this one does: a release build writes program.wasm, a development
-    ;; build modules/, modules.json and runtime.wasm, and a program that
-    ;; links files resources/. A public tree may use none of them, so one
-    ;; that builds in one mode, or with one set of linked files, builds in
-    ;; every other.
+    ;; this one does: a release build writes program.wasm, and store/ when
+    ;; its program links files, a development build modules/, modules.json
+    ;; and runtime.wasm. A public tree may use none of them, so one that
+    ;; builds in one mode, or with one set of linked files, builds in every
+    ;; other.
     (: generated-names (List String))
     (define generated-names
-      (append
-       (list "program.wasm" "modules" "modules.json" "runtime.wasm" "resources" ".snail-target")
-       browser-files))
+      (append (list "program.wasm" "modules" "modules.json" "runtime.wasm" "store" ".snail-target")
+              browser-files))
 
     ;; The browser host's files, then the target's public tree, if it has
     ;; one. The page is the project's own index.html; none is generated, but
@@ -972,8 +1084,8 @@
       (list-sort (lambda (a b) (string<? (Pair-first a) (Pair-first b)))
                  (files-under directory "")))
 
-    ;; The digest of each file of a generation but its modules and linked
-    ;; files, which are named for theirs, by name.
+    ;; The digest of each file of a generation but its modules and objects,
+    ;; which are named for theirs, by name.
     (: file-digests (-> (List (Pair String String)) (List (Pair String String)) ! fs))
     (define (file-digests files)
       (map (lambda (file)
@@ -982,11 +1094,11 @@
 
     (: content-named? (-> String Bool))
     (define (content-named? name)
-      (or (starts-with? name "modules/") (starts-with? name "resources/")))
+      (or (starts-with? name "modules/") (starts-with? name "store/")))
 
     ;; A digest of a generation's files: each relative name, with its
-    ;; file's digest, but only the name of a module or a linked file, which
-    ;; is the digest of the text it was assembled from or of its bytes.
+    ;; file's digest, but only the name of a module or an object, which is
+    ;; the digest of the text it was assembled from or of its bytes.
     (: generation-digest (-> (List (Pair String String)) (List (Pair String String)) String))
     (define (generation-digest files digests)
       (bytes->hex

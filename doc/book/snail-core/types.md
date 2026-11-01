@@ -231,17 +231,20 @@ package's data, and the library reads it when it needs it:
   and `..` are resolved, and an absolute path, an empty name or a path that
   climbs out is an error. A file that is missing fails the build with the
   library and the path.
-- **Shipped by content.** The build places the file at `resources/DIGEST`
-  beside the payload, `program.wasm` or `modules.json`, where DIGEST is the
-  SHA-256 of its bytes in hex, in every build that produces one: project
-  program and browser targets, `scripts/snail-tool run` and `compile`, and
-  the development loop. The name is never a path or a library's: libraries
-  that link the same bytes ship one file, and a file's name changes exactly
-  when its bytes do. The module itself records what it links: `link-file`
-  becomes a call to an import from `snail.runtime.link` named for the
-  digest, which answers the file's handle. Editing a linked file therefore
-  compiles again the library that links it, and its importers, whose
-  modules name the new digest.
+- **Shipped by content.** The build places the file as an object of the
+  program's store, at `STORE/sha256/DIGEST`, where DIGEST is the SHA-256
+  of its bytes in hex, in every build that produces one: project program
+  and browser targets, `scripts/snail-tool run` and `compile`, and the
+  development loop. A linked program's store is `store/` beside
+  `program.wasm`; a per-library build's `modules.json` names its store,
+  relative to itself, and lists each object with its size. The name is
+  never a path or a library's: libraries that link the same bytes ship one
+  object, an object is written once and never rewritten, and a file's name
+  changes exactly when its bytes do. The module itself records what it
+  links: `link-file` becomes a call to an import from `snail.runtime.link`
+  named for the digest, which answers the file's handle. Editing a linked
+  file therefore compiles again the library that links it, and its
+  importers, whose modules name the new digest.
 - **A handle, not the bytes.** `link-file` evaluates to a `Resource`, which
   names a file and nothing more. The type is exported without its
   constructor, so a program cannot make one from a string: holding a
@@ -261,7 +264,7 @@ far more than any one program uses. A file that cannot be read traps the task
 that reads it. The bytes under a digest never change, so a host keeps what it
 has read by digest: a module linked again reads a file it still links without
 fetching it, and an edited file, under its new digest, is read anew. For the
-same reason a server may let a browser cache `resources/` for good, as the
+same reason a server may let a browser cache the store for good, as the
 development server does.
 
 ## Dynamic values

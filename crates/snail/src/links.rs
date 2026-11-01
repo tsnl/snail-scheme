@@ -8,7 +8,7 @@
 //! "snail.runtime.resource", starting the read under a ticket of (snail
 //! shell task), and then finishing the ticket for the file's length and
 //! reading the bytes held until the next finish. This host reads the file
-//! from `resources/DIGEST` beside the payload when the read starts, the
+//! from the program's store, `STORE/sha256/DIGEST`, when the read starts, the
 //! first time it is asked for, and wakes the ticket between turns
 //! (program.rs's `drive`), since a ticket may not wake before its task
 //! waits on it. A file that cannot be read traps the task that finishes it.
@@ -27,7 +27,7 @@ use crate::program::Host;
 /// last finish holds.
 #[derive(Default)]
 pub struct Files {
-    resources: PathBuf,
+    objects: PathBuf,
     names: Vec<String>,
     read: Vec<Option<Vec<u8>>>,
     answers: HashMap<i64, Result<usize, String>>,
@@ -36,11 +36,11 @@ pub struct Files {
 }
 
 impl Files {
-    /// The files `names` link, read from `resources/` in `directory`, the
-    /// payload's, as tasks ask for them.
-    pub fn new(directory: &Path, names: &[String]) -> Files {
+    /// The files `names` link, objects of the store at `store`, read as
+    /// tasks ask for them.
+    pub fn new(store: &Path, names: &[String]) -> Files {
         Files {
-            resources: directory.join("resources"),
+            objects: store.join("sha256"),
             names: names.to_vec(),
             read: vec![None; names.len()],
             ..Files::default()
@@ -58,7 +58,7 @@ impl Files {
             Some(_) => Ok(index),
             None => {
                 let name = &self.names[index];
-                std::fs::read(self.resources.join(name))
+                std::fs::read(self.objects.join(name))
                     .map(|bytes| {
                         self.read[index] = Some(bytes);
                         index
@@ -165,12 +165,12 @@ mod tests {
         (import "snail.runtime.link" "32e3ea041d71f3b22a7424935466262cf12aa55c103be694c4eec92a9e607918" (func $pixel (result i32)))
         (import "snail.runtime.link" "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824" (func $again (result i32))))"#;
 
-    // A payload directory of its own holding the files `files` names.
+    // A store of its own holding the objects `files` names.
     fn payload(name: &str, files: &[(&str, &[u8])]) -> PathBuf {
         let directory =
             std::env::temp_dir().join(format!("snail-test-{}-{name}", std::process::id()));
         for (file, bytes) in files {
-            let path = directory.join("resources").join(file);
+            let path = directory.join("sha256").join(file);
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, bytes).unwrap();
         }
@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn a_file_is_read_when_first_asked_for_and_kept() {
         let directory = payload("lazy", &[(GREETING, b"hello")]);
-        let file = directory.join("resources").join(GREETING);
+        let file = directory.join("sha256").join(GREETING);
         let mut files = Files::new(&directory, &names());
         std::fs::write(&file, "later").unwrap();
         files.start(1, 0).unwrap();

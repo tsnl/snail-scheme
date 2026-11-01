@@ -147,8 +147,9 @@ export const running = [];
 // build's page names its program's modules.json, a module per library, in
 // a meta tag. Without one the page is published, and loads one linked
 // module from `url`, which the meta tag makes the page ignore. Either way
-// a file the program links is fetched from resources/ beside it when a task
-// first reads it.
+// a file the program links is fetched from the program's store, store/
+// beside a linked module or where a manifest says, when a task first
+// reads it.
 export async function startApplication({url, canvas, overlay, storageKey}) {
   const pictures = createPictures();
   const application = {canvas, program: null, errors: [], capture: null, pictures,

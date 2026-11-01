@@ -29,7 +29,7 @@
 //! instead.
 
 use std::collections::BTreeSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -73,12 +73,13 @@ pub fn run(path: &str, arguments: &[String]) -> u8 {
     }
 }
 
-// A file the program links is read when a task first asks for it.
+// A file the program links is an object of the program's store, read when
+// a task first asks for it.
 fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
     let engine = engine()?;
-    let payload = Payload::compile(&engine, Path::new(path))?;
+    let (payload, store) = Payload::compile(&engine, Path::new(path))?;
     let names = links::linked_names(payload.modules());
-    let files = Files::new(Path::new(path).parent().unwrap_or(Path::new("")), &names);
+    let files = Files::new(&store, &names);
     let mut linker = host_linker(&engine, &names)?;
     let host = Host {
         wasi: wasi(path, arguments)?,
@@ -220,11 +221,16 @@ enum Payload {
 }
 
 impl Payload {
-    fn compile(engine: &Engine, path: &Path) -> wasmtime::Result<Payload> {
+    // The payload, and the store the files it links are objects of: the
+    // manifest's, or `store/` beside a linked module.
+    fn compile(engine: &Engine, path: &Path) -> wasmtime::Result<(Payload, PathBuf)> {
         Ok(if is_manifest(path) {
-            Payload::Libraries(Libraries::compile(engine, &Manifest::read(path)?)?)
+            let manifest = Manifest::read(path)?;
+            let libraries = Libraries::compile(engine, &manifest)?;
+            (Payload::Libraries(libraries), manifest.store)
         } else {
-            Payload::Module(compile_module(engine, path)?)
+            let store = path.parent().unwrap_or(Path::new("")).join("store");
+            (Payload::Module(compile_module(engine, path)?), store)
         })
     }
 
