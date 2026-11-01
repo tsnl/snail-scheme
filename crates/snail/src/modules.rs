@@ -4,7 +4,7 @@
 //!
 //! A per-library build is named by its modules.json, which `build-modules`
 //! in host/chibi/snail/stage0/build.sld writes beside the modules:
-//! `{"runtime": FILE, "modules": [{"name": LIBRARY, "file": FILE}, ...]}`,
+//! `{"runtime": FILE, "store": STORE, "modules": [{"name": LIBRARY, "file": FILE}, ...], "files": [...]}`,
 //! the libraries in program order. The Rust runtime is instantiated and
 //! initialized first; then each library's module, which sees the runtime
 //! as "snail.core.support", the modules before it under their library names,
@@ -25,9 +25,13 @@ use crate::program::{Host, Linked, NODE_ONLY, compile_module};
 
 // ---- The manifest ----
 
-/// A modules.json, its files resolved against its own directory.
+/// A modules.json, its files resolved against its own directory: the
+/// runtime, the store the files the program links are objects of, which
+/// is `store/` beside the manifest unless it says otherwise, and each
+/// library's module.
 pub struct Manifest {
     pub runtime: PathBuf,
+    pub store: PathBuf,
     pub libraries: Vec<Library>,
 }
 
@@ -79,6 +83,7 @@ impl Manifest {
             .collect::<Option<_>>()?;
         Some(Manifest {
             runtime: file(&json["runtime"])?,
+            store: directory.join(json["store"].as_str().unwrap_or("store/")),
             libraries,
         })
     }
@@ -551,6 +556,23 @@ mod tests {
             ]
         );
         assert_eq!(read.libraries[0].name, "lib");
+        assert_eq!(read.store, directory.join("store/"));
+    }
+
+    #[test]
+    fn a_manifest_names_the_store_its_objects_are_in() {
+        let manifest = build("store", &runtime(0));
+        let text = std::fs::read_to_string(&manifest).unwrap();
+        std::fs::write(
+            &manifest,
+            text.replace(r#""runtime""#, r#""store": "../.snail-store/", "runtime""#),
+        )
+        .unwrap();
+        let read = Manifest::read(&manifest).unwrap();
+        assert_eq!(
+            read.store,
+            manifest.parent().unwrap().join("../.snail-store/")
+        );
     }
 
     #[test]

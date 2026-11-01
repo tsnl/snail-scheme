@@ -790,12 +790,13 @@ file with the library and the path, and otherwise binds the new digest. The
 digests enter the library's checked-body and interface keys, as an artifact
 stamp does, so an edit compiles the library and its importers, which may
 specialize a generic function that calls one of its handles. Every build
-places every file from the modules it returns, compiled or replayed, into
-its new generation at `resources/DIGEST`, checking that the bytes it copies
-have the digest the compile read; a file edited during the build fails it,
-and the next build compiles against the new bytes. Modules and linked files
-are named for their contents, so a generation's digest takes only their
-names, and the browser reload client sees an edited file as a changed
+places every file from the modules it returns, compiled or replayed, as an
+object of the build's store, `store/sha256/DIGEST` beside a linked program
+or the store a project's development builds share, checking that the bytes
+it copies have the digest the compile read; a file edited during the build
+fails it, and the next build compiles against the new bytes. Modules and
+objects are named for their contents, so a generation's digest takes only
+their names, and the browser reload client sees an edited file as a changed
 module, from which it relinks. The bytes under such a name never change, so
 the development server lets a browser cache them for good, and the page's
 loader keeps the bytes it has read, by digest, across relinks.

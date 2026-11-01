@@ -1,6 +1,8 @@
 ;; A browser application's development bundle, as a server mounts it at a
-;; path: the page, the files of the latest build, and the files of each
-;; build still retained under .snail/builds/EPOCH/. The page at the mount
+;; path: the page, the files of the latest build, the files of each
+;; build still retained under .snail/builds/EPOCH/, and the objects of the
+;; store the builds share, under .snail/builds/.snail-store/, where a
+;; manifest's relative reference to it resolves. The page at the mount
 ;; is the latest build's, given a base in that build's directory, so all it
 ;; names relatively, its scripts and styles, its modules.json and the
 ;; modules that names, comes from the build it was served from, even once a
@@ -72,8 +74,28 @@
            ((Nil) (page mount latest))
            ((Cons "" (Nil)) (page mount latest))
            ((Cons "index.html" (Nil)) (page mount latest))
+           ((Cons ".snail" (Cons "builds" (Cons ".snail-store" rest))) (store-object latest rest))
            ((Cons ".snail" (Cons "builds" (Cons epoch rest))) (pinned builds epoch rest))
            (_ (build-file (BuildDirectory-directory latest) path))))))
+
+    ;; An object of the store beside the builds' generations, which every
+    ;; retained build's manifest names as ../.snail-store/, so its URL never
+    ;; changes with the build.
+    (: store-object (-> BuildDirectory (List String) Response ! fs))
+    (define (store-object build path)
+      (match path
+        ((Cons "sha256" (Cons digest (Nil)))
+         (build-file (string-append (parent-directory (BuildDirectory-directory build))
+                                    "/.snail-store")
+                     (list "sha256" digest)))
+        (_ (refusal 404 "no such object in the store"))))
+
+    (: parent-directory (-> String String))
+    (define (parent-directory path)
+      (let loop ((end (string-length path)))
+        (cond ((= end 0) path)
+              ((char=? (string-ref path (- end 1)) #\/) (substring path 0 (- end 1)))
+              (else (loop (- end 1))))))
 
     (: pinned (-> (List BuildDirectory) String (List String) Response ! fs))
     (define (pinned builds epoch path)
@@ -259,9 +281,9 @@
 
     ;; ---- Responses ----
 
-    ;; A build's modules and linked files are named for their contents, so
-    ;; a browser may keep them for good. Nothing else is cached: `/`
-    ;; changes with each build.
+    ;; A build's modules and the store's objects are named for their
+    ;; contents, so a browser may keep them for good. Nothing else is
+    ;; cached: `/` changes with each build.
     (: found (-> String Bytes Response))
     (define (found name bytes)
       (response 200
@@ -272,7 +294,7 @@
     (: content-named? (-> String Bool))
     (define (content-named? name)
       (match (string-index name #\/)
-        ((Some end) (member? (substring name 0 end) (list "modules" "resources")))
+        ((Some end) (member? (substring name 0 end) (list "modules" "store" "sha256")))
         ((None) #f)))
 
     (: refusal (-> I32 String Response))

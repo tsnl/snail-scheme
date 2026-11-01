@@ -630,11 +630,12 @@
                   (reverse links)
                   (loop (cons (cons (car entry) (cadr entry)) links))))))))
 
-    ;; Each file goes to resources/DIGEST in `directory`, beside the
-    ;; payload, where its host reads it when the program first asks.
+    ;; Each file is an object of the store beside the payload in
+    ;; `directory`, at store/sha256/DIGEST, where its host reads it when
+    ;; the program first asks.
     (define (place-links! links directory)
       (for-each (lambda (link)
-                  (let ((to (path-join directory "resources" (car link))))
+                  (let ((to (path-join directory "store" "sha256" (car link))))
                     (create-directory* (path-directory to))
                     (copy-file! (cdr link) to)))
                 links))
@@ -642,8 +643,9 @@
     ;; ---- Linked modules ----
 
     ;; A program linked when it runs: each library's module, assembled but
-    ;; not optimized, the runtime beside them, and modules.json naming the
-    ;; modules in program order for the loader in host/browser/load.mjs.
+    ;; not optimized, the runtime beside them, the files it links as
+    ;; objects of store/, and modules.json naming the modules in program
+    ;; order and the objects for the loader in host/browser/load.mjs.
     (define (build-modules root directories source output)
       (create-directory* output)
       (let* ((links (with-private-directory root
@@ -659,7 +661,7 @@
              (names (read-lines (path-join output "modules"))))
         (for-each (lambda (name) (assemble (path-join output name))) names)
         (copy-file! (build-runtime root #f) (path-join output "runtime.wasm"))
-        (write-file (path-join output "modules.json") (modules-json names))
+        (write-file (path-join output "modules.json") (modules-json names links))
         (place-links! links output)
         output))
 
@@ -685,18 +687,28 @@
                       (substring rest (+ end 1) (string-length rest))))
               (reverse lines)))))
 
-    (define (modules-json names)
-      (string-append "{\"runtime\": \"runtime.wasm\", \"modules\": ["
-                     (let loop ((names names) (out ""))
-                       (if (null? names)
-                           out
-                           (loop (cdr names)
-                                 (string-append out
-                                                (if (string=? out "") "" ", ")
-                                                "{\"name\": \""
-                                                (car names)
-                                                "\", \"file\": \"" (car names) ".wasm\"}"))))
+    ;; The manifest: the runtime, the store beside it, each module, and
+    ;; each linked file by digest with its size.
+    (define (modules-json names links)
+      (string-append "{\"runtime\": \"runtime.wasm\", \"store\": \"store/\", \"modules\": ["
+                     (joined (map (lambda (name)
+                                    (string-append "{\"name\": \"" name
+                                                   "\", \"file\": \"" name ".wasm\"}"))
+                                  names))
+                     "], \"files\": ["
+                     (joined (map (lambda (link)
+                                    (string-append "{\"digest\": \"" (car link)
+                                                   "\", \"size\": "
+                                                   (number->string (file-size (cdr link)))
+                                                   "}"))
+                                  links))
                      "]}\n"))
+
+    (define (joined items)
+      (let loop ((items items) (out ""))
+        (if (null? items)
+            out
+            (loop (cdr items) (string-append out (if (string=? out "") "" ", ") (car items))))))
 
     ;; ---- Development tools ----
 
