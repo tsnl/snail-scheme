@@ -885,11 +885,51 @@
     ;; items come before the run, as an import's do, and never inside it.
     (: expand-library-run (-> Context Env (List Syntax) Context ! fs compile))
     (define (expand-library-run cx env forms)
-      (let ((cx (expand-top-level cx env forms)))
+      (let* ((cx (expand-top-level cx env forms))
+             (cx (if (string=? (Context-prefix cx) "main") (with-one-body cx) cx)))
         (Context-program-set cx
                              (program-with-library (Context-program cx)
                                                    (Context-prefix cx)
                                                    (Context-items cx)))))
+
+    ;; A program's statements are one body, a function of no arguments the
+    ;; one statement left calls, which runs after the definitions are
+    ;; initialized, in their order. A function, so a yield in a statement
+    ;; saves the rest of the program as a frame when the body runs as the
+    ;; program's first task ((snail shell task)'s `start-main`). `items`
+    ;; are newest first.
+    (: with-one-body (-> Context Context))
+    (define (with-one-body cx)
+      (let ((items (Context-items cx))
+            (statements (reverse (concatenate (map (lambda (item)
+                                                     (match item
+                                                       ((Do value) (list value))
+                                                       (_ (Nil))))
+                                                   (Context-items cx))))))
+        (match statements
+          ((Nil) cx)
+          ((Cons first rest)
+           (let ((name (string-append (Context-prefix cx) ":%body")) (loc (Expr-loc first)))
+             (add-value (Context-items-set cx
+                                           (Cons
+                                            (Do (expr (App (expr (Var name (Nil) (Nil)) loc) (Nil))
+                                                      loc))
+                                            (Cons (Define name
+                                                    (expr (Lambda (Nil) (sequence first rest) #f)
+                                                          loc))
+                                                  (filter (lambda (item)
+                                                            (match item
+                                                              ((Do _) #f)
+                                                              (_ #t)))
+                                                          items))))
+                        name
+                        (Defined (None) (None) #t)))))))
+
+    (: sequence (-> Expr (List Expr) Expr))
+    (define (sequence first rest)
+      (match rest
+        ((Nil) first)
+        ((Cons next more) (expr (Seq first (sequence next more)) (Expr-loc first)))))
 
     ;; Each declaration is a section of imports, exports or definitions, or a
     ;; `cond-expand` choosing more declarations.
@@ -2572,7 +2612,8 @@
                                    (let ((effect (Effect id
                                                          operations
                                                          control
-                                                         (effect-defaults snail loc))))
+                                                         (effect-defaults snail loc)
+                                                         (around-main? clauses))))
                                      (Pair (map DefaultDefinition-expand snail)
                                            (Context-program-set cx
                                                                 (program-with-effect
@@ -2627,15 +2668,26 @@
         (_ (compile-error (syntax-loc type)
                           "an operation has a function type with a closed row; its effect is implied"))))
 
-    ;; The clauses after an effect's operations, each a default clause.
+    ;; The clauses after an effect's operations: `default` clauses, and
+    ;; `(around-main)`, which says the host handles the effect around a
+    ;; program's body.
     (: default-clauses (-> (List Syntax) (List Syntax) ! compile))
     (define (default-clauses clauses)
-      (for-each (lambda (clause)
-                  (match clause
-                    ((Form (Cons (Ident "default" _ _) _) _) (unit))
-                    (_ (compile-error (syntax-loc clause) "expected a default clause"))))
-                clauses)
-      clauses)
+      (filter (lambda (clause)
+                (match clause
+                  ((Form (Cons (Ident "default" _ _) _) _) #t)
+                  ((Form (Cons (Ident "around-main" _ _) (Nil)) _) #f)
+                  (_ (compile-error (syntax-loc clause)
+                                    "expected a default clause or (around-main)"))))
+              clauses))
+
+    (: around-main? (-> (List Syntax) Bool))
+    (define (around-main? clauses)
+      (any? (lambda (clause)
+              (match clause
+                ((Form (Cons (Ident "around-main" _ _) (Nil)) _) #t)
+                (_ #f)))
+            clauses))
 
     ;; Every default the clauses give, at most one per operation.
     (: effect-defaults (-> (List DefaultDefinition) Loc (List (Pair String String)) ! compile))

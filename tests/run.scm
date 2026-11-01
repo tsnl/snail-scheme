@@ -581,6 +581,7 @@
     ("tests/programs" "libraries")
     ("tests/programs" "generated") ("tests/programs" "wasm")
     ("tests/programs" "handler-captures")
+    ("tests/programs" "tasks-main")
     ("tests/programs" "once")
     ("tests/programs" "tasks")
     ("tests/programs" "mailbox")

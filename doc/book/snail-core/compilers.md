@@ -370,6 +370,12 @@ function of the expander has `mut` in its row — and where it does not, the
   so every placeholder is a finite constant. The checker makes sure a
   conversion goes to or from Any, and that an exposure names a
   definition.
+  A module's `main` initializes its definitions and runs its body, and the
+  two are exported apart as well, `main:init` and `main:body`, the body
+  taking the evidence: a program's statements are one function the body
+  calls, which the expander made of them (`with-one-body`), so a host that
+  gives `main:body` to the scheduler's `tasks:start-main` runs them as the
+  first task, where a yield saves the rest of the program as a frame.
   The host passes no evidence, so every exposed function has a wrapper that
   calls the definition with the empty evidence list; a `Unit` result is no
   result, as a foreign import of the function declares, so a module that

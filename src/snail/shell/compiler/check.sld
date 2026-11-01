@@ -2447,12 +2447,19 @@
                      (Scheme-constraints scheme))
           ck))
 
+    ;; A program's body runs as its first task when it links the scheduler,
+    ;; under the handler of every effect declared `around-main`, so the
+    ;; body may perform those besides what the host implements.
     (: check-statement (-> Checker Expr (Pair Item Checker) ! compile))
     (define (check-statement ck expr)
       (learning ck ((row (fresh-meta))
                     (value (infer expr row))
-                    (then (check-host-effects row (Expr-loc value))))
+                    (then (check-body-effects row (Expr-loc value))))
                 (Pair (Do value) ck)))
+
+    (: check-body-effects (-> Checker Type Loc Checker ! compile))
+    (define (check-body-effects ck row loc)
+      (check-effects-with ck row loc (lambda (effect) (Effect-around-main effect))))
 
     ;; The host may retain unrestricted values, holding managed references
     ;; opaquely. Linear ownership cannot cross this unrestricted boundary.
@@ -2492,11 +2499,18 @@
     ;; operation; the builtin effects are the host's own.
     (: check-host-effects (-> Checker Type Loc Checker ! compile))
     (define (check-host-effects ck row loc)
+      (check-effects-with ck row loc (lambda (effect) #f)))
+
+    ;; The effects of `row` must each be the host's: builtin, with a default
+    ;; for every operation, or `allowed` otherwise.
+    (: check-effects-with (-> Checker Type Loc (-> Effect Bool) Checker ! compile))
+    (define (check-effects-with ck row loc allowed)
       (for-each (lambda (label)
                   (unless (or (member? label (list "mut" "host"))
                               (let ((effect (program-effect (program-of ck) label)))
-                                (= (length (Effect-defaults effect))
-                                   (length (Effect-operations effect)))))
+                                (or (allowed effect)
+                                    (= (length (Effect-defaults effect))
+                                       (length (Effect-operations effect))))))
                     (compile-error loc
                                    (string-append "the effect "
                                                   (short-name label)

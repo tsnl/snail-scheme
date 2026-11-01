@@ -641,6 +641,18 @@ fn define_linking(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
             call_with(&mut caller, &function, argument)
         },
     )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "call-with-function",
+        |mut caller: Caller<'_, Host>, handle: i32, callee: Option<Func>| {
+            let instance = caller.data().loading.instance(handle)?;
+            let name = caller.data_mut().loading.take_name()?;
+            let function = instance
+                .get_func(&mut caller, &name)
+                .ok_or_else(|| format_err!("the instance exports no function {name}"))?;
+            call_values(&mut caller, &function, &[Val::FuncRef(callee)])
+        },
+    )?;
     Ok(())
 }
 
@@ -660,8 +672,18 @@ fn call_with(
             other => bail!("an export called with one argument takes {other}, not an integer"),
         })
         .collect::<wasmtime::Result<_>>()?;
-    let mut results = vec![Val::I32(0); ty.results().len()];
-    function.call(&mut *caller, &arguments, &mut results)?;
+    call_values(caller, function, &arguments)
+}
+
+// Calls a function with `arguments`, answering its first result widened to
+// i64, or 0 when it has none.
+fn call_values(
+    caller: &mut Caller<'_, Host>,
+    function: &Func,
+    arguments: &[Val],
+) -> wasmtime::Result<i64> {
+    let mut results = vec![Val::I32(0); function.ty(&*caller).results().len()];
+    function.call(&mut *caller, arguments, &mut results)?;
     Ok(match results.first() {
         Some(Val::I32(result)) => i64::from(*result),
         Some(Val::I64(result)) => *result,
