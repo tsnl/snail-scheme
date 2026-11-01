@@ -53,6 +53,7 @@
    Provider
    ExportOf
    HostProvided
+   HostIfProvided
    ConstantOf
    Unprovided
    link-module
@@ -393,15 +394,19 @@
                        (lambda (index) (held-char which (i64->i32 index)))))
 
     ;; What provides an import: an export of an instance, the host's own
-    ;; function of the import's module and field, a function of no
-    ;; arguments answering a constant, as a linked file's handle is
-    ;; imported, or nothing, a function that fails if called, as a host
-    ;; import a program never calls links.
+    ;; function of the import's module and field, that function when the
+    ;; host has one and otherwise nothing, a function of no arguments
+    ;; answering a constant, as a linked file's handle is imported, or
+    ;; nothing, a function that fails if called, as a host import a program
+    ;; never calls links. A provider that is not found, an export the
+    ;; instance lacks or a function the host lacks, provides nothing, and
+    ;; the link fails unless another is given for the import.
     (enum Provider
       (ExportOf
        ((instance Module)
         (export String)))
       (HostProvided)
+      (HostIfProvided)
       (ConstantOf
        ((value I32)))
       (Unprovided))
@@ -432,6 +437,7 @@
          (provide-export (Module-handle instance))
          (unit))
         ((HostProvided) (provide-host) (unit))
+        ((HostIfProvided) (unless (provide-host) (provide-missing)))
         ((ConstantOf value) (provide-constant value))
         ((Unprovided) (provide-missing))))
 

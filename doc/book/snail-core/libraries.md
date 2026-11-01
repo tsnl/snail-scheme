@@ -53,6 +53,7 @@ the runtime interfaces.
 | `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource`, which a task waits on, through the `resource` effect ([linked files](types.md#linked-files)). |
 | `(snail shell watch)` | `inventory`, each path under some directories with a fingerprint of its kind, size and modification time, and `inventory-changes`, the paths two inventories disagree on: what a watcher reconciles when a native watch may have missed an edit. `watch-tree` and `next-hint` are Node's recursive watch of a tree, as hints that something under it changed, which only say when to take the next inventory (the `hints` effect, on Node only). |
 | `(snail shell wasm)` | Loading WebAssembly modules and plugins while a program runs ([below](#loading-webassembly)). |
+| `(snail shell engine)` | The native engine: `run-manifest` links a program compiled one library at a time from its `modules.json`, through `(snail shell wasm)`, and runs it; its exports forward the program's scheduler and serve the files it links. Stage 0 builds it as `bootstrap/engine.sld`, which Node and wasmtime start for a manifest ([the native executable](bootstrap.md#the-native-executable)). |
 
 ### Shell: applications
 

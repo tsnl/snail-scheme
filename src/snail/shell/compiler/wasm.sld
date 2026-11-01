@@ -1831,23 +1831,35 @@
                                      (wat* "call"
                                            (Cons (id (wasm-id name))
                                                  (Cons (evidence-none m) args))))))
-        (push-function! m wrapper (wat* "func" (Cons (id wrapper)
-                                                     (append (map (lambda (pair)
-                                                                    (wat "param"
-                                                                         (id (Pair-second pair))
-                                                                         (exposed-value-type m
-                                                                                             (Pair-first
-                                                                                              pair))))
-                                                                  (zip params names))
-                                                             (Cons (wat "result"
-                                                                        (exposed-value-type m
-                                                                                            result))
-                                                                   (append
-                                                                    (reverse (ref-get (Fn-locals
-                                                                                       fn)))
-                                                                    (append (entry-clears m)
-                                                                            (list value))))))))
+        (push-function! m wrapper
+                        (wat* "func"
+                              (Cons (id wrapper)
+                                    (concatenate
+                                     (list (map (lambda (pair)
+                                                  (wat "param"
+                                                       (id (Pair-second pair))
+                                                       (exposed-value-type m (Pair-first pair))))
+                                                (zip params names))
+                                           (wrapper-result m result)
+                                           (reverse (ref-get (Fn-locals fn)))
+                                           (entry-clears m)
+                                           (list (if (unit-result? result)
+                                                     (wat "drop" value)
+                                                     value)))))))
         wrapper))
+
+    ;; A Unit result is no result, as a foreign import's is (`import!`), so
+    ;; a module that imports an exposed function of another, as one the
+    ;; engine serves, finds the type it declared.
+    (: wrapper-result (-> Module Type (List Wat) ! mut))
+    (define (wrapper-result m result)
+      (if (unit-result? result) (Nil) (list (wat "result" (exposed-value-type m result)))))
+
+    (: unit-result? (-> Type Bool))
+    (define (unit-result? type)
+      (match type
+        ((TCon "Unit" (Nil)) #t)
+        (_ #f)))
 
     ;; A host entry starts with no yield in flight. In a checked program
     ;; nothing between a yield's record and its catch traps, but for a stack

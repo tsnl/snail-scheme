@@ -371,7 +371,10 @@ function of the expander has `mut` in its row — and where it does not, the
   conversion goes to or from Any, and that an exposure names a
   definition.
   The host passes no evidence, so every exposed function has a wrapper that
-  calls the definition with the empty evidence list. In a program with
+  calls the definition with the empty evidence list; a `Unit` result is no
+  result, as a foreign import of the function declares, so a module that
+  imports an exposed function of another, as those the engine serves,
+  links. In a program with
   control effects the wrapper first clears the yield record: the task loop
   goes on after a trap, and one that struck while a yield was in flight
   would otherwise leave the record set for the next task. A function
