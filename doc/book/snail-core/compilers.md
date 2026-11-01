@@ -225,7 +225,19 @@ function of the expander has `mut` in its row — and where it does not, the
   reads a local from around it (`check-closed`), so the backend knows such
   a closure has no environment. Those two are also all that `fit` gives
   the type `(Fn A B ! e)`, where an argument, an annotation or a signature
-  expects one; every other value meets its expected type by unifying.
+  expects one. At established Any boundaries `fit` inserts a conversion
+  and charges `dyn-tc` for a fallible extraction; other types still
+  unify strictly. Explicit conversion follows the same rule. Cleanup
+  effects of owned values at yields are charged before lambda
+  generalization. Handler implementations and the handled body meet
+  their result boundary through the same directed fitting rule.
+- **[`conversions.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/conversions.sld)** lowers
+  solved conversions before ownership checking. A single evaluation
+  binds the Any; a type test guards extraction. Failure constructs a
+  `CastError` and performs the already charged abortive operation, or
+  returns `Err` for `try-convert`. The successful arm contains the
+  checked value. Ownership and control see ordinary branches and calls,
+  rather than a backend-only exception protocol.
 - **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/capabilities.sld)** finds
   structural properties of types from their declared fields: whether a
   type is first-order data, which dynamic exports require; whether it
@@ -288,10 +300,13 @@ function of the expander has `mut` in its row — and where it does not, the
   anywhere else a let names it, with the rest of the expression as the
   let's body, and names first each operand that runs before it, so those
   still run first. Each let whose value may yield is then marked with the
-  dropper of the linear locals its body reads, and `once` of a lambda with
-  linear captures with theirs: a thunk closed over the same locals that
-  drops them in order, whose drops the pass asks mono for, so a dropped
-  resume or lambda releases what it held ("Droppers"). A program without
+  dropper of the owners retained across its value, including owners an
+  aborting branch never mentions. A tail call with otherwise abandoned
+  owners receives a cleanup frame too. Ordered ownership lists preserve
+  reverse binding order. `once` of a lambda with linear captures is marked
+  with their dropper: a thunk closed over those values, whose drops the pass asks mono for, so a dropped
+  resume or lambda releases what it held ("Droppers"). Abortive exits run
+  the same droppers while unwinding, before entering the catch handler. A program without
   control effects comes back as it went in, as does each item without
   such a call. The pass also refuses a
   control row where nothing could carry a yield: in a `vector-generate` or

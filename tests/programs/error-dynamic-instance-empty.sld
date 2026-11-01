@@ -1,5 +1,5 @@
 (import
  (snail core base))
 
-(instance (Num Any)
+(instance (Num (! dyn-tc) Any)
   (dispatch))

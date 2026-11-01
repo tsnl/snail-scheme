@@ -2266,10 +2266,9 @@
     ;; where no row variable could be solved, and gives a type for each
     ;; other parameter. A row is closed, or ends with the row `e` of the
     ;; instance's requirements, as `(Drop e A)` or `(Store e S)`, which the
-    ;; types the requirement is given decide. It names no control effect:
-    ;; a drop or a clone runs to completion wherever it is written, glue
-    ;; included, and a method's specializations are not told apart by the
-    ;; control effects its instance performs.
+    ;; types the requirement is given decide. Ordinary methods may perform
+    ;; control effects; mono retains these rows in specialization keys and
+    ;; call types. Drops and clones must still run to completion.
     (: check-head-rows (-> Program Class Instance Loc Unit ! compile))
     (define (check-head-rows program class instance loc)
       (for-each (lambda (argument)
@@ -2303,7 +2302,7 @@
     (define (check-head-label program class label loc)
       (match (table-ref (Program-effects program) label)
         ((Some effect)
-         (unless (null? (Effect-control effect))
+         (when (and (lifecycle-class? class) (not (null? (Effect-control effect))))
            (compile-error loc
                           (string-append (cond ((string=? class drop-class) "a drop")
                                                ((string=? class clone-class) "a clone")
@@ -3208,6 +3207,12 @@
             (expanding cx ((value (expand-expr env value)))
                        (Pair (expr (Convert value (resolve-type cx env type)) loc) cx)))
            (_ (compile-error loc "expected (type-convert expression type)"))))
+        (("try-convert")
+         (match items
+           ((Cons _ (Cons value (Cons type (Nil))))
+            (expanding cx ((value (expand-expr env value)))
+                       (Pair (expr (TryConvert value (resolve-type cx env type)) loc) cx)))
+           (_ (compile-error loc "expected (try-convert expression type)"))))
         (("type-test")
          (match items
            ((Cons _ (Cons value (Cons type (Nil))))

@@ -4,17 +4,17 @@
   (import
    (snail core base))
   (begin
-    (typeclass (Describe T)
-      (: describe (-> T String)))
+    (typeclass (Describe e T)
+      (: describe (-> T String ! e)))
 
-    (instance (Describe I64)
+    (instance (Describe (!) I64)
       (define (describe value) (i64->string value)))
 
-    (instance (Describe String)
+    (instance (Describe (!) String)
       (define (describe value) value))
 
-    (instance (Describe (List I64))
+    (instance (Describe (!) (List I64))
       (define (describe value) (i64->string (length value))))
 
-    (instance (Describe Any)
+    (instance (Describe (! dyn-tc) Any)
       (dispatch I64 String (List I64)))))

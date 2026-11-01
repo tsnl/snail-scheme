@@ -4,6 +4,16 @@
  (snail shell task)
  (snail shell socket))
 
+;; A mismatch here is a broken test-host invariant. Guest conversions that
+;; are expected to fail use dyn-tc handlers in the dedicated fixtures.
+(define-syntax fixture-convert
+  (syntax-rules ()
+    ((_ value target)
+     (match (try-convert value target)
+       ((Ok checked) checked)
+       ((Err _) (panic "fixture payload has the wrong type"))))))
+
+
 (: require (All (T) (-> (Result T SocketError) T)))
 (define (require result)
   (match result
@@ -20,11 +30,11 @@
                                      (Endpoint-port endpoint)))))
               (send (lambda (socket peer bytes)
                       (sleep 1)
-                      (ref-set! (type-convert (UdpSocket-token socket) (Ref Datagram))
+                      (ref-set! (fixture-convert (UdpSocket-token socket) (Ref Datagram))
                                 (Datagram peer bytes))
                       (Ok (i64->i32 (vector-length bytes)))))
               (receive (lambda (socket _)
-                         (Ok (ref-get (type-convert (UdpSocket-token socket) (Ref Datagram))))))
+                         (Ok (ref-get (fixture-convert (UdpSocket-token socket) (Ref Datagram))))))
               (close-udp (lambda (_) (Ok (unit)))))
            (let ((socket (require (bind (require (endpoint "192.0.2.1" 7))))))
              (dispatch-local

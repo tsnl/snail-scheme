@@ -1,1 +1,1 @@
-no instance for (Num Bool)
+no instance for (Num { } Bool)

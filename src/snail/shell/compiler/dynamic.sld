@@ -11,7 +11,8 @@
   (import
    (snail core base)
    (snail shell compiler read)
-   (snail shell compiler core))
+   (snail shell compiler core)
+   (snail shell compiler conversions))
   (begin
 
     ;; ---- Dispatch domain ----
@@ -95,7 +96,7 @@
              ((Some selector)
               (expression (Lambda names
                                   (dispatch-branches method var arguments result
-                                                     (Pair-second selector) targets loc)
+                                                     (Pair-second selector) targets targets loc)
                                   #f)
                           loc))
              ((None)
@@ -121,30 +122,50 @@
         ((TRow _ (Some tail)) (mentions? var tail))
         (_ #f)))
 
-    ;; The last branch still checks its arguments. An unsupported payload
-    ;; therefore fails through the ordinary checked-conversion path, as
-    ;; does a second argument whose payload differs from the first one's.
+    ;; Every selector branch is tested. The final failure describes the
+    ;; whole accepted domain, not the last type we happened to try.
     (: dispatch-branches
-       (-> String String (List (Pair Type Expr)) Type Expr (List Type) Loc Expr))
-    (define (dispatch-branches method var args result selector targets loc)
+       (-> String String (List (Pair Type Expr)) Type Expr (List Type) (List Type) Loc Expr))
+    (define (dispatch-branches method var args result selector targets domain loc)
       (match targets
         ((Cons target rest)
-         (let ((body (dispatch-call method var args result target loc)))
-           (if (null? rest)
-               body
-               (expression (If (expression (TypeTest selector target) loc)
-                               body
-                               (dispatch-branches method var args result selector rest loc))
-                           loc))))
-        ((Nil) (panic "internal error: empty dispatch"))))
+         (expression (If (expression (TypeTest selector target) loc)
+                         (dispatch-call method var args result target loc)
+                         (dispatch-branches method var args result selector rest domain loc)) loc))
+        ((Nil)
+         (conversion-failure
+          (conversion-error "UnsupportedInstance" domain selector method
+                            (selector-index var args) loc) unchecked loc))))
+
+    (: selector-index (-> String (List (Pair Type Expr)) I64))
+    (define (selector-index var args)
+      (match (find (lambda (entry) (type=? (Pair-first (Pair-second entry)) (TRigid var)))
+                   (zip (iota (length args)) args))
+        ((Some entry) (Pair-first entry))
+        ((None) -1)))
+
+    (: dispatch-argument (-> String String Type I64 (Pair Type Expr) Loc Expr))
+    (define (dispatch-argument method var target index argument loc)
+      (let ((value (Pair-second argument)))
+        (if (type=? (Pair-first argument) (TRigid var))
+            (expression (If (expression (TypeTest value target) loc)
+                            (expression (Convert value target) loc)
+                            (conversion-failure
+                             (conversion-error "ArgumentMismatch"
+                                               (list target)
+                                               value
+                                               method
+                                               index
+                                               loc)
+                             target loc)) loc)
+            value)))
 
     (: dispatch-call (-> String String (List (Pair Type Expr)) Type Type Loc Expr))
     (define (dispatch-call method var args result target loc)
-      (let* ((arguments (map (lambda (pair)
-                               (if (type=? (Pair-first pair) (TRigid var))
-                                   (expression (Convert (Pair-second pair) target) loc)
-                                   (Pair-second pair)))
-                             args))
+      (let* ((arguments (map (lambda (entry)
+                               (dispatch-argument method var target
+                                                  (Pair-first entry) (Pair-second entry) loc))
+                             (zip (iota (length args)) args)))
              (call (expression (App (reference method loc) arguments) loc)))
         (if (type=? result (TRigid var))
             (expression (Convert call (TCon "Any" (Nil))) loc)
