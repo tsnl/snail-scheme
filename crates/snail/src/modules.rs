@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use serde_json::Value;
 use wasmtime::{AsContext, AsContextMut, Caller, Engine, Extern, ExternType, Func, ImportType};
-use wasmtime::{Instance, Linker, Module};
+use wasmtime::{Instance, Linker, Module, Val};
 use wasmtime::{Store, Trap, bail, format_err};
 
 use crate::engine::{call, run_export};
@@ -257,6 +257,16 @@ fn missing_host(from: &str, name: &str) -> String {
 // a child-first class loader resolves, and none of the files the program
 // links. A failure answers a negative code, which (snail shell wasm) names;
 // a trap in a module's main still ends the program.
+//
+// A loader that chooses a module's providers itself lists the imports
+// with `import-count` and `import-at`, which holds the import's module and
+// field names for `held-length` and `held-char`, the reverse of the
+// staging above; then `prepare-link`, one provider per import in import
+// order (`provide-export` of an instance under a staged name,
+// `provide-host` for a function of this host's own, `provide-missing` for
+// one that fails if called) and `link-prepared`, which answers the
+// instance or a negative code; `call-nullary` runs an export of no
+// arguments, such as `main`, for its i32.
 const INVALID_MODULE: i32 = -1;
 const NAME_TAKEN: i32 = -1;
 const LINK_FAILED: i32 = -2;
@@ -271,6 +281,53 @@ pub struct Loading {
     namespaces: Vec<HashMap<String, Instance>>,
     current: String,
     staged: Option<String>,
+    held: [String; 2],
+    prepared: Option<Prepared>,
+}
+
+/// A link under way: the module, its imports, and the providers given so
+/// far; `failed` once a provider was not found.
+struct Prepared {
+    module: Module,
+    imports: Vec<(String, String, ExternType)>,
+    providers: Vec<Extern>,
+    failed: bool,
+}
+
+impl Prepared {
+    fn new(module: &Module) -> Prepared {
+        let imports = module
+            .imports()
+            .map(|import| {
+                (
+                    import.module().to_string(),
+                    import.name().to_string(),
+                    import.ty(),
+                )
+            })
+            .collect();
+        Prepared {
+            module: module.clone(),
+            imports,
+            providers: Vec::new(),
+            failed: false,
+        }
+    }
+
+    // The import the next provider is for.
+    fn current(&self) -> wasmtime::Result<&(String, String, ExternType)> {
+        self.imports
+            .get(self.providers.len())
+            .ok_or_else(|| format_err!("every import of the module being linked has its provider"))
+    }
+
+    fn bind(&mut self, provider: Option<Extern>) -> i32 {
+        match provider {
+            Some(provider) => self.providers.push(provider),
+            None => self.failed = true,
+        }
+        if self.failed { 0 } else { 1 }
+    }
 }
 
 impl Loading {
@@ -283,6 +340,8 @@ impl Loading {
             namespaces: vec![HashMap::new()],
             current: String::new(),
             staged: None,
+            held: [String::new(), String::new()],
+            prepared: None,
         }
     }
 
@@ -370,6 +429,39 @@ impl Loading {
             .copied()
             .ok_or_else(|| format_err!("no loaded instance {handle}"))
     }
+
+    fn module(&self, handle: i32) -> wasmtime::Result<Module> {
+        usize::try_from(handle)
+            .ok()
+            .and_then(|index| self.modules.get(index))
+            .cloned()
+            .ok_or_else(|| format_err!("no compiled module {handle}"))
+    }
+
+    fn prepared(&mut self) -> wasmtime::Result<&mut Prepared> {
+        self.prepared
+            .as_mut()
+            .ok_or_else(|| format_err!("no link is prepared"))
+    }
+
+    fn held(&self, which: i32) -> wasmtime::Result<&str> {
+        usize::try_from(which)
+            .ok()
+            .and_then(|index| self.held.get(index))
+            .map(String::as_str)
+            .ok_or_else(|| format_err!("no held name {which}"))
+    }
+}
+
+// The kind of an import, as (snail shell wasm) numbers them.
+fn import_kind(ty: &ExternType) -> i32 {
+    match ty {
+        ExternType::Func(_) => 0,
+        ExternType::Table(_) => 1,
+        ExternType::Memory(_) => 2,
+        ExternType::Global(_) => 3,
+        _ => -1,
+    }
 }
 
 pub fn define_loading(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
@@ -415,6 +507,148 @@ pub fn define_loading(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
             let instance = caller.data().loading.instance(handle)?;
             let name = caller.data_mut().loading.take_name()?;
             Ok(instance.get_func(&mut caller, &name))
+        },
+    )?;
+    define_linking(linker)
+}
+
+// ---- Linking by hand ----
+
+fn define_linking(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "import-count",
+        |caller: Caller<'_, Host>, handle: i32| {
+            let module = caller.data().loading.module(handle)?;
+            Ok(i32::try_from(module.imports().len())?)
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "import-at",
+        |mut caller: Caller<'_, Host>, handle: i32, index: i32| {
+            let module = caller.data().loading.module(handle)?;
+            let Some(import) = usize::try_from(index)
+                .ok()
+                .and_then(|index| module.imports().nth(index))
+            else {
+                return Ok(-1);
+            };
+            caller.data_mut().loading.held =
+                [import.module().to_string(), import.name().to_string()];
+            Ok(import_kind(&import.ty()))
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "held-length",
+        |caller: Caller<'_, Host>, which: i32| {
+            Ok(i32::try_from(
+                caller.data().loading.held(which)?.chars().count(),
+            )?)
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "held-char",
+        |caller: Caller<'_, Host>, which: i32, index: i32| {
+            let held = caller.data().loading.held(which)?;
+            let character = usize::try_from(index)
+                .ok()
+                .and_then(|index| held.chars().nth(index))
+                .ok_or_else(|| format_err!("no character {index} in the held name"))?;
+            Ok(u32::from(character))
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "prepare-link",
+        |mut caller: Caller<'_, Host>, handle: i32| {
+            let module = caller.data().loading.module(handle)?;
+            caller.data_mut().loading.prepared = Some(Prepared::new(&module));
+            Ok(())
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "provide-export",
+        |mut caller: Caller<'_, Host>, handle: i32| {
+            let instance = caller.data().loading.instance(handle)?;
+            let name = caller.data_mut().loading.take_name()?;
+            caller.data_mut().loading.prepared()?.current()?;
+            let provider = instance.get_export(&mut caller, &name);
+            Ok(caller.data_mut().loading.prepared()?.bind(provider))
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "provide-host",
+        |mut caller: Caller<'_, Host>| {
+            let (from, name, _) = caller.data_mut().loading.prepared()?.current()?.clone();
+            let linker = Arc::clone(&caller.data().loading.linker);
+            let provider = linker.get(&mut caller, &from, &name).ok();
+            Ok(caller.data_mut().loading.prepared()?.bind(provider))
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "provide-missing",
+        |mut caller: Caller<'_, Host>| {
+            let (from, name, ty) = caller.data_mut().loading.prepared()?.current()?.clone();
+            let provider = match ty {
+                ExternType::Func(ty) => {
+                    let missing = missing_host(&from, &name);
+                    Some(
+                        Func::new(&mut caller, ty, move |_, _, _| {
+                            Err(format_err!("{missing}"))
+                        })
+                        .into(),
+                    )
+                }
+                _ => None,
+            };
+            caller.data_mut().loading.prepared()?.bind(provider);
+            Ok(())
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "link-prepared",
+        |mut caller: Caller<'_, Host>| {
+            let prepared = caller
+                .data_mut()
+                .loading
+                .prepared
+                .take()
+                .ok_or_else(|| format_err!("no link is prepared"))?;
+            if prepared.failed || prepared.providers.len() != prepared.imports.len() {
+                return Ok(LINK_FAILED);
+            }
+            let instance = match Instance::new(&mut caller, &prepared.module, &prepared.providers) {
+                Ok(instance) => instance,
+                Err(error) if error.downcast_ref::<Trap>().is_some() => return Err(error),
+                Err(_) => return Ok(LINK_FAILED),
+            };
+            let instances = &mut caller.data_mut().loading.instances;
+            instances.push(instance);
+            Ok(i32::try_from(instances.len() - 1)?)
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "call-nullary",
+        |mut caller: Caller<'_, Host>, handle: i32| {
+            let instance = caller.data().loading.instance(handle)?;
+            let name = caller.data_mut().loading.take_name()?;
+            let function = instance
+                .get_func(&mut caller, &name)
+                .ok_or_else(|| format_err!("the instance exports no function {name}"))?;
+            let mut results = vec![Val::I32(0); function.ty(&caller).results().len()];
+            function.call(&mut caller, &[], &mut results)?;
+            Ok(match results.first() {
+                Some(Val::I32(result)) => *result,
+                _ => 0,
+            })
         },
     )?;
     Ok(())
