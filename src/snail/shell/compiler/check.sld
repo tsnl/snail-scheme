@@ -851,12 +851,12 @@
     (: require-conversion (-> Checker Type Type Loc Checker ! compile))
     (define (require-conversion ck target row loc)
       (let ((flat (flatten-row (solution ck) row)))
-        (unless (or (member? dyn-tc-label (Pair-first flat)) (meta-tail? (Pair-second flat)))
+        (unless (or (member? dyn-cast-label (Pair-first flat)) (meta-tail? (Pair-second flat)))
           (compile-error loc
                          (string-append "conversion from Any to "
                                         (type->string (resolve-type (solution ck) target))
-                                        " requires dyn-tc; handle or declare dyn-tc, or use try-convert")))
-        (perform ck (TRow (list dyn-tc-label) (None)) row loc)))
+                                        " requires dyn-cast; handle or declare dyn-cast, or use try-convert")))
+        (perform ck (TRow (list dyn-cast-label) (None)) row loc)))
 
     (: environment-free? (-> Checker Expr Bool))
     (define (environment-free? ck expr)
@@ -2358,15 +2358,20 @@
 
     (: cleanup-row (-> Checker Expr Type))
     (define (cleanup-row ck callee)
-      (let ((type (match (Expr-term callee)
-                    ((Var name types evidence)
-                     (match (program-value (program-of ck) name)
-                       ((Some (Method class _))
-                        (if (lifecycle-class? class) (TFun (Nil) unchecked empty-row)
-                            (cleanup-method-type ck class name types evidence (Expr-type callee))))
-                       (_ (cleanup-global-type ck name types (Expr-type callee)))))
-                    (_ (Expr-type callee)))))
-        (cleanup-arrow-row (resolve-type (solution ck) type))))
+      (match (Expr-term callee)
+        ((Var name types evidence)
+         (match (program-value (program-of ck) name)
+           ((Some (Method class _))
+            (if (lifecycle-class? class) empty-row
+                (cleanup-arrow-row ck
+                                   (cleanup-method-type ck
+                                                        class
+                                                        name
+                                                        types
+                                                        evidence
+                                                        (Expr-type callee)))))
+           (_ (cleanup-arrow-row ck (cleanup-global-type ck name types (Expr-type callee))))))
+        (_ (cleanup-arrow-row ck (Expr-type callee)))))
 
     (: cleanup-global-type (-> Checker String (List Type) Type Type))
     (define (cleanup-global-type ck name types fallback)
@@ -2375,9 +2380,9 @@
         ((None) fallback)))
 
     ;; A method use's row is opened to its context during checking. Its
-    ;; selected instance's own signature says what the call actually does.
-    ;; Reuse that evidence, as mono does, instead of treating a pure method
-    ;; as a possible suspension merely because its use row is still open.
+    ;; selected instance's head supplies the declared rows instead. Every
+    ;; implementation is checked against this contract, so there is no need
+    ;; to look up its separate definition to recover the same information.
     (: cleanup-method-type (-> Checker String String (List Type) (List Evidence) Type Type))
     (define (cleanup-method-type ck class name types evidence fallback)
       (match evidence
@@ -2387,19 +2392,19 @@
             (match (find (lambda (instance) (string=? (Instance-name instance) id))
                          (class-instances (program-of ck) class))
               ((Some instance)
-               (match (assoc-ref (Instance-methods instance) name)
-                 ((Some method)
-                  (cleanup-global-type ck method
-                                       (append arguments
-                                               (list-drop types (length (Class-params
-                                                                         (program-class
-                                                                          (program-of ck)
-                                                                          class)))))
-                                       fallback))
-                 ((None) fallback)))
+               (cleanup-global-type ck name (cleanup-method-arguments instance arguments types)
+                                    fallback))
               ((None) fallback)))
            (_ (cleanup-global-type ck name types fallback))))
         (_ (cleanup-global-type ck name types fallback))))
+
+    ;; Class parameters come first; method-local type arguments follow them.
+    ;; Substitute the complete instance head, including its row variables.
+    (: cleanup-method-arguments (-> Instance (List Type) (List Type) (List Type)))
+    (define (cleanup-method-arguments instance arguments types)
+      (let ((bindings (zip (Instance-vars instance) arguments)))
+        (append (map (lambda (type) (substitute bindings type)) (Instance-types instance))
+                (list-drop types (length (Instance-types instance))))))
 
     (: cleanup-evidence (-> Checker Evidence Evidence))
     (define (cleanup-evidence ck evidence)
@@ -2410,12 +2415,12 @@
            ((None) evidence)))
         (_ evidence)))
 
-    (: cleanup-arrow-row (-> Type Type))
-    (define (cleanup-arrow-row type)
-      (match type
+    (: cleanup-arrow-row (-> Checker Type Type))
+    (define (cleanup-arrow-row ck type)
+      (match (resolve-type (solution ck) type)
         ((TFun _ _ row) row)
-        ((TCon "FnOnce" (Cons inner (Nil))) (cleanup-arrow-row inner))
-        ((TCon "Fn" (Cons inner (Nil))) (cleanup-arrow-row inner))
+        ((TCon "FnOnce" (Cons inner (Nil))) (cleanup-arrow-row ck inner))
+        ((TCon "Fn" (Cons inner (Nil))) (cleanup-arrow-row ck inner))
         (_ empty-row)))
 
     (: cleanup-control (-> Checker Type (List String)))
@@ -2437,7 +2442,7 @@
          (label-union (cleanup-yields ck inner)
                       (if (and (any-type? (resolve-type (solution ck) (Expr-type inner)))
                                (not (any-type? (resolve-type (solution ck) target))))
-                          (list dyn-tc-label) (Nil))))
+                          (list dyn-cast-label) (Nil))))
         ((App callee args)
          (label-union (cleanup-control ck (cleanup-row ck callee))
                       (cleanup-yields-all ck (Cons callee args))))
@@ -2892,7 +2897,6 @@
 
     (: check-final-item (-> Program (Table Scheme) Item Unit ! compile))
     (define (check-final-item program schemes item)
-      (check-conversions item)
       (check-closed-item program item)
       (check-places-item program item)
       (check-item-ownership program schemes item))

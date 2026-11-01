@@ -157,7 +157,7 @@ Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
 `Fractional`; `Show` converts values to text. These classes all take a
 row followed by a value type, as in `(Num e T)`. Concrete numeric
 instances use `(!)`, so static arithmetic remains pure; a dynamic
-instance can instead declare `(! dyn-tc)`. `Drop` releases values
+instance can instead declare `(! dyn-cast)`. `Drop` releases values
 ([ownership](ownership.md#releasing)).
 
 ## Effects
@@ -286,7 +286,7 @@ the same `type-convert` that a programmer could write:
 | --- | --- | --- |
 | `T` | `T` | The value itself. |
 | `Any` | An eligible concrete `T` | Package the value. |
-| A concrete `T` | `Any` | Check the payload at run time; requires `dyn-tc`. |
+| A concrete `T` | `Any` | Check the payload at run time; requires `dyn-cast`. |
 | A concrete `T` | A different concrete `U` | A compile error. |
 | An inference variable | Any type | Ordinary unification, without inventing a cast. |
 
@@ -320,7 +320,7 @@ An explicit finite dispatcher supplies one:
   (: describe (-> T String ! e)))
 
 ;; Declare pure instances (Describe (!) I64) and (Describe (!) String) first.
-(instance (Describe (! dyn-tc) Any)
+(instance (Describe (! dyn-cast) Any)
   (dispatch I64 String))
 ```
 
@@ -333,7 +333,7 @@ usual conversion check; there is no numeric promotion. The selected
 branch carries the ordinary static instance evidence. No global registry,
 runtime specialization or hidden host dependency is introduced.
 
-The constraint `Describe (! dyn-tc) Any` is solved at compile time to this adapter;
+The constraint `Describe (! dyn-cast) Any` is solved at compile time to this adapter;
 the payload is checked when a method is called. A generic function that
 never calls a method does not inspect its argument merely because it has
 a `Describe` requirement. This is an instance for `Any`, not implicit
@@ -342,7 +342,7 @@ unpacking of an existential concrete type at every constrained call.
 The list is explicit and belongs to the declaring library. Adding another
 instance elsewhere does not change it. Compound ground types, such as
 `(List I64)`, may be listed if their ordinary instances exist. The normal
-overlap rule still applies: an explicit `Describe (! dyn-tc) Any` and a dispatched
+overlap rule still applies: an explicit `Describe (! dyn-cast) Any` and a dispatched
 one cannot coexist.
 
 For this first version, the instance head has exactly one `Any` argument;
@@ -355,9 +355,9 @@ runtime selection. `Drop` and `Clone` use their existing ownership rules,
 not dynamic dispatch.
 
 Effects are checked over every branch. For example, an instance
-`(Store (! console dyn-tc) Any)` may dispatch to pure and console-performing
-stores; `(Store (! dyn-tc) Any)` cannot dispatch to a store that prints.
-Every finite dispatcher needs `dyn-tc` for unsupported payloads. Calls
+`(Store (! console dyn-cast) Any)` may dispatch to pure and console-performing
+stores; `(Store (! dyn-cast) Any)` cannot dispatch to a store that prints.
+Every finite dispatcher needs `dyn-cast` for unsupported payloads. Calls
 perform the declared row under the caller's handlers. A payload's type
 does not grant permission to perform an undeclared effect.
 
@@ -377,30 +377,30 @@ This restriction applies to `type-convert`, `try-convert` and `type-test`.
 It also excludes a bare `Fn` code reference; a pure closure can be packaged.
 
 `(type-convert e Any)` packages a value. Conversion to the same type,
-including `Any` to `Any`, preserves it. Neither operation needs `dyn-tc`.
+including `Any` to `Any`, preserves it. Neither operation needs `dyn-cast`.
 An unconstrained inference variable still unifies normally: casting an
 unannotated parameter to `I64` infers an `I64` parameter. Annotate the
 input `Any` when a runtime conversion is intended.
 
 Extracting a concrete `T` from `Any` checks its identity and representation.
 A mismatch performs the abortive operation
-`(conversion-failed error)` of `dyn-tc`; it does not panic.
+`(conversion-failed error)` of `dyn-cast`; it does not panic.
 The rule is identical for explicit syntax and compiler-inserted checks.
 Argument checks run left to right, before evaluating the following argument.
 
-The ordinary effect rules apply. An inferred function acquires `dyn-tc`;
+The ordinary effect rules apply. An inferred function acquires `dyn-cast`;
 a closed signature must declare it or handle it inside the body. A function
 may declare it without being defined inside a handler. Its callers must
 handle or propagate it, and an unhandled effect at a Core entrypoint is a
 compile error. A handler for some other effect, including a user-defined
 `exn`, does not grant this permission. A handler can explicitly translate
-`dyn-tc` to another effect.
+`dyn-cast` to another effect.
 
 ```scheme
-(: integer (-> Any I64 ! dyn-tc))
+(: integer (-> Any I64 ! dyn-cast))
 (define (integer value) value)
 
-(handle dyn-tc ((conversion-failed (lambda (_) -1)))
+(handle dyn-cast ((conversion-failed (lambda (_) -1)))
   (integer "not an integer"))
 ```
 
@@ -410,7 +410,7 @@ abandoned owners completes before the handler runs.
 
 `(try-convert value T)` is nonthrowing inspection. It returns
 `(Result T CastError)`, with the already checked value in `Ok`, and does
-not require `dyn-tc`. The target must be eligible and reifiable where the
+not require `dyn-cast`. The target must be eligible and reifiable where the
 form is written. Unlike a Boolean `type-test`, its successful result needs
 no second cast. The effects of evaluating `value` still apply.
 
@@ -424,16 +424,16 @@ name the adapter declaration; ordinary checks name the source boundary.
 Errors do not retain the payload for diagnostics.
 
 `(snail core dynamic)` provides `try-dynamic`, which handles a thunk's
-`dyn-tc` failures as a `Result`, `cast-error->string`, and `run-dynamic`,
+`dyn-cast` failures as a `Result`, `cast-error->string`, and `run-dynamic`,
 which additionally reports failures through `console`. An interactive
 caller can use this explicit boundary once per evaluation and continue
 after an `Err`; a script decides its exit status from the result. No host
-implicitly enables `dyn-tc`. The current Scheme translator still uses
+implicitly enables `dyn-cast`. The current Scheme translator still uses
 `Datum`, and has no Any-based interactive evaluator to wrap automatically.
 
 A type identity includes fields and cases: changing a struct's fields
 changes its identity, even when its name stays the same. A relinked program
 cannot interpret an old value as the new type. A proven successful
 `T → Any → T` may be optimized away. `Any → T → Any` must preserve the
-narrowing check. Optimization never removes `dyn-tc` from an already
+narrowing check. Optimization never removes `dyn-cast` from an already
 checked function's contract.

@@ -3,7 +3,7 @@
 ;; ownership and control passes, so both see every possible nonlocal exit.
 (define-library (snail shell compiler conversions)
   (export
-   dyn-tc-label
+   dyn-cast-label
    cast-result-type
    conversion-error
    conversion-failure
@@ -16,8 +16,8 @@
 
     ;; ---- Runtime contract ----
 
-    (: dyn-tc-label String)
-    (define dyn-tc-label "snail.core.base:dyn-tc")
+    (: dyn-cast-label String)
+    (define dyn-cast-label "snail.core.base:dyn-cast")
 
     (: error-type Type)
     (define error-type (TCon "snail.core.base:CastError" (Nil)))
@@ -68,7 +68,7 @@
     (define (conversion-failure error target loc)
       (Expr (Match (call "snail.core.base:conversion-failed" (Nil)
                          (TCon "snail.core.base:Never" (Nil))
-                         (TRow (list dyn-tc-label) (None)) (list error) loc)
+                         (TRow (list dyn-cast-label) (None)) (list error) loc)
                    (Nil)) target loc))
 
     ;; Only the success branch constructs a raw projection. Its type test
@@ -91,7 +91,7 @@
 
     (: projection (-> I64 Bool Expr Type Loc (Pair Expr I64)))
     (define (projection count attempt? inner target loc)
-      (let* ((name (string-append "%dyn-tc." (i64->string count) "%"))
+      (let* ((name (string-append "%dyn-cast." (i64->string count) "%"))
              (value (Expr (Var name (Nil) (Nil)) any-type loc))
              (body (if (any-type? target)
                        (checked-branch attempt? value target loc)

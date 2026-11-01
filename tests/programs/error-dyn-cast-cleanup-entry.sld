@@ -5,7 +5,7 @@
   ((name String)))
 (instance (Drop (! audit) Resource)
   (define (drop resource) (note)))
-(handle dyn-tc ((conversion-failed (lambda (_) (unit))))
+(handle dyn-cast ((conversion-failed (lambda (_) (unit))))
   (let ((resource (Resource "r")))
     (ann (ann "bad" Any) I64)
     (panic "unreachable")))

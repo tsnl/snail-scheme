@@ -92,11 +92,11 @@
                                              ".argument." (i64->string index)))
                             (iota (length params))))
                 (arguments (zip params (map (lambda (name) (reference name loc)) names))))
-           (match (find (lambda (pair) (type=? (Pair-first pair) (TRigid var))) arguments)
+           (match (list-index (lambda (type) (type=? type (TRigid var))) params)
              ((Some selector)
               (expression (Lambda names
                                   (dispatch-branches method var arguments result
-                                                     (Pair-second selector) targets targets loc)
+                                                     selector targets loc)
                                   #f)
                           loc))
              ((None)
@@ -125,24 +125,16 @@
     ;; Every selector branch is tested. The final failure describes the
     ;; whole accepted domain, not the last type we happened to try.
     (: dispatch-branches
-       (-> String String (List (Pair Type Expr)) Type Expr (List Type) (List Type) Loc Expr))
-    (define (dispatch-branches method var args result selector targets domain loc)
-      (match targets
-        ((Cons target rest)
-         (expression (If (expression (TypeTest selector target) loc)
-                         (dispatch-call method var args result target loc)
-                         (dispatch-branches method var args result selector rest domain loc)) loc))
-        ((Nil)
-         (conversion-failure
-          (conversion-error "UnsupportedInstance" domain selector method
-                            (selector-index var args) loc) unchecked loc))))
-
-    (: selector-index (-> String (List (Pair Type Expr)) I64))
-    (define (selector-index var args)
-      (match (find (lambda (entry) (type=? (Pair-first (Pair-second entry)) (TRigid var)))
-                   (zip (iota (length args)) args))
-        ((Some entry) (Pair-first entry))
-        ((None) -1)))
+       (-> String String (List (Pair Type Expr)) Type I64 (List Type) Loc Expr))
+    (define (dispatch-branches method var args result index targets loc)
+      (let ((selector (Pair-second (list-ref args index))))
+        (fold-right (lambda (target rest)
+                      (expression (If (expression (TypeTest selector target) loc)
+                                      (dispatch-call method var args result target loc) rest) loc))
+                    (conversion-failure
+                     (conversion-error "UnsupportedInstance" targets selector method index loc)
+                     unchecked loc)
+                    targets)))
 
     (: dispatch-argument (-> String String Type I64 (Pair Type Expr) Loc Expr))
     (define (dispatch-argument method var target index argument loc)

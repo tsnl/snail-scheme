@@ -3,7 +3,7 @@
  (snail core io)
  (gradual describe))
 
-(instance (Num (! dyn-tc) Any)
+(instance (Num (! dyn-cast) Any)
   (dispatch I64 F64))
 
 (: describe-twice (All (T e) (requires (Describe e T) (Copy T)) (-> T String ! e)))
@@ -25,7 +25,7 @@
 (display (sum 20 22))
 (newline)
 
-(handle dyn-tc
+(handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
   (write-line (describe (sum left right)))
   (write-line (describe-twice word))

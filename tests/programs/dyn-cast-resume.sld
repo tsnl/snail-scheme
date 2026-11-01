@@ -24,14 +24,14 @@
 
 ;; Running it moves ownership into the resumed frames. A later conversion
 ;; failure releases it there exactly once before the failure handler runs.
-(: resumed-work (-> Unit ! Ask audit dyn-tc))
+(: resumed-work (-> Unit ! Ask audit dyn-cast))
 (define (resumed-work)
   (let ((resource (Resource "resumed")))
     (ask)
     (ann (ann "bad" Any) I64)
     (drop resource)))
 (handle audit ((note (lambda (name) (write-line name))))
-  (handle dyn-tc ((conversion-failed (lambda (_) (write-line "caught after resume"))))
+  (handle dyn-cast ((conversion-failed (lambda (_) (write-line "caught after resume"))))
     (handle Ask ((ask (lambda (resume) (resume (unit)))))
       (resumed-work))))
 

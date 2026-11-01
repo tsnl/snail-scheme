@@ -6,7 +6,7 @@
          (receive udp-receive)))
 
 ;; A mismatch here is a broken test-host invariant. Guest conversions that
-;; are expected to fail use dyn-tc handlers in the dedicated fixtures.
+;; are expected to fail use dyn-cast handlers in the dedicated fixtures.
 (define-syntax fixture-convert
   (syntax-rules ()
     ((_ value target)

@@ -607,19 +607,19 @@ be reachable twice, a cost paid by code that never captures one.
 
 ### Conversion failure
 
-`(snail core base)` declares the ordinary control effect `dyn-tc`:
+`(snail core base)` declares the ordinary control effect `dyn-cast`:
 
 ```scheme
-(effect dyn-tc
+(effect dyn-cast
   ((ctl conversion-failed (-> CastError Never))))
 ```
 
 Both explicit and inserted fallible Any conversions require this effect.
-A `handle dyn-tc` may recover with a fallback, return an error value, or
+A `handle dyn-cast` may recover with a fallback, return an error value, or
 rethrow to an outer handler; the operation is abortive and has no
 resumption. A general `exn` effect does not authorize it implicitly.
 `try-convert` instead returns a checked value or `CastError` without
-performing `dyn-tc`. The [dynamic values](types.md#explicit-dynamic-values)
+performing `dyn-cast`. The [dynamic values](types.md#explicit-dynamic-values)
 section gives the inference rules, structured errors and library boundaries.
 
 ### Where control cannot reach

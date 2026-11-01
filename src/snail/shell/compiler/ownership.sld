@@ -260,7 +260,8 @@
                                (Path-returns path))))
           ((Ann inner _) (check path inner))
           ((Convert inner target) (check-conversion path expr inner target))
-          ((TryConvert inner target) (check-conversion path expr inner target))
+          ((TryConvert _ _)
+           (panic "internal error: try-convert must be lowered before ownership checking"))
           ((TypeTest inner target) (check-conversion path expr inner target)))))
 
     ;; A use of a linear local consumes it. A global is shared, as nothing

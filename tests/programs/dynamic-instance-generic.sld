@@ -18,13 +18,13 @@
 (define (twice value) (string-append (describe value) (describe value)))
 
 (write-line (twice (Wrapper 7)))
-(handle dyn-tc ((conversion-failed (lambda (_) (write-line "caught generic instance"))))
+(handle dyn-cast ((conversion-failed (lambda (_) (write-line "caught generic instance"))))
   (write-line (twice (Wrapper (ann "ok" Any))))
   (write-line (twice (Wrapper (ann #t Any))))
   (write-line "unreachable"))
 
 ;; The core's generic Show instance similarly propagates its element's row.
-(instance (Show (! dyn-tc) Any) (dispatch I64 String))
-(handle dyn-tc ((conversion-failed (lambda (_) (write-line "caught list show"))))
+(instance (Show (! dyn-cast) Any) (dispatch I64 String))
+(handle dyn-cast ((conversion-failed (lambda (_) (write-line "caught list show"))))
   (write-line (show (list (ann 7 Any) (ann "ok" Any))))
   (write-line (show (list (ann #t Any)))))

@@ -4,5 +4,5 @@
 (typeclass (ReadValue e T)
   (: read-value (-> T String ! e)))
 
-(instance (ReadValue (! dyn-tc) Any)
+(instance (ReadValue (! dyn-cast) Any)
   (dispatch String))

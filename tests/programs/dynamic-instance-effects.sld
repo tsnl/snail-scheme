@@ -16,13 +16,13 @@
     (message value)
     value))
 
-(instance (ReadValue (! log dyn-tc) Any String)
+(instance (ReadValue (! log dyn-cast) Any String)
   (dispatch I64 String))
 
-(: describe (-> Any String ! log dyn-tc))
+(: describe (-> Any String ! log dyn-cast))
 (define (describe value) (read-value value "fallback"))
 
-(handle dyn-tc
+(handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
   (handle log
       ((message (lambda (text) (write-line (string-append "logged: " text)))))

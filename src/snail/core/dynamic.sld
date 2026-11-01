@@ -1,5 +1,5 @@
 ;; Explicit boundaries for a dynamic computation. Core never installs a
-;; dyn-tc handler implicitly; an interactive client can run each evaluation
+;; dyn-cast handler implicitly; an interactive client can run each evaluation
 ;; with run-dynamic, while a script can choose its exit status from Result.
 (define-library (snail core dynamic)
   (export
@@ -14,15 +14,15 @@
     ;; ---- Recovery ----
 
     (: try-dynamic
-       (All (A e) (-> (-> A ! dyn-tc e) (Result A CastError) ! e)))
+       (All (A e) (-> (-> A ! dyn-cast e) (Result A CastError) ! e)))
     (define (try-dynamic work)
-      (handle dyn-tc
+      (handle dyn-cast
           ((conversion-failed (lambda (error) (Err error))))
         (Ok (work))))
 
     (: cast-error->string (-> CastError String))
     (define (cast-error->string error)
-      (string-append (CastError-origin error) ": dyn-tc: "
+      (string-append (CastError-origin error) ": dyn-cast: "
                      (match (CastError-reason error)
                        ((TypeMismatch) "type mismatch")
                        ((UnsupportedInstance) "unsupported dynamic instance")
@@ -37,7 +37,7 @@
     ;; starts. Returning the failure lets a script choose failure status,
     ;; or an interactive caller continue with its next evaluation.
     (: run-dynamic
-       (All (A e) (-> (-> A ! dyn-tc e) (Result A CastError) ! console e)))
+       (All (A e) (-> (-> A ! dyn-cast e) (Result A CastError) ! console e)))
     (define (run-dynamic work)
       (match (try-dynamic work)
         ((Ok value) (Ok value))
