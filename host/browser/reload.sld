@@ -88,8 +88,8 @@
 ;; ---- Manifests ----
 
 ;; What a build serves: the base its files are served under, each file with
-;; a digest, and each module, in program order, with the file it lives in,
-;; which names its text.
+;; a digest, and each module, in program order, with the digest of its
+;; bytes.
 (struct Manifest
   ((base String)
    (files (List (Pair String String)))
@@ -100,7 +100,7 @@
   (Built ((milliseconds String) (manifest Manifest)))
   (Failed ((message String) (manifest Manifest))))
 
-;; `(base BASE) (files (NAME DIGEST) ...) (modules (NAME FILE) ...)`.
+;; `(base BASE) (files (NAME DIGEST) ...) (modules (NAME DIGEST) ...)`.
 (: parse-manifest (-> (List Datum) Manifest))
 (define (parse-manifest data)
   (match data
@@ -184,18 +184,18 @@
                                             ((None) #t)))
                           these)))
 
-;; The first module, in program order, whose file differs; the modules
-;; before it cannot import from it, so they stay linked. A module's file is
-;; named for its text, which names the digest of each file it links, so
-;; editing a linked file changes the module that links it.
+;; The first module, in program order, whose digest differs; the modules
+;; before it cannot import from it, so they stay linked. A module's bytes
+;; name the digest of each file it links, so editing a linked file changes
+;; the module that links it.
 (: first-changed-module (-> Manifest Manifest (Option String)))
 (define (first-changed-module old new)
   (let loop ((old (Manifest-modules old)) (new (Manifest-modules new)))
     (match new
-      ((Cons (Pair name file) rest)
+      ((Cons (Pair name digest) rest)
        (match old
-         ((Cons (Pair old-name old-file) old-rest)
-          (if (and (string=? name old-name) (string=? file old-file))
+         ((Cons (Pair old-name old-digest) old-rest)
+          (if (and (string=? name old-name) (string=? digest old-digest))
               (loop old-rest rest)
               (Some name)))
          ((Nil) (Some name))))

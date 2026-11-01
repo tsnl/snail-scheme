@@ -30,7 +30,7 @@ function request(origin, path, method = 'GET', host = new URL(origin).host) {
       let text = '';
       response.setEncoding('utf8');
       response.on('data', chunk => { text += chunk; });
-      response.on('end', () => resolve({status: response.statusCode, type: response.headers['content-type'], text}));
+      response.on('end', () => resolve({status: response.statusCode, type: response.headers['content-type'], caching: response.headers['cache-control'], text}));
     });
     outgoing.on('error', reject);
     outgoing.end();
@@ -69,7 +69,7 @@ try {
   const pinned = id => `/site/.snail/builds/${id}/`;
   const page = (await get('/site/')).text;
   assert.ok(page.startsWith(`<!doctype html><base href="${pinned(first.id)}">`));
-  assert.match(page, new RegExp(`<script type="application/snail-manifest" id="snail-manifest">\\(base "${pinned(first.id)}"\\) \\(files .*\\("host\\.mjs" "[0-9a-f]{64}"\\).*\\) \\(modules \\("snail\\.core\\.base" "modules/[^"]+"\\)`));
+  assert.match(page, new RegExp(`<script type="application/snail-manifest" id="snail-manifest">\\(base "${pinned(first.id)}"\\) \\(files .*\\("host\\.mjs" "[0-9a-f]{64}"\\).*\\) \\(modules \\("snail\\.core\\.base" "[0-9a-f]{64}"\\)`));
   assert.match(page, /<script type="module" src="\/site\/\.snail\/reload\.mjs"><\/script>/);
   for (const file of ['reload.mjs', 'reload-client.mjs', 'load.mjs', 'reload.wasm']) {
     assert.equal((await get(`/site/.snail/${file}`)).status, 200, file);
@@ -78,9 +78,16 @@ try {
   const manifest = await get(pinned(first.id) + 'modules.json');
   assert.equal(manifest.status, 200);
   assert.equal(manifest.type, 'application/json');
-  const {runtime, modules} = JSON.parse(manifest.text);
-  for (const file of [runtime, 'host.mjs', ...modules.map(module => module.file)]) {
-    assert.equal((await get(pinned(first.id) + file)).status, 200, file);
+  // Its objects are in the store beside the builds, where the manifest's
+  // relative reference resolves, under URLs no build changes.
+  const {runtime, store, modules} = JSON.parse(manifest.text);
+  assert.equal(store, '../.snail-store/');
+  const object = ({digest}) => new URL(`${store}sha256/${digest}`, `http://origin${pinned(first.id)}modules.json`).pathname;
+  assert.match(object(runtime), /^\/site\/\.snail\/builds\/\.snail-store\/sha256\/[0-9a-f]{64}$/);
+  for (const path of [object(runtime), pinned(first.id) + 'host.mjs', ...modules.map(object)]) {
+    const response = await get(path);
+    assert.equal(response.status, 200, path);
+    if (path.includes('.snail-store')) assert.equal(response.caching, 'public, max-age=31536000, immutable', path);
   }
 
   // Only reads, and only for the origin's own host.

@@ -75,8 +75,8 @@ async function throughTheService() {
     // producer and that producer's output request them, and publishes each.
     const first = await service.settled(0);
     assert.deepEqual(first.published.targets.map(output => output.name).sort(), ['admin', 'client', 'server']);
-    assert.deepEqual(outputs(), [...first.published.targets.map(output => basename(output.directory)), 'admin', 'client', 'server'].sort(),
-      'nested/repeated artifact requests build each target once');
+    assert.deepEqual(outputs(), [...first.published.targets.map(output => basename(output.directory)), '.snail-store', 'admin', 'client', 'server'].sort(),
+      'nested/repeated artifact requests build each target once, and share one store');
     for (const output of first.published.targets) assert.equal(fs.realpathSync(join(project, 'build', output.name)), output.directory);
     assert.match(execute(target(first, 'server').directory), /65,0,255,/);
     assert.match(fs.readFileSync(join(target(first, 'client').directory, 'index.html'), 'utf8'), /content="\.\/modules.json"/);

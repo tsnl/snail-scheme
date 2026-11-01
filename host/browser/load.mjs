@@ -156,10 +156,11 @@ export function linkedFileImports(read, module, tasks = noTasks) {
 // ---- Linking ----
 
 // A program compiled one library at a time is named by its modules.json:
-// {"runtime": FILE, "store": STORE, "modules": [{"name": LIBRARY, "file":
-// FILE}, ...], "files": [{"digest": DIGEST, "size": SIZE}, ...]}, the
-// modules in program order, and the store the files it links are objects
-// of, relative to the manifest.
+// {"store": STORE, "runtime": OBJECT, "modules": [{"name": LIBRARY,
+// ...OBJECT}, ...], "files": [OBJECT, ...]}, where an OBJECT is {"digest":
+// DIGEST, "size": SIZE}, the modules in program order. Every object, the
+// runtime, each module and each file the program links, is read from the
+// store, relative to the manifest, by its digest.
 function readModules(bytes) {
   return JSON.parse(decoder.decode(bytes));
 }
@@ -175,7 +176,8 @@ function readModules(bytes) {
 // reads them.
 export async function linkProgram(read, manifest, wasi, host, tasks = noTasks) {
   const {runtime, store, modules} = readModules(await read(manifest));
-  const [runtimeModule, compiled] = await Promise.all([compileFile(read, runtime), compileModules(read, modules)]);
+  const object = objectReader(read, store);
+  const [runtimeModule, compiled] = await Promise.all([compileObject(object, runtime), compileModules(object, modules)]);
   const program = {read, manifest, store, runtime: await instantiateRuntime(runtimeModule, wasi), host, linked: new Map(),
                    names: modules.map(entry => entry.name), files: [], links: {}, tasks};
   await linkModules(program, compiled);
@@ -195,10 +197,10 @@ export function programExports(program) {
   return program.linked.get(program.names.at(-1)).exports;
 }
 
-const compileFile = async (read, file) => WebAssembly.compile(await read(file));
+const compileObject = async (object, {digest}) => WebAssembly.compile(await object(digest));
 
-function compileModules(read, modules) {
-  return Promise.all(modules.map(async ({name, file}) => ({name, module: await compileFile(read, file)})));
+function compileModules(object, modules) {
+  return Promise.all(modules.map(async entry => ({name: entry.name, module: await compileObject(object, entry)})));
 }
 
 // The runtime reports a panic through its own export, which the platform
@@ -260,7 +262,7 @@ export async function relinkProgram(program, from, manifest, read) {
   const start = Math.max(0, modules.findIndex(entry => entry.name === from));
   const kept = modules.slice(0, start).map(entry => [entry.name, program.linked.get(entry.name)]);
   const next = {...program, read, manifest, store, linked: new Map(kept), names: modules.map(entry => entry.name)};
-  const relinked = await compileModules(read, modules.slice(start));
+  const relinked = await compileModules(objectReader(read, store), modules.slice(start));
   await linkModules(next, relinked);
   runProgram(next, relinked.map(entry => entry.name));
   return next;

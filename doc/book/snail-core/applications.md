@@ -385,10 +385,11 @@ the editor's, and the status names each published browser target's `url`.
 | `/NAME/.snail/reload.mjs`, `reload.wasm` | The reload client, from the browser host and the development tools. |
 | `/NAME/PATH` | `PATH` of the latest build's generation. |
 
-The base pins a page to its build: its scripts, styles, `modules.json` and
-the modules that names all resolve under that build, so a page never links
-one build's manifest with another's modules, and loading `/NAME/` again
-gives the newest build. A build's files never change. The service keeps
+The base pins a page to its build: its scripts, styles and `modules.json`
+resolve under that build, and the modules that names in the store beside
+the builds, by digest, so a page never links one build's manifest with
+another's modules, and loading `/NAME/` again gives the newest build. A
+build's files never change. The service keeps
 the latest publication and the one before it, so a page loading as a build
 lands still finds its own. Everything the server adds lives under
 `.snail/`, which a public tree does not use. The origin answers only GET
@@ -397,10 +398,10 @@ the address reads nothing; it is apart from the editor's, so no project
 page can reach the editor's API.
 
 A page served this way reloads as [above](#hot-reload). Its manifest is
-`(base BASE) (files (FILE DIGEST) ...) (modules (LIBRARY FILE) ...)`: the
-build's base, the digest of each of its files but `modules.json` and the
-modules, and each module, in program order, with its file, whose name is
-the digest of its text. The events stream carries `(building M)` while an
+`(base BASE) (files (FILE DIGEST) ...) (modules (LIBRARY DIGEST) ...)`: the
+build's base, the digest of each of its files but `modules.json`, and each
+module, in program order, with the digest of its bytes, which names the
+object holding it. The events stream carries `(building M)` while an
 attempt is under way, `(built MILLISECONDS M)` when one is published and
 `(failed MESSAGE M)` when one fails, each with the manifest `M` of the
 target's latest published build; a stream's first event is the current

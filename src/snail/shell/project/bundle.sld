@@ -4,9 +4,9 @@
 ;; store the builds share, under .snail/builds/.snail-store/, where a
 ;; manifest's relative reference to it resolves. The page at the mount
 ;; is the latest build's, given a base in that build's directory, so all it
-;; names relatively, its scripts and styles, its modules.json and the
-;; modules that names, comes from the build it was served from, even once a
-;; newer one is published; loading the page again gives the newest. A build
+;; names relatively, its scripts and styles and its modules.json, comes
+;; from the build it was served from, even once a newer one is published;
+;; loading the page again gives the newest. A build
 ;; that is no longer retained answers 404. The page also carries its
 ;; build's manifest and the reload client (host/browser/reload.sld), which
 ;; hears of each build from the server's events and relinks the page from
@@ -85,9 +85,12 @@
     (define (store-object build path)
       (match path
         ((Cons "sha256" (Cons digest (Nil)))
-         (build-file (string-append (parent-directory (BuildDirectory-directory build))
-                                    "/.snail-store")
-                     (list "sha256" digest)))
+         (let ((object (string-append (parent-directory (BuildDirectory-directory build))
+                                      "/.snail-store/sha256/"
+                                      digest)))
+           (if (and (plain-name? digest) (regular-file? object))
+               (found (string-append "sha256/" digest) (read-bytes object))
+               (refusal 404 "no such object in the store"))))
         (_ (refusal 404 "no such object in the store"))))
 
     (: parent-directory (-> String String))
@@ -165,8 +168,8 @@
 
     ;; What a build serves, as the reload client reads it: the base its
     ;; files are served under, each file with its digest, and each module,
-    ;; in program order, with the file it lives in, which names its text.
-    ;; modules.json is left out, as the modules stand for it.
+    ;; in program order, with the digest of its bytes. modules.json is left
+    ;; out, as the modules stand for it.
     (: manifest-text (-> String (Option BuildDirectory) String ! fs))
     (define (manifest-text mount found)
       (match found
@@ -191,7 +194,7 @@
                                                   (StringDatum (Pair-second pair)))))
                               pairs)))))
 
-    ;; Each module's library and file, from the build's modules.json.
+    ;; Each module's library and digest, from the build's modules.json.
     (: build-modules (-> BuildDirectory (List (Pair String String)) ! fs))
     (define (build-modules build)
       (let ((path (string-append (BuildDirectory-directory build) "/modules.json")))
@@ -199,7 +202,7 @@
           ((Some manifest)
            (match (json-member manifest "modules")
              ((Some (JsonArray modules))
-              (map (lambda (module) (Pair (json-text module "name") (json-text module "file")))
+              (map (lambda (module) (Pair (json-text module "name") (json-text module "digest")))
                    modules))
              (_ (Nil))))
           ((None) (Nil)))))
@@ -281,9 +284,9 @@
 
     ;; ---- Responses ----
 
-    ;; A build's modules and the store's objects are named for their
-    ;; contents, so a browser may keep them for good. Nothing else is
-    ;; cached: `/` changes with each build.
+    ;; The store's objects are named for their contents, so a browser may
+    ;; keep them for good. Nothing else is cached: `/` changes with each
+    ;; build.
     (: found (-> String Bytes Response))
     (define (found name bytes)
       (response 200
@@ -294,7 +297,7 @@
     (: content-named? (-> String Bool))
     (define (content-named? name)
       (match (string-index name #\/)
-        ((Some end) (member? (substring name 0 end) (list "modules" "store" "sha256")))
+        ((Some end) (member? (substring name 0 end) (list "store" "sha256")))
         ((None) #f)))
 
     (: refusal (-> I32 String Response))

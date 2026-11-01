@@ -164,10 +164,12 @@
     ;; ---- Plugins ----
 
     ;; A plugin is a program compiled one library at a time, named by its
-    ;; modules.json: {"runtime": FILE, "modules": [{"name": LIBRARY, "file":
-    ;; FILE}, ...]}, the modules in program order, each file relative to the
-    ;; manifest. Its program's own module comes last, and the functions a
-    ;; plugin offers are that module's.
+    ;; modules.json: {"store": STORE, "runtime": OBJECT, "modules":
+    ;; [{"name": LIBRARY, "digest": DIGEST, ...}, ...], ...}, the modules in
+    ;; program order, each an object at STORE/sha256/DIGEST, the store
+    ;; relative to the manifest and store/ beside it unless it says. Its
+    ;; program's own module comes last, and the functions a plugin offers
+    ;; are that module's.
     (struct Plugin
       ((program Module)))
 
@@ -228,9 +230,21 @@
 
     (: parse-manifest (-> String (Option Manifest)))
     (define (parse-manifest text)
-      (match (match (string->json text) ((Some json) (json-member json "modules")) ((None) (None)))
-        ((Some (JsonArray entries)) (manifest-of (map manifest-module entries)))
-        (_ (None))))
+      (match (string->json text)
+        ((Some json)
+         (match (json-member json "modules")
+           ((Some (JsonArray entries))
+            (manifest-of (map (lambda (entry) (manifest-module (manifest-store json) entry))
+                              entries)))
+           (_ (None))))
+        ((None) (None))))
+
+    ;; The store a manifest's objects are in, relative to the manifest.
+    (: manifest-store (-> Json String))
+    (define (manifest-store json)
+      (match (json-member json "store")
+        ((Some (JsonString store)) store)
+        (_ "store/")))
 
     ;; A manifest whose every entry names a module, with at least the
     ;; program's own.
@@ -246,10 +260,13 @@
                     (Some (Manifest (Nil) program)) libraries))
         (_ (None))))
 
-    (: manifest-module (-> Json (Option PluginModule)))
-    (define (manifest-module entry)
-      (match (Pair (json-member entry "name") (json-member entry "file"))
-        ((Pair (Some (JsonString name)) (Some (JsonString file))) (Some (PluginModule name file)))
+    ;; A module's library, and the object holding it, relative to the
+    ;; manifest.
+    (: manifest-module (-> String Json (Option PluginModule)))
+    (define (manifest-module store entry)
+      (match (Pair (json-member entry "name") (json-member entry "digest"))
+        ((Pair (Some (JsonString name)) (Some (JsonString digest)))
+         (Some (PluginModule name (string-append store "sha256/" digest))))
         (_ (None))))
 
     ;; A path's directory with its final slash, or "" for a bare name.

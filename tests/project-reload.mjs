@@ -43,7 +43,7 @@ async function linkPage(build) {
 async function relink(page, build) {
   const changed = build.modules.find((entry, index) => {
     const old = page.build.modules[index];
-    return entry.name !== old?.name || entry.file !== old?.file;
+    return entry.name !== old?.name || entry.digest !== old?.digest;
   });
   assert.equal(changed.name, 'main', 'only the program changes');
   const {state, saved} = await page.runtime.stop();
