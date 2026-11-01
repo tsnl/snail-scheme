@@ -511,6 +511,26 @@ closure around it. The cast is the only check: the engine traps when the
 WebAssembly types differ, and nothing compares Snail-Core types, so the
 unsafe assumption is visible where it is made.
 
+### Linking by hand
+
+`load-module` and `load-plugin` link by the host's rules: the runtime, the
+modules of the namespace by name, the host's services, and a stub for a
+host function the host lacks. A loader written in Snail-Core, such as an
+engine linking a program from its manifest
+([#660](https://github.com/tsnl/snail-scheme/issues/660)), decides those
+rules itself with four operations, which the two hosts must answer alike
+(`tests/programs/wasm-linking.sld` runs on both). `compile-bytes` compiles
+a module; `module-imports` lists what it imports, each a module and field
+name with its kind, function, table, memory or global, which the host
+holds and Snail-Core reads back a character at a time, as names go the
+other way; `link-module` links it against one `Provider` per import, in
+import order, an export of an instance, the host's own function of that
+name, or nothing, a function that fails if called, and answers the
+instance, or `LinkFailed` when a provider is missing or not of the import's
+type; `run-export` runs an export of no arguments, such as `_initialize` or
+`main`, for its `I32`. Nothing is run when a module is linked this way:
+the loader runs its `main` when it chooses.
+
 ### Plugins
 
 A plugin is a program built apart from the one that loads it, compiled one

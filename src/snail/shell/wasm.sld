@@ -37,7 +37,25 @@
    load-plugin
    plugin-function
    unsafe-cast
-   wasm)
+   wasm
+   Compiled
+   compile-bytes
+   ImportKind
+   FunctionImport
+   TableImport
+   MemoryImport
+   GlobalImport
+   Import
+   Import-from
+   Import-name
+   Import-kind
+   module-imports
+   Provider
+   ExportOf
+   HostProvided
+   Unprovided
+   link-module
+   run-export)
   (import
    (snail core base)
    (prefix (snail runtime wasm) host-)
@@ -55,7 +73,16 @@
     ;; a library name and runs its main, and finds the functions an instance
     ;; exports. A failure is a negative code, never the end of the program;
     ;; a trap in a loaded module's main still ends it. Namespace 0 is the
-    ;; program's own. Names cross a character at a time.
+    ;; program's own. Names cross a character at a time, and so do the
+    ;; names the host holds of an import, `held-length` and `held-char`
+    ;; giving the import's module (0) and field (1) after `import-at`.
+    ;;
+    ;; A loader that chooses a module's providers itself lists the imports
+    ;; with `import-count` and `import-at`, prepares a link, gives one
+    ;; provider per import in import order, an instance's export under the
+    ;; staged name, the host's own function of the import's names, or a
+    ;; function that fails if called, and links; `call-nullary` runs an
+    ;; export of no arguments, such as `main`, for its I32.
     (effect wasm
       ((argument-character (-> Char Unit))
        (argument-end (-> Unit))
@@ -63,14 +90,34 @@
        (namespace (-> I32))
        (instantiate (-> I32 I32 I32))
        (exports-function? (-> I32 Bool))
-       (export-function (-> I32 Funcref)))
+       (export-function (-> I32 Funcref))
+       (import-count (-> I32 I32))
+       (import-at (-> I32 I32 I32))
+       (held-length (-> I32 I32))
+       (held-char (-> I32 I32 Char))
+       (prepare-link (-> I32 Unit))
+       (provide-export (-> I32 Bool))
+       (provide-host (-> Bool))
+       (provide-missing (-> Unit))
+       (link-prepared (-> I32))
+       (call-nullary (-> I32 I32)))
       (default ((argument-character host-argument-character)
                 (argument-end host-argument-end)
                 (compile host-compile)
                 (namespace host-namespace)
                 (instantiate host-instantiate)
                 (exports-function? host-has-export)
-                (export-function host-export-function))))
+                (export-function host-export-function)
+                (import-count host-import-count)
+                (import-at host-import-at)
+                (held-length host-held-length)
+                (held-char host-held-char)
+                (prepare-link host-prepare-link)
+                (provide-export host-provide-export)
+                (provide-host host-provide-host)
+                (provide-missing host-provide-missing)
+                (link-prepared host-link-prepared)
+                (call-nullary host-call-nullary))))
 
     (: send-argument (-> String Unit ! wasm))
     (define (send-argument text)
@@ -282,6 +329,97 @@
       (if (and (> (string-length file) 0) (char=? (string-ref file 0) #\/))
           file
           (string-append directory file)))
+
+    ;; ---- Linking by hand ----
+
+    ;; What a loader written in Snail-Core, such as an engine linking a
+    ;; program's modules, needs: a compiled module, its imports, and a link
+    ;; against providers it chooses, one per import.
+    (struct Compiled
+      ((handle I32)))
+
+    ;; The module `bytes` hold, or none when they are not one.
+    (: compile-bytes (-> Bytes (Option Compiled) ! wasm))
+    (define (compile-bytes bytes)
+      (let ((handle (compile bytes)))
+        (if (< handle 0) (None) (Some (Compiled handle)))))
+
+    (enum ImportKind
+      (FunctionImport)
+      (TableImport)
+      (MemoryImport)
+      (GlobalImport))
+
+    ;; An import: the module and field it names, and what it must be.
+    (struct Import
+      ((from String)
+       (name String)
+       (kind ImportKind)))
+
+    (: module-imports (-> Compiled (List Import) ! wasm))
+    (define (module-imports compiled)
+      (map (lambda (index) (import-of (Compiled-handle compiled) (i64->i32 index)))
+           (iota (i32->i64 (import-count (Compiled-handle compiled))))))
+
+    (: import-of (-> I32 I32 Import ! wasm))
+    (define (import-of module index)
+      (let ((kind (import-at module index)))
+        (Import (held-string 0) (held-string 1) (kind-of kind))))
+
+    (: kind-of (-> I32 ImportKind))
+    (define (kind-of code)
+      (cond ((= code 0) (FunctionImport))
+            ((= code 1) (TableImport))
+            ((= code 2) (MemoryImport))
+            ((= code 3) (GlobalImport))
+            (else (panic "the host answered an unknown kind of import"))))
+
+    ;; A name the host holds, a character at a time.
+    (: held-string (-> I32 String ! wasm))
+    (define (held-string which)
+      (string-generate (i32->i64 (held-length which))
+                       (lambda (index) (held-char which (i64->i32 index)))))
+
+    ;; What provides an import: an export of an instance, the host's own
+    ;; function of the import's module and field, or nothing, a function
+    ;; that fails if called, as a host import a program never calls links.
+    (enum Provider
+      (ExportOf
+       ((instance Module)
+        (export String)))
+      (HostProvided)
+      (Unprovided))
+
+    ;; Links `compiled`, called `name` in a failure, with `providers`, one
+    ;; per import in import order. The link fails when a provider names no
+    ;; export, the host has no such function, an import is left without a
+    ;; provider, or a provider is not of the import's type; a trap while
+    ;; the module starts still ends the program.
+    (: link-module (-> String Compiled (List Provider) (Result Module LoadError) ! wasm))
+    (define (link-module name compiled providers)
+      (prepare-link (Compiled-handle compiled))
+      (for-each provide providers)
+      (let ((handle (link-prepared)))
+        (if (< handle 0) (Err (LinkFailed name)) (Ok (Module handle)))))
+
+    (: provide (-> Provider Unit ! wasm))
+    (define (provide provider)
+      (match provider
+        ((ExportOf instance export)
+         (send-argument export)
+         (provide-export (Module-handle instance))
+         (unit))
+        ((HostProvided) (provide-host) (unit))
+        ((Unprovided) (provide-missing))))
+
+    ;; Runs the function of no arguments the instance exports as `name`,
+    ;; such as its `main`, answering its I32, or 0 when it answers nothing.
+    (: run-export (-> Module String (Result I32 LoadError) ! wasm))
+    (define (run-export instance name)
+      (send-argument name)
+      (if (exports-function? (Module-handle instance))
+          (begin (send-argument name) (Ok (call-nullary (Module-handle instance))))
+          (Err (MissingExport name))))
 
     ;; ---- Plugin functions ----
 

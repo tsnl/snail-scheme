@@ -283,14 +283,36 @@ export async function relinkProgram(program, from, manifest, read) {
 // links, so a plugin that links files cannot read them yet. A failure
 // answers a negative code, which (snail shell wasm) names; a trap in a
 // module's main still ends the program, and a main cannot wait.
-// The program waits for each operation, so they are synchronous.
-// `program()` gives the program that loads, which the host links after
-// making these imports.
+// A loader that chooses a module's providers itself lists the imports
+// with `import-count` and `import-at`, which holds the import's module and
+// field names for `held-length` and `held-char`, the reverse of the
+// staging above; then `prepare-link`, one provider per import in import
+// order (`provide-export` of an instance under a staged name,
+// `provide-host` for a function of this host's own, `provide-missing` for
+// one that fails if called) and `link-prepared`, which answers the
+// instance or a negative code; `call-nullary` runs an export of no
+// arguments, such as `main`, for its i32. The program waits for each
+// operation, so they are synchronous. `program()` gives the program that
+// loads, which the host links after making these imports.
 const INVALID_MODULE = -1, NAME_TAKEN = -1, LINK_FAILED = -2;
+const IMPORT_KINDS = ['function', 'table', 'memory', 'global'];
 
 export function wasmImports(program) {
   const modules = [], instances = [], namespaces = [], strings = stagedStrings();
   const namespace = handle => (handle === 0 ? program().linked : namespaces[handle - 1]);
+  let held = ['', ''], prepared = null;
+  // The import the next provider is for.
+  function current() {
+    const entry = prepared?.imports[prepared.bound];
+    if (!entry) throw new Error('every import of the module being linked has its provider');
+    return entry;
+  }
+  function bind(value) {
+    const {module: from, name} = current();
+    prepared.bound++;
+    (prepared.object[from] ??= {})[name] = value;
+    return value !== undefined;
+  }
   return {
     ...strings.imports,
     compile(address) {
@@ -309,6 +331,31 @@ export function wasmImports(program) {
     },
     'has-export': instance => typeof instances[instance].exports[strings.take()[0]] === 'function',
     'export-function': instance => instances[instance].exports[strings.take()[0]],
+    'import-count': module => WebAssembly.Module.imports(modules[module]).length,
+    'import-at'(module, index) {
+      const entry = WebAssembly.Module.imports(modules[module])[index];
+      if (!entry) return -1;
+      held = [entry.module, entry.name];
+      return IMPORT_KINDS.indexOf(entry.kind);
+    },
+    'held-length': which => [...held[which]].length,
+    'held-char': (which, index) => [...held[which]][index].codePointAt(0),
+    'prepare-link'(module) {
+      prepared = {module: modules[module], imports: WebAssembly.Module.imports(modules[module]), object: {}, bound: 0};
+    },
+    'provide-export': instance => bind(instances[instance].exports[strings.take()[0]]),
+    'provide-host'() { const {module: from, name} = current(); return bind(program().host[from]?.[name]); },
+    'provide-missing'() { const {module: from, name} = current(); bind(missingHost(from, name)); },
+    'link-prepared'() {
+      const {module, imports, object, bound} = prepared;
+      prepared = null;
+      if (bound !== imports.length) return LINK_FAILED;
+      let instance;
+      try { instance = new WebAssembly.Instance(module, object); }
+      catch (error) { if (error instanceof WebAssembly.LinkError || error instanceof TypeError) return LINK_FAILED; throw error; }
+      return instances.push(instance) - 1;
+    },
+    'call-nullary': instance => instances[instance].exports[strings.take()[0]]() ?? 0,
   };
 }
 

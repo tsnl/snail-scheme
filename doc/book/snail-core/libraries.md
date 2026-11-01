@@ -184,6 +184,11 @@ time](compilers.md#loading-modules-at-run-time)). Every failure is a
 (: unsafe-cast (All (A) (-> Funcref A)))
 (: load-plugin (-> String (Result Plugin LoadError) ! wasm fs))
 (: plugin-function (All (A) (-> Plugin String (Result A LoadError) ! wasm)))
+
+(: compile-bytes (-> Bytes (Option Compiled) ! wasm))
+(: module-imports (-> Compiled (List Import) ! wasm))      ; (Import from name kind)
+(: link-module (-> String Compiled (List Provider) (Result Module LoadError) ! wasm))
+(: run-export (-> Module String (Result I32 LoadError) ! wasm))
 ```
 
 `(load-module name file)` links the module in `file` into the program's
@@ -196,7 +201,13 @@ plugin exposes as `name` with `(expose name "symbol" dynamic)`, at the
 expected type, a function of data; it refuses a function whose signature
 is not that type's. Values cross by reference. A dynamic export is pure,
 a plugin's `main` runs under its effects' defaults, and a trap in a plugin
-ends the program.
+ends the program. A loader that chooses a module's providers itself, as an
+engine linking a program would, compiles the bytes, lists the imports, and
+links with one `Provider` per import in import order: `(ExportOf instance
+name)`, `(HostProvided)` for a function of the host's own, or
+`(Unprovided)` for one that fails if called; `run-export` runs an export of
+no arguments, such as `main`, for its `I32`
+([linking by hand](compilers.md#linking-by-hand)).
 
 ## Wire types
 
