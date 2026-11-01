@@ -174,17 +174,21 @@
            (assembled (begin
                         (call-with-output-file wat (lambda (port) (write-string text port)))
                         (run-wasm root tool wat (path-join directory "fibonacci.wasm")))))
-      (call-with-output-file manifest
-        (lambda (port)
-          (write-string (string-append "{\"runtime\":\"" (build-runtime root #f)
-                                       "\",\"modules\":[{\"name\":\"program\",\"file\":\"fibonacci.wasm\"}]}")
-                        port)))
+      (let ((runtime (place-object! directory (file-bytes (build-runtime root #f))))
+            (module (place-object! directory (file-bytes (path-join directory "fibonacci.wasm")))))
+        (call-with-output-file manifest
+          (lambda (port)
+            (write-string (string-append "{\"runtime\":{\"digest\":\"" (car runtime)
+                                         "\"},\"modules\":[{\"name\":\"program\",\"digest\":\""
+                                         (car module) "\"}],\"files\":[]}")
+                          port))))
       (let ((expected "assembled the program\nbroken text names its line and column\n"))
         (if (string=? assembled expected)
             (check-assembled-module root manifest)
             (report "toolchain assembler" "assembling failed" assembled))))))
 
-;; The module runs as the one library of a modules.json, on Node.
+;; The module runs as the one library of a modules.json, an object of the
+;; store beside it, on Node.
 (define (check-assembled-module root manifest)
   (let ((ran (capture-process
               (list "node" "--no-warnings" (path-join root "host/native/run-snail.mjs") manifest)))

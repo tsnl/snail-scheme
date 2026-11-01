@@ -1,10 +1,10 @@
-/ -> 200 text/html; charset=utf-8: <!doctype html><base href="/site/.snail/builds/4/"><script type="application/snail-manifest" id="snail-manifest">(base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "modules/a.wasm") ("main" "modules/b.wasm"))</script><script type="module" src="/site/.snail/reload.mjs"></script>
+/ -> 200 text/html; charset=utf-8: <!doctype html><base href="/site/.snail/builds/4/"><script type="application/snail-manifest" id="snail-manifest">(base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "aaaa") ("main" "bbbb"))</script><script type="module" src="/site/.snail/reload.mjs"></script>
 <title>four</title>
 
-/index.html -> 200 text/html; charset=utf-8: <!doctype html><base href="/site/.snail/builds/4/"><script type="application/snail-manifest" id="snail-manifest">(base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "modules/a.wasm") ("main" "modules/b.wasm"))</script><script type="module" src="/site/.snail/reload.mjs"></script>
+/index.html -> 200 text/html; charset=utf-8: <!doctype html><base href="/site/.snail/builds/4/"><script type="application/snail-manifest" id="snail-manifest">(base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "aaaa") ("main" "bbbb"))</script><script type="module" src="/site/.snail/reload.mjs"></script>
 <title>four</title>
 
-/modules.json -> 200 application/json: {"runtime": "runtime.wasm", "modules": [{"name": "snail core base", "file": "modules/a.wasm"}, {"name": "main", "file": "modules/b.wasm"}]}
+/modules.json -> 200 application/json: {"store": "../.snail-store/", "runtime": {"digest": "cccc", "size": 7}, "modules": [{"name": "snail core base", "digest": "aaaa", "size": 13}, {"name": "main", "digest": "bbbb", "size": 0}], "files": []}
 /modules/a.wasm -> 200 application/wasm: four's module
 /STYLE.CSS -> 404 text/plain; charset=utf-8: no such file in the build
 /style.css -> 200 text/css: body {}
@@ -15,6 +15,9 @@
 
 /.snail/builds/4/modules/a.wasm -> 200 application/wasm: four's module
 /.snail/builds/2/modules.json -> 404 text/plain; charset=utf-8: build 2 is no longer served
+/.snail/builds/.snail-store/sha256/aaaa -> 200 application/octet-stream: four's module
+/.snail/builds/.snail-store/sha256/zzzz -> 404 text/plain; charset=utf-8: no such object in the store
+/.snail/builds/.snail-store/ -> 404 text/plain; charset=utf-8: no such object in the store
 /a%2Fb -> 404 text/plain; charset=utf-8: no such file in the build
 /modules -> 404 text/plain; charset=utf-8: no such file in the build
 /linked.txt -> 404 text/plain; charset=utf-8: no such file in the build
@@ -24,5 +27,5 @@
 / before a build -> 503 text/plain; charset=utf-8: the application has not been built yet
 /.snail/reload.mjs before a build -> 200 text/javascript: reload
 (building (files) (modules))
-(built 120 (base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "modules/a.wasm") ("main" "modules/b.wasm")))
-(failed "a \"quoted\" message" (base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "modules/a.wasm") ("main" "modules/b.wasm")))
+(built 120 (base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "aaaa") ("main" "bbbb")))
+(failed "a \"quoted\" message" (base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "aaaa") ("main" "bbbb")))

@@ -89,9 +89,9 @@
 
     ;; A debug build optimizes a little, a release build as far as Binaryen
     ;; goes, and both link the program into one module. A development build
-    ;; leaves a module per library, with modules.json naming them in link
-    ;; order and the runtime as runtime.wasm, which both hosts link as the
-    ;; program starts.
+    ;; leaves a module per library, each an object of the project's store,
+    ;; with modules.json naming them in link order and the runtime, which
+    ;; both hosts link as the program starts.
     (enum Mode
       (Debug)
       (Release)
@@ -234,7 +234,7 @@
     ;; session its compile left, the entry and library directories it was
     ;; made for, and each module as assembled. The two change together, so
     ;; a module the session did not compile again has the text it had when
-    ;; it was assembled, and the build reuses its file and bytes.
+    ;; it was assembled, and the build reuses its digest and bytes.
     (struct Retained
       ((name String)
        (entry String)
@@ -242,11 +242,11 @@
        (session Session)
        (modules (List Assembled))))
 
-    ;; A module as assembled: its library, its file in the generation,
-    ;; named for the digest of its text, and its bytes.
+    ;; A module as assembled: its library, its bytes, and their digest,
+    ;; which names the object it is placed as.
     (struct Assembled
       ((library String)
-       (file String)
+       (digest String)
        (bytes Bytes)))
 
     ;; A built target: its node in the plan, its generation, and the files
@@ -453,10 +453,16 @@
         ((Ok text) (string->json text))
         ((Err _) (None))))
 
-    ;; The digests of the objects a manifest names.
+    ;; The digests of the objects a manifest names: the runtime, each
+    ;; module and each linked file.
     (: manifest-digests (-> Json (List String)))
     (define (manifest-digests json)
-      (map (lambda (entry) (json-text entry "digest")) (json-array json "files")))
+      (map (lambda (entry) (json-text entry "digest"))
+           (concatenate (list (match (json-member json "runtime")
+                                ((Some runtime) (list runtime))
+                                ((None) (Nil)))
+                              (json-array json "modules")
+                              (json-array json "files")))))
 
     ;; The manifest with its objects in store/ beside it.
     (: store-set (-> Json Json))
@@ -745,53 +751,59 @@
     (define (assemble-module module)
       (let ((text (Built-text module)))
         (match (assemble text)
-          ((Ok bytes)
-           (Assembled (Built-name module)
-                      (string-append "modules/" (bytes->hex (sha256 (string->utf8 text))) ".wasm")
-                      bytes))
+          ((Ok bytes) (Assembled (Built-name module) (bytes->hex (sha256 bytes)) bytes))
           ((Err message)
            (fail-build (string-append "internal error: cannot assemble the module of "
                                       (Built-name module)
                                       ": "
                                       message))))))
 
-    ;; The modules, modules.json naming them in link order with the files
-    ;; the program links, and the runtime they link with as runtime.wasm.
+    ;; The modules and the runtime they link with, each placed as an
+    ;; object of the project's store, and modules.json in the generation
+    ;; naming them, in link order, with the files the program links.
     (: write-modules
        (-> Builder String (List Assembled) (List (Pair String I64)) Unit ! fs building))
     (define (write-modules builder directory modules files)
-      (expect-done (make-directory (string-append directory "/modules"))
-                   (string-append "cannot make " directory "/modules"))
-      (for-each (lambda (module)
-                  (write-bytes (string-append directory "/" (Assembled-file module))
-                               (Assembled-bytes module)))
-                modules)
-      (copy-into (Tools-runtime (Builder-tools builder))
-                 (string-append directory "/runtime.wasm")
-                 "cannot copy the runtime")
-      (write-file (string-append directory "/modules.json")
-                  (json->string (manifest modules files))))
+      (let ((store (project-store builder))
+            (token (base-name directory))
+            (runtime (read-bytes (Tools-runtime (Builder-tools builder)))))
+        (for-each (lambda (module)
+                    (place-object store token (Assembled-digest module) (Assembled-bytes module)))
+                  modules)
+        (let ((runtime-digest (bytes->hex (sha256 runtime))))
+          (place-object store token runtime-digest runtime)
+          (write-file (string-append directory "/modules.json")
+                      (json->string (manifest (Pair runtime-digest (vector-length runtime))
+                                              modules
+                                              files))))))
 
-    ;; The manifest: the runtime beside it, the store its objects are in,
-    ;; relative to it, each module in link order, and each file the program
-    ;; links, by digest, with its size.
-    (: manifest (-> (List Assembled) (List (Pair String I64)) Json))
-    (define (manifest modules files)
+    ;; The manifest: the store its objects are in, relative to it, the
+    ;; runtime, each module in link order, and each file the program links,
+    ;; every object by digest with its size.
+    (: manifest (-> (Pair String I64) (List Assembled) (List (Pair String I64)) Json))
+    (define (manifest runtime modules files)
       (JsonObject
-       (list (Pair "runtime" (JsonString "runtime.wasm"))
+       (list (Pair "runtime" (object-json runtime))
              (Pair "store" (JsonString shared-store))
              (Pair "modules"
                    (JsonArray (map (lambda (module)
                                      (JsonObject
-                                      (list (Pair "name" (JsonString (Assembled-library module)))
-                                            (Pair "file" (JsonString (Assembled-file module))))))
+                                      (Cons (Pair "name" (JsonString (Assembled-library module)))
+                                            (object-members (Pair (Assembled-digest module)
+                                                                  (vector-length
+                                                                   (Assembled-bytes module)))))))
                                    modules)))
-             (Pair "files"
-                   (JsonArray (map (lambda (file)
-                                     (JsonObject
-                                      (list (Pair "digest" (JsonString (Pair-first file)))
-                                            (Pair "size" (JsonInteger (Pair-second file))))))
-                                   files))))))
+             (Pair "files" (JsonArray (map object-json files))))))
+
+    ;; An object as a manifest names it: its digest and size.
+    (: object-json (-> (Pair String I64) Json))
+    (define (object-json object)
+      (JsonObject (object-members object)))
+
+    (: object-members (-> (Pair String I64) (List (Pair String Json))))
+    (define (object-members object)
+      (list (Pair "digest" (JsonString (Pair-first object)))
+            (Pair "size" (JsonInteger (Pair-second object)))))
 
     ;; ---- Linking ----
 
@@ -942,14 +954,12 @@
 
     ;; The names some build writes at a generation's root, whether or not
     ;; this one does: a release build writes program.wasm, and store/ when
-    ;; its program links files, a development build modules/, modules.json
-    ;; and runtime.wasm. A public tree may use none of them, so one that
-    ;; builds in one mode, or with one set of linked files, builds in every
-    ;; other.
+    ;; its program links files, a development build modules.json. A public
+    ;; tree may use none of them, so one that builds in one mode, or with
+    ;; one set of linked files, builds in every other.
     (: generated-names (List String))
     (define generated-names
-      (append (list "program.wasm" "modules" "modules.json" "runtime.wasm" "store" ".snail-target")
-              browser-files))
+      (append (list "program.wasm" "modules.json" "store" ".snail-target") browser-files))
 
     ;; The browser host's files, then the target's public tree, if it has
     ;; one. The page is the project's own index.html; none is generated, but
@@ -1084,8 +1094,8 @@
       (list-sort (lambda (a b) (string<? (Pair-first a) (Pair-first b)))
                  (files-under directory "")))
 
-    ;; The digest of each file of a generation but its modules and objects,
-    ;; which are named for theirs, by name.
+    ;; The digest of each file of a generation but its objects, which are
+    ;; named for theirs, by name.
     (: file-digests (-> (List (Pair String String)) (List (Pair String String)) ! fs))
     (define (file-digests files)
       (map (lambda (file)
@@ -1094,11 +1104,11 @@
 
     (: content-named? (-> String Bool))
     (define (content-named? name)
-      (or (starts-with? name "modules/") (starts-with? name "store/")))
+      (starts-with? name "store/"))
 
     ;; A digest of a generation's files: each relative name, with its
-    ;; file's digest, but only the name of a module or an object, which is
-    ;; the digest of the text it was assembled from or of its bytes.
+    ;; file's digest, but only the name of an object, which is the digest
+    ;; of its bytes.
     (: generation-digest (-> (List (Pair String String)) (List (Pair String String)) String))
     (define (generation-digest files digests)
       (bytes->hex

@@ -9,9 +9,10 @@
 ;; A browser application's bundle on two builds, mounted at /site/: the
 ;; page based in the latest, with its manifest and the reload client; a
 ;; latest build's file; each build's own files under /.snail/builds/EPOCH/;
-;; a build no longer retained; names that are not a build's file; a link out
-;; of a build; the reload client's files; nothing built yet; and the events
-;; a page hears. Each line is a request and the response's status, type and
+;; a build no longer retained; an object of the store the builds share,
+;; and names that are not one; names that are not a build's file; a link
+;; out of a build; the reload client's files; nothing built yet; and the
+;; events a page hears. Each line is a request and the response's status, type and
 ;; body, or an event.
 (define root "build/tests/project-bundle")
 
@@ -31,8 +32,10 @@
 (put "g3/modules.json" "{\"modules\": \"three\"}")
 (put "g4/index.html" "<!doctype html>\n<title>four</title>\n")
 (put "g4/modules.json"
-     "{\"runtime\": \"runtime.wasm\", \"modules\": [{\"name\": \"snail core base\", \"file\": \"modules/a.wasm\"}, {\"name\": \"main\", \"file\": \"modules/b.wasm\"}]}")
+     "{\"store\": \"../.snail-store/\", \"runtime\": {\"digest\": \"cccc\", \"size\": 7}, \"modules\": [{\"name\": \"snail core base\", \"digest\": \"aaaa\", \"size\": 13}, {\"name\": \"main\", \"digest\": \"bbbb\", \"size\": 0}], \"files\": []}")
 (put "g4/modules/a.wasm" "four's module")
+(make-directories (at ".snail-store/sha256"))
+(put ".snail-store/sha256/aaaa" "four's module")
 (put "g4/nested/index.html" "nested")
 (put "g4/style.css" "body {}")
 (put "outside.txt" "outside")
@@ -93,6 +96,11 @@
 (request "/.snail/builds/3/" (list ".snail" "builds" "3" ""))
 (request "/.snail/builds/4/modules/a.wasm" (list ".snail" "builds" "4" "modules" "a.wasm"))
 (request "/.snail/builds/2/modules.json" (list ".snail" "builds" "2" "modules.json"))
+(request "/.snail/builds/.snail-store/sha256/aaaa"
+         (list ".snail" "builds" ".snail-store" "sha256" "aaaa"))
+(request "/.snail/builds/.snail-store/sha256/zzzz"
+         (list ".snail" "builds" ".snail-store" "sha256" "zzzz"))
+(request "/.snail/builds/.snail-store/" (list ".snail" "builds" ".snail-store" ""))
 (request "/a%2Fb" (list "a/b"))
 (request "/modules" (list "modules"))
 (request "/linked.txt" (list "linked.txt"))

@@ -4,7 +4,8 @@
 //!
 //! A per-library build is named by its modules.json, which `build-modules`
 //! in host/chibi/snail/stage0/build.sld writes beside the modules:
-//! `{"runtime": FILE, "store": STORE, "modules": [{"name": LIBRARY, "file": FILE}, ...], "files": [...]}`,
+//! `{"store": STORE, "runtime": OBJECT, "modules": [{"name": LIBRARY, ...OBJECT}, ...], "files": [OBJECT, ...]}`,
+//! where an OBJECT is `{"digest": DIGEST, "size": SIZE}` naming a file of the store,
 //! the libraries in program order. The Rust runtime is instantiated and
 //! initialized first; then each library's module, which sees the runtime
 //! as "snail.core.support", the modules before it under their library names,
@@ -25,10 +26,9 @@ use crate::program::{Host, Linked, NODE_ONLY, compile_module};
 
 // ---- The manifest ----
 
-/// A modules.json, its files resolved against its own directory: the
-/// runtime, the store the files the program links are objects of, which
-/// is `store/` beside the manifest unless it says otherwise, and each
-/// library's module.
+/// A modules.json, its objects resolved in its store, `store/` beside the
+/// manifest unless it says otherwise: the runtime, the store itself, where
+/// the files the program links are read from, and each library's module.
 pub struct Manifest {
     pub runtime: PathBuf,
     pub store: PathBuf,
@@ -36,7 +36,7 @@ pub struct Manifest {
 }
 
 /// A library's name, under which later modules import from it, and the
-/// file holding its module.
+/// object holding its module.
 pub struct Library {
     pub name: String,
     pub file: PathBuf,
@@ -65,15 +65,16 @@ impl Manifest {
         Ok(manifest)
     }
 
-    // The manifest `json` describes, its files in `directory`, if it
-    // describes one.
+    // The manifest `json` describes, its objects in the store it names in
+    // `directory`, if it describes one.
     fn described(json: &Value, directory: &Path) -> Option<Manifest> {
-        let file = |value: &Value| Some(directory.join(value.as_str()?));
+        let store = directory.join(json["store"].as_str().unwrap_or("store/"));
+        let object = |value: &Value| Some(store.join("sha256").join(value["digest"].as_str()?));
         let library = |entry: &Value| {
             let name = entry["name"].as_str()?.to_string();
             Some(Library {
                 name,
-                file: file(&entry["file"])?,
+                file: object(entry)?,
             })
         };
         let libraries = json["modules"]
@@ -82,8 +83,8 @@ impl Manifest {
             .map(library)
             .collect::<Option<_>>()?;
         Some(Manifest {
-            runtime: file(&json["runtime"])?,
-            store: directory.join(json["store"].as_str().unwrap_or("store/")),
+            runtime: object(&json["runtime"])?,
+            store,
             libraries,
         })
     }
@@ -528,16 +529,18 @@ mod tests {
         (import "lib" "lib:answer" (func $answer (result i32)))
         (func (export "main") (result i32) (i32.add (call $answer) (i32.const 2))))"#;
 
-    // A per-library build in a directory of its own: each module's file,
+    // A per-library build in a directory of its own: each module an object
+    // of store/ beside the manifest, under a name standing for its digest,
     // and the manifest naming them.
     fn build(name: &str, runtime_text: &str) -> PathBuf {
         let runtime_file = PathBuf::from(module_file(&format!("{name}-runtime"), runtime_text));
         let directory = runtime_file.with_extension("build");
-        std::fs::create_dir_all(&directory).unwrap();
-        std::fs::rename(&runtime_file, directory.join("runtime.wasm")).unwrap();
-        std::fs::write(directory.join("lib.wasm"), wat::parse_str(LIBRARY).unwrap()).unwrap();
-        std::fs::write(directory.join("main.wasm"), wat::parse_str(MAIN).unwrap()).unwrap();
-        let manifest = r#"{"runtime": "runtime.wasm", "modules": [{"name": "lib", "file": "lib.wasm"}, {"name": "main", "file": "main.wasm"}]}"#;
+        let objects = directory.join("store").join("sha256");
+        std::fs::create_dir_all(&objects).unwrap();
+        std::fs::rename(&runtime_file, objects.join("runtime")).unwrap();
+        std::fs::write(objects.join("lib"), wat::parse_str(LIBRARY).unwrap()).unwrap();
+        std::fs::write(objects.join("main"), wat::parse_str(MAIN).unwrap()).unwrap();
+        let manifest = r#"{"runtime": {"digest": "runtime", "size": 0}, "modules": [{"name": "lib", "digest": "lib", "size": 0}, {"name": "main", "digest": "main", "size": 0}], "files": []}"#;
         std::fs::write(directory.join("modules.json"), manifest).unwrap();
         directory.join("modules.json")
     }
@@ -546,17 +549,17 @@ mod tests {
     fn a_manifest_names_its_files_beside_it() {
         let manifest = build("manifest", &runtime(0));
         let read = Manifest::read(&manifest).unwrap();
-        let directory = manifest.parent().unwrap();
+        let objects = manifest.parent().unwrap().join("store/").join("sha256");
         assert_eq!(
             read.files(),
             [
-                directory.join("runtime.wasm"),
-                directory.join("lib.wasm"),
-                directory.join("main.wasm")
+                objects.join("runtime"),
+                objects.join("lib"),
+                objects.join("main")
             ]
         );
         assert_eq!(read.libraries[0].name, "lib");
-        assert_eq!(read.store, directory.join("store/"));
+        assert_eq!(read.store, manifest.parent().unwrap().join("store/"));
     }
 
     #[test]
@@ -565,20 +568,22 @@ mod tests {
         let text = std::fs::read_to_string(&manifest).unwrap();
         std::fs::write(
             &manifest,
-            text.replace(r#""runtime""#, r#""store": "../.snail-store/", "runtime""#),
+            text.replace(
+                r#"{"runtime""#,
+                r#"{"store": "../.snail-store/", "runtime""#,
+            ),
         )
         .unwrap();
         let read = Manifest::read(&manifest).unwrap();
-        assert_eq!(
-            read.store,
-            manifest.parent().unwrap().join("../.snail-store/")
-        );
+        let store = manifest.parent().unwrap().join("../.snail-store/");
+        assert_eq!(read.store, store);
+        assert_eq!(read.runtime, store.join("sha256").join("runtime"));
     }
 
     #[test]
     fn what_is_not_a_manifest_is_refused() {
         let manifest = build("invalid", &runtime(0));
-        std::fs::write(&manifest, r#"{"runtime": "runtime.wasm"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"runtime": {"digest": "runtime"}}"#).unwrap();
         let error = Manifest::read(&manifest).err().unwrap().to_string();
         assert!(error.ends_with("modules.json is not the modules.json of a program"));
     }
@@ -611,7 +616,7 @@ mod tests {
         let manifest = build("unclosed", &runtime(1));
         assert_eq!(program::run(&manifest.to_string_lossy(), &[]), 42);
         std::fs::write(
-            manifest.with_file_name("main.wasm"),
+            manifest.with_file_name("store/sha256/main"),
             wat::parse_str(&MAIN.replace("(i32.const 2)", "(i32.const -40)")).unwrap(),
         )
         .unwrap();
