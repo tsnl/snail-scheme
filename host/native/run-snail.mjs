@@ -56,8 +56,9 @@ function exiting(wasi) {
 }
 
 async function run(filename, arguments_) {
-  const wasi = exiting(new WASI({version: 'preview1', args: [filename, ...arguments_],
+  const freshWasi = () => exiting(new WASI({version: 'preview1', args: [filename, ...arguments_],
     env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}}));
+  const wasi = freshWasi();
   let program, failed = false, status = 0;
   const tcp = createTcp(), udp = createUdp(), processes = createProcesses(), hints = createHints();
   const termination = createTermination();
@@ -73,6 +74,7 @@ async function run(filename, arguments_) {
   const keepAlive = setInterval(() => {}, 60_000);
   try {
     program = await loadProgram(resolve(filename), wasi, host, () => tasks);
+    program.wasi = freshWasi;
     status = resultStatus(runInitializers(program));
     await tasks.drive().catch(report);
     if (failed) status = 1;

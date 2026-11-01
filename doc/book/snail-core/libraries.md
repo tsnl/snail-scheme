@@ -188,7 +188,8 @@ time](compilers.md#loading-modules-at-run-time)). Every failure is a
 (: compile-bytes (-> Bytes (Option Compiled) ! wasm))
 (: module-imports (-> Compiled (List Import) ! wasm))      ; (Import from name kind)
 (: link-module (-> String Compiled (List Provider) (Result Module LoadError) ! wasm))
-(: run-export (-> Module String (Result I32 LoadError) ! wasm))
+(: name-instance (-> Module String Bool ! wasm))
+(: run-export (-> Module String I64 (Result I64 LoadError) ! wasm))
 ```
 
 `(load-module name file)` links the module in `file` into the program's
@@ -204,9 +205,10 @@ a plugin's `main` runs under its effects' defaults, and a trap in a plugin
 ends the program. A loader that chooses a module's providers itself, as an
 engine linking a program would, compiles the bytes, lists the imports, and
 links with one `Provider` per import in import order: `(ExportOf instance
-name)`, `(HostProvided)` for a function of the host's own, or
-`(Unprovided)` for one that fails if called; `run-export` runs an export of
-no arguments, such as `main`, for its `I32`
+name)`, `(HostProvided)` for a function of the host's own, `(ConstantOf n)`
+for a function answering `n`, or `(Unprovided)` for one that fails if
+called; `run-export` calls an export of no argument or one `I64`, such as
+`main`, for its result
 ([linking by hand](compilers.md#linking-by-hand)).
 
 ## Wire types

@@ -3,7 +3,7 @@
 ;; an export run. The two hosts must answer alike: this runs on Node in
 ;; `make test` and on wasmtime in `make test-wasmtime`. `one` exports a
 ;; function and a global; `two` imports both, a function of the host's,
-;; and one nothing provides, which it never calls. Providers follow the
+;; and one that is given a constant, or nothing. Providers follow the
 ;; module's import order, which is the binary's: Binaryen wrote the global
 ;; import first.
 (import
@@ -56,25 +56,28 @@
 
 (: show-run (-> Module String Unit ! wasm console))
 (define (show-run instance name)
-  (match (run-export instance name)
+  (match (run-export instance name 0)
     ((Ok answer) (write-line (string-append name " answers " (show answer))))
     ((Err error) (write-line (load-error-message error)))))
 
-(: providers (-> Module String (List Provider)))
-(define (providers one export)
-  (list (ExportOf one "limit") (ExportOf one export) (HostProvided) (Unprovided)))
+(: providers (-> Module String Provider (List Provider)))
+(define (providers one export missing)
+  (list (ExportOf one "limit") (ExportOf one export) (HostProvided) missing))
 
 (let ((one (compiled "one" one-bytes)) (two (compiled "two" two-bytes)))
   (write-line (string-append "one imports " (show (length (module-imports one)))))
   (for-each show-import (module-imports two))
   (match (link-module "one" one (Nil))
     ((Ok linked-one)
-     (match (link-module "two" two (providers linked-one "one"))
+     (match (link-module "two" two (providers linked-one "one" (ConstantOf 5)))
        ((Ok linked-two)
         (show-run linked-two "main")
-        (show-run linked-two "absent"))
+        (show-run linked-two "fail")
+        (show-run linked-two "absent")
+        (write-line (if (name-instance linked-two "two") "named two" "two is taken"))
+        (write-line (if (name-instance linked-two "two") "named two" "two is taken")))
        ((Err error) (write-line (load-error-message error))))
-     (match (link-module "two again" two (providers linked-one "nothing"))
+     (match (link-module "two again" two (providers linked-one "nothing" (Unprovided)))
        ((Ok _) (write-line "linked without its provider"))
        ((Err error) (write-line (load-error-message error))))
      (match (link-module "two short" two (list (ExportOf linked-one "limit")))

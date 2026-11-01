@@ -525,11 +525,16 @@ name with its kind, function, table, memory or global, which the host
 holds and Snail-Core reads back a character at a time, as names go the
 other way; `link-module` links it against one `Provider` per import, in
 import order, an export of an instance, the host's own function of that
-name, or nothing, a function that fails if called, and answers the
-instance, or `LinkFailed` when a provider is missing or not of the import's
-type; `run-export` runs an export of no arguments, such as `_initialize` or
-`main`, for its `I32`. Nothing is run when a module is linked this way:
-the loader runs its `main` when it chooses.
+name, a function answering a constant, as a linked file's handle is
+imported, or nothing, a function that fails if called, and answers the
+instance, initialized when it exports `_initialize`, or `LinkFailed` when
+a provider is missing or not of the import's type; `run-export` calls an
+export of no argument or one `I64`, such as `main` or a scheduler's
+`tasks:turn`, for its result. `loading-program` is the instance of the
+program that loads, whose exports a loaded module may import, and
+`name-instance` puts a linked instance in the program's namespace, where
+`load-module` sees it. Nothing but initialization runs when a module is
+linked this way: the loader runs its `main` when it chooses.
 
 ### Plugins
 

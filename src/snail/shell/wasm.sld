@@ -53,8 +53,11 @@
    Provider
    ExportOf
    HostProvided
+   ConstantOf
    Unprovided
    link-module
+   loading-program
+   name-instance
    run-export)
   (import
    (snail core base)
@@ -80,9 +83,14 @@
     ;; A loader that chooses a module's providers itself lists the imports
     ;; with `import-count` and `import-at`, prepares a link, gives one
     ;; provider per import in import order, an instance's export under the
-    ;; staged name, the host's own function of the import's names, or a
-    ;; function that fails if called, and links; `call-nullary` runs an
-    ;; export of no arguments, such as `main`, for its I32.
+    ;; staged name, the host's own function of the import's names, a
+    ;; function answering a constant, or a function that fails if called,
+    ;; and links; the host initializes what it linked when it exports
+    ;; `_initialize`. Instance 0 is the program that loads, whose exports a
+    ;; loaded module may import. `name-instance` puts an instance in the
+    ;; program's namespace under the staged name, where `instantiate` and
+    ;; later loads see it; `call-export` calls an export of no argument or
+    ;; one I64, such as `main` or `tasks:turn`, for its result.
     (effect wasm
       ((argument-character (-> Char Unit))
        (argument-end (-> Unit))
@@ -100,7 +108,9 @@
        (provide-host (-> Bool))
        (provide-missing (-> Unit))
        (link-prepared (-> I32))
-       (call-nullary (-> I32 I32)))
+       (provide-constant (-> I32 Unit))
+       (register-instance (-> I32 Bool))
+       (call-export (-> I32 I64 I64)))
       (default ((argument-character host-argument-character)
                 (argument-end host-argument-end)
                 (compile host-compile)
@@ -117,7 +127,9 @@
                 (provide-host host-provide-host)
                 (provide-missing host-provide-missing)
                 (link-prepared host-link-prepared)
-                (call-nullary host-call-nullary))))
+                (provide-constant host-provide-constant)
+                (register-instance host-name-instance)
+                (call-export host-call-export))))
 
     (: send-argument (-> String Unit ! wasm))
     (define (send-argument text)
@@ -381,20 +393,30 @@
                        (lambda (index) (held-char which (i64->i32 index)))))
 
     ;; What provides an import: an export of an instance, the host's own
-    ;; function of the import's module and field, or nothing, a function
-    ;; that fails if called, as a host import a program never calls links.
+    ;; function of the import's module and field, a function of no
+    ;; arguments answering a constant, as a linked file's handle is
+    ;; imported, or nothing, a function that fails if called, as a host
+    ;; import a program never calls links.
     (enum Provider
       (ExportOf
        ((instance Module)
         (export String)))
       (HostProvided)
+      (ConstantOf
+       ((value I32)))
       (Unprovided))
 
+    ;; The program that loads, as an instance whose exports a loaded module
+    ;; may import.
+    (: loading-program Module)
+    (define loading-program (Module 0))
+
     ;; Links `compiled`, called `name` in a failure, with `providers`, one
-    ;; per import in import order. The link fails when a provider names no
-    ;; export, the host has no such function, an import is left without a
-    ;; provider, or a provider is not of the import's type; a trap while
-    ;; the module starts still ends the program.
+    ;; per import in import order, and initializes it when it exports
+    ;; `_initialize`. The link fails when a provider names no export, the
+    ;; host has no such function, an import is left without a provider, or
+    ;; a provider is not of the import's type; a trap while the module
+    ;; starts still ends the program.
     (: link-module (-> String Compiled (List Provider) (Result Module LoadError) ! wasm))
     (define (link-module name compiled providers)
       (prepare-link (Compiled-handle compiled))
@@ -410,15 +432,25 @@
          (provide-export (Module-handle instance))
          (unit))
         ((HostProvided) (provide-host) (unit))
+        ((ConstantOf value) (provide-constant value))
         ((Unprovided) (provide-missing))))
 
-    ;; Runs the function of no arguments the instance exports as `name`,
-    ;; such as its `main`, answering its I32, or 0 when it answers nothing.
-    (: run-export (-> Module String (Result I32 LoadError) ! wasm))
-    (define (run-export instance name)
+    ;; Puts the instance in the program's namespace under `name`, where
+    ;; `load-module` and the modules loaded later see it, answering whether
+    ;; the name was free.
+    (: name-instance (-> Module String Bool ! wasm))
+    (define (name-instance instance name)
+      (send-argument name)
+      (register-instance (Module-handle instance)))
+
+    ;; Calls the function the instance exports as `name`, of no argument or
+    ;; one I64, such as its `main` or a scheduler's `tasks:turn`, with
+    ;; `argument`, answering its result, or 0 when it answers nothing.
+    (: run-export (-> Module String I64 (Result I64 LoadError) ! wasm))
+    (define (run-export instance name argument)
       (send-argument name)
       (if (exports-function? (Module-handle instance))
-          (begin (send-argument name) (Ok (call-nullary (Module-handle instance))))
+          (begin (send-argument name) (Ok (call-export (Module-handle instance) argument)))
           (Err (MissingExport name))))
 
     ;; ---- Plugin functions ----

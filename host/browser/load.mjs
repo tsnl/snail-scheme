@@ -288,18 +288,26 @@ export async function relinkProgram(program, from, manifest, read) {
 // field names for `held-length` and `held-char`, the reverse of the
 // staging above; then `prepare-link`, one provider per import in import
 // order (`provide-export` of an instance under a staged name,
-// `provide-host` for a function of this host's own, `provide-missing` for
-// one that fails if called) and `link-prepared`, which answers the
-// instance or a negative code; `call-nullary` runs an export of no
-// arguments, such as `main`, for its i32. The program waits for each
-// operation, so they are synchronous. `program()` gives the program that
-// loads, which the host links after making these imports.
+// `provide-host` for a function of this host's own, `provide-constant` for
+// a function answering a constant, `provide-missing` for one that fails if
+// called) and `link-prepared`, which answers the instance or a negative
+// code, having initialized it when it exports `_initialize`. A link given
+// WASI gets a WASI of its own, from `program().wasi()`, bound to the
+// instance. Instance 0 is the loading program's runtime, whose exports a
+// loaded module may import; `name-instance` puts an instance in the
+// program's namespace under a staged name; `call-export` calls an export
+// of no argument or one i64, such as `main` or `tasks:turn`, for its
+// result as an i64. The program waits for each operation, so they are
+// synchronous. `program()` gives the program that loads, which the host
+// links after making these imports.
 const INVALID_MODULE = -1, NAME_TAKEN = -1, LINK_FAILED = -2;
 const IMPORT_KINDS = ['function', 'table', 'memory', 'global'];
+const WASI = 'wasi_snapshot_preview1';
 
 export function wasmImports(program) {
-  const modules = [], instances = [], namespaces = [], strings = stagedStrings();
+  const modules = [], instances = [null], namespaces = [], strings = stagedStrings();
   const namespace = handle => (handle === 0 ? program().linked : namespaces[handle - 1]);
+  const instance = handle => (handle === 0 ? program().runtime : instances[handle]);
   let held = ['', ''], prepared = null;
   // The import the next provider is for.
   function current() {
@@ -329,8 +337,8 @@ export function wasmImports(program) {
       instance.exports.main?.();
       return instances.push(instance) - 1;
     },
-    'has-export': instance => typeof instances[instance].exports[strings.take()[0]] === 'function',
-    'export-function': instance => instances[instance].exports[strings.take()[0]],
+    'has-export': handle => typeof instance(handle).exports[strings.take()[0]] === 'function',
+    'export-function': handle => instance(handle).exports[strings.take()[0]],
     'import-count': module => WebAssembly.Module.imports(modules[module]).length,
     'import-at'(module, index) {
       const entry = WebAssembly.Module.imports(modules[module])[index];
@@ -341,21 +349,40 @@ export function wasmImports(program) {
     'held-length': which => [...held[which]].length,
     'held-char': (which, index) => [...held[which]][index].codePointAt(0),
     'prepare-link'(module) {
-      prepared = {module: modules[module], imports: WebAssembly.Module.imports(modules[module]), object: {}, bound: 0};
+      prepared = {module: modules[module], imports: WebAssembly.Module.imports(modules[module]), object: {}, bound: 0, wasi: null};
     },
-    'provide-export': instance => bind(instances[instance].exports[strings.take()[0]]),
-    'provide-host'() { const {module: from, name} = current(); return bind(program().host[from]?.[name]); },
+    'provide-export': handle => bind(instance(handle).exports[strings.take()[0]]),
+    'provide-host'() {
+      const {module: from, name} = current();
+      if (from === WASI && program().wasi) {
+        prepared.wasi ??= program().wasi();
+        return bind(prepared.wasi.getImportObject()[WASI][name]);
+      }
+      return bind(program().host[from]?.[name]);
+    },
+    'provide-constant'(value) { bind(() => value); },
     'provide-missing'() { const {module: from, name} = current(); bind(missingHost(from, name)); },
     'link-prepared'() {
-      const {module, imports, object, bound} = prepared;
+      const {module, imports, object, bound, wasi} = prepared;
       prepared = null;
       if (bound !== imports.length) return LINK_FAILED;
-      let instance;
-      try { instance = new WebAssembly.Instance(module, object); }
+      let linked;
+      try { linked = new WebAssembly.Instance(module, object); }
       catch (error) { if (error instanceof WebAssembly.LinkError || error instanceof TypeError) return LINK_FAILED; throw error; }
-      return instances.push(instance) - 1;
+      if (wasi) wasi.initialize(linked);
+      else linked.exports._initialize?.();
+      return instances.push(linked) - 1;
     },
-    'call-nullary': instance => instances[instance].exports[strings.take()[0]]() ?? 0,
+    'name-instance'(handle) {
+      const [name] = strings.take(), linked = program().linked;
+      if (linked.has(name) || hostProvided(name)) return 0;
+      linked.set(name, instance(handle));
+      return 1;
+    },
+    'call-export'(handle, argument) {
+      const result = instance(handle).exports[strings.take()[0]](argument);
+      return typeof result === 'bigint' ? result : BigInt(result ?? 0);
+    },
   };
 }
 

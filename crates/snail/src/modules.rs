@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use serde_json::Value;
 use wasmtime::{AsContext, AsContextMut, Caller, Engine, Extern, ExternType, Func, ImportType};
-use wasmtime::{Instance, Linker, Module, Val};
+use wasmtime::{Instance, Linker, Module, Val, ValType};
 use wasmtime::{Store, Trap, bail, format_err};
 
 use crate::engine::{call, run_export};
@@ -170,10 +170,22 @@ fn link_runtime(
     Ok(runtime)
 }
 
+// The runtime that imports this reports through its own export; a program
+// linked one library at a time, whose libraries have no export of their
+// own, reports through the runtime's.
 fn report_error(mut caller: Caller<'_, Host>, pointer: i32, length: i32) -> wasmtime::Result<()> {
-    let runtime = caller.data().loading.runtime()?;
-    let report = runtime.get_typed_func::<(i32, i32), ()>(&mut caller, "snail:report-error")?;
-    report.call(&mut caller, (pointer, length))
+    let report = match caller.get_export("snail:report-error") {
+        Some(Extern::Func(report)) => report,
+        _ => {
+            let runtime = caller.data().loading.runtime()?;
+            runtime
+                .get_func(&mut caller, "snail:report-error")
+                .ok_or_else(|| format_err!("the runtime exports no snail:report-error"))?
+        }
+    };
+    report
+        .typed::<(i32, i32), ()>(&caller)?
+        .call(&mut caller, (pointer, length))
 }
 
 // ---- What a module sees ----
@@ -264,9 +276,14 @@ fn missing_host(from: &str, name: &str) -> String {
 // staging above; then `prepare-link`, one provider per import in import
 // order (`provide-export` of an instance under a staged name,
 // `provide-host` for a function of this host's own, `provide-missing` for
-// one that fails if called) and `link-prepared`, which answers the
-// instance or a negative code; `call-nullary` runs an export of no
-// arguments, such as `main`, for its i32.
+// `provide-constant` for a function answering a constant, `provide-missing`
+// for one that fails if called) and `link-prepared`, which answers the
+// instance or a negative code, having initialized it when it exports
+// `_initialize`. Instance 0 is the loading program's runtime, whose
+// exports a loaded module may import; `name-instance` puts an instance in
+// the program's namespace under a staged name; `call-export` calls an
+// export of no argument or one i64, such as `main` or `tasks:turn`, for
+// its result as an i64.
 const INVALID_MODULE: i32 = -1;
 const NAME_TAKEN: i32 = -1;
 const LINK_FAILED: i32 = -2;
@@ -417,14 +434,22 @@ impl Loading {
         instance: Instance,
     ) -> wasmtime::Result<i32> {
         self.namespaces[namespace].insert(name, instance);
+        self.hold(instance)
+    }
+
+    // Handles count from 1: handle 0 is the loading program's runtime.
+    fn hold(&mut self, instance: Instance) -> wasmtime::Result<i32> {
         self.instances.push(instance);
-        Ok(i32::try_from(self.instances.len() - 1)?)
+        Ok(i32::try_from(self.instances.len())?)
     }
 
     fn instance(&self, handle: i32) -> wasmtime::Result<Instance> {
+        if handle == 0 {
+            return self.runtime();
+        }
         let instance = usize::try_from(handle)
             .ok()
-            .and_then(|index| self.instances.get(index));
+            .and_then(|index| self.instances.get(index.wrapping_sub(1)));
         instance
             .copied()
             .ok_or_else(|| format_err!("no loaded instance {handle}"))
@@ -629,29 +654,74 @@ fn define_linking(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
                 Err(error) if error.downcast_ref::<Trap>().is_some() => return Err(error),
                 Err(_) => return Ok(LINK_FAILED),
             };
-            let instances = &mut caller.data_mut().loading.instances;
-            instances.push(instance);
-            Ok(i32::try_from(instances.len() - 1)?)
+            if instance.get_func(&mut caller, "_initialize").is_some() {
+                run_export(&mut caller, &instance, "_initialize")?;
+            }
+            caller.data_mut().loading.hold(instance)
         },
     )?;
     linker.func_wrap(
         "snail.runtime.wasm",
-        "call-nullary",
+        "provide-constant",
+        |mut caller: Caller<'_, Host>, value: i32| {
+            caller.data_mut().loading.prepared()?.current()?;
+            let provider = Func::wrap(&mut caller, move || value).into();
+            caller.data_mut().loading.prepared()?.bind(Some(provider));
+            Ok(())
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "name-instance",
         |mut caller: Caller<'_, Host>, handle: i32| {
+            let instance = caller.data().loading.instance(handle)?;
+            let name = caller.data_mut().loading.take_name()?;
+            let loading = &mut caller.data_mut().loading;
+            if loading.namespaces[0].contains_key(&name) || host_provided(&name) {
+                return Ok(0);
+            }
+            loading.namespaces[0].insert(name, instance);
+            Ok(1)
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "call-export",
+        |mut caller: Caller<'_, Host>, handle: i32, argument: i64| {
             let instance = caller.data().loading.instance(handle)?;
             let name = caller.data_mut().loading.take_name()?;
             let function = instance
                 .get_func(&mut caller, &name)
                 .ok_or_else(|| format_err!("the instance exports no function {name}"))?;
-            let mut results = vec![Val::I32(0); function.ty(&caller).results().len()];
-            function.call(&mut caller, &[], &mut results)?;
-            Ok(match results.first() {
-                Some(Val::I32(result)) => *result,
-                _ => 0,
-            })
+            call_with(&mut caller, &function, argument)
         },
     )?;
     Ok(())
+}
+
+// Calls a function of no parameter, or one i32 or i64, with `argument`,
+// answering its first result widened to i64, or 0 when it has none.
+fn call_with(
+    caller: &mut Caller<'_, Host>,
+    function: &Func,
+    argument: i64,
+) -> wasmtime::Result<i64> {
+    let ty = function.ty(&*caller);
+    let arguments: Vec<Val> = ty
+        .params()
+        .map(|param| match param {
+            ValType::I64 => Ok(Val::I64(argument)),
+            ValType::I32 => Ok(Val::I32(argument as i32)),
+            other => bail!("an export called with one argument takes {other}, not an integer"),
+        })
+        .collect::<wasmtime::Result<_>>()?;
+    let mut results = vec![Val::I32(0); ty.results().len()];
+    function.call(&mut *caller, &arguments, &mut results)?;
+    Ok(match results.first() {
+        Some(Val::I32(result)) => i64::from(*result),
+        Some(Val::I64(result)) => *result,
+        _ => 0,
+    })
 }
 
 // The names only a host or the runtime gives a module: the runtime
@@ -672,13 +742,19 @@ fn compile(mut caller: Caller<'_, Host>, address: u32) -> wasmtime::Result<i32> 
     Ok(i32::try_from(modules.len() - 1)?)
 }
 
-// A foreign Bytes argument borrows the runtime's staging memory: a
-// little-endian u32 length at `address` and that many bytes after it,
-// copied before anything can overwrite them.
+// A foreign Bytes argument borrows staging memory, the caller's own when
+// it exports one and the runtime's otherwise: a little-endian u32 length
+// at `address` and that many bytes after it, copied before anything can
+// overwrite them.
 fn byte_snapshot(caller: &mut Caller<'_, Host>, address: u32) -> wasmtime::Result<Vec<u8>> {
-    let runtime = caller.data().loading.runtime()?;
-    let Some(memory) = runtime.get_memory(&mut *caller, "memory") else {
-        bail!("the program exports no memory")
+    let memory = match caller.get_export("memory") {
+        Some(Extern::Memory(memory)) => memory,
+        _ => {
+            let runtime = caller.data().loading.runtime()?;
+            runtime
+                .get_memory(&mut *caller, "memory")
+                .ok_or_else(|| format_err!("the program exports no memory"))?
+        }
     };
     let (data, start) = (memory.data(&*caller), address as usize);
     let length = data
