@@ -1787,7 +1787,9 @@
                                               loc))
                       (Instance-requires instance))
            ((Pair subs ck)
-            (Pair (EvInstance (Instance-name instance) (applied-types instance bindings) subs)
+            (Pair (EvInstance (Instance-name instance)
+                              (applied-types instance (append rows bindings))
+                              subs)
                   ck))))))
 
     ;; The types the head's match gave the instance's variables, in order.
@@ -2357,13 +2359,56 @@
     (: cleanup-row (-> Checker Expr Type))
     (define (cleanup-row ck callee)
       (let ((type (match (Expr-term callee)
-                    ((Var name types _)
-                     (match (global-scheme ck name)
-                       ((Some scheme)
-                        (substitute (zip (Scheme-vars scheme) types) (Scheme-type scheme)))
-                       ((None) (Expr-type callee))))
+                    ((Var name types evidence)
+                     (match (program-value (program-of ck) name)
+                       ((Some (Method class _))
+                        (if (lifecycle-class? class) (TFun (Nil) unchecked empty-row)
+                            (cleanup-method-type ck class name types evidence (Expr-type callee))))
+                       (_ (cleanup-global-type ck name types (Expr-type callee)))))
                     (_ (Expr-type callee)))))
         (cleanup-arrow-row (resolve-type (solution ck) type))))
+
+    (: cleanup-global-type (-> Checker String (List Type) Type Type))
+    (define (cleanup-global-type ck name types fallback)
+      (match (global-scheme ck name)
+        ((Some scheme) (substitute (zip (Scheme-vars scheme) types) (Scheme-type scheme)))
+        ((None) fallback)))
+
+    ;; A method use's row is opened to its context during checking. Its
+    ;; selected instance's own signature says what the call actually does.
+    ;; Reuse that evidence, as mono does, instead of treating a pure method
+    ;; as a possible suspension merely because its use row is still open.
+    (: cleanup-method-type (-> Checker String String (List Type) (List Evidence) Type Type))
+    (define (cleanup-method-type ck class name types evidence fallback)
+      (match evidence
+        ((Cons first _)
+         (match (cleanup-evidence ck first)
+           ((EvInstance id arguments _)
+            (match (find (lambda (instance) (string=? (Instance-name instance) id))
+                         (class-instances (program-of ck) class))
+              ((Some instance)
+               (match (assoc-ref (Instance-methods instance) name)
+                 ((Some method)
+                  (cleanup-global-type ck method
+                                       (append arguments
+                                               (list-drop types (length (Class-params
+                                                                         (program-class
+                                                                          (program-of ck)
+                                                                          class)))))
+                                       fallback))
+                 ((None) fallback)))
+              ((None) fallback)))
+           (_ (cleanup-global-type ck name types fallback))))
+        (_ (cleanup-global-type ck name types fallback))))
+
+    (: cleanup-evidence (-> Checker Evidence Evidence))
+    (define (cleanup-evidence ck evidence)
+      (match evidence
+        ((EvHole id)
+         (match (solved-evidence (solution ck) id)
+           ((Some value) (cleanup-evidence ck value))
+           ((None) evidence)))
+        (_ evidence)))
 
     (: cleanup-arrow-row (-> Type Type))
     (define (cleanup-arrow-row type)
