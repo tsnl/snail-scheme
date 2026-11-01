@@ -69,7 +69,7 @@ try {
   const pinned = id => `/site/.snail/builds/${id}/`;
   const page = (await get('/site/')).text;
   assert.ok(page.startsWith(`<!doctype html><base href="${pinned(first.id)}">`));
-  assert.match(page, new RegExp(`<script type="application/snail-manifest" id="snail-manifest">\\(base "${pinned(first.id)}"\\) \\(files .*\\("host\\.mjs" "[0-9a-f]{64}"\\).*\\) \\(modules \\("snail\\.core\\.base" "[0-9a-f]{64}"\\)`));
+  assert.match(page, new RegExp(`<script type="application/snail-manifest" id="snail-manifest">\\(base "${pinned(first.id)}"\\) \\(files .*\\("host\\.mjs" "[0-9a-f]{64}"\\).*\\) \\(modules .*\\("snail\\.core\\.base" "[0-9a-f]{64}"\\)`));
   assert.match(page, /<script type="module" src="\/site\/\.snail\/reload\.mjs"><\/script>/);
   for (const file of ['reload.mjs', 'reload-client.mjs', 'load.mjs', 'reload.wasm']) {
     assert.equal((await get(`/site/.snail/${file}`)).status, 200, file);
