@@ -13,7 +13,7 @@
         (type-convert (Point 3 4) Any)
         (type-convert 2.5 Any)))
 
-(handle dyn-tc
+(handle dyn-cast
     ((conversion-failed (lambda (error)
                           (write-line (string-append "caught: expected "
                                                      (string-join (CastError-expected error)

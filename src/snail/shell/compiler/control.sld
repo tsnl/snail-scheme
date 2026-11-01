@@ -421,12 +421,6 @@
           ((Convert inner target)
            (naming count ((inner (normal callees inner)))
                    (named count callees inner (lambda (inner) (rebuild (Convert inner target))))))
-          ((TryConvert inner target)
-           (naming count ((inner (normal callees inner)))
-                   (named count
-                          callees
-                          inner
-                          (lambda (inner) (rebuild (TryConvert inner target))))))
           ((TypeTest inner target)
            (naming count ((inner (normal callees inner)))
                    (named count callees inner (lambda (inner) (rebuild (TypeTest inner target))))))
@@ -665,7 +659,7 @@
           (Cons type types)))
 
     ;; Most definitions own no continuation or one-shot closure. Avoid
-    ;; building ownership scopes for them; the base library declares dyn-tc
+    ;; building ownership scopes for them; the base library declares dyn-cast
     ;; even in programs that never use it.
     (: needs-droppers? (-> Callees Expr Bool))
     (define (needs-droppers? callees expr)
@@ -735,9 +729,6 @@
           ((Convert inner target)
            (match (droppers callees drops scope inner)
              ((Pair inner types) (Pair (rebuild (Convert inner target)) types))))
-          ((TryConvert inner target)
-           (match (droppers callees drops scope inner)
-             ((Pair inner types) (Pair (rebuild (TryConvert inner target)) types))))
           ((TypeTest inner target)
            (match (droppers callees drops scope inner)
              ((Pair inner types) (Pair (rebuild (TypeTest inner target)) types))))
@@ -822,7 +813,7 @@
            (match (droppers callees drops (Cons (Pair name (Expr-type value)) after) body)
              ((Pair body more)
               (let ((live (if (null? (yields callees value)) (Nil)
-                              (linear-locals callees after (map Pair-first after)))))
+                              (linear-locals callees after))))
                 (Pair (Expr (Let name (with-dropper drops value live) body)
                             (Expr-type expr) (Expr-loc expr))
                       (append (map Pair-second live) (append types more))))))))))
@@ -877,7 +868,7 @@
     (define (hold-abandoned callees drops scope original value types)
       (let* ((after (remaining-scope callees scope original))
              (live (if (null? (yields callees value)) (Nil)
-                       (linear-locals callees after (map Pair-first after)))))
+                       (linear-locals callees after))))
         (if (null? live) (Pair value types)
             (let* ((name
                     (string-append "control:abandoned." (string-join (map Pair-first live) "|")))
@@ -888,20 +879,14 @@
     (: lambda-captures (-> Callees (List (Pair String Type)) Expr (List (Pair String Type))))
     (define (lambda-captures callees scope procedure)
       (match (Expr-term procedure)
-        ((Lambda params body _)
-         (linear-locals callees
-                        scope
-                        (filter (lambda (local) (not (member? local params)))
-                                (expr-references body))))
+        ((Lambda _ _ _) (linear-locals callees (taken-scope callees scope procedure)))
         (_ (Nil))))
 
-    ;; The locals among `names` whose types are linear, with their types,
-    ;; in order.
-    (: linear-locals (-> Callees (List (Pair String Type)) (List String) (List (Pair String Type))))
-    (define (linear-locals callees scope names)
+    ;; The owners in this scope, in cleanup order.
+    (: linear-locals (-> Callees (List (Pair String Type)) (List (Pair String Type))))
+    (define (linear-locals callees scope)
       (filter (lambda (entry)
-                (and (member? (Pair-first entry) names)
-                     (linear-type? (Callees-program callees) (Nil) (Pair-second entry))))
+                (linear-type? (Callees-program callees) (Nil) (Pair-second entry)))
               scope))
 
     ;; The value marked with the dropper of `live`, once every drop is known.

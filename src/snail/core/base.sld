@@ -18,7 +18,7 @@
    f32->bits bits->f32 f64->bits bits->f64
    Show show i64->string string->i64 f64->string
    Option Some None Result Ok Err Pair Pair-first Pair-second Never absurd
-   dyn-tc conversion-failed CastError CastError-expected CastError-actual CastError-origin
+   dyn-cast conversion-failed CastError CastError-expected CastError-actual CastError-origin
    CastError-method CastError-argument CastError-reason
    CastReason TypeMismatch UnsupportedInstance ArgumentMismatch
    List
@@ -390,7 +390,7 @@
        (method String)
        (argument I64)))
 
-    (effect dyn-tc
+    (effect dyn-cast
       ((ctl conversion-failed (-> CastError Never))))
 
     ;; ---- Releasing ----

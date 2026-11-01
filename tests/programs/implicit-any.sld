@@ -5,7 +5,7 @@
 (: boxed Any)
 (define boxed 41)
 
-(: integer (-> Any I64 ! dyn-tc))
+(: integer (-> Any I64 ! dyn-cast))
 (define (integer value) value)
 
 (: package (-> I64 Any))
@@ -23,7 +23,7 @@
 (: unboxed I64)
 (define unboxed (match (try-convert boxed I64) ((Ok value) value) ((Err _) -1)))
 
-(handle dyn-tc
+(handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
   (display (increment boxed))
   (newline)
@@ -40,14 +40,14 @@
 
 (: function Any)
 (define function (ann (lambda (x) (+ x 1)) (-> I64 I64)))
-(handle dyn-tc
+(handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
   (display ((ann function (-> I64 I64)) 9))
   (newline))
 
 (: condition Any)
 (define condition #t)
-(handle dyn-tc
+(handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
   (display (if condition 1 2))
   (newline)
@@ -56,7 +56,7 @@
 
 (effect ask
   ((ctl answer (-> Never))))
-(handle dyn-tc
+(handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
   (display (ann (handle ask
                     ((answer (lambda () boxed)))

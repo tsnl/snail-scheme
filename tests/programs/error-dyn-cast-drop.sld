@@ -3,5 +3,5 @@
 (effect audit ((note (-> Unit))))
 (struct Resource
   ((value Any)))
-(instance (Drop (! dyn-tc) Resource)
+(instance (Drop (! dyn-cast) Resource)
   (define (drop resource) (ann (Resource-value resource) I64) (unit)))

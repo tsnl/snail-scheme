@@ -226,17 +226,20 @@ function of the expander has `mut` in its row — and where it does not, the
   a closure has no environment. Those two are also all that `fit` gives
   the type `(Fn A B ! e)`, where an argument, an annotation or a signature
   expects one. At established Any boundaries `fit` inserts a conversion
-  and charges `dyn-tc` for a fallible extraction; other types still
+  and charges `dyn-cast` for a fallible extraction; other types still
   unify strictly. Explicit conversion follows the same rule. Cleanup
   effects of owned values at yields are charged before lambda
-  generalization. Handler implementations and the handled body meet
+  generalization. A selected class instance supplies its declared rows
+  directly, so a pure method's open use row does not invent a suspension.
+  Handler implementations and the handled body meet
   their result boundary through the same directed fitting rule.
 - **[`conversions.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/conversions.sld)** lowers
   solved conversions before ownership checking. A single evaluation
   binds the Any; a type test guards extraction. Failure constructs a
   `CastError` and performs the already charged abortive operation, or
   returns `Err` for `try-convert`. The successful arm contains the
-  checked value. Ownership and control see ordinary branches and calls,
+  checked value; `try-convert` is gone before specialization. Ownership
+  and control see ordinary branches and calls,
   rather than a backend-only exception protocol.
 - **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/capabilities.sld)** finds
   structural properties of types from their declared fields: whether a

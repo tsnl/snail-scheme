@@ -155,7 +155,7 @@ Dropping a `resume` drops the linear values its frames hold, and dropping
 a `once` lambda unrun drops what it captured ([drops that may
 run](#drops-that-may-run)). An abortive control operation also releases
 the owners its exit abandons, before the handler recovers. This includes
-`dyn-tc` conversion failures. Fatal panic and divergence retain their
+`dyn-cast` conversion failures. Fatal panic and divergence retain their
 separate contracts; neither is a catchable conversion failure.
 
 ### Releasing
@@ -281,7 +281,7 @@ Already evaluated argument results are owners until their callee takes
 them. A resource retained outside a handler survives a locally caught
 failure; a moved resource is not dropped again by its old owner. Even a
 Never branch that never reads a resource must retain it for cleanup.
-The regressions are `dyn-tc-cleanup.sld` and `dyn-tc-resume.sld`.
+The regressions are `dyn-cast-cleanup.sld` and `dyn-cast-resume.sld`.
 
 The mechanism (control.sld, "Droppers"; wasm.sld, "Droppers"): every
 closure and every frame carries, beside its code, a nullable *dropper*,

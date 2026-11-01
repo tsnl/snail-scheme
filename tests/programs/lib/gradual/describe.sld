@@ -16,5 +16,5 @@
     (instance (Describe (!) (List I64))
       (define (describe value) (i64->string (length value))))
 
-    (instance (Describe (! dyn-tc) Any)
+    (instance (Describe (! dyn-cast) Any)
       (dispatch I64 String (List I64)))))

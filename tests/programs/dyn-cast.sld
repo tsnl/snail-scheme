@@ -6,7 +6,7 @@
 (struct Point
   ((x I64)))
 
-(: integer (-> Any I64 ! dyn-tc))
+(: integer (-> Any I64 ! dyn-cast))
 (define (integer value) value)
 
 ;; Inference propagates the conversion effect; explicit syntax obeys the
@@ -15,7 +15,7 @@
 
 (: fallback (-> Any I64))
 (define (fallback value)
-  (handle dyn-tc ((conversion-failed (lambda (_) -1))) (integer value)))
+  (handle dyn-cast ((conversion-failed (lambda (_) -1))) (integer value)))
 
 (write-line (show (fallback 42)))
 (write-line (show (fallback "bad")))
@@ -30,22 +30,22 @@
 
 ;; Catching does not resume the failed conversion. An outer handler may
 ;; catch a rethrow from the inner handler.
-(handle dyn-tc
+(handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "outer caught"))))
-  (handle dyn-tc
+  (handle dyn-cast
       ((conversion-failed (lambda (error) (absurd (conversion-failed error)))))
     (integer "bad")
     (write-line "unreachable")))
 
 ;; A narrowing check cannot cancel merely because its answer is repackaged.
-(handle dyn-tc ((conversion-failed (lambda (_) (write-line "adjacent checked"))))
+(handle dyn-cast ((conversion-failed (lambda (_) (write-line "adjacent checked"))))
   (type-convert (type-convert (ann "bad" Any) I64) Any)
   (write-line "unreachable"))
-(handle dyn-tc ((conversion-failed (lambda (_) (write-line "let checked"))))
+(handle dyn-cast ((conversion-failed (lambda (_) (write-line "let checked"))))
   (let ((value (type-convert (ann "bad" Any) I64)))
     (ann value Any))
   (write-line "unreachable"))
-(handle dyn-tc ((conversion-failed (lambda (_) (write-line "unexpected"))))
+(handle dyn-cast ((conversion-failed (lambda (_) (write-line "unexpected"))))
   (write-line (show (type-convert (type-convert (ann 8 I64) Any) I64))))
 
 ;; An interactive client gets a report and a failure value, and can run

@@ -5,7 +5,7 @@
 
 (: unknown Any)
 (define unknown #t)
-(handle dyn-tc
+(handle dyn-cast
     ((conversion-failed (lambda (error)
                           (write-line (match (CastError-reason error)
                                         ((UnsupportedInstance) "unsupported instance")
