@@ -150,8 +150,10 @@ and the folds move each element once, so they take lists of work items;
 
 The check runs on each library's checked items, before specialization, so
 a generic body is checked once for every instantiation.
-Dropping a `resume`, or ending a path that never returns, abandons the
-linear values held there, since nothing runs them. Leaks are safe, as in
+Dropping a `resume` drops the linear values its frames hold, and dropping
+a `once` lambda unrun drops what it captured ([drops that may
+run](#drops-that-may-run)). Ending a path that never returns abandons
+what it holds, since nothing runs after it; that leak is safe, as in
 Rust.
 
 ### Releasing
@@ -169,12 +171,15 @@ What a drop runs, and so the row it performs, is found from `T` rather
 than matched (`lifecycle-plan` and `lifecycle-rows` in
 `capabilities.sld`):
 
-- An omega value is released at no cost, and performs nothing; so is a
-  `FnOnce`, without running it, and so is linear data whose drop would
-  run nothing else, such as a list of `FnOnce`s, which is not walked. A
-  `FnOnce`'s type does not say what it captured, so what a `once` lambda
-  moved in is abandoned with it, not dropped: release it in the lambda,
-  or keep it where a drop can reach it.
+- An omega value is released at no cost, and performs nothing, and so is
+  linear data whose drop would run nothing else.
+- A `FnOnce` is dropped without running it, and dropping it drops what
+  it captured: a `once` lambda's linear captures, or the linear locals a
+  `resume`'s frames hold. Its type does not say what those are, so the
+  drop is charged with the `FnOnce`'s own row, less its control effects,
+  which no drop performs: dropping a `(FnOnce A B ! e)` performs `e`.
+  Data holding a `FnOnce`, such as a queue of tasks, runs glue that drops
+  each one.
 - A type with an instance runs the instance's method, and performs the
   row the instance's head names:
 
@@ -226,12 +231,53 @@ instance decides how what it holds is released; elsewhere the value is
 dropped, or given to a function of its library, and so is a replacement
 of one of its fields.
 
-The compiler still inserts no drops, so an instance runs exactly where a
-`drop` was written, or in glue such a drop runs. What a path that never
-returns holds, what a dropped `resume`'s frames hold, what a dropped
-`once` lambda captured, and what an unreachable cell holds are never
-released, so an instance's method is not guaranteed to run. Leaks are
-safe.
+The compiler inserts no drops on a path that runs: an instance runs
+exactly where a `drop` was written, or in glue such a drop runs, or in
+the dropper of a `FnOnce` that such a drop reaches. What a path that
+never returns holds, and what an unreachable cell holds, are never
+released, so an instance's method is not guaranteed to run. Those leaks
+are safe.
+
+### Drops that may run
+
+A `once` lambda dropped unrun drops its linear captures, and a dropped
+`resume` drops the linear locals its frames hold, each at the yield point
+where the frame was saved. Whoever holds the closure runs those drops
+when it drops it, under the closure's own row, so three checks keep the
+rows honest (ownership.sld, "Drops that may run"):
+
+- A linear value a `once` lambda captures must have a drop that performs
+  no more than the lambda's row.
+- A linear value live across a call that may yield is held by this
+  function's frame, so its drop must perform no more than this function's
+  row. A call may yield when the callee's declared row names a control
+  effect, or its row variable was given one at this use.
+- A generic function may hold a value of a type variable across a yield,
+  so a use of one that may yield must give each linear type variable a
+  type whose drop performs no more than the use's row. Inside the generic
+  function, values of a type variable's type need no check: every use
+  made that promise.
+
+`tests/programs/drop-resume.sld` shows a handler dropping its
+resumption, which closes the handle a frame held, and a lambda dropped
+unrun closing the handle it captured; the `error-yield-drop-row`,
+`error-capture-drop-row` and `error-generic-yield-drop` programs show
+each refusal.
+
+```scheme
+{{#include ../../../tests/programs/drop-resume.sld:cancelled}}
+```
+
+The mechanism (control.sld, "Droppers"; wasm.sld, "Droppers"): every
+closure and every frame carries, beside its code, a nullable *dropper*,
+a thunk closed over the same locals that drops them in order. The
+control pass, which names each yield point, builds the dropper of the
+linear locals live there and of a `once` lambda's linear captures, asking
+mono for each type's drop; the backend stores it in the frame or the
+closure. Dropping a `FnOnce` runs its dropper under the caller's
+handlers; a `resume`'s dropper runs each frame's under the handle's own
+evidence, so a drop that performs the handled effect reaches that
+handler.
 
 ### Cloning
 
