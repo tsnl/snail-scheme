@@ -2,6 +2,16 @@
  (snail core base)
  (boundary value))
 
+;; A mismatch here is a broken test-host invariant. Guest conversions that
+;; are expected to fail use dyn-tc handlers in the dedicated fixtures.
+(define-syntax fixture-convert
+  (syntax-rules ()
+    ((_ value target)
+     (match (try-convert value target)
+       ((Ok checked) checked)
+       ((Err _) (panic "fixture payload has the wrong type"))))))
+
+
 (extern note-text "snail.test" "text" (-> String I32))
 (extern note-bytes "snail.test" "bytes" (-> I32 Bytes I32))
 (extern receive-managed "snail.test" "managed" (-> (Result Payload String)))
@@ -22,7 +32,7 @@
 (: value (-> (Option Any) I64))
 (define (value handover)
   (match handover
-    ((Some state) (type-convert state I64))
+    ((Some state) (fixture-convert state I64))
     ((None) -1)))
 
 (: binary (-> I32))

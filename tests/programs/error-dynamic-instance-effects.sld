@@ -10,5 +10,5 @@
     (write-line value)
     value))
 
-(instance (ReadValue (!) Any)
+(instance (ReadValue (! dyn-tc) Any)
   (dispatch String))

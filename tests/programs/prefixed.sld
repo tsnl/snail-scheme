@@ -7,7 +7,7 @@
           ((left b:I64)
            (right b:I64)))
 
-(b:instance (b:Show Pair2)
+(b:instance (b:Show (!) Pair2)
             (b:define (show pair)
                       (b:string-append (b:show (Pair2-left pair)) "/" (b:show (Pair2-right pair)))))
 

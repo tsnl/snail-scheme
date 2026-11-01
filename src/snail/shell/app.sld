@@ -1105,9 +1105,9 @@
            (: app-boot (-> (Option Any) (Option (Pair State I32)) ! events storage tasks))
            (define (app-boot handover)
              (match handover
-               ((Some state) (if (type-test state State)
-                                 (Some (Pair (ann (type-convert state State) State) 0))
-                                 (app-restore #f)))
+               ((Some state) (match (try-convert state State)
+                               ((Ok state) (Some (Pair state 0)))
+                               ((Err _) (app-restore #f))))
                ((None) (app-restore #t))))
 
            (: app-save-bytes (-> State Bytes))

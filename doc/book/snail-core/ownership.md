@@ -48,7 +48,8 @@ so is a second use.
   type `Never`, need not consume what it holds: it never reaches the end of
   its scopes. An abortive operation answers `Never`
   ([effects](effects.md#operations-that-never-return)), so
-  `(absurd (fail diagnostic))` ends a path as a panic does.
+  `(absurd (fail diagnostic))` ends a path. Its abandoned owners are
+  released before its handler recovers; a fatal panic has no such promise.
 - **Linear data.** A struct or enum with a linear field, once its
   parameters are bound, is itself linear: `(List (FnOnce Unit))` is. A
   field holding a linear value only inside a `Ref` does not count, so a
@@ -116,7 +117,7 @@ so is a second use.
   required is an error that names the missing requirement. A definition
   that requires `(Copy A)` may duplicate and discard, and is used only at
   unrestricted types, so a generic `duplicate` cannot be instantiated with
-  a work item. No class implies `Copy`: `max` requires `(Ord T)` and
+  a work item. No class implies `Copy`: `max` requires `(Ord e T)` and
   `(Copy T)`. An instance requires `Copy` the same way, in its `requires`,
   and is used only where its head gives that variable an unrestricted
   type: an instance of `(Twice (Option A))` that pairs a value with
@@ -152,9 +153,10 @@ The check runs on each library's checked items, before specialization, so
 a generic body is checked once for every instantiation.
 Dropping a `resume` drops the linear values its frames hold, and dropping
 a `once` lambda unrun drops what it captured ([drops that may
-run](#drops-that-may-run)). Ending a path that never returns abandons
-what it holds, since nothing runs after it; that leak is safe, as in
-Rust.
+run](#drops-that-may-run)). An abortive control operation also releases
+the owners its exit abandons, before the handler recovers. This includes
+`dyn-tc` conversion failures. Fatal panic and divergence retain their
+separate contracts; neither is a catchable conversion failure.
 
 ### Releasing
 
@@ -231,20 +233,21 @@ instance decides how what it holds is released; elsewhere the value is
 dropped, or given to a function of its library, and so is a replacement
 of one of its fields.
 
-The compiler inserts no drops on a path that runs: an instance runs
-exactly where a `drop` was written, or in glue such a drop runs, or in
-the dropper of a `FnOnce` that such a drop reaches. What a path that
-never returns holds, and what an unreachable cell holds, are never
-released, so an instance's method is not guaranteed to run. Those leaks
-are safe.
+A normally returning path still consumes each linear value explicitly.
+Nonlocal exits also run cleanup: an abortive operation releases its abandoned
+owners, and dropping a `FnOnce` releases its captures. A fatal panic,
+divergence, or unreachable mutable cell provides no equivalent guarantee.
 
 ### Drops that may run
 
 A `once` lambda dropped unrun drops its linear captures, and a dropped
 `resume` drops the linear locals its frames hold, each at the yield point
-where the frame was saved. Whoever holds the closure runs those drops
-when it drops it, under the closure's own row, so three checks keep the
-rows honest (ownership.sld, "Drops that may run"):
+where the frame was saved. Dropping a resume rebases its captured
+delimiter onto the actual drop site's handlers, just as invoking it does.
+Nested captured handlers remain part of the continuation. Cleanup never
+uses allocation-time handlers merely because the resource was allocated
+under them. Whoever holds the closure runs those drops under the closure's
+own row, so three checks keep the rows honest (ownership.sld, "Drops that may run"):
 
 - A linear value a `once` lambda captures must have a drop that performs
   no more than the lambda's row.
@@ -267,6 +270,18 @@ each refusal.
 ```scheme
 {{#include ../../../tests/programs/drop-resume.sld:cancelled}}
 ```
+
+Before generalization, inference includes the drops that may run while
+abandoning owned values. This can justify an effect annotation even when
+the body has no textual `drop`. A closed row must allow cleanup too.
+Generic uses retain the conservative checks above.
+
+An abort drops owners in the abandoned region, newest binding first.
+Already evaluated argument results are owners until their callee takes
+them. A resource retained outside a handler survives a locally caught
+failure; a moved resource is not dropped again by its old owner. Even a
+Never branch that never reads a resource must retain it for cleanup.
+The regressions are `dyn-tc-cleanup.sld` and `dyn-tc-resume.sld`.
 
 The mechanism (control.sld, "Droppers"; wasm.sld, "Droppers"): every
 closure and every frame carries, beside its code, a nullable *dropper*,

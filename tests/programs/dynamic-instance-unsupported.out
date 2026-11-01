@@ -1,1 +1,2 @@
-snail: type-convert: the value is not a (List I64)
+unsupported instance
+I64, String, (List I64)

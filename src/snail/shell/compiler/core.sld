@@ -80,6 +80,7 @@
    Ann
    Handle
    Convert
+   TryConvert
    TypeTest
    Clause
    Clause-pattern
@@ -285,6 +286,7 @@
             "expose"
             "case-id"
             "type-convert"
+            "try-convert"
             "type-test"
             "artifact-files" "link-handle"))
 
@@ -723,6 +725,9 @@
       (Convert
        ((expr Expr)
         (target Type)))
+      (TryConvert
+       ((expr Expr)
+        (target Type)))
       (TypeTest
        ((expr Expr)
         (target Type))))
@@ -766,6 +771,7 @@
         ((Match scrutinee clauses) (Cons scrutinee (map Clause-body clauses)))
         ((Ann inner _) (list inner))
         ((Convert inner _) (list inner))
+        ((TryConvert inner _) (list inner))
         ((TypeTest inner _) (list inner))
         ((Handle _ implementations body) (append (map Pair-second implementations) (list body)))))
 

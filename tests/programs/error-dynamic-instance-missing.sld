@@ -1,8 +1,8 @@
 (import
  (snail core base))
 
-(typeclass (ReadValue T)
-  (: read-value (-> T String)))
+(typeclass (ReadValue e T)
+  (: read-value (-> T String ! e)))
 
-(instance (ReadValue Any)
+(instance (ReadValue (! dyn-tc) Any)
   (dispatch String))

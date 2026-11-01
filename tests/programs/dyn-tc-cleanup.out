@@ -1,0 +1,14 @@
+drop second
+drop first
+caught
+drop inferred
+inferred caught
+drop argument
+arguments caught
+outside remains
+drop outside
+drop conditional
+branch caught
+1
+inner: drop nested
+outer catch

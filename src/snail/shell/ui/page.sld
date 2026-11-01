@@ -75,9 +75,9 @@
            (: ui-boot (-> (Option Any) (Option (Pair Model I32)) ! events storage tasks))
            (define (ui-boot handover)
              (match handover
-               ((Some model) (if (type-test model Model)
-                                 (Some (Pair (ann (type-convert model Model) Model) 0))
-                                 (ui-restore #f)))
+               ((Some model) (match (try-convert model Model)
+                               ((Ok model) (Some (Pair model 0)))
+                               ((Err _) (ui-restore #f))))
                ((None) (ui-restore #t))))
 
            (: ui-update

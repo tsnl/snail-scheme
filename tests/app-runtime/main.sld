@@ -3,6 +3,16 @@
  (snail shell task)
  (snail shell app))
 
+;; A mismatch here is a broken test-host invariant. Guest conversions that
+;; are expected to fail use dyn-tc handlers in the dedicated fixtures.
+(define-syntax fixture-convert
+  (syntax-rules ()
+    ((_ value target)
+     (match (try-convert value target)
+       ((Ok checked) checked)
+       ((Err _) (panic "fixture payload has the wrong type"))))))
+
+
 ;; Each task retains the private handler across its waits on storage and
 ;; events. Its default, the host's, lets the runner detect a leaked handler
 ;; between turns.
@@ -119,11 +129,11 @@
 
 (: inspect-count (-> Any I64))
 (define (inspect-count state)
-  (Counter-count (type-convert state Counter)))
+  (Counter-count (fixture-convert state Counter)))
 
 (: inspect-resizes (-> Any I32))
 (define (inspect-resizes state)
-  (Counter-resizes (type-convert state Counter)))
+  (Counter-resizes (fixture-convert state Counter)))
 
 (: other-state (-> Any))
 (define (other-state)
