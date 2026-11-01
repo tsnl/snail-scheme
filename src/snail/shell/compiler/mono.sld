@@ -12,6 +12,9 @@
    Mono-items
    Mono-externals
    Mono-exported
+   Mono-input
+   Mono-owner
+   drop-functions
    Specialization
    Specialization-definitions
    prepare-specialization
@@ -35,7 +38,9 @@
       ((program Program)
        (items (List Item))
        (externals (Table Expr))
-       (exported (List String))))
+       (exported (List String))
+       (input (Option Specialization))
+       (owner (Option String))))
 
     ;; Checked facts shared by every library emitted in one build. Preparing
     ;; them once keeps lookup independent of each library's request lifetime.
@@ -381,6 +386,17 @@
     ;; plan may not exceed (`plan-covers?`), and None for one glue makes.
     (: lifecycle-reference (-> State String String Type (Option Plan) Type Loc (Pair Expr State)))
     (define (lifecycle-reference state class method subject charged type loc)
+      (match (Pair class subject)
+        ;; Dropping a FnOnce runs the dropper its closure carries, which
+        ;; drops what it captured (wasm.sld, `drop-once`).
+        ((Pair _ (TCon "FnOnce" _))
+         (if (string=? class drop-class)
+             (Pair (Expr (Var "prim:drop-once" (Nil) (Nil)) type loc) state)
+             (planned-reference state class method subject charged type loc)))
+        (_ (planned-reference state class method subject charged type loc))))
+
+    (: planned-reference (-> State String String Type (Option Plan) Type Loc (Pair Expr State)))
+    (define (planned-reference state class method subject charged type loc)
       (match (covered-plan (lifecycle-plan (program-of state) class (Nil) subject) charged subject)
         ((Trivial)
          (if (string=? class drop-class)
@@ -783,7 +799,76 @@
       (Mono (program-of state)
             (append (reverse (State-glue state)) items)
             (State-externals state)
-            exported))
+            exported
+            (Some (State-input state))
+            (State-owner state)))
+
+    ;; ---- Drops on demand ----
+
+    ;; The control pass gives each frame and each once lambda a dropper for
+    ;; the linear values it holds (control.sld, "Droppers"), and asks here
+    ;; for the drop of each ground type: an instance's method, glue, or a
+    ;; primitive, by `lifecycle-reference`. The glue and the copies that
+    ;; makes join the module's items, and its externals the module's.
+    (: drop-functions (-> Mono (List Type) Loc (Pair (Table Expr) Mono)))
+    (define (drop-functions mono types loc)
+      (let ((state (State-done-set (new-state (mono-input mono) (Mono-owner mono))
+                                   (item-names (Mono-items mono)))))
+        (specializing state ((drops (each (lambda (state type) (drop-entry state type loc)) types))
+                             (then (run-requests)))
+                      (Pair (fold-left (lambda (table entry)
+                                         (table-set table (Pair-first entry) (Pair-second entry)))
+                                       empty-table
+                                       drops)
+                            (Mono (Mono-program mono)
+                                  (append (reverse (State-glue state))
+                                          (append (concatenate
+                                                   (table-values (State-specialized state)))
+                                                  (Mono-items mono)))
+                                  (fold-left (lambda (table name)
+                                               (match (table-ref (State-externals state) name)
+                                                 ((Some value) (table-set table name value))
+                                                 ((None) table)))
+                                             (Mono-externals mono)
+                                             (table-keys (State-externals state)))
+                                  (Mono-exported mono)
+                                  (Mono-input mono)
+                                  (Mono-owner mono))))))
+
+    ;; A module made from a specialization has one; the control module,
+    ;; which holds no code, has none and asks for no drops.
+    (: mono-input (-> Mono Specialization))
+    (define (mono-input mono)
+      (match (Mono-input mono)
+        ((Some input) input)
+        ((None) (panic "internal error: a module without a specialization asked for drops"))))
+
+    (: drop-entry (-> State Type Loc (Pair (Pair String Expr) State)))
+    (define (drop-entry state type loc)
+      (specializing state ((drop (lifecycle-reference drop-class
+                                                      (drop-method state)
+                                                      type
+                                                      (None)
+                                                      (TFun (list type) unit-type empty-row)
+                                                      loc)))
+                    (Pair (Pair (type-key type) drop) state)))
+
+    ;; The Drop class's one method, by its global name, which an instance
+    ;; implements under.
+    (: drop-method (-> State String))
+    (define (drop-method state)
+      (match (Class-methods (program-class (program-of state) drop-class))
+        ((Cons method _) method)
+        ((Nil) (panic "internal error: Drop has a method"))))
+
+    (: item-names (-> (List Item) (Table String)))
+    (define (item-names items)
+      (fold-left (lambda (table item)
+                   (match item
+                     ((Define name _) (table-set table name name))
+                     (_ table)))
+                 empty-table
+                 items))
 
     ;; Requests the library's monomorphic functions, which `root-item` leaves
     ;; until something reaches them, and returns every name it exports.

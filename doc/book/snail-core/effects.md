@@ -377,9 +377,11 @@ body, here `I64`. `raise`'s own result type, also `I64`, is what `resume`
 would take. This implementation drops `resume`, so nothing after the
 `raise` runs, in `digit`, in `number`'s fold, or anywhere between them and
 the handler, and `parse-or` answers `default`. A `FnOnce` held across an
-abandoned operation is dropped and never called; there is no `finally`
-clause (`tests/programs/control-early-exit.sld`). An implementation that
-raises again reaches the handler outside it, as an ordinary one does.
+abandoned operation is dropped and never called, and dropping it drops
+what it captured ([drops that may
+run](ownership.md#drops-that-may-run)); there is no `finally` clause
+(`tests/programs/control-early-exit.sld`). An implementation that raises
+again reaches the handler outside it, as an ordinary one does.
 
 A control operation has no default: a default runs where no handler is,
 and nothing there can be handed the rest of a computation
@@ -550,7 +552,9 @@ effect once more. Both are in the context row. So a `Step` that stores
 ```
 
 Typed `(FnOnce I64 Step ! Log)`, the stored `next` is resumed under a
-`Log` handler, the one where it is called
+`Log` handler, the one where it is called, and the `rest` left unrun is
+dropped under one too, since dropping a resumption performs its row
+([Drops that may run](ownership.md#drops-that-may-run))
 (`tests/programs/control-resume-row.sld`):
 
 ```text

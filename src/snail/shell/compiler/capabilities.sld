@@ -21,6 +21,7 @@
    lifecycle-rows)
   (import
    (snail core base)
+   (snail core table)
    (snail shell compiler core))
   (begin
 
@@ -299,7 +300,9 @@
     (define (drop-runs? program copy type keys names)
       (match type
         ((TRigid name) (not (member? name copy)))
-        ((TCon "FnOnce" _) #f)
+        ;; Dropping a FnOnce runs its dropper, which drops what it captured
+        ;; (control.sld, "Droppers"), so data holding one runs glue.
+        ((TCon "FnOnce" _) #t)
         ((TCon name _)
          (cond ((member? (type-key type) keys) #f)
                ((member? name names) #t)
@@ -398,10 +401,39 @@
                        ((None) (Err (missing-requirement class name)))))))
         ((Pair _ (Ok found))
          (match (lifecycle-plan program class copy type)
-           ((Trivial) progress)
+           ((Trivial) (trivial-rows program class type found))
            ((Implemented instance) (instance-search program class copy givens type instance found))
            ((Glue) (glue-search program class copy givens type found))
            ((Refused reason) (Err reason))))))
+
+    ;; A drop that runs nothing performs nothing, except a FnOnce's:
+    ;; dropping one unrun drops what it captured, whose drops its own row
+    ;; allows (ownership.sld, "Drops that may run"), so dropping a
+    ;; `(FnOnce A B ! e)` performs `e`, less its control effects, which no
+    ;; drop performs.
+    (: trivial-rows (-> Program String Type RowSearch (Result RowSearch String)))
+    (define (trivial-rows program class type found)
+      (match (Pair class type)
+        ((Pair _ (TCon "FnOnce" (Cons (TFun _ _ row) (Nil))))
+         (if (string=? class drop-class)
+             (Ok (RowSearch-rows-set found
+                                     (Cons (without-control program row) (RowSearch-rows found))))
+             (Ok found)))
+        (_ (Ok found))))
+
+    (: without-control (-> Program Type Type))
+    (define (without-control program row)
+      (match row
+        ((TRow labels tail)
+         (TRow (filter (lambda (label)
+                         (match (table-ref (Program-effects program) label)
+                           ((Some effect) (null? (Effect-control effect)))
+                           ((None) #t)))
+                       labels)
+               (match tail
+                 ((Some inner) (Some (without-control program inner)))
+                 ((None) (None)))))
+        (_ row)))
 
     (: missing-requirement (-> String String String))
     (define (missing-requirement class name)

@@ -90,6 +90,14 @@
     (primitive once (All (A e) (-> (-> A ! e) (FnOnce A ! e))))
     (primitive call-once (All (e) (-> (FnOnce Unit ! e) Unit ! e)))
     (primitive discard (All (A) (-> A Unit)))
+    ;; Droppers, which the control pass inserts (control.sld, "Droppers"):
+    ;; `with-dropper` marks a let's value that may yield with the dropper
+    ;; of the frame saved there, `once-dropping` builds a FnOnce carrying
+    ;; the dropper of what it captured, and `drop-once` drops a FnOnce
+    ;; unrun, running its dropper. None is written by a program.
+    (primitive with-dropper (All (A) (-> A (-> Unit) A)))
+    (primitive once-dropping (All (A e) (-> (-> A ! e) (-> Unit) (FnOnce A ! e))))
+    (primitive drop-once (All (A e) (-> (FnOnce A ! e) Unit ! e)))
 
     ;; `inherit-handlers` closes a one-shot thunk over the handlers in scope
     ;; where it is called, and `inherit-handlers-1` a procedure of one

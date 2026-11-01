@@ -276,8 +276,13 @@ function of the expander has `mut` in its row — and where it does not, the
   of a function, a handle body or a let's value, so a tail call stays one;
   anywhere else a let names it, with the rest of the expression as the
   let's body, and names first each operand that runs before it, so those
-  still run first. A program without control effects comes back as it went
-  in, as does each item without such a call. The pass also refuses a
+  still run first. Each let whose value may yield is then marked with the
+  dropper of the linear locals its body reads, and `once` of a lambda with
+  linear captures with theirs: a thunk closed over the same locals that
+  drops them in order, whose drops the pass asks mono for, so a dropped
+  resume or lambda releases what it held ("Droppers"). A program without
+  control effects comes back as it went in, as does each item without
+  such a call. The pass also refuses a
   control row where nothing could carry a yield: in a `vector-generate` or
   `string-generate` callback, which a WAT loop calls; in an `unsafe-total`
   thunk, whose row the call discards; in dispatched work, which runs later
@@ -308,8 +313,11 @@ function of the expander has `mut` in its row — and where it does not, the
   linear is `mut` too, since its reference has one owner: a replacement of
   one writes the field in place and answers the same reference, where an
   omega struct's is copied. Sequences are GC arrays. Functions are
-  closures: a struct whose first field is a typed function reference, with
-  captured variables in a subtype. An `Fn` is that function reference
+  closures: a struct whose first field is a typed function reference and
+  whose second is a nullable dropper, the thunk that drops its linear
+  captures, with captured variables in a subtype; a frame saved at a yield
+  point is such a closure too, and dropping a `FnOnce` runs its dropper
+  ("Droppers"). An `Fn` is that function reference
   alone, `ref.func` of a top-level function or of a `fn` compiled to a
   function of the same type, and calling one is `call_ref` with the
   caller's evidence. Tail calls become `return_call`. Every

@@ -27,6 +27,7 @@
    (snail core table)
    (snail shell compiler read)
    (snail shell compiler core)
+   (snail shell compiler capabilities)
    (snail shell compiler mono))
   (begin
 
@@ -587,10 +588,286 @@
             mono
             (let ((callees (module-callees mono control)))
               (check-items callees (Mono-items mono))
-              (Mono (Mono-program mono)
-                    (control-items 0 callees (Mono-items mono))
-                    (Mono-externals mono)
-                    (Mono-exported mono))))))
+              (dropper-items callees
+                             (Mono (Mono-program mono)
+                                   (control-items 0 callees (Mono-items mono))
+                                   (Mono-externals mono)
+                                   (Mono-exported mono)
+                                   (Mono-input mono)
+                                   (Mono-owner mono)))))))
+
+    ;; ---- Droppers ----
+
+    ;; A frame holds the linear locals live across its yield point, and a
+    ;; once lambda the linear values it captured; whoever drops the resume,
+    ;; or the lambda unrun, drops them (ownership.sld, "Drops that may
+    ;; run"). Each gets a dropper, a thunk closed over the same locals that
+    ;; drops them in order, which the backend stores beside the frame's or
+    ;; the closure's code: a let whose value may yield wraps the value in
+    ;; `with-dropper`, and `once` of a lambda with linear captures becomes
+    ;; `once-dropping`. The drops are mono's, asked for every type at once,
+    ;; so the items are walked twice: once to find the types, once to wrap.
+    (: no-loc Loc)
+    (define no-loc (Loc "control" 0 0))
+
+    (: unit-type Type)
+    (define unit-type (TCon "Unit" (Nil)))
+
+    ;; The unit value, as a dropper ends.
+    (: unit-expr (-> Loc Expr))
+    (define (unit-expr loc)
+      (Expr (App (Expr (Var "prim:unit" (Nil) (Nil)) (TFun (Nil) unit-type empty-row) loc) (Nil))
+            unit-type
+            loc))
+
+    (: dropper-items (-> Callees Mono Mono))
+    (define (dropper-items callees mono)
+      (let ((found (dropper-pass callees empty-table (Mono-items mono))))
+        (match (Pair-second found)
+          ((Nil) mono)
+          (types
+           (match (drop-functions mono types no-loc)
+             ((Pair drops mono)
+              (match (dropper-pass callees drops (Mono-items mono))
+                ((Pair items _)
+                 (Mono (Mono-program mono)
+                       items
+                       (Mono-externals mono)
+                       (Mono-exported mono)
+                       (Mono-input mono)
+                       (Mono-owner mono))))))))))
+
+    ;; The items with droppers where `drops` has the drop, and the types
+    ;; of every value a dropper would drop.
+    (: dropper-pass (-> Callees (Table Expr) (List Item) (Pair (List Item) (List Type))))
+    (define (dropper-pass callees drops items)
+      (fold-right (lambda (item result)
+                    (match (dropper-item callees drops item)
+                      ((Pair item types)
+                       (Pair (Cons item (Pair-first result))
+                             (fold-left (lambda (types type) (add-type types type))
+                                        (Pair-second result)
+                                        types)))))
+                  (Pair (Nil) (Nil))
+                  items))
+
+    (: add-type (-> (List Type) Type (List Type)))
+    (define (add-type types type)
+      (if (any? (lambda (known) (string=? (type-key known) (type-key type))) types)
+          types
+          (Cons type types)))
+
+    (: dropper-item (-> Callees (Table Expr) Item (Pair Item (List Type))))
+    (define (dropper-item callees drops item)
+      (match item
+        ((Define name value)
+         (match (droppers callees drops empty-table value)
+           ((Pair value types) (Pair (Define name value) types))))
+        ((Do value)
+         (match (droppers callees drops empty-table value)
+           ((Pair value types) (Pair (Do value) types))))
+        (_ (Pair item (Nil)))))
+
+    ;; `scope` gives each local in scope its type.
+    (: droppers (-> Callees (Table Expr) (Table Type) Expr (Pair Expr (List Type))))
+    (define (droppers callees drops scope expr)
+      (let ((rebuild (lambda (term) (Expr term (Expr-type expr) (Expr-loc expr)))))
+        (match (Expr-term expr)
+          ((Lambda params body captures?)
+           (match (droppers callees drops (bind-params scope params (Expr-type expr)) body)
+             ((Pair body types) (Pair (rebuild (Lambda params body captures?)) types))))
+          ((App callee args) (dropper-call callees drops scope expr callee args))
+          ((If test then otherwise)
+           (match (droppers-all callees drops scope (list test then otherwise))
+             ((Pair (Cons test (Cons then (Cons otherwise (Nil)))) types)
+              (Pair (rebuild (If test then otherwise)) types))
+             (_ (panic "internal error: an if has three parts"))))
+          ((Let name value body) (dropper-let callees drops scope expr name value body))
+          ((Seq first rest)
+           (match (droppers-all callees drops scope (list first rest))
+             ((Pair (Cons first (Cons rest (Nil))) types) (Pair (rebuild (Seq first rest)) types))
+             (_ (panic "internal error: a sequence has two parts"))))
+          ((Match scrutinee clauses)
+           (match (droppers callees drops scope scrutinee)
+             ((Pair scrutinee types)
+              (match (dropper-clauses callees drops scope clauses)
+                ((Pair clauses more)
+                 (Pair (rebuild (Match scrutinee clauses)) (append types more)))))))
+          ((Ann inner type)
+           (match (droppers callees drops scope inner)
+             ((Pair inner types) (Pair (rebuild (Ann inner type)) types))))
+          ((Convert inner target)
+           (match (droppers callees drops scope inner)
+             ((Pair inner types) (Pair (rebuild (Convert inner target)) types))))
+          ((TypeTest inner target)
+           (match (droppers callees drops scope inner)
+             ((Pair inner types) (Pair (rebuild (TypeTest inner target)) types))))
+          ((Handle effect implementations body)
+           (match (droppers-all callees drops scope (map Pair-second implementations))
+             ((Pair values types)
+              (match (droppers callees drops scope body)
+                ((Pair body more)
+                 (Pair (rebuild (Handle effect
+                                        (zip (map Pair-first implementations) values)
+                                        body))
+                       (append types more)))))))
+          (_ (Pair expr (Nil))))))
+
+    (: droppers-all
+       (-> Callees (Table Expr) (Table Type) (List Expr) (Pair (List Expr) (List Type))))
+    (define (droppers-all callees drops scope exprs)
+      (fold-right (lambda (expr result)
+                    (match (droppers callees drops scope expr)
+                      ((Pair expr types)
+                       (Pair (Cons expr (Pair-first result)) (append types (Pair-second result))))))
+                  (Pair (Nil) (Nil))
+                  exprs))
+
+    (: dropper-clauses
+       (-> Callees (Table Expr) (Table Type) (List Clause) (Pair (List Clause) (List Type))))
+    (define (dropper-clauses callees drops scope clauses)
+      (fold-right (lambda (clause result)
+                    (match (droppers callees
+                                     drops
+                                     (bind-pattern-types scope (Clause-pattern clause))
+                                     (Clause-body clause))
+                      ((Pair body types)
+                       (Pair (Cons (Clause (Clause-pattern clause) body) (Pair-first result))
+                             (append types (Pair-second result))))))
+                  (Pair (Nil) (Nil))
+                  clauses))
+
+    (: bind-params (-> (Table Type) (List String) Type (Table Type)))
+    (define (bind-params scope params type)
+      (match type
+        ((TFun types _ _)
+         (fold-left (lambda (scope pair) (table-set scope (Pair-first pair) (Pair-second pair)))
+                    scope
+                    (zip params types)))
+        ((TCon "FnOnce" (Cons inner (Nil))) (bind-params scope params inner))
+        (_ scope)))
+
+    (: bind-pattern-types (-> (Table Type) Pattern (Table Type)))
+    (define (bind-pattern-types scope pattern)
+      (match pattern
+        ((PVar name type) (table-set scope name type))
+        ((PCon _ args _) (fold-left bind-pattern-types scope args))
+        (_ scope)))
+
+    ;; A let whose value may yield saves its body as a frame holding the
+    ;; linear locals the body reads: the let's value is marked with their
+    ;; dropper.
+    (: dropper-let
+       (-> Callees (Table Expr) (Table Type) Expr String Expr Expr (Pair Expr (List Type))))
+    (define (dropper-let callees drops scope expr name value body)
+      (match (droppers callees drops scope value)
+        ((Pair value types)
+         (match (droppers callees drops (table-set scope name (Expr-type value)) body)
+           ((Pair body more)
+            (let ((live (if (null? (yields callees value))
+                            (Nil)
+                            (linear-locals callees
+                                           scope
+                                           (filter (lambda (local) (not (string=? local name)))
+                                                   (expr-references body))))))
+              (Pair (Expr (Let name (with-dropper drops value live) body)
+                          (Expr-type expr)
+                          (Expr-loc expr))
+                    (append (map Pair-second live) (append types more)))))))))
+
+    ;; `once` of a lambda with linear captures marks it with their dropper.
+    (: dropper-call
+       (-> Callees (Table Expr) (Table Type) Expr Expr (List Expr) (Pair Expr (List Type))))
+    (define (dropper-call callees drops scope expr callee args)
+      (match (droppers-all callees drops scope (Cons callee args))
+        ((Pair (Cons callee args) types)
+         (match (Pair (Expr-term callee) args)
+           ((Pair (Var "prim:once" _ _) (Cons procedure (Nil)))
+            (let ((captured (lambda-captures callees scope procedure)))
+              (Pair (once-dropping drops expr callee procedure captured)
+                    (append (map Pair-second captured) types))))
+           (_ (Pair (Expr (App callee args) (Expr-type expr) (Expr-loc expr)) types))))
+        (_ (panic "internal error: a call without a callee"))))
+
+    (: lambda-captures (-> Callees (Table Type) Expr (List (Pair String Type))))
+    (define (lambda-captures callees scope procedure)
+      (match (Expr-term procedure)
+        ((Lambda params body _)
+         (linear-locals callees
+                        scope
+                        (filter (lambda (local) (not (member? local params)))
+                                (expr-references body))))
+        (_ (Nil))))
+
+    ;; The locals among `names` whose types are linear, with their types,
+    ;; in order.
+    (: linear-locals (-> Callees (Table Type) (List String) (List (Pair String Type))))
+    (define (linear-locals callees scope names)
+      (concatenate (map (lambda (name)
+                          (match (table-ref scope name)
+                            ((Some type)
+                             (if (linear-type? (Callees-program callees) (Nil) type)
+                                 (list (Pair name type))
+                                 (Nil)))
+                            ((None) (Nil))))
+                        names)))
+
+    ;; The value marked with the dropper of `live`, once every drop is known.
+    (: with-dropper (-> (Table Expr) Expr (List (Pair String Type)) Expr))
+    (define (with-dropper drops value live)
+      (match (dropper drops live (Expr-loc value))
+        ((Some thunk)
+         (let ((type (Expr-type value)) (loc (Expr-loc value)))
+           (Expr (App (Expr (Var "prim:with-dropper" (Nil) (Nil))
+                            (TFun (list type (Expr-type thunk)) type empty-row)
+                            loc)
+                      (list value thunk))
+                 type
+                 loc)))
+        ((None) value)))
+
+    (: once-dropping (-> (Table Expr) Expr Expr Expr (List (Pair String Type)) Expr))
+    (define (once-dropping drops expr callee procedure captured)
+      (let ((loc (Expr-loc expr)))
+        (match (dropper drops captured loc)
+          ((Some thunk)
+           (Expr (App (Expr (Var "prim:once-dropping" (Nil) (Nil))
+                            (TFun (list (Expr-type procedure) (Expr-type thunk))
+                                  (Expr-type expr)
+                                  empty-row)
+                            loc)
+                      (list procedure thunk))
+                 (Expr-type expr)
+                 loc))
+          ((None) (Expr (App callee (list procedure)) (Expr-type expr) loc)))))
+
+    ;; A thunk that drops each of `live` in order, closed over them; None
+    ;; while a drop is not yet known, or when there is nothing to drop.
+    (: dropper (-> (Table Expr) (List (Pair String Type)) Loc (Option Expr)))
+    (define (dropper drops live loc)
+      (let ((calls (concatenate (map (lambda (local)
+                                       (match (table-ref drops (type-key (Pair-second local)))
+                                         ((Some drop)
+                                          (list (Expr (App drop
+                                                           (list (Expr (Var (Pair-first local)
+                                                                            (Nil)
+                                                                            (Nil))
+                                                                       (Pair-second local)
+                                                                       loc)))
+                                                      unit-type
+                                                      loc)))
+                                         ((None) (Nil))))
+                                     live))))
+        (if (or (null? live) (< (length calls) (length live)))
+            (None)
+            (Some (Expr (Lambda (Nil)
+                                (fold-right
+                                 (lambda (call rest) (Expr (Seq call rest) unit-type loc))
+                                 (unit-expr loc)
+                                 calls)
+                                #t)
+                        (TFun (Nil) unit-type empty-row)
+                        loc)))))
 
     ;; Temporaries are numbered within the Wasm function they land in: a
     ;; function's definition counts from zero, while the statements and the

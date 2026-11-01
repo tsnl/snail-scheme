@@ -134,7 +134,8 @@
       ((program Program)
        (copy (List String))
        (live (List Owner))
-       (returns Bool)))
+       (returns Bool)
+       (row (Option Type))))
 
     ;; A live linear name, with the type that makes it linear, which a
     ;; diagnostic about it explains.
@@ -261,7 +262,7 @@
         ((Some operation) (check-field-value path operation expr) path)
         ((None)
          (match (program-value (Path-program path) name)
-           ((Some _) path)
+           ((Some value) (check-instantiation path expr value) path)
            ((None)
             (if (linear? path (Expr-type expr))
                 (consume path (Owner name (Expr-type expr)) (Expr-loc expr))
@@ -289,8 +290,223 @@
               ;; read the record in place.
               ((Replacer _ _ _) (check (check-all path rest) record))
               (_ (check-all (check-chain path record) rest))))
-           ((None) (check-all path (Cons callee args)))))
-        (_ (check-all path (Cons callee args)))))
+           ((None) (check-yield-holds (check-all path (Cons callee args)) callee))))
+        (_ (check-yield-holds (check-all path (Cons callee args)) callee))))
+
+    ;; ---- Drops that may run ----
+
+    ;; Dropping a FnOnce unrun drops what it captured, and dropping a
+    ;; `resume` drops what its frames hold, under the row of the FnOnce
+    ;; being dropped (capabilities.sld, `trivial-rows`). So a linear value a
+    ;; once lambda captures, or that is live across a call that may yield,
+    ;; may be dropped by whoever holds the closure, and its drop must
+    ;; perform no more than that row. Three checks keep the rows honest: a
+    ;; captured value's drop fits the lambda's row; a value live across a
+    ;; call that may yield fits this function's row, since the frame is
+    ;; this function's; and a generic function may hold a value of a type
+    ;; variable across a yield, so each linear type a use binds to one
+    ;; fits the use's row. Values of a type variable's type inside the
+    ;; generic function itself are covered by that last check at its uses.
+
+    ;; A call may yield when its row names a control effect, or ends in a
+    ;; row variable that may stand for one.
+    (: may-yield-row? (-> Path Type Bool))
+    (define (may-yield-row? path row)
+      (match row
+        ((TRow labels tail)
+         (or (any? (lambda (label) (control-effect? (Path-program path) label)) labels)
+             (match tail
+               ((Some _) #t)
+               ((None) #f))))
+        (_ #f)))
+
+    (: control-effect? (-> Program String Bool))
+    (define (control-effect? program label)
+      (match (table-ref (Program-effects program) label)
+        ((Some effect) (not (null? (Effect-control effect))))
+        ((None) #f)))
+
+    (: arrow-row (-> Type (Option Type)))
+    (define (arrow-row type)
+      (match type
+        ((TFun _ _ row) (Some row))
+        ((TCon "FnOnce" (Cons inner (Nil))) (arrow-row inner))
+        ((TCon "Fn" (Cons inner (Nil))) (arrow-row inner))
+        (_ (None))))
+
+    ;; Whether `allowed` admits everything `performed` names: its labels,
+    ;; and its tail, which must be allowed's own.
+    (: row-within? (-> Type Type Bool))
+    (define (row-within? performed allowed)
+      (match (Pair (row-parts performed) (row-parts allowed))
+        ((Pair (Pair labels tail) (Pair allowed-labels allowed-tail))
+         (and (every? (lambda (label) (member? label allowed-labels)) labels)
+              (match tail
+                ((None) #t)
+                ((Some name)
+                 (match allowed-tail
+                   ((Some other) (string=? name other))
+                   ((None) #f))))))))
+
+    (: row-parts (-> Type (Pair (List String) (Option String))))
+    (define (row-parts row)
+      (match row
+        ((TRow labels (Some (TRigid name))) (Pair labels (Some name)))
+        ((TRow labels (Some tail))
+         (match (row-parts tail)
+           ((Pair more name) (Pair (append labels more) name))))
+        ((TRow labels (None)) (Pair labels (None)))
+        ((TRigid name) (Pair (Nil) (Some name)))
+        (_ (Pair (Nil) (None)))))
+
+    ;; A type without type variables, whose drop the checker can find.
+    (: ground-type? (-> Type Bool))
+    (define (ground-type? type)
+      (match type
+        ((TRigid _) #f)
+        ((TCon _ args) (every? ground-type? args))
+        ((TFun params result _) (and (every? ground-type? params) (ground-type? result)))
+        (_ #t)))
+
+    ;; Refuses a drop of `type` that `allowed`, the row of whoever may run
+    ;; it, does not admit. A type with variables is covered where they are
+    ;; bound, and a statement's row allows anything.
+    (: check-drop-rows (-> Path Type (Option Type) String Loc Unit ! compile))
+    (define (check-drop-rows path type allowed what loc)
+      (match allowed
+        ((Some row)
+         (when (ground-type? type)
+           (match (lifecycle-rows (Path-program path) drop-class (Path-copy path) (Nil) type)
+             ((Ok rows)
+              (for-each (lambda (performed)
+                          (unless (row-within? performed row)
+                            (compile-error loc
+                                           (string-append what
+                                                          ", and dropping a "
+                                                          (type->string type)
+                                                          " performs "
+                                                          (type->string performed)
+                                                          ", which the row "
+                                                          (type->string row)
+                                                          " does not allow"))))
+                        rows))
+             ((Err _) (unit)))))
+        ((None) (unit))))
+
+    ;; A linear value live after a call that may yield is held by this
+    ;; function's frame.
+    (: check-yield-holds (-> Path Expr Path ! compile))
+    (define (check-yield-holds path callee)
+      (when (callee-may-yield? path callee)
+        (for-each (lambda (owner)
+                    (check-drop-rows path
+                                     (Owner-type owner)
+                                     (Path-row path)
+                                     (string-append (local-label (Owner-name owner))
+                                                    " is live across a call that may yield, so a dropped resume may drop it")
+                                     (Expr-loc callee)))
+                  (Path-live path)))
+      path)
+
+    ;; Whether calling `callee` may yield. The checker opens each use of a
+    ;; global to its context's row, so a global's own scheme says: its
+    ;; labels, and its row variable at the type this use gave it. A local's
+    ;; type says for itself.
+    (: callee-may-yield? (-> Path Expr Bool))
+    (define (callee-may-yield? path callee)
+      (match (Expr-term callee)
+        ((Var name types _)
+         (match (program-value (Path-program path) name)
+           ((Some value)
+            (match (value-scheme value)
+              ((Some scheme) (scheme-may-yield? path scheme types))
+              ((None) (type-may-yield? path (Expr-type callee)))))
+           ((None) (type-may-yield? path (Expr-type callee)))))
+        (_ (type-may-yield? path (Expr-type callee)))))
+
+    (: type-may-yield? (-> Path Type Bool))
+    (define (type-may-yield? path type)
+      (match (arrow-row type)
+        ((Some row) (may-yield-row? path row))
+        ((None) #f)))
+
+    (: scheme-may-yield? (-> Path Scheme (List Type) Bool))
+    (define (scheme-may-yield? path scheme types)
+      (match (arrow-row (Scheme-type scheme))
+        ((Some (TRow labels tail))
+         (or (any? (lambda (label) (control-effect? (Path-program path) label)) labels)
+             (match tail
+               ((Some (TRigid var))
+                (match (assoc-ref (zip (Scheme-vars scheme) types) var)
+                  ((Some row) (may-yield-row? path row))
+                  ((None) #t)))
+               ((Some _) #t)
+               ((None) #f))))
+        (_ #f)))
+
+    ;; A use of a generic function that may yield binds its type variables
+    ;; to types it may hold across the yield. Only a definition or a method
+    ;; has a body that could; a primitive, an operation or a constructor
+    ;; holds nothing.
+    (: check-instantiation (-> Path Expr Value Unit ! compile))
+    (define (check-instantiation path expr value)
+      (match (Pair (Expr-term expr) (arrow-row (Expr-type expr)))
+        ((Pair (Var name types _) (Some row))
+         (when (and (has-body? value) (callee-may-yield? path expr))
+           (for-each (lambda (type)
+                       (when (linear? path type)
+                         (check-drop-rows path
+                                          type
+                                          (Some row)
+                                          (string-append (short-name name)
+                                                         " may hold a "
+                                                         (type->string type)
+                                                         " across a yield")
+                                          (Expr-loc expr))))
+                     types)))
+        (_ (unit))))
+
+    (: has-body? (-> Value Bool))
+    (define (has-body? value)
+      (match value
+        ((Defined _ _ _) #t)
+        ((Method _ _) #t)
+        (_ #f)))
+
+    ;; A once lambda's captures are dropped with it when it is dropped
+    ;; unrun, under its own row.
+    (: check-capture (-> Path Owner Type Loc Unit ! compile))
+    (define (check-capture path owner lambda-type loc)
+      (match (arrow-row lambda-type)
+        ((Some row)
+         (if (ground-type? (Owner-type owner))
+             (check-drop-rows path
+                              (Owner-type owner)
+                              (Some row)
+                              (string-append "a once lambda captures "
+                                             (local-label (Owner-name owner))
+                                             ", which it drops if it is dropped unrun")
+                              loc)
+             (match (Path-row path)
+               ((Some enclosing)
+                (unless (row-within? enclosing row)
+                  (compile-error loc
+                                 (string-append "a once lambda captures "
+                                                (local-label (Owner-name owner))
+                                                ", a value of a type variable's type, whose drop this function's row "
+                                                (type->string enclosing)
+                                                " bounds, so the lambda's row must include it"))))
+               ((None) (unit)))))
+        ((None) (unit))))
+
+    ;; A local's source name: unique names end in a dot and digits.
+    (: local-label (-> String String))
+    (define (local-label name)
+      (let ((chars (string->vector name)))
+        (let loop ((index (- (vector-length chars) 1)))
+          (cond ((< index 0) name)
+                ((char=? (vector-ref chars index) #\.) (substring name 0 index))
+                (else (loop (- index 1)))))))
 
     ;; ---- Fields ----
 
@@ -447,7 +663,9 @@
                           (explain path
                                    (Owner-type owner)
                                    "an unrestricted procedure cannot capture a linear value")))
-          (_ (check-closure-body path expr captured)
+          (_ (when once?
+               (for-each (lambda (owner) (check-capture path owner (Expr-type expr) loc)) captured))
+             (check-closure-body path expr captured)
              (fold-left (lambda (path owner) (consume path owner loc)) path captured)))))
 
     ;; The body starts with the captures and the linear parameters live, as
@@ -455,8 +673,8 @@
     (: check-closure-body (-> Path Expr (List Owner) Unit ! compile))
     (define (check-closure-body path expr captured)
       (match (Pair (Expr-term expr) (fn-arrow (Expr-type expr)))
-        ((Pair (Lambda params body _) (TFun types _ _))
-         (let* ((empty (Path (Path-program path) (Path-copy path) (Nil) #t))
+        ((Pair (Lambda params body _) (TFun types _ row))
+         (let* ((empty (Path (Path-program path) (Path-copy path) (Nil) #t (Some row)))
                 (start
                  (fold-left (lambda (inner pair) (bind inner (Pair-first pair) (Pair-second pair)))
                             (Path-live-set empty captured)
@@ -526,7 +744,18 @@
     (: check-item-ownership (-> Program (Table Scheme) Item Unit ! compile))
     (define (check-item-ownership program schemes item)
       (check-owned-types program schemes item)
-      (check-item (Path program (item-copy schemes item) (Nil) #t) item))
+      (check-item (Path program (item-copy schemes item) (Nil) #t (item-row schemes item)) item))
+
+    ;; A definition's row bounds the drops its frames may run; a statement's
+    ;; is unbounded.
+    (: item-row (-> (Table Scheme) Item (Option Type)))
+    (define (item-row schemes item)
+      (match item
+        ((Define name _)
+         (match (table-ref schemes name)
+           ((Some scheme) (arrow-row (Scheme-type scheme)))
+           ((None) (None))))
+        (_ (None))))
 
     (: check-item (-> Path Item Unit ! compile))
     (define (check-item path item)
