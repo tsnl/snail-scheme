@@ -552,7 +552,9 @@ effect once more. Both are in the context row. So a `Step` that stores
 ```
 
 Typed `(FnOnce I64 Step ! Log)`, the stored `next` is resumed under a
-`Log` handler, the one where it is called
+`Log` handler, the one where it is called, and the `rest` left unrun is
+dropped under one too, since dropping a resumption performs its row
+([Drops that may run](ownership.md#drops-that-may-run))
 (`tests/programs/control-resume-row.sld`):
 
 ```text
