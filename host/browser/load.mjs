@@ -94,13 +94,14 @@ function withStubs(module, imports, stubbed, stub) {
 // A module asks for each file it links, `link-file` in (snail shell
 // resource), by importing a function from "snail.runtime.link" named for
 // the SHA-256 of the file's bytes, which answers the file's handle. A
-// handle is only that name: the host reads the file, from resources/DIGEST
-// beside the payload, the first time a task asks for its bytes, and keeps
-// them, so a file the program never reads is never fetched. Handles index
-// `files`, one for each digest the program has linked, which only grows.
-// The bytes under a digest never change, so a module linked again shares
-// the handles, and the bytes, of the files it still links, while an edited
-// file is a new digest, read from the build that links it.
+// handle is only that name: the host reads the file, an object of the
+// program's store at STORE/sha256/DIGEST, the first time a task asks for
+// its bytes, and keeps them, so a file the program never reads is never
+// fetched. Handles index `files`, one for each digest the program has
+// linked, which only grows. The bytes under a digest never change, so a
+// module linked again shares the handles, and the bytes, of the files it
+// still links, while an edited file is a new digest, read from the store
+// of the build that links it. `read` gives an object's bytes by digest.
 function linkImports(read, modules, files) {
   const names = [...new Set(modules.flatMap(module => WebAssembly.Module.imports(module)
     .filter(entry => entry.module === 'snail.runtime.link').map(entry => entry.name)))];
@@ -114,9 +115,14 @@ function linkImports(read, modules, files) {
 }
 
 async function readLinked({name, read}) {
-  try { return new Uint8Array(await read(`resources/${name}`)); }
+  try { return new Uint8Array(await read(name)); }
   catch (error) { throw new Error(`cannot read the linked file ${name}: ${error.message}`, {cause: error}); }
 }
+
+// Reads an object of the store at `store`, a path relative to the file
+// `read` resolves against, by its digest. A linked program's store is
+// store/ beside it; a manifest names its own.
+const objectReader = (read, store = 'store/') => digest => read(`${store}sha256/${digest}`);
 
 // The `resource` effect of (snail shell resource): a task starts reading a
 // file by handle under its ticket (tasks.mjs), finishes the ticket for
@@ -139,18 +145,21 @@ function resourceImports(files, tasks) {
 // file it links.
 const noTasks = () => { throw new Error('this host runs no tasks to read a linked file in'); };
 
-// What a single linked module needs for the files it links, read through
-// `read` by their paths beside the payload in the tasks `tasks` gives.
+// What a single linked module needs for the files it links, objects of
+// store/ beside it, read through `read` by their paths beside the payload
+// in the tasks `tasks` gives.
 export function linkedFileImports(read, module, tasks = noTasks) {
   const files = [];
-  return {'snail.runtime.link': linkImports(read, [module], files), 'snail.runtime.resource': resourceImports(files, tasks)};
+  return {'snail.runtime.link': linkImports(objectReader(read), [module], files), 'snail.runtime.resource': resourceImports(files, tasks)};
 }
 
 // ---- Linking ----
 
 // A program compiled one library at a time is named by its modules.json:
-// {"runtime": FILE, "modules": [{"name": LIBRARY, "file": FILE}, ...]}, in
-// program order.
+// {"runtime": FILE, "store": STORE, "modules": [{"name": LIBRARY, "file":
+// FILE}, ...], "files": [{"digest": DIGEST, "size": SIZE}, ...]}, the
+// modules in program order, and the store the files it links are objects
+// of, relative to the manifest.
 function readModules(bytes) {
   return JSON.parse(decoder.decode(bytes));
 }
@@ -165,9 +174,9 @@ function readModules(bytes) {
 // files its modules link, and the tasks `tasks` gives, in which a program
 // reads them.
 export async function linkProgram(read, manifest, wasi, host, tasks = noTasks) {
-  const {runtime, modules} = readModules(await read(manifest));
+  const {runtime, store, modules} = readModules(await read(manifest));
   const [runtimeModule, compiled] = await Promise.all([compileFile(read, runtime), compileModules(read, modules)]);
-  const program = {read, manifest, runtime: await instantiateRuntime(runtimeModule, wasi), host, linked: new Map(),
+  const program = {read, manifest, store, runtime: await instantiateRuntime(runtimeModule, wasi), host, linked: new Map(),
                    names: modules.map(entry => entry.name), files: [], links: {}, tasks};
   await linkModules(program, compiled);
   return program;
@@ -214,7 +223,7 @@ export const hostProvided = name => name.startsWith('snail.runtime.') || name ==
 async function linkModules(program, modules) {
   const reserved = modules.find(entry => hostProvided(entry.name));
   if (reserved) throw new Error(`no library may be linked as ${reserved.name}, which the host provides`);
-  program.links = linkImports(program.read, modules.map(entry => entry.module), program.files);
+  program.links = linkImports(objectReader(program.read, program.store), modules.map(entry => entry.module), program.files);
   const libraries = new Set(['snail.core.support', ...program.linked.keys(), ...modules.map(entry => entry.name)]);
   for (const {name, module} of modules) program.linked.set(name, await WebAssembly.instantiate(module, moduleImports(program, libraries, module)));
 }
@@ -239,17 +248,18 @@ const missingHost = (from, name) => () => { throw new Error(`this host does not 
 // ---- Relinking ----
 
 // Links the program again from library `from`, by the modules.json of the
-// build at `manifest`, whose files `read` gives. The modules before `from`
+// build at `manifest`, whose files `read` gives, and whose store the files
+// they link are read from. The modules before `from`
 // cannot import from it, so their instances stay;
 // `from` and every module after it are linked anew, with handles for the
 // files they link, and initialized, so their globals start over. Returns the new
 // program and leaves the old one as it was, so a relink that fails leaves it
 // running.
 export async function relinkProgram(program, from, manifest, read) {
-  const {modules} = readModules(await read(manifest));
+  const {store, modules} = readModules(await read(manifest));
   const start = Math.max(0, modules.findIndex(entry => entry.name === from));
   const kept = modules.slice(0, start).map(entry => [entry.name, program.linked.get(entry.name)]);
-  const next = {...program, read, manifest, linked: new Map(kept), names: modules.map(entry => entry.name)};
+  const next = {...program, read, manifest, store, linked: new Map(kept), names: modules.map(entry => entry.name)};
   const relinked = await compileModules(read, modules.slice(start));
   await linkModules(next, relinked);
   runProgram(next, relinked.map(entry => entry.name));

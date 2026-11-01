@@ -38,9 +38,9 @@
 
     ;; ---- Reading ----
 
-    ;; A linked file's bytes, by handle. By default the host reads the file
-    ;; from resources/ beside the payload the first time a task asks for
-    ;; it, and the task waits until it has; a handler can serve it
+    ;; A linked file's bytes, by handle. By default the host reads the
+    ;; file, an object of the program's store, the first time a task asks
+    ;; for it, and the task waits until it has; a handler can serve it
     ;; otherwise.
     (effect resource
       ((resource-bytes (-> I32 Bytes ! tasks)))

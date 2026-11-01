@@ -75,8 +75,8 @@ duplicate target errors identify both declarations, duplicate fields the second.
 ## Output directories
 
 Each build target produces one directory at `PROJECT/build/TARGET`. A static
-program contains `program.wasm`, and each file its libraries link at
-`resources/DIGEST`, named for the SHA-256 of its bytes ([linked files](types.md#linked-files)). A browser build adds the shared browser host
+program contains `program.wasm`, and each file its libraries link as an
+object at `store/sha256/DIGEST`, named for the SHA-256 of its bytes ([linked files](types.md#linked-files)). A browser build adds the shared browser host
 and recursively copies `public`, if specified. Supply `index.html` there; no page
 is generated. Browser pages load `./program.wasm` through `host.mjs`, which
 fetches a linked file beside it when the program first reads it, or through
@@ -84,7 +84,7 @@ fetches a linked file beside it when the program first reads it, or through
 
 Public files cannot overwrite generated files. At the root, every name some
 build generates is reserved, whether or not this build writes it:
-`program.wasm`, `modules`, `modules.json`, `runtime.wasm`, `resources`, the
+`program.wasm`, `modules`, `modules.json`, `runtime.wasm`, `store`, the
 browser host's files and the `.snail-target` ownership marker. A public tree
 that builds in one mode, or with one set of linked files, therefore builds in
 every other. `.snail-publish` is reserved at every depth. Public trees must
@@ -110,10 +110,15 @@ not discard it again. These guarantees concern complete outputs, not an atomic
 source snapshot or power-loss durability.
 
 Development builds contain per-library modules, `modules.json` and `runtime.wasm`
-instead of linked `program.wasm`, with the same `resources/`. Each generation is
-self-contained: a linked file is copied into every generation under its digest,
-and editing one compiles again the library that links it, whose module names
-the new digest. Existing
+instead of linked `program.wasm`. Their linked files are objects of the store
+the project's development builds share, `build/.snail-store/sha256/DIGEST`,
+which each manifest names as `../.snail-store/` and lists by digest and size,
+so a generation holds no object and an edit that changes no file adds none;
+an object is written once and never rewritten. Editing a linked file compiles
+again the library that links it, whose module names the new digest. A build
+that embeds a development generation ([artifact bundles](#artifact-bundles))
+gets its objects under `store/sha256/` and a manifest that says so. Nothing
+reclaims the store yet. Existing
 browser pages receive the module-manifest meta tag understood by `host.mjs`;
 the builder still does not invent a page.
 

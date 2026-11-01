@@ -380,6 +380,7 @@ the editor's, and the status names each published browser target's `url`.
 | --- | --- |
 | `/NAME/` | The latest build's `index.html`, with `<base href="/NAME/.snail/builds/EPOCH/">` first, or after its doctype, then the build's manifest and the reload client. |
 | `/NAME/.snail/builds/EPOCH/PATH` | `PATH` of that build's generation, while it is retained; 404 after. |
+| `/NAME/.snail/builds/.snail-store/sha256/DIGEST` | An object of the store the builds share, where a manifest's `../.snail-store/` resolves; cached for good. |
 | `/NAME/.snail/events` | An event stream that tells the target's pages of its builds. |
 | `/NAME/.snail/reload.mjs`, `reload.wasm` | The reload client, from the browser host and the development tools. |
 | `/NAME/PATH` | `PATH` of the latest build's generation. |

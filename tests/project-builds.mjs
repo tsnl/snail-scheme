@@ -54,11 +54,11 @@ try {
   await assert.rejects(build('page'), /conflicts with a build artifact/);
   assert.equal(await realpath(output('page')), second, 'failed packaging leaves output unchanged');
   await rm(join(project, 'public/host.mjs'), {recursive: true});
-  // This program links no files, but a build of one that does writes resources/.
-  await mkdir(join(project, 'public/resources'));
-  await assert.rejects(build('page'), /conflicts with a build artifact: .*resources/);
+  // This program links no files, but a build of one that does writes store/.
+  await mkdir(join(project, 'public/store'));
+  await assert.rejects(build('page'), /conflicts with a build artifact: .*store/);
   assert.equal(await realpath(output('page')), second, 'a reserved name is refused in every build');
-  await rm(join(project, 'public/resources'), {recursive: true});
+  await rm(join(project, 'public/store'), {recursive: true});
   await symlink(project, join(project, 'public/recursive-link'));
   await assert.rejects(build('page'), /cannot be symbolic links/);
   assert.equal(await realpath(output('page')), second);
