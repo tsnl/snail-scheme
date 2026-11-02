@@ -288,19 +288,35 @@ export async function relinkProgram(program, from, manifest, read) {
 // field names for `held-length` and `held-char`, the reverse of the
 // staging above; then `prepare-link`, one provider per import in import
 // order (`provide-export` of an instance under a staged name,
-// `provide-host` for a function of this host's own, `provide-missing` for
-// one that fails if called) and `link-prepared`, which answers the
-// instance or a negative code; `call-nullary` runs an export of no
-// arguments, such as `main`, for its i32. The program waits for each
+// `provide-host` for a function of this host's own, `provide-constant` for
+// a function answering a constant, `provide-missing` for one that fails if
+// called) and `link-prepared`, which answers the instance or a negative
+// code, having initialized it when it exports `_initialize`. A provider
+// that is not found provides nothing, and the loader gives another or the
+// link fails. A link given WASI gets a WASI of its own, from
+// `program().wasi()`, bound to the instance, and one given
+// `snail.platform` reports errors through the instance's own export. A
+// loaded module given `snail.runtime.wasm` gets these same operations
+// over the program's runtime, whose memory stages its Bytes. Instance 0
+// is the loading program, `program().loader`, or its runtime, whose
+// exports a loaded module may import; `name-instance` puts an instance in
+// the program's namespace under a staged name, and naming one
+// `snail.core.support` makes it the program's runtime; `call-export`
+// calls an export of no argument or one i64, such as `main` or
+// `tasks:turn`, for its result as an i64. The program waits for each
 // operation, so they are synchronous. `program()` gives the program that
-// loads, which the host links after making these imports.
+// loads, which the host links after making these imports; `memory()`
+// gives the memory the caller's Bytes are staged in, the loader's own
+// when there is one.
 const INVALID_MODULE = -1, NAME_TAKEN = -1, LINK_FAILED = -2;
 const IMPORT_KINDS = ['function', 'table', 'memory', 'global'];
+const WASI = 'wasi_snapshot_preview1', PLATFORM = 'snail.platform', LOADING = 'snail.runtime.wasm';
 
-export function wasmImports(program) {
-  const modules = [], instances = [], namespaces = [], strings = stagedStrings();
+export function wasmImports(program, memory = () => (program().loader ?? program().runtime).exports.memory) {
+  const modules = [], instances = [null], namespaces = [], strings = stagedStrings();
   const namespace = handle => (handle === 0 ? program().linked : namespaces[handle - 1]);
-  let held = ['', ''], prepared = null;
+  const instance = handle => (handle === 0 ? program().loader ?? program().runtime : instances[handle]);
+  let held = ['', ''], prepared = null, loaded = null;
   // The import the next provider is for.
   function current() {
     const entry = prepared?.imports[prepared.bound];
@@ -308,15 +324,28 @@ export function wasmImports(program) {
     return entry;
   }
   function bind(value) {
+    if (value === undefined) return false;
     const {module: from, name} = current();
     prepared.bound++;
     (prepared.object[from] ??= {})[name] = value;
-    return value !== undefined;
+    return true;
+  }
+  // The host's function for the import being bound: WASI of the link's
+  // own, the platform's error report through the instance once it exists,
+  // these operations for a loaded module, or the host's own.
+  function hostFunction(from, name) {
+    if (from === WASI && program().wasi) return (prepared.wasi ??= program().wasi()).getImportObject()[WASI][name];
+    if (from === PLATFORM && name === 'diagnostics/report-error') {
+      const link = prepared;
+      return (pointer, length) => link.instance.exports['snail:report-error'](pointer, length);
+    }
+    if (from === LOADING) return (loaded ??= wasmImports(program, () => program().runtime.exports.memory))[name];
+    return program().host[from]?.[name];
   }
   return {
     ...strings.imports,
     compile(address) {
-      try { return modules.push(new WebAssembly.Module(byteSnapshot(program().runtime.exports.memory, address))) - 1; }
+      try { return modules.push(new WebAssembly.Module(byteSnapshot(memory(), address))) - 1; }
       catch (error) { if (error instanceof WebAssembly.CompileError) return INVALID_MODULE; throw error; }
     },
     namespace: () => namespaces.push(new Map()),
@@ -329,8 +358,8 @@ export function wasmImports(program) {
       instance.exports.main?.();
       return instances.push(instance) - 1;
     },
-    'has-export': instance => typeof instances[instance].exports[strings.take()[0]] === 'function',
-    'export-function': instance => instances[instance].exports[strings.take()[0]],
+    'has-export': handle => typeof instance(handle).exports[strings.take()[0]] === 'function',
+    'export-function': handle => instance(handle).exports[strings.take()[0]],
     'import-count': module => WebAssembly.Module.imports(modules[module]).length,
     'import-at'(module, index) {
       const entry = WebAssembly.Module.imports(modules[module])[index];
@@ -341,21 +370,33 @@ export function wasmImports(program) {
     'held-length': which => [...held[which]].length,
     'held-char': (which, index) => [...held[which]][index].codePointAt(0),
     'prepare-link'(module) {
-      prepared = {module: modules[module], imports: WebAssembly.Module.imports(modules[module]), object: {}, bound: 0};
+      prepared = {module: modules[module], imports: WebAssembly.Module.imports(modules[module]), object: {}, bound: 0, wasi: null, instance: null};
     },
-    'provide-export': instance => bind(instances[instance].exports[strings.take()[0]]),
-    'provide-host'() { const {module: from, name} = current(); return bind(program().host[from]?.[name]); },
+    'provide-export': handle => bind(instance(handle).exports[strings.take()[0]]),
+    'provide-host'() { const {module: from, name} = current(); return bind(hostFunction(from, name)); },
+    'provide-constant'(value) { bind(() => value); },
     'provide-missing'() { const {module: from, name} = current(); bind(missingHost(from, name)); },
     'link-prepared'() {
-      const {module, imports, object, bound} = prepared;
+      const link = prepared, {module, imports, object, bound, wasi} = link;
       prepared = null;
       if (bound !== imports.length) return LINK_FAILED;
-      let instance;
-      try { instance = new WebAssembly.Instance(module, object); }
+      try { link.instance = new WebAssembly.Instance(module, object); }
       catch (error) { if (error instanceof WebAssembly.LinkError || error instanceof TypeError) return LINK_FAILED; throw error; }
-      return instances.push(instance) - 1;
+      if (wasi) wasi.initialize(link.instance);
+      else link.instance.exports._initialize?.();
+      return instances.push(link.instance) - 1;
     },
-    'call-nullary': instance => instances[instance].exports[strings.take()[0]]() ?? 0,
+    'name-instance'(handle) {
+      const [name] = strings.take(), linked = program().linked;
+      if (name === 'snail.core.support') { program().runtime = instance(handle); return 1; }
+      if (linked.has(name) || hostProvided(name)) return 0;
+      linked.set(name, instance(handle));
+      return 1;
+    },
+    'call-export'(handle, argument) {
+      const result = instance(handle).exports[strings.take()[0]](argument);
+      return typeof result === 'bigint' ? result : BigInt(result ?? 0);
+    },
   };
 }
 

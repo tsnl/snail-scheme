@@ -87,7 +87,11 @@ pub fn precompile(module: &str, output: &str) -> u8 {
 // resolves a relative path against `/`, so a module resolves one against
 // SNAIL_CWD itself. File operations block this thread rather than
 // wasmtime-wasi's Tokio pool, since nothing else runs meanwhile.
-pub fn wasi(module: &str, arguments: &[String]) -> wasmtime::Result<WasiP1Ctx> {
+pub fn wasi(
+    module: &str,
+    arguments: &[String],
+    extra: &[(String, String)],
+) -> wasmtime::Result<WasiP1Ctx> {
     let mut builder = WasiCtxBuilder::new();
     builder
         .inherit_stdio()
@@ -100,6 +104,9 @@ pub fn wasi(module: &str, arguments: &[String]) -> wasmtime::Result<WasiP1Ctx> {
         builder.env(name, value);
     }
     builder.env("SNAIL_CWD", std::env::current_dir()?.to_string_lossy());
+    for (name, value) in extra {
+        builder.env(name, value);
+    }
     builder.preopened_dir("/", "/", FsPerms::ReadWrite)?;
     Ok(builder.build_p1())
 }

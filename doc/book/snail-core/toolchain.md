@@ -24,7 +24,7 @@ are internal to the driver and the tests:
 
 | Subcommand | Does |
 | --- | --- |
-| `build/snail run-wasm PROGRAM ARGUMENT ...` | Runs a compiled program, one linked module, its `.cwasm`, or a per-library `modules.json`, as `host/native/run-snail.mjs` does, with the same exit statuses, unless it imports sockets, processes, file modes or watches. The compiled compiler is one such program. |
+| `build/snail run-wasm PROGRAM ARGUMENT ...` | Runs a compiled program, one linked module, its `.cwasm`, or a per-library `modules.json`, which the engine links (`build/engine/engine.wasm`), as `host/native/run-snail.mjs` does, with the same exit statuses, unless it imports sockets, processes, file modes or watches. The compiled compiler is one such program. |
 | `build/snail precompile MODULE OUTPUT` | Writes the module's machine code as a `.cwasm` file, which `run-wasm` loads in place of the module. |
 | `build/snail imports PROGRAM` | Lists the modules a program's modules import from, a line each, without compiling them. |
 

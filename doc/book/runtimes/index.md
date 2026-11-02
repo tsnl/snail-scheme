@@ -64,7 +64,13 @@ same programs, so nothing a program or library does may depend on
 JavaScript: a host provides Wasm imports, and JavaScript is the glue that
 provides them on Node and in the page.
 
-This is a direction, not scheduled work. `crates/snail` runs programs that
+The native engine is the first step taken ([#660](https://github.com/tsnl/snail-scheme/issues/660)):
+`(snail shell engine)`, in Snail-Core, links a program compiled one library
+at a time and runs it, so Node and wasmtime each do only what a host must,
+WASI, the Wasm primitives of `(snail shell wasm)`, their device services
+and the loop that turns the scheduler. The page still links through
+`host/browser/load.mjs`; a browser engine over fetch is the next step.
+`crates/snail` runs programs that
 need only WASI on wasmtime, and the suite runs on it with
 `make test-wasmtime`, but moving the toolchain onto it is not planned:
 its collector made the compiler compiling itself take 46 s against

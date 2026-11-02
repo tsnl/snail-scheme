@@ -22,7 +22,9 @@
    provide-host
    provide-missing
    link-prepared
-   call-nullary)
+   provide-constant
+   name-instance
+   call-export)
   (import
    (snail core base)
    (only (snail core forms) Funcref))
@@ -43,4 +45,6 @@
     (extern provide-host "snail.runtime.wasm" "provide-host" (-> Bool))
     (extern provide-missing "snail.runtime.wasm" "provide-missing" (-> Unit))
     (extern link-prepared "snail.runtime.wasm" "link-prepared" (-> I32))
-    (extern call-nullary "snail.runtime.wasm" "call-nullary" (-> I32 I32))))
+    (extern provide-constant "snail.runtime.wasm" "provide-constant" (-> I32 Unit))
+    (extern name-instance "snail.runtime.wasm" "name-instance" (-> I32 Bool))
+    (extern call-export "snail.runtime.wasm" "call-export" (-> I32 I64 I64))))

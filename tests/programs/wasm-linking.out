@@ -4,7 +4,10 @@ one one function
 snail.runtime.wasm namespace function
 host missing function
 main answers 42
+fail answers 5
 nothing is exported as absent
+named two
+two is taken
 the module two again imports what nothing provides at its type
 the module two short imports what nothing provides at its type
 not a module

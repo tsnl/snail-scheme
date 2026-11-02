@@ -19,6 +19,7 @@
    build-tool
    build-toolchain-tool
    build-cli-tools
+   build-engine
    build-editor-tools
    build-book-tools
    bootstrap!
@@ -62,12 +63,14 @@
     ;; ---- Running programs ----
 
     ;; The command that runs a compiled program, one linked module or the
-    ;; modules.json of a per-library build. Node runs it, unless
-    ;; SNAIL_ENGINE=wasmtime asks for build/snail, whose `run-wasm` runs a
-    ;; program that needs of its host only WASI, the files it links and
-    ;; loading modules, and drives its tasks. A program that imports
+    ;; modules.json of a per-library build, which the engine links
+    ;; (bootstrap/engine.sld), built first when it is stale. Node runs it,
+    ;; unless SNAIL_ENGINE=wasmtime asks for build/snail, whose `run-wasm`
+    ;; runs a program that needs of its host only WASI, the files it links
+    ;; and loading modules, and drives its tasks. A program that imports
     ;; sockets or processes stays on Node.
     (define (program-command root program)
+      (when (string-suffix? ".json" program) (build-engine root))
       (if (and (wasmtime-engine?) (not (node-hosted? (program-imports root program))))
           (list (snail-binary root) "run-wasm" program)
           (node-command root program)))
@@ -751,14 +754,24 @@
 
     ;; The `snail` command line, a Snail program that builds projects with
     ;; the compiler inside it, linked with the toolchain's runtime, which
-    ;; assembles a development build's modules; and the runtime it links
-    ;; programs with.
+    ;; assembles a development build's modules; the runtime it links
+    ;; programs with; and the engine that runs a development build.
     (define (build-cli-tools root)
       (list (build-toolchain-tool root
                                   (path-join root "bootstrap/cli.sld")
                                   (path-join root "build/project/cli.wasm")
                                   (standard-directories root))
-            (build-runtime root #f)))
+            (build-runtime root #f)
+            (build-engine root)))
+
+    ;; The engine, which host/native/run-snail.mjs and `snail run-wasm`
+    ;; start to run a program compiled one library at a time, at the path
+    ;; both look for it at.
+    (define (build-engine root)
+      (build-tool root
+                  (path-join root "bootstrap/engine.sld")
+                  (path-join root "build/engine/engine.wasm")
+                  (standard-directories root)))
 
     ;; The development service adds two programs to the command line's
     ;; tools, whose `resident` builds for it: the editor, the interface it
