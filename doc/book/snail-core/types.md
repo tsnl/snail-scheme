@@ -333,6 +333,9 @@ usual conversion check; there is no numeric promotion. The selected
 branch carries the ordinary static instance evidence. No global registry,
 runtime specialization or hidden host dependency is introduced.
 
+The dispatcher is an ordinary method: its caller evaluates the arguments
+before entering it. Its internal checks run in that method's body.
+
 The constraint `Describe (! dyn-cast) Any` is solved at compile time to this adapter;
 the payload is checked when a method is called. A generic function that
 never calls a method does not inspect its argument merely because it has
@@ -386,7 +389,8 @@ Extracting a concrete `T` from `Any` checks its identity and representation.
 A mismatch performs the abortive operation
 `(conversion-failed error)` of `dyn-cast`; it does not panic.
 The rule is identical for explicit syntax and compiler-inserted checks.
-Argument checks run left to right, before evaluating the following argument.
+At a call's concrete parameter boundaries, inserted checks run left to
+right, before evaluating the following argument.
 
 The ordinary effect rules apply. An inferred function acquires `dyn-cast`;
 a closed signature must declare it or handle it inside the body. A function
