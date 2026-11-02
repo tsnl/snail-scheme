@@ -59,7 +59,8 @@
    link-module
    loading-program
    name-instance
-   run-export)
+   run-export
+   run-export-with)
   (import
    (snail core base)
    (prefix (snail runtime wasm) host-)
@@ -91,7 +92,8 @@
     ;; loaded module may import. `name-instance` puts an instance in the
     ;; program's namespace under the staged name, where `instantiate` and
     ;; later loads see it; `call-export` calls an export of no argument or
-    ;; one I64, such as `main` or `tasks:turn`, for its result.
+    ;; one I64, such as `main` or `tasks:turn`, for its result, and
+    ;; `call-with-function` one of a Funcref, such as `tasks:start-main`.
     (effect wasm
       ((argument-character (-> Char Unit))
        (argument-end (-> Unit))
@@ -111,7 +113,8 @@
        (link-prepared (-> I32))
        (provide-constant (-> I32 Unit))
        (register-instance (-> I32 Bool))
-       (call-export (-> I32 I64 I64)))
+       (call-export (-> I32 I64 I64))
+       (call-with-function (-> I32 Funcref I64)))
       (default ((argument-character host-argument-character)
                 (argument-end host-argument-end)
                 (compile host-compile)
@@ -130,7 +133,8 @@
                 (link-prepared host-link-prepared)
                 (provide-constant host-provide-constant)
                 (register-instance host-name-instance)
-                (call-export host-call-export))))
+                (call-export host-call-export)
+                (call-with-function host-call-with-function))))
 
     (: send-argument (-> String Unit ! wasm))
     (define (send-argument text)
@@ -457,6 +461,16 @@
       (send-argument name)
       (if (exports-function? (Module-handle instance))
           (begin (send-argument name) (Ok (call-export (Module-handle instance) argument)))
+          (Err (MissingExport name))))
+
+    ;; Calls the function the instance exports as `name` with `function`,
+    ;; such as a scheduler's `tasks:start-main` with a program's body.
+    (: run-export-with (-> Module String Funcref (Result I64 LoadError) ! wasm))
+    (define (run-export-with instance name function)
+      (send-argument name)
+      (if (exports-function? (Module-handle instance))
+          (begin (send-argument name)
+                 (Ok (call-with-function (Module-handle instance) function)))
           (Err (MissingExport name))))
 
     ;; ---- Plugin functions ----

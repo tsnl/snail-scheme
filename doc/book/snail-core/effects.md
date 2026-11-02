@@ -350,6 +350,14 @@ default to it, at its entry
 (`tests/programs/error-default-unperformed.sld`). A default is a lambda or
 a function's name, and an operation has at most one.
 
+A control operation has no default, so a program's statements could not
+perform one, were they not run under a handler. An effect declared with an
+`(around-main)` clause after its operations says the host handles it around
+a program's body: `tasks` is, since a program's statements run as its first
+task ([tasks](../runtimes/tasks.md)), so a program may `yield` or `sleep` at
+its top level, while a library's definitions, which are initialized before
+any task runs, still may not.
+
 ## Control handlers
 
 ### Control operations

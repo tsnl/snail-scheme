@@ -29,16 +29,18 @@ handles it, both in Snail-Core:
          (write-line "the child finishes after main returns"))))
 ```
 
-A program's top level runs to completion before any task does: `main`
-returns, and the host then drives the scheduler until no task is live,
-before closing its external resources. A task runs until it finishes or
-waits; a trap ends only the task that trapped, which the host reports,
-and gives the run a failing exit status, while its siblings go on
-(`tests/tasks/failure.sld`). A trap in `main` itself ends the run.
-Whole-program builds and separately linked library builds share one
-scheduler, the one in the program's copy of `(snail shell task)`. Library
-initializers run in dependency order, and the tasks they dispatch run
-once the last has returned.
+A program's statements run as its first task: once every definition is
+initialized, the host hands the program's body to `tasks:start-main`, and
+drives the scheduler until no task is live, before closing its external
+resources. The body may therefore `yield`, `sleep` and `await` like any
+task (`tests/programs/tasks-main.sld`); a child it dispatches runs when
+it yields or finishes. A task runs until it finishes or waits; a trap ends
+only the task that trapped, which the host reports, and gives the run a
+failing exit status, while its siblings go on (`tests/tasks/failure.sld`),
+and so does a trap in the body. Whole-program builds and separately linked
+library builds share one scheduler, the one in the program's copy of
+`(snail shell task)`. Library initializers run in dependency order, before
+the body, and the tasks they dispatch run after it.
 
 The operations are not actors: there are no request/reply protocols or
 supervisors. A task's id names it to the host, which reports a trap under

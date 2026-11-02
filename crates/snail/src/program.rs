@@ -127,7 +127,9 @@ fn close(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<i32> {
 
 // The program's main answers the status, unless a task traps after it;
 // the engine's runs each of the program's and keeps the last one's result
-// as `engine:status`.
+// as `engine:status`. A program that links the scheduler has its
+// definitions initialized by `main:init` and its body run as the first
+// task by `tasks:start-main`.
 fn start(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<u8> {
     let mut status = 0;
     for instance in &program.mains {
@@ -155,8 +157,18 @@ fn main_status(mut store: impl AsContextMut, instance: &Instance) -> wasmtime::R
     let Some(main) = instance.get_func(&mut store, "main") else {
         bail!("the module exports no function main")
     };
+    let start = instance.get_func(&mut store, "tasks:start-main");
+    let body = instance.get_func(&mut store, "main:body");
+    let init = instance.get_func(&mut store, "main:init");
+    let (main, arguments) = match (start, body, init) {
+        (Some(start), Some(body), Some(init)) => {
+            init.call(&mut store, &[], &mut [Val::I32(0)])?;
+            (start, vec![Val::FuncRef(Some(body))])
+        }
+        _ => (main, Vec::new()),
+    };
     let mut results = vec![Val::I32(0); main.ty(&store).results().len()];
-    main.call(&mut store, &[], &mut results)?;
+    main.call(&mut store, &arguments, &mut results)?;
     Ok(match results.first() {
         None => 0,
         Some(Val::I32(result)) => u8::try_from(*result).unwrap_or(1),

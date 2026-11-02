@@ -962,9 +962,9 @@
         (fold-left (lambda (program entry)
                      (program-with-value program (Pair-first entry) (Pair-second entry)))
                    (fold-left program-with-effect empty-program
-                              (list (Effect "t:Abort" (list "t:abort") (list "t:abort") (Nil))
-                                    (Effect "t:Log" (list "t:log") (Nil) (Nil))
-                                    (Effect "t:Io" (list "t:fetch") (Nil) (Nil))))
+                              (list (Effect "t:Abort" (list "t:abort") (list "t:abort") (Nil) #f)
+                                    (Effect "t:Log" (list "t:log") (Nil) (Nil) #f)
+                                    (Effect "t:Io" (list "t:fetch") (Nil) (Nil) #f)))
                    (list (Pair "t:abort" (operation "t:Abort" (Nil)))
                          (Pair "t:log" (operation "t:Log" (Nil)))
                          (Pair "t:fetch" (operation "t:Io" (list "t:Abort"))))))

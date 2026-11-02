@@ -4458,18 +4458,45 @@
     (define (sort-named entries)
       (list-sort (lambda (a b) (string<? (Pair-first a) (Pair-first b))) entries))
 
+    ;; A module's `main` initializes its definitions and runs its body, a
+    ;; program's statements, and answers 0. The two are exported apart as
+    ;; well: `main:init` runs the initializers, and `main:body`, which
+    ;; takes the evidence, runs the body under the handlers it is given,
+    ;; which is how a program's body runs as its first task, under the
+    ;; scheduler's handler of `tasks` ((snail shell task)'s `start-main`).
     (: emit-main! (-> Module (List Item) Unit ! mut))
     (define (emit-main! m items)
-      (let* ((fn (Fn-evidence-set (new-fn m) (evidence-none m)))
-             (code (concatenate (map (lambda (item) (main-item-code m fn item)) items))))
+      (let ((definitions (filter (lambda (item) (not (statement? item))) items))
+            (statements (filter statement? items)))
+        (push-function! m "$main.init" (main-part m "$main.init" "main:init" #f definitions))
+        (push-function! m "$main.body" (main-part m "$main.body" "main:body" #t statements))
         (push-function! m "$main"
-                        (wat* "func" (Cons (Word "$main")
-                                           (Cons (wat "export" (wat-string "main"))
-                                                 (Cons (wat "result" (Word "i32"))
-                                                       (append (reverse (ref-get (Fn-locals fn)))
-                                                               (append code
-                                                                       (list (wat "i32.const"
-                                                                                  (int 0))))))))))))
+                        (wat "func" (Word "$main") (wat "export" (wat-string "main"))
+                             (wat "result" (Word "i32"))
+                             (wat "drop" (wat "call" (id "$main.init")))
+                             (wat "call" (id "$main.body") (evidence-none m))))))
+
+    (: statement? (-> Item Bool))
+    (define (statement? item)
+      (match item
+        ((Do _) #t)
+        (_ #f)))
+
+    ;; One part of main, exported as `symbol`: a function of the evidence
+    ;; when `evidence?`, otherwise one of no parameters, whose code is the
+    ;; items', answering 0.
+    (: main-part (-> Module String String Bool (List Item) Wat ! mut))
+    (define (main-part m name symbol evidence? items)
+      (let* ((fn (Fn-evidence-set (new-fn m)
+                                  (if evidence? (wat "local.get" (Word "$ev")) (evidence-none m))))
+             (code (concatenate (map (lambda (item) (main-item-code m fn item)) items))))
+        (wat* "func"
+              (concatenate (list (list (Word name) (wat "export" (wat-string symbol)))
+                                 (if evidence? (list (evidence-param m)) (Nil))
+                                 (list (wat "result" (Word "i32")))
+                                 (reverse (ref-get (Fn-locals fn)))
+                                 code
+                                 (list (wat "i32.const" (int 0))))))))
 
     ;; A value becomes a mutable global set at startup; a statement runs and
     ;; its value is dropped; an exposed function is exported, behind the

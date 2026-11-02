@@ -1,0 +1,4 @@
+main starts
+the child runs when main yields
+main resumes
+main ends

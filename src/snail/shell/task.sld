@@ -8,6 +8,8 @@
 ;;
 ;; The host sees the scheduler only through these exports:
 ;;
+;; - `tasks:start-main body` runs a program's body, its `main:body`
+;;   export, as the first task, so the program's statements may yield;
 ;; - `tasks:turn now` runs a turn, answering when the next is due;
 ;; - `tasks:wake ticket` readies the task waiting on a ticket, answering
 ;;   whether one was;
@@ -23,8 +25,8 @@
    Mailbox make-mailbox mailbox-post mailbox-receive mailbox-try-receive)
   (import
    (snail core base)
-   (only (snail core forms) host)
-   (only (snail core primitive) inherit-handlers)
+   (only (snail core forms) host Funcref)
+   (only (snail core primitive) inherit-handlers unsafe-cast)
    (snail shell slot))
   (begin
 
@@ -33,12 +35,14 @@
     ;; `yield` lets every other ready task run first, `sleep` waits for a
     ;; number of milliseconds, and `await` waits until a ticket is woken. A
     ;; ticket names one wait; taking one does not suspend, so `ticket` is
-    ;; an ordinary operation.
+    ;; an ordinary operation. A program's body runs as its first task,
+    ;; under this handler, so it may perform these (`around-main`).
     (effect tasks
       ((ctl yield (-> Unit))
        (ctl sleep (-> I64 Unit))
        (ctl await (-> I64 Unit))
-       (ticket (-> I64))))
+       (ticket (-> I64)))
+      (around-main))
 
     ;; ---- Queues ----
 
@@ -356,6 +360,18 @@
     (define (live)
       (::live (ref-get scheduler)))
 
+    ;; The program's body, its `main:body` export, which takes the evidence
+    ;; and answers its status, run as the first task: the host, or the
+    ;; engine, calls this in place of the body, once the program's
+    ;; definitions are initialized, so the statements run under this
+    ;; scheduler's handler of `tasks` and may yield.
+    (: start-main (-> Funcref Unit ! mut host))
+    (define (start-main body)
+      (dispatch-local (once (lambda ()
+                              ((ann (unsafe-cast body) (-> I32 ! tasks host)))
+                              (unit)))))
+
+    (expose start-main "tasks:start-main")
     (expose turn "tasks:turn")
     (expose wake! "tasks:wake")
     (expose close! "tasks:close")

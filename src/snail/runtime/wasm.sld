@@ -24,7 +24,8 @@
    link-prepared
    provide-constant
    name-instance
-   call-export)
+   call-export
+   call-with-function)
   (import
    (snail core base)
    (only (snail core forms) Funcref))
@@ -47,4 +48,5 @@
     (extern link-prepared "snail.runtime.wasm" "link-prepared" (-> I32))
     (extern provide-constant "snail.runtime.wasm" "provide-constant" (-> I32 Unit))
     (extern name-instance "snail.runtime.wasm" "name-instance" (-> I32 Bool))
-    (extern call-export "snail.runtime.wasm" "call-export" (-> I32 I64 I64))))
+    (extern call-export "snail.runtime.wasm" "call-export" (-> I32 I64 I64))
+    (extern call-with-function "snail.runtime.wasm" "call-with-function" (-> I32 Funcref I64))))

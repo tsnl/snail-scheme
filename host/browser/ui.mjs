@@ -9,7 +9,7 @@
 import {createDom} from './dom.mjs';
 import {createFetch} from './fetch.mjs';
 import {loadSave, storeSave} from './storage.mjs';
-import {createWasi, instantiate, linkedFileImports} from './load.mjs';
+import {createWasi, instantiate, linkedFileImports, runMain} from './load.mjs';
 import {createRuntime, applicationEntry, HIDDEN} from './runtime.mjs';
 
 // Starts the interface in `container`, answering once its first view is
@@ -32,7 +32,7 @@ async function instantiateInterface(url, imports, tasks) {
   const linked = linkedFileImports(fetchRead(url), module, tasks);
   const instance = await instantiate(module, {...wasi.getImportObject(), ...imports, ...linked});
   wasi.initialize(instance);
-  instance.exports.main();
+  runMain(instance.exports);
   return instance;
 }
 
