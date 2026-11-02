@@ -100,13 +100,19 @@ which the engine runs: `(snail shell engine)`, a Snail-Core program stage 0
 builds to `build/engine/engine.wasm` (`bootstrap/engine.sld`), which both
 hosts start with the manifest in `SNAIL_MANIFEST`, or at
 `SNAIL_ENGINE_MODULE`. The engine reads the runtime and each module from
-the store the manifest names, by digest, links them through the Wasm
-primitives of `(snail shell wasm)`, the runtime first and each library's
-module after those it imports from, names the runtime `snail.core.support`
-so the host stages Bytes in its memory, runs each `main` in program order,
-and serves the files the program links, read from the store when a task
-asks and woken after the turn; the host sees the program's scheduler
-through the engine's own `tasks:*` exports, which forward to it. A file a
+the store the manifest names, by digest, through its `linked-content-store`
+effect, which this entry handles by reading files. It links them through
+the Wasm primitives of `(snail shell wasm)`, the runtime first and each
+library's module after those it imports from, names the runtime
+`snail.core.support` so the host stages Bytes in its memory, runs each
+`main` in program order, and serves the files the program links, each
+read in a task of its own that wakes the reading task's ticket. Linking is
+the engine's first task: the host turns the engine once after its `main`,
+which links the program and runs its mains, and then reads
+`engine:status`. The engine's own scheduler and the program's are turned
+as one through its `engine:turn`, `engine:wake`, `engine:close-tasks`,
+`engine:running` and `engine:live`, which the host calls in place of
+`tasks:*`. A file a
 linked module links is an object of `store/` beside it, read by the host
 when a task first asks for it, which wakes the task's ticket between turns
 (`links.rs`).

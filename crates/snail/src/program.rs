@@ -126,10 +126,11 @@ fn close(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<i32> {
 }
 
 // The program's main answers the status, unless a task traps after it;
-// the engine's runs each of the program's and keeps the last one's result
-// as `engine:status`. A program that links the scheduler has its
-// definitions initialized by `main:init` and its body run as the first
-// task by `tasks:start-main`.
+// the engine's first task runs each of the program's and keeps the last
+// one's result as `engine:status`, and its store reads files at once, so
+// the engine's first turn runs that task whole. A program that links the
+// scheduler has its definitions initialized by `main:init` and its body
+// run as the first task by `tasks:start-main`.
 fn start(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<u8> {
     let mut status = 0;
     for instance in &program.mains {
@@ -141,6 +142,10 @@ fn start(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<u8> {
             .get_typed_func::<(), i64>(&mut *store, "engine:status")
             .ok()
         {
+            let turn = instance.get_typed_func::<i64, i64>(&mut *store, "engine:turn")?;
+            if let Err(error) = turn.call(&mut *store, now()) {
+                return exit_status(Err(error));
+            }
             status = u8::try_from(reported.call(&mut *store, ())?).unwrap_or(1);
         }
     }
@@ -191,15 +196,23 @@ fn settle(ran: wasmtime::Result<u8>, closed: wasmtime::Result<i32>) -> wasmtime:
 // ---- Tasks ----
 
 // The scheduler's export `name`, from whichever instance holds (snail
-// shell task): the runtime, when the program is one linked module.
+// shell task): the runtime, when the program is one linked module. An
+// engine drives its own tasks and the program's as one scheduler, through
+// `engine:` exports of the same names.
 fn task_export<Params: WasmParams, Results: WasmResults>(
     store: &mut Store<Host>,
     program: &Linked,
     name: &str,
 ) -> Option<TypedFunc<Params, Results>> {
+    let engine = name.replacen("tasks:", "engine:", 1);
     std::iter::once(&program.runtime)
         .chain(&program.mains)
-        .find_map(|instance| instance.get_typed_func(&mut *store, name).ok())
+        .find_map(|instance| {
+            instance
+                .get_typed_func(&mut *store, &engine)
+                .or_else(|_| instance.get_typed_func(&mut *store, name))
+                .ok()
+        })
 }
 
 // Turns until no task is live, answering whether a task failed. A turn
