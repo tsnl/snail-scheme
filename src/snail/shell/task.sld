@@ -17,11 +17,17 @@
 ;; - `tasks:running` names the running task: after a trap, the task that
 ;;   trapped, which the trap ended;
 ;; - `tasks:live` counts the tasks that have not finished.
+;;
+;; An engine written in Snail-Core ((snail shell engine)) runs tasks of
+;; its own beside the program's, and turns this scheduler, its own, by the
+;; same functions, which it imports as `tasks-turn`, `tasks-wake!`,
+;; `tasks-close!`, `tasks-running` and `tasks-live`.
 (define-library (snail shell task)
   (export
    tasks yield sleep await ticket
    dispatch-local dispatch-task
    through-host
+   tasks-turn tasks-wake! tasks-close! tasks-running tasks-live
    Mailbox make-mailbox mailbox-post mailbox-receive mailbox-try-receive)
   (import
    (snail core base)
@@ -230,8 +236,8 @@
     ;; readies the sleepers whose deadline has passed. It answers 0 when a
     ;; task is ready, -1 when no task is live, -2 when every task waits on a
     ;; ticket, and otherwise the milliseconds until the earliest deadline.
-    (: turn (-> I64 I64 ! mut host))
-    (define (turn now)
+    (: tasks-turn (-> I64 I64 ! mut host))
+    (define (tasks-turn now)
       (when (= (::last-ticket (ref-get scheduler)) 0)
         (set! (::last-ticket (ref-get scheduler)) (* now 1000)))
       (set! (::now (ref-get scheduler)) now)
@@ -315,8 +321,8 @@
     ;; Wakes the task waiting on a ticket, answering whether one was: a
     ;; stale ticket, such as one whose task trapped, or whose scheduler
     ;; closed, wakes nothing.
-    (: wake! (-> I64 Bool ! mut))
-    (define (wake! ticket)
+    (: tasks-wake! (-> I64 Bool ! mut))
+    (define (tasks-wake! ticket)
       (match (without ticket (take-waiters!))
         ((Pair found rest)
          (put-waiters! rest)
@@ -341,8 +347,8 @@
     ;; the tasks of the program it replaces. A task is its rest, a FnOnce;
     ;; dropping one unrun drops the linear values its frames hold, which
     ;; performs what their drops perform, within the task's row, `host`.
-    (: close! (-> Unit ! mut host))
-    (define (close!)
+    (: tasks-close! (-> Unit ! mut host))
+    (define (tasks-close!)
       (drop (take-ready!))
       (put-ready! (empty-queue))
       (drop (take-timers!))
@@ -352,12 +358,12 @@
       (set! (::ready-count (ref-get scheduler)) 0)
       (set! (::live (ref-get scheduler)) 0))
 
-    (: running (-> I64 ! mut))
-    (define (running)
+    (: tasks-running (-> I64 ! mut))
+    (define (tasks-running)
       (::running (ref-get scheduler)))
 
-    (: live (-> I64 ! mut))
-    (define (live)
+    (: tasks-live (-> I64 ! mut))
+    (define (tasks-live)
       (::live (ref-get scheduler)))
 
     ;; The program's body, its `main:body` export, which takes the evidence
@@ -372,11 +378,11 @@
                               (unit)))))
 
     (expose start-main "tasks:start-main")
-    (expose turn "tasks:turn")
-    (expose wake! "tasks:wake")
-    (expose close! "tasks:close")
-    (expose running "tasks:running")
-    (expose live "tasks:live")
+    (expose tasks-turn "tasks:turn")
+    (expose tasks-wake! "tasks:wake")
+    (expose tasks-close! "tasks:close")
+    (expose tasks-running "tasks:running")
+    (expose tasks-live "tasks:live")
 
     ;; ---- Waiting on the host ----
 
@@ -433,7 +439,7 @@
              (put! messages (enqueue (take! messages) message))))
           ((Some (Pair receiver rest))
            (put! receivers rest)
-           (if (wake! (Receiver-ticket receiver))
+           (if (tasks-wake! (Receiver-ticket receiver))
                (put! (Receiver-slot receiver) message)
                (mailbox-post mailbox message))))))
 

@@ -123,14 +123,18 @@ function engineModule() {
   return process.env.SNAIL_ENGINE_MODULE ?? fileURLToPath(new URL('../../build/engine/engine.wasm', import.meta.url));
 }
 
-// The program's main, or the engine's, which runs each of the program's
-// in order and keeps the last one's result, `engine:status`. Work
-// dispatched by any initializer belongs to this runtime and may outlive
-// the program's main invocation: its tasks run once every main has
-// returned.
+// The program's main, or the engine's, whose first task links the program
+// and runs each of its mains in order, keeping the last one's result,
+// `engine:status`: its first turn runs that task, whose files are read
+// at once, so a WASI exit in a main is the program's status here too.
+// Work dispatched by any initializer belongs to this runtime and may
+// outlive the program's main invocation: its tasks run once every main
+// has returned.
 function runInitializers(program) {
   const result = runMain(program.exports);
-  return program.exports['engine:status'] ? Number(program.exports['engine:status']()) : result;
+  if (!program.exports['engine:status']) return result;
+  program.exports['engine:turn'](BigInt(Date.now()));
+  return Number(program.exports['engine:status']());
 }
 
 // ---- The program on the main thread ----
