@@ -185,10 +185,22 @@ export async function linkProgram(read, manifest, wasi, host, tasks = noTasks) {
 }
 
 // Runs each module's initialization in program order; the program's own,
-// last, returns its status.
+// last, returns its status, its body run as the first task when the
+// program links the scheduler.
 export function runProgram(program, names = program.names) {
   let status = 0;
-  for (const name of names) status = program.linked.get(name).exports.main();
+  for (const name of names) {
+    const exports = program.linked.get(name).exports;
+    status = name === program.names.at(-1) ? runProgramMain(program, exports) : exports.main();
+  }
+  return status;
+}
+
+function runProgramMain(program, exports) {
+  const tasks = program.linked.get('snail.shell.task')?.exports;
+  if (!tasks?.['tasks:start-main'] || !exports['main:body']) return exports.main();
+  const status = exports['main:init']();
+  tasks['tasks:start-main'](exports['main:body']);
   return status;
 }
 
@@ -397,7 +409,24 @@ export function wasmImports(program, memory = () => (program().loader ?? program
       const result = instance(handle).exports[strings.take()[0]](argument);
       return typeof result === 'bigint' ? result : BigInt(result ?? 0);
     },
+    'call-with-function'(handle, callee) {
+      const result = instance(handle).exports[strings.take()[0]](callee);
+      return typeof result === 'bigint' ? result : BigInt(result ?? 0);
+    },
   };
+}
+
+// Runs a module's main: a program that links (snail shell task) has its
+// definitions initialized by `main:init`, and its body, `main:body`, run
+// as the first task by `tasks:start-main`, so its statements may yield;
+// any other module's `main` does both at once. Answers main's result.
+export function runMain(exports) {
+  if (exports['tasks:start-main'] && exports['main:body']) {
+    const status = exports['main:init']();
+    exports['tasks:start-main'](exports['main:body']);
+    return status;
+  }
+  return exports.main();
 }
 
 // An instance of the module, linked as a module of `program` is, or null

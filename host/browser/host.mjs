@@ -6,7 +6,7 @@ import {createRenderer} from './renderer.mjs';
 import {createHud} from './hud.mjs';
 import {createPictures} from './pictures.mjs';
 import {loadSave, storeSave} from './storage.mjs';
-import {createWasi, instantiate, linkedFileImports, linkProgram, relinkProgram, runProgram} from './load.mjs';
+import {createWasi, instantiate, linkedFileImports, linkProgram, relinkProgram, runMain, runProgram} from './load.mjs';
 import {createRuntime, applicationEntry, HIDDEN} from './runtime.mjs';
 
 // ---- Input encoding ----
@@ -182,7 +182,7 @@ async function instantiateApplication(application, url) {
   const linked = linkedFileImports(fetchRead(url), module, () => application.runtime.execution.tasks);
   const instance = await instantiate(module, {...wasi.getImportObject(), ...applicationImports(application), ...linked});
   wasi.initialize(instance);
-  instance.exports.main();
+  runMain(instance.exports);
   application.program = instance;
 }
 

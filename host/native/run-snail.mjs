@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {WASI} from 'node:wasi';
-import {commandImports, instantiate, linkedFileImports, wasmImports} from '../browser/load.mjs';
+import {commandImports, instantiate, linkedFileImports, runMain, wasmImports} from '../browser/load.mjs';
 import {createTasks, taskExports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
@@ -129,7 +129,7 @@ function engineModule() {
 // the program's main invocation: its tasks run once every main has
 // returned.
 function runInitializers(program) {
-  const result = program.exports.main();
+  const result = runMain(program.exports);
   return program.exports['engine:status'] ? Number(program.exports['engine:status']()) : result;
 }
 

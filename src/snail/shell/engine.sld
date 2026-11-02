@@ -165,9 +165,28 @@
                     (list->vector
                      (map (lambda (object) (object-file manifest (Object-digest object)))
                           (Manifest-files manifest))))
-          (for-each (lambda (library) (ref-set! status (call (Pair-second library) "main" 0)))
-                    libraries)
+          (run-mains libraries (assoc-ref libraries "snail.shell.task"))
           (ref-get status))))
+
+    ;; Each library's main in program order. The program's own, last, has
+    ;; its definitions initialized and its body run as the first task of
+    ;; the scheduler when the program links one, so its statements may
+    ;; yield; otherwise its main runs whole, as a library's does.
+    (: run-mains (-> (List (Pair String Module)) (Option Module) Unit ! mut wasm))
+    (define (run-mains libraries scheduler)
+      (match libraries
+        ((Nil) (unit))
+        ((Cons (Pair _ program) (Nil))
+         (match (Pair scheduler (module-export program "main:body"))
+           ((Pair (Some scheduler) (Ok body))
+            (ref-set! status (call program "main:init" 0))
+            (match (run-export-with scheduler "tasks:start-main" body)
+              ((Ok _) (unit))
+              ((Err error) (panic (load-error-message error)))))
+           (_ (ref-set! status (call program "main" 0)))))
+        ((Cons (Pair _ library) rest)
+         (ref-set! status (call library "main" 0))
+         (run-mains rest scheduler))))
 
     (: program-status (-> I64 ! mut))
     (define (program-status)
