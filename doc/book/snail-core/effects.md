@@ -605,6 +605,23 @@ an export, so no unchecked path can call it twice either.
 Multi-shot continuations are out of scope: they would need every frame to
 be reachable twice, a cost paid by code that never captures one.
 
+### Conversion failure
+
+`(snail core base)` declares the ordinary control effect `dyn-cast`:
+
+```scheme
+(effect dyn-cast
+  ((ctl conversion-failed (-> CastError Never))))
+```
+
+Both explicit and inserted fallible Any conversions require this effect.
+A `handle dyn-cast` may recover with a fallback, return an error value, or
+rethrow to an outer handler; the operation is abortive and has no
+resumption. A general `exn` effect does not authorize it implicitly.
+`try-convert` instead returns a checked value or `CastError` without
+performing `dyn-cast`. The [dynamic values](types.md#explicit-dynamic-values)
+section gives the inference rules, structured errors and library boundaries.
+
 ### Where control cannot reach
 
 A yield returns through each frame between the operation and its handler,

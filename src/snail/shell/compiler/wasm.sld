@@ -804,6 +804,7 @@
           ((Match scrutinee clauses) (emit-match fn expr scrutinee clauses tail?))
           ((Handle effect implementations body) (emit-handle fn expr effect implementations body))
           ((Convert inner target) (emit-convert fn inner target (Expr-loc expr)))
+          ((TryConvert _ _) (panic "internal error: an unlowered conversion"))
           ((TypeTest inner target) (list (type-test fn inner target)))
           ((Ann inner _) (emit fn inner tail?)))))
 
@@ -2017,8 +2018,10 @@
                                 (id (wasm-id key))
                                 (wat "struct" (wat "field" (rep->wat r)))))))))
 
-    ;; To Any boxes; from Any checks the TypeId and panics on a mismatch. A
-    ;; downcast of a value just upcast from the same type is removed. Keys
+    ;; To Any boxes. After conversions.sld, every extraction is dominated
+    ;; by a successful TypeTest of this value and target, so it only reads
+    ;; the established representation. A downcast just upcast from the same
+    ;; type may be removed; Any -> T -> Any must keep its test. Keys
     ;; and TypeIds leave rows out, which is exact only because the checker
     ;; refuses a conversion whose types hold a function with effects.
     (: emit-convert (-> Fn Expr Type Loc (List Wat) ! mut))
@@ -2026,7 +2029,9 @@
       (let ((source (Expr-type inner)) (m (Fn-module fn)))
         (cond ((string=? (type-key source) (type-key target)) (emit fn inner #f))
               ((match (Expr-term inner)
-                 ((Convert original _) (string=? (type-key (Expr-type original)) (type-key target)))
+                 ((Convert original _)
+                  (and (not (any-type? target))
+                       (string=? (type-key (Expr-type original)) (type-key target))))
                  (_ #f))
                (match (Expr-term inner)
                  ((Convert original _) (emit fn original #f))
@@ -2049,26 +2054,11 @@
     (define (from-any fn type value)
       (let* ((m (Fn-module fn))
              (r (fn-rep fn type))
-             (any (declare-temp! fn (rep->wat (Reference (any-type m)))))
-             (held (wat "ref.cast"
-                        (wat "ref" (id (held-type m r)))
-                        (wat "struct.get" (Word "$any") (int 1) (wat "local.get" (id any))))))
-        (wat "block" (wat "result" (rep->wat r))
-             (wat "local.set" (id any) value)
-             (wat "if"
-                  (wat "i32.ne"
-                       (wat "struct.get" (Word "$any") (int 0) (wat "local.get" (id any)))
-                       (wat "i32.const" (int (any-type-id (program-of m) type))))
-                  (wat "then"
-                       (wat "call"
-                            (id (panic-helper m))
-                            (string-literal m
-                                            (string-append "type-convert: the value is not a "
-                                                           (type->string type))))
-                       (wat "unreachable")))
-             (match r
-               ((Scalar _) (wat "struct.get" (id (held-type m r)) (int 0) held))
-               ((Reference _) held)))))
+             (held (wat "ref.cast" (wat "ref" (id (held-type m r)))
+                        (wat "struct.get" (id (any-type m)) (int 1) value))))
+        (match r
+          ((Scalar _) (wat "struct.get" (id (held-type m r)) (int 0) held))
+          ((Reference _) held))))
 
     ;; An Any holds a value of `type` when its TypeId is the type's and its
     ;; value has the type's representation, which `ref.test` checks without
@@ -2761,12 +2751,25 @@
     (define (let-rest fn name value dropper body tail?)
       (cond ((not (may-yield? fn value)) (emit fn body tail?))
             ((aborts? fn value)
-             (Cons (wat "if" (yielding? (Fn-module fn)) (wat "then" (leave fn (Expr-loc value))))
+             (Cons (wat "if" (yielding? (Fn-module fn))
+                        (wat* "then" (append (abort-drops fn dropper)
+                                             (list (leave fn (Expr-loc value))))))
                    (emit fn body tail?)))
             ((match (Fn-exit fn) ((Some (ToRunner)) #t) (_ #f))
              (continue-in-frame fn name value dropper body))
             (else (let ((test (yield-test fn (frame fn name value dropper body) (Expr-loc value))))
                     (append test (emit fn body tail?))))))
+
+    ;; No resumption will own this scope. Drop its live values before
+    ;; leaving its handlers; the dropper cannot itself perform control.
+    (: abort-drops (-> Fn (Option Expr) (List Wat) ! mut))
+    (define (abort-drops fn dropper)
+      (match dropper
+        ((Some thunk)
+         (list (wat "drop"
+                    (wat* "block" (Cons (wat "result" (Word "i32"))
+                                        (closure-call fn thunk (Nil) #f))))))
+        ((None) (Nil))))
 
     ;; Whether every effect `value` may yield to aborts: each of its control
     ;; operations answers Never, so its handler is handed no `resume`, and
@@ -3212,6 +3215,9 @@
                   (wat "local.set"
                        local
                        (wat "ref.cast" (wat "ref" (id base)) (handler-field m info node index)))
+                  (if (answers-never? m operation)
+                      (wat "drop" (call-dropper m (resume-dropper m) outer))
+                      (wat "nop"))
                   (closure-call-wat m
                                     base
                                     (wat "local.get" local)
@@ -3275,8 +3281,8 @@
     ;; that handle has returned. A handle that any other yield leaves, at
     ;; its site or resumed, becomes one frame holding the continuation
     ;; inside it, so resuming the outer computation enters the handle again
-    ;; too. Dropping `resume` drops the continuation: its frames are garbage,
-    ;; and the linear values they hold are abandoned with them.
+    ;; too. Dropping `resume` detaches those frames and runs their droppers
+    ;; under the drop site's evidence before releasing the continuation.
     (: continuation-type (-> Module String ! mut))
     (define (continuation-type m)
       (match (known-type m "continuation")
@@ -3319,9 +3325,10 @@
              (wat "local.get" (Word "$continuation")))))
 
     ;; A resume's dropper: a thunk closed over the continuation, whose code
-    ;; runs each frame's dropper under the continuation's evidence, the
-    ;; handle's node, so a drop that performs the handled effect reaches
-    ;; this handler. Dropping a resume therefore performs no more than the
+    ;; rebases the continuation's handle onto the drop site's evidence,
+    ;; just as resuming does. Its own handled effect stays discharged, while
+    ;; other drops reach the handlers at the actual drop site. It detaches
+    ;; the frames before dropping them. Dropping therefore performs no more than the
     ;; resume's own row, which the checker charged (capabilities.sld,
     ;; `trivial-rows`).
     (: resume-dropper (-> Module Wat ! mut))
@@ -3349,7 +3356,9 @@
   (local $frames (ref null {frames}))
   (local $dropper (ref null {base}))
   (local.set $continuation (struct.get {holder} 2 (ref.cast (ref {holder}) (local.get $closure))))
+  (struct.set {evidence} 2 (struct.get {continuation} 1 (local.get $continuation)) (local.get $ev))
   (local.set $frames (struct.get {continuation} 0 (local.get $continuation)))
+  (struct.set {continuation} 0 (local.get $continuation) (ref.null {frames}))
   (block $done
     (loop $next
       (br_if $done (ref.is_null (local.get $frames)))
@@ -3973,6 +3982,8 @@
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
           (("dynamic-cast") (list (dynamic-cast fn type (list-ref types 1) (arg 0) (arg 1))))
+          (("any-type-id")
+           (list (wat "i64.extend_i32_s" (wat "struct.get" (id (any-type m)) (int 0) (arg 0)))))
           (("panic") (list (wat* "call" (Cons (id (panic-helper m)) code)) (wat "unreachable")))
           (("bool->i32" "char->i32" "i32->char" "string->vector" "vector->string" "u8->i32") code)
           (("i32->u8") (list (wat "i32.and" (arg 0) (wat "i32.const" (int 255)))))

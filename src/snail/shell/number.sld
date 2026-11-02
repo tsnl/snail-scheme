@@ -116,13 +116,13 @@
             ((> x y) 1)
             (else 0)))
 
-    (instance (Num Number)
+    (instance (Num (!) Number)
       (define + number-add)
       (define - number-subtract)
       (define * number-multiply)
       (define (negate n) (number-subtract (number-from-i64 0) n)))
 
-    (instance (Ord Number)
+    (instance (Ord (!) Number)
       (define (= a b) (= (number-compare a b) 0))
       (define (< a b) (< (number-compare a b) 0))
       (define (<= a b) (<= (number-compare a b) 0))
@@ -137,7 +137,7 @@
         ((Exact r) (rational->string r))
         ((Inexact x) (f64->string x))))
 
-    (instance (Show Number)
+    (instance (Show (!) Number)
       (define show number->string))
 
     ;; Exact integers and ratios are parsed here; the runtime parses reals,

@@ -106,7 +106,7 @@
       (write-string text)
       (newline))
 
-    (: display (All (T) (requires (Show T)) (-> T Unit ! console)))
+    (: display (All (T e) (requires (Show e T)) (-> T Unit ! console e)))
     (define (display value)
       (write-string (show value)))
 
@@ -283,7 +283,7 @@
       (PermissionDenied)
       (OtherError))
 
-    (instance (Show FileError)
+    (instance (Show (!) FileError)
       (define (show error)
         (match error
           ((NotFound) "no such file or directory")
@@ -491,7 +491,7 @@
       (NotText)
       (ChangedWhileRead))
 
-    (instance (Show TextError)
+    (instance (Show (!) TextError)
       (define (show error)
         (match error
           ((ReadFailed error) (show error))

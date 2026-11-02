@@ -3,7 +3,8 @@
 ## Types
 
 Scalars are `U8`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
-`Any` is a value of any type, used with `type-convert`.
+`Any` packages an eligible dynamic value, recovered through a checked
+conversion ([dynamic values](#dynamic-values)).
 `String` is an immutable sequence of Unicode scalars. `(Vector T)` is an
 immutable sequence and `(Array T)` a mutable one whose elements are unboxed,
 `(Unboxed T)`: a scalar, a reference or a struct of one unboxed field, each one
@@ -29,7 +30,7 @@ class requirements:
 
 ```scheme
 (: map (All (A B e) (-> (-> A B ! e) (List A) (List B) ! e)))
-(: sum (All (T) (requires (Num T)) (-> (List T) T T)))
+(: sum (All (T e) (requires (Num e T)) (-> (List T) T T ! e)))
 ```
 
 A type variable is linear unless the signature requires `(Copy T)`, which
@@ -38,9 +39,10 @@ a body needs to use a `T` twice or to discard one
 
 Integer literals check against any integer or float type and are
 range-checked; float literals check against `F32` or `F64`. A literal whose
-type nothing determines defaults to `I64` or `F64`. Values never convert
-implicitly: use `i64->i32`, `i32->f64` and the other conversions. Integer
-arithmetic wraps.
+type nothing determines defaults to `I64` or `F64`. Numeric values never
+change numeric type implicitly: use `i64->i32`, `i32->f64` and the other
+conversions. Crossing an `Any` boundary checks the payload's type; it
+does not change that type. Integer arithmetic wraps.
 
 Unannotated top-level functions are generalized over the type variables no
 constraint mentions. Other unannotated definitions, and functions whose
@@ -145,13 +147,17 @@ decide:
 ```
 
 Fetching from a `(Logged Table)` performs `log`, and from a
-`(Logged Directory)`, `log` and `console`. A head's row names no control
-effect. `Drop` and `Clone` are classes over a row too
+`(Logged Directory)`, `log` and `console`. Ordinary class rows may name control
+effects; specialization and control lowering preserve them. `Drop` and `Clone` are classes over a row too
 ([releasing](ownership.md#releasing)), whose rows are found from a type's
-structure where it has no instance.
+structure where it has no instance. These lifecycle classes still prohibit
+control effects, since cleanup must finish.
 
 Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
-`Fractional`; `Show` converts values to text, and `Drop` releases them
+`Fractional`; `Show` converts values to text. These classes all take a
+row followed by a value type, as in `(Num e T)`. Concrete numeric
+instances use `(!)`, so static arithmetic remains pure; a dynamic
+instance can instead declare `(! dyn-cast)`. `Drop` releases values
 ([ownership](ownership.md#releasing)).
 
 ## Effects
@@ -269,24 +275,169 @@ development server does.
 
 ## Dynamic values
 
-`Any` holds an unrestricted value together with its type's identity.
-Affine values cannot cross this boundary. Nor can a function that performs
-effects, wherever it sits in the value's type, or a value of a type
-variable, which may be one: a type's identity has no effect rows, so such a
-function could come back out claiming to perform nothing, and run where
-nothing handles what it does (`tests/programs/error-any-control-function.sld`).
-`type-convert` and `type-test` refuse these types when they are written, so
-an `Any` never holds a function with effects.
-`(type-convert e Any)` wraps a value; `(type-convert e T)` unwraps an `Any`,
-panicking if it does not hold a `T`, and `(type-test e T)` asks whether it
-does. A type's identity describes its structure, its fields and cases, so a
-struct whose fields change, even under the same name, is another type: a
-program relinked with that change cannot take an old value for a new one.
-Converting a value to the type it already has does nothing, and a value
-converted to `Any` and straight back is never wrapped, so conversions can be
-inserted liberally where typed code meets dynamic code.
+### Inferred boundaries and dynamic instances
+
+Typed libraries should retain their signatures when called from dynamic
+code. A dynamic caller need not repeat a callee's parameter types or use a
+special application form. At an expected-type boundary the checker inserts
+the same `type-convert` that a programmer could write:
+
+| Expected | Actual | Checked program |
+| --- | --- | --- |
+| `T` | `T` | The value itself. |
+| `Any` | An eligible concrete `T` | Package the value. |
+| A concrete `T` | `Any` | Check the payload at run time; requires `dyn-cast`. |
+| A concrete `T` | A different concrete `U` | A compile error. |
+| An inference variable | Any type | Ordinary unification, without inventing a cast. |
+
+These boundaries are arguments, annotated expressions and definitions,
+Boolean conditions, type-test operands, and results checked against
+function or handler signatures. Constructors use the argument rule for
+their fields. Structural unification is unchanged:
+`List Any` does not become `List I64`, and function types do not acquire
+adapters. Branches of an unannotated conditional must still agree.
+
+Concrete arguments constrain shared parameter variables before `Any`
+arguments are fitted, without changing evaluation order. If `choose`
+takes two arguments of one type, both `(choose boxed 1)` and
+`(choose 1 boxed)` select that type as `I64` and check `boxed`. With only
+`Any` arguments the type remains `Any`. A result annotation checks the
+result; it does not retroactively choose the callee's instantiation.
+Numeric literals retain their numeric constraints across a conversion:
+an integer packaged into `Any` defaults to `I64`, never to `Any`, unless
+another use gives that literal a concrete numeric type.
+
+No failed constraint silently becomes `Any`. An unresolved inference
+variable, a quantified parameter and a runtime package remain different
+things. The existing restrictions on erasing linear values, function
+references and effectful functions apply to inserted conversions too.
+
+A class at `Any` needs an instance just as a class at any other type does.
+An explicit finite dispatcher supplies one:
 
 ```scheme
-(define items (list (type-convert 42 Any) (type-convert "text" Any)))
-(+ 1 (type-convert (car items) I64))
+(typeclass (Describe e T)
+  (: describe (-> T String ! e)))
+
+;; Declare pure instances (Describe (!) I64) and (Describe (!) String) first.
+(instance (Describe (! dyn-cast) Any)
+  (dispatch I64 String))
 ```
+
+The compiler builds each method from type tests, checked conversions and
+ordinary typed calls. The first argument of the erased class type selects
+a concrete branch. All arguments of that class type are checked against
+the same concrete type, and a result of that type is packaged back into
+`Any`. An unsupported payload or mixed argument types fail through the
+usual conversion check; there is no numeric promotion. The selected
+branch carries the ordinary static instance evidence. No global registry,
+runtime specialization or hidden host dependency is introduced.
+
+The dispatcher is an ordinary method: its caller evaluates the arguments
+before entering it. Its internal checks run in that method's body.
+
+The constraint `Describe (! dyn-cast) Any` is solved at compile time to this adapter;
+the payload is checked when a method is called. A generic function that
+never calls a method does not inspect its argument merely because it has
+a `Describe` requirement. This is an instance for `Any`, not implicit
+unpacking of an existential concrete type at every constrained call.
+
+The list is explicit and belongs to the declaring library. Adding another
+instance elsewhere does not change it. Compound ground types, such as
+`(List I64)`, may be listed if their ordinary instances exist. The normal
+overlap rule still applies: an explicit `Describe (! dyn-cast) Any` and a dispatched
+one cannot coexist.
+
+For this first version, the instance head has exactly one `Any` argument;
+other types and effect rows are closed. Each method needs a direct input
+of the erased class type, and that type may occur only as a whole
+parameter or result. Independently polymorphic methods and extra method
+constraints need explicit implementations. These restrictions avoid
+inventing higher-order wrappers, container traversals, or result-directed
+runtime selection. `Drop` and `Clone` use their existing ownership rules,
+not dynamic dispatch.
+
+Effects are checked over every branch. For example, an instance
+`(Store (! console dyn-cast) Any)` may dispatch to pure and console-performing
+stores; `(Store (! dyn-cast) Any)` cannot dispatch to a store that prints.
+Every finite dispatcher needs `dyn-cast` for unsupported payloads. Calls
+perform the declared row under the caller's handlers. A payload's type
+does not grant permission to perform an undeclared effect.
+
+This changes the typed core's boundaries; it does not yet replace the
+Scheme translator's `Datum` representation, generalize local bindings,
+or erase effectful procedures. Those are separate changes.
+Catchable conversion failure uses the same ownership cleanup as other
+abortive effects ([cleanup](ownership.md#drops-that-may-run)).
+
+### Explicit dynamic values
+
+`Any` holds an unrestricted value together with its type's identity.
+Linear values cannot cross this boundary. Nor can a function that performs
+effects, wherever it sits in the value's type, or a rigid type variable
+that might stand for one: type identities do not record effect rows.
+This restriction applies to `type-convert`, `try-convert` and `type-test`.
+It also excludes a bare `Fn` code reference; a pure closure can be packaged.
+
+`(type-convert e Any)` packages a value. Conversion to the same type,
+including `Any` to `Any`, preserves it. Neither operation needs `dyn-cast`.
+An unconstrained inference variable still unifies normally: casting an
+unannotated parameter to `I64` infers an `I64` parameter. Annotate the
+input `Any` when a runtime conversion is intended.
+
+Extracting a concrete `T` from `Any` checks its identity and representation.
+A mismatch performs the abortive operation
+`(conversion-failed error)` of `dyn-cast`; it does not panic.
+The rule is identical for explicit syntax and compiler-inserted checks.
+At a call's concrete parameter boundaries, inserted checks run left to
+right, before evaluating the following argument.
+
+The ordinary effect rules apply. An inferred function acquires `dyn-cast`;
+a closed signature must declare it or handle it inside the body. A function
+may declare it without being defined inside a handler. Its callers must
+handle or propagate it, and an unhandled effect at a Core entrypoint is a
+compile error. A handler for some other effect, including a user-defined
+`exn`, does not grant this permission. A handler can explicitly translate
+`dyn-cast` to another effect.
+
+```scheme
+(: integer (-> Any I64 ! dyn-cast))
+(define (integer value) value)
+
+(handle dyn-cast ((conversion-failed (lambda (_) -1)))
+  (integer "not an integer"))
+```
+
+The handler returns a fallback for the whole handled computation; it
+receives no resumption. Earlier effects remain visible. Cleanup of
+abandoned owners completes before the handler runs.
+
+`(try-convert value T)` is nonthrowing inspection. It returns
+`(Result T CastError)`, with the already checked value in `Ok`, and does
+not require `dyn-cast`. The target must be eligible and reifiable where the
+form is written. Unlike a Boolean `type-test`, its successful result needs
+no second cast. The effects of evaluating `value` still apply.
+
+`CastError` carries `reason`, `expected` (readable target types),
+`actual` (the existing numeric type identity), and `origin` (source
+location). A dispatch failure also supplies `method` and a zero-based
+`argument` index; ordinary conversion uses an empty method and `-1`.
+Reasons are `TypeMismatch`, `UnsupportedInstance`, and `ArgumentMismatch`.
+An unsupported instance reports its complete domain. Dispatch origins
+name the adapter declaration; ordinary checks name the source boundary.
+Errors do not retain the payload for diagnostics.
+
+`(snail core dynamic)` provides `try-dynamic`, which handles a thunk's
+`dyn-cast` failures as a `Result`, `cast-error->string`, and `run-dynamic`,
+which additionally reports failures through `console`. An interactive
+caller can use this explicit boundary once per evaluation and continue
+after an `Err`; a script decides its exit status from the result. No host
+implicitly enables `dyn-cast`. The current Scheme translator still uses
+`Datum`, and has no Any-based interactive evaluator to wrap automatically.
+
+A type identity includes fields and cases: changing a struct's fields
+changes its identity, even when its name stays the same. A relinked program
+cannot interpret an old value as the new type. A proven successful
+`T → Any → T` may be optimized away. `Any → T → Any` must preserve the
+narrowing check. Optimization never removes `dyn-cast` from an already
+checked function's contract.

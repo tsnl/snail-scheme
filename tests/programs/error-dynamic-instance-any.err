@@ -1,0 +1,1 @@
+dispatch accepts concrete types, not Any or type variables
