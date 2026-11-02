@@ -96,20 +96,29 @@ input, having written its `request.datum` first.
 only WASI, the files it links and loading modules
 (`crates/snail/src/program.rs`).
 PROGRAM is one linked module, or the `modules.json` of a per-library build,
-whose runtime and modules are objects of the store it names, by digest; the
-runtime is instantiated first and each library's module after those
-it imports from (`modules.rs`). A file the program links is an object of
-the program's store, `store/` beside a linked module or where its manifest
-says, read when a task first asks for it, and the host wakes the task's
-ticket between turns (`links.rs`).
+which the engine runs: `(snail shell engine)`, a Snail-Core program stage 0
+builds to `build/engine/engine.wasm` (`bootstrap/engine.sld`), which both
+hosts start with the manifest in `SNAIL_MANIFEST`, or at
+`SNAIL_ENGINE_MODULE`. The engine reads the runtime and each module from
+the store the manifest names, by digest, links them through the Wasm
+primitives of `(snail shell wasm)`, the runtime first and each library's
+module after those it imports from, names the runtime `snail.core.support`
+so the host stages Bytes in its memory, runs each `main` in program order,
+and serves the files the program links, read from the store when a task
+asks and woken after the turn; the host sees the program's scheduler
+through the engine's own `tasks:*` exports, which forward to it. A file a
+linked module links is an object of `store/` beside it, read by the host
+when a task first asks for it, which wakes the task's ticket between turns
+(`links.rs`).
 WASI gets PROGRAM and the arguments, the environment with `SNAIL_CWD`
 naming the working directory, and the host's `/` preopened; then
-`_initialize`, and each
-module's `main` in program order, and then the program's tasks, driven
-until none is live ([driving the scheduler](../runtimes/scheduling.md)).
-The last `main`'s result is the status when it is 0 to 255, and 1
-otherwise, and 1 when a task trapped or exited; a WASI exit in a `main` is
-its own status, and ends the program before its tasks run.
+`_initialize`, and
+`main`, and then the program's tasks, driven until none is live
+([driving the scheduler](../runtimes/scheduling.md)).
+The `main`'s result, the engine's `engine:status` for a manifest, is the
+status when it is 0 to 255, and 1 otherwise, and 1 when a task trapped or
+exited; a WASI exit in a `main` is its own status, and ends the program
+before its tasks run.
 `close-resources`, or the runtime's `snail:io/close-all`, runs whatever
 happened, and a nonzero answer fails a run that succeeded. A trap or a
 failure of the host is status 2, with V8's message after `snail: ` and the

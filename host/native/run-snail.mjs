@@ -2,8 +2,9 @@
 import {chmodSync, statSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {WASI} from 'node:wasi';
-import {commandImports, linkedFileImports, linkProgram, wasmImports} from '../browser/load.mjs';
+import {commandImports, instantiate, linkedFileImports, wasmImports} from '../browser/load.mjs';
 import {createTasks, taskExports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
@@ -15,12 +16,17 @@ import {createHints} from './hints.mjs';
 // ---- One reactor initialization and one program invocation ----
 //
 // A program is one linked module, or a modules.json naming the modules of a
-// program compiled one library at a time (host/browser/load.mjs). Either may
-// load modules while it runs, through (snail shell wasm); a linked module links
+// program compiled one library at a time, which the engine links
+// ((snail shell engine), built to build/engine/engine.wasm, or where
+// SNAIL_ENGINE_MODULE says): this host starts the engine with the manifest
+// in SNAIL_MANIFEST, and the engine reads the objects from the store,
+// links them through the Wasm primitives of load.mjs, runs each main, and
+// forwards the program's scheduler as its own exports. Either may load
+// modules while it runs, through (snail shell wasm); a linked module links
 // only against what the program kept exported, which for one linked module
-// is nothing of the runtime's. The files a program links are objects of
-// its store, store/ beside a linked module or where its manifest says,
-// read when a task first reads each.
+// is nothing of the runtime's. The files a linked module links are objects
+// of store/ beside it, read when a task first reads each; the engine serves
+// a linked program's.
 
 // The status: the last `main`'s result when it is 0 to 255, and 1
 // otherwise. A WASI exit in a `main` is its own status, and ends the
@@ -56,8 +62,9 @@ function exiting(wasi) {
 }
 
 async function run(filename, arguments_) {
-  const wasi = exiting(new WASI({version: 'preview1', args: [filename, ...arguments_],
-    env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}}));
+  const freshWasi = (env = {}) => exiting(new WASI({version: 'preview1', args: [filename, ...arguments_],
+    env: {...process.env, SNAIL_CWD: process.cwd(), ...env}, preopens: {'/': '/'}}));
+  const wasi = freshWasi(filename.endsWith('.json') ? {SNAIL_MANIFEST: resolve(filename)} : {});
   let program, failed = false, status = 0;
   const tcp = createTcp(), udp = createUdp(), processes = createProcesses(), hints = createHints();
   const termination = createTermination();
@@ -73,6 +80,7 @@ async function run(filename, arguments_) {
   const keepAlive = setInterval(() => {}, 60_000);
   try {
     program = await loadProgram(resolve(filename), wasi, host, () => tasks);
+    program.wasi = () => freshWasi();
     status = resultStatus(runInitializers(program));
     await tasks.drive().catch(report);
     if (failed) status = 1;
@@ -87,31 +95,42 @@ async function run(filename, arguments_) {
     finally {
       clearInterval(keepAlive);
       if (program) {
-        const close = program.runtime.exports[program.names ? 'snail:io/close-all' : 'close-resources'];
-        if (close() !== 0 && status === 0) status = 1;
+        const closed = [program.exports['engine:close']?.() ?? 0, program.exports['close-resources']()];
+        if (closed.some(result => result !== 0) && status === 0) status = 1;
       }
     }
   }
   return status;
 }
 
+// A linked module is the program's runtime and its one module. A manifest
+// is run by the engine: the instance started here is the loader, and the
+// program's runtime is the instance the engine names snail.core.support,
+// whose memory stages the Bytes the host's services read.
 async function loadProgram(filename, wasi, host, tasks) {
   const read = file => readFile(resolve(dirname(filename), file));
-  if (filename.endsWith('.json')) return linkProgram(read, filename, wasi, host, tasks);
-  const module = await WebAssembly.compile(await readFile(filename));
-  const runtime = await WebAssembly.instantiate(module, {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)});
-  wasi.initialize(runtime);
-  return {runtime, host, linked: new Map()};
+  const module = await WebAssembly.compile(await readFile(filename.endsWith('.json') ? engineModule() : filename));
+  const program = {runtime: null, exports: null, host, linked: new Map()};
+  const engine = filename.endsWith('.json');
+  const instance = await (engine ? instantiate(module, {...wasi.getImportObject(), ...host})
+    : WebAssembly.instantiate(module, {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)}));
+  wasi.initialize(instance);
+  Object.assign(program, {runtime: instance, exports: instance.exports, loader: engine ? instance : null});
+  return program;
 }
 
-// Module initialization remains ordered. Work dispatched by any initializer
-// belongs to this runtime and may outlive the program's main invocation:
-// its tasks run once every main has returned.
+function engineModule() {
+  return process.env.SNAIL_ENGINE_MODULE ?? fileURLToPath(new URL('../../build/engine/engine.wasm', import.meta.url));
+}
+
+// The program's main, or the engine's, which runs each of the program's
+// in order and keeps the last one's result, `engine:status`. Work
+// dispatched by any initializer belongs to this runtime and may outlive
+// the program's main invocation: its tasks run once every main has
+// returned.
 function runInitializers(program) {
-  const modules = program.names ? program.names.map(name => program.linked.get(name)) : [program.runtime];
-  let result = 0;
-  for (const {exports} of modules) result = exports.main();
-  return result;
+  const result = program.exports.main();
+  return program.exports['engine:status'] ? Number(program.exports['engine:status']()) : result;
 }
 
 // ---- The program on the main thread ----

@@ -42,7 +42,7 @@ use wasmtime_wasi::p1::{self, WasiP1Ctx};
 
 use crate::engine::{call, engine, exit_status, is_precompiled, load, report, wasi};
 use crate::links::{self, Files};
-use crate::modules::{self, Libraries, Loading, Manifest};
+use crate::modules::{self, Loading, Manifest};
 
 // ---- Running ----
 
@@ -73,44 +73,73 @@ pub fn run(path: &str, arguments: &[String]) -> u8 {
     }
 }
 
-// A file the program links is an object of the program's store, read when
-// a task first asks for it.
+// One linked module is the program; a manifest is run by the engine
+// ((snail shell engine), at SNAIL_ENGINE_MODULE or build/engine/engine.wasm
+// beside this executable's build), started with the manifest in
+// SNAIL_MANIFEST, which links the program's objects through the Wasm
+// primitives of modules.rs, runs each main, serves the files it links, and
+// forwards its scheduler as its own exports. A file a linked module links
+// is an object of store/ beside it, read when a task first asks for it.
 fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
     let engine = engine()?;
-    let (payload, store) = Payload::compile(&engine, Path::new(path))?;
-    let names = links::linked_names(payload.modules());
-    let files = Files::new(&store, &names);
+    let payload = Payload::compile(&engine, Path::new(path))?;
+    let names = links::linked_names([&payload.module]);
+    let files = Files::new(&payload.store, &names);
     let mut linker = host_linker(&engine, &names)?;
     let host = Host {
-        wasi: wasi(path, arguments)?,
+        wasi: wasi(path, arguments, &payload.environment)?,
         files,
         loading: Loading::new(linker.clone()),
     };
     let mut store = Store::new(&engine, host);
-    let program = payload.link(&mut store, &mut linker)?;
+    let program = link_module(&mut store, &mut linker, &payload.module)?;
     let ran = start(&mut store, &program);
-    let closed = call::<i32>(&mut store, &program.runtime, program.close);
+    let closed = close(&mut store, &program);
     settle(ran, closed)
 }
 
 // What a program run here may import of its host: WASI, the files the
-// payload links, and loading modules.
+// payload links, loading modules, and the platform's error report, which
+// a runtime the engine links imports.
 fn host_linker(engine: &Engine, links: &[String]) -> wasmtime::Result<Linker<Host>> {
     let mut linker = Linker::new(engine);
     p1::add_to_linker_sync(&mut linker, |host: &mut Host| &mut host.wasi)?;
     links::define(&mut linker, links)?;
     modules::define_loading(&mut linker)?;
+    modules::define_platform(&mut linker)?;
     Ok(linker)
 }
 
-// Each module's main runs in program order; the program's own, last,
-// answers the status, unless a task traps after it.
+// The program's resources close, the engine's program's through
+// `engine:close` first; a status other than 0 is a resource left open.
+fn close(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<i32> {
+    let mut status = 0;
+    if program
+        .runtime
+        .get_func(&mut *store, "engine:close")
+        .is_some()
+    {
+        status = call::<i32>(&mut *store, &program.runtime, "engine:close")?;
+    }
+    let own = call::<i32>(&mut *store, &program.runtime, program.close)?;
+    Ok(if status != 0 { status } else { own })
+}
+
+// The program's main answers the status, unless a task traps after it;
+// the engine's runs each of the program's and keeps the last one's result
+// as `engine:status`.
 fn start(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<u8> {
     let mut status = 0;
     for instance in &program.mains {
         match main_status(&mut *store, instance) {
             Ok(result) => status = result,
             Err(error) => return exit_status(Err(error)),
+        }
+        if let Some(reported) = instance
+            .get_typed_func::<(), i64>(&mut *store, "engine:status")
+            .ok()
+        {
+            status = u8::try_from(reported.call(&mut *store, ())?).unwrap_or(1);
         }
     }
     match drive(store, program) {
@@ -213,41 +242,47 @@ fn now() -> i64 {
 
 // ---- Payloads ----
 
-/// What `run-wasm` was given, compiled: one linked module, or the runtime
-/// and each library's module of a program compiled one library at a time.
-enum Payload {
-    Module(Module),
-    Libraries(Libraries),
+/// What `run-wasm` was given, compiled: one linked module, or the engine,
+/// given a manifest to run through SNAIL_MANIFEST; the store the files the
+/// module links are objects of, `store/` beside it; and what the module's
+/// environment says beyond the host's.
+struct Payload {
+    module: Module,
+    store: PathBuf,
+    environment: Vec<(String, String)>,
 }
 
 impl Payload {
-    // The payload, and the store the files it links are objects of: the
-    // manifest's, or `store/` beside a linked module.
-    fn compile(engine: &Engine, path: &Path) -> wasmtime::Result<(Payload, PathBuf)> {
-        Ok(if is_manifest(path) {
-            let manifest = Manifest::read(path)?;
-            let libraries = Libraries::compile(engine, &manifest)?;
-            (Payload::Libraries(libraries), manifest.store)
+    fn compile(engine: &Engine, path: &Path) -> wasmtime::Result<Payload> {
+        let (file, environment) = if is_manifest(path) {
+            let manifest = std::path::absolute(path)?.to_string_lossy().into_owned();
+            (
+                engine_module()?,
+                vec![("SNAIL_MANIFEST".to_string(), manifest)],
+            )
         } else {
-            let store = path.parent().unwrap_or(Path::new("")).join("store");
-            (Payload::Module(compile_module(engine, path)?), store)
+            (path.to_path_buf(), Vec::new())
+        };
+        Ok(Payload {
+            module: compile_module(engine, &file)?,
+            store: file.parent().unwrap_or(Path::new("")).join("store"),
+            environment,
         })
     }
+}
 
-    // The modules whose imports name the files the program links.
-    fn modules(&self) -> Vec<&Module> {
-        match self {
-            Payload::Module(module) => vec![module],
-            Payload::Libraries(libraries) => libraries.modules().collect(),
-        }
+// The engine's module: SNAIL_ENGINE_MODULE, or build/engine/engine.wasm
+// in the build directory this executable was built into.
+fn engine_module() -> wasmtime::Result<PathBuf> {
+    if let Some(path) = std::env::var_os("SNAIL_ENGINE_MODULE") {
+        return Ok(PathBuf::from(path));
     }
-
-    fn link(self, store: &mut Store<Host>, linker: &mut Linker<Host>) -> wasmtime::Result<Linked> {
-        match self {
-            Payload::Module(module) => link_module(store, linker, &module),
-            Payload::Libraries(libraries) => libraries.link(store, linker),
-        }
-    }
+    let executable = std::env::current_exe()?;
+    let build = executable
+        .ancestors()
+        .find(|directory| directory.file_name().is_some_and(|name| name == "build"))
+        .ok_or_else(|| format_err!("the engine's module is not found: set SNAIL_ENGINE_MODULE"))?;
+    Ok(build.join("engine").join("engine.wasm"))
 }
 
 fn is_manifest(path: &Path) -> bool {
@@ -264,6 +299,7 @@ fn link_module(
 ) -> wasmtime::Result<Linked> {
     let instance = linker.instantiate(&mut *store, module)?;
     store.data_mut().loading.set_runtime(instance);
+    store.data_mut().loading.set_loader(instance);
     call::<()>(&mut *store, &instance, "_initialize")?;
     Ok(Linked {
         runtime: instance,

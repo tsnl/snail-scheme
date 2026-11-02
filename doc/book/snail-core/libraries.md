@@ -53,6 +53,7 @@ the runtime interfaces.
 | `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource`, which a task waits on, through the `resource` effect ([linked files](types.md#linked-files)). |
 | `(snail shell watch)` | `inventory`, each path under some directories with a fingerprint of its kind, size and modification time, and `inventory-changes`, the paths two inventories disagree on: what a watcher reconciles when a native watch may have missed an edit. `watch-tree` and `next-hint` are Node's recursive watch of a tree, as hints that something under it changed, which only say when to take the next inventory (the `hints` effect, on Node only). |
 | `(snail shell wasm)` | Loading WebAssembly modules and plugins while a program runs ([below](#loading-webassembly)). |
+| `(snail shell engine)` | The native engine: `run-manifest` links a program compiled one library at a time from its `modules.json`, through `(snail shell wasm)`, and runs it; its exports forward the program's scheduler and serve the files it links. Stage 0 builds it as `bootstrap/engine.sld`, which Node and wasmtime start for a manifest ([the native executable](bootstrap.md#the-native-executable)). |
 
 ### Shell: applications
 
@@ -188,7 +189,8 @@ time](compilers.md#loading-modules-at-run-time)). Every failure is a
 (: compile-bytes (-> Bytes (Option Compiled) ! wasm))
 (: module-imports (-> Compiled (List Import) ! wasm))      ; (Import from name kind)
 (: link-module (-> String Compiled (List Provider) (Result Module LoadError) ! wasm))
-(: run-export (-> Module String (Result I32 LoadError) ! wasm))
+(: name-instance (-> Module String Bool ! wasm))
+(: run-export (-> Module String I64 (Result I64 LoadError) ! wasm))
 ```
 
 `(load-module name file)` links the module in `file` into the program's
@@ -204,9 +206,10 @@ a plugin's `main` runs under its effects' defaults, and a trap in a plugin
 ends the program. A loader that chooses a module's providers itself, as an
 engine linking a program would, compiles the bytes, lists the imports, and
 links with one `Provider` per import in import order: `(ExportOf instance
-name)`, `(HostProvided)` for a function of the host's own, or
-`(Unprovided)` for one that fails if called; `run-export` runs an export of
-no arguments, such as `main`, for its `I32`
+name)`, `(HostProvided)` for a function of the host's own, `(ConstantOf n)`
+for a function answering `n`, or `(Unprovided)` for one that fails if
+called; `run-export` calls an export of no argument or one `I64`, such as
+`main`, for its result
 ([linking by hand](compilers.md#linking-by-hand)).
 
 ## Wire types
