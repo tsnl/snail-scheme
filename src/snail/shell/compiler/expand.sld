@@ -73,6 +73,11 @@
        ((type Type)))
       (ClassName
        ((name String)))
+      (InstanceSet
+       ((name String)))
+      (Associated
+       ((class String)
+        (member String)))
       (EffectName
        ((name String)))
       (Core
@@ -94,6 +99,8 @@
         ((Alias name _ _ _) name)
         ((TypeVar _) "%type-variable")
         ((ClassName name) name)
+        ((InstanceSet name) name)
+        ((Associated class member) (string-append class "." member))
         ((EffectName name) name)
         ((Core name) (string-append "%core " name))
         ((Macro id _ _ _) id)))
@@ -109,6 +116,15 @@
       (Frame
        ((key String)
         (binding Binding)
+        (rest Env)))
+      (InstanceScope
+       ((sets (List Syntax))
+        (rest Env)))
+      (InstanceOwner
+       ((name String)
+        (rest Env)))
+      (EvidenceScope
+       ((constraints (List Constraint))
         (rest Env)))
       (Top
        ((key String)
@@ -134,6 +150,9 @@
       (let ((key (ident-key ident)))
         (let lookup ((env env))
           (match env
+            ((InstanceScope _ rest) (lookup rest))
+            ((InstanceOwner _ rest) (lookup rest))
+            ((EvidenceScope _ rest) (lookup rest))
             ((Frame other binding rest) (if (string=? other key) (Some binding) (lookup rest)))
             ((Top top imports)
              (match (top-binding cx top imports key)
@@ -491,6 +510,8 @@
     (: bind-top (-> Context Env Syntax Binding Context ! compile))
     (define (bind-top cx env ident binding)
       (match env
+        ((InstanceScope _ rest) (bind-top cx rest ident binding))
+        ((InstanceOwner _ rest) (bind-top cx rest ident binding))
         ((Top top _)
          (let ((definitions (top-definitions cx top)))
            (when (table-contains? definitions (ident-key ident))
@@ -1610,6 +1631,20 @@
                     (expanding cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
                                                   (form-tail form))))
                                (Pair (concatenate scanned) cx)))
+                   ((Some (Core "with-instances"))
+                    (match (form-tail form)
+                      ((Cons sets body)
+                       (let ((scope
+                              (InstanceScope (form-items sets "a list of instance sets") env)))
+                         (expanding cx ((scanned
+                                         (each (lambda (cx item) (scan-top-level cx scope item))
+                                               body)))
+                                    (Pair (Cons (Pending "instance-scope" form scope)
+                                                (concatenate scanned))
+                                          cx))))
+                      (_ (compile-error (syntax-loc form)
+                                        "expected (with-instances (set ...) body ...)"))))
+                   ((Some (Core "define-instance-set")) (scan-instance-set cx env form))
                    ((Some (Core "define-syntax")) (Pair (Nil) (define-top-macro cx env form)))
                    ((Some (Core "primitive"))
                     (compile-error (syntax-loc form)
@@ -1623,6 +1658,65 @@
                         (scan-declared cx env keyword form)
                         (Pair (list (Pending "expression" form env)) cx)))
                    (_ (Pair (list (Pending "expression" form env)) cx)))))
+
+    (: scan-instance-set (-> Context Env Syntax (Pair (List Pending) Context) ! fs compile))
+    (define (scan-instance-set cx env form)
+      (match (form-tail form)
+        ((Cons name declarations)
+         (let* ((name (expect-ident name "an instance set name")) (id (unique-name cx name))
+                (cx (bind-top cx env name (InstanceSet id))) (scope (InstanceOwner id env)))
+           (expanding cx ((scanned (each (lambda (cx declaration)
+                                           (if (core-form? cx env declaration "instance")
+                                               (scan-top-level cx scope declaration)
+                                               (match declaration
+                                                 ((Form (Cons (Ident "dynamic-instances" _ _) _) _)
+                                                  (Pair (list (Pending "dynamic-instances"
+                                                                       declaration
+                                                                       scope))
+                                                        cx))
+                                                 (_ (compile-error (syntax-loc declaration)
+                                                                   "an instance set contains instance or dynamic-instances declarations")))))
+                                         declarations)))
+                      (Pair (concatenate scanned) cx))))
+        (_ (compile-error (syntax-loc form) "expected (define-instance-set name instance ...)"))))
+
+    (: instance-owner (-> Env (Option String)))
+    (define (instance-owner env)
+      (match env
+        ((InstanceOwner name _) (Some name))
+        ((InstanceScope _ rest) (instance-owner rest))
+        ((EvidenceScope _ rest) (instance-owner rest))
+        ((Frame _ _ rest) (instance-owner rest))
+        ((Top _ _) (None))))
+
+    (: active-instance-sets (-> Context Env (List String) ! compile))
+    (define (active-instance-sets cx env)
+      (match env
+        ((InstanceScope sets rest)
+         (delete-duplicates string=?
+                            (append (map (lambda (name)
+                                           (match (resolve cx
+                                                           env
+                                                           (expect-ident name "an instance set"))
+                                             ((Some (InstanceSet id)) id)
+                                             (_ (compile-error (syntax-loc name)
+                                                               "not an instance set"))))
+                                         sets)
+                                    (active-instance-sets cx rest))))
+        ((InstanceOwner name rest) (Cons name (active-instance-sets cx rest)))
+        ((EvidenceScope _ rest) (active-instance-sets cx rest))
+        ((Frame _ _ rest) (active-instance-sets cx rest))
+        ((Top _ _) (Nil))))
+
+    (: scope-instance-value (-> Context Env Expr Expr ! compile))
+    (define (scope-instance-value cx env value)
+      (let ((sets (active-instance-sets cx env)))
+        (if (null? sets) value
+            (match (Expr-term value)
+              ((Lambda params body captures?)
+               (Expr (Lambda params (expr (ScopedInstances sets body) (Expr-loc body)) captures?)
+                     (Expr-type value) (Expr-loc value)))
+              (_ (expr (ScopedInstances sets value) (Expr-loc value)))))))
 
     ;; A declaration binds its names, then the instances a struct or enum
     ;; derives are scanned after it.
@@ -1658,13 +1752,20 @@
           (("enum") (Pair (Nil) (declare-data cx env form #t)))
           (("typeclass") (Pair (Nil) (declare-class cx env form)))
           (("instance") (declare-instance cx env form))
+          (("dynamic-instances") (declare-dynamic-instances cx env form))
+          (("instance-scope")
+           (Pair (list (lambda (cx)
+                         (check-active-instances (Context-program cx) (active-instance-sets cx env)
+                                                 (syntax-loc form))
+                         cx)) cx))
           (("extern") (Pair (Nil) (declare-extern cx env form)))
           (("effect") (declare-effect cx env form))
           (("define") (Pair (list (lambda (cx) (define-top-level cx signatures env form))) cx))
           (("expose") (Pair (list (lambda (cx) (add-item cx (expose-item cx env form)))) cx))
           (("expression")
            (Pair (list (lambda (cx)
-                         (expanding cx ((value (expand-expr env form))) (add-item cx (Do value)))))
+                         (expanding cx ((value (expand-expr env form)))
+                                    (add-item cx (Do (scope-instance-value cx env value))))))
                  cx))
           (else (Pair (Nil) cx)))))
 
@@ -1703,7 +1804,14 @@
                                                 (Defined (Some scheme) loc (lambda-expr? value)))
                                                ((None)
                                                 (Defined (None) (None) (lambda-expr? value)))))))
-                   (add-item cx (Define name (top-level-value value))))))
+                   (add-item cx
+                             (Define name
+                               (scope-instance-value cx
+                                                     env
+                                                     (scope-instance-value cx
+                                                                           env
+                                                                           (top-level-value
+                                                                            value))))))))
 
     ;; A signature's constraints, checked once every class the library
     ;; declares is in the program.
@@ -1785,15 +1893,49 @@
            (bind-top cx env name (Alias (unique-name cx name) (declared-params head) body env)))
           (_ (compile-error (syntax-loc form) "expected (type Name type)")))))
 
+    ;; Register the complete class shape during scanning: signatures may
+    ;; precede its declaration. Methods later establish which inputs are rows.
     (: scan-class (-> Context Env Syntax (List Syntax) Context ! compile))
-    (define (scan-class cx env head signatures)
-      (let* ((name (declared-name head))
-             (cx (bind-top cx env name (ClassName (unique-name cx name)))))
-        (fold-left (lambda (cx signature)
-                     (match signature
-                       ((Form (Cons _ (Cons method _)) _) (bind-member cx env method))
-                       (_ (compile-error (syntax-loc signature) "expected (: method type)"))))
-                   cx signatures)))
+    (define (scan-class cx env head declarations)
+      (let* ((name (declared-name head)) (id (unique-name cx name))
+             (outputs (map associated-name (filter associated-form? declarations)))
+             (params (append (map Ident-name (declared-params head)) outputs))
+             (cx (bind-top cx env name (ClassName id))))
+        (unless (= (length params) (length (delete-duplicates string=? params)))
+          (compile-error (syntax-loc head)
+                         "class parameters and associated types must be distinct"))
+        (Context-program-set
+         (fold-left (lambda (cx declaration) (scan-class-member cx env name declaration))
+                    cx declarations)
+         (program-with-class (Context-program cx) (Class id params (Nil) outputs (Nil))))))
+
+    (: associated-form? (-> Syntax Bool))
+    (define (associated-form? form)
+      (match form
+        ((Form (Cons (Ident "type" _ _) _) _) #t)
+        (_ #f)))
+
+    (: associated-identifier (-> Syntax Syntax ! compile))
+    (define (associated-identifier form)
+      (match form
+        ((Form (Cons _ (Cons (Ident name mark loc) (Nil))) _) (Ident name mark loc))
+        (_ (compile-error (syntax-loc form)
+                          "expected (type Output); associated types take no parameters"))))
+
+    (: associated-name (-> Syntax String ! compile))
+    (define (associated-name form)
+      (Ident-name (associated-identifier form)))
+
+    (: scan-class-member (-> Context Env Syntax Syntax Context ! compile))
+    (define (scan-class-member cx env class form)
+      (if (associated-form? form)
+          (let* ((member (associated-name form))
+                 (name (suffixed-ident class (string-append "." member) (syntax-loc form))))
+            (bind-top cx env name (Associated (unique-name cx class) member)))
+          (match form
+            ((Form (Cons (Ident ":" _ _) (Cons method (Cons _ (Nil)))) _)
+             (bind-member cx env method))
+            (_ (compile-error (syntax-loc form) "expected (: method type) or (type Output)")))))
 
     (: scan-effect (-> Context Env Syntax (List Syntax) Syntax Context ! compile))
     (define (scan-effect cx env head rest form)
@@ -1886,15 +2028,20 @@
     ;; macro introduces has accessors only that expansion sees.
     (: field-ident (-> Syntax Syntax String Syntax ! compile))
     (define (field-ident name field suffix)
-      (let ((text (string-append "-" (Ident-name (expect-ident field "a field name")) suffix)))
-        (Ident (string-append (Ident-name name) text)
-               (match (Ident-mark name)
-                 ((Some mark)
-                  (Some (Mark (string-append (Mark-key mark) text)
-                              (Mark-original mark)
-                              (Mark-scope mark))))
-                 ((None) (None)))
-               (syntax-loc field))))
+      (suffixed-ident name
+                      (string-append "-" (Ident-name (expect-ident field "a field name")) suffix)
+                      (syntax-loc field)))
+
+    ;; Generated accessors and projections inherit their declaring name's mark.
+    (: suffixed-ident (-> Syntax String Loc Syntax))
+    (define (suffixed-ident name text loc)
+      (Ident (string-append (Ident-name name) text)
+             (match (Ident-mark name)
+               ((Some mark)
+                (Some (Mark (string-append (Mark-key mark) text)
+                            (Mark-original mark)
+                            (Mark-scope mark))))
+               ((None) (None))) loc))
 
     (: declared-name (-> Syntax Syntax ! compile))
     (define (declared-name head)
@@ -2107,28 +2254,30 @@
 
     (: declare-class (-> Context Env Syntax Context ! compile))
     (define (declare-class cx env form)
-      (let* ((head (declaration-head form)) (params (declared-params head))
+      (let* ((head (declaration-head form))
              (id (match (resolve cx env (declared-name head))
                    ((Some (ClassName id)) id)
                    (_ (panic "internal error: class"))))
-             (scope (type-scope env params))
-             (self (Constraint id (map (lambda (param) (TRigid (Ident-name param))) params))))
+             (class (program-class (Context-program cx) id))
+             (params (append (declared-params head)
+                             (map associated-identifier
+                                  (filter associated-form? (list-drop (form-tail form) 1)))))
+             (self (Constraint id (map (lambda (param) (TRigid (Ident-name param))) params)))
+             (scope (EvidenceScope (list self) (type-scope env params))))
         (expanding cx ((methods (each (lambda (cx signature)
                                         (declare-method cx env scope id params self signature))
-                                      (match (form-tail form)
-                                        ((Cons _ signatures) signatures)
-                                        ((Nil) (Nil))))))
-                   (Context-program-set
-                    cx
-                    (program-with-class
-                     (Context-program cx)
-                     (Class id
-                            (map Ident-name params)
-                            (class-rows (Context-program cx)
-                                        (map Ident-name params)
-                                        methods
-                                        (syntax-loc form))
-                            methods))))))
+                                      (filter (lambda (form) (not (associated-form? form)))
+                                              (list-drop (form-tail form) 1)))))
+                   (let ((rows (class-rows (Context-program cx) (Class-params class) methods
+                                           (syntax-loc form))))
+                     (when (any? (lambda (output) (member? output rows)) (Class-outputs class))
+                       (compile-error (syntax-loc form)
+                                      "an associated type must have kind Type, not an effect row"))
+                     (Context-program-set cx
+                                          (program-with-class (Context-program cx)
+                                                              (Class id (Class-params class) rows
+                                                                     (Class-outputs class)
+                                                                     methods)))))))
 
     ;; The parameters the class's methods perform as rows, `e` in
     ;; `(: fetch-object (-> S String String ! e))`, in order; a row's kind
@@ -2197,9 +2346,14 @@
         ((Form (Cons _ (Cons (Form (Cons class-ident type-args) _) body)) loc)
          (let ((parts (split-requires body)))
            (expanding cx ((class (instance-class env class-ident))
-                          (instance (declared-instance env class type-args (Pair-first parts) loc))
+                          (instance (declared-instance env class type-args (Pair-first parts)
+                                                       (filter associated-form? (Pair-second parts))
+                                                       loc))
                           (methods
-                           (declare-instance-methods env class instance (Pair-second parts) loc)))
+                           (declare-instance-methods env class instance
+                                                     (filter
+                                                      (lambda (form) (not (associated-form? form)))
+                                                      (Pair-second parts)) loc)))
                       (check-instance-methods class methods loc)
                       (check-overlap (Context-program cx) instance loc)
                       (Pair (map MethodDefinition-expand methods)
@@ -2213,6 +2367,54 @@
                                                                          methods)))))))
         (_
          (compile-error (syntax-loc form) "expected (instance (Class type ...) definition ...)"))))
+
+    (: declare-dynamic-instances
+       (-> Context Env Syntax (Pair (List (-> Context Context ! compile)) Context) ! compile))
+    (define (declare-dynamic-instances cx env form)
+      (match (Pair (form-tail form) (instance-owner env))
+        ((Pair (Cons name domain) (Some owner))
+         (expanding cx ((class (instance-class env name))
+                        (id (fresh-global "dynamic")))
+                    (let ((generated (generate-binary-instances
+                                      (Context-program cx) class
+                                      (map (lambda (pair)
+                                             (map (lambda (type) (resolve-type cx env type))
+                                                  (form-items pair "a pair of concrete types")))
+                                           domain)
+                                      (active-instance-sets cx env) owner id (syntax-loc form))))
+                      (expanding cx ((bodies (each (lambda (cx generated)
+                                                     (install-generated-instance cx
+                                                                                 class
+                                                                                 generated
+                                                                                 (syntax-loc form)))
+                                                   generated)))
+                                 (Pair (concatenate bodies) cx)))))
+        (_ (compile-error (syntax-loc form)
+                          "expected (dynamic-instances Class (Left Right) ...) in an instance set"))))
+
+    (: install-generated-instance
+       (-> Context
+           Class
+           GeneratedInstance
+           Loc
+           (Pair (List (-> Context Context ! compile)) Context)
+           ! compile))
+    (define (install-generated-instance cx class generated loc)
+      (let* ((instance (GeneratedInstance-instance generated))
+             (cx (fold-left (lambda (cx method)
+                              (add-value cx (Pair-second method)
+                                         (Defined (Some (instance-method-scheme (Context-program cx)
+                                                                                class
+                                                                                (Pair-first method)
+                                                                                instance))
+                                           (None) #t)))
+                            cx (Instance-methods instance))))
+        (check-overlap (Context-program cx) instance loc)
+        (Pair (map (lambda (definition) (lambda (cx) (add-item cx definition)))
+                   (GeneratedInstance-definitions generated))
+              (Context-program-set cx
+                                   (program-with-instance (instance-program cx class instance loc)
+                                                          instance)))))
 
     (: instance-class (-> Context Env Syntax (Pair Class Context) ! compile))
     (define (instance-class cx env class-ident)
@@ -2284,8 +2486,44 @@
                                         (string-join (Cons (short-name name) (Class-params class))
                                                      " ")
                                         ")")))
+        (when (and (lifecycle-class? name)
+                   (match (Instance-set instance) ((Some _) #t) ((None) #f)))
+          (compile-error loc "lifecycle instances cannot belong to a named instance set"))
+        (check-instance-determination (Context-program cx) class instance loc)
         (check-head-rows (Context-program cx) class instance loc)
         (if (lifecycle-class? name) (lifecycle-program cx instance loc) (Context-program cx))))
+
+    ;; Prerequisites are ordered. Inputs bind variables first; only an
+    ;; earlier requirement's row or output may determine another variable.
+    ;; An expected result can never make an otherwise unknown input known.
+    (: check-instance-determination (-> Program Class Instance Loc Unit ! compile))
+    (define (check-instance-determination program class instance loc)
+      (unless (null? (Class-outputs class))
+        (let* ((inputs
+                (concatenate (map type-names (type-arguments class (Instance-types instance)))))
+               (known (fold-left (lambda (known requirement)
+                                   (determined-requirement program known requirement loc))
+                                 inputs (Instance-requires instance)))
+               (needed
+                (concatenate (map type-names (output-arguments class (Instance-types instance)))))
+               (rows
+                (concatenate (map row-variable (row-arguments class (Instance-types instance))))))
+          (unless (every? (lambda (name) (member? name known)) (append needed rows))
+            (compile-error loc
+                           "instance outputs must be determined by its inputs and earlier requirements"))
+          (when (any? (lambda (name) (member? name rows)) needed)
+            (compile-error loc "an associated output cannot use an effect row as a type")))))
+
+    (: determined-requirement (-> Program (List String) Constraint Loc (List String) ! compile))
+    (define (determined-requirement program known requirement loc)
+      (let* ((class (program-class program (Constraint-class requirement)))
+             (types (Constraint-types requirement))
+             (inputs (concatenate (map type-names (type-arguments class types)))))
+        (unless (every? (lambda (name) (member? name known)) inputs)
+          (compile-error loc "a prerequisite input must be determined before that prerequisite"))
+        (append known (concatenate (map type-names
+                                        (append (output-arguments class types)
+                                                (row-arguments class types)))))))
 
     ;; A lifecycle instance is for a declared type, beside it; a Drop
     ;; instance's type is linear.
@@ -2467,23 +2705,47 @@
 
     ;; Unbound identifiers in an instance head are its type variables.
     (: declared-instance
-       (-> Context Env Class (List Syntax) (List Syntax) Loc (Pair Instance Context) ! compile))
-    (define (declared-instance cx env class type-args requires loc)
+       (-> Context Env Class (List Syntax) (List Syntax) (List Syntax) Loc
+           (Pair Instance Context) ! compile))
+    (define (declared-instance cx env class type-args requires equations loc)
       (let* ((vars (delete-duplicates string=?
                                       (concatenate
                                        (map (lambda (type) (free-type-names cx env type))
                                             type-args))))
              (scope (type-scope env (map (lambda (name) (Ident name (None) loc)) vars)))
-             (requirements (resolve-requirements cx scope vars requires)))
+             (requirements (resolve-requirements cx scope vars requires))
+             (types (map (lambda (type) (resolve-type cx (Requirements-env requirements) type))
+                         type-args))
+             (outputs (instance-outputs cx (Requirements-env requirements) class equations loc)))
+        (unless (= (length types) (- (length (Class-params class)) (length (Class-outputs class))))
+          (compile-error loc
+                         "instance head gives each declared class parameter; associated types belong in its body"))
         (expanding cx ((name (fresh-global (short-name (Class-name class)))))
-                   (Pair (Instance name
-                                   (Class-name class)
-                                   vars
-                                   (map (lambda (type) (resolve-type cx scope type)) type-args)
-                                   (Pair-first requirements)
-                                   (Pair-second requirements)
-                                   (Nil))
+                   (Pair (Instance name (Class-name class) (Requirements-vars requirements)
+                                   (append types outputs) (Requirements-constraints requirements)
+                                   (Requirements-copy requirements) (Nil) (instance-owner env))
                          cx))))
+
+    (: instance-outputs (-> Context Env Class (List Syntax) Loc (List Type) ! compile))
+    (define (instance-outputs cx env class equations loc)
+      (let ((definitions (map associated-equation equations)))
+        (unless (and (= (length definitions) (length (Class-outputs class)))
+                     (= (length definitions)
+                        (length (delete-duplicates string=? (map Pair-first definitions))))
+                     (every? (lambda (entry) (member? (Pair-first entry) (Class-outputs class)))
+                             definitions))
+          (compile-error loc "an instance defines each associated type exactly once"))
+        (map (lambda (name)
+               (match (assoc-ref definitions name)
+                 ((Some type) (resolve-type cx env type))
+                 ((None) (compile-error loc (string-append "missing associated type " name)))))
+             (Class-outputs class))))
+
+    (: associated-equation (-> Syntax (Pair String Syntax) ! compile))
+    (define (associated-equation syntax)
+      (match syntax
+        ((Form (Cons _ (Cons (Ident name _ _) (Cons type (Nil)))) _) (Pair name type))
+        (_ (compile-error (syntax-loc syntax) "expected (type Output Type)"))))
 
     (: fresh-global (-> Context String (Pair String Context)))
     (define (fresh-global cx base)
@@ -2556,24 +2818,14 @@
     ;; the same types. A type variable in either head matches anything.
     (: check-overlap (-> Program Instance Loc Unit ! compile))
     (define (check-overlap program instance loc)
-      (for-each (lambda (other)
-                  (when (heads-overlap? (Instance-types instance) (Instance-types other))
-                    (compile-error loc "this instance overlaps another instance of the class")))
-                (class-instances program (Instance-class instance))))
-
-    (: heads-overlap? (-> (List Type) (List Type) Bool))
-    (define (heads-overlap? as bs)
-      (every? (lambda (pair) (head-overlaps? (Pair-first pair) (Pair-second pair))) (zip as bs)))
-
-    (: head-overlaps? (-> Type Type Bool))
-    (define (head-overlaps? a b)
-      (match a
-        ((TCon name args)
-         (match b
-           ((TCon other others) (and (string=? name other) (heads-overlap? args others)))
-           ((TRigid _) #t)
-           (_ #f)))
-        (_ #t)))
+      (check-instance-overlap
+       program instance
+       (filter (lambda (other)
+                 (match (Pair (Instance-set instance) (Instance-set other))
+                   ((Pair (None) (None)) #t)
+                   ((Pair (Some name) (Some other)) (string=? name other))
+                   (_ #f)))
+               (class-instances program (Instance-class instance))) loc))
 
     (: check-instance-methods (-> Class (List MethodDefinition) Loc Unit ! compile))
     (define (check-instance-methods class methods loc)
@@ -2873,7 +3125,15 @@
 
     ;; ---- Types ----
 
-    ;; `(All (A e) (requires (Class A) ...) type)` or a plain type.
+    ;; Requirements bind hidden output variables and a projection scope.
+    ;; No projection survives expansion: method and projection share the
+    ;; same ordinary type argument of the same evidence requirement.
+    (struct Requirements
+      ((constraints (List Constraint))
+       (copy (List String))
+       (vars (List String))
+       (env Env)))
+
     (: resolve-scheme (-> Context Env Syntax Scheme ! compile))
     (define (resolve-scheme cx env syntax)
       (match syntax
@@ -2884,33 +3144,35 @@
                 (requirements (resolve-requirements cx scope vars (Pair-first parts))))
            (match (Pair-second parts)
              ((Cons type (Nil))
-              (Scheme vars
-                      (Pair-first requirements)
-                      (Pair-second requirements)
-                      (resolve-type cx scope type)))
+              (Scheme (Requirements-vars requirements) (Requirements-constraints requirements)
+                      (Requirements-copy requirements)
+                      (resolve-type cx (Requirements-env requirements) type)))
              (_ (compile-error loc
                                "expected (All (variable ...) [(requires constraint ...)] type)")))))
         (_ (mono-scheme (resolve-type cx env syntax)))))
 
-    ;; A scheme's or an instance's requirements: its class constraints, and
-    ;; the variables `(Copy A)` declares ω. Copy is no class, so it names
-    ;; one of the quantified variables, by name as `All` and `requires` are.
-    (: resolve-requirements
-       (-> Context
-           Env
-           (List String)
-           (List Syntax)
-           (Pair (List Constraint) (List String))
-           ! compile))
+    (: resolve-requirements (-> Context Env (List String) (List Syntax) Requirements ! compile))
     (define (resolve-requirements cx env vars requirements)
-      (fold-right (lambda (requirement found)
-                    (match requirement
-                      ((Form (Cons (Ident "Copy" _ _) args) loc)
-                       (Pair (Pair-first found)
-                             (Cons (copy-variable vars args loc) (Pair-second found))))
-                      (_ (Pair (Cons (resolve-constraint cx env requirement) (Pair-first found))
-                               (Pair-second found)))))
-                  (Pair (Nil) (Nil)) requirements))
+      (fold-left (lambda (found requirement) (resolve-requirement cx found requirement))
+                 (Requirements (Nil) (Nil) vars env) requirements))
+
+    (: resolve-requirement (-> Context Requirements Syntax Requirements ! compile))
+    (define (resolve-requirement cx found syntax)
+      (match syntax
+        ((Form (Cons (Ident "Copy" _ _) args) loc)
+         (Requirements-copy-set found
+                                (append (Requirements-copy found)
+                                        (list (copy-variable (Requirements-vars found) args loc)))))
+        (_ (let* ((constraint (resolve-constraint cx (Requirements-env found) syntax
+                                                  (length (Requirements-constraints found))))
+                  (hidden (filter (lambda (name) (and (>= (string-length name) 12)
+                                                      (string=? (substring name 0 12)
+                                                                "$associated.")))
+                                  (concatenate (map type-names (Constraint-types constraint))))))
+             (Requirements (append (Requirements-constraints found) (list constraint))
+                           (Requirements-copy found)
+                           (delete-duplicates string=? (append (Requirements-vars found) hidden))
+                           (EvidenceScope (list constraint) (Requirements-env found)))))))
 
     (: copy-variable (-> (List String) (List Syntax) Loc String ! compile))
     (define (copy-variable vars args loc)
@@ -2922,24 +3184,40 @@
                             (string-append "Copy names a quantified type variable, not " name))))
         (_ (compile-error loc "expected (Copy variable)"))))
 
-    (: resolve-constraint (-> Context Env Syntax Constraint ! compile))
-    (define (resolve-constraint cx env syntax)
+    (: resolve-constraint (-> Context Env Syntax I64 Constraint ! compile))
+    (define (resolve-constraint cx env syntax index)
       (match syntax
         ((Form (Cons class types) loc)
          (match (resolve cx env (expect-ident class "a typeclass"))
            ((Some (ClassName id))
-            (checked-constraint cx env id types loc))
+            (checked-constraint cx env id types index loc))
            (_
             (match (field-class-syntax cx class)
-              ((Some (Pair id cx)) (checked-constraint cx env id types loc))
+              ((Some (Pair id cx)) (checked-constraint cx env id types index loc))
               ((None) (compile-error loc "expected a typeclass constraint"))))))
         (_ (compile-error (syntax-loc syntax) "expected (Class type ...)"))))
 
     ;; The constraint of a class at resolved types, checked against the
     ;; class's parameters; a field class declared on first use checks too.
-    (: checked-constraint (-> Context Env String (List Syntax) Loc Constraint ! compile))
-    (define (checked-constraint cx env id types loc)
-      (let ((constraint (Constraint id (map (lambda (type) (resolve-type cx env type)) types))))
+    (: checked-constraint (-> Context Env String (List Syntax) I64 Loc Constraint ! compile))
+    (define (checked-constraint cx env id arguments index loc)
+      (let* ((class (program-class (Context-program cx) id))
+             (types (map (lambda (type) (resolve-type cx env type))
+                         (filter (lambda (form) (not (associated-form? form))) arguments)))
+             (equalities (map associated-equation (filter associated-form? arguments)))
+             (outputs (map (lambda (name)
+                             (match (assoc-ref equalities name)
+                               ((Some type) (resolve-type cx env type))
+                               ((None)
+                                (TRigid
+                                 (string-append "$associated." (i64->string index) "." name)))))
+                           (Class-outputs class)))
+             (constraint (Constraint id (append types outputs))))
+        (unless (and (= (length equalities)
+                        (length (delete-duplicates string=? (map Pair-first equalities))))
+                     (every? (lambda (entry) (member? (Pair-first entry) (Class-outputs class)))
+                             equalities))
+          (compile-error loc "constraint has an unknown or repeated associated type equality"))
         (check-constraint (Context-program cx) constraint loc)
         constraint))
 
@@ -2994,6 +3272,10 @@
            (compile-error loc
                           (string-append "wrong number of type arguments: " (Ident-name ident))))
          (TCon name (map (lambda (arg) (resolve-type cx env arg)) args)))
+        ((Some (Associated class member))
+         (resolve-projection env class member
+                             (map (lambda (arg) (resolve-type cx env arg)) args)
+                             (program-class (Context-program cx) class) loc))
         ((Some (TypeVar type))
          (if (null? args) type (compile-error loc "a type variable takes no arguments")))
         ((Some (Alias name params body alias-env))
@@ -3009,6 +3291,31 @@
                                  alias-env (zip params args))))
            (resolve-type (Context-aliases-set cx (Cons name (Context-aliases cx))) scope body)))
         (_ (compile-error loc (string-append "not a type: " (Ident-name ident))))))
+
+    (: resolve-projection (-> Env String String (List Type) Class Loc Type ! compile))
+    (define (resolve-projection env id member args class loc)
+      (unless (= (length args) (- (length (Class-params class)) (length (Class-outputs class))))
+        (compile-error loc "associated projection gives each declared class parameter"))
+      (match (filter (lambda (constraint)
+                       (and (string=? id (Constraint-class constraint))
+                            (types=? (type-arguments class args)
+                                     (type-arguments class (Constraint-types constraint)))))
+                     (enclosing-requirements env))
+        ((Cons constraint (Nil))
+         (match (assoc-ref (zip (Class-params class) (Constraint-types constraint)) member)
+           ((Some type) type)
+           ((None) (panic "internal error: associated member"))))
+        ((Nil) (compile-error loc "associated projection needs a matching requires constraint"))
+        (_ (compile-error loc "associated projection matches multiple requirements"))))
+
+    (: enclosing-requirements (-> Env (List Constraint)))
+    (define (enclosing-requirements env)
+      (match env
+        ((EvidenceScope constraints rest) (append constraints (enclosing-requirements rest)))
+        ((InstanceScope _ rest) (enclosing-requirements rest))
+        ((InstanceOwner _ rest) (enclosing-requirements rest))
+        ((Frame _ _ rest) (enclosing-requirements rest))
+        ((Top _ _) (Nil))))
 
     ;; `(-> A B R)` or `(-> A B R ! label ... [row-variable])`.
     (: resolve-arrow (-> Context Env (List Syntax) (List Type) Loc Type ! compile))
@@ -3241,6 +3548,14 @@
             (expanding cx ((test (expand-expr env test)) (consequent (expand-expr env consequent)))
                        (Pair (expr (If test consequent (expr (Lit (DUnit)) loc)) loc) cx)))
            (_ (compile-error loc "expected (if test then [else])"))))
+        (("with-instances")
+         (match (list-tail items 1)
+           ((Cons sets body)
+            (let ((scope (InstanceScope (form-items sets "a list of instance sets") env)))
+              (expanding cx ((value (expand-body scope body loc)))
+                         (Pair (expr (ScopedInstances (active-instance-sets cx scope) value) loc)
+                               cx))))
+           (_ (compile-error loc "expected (with-instances (set ...) body ...)"))))
         (("begin") (expand-body cx env (list-tail items 1) loc))
         (("let") (expand-let cx env items loc))
         (("match") (expand-match cx env items loc))

@@ -806,6 +806,7 @@
           ((Convert inner target) (emit-convert fn inner target (Expr-loc expr)))
           ((TryConvert _ _) (panic "internal error: an unlowered conversion"))
           ((TypeTest inner target) (list (type-test fn inner target)))
+          ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
           ((Ann inner _) (emit fn inner tail?)))))
 
     ;; One instruction, wrapping a sequence in a block when needed.

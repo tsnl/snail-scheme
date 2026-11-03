@@ -50,6 +50,8 @@
        (locals (Table Type))
        (givens (List Constraint))
        (copy (List String))
+       (instances (List String))
+       (resolving (List Constraint))
        (confining (Option I64))
        (signed (Option I64))
        (counter I64)
@@ -90,6 +92,8 @@
                (Checker-locals outer)
                (Checker-givens outer)
                (Checker-copy outer)
+               (Checker-instances outer)
+               (Checker-resolving outer)
                (Checker-confining outer)
                (Checker-signed outer)
                (Checker-counter inner)
@@ -138,6 +142,7 @@
         (hole I64)
         (givens (List Constraint))
         (copy (List String))
+        (instances (List String))
         (loc Loc)))
       (WantLiteral
        ((value Datum)
@@ -448,7 +453,12 @@
     (define (want-class ck constraint loc)
       (learning ck ((hole (fresh-identity))
                     (then
-                     (want (WantClass constraint hole (Checker-givens ck) (Checker-copy ck) loc))))
+                     (want (WantClass constraint
+                                      hole
+                                      (Checker-givens ck)
+                                      (Checker-copy ck)
+                                      (Checker-instances ck)
+                                      loc))))
                 (Pair (EvHole hole) ck)))
 
     ;; A use of a variable: its type, the types its quantified variables
@@ -591,6 +601,8 @@
                          (rest (infer rest row)))
                      (Pair (Expr (Seq first rest) (Expr-type rest) loc) ck)))
           ((Match scrutinee clauses) (infer-match ck scrutinee clauses row loc))
+          ((ScopedInstances sets body)
+           (scoped ck (instance-scope ck sets loc) body row))
           ((Ann inner type)
            (learning ck ((inner (infer inner row)))
                      (fit ck type inner row loc)))
@@ -610,6 +622,12 @@
            (learning ck ((inner (infer inner row))
                          (inner (fit (TCon "Any" (Nil)) inner row (Expr-loc inner))))
                      (Pair (Expr (TypeTest inner target) (TCon "Bool" (Nil)) loc) ck))))))
+
+    (: instance-scope (-> Checker (List String) Loc Checker ! compile))
+    (define (instance-scope ck sets loc)
+      (let ((sets (delete-duplicates string=? (append sets (Checker-instances ck)))))
+        (check-active-instances (program-of ck) sets loc)
+        (Checker-instances-set ck sets)))
 
     (: infer-lambda (-> Checker (List String) Expr Bool Loc (Pair Expr Checker) ! compile))
     (define (infer-lambda ck params body captures? loc)
@@ -643,6 +661,9 @@
     (: check-value (-> Checker Expr Type Type (Pair Expr Checker) ! compile))
     (define (check-value ck expr type row)
       (match (Pair (Expr-term expr) (prune (solution ck) type))
+        ((Pair (ScopedInstances sets body) _)
+         (within ck (instance-scope ck sets (Expr-loc expr))
+                 (lambda (inner) (check-value inner body type row))))
         ((Pair (Lambda params body captures?) (TFun param-types result body-row))
          (if (= (length params) (length param-types))
              (check-lambda ck expr params body captures? type param-types result body-row)
@@ -728,7 +749,7 @@
                       (result (fresh-meta))
                       (latent (fresh-meta))
                       (args (unify-call (Expr-type callee) args result latent row loc))
-                      (then (improve-fields before))
+                      (then (improve-types before))
                       (then (perform latent row loc))
                       (then (solve-found-rows before row)))
                   (Pair (Expr (App callee args) result loc) ck))))
@@ -1252,17 +1273,17 @@
     ;; Runs once, after every item is checked: literals whose type nothing
     ;; determined default to F64 or I64, every literal is range-checked, and
     ;; every class constraint is solved with the givens it arose under.
-    ;; Solving binds no metavariables, so waiting until now loses nothing,
-    ;; except for a class whose row is found from its types, as a drop's, a
-    ;; clone's or a `(Store e S)`'s is, which charges its row: most are
-    ;; solved at their call (`solve-found-rows`), and one left until now is
-    ;; of a type that a later use decided.
+    ;; Field types and associated outputs are improved before and after
+    ;; literal defaulting. A row class also charges the effects its inputs
+    ;; determine: most are solved at their call (`solve-found-rows`), while
+    ;; constraints whose inputs a later use decides wait until here.
     (: solve-pending (-> Checker Checker ! compile))
     (define (solve-pending ck)
       (let ((pending (reverse (Checker-pending ck))))
-        (learning ck ((then (improve-fields 0))
+        (learning ck ((then (improve-types 0))
                       (then (default-literals pending #t))
-                      (then (default-literals pending #f)))
+                      (then (default-literals pending #f))
+                      (then (improve-types 0)))
                   (for-each (lambda (want)
                               (match want
                                 ((WantLiteral value type loc) (check-literal ck value type loc))
@@ -1271,8 +1292,9 @@
                             pending)
                   (fold-left (lambda (ck want)
                                (match want
-                                 ((WantClass constraint hole givens copy loc)
-                                  (solve-class ck constraint hole givens copy loc))
+                                 ((WantClass constraint hole givens copy sets loc)
+                                  (resumed ck (solve-class (Checker-instances-set ck sets)
+                                                           constraint hole givens copy loc)))
                                  (_ ck)))
                              ck pending))))
 
@@ -1324,7 +1346,7 @@
     (: solve-class
        (-> Checker Constraint I64 (List Constraint) (List String) Loc Checker ! compile))
     (define (solve-class ck constraint hole givens copy loc)
-      (cond ((row-class? ck (Constraint-class constraint))
+      (cond ((determined-class? ck (Constraint-class constraint))
              (solve-found ck constraint hole givens copy (None) loc))
             ((string=? (Constraint-class constraint) unboxed-class)
              (solve-unboxed ck constraint hole givens loc))
@@ -1407,13 +1429,13 @@
                                 (substring class 2 (string-length class))))))
           (_ (ambiguous-constraint ck constraint)))))
 
-    ;; A class whose methods perform one of its parameters as a row, as
-    ;; `(Drop e T)` and `(Store e S)` do. Its rows are found from its other
-    ;; arguments, its types, rather than matched: what the instance those
-    ;; select performs is charged to the constraint's rows.
-    (: row-class? (-> Checker String Bool))
-    (define (row-class? ck class)
-      (not (null? (Class-rows (program-class (program-of ck) class)))))
+    ;; Rows and associated outputs are determined arguments. The remaining
+    ;; input arguments select evidence; that evidence establishes outputs
+    ;; by equality and supplies the rows its methods perform.
+    (: determined-class? (-> Checker String Bool))
+    (define (determined-class? ck class)
+      (let ((class (program-class (program-of ck) class)))
+        (not (null? (append (Class-rows class) (Class-outputs class))))))
 
     ;; A row class's constraint, solved in the row of the call it was raised
     ;; in when `context` gives one.
@@ -1486,9 +1508,9 @@
     (define (determined-source ck class types givens copy loc)
       (match (list-index (lambda (given) (given-for? class types given)) givens)
         ((Some index)
-         (Pair
-          (Pair (EvParam index) (row-arguments class (Constraint-types (list-ref givens index))))
-          ck))
+         (let ((given (Constraint-types (list-ref givens index))))
+           (Pair (Pair (EvParam index) (row-arguments class given))
+                 (unify-outputs ck class given types loc))))
         ((None) (determined-instance ck class types givens copy loc))))
 
     (: given-for? (-> Class (List Type) Constraint Bool))
@@ -1496,9 +1518,9 @@
       (and (string=? (Class-name class) (Constraint-class given))
            (types=? (type-arguments class types) (type-arguments class (Constraint-types given)))))
 
-    ;; The instance whose head matches the types. Its requirements are
-    ;; solved with each variable its rows end with standing for a fresh row,
-    ;; which they charge; its rows, ending with those, are what it performs.
+    ;; Inputs bind the instance's selecting variables. The remaining row
+    ;; and output variables start fresh, and ordered prerequisites establish
+    ;; them before the selected head constrains the caller's output slots.
     (: determined-instance
        (-> Checker
            Class
@@ -1511,11 +1533,35 @@
     (define (determined-instance ck class types givens copy loc)
       (match (matching-instance ck class types loc)
         ((Pair instance bindings)
-         (let ((heads (row-arguments class (Instance-types instance))))
-           (learning ck ((tails (fresh-bindings (concatenate (map row-variable heads))))
-                         (evidence (instance-application instance bindings tails givens copy loc)))
-                     (Pair (Pair evidence (map (lambda (row) (substitute tails row)) heads))
-                           ck))))))
+         (let ((outer ck) (ck (enter-instance ck class types loc)))
+           (learning ck ((determined (fresh-bindings
+                                      (filter (lambda (var) (not (assoc-contains? bindings var)))
+                                              (Instance-vars instance))))
+                         (evidence
+                          (instance-application instance bindings determined givens copy loc)))
+                     (let ((head (map (lambda (type) (substitute (append determined bindings) type))
+                                      (Instance-types instance))))
+                       (Pair (Pair evidence (row-arguments class head))
+                             (resumed outer (unify-outputs ck class head types loc)))))))))
+
+    (: enter-instance (-> Checker Class (List Type) Loc Checker ! compile))
+    (define (enter-instance ck class types loc)
+      (when (or (>= (length (Checker-resolving ck)) 128)
+                (any? (lambda (goal) (given-for? class types goal)) (Checker-resolving ck)))
+        (compile-error loc "instance requirements do not terminate"))
+      (Checker-resolving-set ck
+                             (Cons (Constraint (Class-name class) types) (Checker-resolving ck))))
+
+    (: assoc-contains? (-> Substitution String Bool))
+    (define (assoc-contains? bindings name)
+      (match (assoc-ref bindings name)
+        ((Some _) #t)
+        ((None) #f)))
+
+    (: unify-outputs (-> Checker Class (List Type) (List Type) Loc Checker ! compile))
+    (define (unify-outputs ck class established wanted loc)
+      (fold-left (lambda (ck pair) (unify ck (Pair-first pair) (Pair-second pair) loc))
+                 ck (zip (output-arguments class established) (output-arguments class wanted))))
 
     (: with-evidence (-> Checker I64 Evidence Checker))
     (define (with-evidence ck hole evidence)
@@ -1593,7 +1639,7 @@
       (let* ((count (- (Checker-pending-count ck) before))
              (recent (take (Checker-pending ck) count))
              (older (list-drop (Checker-pending ck) count)))
-        (if (any? (lambda (want) (known-row? ck want)) recent)
+        (if (any? (lambda (want) (known-class-inputs? ck want)) recent)
             (match (fold-left (lambda (progress want) (solve-known-row progress want context))
                               (Pair (Nil) ck)
                               (reverse recent))
@@ -1611,18 +1657,24 @@
       (match progress
         ((Pair kept ck)
          (match want
-           ((WantClass constraint hole givens copy loc)
-            (if (known-row? ck want)
-                (Pair kept (solve-found ck constraint hole givens copy (Some context) loc))
+           ((WantClass constraint hole givens copy sets loc)
+            (if (known-class-inputs? ck want)
+                (Pair kept (resumed ck (solve-found (Checker-instances-set ck sets)
+                                                    constraint
+                                                    hole
+                                                    givens
+                                                    copy
+                                                    (Some context)
+                                                    loc)))
                 (Pair (Cons want kept) ck)))
            (_ (Pair (Cons want kept) ck))))))
 
-    (: known-row? (-> Checker Wanted Bool))
-    (define (known-row? ck want)
+    (: known-class-inputs? (-> Checker Wanted Bool))
+    (define (known-class-inputs? ck want)
       (match want
-        ((WantClass constraint _ _ _ _)
+        ((WantClass constraint _ _ _ _ _)
          (let ((class (Constraint-class constraint)))
-           (and (row-class? ck class)
+           (and (determined-class? ck class)
                 (not (any? (lambda (type) (has-meta? (solution ck) type))
                            (type-arguments (program-class (program-of ck) class)
                                            (Constraint-types constraint)))))))
@@ -1633,17 +1685,43 @@
     ;; constraint on the same R does. It runs where a call is checked, once
     ;; the arguments have given R, over the constraints raised since
     ;; `before`, and again over every constraint before solving, for an R a
-    ;; later use decided. Nothing else solving does binds a metavariable.
-    (: improve-fields (-> Checker I64 Checker ! compile))
-    (define (improve-fields ck before)
-      (fold-left improve-field
-                 ck
-                 (take (Checker-pending ck) (- (Checker-pending-count ck) before))))
+    ;; later use decided. Associated outputs use the same improvement
+    ;; loop, since one established output can determine another input.
+    (: improve-types (-> Checker I64 Checker ! compile))
+    (define (improve-types ck before)
+      (let ((wanted (reverse (take (Checker-pending ck) (- (Checker-pending-count ck) before)))))
+        (let loop ((ck ck))
+          (let ((next (fold-left improve-output ck wanted)))
+            (if (types=? (improvement-types ck wanted) (improvement-types next wanted))
+                next (loop next))))))
+
+    (: improvement-types (-> Checker (List Wanted) (List Type)))
+    (define (improvement-types ck wanted)
+      (concatenate (map (lambda (want)
+                          (match want
+                            ((WantClass constraint _ _ _ _ _)
+                             (map (lambda (type) (resolve-type (solution ck) type))
+                                  (Constraint-types constraint)))
+                            (_ (Nil)))) wanted)))
+
+    (: improve-output (-> Checker Wanted Checker ! compile))
+    (define (improve-output ck want)
+      (match want
+        ((WantClass constraint _ givens copy sets loc)
+         (let ((class (program-class (program-of ck) (Constraint-class constraint))))
+           (if (and (not (null? (Class-outputs class))) (known-class-inputs? ck want))
+               (resumed ck (Pair-second (determined-source (Checker-instances-set ck sets) class
+                                                           (map (lambda (type)
+                                                                  (resolve-type (solution ck) type))
+                                                                (Constraint-types constraint))
+                                                           givens copy loc)))
+               (improve-field ck want))))
+        (_ ck)))
 
     (: improve-field (-> Checker Wanted Checker ! compile))
     (define (improve-field ck want)
       (match want
-        ((WantClass (Constraint class (Cons record (Cons field (Nil)))) _ givens _ loc)
+        ((WantClass (Constraint class (Cons record (Cons field (Nil)))) _ givens _ _ loc)
          (if (field-class? class)
              (match (field-type-of ck class (resolve-type (solution ck) record) givens)
                ((Some type) (unify ck type field loc))
@@ -1660,7 +1738,7 @@
       (match record
         ((TCon _ _)
          (one (concatenate (map (lambda (instance) (instance-field-type instance record))
-                                (class-instances (program-of ck) class)))))
+                                (visible-instances (program-of ck) class (Checker-instances ck))))))
         (_ (one (concatenate (map (lambda (given) (given-field-type ck class given record))
                                   givens))))))
 
@@ -1738,7 +1816,8 @@
     ;; instance chosen, so no two instances of a class have the same types.
     (: matching-instance (-> Checker Class (List Type) Loc (Pair Instance Substitution) ! compile))
     (define (matching-instance ck class types loc)
-      (let loop ((instances (class-instances (program-of ck) (Class-name class))))
+      (let loop ((instances
+                  (visible-instances (program-of ck) (Class-name class) (Checker-instances ck))))
         (match instances
           ((Nil)
            (compile-error loc
@@ -1813,7 +1892,7 @@
            (Pair Evidence Checker)
            ! compile))
     (define (requirement-evidence ck requirement givens copy loc)
-      (if (row-class? ck (Constraint-class requirement))
+      (if (determined-class? ck (Constraint-class requirement))
           (found-evidence ck requirement givens copy (None) loc)
           (match (find-evidence ck requirement givens copy loc)
             ((Some found) found)
@@ -1824,39 +1903,6 @@
       (string-append "ambiguous requirement "
                      (constraint->string (Constraint-class requirement)
                                          (Constraint-types requirement))))
-
-    ;; One-way matching of an instance head; only its own variables bind.
-    (: match-types (-> (List String) (List Type) (List Type) Substitution (Option Substitution)))
-    (define (match-types vars patterns types bindings)
-      (if (= (length patterns) (length types))
-          (fold-left (lambda (result pair)
-                       (match result
-                         ((Some bindings)
-                          (match-type vars (Pair-first pair) (Pair-second pair) bindings))
-                         ((None) (None))))
-                     (Some bindings) (zip patterns types))
-          (None)))
-
-    (: match-type (-> (List String) Type Type Substitution (Option Substitution)))
-    (define (match-type vars pattern type bindings)
-      (match pattern
-        ((TRigid name)
-         (if (member? name vars)
-             (match (assoc-ref bindings name)
-               ((None) (Some (Cons (Pair name type) bindings)))
-               ((Some bound) (if (type=? bound type) (Some bindings) (None))))
-             (if (type=? pattern type) (Some bindings) (None))))
-        ((TCon name args)
-         (match type
-           ((TCon other others)
-            (if (string=? name other) (match-types vars args others bindings) (None)))
-           (_ (None))))
-        ((TFun params result _)
-         (match type
-           ((TFun others other-result _)
-            (match-types vars (Cons result params) (Cons other-result others) bindings))
-           (_ (None))))
-        (_ (None))))
 
     (: constraint->string (-> String (List Type) String))
     (define (constraint->string class types)
@@ -1943,6 +1989,7 @@
                       (map (lambda (clause) (Clause (zonk-pattern solution (Clause-pattern clause))
                                                     (zonk-expr solution (Clause-body clause))))
                            clauses)))
+              ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
               ((Ann inner type) (Ann (zonk-expr solution inner) (zonk solution type)))
               ((Convert inner target) (Convert (zonk-expr solution inner) (zonk solution target)))
               ((TryConvert inner target)
@@ -2661,7 +2708,7 @@
     (: wanted-metas (-> Solution Wanted (List Type)))
     (define (wanted-metas solution want)
       (match want
-        ((WantClass constraint _ _ _ _)
+        ((WantClass constraint _ _ _ _ _)
          (concatenate
           (map (lambda (type) (free-metas solution type)) (Constraint-types constraint))))
         ((WantLiteral _ type _) (free-metas solution type))
@@ -2686,6 +2733,8 @@
     ;; checked and no longer, so the sub-check runs under its own checker.
     (: check-annotated (-> Checker Item Scheme (Pair Item Checker) ! compile))
     (define (check-annotated ck definition scheme)
+      (check-associated-givens (program-of ck) (Scheme-constraints scheme)
+                               (Expr-loc (Define-value definition)))
       (within ck
               (Checker-copy-set (Checker-givens-set ck
                                                     (if (null? (Scheme-vars scheme))
@@ -2693,6 +2742,20 @@
                                                         (Scheme-constraints scheme)))
                                 (Scheme-copy scheme))
               (lambda (inner) (check-annotated-value inner definition scheme))))
+
+    ;; A projection has one witness. Distinct rows or output equalities
+    ;; cannot disambiguate two requirements with the same selecting inputs.
+    (: check-associated-givens (-> Program (List Constraint) Loc Unit ! compile))
+    (define (check-associated-givens program givens loc)
+      (match givens
+        ((Nil) (unit))
+        ((Cons given rest)
+         (let ((class (program-class program (Constraint-class given))))
+           (when (and (not (null? (Class-outputs class)))
+                      (any? (lambda (other) (given-for? class (Constraint-types given) other))
+                            rest))
+             (compile-error loc "associated projection matches multiple requirements"))
+           (check-associated-givens program rest loc)))))
 
     (: check-annotated-value (-> Checker Item Scheme (Pair Item Checker) ! compile))
     (define (check-annotated-value ck definition scheme)
@@ -2854,6 +2917,8 @@
     (define (check-library program schemes items)
       (let ((ck (Checker program
                          empty-table
+                         (Nil)
+                         (Nil)
                          (Nil)
                          (Nil)
                          (None)
