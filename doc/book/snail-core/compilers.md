@@ -479,6 +479,81 @@ function of the expander has `mut` in its row — and where it does not, the
   files a compile links to `links.datum` in the compile's directory, one
   `("DIGEST" "PATH")` per file, for the Chibi build to place.
 
+## Proposed explicit-provider IR
+
+**Design for review, not implemented.** The proposed
+[capability model](effects.md#proposed-parameterized-effects) introduces a
+typed IR below Snail-Core, before Wasm representations are selected. It
+must make implicit providers and control conventions visible, so backend
+emission consumes established decisions rather than rediscovering source
+effect behavior. The pipeline above remains the implemented compiler.
+
+The proposed sequence is:
+
+```text
+checked Snail-Core
+  -> explicit provider arguments and captured environments
+  -> specialization by callable and provider implementation types
+  -> control analysis: direct and control-capable calls
+  -> selective continuation lowering
+  -> ordinary calls and closures for WasmGC
+```
+
+Elaboration resolves scoped instance choices and turns `!` requirements
+into explicit parameters. Source class and method names become typed
+provider fields or known code references. A local instance is a closure
+environment plus statically selected method implementations. Its captured
+values remain runtime arguments. Each method's anonymous associated callable
+type must satisfy its `impl Fun` signature. Source `effect` and `handle`
+constructs, if retained as sugar, are eliminated here; control delimiters
+and their answer types remain explicit.
+
+Specialization keys include provider implementation types and the types
+of their concrete methods, in addition to ordinary type arguments. Two
+provider values with the same implementation and different captures share
+code. Two providers whose methods have different control behavior may
+produce different specializations of one consumer. No runtime evidence-list
+search remains in this proposed model. This deliberately changes the
+implemented handler policy described above and in the repository guidance.
+
+Control analysis runs over specialized callees and solves recursive groups
+to a fixed point. An imported callee needs a checked control summary and
+appropriate specialized code; an unknown target must not be assumed direct.
+The IR distinguishes direct calls, control-capable calls, typed delimiters
+and one-shot resumptions. Its direct/control distinction is a calling
+convention, separate from ownership and purity. A function can contain a
+fully delimited control computation and still expose a direct interface;
+merely finding `ctl` in its body is not the classification rule.
+
+Continuation lowering supplies an explicit continuation only where a
+specialized call can transfer control beyond its current direct context.
+The continuation's argument is the operation result; its answer is the
+delimiter's result. A control implementation can resume or abandon it
+according to the linear ownership rules. Nested delimiters, deep
+reinstatement and saved continuations must retain their checked contracts.
+After this pass there are ordinary closure calls and explicit environment
+values, with no implicit provider lookup or unresolved control effects.
+The precise CPS representation is a subject for implementation and proof;
+this diagram is not a claim that one extra argument alone implements
+delimited continuations.
+
+Keep call-site source locations, capability evidence until discharged,
+ownership and foreign-boundary assumptions throughout the translation.
+Separate compilation must expose the generic bodies and implementation
+identities needed for downstream specialization, and cache keys must include
+the selected provider code. Runtime-loaded code cannot silently introduce
+an erased provider ABI inconsistent with the static contract. Specialization
+growth and recursion termination need an explicit policy and measurements.
+
+Two semantic questions gate implementation: whether a stored resumption
+captures its selected providers or takes providers from its invocation,
+and whether `!` describes only implicit requirements or also retains latent
+effects. The effects chapter states why these differ from current behavior.
+Acceptance tests should compare direct and control specializations of the
+same consumer, verify runtime capture sharing, and exercise nested and
+stored resumptions across separately compiled libraries. Execute linked
+Wasm and inspect direct specializations for unnecessary control machinery.
+
 ## Separate compilation
 
 The unit of compilation is a library (`source->modules` in

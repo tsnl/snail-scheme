@@ -104,7 +104,7 @@ Familiar projection syntax such as `a.b.c` should be considered on its
 own merits, alongside bindings, calls, signatures and callback bodies.
 
 The proposed [callable signatures](types.md#proposed-callable-typeclass)
-use `fun` in place of `->`. The proposed
+use `impl Fun` contracts in place of `->`, with `fun` for definitions. The proposed
 [places and locators](types.md#proposed-places-and-locators) let field
 selection describe a typed path without exposing the compiler's field
 classes. Exact projection, read, write and continuation-binder syntax
@@ -156,7 +156,7 @@ With the proposed `fun` forms, the same definition could be written as:
 
 ```text
 #lang snail/sweet
-: square fun(I64 I64)
+: square impl(Fun(I64 I64))
 fun square(n)
   {n * n}
 ```

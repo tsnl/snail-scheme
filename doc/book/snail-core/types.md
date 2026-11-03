@@ -282,74 +282,83 @@ rows and defaults.
 
 ## Proposed callable typeclass
 
-**Design for review, not implemented.** The syntax and typeclass in this
-section describe a proposed replacement for function arrows. The earlier
-sections describe the compiler today; their examples still use `->`.
-
-Use `fun` in signatures and for named function definitions:
+**Design for review, not implemented.** Replace function arrows with
+`impl Fun` contracts, and use `fun` for named function definitions:
 
 ```scheme
-(: square (fun I64 I64))
+(: square (impl (Fun I64 I64)))
 (fun (square n)
   (* n n))
 ```
 
-`define` continues to bind values. A `fun` signature describes a callable
-contract: argument types, result type and effects. It does not require one
-universal closure representation. Generic consumers accept a concrete type
-through a callable typeclass, provisionally named `Callable`. Ordinary
-functions and effect operations both satisfy it. A `ctl` operation is not a
-subclass of ordinary functions; its declaration supplies a different way
-to perform the same calling interface
-([parameterized effects](effects.md#proposed-parameterized-effects)).
+`Fun` is a typeclass describing callability. It is not a concrete function
+type or a universal closure representation. The definition determines an
+anonymous concrete implementation type, associated with that definition,
+which must satisfy the stated `Fun` contract. A caller does not choose
+`square`'s implementation type. For a generic definition, that type is
+instantiated with the definition's type parameters.
 
-The class must carry four pieces of evidence:
+An `impl (Fun ...)` annotation on a class method similarly constrains an
+anonymous associated implementation type supplied by each instance's
+method definition. For example, the `ask` method of `(Ask T)` has contract
+`impl (Fun T)`, while each provider supplies its own concrete callable.
+Do not require every provider's closure to have the same representation.
+
+Argument-position `impl` has a different quantifier: the caller chooses a
+concrete callable type satisfying the constraint, and the consumer is
+generic over it. The distinction parallels `impl Ref` arguments
+([places](#proposed-places-and-locators)). Stored and returned opaque
+implementations need explicit quantification rules; neither position
+silently erases a family of implementation types into one runtime object.
+`define` continues to bind ordinary values.
+
+The callable contract preserves four pieces of evidence:
 
 | Contract | What the checker must establish |
 | --- | --- |
 | Argument types | Each call supplies the required arguments. |
 | Result type | Continuing the call produces a value of this type. |
-| Effect row | The caller permits every effect that calling may perform. |
+| Required capabilities | The caller supplies each implicit provider named after `!`. |
 | Call multiplicity | The consumer calls or releases the value as its ownership permits. |
 
-For example, a generic `map` needs a concrete callable `F` from `A` to `B`
-with row `e`, callable repeatedly. A consumer that invokes its argument
-once can accept a one-shot callable under the appropriate ownership rule.
-A repeatable callable may be invoked once too; the obligation to release
-its captures still follows its ownership. `Copy` alone does not establish
-callability. A one-shot continuation must not satisfy the repeated-call
-requirement. The current rule for `FnOnce` remains the baseline: consume it
-by calling or dropping it exactly once, including any effects of dropping
-its captures ([ownership](ownership.md)).
+A generic `map` needs a concrete callable from `A` to `B` that permits
+repeated calls. A consumer that invokes its argument once can accept a
+one-shot callable under the appropriate ownership rule. `Copy` alone does
+not establish callability. A one-shot continuation cannot satisfy a
+repeated-call requirement. The current `FnOnce` ownership rule remains the
+baseline: consume it by calling or dropping it exactly once, including
+any effects of dropping its captures ([ownership](ownership.md)). The
+precise multiplicity notation and internal `Fun` class parameterization
+remain open; the examples omit these details rather than define a new
+multiplicity default.
 
-The exact `Callable` parameter syntax, argument-list representation and
-multiplicity spelling remain open. The intended elaboration of a generic
-callable parameter introduces a concrete type variable and its class
-requirement; it does not erase that type into a common closure. How a `fun`
-signature expresses a stored or returned callable needs a separate rule
-for representation and quantification. This proposal does not silently
-give those positions an existential package or a higher-rank type.
+Both ordinary and control-capable implementations satisfy this calling
+interface. `ctl` is not a subclass of ordinary functions. It identifies
+an implementation that needs continuation access; the lower IR distinguishes
+its calling convention. A repeatable callable may suspend and a one-shot
+callable may return directly. Specialization must preserve both facts.
 
-The compiler supplies callable evidence for functions, closures and effect
-operations. Whether user-defined data may implement this class is a
-separate extension. During monomorphization the concrete callable type
-allows the compiler to choose a direct call, a closure call or an effect
-operation dispatch. Its effect row determines whether the surrounding
-computation must support yielding: an ordinary function can call a `ctl`
-operation internally. A repeatable callable can yield, and a one-shot
-callable can be total; multiplicity and control behavior are independent.
+The compiler supplies callable evidence for functions, closures and
+capability methods. Whether arbitrary user data may implement `Fun` is a
+separate extension. Monomorphization keys on concrete callable types and
+provider implementation types, including their statically selected method
+code and control behavior. Captured provider values remain runtime closure
+fields: two instances of the same implementation with different captured
+strings do not require different code specializations.
 
-Specialization must not depend on the installed handler's identity.
-Operations still select their handler through the evidence in scope, so
-one compiled consumer can run under different implementations of an
-effect. This preserves the compiler's existing handler-dispatch contract.
+Capabilities following `!` become explicit provider arguments in a
+[lower IR](compilers.md#proposed-explicit-provider-ir). Lexically scoped
+instances supply these arguments. This proposed provider specialization
+replaces the current design's runtime handler search; it is not an
+implemented optimization. Capability requirements remain checked before
+erasure, and control operations still require delimited continuation
+semantics ([effects](effects.md#proposed-parameterized-effects)).
 
-Replacing `->` with `fun` is the proposed surface direction. The migration
-must cover signatures, function definitions, bootstrap forms, macros,
-formatting, highlighting and diagnostics together. The spelling of `Fn`
-and `FnOnce`, compatibility with old forms, and anonymous-function syntax
-need decisions before implementation. This section proposes no new
-working syntax in the current compiler.
+Migration must cover signatures, function definitions, bootstrap forms,
+macros, formatting, highlighting and diagnostics together. Examples of
+the proposed surface use `(impl (Fun ...))`, never a bare `(fun ...)` as
+a concrete type. The spelling of `Fn` and `FnOnce`, old-form compatibility
+and anonymous-function syntax remain review questions.
 
 ## Proposed places and locators
 
@@ -394,7 +403,7 @@ construction and projection. User instances cannot assert arbitrary
 storage layouts. Using the proposed parenthesized signature spelling:
 
 ```scheme
-(: zero! (fun (impl (Ref I64)) Unit ! mut))
+(: zero! (impl (Fun (impl (Ref I64)) Unit ! mut)))
 (fun (zero! target)
   (ref-set! target 0))
 ```
@@ -402,7 +411,10 @@ storage layouts. Using the proposed parenthesized signature spelling:
 This elaborates to a universally quantified argument type, schematically:
 
 ```scheme
-(: zero! (All (P) (requires (Ref P I64)) (fun P Unit ! mut)))
+(: zero!
+   (All (P)
+     (requires (Ref P I64))
+     (impl (Fun P Unit ! mut))))
 ```
 
 The caller chooses `P`. Calling `zero!` on two different field paths
