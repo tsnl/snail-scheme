@@ -130,6 +130,68 @@ and macro matching. These are options for review, not selected changes.
 The design should preserve one typed language and one compiler pipeline,
 with editor, formatter, bootstrap and macro support developed together.
 
+### Sweet-expression reader
+
+**Candidate for review, not implemented.** Evaluate
+[SRFI 110 sweet-expressions](https://srfi.schemers.org/srfi-110/srfi-110.html)
+as the default surface direction, with an explicit `#!sweet` directive
+during migration. It combines indentation, call notation and
+[SRFI 105 curly infix](https://srfi.schemers.org/srfi-105/srfi-105.html).
+It accepts conventionally formatted S-expressions, but is not a
+meaning-preserving superset of every traditional source file:
+
+| Input at the start of a line | Traditional reader | Sweet reader |
+| --- | --- | --- |
+| `f(x)` | Two datums: `f` and `(x)` | One datum: `(f x)` |
+| `(f) (g)` | Two datums | One datum: `((f) (g))` |
+
+These distinctions are documented in the SRFI's compatibility section.
+The directive selects parsing; parentheses can still be used within sweet
+code. Backslash grouping/splitting is available, but explicit lists can
+keep it out of routine examples. Curly infix does not supply conventional
+operator precedence: write `{a + {b * c}}` to state the grouping.
+
+With the proposed `fun` forms, the same definition could be written as:
+
+```text
+; Proposed Snail surface, using the sweet reader.
+#!sweet
+: square fun(I64 I64)
+fun square(n)
+  {n * n}
+```
+
+Its expansion is the parenthesized definition in
+[callable signatures](types.md#proposed-callable-typeclass). Sweet syntax
+only changes how forms are written; `fun` remains a separate language
+change. Dot projection and typed locators also require their own rules;
+adopting this reader does not itself specify field access.
+
+The recommended rollout starts with an explicit header for converted
+files, retaining traditional parsing for existing files. New-file
+templates can select sweet syntax. A later default change requires
+comparing both readers' output across the source tree and marking or
+reformatting files whose meaning would change. Do not guess a file's mode
+from whether its first expression uses parentheses. Whether to make that
+default change, and the spelling and scope of a traditional-reader escape,
+remain review decisions.
+
+Implement the source reader against the same located syntax consumed by
+expansion. Preserve source locations and macro hygiene, and keep generated
+binary syntax independent of textual notation. Reader equivalence tests
+should compare structures while accounting for their different locations,
+then execute equivalent programs. Include blank lines, indentation,
+comments, quote forms and advanced markers. The formatter and editor must
+agree with the compiler on mode and indentation; changing source syntax
+must not silently change a program's data-reading protocol.
+
+Chibi reads the compiler's source directly during stage 0. Adding sweet
+syntax to Snail's reader alone does not let Chibi load a converted compiler.
+Keep bootstrap-loaded sources in traditional notation until that path has
+an explicit, tested reader or preprocessing solution with source mapping.
+Claim SRFI 110 conformance only when its required reader behavior and APIs
+are covered; an initial source-reader implementation must state its scope.
+
 ## Toolchain terms
 
 These names distinguish source organization, compilation and execution.
