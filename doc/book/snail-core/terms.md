@@ -94,6 +94,42 @@ itself. Write mutually recursive helpers at the top level.
 Functions have fixed arity. Where Scheme uses variadic procedures, Snail-Core
 uses macros (`list`, `string-append`) or lists.
 
+## Proposed surface design
+
+**Design for review, not implemented.** Everyday programs should be
+comfortable to read and write without expertise in Lisp conventions.
+Uniform S-expressions are useful for structured syntax and macros, but
+they do not require every source operation to use the same punctuation.
+Familiar projection syntax such as `a.b.c` should be considered on its
+own merits, alongside bindings, calls, signatures and callback bodies.
+
+The proposed [callable signatures](types.md#proposed-callable-typeclass)
+use `fun` in place of `->`. The proposed
+[places and locators](types.md#proposed-places-and-locators) let field
+selection describe a typed path without exposing the compiler's field
+classes. Exact projection, read, write and continuation-binder syntax
+remains open. Choosing `::count!` is not a prerequisite for implementing
+typed places, and dot notation need not expose a runtime offset.
+
+Evaluate candidates by rewriting complete examples: the tour's counter,
+a nested update in an application, a higher-order collection operation,
+and an effect handler. Show the existing and proposed code side by side.
+A useful syntax makes the receiver, arguments, binding scope and mutation
+visible, works with multiline formatting, and gives useful diagnostics
+for incomplete edits. Reducing the number of parentheses alone is not
+enough to establish those properties.
+
+Additional surface syntax must produce located, hygienic structure that
+the existing expansion and checking pipeline understands. A projection
+can remain unresolved until its receiver's type and writable-field
+evidence are known. Parsing it must preserve evaluation order and evaluate
+the receiver once. Before adopting dots, specify their interaction with
+existing identifiers, numeric literals, quoted data and Scheme dotted
+lists. Before adopting infix or brace syntax, specify precedence, scope
+and macro matching. These are options for review, not selected changes.
+The design should preserve one typed language and one compiler pipeline,
+with editor, formatter, bootstrap and macro support developed together.
+
 ## Toolchain terms
 
 These names distinguish source organization, compilation and execution.
