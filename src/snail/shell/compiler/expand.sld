@@ -2717,7 +2717,9 @@
              (types (map (lambda (type) (resolve-type cx (Requirements-env requirements) type))
                          type-args))
              (outputs (instance-outputs cx (Requirements-env requirements) class equations loc)))
-        (unless (= (length types) (- (length (Class-params class)) (length (Class-outputs class))))
+        (when (and (not (null? (Class-outputs class)))
+                   (not (= (length types)
+                           (- (length (Class-params class)) (length (Class-outputs class))))))
           (compile-error loc
                          "instance head gives each declared class parameter; associated types belong in its body"))
         (expanding cx ((name (fresh-global (short-name (Class-name class)))))
@@ -2806,13 +2808,41 @@
       (match (program-value program method)
         ((Some (Method _ (Scheme method-vars (Cons _ own) copy type)))
          (let* ((class-vars (Class-params class))
-                (substitution (zip class-vars (Instance-types instance))))
-           (Scheme (append (Instance-vars instance) (list-drop method-vars (length class-vars)))
+                (locals (rename-method-variables (list-drop method-vars (length class-vars))
+                                                 (Instance-vars instance)))
+                (substitution (append (zip class-vars (Instance-types instance))
+                                      (map (lambda (binding)
+                                             (Pair (Pair-first binding)
+                                                   (TRigid (Pair-second binding))))
+                                           locals))))
+           (Scheme (append (Instance-vars instance) (map Pair-second locals))
                    (append (Instance-requires instance)
                            (map (lambda (c) (substitute-constraint substitution c)) own))
-                   (append (Instance-copy instance) copy)
+                   (append (Instance-copy instance)
+                           (map (lambda (name) (renamed-variable locals name)) copy))
                    (substitute substitution type))))
         (_ (panic "internal error: not a method"))))
+
+    ;; An instance and a polymorphic method have separate quantifiers.
+    ;; Fresh names keep their associated output slots separate when those
+    ;; schemes are combined for the implementation; argument order stays fixed.
+    (: rename-method-variables (-> (List String) (List String) (List (Pair String String))))
+    (define (rename-method-variables vars taken)
+      (match vars
+        ((Nil) (Nil))
+        ((Cons var rest)
+         (let ((name (fresh-type-variable (string-append "$method." var) taken)))
+           (Cons (Pair var name) (rename-method-variables rest (Cons name taken)))))))
+
+    (: fresh-type-variable (-> String (List String) String))
+    (define (fresh-type-variable name taken)
+      (if (member? name taken) (fresh-type-variable (string-append "$" name) taken) name))
+
+    (: renamed-variable (-> (List (Pair String String)) String String))
+    (define (renamed-variable names name)
+      (match (assoc-ref names name)
+        ((Some renamed) renamed)
+        ((None) name)))
 
     ;; Instance selection matches heads, so two heads may never both match
     ;; the same types. A type variable in either head matches anything.
