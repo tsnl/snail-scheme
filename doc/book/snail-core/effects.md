@@ -230,6 +230,111 @@ implements an operation once, at one type, so an operation's type may not
 quantify over types or rows
 (`tests/programs/error-effect-operation-polymorphic.sld`).
 
+### Proposed parameterized effects
+
+**Design for review, not implemented.** An effect declaration may bind type
+parameters, with every handler fixing one application of that declaration.
+Using the proposed [callable signatures](types.md#proposed-callable-typeclass):
+
+```scheme
+(effect (Emit T)
+  (: emit (ctl T Unit)))
+
+(: produce (fun Unit ! (Emit I64)))
+(fun (produce)
+  (emit 1)
+  (emit 2))
+```
+
+The declaration's `ctl` signature says that `emit` accepts a `T` and its
+handler receives the continuation expecting `Unit`. From a consumer's
+perspective, `emit` satisfies the callable contract from `T` to `Unit`
+performing `(Emit T)`. The continuation is supplied to the implementation
+by the handler machinery, not passed by the operation's caller.
+
+For comparison, an ordinary operation could be declared as:
+
+```scheme
+(effect (Ask T)
+  (: ask (fun T)))
+```
+
+An implementation of `ask` returns a `T` normally. Both operations satisfy
+the shared callable class. `ctl` records the handler implementation's
+control contract, while `fun` at an ordinary function signature does not
+promise absence of control effects: those remain in its row.
+
+The following sketch retains the existing handler-clause syntax to show
+the type relationships; the final spelling of clauses and continuation
+binders is still open:
+
+```scheme
+(handle (Emit I64)
+    ((emit (lambda (value resume)
+             (Cons value (resume (unit))))))
+  (produce)
+  (Nil))
+```
+
+Within this handler, `value` is `I64`. The whole body and handler answer
+are `(List I64)`, so `resume` takes `Unit` and answers `(List I64)`. It is
+one-shot and carries the effects of the handler's surrounding context,
+under the existing [resumption rules](#resuming). Generally, if the
+operation accepts `T`, answers `U`, and the handler answers `R`, its
+implementation accepts `T` and a one-shot callable from `U` to `R`, then
+answers `R`. `R` belongs to the handler and is not a parameter of `Emit`.
+
+Each installed handler is monomorphic in the effect parameters. A generic
+function may construct a handler at its own type parameter; each concrete
+specialization fixes that parameter for all operations of the handler.
+For a proposed `(State T)` with read and write operations, both must use
+the same `T`; checking each operation at an independent instantiation
+would break that guarantee.
+
+This differs from an operation-local `All`: an operation such as a
+universally polymorphic `pick` would let each call choose a different
+type while sharing one implementation. Supporting it requires checking
+that implementation for every instantiation. It remains outside this
+proposal, and the existing rejection of polymorphic operation signatures
+must remain. Parameterized effects quantify at the effect declaration and
+are fixed by each handler application.
+
+The proposed row rules allow `(Emit I64)` and `(Emit String)` together.
+Handling one discharges only that application; nested handlers for the
+same application use the nearest evidence. Type inference may determine
+an application's arguments from operands, results and the expected row.
+When that information does not choose a unique application, report an
+ambiguity rather than selecting by declaration order. The syntax for
+explicitly selecting an operation's application still needs a decision.
+Effect applications are not fresh instances: two independent states with
+the same `T` would need a separate naming or generativity feature.
+
+#### Compiler obligations
+
+Effect rows currently store names. Parameterization requires structured
+applications containing the declaration identity and type arguments.
+Substitution, unification, occurs checks, row inclusion, diagnostics and
+interface identities must traverse those arguments. Handler checking
+substitutes one shared application into all operation signatures and
+removes that application from the handled body's row.
+
+Specialization must retain applied effect identity through lowering.
+Concrete applications can receive distinct dispatch identities, so a
+handler for `(Emit I64)` cannot answer `(Emit String)`. Operation dispatch
+continues to walk the evidence in scope; this does not specialize code
+for an installed handler or require runtime inspection of type arguments.
+The identities must agree across separately compiled libraries.
+
+Validation must execute linked Wasm for two applications in one row,
+nested handlers of the same application, a generic producer under
+different handlers, and an ordinary callable that yields through `Emit`.
+Negative cases must reject inconsistent state-operation types, ambiguous
+applications, operation-local polymorphism and a one-shot callable passed
+to a repeated-call consumer. Bootstrap and compiled execution must agree.
+Defaults for parameterized effects need an instantiation rule before they
+are admitted. The language's remaining gaps are tracked in
+[issue #456](https://github.com/tsnl/snail-scheme/issues/456).
+
 ### Handling an effect
 
 `(handle Name ((operation implementation) ...) body ...)` runs the body with

@@ -162,6 +162,139 @@ covers rows, their inference and polymorphism, local mutation, declaring
 and handling effects, control operations with a one-shot `resume`, latent
 rows and defaults.
 
+## Proposed callable typeclass
+
+**Design for review, not implemented.** The syntax and typeclass in this
+section describe a proposed replacement for function arrows. The earlier
+sections describe the compiler today; their examples still use `->`.
+
+Use `fun` in signatures and for named function definitions:
+
+```scheme
+(: square (fun I64 I64))
+(fun (square n)
+  (* n n))
+```
+
+`define` continues to bind values. A `fun` signature describes a callable
+contract: argument types, result type and effects. It does not require one
+universal closure representation. Generic consumers accept a concrete type
+through a callable typeclass, provisionally named `Callable`. Ordinary
+functions and effect operations both satisfy it. A `ctl` operation is not a
+subclass of ordinary functions; its declaration supplies a different way
+to perform the same calling interface
+([parameterized effects](effects.md#proposed-parameterized-effects)).
+
+The class must carry four pieces of evidence:
+
+| Contract | What the checker must establish |
+| --- | --- |
+| Argument types | Each call supplies the required arguments. |
+| Result type | Continuing the call produces a value of this type. |
+| Effect row | The caller permits every effect that calling may perform. |
+| Call multiplicity | The consumer calls or releases the value as its ownership permits. |
+
+For example, a generic `map` needs a concrete callable `F` from `A` to `B`
+with row `e`, callable repeatedly. A consumer that invokes its argument
+once can accept a one-shot callable under the appropriate ownership rule.
+A repeatable callable may be invoked once too; the obligation to release
+its captures still follows its ownership. `Copy` alone does not establish
+callability. A one-shot continuation must not satisfy the repeated-call
+requirement. The current rule for `FnOnce` remains the baseline: consume it
+by calling or dropping it exactly once, including any effects of dropping
+its captures ([ownership](ownership.md)).
+
+The exact `Callable` parameter syntax, argument-list representation and
+multiplicity spelling remain open. The intended elaboration of a generic
+callable parameter introduces a concrete type variable and its class
+requirement; it does not erase that type into a common closure. How a `fun`
+signature expresses a stored or returned callable needs a separate rule
+for representation and quantification. This proposal does not silently
+give those positions an existential package or a higher-rank type.
+
+The compiler supplies callable evidence for functions, closures and effect
+operations. Whether user-defined data may implement this class is a
+separate extension. During monomorphization the concrete callable type
+allows the compiler to choose a direct call, a closure call or an effect
+operation dispatch. Its effect row determines whether the surrounding
+computation must support yielding: an ordinary function can call a `ctl`
+operation internally. A repeatable callable can yield, and a one-shot
+callable can be total; multiplicity and control behavior are independent.
+
+Specialization must not depend on the installed handler's identity.
+Operations still select their handler through the evidence in scope, so
+one compiled consumer can run under different implementations of an
+effect. This preserves the compiler's existing handler-dispatch contract.
+
+Replacing `->` with `fun` is the proposed surface direction. The migration
+must cover signatures, function definitions, bootstrap forms, macros,
+formatting, highlighting and diagnostics together. The spelling of `Fn`
+and `FnOnce`, compatibility with old forms, and anonymous-function syntax
+need decisions before implementation. This section proposes no new
+working syntax in the current compiler.
+
+## Proposed places and locators
+
+**Design for review, not implemented.** A first-class place separates
+storage selection from reading, writing or swapping its value. Its surface
+syntax should serve [everyday use](terms.md#proposed-surface-design), with
+no requirement to spell the flattened layout or an accessor's typeclass.
+
+Conceptually, a place contains a root reference and a locator. For a root
+`a`, the expression `a.b.c` would compose the field locators `b` and `c`
+and bind them to `a`. Dot notation here describes the intended selection;
+the reader syntax is undecided. Constructing the place does not read or
+copy the selected value. Reading, writing and swapping are separate
+operations with their own ownership requirements and effects. A computed
+getter is not automatically a locator for storage.
+
+Writable-field evidence must preserve the defining library's field-access
+rules. Replacing an owned field retains the existing requirements for
+releasing its old value, including any cleanup effects. Whole-cell writes
+through `ref-set!` and pure replacements such as `Counter-count-set` have
+different contracts and remain distinct operations. A direct field setter
+such as `(::count! counter 3)` is an alternative surface spelling under
+review, not a requirement of the locator design. Whether `set!` remains
+and how selection composes with reading still need decisions.
+
+For a statically known path through inline struct fields, a distinct
+concrete locator type can preserve the root type, selected type and field
+path. Generic code constrains that locator through its access contract
+and retains its concrete type for specialization, as with callables.
+The compiler can then represent a bound place by its root reference
+alone: the selected path lives in generated code, with no runtime list of
+field names or offsets. This is a proposed lowering, not a guarantee made
+by the current compiler. An explicit wrapper may still be needed at a
+boundary that does not preserve its representation.
+
+WasmGC `struct.get` and `struct.set` encode their field indices in the
+instructions ([instruction syntax](https://webassembly.github.io/spec/core/text/instructions.html)).
+That constrains each generated access, but does not prohibit runtime
+selection of a locator. An erased place could retain a root and generated
+access functions, or dispatch on a finite choice of locators; every access
+function or branch would still use fixed field indices. Such erasure has
+a representation and dispatch cost. A runtime integer offset alone cannot
+index an arbitrary WasmGC struct. Static knowledge can also come from
+inlining or constant propagation; preserving it in the concrete locator
+type provides a contract across generic function boundaries.
+
+The first design should cover paths through inline struct fields rooted
+in a stable cell. A retained place keeps that root alive through a managed
+reference, not an interior address. Replacing the cell's value leaves the
+place referring to the same field path in its new value. Extending paths
+through a replaceable reference needs a choice between following its new
+target and retaining its old target. Selecting an enum payload requires
+evidence that its case remains valid, or a checked access that can fail.
+Neither behavior should be hidden in punctuation.
+
+Aliased places must not let a read move a linear value out of shared
+storage. Reads require the same copying evidence as field access today;
+writes and swaps retain the existing release and replacement rules.
+The remaining design work is the locator class's precise contract,
+composition, explicit erasure, and the syntax distinguishing a place from
+the value read through it. This replaces the assumption that a separate
+setter name must be the final field API.
+
 ## Foreign functions
 
 `extern` declares a total foreign function; the declaration is the boundary's
