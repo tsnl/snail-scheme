@@ -134,8 +134,9 @@ with editor, formatter, bootstrap and macro support developed together.
 
 **Candidate for review, not implemented.** Evaluate
 [SRFI 110 sweet-expressions](https://srfi.schemers.org/srfi-110/srfi-110.html)
-as the default source reader, with an explicitly selectable traditional
-S-expression reader. It combines indentation, call notation and
+as the preferred source notation, selected by a language-reader directive
+at the start of every file. A traditional S-expression reader is also
+selectable. It combines indentation, call notation and
 [SRFI 105 curly infix](https://srfi.schemers.org/srfi-105/srfi-105.html).
 It accepts conventionally formatted S-expressions, but is not a
 meaning-preserving superset of every traditional source file:
@@ -154,8 +155,7 @@ operator precedence: write `{a + {b * c}}` to state the grouping.
 With the proposed `fun` forms, the same definition could be written as:
 
 ```text
-; Proposed Snail surface, using the sweet reader.
-#!sweet
+#lang snail/sweet
 : square fun(I64 I64)
 fun square(n)
   {n * n}
@@ -167,23 +167,25 @@ only changes how forms are written; `fun` remains a separate language
 change. Dot projection and typed locators also require their own rules;
 adopting this reader does not itself specify field access.
 
-The proposed default is sweet syntax throughout Snail source. A reader
-selector at the start of a file, or an explicit reader argument when
-loading a stream, preserves traditional interpretation for generated code
-and imported libraries. Both readers produce the same located syntax and
-share expansion, checking and lowering. The reader selector's exact
-spelling remains open; its selection is local to the file or stream and
-does not silently propagate into imported files. Supporting arbitrary
-user-provided readers is a separate extension from providing these two
-built-in choices.
+New-file templates should choose sweet syntax, while every source file
+declares its language reader. The header spellings `#lang snail/sweet` and
+`#lang snail/sexp` are candidates, not implemented syntax. Parse that header
+before invoking either reader. The traditional choice preserves exact
+S-expression interpretation for generated code and imported libraries.
+Both readers produce the same located syntax and share expansion,
+checking and lowering. Selection is local to the file and does not
+propagate into imports. A stream without a source-file header must have
+its reader supplied explicitly by its caller. Supporting arbitrary
+user-provided readers is separate from providing these two built-in choices.
 
-Before switching the default, compare both readers' output across the
-source tree and mark or reformat files whose meaning changes. Do not guess
+During migration, compare both readers' output across the source tree and
+add explicit headers or reformat files whose meaning changes. Do not guess
 the reader from whether the first expression uses parentheses. Accepting
 parenthesized expressions inside sweet source does not replace a true
 traditional mode: generated `(f) (g)` must still be two forms when that
-reader is selected. The `#!sweet` directive remains a way to make the
-sweet choice explicit, rather than the required mode for new source.
+reader is selected. The source-file header selects one reader for that
+file; support for SRFI parsing directives in data readers is a separate
+conformance obligation, not an implicit replacement for the header.
 
 Implement the source reader against the same located syntax consumed by
 expansion. Preserve source locations and macro hygiene, and keep generated
@@ -196,8 +198,8 @@ must not silently change a program's data-reading protocol.
 
 Chibi reads the compiler's source directly during stage 0. Adding sweet
 syntax to Snail's reader alone does not let Chibi load a converted compiler.
-Keep bootstrap-loaded sources in traditional notation until that path has
-an explicit, tested reader or preprocessing solution with source mapping.
+Bootstrap-loaded sources need an explicit, tested header/reader adapter
+or preprocessing solution with source mapping before source migration.
 Claim SRFI 110 conformance only when its required reader behavior and APIs
 are covered; an initial source-reader implementation must state its scope.
 
@@ -224,8 +226,9 @@ the same semantics so generated code can express it without dot syntax.
 The reader-created form must have a defined hygienic binding; a local
 variable must not accidentally change what punctuation means.
 
-For a `Ref` receiver, the checked projection builds the root and typed
-locator described in [places](types.md#proposed-places-and-locators).
+For a concrete place receiver, the checked projection composes its static
+path and produces another concrete place implementing the `Ref` capability
+described in [places](types.md#proposed-places-and-locators).
 The reader preserves the path without resolving field types or offsets.
 Later checking establishes writable-field evidence and lowering resolves
 the layout. Whether projection on an ordinary immutable value reads the
