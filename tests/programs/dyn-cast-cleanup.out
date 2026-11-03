@@ -3,6 +3,7 @@ drop first
 caught
 drop inferred
 inferred caught
+drop inferred caught
 drop argument
 arguments caught
 outside remains

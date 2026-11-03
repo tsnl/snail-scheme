@@ -26,6 +26,13 @@
     (integer "bad")
     (panic "unreachable")))
 
+;; Catching the conversion still leaves the resource's audit effect to infer.
+(define (inferred-caught-cleanup)
+  (handle dyn-cast ((conversion-failed (lambda (_) (unit))))
+    (let ((resource (Resource "inferred caught")))
+      (integer "bad")
+      (panic "unreachable"))))
+
 (: consume (-> Resource I64 I64 Unit ! audit))
 (define (consume resource a b)
   (drop resource))
@@ -37,6 +44,7 @@
     (aborting))
   (handle dyn-cast ((conversion-failed (lambda (_) (write-line "inferred caught"))))
     (inferred-cleanup))
+  (inferred-caught-cleanup)
   ;; The first operand becomes an owned temporary before the second fails.
   (handle dyn-cast ((conversion-failed (lambda (_) (write-line "arguments caught"))))
     (consume (Resource "argument") (integer "bad") (later)))

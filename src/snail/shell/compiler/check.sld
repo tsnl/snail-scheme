@@ -2385,26 +2385,11 @@
     ;; to look up its separate definition to recover the same information.
     (: cleanup-method-type (-> Checker String String (List Type) (List Evidence) Type Type))
     (define (cleanup-method-type ck class name types evidence fallback)
-      (match evidence
-        ((Cons first _)
-         (match (cleanup-evidence ck first)
-           ((EvInstance id arguments _)
-            (match (find (lambda (instance) (string=? (Instance-name instance) id))
-                         (class-instances (program-of ck) class))
-              ((Some instance)
-               (cleanup-global-type ck name (cleanup-method-arguments instance arguments types)
-                                    fallback))
-              ((None) fallback)))
-           (_ (cleanup-global-type ck name types fallback))))
-        (_ (cleanup-global-type ck name types fallback))))
-
-    ;; Class parameters come first; method-local type arguments follow them.
-    ;; Substitute the complete instance head, including its row variables.
-    (: cleanup-method-arguments (-> Instance (List Type) (List Type) (List Type)))
-    (define (cleanup-method-arguments instance arguments types)
-      (let ((bindings (zip (Instance-vars instance) arguments)))
-        (append (map (lambda (type) (substitute bindings type)) (Instance-types instance))
-                (list-drop types (length (Instance-types instance))))))
+      (cleanup-global-type ck name
+                           (selected-method-arguments
+                            (program-of ck) class types
+                            (map (lambda (value) (cleanup-evidence ck value)) evidence))
+                           fallback))
 
     (: cleanup-evidence (-> Checker Evidence Evidence))
     (define (cleanup-evidence ck evidence)
@@ -2546,15 +2531,16 @@
 
     (: cleanup-lambda (-> Checker (List String) (List Type) Expr Type Checker ! compile))
     (define (cleanup-lambda ck params types body row)
-      (if (null? (cleanup-yields ck body)) ck
-          (let ((captured (concatenate
-                           (map (lambda (name)
-                                  (match (table-ref (Checker-locals ck) name)
-                                    ((Some type)
-                                     (if (member? name params) (Nil) (list (Pair name type))))
-                                    ((None) (Nil))))
-                                (expr-references body)))))
-            (infer-cleanup ck (append (zip params types) captured) (Nil) body row))))
+      ;; A locally caught yield can still drop owners whose cleanup effects
+      ;; escape the handler, so inspect the body even when no yield escapes.
+      (let ((captured (concatenate
+                       (map (lambda (name)
+                              (match (table-ref (Checker-locals ck) name)
+                                ((Some type)
+                                 (if (member? name params) (Nil) (list (Pair name type))))
+                                ((None) (Nil))))
+                            (expr-references body)))))
+        (infer-cleanup ck (append (zip params types) captured) (Nil) body row)))
 
     ;; ---- Definitions ----
 

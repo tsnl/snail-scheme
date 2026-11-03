@@ -229,8 +229,11 @@ function of the expander has `mut` in its row — and where it does not, the
   and charges `dyn-cast` for a fallible extraction; other types still
   unify strictly. Explicit conversion follows the same rule. Cleanup
   effects of owned values at yields are charged before lambda
-  generalization. A selected class instance supplies its declared rows
-  directly, so a pure method's open use row does not invent a suspension.
+  generalization, including when a local handler catches the yield but
+  leaves a drop's effects unhandled. A selected class instance supplies
+  its declared rows directly: cleanup inference and ownership share core's
+  `selected-method-arguments`, so a pure method's open use row does not
+  invent a suspension.
   Handler implementations and the handled body meet
   their result boundary through the same directed fitting rule.
 - **[`conversions.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/conversions.sld)** lowers

@@ -446,13 +446,19 @@
 
     ;; Whether calling `callee` may yield. The checker opens each use of a
     ;; global to its context's row, so a global's own scheme says: its
-    ;; labels, and its row variable at the type this use gave it. A local's
-    ;; type says for itself.
+    ;; labels, and its row variable at the type this use gave it. A selected
+    ;; class instance supplies its own rows. A local's type says for itself.
     (: callee-may-yield? (-> Path Expr Bool))
     (define (callee-may-yield? path callee)
       (match (Expr-term callee)
-        ((Var name types _)
+        ((Var name types evidence)
          (match (program-value (Path-program path) name)
+           ((Some (Method class scheme))
+            (scheme-may-yield? path scheme
+                               (selected-method-arguments (Path-program path)
+                                                          class
+                                                          types
+                                                          evidence)))
            ((Some value)
             (match (value-scheme value)
               ((Some scheme) (scheme-may-yield? path scheme types))
