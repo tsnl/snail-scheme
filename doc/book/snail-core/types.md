@@ -366,8 +366,8 @@ current cell type.
 Write the internal shape schematically as `Place<Base, Path>`. `Base`
 identifies the root storage representation and `Path` describes the
 access steps at the type level. Allocating mutable storage for a `Point`
-returns a root place with an empty path. Constructing an ordinary immutable
-`Point` remains a value operation and does not allocate mutable storage.
+returns a root place with an empty path. The backing storage is always
+allocated on the GC heap, including when bound to a local variable.
 
 Projection composes paths. If `p` is a root place selecting a record,
 `p.position.x` produces a concrete place type whose path identifies both
@@ -430,46 +430,30 @@ consumer within each branch. Returned or stored opaque `impl` types need
 a separate language rule; this proposal introduces no automatic erasure.
 The same principle applies to the [callable class](#proposed-callable-typeclass).
 
-### Addressable local storage
+### GC-heap storage for local variables
 
-A local struct allocation that supplies addressable storage uses a hidden
-managed cell and returns an ordinary root place. Its fields compose the
-same static paths, and it can be passed to an `impl Ref T` consumer like
-any other managed place. This is the selected design, even when a user
-might otherwise expect the allocation to be on the stack. The allocation
-cost is part of its storage contract; no separate stack-reference type is
-introduced. The hidden cell must be created before references to that
-storage are shared, so every alias sees the same root.
+All place-backed storage is allocated on the WasmGC heap, including
+storage for local variables. A local allocation returns the same concrete
+root place as any other allocation. Field projection composes the same
+static paths, and generic consumers use the same `impl Ref T` capability.
+Source scope does not select a different storage representation.
 
-Wasm locals have indexed get/set instructions, but no address-of-local
-instruction ([variable instructions](https://webassembly.github.io/spec/core/syntax/instructions.html#variable-instructions)).
-A separately executing Wasm callee cannot reach its caller's local slots
-merely because monomorphization knows their types. A source-level local
-binding can hold a managed reference; it does not promise stack storage.
-Wasm locals themselves may occupy machine registers or stack slots at the
-engine's discretion.
+There are no stack allocations, stack-place types or stack-borrow
+lifetimes in this design. The compiler must not replace this storage with
+Wasm locals as an allocation-elimination strategy. A Wasm local can hold
+the managed root reference; the referenced storage remains a GC object.
+Every alias retains that same root.
 
-The managed root also remains valid if retained by a closure or saved
+The managed root remains valid when retained by a closure or saved
 continuation: GC follows the reference when control lowering unwinds the
-Wasm activation. This avoids requiring scoped stack-borrow lifetimes in
-the selected design. It preserves the existing restrictions on storing
-linear values in shared cells; managed lifetime alone is not a resource
-finalization policy.
+Wasm activation. Existing restrictions on storing linear values in shared
+cells still apply; managed lifetime alone is not a resource-finalization
+policy.
 
-An optimizer may eliminate a managed allocation when all observations and
-aliasing are preserved. Binaryen's
-[Heap2Local pass](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Heap2Local.cpp)
-demonstrates replacing suitable nonescaping allocations with locals. This
-is an optimization, not a source-level zero-allocation guarantee. Copying
-values into and out of a call is not a general substitute for shared
-storage because aliases can observe intermediate writes.
-
-Exact allocation syntax and the distinction between automatic and explicit
-reads remain open for the next design review. Ordinary value-only
-computations need not introduce mutable cells solely for uniformity;
-addressable local storage is the case requiring this managed root. Tests
-must cover two aliases observing writes across a call and a place retained
-across a suspension, alongside any proof used to remove an allocation.
+Exact allocation syntax and automatic versus explicit reads remain open.
+Tests must establish GC-backed storage for local allocations, two aliases
+observing writes across a call, and a place retained across a suspension.
+The Place/Ref distinction is identical in each case.
 
 ### Array element places
 
