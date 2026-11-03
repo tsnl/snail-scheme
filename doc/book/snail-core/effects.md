@@ -232,108 +232,160 @@ quantify over types or rows
 
 ### Proposed parameterized effects
 
-**Design for review, not implemented.** An effect declaration may bind type
-parameters, with every handler fixing one application of that declaration.
-Using the proposed [callable signatures](types.md#proposed-callable-typeclass):
+**Design for review, not implemented.** Represent source capabilities as
+parameterized typeclasses and providers as scoped instances. Requirements
+following `!` request implicit provider arguments. Dedicated `effect` and
+`handle` forms need not be fundamental language forms; any retained surface
+sugar must elaborate to this model. One typed application, such as
+`(Emit I64)`, fixes the parameters of a provider.
+
+Using the proposed [callable class](types.md#proposed-callable-typeclass):
 
 ```scheme
-(effect (Emit T)
-  (: emit (ctl T Unit)))
+(typeclass (Ask T)
+  (: ask (impl (Fun T))))
 
-(: produce (fun Unit ! (Emit I64)))
+(: greet (impl (Fun String ! (Ask String))))
+(fun (greet)
+  (string-append "hello, " (ask)))
+
+(: welcome (impl (Fun String String)))
+(fun (welcome name)
+  (instance (Ask String)
+    (fun (ask) name))
+  (greet))
+```
+
+These forms are illustrative extensions, not accepted syntax today. The
+local instance supplies an anonymous concrete provider whose `ask` method
+captures `name`. Its associated callable type is inferred from that method
+definition and checked against `impl (Fun T)`. `greet` receives the selected
+provider as an implicit argument; `welcome` supplies it explicitly after
+elaboration. Its captured string is runtime data, while its method code and
+callable type are statically selected.
+
+A parameterized emitting capability has the same interface mechanism:
+
+```scheme
+(typeclass (Emit T)
+  (: emit (impl (Fun T Unit))))
+
+(: produce (impl (Fun Unit ! (Emit I64))))
 (fun (produce)
   (emit 1)
   (emit 2))
 ```
 
-The declaration's `ctl` signature says that `emit` accepts a `T` and its
-handler receives the continuation expecting `Unit`. From a consumer's
-perspective, `emit` satisfies the callable contract from `T` to `Unit`
-performing `(Emit T)`. The continuation is supplied to the implementation
-by the handler machinery, not passed by the operation's caller.
+The `Fun` contract states the caller-facing interface. Whether the chosen
+provider returns directly or uses `ctl` belongs to its concrete
+implementation and the compiler's control analysis. A direct discard
+provider and a collecting control provider can satisfy the same caller-facing
+shape;
+their specialized consumers may require different lower-level calling
+conventions. The exact syntax for a `ctl` instance method and its
+continuation binder remains open.
 
-For comparison, an ordinary operation could be declared as:
+#### Scoped selection and specialization
 
-```scheme
-(effect (Ask T)
-  (: ask (fun T)))
-```
+Instance lookup selects the nearest lexically supplied provider for a
+required class application. A generic body forwards its provider parameters;
+it does not search for a new instance independently of those arguments.
+Nested providers for the same application require an explicit shadowing
+rule, and competing providers at one scope are an ambiguity. Provider
+method dependencies should resolve in their surrounding scope unless
+recursive self-reference is explicit. These rules differ from today's
+global, nonoverlapping class instances and require new checking support.
 
-An implementation of `ask` returns a `T` normally. Both operations satisfy
-the shared callable class. `ctl` records the handler implementation's
-control contract, while `fun` at an ordinary function signature does not
-promise absence of control effects: those remain in its row.
+Specialization keys on the provider's implementation type and concrete
+method identities. Runtime captures are arguments, not specialization
+keys. Choosing between different provider implementations at runtime
+requires specializing the consumer within each branch or another explicit
+representation; this design introduces no implicit erased-provider fallback.
+Local instances may capture values and therefore are runtime closures even
+though their method selection is static. Capture ownership remains checked.
 
-The following sketch retains the existing handler-clause syntax to show
-the type relationships; the final spelling of clauses and continuation
-binders is still open:
+All methods of one `(State T)` provider share the same `T`; independently
+instantiating its read and write methods would break that guarantee.
+`(Emit I64)` and `(Emit String)` may both be required. Local provision of
+one discharges only that application. A missing or ambiguous application
+is a compile-time error. A generic provider-building function may instantiate
+this pattern for different `T`, but each installed provider fixes one `T`.
+Operation-local universal polymorphism remains outside this proposal.
 
-```scheme
-(handle (Emit I64)
-    ((emit (lambda (value resume)
-             (Cons value (resume (unit))))))
-  (produce)
-  (Nil))
-```
+#### Control still needs a delimiter
 
-Within this handler, `value` is `I64`. The whole body and handler answer
-are `(List I64)`, so `resume` takes `Unit` and answers `(List I64)`. It is
-one-shot and carries the effects of the handler's surrounding context,
-under the existing [resumption rules](#resuming). Generally, if the
-operation accepts `T`, answers `U`, and the handler answers `R`, its
-implementation accepts `T` and a one-shot callable from `U` to `R`, then
-answers `R`. `R` belongs to the handler and is not a parameter of `Emit`.
+Passing provider closures explains ordinary capability calls. It does not
+alone capture the remainder of a computation. A `ctl` implementation needs
+a one-shot continuation up to a particular boundary. If `emit` answers
+`Unit` and the collecting computation answers `(List I64)`, its continuation
+accepts `Unit` and returns `(List I64)`; the implementation itself also
+returns the collecting computation's answer. Omitting a call to that
+continuation abandons the computation up to that boundary, not the whole
+program. Ownership must account for the abandoned continuation's captures.
 
-Each installed handler is monomorphic in the effect parameters. A generic
-function may construct a handler at its own type parameter; each concrete
-specialization fixes that parameter for all operations of the handler.
-For a proposed `(State T)` with read and write operations, both must use
-the same `T`; checking each operation at an independent instantiation
-would break that guarantee.
+A scoped control provider must therefore establish a typed delimiter, even
+if there is no source form named `handle`. The body extent, answer type,
+deep reinstatement of the provider, and nesting with other control providers
+must be defined. Elaboration may erase capability names into provider
+arguments while retaining explicit delimiter and resumption operations;
+a later control translation erases those into ordinary closure calls.
+These are separate obligations.
 
-This differs from an operation-local `All`: an operation such as a
-universally polymorphic `pick` would let each call choose a different
-type while sharing one implementation. Supporting it requires checking
-that implementation for every instantiation. It remains outside this
-proposal, and the existing rejection of polymorphic operation signatures
-must remain. Parameterized effects quantify at the effect declaration and
-are fixed by each handler application.
+Stored resumptions expose a semantic choice. Today's resumption rules
+use the surrounding handlers where `resume` is invoked. A closure that
+captures lexically selected provider arguments would instead retain those
+providers. The recommended direction for this static-provider design is
+lexical capture, but it is a behavior change requiring review, especially
+for task schedulers and stored generators. Preserving dynamic rebinding
+would require an explicit parameterized resumption contract and fresh
+specialization at its call sites; it cannot be assumed to follow from
+ordinary closure capture. Read the existing examples under
+[resuming](#resuming) as implemented behavior until that decision is made.
 
-The proposed row rules allow `(Emit I64)` and `(Emit String)` together.
-Handling one discharges only that application; nested handlers for the
-same application use the nearest evidence. Type inference may determine
-an application's arguments from operands, results and the expected row.
-When that information does not choose a unique application, report an
-ambiguity rather than selecting by declaration order. The syntax for
-explicitly selecting an operation's application still needs a decision.
-Effect applications are not fresh instances: two independent states with
-the same `T` would need a separate naming or generativity feature.
+#### Provider requirements and purity
+
+An implicit-argument requirement and a description of observable effects
+are not interchangeable. A closure can capture a console provider when it
+is created and later write through it without asking its caller for a
+provider. If `!` lists only missing implicit arguments, an empty list no
+longer proves that invoking the closure is pure. The same issue applies to
+captured mutable places. A direct calling convention proves neither purity
+nor absence of allocation.
+
+Before removing effect rows as a separate semantic notion, decide whether
+the language accepts that change or retains latent-effect evidence alongside
+provider requirements. A method that writes must not silently satisfy a
+pure callable contract just because its provider is captured. Compiler-owned
+`mut` and `host`, local-mutation confinement, and foreign-call assumptions
+need explicit treatment. The implemented purity promises remain unchanged
+by this documentation proposal.
 
 #### Compiler obligations
 
-Effect rows currently store names. Parameterization requires structured
-applications containing the declaration identity and type arguments.
-Substitution, unification, occurs checks, row inclusion, diagnostics and
-interface identities must traverse those arguments. Handler checking
-substitutes one shared application into all operation signatures and
-removes that application from the handled body's row.
+The compiler already preserves control rows during monomorphization and
+uses a may-yield analysis; lack of handler specialization does not force
+all current functions into CPS. The proposed improvement lets that analysis
+use concrete provider methods. Direct providers should introduce no
+continuation capture merely because another instance of the same class
+uses `ctl`. Conversely, a plain `fun` body can need control lowering when
+it calls a selected control-capable method.
 
-Specialization must retain applied effect identity through lowering.
-Concrete applications can receive distinct dispatch identities, so a
-handler for `(Emit I64)` cannot answer `(Emit String)`. Operation dispatch
-continues to walk the evidence in scope; this does not specialize code
-for an installed handler or require runtime inspection of type arguments.
-The identities must agree across separately compiled libraries.
+The proposed [explicit-provider IR](compilers.md#proposed-explicit-provider-ir)
+records provider arguments and distinguishes direct and control calls.
+It must preserve class applications, closure environments and ownership
+through specialization, analyze recursive calls, and establish control
+conventions before emitting Wasm. Separate compilation must preserve
+provider types and make generic bodies available for specialization.
 
-Validation must execute linked Wasm for two applications in one row,
-nested handlers of the same application, a generic producer under
-different handlers, and an ordinary callable that yields through `Emit`.
-Negative cases must reject inconsistent state-operation types, ambiguous
-applications, operation-local polymorphism and a one-shot callable passed
-to a repeated-call consumer. Bootstrap and compiled execution must agree.
-Defaults for parameterized effects need an instantiation rule before they
-are admitted. The language's remaining gaps are tracked in
-[issue #456](https://github.com/tsnl/snail-scheme/issues/456).
+Validation must cover a direct and a control provider for the same class,
+a generic higher-order consumer under each, nested providers, runtime
+captures with shared specialized code, early exit and stored one-shot
+resumption. Reject inconsistent provider method types, ambiguous instances,
+operation-local polymorphism, erased provider selection and repeated use
+of one-shot continuations. Execute linked Wasm and check that direct
+specializations have no unnecessary yield checks or continuation allocations.
+Bootstrap and compiled execution must agree. The language's remaining gaps
+are tracked in [issue #456](https://github.com/tsnl/snail-scheme/issues/456).
 
 ### Handling an effect
 
