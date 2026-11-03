@@ -235,65 +235,156 @@ working syntax in the current compiler.
 
 ## Proposed places and locators
 
-**Design for review, not implemented.** A first-class place separates
-storage selection from reading, writing or swapping its value. Its surface
-syntax should serve [everyday use](terms.md#proposed-surface-design), with
-no requirement to spell the flattened layout or an accessor's typeclass.
+**Design for review, not implemented.** A place is a concrete type; `Ref`
+is the capability implemented by places that select a value of a given
+type. Generic consumers accept `impl Ref T` and preserve the concrete
+place type for specialization. There is no conversion to a single
+concrete `Ref T`, runtime path descriptor or accessor-function dictionary.
+The names below are proposed; the implemented `Ref` above is still the
+current cell type.
 
-Conceptually, a place contains a root reference and a locator. For a root
-`a`, the expression `a.b.c` would compose the field locators `b` and `c`
-and bind them to `a`. Dot notation here describes the intended selection;
-the reader syntax is undecided. Constructing the place does not read or
-copy the selected value. Reading, writing and swapping are separate
-operations with their own ownership requirements and effects. A computed
-getter is not automatically a locator for storage.
+### Concrete places
 
-Writable-field evidence must preserve the defining library's field-access
-rules. Replacing an owned field retains the existing requirements for
-releasing its old value, including any cleanup effects. Whole-cell writes
-through `ref-set!` and pure replacements such as `Counter-count-set` have
-different contracts and remain distinct operations. A direct field setter
-such as `(::count! counter 3)` is an alternative surface spelling under
-review, not a requirement of the locator design. Whether `set!` remains
-and how selection composes with reading still need decisions.
+Write the internal shape schematically as `Place<Base, Path>`. `Base`
+identifies the root storage representation and `Path` describes the
+access steps at the type level. Allocating mutable storage for a `Point`
+returns a root place with an empty path. Constructing an ordinary immutable
+`Point` remains a value operation and does not allocate mutable storage.
 
-For a statically known path through inline struct fields, a distinct
-concrete locator type can preserve the root type, selected type and field
-path. Generic code constrains that locator through its access contract
-and retains its concrete type for specialization, as with callables.
-The compiler can then represent a bound place by its root reference
-alone: the selected path lives in generated code, with no runtime list of
-field names or offsets. This is a proposed lowering, not a guarantee made
-by the current compiler. An explicit wrapper may still be needed at a
-boundary that does not preserve its representation.
+Projection composes paths. If `p` is a root place selecting a record,
+`p.position.x` produces a concrete place type whose path identifies both
+fields. It does not first copy `position` into a temporary. The root and
+field path determine the selected type; neither the caller nor inference
+can choose a different target type for the same place type. A computed
+getter does not establish storage, and writable-field evidence must obey
+the defining library's access rules.
 
-WasmGC `struct.get` and `struct.set` encode their field indices in the
-instructions ([instruction syntax](https://webassembly.github.io/spec/core/text/instructions.html)).
-That constrains each generated access, but does not prohibit runtime
-selection of a locator. An erased place could retain a root and generated
-access functions, or dispatch on a finite choice of locators; every access
-function or branch would still use fixed field indices. Such erasure has
-a representation and dispatch cost. A runtime integer offset alone cannot
-index an arbitrary WasmGC struct. Static knowledge can also come from
-inlining or constant propagation; preserving it in the concrete locator
-type provides a contract across generic function boundaries.
+For paths consisting only of inline fields, the runtime value is just the
+root managed reference. All path steps are erased by specialization;
+projection allocates no locator object and installs no runtime dispatch.
+The emitted accesses use fixed field indices, as WasmGC requires
+([instruction syntax](https://webassembly.github.io/spec/core/text/instructions.html)).
+The place keeps its root alive through that reference. Replacing the root's
+content leaves a retained place selecting the same field in the new value.
 
-The first design should cover paths through inline struct fields rooted
-in a stable cell. A retained place keeps that root alive through a managed
-reference, not an interior address. Replacing the cell's value leaves the
-place referring to the same field path in its new value. Extending paths
-through a replaceable reference needs a choice between following its new
-target and retaining its old target. Selecting an enum payload requires
-evidence that its case remains valid, or a checked access that can fail.
-Neither behavior should be hidden in punctuation.
+### Reference capability and argument sugar
 
-Aliased places must not let a read move a linear value out of shared
-storage. Reads require the same copying evidence as field access today;
-writes and swaps retain the existing release and replacement rules.
-The remaining design work is the locator class's precise contract,
-composition, explicit erasure, and the syntax distinguishing a place from
-the value read through it. This replaces the assumption that a separate
-setter name must be the final field API.
+`Ref T` describes access to storage containing `T`. Internally its evidence
+relates a concrete place type `P` to its unique selected type `T`; write
+that relation as `(Ref P T)`. The compiler derives it from valid place
+construction and projection. User instances cannot assert arbitrary
+storage layouts. Using the proposed parenthesized signature spelling:
+
+```scheme
+(: zero! (fun (impl (Ref I64)) Unit ! mut))
+(fun (zero! target)
+  (ref-set! target 0))
+```
+
+This elaborates to a universally quantified argument type, schematically:
+
+```scheme
+(: zero! (All (P) (requires (Ref P I64)) (fun P Unit ! mut)))
+```
+
+The caller chooses `P`. Calling `zero!` on two different field paths
+specializes it for their distinct place types; both write an `I64` without
+boxing or converting either place. Each argument-position `impl` introduces
+an independent type variable. A named `P` expresses that two arguments, or
+an argument and a result, must have the same concrete place type.
+
+The capability admits reading, writing and swapping with `mut` recorded.
+Reading must satisfy the existing copying rules for the selected value.
+Place handles are unrestricted even though their contents have a separate
+type: duplicating a handle preserves aliasing and does not copy the
+stored object. The compiler can derive `(Copy P)` from its place evidence;
+this implication must be explicit in checking, since current user classes
+have no superclasses. Existing restrictions on shared cell contents remain:
+linear values cannot be stored there without a separate ownership and
+finalization design. This proposal does not permit moving a linear value
+out of aliased storage or silently dropping one on replacement.
+
+`impl Ref T` in an argument is static polymorphism, not an existential
+container. Different place types cannot be put in one homogeneous list or
+returned from different branches merely because they select the same `T`.
+Such code must keep its alternatives explicit or invoke the generic
+consumer within each branch. Returned or stored opaque `impl` types need
+a separate language rule; this proposal introduces no automatic erasure.
+The same principle applies to the [callable class](#proposed-callable-typeclass).
+
+### Array element places
+
+A dynamic array index is runtime data. The static path records an indexing
+step, but not the index's value: `array[i]` and `array[j]` have the same
+concrete place type when their array types agree. They carry different
+indices. An indexed place therefore contains the selected array reference
+and index, while its path description still disappears during
+specialization. No specialization is generated for each numeric index.
+
+Evaluate the receiver and index once, check bounds when constructing the
+place, and retain the selected fixed-length array. Later reads and writes
+use that reference and index; bounds checks may be removed only when their
+validity is proved. No unchecked truncation of a source integer to a Wasm
+index is permitted. A reference stored in an element is a value: reaching
+through it requires a dereference step whose construction retains the
+selected target. Updating that element later does not retarget an already
+constructed place into the old target.
+
+Growable containers need a separate invalidation or stable-storage rule;
+a saved element place must not silently follow a reallocated buffer.
+Enum payload projection also needs a case-validity rule. Neither extension
+is implied by ordinary struct projection or fixed-array indexing.
+
+### Native array layout contract
+
+Arrays admit only element types explicitly supported by the native Wasm
+array representation. Arrays of struct values are compile-time errors,
+including single-field structs; this deliberately tightens today's
+`Unboxed` exception for a one-slot struct. The compiler must not silently
+box elements, transpose a record into several arrays, or pack heterogeneous
+fields into bytes to make such an array compile.
+
+Scalar and packed element types use their declared native storage mapping.
+Explicit managed-reference elements remain possible, with their indirection
+visible in the source type. A reference capability is not itself an element
+representation: an array of `impl Ref T` cannot erase heterogeneous place
+types. A concrete place may be an element only when its representation is
+one supported native reference; an array-element place carrying both a root
+and an index does not qualify. Source struct values remain rejected even
+when an implementation could box them into references.
+
+This guarantees the representation category and absence of hidden element
+boxing or layout conversion. Physical GC object headers, byte offsets and
+alignment are still engine choices; native WasmGC storage does not expose a
+C-compatible memory layout. Future inline aggregates would require an
+explicit extension of the array contract, not a silent change in layout.
+
+The WasmGC [post-MVP nested-data design](https://github.com/WebAssembly/gc/blob/main/proposals/gc/Post-MVP.md#nested-data-structures)
+sketches inline arrays of structs and interior references. At the time of
+this review it is not listed as an active staged proposal in the
+[proposal tracker](https://github.com/WebAssembly/proposals); the design
+must not depend on a delivery date. The active
+[Multibyte Array Access proposal](https://github.com/WebAssembly/multibyte-array-access/blob/main/proposals/multibyte-array-access/Overview.md)
+addresses wider accesses through numeric arrays, not arbitrary inline
+aggregates containing managed references.
+
+### Implementation evidence
+
+Checking must produce structured path evidence and preserve the concrete
+place type through substitution, interfaces and monomorphization. Lowering
+must consume that evidence instead of recovering writable storage from the
+syntax of a getter call. Keep root and dynamic-index evaluation order,
+GC liveness and aliasing rules beside the code that implements them.
+
+Acceptance tests must pass a root place and distinct field places to one
+generic consumer, retain a place across root replacement, and read and
+write checked array-element places with runtime indices. Rejections must
+cover computed getters used as storage, inconsistent target types,
+implicit place erasure, linear cell contents, every struct-array shape
+and indexed places used as native array elements. Execute linked Wasm and
+inspect the relevant lowering to establish that field-only places retain
+only a root and that access uses static field indices. Bootstrap and
+compiled execution must agree.
 
 ## Foreign functions
 
