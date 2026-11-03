@@ -134,8 +134,8 @@ with editor, formatter, bootstrap and macro support developed together.
 
 **Candidate for review, not implemented.** Evaluate
 [SRFI 110 sweet-expressions](https://srfi.schemers.org/srfi-110/srfi-110.html)
-as the default surface direction, with an explicit `#!sweet` directive
-during migration. It combines indentation, call notation and
+as the default source reader, with an explicitly selectable traditional
+S-expression reader. It combines indentation, call notation and
 [SRFI 105 curly infix](https://srfi.schemers.org/srfi-105/srfi-105.html).
 It accepts conventionally formatted S-expressions, but is not a
 meaning-preserving superset of every traditional source file:
@@ -167,14 +167,23 @@ only changes how forms are written; `fun` remains a separate language
 change. Dot projection and typed locators also require their own rules;
 adopting this reader does not itself specify field access.
 
-The recommended rollout starts with an explicit header for converted
-files, retaining traditional parsing for existing files. New-file
-templates can select sweet syntax. A later default change requires
-comparing both readers' output across the source tree and marking or
-reformatting files whose meaning would change. Do not guess a file's mode
-from whether its first expression uses parentheses. Whether to make that
-default change, and the spelling and scope of a traditional-reader escape,
-remain review decisions.
+The proposed default is sweet syntax throughout Snail source. A reader
+selector at the start of a file, or an explicit reader argument when
+loading a stream, preserves traditional interpretation for generated code
+and imported libraries. Both readers produce the same located syntax and
+share expansion, checking and lowering. The reader selector's exact
+spelling remains open; its selection is local to the file or stream and
+does not silently propagate into imported files. Supporting arbitrary
+user-provided readers is a separate extension from providing these two
+built-in choices.
+
+Before switching the default, compare both readers' output across the
+source tree and mark or reformat files whose meaning changes. Do not guess
+the reader from whether the first expression uses parentheses. Accepting
+parenthesized expressions inside sweet source does not replace a true
+traditional mode: generated `(f) (g)` must still be two forms when that
+reader is selected. The `#!sweet` directive remains a way to make the
+sweet choice explicit, rather than the required mode for new source.
 
 Implement the source reader against the same located syntax consumed by
 expansion. Preserve source locations and macro hygiene, and keep generated
@@ -191,6 +200,44 @@ Keep bootstrap-loaded sources in traditional notation until that path has
 an explicit, tested reader or preprocessing solution with source mapping.
 Claim SRFI 110 conformance only when its required reader behavior and APIs
 are covered; an initial source-reader implementation must state its scope.
+
+### Dot projection as a reader extension
+
+**Candidate syntax, not implemented.** Reuse the neoteric reader's
+postfix-to-form approach for field selection. SRFI 105 specifies postfix
+calls and a bracket hook, `a[b]` becoming `($bracket-apply$ a b)`. It does
+not give `a.b` field-access semantics; its `{a . b}` example produces an
+improper form headed by `$nfx$`. Dot projection therefore needs a distinct
+Snail extension, rather than treating a standalone dot as an ordinary
+infix operator. [SRFI 105](https://srfi.schemers.org/srfi-105/srfi-105.html)
+
+The proposed structural translation is schematically:
+
+```text
+a.b.c  =>  (project a b c)
+```
+
+`project` stands for a located projection form whose actual name is still
+open. `a` is an evaluated expression; `b` and `c` are field labels, not
+variable reads. The traditional reader must admit an explicit form with
+the same semantics so generated code can express it without dot syntax.
+The reader-created form must have a defined hygienic binding; a local
+variable must not accidentally change what punctuation means.
+
+For a `Ref` receiver, the checked projection builds the root and typed
+locator described in [places](types.md#proposed-places-and-locators).
+The reader preserves the path without resolving field types or offsets.
+Later checking establishes writable-field evidence and lowering resolves
+the layout. Whether projection on an ordinary immutable value reads the
+selected value, and how a place is read in a value context, remain explicit
+design questions. A computed getter must not become writable by accident.
+
+Projection should compose left to right with calls, so `make().b.c` has
+one receiver evaluation. Its lexical rules must distinguish decimal
+literals, the standalone dotted-list marker, ellipses and escaped names
+that contain dots. Under the traditional reader a dotted identifier keeps
+its existing meaning. Compatibility tests must cover these boundaries;
+the extension must not split arbitrary identifier strings after parsing.
 
 ## Toolchain terms
 
