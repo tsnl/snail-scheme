@@ -1715,7 +1715,7 @@
                                                                   (resolve-type (solution ck) type))
                                                                 (Constraint-types constraint))
                                                            givens copy loc)))
-               (improve-field ck want))))
+               (resumed ck (improve-field (Checker-instances-set ck sets) want)))))
         (_ ck)))
 
     (: improve-field (-> Checker Wanted Checker ! compile))
