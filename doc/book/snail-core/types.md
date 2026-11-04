@@ -194,13 +194,14 @@ implementations need explicit quantification rules; neither position
 silently erases a family of implementation types into one runtime object.
 `define` continues to bind ordinary values.
 
-The callable contract preserves four pieces of evidence:
+The callable contract preserves the following evidence:
 
 | Contract | What the checker must establish |
 | --- | --- |
 | Argument types | Each call supplies the required arguments. |
 | Result type | Continuing the call produces a value of this type. |
-| Required capabilities | The caller supplies each implicit provider named after `!`. |
+| Provider requirements | The caller supplies any provider arguments not already captured. |
+| Invocation effects | The call context permits the callable's latent effects, including those of captured providers. |
 | Call multiplicity | The consumer calls or releases the value as its ownership permits. |
 
 A generic `map` needs a concrete callable from `A` to `B` that permits
@@ -228,12 +229,16 @@ code and control behavior. Captured provider values remain runtime closure
 fields: two instances of the same implementation with different captured
 strings do not require different code specializations.
 
-Capabilities following `!` become explicit provider arguments in a
+Unresolved capabilities following `!` become explicit provider arguments in a
 [lower IR](compilers.md#proposed-explicit-provider-ir). Lexically scoped
 instances supply these arguments. This proposed provider specialization
 replaces the current design's runtime handler search; it is not an
-implemented optimization. Capability requirements remain checked before
-erasure, and control operations still require delimited continuation
+implemented optimization. Capturing a provider does not erase the effects
+of invoking its methods. Callable effect evidence remains checked even
+when no additional provider argument is needed; its precise relationship
+to the `!` spelling is described with
+[resumption effects](effects.md#provider-requirements-and-purity).
+Control operations still require delimited continuation
 semantics ([effects](effects.md#proposed-parameterized-effects)).
 
 Migration must cover signatures, function definitions, bootstrap forms,
