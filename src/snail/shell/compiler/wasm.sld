@@ -1,5 +1,5 @@
-;; Checked source to WasmGC through one specialization worklist. A requested
-;; body is instantiated, lowered, emitted, and discarded before the next.
+;; Prepared concrete code to WasmGC. Declarations and initializer order are
+;; fixed before emission; no source specialization or validation happens here.
 ;; This backend decides representations:
 ;; scalars are Wasm numbers, enums whose cases have no fields are i32 tags,
 ;; other data are GC structs (enum cases are subtypes of a tagged base), a
@@ -14,7 +14,6 @@
 (define-library (snail shell compiler wasm)
   (export
    emit-module
-   emit-library
    emit-control-module
    wat->string)
   (import
@@ -23,9 +22,14 @@
    (snail shell compiler read)
    (snail shell compiler core)
    (snail shell compiler capabilities)
-   (only (snail shell compiler check) Typed Typed-items)
-   (snail shell compiler specialize)
-   (snail shell compiler control))
+   (only (snail shell compiler specialize)
+         Declarations Declarations-program Declarations-owner Declarations-control
+         Declarations-bindings Binding Binding-type Binding-function? Binding-external?
+         control-effects)
+   (only (snail shell compiler prepare)
+         Prepared Prepared-declarations Prepared-definitions Prepared-initializers
+         Prepared-statements Prepared-exported Callees declaration-callees yields
+         holds-yield-point?))
   (begin
 
     ;; ---- Text ----
@@ -157,11 +161,10 @@
     ;; GC types are registered on first use. Functions are kept as text,
     ;; other fields as trees. `memo` caches closures for global functions, singletons and
     ;; string literals; `helpers` caches imports and helper functions by key.
-    ;; `state` is an immutable specialization registry. Each emission step
-    ;; advances it before entering the body emitter. The output builders
-    ;; retain only Wasm declarations and instructions.
+    ;; `declarations` is fixed metadata: it holds no source bodies, recipes
+    ;; or pending work. Only the Wasm output builders change during emission.
     (struct Module
-      ((state State)
+      ((declarations Declarations)
        (type-ids (Ref (Table String)))
        (types (Ref (List Wat)))
        (imports (Ref (List Wat)))
@@ -211,7 +214,7 @@
 
     (: program-of (-> Module Program))
     (define (program-of m)
-      (specialization-program (Module-state m)))
+      (Declarations-program (Module-declarations m)))
 
     ;; A location for code the backend writes itself.
     (: no-loc Loc)
@@ -953,7 +956,7 @@
     ;; emitted. No definition body lives in the module builder.
     (: definition-of (-> Module String (Option Binding)))
     (define (definition-of m name)
-      (specialization-binding (Module-state m) name))
+      (table-ref (Declarations-bindings (Module-declarations m)) name))
 
     (: external-definition? (-> Module String Bool))
     (define (external-definition? m name)
@@ -2652,7 +2655,7 @@
     ;; node of the handler it is aimed at, the operation's index in its
     ;; effect, its arguments, and the frames saved so far. The performer
     ;; then returns a placeholder of its result type. Each call that may
-    ;; yield is the value of a let, as (snail shell compiler control)
+    ;; yield is the value of a let, as (snail shell compiler prepare)
     ;; arranges, and after that let the record is tested: while it is set,
     ;; the let saves its body as a frame on the record (see Frames) and
     ;; leaves with a placeholder, a function to its caller and a handle body
@@ -2711,7 +2714,7 @@
     (: yielding (-> Module String ! mut))
     (define (yielding m)
       (let ((type (wat "mut" (wat "ref" (Word "null") (id (yield-type m))))))
-        (match (State-owner (Module-state m))
+        (match (Declarations-owner (Module-declarations m))
           ((Some _)
            (import-once! m "yielding" "$yielding"
                          (lambda (global)
@@ -2731,11 +2734,11 @@
     ;; text never changes.
     (: emit-control-module (-> Program Wat ! mut))
     (define (emit-control-module program)
-      (let ((m (new-module
-                (new-state (prepare-specialization (Typed program (Nil) empty-table)) (None)))))
+      (let ((m (new-module (Declarations (Program-items-set program (Nil))
+                                         (None) (control-effects program) empty-table))))
         (push! (Module-exports m)
                (wat "export" (wat-string "yielding") (wat "global" (id (yielding m)))))
-        (finish-main! m (new-main m) (Nil))
+        (emit-main! m (Nil) (Nil))
         (module-wat m)))
 
     (: yielding? (-> Module Wat ! mut))
@@ -4378,111 +4381,42 @@
 
     ;; ---- Modules ----
 
-    ;; ---- Compilation worklist ----
+    ;; The prepared input separates executable functions, ordered global
+    ;; initializers and statements. Every function builder sees the same
+    ;; fixed declarations; none can request another source specialization.
+    (: emit-module (-> Prepared Wat ! mut))
+    (define (emit-module prepared)
+      (let ((m (new-module (Prepared-declarations prepared))))
+        (for-each (lambda (item)
+                    (match item
+                      ((Define name value) (emit-function! m name value))
+                      (_ (panic "internal error: a prepared function must be a definition"))))
+                  (Prepared-definitions prepared))
+        (emit-main! m (Prepared-initializers prepared) (Prepared-statements prepared))
+        (for-each (lambda (name) (export-definition! m name)) (Prepared-exported prepared))
+        (module-wat m)))
 
-    ;; Checked source is the only retained source program. Initializers keep
-    ;; their source order even though function requests are drained in
-    ;; discovery order. Main stores emitted instructions, never source bodies.
-    (struct Main
-      ((init Fn)
-       (body Fn)
-       (initializers (Table (List Wat)))
-       (statements (List Wat))
-       (count I64)))
-
-    (: emit-module (-> Typed Wat ! mut compile))
-    (define (emit-module typed)
-      (compile-items (prepare-specialization typed) (None) (Typed-items typed)))
-
-    (: emit-library (-> Specialization String (List Item) Wat ! mut compile))
-    (define (emit-library input owner items)
-      (compile-items input (Some owner) items))
-
-    (: compile-items (-> Specialization (Option String) (List Item) Wat ! mut compile))
-    (define (compile-items input owner items)
-      (match (start-specialization (new-state input owner) items)
-        ((Pair exported state)
-         (let* ((m (new-module state))
-                (roots (emit-roots m (new-main m) items)))
-           (match (emit-requests (Pair-first roots) (Pair-second roots))
-             ((Pair m main)
-              (finish-main! m main (Typed-items (Specialization-typed input)))
-              (for-each (lambda (name) (export-definition! m name)) exported)
-              (module-wat m)))))))
-
-    (: new-module (-> State Module))
-    (define (new-module state)
-      (Module state
+    (: new-module (-> Declarations Module))
+    (define (new-module declarations)
+      (Module declarations
               (ref empty-table) (ref (Nil)) (ref (Nil)) (ref (Nil))
               (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil))
               (ref empty-table) (ref empty-table)))
 
     (: module-callees (-> Module (Option Callees)))
     (define (module-callees m)
-      (if (null? (State-control (Module-state m)))
+      (if (null? (Declarations-control (Module-declarations m)))
           (None)
-          (Some (specialization-callees (Module-state m)))))
+          (Some (declaration-callees (Module-declarations m)))))
 
-    (: new-main (-> Module Main ! mut))
-    (define (new-main m)
-      (Main (Fn-evidence-set (new-fn m) (evidence-none m))
-            (new-fn m) empty-table (Nil) 0))
-
-    ;; Statements discover requests before definitions are visited, so a
-    ;; restriction failure points at the use that requested generic code.
-    (: emit-roots (-> Module Main (List Item) (Pair Module Main) ! mut compile))
-    (define (emit-roots m main items)
-      (match items
-        ((Cons (Define _ _) rest) (emit-roots m main rest))
-        ((Cons item rest)
-         (match (specialize-statement (Module-state m) item)
-           ((Pair item state)
-            (match (emit-item (Module-state-set m state) main item)
-              ((Pair m main) (emit-roots m main rest))))))
-        ((Nil) (Pair m main))))
-
-    (: emit-requests (-> Module Main (Pair Module Main) ! mut compile))
-    (define (emit-requests m main)
-      (match (next-definition (Module-state m))
-        ((Pair (None) _) (Pair m main))
-        ((Pair (Some item) state)
-         (match (emit-item (Module-state-set m state) main item)
-           ((Pair m main) (emit-requests m main))))))
-
-    (: emit-item (-> Module Main Item (Pair Module Main) ! mut compile))
-    (define (emit-item m main item)
-      (let* ((lowered (lower-item (Module-state m) (Main-count main) item))
-             (m (Module-state-set m (Lowered-state lowered)))
-             (main (Main-count-set main (Lowered-count lowered))))
-        (Pair m (emit-lowered m main (Lowered-item lowered)))))
-
-    (: emit-lowered (-> Module Main Item Main ! mut))
-    (define (emit-lowered m main item)
-      (match item
-        ((Define name value)
-         (if (lambda-expr? value)
-             (begin (emit-function! m name value) main)
-             (save-initializer m main name item)))
-        ((Do _)
-         (Main-statements-set main
-                              (append
-                               (reverse (main-item-code m (Fn-module-set (Main-body main) m) item))
-                               (Main-statements main))))
-        (_ (begin (main-item-code m (Fn-module-set (Main-init main) m) item) main))))
-
-    (: save-initializer (-> Module Main String Item Main ! mut))
-    (define (save-initializer m main name item)
-      (let* ((origin (definition-origin (Module-state m) name))
-             (code (main-item-code m (Fn-module-set (Main-init main) m) item))
-             (before (initializer-code main origin)))
-        (Main-initializers-set main
-                               (table-set (Main-initializers main) origin (append before code)))))
-
-    (: initializer-code (-> Main String (List Wat)))
-    (define (initializer-code main name)
-      (match (table-ref (Main-initializers main) name)
-        ((Some code) code)
-        ((None) (Nil))))
+    (: emit-main! (-> Module (List Item) (List Item) Unit ! mut))
+    (define (emit-main! m initializers statements)
+      (let* ((init (Fn-evidence-set (new-fn m) (evidence-none m)))
+             (body (new-fn m))
+             (body-code (concatenate (map (lambda (item) (main-item-code m body item)) statements)))
+             (init-code
+              (concatenate (map (lambda (item) (main-item-code m init item)) initializers))))
+        (finish-main! m init body init-code body-code)))
 
     (: export-definition! (-> Module String Unit ! mut))
     (define (export-definition! m name)
@@ -4541,24 +4475,17 @@
     ;; takes the evidence, runs the body under the handlers it is given,
     ;; which is how a program's body runs as its first task, under the
     ;; scheduler's handler of `tasks` ((snail shell task)'s `start-main`).
-    (: finish-main! (-> Module Main (List Item) Unit ! mut))
-    (define (finish-main! m main items)
-      (let ((initializers
-             (concatenate (map (lambda (item)
-                                 (match item
-                                   ((Define name _) (initializer-code main name))
-                                   (_ (Nil))))
-                               items))))
-        (push-function! m "$main.init"
-                        (main-part m (Main-init main) "$main.init" "main:init" #f initializers))
-        (push-function! m "$main.body"
-                        (main-part m (Main-body main) "$main.body" "main:body" #t
-                                   (reverse (Main-statements main))))
-        (push-function! m "$main"
-                        (wat "func" (Word "$main") (wat "export" (wat-string "main"))
-                             (wat "result" (Word "i32"))
-                             (wat "drop" (wat "call" (id "$main.init")))
-                             (wat "call" (id "$main.body") (evidence-none m))))))
+    (: finish-main! (-> Module Fn Fn (List Wat) (List Wat) Unit ! mut))
+    (define (finish-main! m init body initializers statements)
+      (push-function! m "$main.init"
+                      (main-part m init "$main.init" "main:init" #f initializers))
+      (push-function! m "$main.body"
+                      (main-part m body "$main.body" "main:body" #t statements))
+      (push-function! m "$main"
+                      (wat "func" (Word "$main") (wat "export" (wat-string "main"))
+                           (wat "result" (Word "i32"))
+                           (wat "drop" (wat "call" (id "$main.init")))
+                           (wat "call" (id "$main.body") (evidence-none m)))))
 
     ;; Finalize a main function from the instructions emitted item by item.
     (: main-part (-> Module Fn String String Bool (List Wat) Wat ! mut))

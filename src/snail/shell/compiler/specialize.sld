@@ -1,29 +1,30 @@
-;; Specialization requests over checked source. Each reachable definition is
-;; instantiated once per ground type and handed directly to Wasm emission. Method references become references to the instance method
-;; their evidence names, so no instance is selected twice; a drop or a
-;; clone becomes what its ground type runs, glue among it, made here. A
-;; library can also be specialized alone, as one module of a program linked
-;; when it runs.
+;; Concrete definitions built from checked source. One registry reserves
+;; source functions, imports and generated cleanup before visiting their
+;; bodies. Each body is instantiated once and retained for preparation's
+;; contextual checks; emission receives only fixed declaration metadata.
 (define-library (snail shell compiler specialize)
   (export
    Specialization
    Specialization-typed
    prepare-specialization
    State
-   State-owner
    State-control
+   Declarations
+   Declarations-program
+   Declarations-owner
+   Declarations-control
+   Declarations-bindings
    Binding
    Binding-type
    Binding-function?
    Binding-external?
    new-state
-   specialization-program
-   specialization-binding
-   inspect-specialization
-   definition-origin
+   specialization-declarations
+   specialization-definitions
+   order-initializers
    start-specialization
-   specialize-statement
-   next-definition
+   specialize-statements
+   complete-specializations
    request-drops
    control-effects)
   (import
@@ -53,21 +54,32 @@
                                    (table-values (Program-instances (Typed-program typed)))))))
         (Specialization typed instances (item-definitions (Typed-items typed)))))
 
+    ;; A frozen view of executable bindings. It contains no source templates,
+    ;; pending requests or concrete bodies, so an emitter cannot specialize.
+    (struct Declarations
+      ((program Program)
+       (owner (Option String))
+       (control (List String))
+       (bindings (Table Binding))))
+
+    (struct Binding
+      ((type Type)
+       (function? Bool)
+       (external? Bool)))
+
     ;; Requests reserve names before visiting bodies, so recursive calls and
-    ;; recursive drop glue terminate. Only checked source, request descriptors,
-    ;; and binding signatures survive emission. A copied body is handed to
-    ;; the emitter and discarded; there is no monomorphic program to retain.
+    ;; recursive drop glue terminate. A recipe becomes a concrete body once.
+    ;; Original bodies survive until preparation has checked every batch.
     (struct State
       ((input Specialization)
        (owner (Option String))
        (control (List String))
-       (bindings (Table Binding))
+       (bindings (Table Definition))
        (pending (List String))))
 
-    ;; A binding reserves an executable identity and its signature before
-    ;; its body is visited. Even generated glue is a recipe, never a saved
-    ;; expression tree. Imports have no body to emit in this module.
-    (struct Binding
+    ;; The registry owns each executable identity and its signature. A body
+    ;; is a recipe, its completed instantiation, or an imported declaration.
+    (struct Definition
       ((type Type)
        (function? Bool)
        (body Body)))
@@ -88,11 +100,15 @@
       (ShareGlue
        ((subject Type)
         (loc Loc)))
+      (SourceBody
+       ((origin String)
+        (value Expr)))
+      (GlueBody)
       (Imported))
 
-    (: Binding-external? (-> Binding Bool))
-    (define (Binding-external? binding)
-      (match (Binding-body binding)
+    (: Definition-external? (-> Definition Bool))
+    (define (Definition-external? binding)
+      (match (Definition-body binding)
         ((Imported) #t)
         (_ #f)))
 
@@ -163,13 +179,13 @@
                   state
                   (let ((value (definition state name)))
                     (reserve state spec
-                             (Binding
-                              (ground (instantiation state name types evidence) (Expr-type value))
-                              (lambda-expr? value) (Source name types evidence))))))))
+                             (Definition
+                               (ground (instantiation state name types evidence) (Expr-type value))
+                               (lambda-expr? value) (Source name types evidence))))))))
 
     ;; All executable work, including recursive glue, uses this reservation
     ;; rule and this queue. Merely looking up a binding never generates code.
-    (: reserve (-> State String Binding State))
+    (: reserve (-> State String Definition State))
     (define (reserve state name binding)
       (if (table-contains? (State-bindings state) name)
           state
@@ -188,16 +204,35 @@
       (Instantiation (zip (Scheme-vars (scheme-of state name)) types)
                      evidence (State-control state)))
 
-    ;; Pop before visiting the body: any callees and cleanup discovered
-    ;; while instantiating or lowering it join the same worklist.
+    ;; Complete the entire newly reached graph before a contextual check
+    ;; reads any body. Calls reserve identities; they never instantiate here
+    ;; recursively, so each queued recipe is consumed exactly once.
+    (: complete-specializations (-> State (Pair (List Item) State)))
+    (define (complete-specializations state)
+      (let loop ((state state) (items (Nil)))
+        (match (next-definition state)
+          ((Pair (Some item) state) (loop state (Cons item items)))
+          ((Pair (None) state) (Pair (reverse items) state)))))
+
     (: next-definition (-> State (Pair (Option Item) State)))
     (define (next-definition state)
       (match (State-pending state)
         ((Cons name rest)
-         (specializing state ((then (State-pending-set rest))
-                              (value (instantiate-body (Binding-body (binding-of state name)))))
-                       (Pair (Some (Define name value)) state)))
+         (let ((definition (binding-of state name)))
+           (specializing state ((then (State-pending-set rest))
+                                (value (instantiate-body (Definition-body definition)))
+                                (then (complete-definition name definition value)))
+                         (Pair (Some (Define name value)) state))))
         ((Nil) (Pair (None) state))))
+
+    (: complete-definition (-> State String Definition Expr State))
+    (define (complete-definition state name definition value)
+      (let ((body (match (Definition-body definition)
+                    ((Source origin _ _) (SourceBody origin value))
+                    (_ (GlueBody)))))
+        (State-bindings-set state
+                            (table-set (State-bindings state) name
+                                       (Definition-body-set definition body)))))
 
     (: instantiate-body (-> State Body (Pair Expr State)))
     (define (instantiate-body state body)
@@ -207,34 +242,72 @@
         ((DropGlue method subject loc) (drop-function state method subject loc))
         ((CloneGlue method subject loc) (clone-function state method subject loc))
         ((ShareGlue subject loc) (Pair (share-function subject loc) state))
-        ((Imported) (panic "internal error: an import cannot be queued"))))
+        (_ (panic "internal error: only an unbuilt recipe can be queued"))))
 
-    (: specialization-binding (-> State String (Option Binding)))
-    (define (specialization-binding state name)
-      (table-ref (State-bindings state) name))
-
-    (: binding-of (-> State String Binding))
+    (: binding-of (-> State String Definition))
     (define (binding-of state name)
-      (match (specialization-binding state name)
+      (match (table-ref (State-bindings state) name)
         ((Some binding) binding)
         ((None) (panic (string-append "internal error: no reserved binding " name)))))
 
-    ;; Restriction analysis may inspect a helper before it is emitted. Its
-    ;; temporary copy and any requests it discovers live only in that
-    ;; analysis; emission later discovers its own callees. No copy is cached.
-    (: inspect-specialization (-> State String (Pair (Option Expr) State)))
-    (define (inspect-specialization state name)
-      (match (Binding-body (binding-of state name))
-        ((Source source types evidence)
-         (specializing state ((value (instantiate-body (Source source types evidence))))
-                       (Pair (Some value) state)))
-        (_ (Pair (None) state))))
+    ;; Freeze signatures and discard all source bodies at the emitter's
+    ;; boundary. The program contributes declarations, not its syntax items.
+    (: specialization-declarations (-> State Declarations))
+    (define (specialization-declarations state)
+      (Declarations (Program-items-set (specialization-program state) (Nil))
+                    (State-owner state) (State-control state)
+                    (fold-left (lambda (bindings name)
+                                 (let ((definition (binding-of state name)))
+                                   (table-set bindings name
+                                              (Binding (Definition-type definition)
+                                                       (Definition-function? definition)
+                                                       (Definition-external? definition)))))
+                               empty-table (table-keys (State-bindings state)))))
 
-    (: definition-origin (-> State String String))
-    (define (definition-origin state name)
-      (match (Binding-body (binding-of state name))
-        ((Source source _ _) source)
-        (_ name)))
+    ;; A read-only snapshot of original source instantiations. Generated
+    ;; glue and imports keep their declared rows, as before. Missing local
+    ;; bodies mean discovery was not closed before analysis.
+    (: specialization-definitions (-> State (Table Expr)))
+    (define (specialization-definitions state)
+      (fold-left (lambda (bodies name)
+                   (match (Definition-body (binding-of state name))
+                     ((SourceBody _ value) (table-set bodies name value))
+                     ((GlueBody) bodies)
+                     ((Imported) bodies)
+                     (_ (panic "internal error: analysis requires completed definitions"))))
+                 empty-table (table-keys (State-bindings state))))
+
+    ;; Group concrete initializers by the source definition they came from,
+    ;; then follow checked source order. Within one definition, retain the
+    ;; specialization discovery order. Functions and glue have no startup work.
+    (: order-initializers (-> State (List Item) (List Item)))
+    (define (order-initializers state items)
+      (let ((groups (fold-right (lambda (item groups) (group-initializer state groups item))
+                                empty-table items)))
+        (concatenate
+         (map (lambda (item)
+                (match item
+                  ((Define name _) (initializers-at groups name))
+                  (_ (Nil))))
+              (Typed-items (Specialization-typed (State-input state)))))))
+
+    (: group-initializer (-> State (Table (List Item)) Item (Table (List Item))))
+    (define (group-initializer state groups item)
+      (match item
+        ((Define name value)
+         (if (lambda-expr? value)
+             groups
+             (match (Definition-body (binding-of state name))
+               ((SourceBody origin _)
+                (table-set groups origin (Cons item (initializers-at groups origin))))
+               (_ (panic "internal error: an initializer must have a source definition")))))
+        (_ groups)))
+
+    (: initializers-at (-> (Table (List Item)) String (List Item)))
+    (define (initializers-at groups name)
+      (match (table-ref groups name)
+        ((Some items) items)
+        ((None) (Nil))))
 
     ;; ---- Copying ----
 
@@ -503,7 +576,7 @@
     (define (glue-reference state kind subject type loc body)
       (let ((name (string-append "glue:" kind "<" (spec-key subject) ">")))
         (Pair (Expr (Var name (Nil) (Nil)) type loc)
-              (reserve state name (Binding (glue-type type) #t body)))))
+              (reserve state name (Definition (glue-type type) #t body)))))
 
     ;; A method use may have the enclosing control row. Generated glue
     ;; itself never yields, independently of which use first requested it.
@@ -786,9 +859,9 @@
           state
           (State-bindings-set state
                               (table-set (State-bindings state) name
-                                         (Binding (Expr-type value)
-                                                  (lambda-expr? value)
-                                                  (Imported))))))
+                                         (Definition (Expr-type value)
+                                           (lambda-expr? value)
+                                           (Imported))))))
 
     (: external? (-> State String (List Type) Bool))
     (define (external? state name types)
@@ -830,6 +903,11 @@
                ((None) (Pair (Nil) (if (lambda-expr? value) state (requested state name)))))
              (Pair (Nil) state)))
         (_ (Pair (Nil) state))))
+
+    (: specialize-statements (-> State (List Item) (Pair (List Item) State)))
+    (define (specialize-statements state items)
+      (each state specialize-statement
+            (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items)))
 
     (: specialize-statement (-> State Item (Pair Item State)))
     (define (specialize-statement state item)
@@ -916,8 +994,8 @@
             ((Var name _ _)
              (match (next-definition state)
                ((Pair (Some (Define _ value)) _)
-                (expect (Binding-type (binding-of state name)) (Expr-type value))
-                (expect (Binding-type (binding-of state name))
+                (expect (Definition-type (binding-of state name)) (Expr-type value))
+                (expect (Definition-type (binding-of state name))
                         (TFun (list callback) (pair-type callback) empty-row))))))))
 
       ;; Without control effects a name is what `type-key` gives, so pure

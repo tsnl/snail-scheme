@@ -1,5 +1,5 @@
 (define-library (sample specialization)
-  (export first second advance round-trip fixed)
+  (export first second advance round-trip fixed nested-values)
   (import
    (snail core base))
   (begin
@@ -21,6 +21,13 @@
     (define second (+ first (advance)))
     (: unreferenced I64)
     (define unreferenced (advance))
+
+    ;; Each concrete nested-values initializer must follow the matching
+    ;; empty-values initializer, including copies made by another library.
+    (: empty-values (All (A) (requires (Copy A)) (List A)))
+    (define empty-values (Nil))
+    (: nested-values (All (A) (requires (Copy A)) (List (List A))))
+    (define nested-values (Cons empty-values (Nil)))
 
     ;; Both specializations reserve their names before discovering the
     ;; back-edge. Repeated references reuse the reserved implementation.

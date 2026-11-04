@@ -1,4 +1,6 @@
-;; Per-definition control lowering: nothing runs after a
+;; Preparation closes specialization and cleanup requests, checks concrete
+;; original bodies, and produces fixed declarations and normalized items.
+;; Control lowering ensures nothing runs after a
 ;; call that may yield before the backend has tested for the yield. After
 ;; specialization a row keeps only control effects, so a call may yield
 ;; exactly when its callee's row names one: a global's as it is defined or
@@ -7,23 +9,26 @@
 ;; let's value; anywhere else, a let names it, with the rest of the
 ;; expression as the let's body, and names first each operand that runs
 ;; before it, so those still run first. The backend tests for a yield after
-;; each let whose value may yield. The temporary body goes straight to
-;; emission; no lowered program is retained.
+;; each let whose value may yield. The prepared program uses this subset of
+;; the checked expression language; emission has no specialization work.
 ;;
 ;; The pass also refuses a control row wherever nothing could carry a
 ;; yield: in the callbacks that the WAT loops of vector-generate and
 ;; string-generate call, in an unsafe-total thunk, in a procedure closed
 ;; over its handlers, in dispatched work but to `tasks`, and in the
 ;; implementation of an operation declared without ctl.
-(define-library (snail shell compiler control)
+(define-library (snail shell compiler prepare)
   (export
-   Lowered
-   Lowered-item
-   Lowered-count
-   Lowered-state
-   lower-item
+   Prepared
+   Prepared-declarations
+   Prepared-definitions
+   Prepared-initializers
+   Prepared-statements
+   Prepared-exported
+   prepare-program
+   prepare-library
    Callees
-   specialization-callees
+   declaration-callees
    yields
    holds-yield-point?)
   (import
@@ -32,32 +37,102 @@
    (snail shell compiler read)
    (snail shell compiler core)
    (snail shell compiler capabilities)
+   (only (snail shell compiler check) Typed Typed-items)
    (only (snail shell compiler ownership) consumed-references)
    (snail shell compiler specialize))
   (begin
 
+    ;; ---- Prepared code ----
+
+    ;; Fixed declarations and the concrete subset consumed by emission.
+    ;; Initializers already have source execution order. No recipe, source
+    ;; body cache or worklist crosses this boundary.
+    (struct Prepared
+      ((declarations Declarations)
+       (definitions (List Item))
+       (initializers (List Item))
+       (statements (List Item))
+       (exported (List String))))
+
+    (: prepare-program (-> Typed Prepared ! compile))
+    (define (prepare-program typed)
+      (prepare (prepare-specialization typed) (None) (Typed-items typed)))
+
+    (: prepare-library (-> Specialization String (List Item) Prepared ! compile))
+    (define (prepare-library input owner items)
+      (prepare input (Some owner) items))
+
+    (: prepare (-> Specialization (Option String) (List Item) Prepared ! compile))
+    (define (prepare input owner items)
+      (match (start-specialization (new-state input owner) items)
+        ((Pair exported state)
+         (match (specialize-statements state items)
+           ((Pair statements state)
+            (let ((lowered (prepare-batches state 0 statements (Nil))))
+              (prepared (Lowered-state lowered) (Lowered-items lowered) exported)))))))
+
+    ;; Close each newly discovered graph before checking its original bodies.
+    ;; Cleanup adds new definitions without changing an old body or contract,
+    ;; so old checks remain valid. A new check may still inspect an old body
+    ;; under a different context; only construction, never that answer, is cached.
+    (: prepare-batches (-> State I64 (List Item) (List Item) Lowered ! compile))
+    (define (prepare-batches state count roots done)
+      (match (complete-specializations state)
+        ((Pair definitions state)
+         (let ((items (append roots definitions)))
+           (if (null? items)
+               (Lowered (reverse done) count state)
+               (let ((lowered (prepare-batch state count items)))
+                 (prepare-batches (Lowered-state lowered) (Lowered-count lowered) (Nil)
+                                  (append (reverse (Lowered-items lowered)) done))))))))
+
+    (: prepare-batch (-> State I64 (List Item) Lowered ! compile))
+    (define (prepare-batch state count items)
+      (let ((callees (specialization-callees state)))
+        (for-each (lambda (item) (check-item callees item)) items)
+        (if (null? (State-control state))
+            (Lowered items count state)
+            (let ((lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
+                                      (Lowered (Nil) count state) items)))
+              (Lowered-items-set lowered (reverse (Lowered-items lowered)))))))
+
+    (: prepared (-> State (List Item) (List String) Prepared))
+    (define (prepared state items exported)
+      (Prepared (specialization-declarations state)
+                (filter (lambda (item)
+                          (match item ((Define _ value) (lambda-expr? value)) (_ #f))) items)
+                (order-initializers state items)
+                (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items)
+                exported))
+
     ;; ---- Yields ----
 
-    ;; Call contracts live in the specialization registry. Restriction
-    ;; checks may inspect a checked helper through its request, but do not
-    ;; keep another program alive. `reading` breaks recursive inspection at
-    ;; the declared row, as before; unknown callees remain conservative.
+    ;; Checks read the original concrete bodies of a closed graph. Emission
+    ;; uses the same fixed call contracts with no original bodies attached.
+    ;; Reading/resumption assumptions belong to each inspection, not a binding.
     (struct Callees
-      ((state State)
+      ((declarations Declarations)
+       (definitions (Table Expr))
        (resumes (List (Pair String String)))
        (reading (Option (List String)))))
 
     (: specialization-callees (-> State Callees))
     (define (specialization-callees state)
-      (Callees state (Nil) (None)))
+      (Callees (specialization-declarations state)
+               (if (null? (State-control state)) empty-table (specialization-definitions state))
+               (Nil) (None)))
+
+    (: declaration-callees (-> Declarations Callees))
+    (define (declaration-callees declarations)
+      (Callees declarations empty-table (Nil) (None)))
 
     (: callees-program (-> Callees Program))
     (define (callees-program callees)
-      (specialization-program (Callees-state callees)))
+      (Declarations-program (Callees-declarations callees)))
 
     (: callees-control (-> Callees (List String)))
     (define (callees-control callees)
-      (State-control (Callees-state callees)))
+      (Declarations-control (Callees-declarations callees)))
 
     ;; The control effects a value of a procedure type may yield to when
     ;; called: those its row names. Calling a `FnOnce` calls the procedure it
@@ -82,16 +157,15 @@
     (define (callee-row callees callee)
       (match (Expr-term callee)
         ((Var name _ _)
-         (match (specialization-binding (Callees-state callees) name)
+         (match (table-ref (Declarations-bindings (Callees-declarations callees)) name)
            ((Some binding)
             (filter (lambda (label) (member? label (callees-control callees)))
                     (definition-row callees name binding)))
            ((None) (declared-row callees name (Expr-type callee)))))
         (_ (call-row (Expr-type callee)))))
 
-    ;; Rows may include a control effect handled inside a helper. The
-    ;; restriction rules inspect that helper's temporary instantiation,
-    ;; carrying the requests discovered there only through this inspection.
+    ;; A contextual check reads the cached source body. Generated glue,
+    ;; imported definitions and recursive inspection use the declared row.
     (: definition-row (-> Callees String Binding (List String)))
     (define (definition-row callees name binding)
       (let ((row (call-row (Binding-type binding))))
@@ -99,10 +173,9 @@
           ((Some reading)
            (if (or (Binding-external? binding) (member? name reading))
                row
-               (match (inspect-specialization (Callees-state callees) name)
-                 ((Pair (Some (Expr (Lambda _ body _) _ _)) state)
-                  (yields (Callees state (Callees-resumes callees) (Some (Cons name reading)))
-                          body))
+               (match (table-ref (Callees-definitions callees) name)
+                 ((Some (Expr (Lambda _ body _) _ _))
+                  (yields (Callees-reading-set callees (Some (Cons name reading))) body))
                  (_ row))))
           ((None) row))))
 
@@ -545,31 +618,29 @@
         ((Lambda _ _ _) #t)
         (_ #f)))
 
-    ;; ---- One emission request ----
+    ;; ---- Lowering a batch ----
 
-    ;; A temporary lowered item and the updated request registry. The
-    ;; emitter consumes the item immediately; only the registry survives.
-    ;; Main's temporaries share a counter, while each function starts at zero.
+    ;; A batch owns its normalized items and the requests cleanup discovers.
+    ;; The counter is shared by main's statements and global initializers;
+    ;; each function starts its own numbering in control-item.
     (struct Lowered
-      ((item Item)
+      ((items (List Item))
        (count I64)
        (state State)))
 
-    (: lower-item (-> State I64 Item Lowered ! compile))
-    (define (lower-item state count item)
-      (check-exposure state item)
-      (if (null? (State-control state))
-          (Lowered item count state)
-          (let ((callees (specialization-callees state)))
-            (check-item callees item)
-            (match (control-item count callees item)
-              ((Pair item count) (lower-droppers state callees count item))))))
+    (: lower-item (-> Lowered Callees Item Lowered))
+    (define (lower-item lowered callees item)
+      (match (control-item (Lowered-count lowered) callees item)
+        ((Pair item count)
+         (match (lower-droppers (Lowered-state lowered) callees item)
+           ((Pair item state)
+            (Lowered (Cons item (Lowered-items lowered)) count state))))))
 
-    (: check-exposure (-> State Item Unit ! compile))
-    (define (check-exposure state item)
+    (: check-exposure (-> Callees Item Unit ! compile))
+    (define (check-exposure callees item)
       (match item
         ((Expose name _ _ loc)
-         (match (specialization-binding state name)
+         (match (table-ref (Declarations-bindings (Callees-declarations callees)) name)
            ((Some binding)
             (unless (Binding-function? binding)
               (compile-error loc "an exposed function must be defined with lambda")))
@@ -600,15 +671,14 @@
             unit-type
             loc))
 
-    (: lower-droppers (-> State Callees I64 Item Lowered))
-    (define (lower-droppers state callees count item)
+    (: lower-droppers (-> State Callees Item (Pair Item State)))
+    (define (lower-droppers state callees item)
       (match (dropper-item callees empty-table item)
-        ((Pair _ (Nil)) (Lowered item count state))
+        ((Pair _ (Nil)) (Pair item state))
         ((Pair _ types)
          (match (request-drops state types no-loc)
            ((Pair drops state)
-            (Lowered (Pair-first (dropper-item (specialization-callees state) drops item))
-                     count state))))))
+            (Pair (Pair-first (dropper-item callees drops item)) state))))))
 
     (: add-type (-> (List Type) Type (List Type)))
     (define (add-type types type)
@@ -925,10 +995,12 @@
 
     (: check-item (-> Callees Item Unit ! compile))
     (define (check-item callees item)
-      (match item
-        ((Define _ value) (check-restrictions callees value))
-        ((Do expr) (check-restrictions callees expr))
-        (_ (unit))))
+      (check-exposure callees item)
+      (unless (null? (callees-control callees))
+        (match item
+          ((Define _ value) (check-restrictions callees value))
+          ((Do expr) (check-restrictions callees expr))
+          (_ (unit)))))
 
     )
 
@@ -936,13 +1008,12 @@
 
   (cond-expand
    (snail-tests
-    (export test-control)
+    (export test-prepare)
     (import
      (only (scheme base) eq?)
-     (only (snail shell compiler check) Typed)
      (snail stage0 testing))
     (begin
-      (define (test-control)
+      (define (test-prepare)
         (test-yields)
         (test-globals)
         (test-operands)
@@ -1001,7 +1072,9 @@
                                    empty-table items))
                (state
                 (new-state (prepare-specialization (Typed program items schemes)) (Some "t"))))
-          (specialization-callees (Pair-second (start-specialization state items)))))
+          (specialization-callees
+           (Pair-second (complete-specializations
+                         (Pair-second (start-specialization state items)))))))
 
       (define callees (test-callees empty-table))
 

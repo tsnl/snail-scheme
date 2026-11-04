@@ -1,27 +1,37 @@
 # Compiler architecture
 
-The compiler has three main transformations: expand, check, and compile.
-Reading supplies located syntax to expansion; compilation requests concrete
-implementations and emits Wasm one definition at a time.
+The compiler has four main phases: expand, check, prepare, and emit.
+Reading supplies located syntax to expansion. Preparation closes concrete
+specialization and cleanup requests; emission consumes their fixed result.
 
 ```text
-text ──read──▶ located syntax
+text ──read───▶ located syntax
      ──expand─▶ core program      unique names, resolved types, entity tables
      ──check──▶ typed program     every expression typed, instances chosen
-     ──compile▶ WasmGC text ──assemble──▶ module, linked with the Rust runtime
+     ──prepare▶ concrete code     fixed declarations, explicit control/cleanup
+     ──emit───▶ WasmGC text ──assemble──▶ module, linked with the Rust runtime
 ```
 
-Compilation has one worklist. A request reserves a signature and an executable
-name before visiting the body, so recursion can refer to code not yet emitted.
-The backend instantiates that definition, lowers its control expressions,
-emits its Wasm, and discards the temporary body. Calls and generated cleanup
-request more work through the same registry. Checked source and emitted Wasm
-survive; whole monomorphic and control-lowered programs do not.
+Preparation has one registry and worklist for source definitions and generated
+cleanup. It reserves each identity before visiting its body, then constructs
+that concrete body once. Contextual restriction checks read these cached
+originals. Control lowering may request further cleanup definitions; each new
+batch closes before its bodies are checked and lowered. Existing bodies and
+contracts stay fixed, so earlier checks remain valid.
 
-This is streamed specialization and lowering. It still constructs a temporary
-concrete expression tree for each definition. The [proposal below](#proposed-specialization-directly-to-wasmgc)
-extends this boundary to emission directly from checked source, static provider
-contracts, and tagged saved frames; those changes are not implemented here.
+`Prepared` contains fixed declaration metadata, concrete function definitions,
+source-ordered initializers, statements and exports. Its expressions use a
+restricted subset of the existing typed language: calls that may suspend have
+named evaluation points and explicit cleanup. There is no separate CPS
+language. The emitter receives neither source recipes nor a specialization
+state, and reports no source-level errors. It selects Wasm representations and
+constructs target instructions from those established facts.
+
+This boundary deliberately retains concrete bodies during preparation rather
+than reconstructing them during analysis. The [proposal below](#proposed-specialization-directly-to-wasmgc)
+adds static provider contracts and tagged saved frames; those features remain
+unimplemented. Reader and surface-syntax work is separate from these backend
+phases.
 
 Static debug and release builds compile the whole program and merge the Rust
 services into one module; release increases optimization. Development builds
@@ -334,10 +344,14 @@ function of the expander has `mut` in its row — and where it does not, the
   that drops linear fields in order, the last in tail position. A clone
   becomes a shared pair, an instance method, or glue that reconstructs two
   values from the cloned and shared fields. Glue recipes join the same queue;
-  their bodies are built only when requested by emission. No completed
-  definition is stored in the registry.
-- **[`control.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/control.sld)** prepares the calls
-  that may yield to a control handler. After specialization a row keeps
+  their bodies are built during preparation. A consumed recipe becomes its
+  completed body. Original source bodies remain available to contextual
+  checks; completed glue needs only a marker because its contract suffices
+  for those checks. Freezing the registry projects binding metadata alone
+  and removes the program's syntax items.
+- **[`prepare.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/prepare.sld)** closes specialization,
+  checks each fresh batch, and lowers the calls that may yield to a control
+  handler. After specialization a row keeps
   only control effects, so a call may yield exactly when its callee's row
   names one, and a handle keeps what its body yields except to its own
   effect. An operation's row is its effect's and its latent row, so
@@ -355,8 +369,13 @@ function of the expander has `mut` in its row — and where it does not, the
   specialization worklist, so a dropped
   resume or lambda releases what it held ("Droppers"). Abortive exits run
   the same droppers while unwinding, before entering the catch handler.
-  `lower-item` handles one definition or statement and returns it directly
-  to emission. An item without control effects needs no rewrite. It also refuses a
+  `prepare-batches` drains all currently requested recipes before any
+  contextual check reads a body. It checks the original expressions, then
+  lowers them and queues any cleanup they discover. A later batch can inspect
+  an earlier original under a new context, but cannot change its signature or
+  body. Initializers are grouped by their source definition and ordered before
+  emission, including total polymorphic initializers instantiated by another
+  library. An item without control effects needs no rewrite. Preparation also refuses a
   control row where nothing could carry a yield: in a `vector-generate` or
   `string-generate` callback, which a WAT loop calls; in an `unsafe-total`
   thunk, whose row the call discards; in dispatched work, which runs later
@@ -371,20 +390,21 @@ function of the expander has `mut` in its row — and where it does not, the
   operation's type names. Statements are checked before the definitions
   they request, and a requested body before its callees, so errors can point
   at the caller. Restrictions that depend on a helper's locally handled
-  effects inspect its checked recipe through a temporary instantiation;
-  analysis-local requests do not change executable discovery. Recursive
-  inspection falls back to the declared row, and runtime-selected or imported
+  effects read its cached concrete original; inspection never instantiates
+  another body or changes discovery. Context-sensitive answers are not cached.
+  Recursive inspection falls back to the declared row, and runtime-selected or imported
   callees remain conservative. An exposed function must have a lambda as
   its definition, established from its reserved binding.
 - **[`wasm.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/wasm.sld)** chooses representations and
-  drives the worklist and emits WebAssembly text. `compile-items` seeds roots,
-  emits statements, and drains requested definitions. `emit-item` specializes
-  control and cleanup for that item before emitting it; its temporary trees
-  do not escape the step. Global initializer instructions are collected by
-  their original definition and assembled in checked source order, regardless
-  of discovery order. Every monomorphic global initializes even when unused;
-  all initializers precede the statements. Library builds export monomorphic
-  definitions and instantiate imported generics locally. Scalars are Wasm numbers. An enum whose cases have
+  emits WebAssembly text from `Prepared`. Its module holds immutable
+  `Declarations` plus Wasm output builders. It imports only the declaration
+  types and control queries it uses; it cannot request source specialization.
+  Function emission and the two main functions share that fixed metadata.
+  Initializer execution order is already explicit, so the emitter has no
+  initializer grouping table or changing semantic snapshots. Every monomorphic
+  global initializes even when unused; all initializers precede statements.
+  Library builds export monomorphic definitions and prepare imported generics
+  locally. Scalars are Wasm numbers. An enum whose cases have
   no fields is an `i32`; other data are GC structs, and enum cases are final
   subtypes of a base holding the tag. A field holding a struct is laid out
   inline, as that struct's fields, so a nested value costs no second
@@ -506,35 +526,34 @@ function of the expander has `mut` in its row — and where it does not, the
 
 ## Proposed specialization directly to WasmGC
 
-**Design for review, not implemented.** Use structured Wasm as the
-monomorphic representation of the proposed
-[capability model](effects.md#proposed-parameterized-effects). The source
-checker retains typed Snail-Core; compilation specializes that checked
-program directly into Wasm functions and GC types. No separate simplified
-Snail-Core program or CPS intermediate language is required. The pipeline
-above remains the implemented compiler.
-
-The proposed compiler has three main transformations:
+**Design for review, not implemented.** Lower the proposed
+[capability model](effects.md#proposed-parameterized-effects) through the same
+preparation/emission boundary. Preparation makes providers, continuation
+entries and cleanup explicit in a restricted subset of typed Snail-Core;
+emission chooses their Wasm functions and GC layouts. The original fused
+emitter sketch is replaced by this boundary. No separate general-purpose CPS
+language or compiler-owned optimizer is required.
 
 ```text
 source
   -> expand       resolved Snail-Core
   -> typecheck    checked generic Snail-Core
-  -> compile      specialized Wasm functions, types and imports
+  -> prepare      concrete definitions, explicit control and cleanup
+  -> emit         Wasm functions, types and imports
   -> assemble     module bytes
 ```
 
 Reading belongs to expansion. Assembly serializes the target; a Wasm
-validator or engine checks its types. The backend is a **memoized emitter**:
-request a definition at concrete types and providers, reserve its Wasm
-symbol, then emit its body. Calls request further definitions by the same
-rule. Functions, provider methods, continuation entries and cleanup routines
-use this one mechanism.
+validator or engine checks its types. Preparation reserves a concrete code
+identity before constructing its body. Functions, provider methods,
+continuation entries and cleanup routines use the same discovery mechanism.
+Emission receives the closed result rather than requesting source definitions
+while choosing target instructions.
 
 Type checking comes first because capability selection, field projection,
 control requirements and ownership depend on types. It checks each generic
 body against its declared constraints, including entry and resumption
-requirements. Compilation consumes that evidence and concrete instantiations.
+requirements. Preparation consumes that evidence and concrete instantiations.
 Use fixed representation and control rules, with ordinary instruction
 optimization left to the Wasm engine. This removes a compiler-owned optimizer,
 control summary solver and continuation-recovery analysis from the baseline.
@@ -629,19 +648,27 @@ request(key, state):
     reserve a symbol and an interface from the instantiated checked contract
     return the symbol, state with this definition queued
 
-compile(checked):
+prepare(checked):
     state = request_roots(checked)
     while state has pending definitions:
-        definition, state = take_pending(state)
-        state = emit_definition(definition, state)
-    return finish_module(state)
+        definitions, state = instantiate_pending_graph(state)
+        check_original_bodies(definitions, state)
+        lowered, state = lower_control_and_cleanup(definitions, state)
+        retain(lowered)
+    return fixed_declarations_and_ordered_code(state)
+
+compile(checked):
+    return emit(prepare(checked))
 ```
 
-Thread the state containing reservations, pending requests and constructed
-Wasm. Reserve GC types and generated helpers through the same mechanism.
-An ordinary recursive call finds its existing symbol. Each body is emitted
-once per key; finishing orders GC recursion groups and resolves module
-indices. Reaching the fixed point means the queue is empty.
+Thread reservations, pending requests and prepared code through preparation.
+An ordinary recursive call finds its existing identity. Concrete source bodies
+are constructed once and retained while contextual checks may inspect them;
+those checks do not cache answers across different resumption contexts.
+Cleanup discovery can extend the graph without changing an existing body or
+contract. Reaching the fixed point means every requested definition is
+prepared. Emission then constructs target helpers and GC types from fixed
+contracts; finishing orders GC recursion groups and resolves module indices.
 
 Instantiate the checked control contract before emitting callers. If that
 contract permits escaping control, use the yield protocol even when body

@@ -31,6 +31,7 @@
    (snail shell compiler expand)
    (snail shell compiler check)
    (snail shell compiler specialize)
+   (snail shell compiler prepare)
    (snail shell compiler wasm))
   (begin
 
@@ -178,7 +179,8 @@
                          (Built name emission #f (library-links expansion name))
                          built)))
                  ((None)
-                  (let ((text (wat->string (emit-library input name (Compiled-items before)))))
+                  (let ((text (wat->string
+                               (emit-module (prepare-library input name (Compiled-items before))))))
                     (loop rest
                           (table-set compiled name (Compiled-emission-set before (Some text)))
                           (Cons (Built name text #t (library-links expansion name)) built)))))))

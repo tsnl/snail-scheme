@@ -21,3 +21,12 @@
 ;; and its ordinary call; neither path may enqueue an imported body.
 (expose fixed "fixed")
 (write-line (show (fixed 41)))
+
+;; Reading the inner list catches an initializer that captured its
+;; dependency's default null value before that dependency was initialized.
+(match (ann nested-values (List (List I64)))
+  ((Cons values _) (write-line (show (length values))))
+  ((Nil) (panic "missing integer list")))
+(match (ann nested-values (List (List String)))
+  ((Cons values _) (write-line (show (length values))))
+  ((Nil) (panic "missing string list")))
