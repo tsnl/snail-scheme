@@ -4,6 +4,10 @@ A project is one directory described by an inert `project.datum`. The file
 contains data, not Scheme code. Parsing it performs no file access or build;
 the command chooses when to compile and run its named targets.
 
+[Proposed packages and independent compilation](packages.md) describes a
+review draft for isolated source trees, workspace membership and scoped
+dependency aliases. Those extensions are not implemented by this format.
+
 ```scheme
 ((build-target client
    (browser
