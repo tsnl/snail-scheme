@@ -194,6 +194,12 @@ implementations need explicit quantification rules; neither position
 silently erases a family of implementation types into one runtime object.
 `define` continues to bind ordinary values.
 
+Saved resumptions have compiler-generated concrete family types, with
+[finite frame chains](compilers.md#saved-frame-representation). Their dynamic
+length does not change their type. The explicit queue package is a closed
+sum at a declared storage boundary; it does not settle the general
+quantification rules for arbitrary stored or returned `impl Fun` values.
+
 The callable contract preserves the following evidence:
 
 | Contract | What the checker must establish |
