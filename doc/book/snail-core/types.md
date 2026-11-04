@@ -337,10 +337,12 @@ multiplicity default.
 Both ordinary and control-capable implementations satisfy this calling
 interface. `ctl` is not a subclass of ordinary functions. It identifies
 an implementation that needs continuation access; typed core metadata records
-that source contract. All source functions pass through the proposed CPS
-subset, then specialization and simplification select their final calling
-interfaces. A repeatable callable may suspend and a one-shot callable may
-return directly; neither multiplicity nor purity determines that interface.
+that source contract. The proposed compiler specializes checked definitions
+directly into Wasm, using the concrete providers and control contracts to
+select ordinary calls or explicit suspension handling. It constructs
+continuation code where needed, without first converting every function to
+CPS. A repeatable callable may suspend and a one-shot callable may return
+directly; neither multiplicity nor purity determines that interface.
 
 The compiler supplies callable evidence for functions, closures and
 capability methods. Whether arbitrary user data may implement `Fun` is a
@@ -353,7 +355,7 @@ providers as invocation parameters; its code must remain generic over those
 parameters until the relevant invocation sites are specialized.
 
 Capabilities following `!` become explicit provider arguments in the
-[lowered core subsets](compilers.md#proposed-lowering-to-typed-snail-core-subsets).
+[proposed compiler](compilers.md#proposed-specialization-directly-to-wasmgc).
 Instances in scope at the call site supply them. The proposed
 [effect transitions](effects.md#resumption-effects-and-effect-transitions)
 distinguish entry requirements from resumption requirements; the latter

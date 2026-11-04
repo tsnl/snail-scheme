@@ -479,267 +479,251 @@ function of the expander has `mut` in its row — and where it does not, the
   files a compile links to `links.datum` in the compile's directory, one
   `("DIGEST" "PATH")` per file, for the Chibi build to place.
 
-## Proposed lowering to typed Snail-Core subsets
+<a id="proposed-lowering-to-typed-snail-core-subsets"></a>
 
-**Design for review, not implemented.** Represent the proposed
-[capability model](effects.md#proposed-parameterized-effects) by successive
-restrictions of typed Snail-Core. Reuse its expressions, declarations, types,
-resolved identities and source locations. Each pass establishes a smaller
-set of permitted forms and more explicit calling contracts. The pipeline
+## Proposed specialization directly to WasmGC
+
+**Design for review, not implemented.** Use structured Wasm as the
+monomorphic representation of the proposed
+[capability model](effects.md#proposed-parameterized-effects). The source
+checker retains typed Snail-Core; compilation specializes that checked
+program directly into Wasm functions and GC types. No separate simplified
+Snail-Core program or CPS intermediate language is required. The pipeline
 above remains the implemented compiler.
 
-The proposed sequence is:
+The proposed compiler has three main transformations:
 
 ```text
-checked typed Snail-Core with entry and resumption contracts
-  -> explicit providers and typed CPS for all source functions
-  -> specialize types, provider implementations and callable code
-  -> simplify continuations; recover local and direct control flow
-  -> choose representations and emit WasmGC
+source
+  -> expand       resolved Snail-Core
+  -> typecheck    checked generic Snail-Core
+  -> compile      specialized Wasm functions, types and imports
+  -> assemble     module bytes
 ```
 
-Provider elaboration and continuation-passing-style (CPS) conversion precede
-specialization. Converting every source function gives specialization the
-actual continuation definitions and explicit provider parameters together.
-CPS here is an internal form of the same typed language; it does not imply
-that every continuation becomes a runtime object or that all final calls
-use a CPS calling convention. Simplification and representation selection
-make those decisions later.
+Reading belongs to expansion. Assembly serializes the target; a Wasm
+validator or engine checks its types. Neither introduces source-language
+lowering. `compile` combines
+monomorphization, selective control lowering, local simplification,
+representation selection and instruction construction in one worklist.
+These remain named operations with explicit contracts. There is no
+whole-program handoff between a simplifier, a monomorphizer and an emitter.
 
-This order has precedent in
-[Compiling with Continuations, Continued](https://www.microsoft.com/en-us/research/publication/compiling-with-continuations-continued/),
-which develops CPS simplification and contification. The proposed effect
-transitions and static provider specialization still require their own
-typing and correctness argument.
+Type checking comes first because capability selection, field projection,
+control requirements and ownership depend on types. It checks each generic
+body against its declared constraints, including entry and resumption
+requirements. Compilation consumes that evidence and concrete instantiations;
+it must not discover a control behavior that the checked contract forbids.
 
-### Grammar
+### Wasm as the lower representation
 
-The following grammar describes the optimized monomorphic subset after
-CPS conversion, specialization and continuation simplification. It uses
-parenthesized Snail-Core notation; passes transform typed trees directly.
-`*` means zero or more entries; `+` means one or more. `Type` is the shared
-checked type representation, with no unresolved type or effect variables
-at this stage. `name` denotes a resolved identity, including generated
-specialization and continuation names.
+Build Wasm declarations and instruction trees with symbolic references.
+They are ordinary Wasm, with no source effect rows, typeclass operations,
+`ctl`, `handle`, or implicit provider lookup. Provider captures become
+explicit parameters or GC fields. Places become managed roots, fixed field
+indices and, where permitted, one runtime array index. Closure code becomes
+functions with explicit environment parameters; environments use GC types.
+Source matches become tag tests, projections and structured branches.
+
+Keep function signatures, locals, type references and source locations
+available while constructing each body. The current `Wat` tree and module
+builder provide a starting point, but flattening bodies into opaque helper
+strings early would make local rewriting and validation harder. This design
+needs a builder for the Wasm subset we emit, not another language or parser.
+The assembler checks syntax and a validator or engine checks Wasm types;
+source ownership and effect invariants remain the compiler's responsibility.
+
+The following is a schematic grammar for the target bodies in folded WAT
+notation. It identifies the constructs the builder needs; the
+[WebAssembly grammar](https://webassembly.github.io/spec/core/text/instructions.html)
+defines their full syntax and typing. `name` is a symbolic identity,
+`ValueType` is a concrete Wasm value type, `*` means zero or more, and `?`
+marks an optional form.
+Imports, exports, globals and recursive GC type declarations use the standard
+Wasm forms.
 
 ```text
-Program     ::= Declaration*
-Declaration ::= (struct name (Field*))
-              | (enum name Variant+)
-              | (extern name string string Type)
-              | (primitive name Type)
-              | (: name Type)
-              | (define name Body)
-              | (fun (name name*) Body)
-Field       ::= (name Type)
-Variant     ::= (name) | (name (Field*))
+Function  ::= (func name TypeUse Local* Instruction*)
+TypeUse   ::= (type name) Param* Result*
+Param     ::= (param name ValueType)
+Result    ::= (result ValueType)
+Local     ::= (local name ValueType)
+BlockType ::= (param ValueType*)? Result*
 
-Body        ::= Atom
-              | (Atom Atom*)
-              | (begin (fun (name name*) Body) Body)
-              | (let ((name Rhs)) Body)
-              | (if Atom Body Body)
-              | (match Atom Clause+)
-Rhs         ::= Atom
-              | (lambda (name*) Body)
-              | (Atom Atom*)
-Clause      ::= (Pattern Body)
-Pattern     ::= name | literal | (constructor name*)
-Atom        ::= name | literal
+Instruction ::= (local.get name)
+              | (local.set name Instruction)
+              | (call name Instruction*)
+              | (return_call name Instruction*)
+              | (call_ref name Instruction*)
+              | (return_call_ref name Instruction*)
+              | (block name BlockType Instruction*)
+              | (loop name BlockType Instruction*)
+              | (if BlockType Instruction
+                    (then Instruction*) (else Instruction*))
+              | (br name Instruction*)
+              | (return Instruction*)
+              | (op immediate* Instruction*)
 ```
 
-Before specialization, the same core carries generic definitions and type
-parameters. In its initial CPS restriction, source-function calls and
-continuation invocations occur in tail position. A `let` right-hand side
-can construct a closure or data, or invoke an approved direct primitive.
-After optimization, ordinary returning calls may also occur there when the
-compiler has proved their direct calling convention. The grammar above
-therefore permits both surviving CPS calls and recovered direct calls.
-
-Each expression retains its checked type, ownership and effect information.
-Named `fun` definitions and `lambda` expressions share the proposed core's
-callable representation, including concrete implementation identity and
-captures; this grammar does not add an erased function type. `fun` is the
-proposed source definition spelling, while `lambda` denotes the existing anonymous
-function form without deciding its future surface spelling.
-
-A call in `Body` is in tail position; a call in `Rhs` binds its result
-before continuing. The restricted `begin` binds a local function for joins
-or loops, with its name in scope in its own body and the following body.
-Entry expressions become initialization or entry
-functions. Applications cover constructors, accessors, ordinary functions
-and approved primitives. Provider environments are structs and closures;
-providers are passed as ordinary arguments, including the outstanding
-providers selected by a continuation's invoker. Place allocation, projection, indexing,
-reading, writing and dropping use their typed operations through the same
-application form. Primitive declarations refer to the compiler's approved
-primitive registry; the grammar grants no new source-level declaration
-privilege. Explicit continuations are ordinary one-shot callables whose
-input, answer, invocation effects and cleanup effects remain checked.
-
-There are no `instance`, source `effect` or `handle` forms, implicit provider
-searches, or primitive capture/resume operations in this final subset.
-A resumption has become a closure call. A specialized control-capable
-function has an explicit lowered calling interface, so emission need not
-infer whether to capture the surrounding computation. Its implementation
-may still transfer control through generated calls and control-result data.
-CPS conversion must encode delimiter boundaries and resumption semantics
-before these constructs disappear. Adding one continuation parameter to
-ordinary calls alone does not implement delimited handlers.
+`op` ranges over the supported Wasm numeric, reference, struct and array
+instructions, constants, and other required target instructions. It cannot
+hide a source-level handler or continuation-capture operation. Resource
+cleanup uses explicit generated or imported calls; Wasm `drop` alone only
+discards an operand. Calls must satisfy the recorded signatures, including
+the compatible result types required by tail calls.
 
 ### Stage invariants
 
-| Stage | Established facts |
+| Output | Established facts |
 | --- | --- |
-| Explicit providers and CPS | Source control constructs have been translated into typed functions and data. Continuations expose outstanding provider parameters, answer types, internal handler scopes and cleanup obligations. Definitions may still be generic. |
-| Specialized CPS | Concrete ordinary-call and resumption sites select provider implementations and callable code. Captured values remain runtime data. |
-| Simplified core | Local continuations become joins or direct returns where proved safe; escaping continuations remain explicit. Calling interfaces and ownership are settled before representation selection. |
+| Expanded program | Macros are expanded and names and declarations are resolved. |
+| Checked program | Generic value types, provider and control contracts, ownership, paths and foreign boundaries are checked. Source effect information is still available. |
+| Compiled Wasm | Every referenced instance has a concrete signature and representation. Provider arguments, control transfer, capture storage and cleanup are explicit Wasm. No source effect types remain in target signatures. |
 
-Share the core structures, but give each pass a stage-specific program
-wrapper whose construction establishes its invariants. Later passes consume
-that wrapper instead of accepting arbitrary core trees and repeatedly
-rediscovering which forms are allowed. Normalize operands to atoms in source
-evaluation order; preserve source locations on generated bindings. This
-reworks the responsibilities of the existing passes rather than adding a
-second compiler pipeline alongside them.
+Only the checked program and the accumulating Wasm module need persistent
+program representations. The compiler may keep small plans for layouts,
+captures and interfaces, but these are evidence attached to definitions,
+not another general-purpose expression language. Preserve source locations
+through generated functions and instructions for diagnostics and debugging.
+
+### A worklist of specializations
+
+Seed the worklist from initialization, entry points, exports and required
+adapters. Each request identifies a checked definition, its concrete value
+types, provider implementations and callable code. Captured values remain
+runtime data: two providers capturing different strings share code when
+their implementation types and interfaces agree.
+
+For each request:
+
+1. Find or reserve its symbol and calling interface before traversing its
+   body. A recursive reference can then name the pending definition.
+2. Substitute checked type and implementation arguments while compiling
+   the body. Resolve operations, select layouts and construct Wasm directly.
+   Small local reductions can remove aliases, known projections and trivial
+   continuations before their instructions are committed.
+3. Queue any newly referenced specialization, continuation function,
+   environment type or cleanup routine. Memoize each request by a stable key.
+4. Complete the body and retain its symbolic references. After the worklist
+   is empty, order GC recursion groups and resolve module indices for assembly.
+
+The fixed point is reached when no new reachable instances are requested.
+It is not an instruction to repeatedly inline emitted bodies until they stop
+changing. A body may be built in a temporary buffer, so local simplification
+can finish before it is retained. Skipping an optimization must still leave
+correct code. One-shot ownership, evaluation order and observable effects
+constrain every rewrite.
+
+Interfaces must be stable before callers use them. Use checked control
+contracts as conservative bounds, or solve more precise summaries for a
+recursive dependency group before emitting its callers. Concrete `fun`
+syntax alone does not prove that its body cannot invoke a control operation.
+The compiler must also lower locally handled control inside a function whose
+outward contract has no escaping control effect.
+
+### Selective control lowering
+
+Use type and provider information to prepare only calls through which
+control may escape. Calls known to return directly keep ordinary call and
+return instructions. For potentially yielding calls, construct an explicit
+normal path and a yielding path. On a yield, each intervening caller
+contributes its remaining computation until the matching typed delimiter.
+A tail caller can forward the pending transfer without saving extra work.
+
+This follows the fast-path strategy in
+[Koka's generalized evidence passing, sections 2.9–2.11](https://www.microsoft.com/en-us/research/wp-content/uploads/2021/08/genev-icfp21.pdf):
+continuation code exists ahead of time, while captured environments are
+constructed when needed for a yield. Sharing the generated continuation
+functions limits code duplication. Koka supplies precedent for the control
+translation; our static provider specialization and effect transitions need
+their own correctness argument.
+
+A local continuation may become a structured block or loop. A continuation
+that must survive suspension becomes Wasm code plus its captured values in
+GC-managed storage. Knowing its code identity does not make those values
+compile-time constants or prove it stays local. The exact control-result
+encoding remains a review point; any yield tests, delimiter handling and
+resumption composition must already be expressed in the constructed Wasm.
+They cannot depend on a later effect-aware emitter.
+
+The compiler already emits `return_call` and `return_call_ref`, and the
+native engine enables tail calls. The
+[tail-call instructions](https://webassembly.github.io/spec/core/syntax/instructions.html#control-instructions)
+provide transfers without retaining the caller's activation. They do not
+capture that activation. Compilation must still split code, save live
+captures, implement delimiter boundaries and deep reinstatement, and account
+for abandoned continuations. Use a tail call only when no work remains in
+that activation; a resumption invoked before further handler work needs the
+appropriate ordinary call or an explicitly lowered continuation for that work.
+
+Foreign functions keep their declared host ABI. Initialization, exports and
+foreign callbacks need checked adapters where they meet the internal control
+protocol. No suspension may cross a foreign boundary that lacks such a
+protocol.
+
+### Effect erasure and stored continuations
+
+Source effect rows guide checking and control lowering, then disappear from
+Wasm signatures. Their obligations have become explicit provider arguments,
+control paths and cleanup calls. Keep the checked source contracts for
+library interfaces and diagnostic provenance; do not rerun effect inference
+on Wasm. Instruction and call summaries must still preserve mutation, IO,
+traps and ownership when simplifying. Erasing a source row does not make an
+observable operation pure or permit an otherwise forbidden conversion.
+
+An ordinary closure or resumption obtains its outstanding providers at its
+invocation site. Internal handler scopes captured with the computation are
+restored. Compiling a suspension under provider A must not hardwire its
+outstanding calls to A if its resumer will supply B. Keep a checked
+continuation template and its capture layout until invocation requests the
+appropriate provider specialization. Its emitted entry points must agree
+with the stored environment's representation.
+
+Separate compilation therefore retains the checked generic bodies and
+implementation identities needed to request downstream specializations.
+Cache keys include the selected implementations, body dependencies, layouts
+and calling interfaces. Runtime-loaded code cannot silently substitute an
+erased provider ABI. Heterogeneous queues still require an explicit finite
+storage and invocation contract; neither Wasm function references nor the
+worklist decide that source-language rule.
+
+### Recursion and representation
+
+Ordinary recursion reuses a reserved specialization. Recursive continuation
+chains require finite types with runtime links; do not put their dynamically
+growing history into specialization keys. True growth in type instantiations
+also needs a termination policy and a diagnostic. Finite keys and stable
+interfaces are prerequisites for reaching the worklist fixed point;
+optimizing emitted code later cannot repair nonterminating specialization.
 
 The [place](types.md#proposed-places-and-locators) and
-[queue](effects.md#queuing-a-continuation) contracts are unchanged: backing
-storage is on the GC heap, paths have at most one dynamic index at the leaf,
-and native array layout restrictions still apply. Sharing this core language
-does not settle heterogeneous job storage or introduce implicit packaging.
-
-### Elaboration and CPS conversion
-
-The source checker establishes entry requirements, resumption effects and
-cleanup obligations before translation. Elaboration makes provider arguments
-explicit; ordinary closures capture values while their outstanding providers
-remain invocation parameters. CPS conversion then exposes the remaining
-computation as a one-shot callable. The two transformations may be separate
-passes, but both finish before provider-dependent calls are specialized.
-
-Convert every source function and closure, including ordinary `fun` bodies,
-with an explicit continuation parameter. Generated continuations are already
-in CPS and are not converted again. Arithmetic, constructors and other direct
-primitives can keep their ordinary result interfaces. Foreign functions
-keep their declared host ABI: generated adapters bridge to the internal CPS
-interface. Initialization and exported entry points also need explicit
-boundary adapters.
-
-For example, omitting types and provider arguments for this pure fragment:
-
-```scheme
-;; Before CPS conversion.
-(fun (twice x)
-  (* x 2))
-
-;; Typed core shape after CPS conversion.
-(fun (twice-cps x k)
-  (let ((result (* x 2)))
-    (k result)))
-```
-
-The generated continuation's type records its input and answer, resumption
-requirements and cleanup obligations. Outstanding providers are supplied
-when it is invoked, rather than captured from its creation site. A pending
-continuation must remain generic over those provider parameters; fixing its
-calls to provider A at capture cannot implement later resumption under B.
-
-Control operations require the full translation of delimiters, abandonment,
-nested handler scopes and deep reinstatement. Their translation preserves
-ordinary runtime captures and the internal scopes to restore. A scheduling
-operation can retain the resulting callable; enqueueing still does not run
-its resumption effects. Uniform CPS is a common representation for these
-behaviors, not permission to flatten their scope or effect contracts.
-
-### Specialization and continuation simplification
-
-Specialize the CPS definitions at their ordinary-call and resumption sites,
-using concrete source types, provider implementations and callable code.
-Do not key on runtime capture values: two instances of the same provider
-with different captured strings should share code. The checked source
-control information remains useful, but direct/control calling conventions
-are recovered from specialized CPS rather than deciding which source
-functions receive CPS conversion in the first place. Specialization and
-simplification may iterate together to expose further known calls.
-
-Optimization combines several operations:
-
-- Inline a known continuation application when substitution is safe and
-  profitable, and eliminate forwarding continuations. Preserve evaluation
-  order and one-shot cleanup obligations.
-- Turn functions that always return to a known continuation into local
-  control flow where escape and scope analysis permit it. This is
-  [contification](https://www.cs.cornell.edu/people/fluet/research/contification/ICFP01/icfp01.pdf):
-  joins and recursive loops need not become closure calls.
-- Recover ordinary calls and returns where the continuation cannot escape
-  or be retained. Keep an explicit callable when it can be stored in a queue
-  or otherwise outlive the current invocation.
-
-Known code alone does not prove that a continuation is local: the same
-known lambda may be enqueued with different runtime captures. Nor should
-inlining duplicate arbitrary function bodies just because a tail call is
-known. A missed optimization must leave correct executable CPS, with tail
-transfers lowered without unbounded native-stack growth.
-
-Recursion needs a specialization policy. For example, a recursive sum in
-CPS creates a continuation that adds the current element and then invokes
-its predecessor. Specializing every call by the full nested capture type
-can generate an unbounded family, even for this ordinary source program.
-Recover direct recursion/local control flow where possible, or use a finite
-recursive continuation representation with runtime links. The exact choice
-is open; fully expanding continuation chains into specialization keys is
-not a valid default. Detect these recursive families before expanding
-specialization requests, using a finite representation or interleaved
-simplification; a later pass cannot repair nonterminating specialization.
-This requirement is separate from specializing the provider implementations
-used by a continuation.
-
-Choose closure representations after these simplifications. Compiler-created
-continuations that become joins need no runtime closure allocation; those
-that escape and need environments use GC-managed storage. This does not
-change the requirement to allocate place-backed storage on the GC heap or
-authorize eliminating those backing allocations.
-
-Preserve source locations, effect evidence, ownership and foreign-boundary
-assumptions throughout. Separate compilation must expose generic CPS bodies
-and identities needed for downstream specialization, plus checked summaries
-where a body is unavailable. Cache keys include selected provider code and
-lowered interfaces. Imported or runtime-loaded code cannot silently introduce
-an erased provider ABI inconsistent with the static contract.
+[queue](effects.md#queuing-a-continuation) contracts still apply. All
+place-backed storage uses the GC heap, including locals; required backing
+allocations cannot be replaced with Wasm locals. Paths have at most one
+dynamic index at the leaf, and arrays reject unsupported struct-value
+representations. Generated continuations that become local control flow need
+no environment allocation, but escaping captures remain explicit storage.
 
 ### Review points and validation
 
-The subset grammar fixes the target vocabulary, not the precise continuation
-encoding. Review typed CPS for delimiters and effect transitions, provider
-specialization at invocation sites, and finite continuation representations before
-implementation. Bound specialization growth and inlining; neither uniform
-CPS nor a known continuation guarantees that optimization removes all
-overhead. The signature notation must preserve entry requirements,
-resumption requirements and observable effects.
-Heterogeneous queue storage also remains open;
-[queue contracts](effects.md#queuing-a-continuation)
-specify effect inclusion and cleanup without selecting a representation.
-Caller-supplied outstanding providers, preservation of internal handler
-scopes, direct-style suspension and one-shot ownership are requirements of
-this proposal. The source checker establishes resumption bounds before
-lowering. See [effect transitions](effects.md#resumption-effects-and-effect-transitions)
-for the proposed terminology and diagnostic examples.
+Before implementation, specify the selective control protocol, resumption
+specialization across stored values and finite recursive representations.
+Combining transformations reduces intermediate representations and repeated
+traversals; it does not remove those semantic obligations. Repeating local
+lowering for each specialization can cost compile time, so measure it before
+introducing another cached program representation.
 
-Acceptance tests should compare one consumer specialized for direct and
-control providers, verify code sharing across runtime captures, and exercise
-nested and stored resumptions across separately compiled libraries. Reject
-calls outside a callable's effect bound and preserve the distinction between
-enqueueing and invoking work. Cover branches that bypass a transition,
-wrapper calls and changing provider implementations across resumption.
-Test non-tail recursion for finite specialization, tail recursion for bounded
-native-stack use, and stored continuations with runtime environments. Check
-host adapters and separately compiled calls. Inspect simple direct-provider
-examples for eliminated administrative closures and continuation calls, and
-execute linked Wasm with conservative optimization as well as optimized code.
-Check generated core against each stage's invariants. Measure code size,
-compile time and remaining allocations; do not assume universal CPS always
-recovers the original direct-style performance.
+Check a direct and a control provider for one generic consumer, internal
+handlers in outwardly direct functions, nested delimiters, and callbacks
+that propagate control. Test queued resumptions with different invocation
+providers, cleanup after cancellation, and rejection of effect-transition
+mismatches. Exercise recursive specialization, bounded native-stack use on
+tail transfers, runtime captures shared across calls, source-to-Wasm
+locations, separate compilation and foreign adapters. Validate generated
+Wasm and execute it with optional local optimizations disabled as well as
+enabled. Inspect normal paths for unnecessary continuation environments;
+measure code size, compile time and allocations. Bootstrap and compiled
+execution must agree.
 
 ## Separate compilation
 
