@@ -134,8 +134,9 @@ on `build/snail` instead, the bootstrap's stages included, and every program
 the driver runs that imports neither of those modules: `program-command`
 in `host/chibi/snail/stage0/build.sld` asks `build/snail imports PROGRAM`,
 which reads the import sections without compiling them, and runs the rest
-on Node. Under that engine the driver builds the executable with Cargo
-when it is stale, and `make bootstrap` builds it first.
+on Node. Stage 0 also uses this executable for assembly and static linking,
+so the driver builds it with Cargo when stale regardless of the selected
+engine, and `make bootstrap` builds it first.
 
 `build/snail precompile MODULE OUTPUT` writes Cranelift's machine code for
 a module as a `.cwasm` file, which `run-wasm` loads in place of compiling

@@ -14,6 +14,7 @@ publish = false
 # its preview 2, which turns on wasmtime's component model and async
 # support; nothing here uses either.
 [dependencies]
+snail-core-support = { path = "../snail-core-support", features = ["assembler"] }
 wasmtime = { version = "=48.0.7", default-features = false, features = [
     "backtrace",
     "cranelift",

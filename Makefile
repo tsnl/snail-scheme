@@ -27,7 +27,9 @@ test:
 
 # The suite with every compile on the native executable's wasmtime instead of
 # Node, plus the check that both engines emit the same text.
+# Build shared tools before the service tests' startup deadlines begin.
 test-wasmtime:
+	SNAIL_ENGINE=wasmtime ./scripts/snail-tool dev-tools >/dev/null
 	SNAIL_ENGINE=wasmtime $(MAKE) test
 
 # The suite with the compiler's source running on Chibi instead of as Wasm.

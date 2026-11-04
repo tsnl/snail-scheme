@@ -11,6 +11,8 @@
 //! - `snail precompile MODULE OUTPUT` writes Cranelift's machine code for a
 //!   module as a `.cwasm` file, which `run-wasm` loads in place of
 //!   compiling the module again (`engine.rs`).
+//! - `snail assemble INPUT OUTPUT` assembles WAT; `snail link INPUT RUNTIME OUTPUT`
+//!   also links the scalar runtime, using the same backend as compiled tools.
 //! - `snail imports PROGRAM` lists the modules a program imports from, so
 //!   the build driver can tell whether `run-wasm` runs it (`program.rs`).
 //!
@@ -20,6 +22,7 @@
 
 use std::process::ExitCode;
 
+mod assemble;
 mod engine;
 mod links;
 mod modules;
@@ -29,7 +32,9 @@ mod program;
 
 const USAGE: &str = "usage: snail run-wasm PROGRAM [ARGUMENT ...]
        snail precompile MODULE OUTPUT
-       snail imports PROGRAM";
+       snail imports PROGRAM
+       snail assemble INPUT.wat OUTPUT.wasm
+       snail link INPUT.wat RUNTIME.wasm OUTPUT.wasm";
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().collect();
@@ -38,6 +43,10 @@ fn main() -> ExitCode {
 
 fn dispatch(arguments: &[String]) -> u8 {
     match arguments {
+        [_, command, input, output] if command == "assemble" => assemble::run(input, output, None),
+        [_, command, input, runtime, output] if command == "link" => {
+            assemble::run(input, output, Some(runtime))
+        }
         [_, command, module, output] if command == "precompile" => {
             engine::precompile(module, output)
         }
