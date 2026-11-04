@@ -1,0 +1,87 @@
+(import
+ (snail core base)
+ (snail core io))
+
+(: assert (-> Bool Unit))
+(define (assert condition)
+  (unless condition (panic "conversion probe assertion failed")))
+
+(: input (-> (Ref String) String Any Any ! mut))
+(define (input trace label value)
+  (ref-set! trace (string-append (ref-get trace) label))
+  value)
+
+(: text (-> Any String))
+(define (text value)
+  (match (try-convert value String)
+    ((Ok value) (string-append "text: " value))
+    (_ "missing")))
+(assert (string=? (text "yes") "text: yes"))
+(assert (string=? (text 1) "missing"))
+
+(struct Example
+  ((left Any)
+   (right Any)
+   (expected String)))
+
+;; Both inputs run once, left to right, for all four outcomes. Successful
+;; operands are used at their concrete types without a dyn-cast effect.
+(for-each
+ (lambda (example)
+   (let* ((trace (ref ""))
+          (result (match (Pair (try-convert (input trace "L" (Example-left example)) I64)
+                               (try-convert (input trace "R" (Example-right example)) String))
+                    ((Pair (Ok left) (Ok right)) (string-append (show left) right))
+                    (_ "missing"))))
+     (assert (string=? (ref-get trace) "LR"))
+     (assert (string=? result (Example-expected example)))))
+ (list (Example 2 "yes" "2yes") (Example 2 #f "missing")
+       (Example #f "yes" "missing") (Example #f #f "missing")))
+
+;; Escaping results and observed errors keep their ordinary representation.
+(let ((result (try-convert (ann #f Any) I64)))
+  (assert (match result
+            ((Err error)
+             (and (string=? (string-join (CastError-expected error) ",") "I64")
+                  (match (CastError-reason error) ((TypeMismatch) #t) (_ #f))))
+            (_ #f))))
+(assert (match (try-convert (ann #f Any) I64)
+          ((Ok value) (= value 0))
+          ((Err error) (= (CastError-argument error) -1))))
+
+;; A successful conversion does not imply that its nested pattern matches.
+(struct Point
+  ((x I64)
+   (y I64)))
+(assert (match (try-convert (ann (Point 1 2) Any) Point)
+          ((Ok (Point 0 y)) #f)
+          (_ #t)))
+(assert (match (try-convert (ann (Point 1 2) Any) Point)
+          ((Ok point) (= (+ (Point-x point) (Point-y point)) 3))
+          (_ #f)))
+(assert (match (try-convert (ann "identity" Any) Any)
+          ((Ok value) (type-test value String))
+          (_ #f)))
+
+;; A right-hand abort still happens after a failed left probe. Ownership
+;; sees that exit and releases the surrounding resource before handling it.
+(effect Stop ((ctl stop (-> Never))))
+(struct Resource
+  ())
+(instance (Drop (! console) Resource)
+  (define (drop resource) (match resource ((Resource) (write-line "released")))))
+(: right (-> (Ref String) Any ! mut Stop))
+(define (right trace)
+  (ref-set! trace (string-append (ref-get trace) "R"))
+  (absurd (stop)))
+(let ((trace (ref "")))
+  (handle Stop ((stop (lambda ()
+                        (ref-set! trace (string-append (ref-get trace) " caught")))))
+    (let ((resource (Resource)))
+      (match (Pair (try-convert (input trace "L" #f) I64)
+                   (try-convert (right trace) String))
+        ((Pair (Ok left) (Ok right)) (unit))
+        (_ (unit)))
+      (drop resource)))
+  (assert (string=? (ref-get trace) "LR caught")))
+(write-line "checked probes passed")
