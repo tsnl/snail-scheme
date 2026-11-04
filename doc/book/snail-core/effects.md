@@ -374,19 +374,20 @@ These names separate the entry context from the context needed to continue.
 
 Direct-style suspension remains a design requirement: users write the
 statements following `yield`, `sleep` or `await` normally, and the compiler
-constructs the one-shot continuation. A checked suspension marker should
-make that boundary visible, including calls to wrappers that can suspend.
-`!!` is a candidate spelling, not a settled naming rule. The existing `!`
-mutation convention need not mark every effectful function.
+constructs the one-shot continuation. The callable contract records the
+control boundary, including calls to wrappers that can suspend. A checked
+call-site marker remains a surface-syntax question; the examples use ordinary
+operation names. The existing `!` mutation convention need not mark every
+effectful function.
 
 For example, schematically, with a delimiter answering `Unit`:
 
 ```text
-yield!!()
+yield()
 write("ready")
 ```
 
-The continuation at `yield!!` accepts `Unit`, answers `Unit`, and requires
+The continuation at `yield` accepts `Unit`, answers `Unit`, and requires
 `IO`. If the selected scheduling contract accepts an IO-requiring
 continuation and arranges for its resumer to supply IO, the enclosing
 function can require `Yield<resume requires IO>` at entry instead of a
@@ -497,15 +498,28 @@ job's outstanding providers at invocation; internal captured handler scopes
 are restored. The queue bound must preserve nested transition requirements
 as well as ordinary effect labels.
 
-Different concrete continuations still need a common storage representation
-to share one queue. Argument-position `impl Fun` alone does not provide it.
-A known sum of job types and an explicitly packaged callable at the scheduling
-boundary are alternatives for review; no representation is selected here.
-Any explicit package must support the worker's provider-specialized entry
-points without freezing the creator's outstanding providers. A known effect
-row alone does not specify this representation. This does not grant
-implicit provider erasure elsewhere. The choice must preserve invocation
-and cleanup bounds, one-shot ownership, and the native array layout rules.
+Use an **explicit job package with a closed sum of adapter types** at the
+queue boundary. Each adapter supplies the operation result and handles the
+delimiter answer to satisfy a common job interface. Its captures include a
+concrete saved resumption. Argument-position `impl Fun` alone does not create
+this package. The package names its invocation and cleanup bounds; packing
+checks both, including nested transition requirements.
+
+Packaging instantiations register their variants with a named package
+boundary. The compiler generates its finite sum and a worker entry specialized
+for each provider mapping used to invoke it. The sum is closed for that linked
+program version, so every variant's adapter and saved-frame descriptors are
+available. A worker selects a variant and passes its own provider values to
+that adapter; the creator's outstanding providers are not saved. Source
+syntax for this explicit packaging remains to be designed.
+
+Saved resumptions use
+[tagged GC frame chains](compilers.md#saved-frame-representation) whose types
+do not grow with stack depth. The queue stores managed references to packaged
+jobs; it does not create an array of inline struct values or erase arbitrary
+source `Fun` and `Ref` implementations. A new package variant rebuilds the
+affected dispatchers. Unknown runtime-loaded variants require another ABI
+and are outside this design.
 
 #### Compiler obligations
 
@@ -529,8 +543,11 @@ outstanding providers supplied when invoked. Tail-call instructions transfer
 control but do not capture a Wasm activation. Separate compilation must
 expose the checked generic bodies and identities needed for downstream
 provider specialization.
-The worklist needs finite keys and recursive continuation representations;
-it cannot specialize on an unbounded history of captured predecessors.
+The worklist reserves nominal frame families, registers their concrete
+members and generates typed dispatch cases for requested provider mappings.
+Runtime chain length and captured predecessors never enter specialization
+keys. Nested scope frames retain internal handlers without retaining the
+ambient providers that invocation must supply.
 
 Validation must cover a direct and a control provider for the same class,
 a generic higher-order consumer under each, nested providers, runtime
@@ -546,8 +563,9 @@ specializations for ordinary calls without unnecessary continuation environments
 Also execute yielding paths and resumptions without relying on optimization.
 Queue tests must accept smaller job rows, reject effects outside the queue's
 bound, separate enqueue effects from invocation effects, and check cleanup
-when jobs are cancelled. Exercise distinct concrete job types once their
-shared storage representation has been chosen. Transition tests must cover
+when jobs are cancelled. Exercise distinct concrete job types through the
+closed package, and rebuild its dispatchers when a variant is added.
+Transition tests must cover
 IO before and after yield, paths that bypass suspension, wrapper calls,
 multiple suspension points and recursive constraints.
 Bootstrap and compiled execution must agree. The language's remaining gaps
