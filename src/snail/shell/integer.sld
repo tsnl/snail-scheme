@@ -307,25 +307,25 @@
 
     ;; ---- Classes ----
 
-    (instance (Num Integer)
+    (instance (Num (!) Integer)
       (define + integer-add)
       (define - integer-subtract)
       (define * integer-multiply)
       (define negate integer-negate))
 
-    (instance (Ord Integer)
+    (instance (Ord (!) Integer)
       (define (= a b) (= (integer-compare a b) 0))
       (define (< a b) (< (integer-compare a b) 0))
       (define (<= a b) (<= (integer-compare a b) 0))
       (define (> a b) (> (integer-compare a b) 0))
       (define (>= a b) (>= (integer-compare a b) 0)))
 
-    (instance (Integral Integer)
+    (instance (Integral (!) Integer)
       (define quotient integer-quotient)
       (define remainder integer-remainder)
       (define modulo integer-modulo))
 
-    (instance (Show Integer)
+    (instance (Show (!) Integer)
       (define show integer->string))
 
     ))

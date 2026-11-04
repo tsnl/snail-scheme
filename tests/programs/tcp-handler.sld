@@ -4,6 +4,16 @@
  (snail shell task)
  (snail shell socket))
 
+;; A mismatch here is a broken test-host invariant. Guest conversions that
+;; are expected to fail use dyn-cast handlers in the dedicated fixtures.
+(define-syntax fixture-convert
+  (syntax-rules ()
+    ((_ value target)
+     (match (try-convert value target)
+       ((Ok checked) checked)
+       ((Err _) (panic "fixture payload has the wrong type"))))))
+
+
 (: require (All (T) (-> (Result T SocketError) T)))
 (define (require result)
   (match result
@@ -24,10 +34,11 @@
               (accept (lambda (_) (Ok (Connection (type-convert (ref #u8()) Any)))))
               (read (lambda (connection _)
                       (Ok
-                       (Some (ref-get (type-convert (Connection-token connection) (Ref Bytes)))))))
+                       (Some
+                        (ref-get (fixture-convert (Connection-token connection) (Ref Bytes)))))))
               (write (lambda (connection bytes)
                        (sleep 1)
-                       (ref-set! (type-convert (Connection-token connection) (Ref Bytes)) bytes)
+                       (ref-set! (fixture-convert (Connection-token connection) (Ref Bytes)) bytes)
                        (Ok (i64->i32 (vector-length bytes)))))
               (close-listener (lambda (_) (Ok (unit))))
               (finish-connection (lambda (connection grace)
@@ -35,7 +46,7 @@
                                    (display grace)
                                    (newline)
                                    (ref-set!
-                                    (type-convert (Connection-token connection) (Ref Bytes))
+                                    (fixture-convert (Connection-token connection) (Ref Bytes))
                                     #u8())
                                    (Ok (unit))))
               (close-connection (lambda (_) (Ok (unit)))))

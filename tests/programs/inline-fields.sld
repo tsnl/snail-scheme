@@ -114,7 +114,9 @@
 
 ;; Accessors are functions too, and an Any holds a Point as itself.
 (write-line (string-join (map show (map Point-x (list (Point 1 0) (Point 2 0)))) " "))
-(write-line (show-point (type-convert (type-convert (Point 9 9) Any) Point)))
+(write-line (show-point (match (try-convert (type-convert (Point 9 9) Any) Point)
+                          ((Ok value) value)
+                          ((Err _) (panic "point round trip failed")))))
 
 ;; A call that may yield leaves with a placeholder of its type, here a
 ;; Segment, before the frames resume.

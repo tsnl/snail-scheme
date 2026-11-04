@@ -117,7 +117,7 @@
 
     (: quoted (-> String String))
     (define (quoted text)
-      (datum->string (StringDatum text)))
+      (datum->string (ann text Any)))
 
     ;; ---- Operations ----
 

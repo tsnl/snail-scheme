@@ -218,7 +218,7 @@ function reportApplicationError(error) {
 // uncached. A file the server does not have is an error, not its error page.
 function fetchRead(base) {
   return async file => {
-    const response = await fetch(new URL(file, new URL(base, location.href)), {cache: 'no-store'});
+    const response = await fetch(new URL(file, new URL(base, document.baseURI)), {cache: 'no-store'});
     if (!response.ok) throw new Error(`${response.status} fetching ${file}`);
     return new Uint8Array(await response.arrayBuffer());
   };
