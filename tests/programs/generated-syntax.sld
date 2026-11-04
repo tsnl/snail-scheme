@@ -24,13 +24,13 @@
 
 ;; A datum becomes the same syntax, and a float without a point gains one.
 (define datum
-  (datum-list (list (SymbolDatum "f")
-                    (StringDatum "λ")
-                    (NumberDatum (number-from-i64 -7))
-                    (NumberDatum (number-from-f64 1.5))
-                    (CharDatum #\a)
-                    (BooleanDatum #t)
-                    (BytesDatum (list->vector (list (i32->u8 0) (i32->u8 200)))))))
+  (datum-list (list (ann (Symbol "f") Any)
+                    (ann "λ" Any)
+                    (number->datum (number-from-i64 -7))
+                    (number->datum (number-from-f64 1.5))
+                    (ann #\a Any)
+                    (ann #t Any)
+                    (ann (list->vector (list (i32->u8 0) (i32->u8 200))) Any))))
 
 (write-line (bytes-text (syntax->bytes (datum->syntax datum))))
-(write-line (bytes-text (syntax->bytes (datum->syntax (NumberDatum (number-from-f64 2.0))))))
+(write-line (bytes-text (syntax->bytes (datum->syntax (number->datum (number-from-f64 2.0))))))

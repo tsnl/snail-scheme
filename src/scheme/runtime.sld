@@ -1,11 +1,12 @@
 ;; The run-time support of Scheme programs that (scheme compiler) translated.
-;; Every value is a Datum and every variable a cell holding one. The standard
+;; Every value is an Any and every variable a cell holding one. The standard
 ;; procedures are cells holding procedures, named like translated variables
 ;; with a leading `%`, so a program may rebind them. Pairs are immutable, so
 ;; `eq?` and `eqv?` compare structurally, like `equal?`.
 (define-library (scheme runtime)
   (export
    call
+   scheme-evaluate
    arity!
    rest-arguments
    scheme-number
@@ -87,6 +88,10 @@
   (import
    (snail core base)
    (snail core io)
+   (snail core dynamic)
+   (only (snail core primitive) any-type-id)
+   (snail shell arithmetic)
+   (snail shell arithmetic dynamic)
    (snail shell number)
    (snail shell integer)
    (snail shell rational)
@@ -97,14 +102,19 @@
 
     ;; ---- Calls ----
 
-    (: call (-> Datum (List Datum) Datum ! console mut))
+    (: call (-> Any (List Any) Any ! console mut dyn-cast))
     (define (call procedure arguments)
-      (match procedure
-        ((ProcedureDatum f) (f arguments))
-        (_ (panic (string-append "not a procedure: " (datum->string procedure))))))
+      ((Procedure-call procedure) arguments))
 
-    ;; Exactly `count` arguments, or at least `count` with a rest list.
-    (: arity! (-> (List Datum) I64 Bool Unit))
+    ;; Generated scripts fail at the current evaluation. A caller using call
+    ;; directly can instead recover with its own dyn-cast handler.
+    (: scheme-evaluate (-> (-> Any ! console mut dyn-cast) Any ! console mut))
+    (define (scheme-evaluate work)
+      (handle dyn-cast
+          ((conversion-failed (lambda (error) (panic (cast-error->string error)))))
+        (work)))
+
+    (: arity! (-> (List Any) I64 Bool Unit))
     (define (arity! arguments count rest?)
       (let ((given (length arguments)))
         (unless (if rest? (>= given count) (= given count))
@@ -114,155 +124,153 @@
                                 " arguments, got "
                                 (i64->string given))))))
 
-    (: rest-arguments (-> (List Datum) I64 Datum))
+    (: rest-arguments (-> (List Any) I64 Any))
     (define (rest-arguments arguments count)
       (datum-list (list-tail arguments count)))
 
-    (: scheme-number (-> String Datum))
+    (: scheme-number (-> String Any))
     (define (scheme-number text)
       (match (string->number text)
-        ((Some n) (NumberDatum n))
+        ((Some n) (number->datum n))
         ((None) (panic (string-append "not a number: " text)))))
 
     ;; The value of expressions whose value Scheme leaves unspecified.
-    (: unspecified Datum)
-    (define unspecified (BooleanDatum #f))
+    (: unspecified Any)
+    (define unspecified (ann #f Any))
 
-    (: member-datum? (-> Datum Datum Bool))
+    (: member-datum? (-> Any Any Bool))
     (define (member-datum? item items)
-      (match items
-        ((PairDatum head tail) (or (datum=? head item) (member-datum? item tail)))
-        (_ #f)))
+      (match-any items
+                 ((SchemePair (SchemePair head tail))
+                  (or (datum=? head item) (member-datum? item tail)))
+                 (else #f)))
 
-    ;; Procedures of fixed arity, from Snail-Core functions.
-    (: procedure1 (-> (-> Datum Datum ! console mut) (Ref Datum)))
-    (define (procedure1 f)
-      (ref
-       (ProcedureDatum (lambda (arguments) (arity! arguments 1 #f) (f (list-ref arguments 0))))))
+    ;; Bind arguments from an explicitly typed list before inferring the
+    ;; body. This avoids inferring a concrete closure and trying to cast it.
+    (define-syntax procedure1
+      (syntax-rules (lambda)
+        ((_ (lambda (value) body ...))
+         (variadic (lambda (arguments)
+                     (arity! arguments 1 #f)
+                     (let ((value (list-ref arguments 0))) body ...))))))
 
-    (: procedure2 (-> (-> Datum Datum Datum ! console mut) (Ref Datum)))
-    (define (procedure2 f)
-      (ref (ProcedureDatum (lambda (arguments)
-                             (arity! arguments 2 #f)
-                             (f (list-ref arguments 0) (list-ref arguments 1))))))
+    (define-syntax procedure2
+      (syntax-rules (lambda)
+        ((_ (lambda (left right) body ...))
+         (variadic (lambda (arguments)
+                     (arity! arguments 2 #f)
+                     (let ((left (list-ref arguments 0)) (right (list-ref arguments 1)))
+                       body ...))))))
 
-    (: variadic (-> (-> (List Datum) Datum ! console mut) (Ref Datum)))
-    (define (variadic f)
-      (ref (ProcedureDatum f)))
+    (define-syntax variadic
+      (syntax-rules (lambda)
+        ((_ (lambda (arguments) body ...))
+         (ref (ann (Procedure (lambda (arguments)
+                                (ann arguments (List Any))
+                                (ann (begin body ...) Any))) Any)))))
 
-    (: boolean (-> Bool Datum))
-    (define (boolean value)
-      (BooleanDatum value))
-
-    (: type-error (All (A) (-> String Datum A)))
+    ;; A domain check shares the failure path of concrete type conversions.
+    (: type-error (All (A) (-> String Any A ! dyn-cast)))
     (define (type-error expected datum)
-      (panic (string-append "expected " expected ", got " (datum->string datum))))
+      (absurd (conversion-failed
+               (CastError (TypeMismatch) (list expected) (any-type-id datum)
+                          "scheme runtime" "" -1))))
 
     ;; ---- Numbers ----
 
-    (: number-of (-> Datum Number))
+    (: number-of (-> Any Number ! dyn-cast))
     (define (number-of datum)
-      (match datum
-        ((NumberDatum n) n)
-        (_ (type-error "a number" datum))))
+      (match (datum-number datum)
+        ((Some n) n)
+        ((None) (type-error "Integer, Rational or F64" datum))))
 
-    (: integer-of (-> Datum Integer))
+    (: integer-of (-> Any Integer ! dyn-cast))
     (define (integer-of datum)
       (match (number-of datum)
         ((Exact r)
          (if (rational-integer? r) (Rational-numerator r) (type-error "an integer" datum)))
         ((Inexact _) (type-error "an exact integer" datum))))
 
-    (: number (-> Number Datum))
-    (define (number n)
-      (NumberDatum n))
-
-    ;; `(- x)` negates and `(- x y ...)` subtracts the rest from x; `/` alike.
-    (: inverse-fold (-> (-> Number Number Number) Number (List Datum) Datum))
+    (: inverse-fold (-> (-> Any Any Any ! dyn-cast) Any (List Any) Any ! dyn-cast))
     (define (inverse-fold op identity arguments)
       (match arguments
-        ((Cons first (Nil)) (number (op identity (number-of first))))
-        ((Cons first rest)
-         (number
-          (fold-left (lambda (total item) (op total (number-of item))) (number-of first) rest)))
+        ((Cons first (Nil)) (op identity first))
+        ((Cons first rest) (fold-left op first rest))
         ((Nil) (panic "expected at least one argument"))))
 
-    ;; True when each adjacent pair compares as `test` accepts.
-    (: chain (-> (-> I64 Bool) (List Datum) Datum))
+    (: chain (-> (-> I64 Bool) (List Any) Any ! dyn-cast))
     (define (chain test arguments)
-      (boolean (let loop ((items arguments))
-                 (match items
-                   ((Cons a (Cons b rest))
-                    (and (test (number-compare (number-of a) (number-of b))) (loop (Cons b rest))))
-                   (_ #t)))))
+      (let loop ((items arguments))
+        (match items
+          ((Cons a (Cons b rest))
+           (and (test (number-compare (number-of a) (number-of b))) (loop (Cons b rest))))
+          (_ #t))))
 
-    (: %+ (Ref Datum))
-    (define %+
-      (variadic (lambda (arguments)
-                  (number (fold-left (lambda (total item) (number-add total (number-of item)))
-                                     (number-from-i64 0)
-                                     arguments)))))
+    ;; Only these definitions select the Scheme numeric tower policy.
+    ;; Importing the runtime cannot enable promotion in its typed clients.
+    (with-instances (dynamic-arithmetic)
+                    (: %+ (Ref Any))
+                    (define %+ (variadic (lambda (arguments)
+                                           (fold-left add
+                                                      (ann (integer-from-i64 0) Any)
+                                                      arguments))))
+                    (: %* (Ref Any))
+                    (define %* (variadic (lambda (arguments)
+                                           (fold-left multiply
+                                                      (ann (integer-from-i64 1) Any)
+                                                      arguments))))
+                    (: %- (Ref Any))
+                    (define %- (variadic (lambda (arguments)
+                                           (inverse-fold subtract (integer-from-i64 0) arguments))))
+                    (: %/ (Ref Any))
+                    (define %/ (variadic (lambda (arguments)
+                                           (inverse-fold divide (integer-from-i64 1) arguments)))))
 
-    (: %* (Ref Datum))
-    (define %*
-      (variadic (lambda (arguments)
-                  (number (fold-left (lambda (total item) (number-multiply total (number-of item)))
-                                     (number-from-i64 1)
-                                     arguments)))))
-
-    (: %- (Ref Datum))
-    (define %-
-      (variadic (lambda (arguments) (inverse-fold number-subtract (number-from-i64 0) arguments))))
-
-    (: %/ (Ref Datum))
-    (define %/
-      (variadic (lambda (arguments) (inverse-fold number-divide (number-from-i64 1) arguments))))
-
-    (: %= (Ref Datum))
+    (: %= (Ref Any))
     (define %= (variadic (lambda (arguments) (chain (lambda (order) (= order 0)) arguments))))
 
-    (: %< (Ref Datum))
+    (: %< (Ref Any))
     (define %< (variadic (lambda (arguments) (chain (lambda (order) (< order 0)) arguments))))
 
-    (: %> (Ref Datum))
+    (: %> (Ref Any))
     (define %> (variadic (lambda (arguments) (chain (lambda (order) (> order 0)) arguments))))
 
-    (: %<= (Ref Datum))
+    (: %<= (Ref Any))
     (define %<= (variadic (lambda (arguments) (chain (lambda (order) (<= order 0)) arguments))))
 
-    (: %>= (Ref Datum))
+    (: %>= (Ref Any))
     (define %>= (variadic (lambda (arguments) (chain (lambda (order) (>= order 0)) arguments))))
 
-    (: %quotient (Ref Datum))
+    (: %quotient (Ref Any))
     (define %quotient
       (procedure2 (lambda (a b)
-                    (number
-                     (number-from-integer (integer-quotient (integer-of a) (integer-of b)))))))
+                    (ann (integer-quotient (integer-of a) (integer-of b)) Any))))
 
-    (: %remainder (Ref Datum))
+    (: %remainder (Ref Any))
     (define %remainder
       (procedure2 (lambda (a b)
-                    (number
-                     (number-from-integer (integer-remainder (integer-of a) (integer-of b)))))))
+                    (ann (integer-remainder (integer-of a) (integer-of b)) Any))))
 
-    (: %modulo (Ref Datum))
+    (: %modulo (Ref Any))
     (define %modulo
       (procedure2 (lambda (a b)
-                    (number (number-from-integer (integer-modulo (integer-of a) (integer-of b)))))))
+                    (ann (integer-modulo (integer-of a) (integer-of b)) Any))))
 
-    (: %abs (Ref Datum))
+    (: %abs (Ref Any))
     (define %abs
-      (procedure1 (lambda (a) (if (< (number-compare (number-of a) (number-from-i64 0)) 0)
-                                  (number (number-subtract (number-from-i64 0) (number-of a)))
-                                  a))))
+      (procedure1 (lambda (a)
+                    (if (< (sign a) 0)
+                        (with-instances (dynamic-arithmetic)
+                                        (subtract (ann (integer-from-i64 0) Any) a))
+                        a))))
 
-    (: %max (Ref Datum))
+    (: %max (Ref Any))
     (define %max (variadic (lambda (arguments) (extreme (lambda (order) (> order 0)) arguments))))
 
-    (: %min (Ref Datum))
+    (: %min (Ref Any))
     (define %min (variadic (lambda (arguments) (extreme (lambda (order) (< order 0)) arguments))))
 
-    (: extreme (-> (-> I64 Bool) (List Datum) Datum))
+    (: extreme (-> (-> I64 Bool) (List Any) Any ! dyn-cast))
     (define (extreme better? arguments)
       (match arguments
         ((Cons first rest)
@@ -272,169 +280,167 @@
                     rest))
         ((Nil) (panic "expected at least one argument"))))
 
-    (: %number? (Ref Datum))
-    (define %number? (procedure1 (lambda (a) (boolean (match a ((NumberDatum _) #t) (_ #f))))))
+    (: %number? (Ref Any))
+    (define %number?
+      (procedure1 (lambda (a) (match (datum-number a) ((Some _) #t) ((None) #f)))))
 
-    (: %integer? (Ref Datum))
+    (: %integer? (Ref Any))
     (define %integer?
-      (procedure1 (lambda (a) (boolean (match a ((NumberDatum n) (number-integer? n)) (_ #f))))))
+      (procedure1
+       (lambda (a) (match (datum-number a) ((Some n) (number-integer? n)) ((None) #f)))))
 
-    (: sign (-> Datum I64))
+    (: sign (-> Any I64 ! dyn-cast))
     (define (sign a)
       (number-compare (number-of a) (number-from-i64 0)))
 
-    (: %zero? (Ref Datum))
-    (define %zero? (procedure1 (lambda (a) (boolean (= (sign a) 0)))))
+    (: %zero? (Ref Any))
+    (define %zero? (procedure1 (lambda (a) (= (sign a) 0))))
 
-    (: %positive? (Ref Datum))
-    (define %positive? (procedure1 (lambda (a) (boolean (> (sign a) 0)))))
+    (: %positive? (Ref Any))
+    (define %positive? (procedure1 (lambda (a) (> (sign a) 0))))
 
-    (: %negative? (Ref Datum))
-    (define %negative? (procedure1 (lambda (a) (boolean (< (sign a) 0)))))
+    (: %negative? (Ref Any))
+    (define %negative? (procedure1 (lambda (a) (< (sign a) 0))))
 
-    (: %even? (Ref Datum))
+    (: %even? (Ref Any))
     (define %even?
       (procedure1 (lambda (a)
-                    (boolean
-                     (integer-zero? (integer-remainder (integer-of a) (integer-from-i64 2)))))))
+                    (integer-zero? (integer-remainder (integer-of a) (integer-from-i64 2))))))
 
-    (: %odd? (Ref Datum))
+    (: %odd? (Ref Any))
     (define %odd?
       (procedure1 (lambda (a)
-                    (boolean (not (integer-zero?
-                                   (integer-remainder (integer-of a) (integer-from-i64 2))))))))
+                    (not (integer-zero?
+                          (integer-remainder (integer-of a) (integer-from-i64 2)))))))
 
-    (: %number->string (Ref Datum))
-    (define %number->string (procedure1 (lambda (a) (StringDatum (number->string (number-of a))))))
+    (: %number->string (Ref Any))
+    (define %number->string (procedure1 (lambda (a) (number->string (number-of a)))))
 
     ;; ---- Pairs and lists ----
 
-    (: %cons (Ref Datum))
-    (define %cons (procedure2 (lambda (a b) (PairDatum a b))))
+    (: %cons (Ref Any))
+    (define %cons (procedure2 (lambda (a b) (SchemePair a b))))
 
-    (: %car (Ref Datum))
-    (define %car
-      (procedure1 (lambda (a) (match a ((PairDatum head _) head) (_ (type-error "a pair" a))))))
+    (: %car (Ref Any))
+    (define %car (procedure1 (lambda (a) (SchemePair-car a))))
 
-    (: %cdr (Ref Datum))
-    (define %cdr
-      (procedure1 (lambda (a) (match a ((PairDatum _ tail) tail) (_ (type-error "a pair" a))))))
+    (: %cdr (Ref Any))
+    (define %cdr (procedure1 (lambda (a) (SchemePair-cdr a))))
 
-    (: %list (Ref Datum))
+    (: %list (Ref Any))
     (define %list (variadic (lambda (arguments) (datum-list arguments))))
 
-    (: items-of (-> Datum (List Datum)))
+    (: items-of (-> Any (List Any) ! dyn-cast))
     (define (items-of datum)
       (match (datum->list datum)
         ((Some items) items)
         ((None) (type-error "a list" datum))))
 
-    (: %length (Ref Datum))
-    (define %length (procedure1 (lambda (a) (number (number-from-i64 (length (items-of a)))))))
+    (: %length (Ref Any))
+    (define %length (procedure1 (lambda (a) (integer-from-i64 (length (items-of a))))))
 
-    (: %append (Ref Datum))
+    (: %append (Ref Any))
     ;; The last argument becomes the tail as it is, so it need not be a list.
     (define %append (variadic (lambda (arguments)
                                 (match (reverse arguments)
                                   ((Cons last front)
                                    (fold-left (lambda (tail items)
-                                                (fold-right PairDatum tail (items-of items)))
+                                                (fold-right (lambda (head tail)
+                                                              (ann (SchemePair head tail) Any))
+                                                            tail
+                                                            (items-of items)))
                                               last
                                               front))
-                                  ((Nil) (NullDatum))))))
+                                  ((Nil) (ann (Null) Any))))))
 
-    (: %reverse (Ref Datum))
+    (: %reverse (Ref Any))
     (define %reverse (procedure1 (lambda (a) (datum-list (reverse (items-of a))))))
 
-    (: %list-ref (Ref Datum))
+    (: %list-ref (Ref Any))
     (define %list-ref
       (procedure2 (lambda (a k) (list-ref (items-of a) (integer->i64 (integer-of k))))))
 
-    (: %null? (Ref Datum))
-    (define %null? (procedure1 (lambda (a) (boolean (match a ((NullDatum) #t) (_ #f))))))
+    (: %null? (Ref Any))
+    (define %null? (procedure1 (lambda (a) (type-test a Null))))
 
-    (: %pair? (Ref Datum))
-    (define %pair? (procedure1 (lambda (a) (boolean (match a ((PairDatum _ _) #t) (_ #f))))))
+    (: %pair? (Ref Any))
+    (define %pair? (procedure1 (lambda (a) (type-test a SchemePair))))
 
-    (: %list? (Ref Datum))
+    (: %list? (Ref Any))
     (define %list?
-      (procedure1 (lambda (a) (boolean (match (datum->list a) ((Some _) #t) ((None) #f))))))
+      (procedure1 (lambda (a) (match (datum->list a) ((Some _) #t) ((None) #f)))))
 
     ;; ---- Equivalence and types ----
 
-    (: %eq? (Ref Datum))
-    (define %eq? (procedure2 (lambda (a b) (boolean (datum=? a b)))))
+    (: %eq? (Ref Any))
+    (define %eq? (procedure2 (lambda (a b) (datum=? a b))))
 
-    (: %eqv? (Ref Datum))
-    (define %eqv? (procedure2 (lambda (a b) (boolean (datum=? a b)))))
+    (: %eqv? (Ref Any))
+    (define %eqv? (procedure2 (lambda (a b) (datum=? a b))))
 
-    (: %equal? (Ref Datum))
-    (define %equal? (procedure2 (lambda (a b) (boolean (datum=? a b)))))
+    (: %equal? (Ref Any))
+    (define %equal? (procedure2 (lambda (a b) (datum=? a b))))
 
-    (: %not (Ref Datum))
-    (define %not (procedure1 (lambda (a) (boolean (not (datum-truthy? a))))))
+    (: %not (Ref Any))
+    (define %not (procedure1 (lambda (a) (not (datum-truthy? a)))))
 
-    (: %boolean? (Ref Datum))
-    (define %boolean? (procedure1 (lambda (a) (boolean (match a ((BooleanDatum _) #t) (_ #f))))))
+    (: %boolean? (Ref Any))
+    (define %boolean? (procedure1 (lambda (a) (type-test a Bool))))
 
-    (: %symbol? (Ref Datum))
-    (define %symbol? (procedure1 (lambda (a) (boolean (match a ((SymbolDatum _) #t) (_ #f))))))
+    (: %symbol? (Ref Any))
+    (define %symbol? (procedure1 (lambda (a) (type-test a Symbol))))
 
-    (: %string? (Ref Datum))
-    (define %string? (procedure1 (lambda (a) (boolean (match a ((StringDatum _) #t) (_ #f))))))
+    (: %string? (Ref Any))
+    (define %string? (procedure1 (lambda (a) (type-test a String))))
 
-    (: %char? (Ref Datum))
-    (define %char? (procedure1 (lambda (a) (boolean (match a ((CharDatum _) #t) (_ #f))))))
+    (: %char? (Ref Any))
+    (define %char? (procedure1 (lambda (a) (type-test a Char))))
 
-    (: %procedure? (Ref Datum))
+    (: %procedure? (Ref Any))
     (define %procedure?
-      (procedure1 (lambda (a) (boolean (match a ((ProcedureDatum _) #t) (_ #f))))))
+      (procedure1 (lambda (a) (type-test a Procedure))))
 
     ;; ---- Strings and symbols ----
 
-    (: text-of (-> Datum String))
-    (define (text-of datum)
-      (match datum
-        ((StringDatum text) text)
-        (_ (type-error "a string" datum))))
+    (: text-of (-> Any String ! dyn-cast))
+    (define (text-of value) value)
 
-    (: %string-append (Ref Datum))
+    (: %string-append (Ref Any))
     (define %string-append
-      (variadic (lambda (arguments) (StringDatum (string-concatenate (map text-of arguments))))))
+      (variadic (lambda (arguments) (string-concatenate (map text-of arguments)))))
 
-    (: %string-length (Ref Datum))
+    (: %string-length (Ref Any))
     (define %string-length
-      (procedure1 (lambda (a) (number (number-from-i64 (string-length (text-of a)))))))
+      (procedure1 (lambda (a) (integer-from-i64 (string-length a)))))
 
-    (: %substring (Ref Datum))
+    (: %substring (Ref Any))
     (define %substring
       (variadic (lambda (arguments)
                   (arity! arguments 3 #f)
-                  (StringDatum (substring (text-of (list-ref arguments 0))
-                                          (integer->i64 (integer-of (list-ref arguments 1)))
-                                          (integer->i64 (integer-of (list-ref arguments 2))))))))
+                  (substring (list-ref arguments 0)
+                             (integer->i64 (integer-of (list-ref arguments 1)))
+                             (integer->i64 (integer-of (list-ref arguments 2)))))))
 
-    (: %string=? (Ref Datum))
-    (define %string=? (procedure2 (lambda (a b) (boolean (string=? (text-of a) (text-of b))))))
+    (: %string=? (Ref Any))
+    (define %string=? (procedure2 (lambda (a b) (string=? a b))))
 
-    (: text (-> (-> String String) (Ref Datum)))
+    (: text (-> (-> String String) (Ref Any)))
     (define (text f)
-      (procedure1 (lambda (a) (StringDatum (f (text-of a))))))
+      (procedure1 (lambda (a) (f a))))
 
-    (: %string-upcase (Ref Datum))
+    (: %string-upcase (Ref Any))
     (define %string-upcase (text string-upcase))
 
-    (: %string-downcase (Ref Datum))
+    (: %string-downcase (Ref Any))
     (define %string-downcase (text string-downcase))
 
-    (: %string-foldcase (Ref Datum))
+    (: %string-foldcase (Ref Any))
     (define %string-foldcase (text string-foldcase))
 
-    (: %string-ci=? (Ref Datum))
+    (: %string-ci=? (Ref Any))
     (define %string-ci=?
       (procedure2 (lambda (a b)
-                    (boolean
-                     (string=? (string-foldcase (text-of a)) (string-foldcase (text-of b)))))))
+                    (string=? (string-foldcase a) (string-foldcase b)))))
 
     ;; ---- Characters ----
 
@@ -443,79 +449,70 @@
     ;; `char-numeric?` holds for any script's decimal digits, and
     ;; `string-foldcase` may expand a scalar, as "ß" into "ss", so
     ;; `string-ci=?` compares folded text rather than scalar by scalar.
-    (: char-of (-> Datum Char))
-    (define (char-of datum)
-      (match datum
-        ((CharDatum char) char)
-        (_ (type-error "a character" datum))))
 
-    (: character (-> (-> Char Char) (Ref Datum)))
+    (: character (-> (-> Char Char) (Ref Any)))
     (define (character f)
-      (procedure1 (lambda (a) (CharDatum (f (char-of a))))))
+      (procedure1 (lambda (a) (f a))))
 
-    (: character-property (-> (-> Char Bool) (Ref Datum)))
+    (: character-property (-> (-> Char Bool) (Ref Any)))
     (define (character-property holds?)
-      (procedure1 (lambda (a) (boolean (holds? (char-of a))))))
+      (procedure1 (lambda (a) (holds? a))))
 
-    (: %char-upcase (Ref Datum))
+    (: %char-upcase (Ref Any))
     (define %char-upcase (character char-upcase))
 
-    (: %char-downcase (Ref Datum))
+    (: %char-downcase (Ref Any))
     (define %char-downcase (character char-downcase))
 
-    (: %char-foldcase (Ref Datum))
+    (: %char-foldcase (Ref Any))
     (define %char-foldcase (character char-foldcase))
 
-    (: %char-alphabetic? (Ref Datum))
+    (: %char-alphabetic? (Ref Any))
     (define %char-alphabetic? (character-property char-unicode-alphabetic?))
 
-    (: %char-numeric? (Ref Datum))
+    (: %char-numeric? (Ref Any))
     (define %char-numeric? (character-property char-unicode-numeric?))
 
-    (: %char-whitespace? (Ref Datum))
+    (: %char-whitespace? (Ref Any))
     (define %char-whitespace? (character-property char-unicode-whitespace?))
 
-    (: %char-upper-case? (Ref Datum))
+    (: %char-upper-case? (Ref Any))
     (define %char-upper-case? (character-property char-upper-case?))
 
-    (: %char-lower-case? (Ref Datum))
+    (: %char-lower-case? (Ref Any))
     (define %char-lower-case? (character-property char-lower-case?))
 
-    (: %char-ci=? (Ref Datum))
+    (: %char-ci=? (Ref Any))
     (define %char-ci=?
       (procedure2
-       (lambda (a b) (boolean (char=? (char-foldcase (char-of a)) (char-foldcase (char-of b)))))))
+       (lambda (a b) (char=? (char-foldcase a) (char-foldcase b)))))
 
     ;; R7RS answers #f for anything that is not a decimal digit.
-    (: %digit-value (Ref Datum))
+    (: %digit-value (Ref Any))
     (define %digit-value
       (procedure1 (lambda (a)
-                    (match (char-digit-value (char-of a))
-                      ((Some value) (number (number-from-i64 value)))
-                      ((None) (boolean #f))))))
+                    (match (char-digit-value a)
+                      ((Some value) (ann (integer-from-i64 value) Any))
+                      ((None) (ann #f Any))))))
 
-    (: %symbol->string (Ref Datum))
-    (define %symbol->string
-      (procedure1 (lambda (a)
-                    (match a
-                      ((SymbolDatum name) (StringDatum name))
-                      (_ (type-error "a symbol" a))))))
+    (: %symbol->string (Ref Any))
+    (define %symbol->string (procedure1 (lambda (a) (Symbol-name a))))
 
-    (: %string->symbol (Ref Datum))
-    (define %string->symbol (procedure1 (lambda (a) (SymbolDatum (text-of a)))))
+    (: %string->symbol (Ref Any))
+    (define %string->symbol (procedure1 (lambda (a) (Symbol a))))
 
     ;; ---- Output and errors ----
 
-    (: %display (Ref Datum))
+    (: %display (Ref Any))
     (define %display (procedure1 (lambda (a) (write-string (datum->display-string a)) unspecified)))
 
-    (: %write (Ref Datum))
+    (: %write (Ref Any))
     (define %write (procedure1 (lambda (a) (write-string (datum->string a)) unspecified)))
 
-    (: %newline (Ref Datum))
+    (: %newline (Ref Any))
     (define %newline (variadic (lambda (arguments) (arity! arguments 0 #f) (newline) unspecified)))
 
-    (: %error (Ref Datum))
+    (: %error (Ref Any))
     (define %error
       (variadic (lambda (arguments)
                   (match arguments
@@ -531,7 +528,7 @@
     ;; ---- Higher-order procedures ----
 
     ;; `(apply f a ... list)` calls f with the a's followed by the list.
-    (: %apply (Ref Datum))
+    (: %apply (Ref Any))
     (define %apply
       (variadic (lambda (arguments)
                   (match arguments
@@ -541,12 +538,12 @@
                        ((Nil) (call f (Nil)))))
                     ((Nil) (panic "apply: expected a procedure"))))))
 
-    (: %map (Ref Datum))
+    (: %map (Ref Any))
     (define %map
       (procedure2
        (lambda (f items) (datum-list (map (lambda (item) (call f (list item))) (items-of items))))))
 
-    (: %for-each (Ref Datum))
+    (: %for-each (Ref Any))
     (define %for-each
       (procedure2 (lambda (f items)
                     (for-each (lambda (item) (call f (list item)) (unit)) (items-of items))
@@ -554,21 +551,15 @@
 
     ;; ---- Vectors ----
 
-    (: %vector (Ref Datum))
-    (define %vector (variadic (lambda (arguments) (VectorDatum (list->vector arguments)))))
+    (: %vector (Ref Any))
+    (define %vector (variadic (lambda (arguments) (list->vector arguments))))
 
-    (: items-of-vector (-> Datum (Vector Datum)))
-    (define (items-of-vector datum)
-      (match datum
-        ((VectorDatum items) items)
-        (_ (type-error "a vector" datum))))
-
-    (: %vector-ref (Ref Datum))
+    (: %vector-ref (Ref Any))
     (define %vector-ref
-      (procedure2 (lambda (v k) (vector-ref (items-of-vector v) (integer->i64 (integer-of k))))))
+      (procedure2 (lambda (v k) (vector-ref (ann v (Vector Any)) (integer->i64 (integer-of k))))))
 
-    (: %vector-length (Ref Datum))
+    (: %vector-length (Ref Any))
     (define %vector-length
-      (procedure1 (lambda (v) (number (number-from-i64 (vector-length (items-of-vector v)))))))
+      (procedure1 (lambda (v) (integer-from-i64 (vector-length (ann v (Vector Any)))))))
 
     ))

@@ -7,6 +7,7 @@
    read-datums)
   (import
    (snail core base)
+   (snail shell integer)
    (snail shell number)
    (snail shell datum))
   (begin
@@ -14,7 +15,7 @@
     ;; ---- Results ----
 
     (enum Step
-      (Parsed ((value Datum) (next I64)))
+      (Parsed ((value Any) (next I64)))
       (Failed ((message String))))
 
     ;; Binds the value and next index of a successful step, or passes a
@@ -93,21 +94,25 @@
     (: read-abbreviation (-> String I64 String Step))
     (define (read-abbreviation text index name)
       (after ((datum next) (read-at text index))
-             (Parsed (datum-list (list (SymbolDatum name) datum)) next)))
+             (Parsed (datum-list (list (ann (Symbol name) Any) datum)) next)))
 
     ;; A list, with an optional dotted tail before its closing parenthesis.
-    (: read-list (-> String I64 (List Datum) Step))
+    (: read-list (-> String I64 (List Any) Step))
     (define (read-list text start items)
       (let ((index (skip text start)))
         (cond ((next-is? text index #\))
-               (Parsed (fold-left (lambda (tail item) (PairDatum item tail)) (NullDatum) items)
+               (Parsed (fold-left (lambda (tail item) (ann (SchemePair item tail) Any))
+                                  (ann (Null) Any)
+                                  items)
                        (+ index 1)))
               ((and (next-is? text index #\.) (delimiter? text (+ index 1)) (not (null? items)))
                (after ((tail next) (read-at text (+ index 1)))
                       (let ((close (skip text next)))
                         (if (next-is? text close #\))
                             (Parsed
-                             (fold-left (lambda (rest item) (PairDatum item rest)) tail items)
+                             (fold-left (lambda (rest item) (ann (SchemePair item rest) Any))
+                                        tail
+                                        items)
                              (+ close 1))
                             (Failed "expected ) after a dotted tail")))))
               ((>= index (string-length text)) (Failed "unclosed list"))
@@ -118,7 +123,7 @@
     (define (read-string-literal text index chars)
       (match (char-at text index)
         ((None) (Failed "unterminated string"))
-        ((Some #\") (Parsed (StringDatum (list->string (reverse chars))) (+ index 1)))
+        ((Some #\") (Parsed (list->string (reverse chars)) (+ index 1)))
         ((Some #\\)
          (match (char-at text (+ index 1))
            ((Some #\n) (read-string-literal text (+ index 2) (Cons #\newline chars)))
@@ -135,7 +140,7 @@
        ((next-is? text (+ index 1) #\() (after ((items next) (read-list text (+ index 2) (Nil)))
                                                (match (datum->list items)
                                                  ((Some items)
-                                                  (Parsed (VectorDatum (list->vector items)) next))
+                                                  (Parsed (list->vector items) next))
                                                  ((None)
                                                   (Failed "a vector cannot have a dotted tail")))))
        ((next-is? text (+ index 1) #\\) (read-character text (+ index 2)))
@@ -145,39 +150,38 @@
         (after ((items next) (read-list text (+ index 4) (Nil))) (bytes-datum items next)))
        (else (read-atom text index))))
 
-    (: bytes-datum (-> Datum I64 Step))
+    ;; Parse each byte once, preserving the exact-integer requirement.
+    (: bytes-datum (-> Any I64 Step))
     (define (bytes-datum items next)
       (match (datum->list items)
         ((Some items)
-         (if (every? byte-datum? items)
-             (Parsed (BytesDatum (list->vector (map (lambda (item)
-                                                      (match item
-                                                        ((NumberDatum n)
-                                                         (i32->u8
-                                                          (i64->i32 (f64->i64 (number->f64 n)))))
-                                                        (_ (i32->u8 0))))
-                                                    items)))
-                     next)
-             (Failed "a bytevector holds exact integers from 0 to 255")))
+         (let loop ((items items) (bytes (ann (Nil) (List U8))))
+           (match items
+             ((Nil) (Parsed (list->vector (reverse bytes)) next))
+             ((Cons item rest)
+              (match (byte-value item)
+                ((Some byte) (loop rest (Cons byte bytes)))
+                ((None) (Failed "a bytevector holds exact integers from 0 to 255")))))))
         ((None) (Failed "a bytevector cannot have a dotted tail"))))
 
-    (: byte-datum? (-> Datum Bool))
-    (define (byte-datum? datum)
-      (match datum
-        ((NumberDatum n)
-         (and (number-exact? n)
-              (number-integer? n)
-              (<= 0.0 (number->f64 n))
-              (<= (number->f64 n) 255.0)))
-        (_ #f)))
+    ;; The reader already stores integral exact literals as Integer. Check
+    ;; their bounds before narrowing, so large values cannot wrap into bytes.
+    (: byte-value (-> Any (Option U8)))
+    (define (byte-value datum)
+      (match-any datum
+                 ((Integer n)
+                  (if (and (<= (integer-from-i64 0) n) (<= n (integer-from-i64 255)))
+                      (Some (i32->u8 (i64->i32 (integer->i64 n))))
+                      (None)))
+                 (else (None))))
 
     (: read-character (-> String I64 Step))
     (define (read-character text index)
       (let* ((end (token-end text (+ index 1))) (name (substring text index end)))
-        (cond ((= (string-length name) 1) (Parsed (CharDatum (string-ref name 0)) end))
-              ((string=? name "space") (Parsed (CharDatum #\space) end))
-              ((string=? name "newline") (Parsed (CharDatum #\newline) end))
-              ((string=? name "tab") (Parsed (CharDatum #\tab) end))
+        (cond ((= (string-length name) 1) (Parsed (string-ref name 0) end))
+              ((string=? name "space") (Parsed #\space end))
+              ((string=? name "newline") (Parsed #\newline end))
+              ((string=? name "tab") (Parsed #\tab end))
               (else (Failed (string-append "unknown character name " name))))))
 
     (: token-end (-> String I64 I64))
@@ -187,17 +191,17 @@
     (: read-atom (-> String I64 Step))
     (define (read-atom text index)
       (let* ((end (token-end text index)) (token (substring text index end)))
-        (cond ((or (string=? token "#t") (string=? token "#true")) (Parsed (BooleanDatum #t) end))
-              ((or (string=? token "#f") (string=? token "#false")) (Parsed (BooleanDatum #f) end))
+        (cond ((or (string=? token "#t") (string=? token "#true")) (Parsed #t end))
+              ((or (string=? token "#f") (string=? token "#false")) (Parsed #f end))
               (else (match (string->number token)
-                      ((Some n) (Parsed (NumberDatum n) end))
+                      ((Some n) (Parsed (number->datum n) end))
                       ((None) (if (= (string-ref token 0) #\#)
                                   (Failed (string-append "unknown syntax " token))
-                                  (Parsed (SymbolDatum token) end))))))))
+                                  (Parsed (Symbol token) end))))))))
 
     ;; ---- Entry points ----
 
-    (: read-datum (-> String (Result Datum String)))
+    (: read-datum (-> String (Result Any String)))
     (define (read-datum text)
       (match (read-at text 0)
         ((Parsed datum next)
@@ -205,7 +209,7 @@
         ((Failed message) (Err message))))
 
     ;; Every datum in the text, in order.
-    (: read-datums (-> String (Result (List Datum) String)))
+    (: read-datums (-> String (Result (List Any) String)))
     (define (read-datums text)
       (let loop ((index (skip text 0)) (items (Nil)))
         (if (= index (string-length text))

@@ -101,45 +101,65 @@
   (Failed ((message String) (manifest Manifest))))
 
 ;; `(base BASE) (files (NAME DIGEST) ...) (modules (NAME DIGEST) ...)`.
-(: parse-manifest (-> (List Datum) Manifest))
+(: parse-manifest (-> (List Any) Manifest))
 (define (parse-manifest data)
   (match data
     ((Cons base (Cons files (Cons modules (Nil))))
      (Manifest (base-of base) (string-pairs files) (string-pairs modules)))
     (_ (panic "reload: a manifest is (base ...) (files ...) (modules ...)"))))
 
-(: base-of (-> Datum String))
+(: base-of (-> Any String))
 (define (base-of datum)
   (match (datum->list datum)
-    ((Some (Cons (SymbolDatum "base") (Cons (StringDatum base) (Nil)))) base)
+    ((Some (Cons tag (Cons base (Nil))))
+     (match (Pair (try-convert tag Symbol) (try-convert base String))
+       ((Pair (Ok (Symbol "base")) (Ok base)) base)
+       (_ (panic "reload: expected (base BASE)"))))
     (_ (panic (string-append "reload: expected (base BASE), got " (datum->string datum))))))
 
-(: string-pairs (-> Datum (List (Pair String String))))
+(: string-pairs (-> Any (List (Pair String String))))
 (define (string-pairs datum)
   (match (datum->list datum)
     ((Some (Cons _ entries)) (map string-pair entries))
     (_ (panic "reload: expected a list of pairs"))))
 
-(: string-pair (-> Datum (Pair String String)))
+(: string-pair (-> Any (Pair String String)))
 (define (string-pair datum)
-  (match datum
-    ((PairDatum (StringDatum name) (PairDatum (StringDatum value) (NullDatum))) (Pair name value))
+  (match (datum->list datum)
+    ((Some (Cons name (Cons value (Nil))))
+     (match (Pair (try-convert name String) (try-convert value String))
+       ((Pair (Ok name) (Ok value)) (Pair name value))
+       (_ (panic "reload: expected string NAME and VALUE"))))
     (_ (panic (string-append "reload: expected (NAME VALUE), got " (datum->string datum))))))
 
 ;; `(building MANIFEST)`, `(built MILLISECONDS MANIFEST)` or
 ;; `(failed MESSAGE MANIFEST)`.
+
 (: parse-event (-> String Event))
 (define (parse-event text)
   (match (read-datums text)
     ((Ok (Cons event (Nil)))
      (match (datum->list event)
-       ((Some (Cons (SymbolDatum "building") manifest)) (Building (parse-manifest manifest)))
-       ((Some (Cons (SymbolDatum "built") (Cons milliseconds manifest)))
-        (Built (datum->display-string milliseconds) (parse-manifest manifest)))
-       ((Some (Cons (SymbolDatum "failed") (Cons (StringDatum message) manifest)))
-        (Failed message (parse-manifest manifest)))
+       ((Some (Cons tag rest))
+        (match-any tag
+                   ((Symbol (Symbol name)) (event-body name rest))
+                   (else (panic "reload: an event tag must be a symbol"))))
        (_ (panic (string-append "reload: an unknown event " text)))))
     (_ (panic (string-append "reload: an unreadable event " text)))))
+
+(: event-body (-> String (List Any) Event))
+(define (event-body name rest)
+  (if (string=? name "building") (Building (parse-manifest rest))
+      (match rest
+        ((Cons value manifest)
+         (cond ((string=? name "built")
+                (Built (datum->display-string value) (parse-manifest manifest)))
+               ((string=? name "failed")
+                (match-any value
+                           ((String message) (Failed message (parse-manifest manifest)))
+                           (else (panic "reload: expected a failure message"))))
+               (else (panic (string-append "reload: unknown event " name)))))
+        (_ (panic "reload: expected event payload")))))
 
 (: parse-page-manifest (-> String Manifest))
 (define (parse-page-manifest text)

@@ -174,8 +174,8 @@
     (define (manifest-text mount found)
       (match found
         ((Some build)
-         (string-append (datum->string (datum-list (list (SymbolDatum "base")
-                                                         (StringDatum (build-base mount build)))))
+         (string-append (datum->string (datum-list (list (ann (Symbol "base") Any)
+                                                         (ann (build-base mount build) Any))))
                         " "
                         (pairs-text "files"
                                     (filter (lambda (file)
@@ -188,11 +188,12 @@
     (: pairs-text (-> String (List (Pair String String)) String))
     (define (pairs-text head pairs)
       (datum->string
-       (datum-list (Cons (SymbolDatum head)
-                         (map (lambda (pair)
-                                (datum-list (list (StringDatum (Pair-first pair))
-                                                  (StringDatum (Pair-second pair)))))
-                              pairs)))))
+       (datum-list (Cons (ann (Symbol head) Any)
+                         (map string-pair-datum pairs)))))
+
+    (: string-pair-datum (-> (Pair String String) Any))
+    (define (string-pair-datum pair)
+      (datum-list (list (ann (Pair-first pair) Any) (ann (Pair-second pair) Any))))
 
     ;; Each module's library and digest, from the build's modules.json.
     (: build-modules (-> BuildDirectory (List (Pair String String)) ! fs))
@@ -235,7 +236,7 @@
                           manifest
                           ")"))
           ((BuildFailed message)
-           (string-append "(failed " (datum->string (StringDatum message)) " " manifest ")")))))
+           (string-append "(failed " (datum->string (ann message Any)) " " manifest ")")))))
 
     ;; ---- Files ----
 
