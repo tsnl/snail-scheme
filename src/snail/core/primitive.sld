@@ -58,6 +58,8 @@
    (snail core forms))
   (begin
 
+    (primitive any-type-id (-> Any I64))
+
     ;; ---- Control ----
 
     ;; `unsafe-total` calls a thunk and discards its effects, unchecked: the

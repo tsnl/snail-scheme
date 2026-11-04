@@ -15,7 +15,8 @@
 (define-library (snail shell compiler ownership)
   (export
    check-owned-fields
-   check-item-ownership)
+   check-item-ownership
+   consumed-references)
   (import
    (snail core base)
    (snail core table)
@@ -128,8 +129,8 @@
     ;; live on it, and whether it can still return.
     ;; Names are unique, so a name's liveness needs no scoping. A path that
     ;; reaches a panic or a value of type Never cannot return, so it never
-    ;; reaches the end of a scope: what it leaves live is abandoned, as a
-    ;; dropped `resume` abandons its frames.
+    ;; reaches the end of a scope. Control lowering drops what an abort
+    ;; leaves live; fatal panic retains its separate fatal contract.
     (struct Path
       ((program Program)
        (copy (List String))
@@ -248,10 +249,19 @@
           ((Match value clauses)
            (let ((path (check path value)))
              (join path (map (lambda (clause) (check-clause path clause loc)) clauses) loc)))
-          ((Handle _ implementations body)
-           (check (check-all path (map Pair-second implementations)) body))
+          ((Handle effect implementations body)
+           (let* ((path (check-all path (map Pair-second implementations)))
+                  (inner (match (Path-row path)
+                           ((Some row) (Path-row-set path (Some (TRow (list effect) (Some row)))))
+                           ((None) path))))
+             ;; Cleanup in the body can use its installed handlers. A
+             ;; handled abort may return even when the body does not.
+             (Path-returns-set (Path-row-set (check inner body) (Path-row path))
+                               (Path-returns path))))
           ((Ann inner _) (check path inner))
           ((Convert inner target) (check-conversion path expr inner target))
+          ((TryConvert _ _)
+           (panic "internal error: try-convert must be lowered before ownership checking"))
           ((TypeTest inner target) (check-conversion path expr inner target)))))
 
     ;; A use of a linear local consumes it. A global is shared, as nothing
@@ -292,6 +302,32 @@
               (_ (check-all (check-chain path record) rest))))
            ((None) (check-yield-holds (check-all path (Cons callee args)) callee))))
         (_ (check-yield-holds (check-all path (Cons callee args)) callee))))
+
+    ;; The references that move ownership into an expression. Field reads
+    ;; borrow their place; a replacement consumes its record. Control uses
+    ;; the same distinction when assigning owners to saved or aborted scopes.
+    (: consumed-references (-> Program Expr (List String)))
+    (define (consumed-references program expr)
+      (match (Expr-term expr)
+        ((Var name _ _) (list name))
+        ((Lambda params body _)
+         (filter (lambda (name) (not (member? name params))) (expr-references body)))
+        ((App (Expr (Var "prim:set!" _ _) _ _) (Cons _ (Cons value (Nil))))
+         (consumed-references program value))
+        ((App (Expr (Var "prim:replace!" _ _) _ _) (Cons _ (Cons value (Nil))))
+         (consumed-references program value))
+        ((App callee (Cons record rest))
+         (match (field-operation (Path program (Nil) (Nil) #t (None)) callee)
+           ((Some (Replacer _ _ _)) (consumed-children program expr))
+           ((Some _) (concatenate (map (lambda (arg) (consumed-references program arg)) rest)))
+           ((None) (consumed-children program expr))))
+        (_ (consumed-children program expr))))
+
+    (: consumed-children (-> Program Expr (List String)))
+    (define (consumed-children program expr)
+      (delete-duplicates string=?
+                         (concatenate (map (lambda (child) (consumed-references program child))
+                                           (expr-children expr)))))
 
     ;; ---- Drops that may run ----
 
@@ -410,13 +446,19 @@
 
     ;; Whether calling `callee` may yield. The checker opens each use of a
     ;; global to its context's row, so a global's own scheme says: its
-    ;; labels, and its row variable at the type this use gave it. A local's
-    ;; type says for itself.
+    ;; labels, and its row variable at the type this use gave it. A selected
+    ;; class instance supplies its own rows. A local's type says for itself.
     (: callee-may-yield? (-> Path Expr Bool))
     (define (callee-may-yield? path callee)
       (match (Expr-term callee)
-        ((Var name types _)
+        ((Var name types evidence)
          (match (program-value (Path-program path) name)
+           ((Some (Method class scheme))
+            (scheme-may-yield? path scheme
+                               (selected-method-arguments (Path-program path)
+                                                          class
+                                                          types
+                                                          evidence)))
            ((Some value)
             (match (value-scheme value)
               ((Some scheme) (scheme-may-yield? path scheme types))

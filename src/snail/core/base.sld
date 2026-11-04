@@ -4,7 +4,7 @@
 (define-library (snail core base)
   (export
    define lambda fn if begin let define-syntax syntax-rules quote : struct enum type
-   typeclass instance match ann type-convert type-test extern effect handle expose
+   typeclass instance match ann type-convert try-convert type-test extern effect handle expose
    Any U8 I32 I64 F32 F64 Bool Char Unit String Array Vector Ref Bytes FnOnce Fn mut
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
@@ -18,6 +18,9 @@
    f32->bits bits->f32 f64->bits bits->f64
    Show show i64->string string->i64 f64->string
    Option Some None Result Ok Err Pair Pair-first Pair-second Never absurd
+   dyn-cast conversion-failed CastError CastError-expected CastError-actual CastError-origin
+   CastError-method CastError-argument CastError-reason
+   CastReason TypeMismatch UnsupportedInstance ArgumentMismatch
    List
    Cons
    Nil
@@ -174,133 +177,133 @@
 
     ;; ---- Numbers ----
 
-    (typeclass (Num T)
-      (: + (-> T T T))
-      (: - (-> T T T))
-      (: * (-> T T T))
-      (: negate (-> T T)))
+    (typeclass (Num e T)
+      (: + (-> T T T ! e))
+      (: - (-> T T T ! e))
+      (: * (-> T T T ! e))
+      (: negate (-> T T ! e)))
 
-    (typeclass (Ord T)
-      (: = (-> T T Bool))
-      (: < (-> T T Bool))
-      (: <= (-> T T Bool))
-      (: > (-> T T Bool))
-      (: >= (-> T T Bool)))
+    (typeclass (Ord e T)
+      (: = (-> T T Bool ! e))
+      (: < (-> T T Bool ! e))
+      (: <= (-> T T Bool ! e))
+      (: > (-> T T Bool ! e))
+      (: >= (-> T T Bool ! e)))
 
-    (typeclass (Integral T)
-      (: quotient (-> T T T))
-      (: remainder (-> T T T))
-      (: modulo (-> T T T)))
+    (typeclass (Integral e T)
+      (: quotient (-> T T T ! e))
+      (: remainder (-> T T T ! e))
+      (: modulo (-> T T T ! e)))
 
-    (typeclass (Fractional T)
-      (: / (-> T T T))
-      (: sqrt (-> T T))
-      (: floor (-> T T))
-      (: ceiling (-> T T))
-      (: round (-> T T))
-      (: truncate (-> T T)))
+    (typeclass (Fractional e T)
+      (: / (-> T T T ! e))
+      (: sqrt (-> T T ! e))
+      (: floor (-> T T ! e))
+      (: ceiling (-> T T ! e))
+      (: round (-> T T ! e))
+      (: truncate (-> T T ! e)))
 
-    (instance (Num U8)
+    (instance (Num (!) U8)
       (define (+ a b) (i32->u8 (i32-add (u8->i32 a) (u8->i32 b))))
       (define (- a b) (i32->u8 (i32-sub (u8->i32 a) (u8->i32 b))))
       (define (* a b) (i32->u8 (i32-mul (u8->i32 a) (u8->i32 b))))
       (define (negate a) (i32->u8 (i32-sub 0 (u8->i32 a)))))
 
-    (instance (Ord U8)
+    (instance (Ord (!) U8)
       (define (= a b) (i32-eq (u8->i32 a) (u8->i32 b)))
       (define (< a b) (i32-lt (u8->i32 a) (u8->i32 b)))
       (define (<= a b) (i32-le (u8->i32 a) (u8->i32 b)))
       (define (> a b) (i32-gt (u8->i32 a) (u8->i32 b)))
       (define (>= a b) (i32-ge (u8->i32 a) (u8->i32 b))))
 
-    (instance (Num I32)
+    (instance (Num (!) I32)
       (define + i32-add)
       (define - i32-sub)
       (define * i32-mul)
       (define (negate x) (i32-sub 0 x)))
 
-    (instance (Num I64)
+    (instance (Num (!) I64)
       (define + i64-add)
       (define - i64-sub)
       (define * i64-mul)
       (define (negate x) (i64-sub 0 x)))
 
-    (instance (Num F32)
+    (instance (Num (!) F32)
       (define + f32-add)
       (define - f32-sub)
       (define * f32-mul)
       (define negate f32-negate))
 
-    (instance (Num F64)
+    (instance (Num (!) F64)
       (define + f64-add)
       (define - f64-sub)
       (define * f64-mul)
       (define negate f64-negate))
 
-    (instance (Ord I32)
+    (instance (Ord (!) I32)
       (define = i32-eq)
       (define < i32-lt)
       (define <= i32-le)
       (define > i32-gt)
       (define >= i32-ge))
 
-    (instance (Ord I64)
+    (instance (Ord (!) I64)
       (define = i64-eq)
       (define < i64-lt)
       (define <= i64-le)
       (define > i64-gt)
       (define >= i64-ge))
 
-    (instance (Ord F32)
+    (instance (Ord (!) F32)
       (define = f32-eq)
       (define < f32-lt)
       (define <= f32-le)
       (define > f32-gt)
       (define >= f32-ge))
 
-    (instance (Ord F64)
+    (instance (Ord (!) F64)
       (define = f64-eq)
       (define < f64-lt)
       (define <= f64-le)
       (define > f64-gt)
       (define >= f64-ge))
 
-    (instance (Ord Char)
+    (instance (Ord (!) Char)
       (define (= a b) (i32-eq (char->i32 a) (char->i32 b)))
       (define (< a b) (i32-lt (char->i32 a) (char->i32 b)))
       (define (<= a b) (i32-le (char->i32 a) (char->i32 b)))
       (define (> a b) (i32-gt (char->i32 a) (char->i32 b)))
       (define (>= a b) (i32-ge (char->i32 a) (char->i32 b))))
 
-    (instance (Ord Bool)
+    (instance (Ord (!) Bool)
       (define (= a b) (i32-eq (bool->i32 a) (bool->i32 b)))
       (define (< a b) (i32-lt (bool->i32 a) (bool->i32 b)))
       (define (<= a b) (i32-le (bool->i32 a) (bool->i32 b)))
       (define (> a b) (i32-gt (bool->i32 a) (bool->i32 b)))
       (define (>= a b) (i32-ge (bool->i32 a) (bool->i32 b))))
 
-    (instance (Ord String)
+    (instance (Ord (!) String)
       (define = string=?)
       (define (< a b) (i32-lt (string-compare a b) 0))
       (define (<= a b) (i32-le (string-compare a b) 0))
       (define (> a b) (i32-gt (string-compare a b) 0))
       (define (>= a b) (i32-ge (string-compare a b) 0)))
 
-    (instance (Integral I32)
+    (instance (Integral (!) I32)
       (define quotient i32-quotient)
       (define remainder i32-remainder)
       (define (modulo a b)
         (let ((r (i32-remainder a b)))
           (if (and (not (i32-eq r 0)) (not (= (i32-lt r 0) (i32-lt b 0)))) (i32-add r b) r))))
 
-    (instance (Integral I64)
+    (instance (Integral (!) I64)
       (define quotient i64-quotient)
       (define remainder i64-remainder)
       (define (modulo a b)
         (let ((r (i64-remainder a b)))
           (if (and (not (i64-eq r 0)) (not (= (i64-lt r 0) (i64-lt b 0)))) (i64-add r b) r))))
 
-    (instance (Fractional F32)
+    (instance (Fractional (!) F32)
       (define / f32-div)
       (define sqrt f32-sqrt)
       (define floor f32-floor)
@@ -308,7 +311,7 @@
       (define round f32-round)
       (define truncate f32-truncate))
 
-    (instance (Fractional F64)
+    (instance (Fractional (!) F64)
       (define / f64-div)
       (define sqrt f64-sqrt)
       (define floor f64-floor)
@@ -316,15 +319,15 @@
       (define round f64-round)
       (define truncate f64-truncate))
 
-    (: abs (All (T) (requires (Num T) (Ord T) (Copy T)) (-> T T)))
+    (: abs (All (T e) (requires (Num e T) (Ord e T) (Copy T)) (-> T T ! e)))
     (define (abs x)
       (if (< x (- x x)) (negate x) x))
 
-    (: min (All (T) (requires (Ord T) (Copy T)) (-> T T T)))
+    (: min (All (T e) (requires (Ord e T) (Copy T)) (-> T T T ! e)))
     (define (min a b)
       (if (< b a) b a))
 
-    (: max (All (T) (requires (Ord T) (Copy T)) (-> T T T)))
+    (: max (All (T e) (requires (Ord e T) (Copy T)) (-> T T T ! e)))
     (define (max a b)
       (if (< a b) b a))
 
@@ -369,6 +372,26 @@
     (: absurd (All (A) (-> Never A)))
     (define (absurd never)
       (match never))
+
+    ;; ---- Dynamic conversions ----
+
+    (enum CastReason
+      (TypeMismatch)
+      (UnsupportedInstance)
+      (ArgumentMismatch))
+
+    ;; Identities describe the mismatch without keeping its original value
+    ;; alive. The expected names are known at the conversion boundary.
+    (struct CastError
+      ((reason CastReason)
+       (expected (List String))
+       (actual I64)
+       (origin String)
+       (method String)
+       (argument I64)))
+
+    (effect dyn-cast
+      ((ctl conversion-failed (-> CastError Never))))
 
     ;; ---- Releasing ----
 
@@ -493,7 +516,7 @@
         ((Nil) (None))
         ((Cons item rest) (if (test item) (Some item) (find test rest)))))
 
-    (: member? (All (A) (requires (Ord A) (Copy A)) (-> A (List A) Bool)))
+    (: member? (All (A e) (requires (Ord e A) (Copy A)) (-> A (List A) Bool ! e)))
     (define (member? value items)
       (any? (lambda (item) (= item value)) items))
 
@@ -561,7 +584,7 @@
 
     ;; The value paired with the first occurrence of `key`.
     (: assoc-ref
-       (All (K V) (requires (Ord K) (Copy K) (Copy V)) (-> (List (Pair K V)) K (Option V))))
+       (All (K V e) (requires (Ord e K) (Copy K) (Copy V)) (-> (List (Pair K V)) K (Option V) ! e)))
     (define (assoc-ref entries key)
       (match entries
         ((Nil) (None))
@@ -850,8 +873,8 @@
 
     ;; ---- Showing values ----
 
-    (typeclass (Show T)
-      (: show (-> T String)))
+    (typeclass (Show e T)
+      (: show (-> T String ! e)))
 
     (: i64->string (-> I64 String))
     (define (i64->string n)
@@ -885,43 +908,43 @@
                     (else
                      (loop (+ index 1) (- (* value 10) (digit-value (string-ref text index))))))))))
 
-    (instance (Show I64)
+    (instance (Show (!) I64)
       (define show i64->string))
 
-    (instance (Show U8)
+    (instance (Show (!) U8)
       (define (show n) (i64->string (i32->i64 (u8->i32 n)))))
 
-    (instance (Show I32)
+    (instance (Show (!) I32)
       (define (show n) (i64->string (i32->i64 n))))
 
-    (instance (Show Bool)
+    (instance (Show (!) Bool)
       (define (show value) (if value "#t" "#f")))
 
-    (instance (Show Char)
+    (instance (Show (!) Char)
       (define (show char) (make-string 1 char)))
 
-    (instance (Show String)
+    (instance (Show (!) String)
       (define (show text) text))
 
-    (instance (Show Unit)
+    (instance (Show (!) Unit)
       (define (show value) "()"))
 
-    (instance (Show (List T))
-      (requires (Show T))
+    (instance (Show (! e) (List T))
+      (requires (Show e T))
       (define (show items)
         (string-append "(" (string-append (string-join (map show items) " ") ")"))))
 
-    (instance (Show (Option T))
-      (requires (Show T))
+    (instance (Show (! e) (Option T))
+      (requires (Show e T))
       (define (show value)
         (match value
           ((Some x) (string-append "(Some " (string-append (show x) ")")))
           ((None) "(None)"))))
 
-    (instance (Show F64)
+    (instance (Show (!) F64)
       (define show f64->string))
 
-    (instance (Show F32)
+    (instance (Show (!) F32)
       (define (show value) (f64->string (f32->f64 value))))
 
     ;; Copy the runtime's scratch text before returning. string-generate calls

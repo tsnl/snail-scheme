@@ -5,6 +5,16 @@
          (send udp-send)
          (receive udp-receive)))
 
+;; A mismatch here is a broken test-host invariant. Guest conversions that
+;; are expected to fail use dyn-cast handlers in the dedicated fixtures.
+(define-syntax fixture-convert
+  (syntax-rules ()
+    ((_ value target)
+     (match (try-convert value target)
+       ((Ok checked) checked)
+       ((Err _) (panic "fixture payload has the wrong type"))))))
+
+
 ;; ---- Requests ----
 
 ;; Each operation that waits runs as a task, as a program's would:
@@ -42,7 +52,7 @@
 
 (: truth (-> Any I32))
 (define (truth answer)
-  (if (type-convert answer Bool) 1 0))
+  (if (fixture-convert answer Bool) 1 0))
 
 (expose answered? "answered")
 (expose answer "answer")
@@ -62,7 +72,7 @@
 
 (: listener (-> Any Listener))
 (define (listener answer)
-  (require (type-convert answer (Result Listener SocketError))))
+  (require (fixture-convert answer (Result Listener SocketError))))
 
 (: port (-> Listener I32))
 (define (port listener) (Listener-port listener))
@@ -76,26 +86,26 @@
 
 (: connection (-> Any Connection))
 (define (connection answer)
-  (require (type-convert answer (Result Connection SocketError))))
+  (require (fixture-convert answer (Result Connection SocketError))))
 
 (: receive (-> Connection I32 (Result (Option Bytes) SocketError) ! tcp tasks))
 (define (receive connection count) (read connection count))
 
 (: read-count (-> Any I32))
 (define (read-count answer)
-  (match (require (type-convert answer (Result (Option Bytes) SocketError)))
+  (match (require (fixture-convert answer (Result (Option Bytes) SocketError)))
     ((Some bytes) (i64->i32 (vector-length bytes)))
     ((None) -1)))
 
 (: read-byte (-> Any I32 I32))
 (define (read-byte answer index)
-  (match (require (type-convert answer (Result (Option Bytes) SocketError)))
+  (match (require (fixture-convert answer (Result (Option Bytes) SocketError)))
     ((Some bytes) (u8->i32 (vector-ref bytes (i32->i64 index))))
     ((None) -1)))
 
 (: bad-read? (-> Any Bool))
 (define (bad-read? answer)
-  (match (type-convert answer (Result (Option Bytes) SocketError))
+  (match (fixture-convert answer (Result (Option Bytes) SocketError))
     ((Err error) (string=? (SocketError-code error) "EBADF"))
     ((Ok _) #f)))
 
@@ -104,7 +114,7 @@
 
 (: written (-> Any I32))
 (define (written answer)
-  (require (type-convert answer (Result I32 SocketError))))
+  (require (fixture-convert answer (Result I32 SocketError))))
 
 (: overwrite (-> Bool ! tcp tasks))
 (define (overwrite)
@@ -123,13 +133,13 @@
 
 (: finished? (-> Any Bool))
 (define (finished? answer)
-  (match (type-convert answer (Result Unit SocketError))
+  (match (fixture-convert answer (Result Unit SocketError))
     ((Ok _) #t)
     ((Err _) #f)))
 
 (: timed-out? (-> Any Bool))
 (define (timed-out? answer)
-  (match (type-convert answer (Result Unit SocketError))
+  (match (fixture-convert answer (Result Unit SocketError))
     ((Err error) (string=? (SocketError-code error) "ETIMEDOUT"))
     ((Ok _) #f)))
 
@@ -185,7 +195,7 @@
 
 (: udp-socket (-> Any UdpSocket))
 (define (udp-socket answer)
-  (type-convert answer UdpSocket))
+  (fixture-convert answer UdpSocket))
 
 (: udp-port (-> UdpSocket I32))
 (define (udp-port socket) (UdpSocket-port socket))
@@ -199,7 +209,7 @@
 
 (: datagram (-> Any Datagram))
 (define (datagram answer)
-  (require (type-convert answer (Result Datagram SocketError))))
+  (require (fixture-convert answer (Result Datagram SocketError))))
 
 (: packet-port (-> Any I32))
 (define (packet-port answer) (Endpoint-port (Datagram-peer (datagram answer))))

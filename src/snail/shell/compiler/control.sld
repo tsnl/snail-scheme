@@ -28,6 +28,7 @@
    (snail shell compiler read)
    (snail shell compiler core)
    (snail shell compiler capabilities)
+   (only (snail shell compiler ownership) consumed-references)
    (snail shell compiler mono))
   (begin
 
@@ -657,42 +658,71 @@
           types
           (Cons type types)))
 
+    ;; Most definitions own no continuation or one-shot closure. Avoid
+    ;; building ownership scopes for them; the base library declares dyn-cast
+    ;; even in programs that never use it.
+    (: needs-droppers? (-> Callees Expr Bool))
+    (define (needs-droppers? callees expr)
+      (or (not (yield-free? callees expr)) (holds-once? expr)))
+
+    (: holds-once? (-> Expr Bool))
+    (define (holds-once? expr)
+      (or (match (Expr-term expr)
+            ((App (Expr (Var "prim:once" _ _) _ _) _) #t)
+            (_ #f))
+          (any? holds-once? (expr-children expr))))
+
     (: dropper-item (-> Callees (Table Expr) Item (Pair Item (List Type))))
     (define (dropper-item callees drops item)
       (match item
         ((Define name value)
-         (match (droppers callees drops empty-table value)
-           ((Pair value types) (Pair (Define name value) types))))
+         (if (needs-droppers? callees value)
+             (match (droppers callees drops (Nil) value)
+               ((Pair value types) (Pair (Define name value) types)))
+             (Pair item (Nil))))
         ((Do value)
-         (match (droppers callees drops empty-table value)
-           ((Pair value types) (Pair (Do value) types))))
+         (if (needs-droppers? callees value)
+             (match (droppers callees drops (Nil) value)
+               ((Pair value types) (Pair (Do value) types)))
+             (Pair item (Nil))))
         (_ (Pair item (Nil)))))
 
-    ;; `scope` gives each local in scope its type.
-    (: droppers (-> Callees (Table Expr) (Table Type) Expr (Pair Expr (List Type))))
+    ;; Owners assigned to this expression, newest binding first. Splitting
+    ;; the scope keeps each owner in exactly one continuation; the list
+    ;; fixes cleanup order without depending on table iteration order.
+    (: droppers (-> Callees (Table Expr) (List (Pair String Type)) Expr (Pair Expr (List Type))))
     (define (droppers callees drops scope expr)
       (let ((rebuild (lambda (term) (Expr term (Expr-type expr) (Expr-loc expr)))))
         (match (Expr-term expr)
           ((Lambda params body captures?)
-           (match (droppers callees drops (bind-params scope params (Expr-type expr)) body)
+           (match (droppers callees
+                            drops
+                            (bind-params (taken-scope callees scope expr) params (Expr-type expr))
+                            body)
              ((Pair body types) (Pair (rebuild (Lambda params body captures?)) types))))
           ((App callee args) (dropper-call callees drops scope expr callee args))
           ((If test then otherwise)
-           (match (droppers-all callees drops scope (list test then otherwise))
-             ((Pair (Cons test (Cons then (Cons otherwise (Nil)))) types)
-              (Pair (rebuild (If test then otherwise)) types))
-             (_ (panic "internal error: an if has three parts"))))
+           (let ((after (remaining-scope callees scope test)))
+             (match (droppers callees drops (taken-scope callees scope test) test)
+               ((Pair test types)
+                (match (Pair (droppers callees drops after then)
+                             (droppers callees drops after otherwise))
+                  ((Pair (Pair then left) (Pair otherwise right))
+                   (Pair (rebuild (If test then otherwise))
+                         (append types (append left right)))))))))
           ((Let name value body) (dropper-let callees drops scope expr name value body))
           ((Seq first rest)
-           (match (droppers-all callees drops scope (list first rest))
-             ((Pair (Cons first (Cons rest (Nil))) types) (Pair (rebuild (Seq first rest)) types))
-             (_ (panic "internal error: a sequence has two parts"))))
+           (match (Pair (droppers callees drops (taken-scope callees scope first) first)
+                        (droppers callees drops (remaining-scope callees scope first) rest))
+             ((Pair (Pair first types) (Pair rest more))
+              (Pair (rebuild (Seq first rest)) (append types more)))))
           ((Match scrutinee clauses)
-           (match (droppers callees drops scope scrutinee)
-             ((Pair scrutinee types)
-              (match (dropper-clauses callees drops scope clauses)
-                ((Pair clauses more)
-                 (Pair (rebuild (Match scrutinee clauses)) (append types more)))))))
+           (let ((after (remaining-scope callees scope scrutinee)))
+             (match (droppers callees drops (taken-scope callees scope scrutinee) scrutinee)
+               ((Pair scrutinee types)
+                (match (dropper-clauses callees drops after clauses)
+                  ((Pair clauses more)
+                   (Pair (rebuild (Match scrutinee clauses)) (append types more))))))))
           ((Ann inner type)
            (match (droppers callees drops scope inner)
              ((Pair inner types) (Pair (rebuild (Ann inner type)) types))))
@@ -705,26 +735,36 @@
           ((Handle effect implementations body)
            (match (droppers-all callees drops scope (map Pair-second implementations))
              ((Pair values types)
-              (match (droppers callees drops scope body)
+              (match (droppers callees drops (taken-scope callees scope body) body)
                 ((Pair body more)
-                 (Pair (rebuild (Handle effect
-                                        (zip (map Pair-first implementations) values)
-                                        body))
-                       (append types more)))))))
+                 (hold-abandoned callees drops scope expr
+                                 (rebuild (Handle effect
+                                                  (zip (map Pair-first implementations) values)
+                                                  body))
+                                 (append types more)))))))
           (_ (Pair expr (Nil))))))
 
     (: droppers-all
-       (-> Callees (Table Expr) (Table Type) (List Expr) (Pair (List Expr) (List Type))))
+       (-> Callees
+           (Table Expr)
+           (List (Pair String Type))
+           (List Expr)
+           (Pair (List Expr) (List Type))))
     (define (droppers-all callees drops scope exprs)
-      (fold-right (lambda (expr result)
-                    (match (droppers callees drops scope expr)
-                      ((Pair expr types)
-                       (Pair (Cons expr (Pair-first result)) (append types (Pair-second result))))))
-                  (Pair (Nil) (Nil))
-                  exprs))
+      (match exprs
+        ((Cons expr rest)
+         (match (Pair (droppers callees drops (taken-scope callees scope expr) expr)
+                      (droppers-all callees drops (remaining-scope callees scope expr) rest))
+           ((Pair (Pair expr types) (Pair rest more))
+            (Pair (Cons expr rest) (append types more)))))
+        ((Nil) (Pair (Nil) (Nil)))))
 
     (: dropper-clauses
-       (-> Callees (Table Expr) (Table Type) (List Clause) (Pair (List Clause) (List Type))))
+       (-> Callees
+           (Table Expr)
+           (List (Pair String Type))
+           (List Clause)
+           (Pair (List Clause) (List Type))))
     (define (dropper-clauses callees drops scope clauses)
       (fold-right (lambda (clause result)
                     (match (droppers callees
@@ -737,47 +777,56 @@
                   (Pair (Nil) (Nil))
                   clauses))
 
-    (: bind-params (-> (Table Type) (List String) Type (Table Type)))
+    (: bind-params (-> (List (Pair String Type)) (List String) Type (List (Pair String Type))))
     (define (bind-params scope params type)
       (match type
         ((TFun types _ _)
-         (fold-left (lambda (scope pair) (table-set scope (Pair-first pair) (Pair-second pair)))
+         (fold-left (lambda (scope pair) (Cons pair scope))
                     scope
                     (zip params types)))
         ((TCon "FnOnce" (Cons inner (Nil))) (bind-params scope params inner))
         (_ scope)))
 
-    (: bind-pattern-types (-> (Table Type) Pattern (Table Type)))
+    (: bind-pattern-types (-> (List (Pair String Type)) Pattern (List (Pair String Type))))
     (define (bind-pattern-types scope pattern)
       (match pattern
-        ((PVar name type) (table-set scope name type))
+        ((PVar name type) (Cons (Pair name type) scope))
         ((PCon _ args _) (fold-left bind-pattern-types scope args))
         (_ scope)))
 
     ;; A let whose value may yield saves its body as a frame holding the
-    ;; linear locals the body reads: the let's value is marked with their
-    ;; dropper.
+    ;; owners retained by its caller, even when an aborting body never
+    ;; reads them: the let's value is marked with their dropper.
     (: dropper-let
-       (-> Callees (Table Expr) (Table Type) Expr String Expr Expr (Pair Expr (List Type))))
+       (-> Callees
+           (Table Expr)
+           (List (Pair String Type))
+           Expr
+           String
+           Expr
+           Expr
+           (Pair Expr (List Type))))
     (define (dropper-let callees drops scope expr name value body)
-      (match (droppers callees drops scope value)
-        ((Pair value types)
-         (match (droppers callees drops (table-set scope name (Expr-type value)) body)
-           ((Pair body more)
-            (let ((live (if (null? (yields callees value))
-                            (Nil)
-                            (linear-locals callees
-                                           scope
-                                           (filter (lambda (local) (not (string=? local name)))
-                                                   (expr-references body))))))
-              (Pair (Expr (Let name (with-dropper drops value live) body)
-                          (Expr-type expr)
-                          (Expr-loc expr))
-                    (append (map Pair-second live) (append types more)))))))))
+      (let ((after (remaining-scope callees scope value)))
+        (match (droppers callees drops (taken-scope callees scope value) value)
+          ((Pair value types)
+           (match (droppers callees drops (Cons (Pair name (Expr-type value)) after) body)
+             ((Pair body more)
+              (let ((live (if (null? (yields callees value)) (Nil)
+                              (linear-locals callees after))))
+                (Pair (Expr (Let name (with-dropper drops value live) body)
+                            (Expr-type expr) (Expr-loc expr))
+                      (append (map Pair-second live) (append types more))))))))))
 
     ;; `once` of a lambda with linear captures marks it with their dropper.
     (: dropper-call
-       (-> Callees (Table Expr) (Table Type) Expr Expr (List Expr) (Pair Expr (List Type))))
+       (-> Callees
+           (Table Expr)
+           (List (Pair String Type))
+           Expr
+           Expr
+           (List Expr)
+           (Pair Expr (List Type))))
     (define (dropper-call callees drops scope expr callee args)
       (match (droppers-all callees drops scope (Cons callee args))
         ((Pair (Cons callee args) types)
@@ -786,31 +835,59 @@
             (let ((captured (lambda-captures callees scope procedure)))
               (Pair (once-dropping drops expr callee procedure captured)
                     (append (map Pair-second captured) types))))
-           (_ (Pair (Expr (App callee args) (Expr-type expr) (Expr-loc expr)) types))))
+           (_ (hold-abandoned callees drops scope expr
+                              (Expr (App callee args) (Expr-type expr) (Expr-loc expr)) types))))
         (_ (panic "internal error: a call without a callee"))))
 
-    (: lambda-captures (-> Callees (Table Type) Expr (List (Pair String Type))))
+    ;; Assign each owner to the expression that consumes it; owners not
+    ;; used by a subexpression stay in its caller's continuation. This also
+    ;; retains owners a Never branch never mentions, which liveness from
+    ;; the normal continuation alone cannot discover.
+    (: selected-scope (-> (List (Pair String Type)) (List String) Bool (List (Pair String Type))))
+    (define (selected-scope scope names selected?)
+      (filter (lambda (entry)
+                (if selected? (member? (Pair-first entry) names)
+                    (not (member? (Pair-first entry) names)))) scope))
+
+    (: taken-scope (-> Callees (List (Pair String Type)) Expr (List (Pair String Type))))
+    (define (taken-scope callees scope expr)
+      (selected-scope scope (consumed-references (Callees-program callees) expr) #t))
+
+    (: remaining-scope (-> Callees (List (Pair String Type)) Expr (List (Pair String Type))))
+    (define (remaining-scope callees scope expr)
+      (selected-scope scope (consumed-references (Callees-program callees) expr) #f))
+
+    (: hold-abandoned
+       (-> Callees
+           (Table Expr)
+           (List (Pair String Type))
+           Expr
+           Expr
+           (List Type)
+           (Pair Expr (List Type))))
+    (define (hold-abandoned callees drops scope original value types)
+      (let* ((after (remaining-scope callees scope original))
+             (live (if (null? (yields callees value)) (Nil)
+                       (linear-locals callees after))))
+        (if (null? live) (Pair value types)
+            (let* ((name
+                    (string-append "control:abandoned." (string-join (map Pair-first live) "|")))
+                   (result (Expr (Var name (Nil) (Nil)) (Expr-type value) (Expr-loc value))))
+              (Pair (bind name (with-dropper drops value live) result)
+                    (append (map Pair-second live) types))))))
+
+    (: lambda-captures (-> Callees (List (Pair String Type)) Expr (List (Pair String Type))))
     (define (lambda-captures callees scope procedure)
       (match (Expr-term procedure)
-        ((Lambda params body _)
-         (linear-locals callees
-                        scope
-                        (filter (lambda (local) (not (member? local params)))
-                                (expr-references body))))
+        ((Lambda _ _ _) (linear-locals callees (taken-scope callees scope procedure)))
         (_ (Nil))))
 
-    ;; The locals among `names` whose types are linear, with their types,
-    ;; in order.
-    (: linear-locals (-> Callees (Table Type) (List String) (List (Pair String Type))))
-    (define (linear-locals callees scope names)
-      (concatenate (map (lambda (name)
-                          (match (table-ref scope name)
-                            ((Some type)
-                             (if (linear-type? (Callees-program callees) (Nil) type)
-                                 (list (Pair name type))
-                                 (Nil)))
-                            ((None) (Nil))))
-                        names)))
+    ;; The owners in this scope, in cleanup order.
+    (: linear-locals (-> Callees (List (Pair String Type)) (List (Pair String Type))))
+    (define (linear-locals callees scope)
+      (filter (lambda (entry)
+                (linear-type? (Callees-program callees) (Nil) (Pair-second entry)))
+              scope))
 
     ;; The value marked with the dropper of `live`, once every drop is known.
     (: with-dropper (-> (Table Expr) Expr (List (Pair String Type)) Expr))

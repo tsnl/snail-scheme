@@ -27,7 +27,7 @@
 (define (describe-twice value)
   (string-append (describe value) (string-append " / " (describe value))))
 
-(: sum (All (T) (requires (Num T)) (-> (List T) T T)))
+(: sum (All (T) (requires (Num (!) T)) (-> (List T) T T)))
 (define (sum items zero)
   (fold-left + zero items))
 

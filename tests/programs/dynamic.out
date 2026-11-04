@@ -6,4 +6,4 @@ text
 #t
 #f
 #t
-snail: type-convert: the value is not a I64
+caught: expected I64
