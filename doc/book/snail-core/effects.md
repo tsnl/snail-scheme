@@ -438,10 +438,11 @@ continuation capture merely because another instance of the same class
 uses `ctl`. Conversely, a plain `fun` body can need control lowering when
 it calls a selected control-capable method.
 
-The proposed [explicit-provider IR](compilers.md#proposed-explicit-provider-ir)
-records provider arguments and distinguishes direct and control calls.
-It must preserve class applications, closure environments and ownership
-through specialization, analyze recursive calls, and establish control
+The proposed [typed core subsets](compilers.md#proposed-lowering-to-typed-snail-core-subsets)
+make provider arguments explicit and distinguish direct and control calls
+before lowering control into ordinary functions and data. The transformation
+must preserve class applications, closure environments and ownership through
+specialization, analyze recursive calls, and establish control
 conventions before emitting Wasm. Separate compilation must preserve
 provider types and make generic bodies available for specialization.
 
