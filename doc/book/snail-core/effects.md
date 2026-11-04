@@ -260,9 +260,9 @@ These forms are illustrative extensions, not accepted syntax today. The
 local instance supplies an anonymous concrete provider whose `ask` method
 captures `name`. Its associated callable type is inferred from that method
 definition and checked against `impl (Fun T)`. `greet` receives the selected
-provider as an implicit argument; `welcome` supplies it explicitly after
-elaboration. Its captured string is runtime data, while its method code and
-callable type are statically selected.
+provider as an implicit argument; compilation makes `welcome`'s supplied
+argument explicit. Its captured string is runtime data, while its method
+code and callable type are statically selected.
 
 A parameterized emitting capability has the same interface mechanism:
 
@@ -281,8 +281,10 @@ provider returns directly or uses `ctl` belongs to its concrete
 implementation and the compiler's control analysis. A direct discard
 provider and a collecting control provider can share an argument/result
 shape; their contracts must also expose any control and resumption-effect
-requirements. Their specialized consumers may use different calling conventions. The exact syntax for a `ctl` instance method and its
-continuation binder remains open.
+requirements. These may be symbolic in generic code, but specialization
+cannot introduce control behavior that the checked contract forbids.
+Their specialized consumers may use different calling conventions. The exact
+syntax for a `ctl` instance method and its continuation binder remains open.
 
 #### Scoped selection and specialization
 
@@ -328,10 +330,11 @@ program. Ownership must account for the abandoned continuation's captures.
 A scoped control provider must therefore establish a typed delimiter, even
 if there is no source form named `handle`. The body extent, answer type,
 deep reinstatement of the provider, and nesting with other control providers
-must be defined. Elaboration may erase capability names into provider
-arguments while retaining explicit delimiter and resumption operations;
-a later control translation erases those into ordinary closure calls.
-These are separate obligations.
+must be defined. The proposed compilation worklist makes provider arguments
+explicit and lowers delimiter and resumption behavior while specializing
+each definition. Its output expresses that behavior in Wasm functions,
+branches and GC data. Passing a provider argument alone does not discharge
+the obligation to implement its delimiter.
 
 #### Caller-supplied providers
 
@@ -503,20 +506,23 @@ and cleanup bounds, one-shot ownership, and the native array layout rules.
 #### Compiler obligations
 
 The implemented compiler preserves control rows during monomorphization
-and uses a may-yield analysis. The proposal instead converts all source
-functions to typed CPS while making provider arguments explicit, then
-specializes and simplifies that shared core. Uniform CPS is an intermediate
-representation choice, not a requirement to allocate continuations for every
-ordinary call at runtime.
+and uses a may-yield analysis. The proposal combines specialization,
+selective control lowering and emission in one worklist after type checking.
+It builds [structured Wasm directly](compilers.md#proposed-specialization-directly-to-wasmgc),
+without a separate simplified core program. Concrete providers and checked
+contracts guide which calls need suspension support. The output has explicit
+provider arguments and control paths, with no source effect rows in its
+function types. Source contracts remain available for interfaces and diagnostics.
 
-The proposed [typed core subsets](compilers.md#proposed-lowering-to-typed-snail-core-subsets)
-expose continuation bodies and provider parameters before specialization.
-Continuation simplification and escape analysis recover direct calls and
-local control flow where proved safe. A queued continuation still needs a
-representation preserving its captures, effects and ownership. Recursive CPS
-must not generate an unbounded specialization family from nested continuation
-capture types. Separate compilation must expose the generic CPS bodies and
-identities needed for downstream provider specialization.
+Continuation code is generated ahead of time; captured environments are
+constructed when needed for suspension. Each caller through which control
+escapes must preserve its remaining work up to the delimiter. A queued
+continuation retains its captures and ownership, with outstanding providers
+supplied when invoked. Tail-call instructions transfer control but do not
+capture a Wasm activation. Separate compilation must expose the checked
+generic bodies and identities needed for downstream provider specialization.
+The worklist needs finite keys and recursive continuation representations;
+it cannot specialize on an unbounded history of captured predecessors.
 
 Validation must cover a direct and a control provider for the same class,
 a generic higher-order consumer under each, nested providers, runtime
@@ -528,8 +534,8 @@ invocation and cleanup contracts. Reject inconsistent
 provider method types, ambiguous instances, operation-local polymorphism,
 erased provider selection and repeated use
 of one-shot continuations. Execute linked Wasm and check simple direct-provider
-specializations for eliminated administrative continuations. Also execute
-correct residual CPS when simplification cannot recover direct calls.
+specializations for ordinary calls without unnecessary continuation environments.
+Also execute yielding paths and resumptions with optional optimizations disabled.
 Queue tests must accept smaller job rows, reject effects outside the queue's
 bound, separate enqueue effects from invocation effects, and check cleanup
 when jobs are cancelled. Exercise distinct concrete job types once their
