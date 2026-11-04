@@ -1,0 +1,17 @@
+(import
+ (snail core base)
+ (snail core io))
+
+(typeclass (Op e A B)
+  (type Output)
+  (: op (-> A B Output ! e)))
+(define-instance-set first-policy
+  (instance (Op (!) I64 I64)
+    (type Output I64)
+    (define (op a b) (+ a b))))
+(define-instance-set second-policy
+  (instance (Op (!) I64 I64)
+    (type Output String)
+    (define (op a b) (show (+ a b)))))
+(with-instances (first-policy)
+                (with-instances (second-policy) (unit)))

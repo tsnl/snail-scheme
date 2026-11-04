@@ -78,6 +78,7 @@
    Seq
    Match
    Ann
+   ScopedInstances
    Handle
    Convert
    TryConvert
@@ -113,9 +114,13 @@
    Class-name
    Class-params
    Class-rows
+   Class-outputs
    Class-methods
    row-arguments
    type-arguments
+   match-types
+   match-type
+   output-arguments
    row-variable
    Instance
    Instance-name
@@ -125,6 +130,7 @@
    Instance-requires
    Instance-copy
    Instance-methods
+   Instance-set
    Instance-methods-set
    Import
    Import-module
@@ -168,6 +174,9 @@
    program-class
    program-effect
    class-instances
+   visible-instances
+   check-instance-overlap
+   check-active-instances
    selected-method-arguments
    program-with-value
    program-with-type
@@ -278,6 +287,8 @@
             "type"
             "typeclass"
             "instance"
+            "define-instance-set"
+            "with-instances"
             "match"
             "ann"
             "extern"
@@ -435,7 +446,7 @@
     ;; (`with-field-values` in expand.sld), and a library may add an
     ;; instance for a type that computes the field. The record's type
     ;; decides the field's: the one instance whose record type matches
-    ;; gives it (`improve-fields` in check.sld). The class is global, with
+    ;; gives it (`improve-types` in check.sld). The class is global, with
     ;; no library prefix: `count` is the same label in every library.
     (: field-class? (-> String Bool))
     (define (field-class? class)
@@ -452,7 +463,7 @@
         (if (table-contains? (Program-classes program) class)
             program
             (program-with-value
-             (program-with-class program (Class class (list "R" "T") (Nil) (list class)))
+             (program-with-class program (Class class (list "R" "T") (Nil) (Nil) (list class)))
              class
              (Method class
                      (Scheme (list "R" "T")
@@ -477,7 +488,8 @@
                                          (list (TCon (DataType-name data) (map TRigid params)) type)
                                          (Nil)
                                          (Nil)
-                                         (list (Pair class accessor))))))
+                                         (list (Pair class accessor))
+                                         (None)))))
 
     ;; The accessor a struct's own field instance reads with, when the
     ;; instance is one; a declared instance computes its field instead.
@@ -716,6 +728,9 @@
       (Match
        ((scrutinee Expr)
         (clauses (List Clause))))
+      (ScopedInstances
+       ((sets (List String))
+        (body Expr)))
       (Ann
        ((expr Expr)
         (type Type)))
@@ -770,6 +785,7 @@
         ((Let _ value body) (list value body))
         ((Seq first rest) (list first rest))
         ((Match scrutinee clauses) (Cons scrutinee (map Clause-body clauses)))
+        ((ScopedInstances _ body) (list body))
         ((Ann inner _) (list inner))
         ((Convert inner _) (list inner))
         ((TryConvert inner _) (list inner))
@@ -824,12 +840,14 @@
     ;; Method schemes quantify the class parameters first and require the
     ;; class itself as their first constraint. `rows` are the parameters
     ;; its methods perform, as `e` in (Store e S): an instance writes each
-    ;; as a row in its head, and the other parameters, its types, choose
-    ;; the instance whose row a use performs.
+    ;; as a row in its head. `outputs` are hidden trailing associated type
+    ;; arguments. The remaining input parameters choose the evidence that
+    ;; establishes outputs and the rows a method use performs.
     (struct Class
       ((name String)
        (params (List String))
        (rows (List String))
+       (outputs (List String))
        (methods (List String))))
 
     ;; The arguments a class's constraint or instance head gives its row
@@ -843,8 +861,49 @@
     (: type-arguments (-> Class (List Type) (List Type)))
     (define (type-arguments class types)
       (map Pair-second
-           (filter (lambda (pair) (not (member? (Pair-first pair) (Class-rows class))))
+           (filter (lambda (pair)
+                     (not (member? (Pair-first pair)
+                                   (append (Class-rows class) (Class-outputs class)))))
                    (zip (Class-params class) types))))
+
+    ;; Associated members are hidden trailing arguments. Like rows they
+    ;; are established by the selected evidence, never used to select it.
+    (: output-arguments (-> Class (List Type) (List Type)))
+    (define (output-arguments class types)
+      (list-drop types (- (length (Class-params class)) (length (Class-outputs class)))))
+
+    ;; One-way matching of an instance head; only its own variables bind.
+    (: match-types (-> (List String) (List Type) (List Type) Substitution (Option Substitution)))
+    (define (match-types vars patterns types bindings)
+      (if (= (length patterns) (length types))
+          (fold-left (lambda (result pair)
+                       (match result
+                         ((Some bindings)
+                          (match-type vars (Pair-first pair) (Pair-second pair) bindings))
+                         ((None) (None))))
+                     (Some bindings) (zip patterns types))
+          (None)))
+
+    (: match-type (-> (List String) Type Type Substitution (Option Substitution)))
+    (define (match-type vars pattern type bindings)
+      (match pattern
+        ((TRigid name)
+         (if (member? name vars)
+             (match (assoc-ref bindings name)
+               ((None) (Some (Cons (Pair name type) bindings)))
+               ((Some bound) (if (type=? bound type) (Some bindings) (None))))
+             (if (type=? pattern type) (Some bindings) (None))))
+        ((TCon name args)
+         (match type
+           ((TCon other others)
+            (if (string=? name other) (match-types vars args others bindings) (None)))
+           (_ (None))))
+        ((TFun params result _)
+         (match type
+           ((TFun others other-result _)
+            (match-types vars (Cons result params) (Cons other-result others) bindings))
+           (_ (None))))
+        (_ (None))))
 
     ;; The variable a row ends with, as `e` in `(! log e)`, if any.
     (: row-variable (-> Type (List String)))
@@ -863,7 +922,8 @@
        (types (List Type))
        (requires (List Constraint))
        (copy (List String))
-       (methods (List (Pair String String)))))
+       (methods (List (Pair String String)))
+       (set (Option String))))
 
     (struct Import
       ((module String)
@@ -1036,6 +1096,52 @@
       (match (table-ref (Program-instances program) class)
         ((Some instances) instances)
         ((None) (Nil))))
+
+    ;; Named instances are available only inside an explicit lexical scope.
+    ;; All instances remain in the program: selected evidence names them
+    ;; even when a later caller has a different active policy.
+    (: visible-instances (-> Program String (List String) (List Instance)))
+    (define (visible-instances program class sets)
+      (filter (lambda (instance)
+                (match (Instance-set instance)
+                  ((None) #t)
+                  ((Some name) (member? name sets))))
+              (class-instances program class)))
+
+    (: check-active-instances (-> Program (List String) Loc Unit ! compile))
+    (define (check-active-instances program sets loc)
+      (for-each (lambda (class)
+                  (let ((visible (visible-instances program (Class-name class) sets)))
+                    (for-each (lambda (instance)
+                                (check-instance-overlap program instance visible loc)) visible)))
+                (table-values (Program-classes program))))
+
+    (: check-instance-overlap (-> Program Instance (List Instance) Loc Unit ! compile))
+    (define (check-instance-overlap program instance others loc)
+      (let ((class (program-class program (Instance-class instance))))
+        (for-each (lambda (other)
+                    (when (and (not (string=? (Instance-name instance) (Instance-name other)))
+                               (heads-overlap? (type-arguments class (Instance-types instance))
+                                               (type-arguments class (Instance-types other))))
+                      (compile-error loc
+                                     "this instance overlaps another instance of the class on its input types")))
+                  others)))
+
+    (: heads-overlap? (-> (List Type) (List Type) Bool))
+    (define (heads-overlap? as bs)
+      (and (= (length as) (length bs))
+           (every? (lambda (pair) (head-overlaps? (Pair-first pair) (Pair-second pair)))
+                   (zip as bs))))
+
+    (: head-overlaps? (-> Type Type Bool))
+    (define (head-overlaps? a b)
+      (match a
+        ((TCon name args)
+         (match b
+           ((TCon other others) (and (string=? name other) (heads-overlap? args others)))
+           ((TRigid _) #t)
+           (_ #f)))
+        (_ #t)))
 
     ;; A method's use row is opened to its context, but a selected instance
     ;; supplies the rows it actually performs. Class parameters come first;

@@ -7,7 +7,11 @@
   (export
    Dispatch
    parse-dispatch
-   dispatch-method)
+   dispatch-method
+   GeneratedInstance
+   GeneratedInstance-instance
+   GeneratedInstance-definitions
+   generate-binary-instances)
   (import
    (snail core base)
    (snail shell compiler read)
@@ -169,4 +173,228 @@
 
     (: reference (-> String Loc Expr))
     (define (reference name loc)
-      (expression (Var name (Nil) (Nil)) loc))))
+      (expression (Var name (Nil) (Nil)) loc))
+    ;; ---- Binary policies ----
+
+    ;; The finite domain is resolved once, in the generator's lexical
+    ;; scope. Each branch remembers the implementation it selected. Neither
+    ;; imports nor a caller's instance sets can change that choice.
+    (struct BinaryCase
+      ((inputs (List Type))
+       (output Type)
+       (effects (List String))
+       (methods (List (Pair String String)))))
+
+    (struct GeneratedInstance
+      ((instance Instance)
+       (definitions (List Item))))
+
+    (: generate-binary-instances
+       (-> Program Class (List (List Type)) (List String) String String Loc
+           (List GeneratedInstance) ! compile))
+    (define (generate-binary-instances program class domain active owner name loc)
+      (check-binary-class program class loc)
+      (when (or (null? domain)
+                (not (= (length domain) (length (delete-duplicates types=? domain)))))
+        (compile-error loc "dynamic-instances needs a nonempty domain of distinct type pairs"))
+      (let* ((cases
+              (map (lambda (pair) (resolve-binary-case program class pair active loc)) domain))
+             (heads (delete-duplicates types=? (concatenate (map erased-heads domain)))))
+        (map (lambda (entry)
+               (generate-binary-instance class cases (Pair-second entry) owner
+                                         (string-append name "." (i64->string (Pair-first entry)))
+                                         loc))
+             (zip (iota (length heads)) heads))))
+
+    ;; This initial generator covers ordinary binary operation classes.
+    ;; Independent method polymorphism and nested erased occurrences would
+    ;; require a different conversion contract, so they fail at declaration.
+    (: check-binary-class (-> Program Class Loc Unit ! compile))
+    (define (check-binary-class program class loc)
+      (unless (and (= (length (Class-rows class)) 1)
+                   (= (length (Class-outputs class)) 1)
+                   (= (length (type-arguments class (map TRigid (Class-params class)))) 2)
+                   (not (null? (Class-methods class))))
+        (compile-error loc
+                       "dynamic-instances needs a binary class with one effect row and one associated output"))
+      (for-each (lambda (method) (check-binary-method program class method loc))
+                (Class-methods class)))
+
+    (: check-binary-method (-> Program Class String Loc Unit ! compile))
+    (define (check-binary-method program class method loc)
+      (match (program-value program method)
+        ((Some (Method _ (Scheme vars (Cons _ (Nil)) _ (TFun params result row))))
+         (unless (and (= (length vars) (length (Class-params class)))
+                      (types=? params (type-arguments class (map TRigid (Class-params class))))
+                      (type=? result (TRigid (list-ref (Class-outputs class) 0)))
+                      (type=? row (TRow (Nil) (Some (TRigid (list-ref (Class-rows class) 0))))))
+           (compile-error loc "dynamic-instances needs methods of type (-> A B Output ! e)")))
+        (_
+         (compile-error loc "dynamic-instances does not support independent method requirements"))))
+
+    (: resolve-binary-case (-> Program Class (List Type) (List String) Loc BinaryCase ! compile))
+    (define (resolve-binary-case program class inputs active loc)
+      (unless (and (= (length inputs) 2)
+                   (every? (lambda (type) (and (ground-type? type) (not (any-type? type)))) inputs))
+        (compile-error loc "dynamic-instances domain entries are two concrete, non-Any types"))
+      (let ((matches (filter (lambda (instance)
+                               (match (match-types (Instance-vars instance)
+                                                   (type-arguments class (Instance-types instance))
+                                                   inputs (Nil))
+                                 ((Some _) #t) ((None) #f)))
+                             (visible-instances program (Class-name class) active))))
+        (match matches
+          ((Cons instance (Nil)) (binary-case class instance inputs loc))
+          ((Nil)
+           (compile-error loc "dynamic-instances has no active source instance for a domain pair"))
+          (_ (compile-error loc "dynamic-instances has overlapping source instances")))))
+
+    (: binary-case (-> Class Instance (List Type) Loc BinaryCase ! compile))
+    (define (binary-case class instance inputs loc)
+      (unless (null? (Instance-requires instance))
+        (compile-error loc "dynamic-instances source instances must have no class prerequisites"))
+      (match (match-types (Instance-vars instance)
+                          (type-arguments class (Instance-types instance))
+                          inputs
+                          (Nil))
+        ((Some bindings)
+         (let* ((head (map (lambda (type) (substitute bindings type)) (Instance-types instance)))
+                (output (list-ref (output-arguments class head) 0))
+                (row (list-ref (row-arguments class head) 0)))
+           (unless (and (ground-type? output) (ground-type? row))
+             (compile-error loc "dynamic-instances source outputs and rows must be determined"))
+           (match row
+             ((TRow labels (None)) (BinaryCase inputs output labels (Instance-methods instance)))
+             (_ (compile-error loc "dynamic-instances source effect rows must be closed")))))
+        ((None) (panic "internal error: selected binary instance did not match"))))
+
+    (: erased-heads (-> (List Type) (List (List Type))))
+    (define (erased-heads inputs)
+      (let ((any (TCon "Any" (Nil))))
+        (list (list any (list-ref inputs 1)) (list (list-ref inputs 0) any) (list any any))))
+
+    (: accepts-pair? (-> (List Type) BinaryCase Bool))
+    (define (accepts-pair? head branch)
+      (every? (lambda (pair) (or (any-type? (Pair-first pair))
+                                 (type=? (Pair-first pair) (Pair-second pair))))
+              (zip head (BinaryCase-inputs branch))))
+
+    (: generate-binary-instance
+       (-> Class (List BinaryCase) (List Type) String String Loc GeneratedInstance))
+    (define (generate-binary-instance class domain inputs owner name loc)
+      (let* ((cases (filter (lambda (branch) (accepts-pair? inputs branch)) domain))
+             (outputs (delete-duplicates type=? (map BinaryCase-output cases)))
+             (output (if (= (length outputs) 1) (list-ref outputs 0) (TCon "Any" (Nil))))
+             (row (TRow (fold-left
+                         (lambda (labels branch) (label-union labels (BinaryCase-effects branch)))
+                         (list dyn-cast-label) cases) (None)))
+             (methods
+              (map (lambda (method) (Pair method (string-append name "." (short-name method))))
+                   (Class-methods class)))
+             (instance (Instance name (Class-name class) (Nil) (binary-head class inputs output row)
+                                 (Nil) (Nil) methods (Some owner))))
+        (GeneratedInstance instance
+                           (map (lambda (method)
+                                  (Define (Pair-second method)
+                                    (binary-lambda (Pair-first method) inputs output cases
+                                                   (Pair-second method) loc))) methods))))
+
+    (: binary-head (-> Class (List Type) Type Type (List Type)))
+    (define (binary-head class inputs output row)
+      (let ((bindings (zip (filter (lambda (param)
+                                     (not (member? param
+                                                   (append (Class-rows class)
+                                                           (Class-outputs class)))))
+                                   (Class-params class)) inputs)))
+        (map (lambda (param)
+               (cond ((member? param (Class-rows class)) row)
+                     ((member? param (Class-outputs class)) output)
+                     (else (match (assoc-ref bindings param)
+                             ((Some type) type)
+                             ((None) (panic "internal error: binary input parameter"))))))
+             (Class-params class))))
+
+    (: binary-lambda (-> String (List Type) Type (List BinaryCase) String Loc Expr))
+    (define (binary-lambda method inputs output cases name loc)
+      (let* ((names (list (string-append name ".left") (string-append name ".right")))
+             (args (map (lambda (name) (reference name loc)) names))
+             (failure (binary-failure method inputs args cases output loc)))
+        (expression (Lambda names
+                            (fold-right (lambda (branch rest)
+                                          (expression (If (binary-test inputs args branch loc)
+                                                          (binary-call method
+                                                                       inputs
+                                                                       args
+                                                                       output
+                                                                       branch
+                                                                       loc)
+                                                          rest)
+                                                      loc))
+                                        failure cases) #f) loc)))
+
+    ;; A failed pair names the offending side. When the left type is
+    ;; supported, the right side's expected types are restricted to that
+    ;; left type; this also explains a missing pair in a nonrectangular domain.
+    (: binary-failure (-> String (List Type) (List Expr) (List BinaryCase) Type Loc Expr))
+    (define (binary-failure method inputs args cases output loc)
+      (let ((lefts (delete-duplicates type=?
+                                      (map (lambda (branch) (list-ref (BinaryCase-inputs branch) 0))
+                                           cases))))
+        (cond ((not (any-type? (list-ref inputs 0)))
+               (binary-side-failure method args cases 1 output loc))
+              ((not (any-type? (list-ref inputs 1)))
+               (binary-side-failure method args cases 0 output loc))
+              (else
+               (fold-right (lambda (left rest)
+                             (let ((eligible (filter (lambda (branch)
+                                                       (type=? left
+                                                               (list-ref (BinaryCase-inputs branch)
+                                                                         0)))
+                                                     cases)))
+                               (expression (If (expression (TypeTest (list-ref args 0) left) loc)
+                                               (binary-side-failure method
+                                                                    args
+                                                                    eligible
+                                                                    1
+                                                                    output
+                                                                    loc)
+                                               rest)
+                                           loc)))
+                           (binary-side-failure method args cases 0 output loc) lefts)))))
+
+    (: binary-side-failure (-> String (List Expr) (List BinaryCase) I64 Type Loc Expr))
+    (define (binary-side-failure method args cases index output loc)
+      (conversion-failure
+       (conversion-error "UnsupportedInstance"
+                         (delete-duplicates type=?
+                                            (map (lambda (branch)
+                                                   (list-ref (BinaryCase-inputs branch) index))
+                                                 cases))
+                         (list-ref args index) method index loc) output loc))
+
+    (: binary-test (-> (List Type) (List Expr) BinaryCase Loc Expr))
+    (define (binary-test inputs args branch loc)
+      (fold-right (lambda (entry rest)
+                    (let ((index (Pair-first entry)) (type (Pair-second entry)))
+                      (if (any-type? (list-ref inputs index))
+                          (expression (If (expression (TypeTest (list-ref args index) type) loc)
+                                          rest (expression (Lit (DBool #f)) loc)) loc)
+                          rest)))
+                  (expression (Lit (DBool #t)) loc)
+                  (zip (iota 2) (BinaryCase-inputs branch))))
+
+    (: binary-call (-> String (List Type) (List Expr) Type BinaryCase Loc Expr))
+    (define (binary-call method inputs args output branch loc)
+      (let* ((converted (map (lambda (entry)
+                               (let ((index (Pair-first entry)) (target (Pair-second entry)))
+                                 (if (any-type? (list-ref inputs index))
+                                     (expression (Convert (list-ref args index) target) loc)
+                                     (list-ref args index))))
+                             (zip (iota 2) (BinaryCase-inputs branch))))
+             (implementation (match (assoc-ref (BinaryCase-methods branch) method)
+                               ((Some name) name)
+                               ((None) (panic "internal error: missing binary implementation"))))
+             (call (expression (App (reference implementation loc) converted) loc)))
+        (if (and (any-type? output) (not (any-type? (BinaryCase-output branch))))
+            (expression (Convert call output) loc) call)))
+    ))

@@ -112,6 +112,15 @@ function of the expander has `mut` in its row — and where it does not, the
   checks all arguments of that type and calls an ordinary class method.
   Checking and specialization supply the same evidence as for a written
   instance; separate compilation needs no dynamic registry.
+  Associated members become hidden trailing class arguments. Projections
+  read the corresponding argument of an enclosing requirement, so no
+  projection evaluator reaches later passes. `define-instance-set` gives
+  instances a set identity; `with-instances` leaves a `ScopedInstances`
+  node for checking. Binary `dynamic-instances` clauses resolve their
+  finite source relation at declaration and emit ordinary instance methods
+  that call those fixed implementations. One-sided and fully erased heads
+  are grouped separately, each with its established output and effect union.
+
   The expander's only
   effect is `fs`: it reads libraries, and the producer runner the driver
   supplies for `generate-library` reads and writes files. A use of
@@ -183,7 +192,16 @@ function of the expander has `mut` in its row — and where it does not, the
   variable its rows end with standing for a fresh row. Each row found is
   charged to the constraint's row at the call it was raised in, once that
   call is checked, so a signature is held to what its drops, clones and
-  methods perform. The expander records a class's row parameters, those
+  methods perform. Associated outputs use the same input-only selection:
+  selected evidence establishes ordinary type equalities. Improvement runs
+  to a fixed point when one output supplies another constraint's input;
+  prerequisite resolution retains an active-goal path to reject cycles.
+  Pending constraints keep their lexical instance-set identities, including
+  constraints delayed until after leaving that scope. Checking consumes
+  `ScopedInstances`; later passes see only the chosen evidence. Neither
+  expected outputs nor effect rows select among candidates.
+
+  The expander records a class's row parameters, those
   its methods write after `!` (`class-rows`), and checks that an instance
   writes each as a row, closed or ending with a variable its requirements
   give (`check-head-rows`).
