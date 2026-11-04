@@ -279,20 +279,21 @@ A parameterized emitting capability has the same interface mechanism:
 The `Fun` contract states the caller-facing interface. Whether the chosen
 provider returns directly or uses `ctl` belongs to its concrete
 implementation and the compiler's control analysis. A direct discard
-provider and a collecting control provider can satisfy the same caller-facing
-shape; their specialized consumers may require different lower-level calling
-conventions. The exact syntax for a `ctl` instance method and its
+provider and a collecting control provider can share an argument/result
+shape; their contracts must also expose any control and resumption-effect
+requirements. Their specialized consumers may use different calling conventions. The exact syntax for a `ctl` instance method and its
 continuation binder remains open.
 
 #### Scoped selection and specialization
 
-Instance lookup selects the nearest lexically supplied provider for a
+At a call site, instance lookup selects the nearest provider in scope for a
 required class application. A generic body forwards its provider parameters;
 it does not search for a new instance independently of those arguments.
 Nested providers for the same application require an explicit shadowing
 rule, and competing providers at one scope are an ambiguity. Provider
-method dependencies should resolve in their surrounding scope unless
-recursive self-reference is explicit. These rules differ from today's
+method dependencies remain requirements supplied when the method is invoked,
+unless its body explicitly establishes a local provider. Recursive
+self-reference must be explicit. These rules differ from today's
 global, nonoverlapping class instances and require new checking support.
 
 Specialization keys on the provider's implementation type and concrete
@@ -300,8 +301,10 @@ method identities. Runtime captures are arguments, not specialization
 keys. Choosing between different provider implementations at runtime
 requires specializing the consumer within each branch or another explicit
 representation; this design introduces no implicit erased-provider fallback.
-Local instances may capture values and therefore are runtime closures even
-though their method selection is static. Capture ownership remains checked.
+Local instances may capture ordinary values and therefore are runtime
+closures even though method selection is static. Ambient provider
+requirements are parameters rather than automatically captured values.
+Capture ownership remains checked.
 
 All methods of one `(State T)` provider share the same `T`; independently
 instantiating its read and write methods would break that guarantee.
@@ -330,64 +333,130 @@ arguments while retaining explicit delimiter and resumption operations;
 a later control translation erases those into ordinary closure calls.
 These are separate obligations.
 
-Stored resumptions capture their providers lexically. Resuming under a
-different local instance does not replace the captured provider. This is
-the chosen direction for the proposal and changes today's invocation-context
-rebinding, including for task schedulers and stored generators. The examples
-under [resuming](#resuming) still describe implemented behavior.
+#### Caller-supplied providers
 
-The provider implementation types, method code and environment layout are
-known after specialization. Captured values need not be compile-time
-constants: a provider can hold a runtime string or a place pointing to a
-GC object, and the continuation retains those values. Capturing a place
-retains access to that object, not a snapshot of its contents. There is no
-runtime search for which provider to use, but there can be runtime storage
-for the continuation and its captured environment. Capture ownership remains
-checked.
+Ordinary closures retain their outstanding capability requirements in their
+types. Invoking a closure supplies providers from that call site; creating
+it does not automatically capture ambient handlers. Apply the same rule to
+the outstanding requirements of a stored continuation. Logging before and
+after a suspension may therefore use different providers, intentionally.
+
+A continuation still restores the handler scopes established inside the
+captured computation, including its delimiting handler under deep resumption.
+Those are part of the suspended computation, not outstanding requirements
+for the resumer to replace. Its ordinary captured values remain runtime
+data; capturing a place retains access to the object, not a snapshot.
+Explicitly preserving an outer provider environment would need a separate
+operation and contract; it is not the default.
+
+Static call-site resolution requires the continuation's remaining code to
+stay generic over its outstanding provider parameters until its invocation
+sites are specialized. Already generated calls to provider A cannot simply
+be reinterpreted as calls to provider B. Saved values must have compatible
+types across those specializations, and imported continuation code must
+remain available for specialization. This is a compiler obligation, not a
+claim that type erasure or machine-code rebinding supplies it automatically.
+
+[Generalized Evidence Passing for Effect Handlers, section 2.12](https://www.microsoft.com/en-us/research/wp-content/uploads/2021/08/genev-icfp21.pdf)
+studies resumption under a changed handler context. That supports the semantic
+direction; the static specialization and transition typing proposed here
+still need their own rules and correctness argument.
+
+#### Resumption effects and effect transitions
+
+Use **resumption effects** for the requirements of the continuation passed
+to a control operation, and **effect transition** for the relationship
+between those requirements and the requirements for entering that operation.
+These names separate the entry context from the context needed to continue.
+
+Direct-style suspension remains a design requirement: users write the
+statements following `yield`, `sleep` or `await` normally, and the compiler
+constructs the one-shot continuation. A checked suspension marker should
+make that boundary visible, including calls to wrappers that can suspend.
+`!!` is a candidate spelling, not a settled naming rule. The existing `!`
+mutation convention need not mark every effectful function.
+
+For example, schematically, with a delimiter answering `Unit`:
+
+```text
+yield!!()
+write("ready")
+```
+
+The continuation at `yield!!` accepts `Unit`, answers `Unit`, and requires
+`IO`. If the selected scheduling contract accepts an IO-requiring
+continuation and arranges for its resumer to supply IO, the enclosing
+function can require `Yield<resume requires IO>` at entry instead of a
+separate entry IO provider. This is contract notation, not proposed source
+syntax. The nested requirement remains visible: calling such a function is
+not classified as pure merely because IO is absent from its entry row.
+
+The operation's contract bounds its continuation requirements, and source
+checking at the static delimiter site checks the remaining computation
+against that bound. Invoking the continuation supplies its outstanding
+providers; enqueueing transfers that obligation with the value. A provider
+that resumes immediately must itself supply them and account for the
+resulting invocation effects. An operation that merely accepts an IO
+continuation has not proved it can resume that continuation in an arbitrary
+context. Result types, delimiter answers and cleanup requirements must also
+match. A transition changes which context supplies requirements; it cannot
+relabel IO as mutation or discard an unsatisfied requirement.
+
+Inference must follow continuation structure, rather than taking a flat
+union of the entire function's effects and assigning that union to every
+suspension. IO before the yield still requires an entry IO provider. A branch
+that can reach the write without yielding also retains that entry requirement.
+At a join, every incoming path must satisfy the requirements of the shared
+suffix. Wrappers, loops, nested suspensions and recursive calls need
+compositional transition contracts: the captured continuation can include
+caller code up to the delimiter, not just the next statements in one function.
+The precise inference rules remain to be specified and checked for soundness.
 
 #### Provider requirements and purity
 
-The callable's signature can gate the effects of invoking it. For a
-resumption, use the existing `FnOnce` concept with an inferred latent row
-`E`: it accepts the operation's result, produces the delimiter's answer,
-and calling it requires permission for `E`. The exact spelling within
-`impl Fun` remains open; this does not require a second user-facing effect
-annotation just for continuations.
+An entry requirement says which provider the caller must supply now; a
+resumption requirement says what the deferred computation needs when invoked.
+Both remain visible in the callable/control contract. A queue insertion has
+its own effects, such as mutation, without executing the job's IO. Invoking
+the job performs the effects of its selected provider implementations.
+Dropping it must account for cleanup effects of its captures separately.
 
-Source checking establishes that bound at the static delimiter site,
-subject to the capability declaration and enclosing signature. Primitive
-operations and callee contracts contribute effects; sequencing and branches
-combine them, and generic calls can contribute row variables. The residual
-row of the delimited computation is a sound conservative bound for `E`.
-The control implementation receives `resume` with that contextual contract;
-it cannot choose an empty row independently. A reusable implementation can
-be generic over the row, fixed at each installation. Continuation lowering
-preserves the checked bound rather than inventing it from generated code.
+Providing an implementation may discharge a capability requirement, but
+observable effects of that implementation still count. Passing or retaining
+a provider cannot make external mutation or host IO pure. Compiler-owned
+`mut` and `host`, confinement of local mutation, and foreign calls need
+explicit rules in the transition system. Constructing or returning a deferred
+callable may be pure; its invocation requirements remain in the returned
+type and are checked separately. A list of missing providers alone does not
+describe the observable effects of executing locally supplied implementations.
 
-`E` describes the resumed computation under its captured providers,
-including observable effects of their implementations. Operations handled
-inside the captured delimiter are accounted for by their providers; they
-are not automatically requirements for a replacement provider at the resume
-site. If the remaining computation writes an externally visible mutable
-place, `mut` remains in its callable contract. Invoking that continuation
-from a context that excludes `mut` must fail, even though the place and
-provider were captured earlier. Checking permission to call does not rebind
-the captured provider.
+#### Diagnostics for transitions
 
-This rule also applies to ordinary closures, not just resumptions. A
-closure that captures a console provider still has the effects of writing
-through it when invoked. Creation and invocation are checked separately;
-merely capturing a provider does not perform its operations. Dropping a
-one-shot callable must also account for the cleanup effects of its captures.
+Report the required resumption effects, the accepted bound, and the operation
+that introduced the requirement, with locations at both the suspension and
+the offending use. Suggested diagnostics, not implemented output:
 
-The distinction needed in the checker is between a missing provider
-argument and the effects of invoking a callable. Capturing an argument can
-remove the former without removing the latter. Carry that effect information
-in the callable type, including through generic consumers. The remaining
-design work is how `!` and associated callable evidence express these two
-obligations, including compiler-owned `mut` and `host`, local-mutation
-confinement and foreign calls. A direct calling convention alone proves
-neither purity nor absence of allocation. Implemented behavior is unchanged.
+```text
+error: yield cannot accept this continuation
+  write requires IO after the suspension
+  this Yield provider accepts resumptions requiring only {mut}
+  provide an IO-capable scheduler or handle IO within the continuation
+
+error: IO is required before any effect transition
+  this path reaches write without passing through yield
+  add IO to the entry requirements or transition on every incoming path
+
+error: resume requires an IO provider
+  the continuation was created for the write following yield
+  no IO provider is available at this invocation site
+```
+
+A queued job outside the queue's bound should point to the enqueue site and
+the stored continuation's requirement. A specialization failure should name
+the unresolved provider implementation or incompatible captured type, rather
+than reporting an unrelated generated closure as ill-typed. If suspension
+markers are adopted, missing markers on transitive calls require a diagnostic
+at the source call, not only at the underlying primitive.
 
 #### Queuing a continuation
 
@@ -416,15 +485,18 @@ the job; merely capturing an output provider does not remove its effects.
 
 The scheduling provider can be generic over the queue's bound, with each
 static installation fixing it. A local scheduler may infer the bound from
-its uses; a shared queue needs a declared contract. Neither enqueueing nor
-later invocation reselects the job's lexically captured providers.
+its uses; a shared queue needs a declared contract. The worker supplies the
+job's outstanding providers at invocation; internal captured handler scopes
+are restored. The queue bound must preserve nested transition requirements
+as well as ordinary effect labels.
 
 Different concrete continuations still need a common storage representation
 to share one queue. Argument-position `impl Fun` alone does not provide it.
 A known sum of job types and an explicitly packaged callable at the scheduling
 boundary are alternatives for review; no representation is selected here.
-An explicit package could preserve specialized provider code inside each
-job while dispatching the job's entry point at runtime. This does not grant
+Any explicit package must support the worker's provider-specialized entry
+points without freezing the creator's outstanding providers. A known effect
+row alone does not specify this representation. This does not grant
 implicit provider erasure elsewhere. The choice must preserve invocation
 and cleanup bounds, one-shot ownership, and the native array layout rules.
 
@@ -449,9 +521,10 @@ provider types and make generic bodies available for specialization.
 Validation must cover a direct and a control provider for the same class,
 a generic higher-order consumer under each, nested providers, runtime
 captures with shared specialized code, early exit and stored one-shot
-resumption under a different local provider. Verify that lexical providers
-are retained and that resumption and ordinary-closure invocation enforce
-their latent effects even when providers are captured. Reject inconsistent
+resumption under a different local provider. Verify that outstanding
+requirements use the resumer's providers while internal handler scopes are
+restored. Check that both ordinary closures and resumptions enforce their
+invocation and cleanup contracts. Reject inconsistent
 provider method types, ambiguous instances, operation-local polymorphism,
 erased provider selection and repeated use
 of one-shot continuations. Execute linked Wasm and check that direct
@@ -459,7 +532,9 @@ specializations have no unnecessary yield checks or continuation allocations.
 Queue tests must accept smaller job rows, reject effects outside the queue's
 bound, separate enqueue effects from invocation effects, and check cleanup
 when jobs are cancelled. Exercise distinct concrete job types once their
-shared storage representation has been chosen.
+shared storage representation has been chosen. Transition tests must cover
+IO before and after yield, paths that bypass suspension, wrapper calls,
+multiple suspension points and recursive constraints.
 Bootstrap and compiled execution must agree. The language's remaining gaps
 are tracked in [issue #456](https://github.com/tsnl/snail-scheme/issues/456).
 

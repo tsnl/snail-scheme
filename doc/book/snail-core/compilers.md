@@ -491,15 +491,15 @@ above remains the implemented compiler.
 The proposed sequence is:
 
 ```text
-checked typed Snail-Core
-  -> typed Snail-Core with explicit provider arguments and captures
-  -> specialized typed Snail-Core with determined call conventions
+checked typed Snail-Core with entry and resumption contracts
+  -> explicit providers and provider-parametric continuation templates
+  -> specialization at ordinary-call and resume sites
   -> continuation-lowered typed Snail-Core: functions, data and primitives
   -> WasmGC representation selection and emission
 ```
 
-The first two stages still contain checked control constructs. Continuation
-lowering consumes those constructs and produces ordinary functions and
+The stages before continuation lowering still contain checked control
+constructs. Continuation lowering consumes them and produces ordinary functions and
 closures with explicit continuation arguments or explicit control-result
 values where needed. This is a transformation within the compiler's core
 language; it does not require another general-purpose IR language, parser
@@ -551,7 +551,8 @@ A call in `Body` is in tail position; a call in `Rhs` binds its result
 before continuing. Entry expressions become initialization or entry
 functions. Applications cover constructors, accessors, ordinary functions
 and approved primitives. Provider environments are structs and closures;
-providers are passed as ordinary arguments. Place allocation, projection, indexing,
+providers are passed as ordinary arguments, including the outstanding
+providers selected by a continuation's invoker. Place allocation, projection, indexing,
 reading, writing and dropping use their typed operations through the same
 application form. Primitive declarations refer to the compiler's approved
 primitive registry; the grammar grants no new source-level declaration
@@ -572,8 +573,8 @@ is not continuation lowering.
 
 | Stage | Established facts |
 | --- | --- |
-| Explicit providers | Instance choices are resolved; provider parameters and captures are explicit. Checked control constructs may remain. |
-| Specialized calls | Callable and provider implementation types are concrete; direct/control conventions are determined. |
+| Explicit providers | Call-site choices and outstanding provider parameters are explicit. Continuation templates retain resumption requirements and internal handler scopes; checked control constructs may remain. |
+| Specialized calls | Ordinary calls and resumption invocations select concrete provider implementations; direct/control conventions are determined for those specializations. |
 | Continuation-lowered subset | Source control constructs are gone; continuation ownership, effects and answer types are preserved in ordinary functions and data. Calls have explicit interfaces and evaluation order. |
 
 Share the core structures, but give each pass a stage-specific program
@@ -592,9 +593,12 @@ does not settle heterogeneous job storage or introduce implicit packaging.
 
 ### Elaboration and lowering
 
-Elaboration resolves instance choices into explicit provider parameters,
-struct fields and captured values. Each method retains the concrete callable
-identity inferred from its definition and checked against its `impl Fun`
+Elaboration resolves call-site instance choices into explicit provider
+parameters and struct fields, while closures capture ordinary values.
+Continuation-aware checking distinguishes entry requirements from the
+resumption requirements of the remaining computation; a flat whole-function
+row cannot express an effect transition. Each method retains the concrete
+callable identity inferred from its definition and checked against its `impl Fun`
 contract. Any retained `effect` and `handle` sugar expands into the shared core's
 checked control constructs; delimiter answer types and resumption bounds
 remain until continuation lowering.
@@ -603,8 +607,13 @@ Specialization keys include callable and provider implementation types and
 selected method code, alongside ordinary type arguments. Captured values
 are runtime arguments: two instances with the same implementation and
 different captured strings share code. Direct and control-capable providers
-can produce different specializations of one consumer. This replaces the
-implemented runtime evidence-list search and handler policy.
+can produce different specializations of one consumer. A saved continuation
+retains a template generic over outstanding provider parameters; its
+invocation chooses the specialization. Code already fixed to the capture
+site's provider cannot implement rebinding by changing a pointer. Exposing
+these templates must precede committing their provider-dependent calls to
+one implementation, even if extraction and specialization are interleaved.
+This replaces the implemented runtime evidence-list search and handler policy.
 
 Control analysis uses specialized callees and solves recursive groups to a
 fixed point. Imported callees need checked control summaries and suitable
@@ -615,36 +624,44 @@ control is fully delimited internally can still expose a direct interface.
 Continuation lowering preserves the operation result type, delimiter answer
 type, invocation effects and cleanup obligations. It generates ordinary
 functions, closures and data to implement capture, resumption and abandonment.
-Stored resumptions retain their lexically selected providers and runtime
-captures. Nested delimiters and deep reinstatement must survive this
-translation; one extra function argument alone does not establish that.
+Stored resumptions retain ordinary runtime captures and internal handler
+scopes, while outstanding providers come from the resumption caller. Nested
+delimiters and deep reinstatement must survive this translation; one extra
+function argument alone does not establish that.
 Wasm emission consumes the resulting explicit interfaces and performs
 representation selection without reconstructing source handler semantics.
 
 Keep source locations, ownership and foreign-boundary evidence through these
 passes. Preserve callable effect information while checking generated calls,
-including calls through captured providers. Separate compilation exposes
-generic bodies and implementation identities needed for specialization;
+including the provider calls within resumed computations. Separate
+compilation exposes generic bodies and implementation identities needed for specialization;
 cache keys include selected provider code. Runtime-loaded code cannot
 silently introduce an erased provider ABI inconsistent with that contract.
 
 ### Review points and validation
 
 The subset grammar fixes the target vocabulary, not the precise continuation
-encoding. Review that encoding, specialization growth and termination, and
-how `!` and associated callable evidence express both missing providers and
-latent invocation effects before implementation. Heterogeneous queue storage
-also remains open; [queue contracts](effects.md#queuing-a-continuation)
+encoding. Review that encoding, continuation-aware transition inference,
+provider-parametric continuation specialization, and specialization growth
+and termination before implementation. The signature notation must preserve
+entry requirements, resumption requirements and observable effects.
+Heterogeneous queue storage also remains open;
+[queue contracts](effects.md#queuing-a-continuation)
 specify effect inclusion and cleanup without selecting a representation.
-Lexical capture, one-shot ownership and the static resumption bound are
-settled requirements of this proposal.
+Caller-supplied outstanding providers, preservation of internal handler
+scopes, direct-style suspension and one-shot ownership are requirements of
+this proposal. The source checker establishes resumption bounds before
+lowering. See [effect transitions](effects.md#resumption-effects-and-effect-transitions)
+for the proposed terminology and diagnostic examples.
 
 Acceptance tests should compare one consumer specialized for direct and
 control providers, verify code sharing across runtime captures, and exercise
 nested and stored resumptions across separately compiled libraries. Reject
 calls outside a callable's effect bound and preserve the distinction between
-enqueueing and invoking work. Check generated core against each stage's
-invariants and execute linked Wasm; direct specializations should have no
+enqueueing and invoking work. Cover branches that bypass a transition,
+wrapper calls and changing provider implementations across resumption.
+Check generated core against each stage's invariants and execute linked
+Wasm; direct specializations should have no
 unnecessary yield checks or continuation allocations.
 
 ## Separate compilation
