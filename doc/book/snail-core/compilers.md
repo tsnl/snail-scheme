@@ -528,6 +528,7 @@ Field       ::= (name Type)
 Variant     ::= (name) | (name (Field*))
 
 Body        ::= Atom
+              | (Atom Atom*)
               | (let ((name Rhs)) Body)
               | (if Atom Body Body)
               | (match Atom Clause+)
@@ -541,14 +542,16 @@ Atom        ::= name | literal
 
 Each expression retains its checked type, ownership and effect information.
 Named `fun` definitions and `lambda` expressions share the proposed core's
-callable representation, including concrete implementation identity and captures;
-this grammar does not add an erased function type. `fun` is the proposed
-source definition spelling, while `lambda` denotes the existing anonymous
+callable representation, including concrete implementation identity and
+captures; this grammar does not add an erased function type. `fun` is the
+proposed source definition spelling, while `lambda` denotes the existing anonymous
 function form without deciding its future surface spelling.
 
-Applications cover constructors, accessors, ordinary functions and approved
-primitives. Provider environments are structs and closures; providers are
-passed as ordinary arguments. Place allocation, projection, indexing,
+A call in `Body` is in tail position; a call in `Rhs` binds its result
+before continuing. Entry expressions become initialization or entry
+functions. Applications cover constructors, accessors, ordinary functions
+and approved primitives. Provider environments are structs and closures;
+providers are passed as ordinary arguments. Place allocation, projection, indexing,
 reading, writing and dropping use their typed operations through the same
 application form. Primitive declarations refer to the compiler's approved
 primitive registry; the grammar grants no new source-level declaration
@@ -589,76 +592,60 @@ does not settle heterogeneous job storage or introduce implicit packaging.
 
 ### Elaboration and lowering
 
-Elaboration resolves scoped instance choices and turns missing provider
-requirements into explicit parameters. Callable latent effects remain
-checked even when a provider is already captured. Source class and method
-names become typed provider fields or known code references. A local
-instance is a closure environment plus statically selected method
-implementations. Its captured values remain runtime arguments. Each method's
-anonymous associated callable
-type must satisfy its `impl Fun` signature. Source `effect` and `handle`
-constructs, if retained as sugar, are eliminated here; control delimiters
-and their answer types remain explicit.
+Elaboration resolves instance choices into explicit provider parameters,
+struct fields and captured values. Each method retains the concrete callable
+identity inferred from its definition and checked against its `impl Fun`
+contract. Any retained `effect` and `handle` sugar expands into the shared core's
+checked control constructs; delimiter answer types and resumption bounds
+remain until continuation lowering.
 
-Specialization keys include provider implementation types and the types
-of their concrete methods, in addition to ordinary type arguments. Two
-provider values with the same implementation and different captures share
-code. Two providers whose methods have different control behavior may
-produce different specializations of one consumer. No runtime evidence-list
-search remains in this proposed model. This deliberately changes the
-implemented handler policy described above and in the repository guidance.
+Specialization keys include callable and provider implementation types and
+selected method code, alongside ordinary type arguments. Captured values
+are runtime arguments: two instances with the same implementation and
+different captured strings share code. Direct and control-capable providers
+can produce different specializations of one consumer. This replaces the
+implemented runtime evidence-list search and handler policy.
 
-Control analysis runs over specialized callees and solves recursive groups
-to a fixed point. An imported callee needs a checked control summary and
-appropriate specialized code; an unknown target must not be assumed direct.
-Before continuation lowering, the typed core distinguishes direct and
-control-capable calls through callable metadata, while checked control
-nodes retain delimiters and one-shot resumptions. The direct/control
-distinction is a calling convention, separate from ownership and purity.
-A function can contain a fully delimited control computation and still
-expose a direct interface;
-merely finding `ctl` in its body is not the classification rule.
+Control analysis uses specialized callees and solves recursive groups to a
+fixed point. Imported callees need checked control summaries and suitable
+specialized code; an unknown target cannot be assumed direct. The call
+convention is independent of purity and ownership. A computation whose
+control is fully delimited internally can still expose a direct interface.
 
-Continuation lowering supplies an explicit continuation only where a
-specialized call can transfer control beyond its current direct context.
-The continuation's argument is the operation result; its answer is the
-delimiter's result. A control implementation can resume or abandon it
-according to the linear ownership rules. Stored continuations retain
-lexically captured providers: implementation types and method code are
-static, while captured values remain runtime data. Calling a resumption
-checks its latent effects without replacing those providers. Nested
-delimiters, deep reinstatement and saved continuations must retain their
-checked contracts.
-After this pass there are ordinary closure calls and explicit environment
-values, with no implicit provider lookup or unresolved control effects.
-The precise CPS representation is a subject for implementation and proof;
-this diagram is not a claim that one extra argument alone implements
-delimited continuations.
+Continuation lowering preserves the operation result type, delimiter answer
+type, invocation effects and cleanup obligations. It generates ordinary
+functions, closures and data to implement capture, resumption and abandonment.
+Stored resumptions retain their lexically selected providers and runtime
+captures. Nested delimiters and deep reinstatement must survive this
+translation; one extra function argument alone does not establish that.
+Wasm emission consumes the resulting explicit interfaces and performs
+representation selection without reconstructing source handler semantics.
 
-Keep call-site source locations, capability evidence until discharged,
-ownership and foreign-boundary assumptions throughout the translation.
-Separate compilation must expose the generic bodies and implementation
-identities needed for downstream specialization, and cache keys must include
-the selected provider code. Runtime-loaded code cannot silently introduce
-an erased provider ABI inconsistent with the static contract. Specialization
-growth and recursion termination need an explicit policy and measurements.
+Keep source locations, ownership and foreign-boundary evidence through these
+passes. Preserve callable effect information while checking generated calls,
+including calls through captured providers. Separate compilation exposes
+generic bodies and implementation identities needed for specialization;
+cache keys include selected provider code. Runtime-loaded code cannot
+silently introduce an erased provider ABI inconsistent with that contract.
 
-Before implementation, specify how `!` and associated callable evidence
-represent both missing provider arguments and latent invocation effects.
-Lexical capture is decided; the effects chapter explains its difference
-from today's rebinding and how the `FnOnce` contract gates resumption.
-Source checking establishes the resumption bound at the static delimiter
-site. Moving it into storage preserves that contract without adding its
-invocation effects to the enqueue operation. The
-[queue contract](effects.md#queuing-a-continuation) checks job effects
-against a queue bound and defers invocation permission to the worker.
-Heterogeneous job storage needs an explicit representation decision;
-`impl Fun` alone does not erase concrete continuation types.
-Acceptance tests should compare direct and control specializations of the
-same consumer, verify runtime capture sharing, and exercise nested and
-stored resumptions across separately compiled libraries, including calls
-whose contexts reject the resumption's latent effects. Execute linked
-Wasm and inspect direct specializations for unnecessary control machinery.
+### Review points and validation
+
+The subset grammar fixes the target vocabulary, not the precise continuation
+encoding. Review that encoding, specialization growth and termination, and
+how `!` and associated callable evidence express both missing providers and
+latent invocation effects before implementation. Heterogeneous queue storage
+also remains open; [queue contracts](effects.md#queuing-a-continuation)
+specify effect inclusion and cleanup without selecting a representation.
+Lexical capture, one-shot ownership and the static resumption bound are
+settled requirements of this proposal.
+
+Acceptance tests should compare one consumer specialized for direct and
+control providers, verify code sharing across runtime captures, and exercise
+nested and stored resumptions across separately compiled libraries. Reject
+calls outside a callable's effect bound and preserve the distinction between
+enqueueing and invoking work. Check generated core against each stage's
+invariants and execute linked Wasm; direct specializations should have no
+unnecessary yield checks or continuation allocations.
 
 ## Separate compilation
 
