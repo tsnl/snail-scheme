@@ -502,21 +502,21 @@ and cleanup bounds, one-shot ownership, and the native array layout rules.
 
 #### Compiler obligations
 
-The compiler already preserves control rows during monomorphization and
-uses a may-yield analysis; lack of handler specialization does not force
-all current functions into CPS. The proposed improvement lets that analysis
-use concrete provider methods. Direct providers should introduce no
-continuation capture merely because another instance of the same class
-uses `ctl`. Conversely, a plain `fun` body can need control lowering when
-it calls a selected control-capable method.
+The implemented compiler preserves control rows during monomorphization
+and uses a may-yield analysis. The proposal instead converts all source
+functions to typed CPS while making provider arguments explicit, then
+specializes and simplifies that shared core. Uniform CPS is an intermediate
+representation choice, not a requirement to allocate continuations for every
+ordinary call at runtime.
 
 The proposed [typed core subsets](compilers.md#proposed-lowering-to-typed-snail-core-subsets)
-make provider arguments explicit and distinguish direct and control calls
-before lowering control into ordinary functions and data. The transformation
-must preserve class applications, closure environments and ownership through
-specialization, analyze recursive calls, and establish control
-conventions before emitting Wasm. Separate compilation must preserve
-provider types and make generic bodies available for specialization.
+expose continuation bodies and provider parameters before specialization.
+Continuation simplification and escape analysis recover direct calls and
+local control flow where proved safe. A queued continuation still needs a
+representation preserving its captures, effects and ownership. Recursive CPS
+must not generate an unbounded specialization family from nested continuation
+capture types. Separate compilation must expose the generic CPS bodies and
+identities needed for downstream provider specialization.
 
 Validation must cover a direct and a control provider for the same class,
 a generic higher-order consumer under each, nested providers, runtime
@@ -527,8 +527,9 @@ restored. Check that both ordinary closures and resumptions enforce their
 invocation and cleanup contracts. Reject inconsistent
 provider method types, ambiguous instances, operation-local polymorphism,
 erased provider selection and repeated use
-of one-shot continuations. Execute linked Wasm and check that direct
-specializations have no unnecessary yield checks or continuation allocations.
+of one-shot continuations. Execute linked Wasm and check simple direct-provider
+specializations for eliminated administrative continuations. Also execute
+correct residual CPS when simplification cannot recover direct calls.
 Queue tests must accept smaller job rows, reject effects outside the queue's
 bound, separate enqueue effects from invocation effects, and check cleanup
 when jobs are cancelled. Exercise distinct concrete job types once their
