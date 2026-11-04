@@ -262,6 +262,12 @@ function of the expander has `mut` in its row — and where it does not, the
   checked value; `try-convert` is gone before specialization. Ownership
   and control see ordinary branches and calls,
   rather than a backend-only exception protocol.
+  An immediate match with an `Ok` variable and an unbound fallback needs
+  neither the temporary `Result` nor its discarded error. The same applies
+  to a `Pair` of two such probes: both inputs are evaluated in source order
+  before testing, and successful projections bind the typed operands.
+  The fallback is emitted once. Escaping results, observed errors, and
+  nested success patterns retain ordinary conversion and matching.
 - **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/capabilities.sld)** finds
   structural properties of types from their declared fields: whether a
   type is first-order data, which dynamic exports require; whether it
