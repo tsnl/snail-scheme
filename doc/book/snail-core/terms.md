@@ -106,10 +106,10 @@ own merits, alongside bindings, calls, signatures and callback bodies.
 The proposed [callable signatures](types.md#proposed-callable-typeclass)
 use `impl Fun` contracts in place of `->`, with `fun` for definitions.
 Direct-style suspension remains available: the compiler turns the remaining
-computation into a one-shot callable. A checked suspension marker, with `!!`
-as a candidate spelling, should expose continuation boundaries even through
-wrapper calls. Exact punctuation remains open; `!` retains its mutation
-convention. [Effect transitions](effects.md#resumption-effects-and-effect-transitions)
+computation into a one-shot callable. Callable contracts expose continuation
+boundaries, including through wrapper calls. A separate checked call-site
+marker remains open; examples use ordinary operation names and `!` retains
+its mutation convention. [Effect transitions](effects.md#resumption-effects-and-effect-transitions)
 describe entry and resumption requirements. The proposed
 [places and locators](types.md#proposed-places-and-locators) let field
 selection describe a typed path without exposing the compiler's field
