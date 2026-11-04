@@ -28,8 +28,6 @@
    (snail shell compiler core)
    (snail shell compiler expand)
    (snail shell compiler check)
-   (snail shell compiler mono)
-   (snail shell compiler control)
    (snail shell compiler wasm)
    (snail shell compiler session))
   (begin
@@ -64,8 +62,7 @@
     (define (source->wat directories source generate inputs)
       (let* ((expanded (source->expanded directories source generate inputs))
              (typed (check-program (ExpandedProgram-program expanded)))
-             (mono (name-yield-points (monomorphize typed)))
-             (module (emit-module mono)))
+             (module (emit-module typed)))
         (WholeProgram (wat->string module) (program-links expanded))))
 
     ;; One module of text per library, and one for the program, in program

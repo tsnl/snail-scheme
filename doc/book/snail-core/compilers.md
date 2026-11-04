@@ -1,16 +1,27 @@
 # Compiler architecture
 
-The compiler is a pipeline of six passes. Each pass consumes the previous
-pass's output and nothing earlier:
+The compiler has three main transformations: expand, check, and compile.
+Reading supplies located syntax to expansion; compilation requests concrete
+implementations and emits Wasm one definition at a time.
 
 ```text
 text ──read──▶ located syntax
      ──expand─▶ core program      unique names, resolved types, entity tables
      ──check──▶ typed program     every expression typed, instances chosen
-     ──mono───▶ monomorphic program
-     ──control▶ monomorphic program, each call that may yield a let's value
-     ──wasm───▶ WasmGC text ──assemble──▶ module, linked with the Rust runtime
+     ──compile▶ WasmGC text ──assemble──▶ module, linked with the Rust runtime
 ```
+
+Compilation has one worklist. A request reserves a signature and an executable
+name before visiting the body, so recursion can refer to code not yet emitted.
+The backend instantiates that definition, lowers its control expressions,
+emits its Wasm, and discards the temporary body. Calls and generated cleanup
+request more work through the same registry. Checked source and emitted Wasm
+survive; whole monomorphic and control-lowered programs do not.
+
+This is streamed specialization and lowering. It still constructs a temporary
+concrete expression tree for each definition. The [proposal below](#proposed-specialization-directly-to-wasmgc)
+extends this boundary to emission directly from checked source, static provider
+contracts, and tagged saved frames; those changes are not implemented here.
 
 Static debug and release builds compile the whole program and merge the Rust
 services into one module; release increases optimization. Development builds
@@ -139,7 +150,7 @@ function of the expander has `mut` in its row — and where it does not, the
   [`src/snail/core/primitive.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/core/primitive.sld),
   read and resolved like any library. `(primitive i32-add (-> I32 I32 I32))`
   declares one, as `extern` declares a foreign function: it binds the name to
-  the global `prim:i32-add`, the name the checker, mono and `emit-primitive`
+  the global `prim:i32-add`, the name the checker, specialization and `emit-primitive`
   know it by, whose value is a `Primitive` of the declared scheme. A generic
   primitive names its variables, `(All (A) (-> (Vector A) I64 A))`. The form
   is accepted only in that library, whose body holds nothing else, so it
@@ -242,7 +253,7 @@ function of the expander has `mut` in its row — and where it does not, the
   can hold mutable storage. And once a library's types are final, it
   refuses a `type-convert` or `type-test` whose types hold a function that
   performs effects, or a type variable (core's `hidden-effects`): an `Any`'s
-  TypeId keys its type without rows, and mono erases the ordinary ones
+  TypeId keys its type without rows, and specialization erases the ordinary ones
   next, so this is the last pass that could tell. It also refuses a
   closure that may not capture, a `fn` or a top-level function, that
   reads a local from around it (`check-closed`), so the backend knows such
@@ -288,7 +299,7 @@ function of the expander has `mut` in its row — and where it does not, the
   which discards or shares the value, an instance's method, or glue, or
   why it cannot run, as for a clone of a `FnOnce`. The checker asks it for
   the rows, under the definition's `Copy` variables and requirements, and
-  records the plan in the drop's evidence; mono asks again at the ground
+  records the plan in the drop's evidence; specialization asks again at the ground
   type, and `plan-covers?` checks that the ground plan runs no more than
   was charged. It cannot, since a `Copy` variable is bound only to an
   unrestricted type, where a signature or an instance is used, so grounding
@@ -309,21 +320,22 @@ function of the expander has `mut` in its row — and where it does not, the
   linear local leaves it live, the place rule, and may not read or
   discard a linear value; a replacement instead consumes its record and
   answers it.
-- **[`mono.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/mono.sld)** starts from the program's
-  statements and values and copies each reachable definition once per ground
-  instantiation. A method reference becomes the instance method its evidence
-  names, and definitions that only rename another, such as
-  `(define + i64-add)`, are replaced by their target. A drop becomes what
-  releases its ground type: the primitive `discard`, an instance's method,
-  or glue, a function made here once per type, which matches the value
-  apart and drops each linear immutable field, the last in tail position.
-  A clone becomes glue that pairs an omega value with itself, an
-  instance's method, or glue that clones each linear immutable field and
-  builds two values from the halves and the shared other fields. The
-  pass's state, the copies requested and made and the glue, is a value
-  that each step hands to the next, as the checker's is, so the order of
-  the copies is the order of the steps, and the pass is a function of
-  its input.
+- **[`specialize.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/specialize.sld)** owns
+  concrete executable identities. Its immutable registry holds checked source,
+  binding signatures, recipes, and pending names. A recipe is a source
+  definition with concrete type arguments and selected class evidence, or
+  generated drop, clone, or share glue. Reserving a name before visiting its
+  recipe makes recursive functions and recursive cleanup finite. Imported
+  monomorphic definitions retain their signatures and need no local body.
+
+  `next-definition` consumes one recipe. A method reference becomes the
+  instance method its evidence names; an alias such as `(define + i64-add)`
+  becomes its target. A drop becomes `discard`, an instance method, or glue
+  that drops linear fields in order, the last in tail position. A clone
+  becomes a shared pair, an instance method, or glue that reconstructs two
+  values from the cloned and shared fields. Glue recipes join the same queue;
+  their bodies are built only when requested by emission. No completed
+  definition is stored in the registry.
 - **[`control.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/control.sld)** prepares the calls
   that may yield to a control handler. After specialization a row keeps
   only control effects, so a call may yield exactly when its callee's row
@@ -339,11 +351,12 @@ function of the expander has `mut` in its row — and where it does not, the
   aborting branch never mentions. A tail call with otherwise abandoned
   owners receives a cleanup frame too. Ordered ownership lists preserve
   reverse binding order. `once` of a lambda with linear captures is marked
-  with their dropper: a thunk closed over those values, whose drops the pass asks mono for, so a dropped
+  with their dropper: a thunk closed over those values, whose drops join the
+  specialization worklist, so a dropped
   resume or lambda releases what it held ("Droppers"). Abortive exits run
-  the same droppers while unwinding, before entering the catch handler. A program without
-  control effects comes back as it went in, as does each item without
-  such a call. The pass also refuses a
+  the same droppers while unwinding, before entering the catch handler.
+  `lower-item` handles one definition or statement and returns it directly
+  to emission. An item without control effects needs no rewrite. It also refuses a
   control row where nothing could carry a yield: in a `vector-generate` or
   `string-generate` callback, which a WAT loop calls; in an `unsafe-total`
   thunk, whose row the call discards; in dispatched work, which runs later
@@ -355,13 +368,23 @@ function of the expander has `mut` in its row — and where it does not, the
   in the implementation
   of an operation declared without `ctl`, which returns into a handled
   body that tests for a yield there only to the control effects the
-  operation's type names. Items are checked from the last back, since a
-  copy of a generic comes before the code that made it, so a refusal
-  names the call that made a copy. It checks, too, the one rule the backend relies
-  on that needs specialized definitions: an exposed function's definition,
-  this library's or an imported one, has a lambda as its value.
+  operation's type names. Statements are checked before the definitions
+  they request, and a requested body before its callees, so errors can point
+  at the caller. Restrictions that depend on a helper's locally handled
+  effects inspect its checked recipe through a temporary instantiation;
+  analysis-local requests do not change executable discovery. Recursive
+  inspection falls back to the declared row, and runtime-selected or imported
+  callees remain conservative. An exposed function must have a lambda as
+  its definition, established from its reserved binding.
 - **[`wasm.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/wasm.sld)** chooses representations and
-  emits WebAssembly text. Scalars are Wasm numbers. An enum whose cases have
+  drives the worklist and emits WebAssembly text. `compile-items` seeds roots,
+  emits statements, and drains requested definitions. `emit-item` specializes
+  control and cleanup for that item before emitting it; its temporary trees
+  do not escape the step. Global initializer instructions are collected by
+  their original definition and assembled in checked source order, regardless
+  of discovery order. Every monomorphic global initializes even when unused;
+  all initializers precede the statements. Library builds export monomorphic
+  definitions and instantiate imported generics locally. Scalars are Wasm numbers. An enum whose cases have
   no fields is an `i32`; other data are GC structs, and enum cases are final
   subtypes of a base holding the tag. A field holding a struct is laid out
   inline, as that struct's fields, so a nested value costs no second
@@ -450,11 +473,11 @@ function of the expander has `mut` in its row — and where it does not, the
 - **[`session.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/session.sld)** keeps the compiler
   running between builds: the expander replays libraries whose declarations
   and imports' interfaces are unchanged, and only libraries whose expansion
-  changed are checked, specialized and emitted again. Cached emissions keep
-  their monomorphic items so handler capture proofs can be rechecked against
-  current helper bodies without regenerating unchanged Wasm text. Input
-  generators and immutable build inputs are passed to each build; sessions
-  retain only compilation evidence. Each `Built` module carries the files its
+  changed are checked and compiled again. Its cache holds checked items,
+  schemes, and emitted text. Checked generic bodies remain available when a
+  new importer requests another specialization; cached concrete bodies are
+  unnecessary. Input generators and immutable build inputs are passed to
+  each build. Each `Built` module carries the files its
   library links, compiled this build or not, so a build places them all.
 - **[`plan.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/project/plan.sld)** orders a project build's
   phases before any of them runs: building a target, and running a
@@ -1100,7 +1123,7 @@ hash; the TypeId an `Any` carries is tested on every call.
 The checker adds two rules to `expose`'s for a dynamic function. Its
 parameters and result are data, with no function, `Funcref` or `Any`
 inside: a function type's TypeId says only that it is a function, and an
-`Any`'s nothing of what it holds. And it is pure. Mono erases every effect
+`Any`'s nothing of what it holds. And it is pure. Specialization erases every effect
 but the control effects before the backend runs, so neither side's backend
 knows the function's effects and the signature cannot carry them; a
 program that declared fewer effects than the plugin performs would go

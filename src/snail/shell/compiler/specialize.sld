@@ -1,26 +1,31 @@
-;; Typed program to monomorphic program. Starting from the statements and
-;; top-level values, each reachable definition is copied once per ground type
-;; instantiation. Method references become references to the instance method
+;; Specialization requests over checked source. Each reachable definition is
+;; instantiated once per ground type and handed directly to Wasm emission. Method references become references to the instance method
 ;; their evidence names, so no instance is selected twice; a drop or a
 ;; clone becomes what its ground type runs, glue among it, made here. A
 ;; library can also be specialized alone, as one module of a program linked
 ;; when it runs.
-(define-library (snail shell compiler mono)
+(define-library (snail shell compiler specialize)
   (export
-   Mono
-   Mono-program
-   Mono-items
-   Mono-externals
-   Mono-exported
-   Mono-input
-   Mono-owner
-   drop-functions
    Specialization
-   Specialization-definitions
+   Specialization-typed
    prepare-specialization
-   control-effects
-   monomorphize
-   monomorphize-library)
+   State
+   State-owner
+   State-control
+   Binding
+   Binding-type
+   Binding-function?
+   Binding-external?
+   new-state
+   specialization-program
+   specialization-binding
+   inspect-specialization
+   definition-origin
+   start-specialization
+   specialize-statement
+   next-definition
+   request-drops
+   control-effects)
   (import
    (snail core base)
    (snail core table)
@@ -31,16 +36,6 @@
   (begin
 
     ;; ---- Specialization state ----
-
-    ;; A library's module also lists the definitions of other libraries it
-    ;; refers to, which it imports, and the names it exports.
-    (struct Mono
-      ((program Program)
-       (items (List Item))
-       (externals (Table Expr))
-       (exported (List String))
-       (input (Option Specialization))
-       (owner (Option String))))
 
     ;; Checked facts shared by every library emitted in one build. Preparing
     ;; them once keeps lookup independent of each library's request lifetime.
@@ -58,30 +53,48 @@
                                    (table-values (Program-instances (Typed-program typed)))))))
         (Specialization typed instances (item-definitions (Typed-items typed)))))
 
-    ;; Every emission owns fresh requests, copies in creation order, and
-    ;; imports. `owner` names a library, or None for the whole program.
-    ;; `done` names every specialization and glue function asked for so
-    ;; far; `pending` holds the requests not yet copied, newest first; and
-    ;; `glue` the glue made so far, newest first, which belongs to no
-    ;; definition, so each module emits its own. The state is a value:
-    ;; each step that can request a copy takes it and hands back the next,
-    ;; so requests, and the copies they produce, come in the order the
-    ;; steps are written, on either host.
+    ;; Requests reserve names before visiting bodies, so recursive calls and
+    ;; recursive drop glue terminate. Only checked source, request descriptors,
+    ;; and binding signatures survive emission. A copied body is handed to
+    ;; the emitter and discarded; there is no monomorphic program to retain.
     (struct State
       ((input Specialization)
        (owner (Option String))
        (control (List String))
-       (done (Table String))
-       (specialized (Table (List Item)))
-       (pending (List Request))
-       (externals (Table Expr))
-       (glue (List Item))))
+       (bindings (Table Binding))
+       (pending (List String))))
 
-    (struct Request
-      ((name String)
-       (spec String)
-       (types (List Type))
-       (evidence (List Evidence))))
+    ;; A binding reserves an executable identity and its signature before
+    ;; its body is visited. Even generated glue is a recipe, never a saved
+    ;; expression tree. Imports have no body to emit in this module.
+    (struct Binding
+      ((type Type)
+       (function? Bool)
+       (body Body)))
+
+    (enum Body
+      (Source
+       ((name String)
+        (types (List Type))
+        (evidence (List Evidence))))
+      (DropGlue
+       ((method String)
+        (subject Type)
+        (loc Loc)))
+      (CloneGlue
+       ((method String)
+        (subject Type)
+        (loc Loc)))
+      (ShareGlue
+       ((subject Type)
+        (loc Loc)))
+      (Imported))
+
+    (: Binding-external? (-> Binding Bool))
+    (define (Binding-external? binding)
+      (match (Binding-body binding)
+        ((Imported) #t)
+        (_ #f)))
 
     ;; The types and evidence that replace a definition's quantified variables
     ;; and requirements while it is copied.
@@ -122,8 +135,8 @@
                              (Pair (Nil) state) items)))
         (Pair (reverse (Pair-first done)) (Pair-second done))))
 
-    (: program-of (-> State Program))
-    (define (program-of state)
+    (: specialization-program (-> State Program))
+    (define (specialization-program state)
       (Typed-program (Specialization-typed (State-input state))))
 
     (: definition (-> State String Expr))
@@ -146,47 +159,82 @@
                       name
                       (string-append name "<" (string-join (map spec-key types) ",") ">"))))
         (Pair spec
-              (if (table-contains? (State-done state) spec)
+              (if (table-contains? (State-bindings state) spec)
                   state
-                  (State-pending-set (State-done-set state (table-set (State-done state) spec spec))
-                                     (Cons (Request name spec types evidence)
-                                           (State-pending state)))))))
+                  (let ((value (definition state name)))
+                    (reserve state spec
+                             (Binding
+                              (ground (instantiation state name types evidence) (Expr-type value))
+                              (lambda-expr? value) (Source name types evidence))))))))
 
-    ;; The state once a monomorphic definition's copy is requested.
+    ;; All executable work, including recursive glue, uses this reservation
+    ;; rule and this queue. Merely looking up a binding never generates code.
+    (: reserve (-> State String Binding State))
+    (define (reserve state name binding)
+      (if (table-contains? (State-bindings state) name)
+          state
+          (State-pending-set
+           (State-bindings-set state (table-set (State-bindings state) name binding))
+           (Cons name (State-pending state)))))
+
     (: requested (-> State String State))
     (define (requested state name)
-      (Pair-second (request state name (Nil) (Nil))))
+      (if (external? state name (Nil))
+          (import-definition state name (definition state name))
+          (Pair-second (request state name (Nil) (Nil)))))
 
-    (: run-requests (-> State State))
-    (define (run-requests state)
+    (: instantiation (-> State String (List Type) (List Evidence) Instantiation))
+    (define (instantiation state name types evidence)
+      (Instantiation (zip (Scheme-vars (scheme-of state name)) types)
+                     evidence (State-control state)))
+
+    ;; Pop before visiting the body: any callees and cleanup discovered
+    ;; while instantiating or lowering it join the same worklist.
+    (: next-definition (-> State (Pair (Option Item) State)))
+    (define (next-definition state)
       (match (State-pending state)
-        ((Cons request rest)
-         (run-requests (specialize-request (State-pending-set state rest) request)))
-        ((Nil) state)))
+        ((Cons name rest)
+         (specializing state ((then (State-pending-set rest))
+                              (value (instantiate-body (Binding-body (binding-of state name)))))
+                       (Pair (Some (Define name value)) state)))
+        ((Nil) (Pair (None) state))))
 
-    ;; A copy is added after the definition's earlier copies, read once it
-    ;; is made, since making it can request another copy of the same
-    ;; definition.
-    (: specialize-request (-> State Request State))
-    (define (specialize-request state request)
-      (let* ((name (Request-name request))
-             (scheme (scheme-of state name))
-             (inst (Instantiation (zip (Scheme-vars scheme) (Request-types request))
-                                  (Request-evidence request)
-                                  (State-control state))))
-        (specializing state ((value (copy-expr inst (definition state name))))
-                      (State-specialized-set state
-                                             (table-set (State-specialized state)
-                                                        name
-                                                        (append (copies-of state name)
-                                                                (list (Define (Request-spec request)
-                                                                        value))))))))
+    (: instantiate-body (-> State Body (Pair Expr State)))
+    (define (instantiate-body state body)
+      (match body
+        ((Source name types evidence)
+         (copy-expr state (instantiation state name types evidence) (definition state name)))
+        ((DropGlue method subject loc) (drop-function state method subject loc))
+        ((CloneGlue method subject loc) (clone-function state method subject loc))
+        ((ShareGlue subject loc) (Pair (share-function subject loc) state))
+        ((Imported) (panic "internal error: an import cannot be queued"))))
 
-    (: copies-of (-> State String (List Item)))
-    (define (copies-of state name)
-      (match (table-ref (State-specialized state) name)
-        ((Some copies) copies)
-        ((None) (Nil))))
+    (: specialization-binding (-> State String (Option Binding)))
+    (define (specialization-binding state name)
+      (table-ref (State-bindings state) name))
+
+    (: binding-of (-> State String Binding))
+    (define (binding-of state name)
+      (match (specialization-binding state name)
+        ((Some binding) binding)
+        ((None) (panic (string-append "internal error: no reserved binding " name)))))
+
+    ;; Restriction analysis may inspect a helper before it is emitted. Its
+    ;; temporary copy and any requests it discovers live only in that
+    ;; analysis; emission later discovers its own callees. No copy is cached.
+    (: inspect-specialization (-> State String (Pair (Option Expr) State)))
+    (define (inspect-specialization state name)
+      (match (Binding-body (binding-of state name))
+        ((Source source types evidence)
+         (specializing state ((value (instantiate-body (Source source types evidence))))
+                       (Pair (Some value) state)))
+        (_ (Pair (None) state))))
+
+    (: definition-origin (-> State String String))
+    (define (definition-origin state name)
+      (match (Binding-body (binding-of state name))
+        ((Source source _ _) source)
+        (_ name)))
 
     ;; ---- Copying ----
 
@@ -349,7 +397,7 @@
     ;; its specialization; a method becomes its instance's implementation.
     (: reference (-> State String (List Type) (List Evidence) Type Loc (Pair Expr State)))
     (define (reference state name types evidence type loc)
-      (match (program-value (program-of state) name)
+      (match (program-value (specialization-program state) name)
         ((Some (Defined _ _ _)) (definition-reference state name types evidence type loc))
         ((Some (Method class _))
          (if (lifecycle-class? class)
@@ -363,11 +411,11 @@
              (match evidence
                ((Cons (EvInstance instance instance-types subs) rest)
                 (let ((class-arity
-                       (length (Class-params (program-class (program-of state) class))))
+                       (length (Class-params (program-class (specialization-program state) class))))
                       (target (instance-method state instance name)))
                   ;; A struct's own field instance names the field's
                   ;; accessor, a builtin, which keeps its name.
-                  (match (program-value (program-of state) target)
+                  (match (program-value (specialization-program state) target)
                     ((Some (Defined _ _ _))
                      (definition-reference state
                        target
@@ -400,16 +448,13 @@
 
     (: planned-reference (-> State String String Type (Option Plan) Type Loc (Pair Expr State)))
     (define (planned-reference state class method subject charged type loc)
-      (match (covered-plan (lifecycle-plan (program-of state) class (Nil) subject) charged subject)
+      (match (covered-plan (lifecycle-plan (specialization-program state) class (Nil) subject)
+                           charged
+                           subject)
         ((Trivial)
          (if (string=? class drop-class)
              (Pair (Expr (Var "prim:discard" (Nil) (Nil)) type loc) state)
-             (glue-reference state
-                             "share"
-                             subject
-                             type
-                             loc
-                             (lambda (state) (Pair (share-function subject loc) state)))))
+             (glue-reference state "share" subject type loc (ShareGlue subject loc))))
         ((Implemented instance)
          (definition-reference state
            (instance-method state (Instance-name instance) method)
@@ -420,9 +465,9 @@
         ((Glue)
          (if (string=? class drop-class)
              (glue-reference state "drop" subject type loc
-                             (lambda (state) (drop-function state method subject loc)))
+                             (DropGlue method subject loc))
              (glue-reference state "clone" subject type loc
-                             (lambda (state) (clone-function state method subject loc)))))
+                             (CloneGlue method subject loc))))
         ((Refused reason)
          (panic (string-append "internal error: the checker allowed this: " reason)))))
 
@@ -452,27 +497,22 @@
                  ((None) empty-row)))
              (Instance-vars instance))))
 
-    ;; Glue is a function of one ground type, made the first time a drop or
-    ;; a clone needs it, and named before it is made, so that the drops and
-    ;; clones it makes of the fields reach their own glue, its own for a
-    ;; recursive type. It is built ground, so nothing copies it.
-    (: glue-reference
-       (-> State String Type Type Loc (-> State (Pair Expr State)) (Pair Expr State)))
-    (define (glue-reference state kind subject type loc make)
+    ;; Glue has one implementation per concrete type. Reserve its recipe
+    ;; now, and build the body only when the emitter asks for the next item.
+    (: glue-reference (-> State String Type Type Loc Body (Pair Expr State)))
+    (define (glue-reference state kind subject type loc body)
       (let ((name (string-append "glue:" kind "<" (spec-key subject) ">")))
         (Pair (Expr (Var name (Nil) (Nil)) type loc)
-              (if (table-contains? (State-done state) name)
-                  state
-                  (with-glue (State-done-set state (table-set (State-done state) name name))
-                             name
-                             make)))))
+              (reserve state name (Binding (glue-type type) #t body)))))
 
-    ;; The state once the glue `make` builds is added, after the glue it
-    ;; needed made first.
-    (: with-glue (-> State String (-> State (Pair Expr State)) State))
-    (define (with-glue state name make)
-      (specializing state ((value (make)))
-                    (State-glue-set state (Cons (Define name value) (State-glue state)))))
+    ;; A method use may have the enclosing control row. Generated glue
+    ;; itself never yields, independently of which use first requested it.
+    ;; Nested function arguments keep their own control rows.
+    (: glue-type (-> Type Type))
+    (define (glue-type type)
+      (match type
+        ((TFun params result _) (TFun params result empty-row))
+        (_ (panic "internal error: glue has a function type"))))
 
     ;; Drop glue matches the value apart and drops each linear immutable
     ;; field, skipping the rest.
@@ -488,7 +528,8 @@
     ;; and skips the others, then drops what it bound, in field order.
     (: drop-clause (-> State String Type Case Loc (Pair Clause State)))
     (define (drop-clause state method dropped case loc)
-      (let* ((program (program-of state)) (released (glue-fields program (Nil) dropped case)))
+      (let* ((program (specialization-program state))
+             (released (glue-fields program (Nil) dropped case)))
         (specializing state
                       ((drops (each (lambda (state field) (glue-drop state method case field loc))
                                     released)))
@@ -537,7 +578,7 @@
 
     (: clone-clause (-> State String Type Case Loc (Pair Clause State)))
     (define (clone-clause state method cloned case loc)
-      (let* ((program (program-of state))
+      (let* ((program (specialization-program state))
              (types (field-types program cloned case))
              (linear (glue-fields program (Nil) cloned case)))
         (specializing state
@@ -635,7 +676,7 @@
     ;; clause for each case.
     (: glue-lambda (-> State Type Type (-> State Case (Pair Clause State)) Loc (Pair Expr State)))
     (define (glue-lambda state subject result clause loc)
-      (let ((data (program-type (program-of state) (type-name subject)))
+      (let ((data (program-type (specialization-program state) (type-name subject)))
             (value (Expr (Var "glue%value" (Nil) (Nil)) subject loc)))
         (specializing state ((clauses (each clause (DataType-cases data))))
                       (Pair
@@ -694,7 +735,9 @@
     (: operation-reference (-> State String String Type Loc (Pair Expr State)))
     (define (operation-reference state effect name type loc)
       (Pair (Expr (Var name (Nil) (Nil)) type loc)
-            (match (assoc-ref (Effect-defaults (program-effect (program-of state) effect)) name)
+            (match (assoc-ref
+                    (Effect-defaults (program-effect (specialization-program state) effect))
+                    name)
               ((Some function)
                (Pair-second (definition-reference state
                               function
@@ -730,9 +773,22 @@
                         value)))
           (_ (if (external? state name types)
                  (Pair (Expr (Var name (Nil) (Nil)) type loc)
-                       (State-externals-set state (table-set (State-externals state) name value)))
+                       (import-definition state name value))
                  (specializing state ((spec (request name types evidence)))
                                (Pair (Expr (Var spec (Nil) (Nil)) type loc) state)))))))
+
+    ;; Imports and emitted definitions share one identity table. In
+    ;; particular, exposing an imported function must not enqueue a local
+    ;; copy that a later reference could replace with an import.
+    (: import-definition (-> State String Expr State))
+    (define (import-definition state name value)
+      (if (table-contains? (State-bindings state) name)
+          state
+          (State-bindings-set state
+                              (table-set (State-bindings state) name
+                                         (Binding (Expr-type value)
+                                                  (lambda-expr? value)
+                                                  (Imported))))))
 
     (: external? (-> State String (List Type) Bool))
     (define (external? state name types)
@@ -740,18 +796,13 @@
         ((Some owner) (and (null? types) (not (string=? (name-owner name) owner))))
         ((None) #f)))
 
-    ;; ---- Programs ----
+    ;; ---- Roots and cleanup requests ----
 
     (: new-state (-> Specialization (Option String) State))
     (define (new-state input owner)
-      (State input
-             owner
+      (State input owner
              (control-effects (Typed-program (Specialization-typed input)))
-             empty-table
-             empty-table
-             (Nil)
-             empty-table
-             (Nil)))
+             empty-table (Nil)))
 
     ;; The effects with a control operation, in order of their names.
     (: control-effects (-> Program (List String)))
@@ -760,91 +811,44 @@
                  (map Effect-name (filter (lambda (effect) (not (null? (Effect-control effect))))
                                           (table-values (Program-effects program))))))
 
-    ;; Statements and monomorphic top-level values are roots, so their
-    ;; initializers run even when nothing refers to them. Functions are
-    ;; copied only when reached.
-    (: monomorphize (-> Typed Mono))
-    (define (monomorphize typed)
-      (let* ((items (Typed-items typed)) (state (new-state (prepare-specialization typed) (None))))
-        (specializing state ((statements (each root-item items)) (then (run-requests)))
-                      (finish-mono state
-                                   (concatenate
-                                    (map (lambda (pair)
-                                           (output-items state
-                                                         (Pair-first pair)
-                                                         (Pair-second pair)))
-                                         (zip items statements)))
-                                   (Nil)))))
+    ;; A library exports every monomorphic definition. A whole program only
+    ;; needs functions reached by its statements, exposures, and initializers.
+    ;; Initializers are roots even when their values are never used.
+    (: start-specialization (-> State (List Item) (Pair (List String) State)))
+    (define (start-specialization state items)
+      (specializing state ((exports (each root-item items)))
+                    (Pair (concatenate exports) state)))
 
-    ;; One library's items, `items` among the program's. Every monomorphic
-    ;; definition is a root, since any module may import it. Copies of other
-    ;; libraries' definitions, the generic ones this library uses, come first,
-    ;; in program order, as those libraries come before it.
-    (: monomorphize-library (-> Specialization String (List Item) Mono))
-    (define (monomorphize-library input owner items)
-      (let ((typed (Specialization-typed input)) (state (new-state input (Some owner))))
-        (specializing state ((exported (library-roots items))
-                             (statements (each root-item items))
-                             (then (run-requests)))
-                      (finish-mono state
-                                   (append (concatenate
-                                            (map (lambda (item) (foreign-copies state owner item))
-                                                 (Typed-items typed)))
-                                           (concatenate (map (lambda (pair)
-                                                               (output-items state
-                                                                             (Pair-first pair)
-                                                                             (Pair-second pair)))
-                                                             (zip items statements))))
-                                   exported))))
+    (: root-item (-> State Item (Pair (List String) State)))
+    (define (root-item state item)
+      (match item
+        ((Expose name _ _ _) (Pair (Nil) (requested state name)))
+        ((Define name value)
+         (if (and (null? (Scheme-vars (scheme-of state name))) (not (alias-expr? value)))
+             (match (State-owner state)
+               ((Some _) (Pair (list name) (requested state name)))
+               ((None) (Pair (Nil) (if (lambda-expr? value) state (requested state name)))))
+             (Pair (Nil) state)))
+        (_ (Pair (Nil) state))))
 
-    (: finish-mono (-> State (List Item) (List String) Mono))
-    (define (finish-mono state items exported)
-      (Mono (program-of state)
-            (append (reverse (State-glue state)) items)
-            (State-externals state)
-            exported
-            (Some (State-input state))
-            (State-owner state)))
+    (: specialize-statement (-> State Item (Pair Item State)))
+    (define (specialize-statement state item)
+      (match item
+        ((Do expr)
+         (specializing state
+                       ((value (copy-expr (Instantiation (Nil) (Nil) (State-control state)) expr)))
+                       (Pair (Do value) state)))
+        (_ (Pair item state))))
 
-    ;; ---- Drops on demand ----
-
-    ;; The control pass gives each frame and each once lambda a dropper for
-    ;; the linear values it holds (control.sld, "Droppers"), and asks here
-    ;; for the drop of each ground type: an instance's method, glue, or a
-    ;; primitive, by `lifecycle-reference`. The glue and the copies that
-    ;; makes join the module's items, and its externals the module's.
-    (: drop-functions (-> Mono (List Type) Loc (Pair (Table Expr) Mono)))
-    (define (drop-functions mono types loc)
-      (let ((state (State-done-set (new-state (mono-input mono) (Mono-owner mono))
-                                   (item-names (Mono-items mono)))))
-        (specializing state ((drops (each (lambda (state type) (drop-entry state type loc)) types))
-                             (then (run-requests)))
-                      (Pair (fold-left (lambda (table entry)
-                                         (table-set table (Pair-first entry) (Pair-second entry)))
-                                       empty-table
-                                       drops)
-                            (Mono (Mono-program mono)
-                                  (append (reverse (State-glue state))
-                                          (append (concatenate
-                                                   (table-values (State-specialized state)))
-                                                  (Mono-items mono)))
-                                  (fold-left (lambda (table name)
-                                               (match (table-ref (State-externals state) name)
-                                                 ((Some value) (table-set table name value))
-                                                 ((None) table)))
-                                             (Mono-externals mono)
-                                             (table-keys (State-externals state)))
-                                  (Mono-exported mono)
-                                  (Mono-input mono)
-                                  (Mono-owner mono))))))
-
-    ;; A module made from a specialization has one; the control module,
-    ;; which holds no code, has none and asks for no drops.
-    (: mono-input (-> Mono Specialization))
-    (define (mono-input mono)
-      (match (Mono-input mono)
-        ((Some input) input)
-        ((None) (panic "internal error: a module without a specialization asked for drops"))))
+    ;; Frame cleanup asks for ordinary definitions or derived glue. Those
+    ;; requests join the very same queue as calls discovered in a body.
+    (: request-drops (-> State (List Type) Loc (Pair (Table Expr) State)))
+    (define (request-drops state types loc)
+      (specializing state ((drops (each (lambda (state type) (drop-entry state type loc)) types)))
+                    (Pair (fold-left (lambda (table entry)
+                                       (table-set table (Pair-first entry) (Pair-second entry)))
+                                     empty-table drops)
+                          state)))
 
     (: drop-entry (-> State Type Loc (Pair (Pair String Expr) State)))
     (define (drop-entry state type loc)
@@ -856,68 +860,11 @@
                                                       loc)))
                     (Pair (Pair (type-key type) drop) state)))
 
-    ;; The Drop class's one method, by its global name, which an instance
-    ;; implements under.
     (: drop-method (-> State String))
     (define (drop-method state)
-      (match (Class-methods (program-class (program-of state) drop-class))
+      (match (Class-methods (program-class (specialization-program state) drop-class))
         ((Cons method _) method)
         ((Nil) (panic "internal error: Drop has a method"))))
-
-    (: item-names (-> (List Item) (Table String)))
-    (define (item-names items)
-      (fold-left (lambda (table item)
-                   (match item
-                     ((Define name _) (table-set table name name))
-                     (_ table)))
-                 empty-table
-                 items))
-
-    ;; Requests the library's monomorphic functions, which `root-item` leaves
-    ;; until something reaches them, and returns every name it exports.
-    (: library-roots (-> State (List Item) (Pair (List String) State)))
-    (define (library-roots state items)
-      (specializing state ((roots (each library-root items)))
-                    (Pair (concatenate roots) state)))
-
-    (: library-root (-> State Item (Pair (List String) State)))
-    (define (library-root state item)
-      (match item
-        ((Define name value)
-         (if (and (null? (Scheme-vars (scheme-of state name))) (not (alias-expr? value)))
-             (Pair (list name) (requested state name))
-             (Pair (Nil) state)))
-        (_ (Pair (Nil) state))))
-
-    (: foreign-copies (-> State String Item (List Item)))
-    (define (foreign-copies state owner item)
-      (match item
-        ((Define name _) (if (string=? (name-owner name) owner) (Nil) (copies-of state name)))
-        (_ (Nil))))
-
-    ;; A statement is copied now; a monomorphic value is requested.
-    (: root-item (-> State Item (Pair (Option Item) State)))
-    (define (root-item state item)
-      (match item
-        ((Expose name _ _ _) (Pair (None) (requested state name)))
-        ((Do expr)
-         (specializing state
-                       ((copied (copy-expr (Instantiation (Nil) (Nil) (State-control state)) expr)))
-                       (Pair (Some (Do copied)) state)))
-        ((Define name value)
-         (let ((scheme (scheme-of state name)))
-           (if
-            (and (null? (Scheme-vars scheme)) (not (lambda-expr? value)) (not (alias-expr? value)))
-            (Pair (None) (requested state name))
-            (Pair (None) state))))))
-
-    ;; Each definition's copies take its place in program order.
-    (: output-items (-> State Item (Option Item) (List Item)))
-    (define (output-items state item statement)
-      (match item
-        ((Define name _) (copies-of state name))
-        ((Do _) (match statement ((Some statement) (list statement)) ((None) (Nil))))
-        ((Expose _ _ _ _) (list item))))
 
     (: alias-expr? (-> Expr Bool))
     (define (alias-expr? expr)
@@ -931,13 +878,14 @@
 
   (cond-expand
    (snail-tests
-    (export test-mono)
+    (export test-specialize)
     (import
      (snail stage0 testing))
     (begin
-      (define (test-mono)
+      (define (test-specialize)
         (test-control-rows)
-        (test-spec-keys))
+        (test-spec-keys)
+        (test-glue-contract))
 
       ;; Grounding keeps a row's control effects, in name order, and drops
       ;; the rest, wherever the row sits.
@@ -950,6 +898,27 @@
                   (TFun (list (TCon "I64" (Nil)))
                         (TCon "Unit" (Nil))
                         (TRow (list "abort" "gen") (None))))))
+
+      ;; A pure generated function stays pure even if its first use was
+      ;; widened to an enclosing control row. Its reserved contract must
+      ;; agree with the emitted lambda before that lambda has been built.
+      (define (test-glue-contract)
+        (let* ((i64 (TCon "I64" (Nil)))
+               (row (TRow (list "abort") (None)))
+               (callback (TFun (list i64) i64 row))
+               (type (TFun (list callback) (pair-type callback) row))
+               (state (new-state (prepare-specialization (Typed empty-program (Nil) empty-table))
+                                 (None)))
+               (requested (glue-reference state "share" callback type (Loc "test" 1 1)
+                                          (ShareGlue callback (Loc "test" 1 1))))
+               (state (Pair-second requested)))
+          (match (Expr-term (Pair-first requested))
+            ((Var name _ _)
+             (match (next-definition state)
+               ((Pair (Some (Define _ value)) _)
+                (expect (Binding-type (binding-of state name)) (Expr-type value))
+                (expect (Binding-type (binding-of state name))
+                        (TFun (list callback) (pair-type callback) empty-row))))))))
 
       ;; Without control effects a name is what `type-key` gives, so pure
       ;; code keeps its names; with one, the name says so.
