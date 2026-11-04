@@ -280,8 +280,7 @@ The `Fun` contract states the caller-facing interface. Whether the chosen
 provider returns directly or uses `ctl` belongs to its concrete
 implementation and the compiler's control analysis. A direct discard
 provider and a collecting control provider can satisfy the same caller-facing
-shape;
-their specialized consumers may require different lower-level calling
+shape; their specialized consumers may require different lower-level calling
 conventions. The exact syntax for a `ctl` instance method and its
 continuation binder remains open.
 
@@ -331,34 +330,54 @@ arguments while retaining explicit delimiter and resumption operations;
 a later control translation erases those into ordinary closure calls.
 These are separate obligations.
 
-Stored resumptions expose a semantic choice. Today's resumption rules
-use the surrounding handlers where `resume` is invoked. A closure that
-captures lexically selected provider arguments would instead retain those
-providers. The recommended direction for this static-provider design is
-lexical capture, but it is a behavior change requiring review, especially
-for task schedulers and stored generators. Preserving dynamic rebinding
-would require an explicit parameterized resumption contract and fresh
-specialization at its call sites; it cannot be assumed to follow from
-ordinary closure capture. Read the existing examples under
-[resuming](#resuming) as implemented behavior until that decision is made.
+Stored resumptions capture their providers lexically. Resuming under a
+different local instance does not replace the captured provider. This is
+the chosen direction for the proposal and changes today's invocation-context
+rebinding, including for task schedulers and stored generators. The examples
+under [resuming](#resuming) still describe implemented behavior.
+
+The provider implementation types, method code and environment layout are
+known after specialization. Captured values need not be compile-time
+constants: a provider can hold a runtime string or a place pointing to a
+GC object, and the continuation retains those values. Capturing a place
+retains access to that object, not a snapshot of its contents. There is no
+runtime search for which provider to use, but there can be runtime storage
+for the continuation and its captured environment. Capture ownership remains
+checked.
 
 #### Provider requirements and purity
 
-An implicit-argument requirement and a description of observable effects
-are not interchangeable. A closure can capture a console provider when it
-is created and later write through it without asking its caller for a
-provider. If `!` lists only missing implicit arguments, an empty list no
-longer proves that invoking the closure is pure. The same issue applies to
-captured mutable places. A direct calling convention proves neither purity
-nor absence of allocation.
+The callable's signature can gate the effects of invoking it. For a
+resumption, use the existing `FnOnce` concept with an inferred latent row
+`E`: it accepts the operation's result, produces the delimiter's answer,
+and calling it requires permission for `E`. The exact spelling within
+`impl Fun` remains open; this does not require a second user-facing effect
+annotation just for continuations.
 
-Before removing effect rows as a separate semantic notion, decide whether
-the language accepts that change or retains latent-effect evidence alongside
-provider requirements. A method that writes must not silently satisfy a
-pure callable contract just because its provider is captured. Compiler-owned
-`mut` and `host`, local-mutation confinement, and foreign-call assumptions
-need explicit treatment. The implemented purity promises remain unchanged
-by this documentation proposal.
+`E` describes the resumed computation under its captured providers,
+including observable effects of their implementations. Operations handled
+inside the captured delimiter are accounted for by their providers; they
+are not automatically requirements for a replacement provider at the resume
+site. If the remaining computation writes an externally visible mutable
+place, `mut` remains in its callable contract. Invoking that continuation
+from a context that excludes `mut` must fail, even though the place and
+provider were captured earlier. Checking permission to call does not rebind
+the captured provider.
+
+This rule also applies to ordinary closures, not just resumptions. A
+closure that captures a console provider still has the effects of writing
+through it when invoked. Creation and invocation are checked separately;
+merely capturing a provider does not perform its operations. Dropping a
+one-shot callable must also account for the cleanup effects of its captures.
+
+The distinction needed in the checker is between a missing provider
+argument and the effects of invoking a callable. Capturing an argument can
+remove the former without removing the latter. Carry that effect information
+in the callable type, including through generic consumers. The remaining
+design work is how `!` and associated callable evidence express these two
+obligations, including compiler-owned `mut` and `host`, local-mutation
+confinement and foreign calls. A direct calling convention alone proves
+neither purity nor absence of allocation. Implemented behavior is unchanged.
 
 #### Compiler obligations
 
@@ -380,8 +399,11 @@ provider types and make generic bodies available for specialization.
 Validation must cover a direct and a control provider for the same class,
 a generic higher-order consumer under each, nested providers, runtime
 captures with shared specialized code, early exit and stored one-shot
-resumption. Reject inconsistent provider method types, ambiguous instances,
-operation-local polymorphism, erased provider selection and repeated use
+resumption under a different local provider. Verify that lexical providers
+are retained and that resumption and ordinary-closure invocation enforce
+their latent effects even when providers are captured. Reject inconsistent
+provider method types, ambiguous instances, operation-local polymorphism,
+erased provider selection and repeated use
 of one-shot continuations. Execute linked Wasm and check that direct
 specializations have no unnecessary yield checks or continuation allocations.
 Bootstrap and compiled execution must agree. The language's remaining gaps

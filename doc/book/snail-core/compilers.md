@@ -438,9 +438,11 @@ checked Snail-Core
   -> ordinary calls and closures for WasmGC
 ```
 
-Elaboration resolves scoped instance choices and turns `!` requirements
-into explicit parameters. Source class and method names become typed
-provider fields or known code references. A local instance is a closure
+Elaboration resolves scoped instance choices and turns missing provider
+requirements into explicit parameters. Callable latent effects remain
+checked even when a provider is already captured. Source class and method
+names become typed provider fields or known code references. A local
+instance is a closure
 environment plus statically selected method implementations. Its captured
 values remain runtime arguments. Each method's anonymous associated callable
 type must satisfy its `impl Fun` signature. Source `effect` and `handle`
@@ -468,8 +470,12 @@ Continuation lowering supplies an explicit continuation only where a
 specialized call can transfer control beyond its current direct context.
 The continuation's argument is the operation result; its answer is the
 delimiter's result. A control implementation can resume or abandon it
-according to the linear ownership rules. Nested delimiters, deep
-reinstatement and saved continuations must retain their checked contracts.
+according to the linear ownership rules. Stored continuations retain
+lexically captured providers: implementation types and method code are
+static, while captured values remain runtime data. Calling a resumption
+checks its latent effects without replacing those providers. Nested
+delimiters, deep reinstatement and saved continuations must retain their
+checked contracts.
 After this pass there are ordinary closure calls and explicit environment
 values, with no implicit provider lookup or unresolved control effects.
 The precise CPS representation is a subject for implementation and proof;
@@ -484,13 +490,14 @@ the selected provider code. Runtime-loaded code cannot silently introduce
 an erased provider ABI inconsistent with the static contract. Specialization
 growth and recursion termination need an explicit policy and measurements.
 
-Two semantic questions gate implementation: whether a stored resumption
-captures its selected providers or takes providers from its invocation,
-and whether `!` describes only implicit requirements or also retains latent
-effects. The effects chapter states why these differ from current behavior.
+Before implementation, specify how `!` and associated callable evidence
+represent both missing provider arguments and latent invocation effects.
+Lexical capture is decided; the effects chapter explains its difference
+from today's rebinding and how the `FnOnce` contract gates resumption.
 Acceptance tests should compare direct and control specializations of the
 same consumer, verify runtime capture sharing, and exercise nested and
-stored resumptions across separately compiled libraries. Execute linked
+stored resumptions across separately compiled libraries, including calls
+whose contexts reject the resumption's latent effects. Execute linked
 Wasm and inspect direct specializations for unnecessary control machinery.
 
 ## Separate compilation
