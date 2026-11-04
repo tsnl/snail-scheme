@@ -438,6 +438,87 @@ checked Snail-Core
   -> ordinary calls and closures for WasmGC
 ```
 
+### Grammar
+
+This is a proposed core grammar after provider elaboration and before
+continuation lowering, not source syntax or an implemented serialization.
+`*` means zero or more comma-separated entries; `+` means one or more.
+Identifiers are resolved identities, and every node also retains its source
+location. Generic parameters disappear during specialization; mode variables
+are settled by control analysis before continuation lowering.
+
+```text
+Module    ::= Decl*
+Decl      ::= data D<Param*> = Variant+
+            | code f<Param*> captures (Binding*) (x*) : Signature = Block
+            | extern f : Signature
+Variant   ::= C { Field* }
+Field     ::= field : Type
+Binding   ::= x : Type
+
+Param     ::= α : type | ε : row | χ : mode | κ : callable Signature
+Argument  ::= Type | Row | Mode | CallableId
+CallableId ::= κ | f<Argument*>
+Signature ::= Mode Usage (Type*) : Type ! Row drop Row
+Mode      ::= fun | ctl | χ
+Usage     ::= many | once
+Row       ::= { EffectLabel* } | { EffectLabel* | ε }
+
+Type      ::= α | Scalar | D<Argument*>
+            | Callable<CallableId>
+            | Prompt<Type, Row>
+            | Resume<Mode, Type, Type, Row, Row>
+            | Place<Type, Path> | Array<Type>
+Scalar    ::= Unit | Bool | I32 | I64 | F32 | F64
+Path      ::= root | Path.field | Path.element
+
+Atom      ::= x | literal
+Block     ::= return Atom
+            | let x : Type = Rhs in Block
+            | case Atom of { D.C(x*) => Block }+
+Rhs       ::= Atom
+            | construct D.C<Argument*>(Atom*)
+            | field Atom.field
+            | closure f<Argument*>(Atom*)
+            | call[Mode] Atom(Atom*)
+            | primitive op<Argument*>(Atom*)
+            | delimit p : Prompt<Type, Row> { Block }
+            | capture Atom as k : Resume<Mode, Type, Type, Row, Row> { Block }
+            | resume[Mode] Atom(Atom)
+            | drop Atom
+            | alloc<Type>(Atom)
+            | project Atom.field
+            | index Atom[Atom]
+            | read Atom
+            | write Atom = Atom
+```
+
+`D` names a nominal data type and `C` one of its variants. Providers are
+ordinary data containing captured
+values and concrete callables. `Callable<f<...>>` identifies a particular
+code definition and its capture layout; it is not an erased function type.
+Explicit parameters and field selections replace implicit instance lookup.
+
+In `Signature`, the two rows bound invocation and cleanup respectively.
+`Resume<M, A, R, E, C>` is one-shot, accepts `A`, answers `R`, invokes with
+mode `M` and effects `E`, and drops with cleanup effects `C`. `delimit`
+binds a fresh prompt value with an answer type and effect bound. `capture`
+selects that prompt and binds the remaining computation to `k`; its block
+answers the delimiter, while the captured continuation accepts the result
+of the `capture` expression. `resume` reinstates the captured context.
+`fun` and `ctl` describe direct and control-capable calls independently of
+the two effect rows and call multiplicity.
+
+`field` extracts a data value; `project` extends a place's static field
+path. An `element` step may occur only once and at the end of a place path;
+`index` supplies its runtime index. `alloc` always allocates GC storage.
+Array element restrictions and queue storage choices remain those of the
+[place](types.md#proposed-places-and-locators) and
+[queue](effects.md#queuing-a-continuation) proposals. This grammar introduces
+no implicit callable packaging for a heterogeneous queue.
+
+### Elaboration and lowering
+
 Elaboration resolves scoped instance choices and turns missing provider
 requirements into explicit parameters. Callable latent effects remain
 checked even when a provider is already captured. Source class and method
