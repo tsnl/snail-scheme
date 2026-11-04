@@ -85,14 +85,28 @@
                              (else #f)))
                  (((Vector Any) x)
                   (match-any b
-                             (((Vector Any) y)
-                              (datum=? (datum-list (vector->list x)) (datum-list (vector->list y))))
+                             (((Vector Any) y) (vectors=? x y))
                              (else #f)))
                  ((Bytes x) (match-any b ((Bytes y) (bytes=? x y)) (else #f)))
                  (else (match (Pair (datum-number a) (datum-number b))
                          ((Pair (Some x) (Some y))
                           (and (= (number-exact? x) (number-exact? y)) (= x y)))
                          (_ #f)))))
+
+    (: vectors=? (-> (Vector Any) (Vector Any) Bool))
+    (define (vectors=? a b)
+      (and (= (vector-length a) (vector-length b))
+           (let loop ((index 0))
+             (or (= index (vector-length a))
+                 (and (datum=? (vector-ref a index) (vector-ref b index))
+                      (loop (+ index 1)))))))
+
+    (: bytes=? (-> Bytes Bytes Bool))
+    (define (bytes=? a b)
+      (and (= (vector-length a) (vector-length b))
+           (let loop ((index 0))
+             (or (= index (vector-length a))
+                 (and (= (vector-ref a index) (vector-ref b index)) (loop (+ index 1)))))))
 
     (: datum-list (-> (List Any) Any))
     (define (datum-list items)
@@ -143,12 +157,5 @@
            (if (number-exact? n)
                (panic (string-append "datum->syntax: no Snail-Core literal for " text))
                (FloatSyntax text))))))
-
-    (: bytes=? (-> Bytes Bytes Bool))
-    (define (bytes=? a b)
-      (and (= (vector-length a) (vector-length b))
-           (let loop ((index 0))
-             (or (= index (vector-length a))
-                 (and (= (vector-ref a index) (vector-ref b index)) (loop (+ index 1)))))))
 
     ))

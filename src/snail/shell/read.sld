@@ -7,6 +7,7 @@
    read-datums)
   (import
    (snail core base)
+   (snail shell integer)
    (snail shell number)
    (snail shell datum))
   (begin
@@ -163,15 +164,16 @@
                 ((None) (Failed "a bytevector holds exact integers from 0 to 255")))))))
         ((None) (Failed "a bytevector cannot have a dotted tail"))))
 
+    ;; The reader already stores integral exact literals as Integer. Check
+    ;; their bounds before narrowing, so large values cannot wrap into bytes.
     (: byte-value (-> Any (Option U8)))
     (define (byte-value datum)
-      (match (datum-number datum)
-        ((Some n)
-         (if (and (number-exact? n) (number-integer? n)
-                  (<= 0.0 (number->f64 n)) (<= (number->f64 n) 255.0))
-             (Some (i32->u8 (i64->i32 (f64->i64 (number->f64 n)))))
-             (None)))
-        ((None) (None))))
+      (match-any datum
+                 ((Integer n)
+                  (if (and (<= (integer-from-i64 0) n) (<= n (integer-from-i64 255)))
+                      (Some (i32->u8 (i64->i32 (integer->i64 n))))
+                      (None)))
+                 (else (None))))
 
     (: read-character (-> String I64 Step))
     (define (read-character text index)

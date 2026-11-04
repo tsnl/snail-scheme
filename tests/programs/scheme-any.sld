@@ -40,6 +40,25 @@
 (assert (not (datum-truthy? (reading "#f"))))
 (assert (not (datum=? (reading "symbol") (reading "\"symbol\""))))
 
+;; Byte syntax accepts exact integral literals, checking the range before
+;; narrowing even when an integer is larger than a machine word.
+(assert (datum=? (reading "#u8(0 2/1 255)") (reading "#u8(0 2 255)")))
+(for-each
+ (lambda (text)
+   (match (read-datum text)
+     ((Err _) (unit))
+     ((Ok _) (panic "expected invalid bytevector"))))
+ (list "#u8(-1)" "#u8(256)" "#u8(18446744073709551616)"
+       "#u8(2.0)" "#u8(1/2)" "#u8(#t)" "#u8(1 . 2)"))
+
+;; Vector equality compares nested values, lengths and numeric exactness.
+(assert (datum=? (reading "#()") (reading "#()")))
+(assert (datum=? (reading "#(1 #(symbol) (2 . 3))") (reading "#(1 #(symbol) (2 . 3))")))
+(assert (not (datum=? (reading "#(1)") (reading "#(1 2)"))))
+(assert (not (datum=? (reading "#(1 2)") (reading "#(1)"))))
+(assert (not (datum=? (reading "#(1 2)") (reading "#(1 3)"))))
+(assert (not (datum=? (reading "#(1)") (reading "#(1.0)"))))
+
 ;; A successful type probe with a failed ordinary pattern continues. The
 ;; expression runs once, and the selected body alone runs.
 (let ((count (ref 0)))
