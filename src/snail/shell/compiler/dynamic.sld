@@ -91,15 +91,15 @@
       (match type
         ((TFun params result _)
          (for-each (lambda (part) (check-dispatch-position var part loc)) (Cons result params))
-         (let* ((names (map (lambda (index)
-                              (string-append (Instance-name instance) "." (short-name method)
-                                             ".argument." (i64->string index)))
+         (let* ((prefix (string-append (Instance-name instance) "." (short-name method)))
+                (names (map (lambda (index)
+                              (string-append prefix ".argument." (i64->string index)))
                             (iota (length params))))
                 (arguments (zip params (map (lambda (name) (reference name loc)) names))))
            (match (list-index (lambda (type) (type=? type (TRigid var))) params)
              ((Some selector)
               (expression (Lambda names
-                                  (dispatch-branches method var arguments result
+                                  (dispatch-branches prefix method var arguments result
                                                      selector targets loc)
                                   #f)
                           loc))
@@ -129,37 +129,50 @@
     ;; Every selector branch is tested. The final failure describes the
     ;; whole accepted domain, not the last type we happened to try.
     (: dispatch-branches
-       (-> String String (List (Pair Type Expr)) Type I64 (List Type) Loc Expr))
-    (define (dispatch-branches method var args result index targets loc)
+       (-> String String String (List (Pair Type Expr)) Type I64 (List Type) Loc Expr))
+    (define (dispatch-branches prefix method var args result index targets loc)
       (let ((selector (Pair-second (list-ref args index))))
-        (fold-right (lambda (target rest)
-                      (expression (If (expression (TypeTest selector target) loc)
-                                      (dispatch-call method var args result target loc) rest) loc))
+        (fold-right (lambda (entry rest)
+                      (dispatch-case
+                       (string-append prefix ".case." (i64->string (Pair-first entry)))
+                       method var args result index (Pair-second entry) rest loc))
                     (conversion-failure
                      (conversion-error "UnsupportedInstance" targets selector method index loc)
                      unchecked loc)
-                    targets)))
+                    (zip (iota (length targets)) targets))))
 
-    (: dispatch-argument (-> String String Type I64 (Pair Type Expr) Loc Expr))
-    (define (dispatch-argument method var target index argument loc)
+    ;; The selector is already recovered in this branch. Its concrete type
+    ;; marks it as an ordinary argument, so the call cannot probe it again.
+    (: dispatch-case
+       (-> String String String (List (Pair Type Expr)) Type I64 Type Expr Loc Expr))
+    (define (dispatch-case prefix method var args result index target rest loc)
+      (let* ((name (string-append prefix ".selector"))
+             (selected (map-indexed (lambda (i arg)
+                                      (if (= i index) (Pair target (reference name loc)) arg))
+                                    args)))
+        (recover-value (Pair-second (list-ref args index)) target name
+                       (dispatch-call prefix method var selected result target loc) rest loc)))
+
+    (: dispatch-argument (-> String String String Type I64 (Pair Type Expr) Loc Expr))
+    (define (dispatch-argument prefix method var target index argument loc)
       (let ((value (Pair-second argument)))
         (if (type=? (Pair-first argument) (TRigid var))
-            (expression (If (expression (TypeTest value target) loc)
-                            (expression (Convert value target) loc)
-                            (conversion-failure
-                             (conversion-error "ArgumentMismatch"
-                                               (list target)
-                                               value
-                                               method
-                                               index
-                                               loc)
-                             target loc)) loc)
+            (let ((name (string-append prefix ".argument." (i64->string index))))
+              (recover-value value target name (reference name loc)
+                             (conversion-failure
+                              (conversion-error "ArgumentMismatch"
+                                                (list target)
+                                                value
+                                                method
+                                                index
+                                                loc)
+                              target loc) loc))
             value)))
 
-    (: dispatch-call (-> String String (List (Pair Type Expr)) Type Type Loc Expr))
-    (define (dispatch-call method var args result target loc)
+    (: dispatch-call (-> String String String (List (Pair Type Expr)) Type Type Loc Expr))
+    (define (dispatch-call prefix method var args result target loc)
       (let* ((arguments (map (lambda (entry)
-                               (dispatch-argument method var target
+                               (dispatch-argument prefix method var target
                                                   (Pair-first entry) (Pair-second entry) loc))
                              (zip (iota (length args)) args)))
              (call (expression (App (reference method loc) arguments) loc)))
@@ -174,6 +187,34 @@
     (: reference (-> String Loc Expr))
     (define (reference name loc)
       (expression (Var name (Nil) (Nil)) loc))
+
+    ;; These ordinary matches bind typed values before the method call.
+    ;; Conversion lowering consumes their unused wrappers and errors.
+    (: conversion-probe (-> Expr Type String Loc (Pair Expr Pattern)))
+    (define (conversion-probe value target name loc)
+      (Pair (expression (TryConvert value target) loc)
+            (PCon "snail.core.base:Ok" (list (PVar name unchecked)) unchecked)))
+
+    (: select-probe (-> (Pair Expr Pattern) Expr Expr Loc Expr))
+    (define (select-probe probe success failure loc)
+      (expression (Match (Pair-first probe)
+                         (list (Clause (Pair-second probe) success)
+                               (Clause (PWild unchecked) failure))) loc))
+
+    (: recover-value (-> Expr Type String Expr Expr Loc Expr))
+    (define (recover-value value target name success failure loc)
+      (select-probe (conversion-probe value target name loc) success failure loc))
+
+    (: recover-pair (-> (List Expr) (List Type) (List String) Expr Expr Loc Expr))
+    (define (recover-pair values targets names success failure loc)
+      (let* ((probes (map (lambda (index)
+                            (conversion-probe (list-ref values index) (list-ref targets index)
+                                              (list-ref names index) loc)) (iota 2)))
+             (value (expression (App (reference "snail.core.base:Pair" loc)
+                                     (map Pair-first probes)) loc))
+             (pattern (PCon "snail.core.base:Pair" (map Pair-second probes) unchecked)))
+        (select-probe (Pair value pattern) success failure loc)))
+
     ;; ---- Binary policies ----
 
     ;; The finite domain is resolved once, in the generator's lexical
@@ -320,17 +361,33 @@
              (args (map (lambda (name) (reference name loc)) names))
              (failure (binary-failure method inputs args cases output loc)))
         (expression (Lambda names
-                            (fold-right (lambda (branch rest)
-                                          (expression (If (binary-test inputs args branch loc)
-                                                          (binary-call method
-                                                                       inputs
-                                                                       args
-                                                                       output
-                                                                       branch
-                                                                       loc)
-                                                          rest)
-                                                      loc))
-                                        failure cases) #f) loc)))
+                            (fold-right (lambda (entry rest)
+                                          (binary-branch method
+                                                         inputs
+                                                         args
+                                                         output
+                                                         (Pair-second entry)
+                                                         (string-append name ".case."
+                                                                        (i64->string
+                                                                         (Pair-first entry)))
+                                                         rest loc))
+                                        failure (zip (iota (length cases)) cases)) #f) loc)))
+
+    ;; A generated head erases one or both arguments. The candidate's
+    ;; typed bindings feed its selected implementation; a mismatch proceeds
+    ;; to the next candidate without constructing a temporary error.
+    (: binary-branch (-> String (List Type) (List Expr) Type BinaryCase String Expr Loc Expr))
+    (define (binary-branch method inputs args output branch prefix rest loc)
+      (let* ((names (list (string-append prefix ".left") (string-append prefix ".right")))
+             (converted (map (lambda (i) (if (any-type? (list-ref inputs i))
+                                             (reference (list-ref names i) loc) (list-ref args i)))
+                             (iota 2)))
+             (body (binary-call method converted output branch loc))
+             (targets (BinaryCase-inputs branch)))
+        (cond ((every? any-type? inputs) (recover-pair args targets names body rest loc))
+              (else (let ((index (if (any-type? (list-ref inputs 0)) 0 1)))
+                      (recover-value (list-ref args index) (list-ref targets index)
+                                     (list-ref names index) body rest loc))))))
 
     ;; A failed pair names the offending side. When the left type is
     ;; supported, the right side's expected types are restricted to that
@@ -372,29 +429,12 @@
                                                  cases))
                          (list-ref args index) method index loc) output loc))
 
-    (: binary-test (-> (List Type) (List Expr) BinaryCase Loc Expr))
-    (define (binary-test inputs args branch loc)
-      (fold-right (lambda (entry rest)
-                    (let ((index (Pair-first entry)) (type (Pair-second entry)))
-                      (if (any-type? (list-ref inputs index))
-                          (expression (If (expression (TypeTest (list-ref args index) type) loc)
-                                          rest (expression (Lit (DBool #f)) loc)) loc)
-                          rest)))
-                  (expression (Lit (DBool #t)) loc)
-                  (zip (iota 2) (BinaryCase-inputs branch))))
-
-    (: binary-call (-> String (List Type) (List Expr) Type BinaryCase Loc Expr))
-    (define (binary-call method inputs args output branch loc)
-      (let* ((converted (map (lambda (entry)
-                               (let ((index (Pair-first entry)) (target (Pair-second entry)))
-                                 (if (any-type? (list-ref inputs index))
-                                     (expression (Convert (list-ref args index) target) loc)
-                                     (list-ref args index))))
-                             (zip (iota 2) (BinaryCase-inputs branch))))
-             (implementation (match (assoc-ref (BinaryCase-methods branch) method)
+    (: binary-call (-> String (List Expr) Type BinaryCase Loc Expr))
+    (define (binary-call method args output branch loc)
+      (let* ((implementation (match (assoc-ref (BinaryCase-methods branch) method)
                                ((Some name) name)
                                ((None) (panic "internal error: missing binary implementation"))))
-             (call (expression (App (reference implementation loc) converted) loc)))
+             (call (expression (App (reference implementation loc) args) loc)))
         (if (and (any-type? output) (not (any-type? (BinaryCase-output branch))))
             (expression (Convert call output) loc) call)))
     ))
