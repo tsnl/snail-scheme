@@ -113,7 +113,8 @@ and may require other instances:
 
 The checker chooses each instance when it checks a use and records that
 choice; monomorphization copies the chosen method for each type, so no
-dictionary exists at run time. Instance heads must not overlap. Classes have
+dictionary exists at run time. Active instance heads must not overlap on their
+input parameters. Classes have
 no superclasses: a signature lists every class it needs. Unbound names in an
 instance head are its type variables.
 
@@ -159,6 +160,117 @@ row followed by a value type, as in `(Num e T)`. Concrete numeric
 instances use `(!)`, so static arithmetic remains pure; a dynamic
 instance can instead declare `(! dyn-cast)`. `Drop` releases values
 ([ownership](ownership.md#releasing)).
+
+### Associated output types
+
+A class can declare ordinary associated types. Each instance defines them:
+
+```scheme
+(typeclass (Add e A B)
+  (type Output)
+  (: add (-> A B Output ! e)))
+
+(instance (Add (!) I64 F64)
+  (type Output F64)
+  (define (add a b) (+ (i64->f64 a) b)))
+
+(: sum
+   (All (A B e)
+     (requires (Add e A B))
+     (-> A B (Add.Output e A B) ! e)))
+(define (sum a b) (add a b))
+```
+
+`A` and `B` select the instance. Its `Output` and row are learned after
+selection; neither an expected result nor permitted effects can select a
+different instance. Thus `sum` at `I64` and `F64` infers `F64`, while an
+annotation demanding `String` fails. Instances with identical inputs and
+different outputs or rows overlap.
+
+Inside a class, `Output` names its own member. Outside, `Add.Output` projects
+from the matching enclosing `requires` evidence. Write the same class
+arguments as that requirement. A projection needs a unique requirement;
+two requirements with the same input types cannot be distinguished by
+outputs or rows. Export the projection binding explicitly, alongside the
+class and its methods, when a library's clients need it.
+
+A requirement can constrain an output with an equality:
+
+```scheme
+(: twice
+   (All (A e)
+     (requires (Copy A) (Add e A A (type Output A)))
+     (-> A A ! e)))
+(define (twice a) (add a a))
+```
+
+The equality checks the selected instance. Merely naming an output or
+requiring an instance does not call a method, inspect an `Any`, or perform
+the method's effects. An unknown generic output has the same ownership
+restrictions as another abstract type parameter.
+
+Every instance must define each member exactly once. Definitions can use
+input variables and projections from earlier prerequisites. Prerequisites
+are resolved in written order: an earlier output may supply a later input,
+but an expected result cannot supply a prerequisite's otherwise unknown
+input. Recursive resolution rejects repeated input goals and bounds growing
+chains. Ordinary decreasing recursive instances remain possible.
+
+Members have kind `Type`. Associated parameters, defaults, effect-row
+members, and higher-kinded members are not supported. A concrete projection
+without an enclosing requirement is also currently rejected; this is not
+a general type-function evaluator.
+
+### Named instance sets
+
+```scheme
+(define-instance-set mixed-addition
+  (instance (Add (!) I64 F64)
+    (type Output F64)
+    (define (add a b) (+ (i64->f64 a) b))))
+
+(with-instances (mixed-addition)
+  (add (ann 1 I64) 2.5))
+```
+
+A set is an importable, exportable syntax binding. Importing it does not
+activate its instances. `with-instances` activates sets for its expression
+body or top-level declaration group. Activation adds to the enclosing
+scope; it does not shadow instances. Repeating the same set is harmless.
+Distinct active heads that overlap on inputs are errors, even if their
+outputs or rows differ. Inactive alternatives may coexist. A set's methods see their containing set
+and any surrounding active sets.
+
+Unnamed instances remain available as before and cannot be overridden by
+a set. A matching generic requirement supplies its existing evidence.
+Concrete choices in a checked definition, including a returned closure,
+remain fixed when callers activate another set; generic requirements
+receive the evidence chosen by each caller. Activation itself performs no
+effects and grants no effect permission. `Drop` and `Clone` cannot be placed
+in sets, and the compiler's `Copy` and `Unboxed` rules remain unchanged.
+
+### Asymmetric arithmetic
+
+`(snail shell arithmetic)` supplies separate binary classes `Add`, `Sub`,
+`Mul`, and `Div`, with methods `add`, `subtract`, `multiply`, and `divide`.
+Each has an effect row, two operand types, and an associated `Output`.
+They coexist with Core's existing numeric operators.
+
+Its `arithmetic-base` set supports all ordered pairs of `Integer` and
+`Rational`, and `F64` with `F64`. Exact addition, subtraction and
+multiplication of integers return `Integer`; exact division returns
+`Rational`. Operations involving a rational return `Rational`.
+`inexact-promotion` adds both orders of `Integer`/`F64` and
+`Rational`/`F64`, returning `F64`. These explicit conversions can round;
+there is no conversion-chain search outside the selected operation.
+
+`Integer` is the existing arbitrary-precision integer type. Results never
+switch types because of their values. Core literals retain their existing
+`I64`/`F64` defaults; construct exact values with `integer-from-i64` or
+`string->integer`, and rationals with `make-rational`. Arithmetic errors
+retain the underlying libraries' behavior; they are separate from `dyn-cast`.
+Comparison policy, Scheme literal lowering, and the Scheme `Datum` to
+`Any` migration are separate work.
 
 ## Effects
 
@@ -370,6 +482,55 @@ or erase effectful procedures. Those are separate changes.
 Catchable conversion failure uses the same ownership cleanup as other
 abortive effects ([cleanup](ownership.md#drops-that-may-run)).
 
+### Finite asymmetric adapters
+
+A named set can generate adapters for an explicitly listed relation of
+concrete operand types:
+
+```scheme
+(with-instances (arithmetic-base inexact-promotion)
+  (define-instance-set dynamic-addition
+    (dynamic-instances Add
+      (Integer Integer)
+      (Integer F64)
+      (F64 Integer)
+      (F64 F64))))
+```
+
+Source instances must already be declared and active at the generator's
+definition. The generator records their implementations. Later declarations
+and callers' policies cannot change its branches. Duplicate or missing
+pairs fail at compile time. The relation need not be a Cartesian product:
+listing `(Integer F64)` and `(F64 Integer)` does not admit `(F64 F64)`.
+
+For each fixed right operand it generates `(Any, Right)`, for each fixed
+left operand `(Left, Any)`, and one `(Any, Any)` instance. Each head's output
+is the common branch output when all agree, otherwise `Any`. In the example,
+`(Any, F64)` and `(F64, Any)` return `F64`; the other generated heads return
+`Any`. The caller never boxes arguments just to find an instance.
+
+Both arguments finish evaluating, once and in source order, before the
+adapter tests their type identities. Only the selected branch converts
+values and calls its recorded implementation. Unsupported payloads or
+unlisted pairs perform catchable `dyn-cast`. Source-method effects propagate
+normally and do not trigger another branch attempt. Every generated head's
+row contains `dyn-cast` plus the union of its eligible source rows; handlers
+or signatures must account for that whole row.
+
+The initial generator supports binary classes with one row, one associated
+output, and methods of type `(-> A B Output ! e)`. Independently polymorphic
+methods, extra method requirements, and source-instance prerequisites are
+rejected. Both listed inputs must be ground, non-`Any` types that can cross
+the existing erasure boundary. Heterogeneous results must also support
+boxing. It does not convert container elements or wrap functions.
+
+Generated heads follow the ordinary overlap rule. Separate generators for
+the same class both produce `(Any, Any)`, so activating both is an error;
+the compiler does not merge their domains. `(snail shell arithmetic dynamic)`
+exports `dynamic-arithmetic`, generated from the complete nine-pair relation
+over `Integer`, `Rational`, and `F64` for all four arithmetic classes.
+Importing that library still requires explicit activation of its set.
+
 ### Explicit dynamic values
 
 `Any` holds an unrestricted value together with its type's identity.
@@ -423,7 +584,9 @@ no second cast. The effects of evaluating `value` still apply.
 location). A dispatch failure also supplies `method` and a zero-based
 `argument` index; ordinary conversion uses an empty method and `-1`.
 Reasons are `TypeMismatch`, `UnsupportedInstance`, and `ArgumentMismatch`.
-An unsupported instance reports its complete domain. Dispatch origins
+A single-parameter dispatcher reports its complete domain. A binary adapter
+reports accepted types for the failed operand; when its left type is known,
+that restricts the expected right types. Dispatch origins
 name the adapter declaration; ordinary checks name the source boundary.
 Errors do not retain the payload for diagnostics.
 

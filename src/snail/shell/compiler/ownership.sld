@@ -258,6 +258,7 @@
              ;; handled abort may return even when the body does not.
              (Path-returns-set (Path-row-set (check inner body) (Path-row path))
                                (Path-returns path))))
+          ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
           ((Ann inner _) (check path inner))
           ((Convert inner target) (check-conversion path expr inner target))
           ((TryConvert _ _)

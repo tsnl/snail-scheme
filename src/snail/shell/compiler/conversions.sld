@@ -144,6 +144,7 @@
           ((Match value clauses)
            (lowering count ((value (lower-expr value)) (clauses (lower-clauses clauses)))
                      (Pair (rebuild (Match value clauses)) count)))
+          ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
           ((Ann inner type)
            (lowering count ((inner (lower-expr inner)))
                      (Pair (rebuild (Ann inner type)) count)))

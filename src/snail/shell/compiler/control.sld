@@ -416,6 +416,7 @@
                           callees
                           scrutinee
                           (lambda (scrutinee) (rebuild (Match scrutinee clauses))))))
+          ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
           ((Ann inner type)
            (naming count ((inner (normal callees inner))) (Pair (rebuild (Ann inner type)) count)))
           ((Convert inner target)
@@ -723,6 +724,7 @@
                 (match (dropper-clauses callees drops after clauses)
                   ((Pair clauses more)
                    (Pair (rebuild (Match scrutinee clauses)) (append types more))))))))
+          ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
           ((Ann inner type)
            (match (droppers callees drops scope inner)
              ((Pair inner types) (Pair (rebuild (Ann inner type)) types))))

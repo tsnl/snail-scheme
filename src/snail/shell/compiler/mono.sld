@@ -299,6 +299,7 @@
                               (clauses (each (lambda (state clause) (copy-clause state inst clause))
                                              clauses)))
                        (Pair (Match scrutinee clauses) state)))
+        ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
         ((Ann inner type)
          (specializing state
                        ((inner (copy-expr inst inner)))
