@@ -299,6 +299,7 @@
                               (clauses (each (lambda (state clause) (copy-clause state inst clause))
                                              clauses)))
                        (Pair (Match scrutinee clauses) state)))
+        ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
         ((Ann inner type)
          (specializing state
                        ((inner (copy-expr inst inner)))
@@ -312,6 +313,8 @@
         ((Convert inner target)
          (specializing state ((inner (copy-expr inst inner)))
                        (Pair (Convert inner (ground inst target)) state)))
+        ((TryConvert _ _)
+         (panic "internal error: try-convert must be lowered before specialization"))
         ((TypeTest inner target)
          (specializing state ((inner (copy-expr inst inner)))
                        (Pair (TypeTest inner (ground inst target)) state)))))
