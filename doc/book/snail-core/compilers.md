@@ -502,18 +502,19 @@ source
 ```
 
 Reading belongs to expansion. Assembly serializes the target; a Wasm
-validator or engine checks its types. Neither introduces source-language
-lowering. `compile` combines
-monomorphization, selective control lowering, local simplification,
-representation selection and instruction construction in one worklist.
-These remain named operations with explicit contracts. There is no
-whole-program handoff between a simplifier, a monomorphizer and an emitter.
+validator or engine checks its types. The backend is a **memoized emitter**:
+request a definition at concrete types and providers, reserve its Wasm
+symbol, then emit its body. Calls request further definitions by the same
+rule. Functions, provider methods, continuation entries and cleanup routines
+use this one mechanism.
 
 Type checking comes first because capability selection, field projection,
 control requirements and ownership depend on types. It checks each generic
 body against its declared constraints, including entry and resumption
-requirements. Compilation consumes that evidence and concrete instantiations;
-it must not discover a control behavior that the checked contract forbids.
+requirements. Compilation consumes that evidence and concrete instantiations.
+Use fixed representation and control rules, with ordinary instruction
+optimization left to the Wasm engine. This removes a compiler-owned optimizer,
+control summary solver and continuation-recovery analysis from the baseline.
 
 ### Wasm as the lower representation
 
@@ -527,11 +528,11 @@ Source matches become tag tests, projections and structured branches.
 
 Keep function signatures, locals, type references and source locations
 available while constructing each body. The current `Wat` tree and module
-builder provide a starting point, but flattening bodies into opaque helper
-strings early would make local rewriting and validation harder. This design
-needs a builder for the Wasm subset we emit, not another language or parser.
-The assembler checks syntax and a validator or engine checks Wasm types;
-source ownership and effect invariants remain the compiler's responsibility.
+builder provide a starting point. Emit instructions in the checked evaluation
+order and retain their structure until assembly. Substitution resolves types,
+providers and field indices; it does not evaluate arbitrary source functions
+at compile time. Correctness and the promised representations must hold
+without engine inlining or any other optional optimization.
 
 The following is a schematic grammar for the target bodies in folded WAT
 notation. It identifies the constructs the builder needs; the
@@ -581,80 +582,103 @@ the compatible result types required by tail calls.
 | Compiled Wasm | Every referenced instance has a concrete signature and representation. Provider arguments, control transfer, capture storage and cleanup are explicit Wasm. No source effect types remain in target signatures. |
 
 Only the checked program and the accumulating Wasm module need persistent
-program representations. The compiler may keep small plans for layouts,
-captures and interfaces, but these are evidence attached to definitions,
-not another general-purpose expression language. Preserve source locations
-through generated functions and instructions for diagnostics and debugging.
+program representations. An entry for a continuation references a point in
+the checked body and its remaining expression context. It does not require
+copying that body into a CPS tree. Captures and layouts are definition
+metadata; preserve source locations through generated code.
 
 ### A worklist of specializations
 
-Seed the worklist from initialization, entry points, exports and required
-adapters. Each request identifies a checked definition, its concrete value
-types, provider implementations and callable code. Captured values remain
-runtime data: two providers capturing different strings share code when
-their implementation types and interfaces agree.
+Seed requests from initialization, entry points, exports and required
+adapters. A key contains the checked code identity and its static arguments:
+concrete value types, provider implementations and callable identities.
+Captured values and dynamic delimiter identities are runtime arguments.
+Providers with the same implementation and different captured strings
+therefore share code.
 
-For each request:
+The orchestration is schematically:
 
-1. Find or reserve its symbol and calling interface before traversing its
-   body. A recursive reference can then name the pending definition.
-2. Substitute checked type and implementation arguments while compiling
-   the body. Resolve operations, select layouts and construct Wasm directly.
-   Small local reductions can remove aliases, known projections and trivial
-   continuations before their instructions are committed.
-3. Queue any newly referenced specialization, continuation function,
-   environment type or cleanup routine. Memoize each request by a stable key.
-4. Complete the body and retain its symbolic references. After the worklist
-   is empty, order GC recursion groups and resolve module indices for assembly.
+```text
+request(key, state):
+    if key is reserved: return its symbol, state
+    reserve a symbol and an interface from the instantiated checked contract
+    return the symbol, state with this definition queued
 
-The fixed point is reached when no new reachable instances are requested.
-It is not an instruction to repeatedly inline emitted bodies until they stop
-changing. A body may be built in a temporary buffer, so local simplification
-can finish before it is retained. Skipping an optimization must still leave
-correct code. One-shot ownership, evaluation order and observable effects
-constrain every rewrite.
+compile(checked):
+    state = request_roots(checked)
+    while state has pending definitions:
+        definition, state = take_pending(state)
+        state = emit_definition(definition, state)
+    return finish_module(state)
+```
 
-Interfaces must be stable before callers use them. Use checked control
-contracts as conservative bounds, or solve more precise summaries for a
-recursive dependency group before emitting its callers. Concrete `fun`
-syntax alone does not prove that its body cannot invoke a control operation.
-The compiler must also lower locally handled control inside a function whose
-outward contract has no escaping control effect.
+Thread the state containing reservations, pending requests and constructed
+Wasm. Reserve GC types and generated helpers through the same mechanism.
+An ordinary recursive call finds its existing symbol. Each body is emitted
+once per key; finishing orders GC recursion groups and resolves module
+indices. Reaching the fixed point means the queue is empty.
+
+Instantiate the checked control contract before emitting callers. If that
+contract permits escaping control, use the yield protocol even when body
+analysis might prove a more efficient interface. This gives recursive calls
+stable interfaces without another call-graph analysis. `fun` syntax alone
+does not establish direct return, and locally handled control still needs
+lowering inside an outwardly direct function.
 
 ### Selective control lowering
 
-Use type and provider information to prepare only calls through which
-control may escape. Calls known to return directly keep ordinary call and
-return instructions. For potentially yielding calls, construct an explicit
-normal path and a yielding path. On a yield, each intervening caller
-contributes its remaining computation until the matching typed delimiter.
-A tail caller can forward the pending transfer without saving extra work.
+Keep unsplit branches, loops and direct calls as Wasm control flow. At a
+non-tail call whose instantiated contract permits escape, give its remaining
+computation a named entry. Use the same entry on the normal and resuming
+routes, specialized for the providers each route supplies:
 
-This follows the fast-path strategy in
-[Koka's generalized evidence passing, sections 2.9–2.11](https://www.microsoft.com/en-us/research/wp-content/uploads/2021/08/genev-icfp21.pdf):
-continuation code exists ahead of time, while captured environments are
-constructed when needed for a yield. Sharing the generated continuation
-functions limits code duplication. Koka supplies precedent for the control
-translation; our static provider specialization and effect transitions need
-their own correctness argument.
+| Route | Generated behavior |
+| --- | --- |
+| Normal return | Tail-call the remaining computation with the result and its live inputs as arguments. |
+| Yield | Store those inputs in a GC environment, append a frame to the pending yield, and propagate it to the delimiter. |
+| Resume | Read the saved inputs and invoke the entry specialized for the resumer's outstanding providers. |
 
-A local continuation may become a structured block or loop. A continuation
-that must survive suspension becomes Wasm code plus its captured values in
-GC-managed storage. Knowing its code identity does not make those values
-compile-time constants or prove it stays local. The exact control-result
-encoding remains a review point; any yield tests, delimiter handling and
-resumption composition must already be expressed in the constructed Wasm.
-They cannot depend on a later effect-aware emitter.
+This allocates a continuation environment only on the yielding route. Use
+free variables of the remaining computation, including cleanup obligations,
+to determine captures. Share entries at joins instead of copying suffixes.
+Compile each delimiter body as a separate entry, keeping its catcher outside
+the suffix tail calls. An entry and its suffixes share a result interface.
+When a split crosses a loop, give the loop header an entry too: a resumed
+iteration tail-calls it instead of branching into a different Wasm function.
+A tail call with no pending work forwards the transfer and needs no frame;
+delimiter handling and cleanup count as pending work.
+
+The checker must establish which routes exist. A transition that cannot
+return normally needs no entry specialized for the original providers.
+For example, `yield!!(); write(...)` can require IO only on resumption when
+every path to the write passes through that transition. If normal return is
+possible, its context must also satisfy the suffix's requirements. The
+emitter consumes this evidence; it cannot guess that a missing provider
+makes a route unreachable.
+
+Use the implemented yield-bubbling protocol as the baseline: a pending
+record identifies the delimiter and operation, carries its arguments and
+collects frames while calls return. Callers check the record before using
+the returned placeholder; the matching delimiter consumes it before invoking
+the handler. Static selection fixes handler code, while the delimiter token
+still distinguishes recursive installations. The runtime must isolate this
+pending transfer across execution contexts and host entry, and never expose
+a placeholder as a source value.
+
+This uses join sharing and allocation on yield from
+[Koka's generalized evidence passing, sections 2.9–2.11](https://www.microsoft.com/en-us/research/wp-content/uploads/2021/08/genev-icfp21.pdf).
+The simpler baseline pays a tail call on normal return rather than duplicating
+and optimizing the suffix into that path. It requires no escape analysis,
+contification or inference that a `ctl` handler happens to resume in place.
+Static provider specialization and effect transitions still need their own
+correctness argument.
 
 The compiler already emits `return_call` and `return_call_ref`, and the
-native engine enables tail calls. The
-[tail-call instructions](https://webassembly.github.io/spec/core/syntax/instructions.html#control-instructions)
-provide transfers without retaining the caller's activation. They do not
-capture that activation. Compilation must still split code, save live
-captures, implement delimiter boundaries and deep reinstatement, and account
-for abandoned continuations. Use a tail call only when no work remains in
-that activation; a resumption invoked before further handler work needs the
-appropriate ordinary call or an explicitly lowered continuation for that work.
+native engine enables tail calls. These
+[instructions](https://webassembly.github.io/spec/core/syntax/instructions.html#control-instructions)
+bound stack use for tail transfers; generated code remains responsible for
+capture, deep reinstatement and cleanup. A handler that resumes and then
+does more work uses an ordinary call or saves that remaining work in turn.
 
 Foreign functions keep their declared host ABI. Initialization, exports and
 foreign callbacks need checked adapters where they meet the internal control
@@ -663,21 +687,21 @@ protocol.
 
 ### Effect erasure and stored continuations
 
-Source effect rows guide checking and control lowering, then disappear from
-Wasm signatures. Their obligations have become explicit provider arguments,
-control paths and cleanup calls. Keep the checked source contracts for
-library interfaces and diagnostic provenance; do not rerun effect inference
-on Wasm. Instruction and call summaries must still preserve mutation, IO,
-traps and ownership when simplifying. Erasing a source row does not make an
-observable operation pure or permit an otherwise forbidden conversion.
+Source effect rows guide checking and emission, then disappear from Wasm
+signatures. Their obligations become provider arguments, control paths and
+cleanup calls. Preserve the checked source interfaces and diagnostic
+provenance. The emitter follows checked evaluation and cleanup order, so it
+needs no second effect analysis over Wasm. Wasm validation cannot establish
+the source ownership or effect invariants.
 
 An ordinary closure or resumption obtains its outstanding providers at its
 invocation site. Internal handler scopes captured with the computation are
 restored. Compiling a suspension under provider A must not hardwire its
 outstanding calls to A if its resumer will supply B. Keep a checked
 continuation template and its capture layout until invocation requests the
-appropriate provider specialization. Its emitted entry points must agree
-with the stored environment's representation.
+appropriate provider specialization, using the same request mechanism as
+an ordinary generic closure. Its emitted entry points must agree with the
+stored environment's representation.
 
 Separate compilation therefore retains the checked generic bodies and
 implementation identities needed to request downstream specializations.
@@ -701,17 +725,16 @@ The [place](types.md#proposed-places-and-locators) and
 place-backed storage uses the GC heap, including locals; required backing
 allocations cannot be replaced with Wasm locals. Paths have at most one
 dynamic index at the leaf, and arrays reject unsupported struct-value
-representations. Generated continuations that become local control flow need
-no environment allocation, but escaping captures remain explicit storage.
+representations. Passing continuation inputs directly on a normal return
+avoids a compiler-generated environment, not any required source allocation.
 
 ### Review points and validation
 
-Before implementation, specify the selective control protocol, resumption
-specialization across stored values and finite recursive representations.
-Combining transformations reduces intermediate representations and repeated
-traversals; it does not remove those semantic obligations. Repeating local
-lowering for each specialization can cost compile time, so measure it before
-introducing another cached program representation.
+The remaining hard work is the source transition rules and the finite
+representation of provider-polymorphic stored resumptions. Spell out the
+yield record's layout, ownership and execution-context rules against those
+contracts before implementation. A memoized emitter reduces backend
+machinery; it does not make the language's type system trivial.
 
 Check a direct and a control provider for one generic consumer, internal
 handlers in outwardly direct functions, nested delimiters, and callbacks
@@ -720,10 +743,10 @@ providers, cleanup after cancellation, and rejection of effect-transition
 mismatches. Exercise recursive specialization, bounded native-stack use on
 tail transfers, runtime captures shared across calls, source-to-Wasm
 locations, separate compilation and foreign adapters. Validate generated
-Wasm and execute it with optional local optimizations disabled as well as
-enabled. Inspect normal paths for unnecessary continuation environments;
-measure code size, compile time and allocations. Bootstrap and compiled
-execution must agree.
+Wasm and execute the baseline without relying on optimization. Inspect normal
+paths for unnecessary continuation environments; measure tail-call overhead,
+code size, compile time and allocations before adding compiler optimizations.
+Bootstrap and compiled execution must agree.
 
 ## Separate compilation
 
