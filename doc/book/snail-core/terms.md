@@ -96,20 +96,20 @@ uses macros (`list`, `string-append`) or lists.
 
 ## Proposed surface design
 
-**Draft for approval, not implemented.** The [source-syntax draft](surface.md)
-recommends a Python-like surface with indentation, conventional calls and
-operators, `def`, and explicit `return`. It develops the earlier reader
-proposal into two file-selected modes: `#lang snail` and
-`#lang snail/sexp`. The new recommendation supersedes sweet-expressions as
-the proposed default; traditional source and generated syntax retain their
-own interpretation.
+**Draft for approval, not implemented.** The [layout-reader draft](surface.md)
+adds colon-opened indentation blocks to S-expressions. Inside those blocks,
+newlines delimit forms; outside them, existing reading is preserved. The
+compatibility goal is a strict superset of accepted source except for active
+layout-colon occurrences. Calls such as `(ask)`, final-expression results,
+symbols, binding rules, and `syntax-rules` remain Scheme's. No backslash
+grouping syntax is introduced.
 
-The draft specifies binding and mutation notation, dot projection,
-structured macro inputs, source locations, editor support, and the Chibi
-bootstrap boundary. It distinguishes syntax that can lower to today's core
-from examples requiring the separately proposed [callable contracts](types.md#proposed-callable-typeclass)
-and [places](types.md#proposed-places-and-locators). Those semantic proposals
-remain independent of choosing source punctuation.
+The draft specifies list construction, the colon carveout, source locations,
+editor support, and the Chibi bootstrap boundary. Per-file readers remain
+`#lang snail` and `#lang snail/sexp`. Proposed [callable contracts](types.md#proposed-callable-typeclass)
+and [places](types.md#proposed-places-and-locators) remain separate semantic
+decisions. Completing the feature includes promoting the temporary proposal
+to implemented language documentation and removing its review scaffolding.
 
 ## Toolchain terms
 
