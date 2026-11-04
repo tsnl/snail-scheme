@@ -223,8 +223,11 @@ that source contract. The proposed compiler specializes checked definitions
 directly into Wasm, using the concrete providers and control contracts to
 select ordinary calls or explicit suspension handling. It constructs
 continuation code where needed, without first converting every function to
-CPS. A repeatable callable may suspend and a one-shot callable may return
-directly; neither multiplicity nor purity determines that interface.
+CPS. The instantiated checked contract fixes this interface before its body
+is emitted. It also establishes whether normal return is possible and which
+providers each continuation route needs. A repeatable callable may suspend
+and a one-shot callable may return directly; neither multiplicity nor purity
+determines that interface.
 
 The compiler supplies callable evidence for functions, closures and
 capability methods. Whether arbitrary user data may implement `Fun` is a

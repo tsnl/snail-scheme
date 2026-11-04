@@ -413,6 +413,10 @@ At a join, every incoming path must satisfy the requirements of the shared
 suffix. Wrappers, loops, nested suspensions and recursive calls need
 compositional transition contracts: the captured continuation can include
 caller code up to the delimiter, not just the next statements in one function.
+The checked contract must also distinguish a possible normal return from a
+transfer to a resumer. If the suffix has no entry provider, the contract must
+prove every route to it transfers that requirement. Compilation must not
+emit an ordinary-return route requiring providers the original caller lacks.
 The precise inference rules remain to be specified and checked for soundness.
 
 #### Provider requirements and purity
@@ -506,21 +510,25 @@ and cleanup bounds, one-shot ownership, and the native array layout rules.
 #### Compiler obligations
 
 The implemented compiler preserves control rows during monomorphization
-and uses a may-yield analysis. The proposal combines specialization,
-selective control lowering and emission in one worklist after type checking.
-It builds [structured Wasm directly](compilers.md#proposed-specialization-directly-to-wasmgc),
-without a separate simplified core program. Concrete providers and checked
-contracts guide which calls need suspension support. The output has explicit
-provider arguments and control paths, with no source effect rows in its
-function types. Source contracts remain available for interfaces and diagnostics.
+and uses a may-yield analysis. The proposal instead uses a memoized emitter
+after type checking. It builds
+[structured Wasm directly](compilers.md#proposed-specialization-directly-to-wasmgc),
+using the instantiated checked contracts as conservative control bounds.
+Functions, provider methods, continuation entries and cleanup routines use
+the same reservation and emission mechanism. Source contracts remain
+available for interfaces and diagnostics; target signatures contain explicit
+provider arguments and control paths, with no source effect rows.
 
-Continuation code is generated ahead of time; captured environments are
-constructed when needed for suspension. Each caller through which control
-escapes must preserve its remaining work up to the delimiter. A queued
-continuation retains its captures and ownership, with outstanding providers
-supplied when invoked. Tail-call instructions transfer control but do not
-capture a Wasm activation. Separate compilation must expose the checked
-generic bodies and identities needed for downstream provider specialization.
+At a possible suspension, share a named entry for the remaining computation.
+A normal return tail-calls it with ordinary arguments; a yield saves those
+inputs in a GC frame. The baseline uses yield bubbling and needs no analysis
+to recover local control flow from allocated continuations. Each caller
+through which control escapes preserves its remaining work up to the
+delimiter. A queued continuation retains its captures and ownership, with
+outstanding providers supplied when invoked. Tail-call instructions transfer
+control but do not capture a Wasm activation. Separate compilation must
+expose the checked generic bodies and identities needed for downstream
+provider specialization.
 The worklist needs finite keys and recursive continuation representations;
 it cannot specialize on an unbounded history of captured predecessors.
 
@@ -535,7 +543,7 @@ provider method types, ambiguous instances, operation-local polymorphism,
 erased provider selection and repeated use
 of one-shot continuations. Execute linked Wasm and check simple direct-provider
 specializations for ordinary calls without unnecessary continuation environments.
-Also execute yielding paths and resumptions with optional optimizations disabled.
+Also execute yielding paths and resumptions without relying on optimization.
 Queue tests must accept smaller job rows, reject effects outside the queue's
 bound, separate enqueue effects from invocation effects, and check cleanup
 when jobs are cancelled. Exercise distinct concrete job types once their
