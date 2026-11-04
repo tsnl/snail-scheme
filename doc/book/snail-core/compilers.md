@@ -555,6 +555,13 @@ Before implementation, specify how `!` and associated callable evidence
 represent both missing provider arguments and latent invocation effects.
 Lexical capture is decided; the effects chapter explains its difference
 from today's rebinding and how the `FnOnce` contract gates resumption.
+Source checking establishes the resumption bound at the static delimiter
+site. Moving it into storage preserves that contract without adding its
+invocation effects to the enqueue operation. The
+[queue contract](effects.md#queuing-a-continuation) checks job effects
+against a queue bound and defers invocation permission to the worker.
+Heterogeneous job storage needs an explicit representation decision;
+`impl Fun` alone does not erase concrete continuation types.
 Acceptance tests should compare direct and control specializations of the
 same consumer, verify runtime capture sharing, and exercise nested and
 stored resumptions across separately compiled libraries, including calls
