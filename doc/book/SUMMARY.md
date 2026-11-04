@@ -4,6 +4,7 @@
 
 - [Snail-Core](snail-core/index.md)
   - [Terms](snail-core/terms.md)
+  - [Proposed source syntax](snail-core/surface.md)
   - [Types](snail-core/types.md)
   - [Effects and handlers](snail-core/effects.md)
   - [Ownership](snail-core/ownership.md)

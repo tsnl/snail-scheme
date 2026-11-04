@@ -96,157 +96,20 @@ uses macros (`list`, `string-append`) or lists.
 
 ## Proposed surface design
 
-**Design for review, not implemented.** Everyday programs should be
-comfortable to read and write without expertise in Lisp conventions.
-Uniform S-expressions are useful for structured syntax and macros, but
-they do not require every source operation to use the same punctuation.
-Familiar projection syntax such as `a.b.c` should be considered on its
-own merits, alongside bindings, calls, signatures and callback bodies.
+**Draft for approval, not implemented.** The [source-syntax draft](surface.md)
+recommends a Python-like surface with indentation, conventional calls and
+operators, `def`, and explicit `return`. It develops the earlier reader
+proposal into two file-selected modes: `#lang snail` and
+`#lang snail/sexp`. The new recommendation supersedes sweet-expressions as
+the proposed default; traditional source and generated syntax retain their
+own interpretation.
 
-The proposed [callable signatures](types.md#proposed-callable-typeclass)
-use `impl Fun` contracts in place of `->`, with `fun` for definitions.
-Direct-style suspension remains available: the compiler turns the remaining
-computation into a one-shot callable. Callable contracts expose continuation
-boundaries, including through wrapper calls. A separate checked call-site
-marker remains open; examples use ordinary operation names and `!` retains
-its mutation convention. [Effect transitions](effects.md#resumption-effects-and-effect-transitions)
-describe entry and resumption requirements. The proposed
-[places and locators](types.md#proposed-places-and-locators) let field
-selection describe a typed path without exposing the compiler's field
-classes. Exact projection, read, write and continuation-binder syntax
-remains open. Choosing `::count!` is not a prerequisite for implementing
-typed places, and dot notation need not expose a runtime offset.
-
-Evaluate candidates by rewriting complete examples: the tour's counter,
-a nested update in an application, a higher-order collection operation,
-and an effect handler. Show the existing and proposed code side by side.
-A useful syntax makes the receiver, arguments, binding scope and mutation
-visible, works with multiline formatting, and gives useful diagnostics
-for incomplete edits. Reducing the number of parentheses alone is not
-enough to establish those properties.
-
-Additional surface syntax must produce located, hygienic structure that
-the existing expansion and checking pipeline understands. A projection
-can remain unresolved until its receiver's type and writable-field
-evidence are known. Parsing it must preserve evaluation order and evaluate
-the receiver once. Before adopting dots, specify their interaction with
-existing identifiers, numeric literals, quoted data and Scheme dotted
-lists. Before adopting infix or brace syntax, specify precedence, scope
-and macro matching. These are options for review, not selected changes.
-The design should preserve one typed language and one compiler pipeline,
-with editor, formatter, bootstrap and macro support developed together.
-
-### Sweet-expression reader
-
-**Candidate for review, not implemented.** Evaluate
-[SRFI 110 sweet-expressions](https://srfi.schemers.org/srfi-110/srfi-110.html)
-as the preferred source notation, selected by a language-reader directive
-at the start of every file. A traditional S-expression reader is also
-selectable. It combines indentation, call notation and
-[SRFI 105 curly infix](https://srfi.schemers.org/srfi-105/srfi-105.html).
-It accepts conventionally formatted S-expressions, but is not a
-meaning-preserving superset of every traditional source file:
-
-| Input at the start of a line | Traditional reader | Sweet reader |
-| --- | --- | --- |
-| `f(x)` | Two datums: `f` and `(x)` | One datum: `(f x)` |
-| `(f) (g)` | Two datums | One datum: `((f) (g))` |
-
-These distinctions are documented in the SRFI's compatibility section.
-The directive selects parsing; parentheses can still be used within sweet
-code. Backslash grouping/splitting is available, but explicit lists can
-keep it out of routine examples. Curly infix does not supply conventional
-operator precedence: write `{a + {b * c}}` to state the grouping.
-
-With the proposed `fun` forms, the same definition could be written as:
-
-```text
-#lang snail/sweet
-: square impl(Fun(I64 I64))
-fun square(n)
-  {n * n}
-```
-
-Its expansion is the parenthesized definition in
-[callable signatures](types.md#proposed-callable-typeclass). Sweet syntax
-only changes how forms are written; `fun` remains a separate language
-change. Dot projection and typed locators also require their own rules;
-adopting this reader does not itself specify field access.
-
-New-file templates should choose sweet syntax, while every source file
-declares its language reader. The header spellings `#lang snail/sweet` and
-`#lang snail/sexp` are candidates, not implemented syntax. Parse that header
-before invoking either reader. The traditional choice preserves exact
-S-expression interpretation for generated code and imported libraries.
-Both readers produce the same located syntax and share expansion,
-checking and lowering. Selection is local to the file and does not
-propagate into imports. A stream without a source-file header must have
-its reader supplied explicitly by its caller. Supporting arbitrary
-user-provided readers is separate from providing these two built-in choices.
-
-During migration, compare both readers' output across the source tree and
-add explicit headers or reformat files whose meaning changes. Do not guess
-the reader from whether the first expression uses parentheses. Accepting
-parenthesized expressions inside sweet source does not replace a true
-traditional mode: generated `(f) (g)` must still be two forms when that
-reader is selected. The source-file header selects one reader for that
-file; support for SRFI parsing directives in data readers is a separate
-conformance obligation, not an implicit replacement for the header.
-
-Implement the source reader against the same located syntax consumed by
-expansion. Preserve source locations and macro hygiene, and keep generated
-binary syntax independent of textual notation. Reader equivalence tests
-should compare structures while accounting for their different locations,
-then execute equivalent programs. Include blank lines, indentation,
-comments, quote forms and advanced markers. The formatter and editor must
-agree with the compiler on mode and indentation; changing source syntax
-must not silently change a program's data-reading protocol.
-
-Chibi reads the compiler's source directly during stage 0. Adding sweet
-syntax to Snail's reader alone does not let Chibi load a converted compiler.
-Bootstrap-loaded sources need an explicit, tested header/reader adapter
-or preprocessing solution with source mapping before source migration.
-Claim SRFI 110 conformance only when its required reader behavior and APIs
-are covered; an initial source-reader implementation must state its scope.
-
-### Dot projection as a reader extension
-
-**Candidate syntax, not implemented.** Reuse the neoteric reader's
-postfix-to-form approach for field selection. SRFI 105 specifies postfix
-calls and a bracket hook, `a[b]` becoming `($bracket-apply$ a b)`. It does
-not give `a.b` field-access semantics; its `{a . b}` example produces an
-improper form headed by `$nfx$`. Dot projection therefore needs a distinct
-Snail extension, rather than treating a standalone dot as an ordinary
-infix operator. [SRFI 105](https://srfi.schemers.org/srfi-105/srfi-105.html)
-
-The proposed structural translation is schematically:
-
-```text
-a.b.c  =>  (project a b c)
-```
-
-`project` stands for a located projection form whose actual name is still
-open. `a` is an evaluated expression; `b` and `c` are field labels, not
-variable reads. The traditional reader must admit an explicit form with
-the same semantics so generated code can express it without dot syntax.
-The reader-created form must have a defined hygienic binding; a local
-variable must not accidentally change what punctuation means.
-
-For a concrete place receiver, the checked projection composes its static
-path and produces another concrete place implementing the `Ref` capability
-described in [places](types.md#proposed-places-and-locators).
-The reader preserves the path without resolving field types or offsets.
-Later checking establishes writable-field evidence and lowering resolves
-the layout. Whether projection on an ordinary immutable value reads the
-selected value, and how a place is read in a value context, remain explicit
-design questions. A computed getter must not become writable by accident.
-
-Projection should compose left to right with calls, so `make().b.c` has
-one receiver evaluation. Its lexical rules must distinguish decimal
-literals, the standalone dotted-list marker, ellipses and escaped names
-that contain dots. Under the traditional reader a dotted identifier keeps
-its existing meaning. Compatibility tests must cover these boundaries;
-the extension must not split arbitrary identifier strings after parsing.
+The draft specifies binding and mutation notation, dot projection,
+structured macro inputs, source locations, editor support, and the Chibi
+bootstrap boundary. It distinguishes syntax that can lower to today's core
+from examples requiring the separately proposed [callable contracts](types.md#proposed-callable-typeclass)
+and [places](types.md#proposed-places-and-locators). Those semantic proposals
+remain independent of choosing source punctuation.
 
 ## Toolchain terms
 
