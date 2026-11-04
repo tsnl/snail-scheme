@@ -6,6 +6,16 @@
  (snail shell http)
  (snail shell http exchange))
 
+;; A mismatch here is a broken test-host invariant. Guest conversions that
+;; are expected to fail use dyn-cast handlers in the dedicated fixtures.
+(define-syntax fixture-convert
+  (syntax-rules ()
+    ((_ value target)
+     (match (try-convert value target)
+       ((Ok checked) checked)
+       ((Err _) (panic "fixture payload has the wrong type"))))))
+
+
 (: assert (-> Bool Unit))
 (define (assert condition) (unless condition (panic "HTTP exchange assertion failed")))
 
@@ -34,7 +44,7 @@
   (Stream input (ref 0) (ref (ann (Nil) (List Bytes))) (ref 0) (ref 0) read-size write-size fault))
 
 (: token (-> Connection Stream))
-(define (token connection) (type-convert (Connection-token connection) Stream))
+(define (token connection) (fixture-convert (Connection-token connection) Stream))
 
 (: read-stream (-> Connection I32 (Result (Option Bytes) SocketError) ! mut))
 (define (read-stream connection maximum)

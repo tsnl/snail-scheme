@@ -163,9 +163,9 @@
     (: process-handle (-> Process I32))
     (define (process-handle child)
       (let ((token (Process-token child)))
-        (if (type-test token NativeProcess)
-            (NativeProcess-handle (type-convert token NativeProcess))
-            0)))
+        (match (try-convert token NativeProcess)
+          ((Ok native) (NativeProcess-handle native))
+          ((Err _) 0))))
 
     ;; The host reads a command a character at a time: its directory, the
     ;; program's path, the name it is run as, then its arguments.

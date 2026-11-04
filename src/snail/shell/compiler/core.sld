@@ -80,6 +80,7 @@
    Ann
    Handle
    Convert
+   TryConvert
    TypeTest
    Clause
    Clause-pattern
@@ -167,6 +168,7 @@
    program-class
    program-effect
    class-instances
+   selected-method-arguments
    program-with-value
    program-with-type
    program-with-class
@@ -285,6 +287,7 @@
             "expose"
             "case-id"
             "type-convert"
+            "try-convert"
             "type-test"
             "artifact-files" "link-handle"))
 
@@ -723,6 +726,9 @@
       (Convert
        ((expr Expr)
         (target Type)))
+      (TryConvert
+       ((expr Expr)
+        (target Type)))
       (TypeTest
        ((expr Expr)
         (target Type))))
@@ -766,6 +772,7 @@
         ((Match scrutinee clauses) (Cons scrutinee (map Clause-body clauses)))
         ((Ann inner _) (list inner))
         ((Convert inner _) (list inner))
+        ((TryConvert inner _) (list inner))
         ((TypeTest inner _) (list inner))
         ((Handle _ implementations body) (append (map Pair-second implementations) (list body)))))
 
@@ -1029,6 +1036,23 @@
       (match (table-ref (Program-instances program) class)
         ((Some instances) instances)
         ((None) (Nil))))
+
+    ;; A method's use row is opened to its context, but a selected instance
+    ;; supplies the rows it actually performs. Class parameters come first;
+    ;; method-local type arguments follow them and retain their use's types.
+    (: selected-method-arguments
+       (-> Program String (List Type) (List Evidence) (List Type)))
+    (define (selected-method-arguments program class types evidence)
+      (match evidence
+        ((Cons (EvInstance id arguments _) _)
+         (match (find (lambda (instance) (string=? (Instance-name instance) id))
+                      (class-instances program class))
+           ((Some instance)
+            (let ((bindings (zip (Instance-vars instance) arguments)))
+              (append (map (lambda (type) (substitute bindings type)) (Instance-types instance))
+                      (list-drop types (length (Instance-types instance))))))
+           ((None) types)))
+        (_ types)))
 
     ;; Each addition is a larger program, sharing everything else with the
     ;; one it was given.

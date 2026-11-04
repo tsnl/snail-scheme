@@ -312,6 +312,8 @@
         ((Convert inner target)
          (specializing state ((inner (copy-expr inst inner)))
                        (Pair (Convert inner (ground inst target)) state)))
+        ((TryConvert _ _)
+         (panic "internal error: try-convert must be lowered before specialization"))
         ((TypeTest inner target)
          (specializing state ((inner (copy-expr inst inner)))
                        (Pair (TypeTest inner (ground inst target)) state)))))
