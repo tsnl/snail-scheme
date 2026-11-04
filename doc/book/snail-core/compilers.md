@@ -479,104 +479,113 @@ function of the expander has `mut` in its row — and where it does not, the
   files a compile links to `links.datum` in the compile's directory, one
   `("DIGEST" "PATH")` per file, for the Chibi build to place.
 
-## Proposed explicit-provider IR
+## Proposed lowering to typed Snail-Core subsets
 
-**Design for review, not implemented.** The proposed
-[capability model](effects.md#proposed-parameterized-effects) introduces a
-typed IR below Snail-Core, before Wasm representations are selected. It
-must make implicit providers and control conventions visible, so backend
-emission consumes established decisions rather than rediscovering source
-effect behavior. The pipeline above remains the implemented compiler.
+**Design for review, not implemented.** Represent the proposed
+[capability model](effects.md#proposed-parameterized-effects) by successive
+restrictions of typed Snail-Core. Reuse its expressions, declarations, types,
+resolved identities and source locations. Each pass establishes a smaller
+set of permitted forms and more explicit calling contracts. The pipeline
+above remains the implemented compiler.
 
 The proposed sequence is:
 
 ```text
-checked Snail-Core
-  -> explicit provider arguments and captured environments
-  -> specialization by callable and provider implementation types
-  -> control analysis: direct and control-capable calls
-  -> selective continuation lowering
-  -> ordinary calls and closures for WasmGC
+checked typed Snail-Core
+  -> typed Snail-Core with explicit provider arguments and captures
+  -> specialized typed Snail-Core with determined call conventions
+  -> continuation-lowered typed Snail-Core: functions, data and primitives
+  -> WasmGC representation selection and emission
 ```
+
+The first two stages still contain checked control constructs. Continuation
+lowering consumes those constructs and produces ordinary functions and
+closures with explicit continuation arguments or explicit control-result
+values where needed. This is a transformation within the compiler's core
+language; it does not require another general-purpose IR language, parser
+or independent type system.
 
 ### Grammar
 
-This is a proposed core grammar after provider elaboration and before
-continuation lowering, not source syntax or an implemented serialization.
-`*` means zero or more comma-separated entries; `+` means one or more.
-Identifiers are resolved identities, and every node also retains its source
-location. Generic parameters disappear during specialization; mode variables
-are settled by control analysis before continuation lowering.
+The following grammar describes the final restricted subset after provider
+elaboration, specialization and continuation lowering. It uses parenthesized
+Snail-Core notation for readability; passes transform typed trees directly.
+`*` means zero or more entries; `+` means one or more. `Type` is the shared
+checked type representation, with no unresolved type or effect variables
+at this stage. `name` denotes a resolved identity, including generated
+specialization and continuation names.
 
 ```text
-Module    ::= Decl*
-Decl      ::= data D<Param*> = Variant+
-            | code f<Param*> captures (Binding*) (x*) : Signature = Block
-            | extern f : Signature
-Variant   ::= C { Field* }
-Field     ::= field : Type
-Binding   ::= x : Type
+Program     ::= Declaration*
+Declaration ::= (struct name (Field*))
+              | (enum name Variant+)
+              | (extern name string string Type)
+              | (primitive name Type)
+              | (: name Type)
+              | (define name Body)
+              | (fun (name name*) Body)
+Field       ::= (name Type)
+Variant     ::= (name) | (name (Field*))
 
-Param     ::= α : type | ε : row | χ : mode | κ : callable Signature
-Argument  ::= Type | Row | Mode | CallableId
-CallableId ::= κ | f<Argument*>
-Signature ::= Mode Usage (Type*) : Type ! Row drop Row
-Mode      ::= fun | ctl | χ
-Usage     ::= many | once
-Row       ::= { EffectLabel* } | { EffectLabel* | ε }
-
-Type      ::= α | Scalar | D<Argument*>
-            | Callable<CallableId>
-            | Prompt<Type, Row>
-            | Resume<Mode, Type, Type, Row, Row>
-            | Place<Type, Path> | Array<Type>
-Scalar    ::= Unit | Bool | I32 | I64 | F32 | F64
-Path      ::= root | Path.field | Path.element
-
-Atom      ::= x | literal
-Block     ::= return Atom
-            | let x : Type = Rhs in Block
-            | case Atom of { D.C(x*) => Block }+
-Rhs       ::= Atom
-            | construct D.C<Argument*>(Atom*)
-            | field Atom.field
-            | closure f<Argument*>(Atom*)
-            | call[Mode] Atom(Atom*)
-            | primitive op<Argument*>(Atom*)
-            | delimit p : Prompt<Type, Row> { Block }
-            | capture Atom as k : Resume<Mode, Type, Type, Row, Row> { Block }
-            | resume[Mode] Atom(Atom)
-            | drop Atom
-            | alloc<Type>(Atom)
-            | project Atom.field
-            | index Atom[Atom]
-            | read Atom
-            | write Atom = Atom
+Body        ::= Atom
+              | (let ((name Rhs)) Body)
+              | (if Atom Body Body)
+              | (match Atom Clause+)
+Rhs         ::= Atom
+              | (lambda (name*) Body)
+              | (Atom Atom*)
+Clause      ::= (Pattern Body)
+Pattern     ::= name | literal | (constructor name*)
+Atom        ::= name | literal
 ```
 
-`D` names a nominal data type and `C` one of its variants. Providers are
-ordinary data containing captured
-values and concrete callables. `Callable<f<...>>` identifies a particular
-code definition and its capture layout; it is not an erased function type.
-Explicit parameters and field selections replace implicit instance lookup.
+Each expression retains its checked type, ownership and effect information.
+Named `fun` definitions and `lambda` expressions share the proposed core's
+callable representation, including concrete implementation identity and captures;
+this grammar does not add an erased function type. `fun` is the proposed
+source definition spelling, while `lambda` denotes the existing anonymous
+function form without deciding its future surface spelling.
 
-In `Signature`, the two rows bound invocation and cleanup respectively.
-`Resume<M, A, R, E, C>` is one-shot, accepts `A`, answers `R`, invokes with
-mode `M` and effects `E`, and drops with cleanup effects `C`. `delimit`
-binds a fresh prompt value with an answer type and effect bound. `capture`
-selects that prompt and binds the remaining computation to `k`; its block
-answers the delimiter, while the captured continuation accepts the result
-of the `capture` expression. `resume` reinstates the captured context.
-`fun` and `ctl` describe direct and control-capable calls independently of
-the two effect rows and call multiplicity.
+Applications cover constructors, accessors, ordinary functions and approved
+primitives. Provider environments are structs and closures; providers are
+passed as ordinary arguments. Place allocation, projection, indexing,
+reading, writing and dropping use their typed operations through the same
+application form. Primitive declarations refer to the compiler's approved
+primitive registry; the grammar grants no new source-level declaration
+privilege. Explicit continuations are ordinary one-shot callables whose
+input, answer, invocation effects and cleanup effects remain checked.
 
-`field` extracts a data value; `project` extends a place's static field
-path. An `element` step may occur only once and at the end of a place path;
-`index` supplies its runtime index. `alloc` always allocates GC storage.
-Array element restrictions and queue storage choices remain those of the
-[place](types.md#proposed-places-and-locators) and
-[queue](effects.md#queuing-a-continuation) proposals. This grammar introduces
-no implicit callable packaging for a heterogeneous queue.
+There are no `instance`, source `effect` or `handle` forms, implicit provider
+searches, or primitive capture/resume operations in this final subset.
+A resumption has become a closure call. A specialized control-capable
+function has an explicit lowered calling interface, so emission need not
+infer whether to capture the surrounding computation. Its implementation
+may still transfer control through generated calls and control-result data.
+The earlier checked stages retain delimiter and resumption semantics until
+that transformation discharges them; changing the spelling of a call alone
+is not continuation lowering.
+
+### Stage invariants
+
+| Stage | Established facts |
+| --- | --- |
+| Explicit providers | Instance choices are resolved; provider parameters and captures are explicit. Checked control constructs may remain. |
+| Specialized calls | Callable and provider implementation types are concrete; direct/control conventions are determined. |
+| Continuation-lowered subset | Source control constructs are gone; continuation ownership, effects and answer types are preserved in ordinary functions and data. Calls have explicit interfaces and evaluation order. |
+
+Share the core structures, but give each pass a stage-specific program
+wrapper whose construction establishes its invariants. Later passes consume
+that wrapper instead of accepting arbitrary core trees and repeatedly
+rediscovering which forms are allowed. Normalize operands to atoms in source
+evaluation order; preserve source locations on generated bindings. This
+reworks the responsibilities of the existing passes rather than adding a
+second compiler pipeline alongside them.
+
+The [place](types.md#proposed-places-and-locators) and
+[queue](effects.md#queuing-a-continuation) contracts are unchanged: backing
+storage is on the GC heap, paths have at most one dynamic index at the leaf,
+and native array layout restrictions still apply. Sharing this core language
+does not settle heterogeneous job storage or introduce implicit packaging.
 
 ### Elaboration and lowering
 
@@ -584,9 +593,9 @@ Elaboration resolves scoped instance choices and turns missing provider
 requirements into explicit parameters. Callable latent effects remain
 checked even when a provider is already captured. Source class and method
 names become typed provider fields or known code references. A local
-instance is a closure
-environment plus statically selected method implementations. Its captured
-values remain runtime arguments. Each method's anonymous associated callable
+instance is a closure environment plus statically selected method
+implementations. Its captured values remain runtime arguments. Each method's
+anonymous associated callable
 type must satisfy its `impl Fun` signature. Source `effect` and `handle`
 constructs, if retained as sugar, are eliminated here; control delimiters
 and their answer types remain explicit.
@@ -602,10 +611,12 @@ implemented handler policy described above and in the repository guidance.
 Control analysis runs over specialized callees and solves recursive groups
 to a fixed point. An imported callee needs a checked control summary and
 appropriate specialized code; an unknown target must not be assumed direct.
-The IR distinguishes direct calls, control-capable calls, typed delimiters
-and one-shot resumptions. Its direct/control distinction is a calling
-convention, separate from ownership and purity. A function can contain a
-fully delimited control computation and still expose a direct interface;
+Before continuation lowering, the typed core distinguishes direct and
+control-capable calls through callable metadata, while checked control
+nodes retain delimiters and one-shot resumptions. The direct/control
+distinction is a calling convention, separate from ownership and purity.
+A function can contain a fully delimited control computation and still
+expose a direct interface;
 merely finding `ctl` in its body is not the classification rule.
 
 Continuation lowering supplies an explicit continuation only where a

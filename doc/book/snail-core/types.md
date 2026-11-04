@@ -335,8 +335,8 @@ multiplicity default.
 
 Both ordinary and control-capable implementations satisfy this calling
 interface. `ctl` is not a subclass of ordinary functions. It identifies
-an implementation that needs continuation access; the lower IR distinguishes
-its calling convention. A repeatable callable may suspend and a one-shot
+an implementation that needs continuation access; typed core metadata records
+its calling convention before control lowering. A repeatable callable may suspend and a one-shot
 callable may return directly. Specialization must preserve both facts.
 
 The compiler supplies callable evidence for functions, closures and
@@ -348,7 +348,7 @@ fields: two instances of the same implementation with different captured
 strings do not require different code specializations.
 
 Unresolved capabilities following `!` become explicit provider arguments in a
-[lower IR](compilers.md#proposed-explicit-provider-ir). Lexically scoped
+[lowered core subset](compilers.md#proposed-lowering-to-typed-snail-core-subsets). Lexically scoped
 instances supply these arguments. This proposed provider specialization
 replaces the current design's runtime handler search; it is not an
 implemented optimization. Capturing a provider does not erase the effects
