@@ -108,8 +108,13 @@ function of the expander has `mut` in its row — and where it does not, the
   failed step's diagnostics, before it joins the program. The first two
   passes stop at their first error. An instance's `dispatch` clause goes
   through `dynamic.sld`: its finite list of accepted types becomes a
-  `Dispatch`, and each generated method tests its first erased argument,
+  `Dispatch`, and each generated method recovers its first erased argument,
   checks all arguments of that type and calls an ordinary class method.
+  Generated dispatch uses immediate `try-convert` matches, passing the
+  recovered typed operands directly to the selected method. Binary policies
+  recover both operands together when both are erased. Conversion lowering
+  removes the temporary results and discarded errors; the final failure
+  still reports the accepted domain and offending argument.
   Checking and specialization supply the same evidence as for a written
   instance; separate compilation needs no dynamic registry.
   Associated members become hidden trailing class arguments. Projections
