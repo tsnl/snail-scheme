@@ -492,24 +492,31 @@ The proposed sequence is:
 
 ```text
 checked typed Snail-Core with entry and resumption contracts
-  -> explicit providers and provider-parametric continuation templates
-  -> specialization at ordinary-call and resume sites
-  -> continuation-lowered typed Snail-Core: functions, data and primitives
-  -> WasmGC representation selection and emission
+  -> explicit providers and typed CPS for all source functions
+  -> specialize types, provider implementations and callable code
+  -> simplify continuations; recover local and direct control flow
+  -> choose representations and emit WasmGC
 ```
 
-The stages before continuation lowering still contain checked control
-constructs. Continuation lowering consumes them and produces ordinary functions and
-closures with explicit continuation arguments or explicit control-result
-values where needed. This is a transformation within the compiler's core
-language; it does not require another general-purpose IR language, parser
-or independent type system.
+Provider elaboration and continuation-passing-style (CPS) conversion precede
+specialization. Converting every source function gives specialization the
+actual continuation definitions and explicit provider parameters together.
+CPS here is an internal form of the same typed language; it does not imply
+that every continuation becomes a runtime object or that all final calls
+use a CPS calling convention. Simplification and representation selection
+make those decisions later.
+
+This order has precedent in
+[Compiling with Continuations, Continued](https://www.microsoft.com/en-us/research/publication/compiling-with-continuations-continued/),
+which develops CPS simplification and contification. The proposed effect
+transitions and static provider specialization still require their own
+typing and correctness argument.
 
 ### Grammar
 
-The following grammar describes the final restricted subset after provider
-elaboration, specialization and continuation lowering. It uses parenthesized
-Snail-Core notation for readability; passes transform typed trees directly.
+The following grammar describes the optimized monomorphic subset after
+CPS conversion, specialization and continuation simplification. It uses
+parenthesized Snail-Core notation; passes transform typed trees directly.
 `*` means zero or more entries; `+` means one or more. `Type` is the shared
 checked type representation, with no unresolved type or effect variables
 at this stage. `name` denotes a resolved identity, including generated
@@ -529,6 +536,7 @@ Variant     ::= (name) | (name (Field*))
 
 Body        ::= Atom
               | (Atom Atom*)
+              | (begin (fun (name name*) Body) Body)
               | (let ((name Rhs)) Body)
               | (if Atom Body Body)
               | (match Atom Clause+)
@@ -540,6 +548,14 @@ Pattern     ::= name | literal | (constructor name*)
 Atom        ::= name | literal
 ```
 
+Before specialization, the same core carries generic definitions and type
+parameters. In its initial CPS restriction, source-function calls and
+continuation invocations occur in tail position. A `let` right-hand side
+can construct a closure or data, or invoke an approved direct primitive.
+After optimization, ordinary returning calls may also occur there when the
+compiler has proved their direct calling convention. The grammar above
+therefore permits both surviving CPS calls and recovered direct calls.
+
 Each expression retains its checked type, ownership and effect information.
 Named `fun` definitions and `lambda` expressions share the proposed core's
 callable representation, including concrete implementation identity and
@@ -548,7 +564,9 @@ proposed source definition spelling, while `lambda` denotes the existing anonymo
 function form without deciding its future surface spelling.
 
 A call in `Body` is in tail position; a call in `Rhs` binds its result
-before continuing. Entry expressions become initialization or entry
+before continuing. The restricted `begin` binds a local function for joins
+or loops, with its name in scope in its own body and the following body.
+Entry expressions become initialization or entry
 functions. Applications cover constructors, accessors, ordinary functions
 and approved primitives. Provider environments are structs and closures;
 providers are passed as ordinary arguments, including the outstanding
@@ -565,17 +583,17 @@ A resumption has become a closure call. A specialized control-capable
 function has an explicit lowered calling interface, so emission need not
 infer whether to capture the surrounding computation. Its implementation
 may still transfer control through generated calls and control-result data.
-The earlier checked stages retain delimiter and resumption semantics until
-that transformation discharges them; changing the spelling of a call alone
-is not continuation lowering.
+CPS conversion must encode delimiter boundaries and resumption semantics
+before these constructs disappear. Adding one continuation parameter to
+ordinary calls alone does not implement delimited handlers.
 
 ### Stage invariants
 
 | Stage | Established facts |
 | --- | --- |
-| Explicit providers | Call-site choices and outstanding provider parameters are explicit. Continuation templates retain resumption requirements and internal handler scopes; checked control constructs may remain. |
-| Specialized calls | Ordinary calls and resumption invocations select concrete provider implementations; direct/control conventions are determined for those specializations. |
-| Continuation-lowered subset | Source control constructs are gone; continuation ownership, effects and answer types are preserved in ordinary functions and data. Calls have explicit interfaces and evaluation order. |
+| Explicit providers and CPS | Source control constructs have been translated into typed functions and data. Continuations expose outstanding provider parameters, answer types, internal handler scopes and cleanup obligations. Definitions may still be generic. |
+| Specialized CPS | Concrete ordinary-call and resumption sites select provider implementations and callable code. Captured values remain runtime data. |
+| Simplified core | Local continuations become joins or direct returns where proved safe; escaping continuations remain explicit. Calling interfaces and ownership are settled before representation selection. |
 
 Share the core structures, but give each pass a stage-specific program
 wrapper whose construction establishes its invariants. Later passes consume
@@ -591,60 +609,114 @@ storage is on the GC heap, paths have at most one dynamic index at the leaf,
 and native array layout restrictions still apply. Sharing this core language
 does not settle heterogeneous job storage or introduce implicit packaging.
 
-### Elaboration and lowering
+### Elaboration and CPS conversion
 
-Elaboration resolves call-site instance choices into explicit provider
-parameters and struct fields, while closures capture ordinary values.
-Continuation-aware checking distinguishes entry requirements from the
-resumption requirements of the remaining computation; a flat whole-function
-row cannot express an effect transition. Each method retains the concrete
-callable identity inferred from its definition and checked against its `impl Fun`
-contract. Any retained `effect` and `handle` sugar expands into the shared core's
-checked control constructs; delimiter answer types and resumption bounds
-remain until continuation lowering.
+The source checker establishes entry requirements, resumption effects and
+cleanup obligations before translation. Elaboration makes provider arguments
+explicit; ordinary closures capture values while their outstanding providers
+remain invocation parameters. CPS conversion then exposes the remaining
+computation as a one-shot callable. The two transformations may be separate
+passes, but both finish before provider-dependent calls are specialized.
 
-Specialization keys include callable and provider implementation types and
-selected method code, alongside ordinary type arguments. Captured values
-are runtime arguments: two instances with the same implementation and
-different captured strings share code. Direct and control-capable providers
-can produce different specializations of one consumer. A saved continuation
-retains a template generic over outstanding provider parameters; its
-invocation chooses the specialization. Code already fixed to the capture
-site's provider cannot implement rebinding by changing a pointer. Exposing
-these templates must precede committing their provider-dependent calls to
-one implementation, even if extraction and specialization are interleaved.
-This replaces the implemented runtime evidence-list search and handler policy.
+Convert every source function and closure, including ordinary `fun` bodies,
+with an explicit continuation parameter. Generated continuations are already
+in CPS and are not converted again. Arithmetic, constructors and other direct
+primitives can keep their ordinary result interfaces. Foreign functions
+keep their declared host ABI: generated adapters bridge to the internal CPS
+interface. Initialization and exported entry points also need explicit
+boundary adapters.
 
-Control analysis uses specialized callees and solves recursive groups to a
-fixed point. Imported callees need checked control summaries and suitable
-specialized code; an unknown target cannot be assumed direct. The call
-convention is independent of purity and ownership. A computation whose
-control is fully delimited internally can still expose a direct interface.
+For example, omitting types and provider arguments for this pure fragment:
 
-Continuation lowering preserves the operation result type, delimiter answer
-type, invocation effects and cleanup obligations. It generates ordinary
-functions, closures and data to implement capture, resumption and abandonment.
-Stored resumptions retain ordinary runtime captures and internal handler
-scopes, while outstanding providers come from the resumption caller. Nested
-delimiters and deep reinstatement must survive this translation; one extra
-function argument alone does not establish that.
-Wasm emission consumes the resulting explicit interfaces and performs
-representation selection without reconstructing source handler semantics.
+```scheme
+;; Before CPS conversion.
+(fun (twice x)
+  (* x 2))
 
-Keep source locations, ownership and foreign-boundary evidence through these
-passes. Preserve callable effect information while checking generated calls,
-including the provider calls within resumed computations. Separate
-compilation exposes generic bodies and implementation identities needed for specialization;
-cache keys include selected provider code. Runtime-loaded code cannot
-silently introduce an erased provider ABI inconsistent with that contract.
+;; Typed core shape after CPS conversion.
+(fun (twice-cps x k)
+  (let ((result (* x 2)))
+    (k result)))
+```
+
+The generated continuation's type records its input and answer, resumption
+requirements and cleanup obligations. Outstanding providers are supplied
+when it is invoked, rather than captured from its creation site. A pending
+continuation must remain generic over those provider parameters; fixing its
+calls to provider A at capture cannot implement later resumption under B.
+
+Control operations require the full translation of delimiters, abandonment,
+nested handler scopes and deep reinstatement. Their translation preserves
+ordinary runtime captures and the internal scopes to restore. A scheduling
+operation can retain the resulting callable; enqueueing still does not run
+its resumption effects. Uniform CPS is a common representation for these
+behaviors, not permission to flatten their scope or effect contracts.
+
+### Specialization and continuation simplification
+
+Specialize the CPS definitions at their ordinary-call and resumption sites,
+using concrete source types, provider implementations and callable code.
+Do not key on runtime capture values: two instances of the same provider
+with different captured strings should share code. The checked source
+control information remains useful, but direct/control calling conventions
+are recovered from specialized CPS rather than deciding which source
+functions receive CPS conversion in the first place. Specialization and
+simplification may iterate together to expose further known calls.
+
+Optimization combines several operations:
+
+- Inline a known continuation application when substitution is safe and
+  profitable, and eliminate forwarding continuations. Preserve evaluation
+  order and one-shot cleanup obligations.
+- Turn functions that always return to a known continuation into local
+  control flow where escape and scope analysis permit it. This is
+  [contification](https://www.cs.cornell.edu/people/fluet/research/contification/ICFP01/icfp01.pdf):
+  joins and recursive loops need not become closure calls.
+- Recover ordinary calls and returns where the continuation cannot escape
+  or be retained. Keep an explicit callable when it can be stored in a queue
+  or otherwise outlive the current invocation.
+
+Known code alone does not prove that a continuation is local: the same
+known lambda may be enqueued with different runtime captures. Nor should
+inlining duplicate arbitrary function bodies just because a tail call is
+known. A missed optimization must leave correct executable CPS, with tail
+transfers lowered without unbounded native-stack growth.
+
+Recursion needs a specialization policy. For example, a recursive sum in
+CPS creates a continuation that adds the current element and then invokes
+its predecessor. Specializing every call by the full nested capture type
+can generate an unbounded family, even for this ordinary source program.
+Recover direct recursion/local control flow where possible, or use a finite
+recursive continuation representation with runtime links. The exact choice
+is open; fully expanding continuation chains into specialization keys is
+not a valid default. Detect these recursive families before expanding
+specialization requests, using a finite representation or interleaved
+simplification; a later pass cannot repair nonterminating specialization.
+This requirement is separate from specializing the provider implementations
+used by a continuation.
+
+Choose closure representations after these simplifications. Compiler-created
+continuations that become joins need no runtime closure allocation; those
+that escape and need environments use GC-managed storage. This does not
+change the requirement to allocate place-backed storage on the GC heap or
+authorize eliminating those backing allocations.
+
+Preserve source locations, effect evidence, ownership and foreign-boundary
+assumptions throughout. Separate compilation must expose generic CPS bodies
+and identities needed for downstream specialization, plus checked summaries
+where a body is unavailable. Cache keys include selected provider code and
+lowered interfaces. Imported or runtime-loaded code cannot silently introduce
+an erased provider ABI inconsistent with the static contract.
 
 ### Review points and validation
 
 The subset grammar fixes the target vocabulary, not the precise continuation
-encoding. Review that encoding, continuation-aware transition inference,
-provider-parametric continuation specialization, and specialization growth
-and termination before implementation. The signature notation must preserve
-entry requirements, resumption requirements and observable effects.
+encoding. Review typed CPS for delimiters and effect transitions, provider
+specialization at invocation sites, and finite continuation representations before
+implementation. Bound specialization growth and inlining; neither uniform
+CPS nor a known continuation guarantees that optimization removes all
+overhead. The signature notation must preserve entry requirements,
+resumption requirements and observable effects.
 Heterogeneous queue storage also remains open;
 [queue contracts](effects.md#queuing-a-continuation)
 specify effect inclusion and cleanup without selecting a representation.
@@ -660,9 +732,14 @@ nested and stored resumptions across separately compiled libraries. Reject
 calls outside a callable's effect bound and preserve the distinction between
 enqueueing and invoking work. Cover branches that bypass a transition,
 wrapper calls and changing provider implementations across resumption.
-Check generated core against each stage's invariants and execute linked
-Wasm; direct specializations should have no
-unnecessary yield checks or continuation allocations.
+Test non-tail recursion for finite specialization, tail recursion for bounded
+native-stack use, and stored continuations with runtime environments. Check
+host adapters and separately compiled calls. Inspect simple direct-provider
+examples for eliminated administrative closures and continuation calls, and
+execute linked Wasm with conservative optimization as well as optimized code.
+Check generated core against each stage's invariants. Measure code size,
+compile time and remaining allocations; do not assume universal CPS always
+recovers the original direct-style performance.
 
 ## Separate compilation
 

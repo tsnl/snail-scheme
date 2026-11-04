@@ -337,9 +337,10 @@ multiplicity default.
 Both ordinary and control-capable implementations satisfy this calling
 interface. `ctl` is not a subclass of ordinary functions. It identifies
 an implementation that needs continuation access; typed core metadata records
-its calling convention before control lowering. A repeatable callable may
-suspend and a one-shot callable may return directly. Specialization must
-preserve both facts.
+that source contract. All source functions pass through the proposed CPS
+subset, then specialization and simplification select their final calling
+interfaces. A repeatable callable may suspend and a one-shot callable may
+return directly; neither multiplicity nor purity determines that interface.
 
 The compiler supplies callable evidence for functions, closures and
 capability methods. Whether arbitrary user data may implement `Fun` is a
