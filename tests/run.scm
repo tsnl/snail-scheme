@@ -340,7 +340,20 @@
            (report "compiler run" "a panic must exit with status 1" (cadr panicked)))
           ((not (= (caddr trapped) 512))
            (report "compiler run" "a trap must be status 2" (cadr trapped)))
-          (else #t))))
+          (else (check-scheme-script root)))))
+
+;; The generated script installs its own dyn-cast boundary. A bad cast
+;; becomes a diagnostic and failure status, and no later expression runs.
+(define (check-scheme-script root)
+  (let ((result (capture-process
+                 (list (path-join root "scripts/snail-tool") "run"
+                       "-I" (path-join root "tests/programs/lib")
+                       (path-join root "tests/scheme-any-script-error/main.sld")))))
+    (or (and (= (caddr result) 256)
+             (string-contains (cadr result) "dyn-cast: type mismatch")
+             (not (string-contains (car result) "unreachable")))
+        (report "Scheme script" "conversion failure did not abort the script"
+                (string-append (car result) (cadr result))))))
 
 (define (tool-run root command program)
   (capture-process

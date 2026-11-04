@@ -269,8 +269,8 @@ switch types because of their values. Core literals retain their existing
 `I64`/`F64` defaults; construct exact values with `integer-from-i64` or
 `string->integer`, and rationals with `make-rational`. Arithmetic errors
 retain the underlying libraries' behavior; they are separate from `dyn-cast`.
-Comparison policy, Scheme literal lowering, and the Scheme `Datum` to
-`Any` migration are separate work.
+Scheme uses these policies with native numeric payloads in `Any`; see
+[dynamic Scheme](macros.md). Comparison policy remains separate work.
 
 ## Effects
 
@@ -476,9 +476,10 @@ Every finite dispatcher needs `dyn-cast` for unsupported payloads. Calls
 perform the declared row under the caller's handlers. A payload's type
 does not grant permission to perform an undeclared effect.
 
-This changes the typed core's boundaries; it does not yet replace the
-Scheme translator's `Datum` representation, generalize local bindings,
-or erase effectful procedures. Those are separate changes.
+The Scheme translator now uses these boundaries through `Any` and a nominal
+procedure wrapper with a fixed effect signature ([dynamic Scheme](macros.md)).
+This does not generalize local bindings or permit direct erasure of effectful
+function types.
 Catchable conversion failure uses the same ownership cleanup as other
 abortive effects ([cleanup](ownership.md#drops-that-may-run)).
 
@@ -595,8 +596,10 @@ Errors do not retain the payload for diagnostics.
 which additionally reports failures through `console`. An interactive
 caller can use this explicit boundary once per evaluation and continue
 after an `Err`; a script decides its exit status from the result. No host
-implicitly enables `dyn-cast`. The current Scheme translator still uses
-`Datum`, and has no Any-based interactive evaluator to wrap automatically.
+implicitly enables `dyn-cast`. Generated Scheme scripts explicitly wrap each
+top-level evaluation with `scheme-evaluate`, which reports a failure as a
+script error. Direct runtime calls remain catchable by their caller; there
+is no interactive evaluator yet.
 
 A type identity includes fields and cases: changing a struct's fields
 changes its identity, even when its name stays the same. A relinked program
