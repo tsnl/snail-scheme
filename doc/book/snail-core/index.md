@@ -11,8 +11,8 @@ how stage 0 runs that source; [Bootstrap](bootstrap.md) explains it.
 The chapters describe implemented behavior and mark proposed toolchain changes:
 
 - [Terms](terms.md): programs, libraries, language forms and toolchain names.
-- [Proposed source syntax](surface.md): a Python-like surface, structured
-  reading, macros, and migration; a draft awaiting approval.
+- [Proposed layout reader](surface.md): colon-opened indentation blocks over
+  S-expressions, compatibility, and migration; a draft awaiting approval.
 - [Types](types.md): scalars, data, typeclasses, foreign functions, linked
   files and dynamic values.
 - [Effects and handlers](effects.md): effect rows, handlers, control
