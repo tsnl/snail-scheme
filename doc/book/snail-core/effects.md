@@ -354,6 +354,16 @@ and calling it requires permission for `E`. The exact spelling within
 `impl Fun` remains open; this does not require a second user-facing effect
 annotation just for continuations.
 
+Source checking establishes that bound at the static delimiter site,
+subject to the capability declaration and enclosing signature. Primitive
+operations and callee contracts contribute effects; sequencing and branches
+combine them, and generic calls can contribute row variables. The residual
+row of the delimited computation is a sound conservative bound for `E`.
+The control implementation receives `resume` with that contextual contract;
+it cannot choose an empty row independently. A reusable implementation can
+be generic over the row, fixed at each installation. Continuation lowering
+preserves the checked bound rather than inventing it from generated code.
+
 `E` describes the resumed computation under its captured providers,
 including observable effects of their implementations. Operations handled
 inside the captured delimiter are accounted for by their providers; they
@@ -378,6 +388,45 @@ design work is how `!` and associated callable evidence express these two
 obligations, including compiler-owned `mut` and `host`, local-mutation
 confinement and foreign calls. A direct calling convention alone proves
 neither purity nor absence of allocation. Implemented behavior is unchanged.
+
+#### Queuing a continuation
+
+Moving a continuation into a work queue does not invoke it. A control
+implementation that only enqueues has the effects of enqueueing, such as
+queue mutation, without thereby performing the continuation's latent row
+`E`. The queue takes ownership of the one-shot value; the eventual worker
+must call or drop it exactly once. A job adapter must supply the operation's
+result and account for the delimiter's answer, matching the scheduler's
+job interface.
+
+Give a queue an allowed invocation-effect bound `Q`. The following are
+contracts, not proposed concrete storage types or surface syntax:
+
+| Operation | Contract |
+| --- | --- |
+| Enqueue a job with row `E` | Require `E` to be included in `Q`; perform only the enqueue operation's own effects. |
+| Run a queued job | Require permission for `Q`, plus the worker's own queue operations. |
+| Cancel or reject a job by dropping it | Account for cleanup effects separately; an invocation bound alone is not a drop contract. |
+
+Effect inclusion permits jobs with smaller rows: a queue allowing mutation
+and output may also accept a pure job. Insertion of an output-capable job
+into a mutation-only queue is a compile-time error. Widen the queue's bound
+or handle the output capability with a suitable provider before packaging
+the job; merely capturing an output provider does not remove its effects.
+
+The scheduling provider can be generic over the queue's bound, with each
+static installation fixing it. A local scheduler may infer the bound from
+its uses; a shared queue needs a declared contract. Neither enqueueing nor
+later invocation reselects the job's lexically captured providers.
+
+Different concrete continuations still need a common storage representation
+to share one queue. Argument-position `impl Fun` alone does not provide it.
+A known sum of job types and an explicitly packaged callable at the scheduling
+boundary are alternatives for review; no representation is selected here.
+An explicit package could preserve specialized provider code inside each
+job while dispatching the job's entry point at runtime. This does not grant
+implicit provider erasure elsewhere. The choice must preserve invocation
+and cleanup bounds, one-shot ownership, and the native array layout rules.
 
 #### Compiler obligations
 
@@ -406,6 +455,10 @@ provider method types, ambiguous instances, operation-local polymorphism,
 erased provider selection and repeated use
 of one-shot continuations. Execute linked Wasm and check that direct
 specializations have no unnecessary yield checks or continuation allocations.
+Queue tests must accept smaller job rows, reject effects outside the queue's
+bound, separate enqueue effects from invocation effects, and check cleanup
+when jobs are cancelled. Exercise distinct concrete job types once their
+shared storage representation has been chosen.
 Bootstrap and compiled execution must agree. The language's remaining gaps
 are tracked in [issue #456](https://github.com/tsnl/snail-scheme/issues/456).
 
