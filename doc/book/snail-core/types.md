@@ -200,8 +200,9 @@ The callable contract preserves the following evidence:
 | --- | --- |
 | Argument types | Each call supplies the required arguments. |
 | Result type | Continuing the call produces a value of this type. |
-| Provider requirements | The caller supplies any provider arguments not already captured. |
-| Invocation effects | The call context permits the callable's latent effects, including those of captured providers. |
+| Entry provider requirements | The caller supplies the outstanding providers for this invocation; ambient handlers are not automatically captured. |
+| Resumption requirements | Each suspension accepts the remaining computation's requirements, and its eventual caller supplies the outstanding providers. |
+| Invocation effects | The call context permits the effects of execution under the selected providers; deferred obligations remain visible. |
 | Call multiplicity | The consumer calls or releases the value as its ownership permits. |
 
 A generic `map` needs a concrete callable from `A` to `B` that permits
@@ -218,28 +219,29 @@ multiplicity default.
 Both ordinary and control-capable implementations satisfy this calling
 interface. `ctl` is not a subclass of ordinary functions. It identifies
 an implementation that needs continuation access; typed core metadata records
-its calling convention before control lowering. A repeatable callable may suspend and a one-shot
-callable may return directly. Specialization must preserve both facts.
+its calling convention before control lowering. A repeatable callable may
+suspend and a one-shot callable may return directly. Specialization must
+preserve both facts.
 
 The compiler supplies callable evidence for functions, closures and
 capability methods. Whether arbitrary user data may implement `Fun` is a
 separate extension. Monomorphization keys on concrete callable types and
 provider implementation types, including their statically selected method
-code and control behavior. Captured provider values remain runtime closure
-fields: two instances of the same implementation with different captured
-strings do not require different code specializations.
+code and control behavior. An instance may capture ordinary runtime data:
+two instances of the same implementation with different captured strings
+share code. An effectful closure or resumption keeps its outstanding
+providers as invocation parameters; its code must remain generic over those
+parameters until the relevant invocation sites are specialized.
 
-Unresolved capabilities following `!` become explicit provider arguments in a
-[lowered core subset](compilers.md#proposed-lowering-to-typed-snail-core-subsets). Lexically scoped
-instances supply these arguments. This proposed provider specialization
-replaces the current design's runtime handler search; it is not an
-implemented optimization. Capturing a provider does not erase the effects
-of invoking its methods. Callable effect evidence remains checked even
-when no additional provider argument is needed; its precise relationship
-to the `!` spelling is described with
-[resumption effects](effects.md#provider-requirements-and-purity).
-Control operations still require delimited continuation
-semantics ([effects](effects.md#proposed-parameterized-effects)).
+Capabilities following `!` become explicit provider arguments in the
+[lowered core subsets](compilers.md#proposed-lowering-to-typed-snail-core-subsets).
+Instances in scope at the call site supply them. The proposed
+[effect transitions](effects.md#resumption-effects-and-effect-transitions)
+distinguish entry requirements from resumption requirements; the latter
+remain part of the control operation's contract instead of becoming an
+implicit capture of the entry provider environment. Both invocation and
+cleanup effects remain checked. Control operations still need delimiters,
+and resumption restores internally established handler scopes.
 
 Migration must cover signatures, function definitions, bootstrap forms,
 macros, formatting, highlighting and diagnostics together. Examples of
