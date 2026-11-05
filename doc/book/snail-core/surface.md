@@ -21,12 +21,12 @@ This is a change to list construction, not a new expression language.
 
 (: fibonacci (-> I64 I64))
 define (fibonacci n)
-    if (< n 2)
-        n
-        + (fibonacci (- n 1)) (fibonacci (- n 2))
+  if (< n 2)
+    n
+    + (fibonacci (- n 1)) (fibonacci (- n 2))
 
 define answer
-    fibonacci 30
+  fibonacci 30
 write-line (show answer)
 ```
 
@@ -103,8 +103,8 @@ list construction even when the header is a single datum, such as `begin`.
 
 ```text
 f x
-    g y
-    z
+  g y
+  z
 ```
 
 reads as `(f x (g y) z)`. Indentation does not insert `begin`, make a thunk, or
@@ -156,8 +156,8 @@ Keep the binding list explicit and indent the body:
 ```text
 let ((x 10)
      (y 20))
-    write-line (show x)
-    + x y
+  write-line (show x)
+  + x y
 ```
 
 This reads as:
@@ -178,9 +178,9 @@ Bodies nest by the same rule:
 
 ```text
 let ((x 10))
-    let ((y (+ x 1)))
-        write-line (show y)
-        + x y
+  let ((y (+ x 1)))
+    write-line (show y)
+    + x y
 ```
 
 This reads as `(let ((x 10)) (let ((y (+ x 1)))
@@ -189,9 +189,9 @@ also uses its existing shape:
 
 ```text
 let loop ((n 3))
-    if (= n 0)
-        0
-        loop (- n 1)
+  if (= n 0)
+    0
+    loop (- n 1)
 ```
 
 ## Bodies, bindings, and macros
@@ -205,11 +205,11 @@ when a branch needs several expressions:
 
 ```text
 define (report n)
-    if (< n 0)
-        write-line "negative"
-        begin
-            write-line "nonnegative"
-            write-line (show n)
+  if (< n 0)
+    write-line "negative"
+    begin
+      write-line "nonnegative"
+      write-line (show n)
 ```
 
 The reader does not recognize Python-style branch clauses. The existing
@@ -217,10 +217,10 @@ The reader does not recognize Python-style branch clauses. The existing
 
 ```text
 cond
-    (< n 0)
-        write-line "negative"
-    else
-        write-line "nonnegative"
+  (< n 0)
+    write-line "negative"
+  else
+    write-line "nonnegative"
 ```
 
 It reads as `(cond ((< n 0) (write-line "negative"))
@@ -231,8 +231,8 @@ Macros receive precisely the same forms as their parenthesized spelling:
 
 ```text
 unless ready
-    write-line "waiting"
-    (retry)
+  write-line "waiting"
+  (retry)
 ```
 
 reads as `(unless ready (write-line "waiting") (retry))`. There is no new
@@ -295,10 +295,11 @@ signature form, even if formatted over multiple lines.
 - Blank and comment-only lines do not open or close blocks. Newlines
   inside strings and block comments are not form separators. A final
   logical form can end at EOF without a final newline.
-- Use spaces for layout indentation, with four spaces as the formatting
-  convention. Tabs in layout indentation are diagnosed. Whitespace inside
-  explicit S-expressions, and all whitespace under the traditional reader,
-  retains its existing interpretation.
+- Use spaces for layout indentation, with two spaces per level as the
+  formatter and new-file default. The reader accepts any consistent increase;
+  it does not require exactly two spaces. Tabs in layout indentation are
+  diagnosed. Whitespace inside explicit S-expressions, and all whitespace
+  under the traditional reader, retains its existing interpretation.
 - A line without children is valid by the first construction rule. Missing
   arguments or bodies are for expansion and checking to diagnose from the
   constructed form. Unmatched explicit delimiters retain the traditional
@@ -346,13 +347,81 @@ therefore the same as in the equivalent explicit list. The formatter may
 retain comments, source ranges, and which delimiters were explicit; those
 details do not belong in the compiler's semantic IR.
 
+## Resolving `#lang`
+
+**Proposed, not implemented.** The current `read-source-file` in
+`src/snail/shell/compiler/inputs.sld` passes file text straight to `read-text`
+in `read.sld`. Add source-header selection before either syntax reader runs.
+The initial resolver is a fixed mapping to two built-in readers:
+
+| Source-file header | Reader |
+| --- | --- |
+| `#lang snail` | Layout: logical lines and indentation construct lists. |
+| `#lang snail/sexp` | Traditional: whitespace separates ordinary datums. |
+| No header | Traditional, preserving existing files during migration. |
+
+These are exact, case-sensitive names. The slash in `snail/sexp` is part of
+the name; it is not a library path. Resolution does not search import
+directories, evaluate a binding, load a package, or run a reader supplied by
+the source. A future user-defined reader mechanism would need its own
+loading and bootstrap contract; it is outside this initial proposal.
+
+### Recognizing the header
+
+Recognize the standalone `#lang` token only at column one of the first
+physical line, before reading any datums. The line contains `#lang`, one or
+more spaces or tabs, and one reader name, optionally followed by horizontal
+whitespace and a semicolon comment. LF, CRLF, or EOF terminates the header.
+For example:
+
+```text
+#lang snail ; use layout in this file
+define (square n)
+  * n n
+```
+
+A missing name, an unknown name, or additional non-comment tokens is a
+header error at the offending source location. Report the supported names;
+do not retry with another reader. The scanner does not skip blank lines or
+comments to find a later directive. Only the initial header selects a mode;
+later text, including `#lang` in a string or explicit datum, is handled by
+the selected reader and cannot switch modes.
+
+Parse the header into a reader choice and the index where its body starts.
+Keep the original source and its line table: the first body line is still
+line two, and a diagnostic points into the original file. Do not strip the
+header and restart positions at line one. A header-only file has an empty
+body; a headerless file starts reading at index zero.
+
+### Using the selected reader
+
+Keep this dispatch in the source-text entry point in `read.sld`, alongside
+the shared source locations and datum reader. `read-source-file` supplies
+the file text and path to that entry point, which resolves the header and
+reads the body into the existing `List Syntax`. Expansion and checking see
+the same representation in both modes. Keep `read-text` as the traditional
+datum-reading API for callers such as compiler-request parsing; it does not
+interpret source headers.
+
+Resolve each entry file and each imported library independently. For
+example, a file using `#lang snail` can import a file using
+`#lang snail/sexp`; a headerless dependency still uses the migration default.
+Library lookup continues to use the existing import paths. `#lang` chooses
+only the reader: it neither imports libraries implicitly nor changes a
+file's declared library name or its exported bindings.
+
+Compiler file loading, dependency discovery, and editor source buffers must
+use the same selector. Formatting and highlighting use that resolved mode;
+editing the header invalidates the previous parse just like editing the
+body. Cache any parsed source with its reader choice as well as its source
+contents. A fragment that is not a complete source file takes its reader
+explicitly from its caller rather than inheriting an unrelated file's mode.
+
 ## Migration and verification after approval
 
-Retain per-file selection: `#lang snail` chooses layout reading and
-`#lang snail/sexp` chooses exact traditional reading. Selection does not
-propagate through imports. During migration, headerless existing files
-continue to use the traditional reader. Avoid a
-tree-wide header or source conversion until bootstrap supports it.
+Keep headerless existing files on the traditional reader during migration.
+New source-file templates use `#lang snail` and two-space indentation. Avoid
+a tree-wide header or source conversion until bootstrap supports it.
 
 Generated binary syntax and program data-reading APIs keep their existing
 protocols. An embedded fragment takes its reader mode explicitly. Do not
@@ -360,29 +429,36 @@ infer a reader from whether a file happens to begin with parentheses.
 
 Chibi loads compiler sources directly during stage 0. Before converting
 those sources, provide a tested adapter that itself runs on Chibi through
-the deliberate bootstrap include closure, handles source headers, lowers
-layout to ordinary forms, and preserves source mapping. It must not need
-an already-compiled Snail compiler. Other libraries and examples can use
+the deliberate bootstrap include closure, uses the same header mapping and
+errors, lowers layout to ordinary forms, and preserves source mapping. It
+must not need an already-compiled Snail compiler. Other libraries and examples can use
 the reader before the compiler source is migrated.
 
 Verification must establish the mode boundary as well as list construction:
 
-1. Read existing source through the traditional mode and compare with the
+1. Exercise header resolution for both names, the headerless default,
+   initial-line-only recognition, trailing comments, LF/CRLF, EOF, unknown
+   names, missing names, and extra tokens. Verify original line positions
+   after a header, per-file selection across imports, and agreement between
+   file loading, editor buffers, and the Chibi adapter.
+2. Read existing source through the traditional mode and compare with the
    current reader, accounting for headers. Preserve syntax and datum
    locations regardless of line breaks or indentation. Include multiple
    forms on one line, adjacent delimiters, quotes, colon signatures,
    comments, tabs, and multiline strings.
-2. Compare explicit datums in both modes when each starts on its own logical
+3. Compare explicit datums in both modes when each starts on its own logical
    line at column zero and has no layout children. Vary whitespace inside
    lists freely. Separately assert the intentional differences for `f x`,
    `f(x)`, `f()`, multiple forms on one line, and indented children. Include
    quoted datums and colon-suffixed symbols with no marker interpretation.
-3. Pair layout examples with their explicitly parenthesized equivalents.
+4. Pair layout examples with their explicitly parenthesized equivalents.
    Compare syntax, then execute programs using definitions, local and named
    `let`, nested bodies, conditionals, macros, mutation, handlers, and
    ownership. Include singleton and multi-datum headers, multiline binding
    lists, malformed dedents, comments between siblings, EOF without a newline,
-   and mixed-reader imports. Formatting must preserve those readings.
+   and mixed-reader imports. Formatting must preserve those readings and
+   use two spaces for each layout level without changing explicit datum
+   structure.
 
 Run the relevant local compiler checks, including `make test`, `make check`,
 `make test-chibi`, and `make bootstrap`; execute linked Wasm. Formatter and

@@ -105,9 +105,12 @@ superset. Calls such as `(ask)`, final-expression results, symbols, binding
 rules, and `syntax-rules` remain Scheme's. A `let` keeps an explicit binding
 list and indents its body.
 
-The draft specifies list construction, the compatibility tradeoff, source
-locations, editor support, and the Chibi bootstrap boundary. Per-file readers remain
-`#lang snail` and `#lang snail/sexp`. Proposed [callable contracts](types.md#proposed-callable-typeclass)
+The draft specifies list construction with a two-space indentation default,
+the compatibility tradeoff, source locations, editor support, and the Chibi
+bootstrap boundary. Its [header resolver](surface.md#resolving-lang) maps
+`#lang snail` and `#lang snail/sexp` to built-in readers before reading each
+file's body; headerless existing files keep traditional reading during
+migration. Proposed [callable contracts](types.md#proposed-callable-typeclass)
 and [places](types.md#proposed-places-and-locators) remain separate semantic
 decisions. Completing the feature includes promoting the temporary proposal
 to implemented language documentation and removing its review scaffolding.
