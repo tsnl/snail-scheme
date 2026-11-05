@@ -479,6 +479,461 @@ function of the expander has `mut` in its row — and where it does not, the
   files a compile links to `links.datum` in the compile's directory, one
   `("DIGEST" "PATH")` per file, for the Chibi build to place.
 
+<a id="proposed-lowering-to-typed-snail-core-subsets"></a>
+
+## Proposed specialization directly to WasmGC
+
+**Design for review, not implemented.** Use structured Wasm as the
+monomorphic representation of the proposed
+[capability model](effects.md#proposed-parameterized-effects). The source
+checker retains typed Snail-Core; compilation specializes that checked
+program directly into Wasm functions and GC types. No separate simplified
+Snail-Core program or CPS intermediate language is required. The pipeline
+above remains the implemented compiler.
+
+The proposed compiler has three main transformations:
+
+```text
+source
+  -> expand       resolved Snail-Core
+  -> typecheck    checked generic Snail-Core
+  -> compile      specialized Wasm functions, types and imports
+  -> assemble     module bytes
+```
+
+Reading belongs to expansion. Assembly serializes the target; a Wasm
+validator or engine checks its types. The backend is a **memoized emitter**:
+request a definition at concrete types and providers, reserve its Wasm
+symbol, then emit its body. Calls request further definitions by the same
+rule. Functions, provider methods, continuation entries and cleanup routines
+use this one mechanism.
+
+Type checking comes first because capability selection, field projection,
+control requirements and ownership depend on types. It checks each generic
+body against its declared constraints, including entry and resumption
+requirements. Compilation consumes that evidence and concrete instantiations.
+Use fixed representation and control rules, with ordinary instruction
+optimization left to the Wasm engine. This removes a compiler-owned optimizer,
+control summary solver and continuation-recovery analysis from the baseline.
+
+### Wasm as the lower representation
+
+Build Wasm declarations and instruction trees with symbolic references.
+They are ordinary Wasm, with no source effect rows, typeclass operations,
+`ctl`, `handle`, or implicit provider lookup. Provider captures become
+explicit parameters or GC fields. Places become managed roots, fixed field
+indices and, where permitted, one runtime array index. Closure code becomes
+functions with explicit environment parameters; environments use GC types.
+Source matches become tag tests, projections and structured branches.
+
+Keep function signatures, locals, type references and source locations
+available while constructing each body. The current `Wat` tree and module
+builder provide a starting point. Emit instructions in the checked evaluation
+order and retain their structure until assembly. Substitution resolves types,
+providers and field indices; it does not evaluate arbitrary source functions
+at compile time. Correctness and the promised representations must hold
+without engine inlining or any other optional optimization.
+
+The following is a schematic grammar for the target bodies in folded WAT
+notation. It identifies the constructs the builder needs; the
+[WebAssembly grammar](https://webassembly.github.io/spec/core/text/instructions.html)
+defines their full syntax and typing. `name` is a symbolic identity,
+`ValueType` is a concrete Wasm value type, `*` means zero or more, and `?`
+marks an optional form.
+Imports, exports, globals and recursive GC type declarations use the standard
+Wasm forms.
+
+```text
+Function  ::= (func name TypeUse Local* Instruction*)
+TypeUse   ::= (type name) Param* Result*
+Param     ::= (param name ValueType)
+Result    ::= (result ValueType)
+Local     ::= (local name ValueType)
+BlockType ::= (param ValueType*)? Result*
+
+Instruction ::= (local.get name)
+              | (local.set name Instruction)
+              | (call name Instruction*)
+              | (return_call name Instruction*)
+              | (call_ref name Instruction*)
+              | (return_call_ref name Instruction*)
+              | (block name BlockType Instruction*)
+              | (loop name BlockType Instruction*)
+              | (if BlockType Instruction
+                    (then Instruction*) (else Instruction*))
+              | (br name Instruction*)
+              | (return Instruction*)
+              | (op immediate* Instruction*)
+```
+
+`op` ranges over the supported Wasm numeric, reference, struct and array
+instructions, constants, and other required target instructions. It cannot
+hide a source-level handler or continuation-capture operation. Resource
+cleanup uses explicit generated or imported calls; Wasm `drop` alone only
+discards an operand. Calls must satisfy the recorded signatures, including
+the compatible result types required by tail calls.
+
+### Stage invariants
+
+| Output | Established facts |
+| --- | --- |
+| Expanded program | Macros are expanded and names and declarations are resolved. |
+| Checked program | Generic value types, provider and control contracts, ownership, paths and foreign boundaries are checked. Source effect information is still available. |
+| Compiled Wasm | Every referenced instance has a concrete signature and representation. Provider arguments, control transfer, capture storage and cleanup are explicit Wasm. No source effect types remain in target signatures. |
+
+Only the checked program and the accumulating Wasm module need persistent
+program representations. An entry for a continuation references a point in
+the checked body and its remaining expression context. It does not require
+copying that body into a CPS tree. Captures and layouts are definition
+metadata; preserve source locations through generated code.
+
+### A worklist of specializations
+
+Seed requests from initialization, entry points, exports and required
+adapters. A key contains the checked code identity and its static arguments:
+concrete value types, provider implementations, their control families and
+callable identities, plus the current frame family when compiling suspending
+code.
+Captured values and dynamic delimiter identities are runtime arguments.
+Providers with the same implementation and different captured strings
+therefore share code.
+
+The orchestration is schematically:
+
+```text
+request(key, state):
+    if key is reserved: return its symbol, state
+    reserve a symbol and an interface from the instantiated checked contract
+    return the symbol, state with this definition queued
+
+compile(checked):
+    state = request_roots(checked)
+    while state has pending definitions:
+        definition, state = take_pending(state)
+        state = emit_definition(definition, state)
+    return finish_module(state)
+```
+
+Thread the state containing reservations, pending requests and constructed
+Wasm. Reserve GC types and generated helpers through the same mechanism.
+An ordinary recursive call finds its existing symbol. Each body is emitted
+once per key; finishing orders GC recursion groups and resolves module
+indices. Reaching the fixed point means the queue is empty.
+
+Instantiate the checked control contract before emitting callers. If that
+contract permits escaping control, use the yield protocol even when body
+analysis might prove a more efficient interface. This gives recursive calls
+stable interfaces without another call-graph analysis. `fun` syntax alone
+does not establish direct return, and locally handled control still needs
+lowering inside an outwardly direct function.
+
+### Selective control lowering
+
+Keep unsplit branches, loops and direct calls as Wasm control flow. At a
+non-tail call whose instantiated contract permits escape, give its remaining
+computation a named entry. Use the same entry on the normal and resuming
+routes, specialized for the providers each route supplies:
+
+| Route | Generated behavior |
+| --- | --- |
+| Normal return | Tail-call the remaining computation with the result and its live inputs as arguments. |
+| Yield | Store those inputs in a GC environment, append a frame to the pending yield, and propagate it to the delimiter. |
+| Resume | Read the saved inputs and invoke the entry specialized for the resumer's outstanding providers. |
+
+This allocates a continuation environment only on the yielding route. Use
+free variables of the remaining computation, including cleanup obligations,
+to determine captures. Share entries at joins instead of copying suffixes.
+Compile each delimiter body as a separate entry, keeping its catcher outside
+the suffix tail calls. An entry and its suffixes share a result interface.
+When a split crosses a loop, give the loop header an entry too: a resumed
+iteration tail-calls it instead of branching into a different Wasm function.
+A tail call with no pending work forwards the transfer and needs no frame;
+delimiter handling and cleanup count as pending work.
+
+The checker must establish which routes exist. A transition that cannot
+return normally needs no entry specialized for the original providers.
+For example, `yield(); write(...)` can require IO only on resumption when
+every path to the write passes through that transition. If normal return is
+possible, its context must also satisfy the suffix's requirements. The
+emitter consumes this evidence; it cannot guess that a missing provider
+makes a route unreachable.
+
+Use the implemented yield-bubbling protocol as the baseline: a pending
+record identifies the delimiter and operation, carries its arguments and
+collects frames while calls return. Callers check the record before using
+the returned placeholder; the matching delimiter consumes it before invoking
+the handler. Static selection fixes handler code, while the delimiter token
+still distinguishes recursive installations. The runtime must isolate this
+pending transfer across execution contexts and host entry, and never expose
+a placeholder as a source value.
+
+This uses join sharing and allocation on yield from
+[Koka's generalized evidence passing, sections 2.9–2.11](https://www.microsoft.com/en-us/research/wp-content/uploads/2021/08/genev-icfp21.pdf).
+The simpler baseline pays a tail call on normal return rather than duplicating
+and optimizing the suffix into that path. It requires no escape analysis,
+contification or inference that a `ctl` handler happens to resume in place.
+Static provider specialization and effect transitions still need their own
+correctness argument.
+
+The compiler already emits `return_call` and `return_call_ref`, and the
+native engine enables tail calls. These
+[instructions](https://webassembly.github.io/spec/core/syntax/instructions.html#control-instructions)
+bound stack use for tail transfers; generated code remains responsible for
+capture, deep reinstatement and cleanup. A handler that resumes and then
+does more work uses an ordinary call or saves that remaining work in turn.
+
+Foreign functions keep their declared host ABI. Initialization, exports and
+foreign callbacks need checked adapters where they meet the internal control
+protocol. No suspension may cross a foreign boundary that lacks such a
+protocol.
+
+### Saved frame representation
+
+Use **tagged GC frames with typed, provider-specialized dispatchers**.
+This is a restricted use of
+[defunctionalization](https://www.brics.dk/RS/01/23/BRICS-RS-01-23.pdf): a
+saved code point becomes a constructor, and a dispatcher selects its code.
+It applies to saved control frames, not all source callables, and introduces
+no additional program representation or whole-program transformation pass.
+
+Assign a nominal family `F` to each checked provider-scope instantiation
+whose body can be suspended, including control delimiters. Its members are
+the frame templates that can reach that boundary, discovered by the emission
+worklist. Recursive installations reuse the family. A frame
+kind identifies a source continuation point, concrete value types and capture
+layout. Neither the dynamically accumulated chain nor the resumer's
+outstanding provider implementations are part of that identity. Different
+resume sites therefore agree on stored data even when they request different
+code specializations. A template may belong to several families. Assign its
+kind tag once for the linked program; the checked control targets determine
+which families register it. A statically selected control provider identifies
+its nominal family as well as its method code and contract. Its runtime
+installation token remains an ordinary parameter.
+
+Compilation carries the current segment family as a static argument. Calls
+that can save frames inherit it; entering a provider scope replaces it with
+that scope's nominal family. A crossed scope is represented in its parent's
+family by a scope frame. The dynamic list of ancestor scopes is never a
+static argument.
+
+The logical typing is:
+
+```text
+Frame_F<A, B>       a member of F accepting A and producing B
+Chain_F<A, R>   ::= End                              when A = R
+                 | Link(Frame_F<A, B>, Chain_F<B, R>) for some B
+Saved_F<A, R, C>    a one-shot chain, its deep delimiter and its contract C
+```
+
+`C` retains invocation, resumption and cleanup requirements. Intermediate
+`B` is existential: each generated constructor fixes it. These are compiler
+invariants, not a proposed source GADT feature. Only generated constructors
+can create or splice chains, and they must match the adjoining value types,
+scope and effect contracts. The runtime cannot manufacture arbitrary chains.
+
+The physical layout is a finite set of WasmGC struct types, schematically:
+
+```text
+Frame:
+    kind: i32
+    next: mutable nullable reference to Frame
+
+Frame_k extends Frame:
+    capture_1: concrete Wasm storage type
+    ...
+
+Scope_h extends Frame:
+    inner_first: mutable nullable reference to Frame
+    inner_last: mutable nullable reference to Frame
+    delimiter: installation token, for control scopes only
+    handler_captures: concrete fields for that handler
+
+Saved_F:
+    first: mutable nullable reference to Frame
+    last: mutable nullable reference to Frame
+    delimiter: reference to the captured installation's token
+    handler_captures: concrete fields for this family's handler
+```
+
+The link and captures occupy one allocation per frame. A null link ends the
+chain. The last pointer permits constant-time append while unwinding and
+splicing when resumption yields again; the last node's link is always null.
+Runtime ownership permits updating these links. Frame subtypes have fixed
+fields and use ordinary
+[Wasm recursive types](https://webassembly.github.io/spec/core/syntax/types.html#recursive-types).
+An arbitrarily deep recursive call creates more nodes of the same types.
+
+Frame storage contains no entry pointer specialized for the creator's ambient
+providers. Instead, an invocation requests `run<F, A, R, P>`, where `P` is
+the statically selected mapping from required capabilities to implementations.
+Their runtime captures are ordinary parameters. For each admissible frame
+kind with input `A`, its dispatcher casts to the concrete subtype, moves out
+the captures, and calls the suffix specialized for `P`:
+
+```text
+case k:                         // k accepts A and produces B
+    rest = detach_first(chain)
+    value = suffix_k<P>(captures, input, provider_values)
+    if a yield is pending:
+        append_chain_to_pending_yield(rest)
+        return placeholder<R>
+    return_call run<F, B, R, P>(rest, value, provider_values)
+```
+
+Each runner has concrete Wasm argument and result types. Intermediate values
+travel as typed parameters, including multiple Wasm values when required;
+they need no universal box between frames. Every tail-called runner returns
+the same `R`. An empty chain returns its input only in the `A = R` entry;
+other empty-chain cases and invalid tags trap as compiler-invariant failures.
+The private common frame reference hides a capture layout, not the value type
+of an ordinary source callable or place.
+
+For example, a continuation can contain `AfterYield(n)` with input `Unit`
+and result `I64`, followed by `AfterStep` with input `I64` and result `Unit`.
+The first runner computes `n + 1` and tail-calls the second with an `i64`.
+The second calls the worker's selected IO implementation. Choosing another
+IO implementation creates another runner specialization over the same frame
+layouts. The tag selects a saved code point; effect method calls inside that
+case have statically selected targets.
+
+#### Nested scopes and ownership
+
+A provider scope crossed by a yield to an outer delimiter saves one **scope
+frame**. Its payload is the inner saved chain and the provider's ordinary
+captures; a control scope also retains its installation token. Running the
+scope frame reinstalls that provider around the inner chain, then continues
+the outer chain under the outer providers. This preserves ordinary local
+providers as well as control handlers. The root `Saved_F` reinstalls its own
+delimiter in the same way. Outer outstanding providers come from the current
+invocation. Repeated control installations have distinct tokens, even when
+their code and frame family are identical. This is a chain of segments with
+explicit scope boundaries; flattening all segments would lose those scopes.
+
+Each scope frame is another typed member, accepting the inner continuation's
+input and producing its delimiter answer. Its inner family is a nominal
+reference, so nested scopes form a finite recursive type graph. The runner
+requests the inner dispatcher with the appropriate static provider override
+and explicit captured values, then restores the outer mapping. It does not
+build a runtime provider lookup dictionary.
+
+For a control scope, its reentry helper catches pending operations aimed at
+its token and invokes the selected clause in its checked outer context.
+The clause receives a fresh one-shot wrapper for the saved remainder;
+resuming it reinstalls the handler again. A yield aimed elsewhere rebuilds
+the scope frame and propagates outward. Ordinary provider scopes need only
+the override and restoration, without a token test or a control clause.
+
+Invoking or dropping `Saved_F` moves its chain out and clears both stored
+links before executing user code. Static one-shot ownership distinguishes a
+consumed handle from a valid empty continuation. Frames are detached as they
+are consumed; capture ownership transfers to the suffix. If it yields again,
+the new pending chain receives the still-unconsumed tail, without copying or
+dropping that tail. When a nested scope is crossed, it is packaged again as
+a scope frame before propagation continues outward.
+
+Cancellation dispatches generated cleanup for each frame's owned captures,
+in the checked unwinding order. Scope frames reinstall the same internal
+providers for cleanup and then release the scope's owned captures. Outstanding
+cleanup providers are supplied at the drop site and checked against the
+separate cleanup contract. If cleanup may suspend, its generated continuation
+owns the unprocessed tail through the same protocol. GC reclaims storage;
+it does not run source cleanup or discharge linear ownership.
+
+#### Finite discovery and storage boundaries
+
+A family is closed for a linked program version. Imported generic bodies
+carry frame descriptors and scope dependencies so downstream resume sites
+can request their provider specializations. The worklist registers each
+frame kind and each requested runner; a new member schedules a case for
+compatible requested runners, and a new runner schedules its existing cases.
+Each case is emitted once. Finalization assigns tags consistently across
+producers and consumers and assembles the dispatch bodies. Family membership
+is a cache dependency; adding a member rebuilds the affected dispatchers.
+
+Keys use nominal families, source type instantiations and provider mappings.
+Scope entry replaces bindings in a mapping; it does not add dynamic nesting
+depth to the key. Runtime chain length and the sequence of previous frames
+never enter keys. This terminates when the program has finitely many source
+instantiations and provider combinations; unbounded polymorphic specialization
+still needs a diagnostic.
+
+At a heterogeneous queue boundary, explicitly package a closed sum of job
+adapters with a common contract. Packaging instantiations register their
+concrete saved families with the named package boundary, and the worklist
+builds its cases. The worker switches on the case and calls its adapter and
+family dispatcher specialized for the worker's providers. This is the
+selected [queue representation](effects.md#queuing-a-continuation), not an
+implicit universal `Fun` or `Ref`. Unknown runtime-loaded frame kinds are
+outside this ABI; extending a family requires recompiling its consumers.
+
+### Effect erasure and stored continuations
+
+Source effect rows guide checking and emission, then disappear from Wasm
+signatures. Their obligations become provider arguments, control paths and
+cleanup calls. Preserve the checked source interfaces and diagnostic
+provenance. The emitter follows checked evaluation and cleanup order, so it
+needs no second effect analysis over Wasm. Wasm validation cannot establish
+the source ownership or effect invariants.
+
+An ordinary closure or resumption obtains its outstanding providers at its
+invocation site. Internal handler scopes captured with the computation are
+restored. Compiling a suspension under provider A must not hardwire its
+outstanding calls to A if its resumer will supply B. Keep a checked
+continuation template and its capture layout until invocation requests the
+appropriate provider specialization, using the same request mechanism as
+an ordinary generic closure. Its emitted entry points must agree with the
+stored environment's representation.
+
+Separate compilation therefore retains the checked generic bodies and
+implementation identities needed to request downstream specializations.
+Cache keys include the selected implementations, body dependencies, frame
+families, layouts and calling interfaces. Runtime-loaded code cannot silently
+substitute an erased provider ABI or extend a saved family's dispatch table.
+
+### Recursion and representation
+
+Ordinary recursion reuses a reserved specialization. Recursive continuation
+chains require finite types with runtime links; do not put their dynamically
+growing history into specialization keys. True growth in type instantiations
+also needs a termination policy and a diagnostic. Finite keys and stable
+interfaces are prerequisites for reaching the worklist fixed point;
+optimizing emitted code later cannot repair nonterminating specialization.
+
+The [place](types.md#proposed-places-and-locators) and
+[queue](effects.md#queuing-a-continuation) contracts still apply. All
+place-backed storage uses the GC heap, including locals; required backing
+allocations cannot be replaced with Wasm locals. Paths have at most one
+dynamic index at the leaf, and arrays reject unsupported struct-value
+representations. Passing continuation inputs directly on a normal return
+avoids a compiler-generated environment, not any required source allocation.
+
+### Review points and validation
+
+The saved-frame layout and dispatch policy above are the proposed baseline.
+The source transition rules still need a soundness argument, as do the
+generated chain constructors and scope-preserving splice operations. Specify
+pending-yield isolation across execution contexts before implementation.
+A memoized emitter reduces backend machinery; it does not make the language's
+type system trivial.
+
+Check a direct and a control provider for one generic consumer, internal
+handlers in outwardly direct functions, nested delimiters, and callbacks
+that propagate control. Test queued resumptions with different invocation
+providers, cleanup after cancellation, and rejection of effect-transition
+mismatches. Exercise recursive specialization, bounded native-stack use on
+tail transfers, runtime captures shared across calls, source-to-Wasm
+locations, separate compilation and foreign adapters. Validate generated
+Wasm and execute the baseline without relying on optimization. Inspect normal
+paths for unnecessary continuation environments; measure tail-call overhead,
+code size, compile time and allocations before adding compiler optimizations.
+Exercise long recursive chains without growing the set of frame types, mixed
+intermediate value types without boxing, different resumer providers over the
+same layouts, nested scope reinstatement, re-yield with an unconsumed tail,
+and one-shot cancellation. A queue must reject an undeclared family or a job
+outside its invocation or cleanup bounds. Check that adding a family member
+invalidates the dispatchers that depend on it.
+Bootstrap and compiled execution must agree.
+
 ## Separate compilation
 
 The unit of compilation is a library (`source->modules` in
