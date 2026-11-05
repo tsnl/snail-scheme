@@ -383,6 +383,22 @@ preserves exact bytes until saved.
 The browser has no compiler, copied project, directory handles or persistent
 project storage. Closing/reloading a page with drafts asks before discarding them.
 
+The editor and browser bundles expose a web-app manifest by default. The
+manifest gives a standalone window, the application name, theme colors, and
+192/512-pixel icons. A browser target can provide `public/manifest.webmanifest`
+to replace the default entirely, including its icons and display mode; it is
+served unchanged. The builder links the manifest from UTF-8 `index.html` pages.
+
+During development, the page's scripts remain pinned to their build, while its
+web manifest is linked at `/TARGET/manifest.webmanifest`. Its relative
+`start_url` and `scope` resolve at the stable target mount, and the default identity
+is that resolved start URL (no explicit `id` is emitted), so installing it
+never pins the launch URL to a reclaimed generation. Static bundles use a
+relative manifest link and work under a deployment subdirectory. Keep the same
+host and port for a local installed app. HTTPS or a loopback origin is needed
+for browser installation; the development server must remain running. These
+manifests do not add offline caching or a service worker.
+
 The editor has no top toolbar. Its command palette opens with Command/Ctrl+Shift+P,
 F1, or the `>_` button in the status strip. Type a command name, use arrows or Tab
 to choose, Enter to run, and Escape to return to the editor. Names such as

@@ -29,6 +29,7 @@
    bundle-response
    bundle-event)
   (import
+   (snail shell project web-app)
    (snail core base)
    (snail core io)
    (snail shell http)
@@ -126,31 +127,25 @@
     ;; it, so the page stays in standards mode, and then the manifest and
     ;; the reload client, which runs whatever the page's own scripts do.
     (: based (-> String String BuildDirectory String ! fs))
-    (define (based text mount build)
-      (let ((added (string-append "<base href=\""
-                                  (build-base mount build)
-                                  "\">"
-                                  "<script type=\"application/snail-manifest\" id=\"snail-manifest\">"
-                                  (manifest-text mount (Some build))
-                                  "</script>"
-                                  "<script type=\"module\" src=\""
-                                  mount
-                                  ".snail/reload.mjs\"></script>"))
-            (start (doctype-end text)))
-        (string-append (substring text 0 start) added (substring text start (string-length text)))))
+    (define (based raw mount build)
+      (let ((text (stable-web-app raw mount)))
+        (let ((added (string-append "<base href=\""
+                                    (build-base mount build)
+                                    "\">"
+                                    "<script type=\"application/snail-manifest\" id=\"snail-manifest\">"
+                                    (manifest-text mount (Some build))
+                                    "</script>"
+                                    "<script type=\"module\" src=\""
+                                    mount
+                                    ".snail/reload.mjs\"></script>"))
+              (start (doctype-end text)))
+          (string-append (substring text 0 start)
+                         added
+                         (substring text start (string-length text))))))
 
     (: build-base (-> String BuildDirectory String))
     (define (build-base mount build)
       (string-append mount ".snail/builds/" (show (BuildDirectory-epoch build)) "/"))
-
-    (: doctype-end (-> String I64))
-    (define (doctype-end text)
-      (if (and (>= (string-length text) 9)
-               (string=? (string-downcase (substring text 0 9)) "<!doctype"))
-          (match (string-index text #\>)
-            ((Some index) (+ index 1))
-            ((None) 0))
-          0))
 
     ;; ---- The reload client ----
 
@@ -328,6 +323,7 @@
             (Pair ".css" "text/css")
             (Pair ".wasm" "application/wasm")
             (Pair ".json" "application/json")
+            (Pair ".webmanifest" "application/manifest+json")
             (Pair ".svg" "image/svg+xml")
             (Pair ".png" "image/png")
             (Pair ".jpg" "image/jpeg")

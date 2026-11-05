@@ -47,6 +47,7 @@
    publish-project
    discard-candidate)
   (import
+   (snail shell project web-app)
    (snail core base)
    (snail core io)
    (snail shell project)
@@ -881,7 +882,8 @@
     (: browser-files (List String))
     (define browser-files
       (list "host.mjs" "runtime.mjs" "tasks.mjs" "entry.mjs" "renderer.mjs" "hud.mjs" "pictures.mjs"
-            "storage.mjs" "load.mjs" "style.css" "ui.mjs" "dom.mjs" "fetch.mjs"))
+            "storage.mjs" "load.mjs" "style.css" "ui.mjs" "dom.mjs" "fetch.mjs"
+            "snail-icon.svg" "snail-icon-192.png" "snail-icon-512.png"))
 
     ;; The names some build writes at a generation's root, whether or not
     ;; this one does: a release build writes program.wasm, and store/ when
@@ -893,16 +895,28 @@
       (append (list "program.wasm" "modules.json" "store" ".snail-target") browser-files))
 
     ;; The browser host's files, then the target's public tree, if it has
-    ;; one. The page is the project's own index.html; none is generated, but
-    ;; a development build's page is told where modules.json is.
+    ;; one. The page is the project's own index.html; none is generated.
+    ;; UTF-8 pages receive a manifest link; a development page is also told
+    ;; where modules.json is. A public manifest replaces the default whole.
     (: package-browser (-> Builder String String Unit ! fs building))
     (define (package-browser builder name directory)
       (copy-browser-host builder name directory)
+      (let ((manifest (string-append directory "/manifest.webmanifest")))
+        (unless (file-exists? manifest)
+          (write-file manifest
+                      (json->string
+                       (web-app-manifest (string-append (base-name (Builder-project builder))
+                                                        " / " name))))))
       (let ((page (string-append directory "/index.html")))
-        (when (and (development? builder) (kind-is? page (RegularFile)))
-          (write-file page
-                      (string-append (read-file page)
-                                     "\n<meta name=\"snail-modules\" content=\"./modules.json\">\n")))))
+        (when (kind-is? page (RegularFile))
+          (match (utf8->string (read-bytes page))
+            ((Err _) (unit))
+            ((Ok text)
+             (write-file page
+                         (string-append (with-web-app text)
+                                        (if (development? builder)
+                                            "\n<meta name=\"snail-modules\" content=\"./modules.json\">\n"
+                                            ""))))))))
 
     (: development? (-> Builder Bool))
     (define (development? builder)

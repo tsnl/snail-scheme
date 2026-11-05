@@ -24,6 +24,7 @@
    Setup
    develop)
   (import
+   (snail shell project web-app)
    (snail core base)
    (snail core io)
    (snail shell task)
@@ -1646,6 +1647,7 @@
       (let ((method (RequestHead-method (Request-head request))) (path (Target-path target)))
         (cond ((not (string=? method "GET"))
                (Some (api setup owner disk request method path (Target-query target))))
+              ((same-strings? path (list "manifest.webmanifest")) (Some (editor-manifest)))
               ((same-strings? path (list "api" "events"))
                (stream-events owner id connection (None))
                (None))
@@ -2022,10 +2024,20 @@
                   (Some (Pair (string-append root "/host/ide/ide.css") "text/css")))
                  ((string=? name "ide.mjs")
                   (Some (Pair (string-append root "/host/ide/ide.mjs") "text/javascript")))
+                 ((member? name (list "snail-icon-192.png" "snail-icon-512.png"))
+                  (Some (Pair (string-append root "/host/browser/" name) "image/png")))
+                 ((string=? name "snail-icon.svg")
+                  (Some (Pair (string-append root "/host/browser/" name) "image/svg+xml")))
                  ((member? name interface-modules)
                   (Some (Pair (string-append root "/host/browser/" name) "text/javascript")))
                  (else (None))))
           (_ (None)))))
+
+    (: editor-manifest (-> Response))
+    (define (editor-manifest)
+      (Response 200
+                (Cons (Header "Content-Type" "application/manifest+json") security-headers)
+                (string->utf8 (json->string (web-app-manifest "Snail IDE")))))
 
     ;; What host/browser/ui.mjs imports, and what they import.
     (: interface-modules (List String))
