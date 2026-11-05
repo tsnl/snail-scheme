@@ -30,8 +30,8 @@
    (snail shell compiler core)
    (snail shell compiler expand)
    (snail shell compiler check)
-   (snail shell compiler mono)
-   (snail shell compiler control)
+   (snail shell compiler specialize)
+   (snail shell compiler prepare)
    (snail shell compiler wasm))
   (begin
 
@@ -44,14 +44,7 @@
       ((key String)
        (items (List Item))
        (schemes (Table Scheme))
-       (emission (Option Emission))))
-
-    ;; Keep the checked monomorphic bodies beside cached text. Handler
-    ;; safety depends on imported helpers' bodies, even when their signatures
-    ;; stay unchanged; reusing text must not reuse that proof unchecked.
-    (struct Emission
-      ((text String)
-       (items (List Item))))
+       (emission (Option String))))
 
     ;; Where libraries are found, the last expansion and each library as
     ;; last compiled. Generators and build inputs belong to one invocation.
@@ -183,14 +176,13 @@
                   (loop rest
                         compiled
                         (Cons
-                         (Built name (Emission-text emission) #f (library-links expansion name))
+                         (Built name emission #f (library-links expansion name))
                          built)))
                  ((None)
-                  (let* ((mono (monomorphize-library input name (Compiled-items before)))
-                         (text (wat->string (emit-library (name-yield-points mono) name)))
-                         (emission (Emission text (Mono-items mono))))
+                  (let ((text (wat->string
+                               (emit-module (prepare-library input name (Compiled-items before))))))
                     (loop rest
-                          (table-set compiled name (Compiled-emission-set before (Some emission)))
+                          (table-set compiled name (Compiled-emission-set before (Some text)))
                           (Cons (Built name text #t (library-links expansion name)) built)))))))
             ((Nil) (Pair (reverse built) compiled))))))
 
@@ -254,11 +246,33 @@
             (expect (compiled-names unchanged) (list))
             (expect (compiled-names body) (list "sample.a"))
             (expect (compiled-names interface) (list "sample.a" "sample.b" "main"))))
+        (test-specialization-replay directory library)
         (test-artifact-replay directory library)
         (test-link-replay directory library)
         (test-extern-library directory library))
 
       (define (no-generation loading forms) (panic "unexpected generated library"))
+
+      ;; A cached library retains checked generic code, not old concrete
+      ;; copies. A new caller can request another type without recompiling
+      ;; that library, and gets exactly the same Wasm as a fresh session.
+      (define (test-specialization-replay directory library)
+        (let ((main (string-append directory "/generic.sld"))
+              (source "(import (snail core forms) (snail core primitive) (sample generic)) "))
+          (write-file (string-append directory "/sample/generic.sld")
+                      (string-append
+                       "(define-library (sample generic) (export identity) "
+                       "(import (snail core forms) (snail core primitive)) "
+                       "(begin (: identity (All (A) (-> A A))) (define (identity x) x)))"))
+          (write-file main (string-append source "(identity (ann 1 I64))"))
+          (let ((first (build-session (make-session (list directory library))
+                                      main no-generation no-inputs)))
+            (write-file main (string-append source "(identity (ann 2 I32))"))
+            (let ((warm (build-session (Pair-second first) main no-generation no-inputs))
+                  (cold (build-session (make-session (list directory library))
+                                       main no-generation no-inputs)))
+              (expect (compiled-names warm) (list "main"))
+              (expect (map Built-text (Pair-first warm)) (map Built-text (Pair-first cold)))))))
 
       ;; Unchanged bytes preserve emission. Missing inputs invalidate even
       ;; a replay, but removing the invocation must not demand its old input.

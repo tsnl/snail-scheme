@@ -162,6 +162,7 @@
    Expose
    item-definitions
    Program
+   Program-items-set
    empty-program
    primitive-global
    primitive-delta

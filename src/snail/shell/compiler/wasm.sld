@@ -1,4 +1,6 @@
-;; Monomorphic program to WasmGC text. This pass decides representations:
+;; Prepared concrete code to WasmGC. Declarations and initializer order are
+;; fixed before emission; no source specialization or validation happens here.
+;; This backend decides representations:
 ;; scalars are Wasm numbers, enums whose cases have no fields are i32 tags,
 ;; other data are GC structs (enum cases are subtypes of a tagged base), a
 ;; field holding a struct is laid out inline as that struct's fields,
@@ -12,7 +14,6 @@
 (define-library (snail shell compiler wasm)
   (export
    emit-module
-   emit-library
    emit-control-module
    wat->string)
   (import
@@ -21,8 +22,14 @@
    (snail shell compiler read)
    (snail shell compiler core)
    (snail shell compiler capabilities)
-   (snail shell compiler mono)
-   (snail shell compiler control))
+   (only (snail shell compiler specialize)
+         Declarations Declarations-program Declarations-owner Declarations-control
+         Declarations-bindings Binding Binding-type Binding-function? Binding-external?
+         control-effects)
+   (only (snail shell compiler prepare)
+         Prepared Prepared-declarations Prepared-definitions Prepared-initializers
+         Prepared-statements Prepared-exported Callees declaration-callees yields
+         holds-yield-point?))
   (begin
 
     ;; ---- Text ----
@@ -154,15 +161,10 @@
     ;; GC types are registered on first use. Functions are kept as text,
     ;; other fields as trees. `memo` caches closures for global functions, singletons and
     ;; string literals; `helpers` caches imports and helper functions by key.
-    ;; A library's module names its `owner`, and `externals` holds the other
-    ;; libraries' definitions it imports. `callees` describes what the
-    ;; module's calls reach when the program has control effects, so that
-    ;; some call may yield.
+    ;; `declarations` is fixed metadata: it holds no source bodies, recipes
+    ;; or pending work. Only the Wasm output builders change during emission.
     (struct Module
-      ((program Program)
-       (definitions (Table Expr))
-       (owner (Option String))
-       (externals (Table Expr))
+      ((declarations Declarations)
        (type-ids (Ref (Table String)))
        (types (Ref (List Wat)))
        (imports (Ref (List Wat)))
@@ -172,8 +174,7 @@
        (exports (Ref (List Wat)))
        (data (Ref (List Wat)))
        (memo (Ref (Table Wat)))
-       (helpers (Ref (Table String)))
-       (callees (Option Callees))))
+       (helpers (Ref (Table String)))))
 
     (: push! (All (T) (requires (Copy T)) (-> (Ref (List T)) T Unit ! mut)))
     (define (push! cell value)
@@ -213,7 +214,7 @@
 
     (: program-of (-> Module Program))
     (define (program-of m)
-      (Module-program m))
+      (Declarations-program (Module-declarations m)))
 
     ;; A location for code the backend writes itself.
     (: no-loc Loc)
@@ -937,8 +938,9 @@
            (match (definition-of m name)
              ((Some definition)
               (cond
-               ((and (lambda-expr? definition) (fn-type? type)) (code-of m (function-id m name)))
-               ((lambda-expr? definition) (function-value m name type))
+               ((and (Binding-function? definition) (fn-type? type))
+                (code-of m (function-id m name)))
+               ((Binding-function? definition) (function-value m name type))
                ((scalar? (fn-rep fn type)) (wat "global.get" (id (global-id m name type))))
                (else (wat "ref.as_non_null" (wat "global.get" (id (global-id m name type)))))))
              ((None)
@@ -950,30 +952,34 @@
                 ((Some _) (function-value m name type))
                 ((None) (panic (string-append "internal error: unknown variable " name))))))))))
 
-    ;; A definition of this module, or one it imports from another library's.
-    (: definition-of (-> Module String (Option Expr)))
+    ;; Signatures suffice to emit references before or after a body is
+    ;; emitted. No definition body lives in the module builder.
+    (: definition-of (-> Module String (Option Binding)))
     (define (definition-of m name)
-      (match (table-ref (Module-definitions m) name)
-        ((Some definition) (Some definition))
-        ((None) (table-ref (Module-externals m) name))))
+      (table-ref (Declarations-bindings (Module-declarations m)) name))
 
-    ;; Another library's function is imported from its module, by its global
-    ;; name.
+    (: external-definition? (-> Module String Bool))
+    (define (external-definition? m name)
+      (match (definition-of m name)
+        ((Some binding) (Binding-external? binding))
+        ((None) #f)))
+
     (: function-id (-> Module String String ! mut))
     (define (function-id m name)
-      (match (table-ref (Module-externals m) name)
-        ((Some definition)
-         (let ((signature (function-signature m (Expr-type definition))))
-           (import! m
-                    (Import (name-owner name) name)
-                    (Cons (evidence-rep m) (Pair-first signature))
-                    (Some (Pair-second signature)))))
+      (match (definition-of m name)
+        ((Some binding)
+         (if (Binding-external? binding)
+             (let ((signature (function-signature m (Binding-type binding))))
+               (import! m (Import (name-owner name) name)
+                        (Cons (evidence-rep m) (Pair-first signature))
+                        (Some (Pair-second signature))))
+             (wasm-id name)))
         ((None) (wasm-id name))))
 
     ;; Another library's value is a mutable global of its module, imported.
     (: global-id (-> Module String Type String ! mut))
     (define (global-id m name type)
-      (if (table-contains? (Module-externals m) name)
+      (if (external-definition? m name)
           (import-once! m (string-append "global:" name) (wasm-id (string-append "global:" name))
                         (lambda (global)
                           (wat "import" (wat-string (name-owner name)) (wat-string name)
@@ -1247,7 +1253,7 @@
           (closure-call fn callee args tail?)
           (match (definition-of (Fn-module fn) name)
             ((Some definition)
-             (if (lambda-expr? definition)
+             (if (Binding-function? definition)
                  (list (wat* (call-op tail?)
                              (Cons (id (function-id (Fn-module fn) name))
                                    (Cons (Fn-evidence fn) (emit-args fn args)))))
@@ -1831,7 +1837,7 @@
              (value (export-handover fn
                                      result
                                      (wat* "call"
-                                           (Cons (id (wasm-id name))
+                                           (Cons (id (function-id m name))
                                                  (Cons (evidence-none m) args))))))
         (push-function! m wrapper
                         (wat* "func"
@@ -1871,7 +1877,7 @@
     ;; effects has no record.
     (: entry-clears (-> Module (List Wat) ! mut))
     (define (entry-clears m)
-      (match (Module-callees m)
+      (match (module-callees m)
         ((Some _) (list (wat "global.set" (id (yielding m)) (wat "ref.null" (id (yield-type m))))))
         ((None) (Nil))))
 
@@ -2266,7 +2272,8 @@
                 (value (to-any m
                                result
                                (wat* "call"
-                                     (Cons (id (wasm-id name)) (Cons (evidence-none m) args))))))
+                                     (Cons (id (function-id m name))
+                                           (Cons (evidence-none m) args))))))
            (push-function! m wrapper
                            (function-wat fn wrapper
                                          (Cons (wat "type" (id (dynamic-type m (length params))))
@@ -2648,7 +2655,7 @@
     ;; node of the handler it is aimed at, the operation's index in its
     ;; effect, its arguments, and the frames saved so far. The performer
     ;; then returns a placeholder of its result type. Each call that may
-    ;; yield is the value of a let, as (snail shell compiler control)
+    ;; yield is the value of a let, as (snail shell compiler prepare)
     ;; arranges, and after that let the record is tested: while it is set,
     ;; the let saves its body as a frame on the record (see Frames) and
     ;; leaves with a placeholder, a function to its caller and a handle body
@@ -2707,7 +2714,7 @@
     (: yielding (-> Module String ! mut))
     (define (yielding m)
       (let ((type (wat "mut" (wat "ref" (Word "null") (id (yield-type m))))))
-        (match (Module-owner m)
+        (match (Declarations-owner (Module-declarations m))
           ((Some _)
            (import-once! m "yielding" "$yielding"
                          (lambda (global)
@@ -2727,10 +2734,11 @@
     ;; text never changes.
     (: emit-control-module (-> Program Wat ! mut))
     (define (emit-control-module program)
-      (let ((m (new-module (Mono program (Nil) empty-table (Nil) (None) (None)) (None))))
+      (let ((m (new-module (Declarations (Program-items-set program (Nil))
+                                         (None) (control-effects program) empty-table))))
         (push! (Module-exports m)
                (wat "export" (wat-string "yielding") (wat "global" (id (yielding m)))))
-        (emit-main! m (Nil))
+        (emit-main! m (Nil) (Nil))
         (module-wat m)))
 
     (: yielding? (-> Module Wat ! mut))
@@ -2749,7 +2757,7 @@
 
     (: may-yield? (-> Fn Expr Bool))
     (define (may-yield? fn value)
-      (match (Module-callees (Fn-module fn))
+      (match (module-callees (Fn-module fn))
         ((Some callees) (not (null? (yields callees value))))
         ((None) #f)))
 
@@ -2790,7 +2798,7 @@
     (: aborts? (-> Fn Expr Bool))
     (define (aborts? fn value)
       (let ((m (Fn-module fn)))
-        (match (Module-callees m)
+        (match (module-callees m)
           ((Some callees)
            (every? (lambda (label)
                      (every? (lambda (operation) (answers-never? m operation))
@@ -2824,7 +2832,7 @@
     ;; leave, so that the let's own test then saves the let's body too.
     (: emit-let-value (-> Fn Expr Wat ! mut))
     (define (emit-let-value fn value)
-      (match (Module-callees (Fn-module fn))
+      (match (module-callees (Fn-module fn))
         ((Some callees)
          (if (holds-yield-point? callees value)
              (let ((label (local-id fn "yield")) (type (Expr-type value)))
@@ -4373,60 +4381,51 @@
 
     ;; ---- Modules ----
 
-    ;; Functions become Wasm functions and other definitions become globals.
-    ;; `main` initializes the globals and runs the statements in program order.
-    (: emit-module (-> Mono Wat ! mut))
-    (define (emit-module mono)
-      (let ((m (new-module mono (None))))
-        (emit-items! m (Mono-items mono))
+    ;; The prepared input separates executable functions, ordered global
+    ;; initializers and statements. Every function builder sees the same
+    ;; fixed declarations; none can request another source specialization.
+    (: emit-module (-> Prepared Wat ! mut))
+    (define (emit-module prepared)
+      (let ((m (new-module (Prepared-declarations prepared))))
+        (for-each (lambda (item)
+                    (match item
+                      ((Define name value) (emit-function! m name value))
+                      (_ (panic "internal error: a prepared function must be a definition"))))
+                  (Prepared-definitions prepared))
+        (emit-main! m (Prepared-initializers prepared) (Prepared-statements prepared))
+        (for-each (lambda (name) (export-definition! m name)) (Prepared-exported prepared))
         (module-wat m)))
 
-    ;; A library's module exports its monomorphic definitions under their
-    ;; global names, for the modules that import them. Its `main` initializes
-    ;; it; the loader runs each module's in program order.
-    (: emit-library (-> Mono String Wat ! mut))
-    (define (emit-library mono owner)
-      (let ((m (new-module mono (Some owner))))
-        (emit-items! m (Mono-items mono))
-        (for-each (lambda (name) (export-definition! m name)) (Mono-exported mono))
-        (module-wat m)))
+    (: new-module (-> Declarations Module))
+    (define (new-module declarations)
+      (Module declarations
+              (ref empty-table) (ref (Nil)) (ref (Nil)) (ref (Nil))
+              (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil))
+              (ref empty-table) (ref empty-table)))
 
-    (: new-module (-> Mono (Option String) Module))
-    (define (new-module mono owner)
-      (Module (Mono-program mono)
-              (item-definitions (Mono-items mono))
-              owner
-              (Mono-externals mono)
-              (ref empty-table)
-              (ref (Nil))
-              (ref (Nil))
-              (ref (Nil))
-              (ref (Nil))
-              (ref (Nil))
-              (ref (Nil))
-              (ref (Nil))
-              (ref empty-table)
-              (ref empty-table)
-              (let ((control (control-effects (Mono-program mono))))
-                (if (null? control) (None) (Some (module-callees mono control))))))
+    (: module-callees (-> Module (Option Callees)))
+    (define (module-callees m)
+      (if (null? (Declarations-control (Module-declarations m)))
+          (None)
+          (Some (declaration-callees (Module-declarations m)))))
 
-    (: emit-items! (-> Module (List Item) Unit ! mut))
-    (define (emit-items! m items)
-      (for-each (lambda (item)
-                  (match item
-                    ((Define name value) (when (lambda-expr? value) (emit-function! m name value)))
-                    (_ (unit))))
-                items)
-      (emit-main! m items))
+    (: emit-main! (-> Module (List Item) (List Item) Unit ! mut))
+    (define (emit-main! m initializers statements)
+      (let* ((init (Fn-evidence-set (new-fn m) (evidence-none m)))
+             (body (new-fn m))
+             (body-code (concatenate (map (lambda (item) (main-item-code m body item)) statements)))
+             (init-code
+              (concatenate (map (lambda (item) (main-item-code m init item)) initializers))))
+        (finish-main! m init body init-code body-code)))
 
     (: export-definition! (-> Module String Unit ! mut))
     (define (export-definition! m name)
-      (match (table-ref (Module-definitions m) name)
+      (match (definition-of m name)
         ((Some definition)
          (push! (Module-exports m)
-                (wat "export"
-                     (wat-string name)
-                     (wat (if (lambda-expr? definition) "func" "global") (id (wasm-id name))))))
+                (wat "export" (wat-string name)
+                     (wat (if (Binding-function? definition) "func" "global")
+                          (id (wasm-id name))))))
         ((None) (panic (string-append "internal error: nothing to export for " name)))))
 
     ;; The fields in the order Wasm requires: types in their recursion
@@ -4476,39 +4475,28 @@
     ;; takes the evidence, runs the body under the handlers it is given,
     ;; which is how a program's body runs as its first task, under the
     ;; scheduler's handler of `tasks` ((snail shell task)'s `start-main`).
-    (: emit-main! (-> Module (List Item) Unit ! mut))
-    (define (emit-main! m items)
-      (let ((definitions (filter (lambda (item) (not (statement? item))) items))
-            (statements (filter statement? items)))
-        (push-function! m "$main.init" (main-part m "$main.init" "main:init" #f definitions))
-        (push-function! m "$main.body" (main-part m "$main.body" "main:body" #t statements))
-        (push-function! m "$main"
-                        (wat "func" (Word "$main") (wat "export" (wat-string "main"))
-                             (wat "result" (Word "i32"))
-                             (wat "drop" (wat "call" (id "$main.init")))
-                             (wat "call" (id "$main.body") (evidence-none m))))))
+    (: finish-main! (-> Module Fn Fn (List Wat) (List Wat) Unit ! mut))
+    (define (finish-main! m init body initializers statements)
+      (push-function! m "$main.init"
+                      (main-part m init "$main.init" "main:init" #f initializers))
+      (push-function! m "$main.body"
+                      (main-part m body "$main.body" "main:body" #t statements))
+      (push-function! m "$main"
+                      (wat "func" (Word "$main") (wat "export" (wat-string "main"))
+                           (wat "result" (Word "i32"))
+                           (wat "drop" (wat "call" (id "$main.init")))
+                           (wat "call" (id "$main.body") (evidence-none m)))))
 
-    (: statement? (-> Item Bool))
-    (define (statement? item)
-      (match item
-        ((Do _) #t)
-        (_ #f)))
-
-    ;; One part of main, exported as `symbol`: a function of the evidence
-    ;; when `evidence?`, otherwise one of no parameters, whose code is the
-    ;; items', answering 0.
-    (: main-part (-> Module String String Bool (List Item) Wat ! mut))
-    (define (main-part m name symbol evidence? items)
-      (let* ((fn (Fn-evidence-set (new-fn m)
-                                  (if evidence? (wat "local.get" (Word "$ev")) (evidence-none m))))
-             (code (concatenate (map (lambda (item) (main-item-code m fn item)) items))))
-        (wat* "func"
-              (concatenate (list (list (Word name) (wat "export" (wat-string symbol)))
-                                 (if evidence? (list (evidence-param m)) (Nil))
-                                 (list (wat "result" (Word "i32")))
-                                 (reverse (ref-get (Fn-locals fn)))
-                                 code
-                                 (list (wat "i32.const" (int 0))))))))
+    ;; Finalize a main function from the instructions emitted item by item.
+    (: main-part (-> Module Fn String String Bool (List Wat) Wat ! mut))
+    (define (main-part m fn name symbol evidence? code)
+      (wat* "func"
+            (concatenate (list (list (Word name) (wat "export" (wat-string symbol)))
+                               (if evidence? (list (evidence-param m)) (Nil))
+                               (list (wat "result" (Word "i32")))
+                               (reverse (ref-get (Fn-locals fn)))
+                               code
+                               (list (wat "i32.const" (int 0)))))))
 
     ;; A value becomes a mutable global set at startup; a statement runs and
     ;; its value is dropped; an exposed function is exported, behind the
@@ -4527,14 +4515,15 @@
         ((Expose name symbol dynamic loc)
          (match (definition-of m name)
            ((Some definition)
-            (unless (lambda-expr? definition)
+            (unless (Binding-function? definition)
               (panic "internal error: an exposed function is not a lambda"))
             (if dynamic
-                (export-dynamic! m name symbol (Expr-type definition))
+                (export-dynamic! m name symbol (Binding-type definition))
                 (push! (Module-exports m)
                        (wat "export"
                             (wat-string symbol)
-                            (wat "func" (id (exposed-function m name (Expr-type definition))))))))
+                            (wat "func"
+                                 (id (exposed-function m name (Binding-type definition))))))))
            ((None) (panic "internal error: an exposed function has no definition")))
          (Nil))))
 

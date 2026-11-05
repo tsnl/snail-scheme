@@ -57,7 +57,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   translation: a yield returns through each frame, saving the rest of it
   as a closure, and calling `resume` runs those closures ("Control",
   "Frames" and "Resuming").
-  Handlers are never specialized: `mono` does not key on a handler, so
+  Handlers are never specialized: the worklist does not key on a handler, so
   an operation always walks the evidence list. Performing an effect is
   meant to be rare and relatively expensive, the heavyweight way to
   interact with the world, so most logic stays pure functional code.

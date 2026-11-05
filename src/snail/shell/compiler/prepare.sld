@@ -1,4 +1,6 @@
-;; Monomorphic program to monomorphic program in which nothing runs after a
+;; Preparation closes specialization and cleanup requests, checks concrete
+;; original bodies, and produces fixed declarations and normalized items.
+;; Control lowering ensures nothing runs after a
 ;; call that may yield before the backend has tested for the yield. After
 ;; specialization a row keeps only control effects, so a call may yield
 ;; exactly when its callee's row names one: a global's as it is defined or
@@ -7,19 +9,26 @@
 ;; let's value; anywhere else, a let names it, with the rest of the
 ;; expression as the let's body, and names first each operand that runs
 ;; before it, so those still run first. The backend tests for a yield after
-;; each let whose value may yield. A program without control effects comes
-;; back as it went in, as does each item without a call that may yield.
+;; each let whose value may yield. The prepared program uses this subset of
+;; the checked expression language; emission has no specialization work.
 ;;
 ;; The pass also refuses a control row wherever nothing could carry a
 ;; yield: in the callbacks that the WAT loops of vector-generate and
 ;; string-generate call, in an unsafe-total thunk, in a procedure closed
 ;; over its handlers, in dispatched work but to `tasks`, and in the
 ;; implementation of an operation declared without ctl.
-(define-library (snail shell compiler control)
+(define-library (snail shell compiler prepare)
   (export
-   name-yield-points
+   Prepared
+   Prepared-declarations
+   Prepared-definitions
+   Prepared-initializers
+   Prepared-statements
+   Prepared-exported
+   prepare-program
+   prepare-library
    Callees
-   module-callees
+   declaration-callees
    yields
    holds-yield-point?)
   (import
@@ -28,34 +37,102 @@
    (snail shell compiler read)
    (snail shell compiler core)
    (snail shell compiler capabilities)
+   (only (snail shell compiler check) Typed Typed-items)
    (only (snail shell compiler ownership) consumed-references)
-   (snail shell compiler mono))
+   (snail shell compiler specialize))
   (begin
+
+    ;; ---- Prepared code ----
+
+    ;; Fixed declarations and the concrete subset consumed by emission.
+    ;; Initializers already have source execution order. No recipe, source
+    ;; body cache or worklist crosses this boundary.
+    (struct Prepared
+      ((declarations Declarations)
+       (definitions (List Item))
+       (initializers (List Item))
+       (statements (List Item))
+       (exported (List String))))
+
+    (: prepare-program (-> Typed Prepared ! compile))
+    (define (prepare-program typed)
+      (prepare (prepare-specialization typed) (None) (Typed-items typed)))
+
+    (: prepare-library (-> Specialization String (List Item) Prepared ! compile))
+    (define (prepare-library input owner items)
+      (prepare input (Some owner) items))
+
+    (: prepare (-> Specialization (Option String) (List Item) Prepared ! compile))
+    (define (prepare input owner items)
+      (match (start-specialization (new-state input owner) items)
+        ((Pair exported state)
+         (match (specialize-statements state items)
+           ((Pair statements state)
+            (let ((lowered (prepare-batches state 0 statements (Nil))))
+              (prepared (Lowered-state lowered) (Lowered-items lowered) exported)))))))
+
+    ;; Close each newly discovered graph before checking its original bodies.
+    ;; Cleanup adds new definitions without changing an old body or contract,
+    ;; so old checks remain valid. A new check may still inspect an old body
+    ;; under a different context; only construction, never that answer, is cached.
+    (: prepare-batches (-> State I64 (List Item) (List Item) Lowered ! compile))
+    (define (prepare-batches state count roots done)
+      (match (complete-specializations state)
+        ((Pair definitions state)
+         (let ((items (append roots definitions)))
+           (if (null? items)
+               (Lowered (reverse done) count state)
+               (let ((lowered (prepare-batch state count items)))
+                 (prepare-batches (Lowered-state lowered) (Lowered-count lowered) (Nil)
+                                  (append (reverse (Lowered-items lowered)) done))))))))
+
+    (: prepare-batch (-> State I64 (List Item) Lowered ! compile))
+    (define (prepare-batch state count items)
+      (let ((callees (specialization-callees state)))
+        (for-each (lambda (item) (check-item callees item)) items)
+        (if (null? (State-control state))
+            (Lowered items count state)
+            (let ((lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
+                                      (Lowered (Nil) count state) items)))
+              (Lowered-items-set lowered (reverse (Lowered-items lowered)))))))
+
+    (: prepared (-> State (List Item) (List String) Prepared))
+    (define (prepared state items exported)
+      (Prepared (specialization-declarations state)
+                (filter (lambda (item)
+                          (match item ((Define _ value) (lambda-expr? value)) (_ #f))) items)
+                (order-initializers state items)
+                (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items)
+                exported))
 
     ;; ---- Yields ----
 
-    ;; Where a callee is defined or declared: the program's entities, its
-    ;; control effects, and the definitions a module holds and those it
-    ;; imports. An import keeps the type it was checked at, whose rows name
-    ;; every effect. A restriction check also knows the `resume` parameters
-    ;; in scope, each with the effect its handle handles, and reads the
-    ;; bodies of the definitions it calls, naming those it is reading.
+    ;; Checks read the original concrete bodies of a closed graph. Emission
+    ;; uses the same fixed call contracts with no original bodies attached.
+    ;; Reading/resumption assumptions belong to each inspection, not a binding.
     (struct Callees
-      ((program Program)
-       (control (List String))
+      ((declarations Declarations)
        (definitions (Table Expr))
-       (externals (Table Expr))
        (resumes (List (Pair String String)))
        (reading (Option (List String)))))
 
-    (: module-callees (-> Mono (List String) Callees))
-    (define (module-callees mono control)
-      (Callees (Mono-program mono)
-               control
-               (item-definitions (Mono-items mono))
-               (Mono-externals mono)
-               (Nil)
-               (None)))
+    (: specialization-callees (-> State Callees))
+    (define (specialization-callees state)
+      (Callees (specialization-declarations state)
+               (if (null? (State-control state)) empty-table (specialization-definitions state))
+               (Nil) (None)))
+
+    (: declaration-callees (-> Declarations Callees))
+    (define (declaration-callees declarations)
+      (Callees declarations empty-table (Nil) (None)))
+
+    (: callees-program (-> Callees Program))
+    (define (callees-program callees)
+      (Declarations-program (Callees-declarations callees)))
+
+    (: callees-control (-> Callees (List String)))
+    (define (callees-control callees)
+      (Declarations-control (Callees-declarations callees)))
 
     ;; The control effects a value of a procedure type may yield to when
     ;; called: those its row names. Calling a `FnOnce` calls the procedure it
@@ -80,35 +157,31 @@
     (define (callee-row callees callee)
       (match (Expr-term callee)
         ((Var name _ _)
-         (match (table-ref (Callees-definitions callees) name)
-           ((Some definition) (definition-row callees name definition))
-           ((None)
-            (match (table-ref (Callees-externals callees) name)
-              ((Some definition)
-               (filter (lambda (label) (member? label (Callees-control callees)))
-                       (call-row (Expr-type definition))))
-              ((None) (declared-row callees name (Expr-type callee)))))))
+         (match (table-ref (Declarations-bindings (Callees-declarations callees)) name)
+           ((Some binding)
+            (filter (lambda (label) (member? label (callees-control callees)))
+                    (definition-row callees name binding)))
+           ((None) (declared-row callees name (Expr-type callee)))))
         (_ (call-row (Expr-type callee)))))
 
-    ;; What calling a definition may yield to: what its row names, or in a
-    ;; restriction check, what the body of its lambda yields to. A row can
-    ;; name a control effect the function only passes on from a row
-    ;; variable, which a handle in its body catches: (snail shell task)'s
-    ;; `start-task` has the row `mut e`, which names `tasks` when its work
-    ;; is dispatched inside a task. A definition already being read is
-    ;; taken at its row, so recursion ends.
-    (: definition-row (-> Callees String Expr (List String)))
-    (define (definition-row callees name definition)
-      (match (Pair (Callees-reading callees) (Expr-term definition))
-        ((Pair (Some reading) (Lambda _ body _))
-         (if (member? name reading)
-             (call-row (Expr-type definition))
-             (yields (Callees-reading-set callees (Some (Cons name reading))) body)))
-        (_ (call-row (Expr-type definition)))))
+    ;; A contextual check reads the cached source body. Generated glue,
+    ;; imported definitions and recursive inspection use the declared row.
+    (: definition-row (-> Callees String Binding (List String)))
+    (define (definition-row callees name binding)
+      (let ((row (call-row (Binding-type binding))))
+        (match (Callees-reading callees)
+          ((Some reading)
+           (if (or (Binding-external? binding) (member? name reading))
+               row
+               (match (table-ref (Callees-definitions callees) name)
+                 ((Some (Expr (Lambda _ body _) _ _))
+                  (yields (Callees-reading-set callees (Some (Cons name reading))) body))
+                 (_ row))))
+          ((None) row))))
 
     (: declared-row (-> Callees String Type (List String)))
     (define (declared-row callees name type)
-      (match (program-value (Callees-program callees) name)
+      (match (program-value (callees-program callees) name)
         ((Some (Operation effect scheme)) (operation-row callees effect scheme))
         ((Some (Primitive scheme))
          (if (or (closed-row? (Scheme-type scheme)) (member? name closing-primitives))
@@ -134,7 +207,7 @@
 
     (: operation-row (-> Callees String Scheme (List String)))
     (define (operation-row callees effect scheme)
-      (filter (lambda (label) (member? label (Callees-control callees)))
+      (filter (lambda (label) (member? label (callees-control callees)))
               (Cons effect (operation-latent effect scheme))))
 
     (: closed-row? (-> Type Bool))
@@ -166,7 +239,7 @@
 
     (: control-implementation-yields (-> Callees String (List (Pair String Expr)) (List String)))
     (define (control-implementation-yields callees effect implementations)
-      (let ((control (Effect-control (program-effect (Callees-program callees) effect))))
+      (let ((control (Effect-control (program-effect (callees-program callees) effect))))
         (fold-left (lambda (labels entry)
                      (if (member? (Pair-first entry) control)
                          (label-union labels (procedure-yields callees (Pair-second entry)))
@@ -239,7 +312,7 @@
         ((Var name _ _) (assoc-ref restrictions (generic-name name)))
         (_ (None))))
 
-    ;; Mono names a specialization by its definition and the types it is
+    ;; Specialization names a concrete implementation by its definition and the types it is
     ;; at, `name<types>`; a restriction names the definition.
     (: generic-name (-> String String))
     (define (generic-name name)
@@ -310,7 +383,7 @@
     (: resume-names
        (-> Callees String (List (Pair String Expr)) (List (Pair String String))))
     (define (resume-names callees effect implementations)
-      (let ((control (Effect-control (program-effect (Callees-program callees) effect))))
+      (let ((control (Effect-control (program-effect (callees-program callees) effect))))
         (concatenate (map (lambda (entry)
                             (if (member? (Pair-first entry) control)
                                 (match (Expr-term (Pair-second entry))
@@ -324,7 +397,7 @@
 
     (: check-implementations (-> Callees String (List (Pair String Expr)) Unit ! compile))
     (define (check-implementations callees effect implementations)
-      (let ((control (Effect-control (program-effect (Callees-program callees) effect))))
+      (let ((control (Effect-control (program-effect (callees-program callees) effect))))
         (for-each (lambda (entry)
                     (unless (member? (Pair-first entry) control)
                       (check-implementation callees (Pair-first entry) (Pair-second entry))))
@@ -332,7 +405,7 @@
 
     (: check-implementation (-> Callees String Expr Unit ! compile))
     (define (check-implementation callees operation implementation)
-      (match (program-value (Callees-program callees) operation)
+      (match (program-value (callees-program callees) operation)
         ((Some (Operation effect scheme))
          (let ((labels (label-difference (procedure-yields callees implementation)
                                          (operation-latent effect scheme))))
@@ -477,7 +550,7 @@
     ;; order, before its body runs.
     (: normal-handle (-> I64 Callees Expr String (List (Pair String Expr)) Expr (Pair Expr I64)))
     (define (normal-handle count callees expr effect implementations body)
-      (let* ((operations (Effect-operations (program-effect (Callees-program callees) effect)))
+      (let* ((operations (Effect-operations (program-effect (callees-program callees) effect)))
              (values
               (map (lambda (operation) (implementation-of implementations operation)) operations)))
         (naming count ((values (normal-all callees values))
@@ -545,58 +618,34 @@
         ((Lambda _ _ _) #t)
         (_ #f)))
 
-    ;; ---- Exposures ----
+    ;; ---- Lowering a batch ----
 
-    ;; An exposed function is exported through a wrapper that calls its code
-    ;; directly, so the definition the checker found, this library's or an
-    ;; imported one, must have a lambda as its value. Only here, after
-    ;; specialization, is an imported definition's value at hand.
-    (: check-exposures (-> Mono Unit ! compile))
-    (define (check-exposures mono)
-      (let ((callees (module-callees mono (Nil))))
-        (for-each (lambda (item)
-                    (match item
-                      ((Expose name _ _ loc) (check-exposure callees name loc))
-                      (_ (unit))))
-                  (Mono-items mono))))
+    ;; A batch owns its normalized items and the requests cleanup discovers.
+    ;; The counter is shared by main's statements and global initializers;
+    ;; each function starts its own numbering in control-item.
+    (struct Lowered
+      ((items (List Item))
+       (count I64)
+       (state State)))
 
-    (: check-exposure (-> Callees String Loc Unit ! compile))
-    (define (check-exposure callees name loc)
-      (match (callee-definition callees name)
-        ((Some definition)
-         (unless (lambda-expr? definition)
-           (compile-error loc "an exposed function must be defined with lambda")))
-        ((None) (panic "internal error: an exposed function has no definition"))))
+    (: lower-item (-> Lowered Callees Item Lowered))
+    (define (lower-item lowered callees item)
+      (match (control-item (Lowered-count lowered) callees item)
+        ((Pair item count)
+         (match (lower-droppers (Lowered-state lowered) callees item)
+           ((Pair item state)
+            (Lowered (Cons item (Lowered-items lowered)) count state))))))
 
-    ;; A global's definition, in this library or another, as the backend
-    ;; finds it.
-    (: callee-definition (-> Callees String (Option Expr)))
-    (define (callee-definition callees name)
-      (match (table-ref (Callees-definitions callees) name)
-        ((Some definition) (Some definition))
-        ((None) (table-ref (Callees-externals callees) name))))
-
-    ;; ---- Programs ----
-
-    ;; Each item with its yield points named, after the restrictions are
-    ;; checked everywhere. Every program passes through here, so the one
-    ;; rule the backend relies on that needs specialized definitions is
-    ;; checked here too, and the backend reports no source errors.
-    (: name-yield-points (-> Mono Mono ! compile))
-    (define (name-yield-points mono)
-      (check-exposures mono)
-      (let ((control (control-effects (Mono-program mono))))
-        (if (null? control)
-            mono
-            (let ((callees (module-callees mono control)))
-              (check-items callees (Mono-items mono))
-              (dropper-items callees
-                             (Mono (Mono-program mono)
-                                   (control-items 0 callees (Mono-items mono))
-                                   (Mono-externals mono)
-                                   (Mono-exported mono)
-                                   (Mono-input mono)
-                                   (Mono-owner mono)))))))
+    (: check-exposure (-> Callees Item Unit ! compile))
+    (define (check-exposure callees item)
+      (match item
+        ((Expose name _ _ loc)
+         (match (table-ref (Declarations-bindings (Callees-declarations callees)) name)
+           ((Some binding)
+            (unless (Binding-function? binding)
+              (compile-error loc "an exposed function must be defined with lambda")))
+           ((None) (panic "internal error: an exposed function has no binding"))))
+        (_ (unit))))
 
     ;; ---- Droppers ----
 
@@ -607,8 +656,8 @@
     ;; drops them in order, which the backend stores beside the frame's or
     ;; the closure's code: a let whose value may yield wraps the value in
     ;; `with-dropper`, and `once` of a lambda with linear captures becomes
-    ;; `once-dropping`. The drops are mono's, asked for every type at once,
-    ;; so the items are walked twice: once to find the types, once to wrap.
+    ;; `once-dropping`. Cleanup joins the specialization worklist. One item
+    ;; is walked twice: once to find the types, once to wrap its values.
     (: no-loc Loc)
     (define no-loc (Loc "control" 0 0))
 
@@ -622,36 +671,14 @@
             unit-type
             loc))
 
-    (: dropper-items (-> Callees Mono Mono))
-    (define (dropper-items callees mono)
-      (let ((found (dropper-pass callees empty-table (Mono-items mono))))
-        (match (Pair-second found)
-          ((Nil) mono)
-          (types
-           (match (drop-functions mono types no-loc)
-             ((Pair drops mono)
-              (match (dropper-pass callees drops (Mono-items mono))
-                ((Pair items _)
-                 (Mono (Mono-program mono)
-                       items
-                       (Mono-externals mono)
-                       (Mono-exported mono)
-                       (Mono-input mono)
-                       (Mono-owner mono))))))))))
-
-    ;; The items with droppers where `drops` has the drop, and the types
-    ;; of every value a dropper would drop.
-    (: dropper-pass (-> Callees (Table Expr) (List Item) (Pair (List Item) (List Type))))
-    (define (dropper-pass callees drops items)
-      (fold-right (lambda (item result)
-                    (match (dropper-item callees drops item)
-                      ((Pair item types)
-                       (Pair (Cons item (Pair-first result))
-                             (fold-left (lambda (types type) (add-type types type))
-                                        (Pair-second result)
-                                        types)))))
-                  (Pair (Nil) (Nil))
-                  items))
+    (: lower-droppers (-> State Callees Item (Pair Item State)))
+    (define (lower-droppers state callees item)
+      (match (dropper-item callees empty-table item)
+        ((Pair _ (Nil)) (Pair item state))
+        ((Pair _ types)
+         (match (request-drops state types no-loc)
+           ((Pair drops state)
+            (Pair (Pair-first (dropper-item callees drops item)) state))))))
 
     (: add-type (-> (List Type) Type (List Type)))
     (define (add-type types type)
@@ -853,11 +880,11 @@
 
     (: taken-scope (-> Callees (List (Pair String Type)) Expr (List (Pair String Type))))
     (define (taken-scope callees scope expr)
-      (selected-scope scope (consumed-references (Callees-program callees) expr) #t))
+      (selected-scope scope (consumed-references (callees-program callees) expr) #t))
 
     (: remaining-scope (-> Callees (List (Pair String Type)) Expr (List (Pair String Type))))
     (define (remaining-scope callees scope expr)
-      (selected-scope scope (consumed-references (Callees-program callees) expr) #f))
+      (selected-scope scope (consumed-references (callees-program callees) expr) #f))
 
     (: hold-abandoned
        (-> Callees
@@ -888,7 +915,7 @@
     (: linear-locals (-> Callees (List (Pair String Type)) (List (Pair String Type))))
     (define (linear-locals callees scope)
       (filter (lambda (entry)
-                (linear-type? (Callees-program callees) (Nil) (Pair-second entry)))
+                (linear-type? (callees-program callees) (Nil) (Pair-second entry)))
               scope))
 
     ;; The value marked with the dropper of `live`, once every drop is known.
@@ -951,14 +978,6 @@
     ;; Temporaries are numbered within the Wasm function they land in: a
     ;; function's definition counts from zero, while the statements and the
     ;; other definitions' values all run in `main`, and share one count.
-    (: control-items (-> I64 Callees (List Item) (List Item)))
-    (define (control-items count callees items)
-      (match items
-        ((Cons item rest)
-         (naming count ((item (control-item callees item)))
-                 (Cons item (control-items count callees rest))))
-        ((Nil) (Nil))))
-
     (: control-item (-> I64 Callees Item (Pair Item I64)))
     (define (control-item count callees item)
       (match item
@@ -974,22 +993,14 @@
     (define (control-expr count callees expr)
       (if (yield-free? callees expr) (Pair expr count) (normal count callees expr)))
 
-    ;; Restrictions are checked from the last item back. A copy of a
-    ;; generic comes before the code that made it, in a library's build,
-    ;; where mono puts the copies of other libraries' generics first, and
-    ;; in a whole program's, where each takes its generic's place, so a
-    ;; refusal names the use rather than the copy: work that yields to
-    ;; Abort is refused where it is dispatched, not in (snail shell task).
-    (: check-items (-> Callees (List Item) Unit ! compile))
-    (define (check-items callees items)
-      (for-each (lambda (item) (check-item callees item)) (reverse items)))
-
     (: check-item (-> Callees Item Unit ! compile))
     (define (check-item callees item)
-      (match item
-        ((Define _ value) (check-restrictions callees value))
-        ((Do expr) (check-restrictions callees expr))
-        (_ (unit))))
+      (check-exposure callees item)
+      (unless (null? (callees-control callees))
+        (match item
+          ((Define _ value) (check-restrictions callees value))
+          ((Do expr) (check-restrictions callees expr))
+          (_ (unit)))))
 
     )
 
@@ -997,12 +1008,12 @@
 
   (cond-expand
    (snail-tests
-    (export test-control)
+    (export test-prepare)
     (import
      (only (scheme base) eq?)
      (snail stage0 testing))
     (begin
-      (define (test-control)
+      (define (test-prepare)
         (test-yields)
         (test-globals)
         (test-operands)
@@ -1048,7 +1059,24 @@
                          (Pair "t:log" (operation "t:Log" (Nil)))
                          (Pair "t:fetch" (operation "t:Io" (list "t:Abort"))))))
 
-      (define callees (Callees program (list "t:Abort") empty-table empty-table (Nil) (None)))
+      (define (test-callees definitions)
+        (let* ((items (map (lambda (name)
+                             (Define name
+                               (match (table-ref definitions name) ((Some value) value))))
+                           (table-keys definitions)))
+               (schemes (fold-left (lambda (schemes item)
+                                     (match item
+                                       ((Define name value)
+                                        (table-set schemes name
+                                                   (Scheme (Nil) (Nil) (Nil) (Expr-type value))))))
+                                   empty-table items))
+               (state
+                (new-state (prepare-specialization (Typed program items schemes)) (Some "t"))))
+          (specialization-callees
+           (Pair-second (complete-specializations
+                         (Pair-second (start-specialization state items)))))))
+
+      (define callees (test-callees empty-table))
 
       (define (normalized expr) (shape (Pair-first (normal 0 callees expr))))
 
@@ -1095,12 +1123,7 @@
                 (Expr (Lambda (list "x.1") (local "x.1" i64) #t)
                       (TFun (list i64) i64 empty-row)
                       loc))
-               (defined (Callees program
-                                 (list "t:Abort")
-                                 (table-set empty-table "t:pure" pure)
-                                 empty-table
-                                 (Nil)
-                                 (None))))
+               (defined (test-callees (table-set empty-table "t:pure" pure))))
           (expect (yields defined (call opened (list (number 1)))) (Nil))
           (expect (yields callees (call opened (list (number 1)))) (list "t:Abort"))))
 
@@ -1215,12 +1238,7 @@
                 (Expr (Lambda (list "x.2") (handle-abort (call f (list (local "x.2" i64)))) #t)
                       caught-type
                       loc))
-               (reading (Callees program
-                                 (list "t:Abort")
-                                 (table-set empty-table "t:caught" caught)
-                                 empty-table
-                                 (Nil)
-                                 (None)))
+               (reading (test-callees (table-set empty-table "t:caught" caught)))
                (thunk-type (TFun (Nil) i64 abort-row))
                (inherit (local "prim:inherit-handlers" (TFun (list thunk-type) i64 empty-row)))
                (thunk (lambda (body) (Expr (Lambda (Nil) body #t) thunk-type loc))))
