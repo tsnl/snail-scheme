@@ -32,6 +32,9 @@ each can return if a program needs it.
 - Only unannotated top-level functions are generalized; other definitions
   are monomorphic unless they have a signature.
 - Effect labels take no type parameters, and operations are monomorphic.
+  [Parameterized effects](effects.md#proposed-parameterized-effects) are
+  proposed with one fixed application per handler; operation-local
+  polymorphism remains outside that design.
 - Classes have no superclasses and no higher-kinded parameters.
 - Wire TypeIds are 32 bits, and every struct and enum value carries its
   case's TypeId.
