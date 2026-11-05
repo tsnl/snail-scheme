@@ -522,11 +522,25 @@ to the textarea's UTF-16. Generated scratch and external library
 locations remain messages rather than being mapped to another file. These are
 source points, not guessed expression ranges or full source spans.
 Manual Build requests compilation; Save writes disk and leaves scheduling to the
-disk task. Reconnecting the event stream supplies current status and file
-invalidation without a replay log. An exact repeat of the retained status keeps
-its diagnostic observations, including invalidation by Save or a changed read.
-It still restores status presentation and refreshes files. Going back online replaces the stream too,
-covering file reads that failed while an existing event connection survived.
+disk task. `(snail shell project protocol)` defines the typed project, file,
+search, build and run values and their JSON codecs for both hosts. Required
+fields are parsed together; a malformed reply cannot silently become an empty
+project or a stopped run.
+
+`GET /api/events` sends one `snapshot` event on connection and whenever its state
+changes: a server-instance identity, file invalidation counter, build report and
+run observations. The owner serializes publication, so the stream needs neither
+patches nor a replay log. File paths are fetched when the counter changes; they
+are not repeated with every process-output update. Each connection-open event,
+including EventSource's automatic reconnects, refreshes listings and file reads.
+Their new intent numbers reject delayed old replies. The listing itself scans
+fresh disk, rather than a cache that could predate the invalidation.
+
+An exact repeat of a build report keeps its diagnostic observations, including
+invalidation by Save or a changed read. Run output and file counters cannot
+revive that evidence. A new server instance starts new diagnostic observations.
+Going back online replaces the stream too, covering file reads that failed while
+an existing event connection survived.
 
 ## Code highlighting
 
