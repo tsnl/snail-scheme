@@ -44,6 +44,7 @@ test-browser:
 	node tests/browser/ide.mjs "$(CURDIR)"
 	node tests/browser/ide-palette.mjs "$(CURDIR)"
 	node tests/browser/ide-search.mjs "$(CURDIR)"
+	node tests/browser/ide-create.mjs "$(CURDIR)"
 	node tests/browser/ide-runs.mjs "$(CURDIR)"
 	node tests/browser/ui.mjs "$(CURDIR)"
 

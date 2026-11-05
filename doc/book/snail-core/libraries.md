@@ -136,6 +136,7 @@ each failure.
 
 | Operation | Result |
 | --- | --- |
+| `(make-file path)` | One empty file, whose parent must exist. Any existing leaf, including a dangling symlink, returns `AlreadyExists`. |
 | `(make-directory path)` | One directory, whose parent must exist. |
 | `(make-directories path)` | The directory and each missing parent; a directory already there is success. |
 | `(rename-file from to)` | Renames a file or directory, replacing a file at `to` at once: a reader sees the old file or the new one, never neither. |

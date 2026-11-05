@@ -17,6 +17,9 @@
    DiskFailed
    text-limit
    project-text-paths
+   project-directory-paths
+   create-project-file
+   create-project-directory
    read-project-text
    save-project-text
    file-mode
@@ -67,22 +70,26 @@
 
     ;; A path the service serves: relative to the project, split at its
     ;; slashes, with no empty, `.` or `..` part and nothing under a `.git`,
-    ;; nor under the build output at the project's root, and naming a text
-    ;; file by its extension. A backslash or NUL is refused, so the path
+    ;; nor under the build output at the project's root. A backslash or
+    ;; NUL is refused, so the path
     ;; means the same on every host. Constructing one is the check.
-    (struct ServedPath
+    (struct ProjectPath
       ((path String)
        (parts (List String))))
 
-    (: served-path (-> String (Option ServedPath)))
+    ;; Text requests additionally require an extension the editor serves.
+    (: served-path (-> String (Option ProjectPath)))
     (define (served-path path)
+      (if (text-file-name? path) (project-path path) (None)))
+
+    (: project-path (-> String (Option ProjectPath)))
+    (define (project-path path)
       (let ((parts (split-at-slashes path)))
         (if (and (every? ordinary-part? parts)
                  (not (under-build? parts))
-                 (text-file-name? path)
                  (not (contains? path #\null))
                  (not (contains? path #\\)))
-            (Some (ServedPath path parts))
+            (Some (ProjectPath path parts))
             (None))))
 
     (: ordinary-part? (-> String Bool))
@@ -114,19 +121,19 @@
       (let ((start (- (string-length text) (string-length suffix))))
         (and (>= start 0) (string=? (substring text start (string-length text)) suffix))))
 
-    (: absolute (-> String ServedPath String))
+    (: absolute (-> String ProjectPath String))
     (define (absolute root file)
-      (string-append root "/" (ServedPath-path file)))
+      (string-append root "/" (ProjectPath-path file)))
 
     ;; The project's root must still be a directory, and each directory on
     ;; the way to the file a directory itself, not a link, so a path cannot
     ;; leave the project.
-    (: check-parents (-> String ServedPath (Result Unit FileRefusal) ! fs))
+    (: check-parents (-> String ProjectPath (Result Unit FileRefusal) ! fs))
     (define (check-parents root file)
       (match (followed-status root)
         ((Ok status)
          (match (FileStatus-kind status)
-           ((Directory) (check-directories root (ServedPath-parts file)))
+           ((Directory) (check-directories root (ProjectPath-parts file)))
            (_ (Err (NotServed "the project root must remain a directory")))))
         ((Err error) (Err (DiskFailed error)))))
 
@@ -163,18 +170,62 @@
       (let ((prefix (string-append root "/")))
         (fold-right (lambda (path served)
                       (match (served-under prefix path)
-                        ((Some file) (Cons (ServedPath-path file) served))
+                        ((Some file) (Cons (ProjectPath-path file) served))
                         ((None) served)))
                     (Nil)
                     paths)))
 
     ;; The served path that `path` names, if it is under `prefix`.
-    (: served-under (-> String String (Option ServedPath)))
+    (: served-under (-> String String (Option ProjectPath)))
     (define (served-under prefix path)
       (let ((length (string-length prefix)))
         (if (and (>= (string-length path) length) (string=? (substring path 0 length) prefix))
             (served-path (substring path length (string-length path)))
             (None))))
+
+    ;; Directories in the same inventory, relative to the root. Unlike a
+    ;; text path, a directory needs no filename extension.
+    (: project-directory-paths (-> String (List String) (List String)))
+    (define (project-directory-paths root paths)
+      (let ((prefix (string-append root "/")))
+        (list-sort string<?
+                   (fold-right (lambda (path found)
+                                 (let ((size (string-length prefix)))
+                                   (if (and (> (string-length path) size)
+                                            (string=? (substring path 0 size) prefix))
+                                       (match (project-path
+                                               (substring path size (string-length path)))
+                                         ((Some entry) (Cons (ProjectPath-path entry) found))
+                                         ((None) found))
+                                       found)))
+                               (Nil) paths))))
+
+    ;; ---- Creating ----
+
+    ;; Only one entry is made. Its parent must already be a real project
+    ;; directory. Both scalar operations create exclusively, so a racing
+    ;; writer cannot have its file or symbolic link replaced.
+    (: create-project-file (-> String String (Result Unit FileRefusal) ! fs))
+    (define (create-project-file root path)
+      (create-entry root (served-path path) #f))
+
+    (: create-project-directory (-> String String (Result Unit FileRefusal) ! fs))
+    (define (create-project-directory root path)
+      (create-entry root (project-path path) #t))
+
+    (: create-entry (-> String (Option ProjectPath) Bool (Result Unit FileRefusal) ! fs))
+    (define (create-entry root found directory)
+      (match found
+        ((None) (Err (NotServed "invalid project path or unsupported text extension")))
+        ((Some path)
+         (match (check-parents root path)
+           ((Err refusal) (Err refusal))
+           ((Ok _)
+            (match (if directory
+                       (make-directory (absolute root path))
+                       (make-file (absolute root path)))
+              ((Ok _) (Ok (unit)))
+              ((Err error) (Err (DiskFailed error)))))))))
 
     ;; ---- Reading ----
 
@@ -185,13 +236,13 @@
         ((Some file) (snapshot root file))
         ((None) (Err (NotServed "invalid project text path")))))
 
-    (: snapshot (-> String ServedPath (Result ProjectText FileRefusal) ! fs))
+    (: snapshot (-> String ProjectPath (Result ProjectText FileRefusal) ! fs))
     (define (snapshot root file)
       (match (check-parents root file)
         ((Ok _) (current-text root file))
         ((Err refusal) (Err refusal))))
 
-    (: current-text (-> String ServedPath (Result ProjectText FileRefusal) ! fs))
+    (: current-text (-> String ProjectPath (Result ProjectText FileRefusal) ! fs))
     (define (current-text root file)
       (match (read-text-file (absolute root file) text-limit)
         ((Ok text)
@@ -232,7 +283,7 @@
             (else (None))))
 
     (: save-checked
-       (-> String ServedPath String String (Result ProjectText FileRefusal) ! fs modes))
+       (-> String ProjectPath String String (Result ProjectText FileRefusal) ! fs modes))
     (define (save-checked root file expected text)
       (match (staging root)
         ((Ok directory)
@@ -244,7 +295,7 @@
     ;; The file on disk is still the revision `expected`. A file gone, or
     ;; no longer one the service serves, has changed as much as one with
     ;; other bytes.
-    (: expect (-> String ServedPath String (Result Unit FileRefusal) ! fs))
+    (: expect (-> String ProjectPath String (Result Unit FileRefusal) ! fs))
     (define (expect root file expected)
       (match (snapshot root file)
         ((Ok current)
@@ -257,7 +308,7 @@
     ;; Writes the text to `staged`, gives it the file's mode once the
     ;; revision is checked, and renames it over the file.
     (: save-staged
-       (-> String ServedPath String String String (Result ProjectText FileRefusal) ! fs modes))
+       (-> String ProjectPath String String String (Result ProjectText FileRefusal) ! fs modes))
     (define (save-staged root file expected text staged)
       (match (write-text-file staged text)
         ((Ok _)

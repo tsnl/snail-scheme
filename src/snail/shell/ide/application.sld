@@ -589,7 +589,8 @@
     (struct Project
       ((name String)
        (directory String)
-       (files (List String))))
+       (files (List String))
+       (directories (List String))))
 
     (: project-reply (-> (Result Json Failure) (Result Project Failure)))
     (define (project-reply reply)
@@ -597,12 +598,14 @@
         ((Ok json)
          (Ok (Project (json-text json "name")
                       (json-text json "directory")
-                      (concatenate (map (lambda (item)
-                                          (match item
-                                            ((JsonString path) (list path))
-                                            (_ (Nil))))
-                                        (json-items json "files"))))))
+                      (json-strings json "files")
+                      (json-strings json "directories"))))
         ((Err failure) (Err failure))))
+
+    (: json-strings (-> Json String (List String)))
+    (define (json-strings json name)
+      (concatenate (map (lambda (item) (match item ((JsonString text) (list text)) (_ (Nil))))
+                        (json-items json name))))
 
     ;; ---- Builds ----
 
@@ -831,7 +834,13 @@
        (skipped I64)
        (limited Bool)))
 
-    (enum PaletteMode (Commands) (Files) (Contents))
+    (enum PaletteMode
+      (Commands)
+      (Files)
+      (Contents)
+      (Creating ((directory Bool)
+                 (pending Bool)
+                 (problem String))))
 
     (struct Palette
       ((mode PaletteMode)
@@ -871,7 +880,7 @@
 
     (: initial Ide)
     (define initial
-      (Ide (Project "" "" (Nil))
+      (Ide (Project "" "" (Nil) (Nil))
            0
            (Nil)
            0
@@ -1059,6 +1068,11 @@
       (DispatchCommand ((name String)))
       (InvokeCommand ((name String)))
       (PaletteQuery ((query String)))
+      (CreatePath)
+      (Created ((sequence I64)
+                (path String)
+                (directory Bool)
+                (result (Result Json Failure))))
       (PickFile ((path String)))
       (PickHit ((sequence I64)
                 (hit Hit)))
@@ -1127,6 +1141,9 @@
         ((DispatchCommand name) (Pair model (list (once (lambda () (InvokeCommand name))))))
         ((InvokeCommand name) (run-command model name))
         ((PaletteQuery query) (palette-query model query))
+        ((CreatePath) (creating-path model))
+        ((Created sequence path directory result)
+         (created-path model sequence path directory result))
         ((PickFile path)
          (invoked model (lambda (model) (opening model path (Focus (Ide-active model))))))
         ((PickHit sequence hit) (pick-hit model sequence hit))
@@ -1759,6 +1776,12 @@
                                                    (lambda (model) (palette-open model (Files))))
                                   (command-Command "search-project"
                                                    (lambda (model) (palette-open model (Contents))))
+                                  (command-Command "new-file"
+                                                   (lambda (model)
+                                                     (palette-open model (Creating #f #f ""))))
+                                  (command-Command "new-directory"
+                                                   (lambda (model)
+                                                     (palette-open model (Creating #t #f ""))))
                                   (command-Command "save-buffer" saving)
                                   (command-Command "format-buffer" formatting)
                                   (command-Command "reload-buffer" reloading)
@@ -1793,6 +1816,8 @@
                                                (bound-chords "go-to-file" (primary-chords "p" 0))
                                                (bound-chords "search-project"
                                                              (primary-chords "F" shift-key))
+                                               (bound-chords "new-file" (Nil))
+                                               (bound-chords "new-directory" (Nil))
                                                (bound-chords "save-buffer" (primary-chords "s" 0))
                                                (bound-chords "format-buffer"
                                                              (list
@@ -1873,6 +1898,10 @@
          (map (lambda (path) (Choice path "" (PickFile path)))
               (take (filter (lambda (path) (search-match? (Palette-query palette) path))
                             (file-choices model)) 200)))
+        ((Creating directory pending _)
+         (if (or pending (string=? (Palette-query palette) "")) (Nil)
+             (list (Choice (string-append (if directory "Create directory: " "Create file: ")
+                                          (Palette-query palette)) "Enter" (CreatePath)))))
         ((Contents)
          (match (Palette-results palette)
            ((Some (Ok results))
@@ -1922,12 +1951,24 @@
       (match (Ide-palette model)
         ((None) (stay model))
         ((Some palette)
-         (let* ((sequence (+ 1 (Ide-searches model)))
-                (next (Ide-palette-set (Ide-searches-set model sequence)
-                                       (Some (Palette (Palette-mode palette) query 0 (None))))))
-           (if (and (contents? palette) (not (string=? query "")))
-               (Pair next (list (once (lambda () (sleep 120) (SearchDue sequence)))))
-               (stay next))))))
+         (if (creation-pending? palette) (stay model)
+             (let* ((sequence (+ 1 (Ide-searches model)))
+                    (next (Ide-palette-set (Ide-searches-set model sequence)
+                                           (Some (Palette (query-mode (Palette-mode palette))
+                                                          query
+                                                          0
+                                                          (None))))))
+               (if (and (contents? palette) (not (string=? query "")))
+                   (Pair next (list (once (lambda () (sleep 120) (SearchDue sequence)))))
+                   (stay next)))))))
+
+    (: query-mode (-> PaletteMode PaletteMode))
+    (define (query-mode mode)
+      (match mode ((Creating directory _ _) (Creating directory #f "")) (_ mode)))
+
+    (: creation-pending? (-> Palette Bool))
+    (define (creation-pending? palette)
+      (match (Palette-mode palette) ((Creating _ pending _) pending) (_ #f)))
 
     (: contents? (-> Palette Bool))
     (define (contents? palette)
@@ -2025,6 +2066,49 @@
                         (json-text item "revision") (json-text item "snippet")))
              (None)))
         (_ (None))))
+
+    ;; ---- Creating project entries ----
+
+    (: creating-path (-> Ide Step))
+    (define (creating-path model)
+      (match (Ide-palette model)
+        ((Some palette)
+         (match (Palette-mode palette)
+           ((Creating directory #f _)
+            (let ((path (Palette-query palette)) (sequence (Ide-searches model)))
+              (Pair
+               (Ide-palette-set model (Some (Palette-mode-set palette (Creating directory #t ""))))
+               (list (once (lambda ()
+                             (Created sequence path directory
+                                      (api "POST"
+                                           (string-append
+                                            (if directory "/api/directory?path=" "/api/file?path=")
+                                            (url-component path)) (Nil) ""))))))))
+           (_ (stay model))))
+        ((None) (stay model))))
+
+    ;; Only the palette that submitted a request may open its file or show
+    ;; its error. The shared watcher publishes the disk change either way.
+    (: created-path (-> Ide I64 String Bool (Result Json Failure) Step))
+    (define (created-path model sequence path directory result)
+      (match (Ide-palette model)
+        ((Some palette)
+         (if (and (= sequence (Ide-searches model)) (creation-pending? palette))
+             (match result
+               ((Err failure)
+                (stay (Ide-palette-set model (Some (Palette-mode-set palette
+                                                                     (Creating directory
+                                                                               #f
+                                                                               (Failure-message
+                                                                                failure)))))))
+               ((Ok _)
+                (invoked model (lambda (model)
+                                 (then (listing model)
+                                       (lambda (model)
+                                         (if directory (stay model)
+                                             (opening model path (Focus (Ide-active model))))))))))
+             (stay model)))
+        ((None) (stay model))))
 
     ;; ---- Controlling runs ----
 
@@ -2243,7 +2327,8 @@
       (match (Palette-mode palette)
         ((Commands) "Run a command…")
         ((Files) "Go to file…")
-        ((Contents) "Search saved text…")))
+        ((Contents) "Search saved text…")
+        ((Creating directory _ _) (if directory "New directory path…" "New file path…"))))
 
     (: palette-input (-> Palette I64 (Html Msg)))
     (define (palette-input palette selected)
@@ -2257,6 +2342,7 @@
                      (Attr "aria-activedescendant"
                            (if (< selected 0) "" (string-append "command-result-" (show selected))))
                      (Attr "autocomplete" "off") (Attr "spellcheck" "false")
+                     (FlagProperty "readOnly" (creation-pending? palette))
                      (StringProperty "value" (Palette-query palette))
                      (On "input" (list (Value)) (Allow)
                          (lambda (event) (PaletteQuery (Event-value event))))
@@ -2284,7 +2370,9 @@
                 ((None) "Searching…")
                 ((Some (Err failure)) (Failure-message failure))
                 ((Some (Ok _)) "No matches in saved text")))
-          "No matches"))
+          (match (Palette-mode palette)
+            ((Creating _ pending _) (if pending "Creating…" "Enter a path relative to the project"))
+            (_ "No matches"))))
 
     (: palette-help (-> Palette String))
     (define (palette-help palette)
@@ -2302,6 +2390,10 @@
                                                "")))
                            (_ "")))
           (match (Palette-mode palette)
+            ((Creating _ _ problem)
+             (if (string=? problem "")
+                 "Enter creates · Escape closes · Parent directory must exist"
+                 problem))
             ((Files) "↑ ↓ choose · Enter open · Escape close · Up to 200 paths; type to narrow")
             (_ "↑ ↓ choose · Enter run · Escape close"))))
 
@@ -2388,20 +2480,25 @@
               (else (loop end (- index 1) parts)))))
 
     ;; Each file is the parts of its path left to place, and its path.
-    (: file-tree (-> (List (Pair (List String) String)) (List Tree)))
-    (define (file-tree files)
+    (: file-tree (-> (List (Pair (List String) String)) (List (List String)) (List Tree)))
+    (define (file-tree files directories)
       (let* ((nested (filter (lambda (file) (> (length (Pair-first file)) 1)) files))
+             (directories (filter (lambda (parts) (not (null? parts))) directories))
              (names (list-sort string<?
                                (delete-duplicates string=?
-                                                  (map (lambda (file) (car-part file)) nested)))))
+                                                  (append (map car-part nested)
+                                                          (map (lambda (parts) (list-ref parts 0))
+                                                               directories))))))
         (append (map (lambda (name)
                        (Folder name
-                               (file-tree (map (lambda (file)
-                                                 (Pair (list-tail (Pair-first file) 1)
-                                                       (Pair-second file)))
-                                               (filter
-                                                (lambda (file) (string=? (car-part file) name))
-                                                nested)))))
+                               (file-tree
+                                (map (lambda (file)
+                                       (Pair (list-tail (Pair-first file) 1) (Pair-second file)))
+                                     (filter (lambda (file) (string=? (car-part file) name))
+                                             nested))
+                                (map (lambda (parts) (list-tail parts 1))
+                                     (filter (lambda (parts) (string=? (list-ref parts 0) name))
+                                             directories)))))
                      names)
                 (map (lambda (file) (File (car-part file) (Pair-second file)))
                      (list-sort (lambda (a b) (string<? (car-part a) (car-part b)))
@@ -2428,7 +2525,8 @@
                                (tree-view model
                                           (file-tree
                                            (map (lambda (path) (Pair (path-parts path) path))
-                                                (Project-files project)))
+                                                (Project-files project))
+                                           (map path-parts (Project-directories project)))
                                           ""))
                          (if (null? unlisted)
                              (Nil)

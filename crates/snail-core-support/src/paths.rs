@@ -97,6 +97,23 @@ pub extern "C" fn make_directory(count: u32) -> i32 {
     done(std::fs::create_dir(checked(staged_path(count))))
 }
 
+/// Creates an empty file exclusively. An existing path, including a
+/// dangling symbolic link, is never opened or truncated.
+#[unsafe(export_name = "snail:io/make-file")]
+pub extern "C" fn make_file(count: u32) -> i32 {
+    done(create_empty(std::path::Path::new(&checked(staged_path(
+        count,
+    )))))
+}
+
+fn create_empty(path: &std::path::Path) -> std::io::Result<()> {
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map(drop)
+}
+
 /// Replaces what `to` names at once, as POSIX `rename` does: a reader sees
 /// the old file or the new one, never neither.
 #[unsafe(export_name = "snail:io/rename")]
@@ -372,6 +389,28 @@ mod tests {
 
     fn reply_text() -> String {
         REPLY.with_borrow(|reply| reply.iter().collect())
+    }
+
+    #[test]
+    fn creating_a_file_never_replaces_an_existing_path() {
+        let directory = scratch("create");
+        let file = directory.join("new");
+        create_empty(&file).unwrap();
+        std::fs::write(&file, "kept").unwrap();
+        assert_eq!(
+            create_empty(&file).unwrap_err().kind(),
+            ErrorKind::AlreadyExists
+        );
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "kept");
+        let link = directory.join("link");
+        make_link("missing".into(), text(&link)).unwrap();
+        assert_eq!(
+            create_empty(&link).unwrap_err().kind(),
+            ErrorKind::AlreadyExists
+        );
+        assert!(!directory.join("missing").exists());
+        assert!(create_empty(&directory).is_err());
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

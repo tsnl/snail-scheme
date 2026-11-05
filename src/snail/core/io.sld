@@ -42,6 +42,7 @@
    FileStatus-kind
    FileStatus-size
    FileStatus-modified
+   make-file
    make-directory
    make-directories
    rename-file
@@ -129,6 +130,7 @@
        (port-write (-> I32 String Unit))
        (port-write-byte (-> I32 I32 Unit))
        (port-close (-> I32 Unit))
+       (path-make-file (-> String I32))
        (path-make-directory (-> String I32))
        (path-rename (-> String I32))
        (path-remove-file (-> String I32))
@@ -151,6 +153,7 @@
                 (port-write support-port-write)
                 (port-write-byte support-port-write-byte)
                 (port-close support-port-close)
+                (path-make-file support-path-make-file)
                 (path-make-directory support-path-make-directory)
                 (path-rename support-path-rename)
                 (path-remove-file support-path-remove-file)
@@ -174,6 +177,7 @@
     (extern support-port-write "snail.core.support" "snail:io/write-string" (-> I32 String Unit))
     (extern support-port-write-byte "snail.core.support" "snail:io/write-byte" (-> I32 I32 Unit))
     (extern support-port-close "snail.core.support" "snail:io/close" (-> I32 Unit))
+    (extern support-path-make-file "snail.core.support" "snail:io/make-file" (-> String I32))
     (extern support-path-make-directory
             "snail.core.support"
             "snail:io/make-directory"
@@ -325,6 +329,12 @@
     (: path-pair (-> String String String))
     (define (path-pair first second)
       (string-append first (make-string 1 #\null) second))
+
+    ;; Makes one empty file, whose parent must exist. Any existing path,
+    ;; including a symbolic link, fails with AlreadyExists.
+    (: make-file (-> String (Result Unit FileError) ! fs))
+    (define (make-file path)
+      (path-done (path-make-file path)))
 
     ;; Makes one directory, whose parent must exist.
     (: make-directory (-> String (Result Unit FileError) ! fs))

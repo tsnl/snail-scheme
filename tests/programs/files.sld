@@ -24,6 +24,7 @@
             (port-write (lambda (port text) (unit)))
             (port-write-byte (lambda (port byte) (unit)))
             (port-close (lambda (port) (unit)))
+            (path-make-file (lambda (path) -1))
             (path-make-directory (lambda (name) -1))
             (path-rename (lambda (names) -1))
             (path-remove-file (lambda (name) -1))
