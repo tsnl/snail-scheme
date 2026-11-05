@@ -10,5 +10,5 @@ export async function command(browser, name) {
     input.value = ${JSON.stringify(name)}; input.dispatchEvent(new Event('input')); })()`);
   await until(() => browser.evaluate(`Boolean(document.querySelector('[data-command="${name}"]'))`), name);
   await browser.evaluate(`document.querySelector('[data-command="${name}"]').click()`);
-  await until(() => browser.evaluate('!document.getElementById("command-query")'), 'command invocation');
+  await until(() => browser.evaluate('!document.getElementById("command-query") || document.getElementById("command-query").value === ""'), 'command invocation');
 }
