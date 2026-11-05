@@ -21,19 +21,20 @@ fetch:
 
 # The formatter's tests, the compiler's unit tests, the examples and test
 # programs, both games' tests, Siegework headless, and the development service.
+# Build shared tools before the service tests' startup deadlines begin.
 test:
+	./scripts/snail-tool dev-tools >/dev/null
 	"$(EMACS)" --quick --batch -l tests/format-scheme.el -f ert-run-tests-batch-and-exit
 	"$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"
 
 # The suite with every compile on the native executable's wasmtime instead of
 # Node, plus the check that both engines emit the same text.
-# Build shared tools before the service tests' startup deadlines begin.
 test-wasmtime:
-	SNAIL_ENGINE=wasmtime ./scripts/snail-tool dev-tools >/dev/null
 	SNAIL_ENGINE=wasmtime $(MAKE) test
 
 # The suite with the compiler's source running on Chibi instead of as Wasm.
 test-chibi:
+	SNAIL_STAGE0=chibi ./scripts/snail-tool dev-tools >/dev/null
 	SNAIL_STAGE0=chibi "$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"
 
 # Live reload and the browser IDE in headless Chromium, which CI does not
