@@ -10,6 +10,6 @@
   (update: update)
   (view: view)
   (window: window)
-  (start: (list (Connect)))
+  (start: (list (Boot) (Connect)))
   (save: kept)
   (restore: restored))

@@ -12,7 +12,7 @@
 ;;     session from one build to the next (below);
 ;;   dev EDITOR CLIENT [--port PORT] PROJECT
 ;;     runs the development service, (snail shell project service), with
-;;     the editor's program, host/ide/ide.sld built, and the reload
+;;     the editor's browser bundle, host/ide built, and the reload
 ;;     client's, host/browser/reload.sld built, until it is interrupted,
 ;;     as ./snail dev does.
 ;;

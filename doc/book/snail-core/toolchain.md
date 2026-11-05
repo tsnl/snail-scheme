@@ -542,6 +542,31 @@ revive that evidence. A new server instance starts new diagnostic observations.
 Going back online replaces the stream too, covering file reads that failed while
 an existing event connection survived.
 
+The IDE itself is an ordinary browser target, `host/ide/project.datum`, with
+its public assets under `host/ide/public/`. The service watches that directory,
+the shared libraries, and the browser host. It builds in a child process while
+continuing to serve requests. Only a complete successful build becomes the
+advertised IDE generation; compilation failures leave the current page usable
+and appear in its status strip. Every script, stylesheet, program and linked
+resource is pinned to the page's immutable generation. Previous generations
+remain available during the service session. The manifest keeps its stable
+root URL.
+
+On a new IDE generation, the shared document-interface host waits for any text
+composition to finish, prevents further input, drains queued input through the
+application loop, and checkpoints its save. Navigation requires a successful
+storage write. IDE recovery uses session storage, separately for each project
+and tab; it retains drafts, their original disk baselines and the pane layout.
+It reconstructs server observations and pending operations instead of replaying
+commands. An incompatible save is retained and reported, never silently erased.
+A storage failure resumes the current program from its recovery checkpoint and
+offers a retry. Unsaved-change protection stays active until persistence succeeds.
+The `refresh-ide` command uses this same handover for an explicit refresh.
+
+This is a page refresh with recovery, rather than the scene application's
+in-memory module relink. It does not change the Application lifecycle contract. Changes to the native
+service itself take effect after restarting `snail dev`.
+
 ## Code highlighting
 
 The book and the editor color code with one classifier, `(snail shell highlight)`.

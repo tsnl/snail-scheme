@@ -1,0 +1,4 @@
+((build-target ide
+   (browser
+    (entry "ide.sld")
+    (public "public"))))
