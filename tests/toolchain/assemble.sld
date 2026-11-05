@@ -1,7 +1,7 @@
 ;; The toolchain's in-process assembler, (snail shell assembler), from a
 ;; tool linked with the toolchain's runtime:
 ;;
-;;   assemble PROGRAM.wat MODULE.wasm
+;;   assemble PROGRAM.wat MODULE.wasm RUNTIME.wasm LINKED.wasm
 ;;
 ;; assembles the compiler's text for a program into MODULE.wasm, which the
 ;; test then runs, and shows that broken text fails naming its line and
@@ -19,13 +19,22 @@
           (else (loop (+ start 1))))))
 
 (match (command-line)
-  ((Cons _ (Cons text (Cons module (Nil))))
-   (match (assemble (read-file text))
-     ((Ok bytes)
-      (write-bytes module bytes)
-      (write-line "assembled the program"))
-     ((Err message) (write-line message))))
-  (_ (panic "usage: assemble PROGRAM.wat MODULE.wasm")))
+  ((Cons _ (Cons text (Cons module (Cons runtime (Cons linked (Nil))))))
+   (let ((text (read-file text)))
+     (match (assemble text)
+       ((Ok bytes)
+        (write-bytes module bytes)
+        (write-line "assembled the program"))
+       ((Err message) (panic message)))
+     (match (link text #u8())
+       ((Ok _) (panic "linked an invalid runtime"))
+       ((Err _) (unit)))
+     (match (link text (read-bytes runtime))
+       ((Ok bytes)
+        (write-bytes linked bytes)
+        (write-line "linked the program after a failed link"))
+       ((Err message) (panic message)))))
+  (_ (panic "usage: assemble PROGRAM.wat MODULE.wasm RUNTIME.wasm LINKED.wasm")))
 
 (match (assemble "(module\n  (func (result i32) (i32.bogus)))")
   ((Ok _) (write-line "assembled broken text"))

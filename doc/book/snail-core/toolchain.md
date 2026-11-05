@@ -1,20 +1,19 @@
 # Development toolchain
 
 Snail-Core can link a program statically or link its libraries when it starts.
-Static builds compile the whole program, optimize it and merge the Rust runtime
-into one module. `--release` increases optimization; it does not select linking
-mode. Development builds keep each library as its own module, with the runtime
+Static builds compile the whole program and link the Rust runtime into one
+module. `--release` remains a build mode but runs no function-body optimizer. Development builds keep each library as its own module, with the runtime
 as a separate instance.
 
 | Command | Build |
 | --- | --- |
-| `snail build`, `snail run`, `make site`, internal source compile/run | Static; build accepts `--release` for full optimization |
+| `snail build`, `snail run`, `make site`, internal source compile/run | Static; `--release` does not invoke an optimizer |
 | `snail dev`, `make ide` | Separate development modules |
 
 The public commands operate on projects. Compiler contributors can use
 `./scripts/snail-tool run SOURCE`, `wat SOURCE`, `schema SOURCE` or `bootstrap`.
-`./scripts/snail-tool compile -o FILE SOURCE` writes a raw Wasm file and linker
-intermediates; it does not provide project publication guarantees.
+`./scripts/snail-tool compile -o FILE SOURCE` writes a runnable Wasm file and its
+compiler-generated WAT; it does not provide project publication guarantees.
 Source-level `run` uses a private build directory by default and removes it when
 the process finishes.
 
@@ -26,12 +25,15 @@ are internal to the driver and the tests:
 | --- | --- |
 | `build/snail run-wasm PROGRAM ARGUMENT ...` | Runs a compiled program, one linked module, its `.cwasm`, or a per-library `modules.json`, which the engine links (`build/engine/engine.wasm`), as `host/native/run-snail.mjs` does, with the same exit statuses, unless it imports sockets, processes, file modes or watches. The compiled compiler is one such program. |
 | `build/snail precompile MODULE OUTPUT` | Writes the module's machine code as a `.cwasm` file, which `run-wasm` loads in place of the module. |
+| `build/snail assemble INPUT.wat OUTPUT.wasm` | Assembles text with `wat`. |
+| `build/snail link INPUT.wat RUNTIME.wasm OUTPUT.wasm` | Assembles and statically links with `wasm-fuse`, using the same Rust backend as compiled tools. |
 | `build/snail imports PROGRAM` | Lists the modules a program's modules import from, a line each, without compiling them. |
 
 `SNAIL_ENGINE=wasmtime` makes the driver run every compile on it, and
-every program that needs no sockets, processes, file modes or watches, and makes
-`make bootstrap` build it first; [the bootstrap](bootstrap.md#the-native-executable)
-explains why Node stays the default. The public `./snail` launcher is
+every program that needs no sockets, processes, file modes or watches. The
+[bootstrap chapter](bootstrap.md#the-native-executable) explains why Node stays
+the default. Stage 0 uses the native executable for assembly and linking on
+both engines. The public `./snail` launcher is
 unchanged. One native `snail` that replaces it, running the project builder
 and programs as well, is proposed in
 [#562](https://github.com/tsnl/snail-scheme/issues/562).
@@ -49,6 +51,36 @@ runtime using [Node's process replacement](https://nodejs.org/api/process.html#p
 Its PID, exit status and signals therefore belong to the application. This uses
 the existing Node 26 POSIX host. Compilation and generator execution retain
 the cold builder's synchronous behavior.
+
+## Assembly, linking and optional optimization
+
+`(snail shell assembler)` offers `assemble` for an independent module and
+`link` for a standalone program, taking program text and runtime bytes and
+returning a `Result` of bytes or an error message. The toolchain runtime's
+`assembler` feature provides `wat` and `wasm-fuse`; plain program runtimes
+carry neither. Stage 0 calls the same Rust functions through `build/snail`.
+No Binaryen installation is required.
+
+Linking resolves the program, runtime and diagnostics/cleanup adapter before
+removing `snail:*` and `diagnostics/*` exports. All other exports survive,
+including GC globals and dynamic functions. A second `wasm-fuse` pass prunes
+unreachable definitions and remaps debug names. Function bodies are not
+optimized. Debug and release use this same backend; the internal source
+driver also continues to accept `--release`.
+
+Optimization can be a separate user-owned step, with Binaryen installed
+independently:
+
+```sh
+wasm-opt program.wasm -o program.optimized.wasm -O3 \
+  --enable-gc --enable-reference-types --enable-tail-call --enable-bulk-memory \
+  --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals \
+  --always-inline-max-function-size=40 --converge
+```
+
+Optimize a copy, outside a published generation and its cache. Avoid
+`--closed-world`: hosts and separately linked libraries can retain function
+references and access each other's GC values.
 
 ## From an edit to a build
 
@@ -80,8 +112,8 @@ from the preceding attempt.
 
 The cold commands, `snail build` and `snail run`, are a Snail program,
 `bootstrap/cli.sld`, which builds with `(snail shell project build)`: the
-compiler runs inside it, Binaryen's tools link each program through
-`run` (`(snail shell process)`), and Node runs producers. Stage 0 rebuilds the
+compiler and linker run inside it through `(snail shell assembler)`, and
+Node runs producers. Stage 0 rebuilds the
 program when its sources change (`scripts/snail-tool cli-tools`), and is the
 only judge of when they have. Starting Chibi and Cargo to find nothing stale
 takes most of a second, so `./snail` keeps stage 0's answer in

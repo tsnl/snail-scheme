@@ -15,18 +15,15 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | --- | --- | --- |
 | Git, a POSIX shell and GNU Make | | The checkout, `./snail` and the Makefile. |
 | Chibi Scheme, with its libraries | 0.12 | Running the compiler's source for the first bootstrap, and the build scripts. |
-| Binaryen | 132 | `wasm-as`, `wasm-opt` and `wasm-merge` assemble, optimize and link modules. |
-| Rustup | Rust 1.95.0 | The runtime services linked into every program, and the assembler. `rust-toolchain.toml` names the version and the `wasm32-wasip1` target, which rustup installs on first use. |
+| Rustup | Rust 1.95.0 | The runtime services linked into every program, and the assembler/linker. `rust-toolchain.toml` names the version and the `wasm32-wasip1` target, which rustup installs on first use. |
 | Node.js | 26 | Running programs under WASI, and `snail dev`. |
 | Emacs | 31 | The Scheme formatter, which `make check` runs and `make test` tests. |
 | nixfmt | 1.4 | `make check`'s formatting of `shell.nix`. |
 | mdBook | 0.5.4 | `make pages`, the book. |
 | Chromium | | `make test-browser` and `tests/browser/page.mjs`. Set `CHROMIUM` to its path when it isn't `chromium`. |
 
-The first five compile and run programs; the rest run the checks and build
-the site. Distribution packages often lag behind: an older Binaryen may lack
-WasmGC support or `wasm-merge`, and an older Chibi may lack libraries the
-compiler uses. The [source recipes](#source-recipes) build the versions CI uses.
+The first four compile and run programs; the rest run the checks and build
+the site. An older Chibi may lack libraries the compiler uses. The [source recipes](#source-recipes) build the versions CI uses.
 
 ## With Nix
 
@@ -65,10 +62,10 @@ haven't been run on that system.
 
 ```sh
 sudo apt update
-sudo apt install git curl ca-certificates build-essential cmake ninja-build python3 emacs-nox
+sudo apt install git curl ca-certificates build-essential emacs-nox
 ```
 
-Ubuntu's Chibi and Binaryen packages are older than CI's: build both from
+Ubuntu's Chibi package is older than CI's: build it from
 the [source recipes](#source-recipes). Install Node 26 from
 [nodejs.org](https://nodejs.org/en/download) and rustup from
 [rustup.rs](https://rustup.rs/). Unverified.
@@ -79,11 +76,11 @@ the [source recipes](#source-recipes). Install Node 26 from
 <summary>Fedora — dnf</summary>
 
 ```sh
-sudo dnf install git curl ca-certificates gcc gcc-c++ make cmake ninja-build python3 emacs-nox rustup
+sudo dnf install git curl ca-certificates gcc make emacs-nox rustup
 rustup-init
 ```
 
-Build Chibi and Binaryen from the [source recipes](#source-recipes), and
+Build Chibi from the [source recipes](#source-recipes), and
 install Node 26 from [nodejs.org](https://nodejs.org/en/download) if Fedora
 doesn't package it yet. Unverified.
 
@@ -93,10 +90,10 @@ doesn't package it yet. Unverified.
 <summary>Arch Linux — pacman</summary>
 
 ```sh
-sudo pacman -Syu --needed base-devel git curl cmake ninja python emacs-nox binaryen rustup nodejs
+sudo pacman -Syu --needed base-devel git curl emacs-nox rustup nodejs
 ```
 
-Arch's `nodejs` and `binaryen` follow upstream releases. Build Chibi from
+Arch's `nodejs` follows upstream releases. Build Chibi from
 the [source recipe](#source-recipes). Unverified.
 
 </details>
@@ -106,7 +103,7 @@ the [source recipe](#source-recipes). Unverified.
 
 ```sh
 xcode-select --install
-brew install git make chibi-scheme binaryen node rustup emacs
+brew install git make chibi-scheme node rustup emacs
 export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
 ```
 
@@ -130,25 +127,6 @@ make -C ~/.local/src/chibi-scheme-0.12 PREFIX="$HOME/.local"
 make -C ~/.local/src/chibi-scheme-0.12 PREFIX="$HOME/.local" install
 export PATH="$HOME/.local/bin:$PATH"
 export LD_LIBRARY_PATH="$HOME/.local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-```
-
-</details>
-
-<details>
-<summary>Binaryen 132</summary>
-
-Needs CMake, Ninja, Python 3 and a C++ compiler, and takes several minutes.
-The [release](https://github.com/WebAssembly/binaryen/releases/tag/version_132)
-also has prebuilt archives; either way, keep its tools together on `PATH`.
-
-```sh
-mkdir -p ~/.local/src
-git clone --depth 1 --branch version_132 --recurse-submodules https://github.com/WebAssembly/binaryen.git ~/.local/src/binaryen-132
-cmake -S ~/.local/src/binaryen-132 -B ~/.local/src/binaryen-132/build -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX="$HOME/.local"
-cmake --build ~/.local/src/binaryen-132/build
-cmake --install ~/.local/src/binaryen-132/build
-export PATH="$HOME/.local/bin:$PATH"
 ```
 
 </details>

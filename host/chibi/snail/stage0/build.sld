@@ -2,8 +2,8 @@
 ;; program. The compiler runs as a separate program with one interface,
 ;; `compile MODE SOURCE OUTPUT GENERATED DIRECTORY ...`: normally as Wasm, built
 ;; from its own source by bootstrapping, and on Chibi only to start a
-;; bootstrap. Binaryen assembles, optimizes and links the text with the Rust
-;; runtime.
+;; bootstrap. The native executable assembles and links through the same
+;; Rust backend compiled tools use.
 (define-library (snail stage0 build)
   (export
    program->wat
@@ -271,7 +271,6 @@
                                         directories
                                         source
                                         program
-                                        #f
                                         (build-runtime root #f))
                          (run-wasm root program (list output)))))
           (unless (zero? (caddr result))
@@ -351,7 +350,9 @@
     (define (current-compiler root)
       (rebuild-if-stale! root (compiler-path root)
                          (map (lambda (path) (path-join root path))
-                              '("bootstrap/compile.sld"
+                              '("host/chibi/snail/stage0/build.sld"
+                                "crates/snail-core-support/src/assembler.rs"
+                                "bootstrap/compile.sld"
                                 "src/snail/shell/compiler.sld"
                                 "src/snail/shell/compiler"
                                 "src/snail/core/base.sld"
@@ -360,10 +361,10 @@
                                 "src/snail/core/primitive.sld"))
                          (lambda () (rebuild-compiler! root))))
 
-    ;; The native executable is built only for the engine that runs on it:
-    ;; with Node the default, a bootstrap never waits on a wasmtime build.
+    ;; Stage 0 uses the native assembler/linker regardless of the engine
+    ;; selected for running the resulting modules.
     (define (bootstrap! root)
-      (when (wasmtime-engine?) (snail-binary root))
+      (snail-binary root)
       (with-build-lock root (lambda () (rebuild-compiler! root))))
 
     ;; The current compiler as machine code for build/snail's engine, which
@@ -391,11 +392,10 @@
              (stage3 (path-join directory "stage3.wat")) (sources (standard-directories root)))
         (create-directory* directory)
         (let ((first (stage1-text root entry)))
-          (link-wat root (cdr first) stage1 #f)
+          (link-wat root (cdr first) stage1)
           (link-wat root
                     (run-compiler root (compiler-command root stage1) "wat" sources entry)
-                    stage2
-                    #f)
+                    stage2)
           (write-file stage3 (run-compiler root (compiler-command root stage2) "wat" sources entry))
           (unless (equal? (read-file (string-append stage2 ".wat")) (read-file stage3))
             (error
@@ -467,7 +467,7 @@
       (capture-process (append (program-command root program) arguments)))
 
     ;; Runs a command, raising its standard error if it fails. Tools can be
-    ;; overridden by environment variables such as WASM_OPT.
+    ;; overridden by environment variables such as CARGO.
     (define (run-tool variable default . arguments)
       (run-command (cons (or (get-environment-variable variable) default) arguments)))
 
@@ -477,35 +477,7 @@
           (error (string-append (car command) " failed:\n" (cadr result))))
         (car result)))
 
-    (define wasm-features
-      '("--enable-gc" "--enable-reference-types" "--enable-tail-call" "--enable-bulk-memory"
-        "--enable-nontrapping-float-to-int" "--enable-sign-ext" "--enable-mutable-globals"))
-
-    (define (optimization release?)
-      ;; Libraries built apart, and plugins loaded at run time, read one
-      ;; another's structs and call one another's closures. Closed-world
-      ;; mode assumes nothing outside a module does.
-      (if release?
-          '("-O3" "--always-inline-max-function-size=40" "--converge")
-          '("-O1")))
-
-    (define (wasm-opt input output . flags)
-      (apply run-tool
-             "WASM_OPT"
-             "wasm-opt"
-             "-g"
-             (append wasm-features flags (list input "-o" output))))
-
     ;; ---- Runtime ----
-
-    ;; The Rust runtime is a reactor built for WASI. The adapter routes its
-    ;; diagnostics and exports the cleanup entry point the host calls.
-    (define adapter-text
-      "(module
-  (import \"snail.core.support\" \"snail:report-error\" (func $report (param i32 i32)))
-  (import \"snail.core.support\" \"snail:io/close-all\" (func $close (result i32)))
-  (export \"diagnostics/report-error\" (func $report))
-  (export \"close-resources\" (func $close)))\n")
 
     ;; The scalar runtime, optionally with the assembler used by compiler
     ;; tools. Separate target directories keep the two artifacts independent;
@@ -545,29 +517,6 @@
              (close (and tail (string-contains tail "\""))))
         (and close (substring tail 0 (string-cursor->index tail close)))))
 
-    (define (link module output runtime release?)
-      (let ((adapter (string-append output ".adapter.wasm"))
-            (linked (string-append output ".linked.wasm"))
-            (adapter-wat (string-append output ".adapter.wat")))
-        (write-file adapter-wat adapter-text)
-        (apply run-tool "WASM_AS" "wasm-as" (append wasm-features (list adapter-wat "-o" adapter)))
-        (apply run-tool "WASM_MERGE" "wasm-merge" "-g"
-               (append wasm-features
-                       (list module
-                             "snail.abi"
-                             runtime
-                             "snail.core.support"
-                             adapter
-                             "snail.platform"
-                             "-o"
-                             linked)))
-        (apply wasm-opt
-               linked
-               output
-               "--remove-exports"
-               "--pass-arg=remove-exports@snail:*,diagnostics/*"
-               (optimization release?))))
-
     ;; ---- The native executable ----
 
     ;; build/snail: crates/snail built for this machine, an executable that
@@ -589,24 +538,20 @@
 
     ;; ---- Artifacts ----
 
-    ;; Writes OUTPUT from module text, keeping the text and intermediate
-    ;; modules beside it.
-    (define (link-wat root text output release?)
+    ;; Writes OUTPUT from module text, keeping the text beside it.
+    (define (link-wat root text output)
       (let ((wat (string-append output ".wat")))
         (write-file wat text)
-        (link-wat-file wat output release? (build-runtime root #f))))
+        (link-wat-file root wat output (build-runtime root #f))))
 
     ;; The compiler already wrote this text. Assemble its file directly, and
     ;; link it with `runtime`; only callers that hold text need link-wat's
     ;; materialization above.
-    (define (link-wat-file wat output release? runtime)
-      (let ((raw (string-append output ".raw.wasm")) (module (string-append output ".module.wasm")))
-        (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list wat "-o" raw)))
-        (apply wasm-opt raw module (optimization release?))
-        (link module output runtime release?)
-        output))
+    (define (link-wat-file root wat output runtime)
+      (run-command (list (snail-binary root) "link" wat runtime output))
+      output)
 
-    (define (build-program root directories source output release? runtime)
+    (define (build-program root directories source output runtime)
       (let ((wat (string-append output ".wat")))
         (create-directory* (path-directory output))
         (let ((links (with-private-directory root
@@ -619,7 +564,7 @@
                                                                   wat
                                                                   directory)
                                                (read-links directory)))))
-          (link-wat-file wat output release? runtime)
+          (link-wat-file root wat output runtime)
           (place-links! links (path-directory output))
           output)))
 
@@ -687,7 +632,7 @@
                                                                  generated)
                                               (read-links generated))))
              (names (read-lines (path-join output "modules"))))
-        (for-each (lambda (name) (assemble (path-join output name))) names)
+        (for-each (lambda (name) (assemble root (path-join output name))) names)
         (let ((runtime (place-object! output (file-bytes (build-runtime root #f))))
               (modules (map (lambda (name)
                               (cons name
@@ -701,13 +646,9 @@
           output)))
 
     ;; PATH.wat to PATH.wasm.
-    (define (assemble path)
-      (apply run-tool
-             "WASM_AS"
-             "wasm-as"
-             "-g"
-             (append wasm-features
-                     (list (string-append path ".wat") "-o" (string-append path ".wasm")))))
+    (define (assemble root path)
+      (run-command (list (snail-binary root) "assemble"
+                         (string-append path ".wat") (string-append path ".wasm"))))
 
     (define (read-lines path)
       (text-lines (read-file path)))
@@ -800,13 +741,13 @@
     (define (build-tool root source output directories)
       (rebuild-if-stale! root
                          output
-                         (cons source directories)
+                         (cons (path-join root "host/chibi/snail/stage0/build.sld")
+                               (cons source directories))
                          (lambda ()
                            (build-program root
                                           directories
                                           source
                                           output
-                                          #f
                                           (build-runtime root #f)))))
 
     ;; A tool linked with the toolchain's runtime, which it is rebuilt
@@ -816,7 +757,7 @@
         (rebuild-if-stale! root
                            output
                            (cons runtime (cons source directories))
-                           (lambda () (build-program root directories source output #f runtime)))))
+                           (lambda () (build-program root directories source output runtime)))))
 
     ;; ---- Failures ----
 

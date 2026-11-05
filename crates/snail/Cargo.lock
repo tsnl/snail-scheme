@@ -1125,9 +1125,20 @@ name = "snail"
 version = "0.1.0"
 dependencies = [
  "serde_json",
+ "snail-core-support",
  "wasmparser 0.254.2",
  "wasmtime",
  "wasmtime-wasi",
+ "wat",
+]
+
+[[package]]
+name = "snail-core-support"
+version = "0.1.0"
+dependencies = [
+ "wasm-encoder 0.256.0",
+ "wasm-fuse",
+ "wasmparser 0.256.0",
  "wat",
 ]
 
@@ -1350,12 +1361,38 @@ dependencies = [
 
 [[package]]
 name = "wasm-encoder"
+version = "0.256.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec1492381bfd5ea51c2a99a919b676662559925cb8d7490547ec2e14c1ad3eb1"
+dependencies = [
+ "leb128fmt",
+ "wasmparser 0.256.0",
+]
+
+[[package]]
+name = "wasm-encoder"
 version = "0.262.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4495a6f85dd94c411c749303efcbc5defade0b0cbdbc0541495241ab917a9b5a"
 dependencies = [
  "leb128fmt",
  "wasmparser 0.262.0",
+]
+
+[[package]]
+name = "wasm-fuse"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a14ef088f35faf2e06ed163b6500e39918fc2db5dfd3e6fd9e1407ceba2429e"
+dependencies = [
+ "bitflags",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "wasm-encoder 0.256.0",
+ "wasmparser 0.256.0",
+ "wasmprinter 0.256.0",
+ "wat",
 ]
 
 [[package]]
@@ -1385,6 +1422,19 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
+version = "0.256.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60bd825ffedc6cba8a642924ba7ae424afbc47811cffbcb7b92031ec24e59b4c"
+dependencies = [
+ "bitflags",
+ "hashbrown 0.17.1",
+ "indexmap",
+ "semver",
+ "serde",
+]
+
+[[package]]
+name = "wasmparser"
 version = "0.262.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "974d643b125b272607e2fff8012ea14a8328acd7621e4bafa7afb32500052b1b"
@@ -1403,6 +1453,17 @@ dependencies = [
  "anyhow",
  "termcolor",
  "wasmparser 0.254.2",
+]
+
+[[package]]
+name = "wasmprinter"
+version = "0.256.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86e15994b4797b3826dc466488a9019975fda659a9746d28c29b9a09fc02c8ea"
+dependencies = [
+ "anyhow",
+ "termcolor",
+ "wasmparser 0.256.0",
 ]
 
 [[package]]
@@ -1473,7 +1534,7 @@ dependencies = [
  "target-lexicon",
  "wasm-encoder 0.254.2",
  "wasmparser 0.254.2",
- "wasmprinter",
+ "wasmprinter 0.254.2",
  "wasmtime-internal-component-util",
  "wasmtime-internal-core",
 ]

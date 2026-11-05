@@ -1,22 +1,24 @@
-;; WebAssembly text to a binary module, in-process, for tools written in
-;; Snail-Core: the toolchain's runtime assembles it with the `wat` crate.
+;; WebAssembly assembly and static linking, in-process, for compiler tools.
+;; The toolchain runtime uses `wat` and `wasm-fuse`.
 ;; A program linked with the plain runtime cannot use it, since
 ;; that runtime leaves the parser out; stage 0 links a tool with the
 ;; toolchain's runtime (`build-toolchain-tool`).
 (define-library (snail shell assembler)
   (export
-   assemble)
+   assemble
+   link)
   (import
    (snail core base)
    (snail shell utf8))
   (begin
 
-    ;; ---- Assembling ----
+    ;; ---- Assembly and linking ----
 
-    ;; The text is staged as any final String is. The result stays in the
-    ;; runtime until the next assembly: the module, or the parser's message
+    ;; Requests use the compiler's String/Bytes staging. The result stays in
+    ;; the runtime until the next request: the module, or the error message
     ;; as UTF-8, which these read a byte at a time.
     (extern assemble-staged "snail.core.support" "snail:assembler/assemble" (-> String I32))
+    (extern link-staged "snail.core.support" "snail:assembler/link" (-> I32 Bytes I32))
     (extern output-length "snail.core.support" "snail:assembler/output-length" (-> I32))
     (extern output-byte "snail.core.support" "snail:assembler/output-byte" (-> I32 I32))
 
@@ -24,9 +26,19 @@
     ;; names the line and column of the problem.
     (: assemble (-> String (Result Bytes String)))
     (define (assemble text)
-      (let* ((status (assemble-staged text))
-             (output (vector-generate (i32->i64 (output-length))
-                                      (lambda (index) (i32->u8 (output-byte (i64->i32 index)))))))
+      (result (assemble-staged text)))
+
+    ;; One complete request: the runtime followed by the program's UTF-8 text.
+    ;; Neither operation depends on a previous request's input or output.
+    (: link (-> String Bytes (Result Bytes String)))
+    (define (link text runtime)
+      (result (link-staged (i64->i32 (vector-length runtime))
+                           (vector-append runtime (string->utf8 text)))))
+
+    (: result (-> I32 (Result Bytes String)))
+    (define (result status)
+      (let ((output (vector-generate (i32->i64 (output-length))
+                                     (lambda (index) (i32->u8 (output-byte (i64->i32 index)))))))
         (if (= status 0)
             (Ok output)
             (Err (match (utf8->string output)
