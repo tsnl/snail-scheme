@@ -1,11 +1,14 @@
-;; The smallest complete program: a typed recursive function and output.
+#lang snail
+;; A typed recursive function, read with newlines and indentation.
 (import
  (snail core base)
  (snail core io))
 
 (: fibonacci (-> I64 I64))
-(define (fibonacci n)
-  (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
+define (fibonacci n)
+  if (< n 2)
+    n
+    + (fibonacci (- n 1)) (fibonacci (- n 2))
 
-(display (fibonacci 30))
+display (fibonacci 30)
 (newline)

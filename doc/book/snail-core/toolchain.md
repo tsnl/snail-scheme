@@ -404,6 +404,11 @@ its diagnostic observations, including invalidation by Save or a changed read.
 It still restores status presentation and refreshes files. Going back online replaces the stream too,
 covering file reads that failed while an existing event connection survived.
 
+Files with a [source header](surface.md#resolving-lang) are preserved unchanged
+by formatting on save and by Tab. Layout formatting is not implemented;
+applying Lisp indentation to a layout file would change its meaning.
+Headerless files retain the existing formatter.
+
 ## Code highlighting
 
 The book and the editor color code with one classifier, `(snail shell highlight)`.
@@ -419,7 +424,9 @@ ends inside is a string to the end, and a token the reader rejects, such as
 as keywords are the compiler's own list, `core-keywords` in `core.sld`; the
 derived forms and declaration words are listed once in the classifier. It
 also marks the name a `define`, `define-syntax` or `:` introduces, and colors
-what `#;` comments out as a comment.
+what `#;` comments out as a comment. The initial `#lang` token is checked by
+the same header resolver as the compiler: a valid header is a keyword, and
+an unknown or malformed one is invalid.
 
 mdbook runs `scripts/highlight-book` as a preprocessor, which `book.toml`
 registers after the `links` preprocessor has included the examples. It is a

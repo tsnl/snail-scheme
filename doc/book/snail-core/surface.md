@@ -1,15 +1,16 @@
-# Proposed layout reader
+# Source syntax
 
-**Draft for approval; the layout extension is not implemented.** Extend
-S-expressions with logical newlines that delimit forms and indentation that
-supplies list structure. No colon or backslash marker is needed. Preserve
-Scheme's calls, bindings, symbols, macros, and final-expression results.
+Snail reads either traditional S-expressions or layout syntax, selected by
+an optional `#lang` header. Layout uses logical newlines and indentation to
+construct ordinary lists; it needs no colon or backslash marker. Calls,
+bindings, symbols, macros, and final-expression results retain Scheme's rules.
 
-The new reader deliberately changes how datums outside explicit lists are
-grouped: `f x` on one line reads as `(f x)`. It is not a strict superset of
-traditional S-expression reading. Inside parentheses, ordinary reading
-resumes; the separate `#lang snail/sexp` mode preserves legacy source exactly.
-This is a change to list construction, not a new expression language.
+Outside explicit lists, `f x` on one line reads as `(f x)`, so layout is not
+a strict superset of traditional reading. Inside parentheses, ordinary
+reading resumes. Headerless files and `#lang snail/sexp` preserve traditional
+reading. Only `examples/fibonacci.sld` and `examples/scheme-fibonacci.sld`
+have been converted among the examples; the compiler and standard libraries
+remain traditional source.
 
 ## What programs look like
 
@@ -239,10 +240,9 @@ reads as `(unless ready (write-line "waiting") (retry))`. There is no new
 body wrapper or group-pattern language for `syntax-rules` to understand.
 Existing pattern repetition and hygiene remain the expander's job.
 
-The earlier preferred `def answer = fibonacci 30` spelling can be an
-ordinary library macro, used anywhere in layout notation. It need not become
-a reader production or reserve `=`. For example, a proposed helper could
-use these rules:
+The spelling `def answer = fibonacci 30` can be an ordinary library macro,
+used anywhere in layout notation. It does not require a reader production
+or reserving `=`. A library can define it with these rules:
 
 ```scheme
 (define-syntax def
@@ -258,8 +258,7 @@ def answer = fibonacci 30
 write-line (show answer)
 ```
 
-The initial reader extension does not depend on adding this macro to the
-standard library. A `define answer` header with an indented expression
+This helper is not part of the standard library. A `define answer` header with an indented expression
 already constructs the existing form.
 
 ## Symbols and data
@@ -268,7 +267,7 @@ Keep current spelling and lexical rules: `write-line`, `ref-get`, `bump!`,
 `empty?`, and `a.b` remain symbols. `-` remains a prefix operation, and
 `a-b` remains an identifier. There is no new infix precedence table, dot
 projection syntax, snake_case alias scheme, or postfix call notation in
-this proposal. Types keep their existing notation, such as `(List I64)`.
+layout syntax. Types keep their existing notation, such as `(List I64)`.
 
 Semicolon comments, strings, quote abbreviations, characters, byte vectors,
 and other data retain the lexical behavior the current reader implements.
@@ -296,7 +295,7 @@ signature form, even if formatted over multiple lines.
   inside strings and block comments are not form separators. A final
   logical form can end at EOF without a final newline.
 - Use spaces for layout indentation, with two spaces per level as the
-  formatter and new-file default. The reader accepts any consistent increase;
+  writing convention. The reader accepts any consistent increase;
   it does not require exactly two spaces. Tabs in layout indentation are
   diagnosed. Whitespace inside explicit S-expressions, and all whitespace
   under the traditional reader, retains its existing interpretation.
@@ -306,10 +305,11 @@ signature form, even if formatted over multiple lines.
   reader's diagnostics. Invalid dedents report the line and the enclosing
   block's opening location.
 
-Multiline and datum comments need explicit treatment: indentation belongs
-to the first significant datum on a logical line, not skipped comment text.
-The source location of each existing datum is preserved; a synthesized
-list is located at its first header or line datum.
+Indentation is the physical column of the first significant datum on a
+logical line. A leading inline comment therefore contributes to that column,
+although tabs inside comment text are not checked as indentation. The source
+location of each existing datum is preserved; a synthesized list is located
+at its first header or line datum.
 
 ## Incremental reader design
 
@@ -319,7 +319,7 @@ grouping markers; its compatibility section concerns suitably formatted
 S-expressions, not every traditional source. SRFI 105's neoteric call
 notation changes the reading of adjacent forms such as `f(x)`, and its
 curly infix intentionally supplies no conventional operator precedence.
-This proposal borrows the incremental approach, accepting changes to
+The layout reader borrows the incremental approach, accepting changes to
 grouping outside explicit lists so layout needs no colon or backslash
 markers. It retains the existing datum reader rather than adopting
 neoteric postfix calls or curly infix. It does not claim conformance to either
@@ -327,7 +327,7 @@ complete SRFI. See
 [SRFI 110](https://srfi.schemers.org/srfi-110/srfi-110.html) and
 [SRFI 105](https://srfi.schemers.org/srfi-105/srfi-105.html).
 
-The implementation boundary becomes:
+The implementation boundary is:
 
 ```text
 source header -> selected reader, reusing traditional datum reading
@@ -337,9 +337,11 @@ source header -> selected reader, reusing traditional datum reading
 
 There is no second language grammar, return-normalization pass, or new macro
 syntax representation. Reuse the traditional reader for explicit datums;
-the added layer owns logical line endings, the active indentation stack,
-and construction of the omitted lists. It must not stringify and reparse
-the result. Reading remains pure apart from reporting source failures.
+the added layer reads nonempty logical lines and constructs their nested
+lists by sibling column. Each line stores its first datum separately, which
+establishes that it is nonempty and supplies its location. Reading remains
+pure apart from reporting source failures; it never prints and reparses
+syntax.
 
 The reader does not synthesize binding names: layout constructs a list
 from the identifiers the programmer wrote. Their binding and hygiene are
@@ -349,10 +351,10 @@ details do not belong in the compiler's semantic IR.
 
 ## Resolving `#lang`
 
-**Proposed, not implemented.** The current `read-source-file` in
-`src/snail/shell/compiler/inputs.sld` passes file text straight to `read-text`
-in `read.sld`. Add source-header selection before either syntax reader runs.
-The initial resolver is a fixed mapping to two built-in readers:
+`read-source-file` in `src/snail/shell/compiler/inputs.sld` passes file text
+to `read-source-text` in `read.sld`. That entry point resolves the header
+before reading any body datums. Resolution is a fixed mapping to two
+built-in readers:
 
 | Source-file header | Reader |
 | --- | --- |
@@ -364,7 +366,7 @@ These are exact, case-sensitive names. The slash in `snail/sexp` is part of
 the name; it is not a library path. Resolution does not search import
 directories, evaluate a binding, load a package, or run a reader supplied by
 the source. A future user-defined reader mechanism would need its own
-loading and bootstrap contract; it is outside this initial proposal.
+loading and bootstrap contract; it is not implemented.
 
 ### Recognizing the header
 
@@ -395,13 +397,13 @@ body; a headerless file starts reading at index zero.
 
 ### Using the selected reader
 
-Keep this dispatch in the source-text entry point in `read.sld`, alongside
-the shared source locations and datum reader. `read-source-file` supplies
-the file text and path to that entry point, which resolves the header and
-reads the body into the existing `List Syntax`. Expansion and checking see
-the same representation in both modes. Keep `read-text` as the traditional
-datum-reading API for callers such as compiler-request parsing; it does not
-interpret source headers.
+`read-source-text` in `read.sld` takes text and a filename and returns the
+existing `List Syntax`, with source locations from the original file.
+`source-header` returns a `SourceHeader` containing the `ReaderMode` and the
+body's starting index; `SexpReader` and `LayoutReader` are the two modes.
+Expansion and checking see the same representation in both modes. `read-text`
+remains the traditional datum-reading API for callers such as compiler-request
+parsing; it does not interpret source headers.
 
 Resolve each entry file and each imported library independently. For
 example, a file using `#lang snail` can import a file using
@@ -410,82 +412,36 @@ Library lookup continues to use the existing import paths. `#lang` chooses
 only the reader: it neither imports libraries implicitly nor changes a
 file's declared library name or its exported bindings.
 
-Compiler file loading, dependency discovery, and editor source buffers must
-use the same selector. Formatting and highlighting use that resolved mode;
-editing the header invalidates the previous parse just like editing the
-body. Cache any parsed source with its reader choice as well as its source
-contents. A fragment that is not a complete source file takes its reader
-explicitly from its caller rather than inheriting an unrelated file's mode.
+Compiler file loading and dependency discovery reach the same selector.
+The highlighter uses `source-header` too, marking a valid initial `#lang` as
+a keyword and an invalid one as an error without losing the remaining text.
+No imports are inferred from the selected mode.
 
-## Migration and verification after approval
+## Formatting and bootstrap
 
-Keep headerless existing files on the traditional reader during migration.
-New source-file templates use `#lang snail` and two-space indentation. Avoid
-a tree-wide header or source conversion until bootstrap supports it.
+The command-line formatter and the IDE's save and Tab paths preserve any
+file beginning with a `#lang` directive unchanged. This includes traditional,
+unknown, and unfinished headers.
+[Layout-aware reformatting](https://github.com/tsnl/snail-scheme/issues/686)
+is not implemented;
+applying Lisp indentation would change the program's grouping. Use two spaces
+per level when writing layout source. Headerless files continue to use the
+existing Lisp formatter.
 
-Generated binary syntax and program data-reading APIs keep their existing
-protocols. An embedded fragment takes its reader mode explicitly. Do not
-infer a reader from whether a file happens to begin with parentheses.
+Generated binary syntax and data-reading APIs keep their existing protocols.
+Project descriptions such as `project.datum` are data, not source files;
+the source header does not apply to them. Reader selection is not guessed
+from a filename or from whether the first expression uses parentheses.
 
-Chibi loads compiler sources directly during stage 0. Before converting
-those sources, provide a tested adapter that itself runs on Chibi through
-the deliberate bootstrap include closure, uses the same header mapping and
-errors, lowers layout to ordinary forms, and preserves source mapping. It
-must not need an already-compiled Snail compiler. Other libraries and examples can use
-the reader before the compiler source is migrated.
+The compiler's own sources remain headerless S-expressions. Chibi loads them
+directly during stage 0, and that running compiler can read layout programs
+and libraries through `read-source-text`. Converting compiler sources would
+require a separate header/layout adapter in Chibi's bootstrap include closure;
+that migration has not been made.
 
-Verification must establish the mode boundary as well as list construction:
-
-1. Exercise header resolution for both names, the headerless default,
-   initial-line-only recognition, trailing comments, LF/CRLF, EOF, unknown
-   names, missing names, and extra tokens. Verify original line positions
-   after a header, per-file selection across imports, and agreement between
-   file loading, editor buffers, and the Chibi adapter.
-2. Read existing source through the traditional mode and compare with the
-   current reader, accounting for headers. Preserve syntax and datum
-   locations regardless of line breaks or indentation. Include multiple
-   forms on one line, adjacent delimiters, quotes, colon signatures,
-   comments, tabs, and multiline strings.
-3. Compare explicit datums in both modes when each starts on its own logical
-   line at column zero and has no layout children. Vary whitespace inside
-   lists freely. Separately assert the intentional differences for `f x`,
-   `f(x)`, `f()`, multiple forms on one line, and indented children. Include
-   quoted datums and colon-suffixed symbols with no marker interpretation.
-4. Pair layout examples with their explicitly parenthesized equivalents.
-   Compare syntax, then execute programs using definitions, local and named
-   `let`, nested bodies, conditionals, macros, mutation, handlers, and
-   ownership. Include singleton and multi-datum headers, multiline binding
-   lists, malformed dedents, comments between siblings, EOF without a newline,
-   and mixed-reader imports. Formatting must preserve those readings and
-   use two spaces for each layout level without changing explicit datum
-   structure.
-
-Run the relevant local compiler checks, including `make test`, `make check`,
-`make test-chibi`, and `make bootstrap`; execute linked Wasm. Formatter and
-editor changes must share the reader's layout decisions and be exercised
-through the existing browser tests. Until layout formatting is implemented,
-the editor must preserve extended source instead of applying Lisp indentation
-that changes its meaning. Use Rust checks if Rust sources change.
-
-## Completing the documentation
-
-This is a temporary review chapter. Completing the feature includes replacing
-it with the implemented reader contract: rename the title and book navigation
-to **Source syntax**, remove draft/approval language and implementation plans,
-and update the Terms link to the final reference. Keep one authoritative
-description of the reader and its compatibility boundary. Move genuinely
-deferred work to GitHub issues or the relevant proposed-semantics chapter;
-do not retain an obsolete proposal beside the implemented documentation.
-
-## Review boundary
-
-The proposal is limited to logical newlines and indentation as a way to
-construct existing S-expressions. It selects `(ask)` for a nullary call,
-ordinary Scheme results and binding rules, explicit `let` binding lists,
-and no colon or backslash markers. Layout mode deliberately changes grouping
-outside explicit lists; traditional reader mode preserves legacy input.
-
-Infix, neoteric postfix calls, new type notation, dot projection, `return`,
-and the callable/place/effect proposals are separate decisions. The optional
-`def` helper above is a library convenience, not a prerequisite for the
-reader. Implementation still waits for explicit approval of this revision.
+The reader's unit tests cover headers, indentation, lexical boundaries,
+locations, and diagnostics. Program fixtures exercise both directions of
+mixed-reader imports and ordinary macros, bindings, and branches. The two
+converted Fibonacci examples keep their existing expected outputs. The
+compiler remains subject to the same source-on-Chibi and self-bootstrap
+checks as the other passes.

@@ -38,8 +38,11 @@ function of the expander has `mut` in its row — and where it does not, the
 `Ref` is allocated by the pass and never escapes it.
 
 - **[`read.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/read.sld)** turns text into `Syntax`:
-  atoms, identifiers and forms, each with a `Loc`. It is a recursive descent
-  over a vector of characters; a line table recovers line and column only
+  atoms, identifiers and forms, each with a `Loc`. `read-source-text` first
+  resolves the optional `#lang` header to the built-in layout or traditional
+  reader. Layout constructs lists from logical lines and their indented
+  children; `read-text` retains traditional data reading. Both use recursive
+  descent for explicit datums over a vector of characters; a line table recovers line and column only
   when a location is needed. Its lexemes, what starts at an index and where
   it ends, never fail, and the reader reports what it rejects in them;
   `(snail shell highlight)` classifies text with the same functions. It also

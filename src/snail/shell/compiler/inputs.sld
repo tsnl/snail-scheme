@@ -196,7 +196,7 @@
     (: read-source-file (-> String (List Syntax) ! fs compile))
     (define (read-source-file path)
       (if (file-exists? path)
-          (read-text (read-file path) path)
+          (read-source-text (read-file path) path)
           (compile-error (Loc path 0 0) "no such file or directory")))
 
     ;; The libraries a program's first form says were loading when it was

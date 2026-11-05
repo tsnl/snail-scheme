@@ -260,6 +260,24 @@ try {
     return current.id > previous && current.phase === 'succeeded';
   }, 'manual Build');
 
+  // Layout grouping must survive the editor's Tab and save paths.
+  const layout = '#lang snail\nimport (snail core base) (snail core io)\nlet ((x 20))\n  write-line (show (+ x 2))\n';
+  const beforeLayout = (await service.status()).id;
+  await writeFile(source, layout);
+  await until(async () => (await text()) === layout && await attemptShown() > beforeLayout && await built(), 'layout source loaded');
+  await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea');
+    t.focus(); const at = t.value.indexOf('  write-line'); t.setSelectionRange(at, at); })()`);
+  await press({key: 'Tab'});
+  assert.equal(await text(), layout, 'Tab preserves layout grouping');
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .highlight .tok-keyword")?.textContent'), '#lang');
+  assert.ok(await type('(+ x 2)', '(+ x 3)'));
+  const beforeLayoutSave = (await service.status()).id;
+  await click('save'); await saved();
+  const changedLayout = layout.replace('(+ x 2)', '(+ x 3)');
+  assert.equal(await readFile(source, 'utf8'), changedLayout, 'save preserves layout grouping');
+  await until(async () => await attemptShown() > beforeLayoutSave && await built(), 'saved layout source builds');
+  if (screenshot) await browser.screenshot(screenshot);
+
   // The command releases the service on an ordinary signal.
   const {code, signal, stderr} = await service.stop();
   assert.deepEqual({code, signal}, {code: 0, signal: null}, stderr);

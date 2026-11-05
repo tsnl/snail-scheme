@@ -10,8 +10,10 @@
   "Run the editor's stdin/stdout formatter on SOURCE, with ARGUMENTS."
   (with-temp-buffer
     (insert source)
-    (should (= 0 (apply #'call-process-region (point-min) (point-max)
-                        snail-test-formatter t t nil arguments)))
+    (let ((coding-system-for-read 'utf-8-unix)
+          (coding-system-for-write 'utf-8-unix))
+      (should (= 0 (apply #'call-process-region (point-min) (point-max)
+                          snail-test-formatter t t nil arguments))))
     (buffer-string)))
 
 (defun snail-test-breaks (source expected)
@@ -175,3 +177,14 @@ last\")
     (should (equal fits (snail-test-format fits)))
     (should (equal (concat "(list \"" (make-string 90 ?x) "\"\n      b)\n")
                    (snail-test-format long)))))
+
+
+(ert-deftest snail-format-preserves-source-headers ()
+  ;; A save cannot regroup layout or damage an unfinished reader header.
+  (dolist (source '("#lang snail\nlet ((x 1))\n  + x 2\n"
+                    "#lang snail/sexp\n(f   x)\n"
+                    "#lang future\nf x\n  g y\n"
+                    "#lang\n    unfinished\n"
+                    "#lang; missing name\nf\n  x\n"
+                    "#lang snail\r\nf\r\n  x\r\n"))
+    (should (equal source (snail-test-format source)))))

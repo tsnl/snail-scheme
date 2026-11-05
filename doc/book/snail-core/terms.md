@@ -94,26 +94,22 @@ itself. Write mutually recursive helpers at the top level.
 Functions have fixed arity. Where Scheme uses variadic procedures, Snail-Core
 uses macros (`list`, `string-append`) or lists.
 
-## Proposed surface design
+## Source syntax
 
-**Draft for approval, not implemented.** The [layout-reader draft](surface.md)
-adds logical newlines and indentation to construct S-expressions without
-colon or backslash markers. Layout applies at the top level and inside
-blocks; explicit lists retain ordinary S-expression reading. The new mode
-deliberately changes grouping outside explicit lists, so it is not a strict
-superset. Calls such as `(ask)`, final-expression results, symbols, binding
-rules, and `syntax-rules` remain Scheme's. A `let` keeps an explicit binding
-list and indents its body.
+The [source reader](surface.md) constructs S-expressions from logical
+newlines and indentation, using two spaces per level by convention.
+Explicit lists retain ordinary reading. Calls such as `(ask)`,
+final-expression results, symbols, binding rules, and `syntax-rules` remain
+Scheme's. A `let` keeps an explicit binding list and indents its body.
 
-The draft specifies list construction with a two-space indentation default,
-the compatibility tradeoff, source locations, editor support, and the Chibi
-bootstrap boundary. Its [header resolver](surface.md#resolving-lang) maps
-`#lang snail` and `#lang snail/sexp` to built-in readers before reading each
-file's body; headerless existing files keep traditional reading during
-migration. Proposed [callable contracts](types.md#proposed-callable-typeclass)
-and [places](types.md#proposed-places-and-locators) remain separate semantic
-decisions. Completing the feature includes promoting the temporary proposal
-to implemented language documentation and removing its review scaffolding.
+The [header resolver](surface.md#resolving-lang) maps `#lang snail` to layout
+and `#lang snail/sexp` to traditional reading before reading each file's body.
+Headerless files retain traditional reading. Layout changes grouping outside
+explicit lists, so switching modes is an explicit source change.
+The formatter currently preserves files with source headers unchanged.
+
+Proposed [callable contracts](types.md#proposed-callable-typeclass) and
+[places](types.md#proposed-places-and-locators) remain separate semantic decisions.
 
 ## Toolchain terms
 
