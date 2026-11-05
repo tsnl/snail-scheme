@@ -70,6 +70,22 @@ try {
   await key({key: 'ArrowDown'});
   assert.equal(await browser.evaluate('document.querySelector("#command-query").getAttribute("aria-activedescendant")'), 'command-result-1');
   await key({key: 'Escape'});
+  // Reconnection starts a new search intention even when the query is unchanged.
+  await browser.evaluate(`window.heldReconnect = [];
+    window.fetch = async (...args) => { const response = await window.actualFetch(...args);
+      if (String(args[0]).startsWith('/api/search?'))
+        return new Promise(resolve => window.heldReconnect.push({response, resolve}));
+      return response; };`);
+  await command(browser, 'search-project'); await query('needle');
+  await until(() => browser.evaluate('window.heldReconnect.length === 1'), 'search before reconnect');
+  await browser.evaluate('window.dispatchEvent(new Event("online"))');
+  await until(() => browser.evaluate('window.heldReconnect.length === 2'), 'search refreshed on reconnect');
+  await browser.evaluate('window.heldReconnect[1].resolve(window.heldReconnect[1].response)');
+  await until(async () => (await labels()).join() === 'lib/notes.txt:2:6', 'reconnected search');
+  await browser.evaluate(`window.heldReconnect[0].resolve(new Response('{"message":"old server"}', {status:500}));
+    window.fetch = window.actualFetch;`);
+  await sleep(200); assert.deepEqual(await labels(), ['lib/notes.txt:2:6']);
+  await key({key: 'Escape'});
   // A search read must not move the cursor after explicit A→B→A navigation.
   await browser.evaluate(`window.actualFetch = window.fetch; window.heldFile = null;
     window.fetch = async (...args) => {
