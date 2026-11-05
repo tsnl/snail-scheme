@@ -9,17 +9,20 @@
 ;; rule for the form's name says. A line whose code runs past the width,
 ;; `format-width` unless the caller says otherwise, is broken before the
 ;; next is indented: a call before its arguments, a binding form before
-;; each binding and body form. Nothing ever joins lines. The IDE
-;; (host/ide/ide.sld) formats on save and indents a line when Tab is
-;; pressed; it colors the text with (snail shell highlight), which follows
-;; the compiler's reader.
+;; each binding and body form. Nothing ever joins lines. The optional
+;; format-structure pass first separates bodies, bindings and clauses even
+;; below that width. The IDE (host/ide/ide.sld) uses it on save, and uses
+;; indent-lines for Tab and Enter. Structural layout and the IDE's colors
+;; share (snail shell highlight)'s reader-backed token boundaries.
 (define-library (snail shell format)
   (export
    format-source
+   format-structure
    format-width
    indent-lines)
   (import
-   (snail core base))
+   (snail core base)
+   (prefix (snail shell highlight) highlight:))
   (begin
 
     ;; ---- Tokens ----
@@ -1094,6 +1097,174 @@
     (: code-line (-> String Line))
     (define (code-line text)
       (Pair-first (lex-line text (Code))))
+
+    ;; ---- Structural layout ----
+
+    ;; The reader-backed highlighter supplies complete literal and datum
+    ;; comment boundaries. Map its retained tokens to this formatter's
+    ;; located tokens: comments contribute no argument, and #u8 owns its
+    ;; following list just as a quote does. The line lexer above remains
+    ;; responsible for indentation, including incomplete multiline strings.
+    (: structure-tokens (-> String (List Line) (Vector Placed)))
+    (define (structure-tokens text lines)
+      (let loop ((tokens (highlight:highlight-tokens text)) (lines lines)
+                 (line 0) (start 0) (out (Nil)))
+        (match tokens
+          ((Nil) (list->vector (reverse out)))
+          ((Cons token rest)
+           (match lines
+             ((Nil) (list->vector (reverse out)))
+             ((Cons here more)
+              (let ((next (+ start (+ (string-length (Line-text here)) 1))))
+                (if (>= (highlight:Token-start token) next)
+                    (loop tokens more (+ line 1) next out)
+                    (loop rest lines line start
+                          (append (reverse (structure-token text token line start)) out))))))))))
+
+    (: structure-token (-> String highlight:Token I64 I64 (List Placed)))
+    (define (structure-token text token line start)
+      (let* ((from (highlight:Token-start token)) (to (highlight:Token-end token))
+             (offset (- from start)))
+        (match (highlight:Token-class token)
+          ((highlight:Blank) (Nil))
+          ((highlight:Comment) (Nil))
+          ((highlight:Punctuation)
+           (let ((char (string-ref text (- to 1))))
+             (cond ((> (- to from) 1)
+                    (list (Placed line (Prefix offset)) (Placed line (Open (+ offset 3) #f))))
+                   ((or (char=? char #\() (char=? char #\[))
+                    (list (Placed line (Open offset #f))))
+                   ((or (char=? char #\)) (char=? char #\]))
+                    (list (Placed line (Close offset))))
+                   (else (list (Placed line (Prefix offset)))))))
+          ((highlight:StringLiteral) (list (Placed line (Text offset))))
+          ((highlight:CharacterLiteral) (list (Placed line (Text offset))))
+          (_
+           (let ((name (substring text from to)))
+             (list (Placed line
+                           (if (formatter-prefix? text name to)
+                               (Prefix offset)
+                               (Atom offset name)))))))))
+
+    ;; The broader Scheme formatter also accepts #(...), backquote and
+    ;; comma prefixes, beyond the compiler's source reader.
+    (: formatter-prefix? (-> String String I64 Bool))
+    (define (formatter-prefix? text name end)
+      (or (member? name (list "`" "," ",@"))
+          (and (string=? name "#") (at? text end "("))))
+
+    ;; Layout determines both line breaks and which children are code.
+    ;; Conditions are executable headers; parameters, patterns, binding
+    ;; names and quoted data are opaque. Ordinary calls remain compact.
+    (enum Layout
+      (Compact)
+      (Block ((from I64) (header-code Bool)))
+      (Bindings ((at I64)))
+      (Clauses ((from I64) (test-code Bool)))
+      (Entries)
+      (BindingEntry)
+      (Data))
+
+    (: structure-name (-> (Vector Placed) I64 (Option String)))
+    (define (structure-name tokens open)
+      (if (< (+ open 1) (vector-length tokens))
+          (match (Placed-token (vector-ref tokens (+ open 1)))
+            ((Atom _ name) (Some name))
+            (_ (None)))
+          (None)))
+
+    (: structure-layout (-> (Vector Placed) I64 Layout))
+    (define (structure-layout tokens open)
+      (match (structure-name tokens open)
+        ((None) (Compact))
+        ((Some name)
+         (cond ((member? name (list ":" "import" "export" "quote" "quasiquote"
+                                    "syntax-rules" "struct" "enum" "effect"))
+                (Data))
+               ((member? name (list "if" "when" "unless")) (Block 2 #t))
+               ((string=? name "cond") (Clauses 1 #t))
+               ((member? name (list "match" "case")) (Clauses 2 #f))
+               (else
+                (match (assoc-ref binding-forms name)
+                  ((Some at) (Bindings at))
+                  ((None)
+                   (match (indent-rule name)
+                     ((LetRule) (Bindings (if (open-at? tokens (+ open 2)) 1 2)))
+                     ((Definition) (Block 2 #f))
+                     ((Special count) (Block (+ count 1) #f))
+                     ((Call) (Compact))))))))))
+
+    (: starts-line? (-> Layout I64 Bool))
+    (define (starts-line? layout index)
+      (match layout
+        ((Block from _) (>= index from))
+        ((Bindings at) (> index at))
+        ((Clauses from _) (>= index from))
+        ((Entries) (> index 0))
+        (_ #f)))
+
+    (: child-layout (-> (Vector Placed) I64 Layout I64 Layout))
+    (define (child-layout tokens open parent index)
+      (match parent
+        ((Data) (Data))
+        ((Block from header-code)
+         (if (and (< index from) (not header-code)) (Data) (structure-layout tokens open)))
+        ((Bindings at)
+         (cond ((= index at) (Entries))
+               ((< index at) (Data))
+               (else (structure-layout tokens open))))
+        ((Clauses from test-code)
+         (if (< index from) (structure-layout tokens open) (Block 1 test-code)))
+        ((Entries) (BindingEntry))
+        ((BindingEntry) (if (= index 0) (Data) (structure-layout tokens open)))
+        ((Compact) (structure-layout tokens open))))
+
+    ;; A multiline literal can end before a body on this line, even when
+    ;; its token started earlier. Inspect the actual line, not that token's
+    ;; starting line, to decide whether a requested break is already there.
+    (: structure-break (-> (Vector Line) Placed (List Placed) (List Placed)))
+    (define (structure-break lines placed breaks)
+      (let* ((text (Line-text (vector-ref lines (Placed-line placed))))
+             (offset (token-offset (Placed-token placed)))
+             (prefix (substring text 0 offset)))
+        (if (every? char-whitespace? (string->list prefix))
+            breaks
+            (Cons placed breaks))))
+
+    ;; Walk complete or partial expressions in source order, collecting
+    ;; breaks in reverse order. A prefix owns its whole datum, so quoted
+    ;; forms and bytevectors never acquire a code layout.
+    (: structure-entries (-> (Vector Line) (Vector Placed) I64 Layout (List Placed) (List Placed)))
+    (define (structure-entries lines tokens start layout breaks)
+      (match layout
+        ((Data) breaks)
+        (_
+         (let loop ((at start) (index 0) (breaks breaks))
+           (if (>= at (vector-length tokens))
+               breaks
+               (match (Placed-token (vector-ref tokens at))
+                 ((Close _) breaks)
+                 (token
+                  (let* ((broken (if (starts-line? layout index)
+                                     (structure-break lines (vector-ref tokens at) breaks) breaks))
+                         (inside (match token
+                                   ((Open _ _)
+                                    (structure-entries lines tokens (+ at 1)
+                                                       (child-layout tokens at layout index)
+                                                       broken))
+                                   (_ broken))))
+                    (loop (or-else (expression-end tokens at) (vector-length tokens))
+                          (+ index 1) inside)))))))))
+
+    ;; The optional pass adds breaks, then delegates indentation, width and
+    ;; declarations to the existing formatter. Repository checks keep using
+    ;; format-source; editing a file can opt into the more explicit layout.
+    (: format-structure (-> String I64 String))
+    (define (format-structure text width)
+      (let* ((lines (lex text))
+             (tokens (structure-tokens text lines))
+             (breaks (reverse (structure-entries (list->vector lines) tokens 0 (Compact) (Nil)))))
+        (format-source (string-join (break-lines lines breaks) "\n") width)))
 
     ;; ---- Formatting ----
 
