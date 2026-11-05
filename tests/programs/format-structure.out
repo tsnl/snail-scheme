@@ -1,0 +1,90 @@
+(define (choose x)
+  (let ((a 1)
+        (b 2))
+    (if x
+        (+ a b)
+        0)))
+(let loop ((n 3)
+           (acc 0))
+  (if (= n 0)
+      acc
+      (loop (- n 1) (+ acc n))))
+(match value
+  ((Some x)
+   (show x))
+  ((None)
+   "none"))
+(cond
+ ((> x 0)
+  x)
+ (else
+  0))
+(begin
+  (write "a")
+  (write "b"))
+(when ready
+  (run)
+  (finish))
+(define data
+  '(if x a b))
+#;(define (ignored x) (if x a b))
+(define (commented x) ; keep this comment
+  (let ((a "(if x a b)") #| keep |#
+        (b #\())
+    (if x
+        a
+        b)))
+(import
+ (rename (a) (if old-if)))
+(: f (-> I64 I64 ! console))
+(define (bytes x)
+  #u8(1 2)
+  (if x
+      ' #u8(3)
+      #u8(4)))
+( if x
+  a
+  b)
+(
+ if x
+    a
+    b)
+(if #;ignored condition
+    a
+    b)
+(#;ignored if x
+           a
+           b)
+(if #;#;one two condition
+    a
+    b)
+(let
+    loop ((a 1)
+          (b 2))
+    (if a
+        b
+        0))
+(let #|comment|# loop ((a 1)
+                       (b 2))
+  (if a
+      b
+      0))
+(if (let ((a 1)
+          (b 2))
+      (if a
+          b
+          0))
+    x
+    y)
+(cond
+ ((if x
+      #t
+      #f)
+  a)
+ (else
+  b))
+(let-values (((if x y) (values 1 2 3)))
+  (if x
+      y
+      0))
+reader prefixes, multiline literals and incomplete input
