@@ -11,7 +11,7 @@ how stage 0 runs that source; [Bootstrap](bootstrap.md) explains it.
 The chapters describe implemented behavior and mark proposed toolchain changes:
 
 - [Terms](terms.md): programs, libraries, language forms and toolchain names.
-- [Proposed layout reader](surface.md): colon-opened indentation blocks over
+- [Proposed layout reader](surface.md): newlines and indentation over
   S-expressions, compatibility, and migration; a draft awaiting approval.
 - [Types](types.md): scalars, data, typeclasses, foreign functions, linked
   files and dynamic values.
