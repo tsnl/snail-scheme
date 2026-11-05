@@ -1,21 +1,91 @@
-//! WebAssembly text to a binary module, for tools written in Snail-Core: the
+//! WebAssembly assembly and static linking for tools written in Snail-Core: the
 //! toolchain's runtime only, behind the `assembler` feature.
 //!
-//! The text arrives staged, as any final String does. The module, or the
-//! parser's message, stays here until the next assembly, and Snail-Core
-//! reads it a byte at a time, so no guest value is held across calls.
+//! Requests arrive through the compiler's String/Bytes staging. The result
+//! stays here until the next request, and Snail-Core reads it a byte at a
+//! time. No guest value is held across calls.
 
 use std::cell::RefCell;
 
 use crate::io::{checked, staged_text};
+use wasm_encoder::{ExportSection, Module, RawSection, reencode::Reencode};
+use wasm_fuse::{MergeOptions, Merger};
+use wasmparser::{Parser, Payload};
 
 // ---- Assembling ----
 
 /// The binary module the text describes, or the parser's message, which
 /// names the line and column of the problem.
-fn assemble(text: &str) -> Result<Vec<u8>, String> {
+pub fn assemble(text: &str) -> Result<Vec<u8>, String> {
     wat::parse_str(text).map_err(|error| error.to_string())
 }
+
+// ---- Linking ----
+
+const ADAPTER: &str = r#"(module
+  (import "snail.core.support" "snail:report-error" (func $report (param i32 i32)))
+  (import "snail.core.support" "snail:io/close-all" (func $close (result i32)))
+  (export "diagnostics/report-error" (func $report))
+  (export "close-resources" (func $close)))"#;
+
+/// Resolve the scalar ABI, then prune from the public exports. Internal exports
+/// remain available until imports have been resolved, including re-export chains.
+pub fn link(text: &str, runtime: &[u8]) -> Result<Vec<u8>, String> {
+    let program = assemble(text)?;
+    let adapter = assemble(ADAPTER)?;
+    let merged = merge(
+        &[
+            ("snail.abi", &program),
+            ("snail.core.support", runtime),
+            ("snail.platform", &adapter),
+        ],
+        false,
+    )?;
+    merge(&[("program", &public_exports(&merged)?)], true)
+}
+
+fn merge(inputs: &[(&str, &[u8])], prune: bool) -> Result<Vec<u8>, String> {
+    let mut merger = Merger::new(MergeOptions {
+        prune_unused: prune,
+        keep_names: true,
+        ..MergeOptions::default()
+    });
+    for (name, bytes) in inputs {
+        merger
+            .add_module(*name, bytes)
+            .map_err(|error| error.to_string())?;
+    }
+    merger.merge().map_err(|error| error.to_string())
+}
+
+// Export filtering changes no indices or instructions. All other sections can
+// be copied verbatim; wasm-fuse does the subsequent reachability and remapping.
+fn public_exports(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let mut module = Module::new();
+    for payload in Parser::new(0).parse_all(bytes) {
+        let payload = payload.map_err(|error| error.to_string())?;
+        if let Payload::ExportSection(exports) = payload {
+            let mut section = ExportSection::new();
+            for export in exports {
+                let export = export.map_err(|error| error.to_string())?;
+                if !export.name.starts_with("snail:") && !export.name.starts_with("diagnostics/") {
+                    wasm_encoder::reencode::RoundtripReencoder
+                        .parse_export(&mut section, export)
+                        .map_err(|error| error.to_string())?;
+                }
+            }
+            module.section(&section);
+        } else if let Some((id, range)) = payload.as_section() {
+            module.section(&RawSection {
+                id,
+                data: &bytes[range],
+            });
+        }
+    }
+    Ok(module.finish())
+}
+
+// ---- Results ----
 
 // The last result: the module on success, the message as UTF-8 on failure.
 // A Wasm instance runs one call at a time.
@@ -27,7 +97,31 @@ thread_local! {
 /// and 1 when it holds the message.
 #[unsafe(export_name = "snail:assembler/assemble")]
 pub extern "C" fn assemble_staged(count: u32) -> i32 {
-    let (status, output) = match assemble(&checked(staged_text(count))) {
+    finish(staged_text(count).and_then(|text| assemble(&text)))
+}
+
+/// Links runtime bytes followed by UTF-8 program text, staged as a final Bytes.
+///
+/// # Safety
+/// `input` points to a little-endian u32 length followed by that many readable
+/// bytes. The compiler's Bytes staging owns this memory for the entire call.
+#[unsafe(export_name = "snail:assembler/link")]
+pub unsafe extern "C" fn link_staged(runtime_length: usize, input: *const u8) -> i32 {
+    let length = u32::from_le(unsafe { input.cast::<u32>().read_unaligned() }) as usize;
+    let request = unsafe { std::slice::from_raw_parts(input.add(4), length) };
+    finish(link_request(runtime_length, request))
+}
+
+fn link_request(runtime_length: usize, request: &[u8]) -> Result<Vec<u8>, String> {
+    let (runtime, text) = request
+        .split_at_checked(runtime_length)
+        .ok_or("runtime length exceeds input")?;
+    let text = std::str::from_utf8(text).map_err(|error| error.to_string())?;
+    link(text, runtime)
+}
+
+fn finish(result: Result<Vec<u8>, String>) -> i32 {
+    let (status, output) = match result {
         Ok(module) => (0, module),
         Err(message) => (1, message.into_bytes()),
     };
@@ -89,5 +183,61 @@ mod tests {
             message.contains(":2:"),
             "the message names line 2: {message}"
         );
+    }
+
+    #[test]
+    fn links_public_exports_and_prunes_private_imports() {
+        let runtime = assemble(
+            r#"(module
+          (memory (export "memory") 1)
+          (func (export "_initialize"))
+          (func (export "snail:report-error") (param i32 i32))
+          (func (export "snail:io/close-all") (result i32) i32.const 0)
+          (func (export "snail:answer") (result i32) i32.const 42))"#,
+        )
+        .unwrap();
+        let program = r#"(module
+          (type $box (struct (field i32)))
+          (import "snail.core.support" "snail:answer" (func $answer (result i32)))
+          (import "unused" "host-function" (func $unused))
+          (global (export "yielding") (mut (ref null $box)) ref.null $box)
+          (func (export "main") (export "user/function") (result i32) call $answer)
+          (export "snail:unused" (func $unused))
+          (export "diagnostics/unused" (func $unused)))"#;
+        let bytes = link(program, &runtime).unwrap();
+        wasmparser::Validator::new_with_features(wasmparser::WasmFeatures::all())
+            .validate_all(&bytes)
+            .unwrap();
+        let mut exports = Vec::new();
+        for payload in Parser::new(0).parse_all(&bytes) {
+            match payload.unwrap() {
+                Payload::ExportSection(section) => {
+                    exports.extend(section.into_iter().map(|item| item.unwrap().name))
+                }
+                Payload::ImportSection(section) => assert_eq!(section.count(), 0),
+                _ => {}
+            }
+        }
+        exports.sort_unstable();
+        assert_eq!(
+            exports,
+            [
+                "_initialize",
+                "close-resources",
+                "main",
+                "memory",
+                "user/function",
+                "yielding"
+            ]
+        );
+        assert_eq!(bytes, link(program, &runtime).unwrap());
+    }
+
+    #[test]
+    fn failed_requests_replace_output_and_allow_assembly() {
+        assert_eq!(finish(link_request(1, &[])), 1);
+        assert_eq!(finish(link_request(0, &[255])), 1);
+        assert_eq!(finish(assemble("(module)")), 0);
+        OUTPUT.with_borrow(|output| assert!(output.starts_with(b"\0asm")));
     }
 }

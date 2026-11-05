@@ -4,8 +4,9 @@
   libraries Snail-Core follows.
 - [WebAssembly garbage collection](https://github.com/WebAssembly/gc), the
   target: structs, arrays and references managed by the engine.
-- [Binaryen](https://github.com/WebAssembly/binaryen), which assembles,
-  optimizes and links the compiler's output.
+- [wasm-tools](https://github.com/bytecodealliance/wasm-tools), whose `wat`
+  crate assembles the compiler's output, and
+  [wasm-fuse](https://crates.io/crates/wasm-fuse), which links the scalar runtime.
 - Luc Maranget, *Compiling Pattern Matching to Good Decision Trees* and
   *Warnings for Pattern Matching*: the checks behind `match`.
 - Per Vognsen's [Bitwise](https://github.com/pervognsen/bitwise) and Resin's

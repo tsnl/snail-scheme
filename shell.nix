@@ -16,7 +16,6 @@ pkgs.mkShell {
     npins
     emacs-nox
     rustup
-    binaryen
     nodejs_26
     mdbook
   ];

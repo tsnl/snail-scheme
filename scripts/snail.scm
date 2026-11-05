@@ -17,7 +17,7 @@
     (error usage))
   (let loop ((rest (cdr arguments)) (options (list (cons 'action (car arguments)))))
     (cond ((null? rest) (error usage))
-          ((string=? (car rest) "--release") (loop (cdr rest) (cons '(release . #t) options)))
+          ((string=? (car rest) "--release") (loop (cdr rest) options))
           ((member (car rest) '("-I" "-o"))
            (when (null? (cdr rest)) (error usage))
            (loop (cddr rest)
@@ -59,7 +59,6 @@
                                             (directories root options)
                                             source
                                             output
-                                            (option options 'release #f)
                                             (build-runtime root #f)))))
      ((string=? action "compile") (error "source compilation requires -o FILE"))
      ;; Without -o the program lives as long as its run, in a directory of
@@ -73,9 +72,6 @@
                                                                       source
                                                                       (path-join directory
                                                                                  "program.wasm")
-                                                                      (option options
-                                                                              'release
-                                                                              #f)
                                                                       (build-runtime root
                                                                                      #f)))))))))
 

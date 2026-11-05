@@ -112,7 +112,7 @@
 
 (define (check-output root compiled program name expected-output)
   (guard (failure (#t (report name "link failed" (error-text failure))))
-    (link-wat root (car compiled) program #f)
+    (link-wat root (car compiled) program)
     (place-links! (cdr compiled) (path-directory program))
     (let ((output (run-wasm root program)) (expected (read-file expected-output)))
       (or (equal? output expected)
@@ -143,7 +143,7 @@
 (define (check-siegework root text)
   (guard (failure (#t (report "siegework" "headless run failed" (error-text failure))))
     (let ((program (path-join root "build/tests/siegework/app.wasm")))
-      (link-wat root text program #f)
+      (link-wat root text program)
       (let ((result (capture-process (list "node"
                                            "--no-warnings"
                                            (path-join root "apps/siegework/tests/headless.mjs")
@@ -174,7 +174,8 @@
                                        (standard-directories root)))
            (assembled (begin
                         (call-with-output-file wat (lambda (port) (write-string text port)))
-                        (run-wasm root tool wat (path-join directory "fibonacci.wasm")))))
+                        (run-wasm root tool wat (path-join directory "fibonacci.wasm")
+                                  (build-runtime root #f) (path-join directory "linked.wasm")))))
       (let ((runtime (place-object! directory (file-bytes (build-runtime root #f))))
             (module (place-object! directory (file-bytes (path-join directory "fibonacci.wasm")))))
         (call-with-output-file manifest
@@ -183,13 +184,14 @@
                                          "\"},\"modules\":[{\"name\":\"program\",\"digest\":\""
                                          (car module) "\"}],\"files\":[]}")
                           port))))
-      (let ((expected "assembled the program\nbroken text names its line and column\n"))
+      (let ((expected
+             "assembled the program\nlinked the program after a failed link\nbroken text names its line and column\n"))
         (if (string=? assembled expected)
-            (check-assembled-module root manifest)
+            (and (check-assembled-module root manifest)
+                 (check-assembled-module root (path-join directory "linked.wasm")))
             (report "toolchain assembler" "assembling failed" assembled))))))
 
-;; The module runs as the one library of a modules.json, an object of the
-;; store beside it, on Node.
+;; Both the standalone program and the separately linked module run on Node.
 (define (check-assembled-module root manifest)
   (let ((ran (capture-process
               (list "node" "--no-warnings" (path-join root "host/native/run-snail.mjs") manifest)))
@@ -213,7 +215,7 @@
                              (cons (path-join root "tests/host-boundary")
                                    (standard-directories root))
                              (path-join root "tests/host-boundary/main.sld"))))
-    (link-wat root text program #f)
+    (link-wat root text program)
     (run-host-boundary root program)))
 
 (define (run-host-boundary root program)
@@ -231,7 +233,7 @@
                               (path-join root "tests/app-runtime/main.sld"))))
       (lambda ()
         (let ((program (path-join root "build/tests/app-runtime.wasm")))
-          (link-wat root text program #f)
+          (link-wat root text program)
           (check-app-runtime root program))))))
 
 (define (check-app-runtime root program)
@@ -287,7 +289,7 @@
     (let ((program (path-join root "build/tests/formatter/format.wasm"))
           (files (capture-process (list "git" "-C" root "ls-files" "*.scm" "*.sld"))))
       (create-directory* (path-join root "build/tests/formatter"))
-      (link-wat root text program #f)
+      (link-wat root text program)
       (let ((result (capture-process
                      (append (program-command root program)
                              (list "--check")
@@ -311,7 +313,7 @@
   (guard (failure (#t (report "book highlighter" "check failed" (error-text failure))))
     (let ((program (path-join root "build/tests/book-highlighter/highlight-book.wasm")))
       (create-directory* (path-join root "build/tests/book-highlighter"))
-      (link-wat root text program #f)
+      (link-wat root text program)
       (let ((result (capture-process (list "node"
                                            "--no-warnings"
                                            (path-join root "tests/highlight-book.mjs")
@@ -508,7 +510,7 @@
                             (path-join root "tests/socket-boundary/main.sld"))))
     (lambda ()
       (let ((program (path-join root "build/tests/socket-boundary.wasm")))
-        (link-wat root text program #f)
+        (link-wat root text program)
         (check-socket-boundary root program)))))
 
 (define (check-socket-boundary root program)
@@ -527,7 +529,7 @@
                             (path-join root "tests/termination/main.sld"))))
     (lambda ()
       (let ((program (path-join root "build/tests/termination.wasm")))
-        (link-wat root text program #f)
+        (link-wat root text program)
         (check-termination root program)))))
 
 (define (check-termination root program)

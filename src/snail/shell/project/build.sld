@@ -12,9 +12,8 @@
 ;; libraries an edit reaches, and assembles each module in-process (snail
 ;; shell assembler), which only the toolchain's runtime can.
 ;;
-;; The compiler runs in this program; Binaryen's tools, which link a
-;; program with the runtime, and Node, which runs producers, run as
-;; commands, through `run` (snail shell process). A build that fails removes
+;; The compiler, assembler and linker run in this program. Node runs
+;; producers through `run` (snail shell process). A build that fails removes
 ;; every generation it made, and only those, so the outputs of earlier
 ;; builds stay published.
 (define-library (snail shell project build)
@@ -80,15 +79,14 @@
     ;; What a build runs besides the compiler: `root` holds the standard
     ;; libraries (src/), the browser host's files and the native runner,
     ;; `runtime` is the runtime module a program is linked with, and `node`
-    ;; runs producers. Binaryen's tools are found on PATH, unless WASM_AS,
-    ;; WASM_OPT or WASM_MERGE names another.
+    ;; runs producers. Assembly and linking use the toolchain runtime.
     (struct Tools
       ((root String)
        (runtime String)
        (node String)))
 
-    ;; A debug build optimizes a little, a release build as far as Binaryen
-    ;; goes, and both link the program into one module. A development build
+    ;; Debug and release both link the program into one module, without
+    ;; function-body optimization. A development build
     ;; leaves a module per library, each an object of the project's store,
     ;; with modules.json naming them in link order and the runtime, which
     ;; both hosts link as the program starts.
@@ -497,7 +495,7 @@
     ;; Builds a target into a new generation, which goes if the build of it
     ;; fails. A development build's session advances once its modules are
     ;; assembled, so a failure packaging the target keeps it.
-    (: build-target (-> Builder I64 Target Progress Progress ! mut fs clock process building))
+    (: build-target (-> Builder I64 Target Progress Progress ! mut fs clock building))
     (define (build-target builder node target progress)
       (let* ((name (Target-name target))
              (directory (prepare-generation builder name))
@@ -548,7 +546,7 @@
     ;; The target's program in its generation, with the files it links: one
     ;; module for a debug or release build, a module per library for a
     ;; development build.
-    (: build-program (-> Builder I64 Target String Progress Program ! mut fs process building))
+    (: build-program (-> Builder I64 Target String Progress Program ! mut fs building))
     (define (build-program builder node target directory progress)
       (in-working builder
                   node
@@ -598,7 +596,7 @@
     ;; it. The compile's own files stay in `working`.
     (: link-program
        (-> Builder String (List String) Inputs String String (List LinkedFile)
-           ! mut fs process building))
+           ! mut fs building))
     (define (link-program builder entry directories inputs working output)
       (let ((program (compiled (lambda ()
                                  (source->wat directories
@@ -608,10 +606,11 @@
                                                                   directories
                                                                   loading
                                                                   forms))
-                                              inputs))))
-            (text (string-append working "/program.wat")))
-        (write-file text (WholeProgram-text program))
-        (link builder text working output)
+                                              inputs)))))
+        (match (link (WholeProgram-text program)
+                     (read-bytes (Tools-runtime (Builder-tools builder))))
+          ((Ok bytes) (write-bytes output bytes))
+          ((Err message) (fail-build (string-append "cannot link program: " message))))
         (WholeProgram-links program)))
 
     ;; ---- Objects ----
@@ -805,74 +804,6 @@
       (list (Pair "digest" (JsonString (Pair-first object)))
             (Pair "size" (JsonInteger (Pair-second object)))))
 
-    ;; ---- Linking ----
-
-    (: wasm-features (List String))
-    (define wasm-features
-      (list "--enable-gc" "--enable-reference-types" "--enable-tail-call" "--enable-bulk-memory"
-            "--enable-nontrapping-float-to-int" "--enable-sign-ext" "--enable-mutable-globals"))
-
-    ;; Libraries built apart, and plugins loaded at run time, read one
-    ;; another's structs and call one another's closures, so neither level
-    ;; assumes a closed world. A development build links only its
-    ;; producers, as a debug build does.
-    (: optimization (-> Mode (List String)))
-    (define (optimization mode)
-      (match mode
-        ((Release) (list "-O3" "--always-inline-max-function-size=40" "--converge"))
-        (_ (list "-O1"))))
-
-    ;; The runtime routes its diagnostics through this adapter, which also
-    ;; exports the cleanup entry point the host calls.
-    (: adapter-text String)
-    (define adapter-text
-      (string-join
-       (list "(module"
-             "  (import \"snail.core.support\" \"snail:report-error\" (func $report (param i32 i32)))"
-             "  (import \"snail.core.support\" \"snail:io/close-all\" (func $close (result i32)))"
-             "  (export \"diagnostics/report-error\" (func $report))"
-             "  (export \"close-resources\" (func $close)))"
-             "")
-       "\n"))
-
-    ;; Assembles the text at `wat`, optimizes it, and merges it with the
-    ;; runtime and the adapter into `output`, keeping only the exports a
-    ;; host reads. Each intermediate module stays in `working`.
-    (: link (-> Builder String String String Unit ! fs process building))
-    (define (link builder wat working output)
-      (let ((raw (string-append working "/program.raw.wasm"))
-            (module (string-append working "/program.module.wasm"))
-            (adapter-wat (string-append working "/adapter.wat"))
-            (adapter (string-append working "/adapter.wasm"))
-            (linked (string-append working "/program.linked.wasm"))
-            (mode (optimization (Builder-mode builder))))
-        (run-tool "WASM_AS" "wasm-as" (append (Cons "-g" wasm-features) (list wat "-o" raw)))
-        (run-tool "WASM_OPT"
-                  "wasm-opt"
-                  (concatenate (list (Cons "-g" wasm-features) mode (list raw "-o" module))))
-        (write-file adapter-wat adapter-text)
-        (run-tool "WASM_AS" "wasm-as" (append wasm-features (list adapter-wat "-o" adapter)))
-        (run-tool "WASM_MERGE"
-                  "wasm-merge"
-                  (append (Cons "-g" wasm-features)
-                          (list module "snail.abi" (Tools-runtime (Builder-tools builder))
-                                "snail.core.support" adapter "snail.platform" "-o" linked)))
-        (run-tool "WASM_OPT"
-                  "wasm-opt"
-                  (concatenate
-                   (list (Cons "-g" wasm-features)
-                         (list "--remove-exports" "--pass-arg=remove-exports@snail:*,diagnostics/*")
-                         mode
-                         (list linked "-o" output))))))
-
-    ;; Runs a tool, named by `variable` when it is set.
-    (: run-tool (-> String String (List String) Unit ! process building))
-    (define (run-tool variable default arguments)
-      (let ((program (match (environment-variable variable)
-                       ((Some program) program)
-                       ((None) default))))
-        (run-command (Command program arguments ".") program)))
-
     ;; Runs a command to its end, and stops the build with what it wrote to
     ;; stderr unless it exits with status 0.
     (: run-command (-> Command String Unit ! process building))
@@ -900,8 +831,8 @@
 
     ;; ---- Producers ----
 
-    ;; A producer is compiled from the source the planner printed, linked
-    ;; for debugging, and run to write its library's syntax, which the
+    ;; A producer is compiled from the source the planner printed, linked,
+    ;; and run to write its library's syntax, which the
     ;; inputs supply from then on.
     (: produce (-> Builder I64 Producer Inputs Inputs ! mut fs process building))
     (define (produce builder node producer inputs)
@@ -912,7 +843,7 @@
                           (output (string-append working "/output.syntax")))
                       (place-links (string-append working "/store")
                                    "producer"
-                                   (link-program (Builder-mode-set builder (Debug))
+                                   (link-program builder
                                                  (Producer-source producer)
                                                  (Producer-directories producer)
                                                  inputs
