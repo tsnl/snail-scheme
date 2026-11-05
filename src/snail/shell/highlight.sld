@@ -6,7 +6,8 @@
 ;; text ends inside is a string to the end. Every character belongs to one
 ;; token, so the tokens tile the text. The book's preprocessor
 ;; (bootstrap/highlight-book.sld) and the IDE (host/ide/ide.sld) both color
-;; with these tokens.
+;; with these tokens. The IDE also derives display ranges for compiler
+;; points with the same lexical boundaries.
 (define-library (snail shell highlight)
   (export
    Class
@@ -27,7 +28,8 @@
    Token-start
    Token-end
    Token-class
-   highlight-tokens)
+   highlight-tokens
+   highlight-range)
   (import
    (snail core base)
    (only (snail shell compiler read)
@@ -217,7 +219,34 @@
               ((and (not (char<? first #\A)) (not (char<? #\Z first))) (TypeName))
               (else (Identifier)))))
 
-    ;; ---- Datum comments ----
+    ;; ---- Display ranges ----
+
+    ;; A compiler point has no end. For display, mark its containing token;
+    ;; an opening bracket or quote extends through its datum. These scalar
+    ;; offsets are a half-open lexical range, not a compiler source span.
+    ;; Whitespace keeps one cell, and EOF has an empty range for the view to
+    ;; mark without borrowing the preceding token.
+    (: highlight-range (-> String I64 (Pair I64 I64)))
+    (define (highlight-range text offset)
+      (let ((source (make-source "" text)) (point (min (string-length text) (max 0 offset))))
+        (let loop ((index 0))
+          (match (next-token source index (Plain))
+            ((None) (Pair point point))
+            ((Some (Pair token _))
+             (if (<= (Token-end token) point)
+                 (loop (Token-end token))
+                 (token-range source token point)))))))
+
+    (: token-range (-> Source Token I64 (Pair I64 I64)))
+    (define (token-range source token point)
+      (match (Token-class token)
+        ((Blank) (Pair point (+ point 1)))
+        ((Punctuation)
+         (Pair (Token-start token)
+               (max (Token-end token) (datum-end source (Token-start token)))))
+        (_ (Pair (Token-start token) (Token-end token)))))
+
+    ;; ---- Datum boundaries ----
 
     ;; The index after the datum that `#;` comments out, found as the reader
     ;; finds it to skip it: a list or byte vector runs to its closing

@@ -42,6 +42,7 @@ test-chibi:
 test-browser:
 	node tests/browser/reload.mjs "$(CURDIR)"
 	node tests/browser/ide.mjs "$(CURDIR)"
+	node tests/browser/ide-highlights.mjs "$(CURDIR)"
 	node tests/browser/ide-palette.mjs "$(CURDIR)"
 	node tests/browser/ide-search.mjs "$(CURDIR)"
 	node tests/browser/ide-create.mjs "$(CURDIR)"
