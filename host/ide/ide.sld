@@ -20,6 +20,7 @@
  (snail shell json)
  (snail shell json read)
  (snail shell format)
+ (snail shell edit)
  (snail shell highlight)
  (snail shell ui)
  (snail shell ui page))
@@ -133,16 +134,6 @@
 
 ;; ---- Editing ----
 
-;; An edit to a field, as typing would make it: the range it replaces,
-;; what replaces it, and the selection after. One that replaces nothing
-;; with nothing only selects.
-(struct Change
-  ((start I64)
-   (end I64)
-   (text String)
-   (selection-start I64)
-   (selection-end I64)))
-
 ;; Makes the change in the field, so the page can undo it, and answers
 ;; whether the field took it; one it did not take leaves the selection.
 (: apply-change (-> Node Change Bool ! dom))
@@ -244,22 +235,33 @@
       (trailing-start text (- index 1))
       index))
 
-;; Formatting replaces only what changed, and the caret keeps its line and
-;; its place after the line's indentation.
+;; Formatting changes only whitespace. Follow corresponding runs rather
+;; than line numbers, since structural formatting can introduce new lines.
 (: format-change (-> String String I64 Change))
 (define (format-change text formatted caret)
-  (let* ((line (count-lines text 0 caret))
-         (start (line-start text caret))
-         (past (- (- caret start) (indentation text start)))
-         (prefix (shared-prefix text formatted))
+  (let* ((prefix (shared-prefix text formatted))
          (suffix (shared-suffix text formatted prefix))
-         (at (line-offset formatted (+ line 1)))
-         (moved (min (+ (+ at (indentation formatted at)) (max 0 past)) (line-end formatted at))))
+         (moved (formatted-caret text formatted caret)))
     (Change prefix
             (- (string-length text) suffix)
             (substring formatted prefix (- (string-length formatted) suffix))
-            moved
-            moved)))
+            moved moved)))
+
+(: whitespace-end (-> String I64 I64))
+(define (whitespace-end text from)
+  (if (and (< from (string-length text)) (char-whitespace? (string-ref text from)))
+      (whitespace-end text (+ from 1))
+      from))
+
+(: formatted-caret (-> String String I64 I64))
+(define (formatted-caret text formatted caret)
+  (let loop ((from 0) (to 0))
+    (let ((after (whitespace-end text from)) (next (whitespace-end formatted to)))
+      (cond ((< caret after) (+ to (min (- caret from) (- next to))))
+            ((or (> after from) (> next to)) (loop after next))
+            ((or (>= from caret) (>= from (string-length text))
+                 (>= to (string-length formatted))) to)
+            (else (loop (+ from 1) (+ to 1)))))))
 
 ;; How many scalars two texts share at their start, and then, of what
 ;; follows that, at their end.
@@ -343,7 +345,8 @@
 (struct Pane
   ((id I64)
    (path (Option String))
-   (scroll F64)))
+   (scroll F64)
+   (selection (Pair I64 I64))))
 
 ;; How the panes share the room: one pane, or two nodes side by side
 ;; (`row`) or one above the other (`column`), the first taking `ratio` of
@@ -839,7 +842,7 @@
        0
        (Nil)
        0
-       (list (Pane 0 (None) 0.0))
+       (list (Pane 0 (None) 0.0 (Pair 0 0)))
        (Leaf 0)
        0
        1
@@ -890,7 +893,7 @@
 (define (pane-of model id)
   (match (find (lambda (pane) (= (Pane-id pane) id)) (Ide-panes model))
     ((Some pane) pane)
-    ((None) (Pane id (None) 0.0))))
+    ((None) (Pane id (None) 0.0 (Pair 0 0)))))
 
 (: pane-set (-> Ide Pane Ide))
 (define (pane-set model changed)
@@ -998,12 +1001,17 @@
   (Answered ((asked Asked)
              (result (Result Snapshot Failure))))
   (Typed ((pane I64)
-          (text String)))
+          (text String)
+          (start I32)
+          (end I32)))
   (Pressed ((pane I64)
             (key String)
             (text String)
             (start I32)
             (end I32)))
+  (Selected ((pane I64)
+             (start I32)
+             (end I32)))
   (Focused ((pane I64)))
   (Scrolled ((pane I64)
              (top F64)))
@@ -1063,8 +1071,14 @@
     ((Open path) (opening model path (Focus (Ide-active model))))
     ((Show generation index) (showing-diagnostic model generation index))
     ((Answered asked result) (answered model asked result))
-    ((Typed pane text) (typed model pane text))
+    ((Typed pane text start end)
+     (typed (pane-set model (Pane-selection-set (pane-of model pane)
+                                                (Pair (i32->i64 start) (i32->i64 end))))
+            pane text))
     ((Pressed pane key text start end) (pressed model pane key text start end))
+    ((Selected pane start end)
+     (stay (pane-set model (Pane-selection-set (pane-of model pane)
+                                               (Pair (i32->i64 start) (i32->i64 end))))))
     ((Focused pane) (stay (Ide-active-set model pane)))
     ((Scrolled pane top) (stay (pane-set model (Pane-scroll-set (pane-of model pane) top))))
     ((Save) (saving model))
@@ -1384,27 +1398,37 @@
          (stay model)))
     ((None) (stay model))))
 
-;; Tab and Enter in a Scheme source, made in the field by a command.
+;; Scheme editing chords become pure range edits, applied as native typing.
 (: pressed (-> Ide I64 String String I32 I32 Step))
 (define (pressed model pane key text start end)
   (let ((from (i32->i64 start)) (to (i32->i64 end)))
     (Pair model
           (list (changing pane
-                          (if (string=? key "Tab")
-                              (indent-change text from to)
-                              (newline-change text from to)))))))
+                          (cond ((string=? key "Tab") (indent-change text from to))
+                                ((string=? key "Enter") (newline-change text from to))
+                                (else (delimiter-change text key from to))))))))
 
 (: changing (-> I64 Change (Command Msg)))
 (define (changing pane change)
   (once (lambda ()
           (match (element-by-id (field-id pane))
-            ((Some field) (apply-change field change) (Nothing))
+            ((Some field)
+             (apply-change field change)
+             (let ((range (selection-range field)))
+               (Selected pane (Pair-first range) (Pair-second range))))
             ((None) (Nothing))))))
 
-;; The keys Tab and Enter, which a Scheme source's field hears.
+;; Shift belongs to many keyboard layouts' punctuation, but Control,
+;; Command, Alt and composition input keep their normal browser meanings.
 (: editing-chords (List Chord))
 (define editing-chords
-  (list (Chord "Tab" 0) (Chord "Tab" shift-key) (Chord "Enter" 0)))
+  (append (list (Chord "Tab" 0) (Chord "Tab" shift-key) (Chord "Enter" 0)
+                (Chord "Backspace" 0) (Chord "Delete" 0)
+                (Chord "ArrowUp" alt-key)
+                (Chord "M" (+ control-key shift-key))
+                (Chord "M" (+ meta-key shift-key)))
+          (concatenate (map (lambda (key) (list (Chord key 0) (Chord key shift-key)))
+                            (list "(" ")" "[" "]")))))
 
 ;; ---- Saving ----
 
@@ -1453,7 +1477,7 @@
 ;; field did not take it.
 (: formatted-in (-> Pane String String ! dom))
 (define (formatted-in pane text)
-  (let* ((shown (display-text text)) (formatted (format-source shown format-width)))
+  (let* ((shown (display-text text)) (formatted (format-structure shown format-width)))
     (if (or (string=? shown formatted) (not (reformatted pane shown formatted)))
         text
         formatted)))
@@ -1502,7 +1526,7 @@
            (Pair (buffer-set model (Buffer-failure-set buffer ""))
                  (list (once (lambda ()
                                (let* ((shown (display-text (Buffer-text buffer)))
-                                      (formatted (format-source shown format-width)))
+                                      (formatted (format-structure shown format-width)))
                                  (Formatted path
                                             (or (string=? shown formatted)
                                                 (reformatted pane shown formatted)))))))))
@@ -1568,7 +1592,10 @@
          (split (Split (+ pane 1) direction 0.5 (Leaf active) (Leaf pane)))
          (model (Ide-panes-set model
                                (append (Ide-panes model)
-                                       (list (Pane pane (Pane-path (pane-of model active)) 0.0)))))
+                                       (list (Pane pane
+                                                   (Pane-path (pane-of model active))
+                                                   0.0
+                                                   (Pair 0 0))))))
          (model (Ide-layout-set model (leaf-replaced (Ide-layout model) active split))))
     (Pair (Ide-next-set (Ide-active-set model pane) (+ pane 2)) (list (focusing pane)))))
 
@@ -1699,8 +1726,8 @@
 ;; The highlight layer draws from ten lines above the scroll 160 lines,
 ;; more than a pane shows, in runs of one class each. The highlighter reads
 ;; them from the start of their top-level form, as Emacs resynchronizes.
-(: highlight-view (-> String F64 Bool (Html Msg)))
-(define (highlight-view text scroll scheme)
+(: highlight-view (-> String F64 Bool (Pair I64 I64) (Html Msg)))
+(define (highlight-view text scroll scheme selected)
   (let* ((first (max 0 (- (f64->i64 (floor (/ scroll line-height))) 10)))
          (start (line-offset text (+ first 1)))
          (end (line-offset text (+ first 161))))
@@ -1708,21 +1735,39 @@
              (list (Attr "class" "highlight")
                    (Attr "style" (string-append "top: " (show (* first 20)) "px")))
              (if scheme
-                 (highlight-runs text start end)
+                 (highlight-runs text start end
+                                 (if (= (Pair-first selected) (Pair-second selected))
+                                     (matching-pair (delimiter-pairs text) (Pair-first selected))
+                                     (None)))
                  (list (Text (substring text start end)))))))
 
-(: highlight-runs (-> String I64 I64 (List (Html Msg))))
-(define (highlight-runs text start end)
+(: highlight-runs (-> String I64 I64 (Option Delimiters) (List (Html Msg))))
+(define (highlight-runs text start end pair)
   (let ((base (top-level-start text start)))
     (map run-view
          (reverse (fold-left (lambda (runs token)
                                (let ((from (max start (+ base (Token-start token))))
                                      (to (min end (+ base (Token-end token)))))
                                  (if (< from to)
-                                     (joined runs (token-class token) (substring text from to))
+                                     (highlight-token runs (token-class token) text from to pair)
                                      runs)))
                              (Nil)
                              (highlight-tokens (substring text base end)))))))
+
+;; Split only the two active delimiters out of a token's usual color.
+(: highlight-token (-> (List (Pair String String)) String String I64 I64
+                       (Option Delimiters) (List (Pair String String))))
+(define (highlight-token runs class text from to pair)
+  (match pair
+    ((Some found)
+     (let* ((open (Delimiters-open found)) (close (Delimiters-close found))
+            (at (if (and (<= from open) (< open to)) open close)))
+       (if (and (<= from at) (< at to))
+           (joined (joined (joined runs class (substring text from at))
+                           "matching-paren" (substring text at (+ at 1)))
+                   class (substring text (+ at 1) to))
+           (joined runs class (substring text from to)))))
+    ((None) (joined runs class (substring text from to)))))
 
 ;; A class of the highlight's styles in ide.css, as the book's are named;
 ;; whitespace and plain names are plain text.
@@ -1854,7 +1899,7 @@
                             (Nil))
                    (tool "format"
                          "tool"
-                         "Format (Ctrl+Shift+F)"
+                         "Format bodies and branches (Ctrl+Shift+F)"
                          "Format"
                          (not (and loaded source))
                          (Format))
@@ -2131,17 +2176,21 @@
                                                         newline-text))))))
                    (Element "div"
                             (list (Attr "class" "code"))
-                            (list (highlight-view text (Pane-scroll pane) scheme)
-                                  (marks-view text
-                                              (match buffer
-                                                ((Some found) (marked model found))
-                                                ((None) (None))))
-                                  (field-view id buffer text scheme lines)))))))
+                            (list
+                             (highlight-view text (Pane-scroll pane) scheme (Pane-selection pane))
+                             (marks-view text
+                                         (match buffer
+                                           ((Some found) (marked model found))
+                                           ((None) (None))))
+                             (field-view id buffer text scheme lines)))))))
 
 (: field-view (-> I64 (Option Buffer) String Bool I64 (Html Msg)))
 (define (field-view id buffer text scheme lines)
   (Element "textarea"
            (append (list (Attr "id" (field-id id))
+                         (Attr "aria-label" "Source editor")
+                         (Attr "title"
+                               "Tab: indent · Enter: indented newline · Ctrl/⌘+Shift+M: matching parenthesis · Alt+↑: select enclosing form")
                          (Attr "spellcheck" "false")
                          (Attr "wrap" "off")
                          (Attr "autocapitalize" "off")
@@ -2153,9 +2202,20 @@
                                          ((None) #t)))
                          (StringProperty "value" text)
                          (On "input"
-                             (list (Value))
+                             (list (Value) (Selection))
                              (Allow)
-                             (lambda (event) (Typed id (Event-value event))))
+                             (lambda (event) (Typed id (Event-value event)
+                                                    (Event-selection-start event)
+                                                    (Event-selection-end event))))
+                         (On "select" (list (Selection)) (Allow)
+                             (lambda (event) (Selected id (Event-selection-start event)
+                                                       (Event-selection-end event))))
+                         (On "keyup" (list (Selection)) (Allow)
+                             (lambda (event) (Selected id (Event-selection-start event)
+                                                       (Event-selection-end event))))
+                         (On "click" (list (Selection)) (Allow)
+                             (lambda (event) (Selected id (Event-selection-start event)
+                                                       (Event-selection-end event))))
                          (On "focus" (Nil) (Allow) (lambda (event) (Focused id))))
                    (if scheme
                        (list (On "keydown"

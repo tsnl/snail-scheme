@@ -54,7 +54,7 @@ try {
   await until(() => browser.evaluate('document.getElementById("diagnostics").textContent.includes("does not fit String")'), 'fresh compiler diagnostic');
   await until(() => browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent === "5"'), 'fresh source observation');
   assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent'), '5', 'compiler-provided point');
-  assert.ok(await type('(define greeting 5)', '(define greeting\n"fixed")'));
+  assert.ok(await type('(define greeting\n  5)', '(define greeting\n"fixed")'));
   await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('"fixed"'); t.setSelectionRange(at, at); })()`);
   await press({key: 'Tab'});
   assert.match(await text(), /\(define greeting\n  "fixed"\)/);

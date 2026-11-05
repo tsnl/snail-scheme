@@ -78,7 +78,8 @@ button { font: inherit; color: inherit; }
 .tok-keyword { color: #c678dd; }
 .tok-type { color: #e5c07b; }
 .tok-definition { color: #61afef; }
-.tok-punctuation { color: #7f848e; }
+.tok-punctuation { color: #697180; }
+.matching-paren { color: var(--text); background: #3e5068; border-radius: 2px; }
 .tok-invalid { color: #e06c75; }
 
 .marks { color: transparent; }

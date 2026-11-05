@@ -351,6 +351,50 @@ preserves exact bytes until saved.
 The browser has no compiler, copied project, directory handles or persistent
 project storage. Closing/reloading a page with drafts asks before discarding them.
 
+Scheme sources keep ordinary S-expressions. Parentheses are quieter than
+names in the default theme; the pair beside the caret is highlighted. The
+editor pairs `(` and `[`, wraps selected text, skips an existing matching
+closer, and deletes an adjacent empty pair with Backspace or Delete. Other
+unmodified deletion removes one Unicode scalar, like Emacs's `delete-char`.
+Strings, characters and comments retain ordinary typing. Input-method
+composition and modified deletion shortcuts stay with the browser, and edits
+use its native undo history.
+
+| Key | Action |
+| --- | --- |
+| Tab or Shift+Tab | Reindent the current line or selected lines using Emacs Scheme rules. |
+| Enter | Start an indented line. |
+| Ctrl/Command+Shift+M | Move between matching delimiters. |
+| Alt+Up | Select the enclosing delimited form; repeat to expand outward. |
+| Ctrl/Command+Shift+F | Format the file. |
+
+`(snail shell edit)` computes immutable replacements, selections and delimiter
+pairs from the reader-backed highlighter. A mismatched closer ends the current
+matching stack, so editing incomplete code never invents a pair across the
+error. Selection includes a bytevector's reader prefix, but does not grow to
+include a surrounding quote. Pair insertion immediately after a datum comment
+is conservative: type separating whitespace first.
+
+Format and Save use `format-structure` from `(snail shell format)`. It puts
+bodies, bindings and clauses on separate lines before applying the existing
+indentation and width rules. For example:
+
+```scheme
+(define (choose ready)
+  (let ((a 1)
+        (b 2))
+    (if ready
+        (+ a b)
+        0)))
+```
+
+Calls stay compact. Parameters, patterns, literals and quoted data do not
+acquire a code layout; executable conditions and initializers can contain
+nested blocks. Formatting changes whitespace and keeps the caret on its token.
+The repository's Emacs formatter and `format-source` retain their existing
+declaration, indentation and width behavior. There is no source migration:
+the more explicit layout is applied when a file is formatted or saved in the IDE.
+
 The Applications panel selects one run target and provides Start, Stop and Restart.
 It shows requested and observed builds, PID, exit outcome and separate stdout/stderr
 tails. Output is literal text and preserves scroll position; it does not refresh

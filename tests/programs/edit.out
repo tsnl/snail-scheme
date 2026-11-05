@@ -1,0 +1,39 @@
+pair
+brackets
+wrap
+wrap string
+split string
+inside string
+after string
+unfinished string
+wrap comment boundary
+wrap unfinished literal
+line comment
+block comment
+after block comment
+unfinished block comment
+datum comment
+character prefix
+after character
+skip closer
+skip unmatched closer
+literal closer
+backspace pair
+backspace after pair
+delete pair
+delete within pair
+literal deletion
+reader prefix deletion
+ordinary deletion
+ordinary forward deletion
+delete selection
+start boundary
+end boundary
+matching open
+matching close
+adjacent match
+select inner
+expand selection
+include reader prefix
+mismatch barrier
+reader boundaries and recovery
