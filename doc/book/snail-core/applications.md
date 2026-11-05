@@ -140,6 +140,18 @@ asks the person a question and answers whether they agreed. When the view
 gives a field a new value, as when another view of its text changed it,
 the field keeps its selection and scroll as far as the new text reaches.
 
+The same `dom` effect exposes browser window capabilities. `installation-status`
+reports an available installation offer, an installed/standalone app, or no offer.
+`install-app` awaits a single-use offer and returns accepted, dismissed,
+unavailable, expired activation, failed, or already installed. Acceptance does not
+mean the later `appinstalled` event has arrived. The host retains the opaque offer
+across application generations; an expired activation leaves it available for a
+new explicit click. `fullscreen?` reads the current mode, and `set-fullscreen`
+awaits entering or leaving it, returning whether the request succeeded. Both
+requests use task tickets, with no suspended Wasm stack. Stopping a generation
+releases its wait even if the browser dialog remains open. The memory handler
+reports unavailable installation and refuses fullscreen.
+
 `with-memory-dom` from `(snail shell dom memory)` handles `dom` over a
 document in memory, delivering a script of cues (events fired at elements
 by their `id` or at the window, and the page hidden), and answers the

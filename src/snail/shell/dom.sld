@@ -85,6 +85,15 @@
    focus-node
    window-node
    confirm
+   InstallationStatus InstallUnavailable InstallAvailable AppInstalled
+   InstallResult
+   InstallAccepted
+   InstallDismissed
+   InstallNotAvailable
+   GestureRequired
+   InstallFailed
+   InstallAlreadyInstalled
+   installation-status install-app fullscreen? set-fullscreen
    element-by-id
    select-range
    selection-range
@@ -212,6 +221,15 @@
        (client-height F64)
        (line-height F64)))
 
+    ;; ---- Window applications ----
+
+    ;; A browser offer is opaque and single use. Acceptance of its prompt
+    ;; precedes the distinct appinstalled event. An expired activation does
+    ;; not consume the offer; another explicit click can try again.
+    (enum InstallationStatus (InstallUnavailable) (InstallAvailable) (AppInstalled))
+    (enum InstallResult (InstallAccepted) (InstallDismissed) (InstallNotAvailable)
+          (GestureRequired) (InstallFailed) (InstallAlreadyInstalled))
+
     ;; ---- The effect ----
 
     ;; An attribute set to "" is removed. A property is the node's own
@@ -258,6 +276,10 @@
        (focus-node (-> Node Unit))
        (window-node (-> Node))
        (confirm (-> String Bool))
+       (installation-status (-> InstallationStatus))
+       (install-app (-> InstallResult ! tasks))
+       (fullscreen? (-> Bool))
+       (set-fullscreen (-> Bool Bool ! tasks))
        (element-by-id (-> String (Option Node)))
        (select-range (-> Node I32 I32 Unit))
        (selection-range (-> Node (Pair I32 I32)))
