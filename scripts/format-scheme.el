@@ -307,16 +307,21 @@ indenting the whole result would."
 (defun snail-format-buffer ()
   "Separate declarations, then indent Scheme with spaces and built-in rules,
 breaking each line that runs past `snail-format-width'."
-  (scheme-mode)
-  (setq-local indent-tabs-mode nil)
-  (snail-format-declarations)
-  (let ((inhibit-message t))
-    (snail-format-lines)))
+  ;; Preserve source-header files, including unfinished headers. Layout
+  ;; formatting is separate work; Lisp indentation would change the program.
+  (unless (save-excursion
+            (goto-char (point-min))
+            (looking-at (rx "#lang" (or space (any "()[]\";'") eos))))
+    (scheme-mode)
+    (setq-local indent-tabs-mode nil)
+    (snail-format-declarations)
+    (let ((inhibit-message t))
+      (snail-format-lines))))
 
 (defun snail-format-file (file check)
   "Format FILE, or report whether it needs formatting when CHECK is non-nil."
   (with-temp-buffer
-    (insert-file-contents file)
+    (let ((coding-system-for-read 'utf-8-unix)) (insert-file-contents file))
     (let ((original (buffer-string)))
       (condition-case err
           (snail-format-buffer)
@@ -341,7 +346,8 @@ breaking each line that runs past `snail-format-width'."
        ((null args)
         ;; Zed supplies the buffer on stdin and expects only source on stdout.
         (with-temp-buffer
-          (insert-file-contents "/dev/stdin")
+          (let ((coding-system-for-read 'utf-8-unix))
+            (insert-file-contents "/dev/stdin"))
           (snail-format-buffer)
           (let ((coding-system-for-write 'utf-8-unix))
             (princ (buffer-string)))))

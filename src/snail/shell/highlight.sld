@@ -34,6 +34,9 @@
          Source
          make-source
          source-text
+         source-header?
+         source-header
+         compiling
          Whitespace
          LineComment
          BlockComment
@@ -158,6 +161,18 @@
     ;; `#;` comments out is one comment with it.
     (: next-token (-> Source I64 Naming (Option (Pair Token Naming))))
     (define (next-token source index naming)
+      (if (and (= index 0) (source-header? source))
+          (Some (Pair (Token 0 5 (header-class source)) naming))
+          (ordinary-token source index naming)))
+
+    (: header-class (-> Source Class))
+    (define (header-class source)
+      (match (compiling (lambda () (source-header source)))
+        ((Ok _) (Keyword))
+        ((Err _) (Invalid))))
+
+    (: ordinary-token (-> Source I64 Naming (Option (Pair Token Naming))))
+    (define (ordinary-token source index naming)
       (match (atmosphere-at source index)
         ((Some (Pair (DatumComment) end))
          (Some (Pair (Token index (datum-end source end) (Comment)) naming)))

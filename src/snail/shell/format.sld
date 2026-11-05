@@ -19,7 +19,10 @@
    format-width
    indent-lines)
   (import
-   (snail core base))
+   (snail core base)
+   (only (snail shell compiler read)
+         make-source
+         source-header?))
   (begin
 
     ;; ---- Tokens ----
@@ -400,6 +403,12 @@
     ;; open where it starts, as the lines above it now stand.
     (: indent-lines (-> String I64 I64 String))
     (define (indent-lines text first last)
+      (if (source-header? (make-source "" text))
+          text
+          (indent-sexp-lines text first last)))
+
+    (: indent-sexp-lines (-> String I64 I64 String))
+    (define (indent-sexp-lines text first last)
       (let loop ((lines (lex text)) (index 0) (frames (Nil)) (out (Nil)))
         (match lines
           ((Cons line rest)
@@ -1097,9 +1106,15 @@
 
     ;; ---- Formatting ----
 
-    ;; Declarations first, then indentation, breaking lines past `width`.
+    ;; Until layout formatting is implemented, preserve source-header files
+    ;; byte for byte, including unfinished headers. Lisp indentation would
+    ;; change their meaning. The command-line formatter follows this rule.
     (: format-source (-> String I64 String))
     (define (format-source text width)
+      (if (source-header? (make-source "" text)) text (format-sexp-source text width)))
+
+    (: format-sexp-source (-> String I64 String))
+    (define (format-sexp-source text width)
       (let* ((lines (lex text))
              (broken (string-join (break-lines lines
                                                (declaration-breaks

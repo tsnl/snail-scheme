@@ -63,6 +63,15 @@
    fail-if-found
    in-source-order
    read-text
+   read-source-text
+   ReaderMode
+   SexpReader
+   LayoutReader
+   SourceHeader
+   SourceHeader-reader
+   SourceHeader-start
+   source-header?
+   source-header
    decode-syntax
    Source
    make-source
@@ -765,6 +774,169 @@
     (define (read-text text file)
       (read-all (make-source file text) 0 (Nil)))
 
+    ;; ---- Source headers ----
+
+    ;; The two built-in readers share datums and locations. Only source
+    ;; files select a reader; read-text stays the traditional data protocol.
+    (enum ReaderMode
+      (SexpReader)
+      (LayoutReader))
+
+    ;; The reader and its starting index in the original source. Keeping
+    ;; that source, rather than slicing off the header, preserves locations.
+    (struct SourceHeader
+      ((reader ReaderMode)
+       (start I64)))
+
+    ;; Editors use this probe even for unfinished or unknown headers, so
+    ;; formatting never rewrites their bodies as ordinary Lisp.
+    (: source-header? (-> Source Bool))
+    (define (source-header? source)
+      (string=? (source-text source 0 (token-end source 0)) "#lang"))
+
+    (: source-header (-> Source SourceHeader ! compile))
+    (define (source-header source)
+      (if (source-header? source)
+          (let* ((start (horizontal-end source 5))
+                 (end (token-end source start))
+                 (reader (header-reader source start end)))
+            (SourceHeader reader (header-body source end)))
+          (SourceHeader (SexpReader) 0)))
+
+    (: horizontal-end (-> Source I64 I64))
+    (define (horizontal-end source index)
+      (if (or (char-is? source index #\space) (char-is? source index #\tab))
+          (horizontal-end source (+ index 1))
+          index))
+
+    (: header-reader (-> Source I64 I64 ReaderMode ! compile))
+    (define (header-reader source start end)
+      (let ((name (source-text source start end)))
+        (cond ((string=? name "snail") (LayoutReader))
+              ((string=? name "snail/sexp") (SexpReader))
+              (else (compile-error (source-loc source start)
+                                   "expected reader name snail or snail/sexp")))))
+
+    (: header-body (-> Source I64 I64 ! compile))
+    (define (header-body source index)
+      (let* ((start (horizontal-end source index))
+             (end (if (char-is? source start #\;) (line-end source start) start)))
+        (cond ((at-end? source end) end)
+              ((char-is? source end #\newline) (+ end 1))
+              ((and (char-is? source end (integer->char 13))
+                    (char-is? source (+ end 1) #\newline)) (+ end 2))
+              (else (compile-error (source-loc source end)
+                                   "expected end of #lang header after reader name")))))
+
+    (: read-source-text (-> String String (List Syntax) ! compile))
+    (define (read-source-text text file)
+      (let* ((source (make-source file text)) (header (source-header source)))
+        (match (SourceHeader-reader header)
+          ((SexpReader) (read-all source (SourceHeader-start header) (Nil)))
+          ((LayoutReader)
+           (Pair-first (layout-block (layout-lines source (SourceHeader-start header))
+                                     1
+                                     (source-loc source (SourceHeader-start header))))))))
+
+    ;; ---- Layout lines ----
+
+    ;; A logical line contains complete traditional datums. Its first datum
+    ;; proves it is nonempty and supplies both its location and indentation.
+    ;; Explicit lists, strings and quotes consume their own internal lines.
+    (struct LayoutLine
+      ((head Syntax)
+       (tail (List Syntax))))
+
+    ;; Atmosphere up to an external newline or a datum. Remember a tab only
+    ;; to diagnose indentation when a datum follows; empty lines have none.
+    (struct LayoutGap
+      ((end I64)
+       (tab (Option Loc))))
+
+    (: layout-gap (-> Source I64 (Option Loc) LayoutGap ! compile))
+    (define (layout-gap source index tab)
+      (cond ((or (at-end? source index) (char-is? source index #\newline))
+             (LayoutGap index tab))
+            ((char-whitespace? (peek source index))
+             (layout-gap source (+ index 1)
+                         (if (char-is? source index #\tab) (Some (source-loc source index)) tab)))
+            (else (match (atmosphere-at source index)
+                    ((Some (Pair (BlockComment #f) end))
+                     (compile-error (source-loc source end) "unterminated block comment"))
+                    ((Some (Pair (DatumComment) end))
+                     (layout-gap source (Pair-second (read-datum source end)) tab))
+                    ((Some (Pair _ end)) (layout-gap source end tab))
+                    ((None) (LayoutGap index tab))))))
+
+    (: layout-lines (-> Source I64 (List LayoutLine) ! compile))
+    (define (layout-lines source index)
+      (let loop ((index index) (lines (Nil)))
+        (let* ((gap (layout-gap source index (None))) (start (LayoutGap-end gap)))
+          (cond ((at-end? source start) (reverse lines))
+                ((char-is? source start #\newline) (loop (+ start 1) lines))
+                (else (check-layout-indent source gap)
+                      (match (layout-line source start)
+                        ((Pair line end) (loop end (Cons line lines)))))))))
+
+    ;; Only a whitespace tab on the first datum's physical line is
+    ;; indentation. Tabs inside comments, or on earlier lines, do not count.
+    (: check-layout-indent (-> Source LayoutGap Unit ! compile))
+    (define (check-layout-indent source gap)
+      (match (LayoutGap-tab gap)
+        ((Some loc)
+         (when (= (Loc-line loc) (Loc-line (source-loc source (LayoutGap-end gap))))
+           (compile-error loc "layout indentation uses spaces, not tabs")))
+        ((None) (unit))))
+
+    (: layout-line (-> Source I64 (Pair LayoutLine I64) ! compile))
+    (define (layout-line source start)
+      (let ((head (read-datum source start)))
+        (let loop ((index (Pair-second head)) (tail (Nil)))
+          (let ((next (LayoutGap-end (layout-gap source index (None)))))
+            (if (or (at-end? source next) (char-is? source next #\newline))
+                (Pair (LayoutLine (Pair-first head) (reverse tail)) next)
+                (match (read-datum source next)
+                  ((Pair datum end) (loop end (Cons datum tail)))))))))
+
+    ;; ---- Layout lists ----
+
+    ;; Siblings have one column. Returning a lower column lets the enclosing
+    ;; block consume it; a column between established levels is a bad dedent.
+    ;; Each line and datum is consumed once, with no mutable indentation stack.
+    (: layout-block (-> (List LayoutLine) I64 Loc (Pair (List Syntax) (List LayoutLine)) ! compile))
+    (define (layout-block lines column opening)
+      (let loop ((lines lines) (forms (Nil)))
+        (match lines
+          ((Nil) (Pair (reverse forms) lines))
+          ((Cons line rest)
+           (let ((loc (syntax-loc (LayoutLine-head line))))
+             (cond ((< (Loc-column loc) column) (Pair (reverse forms) lines))
+                   ((> (Loc-column loc) column)
+                    (compile-error loc
+                                   (string-append "expected layout column " (i64->string column)
+                                                  " for block at " (loc->string opening))))
+                   (else (match (layout-form line rest)
+                           ((Pair form remaining) (loop remaining (Cons form forms)))))))))))
+
+    (: layout-form (-> LayoutLine (List LayoutLine) (Pair Syntax (List LayoutLine)) ! compile))
+    (define (layout-form line rest)
+      (let ((loc (syntax-loc (LayoutLine-head line))))
+        (match rest
+          ((Cons next _)
+           (let ((column (Loc-column (syntax-loc (LayoutLine-head next)))))
+             (if (> column (Loc-column loc))
+                 (match (layout-block rest column loc)
+                   ((Pair children remaining) (Pair (layout-list line children) remaining)))
+                 (Pair (layout-list line (Nil)) rest))))
+          ((Nil) (Pair (layout-list line (Nil)) rest)))))
+
+    (: layout-list (-> LayoutLine (List Syntax) Syntax))
+    (define (layout-list line children)
+      (let ((head (LayoutLine-head line)))
+        (if (and (null? (LayoutLine-tail line)) (null? children))
+            head
+            (Form (Cons head (append (LayoutLine-tail line) children)) (syntax-loc head)))))
+
     ;; ---- Generated syntax ----
 
     ;; One form in the encoding src/snail/shell/syntax.sld describes, every part
@@ -900,9 +1072,109 @@
                 (list "#u8(0 137 255)" "#u8()"))
         (expect (compile-failure (lambda () (read-text "#u8(1 256)" "t")))
                 "t:1:7: a byte is an integer from 0 to 255")
+        (test-source-headers)
+        (test-layout)
+        (test-layout-locations)
+        (test-layout-failures)
         (test-unclosed)
         (test-source-diagnostic)
         (test-decode-syntax))
+
+      (define (source-strings text)
+        (map syntax->string (read-source-text text "layout.sld")))
+
+      (define (layout-strings text)
+        (source-strings (string-append "#lang snail\n" text)))
+
+      (define (source-failure text)
+        (compile-failure (lambda () (read-source-text text "layout.sld"))))
+
+      (define (test-source-headers)
+        (for-each (lambda (text) (expect (read-source-text text "old") (read-text text "old")))
+                  (list "" "f x\n(g) (h)" "\t(a\n b) 'x #;ignored label:" "\"a\nb\" #\\:"))
+        (expect (source-strings "#lang snail/sexp\nf x\n  (g) (h)")
+                (list "f" "x" "(g)" "(h)"))
+        (expect (source-strings "#lang\tsnail \t; header\r\nf x\r\n  g y\r\n")
+                (list "(f x (g y))"))
+        (expect (source-strings "#lang snail\r\nf x") (list "(f x)"))
+        (expect (source-strings "#lang snail") (list))
+        (expect (source-strings "#lang snail/sexp ; no body") (list))
+        (expect (source-header? (make-source "" "#language snail")) #f)
+        (expect (source-header? (make-source "" "\n#lang snail")) #f)
+        (expect (source-header? (make-source "" "; comment\n#lang snail")) #f)
+        (expect (source-failure "#lang\n")
+                "layout.sld:1:6: expected reader name snail or snail/sexp")
+        (expect (source-failure "#lang Snail\n")
+                "layout.sld:1:7: expected reader name snail or snail/sexp")
+        (expect (source-failure "#lang snail other\n")
+                "layout.sld:1:13: expected end of #lang header after reader name")
+        (expect (compile-failure (lambda () (read-text "#lang snail\nf x" "data")))
+                "data:1:1: unsupported syntax #lang"))
+
+      (define (test-layout)
+        (expect (layout-strings "f x\n  g y\n  z\nask\n(ask)\n(f) (g)\nf(x)\nf()")
+                (list "(f x (g y) z)" "ask" "(ask)" "((f) (g))" "(f (x))" "(f ())"))
+        (expect (layout-strings "let ((x 10)\n     (y 20))\n  write-line (show x)\n  + x y")
+                (list "(let ((x 10) (y 20)) (write-line (show x)) (+ x y))"))
+        (expect (layout-strings "if ready\n  begin\n    (ask)\n    x\n  y\n(done)")
+                (list "(if ready (begin (ask) x) y)" "(done)"))
+        (expect (layout-strings "cond\n  (< n 0)\n    f n\n  else\n    (g)")
+                (list "(cond ((< n 0) (f n)) (else (g)))"))
+        (expect (layout-strings "(f)\n  x\nf\n    g\n       h\n    i\nj")
+                (list "((f) x)" "(f (g h) i)" "j"))
+        (expect (layout-strings "(: f (-> I64 I64))\nlabel: x\n: f I64\n'foo x\n'(f x)")
+                (list "(: f (-> I64 I64))"
+                      "(label: x)"
+                      "(: f I64)"
+                      "((quote foo) x)"
+                      "(quote (f x))"))
+        (expect (layout-strings "f [a\n\tb] #u8(1\n 2) #\\newline\n  \"a\nb\"\n  'label:")
+                (list "(f (a b) #u8(1 2) #\\\n \"a\\nb\" (quote label:))"))
+        (test-layout-comments))
+
+      (define (test-layout-comments)
+        (expect
+         (layout-strings "\t; ignored\n\t\nf ; header\n\n  g x\n; ignored\n\t; ignored\n  y\n")
+         (list "(f (g x) y)"))
+        (expect (layout-strings "f #| a\n #| nested |# b |# x\n  y")
+                (list "(f x y)"))
+        (expect (layout-strings "f #; (ignored\n  x) y\n  z\n#;ignored\n(end)")
+                (list "(f y z)" "(end)"))
+        (expect (layout-strings "f #; #; x y z") (list "(f z)"))
+        (expect (layout-strings "'\n(foo bar)\n(done)")
+                (list "(quote (foo bar))" "(done)"))
+        (expect (layout-strings "\n;empty\n#| multi\nline |#\n#; ignored") (list))
+        (expect (layout-strings "f\tx\n  (g\n\tx)") (list "(f x (g x))"))
+        ;; The first datum's physical column counts even after a comment;
+        ;; the comment's own tab is not layout indentation.
+        (expect (layout-strings "f\n#|\t|#x\n     y") (list "(f x y)")))
+
+      (define (test-layout-locations)
+        (let ((forms (read-source-text "#lang snail\nf x\n  g y\nh" "positions")))
+          (expect (map (lambda (form) (loc->string (syntax-loc form))) forms)
+                  (list "positions:2:1" "positions:4:1"))
+          (match (car forms)
+            ((Form (Cons f (Cons x (Cons (Form (Cons g (Cons y (Nil))) _) (Nil)))) _)
+             (expect (map (lambda (form) (loc->string (syntax-loc form))) (list f x g y))
+                     (list "positions:2:1" "positions:2:3" "positions:3:3" "positions:3:5")))))
+        (expect (loc->string (syntax-loc (car (read-source-text "#lang snail/sexp\n(a)" "old"))))
+                "old:2:1"))
+
+      (define (test-layout-failures)
+        (expect (source-failure "#lang snail\n  f")
+                "layout.sld:2:3: expected layout column 1 for block at layout.sld:2:1")
+        (expect (source-failure "#lang snail\nf\n    g\n  x")
+                "layout.sld:4:3: expected layout column 1 for block at layout.sld:2:1")
+        (expect (source-failure "#lang snail\nf\n\tx")
+                "layout.sld:3:1: layout indentation uses spaces, not tabs")
+        (expect (source-failure "#lang snail\nf\n  (g")
+                "layout.sld:3:3: unclosed list")
+        (expect (source-failure "#lang snail\nf #| nope")
+                "layout.sld:2:10: unterminated block comment")
+        (expect (source-failure "#lang snail\n#; ")
+                "layout.sld:2:4: expected a datum before the end of the file")
+        (expect (source-failure "#lang snail\nf\n  #lang snail/sexp")
+                "layout.sld:3:3: unsupported syntax #lang"))
 
       ;; The lexemes run to the end of the text; the reader says what is
       ;; missing. A string's escapes stay inside its quotes.

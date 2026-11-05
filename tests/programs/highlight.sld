@@ -107,3 +107,23 @@
 (show-tokens "\"unterminated\n(still a string")
 (show-tokens "#| unterminated")
 (show-tokens "(#; )")
+
+
+;; Header highlighting uses the same fixed resolver as source reading.
+;; It still tiles incomplete text and preserves the ordinary comment tokens.
+(for-each (lambda (text)
+            (match (highlight-tokens text)
+              ((Cons token _)
+               (unless (and (= (Token-start token) 0)
+                            (= (Token-end token) 5)
+                            (string=? (class-name (Token-class token)) "keyword"))
+                 (panic "valid source header was not highlighted")))
+              (_ (panic "missing header token"))))
+          (list "#lang snail\nf x\n  g y\n" "#lang snail/sexp ; comment\r\n(f x)"))
+(for-each (lambda (text)
+            (match (highlight-tokens text)
+              ((Cons token _)
+               (unless (string=? (class-name (Token-class token)) "invalid")
+                 (panic "invalid source header was accepted")))
+              (_ (panic "missing invalid header token"))))
+          (list "#lang" "#lang future\nf x" "#lang snail extra"))

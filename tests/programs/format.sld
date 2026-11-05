@@ -40,3 +40,17 @@
 
 ;; Reindenting only the second line leaves the third as it was.
 (write-string (indent-lines "(foo bar\nbaz\n  qux)\n" 1 1))
+
+
+;; Source-header files must survive save and Tab without Lisp reindentation,
+;; including an unfinished or unknown header while the user is editing it.
+(for-each (lambda (source)
+            (unless (and (string=? source (format-source source 40))
+                         (string=? source (indent-lines source 0 20)))
+              (panic "formatting changed a source-header file")))
+          (list "#lang snail\nlet ((x 1))\n  + x 2\n"
+                "#lang snail/sexp\n(f   x)\n"
+                "#lang future\nf x\n  g y\n"
+                "#lang\n    unfinished\n"
+                "#lang; missing name\nf\n  x\n"
+                "#lang snail\r\nf\r\n  x\r\n"))
