@@ -97,15 +97,16 @@ uses macros (`list`, `string-append`) or lists.
 ## Proposed surface design
 
 **Draft for approval, not implemented.** The [layout-reader draft](surface.md)
-adds colon-opened indentation blocks to S-expressions. Inside those blocks,
-newlines delimit forms; outside them, existing reading is preserved. The
-compatibility goal is a strict superset of accepted source except for active
-layout-colon occurrences. Calls such as `(ask)`, final-expression results,
-symbols, binding rules, and `syntax-rules` remain Scheme's. No backslash
-grouping syntax is introduced.
+adds logical newlines and indentation to construct S-expressions without
+colon or backslash markers. Layout applies at the top level and inside
+blocks; explicit lists retain ordinary S-expression reading. The new mode
+deliberately changes grouping outside explicit lists, so it is not a strict
+superset. Calls such as `(ask)`, final-expression results, symbols, binding
+rules, and `syntax-rules` remain Scheme's. A `let` keeps an explicit binding
+list and indents its body.
 
-The draft specifies list construction, the colon carveout, source locations,
-editor support, and the Chibi bootstrap boundary. Per-file readers remain
+The draft specifies list construction, the compatibility tradeoff, source
+locations, editor support, and the Chibi bootstrap boundary. Per-file readers remain
 `#lang snail` and `#lang snail/sexp`. Proposed [callable contracts](types.md#proposed-callable-typeclass)
 and [places](types.md#proposed-places-and-locators) remain separate semantic
 decisions. Completing the feature includes promoting the temporary proposal
