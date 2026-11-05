@@ -1,4 +1,4 @@
-/* A toolbar, project files and editor panes, as host/ide/ide.sld's view
+/* Project files, editor panes and a command palette, as host/ide/ide.sld's view
    lays them out. Text, highlighting and gutter share a font and its line
    height, which the view's highlighting counts on. Compiler messages occupy
    a separate panel. */
@@ -6,16 +6,14 @@
   --accent: #61afef; --error: #e06c75; --code: 13px/20px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 html, body, #ide { height: 100%; margin: 0; overflow: hidden; }
 body { background: var(--background); color: var(--text); font: 13px/1.4 system-ui, sans-serif; }
-.ide { display: grid; height: 100%; grid-template-rows: 32px minmax(0, 1fr) auto auto; }
+.ide { display: grid; height: 100%; grid-template-rows: minmax(0, 1fr) auto auto 24px; }
 button { font: inherit; color: inherit; }
 
-.toolbar { display: flex; align-items: center; gap: 2px; padding: 0 6px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.statusbar { grid-row: 4; display: flex; align-items: center; gap: 2px; padding: 0 6px; border-top: 1px solid var(--line); background: var(--surface); }
 .tool { height: 24px; min-width: 26px; padding: 0 8px; border: 0; border-radius: 4px; background: none; cursor: pointer; }
 .tool:disabled { opacity: 0.4; cursor: default; }
 .tool:hover { background: var(--raised); }
-.tool[aria-pressed="false"] { color: var(--muted); }
-.project { padding: 0 8px; font-weight: 600; }
-.status { flex: 1; overflow: hidden; padding: 0 12px; color: var(--muted); text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.status { flex: 1; overflow: hidden; padding: 0 8px; color: var(--muted); text-align: right; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 .status[data-state="failed"] { color: var(--error); }
 .status[data-state="built"] { color: #98c379; }
 
@@ -101,3 +99,17 @@ button { font: inherit; color: inherit; }
 .drag-overlay { position: fixed; inset: 0; z-index: 10; }
 .drag-overlay.row { cursor: col-resize; }
 .drag-overlay.column { cursor: row-resize; }
+
+.palette-layer { position: fixed; inset: 0; z-index: 20; display: flex; justify-content: center; align-items: flex-start; padding-top: 10vh; }
+.palette-backdrop { position: absolute; inset: 0; border: 0; background: rgb(0 0 0 / 35%); }
+.palette { position: relative; width: min(620px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); box-shadow: 0 14px 50px #0008; overflow: hidden; }
+.palette input { box-sizing: border-box; width: 100%; padding: 14px; border: 0; border-bottom: 1px solid var(--line);
+  outline: none; background: var(--background); color: var(--text); font: var(--code); }
+#command-results { max-height: 50vh; overflow: auto; padding: 4px; }
+.palette-option { display: flex; justify-content: space-between; gap: 12px; width: 100%; min-height: 30px; padding: 5px 10px; border: 0; border-radius: 4px;
+  background: none; color: var(--text); text-align: left; cursor: pointer; font: var(--code); }
+.palette-option:hover, .palette-option.selected { background: var(--raised); }
+.command-keys { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.palette-help, .palette-empty { margin: 0; padding: 8px 14px; color: var(--muted); font-size: 11px; }
+.palette-help { border-top: 1px solid var(--line); }

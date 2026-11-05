@@ -14,6 +14,7 @@
 (import
  (snail core base)
  (snail shell utf8)
+ (only (snail shell text) string-downcase string-upcase)
  (only (snail shell task) tasks)
  (snail shell dom)
  (snail shell fetch)
@@ -22,6 +23,7 @@
  (snail shell format)
  (snail shell highlight)
  (snail shell ui)
+ (prefix (snail shell ui commands) command-)
  (snail shell ui page))
 
 ;; ---- Text ----
@@ -806,6 +808,10 @@
   (Dividing ((split I64)
              (box Measure))))
 
+(struct Palette
+  ((query String)
+   (selected I64)))
+
 ;; The editor: the project; the sequence of its latest listing; the open
 ;; buffers, in the order they were opened; the sequence of the latest read
 ;; of any; the panes, how they are laid out, the active one and the next
@@ -826,6 +832,8 @@
    (files-shown Bool)
    (files-width F64)
    (drag (Option Drag))
+   (palette (Option Palette))
+   (auto-open Bool)
    (status Status)
    (report String)
    (generation I64)
@@ -847,6 +855,8 @@
        #t
        220.0
        (None)
+       (None)
+       #t
        (Status "Connecting…" "starting" "")
        ""
        0
@@ -1007,27 +1017,29 @@
   (Focused ((pane I64)))
   (Scrolled ((pane I64)
              (top F64)))
-  (Save)
   (Saved ((path String)
           (result (Result Snapshot Failure))))
-  (Format)
   (Formatted ((path String)
               (taken Bool)))
-  (Reload)
   (Discard ((path String)))
-  (Build)
   (Refused ((failure Failure)))
-  (Divide ((pane I64)
-           (direction String)))
   (Close ((pane I64)))
-  (ToggleFiles)
+  (CloseReady ((pane I64)
+               (path String)
+               (text String)))
+  (RunCommand ((name String)))
+  (PaletteQuery ((query String)))
+  (PaletteKey ((key String)
+               (modifiers I32)))
+  (DismissPalette)
   (ToggleFolder ((path String)))
   (Grab ((grip Grip)))
   (Grabbed ((drag Drag)))
   (Dragged ((x F64)
             (y F64)))
   (Dropped)
-  (Shortcut ((key String)))
+  (Shortcut ((key String)
+             (modifiers I32)))
   (Choose ((target String)))
   (Control ((action String)))
   (Controlled ((action String)
@@ -1067,24 +1079,27 @@
     ((Pressed pane key text start end) (pressed model pane key text start end))
     ((Focused pane) (stay (Ide-active-set model pane)))
     ((Scrolled pane top) (stay (pane-set model (Pane-scroll-set (pane-of model pane) top))))
-    ((Save) (saving model))
     ((Saved path result) (saved model path result))
-    ((Format) (formatting model))
     ((Formatted path taken) (formatted model path taken))
-    ((Reload) (reloading model))
     ((Discard path) (discarded model path))
-    ((Build) (Pair model (list (once building))))
     ((Refused failure)
      (stay (Ide-status-set model (failed-status model (Failure-message failure)))))
-    ((Divide pane direction) (divided (Ide-active-set model pane) direction))
-    ((Close pane) (closing (Ide-active-set model pane)))
-    ((ToggleFiles) (stay (Ide-files-shown-set model (not (Ide-files-shown model)))))
+    ((Close pane) (invoked (Ide-active-set model pane) closing))
+    ((CloseReady pane path text) (close-ready model pane path text))
+    ((RunCommand name) (run-command model name))
+    ((PaletteQuery query)
+     (match (Ide-palette model)
+       ((Some _) (stay (Ide-palette-set model (Some (Palette query 0)))))
+       ((None) (stay model))))
+    ((PaletteKey key modifiers) (palette-key model key modifiers))
+    ((DismissPalette)
+     (Pair (Ide-palette-set model (None)) (list (focusing model (Ide-active model)))))
     ((ToggleFolder path) (stay (Ide-closed-set model (toggled (Ide-closed model) path))))
     ((Grab grip) (Pair model (list (once (lambda () (grabbed grip))))))
     ((Grabbed drag) (stay (Ide-drag-set model (Some drag))))
     ((Dragged x y) (stay (dragged model x y)))
     ((Dropped) (stay (Ide-drag-set model (None))))
-    ((Shortcut key) (update model (shortcut model key)))
+    ((Shortcut key modifiers) (shortcut model key modifiers))
     ((Choose target) (stay (Ide-runs-set model (Runs-selected-set (Ide-runs model) target))))
     ((Control action) (controlling model action))
     ((Controlled action target result) (controlled model action target result))))
@@ -1168,8 +1183,8 @@
                                 (Listed sequence
                                         (project-reply (api "GET" "/api/project" (Nil) "")))))))))))
 
-;; Only the latest listing counts. A project with files and no open
-;; buffer opens its main.sld, or its first file.
+;; Only the latest listing counts. The first nonempty project listing
+;; opens main.sld or its first file; explicit closes never reopen a file.
 (: listed (-> Ide I64 (Result Project Failure) Step))
 (define (listed model sequence result)
   (if (= sequence (Ide-listing model))
@@ -1178,7 +1193,7 @@
          (let ((model (Ide-project-set model project)))
            (match (Project-files project)
              ((Cons first _)
-              (if (null? (Ide-buffers model))
+              (if (Ide-auto-open model)
                   (opening model
                            (if (member? "main.sld" (Project-files project)) "main.sld" first)
                            (Focus (Ide-active model)))
@@ -1193,7 +1208,8 @@
 ;; diagnostic's point is to be found in it.
 (: opening (-> Ide String Follow Step))
 (define (opening model path follow)
-  (let* ((model (match (buffer-at model path)
+  (let* ((model (Ide-auto-open-set model #f))
+         (model (match (buffer-at model path)
                   ((Some _) model)
                   ((None) (buffer-set model (new-buffer path)))))
          (model (pane-set model (Pane-path-set (pane-of model (Ide-active model)) (Some path)))))
@@ -1220,15 +1236,16 @@
 ;; when the diagnostic is still the one the pane marks.
 (: followed (-> Ide String Follow (List (Command Msg))))
 (define (followed model path follow)
-  (match follow
-    ((Stay) (Nil))
-    ((Focus pane) (if (showing? model pane path) (list (focusing pane)) (Nil)))
-    ((Reveal pane generation index)
-     (if (showing? model pane path)
-         (match (revealed model path generation index)
-           ((Some point) (list (revealing pane (shown-text model path) point)))
-           ((None) (list (focusing pane))))
-         (Nil)))))
+  (if (match (Ide-palette model) ((Some _) #t) ((None) #f)) (Nil)
+      (match follow
+        ((Stay) (Nil))
+        ((Focus pane) (if (showing? model pane path) (list (focusing model pane)) (Nil)))
+        ((Reveal pane generation index)
+         (if (showing? model pane path)
+             (match (revealed model path generation index)
+               ((Some point) (list (revealing pane (shown-text model path) point)))
+               ((None) (list (focusing model pane))))
+             (Nil))))))
 
 (: revealed (-> Ide String I64 I64 (Option Point)))
 (define (revealed model path generation index)
@@ -1248,13 +1265,11 @@
     ((Some buffer) (display-text (Buffer-text buffer)))
     ((None) "")))
 
-(: focusing (-> I64 (Command Msg)))
-(define (focusing pane)
-  (once (lambda ()
-          (match (element-by-id (field-id pane))
-            ((Some field) (focus-node field))
-            ((None) (unit)))
-          (Nothing))))
+(: focusing (-> Ide I64 (Command Msg)))
+(define (focusing model pane)
+  (focus-id (match (pane-buffer model pane)
+              ((Some buffer) (if (loaded? buffer) (field-id pane) "commands"))
+              ((None) "commands"))))
 
 ;; The caret at a diagnostic's point, its line scrolled a few lines below
 ;; the top.
@@ -1570,12 +1585,45 @@
                                (append (Ide-panes model)
                                        (list (Pane pane (Pane-path (pane-of model active)) 0.0)))))
          (model (Ide-layout-set model (leaf-replaced (Ide-layout model) active split))))
-    (Pair (Ide-next-set (Ide-active-set model pane) (+ pane 2)) (list (focusing pane)))))
+    (Pair (Ide-next-set (Ide-active-set model pane) (+ pane 2)) (list (focusing model pane)))))
 
-;; The active pane closes, its sibling taking its split's place; the last
-;; pane stays.
+;; Closing the last view of a draft asks before discarding it. A reply
+;; names the exact draft it was for; it cannot discard subsequent typing.
 (: closing (-> Ide Step))
 (define (closing model)
+  (match (active-buffer model)
+    ((None) (close-pane model))
+    ((Some buffer)
+     (let ((path (Buffer-path buffer)) (pane (Ide-active model)))
+       (cond ((Buffer-saving buffer) (stay model))
+             ((other-view? model pane path)
+              (close-pane model))
+             ((dirty? buffer)
+              (Pair model (list (once (lambda ()
+                                        (if (confirm
+                                             (string-append "Discard unsaved changes to " path "?"))
+                                            (CloseReady pane path (Buffer-text buffer))
+                                            (Nothing)))))))
+             (else (close-pane (buffer-removed model path))))))))
+
+(: close-ready (-> Ide I64 String String Step))
+(define (close-ready model pane path text)
+  (match (buffer-at model path)
+    ((Some buffer)
+     (if (and (showing? model pane path) (not (Buffer-saving buffer))
+              (string=? text (Buffer-text buffer)))
+         (close-pane (if (other-view? model pane path) model (buffer-removed model path)))
+         (stay model)))
+    ((None) (stay model))))
+
+(: other-view? (-> Ide I64 String Bool))
+(define (other-view? model pane path)
+  (any? (lambda (other) (and (not (= pane (Pane-id other))) (shows? other path)))
+        (Ide-panes model)))
+
+;; The active pane's sibling takes its place. The last pane stays empty.
+(: close-pane (-> Ide Step))
+(define (close-pane model)
   (let ((active (Ide-active model)))
     (match (sibling (Ide-layout model) active)
       ((Some beside)
@@ -1584,8 +1632,10 @@
               (model (Ide-panes-set model
                                     (filter (lambda (pane) (not (= (Pane-id pane) active)))
                                             (Ide-panes model)))))
-         (Pair (Ide-active-set model next) (list (focusing next)))))
-      ((None) (stay model)))))
+         (Pair (Ide-active-set model next) (list (focusing model next)))))
+      ((None)
+       (let ((empty (pane-set model (Pane-path-set (pane-of model active) (None)))))
+         (Pair empty (list (focusing empty active))))))))
 
 (: toggled (-> (List String) String (List String)))
 (define (toggled closed path)
@@ -1629,25 +1679,105 @@
         (/ (- x (+ (Measure-left box) (* (Area-left area) (Measure-width box))))
            (* (Area-width area) (Measure-width box))))))
 
-;; The page's shortcuts, keys held with Control or Command.
-(: shortcut (-> Ide String Msg))
-(define (shortcut model key)
-  (cond ((string=? key "s") (Save))
-        ((string=? key "F") (Format))
-        ((string=? key "b") (ToggleFiles))
-        ((string=? key "\\") (Divide (Ide-active model) "row"))
-        ((string=? key "|") (Divide (Ide-active model) "column"))
-        (else (Nothing))))
+;; ---- Commands ----
 
-(: shortcut-chords (List Chord))
-(define shortcut-chords
-  (concatenate (map (lambda (held)
-                      (list (Chord "s" held)
-                            (Chord "F" (+ held shift-key))
-                            (Chord "b" held)
-                            (Chord "\\" held)
-                            (Chord "|" (+ held shift-key))))
-                    (list control-key meta-key))))
+;; Names, keys and Scheme functions are registered together. The palette,
+;; keyboard invoke these same functions.
+(: primary-keys (-> String I32 (List Chord)))
+(define (primary-keys key extra)
+  (map (lambda (held) (Chord key (+ held extra))) (list control-key meta-key)))
+
+(: commands (command-Registry (-> Ide Step)))
+(define commands
+  (match (command-register
+          (list (command-Command "command-palette"
+                                 (Cons (Chord "F1" 0) (primary-keys "P" shift-key))
+                                 palette-open)
+                (command-Command "save-buffer" (primary-keys "s" 0) saving)
+                (command-Command "format-buffer" (primary-keys "F" shift-key) formatting)
+                (command-Command "reload-buffer" (Nil) reloading)
+                (command-Command "build-project"
+                                 (Nil)
+                                 (lambda (model) (Pair model (list (once building)))))
+                (command-Command "toggle-files" (primary-keys "b" 0)
+                                 (lambda (model)
+                                   (stay
+                                    (Ide-files-shown-set model (not (Ide-files-shown model))))))
+                (command-Command "split-right"
+                                 (primary-keys "\\" 0)
+                                 (lambda (model) (divided model "row")))
+                (command-Command "split-down"
+                                 (primary-keys "|" shift-key)
+                                 (lambda (model) (divided model "column")))
+                (command-Command "close-editor"
+                                 (Cons (Chord "w" alt-key) (primary-keys "w" 0))
+                                 closing)))
+    ((Ok registry) registry)
+    ((Err message) (panic message))))
+
+(: run-command (-> Ide String Step))
+(define (run-command model name)
+  (match (command-named commands name)
+    ((Some run) (invoked model run))
+    ((None) (stay model))))
+
+(: shortcut (-> Ide String I32 Step))
+(define (shortcut model key modifiers)
+  (match (command-keyed commands key modifiers)
+    ((Some run) (invoked model run))
+    ((None) (stay model))))
+
+(: invoked (-> Ide (-> Ide Step) Step))
+(define (invoked model run)
+  (then (run (Ide-palette-set model (None)))
+        (lambda (next)
+          (if (match (Ide-palette next) ((Some _) #t) ((None) #f)) (stay next)
+              (Pair next (list (focusing next (Ide-active next))))))))
+
+(: palette-open (-> Ide Step))
+(define (palette-open model)
+  (Pair (Ide-palette-set model (Some (Palette "" 0))) (list (focus-id "command-query"))))
+
+(: focus-id (-> String (Command Msg)))
+(define (focus-id id)
+  (once (lambda ()
+          (match (element-by-id id)
+            ((Some node) (focus-node node))
+            ((None) (unit)))
+          (Nothing))))
+
+;; Case-insensitive ordered characters let short names find long paths or
+;; commands, without a second vocabulary of natural-language labels.
+(: search-match? (-> String String Bool))
+(define (search-match? query text)
+  (let loop ((wanted (string->list (string-downcase query)))
+             (text (string->list (string-downcase text))))
+    (match wanted
+      ((Nil) #t)
+      ((Cons char rest)
+       (if (char-whitespace? char) (loop rest text)
+           (match text
+             ((Nil) #f)
+             ((Cons next more) (loop (if (char=? char next) rest wanted) more))))))))
+
+(: palette-names (-> Palette (List String)))
+(define (palette-names palette)
+  (filter (lambda (name) (search-match? (Palette-query palette) name))
+          (map command-Command-name (command-Registry-commands commands))))
+
+(: palette-key (-> Ide String I32 Step))
+(define (palette-key model key modifiers)
+  (match (Ide-palette model)
+    ((None) (stay model))
+    ((Some palette)
+     (let* ((names (palette-names palette)) (count (length names))
+            (at (min (Palette-selected palette) (- count 1)))
+            (backwards (or (string=? key "ArrowUp") (= modifiers shift-key)))
+            (next (max 0 (min (- count 1) (+ at (if backwards -1 1))))))
+       (cond ((string=? key "Escape") (update model (DismissPalette)))
+             ((and (string=? key "Enter") (> count 0))
+              (update model (RunCommand (list-ref names at))))
+             (else (stay (Ide-palette-set model (Some (Palette-selected-set palette next))))))))))
 
 ;; ---- Controlling runs ----
 
@@ -1784,8 +1914,7 @@
 
 ;; ---- The view ----
 
-;; A button the toolbar or a pane holds, which never takes the focus from
-;; the field.
+;; A compact button that leaves focus in the editor until its command runs.
 (: tool (-> String String String String Bool Msg (Html Msg)))
 (define (tool id class title label disabled message)
   (Element "button"
@@ -1801,75 +1930,152 @@
 (define (view model)
   (Element "div"
            (list (Attr "id" "workbench") (Attr "class" "ide"))
-           (append (list (toolbar-view model)
-                         (layout-view model)
+           (append (list (layout-view model)
                          (diagnostics-view model)
-                         (runs-view (Ide-runs model)))
-                   (drag-view model))))
+                         (runs-view (Ide-runs model))
+                         (status-view model))
+                   (append (drag-view model) (palette-view model)))))
 
-(: toolbar-view (-> Ide (Html Msg)))
-(define (toolbar-view model)
-  (let* ((buffer (active-buffer model))
-         (loaded (match buffer
-                   ((Some found) (loaded? found))
-                   ((None) #f)))
-         (busy (match buffer
-                 ((Some found) (Buffer-saving found))
-                 ((None) #t)))
-         (source (match buffer
-                   ((Some found) (source-file? (Buffer-path found)))
-                   ((None) #f)))
-         (status (Ide-status model)))
-    (Element "header"
-             (list (Attr "class" "toolbar"))
-             (list (Element "button"
-                            (list (Attr "id" "toggle-files")
-                                  (Attr "class" "tool")
-                                  (Attr "title" "Files (Ctrl+B)")
-                                  (Attr "aria-pressed" (if (Ide-files-shown model) "true" "false"))
-                                  (On "mousedown" (Nil) (Always) (lambda (event) (Nothing)))
-                                  (On "click" (Nil) (Allow) (lambda (event) (ToggleFiles))))
-                            (list (Text "☰")))
-                   (Element "span"
-                            (list (Attr "id" "project") (Attr "class" "project"))
-                            (list (Text (Project-name (Ide-project model)))))
-                   (tool "save" "tool" "Save (Ctrl+S)" "Save" (or (not loaded) busy) (Save))
-                   (tool "reload"
+(: status-view (-> Ide (Html Msg)))
+(define (status-view model)
+  (let ((status (Ide-status model)))
+    (Element "footer" (list (Attr "class" "statusbar"))
+             (list (tool "toggle-files"
                          "tool"
-                         "Reload the selected file from disk"
-                         "Reload"
-                         busy
-                         (Reload))
-                   (tool "build" "tool" "Build the files saved on disk" "Build" #f (Build))
-                   ;; The status is the span's whole text, set as a property, so
-                   ;; it is right again however the page's text was changed.
+                         "Toggle files (Cmd/Ctrl+B)"
+                         "☰"
+                         #f
+                         (RunCommand "toggle-files"))
+                   (tool "commands"
+                         "tool"
+                         "Commands (Cmd/Ctrl+Shift+P or F1)"
+                         ">_"
+                         #f
+                         (RunCommand "command-palette"))
                    (Element "span"
-                            (list (Attr "id" "status")
-                                  (Attr "class" "status")
-                                  (Attr "role" "status")
-                                  (Attr "title" (Status-text status))
+                            (list (Attr "id" "status") (Attr "class" "status")
+                                  (Attr "role" "status") (Attr "title" (Status-text status))
                                   (Attr "data-state" (Status-state status))
                                   (Attr "data-attempt" (Status-attempt status))
                                   (StringProperty "textContent" (Status-text status)))
-                            (Nil))
-                   (tool "format"
-                         "tool"
-                         "Format (Ctrl+Shift+F)"
-                         "Format"
-                         (not (and loaded source))
-                         (Format))
-                   (tool "split-right"
-                         "tool"
-                         "Split right (Ctrl+\\)"
-                         "⇥"
-                         #f
-                         (Divide (Ide-active model) "row"))
-                   (tool "split-down"
-                         "tool"
-                         "Split down (Ctrl+Shift+\\)"
-                         "⤓"
-                         #f
-                         (Divide (Ide-active model) "column"))))))
+                            (Nil))))))
+
+;; The palette keeps focus in its query. Results are options of that
+;; combobox; arrows and Tab select, Enter invokes, Escape returns to code.
+(: palette-view (-> Ide (List (Html Msg))))
+(define (palette-view model)
+  (match (Ide-palette model)
+    ((None) (Nil))
+    ((Some palette)
+     (let* ((names (palette-names palette))
+            (selected (min (Palette-selected palette) (- (length names) 1))))
+       (list (Element "div" (list (Attr "class" "palette-layer"))
+                      (list (Element "button"
+                                     (list (Attr "class" "palette-backdrop") (Attr "tabindex" "-1")
+                                           (Attr "aria-label" "Close command palette")
+                                           (On "click"
+                                               (Nil)
+                                               (Allow)
+                                               (lambda (event) (DismissPalette))))
+                                     (Nil))
+                            (Element "section"
+                                     (list (Attr "class" "palette") (Attr "role" "dialog")
+                                           (Attr "aria-modal" "true")
+                                           (Attr "aria-label" "Commands"))
+                                     (list (Element "input"
+                                                    (list (Attr "id" "command-query")
+                                                          (Attr "placeholder" "Run a command…")
+                                                          (Attr "aria-label" "Command name")
+                                                          (Attr "role" "combobox")
+                                                          (Attr "aria-expanded" "true")
+                                                          (Attr "aria-controls" "command-results")
+                                                          (Attr "aria-autocomplete" "list")
+                                                          (Attr "aria-describedby" "palette-help")
+                                                          (Attr "aria-activedescendant"
+                                                                (if (< selected 0)
+                                                                    ""
+                                                                    (string-append "command-result-"
+                                                                                   (show
+                                                                                    selected))))
+                                                          (Attr "autocomplete" "off")
+                                                          (Attr "spellcheck" "false")
+                                                          (StringProperty "value"
+                                                                          (Palette-query palette))
+                                                          (On "input"
+                                                              (list (Value))
+                                                              (Allow)
+                                                              (lambda (event)
+                                                                (PaletteQuery (Event-value event))))
+                                                          (On "keydown"
+                                                              (list (Key))
+                                                              (Chords palette-chords)
+                                                              (lambda (event)
+                                                                (PaletteKey (Event-key event)
+                                                                            (Event-modifiers
+                                                                             event)))))
+                                                    (Nil))
+                                           (Element "div"
+                                                    (list (Attr "id" "command-results")
+                                                          (Attr "role" "listbox")
+                                                          (NumberProperty "scrollTop"
+                                                                          (i64->f64 (max 0
+                                                                                         (-
+                                                                                          (*
+                                                                                           selected
+                                                                                           30)
+                                                                                          180)))))
+                                                    (if (null? names)
+                                                        (list (Element "p"
+                                                                       (list (Attr "class"
+                                                                                   "palette-empty"))
+                                                                       (list
+                                                                        (Text
+                                                                         "No matching commands"))))
+                                                        (map (lambda (index)
+                                                               (palette-option
+                                                                (list-ref names index)
+                                                                index
+                                                                (= index selected)))
+                                                             (iota (length names)))))
+                                           (Element "p"
+                                                    (list (Attr "id" "palette-help")
+                                                          (Attr "class" "palette-help"))
+                                                    (list
+                                                     (Text
+                                                      "↑ ↓ choose · Enter run · Escape close"))))))))))))
+
+(: palette-option (-> String I64 Bool (Html Msg)))
+(define (palette-option name index selected)
+  (Element "button"
+           (list (Attr "id" (string-append "command-result-" (show index)))
+                 (Attr "class" (if selected "palette-option selected" "palette-option"))
+                 (Attr "role" "option") (Attr "aria-selected" (if selected "true" "false"))
+                 (Attr "tabindex" "-1") (Attr "data-command" name)
+                 (On "mousedown" (Nil) (Always) (lambda (event) (Nothing)))
+                 (On "click" (Nil) (Allow) (lambda (event) (RunCommand name))))
+           (list (Text name)
+                 (Element "span" (list (Attr "class" "command-keys"))
+                          (list (Text (command-keys name)))))))
+
+(: command-keys (-> String String))
+(define (command-keys name)
+  (match (find (lambda (command) (string=? name (command-Command-name command)))
+               (command-Registry-commands commands))
+    ((Some command) (string-join (map key-label (command-Command-keys command)) " / "))
+    ((None) "")))
+
+(: key-label (-> Chord String))
+(define (key-label chord)
+  (string-append (if (= 0 (i32-and (Chord-modifiers chord) control-key)) "" "Ctrl+")
+                 (if (= 0 (i32-and (Chord-modifiers chord) meta-key)) "" "⌘+")
+                 (if (= 0 (i32-and (Chord-modifiers chord) alt-key)) "" "Alt+")
+                 (if (= 0 (i32-and (Chord-modifiers chord) shift-key)) "" "Shift+")
+                 (string-upcase (Chord-key chord))))
+
+(: palette-chords (List Chord))
+(define palette-chords
+  (Cons (Chord "Tab" shift-key)
+        (map (lambda (key) (Chord key 0)) (list "ArrowUp" "ArrowDown" "Enter" "Escape" "Tab"))))
 
 (: layout-view (-> Ide (Html Msg)))
 (define (layout-view model)
@@ -2075,9 +2281,12 @@
                             (list (Element "span"
                                            (list (Attr "class" "pane-title"))
                                            (list (Text (pane-title buffer))))
-                                  (tool "" "pane-button" "Split right" "⇥" #f (Divide id "row"))
-                                  (tool "" "pane-button" "Split down" "⤓" #f (Divide id "column"))
-                                  (tool "" "pane-button" "Close pane" "×" #f (Close id))))
+                                  (tool ""
+                                        "pane-button"
+                                        "Close editor (Cmd/Ctrl+W or Alt+W)"
+                                        "×"
+                                        #f
+                                        (Close id))))
                    (editor-view model pane buffer)
                    (problem-view buffer)))))
 
@@ -2147,6 +2356,10 @@
                          (Attr "autocapitalize" "off")
                          (Attr "rows" (show (max lines 1)))
                          (Attr "cols" (show (+ (longest-line text) 2)))
+                         (Attr "aria-busy" (match buffer
+                                             ((Some found)
+                                              (if (Buffer-saving found) "true" "false"))
+                                             ((None) "false")))
                          (FlagProperty "disabled"
                                        (match buffer
                                          ((Some found) (not (loaded? found)))
@@ -2341,8 +2554,8 @@
 (define (window model)
   (append (list (On "keydown"
                     (list (Key))
-                    (Chords shortcut-chords)
-                    (lambda (event) (Shortcut (Event-key event))))
+                    (Chords (command-chords commands))
+                    (lambda (event) (Shortcut (Event-key event) (Event-modifiers event))))
                 (On "online" (Nil) (Allow) (lambda (event) (Connect))))
           (if (any? dirty? (Ide-buffers model))
               (list (On "beforeunload" (Nil) (Always) (lambda (event) (Nothing))))

@@ -383,6 +383,21 @@ preserves exact bytes until saved.
 The browser has no compiler, copied project, directory handles or persistent
 project storage. Closing/reloading a page with drafts asks before discarding them.
 
+The editor has no top toolbar. Its command palette opens with Command/Ctrl+Shift+P,
+F1, or the `>_` button in the status strip. Type a command name, use arrows or Tab
+to choose, Enter to run, and Escape to return to the editor. Names such as
+`save-buffer`, `format-buffer`, `reload-buffer`, `build-project`, `split-right`,
+`split-down`, `toggle-files`, and `close-editor` name Scheme functions. The
+palette and keyboard look up the same registrations in `(snail shell ui commands)`.
+
+Command/Ctrl+S saves, Command/Ctrl+B toggles files, Command/Ctrl+Shift+F formats,
+and Command/Ctrl+backslash splits right (Shift splits down). Command/Ctrl+W
+closes the active editor when the browser delivers that key; browsers may reserve
+it to close their own tab or window. Alt+W and the editor's × button provide
+alternatives. Closing the last view of an unsaved buffer asks before discarding
+it; closing one of several views keeps the shared buffer. The last pane stays
+empty until another file is opened.
+
 The Applications panel selects one run target and provides Start, Stop and Restart.
 It shows requested and observed builds, PID, exit outcome and separate stdout/stderr
 tails. Output is literal text and preserves scroll position; it does not refresh
