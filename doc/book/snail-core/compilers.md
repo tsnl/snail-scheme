@@ -1026,8 +1026,11 @@ and again, as the development loop does, keeping everything in memory:
 - A library's **interface** is what importers depend on: its imports and
   exports, every declaration except the bodies of definitions whose
   signatures are monomorphic, and its imports' interfaces, since its
-  generic code carries theirs into importers. It is hashed, as GHC uses
-  interface hashes to avoid recompilation.
+  generic code carries theirs into importers. It also includes the expanded
+  global and instance identities: rebuilding an instance-bearing library
+  gives its methods fresh names, so checked callers must select the new
+  evidence and Wasm symbols even when only a signed helper body changed.
+  It is hashed, as GHC uses interface hashes to avoid recompilation.
 - Each library's checked items, type schemes and module text are kept
   under the expansion they came from. A build checks, specializes and
   emits only the libraries whose expansion changed.

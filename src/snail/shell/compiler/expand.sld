@@ -1412,7 +1412,21 @@
                                              (map (lambda (form) (interface-form form signed))
                                                   forms)
                                              "\n")
-                                            "\n" (imports-interfaces cx sections))))))
+                                            "\n" (imports-interfaces cx sections)
+                                            "\n" (library-identities cx))))))
+
+    ;; Instance methods and macro-introduced globals have fresh names after
+    ;; expansion. Importers must not retain checked evidence or Wasm imports
+    ;; naming the previous expansion, even if only a signed body changed.
+    (: library-identities (-> Context String))
+    (define (library-identities cx)
+      (let ((delta (library-delta cx)))
+        (string-join
+         (list-sort string<?
+                    (append (table-keys (item-definitions (program-items delta)))
+                            (map Instance-name
+                                 (concatenate (table-values (Program-instances delta))))))
+         "\n")))
 
     (: interface-form (-> Syntax (List String) String ! compile))
     (define (interface-form form signed)
@@ -4698,9 +4712,10 @@
       ;; A library's derived instances hold while the implicit libraries'
       ;; interfaces do (#546): a definition added to the wire changes its
       ;; interface, so the library that derives is expanded under a new
-      ;; key, though its text is the same; a change to that definition's
-      ;; body alone leaves the key as it was. The wire is a copy of the
-      ;; standard one, found first.
+      ;; key, though its text is the same. A body edit also re-expands the
+      ;; wire's instance methods with fresh identities; derived evidence
+      ;; must follow them. An unchanged build still replays. The wire is a
+      ;; copy of the standard one, found first.
       (define (test-deriving-key root library)
         (let* ((wire (read-file (string-append library "/snail/shell/wire.sld")))
                (end (- (string-length wire) 2))
@@ -4728,9 +4743,11 @@
                       "(import (snail core base) (sample shape)) (Shape 2)")
           (let* ((first (expand wire empty-expansion))
                  (second (expand (marked "1") first))
-                 (third (expand (marked "2") second)))
+                 (third (expand (marked "2") second))
+                 (fourth (expand (marked "2") third)))
             (expect (string=? (key first) (key second)) #f)
-            (expect (key third) (key second)))))
+            (expect (string=? (key second) (key third)) #f)
+            (expect (key fourth) (key third)))))
 
       (define (expansion-runs expansion)
         (let ((program (ExpandedProgram-program expansion)))
