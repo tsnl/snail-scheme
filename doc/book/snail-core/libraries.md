@@ -59,6 +59,7 @@ the runtime interfaces.
 
 | Library | Contents |
 | --- | --- |
+| `(snail shell application)` | The ordinary effect-polymorphic `Application e A` class, its single `start` method, and the empty `Entry A` type witness. |
 | `(snail shell app)` | Applications, frames, pictures, materials and sprites, and the `screen` effect. |
 | `(snail shell sprite)` | Spritebooks: animations on sheets of equal cells, posed as sprites facing the camera. |
 | `(snail shell page)` | What a page's program shares, whether it draws a scene or shows a document: the `events` effect over the host's event queue, the `storage` effect of one checkpoint and `load-save`, and `app-start`, which runs the root task the host drives and answers to it through `app_outcome` and `app_handover`. |
