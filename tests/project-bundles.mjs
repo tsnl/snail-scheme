@@ -68,8 +68,8 @@ try {
   // reload client, which hears of the build the page was served from.
   const pinned = id => `/site/.snail/builds/${id}/`;
   const page = (await get('/site/')).text;
-  assert.ok(page.startsWith(`<!doctype html><base href="${pinned(first.id)}">`));
-  assert.match(page, new RegExp(`<script type="application/snail-manifest" id="snail-manifest">\\(base "${pinned(first.id)}"\\) \\(files .*\\("host\\.mjs" "[0-9a-f]{64}"\\).*\\) \\(modules .*\\("snail\\.core\\.base" "[0-9a-f]{64}"\\)`));
+  assert.ok(page.startsWith(`<!doctype html>\n<head><base href="${pinned(first.id)}">`));
+  assert.match(page, new RegExp(`<meta id="snail-manifest" content="\\(base &quot;${pinned(first.id)}&quot;\\) \\(files .*host\\.mjs.*\\) \\(modules .*snail\\.core\\.base`));
   assert.match(page, /<script type="module" src="\/site\/\.snail\/reload\.mjs"><\/script>/);
   for (const file of ['reload.mjs', 'reload-client.mjs', 'load.mjs', 'reload.wasm']) {
     assert.equal((await get(`/site/.snail/${file}`)).status, 200, file);

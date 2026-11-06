@@ -3,7 +3,8 @@
 ;; An explicit id would resolve against the origin, not this directory.
 ;; A project's own public/manifest.webmanifest replaces this default whole.
 (define-library (snail shell project web-app)
-  (export web-app-manifest with-web-app stable-web-app doctype-end)
+  (export web-app-manifest with-web-app stable-web-app
+          PageMetadata PageBase WebManifest ModuleMap ReloadData ModuleScript insert-metadata)
   (import
    (snail core base)
    (snail shell json)
@@ -28,44 +29,105 @@
              (Pair "sizes" (JsonString (string-append (show size) "x" (show size))))
              (Pair "type" (JsonString "image/png")))))
 
-    ;; ---- The page's link ----
+    ;; ---- Page metadata ----
 
-    (: default-link String)
-    (define default-link (manifest-link "./manifest.webmanifest"))
-
-    (: manifest-link (-> String String))
-    (define (manifest-link url)
-      (string-append "<link id=\"snail-web-app\" rel=\"manifest\" href=\""
-                     (attribute-text url)
-                     "\">"))
+    ;; The only markup the packager adds. Callers describe elements; this
+    ;; renderer owns quoting and HTML encoding. Reload data uses an attribute,
+    ;; so a path containing </script> cannot terminate a raw-text element.
+    (enum PageMetadata
+      (PageBase ((url String)))
+      (WebManifest ((url String)))
+      (ModuleMap ((url String)))
+      (ReloadData ((text String)))
+      (ModuleScript ((url String))))
 
     (: attribute-text (-> String String))
     (define (attribute-text text)
       (string-concatenate
        (map (lambda (char)
-              (case char ((#\&) "&amp;") ((#\") "&quot;") ((#\<) "&lt;")
+              (case char ((#\&) "&amp;") ((#\") "&quot;") ((#\<) "&lt;") ((#\return) "&#13;")
                     (else (make-string 1 char))))
             (string->list text))))
 
-    ;; The builder adds exactly this marker. Development replaces only
-    ;; that owned link, so <base> can pin scripts without pinning app identity.
-    (: with-web-app (-> String String))
-    (define (with-web-app text)
-      (let ((start (doctype-end text)))
-        (string-append (substring text 0 start)
-                       default-link
-                       (substring text start (string-length text)))))
+    (: element-start (-> String (List (Pair String String)) String))
+    (define (element-start name attributes)
+      (string-append "<" name
+                     (string-concatenate
+                      (map (lambda (attribute)
+                             (string-append " " (Pair-first attribute) "=\""
+                                            (attribute-text (Pair-second attribute)) "\""))
+                           attributes))
+                     ">"))
 
+    (: metadata-text (-> PageMetadata String))
+    (define (metadata-text item)
+      (match item
+        ((PageBase url) (element-start "base" (list (Pair "href" url))))
+        ((WebManifest url) (element-start "link" (list (Pair "id" "snail-web-app")
+                                                       (Pair "rel" "manifest") (Pair "href" url))))
+        ((ModuleMap url)
+         (element-start "meta" (list (Pair "name" "snail-modules") (Pair "content" url))))
+        ((ReloadData text)
+         (element-start "meta" (list (Pair "id" "snail-manifest") (Pair "content" text))))
+        ((ModuleScript url) (string-append (element-start "script" (list (Pair "type" "module")
+                                                                         (Pair "src" url)))
+                                           "</script>"))))
+
+    (: default-link String)
+    (define default-link (metadata-text (WebManifest "./manifest.webmanifest")))
+
+    ;; Keep user HTML byte-for-byte around one parsed insertion boundary.
+    ;; Existing head attributes stay on their element. Missing heads are
+    ;; opened explicitly, and close where the original HTML closes them.
+    ;; A doctype/preamble stays before the generated head.
+    (: insert-metadata (-> String (List PageMetadata) String))
+    (define (insert-metadata text items)
+      (let* ((head (head-boundary text)) (at (Pair-first head))
+             (added (string-concatenate (map metadata-text items))))
+        (string-append (substring text 0 at)
+                       (if (Pair-second head) added (string-append "<head>" added))
+                       (substring text at (string-length text)))))
+
+    (: with-web-app (-> String Bool String))
+    (define (with-web-app text development)
+      (insert-metadata text (Cons (WebManifest "./manifest.webmanifest")
+                                  (if development (list (ModuleMap "./modules.json")) (Nil)))))
+
+    ;; Only the builder-owned first link is replaced. A pinned executable
+    ;; base must never pin the app's installation identity to one generation.
     (: stable-web-app (-> String String String))
     (define (stable-web-app text mount)
-      (let ((start (doctype-end text)))
+      (let ((start (Pair-first (head-boundary text))))
         (if (text-at? text start default-link)
             (string-append (substring text 0 start)
-                           (manifest-link (string-append mount "manifest.webmanifest"))
+                           (metadata-text
+                            (WebManifest (string-append mount "manifest.webmanifest")))
                            (substring text
                                       (+ start (string-length default-link))
                                       (string-length text)))
             text)))
+
+    ;; ---- Document prefix ----
+
+    ;; The offset is after an existing <head>, or where one should be
+    ;; inserted. The Bool proves which representation the offset describes.
+    (: head-boundary (-> String (Pair I64 Bool)))
+    (define (head-boundary text)
+      (let* ((before (preamble-end text (doctype-end text)))
+             (html (tag-after text before "html"))
+             (at (preamble-end text (match html ((Some end) end) ((None) before)))))
+        (match (tag-after text at "head")
+          ((Some end) (Pair end #t))
+          ((None) (Pair at #f)))))
+
+    (: tag-after (-> String I64 String (Option I64)))
+    (define (tag-after text at name)
+      (let ((end (+ (+ at 1) (string-length name))))
+        (if (and (< end (string-length text))
+                 (string=? (string-downcase (substring text at end)) (string-append "<" name))
+                 (or (char-whitespace? (string-ref text end)) (char=? (string-ref text end) #\>)))
+            (Some (declaration-end text end (None)))
+            (None))))
 
     ;; A page may begin with a BOM, whitespace and comments before its
     ;; doctype. Keep that prefix before injected metadata, preserving standards

@@ -123,25 +123,15 @@
                        ((Err _) bytes))))
             (refusal 404 "the application has no index.html"))))
 
-    ;; The page with a base element first, or after the doctype that starts
-    ;; it, so the page stays in standards mode, and then the manifest and
-    ;; the reload client, which runs whatever the page's own scripts do.
+    ;; Typed metadata goes first inside the page's head: a generation base,
+    ;; the escaped reload manifest and the reload client. The supplied page
+    ;; and its installation identity stay independent of that generation.
     (: based (-> String String BuildDirectory String ! fs))
     (define (based raw mount build)
-      (let ((text (stable-web-app raw mount)))
-        (let ((added (string-append "<base href=\""
-                                    (build-base mount build)
-                                    "\">"
-                                    "<script type=\"application/snail-manifest\" id=\"snail-manifest\">"
-                                    (manifest-text mount (Some build))
-                                    "</script>"
-                                    "<script type=\"module\" src=\""
-                                    mount
-                                    ".snail/reload.mjs\"></script>"))
-              (start (doctype-end text)))
-          (string-append (substring text 0 start)
-                         added
-                         (substring text start (string-length text))))))
+      (insert-metadata (stable-web-app raw mount)
+                       (list (PageBase (build-base mount build))
+                             (ReloadData (manifest-text mount (Some build)))
+                             (ModuleScript (string-append mount ".snail/reload.mjs")))))
 
     (: build-base (-> String BuildDirectory String))
     (define (build-base mount build)

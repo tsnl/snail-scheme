@@ -35,7 +35,7 @@ try {
 
   await build('page');
   const first = await realpath(output('page'));
-  assert.equal(await readFile(join(first, 'index.html'), 'utf8'), '<!doctype html><link id="snail-web-app" rel="manifest" href="./manifest.webmanifest"><title>Project</title>');
+  assert.equal(await readFile(join(first, 'index.html'), 'utf8'), '<!doctype html><head><link id="snail-web-app" rel="manifest" href="./manifest.webmanifest"><title>Project</title>');
   const webApp = JSON.parse(await readFile(join(first, 'manifest.webmanifest'), 'utf8'));
   assert.equal(webApp.id, undefined); assert.equal(webApp.start_url, './'); assert.equal(webApp.scope, './');
   assert.equal(webApp.display, 'standalone');

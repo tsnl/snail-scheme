@@ -1,5 +1,6 @@
 // Check the actual browser's manifest and installability decisions, on the IDE
-// origin. No service worker or offline cache is required by current Chromium.
+// origin and two ordinary application mounts. Pure packaging/escaping cases
+// run in Snail-Core (web-app-metadata.sld); CDP checks actual browser decisions.
 import assert from 'node:assert/strict';
 import {mkdtemp, mkdir, writeFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -9,10 +10,13 @@ import {openBrowser, until} from './chromium.mjs';
 
 const root = process.argv[2], project = await mkdtemp(join(tmpdir(), 'snail-installable-'));
 await writeFile(join(project, 'project.datum'),
-  '((build-target one (browser (entry "main.sld") (public "public"))) (build-target two (browser (entry "main.sld") (public "public"))))');
+  '((build-target one (browser (entry "main.sld") (public "public"))) (build-target two (browser (entry "main.sld") (public "implicit"))))');
 await mkdir(join(project, 'public'));
 await writeFile(join(project, 'main.sld'), '(import (snail core base))');
-await writeFile(join(project, 'public/index.html'), '\ufeff\n<!-- preamble -->\n<!DOCTYPE html><title>Nested app</title>');
+await writeFile(join(project, 'public/index.html'), '\ufeff\n<!-- preamble -->\n<!DOCTYPE html><html lang="en"><head data-preserved=">"><title>Nested app</title></head><body></body></html>');
+await mkdir(join(project, 'implicit'));
+await writeFile(join(project, 'implicit/index.html'), '<!doctype html><noscript><meta name="x" content="a"></noscript><title>Implicit head</title>');
+await writeFile(join(project, 'public/line\rbreak.txt'), 'metadata preserves this filename');
 const service = await startDevelopment(root, project), browser = await openBrowser();
 try {
   await browser.send('Page.addScriptToEvaluateOnNewDocument', {source:
@@ -40,6 +44,14 @@ try {
     await until(() => browser.evaluate(`location.href === ${JSON.stringify(url)} && document.readyState === 'complete'`), 'application page loaded');
     const parsed = (await browser.send('Page.getAppManifest')).result;
     assert.equal(await browser.evaluate('document.compatMode'), 'CSS1Compat', 'preamble preserves standards mode');
+    if (url === urls[0]) {
+      assert.equal(await browser.evaluate('document.head.dataset.preserved'), '>', 'existing head is preserved');
+      const metadata = await browser.evaluate('document.getElementById("snail-manifest").getAttribute("content")');
+      assert.ok(metadata.includes('line\\rbreak.txt'), 'carriage returns are escaped in datum metadata');
+    } else {
+      assert.ok(await browser.evaluate('Boolean(document.head.querySelector("noscript"))'), 'implicit head content stays in the head');
+    }
+    assert.ok(await browser.evaluate('document.getElementById("snail-manifest").getAttribute("content").startsWith("(base ")'), 'the browser decodes metadata attributes');
     assert.equal(parsed.url, url + 'manifest.webmanifest');
     assert.equal(parsed.manifest.id, url, 'each mounted application has its own identity');
     assert.equal(parsed.manifest.startUrl, url);

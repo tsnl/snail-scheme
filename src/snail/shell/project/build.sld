@@ -900,23 +900,26 @@
     ;; where modules.json is. A public manifest replaces the default whole.
     (: package-browser (-> Builder String String Unit ! fs building))
     (define (package-browser builder name directory)
-      (copy-browser-host builder name directory)
-      (let ((manifest (string-append directory "/manifest.webmanifest")))
-        (unless (file-exists? manifest)
-          (write-file manifest
-                      (json->string
-                       (web-app-manifest (string-append (base-name (Builder-project builder))
-                                                        " / " name))))))
-      (let ((page (string-append directory "/index.html")))
-        (when (kind-is? page (RegularFile))
-          (match (utf8->string (read-bytes page))
+      (copy-browser-assets builder name directory)
+      (ensure-web-manifest (string-append (base-name (Builder-project builder)) " / " name)
+                           directory)
+      (prepare-browser-page directory (development? builder)))
+
+    ;; Public assets were copied first. A supplied manifest is a complete
+    ;; replacement; the default is a regular file in the same output tree.
+    (: ensure-web-manifest (-> String String Unit ! fs))
+    (define (ensure-web-manifest name directory)
+      (let ((path (string-append directory "/manifest.webmanifest")))
+        (unless (file-exists? path)
+          (write-file path (json->string (web-app-manifest name))))))
+
+    (: prepare-browser-page (-> String Bool Unit ! fs))
+    (define (prepare-browser-page directory development)
+      (let ((path (string-append directory "/index.html")))
+        (when (kind-is? path (RegularFile))
+          (match (utf8->string (read-bytes path))
             ((Err _) (unit))
-            ((Ok text)
-             (write-file page
-                         (string-append (with-web-app text)
-                                        (if (development? builder)
-                                            "\n<meta name=\"snail-modules\" content=\"./modules.json\">\n"
-                                            ""))))))))
+            ((Ok text) (write-file path (with-web-app text development)))))))
 
     (: development? (-> Builder Bool))
     (define (development? builder)
@@ -924,8 +927,8 @@
         ((Development) #t)
         (_ #f)))
 
-    (: copy-browser-host (-> Builder String String Unit ! fs building))
-    (define (copy-browser-host builder name directory)
+    (: copy-browser-assets (-> Builder String String Unit ! fs building))
+    (define (copy-browser-assets builder name directory)
       (for-each (lambda (file)
                   (copy-into
                    (string-append (Tools-root (Builder-tools builder)) "/host/browser/" file)

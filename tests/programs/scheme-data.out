@@ -13,3 +13,5 @@ error: unclosed list
 error: a bytevector holds exact integers from 0 to 255
 (display hi)
 #t
+"a\rb"
+#t

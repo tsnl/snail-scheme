@@ -383,6 +383,16 @@ preserves exact bytes until saved.
 The browser has no compiler, copied project, directory handles or persistent
 project storage. Closing/reloading a page with drafts asks before discarding them.
 
+Packaging has three steps: copy host and project assets, generate the default
+manifest only when the project has none, and add typed page metadata. The
+manifest is a normal bundled file. `(snail shell project web-app)` renders
+metadata constructors with HTML attribute escaping and inserts them at the
+page's head boundary, preserving the supplied HTML, head attributes, comments
+and doctype. The reload client's Snail datum text travels in a `meta` element's
+`content` attribute; browser decoding precedes datum parsing. Scheme fixtures
+cover this encoding and page construction; Chromium checks the browser's
+resolved URLs, standards mode and installation decisions.
+
 The editor and browser bundles expose a web-app manifest by default. The
 manifest gives a standalone window, the application name, theme colors, and
 192/512-pixel icons. A browser target can provide `public/manifest.webmanifest`
