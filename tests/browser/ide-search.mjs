@@ -162,6 +162,17 @@ try {
   await click(await point(100));
   assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").selectionStart'), offset(100), 'click reaches the text field below the first screen');
 
+  // Supply the native editing command so Cmd+A is exercised on Linux too.
+  // A synthetic KeyboardEvent alone would never invoke browser Select All.
+  await browser.send('Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'a', code: 'KeyA', modifiers: 4, windowsVirtualKeyCode: 65, commands: ['selectAll']});
+  await browser.send('Input.dispatchKeyEvent', {type: 'keyUp', key: 'a', code: 'KeyA', modifiers: 4, windowsVirtualKeyCode: 65});
+  assert.deepEqual(await browser.evaluate(`(() => {
+    const field = document.querySelector('.pane.active textarea');
+    return [document.activeElement === field, field.selectionStart, field.selectionEnd,
+      window.getSelection().containsNode(document.getElementById('files'), true)];
+  })()`), [true, 0, longText.length, false], 'Select All selects the whole buffer without the sidebar');
+  await click(await point(100));
+
   const beforeScroll = await browser.evaluate('document.querySelector(".pane.active .editor").scrollTop');
   await browser.send('Input.dispatchMouseEvent', {type: 'mouseWheel', ...await point(100), deltaX: 0, deltaY: 1200});
   await until(() => browser.evaluate(`document.querySelector('.pane.active .editor').scrollTop > ${beforeScroll + 1000}`), 'wheel scroll after search');
