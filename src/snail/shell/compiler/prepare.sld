@@ -304,7 +304,11 @@
             (Pair "snail.shell.task:dispatch-local"
                   (Restriction 0 "work given to dispatch-local" (list "snail.shell.task:tasks")))
             (Pair "snail.shell.task:dispatch-task"
-                  (Restriction 0 "work given to dispatch-task" (list "snail.shell.task:tasks")))))
+                  (Restriction 0 "work given to dispatch-task" (list "snail.shell.task:tasks")))
+            (Pair "snail.shell.task:make-task"
+                  (Restriction 0 "work given to make-task" (list "snail.shell.task:tasks")))
+            (Pair "snail.shell.async:dispatch"
+                  (Restriction 0 "work given to dispatch" (list "snail.shell.task:tasks")))))
 
     (: restriction (-> Expr (Option Restriction)))
     (define (restriction callee)

@@ -5,12 +5,16 @@ handles it, both in Snail-Core:
 
 | Operation | Meaning |
 | --- | --- |
+| `(make-task work)` | Construct a linear `Task` without scheduling it. Its type retains the work's effect row. |
+| `(schedule task)` | Transfer a `Task` into the ready queue and return its id. |
 | `(dispatch-local work)` | Transfer a `FnOnce` thunk into an independent local task. |
 | `(dispatch-task work)` | The same, answering the new task's `I64` id. |
 | `(yield)` | Let every other ready task run first. |
 | `(sleep milliseconds)` | Wait for an `I64` number of milliseconds. |
 | `(ticket)` | A fresh `I64` ticket, naming one wait. |
 | `(await ticket)` | Wait until the ticket is woken. |
+| `(tasks-wake! ticket)` | Ready a task waiting on that ticket; a stale ticket does nothing. |
+| `(tasks-close!)` | Detach and drop queued, sleeping and waiting tasks. Cleanup may notify futures. |
 | `(through-host start finish)` | Wait on a host operation by ticket ([below](#waiting-on-the-host)). |
 | `(make-mailbox)` | A new, empty `(Mailbox T)`: a queue of messages between tasks. |
 | `(mailbox-post mailbox message)` | Add a message at the back. Posting never waits. |
@@ -177,6 +181,56 @@ calling the waker and then `completed`, so either may reenter without
 observing a half-written slot. A scheduler must register its waker and
 park without an intervening yield. The channel has no scheduler, timer,
 polling loop, or task of its own.
+
+## Dispatching and awaiting futures
+
+`(snail shell async)` connects these two libraries:
+
+| Operation | Result | Effects |
+| --- | --- | --- |
+| `(dispatch work)` | A `Future<T>` immediately; work starts on a later turn. | `mut`, `completion`, and the work and result cleanup's ordinary effects. |
+| `(await-future future)` | `Completion<T>`, parking this task if necessary. | `tasks`, `mut`, and the result's cleanup effects. |
+| `(after milliseconds)` | A `Future<Unit>` fulfilled after a scheduler deadline. | `mut`, `completion`. |
+
+The `tasks` effect is the suspension surface; `async` is a library, not a
+new compiler effect. Polling needs no `tasks` capability. An update that
+polls returns without suspending; code calling `await-future` must admit
+`tasks`. A task is schedulable work and a future is a result receiver:
+neither must own the other. `dispatch` is the convenient composition.
+
+```scheme
+(let ((future (dispatch (once (lambda ()
+                               (sleep 10)
+                               (Ok "finished"))))))
+  ;; Other work can happen here; dispatch did not wait.
+  (match (await-future future)
+    ((Completed result) (consume-result result))
+    ((Abandoned) (producer-was-canceled))))
+```
+
+Await first polls. If pending, it takes a scheduler ticket, registers a
+waker and parks without an intervening yield. The continuation owns the
+future throughout the wait. Fulfillment moves the waiter to the ready
+queue; another task never resumes inline inside `fulfill`. A timer or
+socket operation uses the same task scheduler, so waiting does not busy
+poll and requires no worker pool. For example, dispatching a thunk that
+calls `(read connection 4096)` from `(snail shell socket)` returns a
+`Future<Result<Option<Bytes>, SocketError>>`; its task waits on the host's
+socket completion and then fulfills that future.
+
+Filesystem operations in `(snail core io)` are still synchronous. Putting
+one in `dispatch` defers it but does not make the kernel operation
+asynchronous. An io_uring provider is not implemented here; it can use the
+same submit/ticket/completion boundary, with the host waiting until an I/O
+completion or the deadline returned by `tasks:turn`.
+
+Dropping a future cancels reception, not external I/O or the producer
+task. Scheduler shutdown does cancel tasks: it first detaches all queues,
+then runs their cleanup under the handlers captured at dispatch. A dropped
+producer abandons its promise, and a dropped waiter releases its future.
+Late wakeups find no queued waiter. Work dispatched by cleanup is drained
+before shutdown returns. Fatal traps are distinct from this orderly
+cancellation and retain their fatal contract.
 
 ## Mailboxes
 
