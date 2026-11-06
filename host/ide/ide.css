@@ -110,6 +110,7 @@ button { font: inherit; color: inherit; }
 .palette-option { display: flex; justify-content: space-between; gap: 12px; width: 100%; min-height: 30px; padding: 5px 10px; border: 0; border-radius: 4px;
   background: none; color: var(--text); text-align: left; cursor: pointer; font: var(--code); }
 .palette-option:hover, .palette-option.selected { background: var(--raised); }
-.command-keys { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.choice-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; max-width: 65%; }
+.command-keys { overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .palette-help, .palette-empty { margin: 0; padding: 8px 14px; color: var(--muted); font-size: 11px; }
 .palette-help { border-top: 1px solid var(--line); }
