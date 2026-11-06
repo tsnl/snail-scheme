@@ -4,7 +4,7 @@ import {programEntry} from './entry.mjs';
 import {byteSnapshot} from './load.mjs';
 import {createTasks, taskExports} from './tasks.mjs';
 
-export const FRAME = 11, HIDDEN = 12, RELOAD = 13;
+export const FRAME = 11, HIDDEN = 12, RELOAD = 13, SAVE = 16;
 const MOVE = 4, RESIZE = 8;
 
 // A queue has one frame scheduled or queued. Only consuming a frame permits
@@ -72,8 +72,8 @@ export function createEventQueue(frames = null) {
 }
 
 // Both packaging modes describe the same entry: the application's exports
-// and memory, the exports of (snail shell app), where the loop leaves its
-// answer, and those of (snail shell task), which drive the loop.
+// and memory, the checkpoint and completion exports of (snail shell page),
+// and those of (snail shell task), which drive the loop.
 export function applicationEntry(program) {
   const entry = programEntry(program, 'app_main');
   return {...entry, app: program.names ? program.linked.get('snail.shell.page').exports : entry.exports,
@@ -84,7 +84,7 @@ export function applicationEntry(program) {
 // these functions on relink. Async operations capture their invocation before
 // awaiting.
 export function createRuntime({size = () => [960, 640], seed = 1, load = async () => undefined,
-                               store = async () => {}, frames = null, reportError = () => {}, warn = console.warn} = {}) {
+                               store = async () => {}, frames = null, initial = () => [[RESIZE, ...size()], [FRAME, 0]], reportError = () => {}, warn = console.warn} = {}) {
   let current = null, stopping = null;
   const pending = [];
   // This scope starts exactly one loop, the root task, which owns the
@@ -100,13 +100,6 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
     'snail.runtime.browser.events': {
       poll() {
         const run = applicationRun();
-        if (!run.accepted && run.event?.[0] === FRAME) {
-          // Returning to poll acknowledges successful initial presentation.
-          // Hold transition input until that boundary, even during storage.
-          run.accepted = true;
-          run.ready.resolve(run.boot);
-          while (pending.length && run.queue.push(...pending[0])) pending.shift();
-        }
         const event = run.queue.poll();
         if (!event) return 0;
         run.event = event;
@@ -123,6 +116,20 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       width: () => size()[0],
       height: () => size()[1],
       boot: kind => { applicationRun().boot = kind; },
+      checkpoint: () => { applicationRun(); },
+      'handover-only': () => applicationRun().transfer ? 1 : 0,
+      'save-after'(milliseconds) {
+        const run = applicationRun();
+        clearTimeout(run.saveTimer);
+        run.saveTimer = setTimeout(() => run.queue.push(SAVE), milliseconds);
+      },
+      ready() {
+        const run = applicationRun();
+        if (run.accepted) return;
+        run.accepted = true;
+        run.ready.resolve(run.boot);
+        while (pending.length && run.queue.push(...pending[0])) pending.shift();
+      },
     },
     'snail.runtime.browser.storage': {
       'start-load'(ticket) {
@@ -146,6 +153,7 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
     },
   };
   function finish(run, state, error) {
+    clearTimeout(run.saveTimer);
     const unread = run.queue.close();
     if (run.accepted) pending.unshift(...unread);
     if (error) {
@@ -161,35 +169,34 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
     if (task !== run.loop) reportError(error);
     else run.failure ??= error instanceof Error ? error : new Error('application failed', {cause: error});
   }
-  // The loop's answer: the state it handed over, or none when it could not
-  // boot.
-  function answer(run) {
-    if (run.failure) return {state: null, error: run.failure};
-    if (run.entry.app.app_outcome() === 0) return {state: null, error: new Error('the application loop stopped without answering')};
-    return {state: run.entry.app.app_handover(), error: null};
+  function completionError(run) {
+    if (run.failure) return run.failure;
+    return run.entry.app.app_done() === 0 ? new Error('the application loop stopped without answering') : null;
   }
   function start(entry, handover = null, {restore, transfer = false} = {}) {
     if (current && !current.queue.closed) throw new Error('application entries must not overlap');
     if (!transfer) stopping = null;
     const ready = Promise.withResolvers(), queue = createEventQueue(transfer ? null : frames);
-    const run = {entry, ready, queue, restore, tasks: null, accepted: false, saved: null, loaded: null,
-                 event: null, boot: null, loop: null, failure: null, root: null, done: null};
+    const run = {entry, ready, queue, restore, transfer, tasks: null, accepted: false, saved: null, loaded: null,
+                 event: null, boot: null, loop: null, failure: null, root: null, done: null, saveTimer: null};
     run.tasks = createTasks(() => entry.tasks, {reportError: (error, task) => trapped(run, error, task)});
     ready.promise.catch(() => {});
     current = run;
     if (transfer) queue.reload();
-    else { queue.push(RESIZE, ...size()); queue.push(FRAME, 0); }
+    else for (const event of initial()) queue.push(...event);
     // `app_main` dispatches the loop and answers its task; the turns run it.
     run.loop = Number(entry.main(handover));
-    const answered = () => run.failure !== null || entry.app.app_outcome() !== 0;
-    run.root = run.tasks.drive(answered).then(() => answer(run), error => ({state: null, error}));
-    run.done = run.root.then(async result => {
+    const answered = () => run.failure !== null || entry.app.app_done() !== 0;
+    run.root = run.tasks.drive(answered).then(() => completionError(run), error => error);
+    run.done = run.root.then(async error => {
+      // Capture the root's checkpoint before draining children or allowing
+      // another entry to reset the shared page module.
+      const state = error && run.boot === null ? handover : entry.app.app_state();
       // After the sole event consumer returns, an unpresented application
       // can never become ready. Its children cannot complete startup for it.
-      if (result.error || !run.accepted) run.tasks.close();
+      if (error || !run.accepted) run.tasks.close();
       else await run.tasks.drive().catch(reportError);
-      const state = result.error ? (run.boot === null ? handover : entry.exports.app_state()) : result.state;
-      return finish(run, state, result.error);
+      return finish(run, state, error);
     });
     return run;
   }
@@ -204,7 +211,8 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
     let result = await stopRun(run);
     if (result.error && result.state !== null) {
       // Transfer the checkpoint through old code without replaying the event
-      // or view that trapped. Reload is the first event in this invocation.
+      // or view that trapped. The shared page lifecycle saves without
+      // entering either engine in this invocation.
       run = start(run.entry, result.state, {transfer: true});
       result = await stopRun(run);
     }

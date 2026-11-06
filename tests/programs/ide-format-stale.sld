@@ -63,12 +63,15 @@
                                                  (run-ui initial
                                                          (list (Open "main.sld"))
                                                          normal-update
-                                                         view window (lambda (model) (unit))))))))
+                                                         view
+                                                         window
+                                                         (lambda (model) (unit))
+                                                         (lambda (model) (unit))))))))
       (with-memory-dom (Nil)
                        (lambda ()
                          (run-ui loaded (list (InvokeCommand "format-buffer"))
                                  (lambda (model msg) (race-update changed-path model msg))
-                                 view window (lambda (model) (unit)))
+                                 view window (lambda (model) (unit)) (lambda (model) (unit)))
                          (report-editor)))
       (unit))))
 

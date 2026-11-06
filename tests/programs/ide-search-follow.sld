@@ -115,6 +115,7 @@
                                                            message))
                                             (lambda (model) (view (Model-ide model)))
                                             (lambda (model) (window (Model-ide model)))
+                                            (lambda (model) (unit))
                                             (lambda (model) (mailbox-post gate (unit))))))
                          (unless (= (ref-get reads) (Model-answers final))
                            (panic "the delayed read did not finish")))

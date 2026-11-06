@@ -18,17 +18,24 @@
    canvas-width
    canvas-height
    report-boot
+   report-ready
    hidden-kind
    reload-kind
+   save-kind
    storage
    load-save
    store-save
-   default-reset
-   app-start)
+   start-page
+   PageState
+   define-page-state
+   run-page
+   commit-page
+   define-page-entry)
   (import
    (snail core base)
    (prefix (snail runtime browser events) host-)
    (prefix (snail runtime browser storage) host-)
+   (snail shell application)
    (snail shell task))
   (begin
 
@@ -40,6 +47,9 @@
     (: reload-kind I32)
     (define reload-kind 13)
 
+    (: save-kind I32)
+    (define save-kind 16)
+
     ;; Waiting for an event, like loading and storing a save below, starts
     ;; on the host and waits by ticket ((snail shell task)'s `through-host`).
     (effect events
@@ -49,7 +59,11 @@
        (random-seed (-> I32))
        (canvas-width (-> I32))
        (canvas-height (-> I32))
-       (report-boot (-> I32 Unit)))
+       (report-boot (-> I32 Unit))
+       (report-ready (-> Unit))
+       (checkpoint-root (-> Unit))
+       (handover-only (-> I32))
+       (save-after (-> I32 Unit)))
       (default
         ((poll-event host-poll)
          (wait-event (lambda () (through-host host-start-wait host-finish-wait)))
@@ -57,7 +71,11 @@
          (random-seed host-seed)
          (canvas-width host-width)
          (canvas-height host-height)
-         (report-boot host-boot))))
+         (report-boot host-boot)
+         (report-ready host-ready)
+         (checkpoint-root host-checkpoint)
+         (handover-only host-handover-only)
+         (save-after host-save-after))))
 
     ;; ---- Storage ----
 
@@ -84,40 +102,116 @@
 
     ;; ---- The root task ----
 
-    ;; Instantiate the result and row on reset, not on the returned binder.
-    ;; A program can replace this binder to install handlers for the run.
-    (: default-reset (All (T e) (-> (-> (-> T ! e) T ! e))))
-    (define (default-reset)
-      (lambda (run) (run)))
+    ;; A root may return before its children. Completion records that
+    ;; return, independently of readiness and the optional checkpoint below.
+    ;; Suspension or failure never sets it.
+    (: completed (Ref Bool))
+    (define completed (ref #f))
 
-    ;; The loop runs as a task, which the host drives. `app-start`
-    ;; dispatches it and answers its id, which the host compares with
-    ;; `tasks:running` to know a trap in the loop from a trap in another
-    ;; task. The loop's answer, the state to hand over to the program that
-    ;; replaces this one, or none when it could not boot, waits in
-    ;; `outcome` for the host: `app_outcome` is 1 once it is there, and
-    ;; `app_handover` reads it.
-    (: outcome (Ref (Option (Option Any))))
-    (define outcome (ref (None)))
+    (: page-done (-> I32 ! mut))
+    (define (page-done)
+      (if (ref-get completed) 1 0))
 
-    ;; The loop's row names `mut`, which recording its answer performs: in a
-    ;; generic body, the first call fixes the row of the lambda around it.
-    (: app-start (All (e) (-> (FnOnce (Option Any) ! mut tasks e) I64 ! mut e)))
-    (define (app-start loop)
-      (ref-set! outcome (None))
-      (dispatch-task (once (lambda () (ref-set! outcome (Some (loop)))))))
+    ;; ---- Checkpointed pages ----
 
-    (: app-outcome (-> I32 ! mut))
-    (define (app-outcome)
-      (match (ref-get outcome)
-        ((None) 0)
-        ((Some _) 1)))
+    ;; Reification is checked at a concrete type: a generic S could hide
+    ;; effects in a function. Engines request this ordinary evidence rather
+    ;; than weakening the compiler's Any boundary.
+    (typeclass (PageState S)
+      (: pack-state (-> S Any))
+      (: unpack-state (-> Any (Option S))))
 
-    (: app-handover (-> (Option Any) ! mut))
-    (define (app-handover)
-      (match (ref-get outcome)
-        ((Some answer) answer)
-        ((None) (panic "the application loop has not answered"))))
+    (define-syntax define-page-state
+      (syntax-rules ()
+        ((_ State)
+         (instance (PageState State)
+           (define (pack-state state) (type-convert state Any))
+           (define (unpack-state previous)
+             (match (try-convert previous State)
+               ((Ok state) (Some state))
+               ((Err _) (None))))))))
 
-    (expose app-outcome "app_outcome")
-    (expose app-handover "app_handover")))
+    ;; The host retains these opaque immutable values across replacement.
+    ;; Only a completed presentation commits; boot keeps an initial recovery
+    ;; point without declaring the page ready. The host checks root
+    ;; ownership before a caller can replace the checkpoint.
+    (: incoming (Ref (Option Any)))
+    (define incoming (ref (None)))
+
+    (: current (Ref (Option Any)))
+    (define current (ref (None)))
+
+    (: commit-page (All (S) (requires (PageState S) (Copy S)) (-> S Unit ! mut events)))
+    (define (commit-page state)
+      (checkpoint-root)
+      (ref-set! current (Some (pack-state state))))
+
+    (: restore-page
+       (All (S) (requires (PageState S) (Copy S))
+            (-> Bool (-> S ! events) (-> Bytes S) (Option (Pair S I32)) ! events storage tasks)))
+    (define (restore-page cold? initialize decode)
+      (match (load-save)
+        ((Some bytes) (Some (Pair (decode bytes) 1)))
+        ((None) (if cold? (Some (Pair (initialize) 2)) (None)))))
+
+    (: boot-page
+       (All (S) (requires (PageState S) (Copy S))
+            (-> (-> S ! events) (-> Bytes S) (Option (Pair S I32)) ! mut events storage tasks)))
+    (define (boot-page initialize decode)
+      (match (ref-get incoming)
+        ((Some previous)
+         (match (unpack-state previous)
+           ((Some state) (Some (Pair state 0)))
+           ((None) (restore-page #f initialize decode))))
+        ((None) (restore-page #t initialize decode))))
+
+    ;; Engines own presentation and event reduction. This shared boundary
+    ;; owns restore/refusal, the boot checkpoint and durable save encoding.
+    (: run-page
+       (All (S e) (requires (PageState S) (Copy S))
+            (-> (-> S ! events)
+                (-> S Bytes)
+                (-> Bytes S)
+                (-> S (-> S Unit ! events storage tasks) Unit ! e)
+                Unit ! mut events storage tasks e)))
+    (define (run-page initialize encode decode run)
+      (match (boot-page initialize decode)
+        ((Some (Pair state kind))
+         (commit-page state)
+         (ref-set! incoming (None))
+         (report-boot kind)
+         (if (= (handover-only) 1)
+             (store-save (encode state))
+             (begin
+               (save-after 5000)
+               (run state (lambda (state) (store-save (encode state)) (save-after 5000))))))
+        ((None) (unit))))
+
+    (: start-page
+       (All (e) (-> (Option Any) (FnOnce Unit ! mut tasks e) I64 ! mut e)))
+    (define (start-page handover work)
+      (ref-set! incoming handover)
+      (ref-set! current (None))
+      (ref-set! completed #f)
+      (dispatch-task (once (lambda () (work) (ref-set! completed #t)))))
+
+    ;; Both normal return and failure hand over this same checkpoint. An
+    ;; unadopted incoming value is never mistaken for the root's own state.
+    (: page-state (-> (Option Any) ! mut))
+    (define (page-state)
+      (ref-get current))
+
+    ;; The only generated browser scaffolding is an ordinary Application
+    ;; call. Its selected instance determines the effect row, without an
+    ;; effects list or a reset binder in the entry declaration.
+    (define-syntax define-page-entry
+      (syntax-rules ()
+        ((_ App)
+         (begin
+           (define (page-main handover)
+             (start-page (ann handover (Option Any))
+                         (once (lambda () (start (ann (Entry) (Entry App)))))))
+           (expose page-main "app_main")))))
+
+    (expose page-done "app_done")
+    (expose page-state "app_state")))
