@@ -80,7 +80,7 @@ button { font: inherit; color: inherit; }
 .tok-invalid { color: #e06c75; }
 
 .marks { color: transparent; }
-.squiggle { text-decoration: underline wavy var(--error); text-decoration-skip-ink: none; text-underline-offset: 3px; }
+.error-highlight { background: rgba(224, 108, 117, 0.24); }
 .diagnostics button { display: block; width: 100%; border: 0; padding: 0; background: none; color: inherit; font: inherit; text-align: left; white-space: pre-wrap; cursor: pointer; }
 .diagnostics button:hover { text-decoration: underline; }
 

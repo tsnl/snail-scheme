@@ -53,8 +53,8 @@ try {
   assert.match(await readFile(source, 'utf8'), /"hello"/);
   await click('save');
   await until(() => browser.evaluate('document.getElementById("diagnostics").textContent.includes("does not fit String")'), 'fresh compiler diagnostic');
-  await until(() => browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent === "5"'), 'fresh source observation');
-  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent'), '5', 'compiler-provided point');
+  await until(() => browser.evaluate('document.querySelector(".pane.active .error-highlight")?.textContent === "5"'), 'fresh source observation');
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .error-highlight")?.textContent'), '5', 'compiler-provided point');
   assert.ok(await type('(define greeting 5)', '(define greeting\n"fixed")'));
   await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('"fixed"'); t.setSelectionRange(at, at); })()`);
   await press({key: 'Tab'});
@@ -93,9 +93,9 @@ try {
       await browser.evaluate('window.sourceReads.length > 0');
   }, 'failure before its source reads');
   assert.match(await text(), /unformatted/);
-  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null);
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .error-highlight")'), null);
   await browser.evaluate('window.holdSource = false; for (const release of window.sourceReads) release(); window.fetch = window.actualFetch');
-  await until(() => browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent === "5"'), 'Unicode compiler point');
+  await until(() => browser.evaluate('document.querySelector(".pane.active .error-highlight")?.textContent === "5"'), 'Unicode compiler point');
   await browser.evaluate('document.querySelector("#diagnostics button").click()');
   await until(async () => await browser.evaluate('document.querySelector(".pane.active textarea").selectionStart') === unicode.replace(/\r\n/g, '\n').indexOf('5'), 'source navigation');
   assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").selectionStart'), unicode.replace(/\r\n/g, '\n').indexOf('5'));
@@ -108,14 +108,14 @@ try {
       } return window.actualFetch(...args); };`);
   await click('reload');
   await until(async () => (await text()).includes('newer observation'), 'newer baseline before build');
-  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null);
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .error-highlight")'), null);
   assert.match(await browser.evaluate('document.getElementById("diagnostics").textContent'), /does not fit String/);
   await browser.evaluate('window.beforeReconnectReads = window.newerReads; document.getElementById("status").textContent = "Connection lost"; window.dispatchEvent(new Event("online"))');
   await until(() => browser.evaluate('window.newerReads > window.beforeReconnectReads && document.getElementById("status").textContent === "Build failed"'), 'replayed failure and fresh files');
-  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null, 'reconnect cannot rebind an old point to a newer read');
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .error-highlight")'), null, 'reconnect cannot rebind an old point to a newer read');
   await browser.evaluate('window.fetch = window.actualFetch');
   await click('reload');
-  await until(() => browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent === "5"'), 'matching observation restored');
+  await until(() => browser.evaluate('document.querySelector(".pane.active .error-highlight")?.textContent === "5"'), 'matching observation restored');
 
   // Save invalidates the old failure even if its successor build has not yet
   // arrived. Keep the server status fixed while acknowledging the submitted text.
@@ -129,17 +129,17 @@ try {
         }
       } return window.actualFetch(...args); };`);
   await click('save'); await saved();
-  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null);
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .error-highlight")'), null);
   await browser.evaluate('window.dispatchEvent(new Event("online"))');
   await until(() => browser.evaluate('window.savedReads > 0'), 'replay after acknowledged save');
-  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null, 'reconnect preserves Save invalidation');
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .error-highlight")'), null, 'reconnect preserves Save invalidation');
   await browser.evaluate('window.fetch = window.actualFetch');
   await click('reload');
   await until(async () => (await text()) === unicode.replace(/\r\n/g, '\n'), 'actual saved source');
   await click('build');
-  await until(() => browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent === "5"'), 'new failure replaces invalidation');
+  await until(() => browser.evaluate('document.querySelector(".pane.active .error-highlight")?.textContent === "5"'), 'new failure replaces invalidation');
   assert.ok(await type('5', '"draft"'));
-  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null, 'unsaved text has no compiled point');
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .error-highlight")'), null, 'unsaved text has no compiled point');
   await browser.evaluate('window.confirm = () => true');
   await click('reload');
 
