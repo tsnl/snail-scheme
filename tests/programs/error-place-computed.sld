@@ -7,7 +7,7 @@
 
 (instance (::x Circle I64)
   (define (::x circle)
-    (* 2 (Circle-radius circle))))
+    (* 2 (::radius circle))))
 
 (let ((cell (ref (Circle 1))))
   (set! (::x (ref-get cell)) 4))

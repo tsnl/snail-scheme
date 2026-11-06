@@ -58,15 +58,15 @@
        (stream-open (lambda (url kinds) (panic "stream")))
        (stream-next (lambda (stream) (panic "stream")))
        (stream-close (lambda (stream) (panic "stream"))))
-    (let ((loaded (Pair-first (with-memory-dom (Nil)
-                                               (lambda ()
-                                                 (run-ui initial
-                                                         (list (Open "main.sld"))
-                                                         normal-update
-                                                         view
-                                                         window
-                                                         (lambda (model) (unit))
-                                                         (lambda (model) (unit))))))))
+    (let ((loaded (::first (with-memory-dom (Nil)
+                                            (lambda ()
+                                              (run-ui initial
+                                                      (list (Open "main.sld"))
+                                                      normal-update
+                                                      view
+                                                      window
+                                                      (lambda (model) (unit))
+                                                      (lambda (model) (unit))))))))
       (with-memory-dom (Nil)
                        (lambda ()
                          (run-ui loaded (list (InvokeCommand "format-buffer"))

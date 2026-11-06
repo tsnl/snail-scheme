@@ -11,7 +11,7 @@
    unit panic drop
    i64-and i64-or i64-xor i64-shift-left i64-shift-right/logical
    i64->string string->i64 u8->i32 i32->u8 i32->i64 i64->i32 digit-value
-   Option Some None Result Ok Err Never absurd Pair Pair-first Pair-second
+   Option Some None Result Ok Err Never absurd Pair
    Cons Nil list null? length reverse append map map-indexed for-each filter fold-left fold-right
    list-ref
    list-tail
@@ -49,6 +49,7 @@
    ::access
    ::aliases
    ::annotations
+   ::arguments
    ::around-main
    ::artifact-uses
    ::artifacts
@@ -57,6 +58,8 @@
    ::body
    ::body-key
    ::borrowed
+   ::browser?
+   ::builds
    ::bytes
    ::cases
    ::chars
@@ -88,6 +91,8 @@
    ::edges
    ::effects
    ::emission
+   ::emitted
+   ::entry
    ::enum?
    ::env
    ::evidence
@@ -153,16 +158,20 @@
    ::metadata
    ::method
    ::methods
+   ::missing
    ::module
    ::more
    ::mutable?
    ::name
    ::names
+   ::needs
+   ::nodes
    ::offset
    ::open
    ::operands
    ::operation
    ::operations
+   ::order
    ::original
    ::output
    ::outputs
@@ -174,9 +183,11 @@
    ::pending
    ::pending-count
    ::performed
+   ::phase
    ::predecessor
    ::prefix
    ::program
+   ::public
    ::reached
    ::read
    ::reading
@@ -188,23 +199,28 @@
    ::result
    ::resumes
    ::returns
+   ::roots
    ::row
    ::rows
    ::rules
+   ::runs
    ::schemes
    ::scope
    ::scope-count
    ::scopes
+   ::scratch
    ::second
    ::self
    ::set
    ::setup
    ::signed
    ::solution
+   ::source
    ::stack
    ::stamp
    ::state
    ::statements
+   ::steps
    ::symbol
    ::tag
    ::target
@@ -245,6 +261,7 @@
     (define (::access value) (field-of value (quote access)))
     (define (::aliases value) (field-of value (quote aliases)))
     (define (::annotations value) (field-of value (quote annotations)))
+    (define (::arguments value) (field-of value (quote arguments)))
     (define (::around-main value) (field-of value (quote around-main)))
     (define (::artifact-uses value) (field-of value (quote artifact-uses)))
     (define (::artifacts value) (field-of value (quote artifacts)))
@@ -253,6 +270,8 @@
     (define (::body value) (field-of value (quote body)))
     (define (::body-key value) (field-of value (quote body-key)))
     (define (::borrowed value) (field-of value (quote borrowed)))
+    (define (::browser? value) (field-of value (quote browser?)))
+    (define (::builds value) (field-of value (quote builds)))
     (define (::bytes value) (field-of value (quote bytes)))
     (define (::cases value) (field-of value (quote cases)))
     (define (::chars value) (field-of value (quote chars)))
@@ -284,6 +303,8 @@
     (define (::edges value) (field-of value (quote edges)))
     (define (::effects value) (field-of value (quote effects)))
     (define (::emission value) (field-of value (quote emission)))
+    (define (::emitted value) (field-of value (quote emitted)))
+    (define (::entry value) (field-of value (quote entry)))
     (define (::enum? value) (field-of value (quote enum?)))
     (define (::env value) (field-of value (quote env)))
     (define (::evidence value) (field-of value (quote evidence)))
@@ -349,16 +370,20 @@
     (define (::metadata value) (field-of value (quote metadata)))
     (define (::method value) (field-of value (quote method)))
     (define (::methods value) (field-of value (quote methods)))
+    (define (::missing value) (field-of value (quote missing)))
     (define (::module value) (field-of value (quote module)))
     (define (::more value) (field-of value (quote more)))
     (define (::mutable? value) (field-of value (quote mutable?)))
     (define (::name value) (field-of value (quote name)))
     (define (::names value) (field-of value (quote names)))
+    (define (::needs value) (field-of value (quote needs)))
+    (define (::nodes value) (field-of value (quote nodes)))
     (define (::offset value) (field-of value (quote offset)))
     (define (::open value) (field-of value (quote open)))
     (define (::operands value) (field-of value (quote operands)))
     (define (::operation value) (field-of value (quote operation)))
     (define (::operations value) (field-of value (quote operations)))
+    (define (::order value) (field-of value (quote order)))
     (define (::original value) (field-of value (quote original)))
     (define (::output value) (field-of value (quote output)))
     (define (::outputs value) (field-of value (quote outputs)))
@@ -370,9 +395,11 @@
     (define (::pending value) (field-of value (quote pending)))
     (define (::pending-count value) (field-of value (quote pending-count)))
     (define (::performed value) (field-of value (quote performed)))
+    (define (::phase value) (field-of value (quote phase)))
     (define (::predecessor value) (field-of value (quote predecessor)))
     (define (::prefix value) (field-of value (quote prefix)))
     (define (::program value) (field-of value (quote program)))
+    (define (::public value) (field-of value (quote public)))
     (define (::reached value) (field-of value (quote reached)))
     (define (::read value) (field-of value (quote read)))
     (define (::reading value) (field-of value (quote reading)))
@@ -384,23 +411,28 @@
     (define (::result value) (field-of value (quote result)))
     (define (::resumes value) (field-of value (quote resumes)))
     (define (::returns value) (field-of value (quote returns)))
+    (define (::roots value) (field-of value (quote roots)))
     (define (::row value) (field-of value (quote row)))
     (define (::rows value) (field-of value (quote rows)))
     (define (::rules value) (field-of value (quote rules)))
+    (define (::runs value) (field-of value (quote runs)))
     (define (::schemes value) (field-of value (quote schemes)))
     (define (::scope value) (field-of value (quote scope)))
     (define (::scope-count value) (field-of value (quote scope-count)))
     (define (::scopes value) (field-of value (quote scopes)))
+    (define (::scratch value) (field-of value (quote scratch)))
     (define (::second value) (field-of value (quote second)))
     (define (::self value) (field-of value (quote self)))
     (define (::set value) (field-of value (quote set)))
     (define (::setup value) (field-of value (quote setup)))
     (define (::signed value) (field-of value (quote signed)))
     (define (::solution value) (field-of value (quote solution)))
+    (define (::source value) (field-of value (quote source)))
     (define (::stack value) (field-of value (quote stack)))
     (define (::stamp value) (field-of value (quote stamp)))
     (define (::state value) (field-of value (quote state)))
     (define (::statements value) (field-of value (quote statements)))
+    (define (::steps value) (field-of value (quote steps)))
     (define (::symbol value) (field-of value (quote symbol)))
     (define (::tag value) (field-of value (quote tag)))
     (define (::target value) (field-of value (quote target)))
@@ -540,7 +572,7 @@
     (define (assoc-ref entries key)
       (let loop ((entries entries))
         (cond ((null? entries) (None))
-              ((equal? (Pair-first (car entries)) key) (Some (Pair-second (car entries))))
+              ((equal? (::first (car entries)) key) (Some (::second (car entries))))
               (else (loop (cdr entries))))))
 
     (define (list-index test items)

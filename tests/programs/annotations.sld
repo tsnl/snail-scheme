@@ -14,7 +14,7 @@
    (annotations (doc "Return the agent's display name.")
                 (doc "This does not run an operation.")))
 (define (describe-agent agent)
-  (Agent-name agent))
+  (::name agent))
 ;; ANCHOR_END: annotations
 
 (type AgentName String (annotations (doc "A human-readable name.")))
@@ -28,7 +28,7 @@
   (: name-of (-> T String) (annotations (doc "Return this value's name.")))
   (annotations (doc "Values with a human-readable name.")))
 (instance (Named Agent)
-  (define (name-of agent) (Agent-name agent)))
+  (define (name-of agent) (::name agent)))
 
 (effect information
   ((fetch-name (-> Unit String) (annotations (doc "Read the current name.")))
@@ -52,5 +52,5 @@
 
 (write-line (describe-agent (Agent "Ada" 0)))
 (write-line (name-of (Ready-agent (Ready (Agent "Lin" 1)))))
-(write-line (show (Agent-steps (Agent-steps-set (Agent "Ada" 0) 3))))
+(write-line (show (::steps (Agent-steps-set (Agent "Ada" 0) 3))))
 (write-line (show (+ constant generated)))

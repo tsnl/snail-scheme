@@ -42,25 +42,25 @@
                      " ["
                      (string-property field "missing")
                      "] "
-                     (show (Listener-id keys))))))
+                     (show (::id keys))))))
 
 (: result (Pair String Document))
 (define result (with-memory-dom (Nil) build))
 
-(write-line (Pair-first result))
-(write-line (document->html (Pair-second result)))
-(for-each write-line (document-trace (Pair-second result)))
+(write-line (::first result))
+(write-line (document->html (::second result)))
+(for-each write-line (document-trace (::second result)))
 
 (: removed Document)
 (define removed
-  (Pair-second (with-memory-dom (Nil) (lambda ()
-                                        (let ((outer (create-element "div"))
-                                              (inner (create-element "p")))
-                                          (insert-node (document-root) outer (None))
-                                          (insert-node outer inner (None))
-                                          (remove-node outer)
-                                          (insert-node (document-root)
-                                                       (create-text "after")
-                                                       (None)))))))
+  (::second (with-memory-dom (Nil) (lambda ()
+                                     (let ((outer (create-element "div"))
+                                           (inner (create-element "p")))
+                                       (insert-node (document-root) outer (None))
+                                       (insert-node outer inner (None))
+                                       (remove-node outer)
+                                       (insert-node (document-root)
+                                                    (create-text "after")
+                                                    (None)))))))
 
 (write-line (document->html removed))

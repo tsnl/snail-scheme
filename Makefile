@@ -23,6 +23,7 @@ fetch:
 # programs, both games' tests, Siegework headless, and the development service.
 # Build shared tools before the service tests' startup deadlines begin.
 test:
+	./scripts/chibi-paths --check
 	./scripts/snail-tool dev-tools >/dev/null
 	"$(EMACS)" --quick --batch -l tests/format-scheme.el -f ert-run-tests-batch-and-exit
 	"$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"

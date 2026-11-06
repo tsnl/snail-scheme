@@ -1,7 +1,7 @@
 ;; Search saved project files on the service or the exact current draft here.
 ;; A draft result carries its text, never an invented saved-file revision.
 (define-library (snail shell ide search)
-  (export Draft Draft-path Draft-text Source SavedProject CurrentDraft
+  (export Draft Source SavedProject CurrentDraft
           Results SavedResults DraftResults run same-draft?)
   (import
    (snail core base)
@@ -30,8 +30,8 @@
 
     (: same-draft? (-> Draft Draft Bool))
     (define (same-draft? first second)
-      (and (string=? (Draft-path first) (Draft-path second))
-           (string=? (Draft-text first) (Draft-text second))))
+      (and (string=? (::path first) (::path second))
+           (string=? (::text first) (::text second))))
 
     ;; ---- Searching ----
 
@@ -50,7 +50,7 @@
 
     (: search-draft (-> Draft Query Results ! tasks))
     (define (search-draft draft query)
-      (let* ((text (Draft-text draft))
+      (let* ((text (::text draft))
              (end (min 4000000 (string-length text)))
              (hits (scan query text end 201)))
         (DraftResults draft (take hits 200)

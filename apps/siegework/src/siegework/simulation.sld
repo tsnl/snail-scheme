@@ -7,8 +7,6 @@
    act
    advance
    Entry
-   Entry-tick
-   Entry-action
    command
    replay)
   (import
@@ -28,11 +26,11 @@
     ;; the destroyed before the game is judged.
     (: advance (-> World World))
     (define (advance world)
-      (if (and (World-started world) (playing? world))
+      (if (and (::started world) (playing? world))
           (judge (settle
                   (strike (settle (fire (march (excavate (spawn (work (produce (World-tick-set world
                                                                                                (+
-                                                                                                (World-tick
+                                                                                                (::tick
                                                                                                  world)
                                                                                                 1))))))))))))
           world))
@@ -51,7 +49,7 @@
     (: command (-> World Action (Result (Pair World Entry) Rejection)))
     (define (command world action)
       (match (act world action)
-        ((Ok next) (Ok (Pair next (Entry (World-tick world) action))))
+        ((Ok next) (Ok (Pair next (Entry (::tick world) action))))
         ((Err rejection) (Err rejection))))
 
     ;; Rebuilds a colony from its seed, its journal, oldest entry first, and
@@ -67,20 +65,20 @@
 
     (: replay-entry (-> (Pair World (List Entry)) Entry (Pair World (List Entry))))
     (define (replay-entry played entry)
-      (let ((world (advance-until (Pair-first played) (Entry-tick entry))))
-        (if (= (World-tick world) (Entry-tick entry))
-            (match (command world (Entry-action entry))
-              ((Ok (Pair next kept)) (Pair next (Cons kept (Pair-second played))))
-              ((Err _) (Pair world (Pair-second played))))
-            (Pair world (Pair-second played)))))
+      (let ((world (advance-until (::first played) (::tick entry))))
+        (if (= (::tick world) (::tick entry))
+            (match (command world (::action entry))
+              ((Ok (Pair next kept)) (Pair next (Cons kept (::second played))))
+              ((Err _) (Pair world (::second played))))
+            (Pair world (::second played)))))
 
     ;; Advances to `tick`, or until the world stops: before the first order
     ;; and once the game is decided, a tick changes nothing.
     (: advance-until (-> World I64 World))
     (define (advance-until world tick)
-      (if (< (World-tick world) tick)
+      (if (< (::tick world) tick)
           (let ((next (advance world)))
-            (if (= (World-tick next) (World-tick world)) next (advance-until next tick)))
+            (if (= (::tick next) (::tick world)) next (advance-until next tick)))
           world))
 
     ))

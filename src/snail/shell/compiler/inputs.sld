@@ -7,7 +7,6 @@
    ArtifactFiles
    Generated
    Inputs
-   Inputs-artifacts
    no-inputs
    supply-artifact
    supply-generated

@@ -6,9 +6,6 @@
 (define-library (snail shell explore)
   (export
    Violation
-   Violation-reason
-   Violation-moves
-   Violation-state
    explore)
   (import
    (snail core base)
@@ -70,9 +67,9 @@
       (match frontier
         ((Nil) (None))
         ((Cons visit rest)
-         (match (invariant (Visit-state visit))
+         (match (invariant (::state visit))
            ((Some reason)
-            (Some (Violation reason (reverse (Visit-path visit)) (Visit-state visit))))
+            (Some (Violation reason (reverse (::path visit)) (::state visit))))
            ((None) (first-violation rest invariant))))))
 
     ;; The states the frontier reaches for the first time, with `seen`
@@ -86,17 +83,17 @@
     (define (successors frontier moves step seen)
       (match (fold-left (lambda (found visit)
                           (fold-left (lambda (found move)
-                                       (let* ((state (step (Visit-state visit) move))
+                                       (let* ((state (step (::state visit) move))
                                               (key (state-key state)))
                                          (match found
                                            ((Pair next seen)
                                             (if (table-contains? seen key)
                                                 found
                                                 (Pair
-                                                 (Cons (Visit state (Cons move (Visit-path visit)))
+                                                 (Cons (Visit state (Cons move (::path visit)))
                                                        next)
                                                  (table-set seen key #t)))))))
-                                     found (moves (Visit-state visit))))
+                                     found (moves (::state visit))))
                         (Pair (Nil) seen) frontier)
         ((Pair next seen) (Pair (reverse next) seen))))
 

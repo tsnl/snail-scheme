@@ -23,13 +23,8 @@
  (snail core io)
  (only (snail shell compiler read)
        Loc
-       Loc-file
-       Loc-line
-       Loc-column
        SourceDiagnostic
        diagnostics->list
-       SourceDiagnostic-loc
-       SourceDiagnostic-message
        diagnostic->string
        loc->string)
  (snail shell json)
@@ -122,14 +117,14 @@
 ;; publishes it; answers the target's generation.
 (: build-and-publish (-> Job Project String String ! mut fs clock process))
 (define (build-and-publish job description target)
-  (match (Pair-first (build-project (Job-tools job)
-                                    (Job-project job)
-                                    description
-                                    (list target)
-                                    (Job-mode job)
-                                    (scratch job)
-                                    ".snail-"
-                                    (Nil)))
+  (match (::first (build-project (::tools job)
+                                 (::project job)
+                                 description
+                                 (list target)
+                                 (::mode job)
+                                 (scratch job)
+                                 ".snail-"
+                                 (Nil)))
     ((Err failure) (panic (failure->string failure)))
     ((Ok candidate)
      (match (publish-project candidate)
@@ -138,13 +133,13 @@
 
 (: scratch (-> Job String))
 (define (scratch job)
-  (string-append (Tools-root (Job-tools job)) "/build/snail-run"))
+  (string-append (::root (::tools job)) "/build/snail-run"))
 
 (: generation-of (-> Candidate String String))
 (define (generation-of candidate target)
-  (match (find (lambda (output) (string=? (Output-name output) target))
-               (Candidate-outputs candidate))
-    ((Some output) (Output-directory output))
+  (match (find (lambda (output) (string=? (::name output) target))
+               (::outputs candidate))
+    ((Some output) (::directory output))
     ((None) (panic (string-append "internal error: the build did not build " target)))))
 
 ;; ---- Running ----
@@ -153,22 +148,22 @@
 ;; running it.
 (: run-target (-> Job Project Unit ! mut fs clock process))
 (define (run-target job description)
-  (match (find (lambda (run) (string=? (RunTarget-name run) (Job-target job)))
-               (Project-runs description))
-    ((None) (panic (string-append "unknown project run target " (Job-target job))))
+  (match (find (lambda (run) (string=? (::name run) (::target job)))
+               (::runs description))
+    ((None) (panic (string-append "unknown project run target " (::target job))))
     ((Some run)
      (let* ((generation (build-and-publish job
                                            description
-                                           (ProgramBuild-name (RunTarget-program run))))
-            (tools (Job-tools job))
-            (error (exec (Command (Tools-node tools)
+                                           (::name (::program run))))
+            (tools (::tools job))
+            (error (exec (Command (::node tools)
                                   (append (list "--no-warnings"
-                                                (string-append (Tools-root tools)
+                                                (string-append (::root tools)
                                                                "/host/native/run-snail.mjs")
                                                 (string-append generation "/program.wasm"))
-                                          (append (RunTarget-arguments run) (Job-arguments job)))
+                                          (append (::arguments run) (::arguments job)))
                                   "."))))
-       (panic (string-append "cannot run " (Tools-node tools) ": " (ProcessError-code error)))))))
+       (panic (string-append "cannot run " (::node tools) ": " (::code error)))))))
 
 ;; ---- The resident builder ----
 
@@ -227,35 +222,35 @@
 
 (: build-for (-> Resident I64 String Resident ! mut fs clock process console))
 (define (build-for resident epoch prefix)
-  (let ((job (Resident-job resident)))
-    (match (Resident-held resident)
+  (let ((job (::job resident)))
+    (match (::held resident)
       ((Some _) (panic "internal error: a build was asked for before the last was decided"))
       ((None) (unit)))
-    (match (read-project (Job-project job))
+    (match (read-project (::project job))
       ((Err failure)
        (reply (build-reply epoch (JsonNull) (JsonNull) failure))
        resident)
       ((Ok description)
        (let* ((began (monotonic-nanoseconds))
-              (built (build-project (Job-tools job)
-                                    (Job-project job)
+              (built (build-project (::tools job)
+                                    (::project job)
                                     description
-                                    (map build-name (Project-builds description))
+                                    (map build-name (::builds description))
                                     (Development)
                                     (scratch job)
                                     prefix
-                                    (Resident-retained resident)))
+                                    (::retained resident)))
               (milliseconds (quotient (- (monotonic-nanoseconds) began) 1000000)))
-         (match (Pair-first built)
+         (match (::first built)
            ((Ok candidate)
             (reply (list (Pair "epoch" (JsonInteger epoch))
                          (Pair "description" (description->json description))
                          (Pair "candidate" (candidate->json candidate description milliseconds))
                          (Pair "diagnostics" (JsonArray (Nil)))))
-            (Resident job (Pair-second built) (Some (Pair epoch candidate))))
+            (Resident job (::second built) (Some (Pair epoch candidate))))
            ((Err failure)
             (reply (build-reply epoch (description->json description) (JsonNull) failure))
-            (Resident job (Pair-second built) (None)))))))))
+            (Resident job (::second built) (None)))))))))
 
 (: build-reply (-> I64 Json Json Failure (List (Pair String Json))))
 (define (build-reply epoch description candidate failure)
@@ -266,7 +261,7 @@
 
 (: held (-> Resident I64 Candidate))
 (define (held resident epoch)
-  (match (Resident-held resident)
+  (match (::held resident)
     ((Some (Pair held-epoch candidate))
      (if (= held-epoch epoch)
          candidate
@@ -314,20 +309,20 @@
 (: build-name (-> BuildTarget String))
 (define (build-name target)
   (match target
-    ((ProgramTarget program) (ProgramBuild-name program))
-    ((BrowserTarget browser) (BrowserBuild-name browser))))
+    ((ProgramTarget program) (::name program))
+    ((BrowserTarget browser) (::name browser))))
 
 ;; The project as the service reads it: its build and run targets, each
 ;; with its source point.
 (: description->json (-> Project Json))
 (define (description->json description)
-  (JsonObject (list (Pair "builds" (JsonArray (map build->json (Project-builds description))))
-                    (Pair "runs" (JsonArray (map run->json (Project-runs description)))))))
+  (JsonObject (list (Pair "builds" (JsonArray (map build->json (::builds description))))
+                    (Pair "runs" (JsonArray (map run->json (::runs description)))))))
 
 (: entry->json (-> ProjectEntry Json))
 (define (entry->json entry)
   (match entry
-    ((SourceEntry path) (JsonString (ProjectPath-text path)))
+    ((SourceEntry path) (JsonString (::text path)))
     ((ApplicationEntry library name)
      (JsonObject (list (Pair "library" (JsonArray (map JsonString library)))
                        (Pair "type" (JsonString name)))))))
@@ -337,55 +332,55 @@
   (match target
     ((ProgramTarget program)
      (JsonObject (list (Pair "kind" (JsonString "program"))
-                       (Pair "name" (JsonString (ProgramBuild-name program)))
-                       (Pair "entry" (entry->json (ProgramBuild-entry program)))
-                       (Pair "location" (JsonString (loc->string (ProgramBuild-loc program))))
-                       (Pair "libraries" (paths->json (ProgramBuild-libraries program))))))
+                       (Pair "name" (JsonString (::name program)))
+                       (Pair "entry" (entry->json (::entry program)))
+                       (Pair "location" (JsonString (loc->string (::loc program))))
+                       (Pair "libraries" (paths->json (::libraries program))))))
     ((BrowserTarget browser)
      (JsonObject (list (Pair "kind" (JsonString "browser"))
-                       (Pair "name" (JsonString (BrowserBuild-name browser)))
-                       (Pair "entry" (entry->json (BrowserBuild-entry browser)))
-                       (Pair "location" (JsonString (loc->string (BrowserBuild-loc browser))))
-                       (Pair "libraries" (paths->json (BrowserBuild-libraries browser)))
-                       (Pair "public" (match (BrowserBuild-public browser)
-                                        ((Some path) (JsonString (ProjectPath-text path)))
+                       (Pair "name" (JsonString (::name browser)))
+                       (Pair "entry" (entry->json (::entry browser)))
+                       (Pair "location" (JsonString (loc->string (::loc browser))))
+                       (Pair "libraries" (paths->json (::libraries browser)))
+                       (Pair "public" (match (::public browser)
+                                        ((Some path) (JsonString (::text path)))
                                         ((None) (JsonNull)))))))))
 
 (: paths->json (-> (List ProjectPath) Json))
 (define (paths->json paths)
-  (JsonArray (map (lambda (path) (JsonString (ProjectPath-text path))) paths)))
+  (JsonArray (map (lambda (path) (JsonString (::text path))) paths)))
 
 (: run->json (-> RunTarget Json))
 (define (run->json run)
   (JsonObject (list (Pair "kind" (JsonString "run"))
-                    (Pair "name" (JsonString (RunTarget-name run)))
-                    (Pair "build" (JsonString (ProgramBuild-name (RunTarget-program run))))
-                    (Pair "location" (JsonString (loc->string (RunTarget-loc run))))
-                    (Pair "args" (JsonArray (map JsonString (RunTarget-arguments run)))))))
+                    (Pair "name" (JsonString (::name run)))
+                    (Pair "build" (JsonString (::name (::program run))))
+                    (Pair "location" (JsonString (loc->string (::loc run))))
+                    (Pair "args" (JsonArray (map JsonString (::arguments run)))))))
 
 ;; How long the build took, and each target's generation, with its
 ;; digests and how many of its modules the build compiled.
 (: candidate->json (-> Candidate Project I64 Json))
 (define (candidate->json candidate description milliseconds)
   (JsonObject
-   (list (Pair "project" (JsonString (Candidate-project candidate)))
+   (list (Pair "project" (JsonString (::project candidate)))
          (Pair "milliseconds" (JsonInteger milliseconds))
          (Pair "description" (description->json description))
-         (Pair "targets" (JsonArray (map output->json (Candidate-outputs candidate)))))))
+         (Pair "targets" (JsonArray (map output->json (::outputs candidate)))))))
 
 (: output->json (-> Output Json))
 (define (output->json output)
-  (JsonObject (list (Pair "name" (JsonString (Output-name output)))
-                    (Pair "directory" (JsonString (Output-directory output)))
-                    (Pair "digest" (JsonString (Output-digest output)))
-                    (Pair "compiled" (JsonInteger (Output-compiled output)))
-                    (Pair "modules" (JsonInteger (Output-modules output)))
+  (JsonObject (list (Pair "name" (JsonString (::name output)))
+                    (Pair "directory" (JsonString (::directory output)))
+                    (Pair "digest" (JsonString (::digest output)))
+                    (Pair "compiled" (JsonInteger (::compiled output)))
+                    (Pair "modules" (JsonInteger (::modules output)))
                     (Pair "files"
                           (JsonObject (map (lambda (file)
-                                             (Pair (Pair-first file)
-                                                   (JsonString (Pair-second file))))
-                                           (Output-files output))))
-                    (Pair "linked" (JsonArray (map JsonString (Output-linked output)))))))
+                                             (Pair (::first file)
+                                                   (JsonString (::second file))))
+                                           (::files output))))
+                    (Pair "linked" (JsonArray (map JsonString (::linked output)))))))
 
 ;; A failure's diagnostics as the editor shows them: a compile's, each
 ;; naming its source point when it has one, or the build's one.
@@ -399,18 +394,18 @@
 ;; as a missing source, names the file in its message.
 (: source-diagnostic->json (-> SourceDiagnostic Json))
 (define (source-diagnostic->json diagnostic)
-  (let ((loc (SourceDiagnostic-loc diagnostic)))
-    (cond ((= (string-length (Loc-file loc)) 0)
-           (diagnostic->json (SourceDiagnostic-message diagnostic) (JsonNull)))
-          ((and (> (Loc-line loc) 0) (> (Loc-column loc) 0))
-           (diagnostic->json (SourceDiagnostic-message diagnostic) (source->json loc)))
+  (let ((loc (::loc diagnostic)))
+    (cond ((= (string-length (::file loc)) 0)
+           (diagnostic->json (::message diagnostic) (JsonNull)))
+          ((and (> (::line loc) 0) (> (::column loc) 0))
+           (diagnostic->json (::message diagnostic) (source->json loc)))
           (else (diagnostic->json (diagnostic->string diagnostic) (JsonNull))))))
 
 (: source->json (-> Loc Json))
 (define (source->json loc)
-  (JsonObject (list (Pair "file" (JsonString (Loc-file loc)))
-                    (Pair "line" (JsonInteger (Loc-line loc)))
-                    (Pair "column" (JsonInteger (Loc-column loc))))))
+  (JsonObject (list (Pair "file" (JsonString (::file loc)))
+                    (Pair "line" (JsonInteger (::line loc)))
+                    (Pair "column" (JsonInteger (::column loc))))))
 
 (: diagnostic->json (-> String Json Json))
 (define (diagnostic->json message source)
@@ -452,17 +447,17 @@
 ;; A build, a run, or the resident builder.
 (: invoke (-> Job Unit ! mut fs clock process console))
 (define (invoke job)
-  (match (Job-mode job)
+  (match (::mode job)
     ((Development) (serve (Resident job (Nil) (None))))
     (_
-     (match (read-project (Job-project job))
+     (match (read-project (::project job))
        ((Err failure) (panic (failure->string failure)))
        ((Ok description)
-        (if (Job-run? job)
+        (if (::run? job)
             (run-target job description)
             (begin
-              (build-and-publish job description (Job-target job))
-              (write-line (string-append (Job-project job) "/build/" (Job-target job))))))))))
+              (build-and-publish job description (::target job))
+              (write-line (string-append (::project job) "/build/" (::target job))))))))))
 
 (match (command-line)
   ((Cons cli (Cons root (Cons runtime (Cons "dev" arguments))))

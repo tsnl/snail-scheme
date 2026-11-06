@@ -7,7 +7,7 @@
 
 (: inspect (-> (Borrow Token) I64))
 (define (inspect borrowed)
-  (Token-number borrowed))
+  (::number borrowed))
 
 (let ((token (Token 1)))
   (inspect token)

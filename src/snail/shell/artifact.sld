@@ -4,10 +4,7 @@
 (define-library (snail shell artifact)
   (export
    ArtifactFile
-   ArtifactFile-path
-   ArtifactFile-bytes
    ArtifactBundle
-   ArtifactBundle-files
    artifact-bundle
    artifact-ref)
   (import
@@ -30,9 +27,9 @@
 
     (: artifact-ref (-> ArtifactBundle String (Option Bytes)))
     (define (artifact-ref bundle path)
-      (match (find (lambda (file) (string=? (ArtifactFile-path file) path))
-                   (ArtifactBundle-files bundle))
-        ((Some file) (Some (ArtifactFile-bytes file)))
+      (match (find (lambda (file) (string=? (::path file) path))
+                   (::files bundle))
+        ((Some file) (Some (::bytes file)))
         ((None) (None))))
 
     ))

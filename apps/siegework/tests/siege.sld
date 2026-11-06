@@ -6,7 +6,7 @@
  (snail core base)
  (snail core io)
  (siegework grid)
- (only (siegework terrain) Land-starter)
+ (only (siegework terrain))
  (siegework world)
  (siegework colony)
  (siegework siege)
@@ -34,22 +34,22 @@
 (define (report name world)
   (write-line (string-append name
                              ": tick "
-                             (show (World-tick world))
+                             (show (::tick world))
                              ", buildings "
-                             (show (length (World-buildings world)))
+                             (show (length (::buildings world)))
                              ", hub "
-                             (show (Hub-health (World-hub world)))
+                             (show (::health (::hub world)))
                              ", enemies "
-                             (show (length (World-enemies world)))
+                             (show (length (::enemies world)))
                              ", kills "
-                             (show (Ledger-kills (World-ledger world)))
+                             (show (::kills (::ledger world)))
                              ", lost "
-                             (show (Ledger-lost (World-ledger world)))
+                             (show (::lost (::ledger world)))
                              ", opened rock "
                              (show (vector-fold (lambda (n open) (if open (+ n 1) n))
                                                 0
-                                                (World-opened world)))
-                             ", " (outcome-text (World-outcome world)))))
+                                                (::opened world)))
+                             ", " (outcome-text (::outcome world)))))
 
 (: attack-text (-> I64 String))
 (define (attack-text tick)
@@ -61,17 +61,17 @@
 
 (: offset (-> World I64 I64 Cell))
 (define (offset world dx dy)
-  (let ((hub (Hub-cell (World-hub world))))
-    (Cell (+ (Cell-x hub) dx) (+ (Cell-y hub) dy))))
+  (let ((hub (::cell (::hub world))))
+    (Cell (+ (::x hub) dx) (+ (::y hub) dy))))
 
 (: started (-> World World))
 (define (started world)
-  (try world (Build (Extractor) (Land-starter (World-land world)) #f)))
+  (try world (Build (Extractor) (::starter (::land world)) #f)))
 
 (: reinforce (-> World World))
 (define (reinforce world)
   (try (fold-left (lambda (world d)
-                    (try world (Build (Turret) (offset world (Pair-first d) (Pair-second d)) #f)))
+                    (try world (Build (Turret) (offset world (::first d) (::second d)) #f)))
                   world
                   (list (Pair -2 0)
                         (Pair 0 2)
@@ -103,7 +103,7 @@
 (write-line (string-append "the lost colony's whole map is uncovered: "
                            (show (vector-fold (lambda (all seen) (and all seen))
                                               #t
-                                              (World-explored lost)))))
+                                              (::explored lost)))))
 (define defended (defend (started (new-world 1)) 1000))
 (report "defended" defended)
 (report "defended" (defend defended 2000))
@@ -130,9 +130,9 @@
 
 (: aggro-text (-> World String))
 (define (aggro-text world)
-  (match (find (lambda (e) (= (Enemy-id e) 999)) (World-enemies world))
+  (match (find (lambda (e) (= (::id e) 999)) (::enemies world))
     ((Some enemy)
-     (match (Enemy-aggro enemy)
+     (match (::aggro enemy)
        ((Some id) (string-append "building " (show id)))
        ((None) "nothing")))
     ((None) "gone")))
@@ -143,28 +143,28 @@
       (let ((next (advance world)))
         (for-each (lambda (shot)
                     (write-line (string-append "tick "
-                                               (show (World-tick next))
+                                               (show (::tick next))
                                                ": the turret at x "
-                                               (show (Cell-x (Shot-from shot)))
+                                               (show (::x (::from shot)))
                                                " fires; the enemy has turned on "
                                                (aggro-text next))))
-                  (filter (lambda (shot) (= (Shot-tick shot) (World-tick next)))
-                          (World-shots next)))
+                  (filter (lambda (shot) (= (::tick shot) (::tick next)))
+                          (::shots next)))
         (watch next (- ticks 1)))
       (begin
         (write-line (string-append "at tick "
-                                   (show (World-tick world))
+                                   (show (::tick world))
                                    " the enemy has turned on "
                                    (aggro-text world)))
         (write-line (string-append "the guns stay on each turret's last shot: "
-                                   (string-join (map aim-text (World-buildings world)) ", "))))))
+                                   (string-join (map aim-text (::buildings world)) ", "))))))
 
 (: aim-text (-> Building String))
 (define (aim-text b)
-  (string-append (kind-name (Building-kind b)) " at x " (show (Cell-x (Building-cell b))) " "
-                 (match (Building-aim b)
+  (string-append (kind-name (::kind b)) " at x " (show (::x (::cell b))) " "
+                 (match (::aim b)
                    ((Some cell)
-                    (string-append "aims at " (show (Cell-x cell)) "," (show (Cell-y cell))))
+                    (string-append "aims at " (show (::x cell)) "," (show (::y cell))))
                    ((None) "has not fired"))))
 
 (watch (flanked (started (new-world 1))) 40)

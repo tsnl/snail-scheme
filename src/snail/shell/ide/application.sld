@@ -5,9 +5,8 @@
 (define-library (snail shell ide application)
   (export Ide Msg initial update view window kept restored Connect Boot
           DispatchCommand InvokeCommand Typed Open Answered Saved Heard PaletteEvent
-          Buffer Buffer-text Buffer-baseline Buffer-saving Buffer-read
-          Snapshot Snapshot-text Snapshot-revision
-          Ide-active Ide-panes Ide-files-shown Ide-palette buffer-at dirty? conflict?)
+          Buffer
+          Snapshot buffer-at dirty? conflict?)
   (import
    (snail core base)
    (only (snail shell text) string-upcase string-downcase)
@@ -24,7 +23,7 @@
    (snail shell wire)
    (prefix (rename (snail shell ide palette) (open open-component) (view view-component)) palette-)
    (prefix (snail shell ide search) search-)
-   (only (snail shell text search) Occurrence Occurrence-line Occurrence-column)
+   (only (snail shell text search) Occurrence)
    (prefix (snail shell ui commands) command-)
    (prefix (snail shell ui shortcuts) shortcut-))
   (begin
@@ -153,16 +152,16 @@
     ;; whether the field took it; one it did not take leaves the selection.
     (: apply-change (-> Node Change Bool ! dom))
     (define (apply-change field change)
-      (let ((taken (or (and (= (Change-start change) (Change-end change))
-                            (string=? (Change-text change) ""))
+      (let ((taken (or (and (= (::start change) (::end change))
+                            (string=? (::text change) ""))
                        (insert-text field
-                                    (i64->i32 (Change-start change))
-                                    (i64->i32 (Change-end change))
-                                    (Change-text change)))))
+                                    (i64->i32 (::start change))
+                                    (i64->i32 (::end change))
+                                    (::text change)))))
         (when taken
           (select-range field
-                        (i64->i32 (Change-selection-start change))
-                        (i64->i32 (Change-selection-end change))))
+                        (i64->i32 (::selection-start change))
+                        (i64->i32 (::selection-end change))))
         taken))
 
     ;; Tab reindents the caret's line, or every line the selection touches but
@@ -315,22 +314,22 @@
     ;; The draft has changes of its own.
     (: dirty? (-> Buffer Bool))
     (define (dirty? buffer)
-      (match (Buffer-baseline buffer)
-        ((Some baseline) (not (string=? (Buffer-text buffer) (Snapshot-text baseline))))
+      (match (::baseline buffer)
+        ((Some baseline) (not (string=? (::text buffer) (::text baseline))))
         ((None) #f)))
 
     ;; Disk has moved on from the contents the draft was made from.
     (: conflict? (-> Buffer Bool))
     (define (conflict? buffer)
-      (match (Pair (Buffer-baseline buffer) (Buffer-observed buffer))
+      (match (Pair (::baseline buffer) (::observed buffer))
         ((Pair (Some baseline) (Some revision))
-         (not (string=? revision (Snapshot-revision baseline))))
+         (not (string=? revision (::revision baseline))))
         ((Pair (Some _) (None)) #t)
         (_ #f)))
 
     (: loaded? (-> Buffer Bool))
     (define (loaded? buffer)
-      (match (Buffer-baseline buffer)
+      (match (::baseline buffer)
         ((Some _) #t)
         ((None) #f)))
 
@@ -426,18 +425,18 @@
     (: halves (-> Area String F64 (Pair Area Area)))
     (define (halves area direction ratio)
       (if (string=? direction "column")
-          (let ((first (* (Area-height area) ratio)))
+          (let ((first (* (::height area) ratio)))
             (Pair (Area-height-set area first)
-                  (Area (Area-left area)
-                        (+ (Area-top area) first)
-                        (Area-width area)
-                        (- (Area-height area) first))))
-          (let ((first (* (Area-width area) ratio)))
+                  (Area (::left area)
+                        (+ (::top area) first)
+                        (::width area)
+                        (- (::height area) first))))
+          (let ((first (* (::width area) ratio)))
             (Pair (Area-width-set area first)
-                  (Area (+ (Area-left area) first)
-                        (Area-top area)
-                        (- (Area-width area) first)
-                        (Area-height area))))))
+                  (Area (+ (::left area) first)
+                        (::top area)
+                        (- (::width area) first)
+                        (::height area))))))
 
     ;; Each pane's part of `area`, by the pane's id.
     (: pane-areas (-> Layout Area (List (Pair I64 Area))))
@@ -468,7 +467,7 @@
 
     (: division-of (-> Layout I64 (Option Division)))
     (define (division-of layout split)
-      (find (lambda (division) (= (Division-split division) split)) (divisions layout whole)))
+      (find (lambda (division) (= (::split division) split)) (divisions layout whole)))
 
     ;; The layout with split `split` dividing at `ratio`, kept to a tenth of
     ;; the room either side.
@@ -513,9 +512,9 @@
 
     (: diagnostic-of (-> Report Diagnostic))
     (define (diagnostic-of report)
-      (Diagnostic (Report-severity report)
-                  (Report-message report)
-                  (Report-source report)
+      (Diagnostic (::severity report)
+                  (::message report)
+                  (::source report)
                   (Unobserved)))
 
     ;; The compiler's status as the status bar shows it: its words, its state for
@@ -528,7 +527,7 @@
 
     (: compiler-status (-> Build Status))
     (define (compiler-status build)
-      (let ((phase (Build-phase build)))
+      (let ((phase (::phase build)))
         (Status (cond ((string=? phase "starting") "Starting the compiler…")
                       ((string=? phase "building") "Building…")
                       ((string=? phase "succeeded") "Built")
@@ -538,7 +537,7 @@
                 (cond ((or (string=? phase "failed") (string=? phase "fatal")) "failed")
                       ((string=? phase "succeeded") "built")
                       (else phase))
-                (show (Build-id build)))))
+                (show (::id build)))))
 
     ;; ---- Runs ----
 
@@ -553,54 +552,54 @@
     ;; Keep the selected run while it remains in the complete server snapshot.
     (: runs-received (-> Runs (List Run) Runs))
     (define (runs-received runs list)
-      (Runs-selected-set (Runs-runs-set runs list) (chosen list (Runs-selected runs))))
+      (Runs-selected-set (Runs-runs-set runs list) (chosen list (::selected runs))))
 
     (: chosen (-> (List Run) String String))
     (define (chosen runs selected)
-      (if (any? (lambda (run) (string=? (Run-target run) selected)) runs)
+      (if (any? (lambda (run) (string=? (::target run) selected)) runs)
           selected
-          (match (find Run-available runs)
-            ((Some run) (Run-target run))
+          (match (find ::available runs)
+            ((Some run) (::target run))
             ((None) (match runs
-                      ((Cons run _) (Run-target run))
+                      ((Cons run _) (::target run))
                       ((Nil) ""))))))
 
     (: selected-run (-> Runs (Option Run)))
     (define (selected-run runs)
-      (find (lambda (run) (string=? (Run-target run) (Runs-selected runs))) (Runs-runs runs)))
+      (find (lambda (run) (string=? (::target run) (::selected runs))) (::runs runs)))
 
     ;; What was asked of a run and what was seen of it.
     (: run-description (-> (Option Run) String))
     (define (run-description found)
       (match found
         ((Some run)
-         (string-append (if (Run-available run) "" "Removed · ")
+         (string-append (if (::available run) "" "Removed · ")
                         "Requested: "
-                        (match (Run-desired run)
+                        (match (::desired run)
                           ((Some build) (string-append "build " (show build)))
                           ((None) "stop"))
                         " · Observed: "
-                        (match (Run-attempt run)
+                        (match (::attempt run)
                           ((Some attempt) (attempt-description attempt))
                           ((None) "no process"))))
         ((None) "No run targets")))
 
     (: attempt-description (-> Attempt String))
     (define (attempt-description attempt)
-      (string-append (Attempt-phase attempt)
+      (string-append (::phase attempt)
                      ", build "
-                     (show (Attempt-build attempt))
-                     (match (Attempt-pid attempt)
+                     (show (::build attempt))
+                     (match (::pid attempt)
                        ((Some pid) (string-append ", PID " (show pid)))
                        ((None) ""))
-                     (cond ((not (string=? (Attempt-signal attempt) ""))
-                            (string-append " · " (Attempt-signal attempt)))
-                           (else (match (Attempt-code attempt)
+                     (cond ((not (string=? (::signal attempt) ""))
+                            (string-append " · " (::signal attempt)))
+                           (else (match (::code attempt)
                                    ((Some code) (string-append " · exit " (show code)))
                                    ((None) ""))))
-                     (if (string=? (Attempt-error attempt) "")
+                     (if (string=? (::error attempt) "")
                          ""
-                         (string-append " · " (Attempt-error attempt)))))
+                         (string-append " · " (::error attempt)))))
 
     ;; ---- The model ----
 
@@ -698,62 +697,62 @@
 
     (: buffer-at (-> Ide String (Option Buffer)))
     (define (buffer-at model path)
-      (find (lambda (buffer) (string=? (Buffer-path buffer) path)) (Ide-buffers model)))
+      (find (lambda (buffer) (string=? (::path buffer) path)) (::buffers model)))
 
     ;; The model with `buffer` in place of the one at its path, or added.
     (: buffer-set (-> Ide Buffer Ide))
     (define (buffer-set model buffer)
-      (let ((path (Buffer-path buffer)))
+      (let ((path (::path buffer)))
         (Ide-buffers-set model
                          (match (buffer-at model path)
                            ((Some _)
-                            (map (lambda (old) (if (string=? (Buffer-path old) path) buffer old))
-                                 (Ide-buffers model)))
-                           ((None) (append (Ide-buffers model) (list buffer)))))))
+                            (map (lambda (old) (if (string=? (::path old) path) buffer old))
+                                 (::buffers model)))
+                           ((None) (append (::buffers model) (list buffer)))))))
 
     ;; The buffer at `path` closed, and the panes that showed it empty.
     (: buffer-removed (-> Ide String Ide))
     (define (buffer-removed model path)
       (Ide-panes-set (Ide-buffers-set model
                                       (filter
-                                       (lambda (buffer) (not (string=? (Buffer-path buffer) path)))
-                                       (Ide-buffers model)))
+                                       (lambda (buffer) (not (string=? (::path buffer) path)))
+                                       (::buffers model)))
                      (map (lambda (pane)
                             (if (shows? pane path) (Pane-path-set pane (None)) pane))
-                          (Ide-panes model))))
+                          (::panes model))))
 
     (: shows? (-> Pane String Bool))
     (define (shows? pane path)
-      (match (Pane-path pane)
+      (match (::path pane)
         ((Some shown) (string=? shown path))
         ((None) #f)))
 
     (: pane-of (-> Ide I64 Pane))
     (define (pane-of model id)
-      (match (find (lambda (pane) (= (Pane-id pane) id)) (Ide-panes model))
+      (match (find (lambda (pane) (= (::id pane) id)) (::panes model))
         ((Some pane) pane)
         ((None) (Pane id (None) 0.0))))
 
     (: pane-set (-> Ide Pane Ide))
     (define (pane-set model changed)
       (Ide-panes-set model
-                     (map (lambda (pane) (if (= (Pane-id pane) (Pane-id changed)) changed pane))
-                          (Ide-panes model))))
+                     (map (lambda (pane) (if (= (::id pane) (::id changed)) changed pane))
+                          (::panes model))))
 
     (: pane-buffer (-> Ide I64 (Option Buffer)))
     (define (pane-buffer model id)
-      (match (Pane-path (pane-of model id))
+      (match (::path (pane-of model id))
         ((Some path) (buffer-at model path))
         ((None) (None))))
 
     (: active-buffer (-> Ide (Option Buffer)))
     (define (active-buffer model)
-      (pane-buffer model (Ide-active model)))
+      (pane-buffer model (::active model)))
 
     ;; The active pane shows the file at `path`.
     (: showing? (-> Ide I64 String Bool))
     (define (showing? model pane path)
-      (and (= pane (Ide-active model))
+      (and (= pane (::active model))
            (shows? (pane-of model pane) path)
            (match (buffer-at model path)
              ((Some _) #t)
@@ -766,13 +765,13 @@
     (define (source-path project source)
       (match source
         ((Some point)
-         (let ((prefix (if (ends-with? (Project-directory project) "/")
-                           (Project-directory project)
-                           (string-append (Project-directory project) "/")))
-               (file (Point-file point)))
+         (let ((prefix (if (ends-with? (::directory project) "/")
+                           (::directory project)
+                           (string-append (::directory project) "/")))
+               (file (::file point)))
            (if (starts-with? file prefix)
                (let ((path (substring file (string-length prefix) (string-length file))))
-                 (if (member? path (Project-files project)) (Some path) (None)))
+                 (if (member? path (::files project)) (Some path) (None)))
                (None))))
         ((None) (None))))
 
@@ -780,15 +779,15 @@
     (: diagnostic-index (-> Ide String (Option I64)))
     (define (diagnostic-index model path)
       (list-index (lambda (diagnostic)
-                    (match (source-path (Ide-project model) (Diagnostic-source diagnostic))
+                    (match (source-path (::project model) (::source diagnostic))
                       ((Some found) (string=? found path))
                       ((None) #f)))
-                  (Ide-diagnostics model)))
+                  (::diagnostics model)))
 
     (: observation-at (-> Ide (Option I64) Observation))
     (define (observation-at model index)
       (match index
-        ((Some at) (Diagnostic-observation (list-ref (Ide-diagnostics model) at)))
+        ((Some at) (::observation (list-ref (::diagnostics model) at)))
         ((None) (Unobserved))))
 
     (: observation-set (-> Ide I64 Observation Ide))
@@ -798,22 +797,22 @@
                                           (if (= at index)
                                               (Diagnostic-observation-set diagnostic observation)
                                               diagnostic))
-                                        (Ide-diagnostics model))))
+                                        (::diagnostics model))))
 
     ;; The diagnostic whose point a pane showing the buffer marks: only while
     ;; the buffer is its disk contents, and only when the buffer's latest read
     ;; confirmed the revision the diagnostic was made from.
     (: marked (-> Ide Buffer (Option Diagnostic)))
     (define (marked model buffer)
-      (match (Pair (Buffer-baseline buffer) (diagnostic-index model (Buffer-path buffer)))
+      (match (Pair (::baseline buffer) (diagnostic-index model (::path buffer)))
         ((Pair (Some baseline) (Some index))
-         (let ((diagnostic (list-ref (Ide-diagnostics model) index)))
-           (match (Diagnostic-observation diagnostic)
+         (let ((diagnostic (list-ref (::diagnostics model) index)))
+           (match (::observation diagnostic)
              ((Observed revision sequence)
               (if (and (not (dirty? buffer))
                        (not (conflict? buffer))
-                       (string=? revision (Snapshot-revision baseline))
-                       (= sequence (Buffer-read buffer)))
+                       (string=? revision (::revision baseline))
+                       (= sequence (::read buffer)))
                   (Some diagnostic)
                   (None)))
              (_ (None)))))
@@ -821,7 +820,7 @@
 
     (: failed-status (-> Ide String Status))
     (define (failed-status model message)
-      (Status message "failed" (Status-attempt (Ide-status model))))
+      (Status message "failed" (::attempt (::status model))))
 
     ;; ---- Messages ----
 
@@ -909,7 +908,7 @@
                (list
                 (once (lambda () (Booted (string-property (document-root) "snailGeneration")))))))
         ((Booted generation)
-         (refresh-if-needed (if (string=? (Ide-editor model) "")
+         (refresh-if-needed (if (string=? (::editor model) "")
                                 (Ide-editor-set model generation) model)))
         ((RefreshFailed) (stay (Ide-refreshing-set model #f)))
         ((Nothing) (stay model))
@@ -919,20 +918,20 @@
          (if (current-stream? model stream) (heard model stream event) (stay model)))
         ((Ended) (stay model))
         ((Listed sequence result) (listed model sequence result))
-        ((Open path) (opening (search-invalidated model) path (Focus (Ide-active model))))
+        ((Open path) (opening (search-invalidated model) path (Focus (::active model))))
         ((Show generation index) (showing-diagnostic (search-invalidated model) generation index))
         ((Answered asked result) (answered model asked result))
         ((Typed pane text) (typed model pane text))
         ((Pressed pane key text start end) (pressed model pane key text start end))
         ((Focused pane)
          (stay
-          (Ide-active-set (if (= pane (Ide-active model)) model (search-invalidated model)) pane)))
+          (Ide-active-set (if (= pane (::active model)) model (search-invalidated model)) pane)))
         ((Scrolled pane top) (stay (pane-set model (Pane-scroll-set (pane-of model pane) top))))
         ((Saved path result) (saved model path result))
         ((Formatted path taken) (formatted model path taken))
         ((Discard path) (discarded model path))
         ((Refused failure)
-         (stay (Ide-status-set model (failed-status model (Failure-message failure)))))
+         (stay (Ide-status-set model (failed-status model (::message failure)))))
         ((Close pane) (invoked (Ide-active-set model pane) closing))
         ((CloseReady pane path text) (close-ready model pane path text))
         ((InstallFinished result) (installation-finished model result))
@@ -943,13 +942,13 @@
         ((DispatchCommand name) (Pair model (list (once (lambda () (InvokeCommand name))))))
         ((InvokeCommand name) (run-command model name))
         ((PaletteEvent message) (palette-message model message))
-        ((ToggleFolder path) (stay (Ide-expanded-set model (toggled (Ide-expanded model) path))))
+        ((ToggleFolder path) (stay (Ide-expanded-set model (toggled (::expanded model) path))))
         ((Grab grip) (Pair model (list (once (lambda () (grabbed grip))))))
         ((Grabbed drag) (stay (Ide-drag-set model (Some drag))))
         ((Dragged x y) (stay (dragged model x y)))
         ((Dropped) (stay (Ide-drag-set model (None))))
         ((Shortcut key modifiers) (shortcut model key modifiers))
-        ((Choose target) (stay (Ide-runs-set model (Runs-selected-set (Ide-runs model) target))))
+        ((Choose target) (stay (Ide-runs-set model (Runs-selected-set (::runs model) target))))
         ((Control action) (controlling model action))
         ((Controlled action target result) (controlled model action target result))))
 
@@ -965,9 +964,9 @@
     ;; not, is heard again.
     (: connecting (-> Ide Step))
     (define (connecting model)
-      (let ((old (Ide-events model)))
+      (let ((old (::events model)))
         (Pair (Ide-status-set (Ide-events-set model (None))
-                              (Status "Connecting…" "starting" (Status-attempt (Ide-status model))))
+                              (Status "Connecting…" "starting" (::attempt (::status model))))
               (list (once (lambda ()
                             (match old
                               ((Some stream) (stream-close stream))
@@ -983,8 +982,8 @@
 
     (: current-stream? (-> Ide Stream Bool))
     (define (current-stream? model stream)
-      (match (Ide-events model)
-        ((Some current) (= (Stream-id current) (Stream-id stream)))
+      (match (::events model)
+        ((Some current) (= (::id current) (::id stream)))
         ((None) #f)))
 
     ;; Every connection, including EventSource reconnections, refreshes reads
@@ -995,9 +994,9 @@
     (define (heard model stream event)
       (then (Pair model (list (hear stream)))
             (lambda (model)
-              (cond ((string=? (StreamEvent-kind event) "open") (reconnected model))
-                    ((string=? (StreamEvent-kind event) event-kind)
-                     (match (read-event (StreamEvent-data event))
+              (cond ((string=? (::kind event) "open") (reconnected model))
+                    ((string=? (::kind event) event-kind)
+                     (match (read-event (::data event))
                        ((Some state) (then (received model state) refresh-if-needed))
                        ((None)
                         (stay
@@ -1016,37 +1015,37 @@
     ;; repeated snapshots cannot revive a diagnostic invalidated by a save.
     (: received (-> Ide ServerState Step))
     (define (received model state)
-      (let* ((old (Ide-server model))
+      (let* ((old (::server model))
              (new-server (match old
-                           ((Some previous) (not (string=? (ServerState-instance previous)
-                                                           (ServerState-instance state))))
+                           ((Some previous) (not (string=? (::instance previous)
+                                                           (::instance state))))
                            ((None) #t)))
              (files (or new-server (match old
-                                     ((Some previous) (not (= (ServerState-files previous)
-                                                              (ServerState-files state))))
+                                     ((Some previous) (not (= (::files previous)
+                                                              (::files state))))
                                      ((None) #t))))
              (fresh (or new-server (match old
                                      ((Some previous)
                                       (not (string=?
                                             (json->string
-                                             (build->json (ServerState-build previous)))
+                                             (build->json (::build previous)))
                                             (json->string
-                                             (build->json (ServerState-build state))))))
+                                             (build->json (::build state))))))
                                      ((None) #t))))
-             (model (received-build model (ServerState-build state) fresh))
-             (model (Ide-server-set (Ide-runs-set model (runs-received (Ide-runs model)
-                                                                       (ServerState-runs state)))
+             (model (received-build model (::build state) fresh))
+             (model (Ide-server-set (Ide-runs-set model (runs-received (::runs model)
+                                                                       (::runs state)))
                                     (Some state))))
         (cond (files (listing model))
-              ((and fresh (not (null? (Ide-diagnostics model)))) (reading-all model))
+              ((and fresh (not (null? (::diagnostics model)))) (reading-all model))
               (else (stay model)))))
 
     (: received-build (-> Ide Build Bool Ide))
     (define (received-build model build fresh)
       (Ide-status-set
        (if fresh
-           (Ide-diagnostics-set (Ide-generation-set model (+ (Ide-generation model) 1))
-                                (map diagnostic-of (Build-diagnostics build)))
+           (Ide-diagnostics-set (Ide-generation-set model (+ (::generation model) 1))
+                                (map diagnostic-of (::diagnostics build)))
            model)
        (compiler-status build)))
 
@@ -1055,16 +1054,16 @@
     ;; every process-output event. The explicit command can retry at any time.
     (: refresh-if-needed (-> Ide Step))
     (define (refresh-if-needed model)
-      (match (Ide-server model)
+      (match (::server model)
         ((Some state)
-         (cond ((not (string=? (ServerState-editor-problem state) ""))
+         (cond ((not (string=? (::editor-problem state) ""))
                 (stay (Ide-status-set model
                                       (failed-status model (string-append "IDE update failed: "
-                                                                          (ServerState-editor-problem
+                                                                          (::editor-problem
                                                                            state))))))
-               ((and (not (string=? (Ide-editor model) "")) (not (Ide-refreshing model))
-                     (not (string=? (Ide-editor model) (ServerState-editor state))))
-                (refreshing (Ide-editor-set model (ServerState-editor state))))
+               ((and (not (string=? (::editor model) "")) (not (::refreshing model))
+                     (not (string=? (::editor model) (::editor state))))
+                (refreshing (Ide-editor-set model (::editor state))))
                (else (stay model))))
         ((None) (stay model))))
 
@@ -1078,7 +1077,7 @@
     ;; Files changed: every open buffer is read again, and the project listed.
     (: listing (-> Ide Step))
     (define (listing model)
-      (let ((sequence (+ (Ide-listing model) 1)))
+      (let ((sequence (+ (::listing model) 1)))
         (then (reading-all (Ide-listing-set model sequence))
               (lambda (model)
                 (Pair model
@@ -1091,20 +1090,20 @@
     ;; opens main.sld or its first file; explicit closes never reopen a file.
     (: listed (-> Ide I64 (Result Project Failure) Step))
     (define (listed model sequence result)
-      (if (= sequence (Ide-listing model))
+      (if (= sequence (::listing model))
           (match result
             ((Ok project)
              (let ((model (Ide-project-set model project)))
-               (match (Project-files project)
+               (match (::files project)
                  ((Cons first _)
-                  (if (Ide-auto-open model)
+                  (if (::auto-open model)
                       (opening model
-                               (if (member? "main.sld" (Project-files project)) "main.sld" first)
-                               (Focus (Ide-active model)))
+                               (if (member? "main.sld" (::files project)) "main.sld" first)
+                               (Focus (::active model)))
                       (stay model)))
                  ((Nil) (stay model)))))
             ((Err failure)
-             (stay (Ide-status-set model (failed-status model (Failure-message failure))))))
+             (stay (Ide-status-set model (failed-status model (::message failure))))))
           (stay model)))
 
     ;; Opening shows the file's buffer in the active pane at once, made empty
@@ -1117,7 +1116,7 @@
                       ((Some _) model)
                       ((None) (buffer-set model (new-buffer path)))))
              (model
-              (pane-set model (Pane-path-set (pane-of model (Ide-active model)) (Some path)))))
+              (pane-set model (Pane-path-set (pane-of model (::active model)) (Some path)))))
         (match (buffer-at model path)
           ((Some buffer)
            (match follow
@@ -1125,16 +1124,16 @@
              ((SearchPoint _ _) (reading model path follow))
              (_ (if (loaded? buffer)
                     (Pair model (followed model path follow
-                                          (palette-State-generation (Ide-palette model)) (None)))
+                                          (::generation (::palette model)) (None)))
                     (reading model path follow)))))
           ((None) (stay model)))))
 
     (: showing-diagnostic (-> Ide I64 I64 Step))
     (define (showing-diagnostic model generation index)
-      (if (= generation (Ide-generation model))
-          (match (source-path (Ide-project model)
-                              (Diagnostic-source (list-ref (Ide-diagnostics model) index)))
-            ((Some path) (opening model path (Reveal (Ide-active model) generation index)))
+      (if (= generation (::generation model))
+          (match (source-path (::project model)
+                              (::source (list-ref (::diagnostics model) index)))
+            ((Some path) (opening model path (Reveal (::active model) generation index)))
             ((None) (stay model)))
           (stay model)))
 
@@ -1143,8 +1142,8 @@
     ;; when the diagnostic is still the one the pane marks.
     (: followed (-> Ide String Follow I64 (Option Snapshot) (List (Command Msg))))
     (define (followed model path follow navigation confirmed)
-      (if (or (palette-visible? (Ide-palette model))
-              (not (= navigation (palette-State-generation (Ide-palette model))))) (Nil)
+      (if (or (palette-visible? (::palette model))
+              (not (= navigation (::generation (::palette model))))) (Nil)
               (match follow
                 ((Stay) (Nil))
                 ((SearchPoint pane hit) (search-followed model pane hit confirmed))
@@ -1166,8 +1165,8 @@
         ((Some buffer)
          (match (Pair (marked model buffer) (diagnostic-index model path))
            ((Pair (Some diagnostic) (Some at))
-            (if (and (= generation (Ide-generation model)) (= at index))
-                (Diagnostic-source diagnostic)
+            (if (and (= generation (::generation model)) (= at index))
+                (::source diagnostic)
                 (None)))
            (_ (None))))
         ((None) (None))))
@@ -1175,12 +1174,12 @@
     (: shown-text (-> Ide String String))
     (define (shown-text model path)
       (match (buffer-at model path)
-        ((Some buffer) (display-text (Buffer-text buffer)))
+        ((Some buffer) (display-text (::text buffer)))
         ((None) "")))
 
     (: focusing (-> Ide I64 (Command Msg)))
     (define (focusing model pane)
-      (let ((navigation (palette-State-generation (Ide-palette model)))
+      (let ((navigation (::generation (::palette model)))
             (id (match (pane-buffer model pane)
                   ((Some buffer) (if (loaded? buffer) (field-id pane) "commands"))
                   ((None) "commands"))))
@@ -1195,7 +1194,7 @@
     ;; the top.
     (: revealing (-> Ide I64 String String Point (Command Msg)))
     (define (revealing model pane path text point)
-      (let ((navigation (palette-State-generation (Ide-palette model))))
+      (let ((navigation (::generation (::palette model))))
         (once (lambda ()
                 (match (element-by-id (field-id pane))
                   ((Some field)
@@ -1223,17 +1222,17 @@
     (define (reading model path follow)
       (match (buffer-at model path)
         ((Some buffer)
-         (if (Buffer-saving buffer)
+         (if (::saving buffer)
              (Pair model (followed model path follow
-                                   (palette-State-generation (Ide-palette model)) (None)))
-             (let* ((sequence (+ (Ide-reads model) 1))
+                                   (::generation (::palette model)) (None)))
+             (let* ((sequence (+ (::reads model) 1))
                     (index (diagnostic-index model path))
                     (asked (Asked path
                                   sequence
-                                  (Ide-generation model)
+                                  (::generation model)
                                   index
                                   (observation-at model index)
-                                  (palette-State-generation (Ide-palette model))
+                                  (::generation (::palette model))
                                   follow)))
                (Pair (buffer-set (Ide-reads-set model sequence) (Buffer-read-set buffer sequence))
                      (list (once (lambda ()
@@ -1241,44 +1240,44 @@
                                              (file-reply
                                               (api "GET" (file-url path) (Nil) ""))))))))))
         ((None) (Pair model (followed model path follow
-                                      (palette-State-generation (Ide-palette model)) (None))))))
+                                      (::generation (::palette model)) (None))))))
 
     (: reading-all (-> Ide Step))
     (define (reading-all model)
       (fold-left (lambda (step path) (then step (lambda (model) (reading model path (Stay)))))
                  (stay model)
-                 (map Buffer-path (Ide-buffers model))))
+                 (map ::path (::buffers model))))
 
     ;; Only the latest successful read confirms coordinates. An obsolete reply
     ;; must not revive a search hit merely because the cached baseline matches.
     (: answered (-> Ide Asked (Result Snapshot Failure) Step))
     (define (answered model asked result)
-      (let* ((path (Asked-path asked))
+      (let* ((path (::path asked))
              (confirmed (read-confirmation model asked result))
              (next (match (buffer-at model path)
                      ((Some buffer)
-                      (if (= (Buffer-read buffer) (Asked-sequence asked))
+                      (if (= (::read buffer) (::sequence asked))
                           (match result
                             ((Ok snapshot)
                              (snapshot-read (bound model asked snapshot) buffer snapshot))
                             ((Err failure) (read-failed model buffer failure))) model))
                      ((None) model))))
-        (Pair next (followed next path (Asked-follow asked) (Asked-navigation asked) confirmed))))
+        (Pair next (followed next path (::follow asked) (::navigation asked) confirmed))))
 
     (: read-confirmation (-> Ide Asked (Result Snapshot Failure) (Option Snapshot)))
     (define (read-confirmation model asked result)
-      (match (Pair (buffer-at model (Asked-path asked)) result)
+      (match (Pair (buffer-at model (::path asked)) result)
         ((Pair (Some buffer) (Ok snapshot))
-         (if (= (Buffer-read buffer) (Asked-sequence asked)) (Some snapshot) (None)))
+         (if (= (::read buffer) (::sequence asked)) (Some snapshot) (None)))
         (_ (None))))
 
     ;; The draft follows disk unless it has changes of its own.
     (: snapshot-read (-> Ide Buffer Snapshot Ide))
     (define (snapshot-read model buffer snapshot)
-      (let* ((observed (Buffer-observed-set buffer (Some (Snapshot-revision snapshot))))
+      (let* ((observed (Buffer-observed-set buffer (Some (::revision snapshot))))
              (loaded (if (dirty? buffer)
                          observed
-                         (Buffer-baseline-set (Buffer-text-set observed (Snapshot-text snapshot))
+                         (Buffer-baseline-set (Buffer-text-set observed (::text snapshot))
                                               (Some snapshot)))))
         (buffer-set model
                     (Buffer-problem-set loaded
@@ -1290,33 +1289,33 @@
     ;; one without changes of its own; a draft is kept.
     (: read-failed (-> Ide Buffer Failure Ide))
     (define (read-failed model buffer failure)
-      (if (= (Failure-status failure) 404)
+      (if (= (::status failure) 404)
           (let ((gone
                  (Buffer-problem-set (Buffer-observed-set buffer (None))
-                                     (Failure-message failure))))
+                                     (::message failure))))
             (if (dirty? gone)
                 (buffer-set model
                             (Buffer-problem-set gone
                                                 "Deleted on disk. Your draft is kept; copy it before reloading."))
-                (buffer-removed model (Buffer-path buffer))))
-          (buffer-set model (Buffer-problem-set buffer (Failure-message failure)))))
+                (buffer-removed model (::path buffer))))
+          (buffer-set model (Buffer-problem-set buffer (::message failure)))))
 
     ;; A read ties the diagnostic at its file to the revision it found, when
     ;; that is the diagnostic that was there when it was asked, and reads had
     ;; then said nothing of its text or said that same revision.
     (: bound (-> Ide Asked Snapshot Ide))
     (define (bound model asked snapshot)
-      (match (Pair (Asked-diagnostic asked) (diagnostic-index model (Asked-path asked)))
+      (match (Pair (::diagnostic asked) (diagnostic-index model (::path asked)))
         ((Pair (Some index) (Some now))
          (if (and (= index now)
-                  (= (Asked-generation asked) (Ide-generation model))
-                  (match (Asked-observation asked)
+                  (= (::generation asked) (::generation model))
+                  (match (::observation asked)
                     ((Unobserved) #t)
-                    ((Observed revision _) (string=? revision (Snapshot-revision snapshot)))
+                    ((Observed revision _) (string=? revision (::revision snapshot)))
                     ((Invalidated) #f)))
              (observation-set model
                               index
-                              (Observed (Snapshot-revision snapshot) (Asked-sequence asked)))
+                              (Observed (::revision snapshot) (::sequence asked)))
              model))
         (_ model)))
 
@@ -1331,7 +1330,7 @@
          (if (loaded? buffer)
              (let ((edited (Buffer-text-set buffer text)))
                (if (and (not (dirty? edited)) (conflict? edited))
-                   (reading (buffer-set model edited) (Buffer-path edited) (Stay))
+                   (reading (buffer-set model edited) (::path edited) (Stay))
                    (stay (buffer-set model edited))))
              (stay model)))
         ((None) (stay model))))
@@ -1368,15 +1367,15 @@
     (define (saving model)
       (match (active-buffer model)
         ((Some buffer)
-         (match (Buffer-baseline buffer)
+         (match (::baseline buffer)
            ((Some baseline)
-            (if (Buffer-saving buffer)
+            (if (::saving buffer)
                 (stay model)
-                (let* ((sequence (+ (Ide-reads model) 1))
-                       (model (match (diagnostic-index model (Buffer-path buffer))
+                (let* ((sequence (+ (::reads model) 1))
+                       (model (match (diagnostic-index model (::path buffer))
                                 ((Some index) (observation-set model index (Invalidated)))
                                 ((None) model)))
-                       (pane (pane-of model (Ide-active model))))
+                       (pane (pane-of model (::active model))))
                   (Pair (buffer-set (Ide-reads-set model sequence)
                                     (Buffer-failure-set
                                      (Buffer-read-set (Buffer-saving-set buffer #t) sequence)
@@ -1389,18 +1388,18 @@
     ;; does not keep an incomplete draft from being saved.
     (: saved-text (-> Pane Buffer Snapshot Msg ! dom fetch tasks))
     (define (saved-text pane buffer baseline)
-      (let* ((path (Buffer-path buffer))
+      (let* ((path (::path buffer))
              (text
               (if (source-file? path)
-                  (formatted-in pane (Buffer-path buffer) (Buffer-text buffer))
-                  (Buffer-text buffer))))
+                  (formatted-in pane (::path buffer) (::text buffer))
+                  (::text buffer))))
         (Saved path
                (file-reply (api "PUT"
                                 (file-url path)
                                 (list (Header "Content-Type" "text/plain; charset=utf-8")
                                       (Header "If-Match"
                                               (string-append "\""
-                                                             (Snapshot-revision baseline)
+                                                             (::revision baseline)
                                                              "\"")))
                                 text)))))
 
@@ -1417,14 +1416,14 @@
     ;; The change keeps the caret's line, and the field its scroll.
     (: reformatted (-> Pane String String String Bool ! dom))
     (define (reformatted pane path shown formatted)
-      (match (element-by-id (field-id (Pane-id pane)))
+      (match (element-by-id (field-id (::id pane)))
         ((Some field)
          (if (current-field? field path shown)
              (let ((taken (apply-change field
                                         (format-change shown formatted
                                                        (i32->i64
-                                                        (Pair-first (selection-range field)))))))
-               (scrolled-to (Pane-id pane) (Pane-scroll pane))
+                                                        (::first (selection-range field)))))))
+               (scrolled-to (::id pane) (::scroll pane))
                taken)
              #f))
         ((None) #f)))
@@ -1445,12 +1444,12 @@
                                (match result
                                  ((Ok snapshot)
                                   (Buffer-observed-set (Buffer-baseline-set buffer (Some snapshot))
-                                                       (Some (Snapshot-revision snapshot))))
+                                                       (Some (::revision snapshot))))
                                  ((Err failure)
                                   (Buffer-failure-set buffer
-                                                      (if (= (Failure-status failure) 409)
+                                                      (if (= (::status failure) 409)
                                                           "Changed on disk; save rejected. Your draft is kept."
-                                                          (Failure-message failure)))))
+                                                          (::message failure)))))
                                #f))
                   path
                   (Stay)))
@@ -1460,11 +1459,11 @@
     (define (formatting model)
       (match (active-buffer model)
         ((Some buffer)
-         (if (and (loaded? buffer) (source-file? (Buffer-path buffer)))
-             (let ((pane (pane-of model (Ide-active model))) (path (Buffer-path buffer)))
+         (if (and (loaded? buffer) (source-file? (::path buffer)))
+             (let ((pane (pane-of model (::active model))) (path (::path buffer)))
                (Pair (buffer-set model (Buffer-failure-set buffer ""))
                      (list (once (lambda ()
-                                   (let* ((shown (display-text (Buffer-text buffer)))
+                                   (let* ((shown (display-text (::text buffer)))
                                           (formatted (format-source shown format-width)))
                                      (Formatted path
                                                 (or (string=? shown formatted)
@@ -1489,15 +1488,15 @@
     (define (reloading model)
       (match (active-buffer model)
         ((Some buffer)
-         (cond ((Buffer-saving buffer) (stay model))
+         (cond ((::saving buffer) (stay model))
                ((dirty? buffer)
                 (Pair model
                       (list (once (lambda ()
                                     (if (confirm
                                          "Discard this file’s unsaved changes and reload from disk?")
-                                        (Discard (Buffer-path buffer))
+                                        (Discard (::path buffer))
                                         (Nothing)))))))
-               (else (discarded model (Buffer-path buffer)))))
+               (else (discarded model (::path buffer)))))
         ((None) (stay model))))
 
     (: discarded (-> Ide String Step))
@@ -1505,10 +1504,10 @@
       (match (buffer-at model path)
         ((Some buffer)
          (reading (buffer-set model
-                              (Buffer-failure-set (match (Buffer-baseline buffer)
+                              (Buffer-failure-set (match (::baseline buffer)
                                                     ((Some baseline)
                                                      (Buffer-text-set buffer
-                                                                      (Snapshot-text baseline)))
+                                                                      (::text baseline)))
                                                     ((None) buffer))
                                                   ""))
                   path
@@ -1527,14 +1526,14 @@
     ;; file, and active.
     (: divided (-> Ide String Step))
     (define (divided model direction)
-      (let* ((active (Ide-active model))
-             (pane (Ide-next model))
+      (let* ((active (::active model))
+             (pane (::next model))
              (split (Split (+ pane 1) direction 0.5 (Leaf active) (Leaf pane)))
              (model (Ide-panes-set model
-                                   (append (Ide-panes model)
+                                   (append (::panes model)
                                            (list
-                                            (Pane pane (Pane-path (pane-of model active)) 0.0)))))
-             (model (Ide-layout-set model (leaf-replaced (Ide-layout model) active split))))
+                                            (Pane pane (::path (pane-of model active)) 0.0)))))
+             (model (Ide-layout-set model (leaf-replaced (::layout model) active split))))
         (Pair (Ide-next-set (Ide-active-set model pane) (+ pane 2)) (list (focusing model pane)))))
 
     ;; Closing the last view of a draft asks before discarding it. A reply
@@ -1544,8 +1543,8 @@
       (match (active-buffer model)
         ((None) (close-pane model))
         ((Some buffer)
-         (let ((path (Buffer-path buffer)) (pane (Ide-active model)))
-           (cond ((Buffer-saving buffer) (stay model))
+         (let ((path (::path buffer)) (pane (::active model)))
+           (cond ((::saving buffer) (stay model))
                  ((other-view? model pane path)
                   (close-pane model))
                  ((dirty? buffer)
@@ -1554,7 +1553,7 @@
                                                  (string-append "Discard unsaved changes to "
                                                                 path
                                                                 "?"))
-                                                (CloseReady pane path (Buffer-text buffer))
+                                                (CloseReady pane path (::text buffer))
                                                 (Nothing)))))))
                  (else (close-pane (buffer-removed model path))))))))
 
@@ -1562,28 +1561,28 @@
     (define (close-ready model pane path text)
       (match (buffer-at model path)
         ((Some buffer)
-         (if (and (showing? model pane path) (not (Buffer-saving buffer))
-                  (string=? text (Buffer-text buffer)))
+         (if (and (showing? model pane path) (not (::saving buffer))
+                  (string=? text (::text buffer)))
              (close-pane (if (other-view? model pane path) model (buffer-removed model path)))
              (stay model)))
         ((None) (stay model))))
 
     (: other-view? (-> Ide I64 String Bool))
     (define (other-view? model pane path)
-      (any? (lambda (other) (and (not (= pane (Pane-id other))) (shows? other path)))
-            (Ide-panes model)))
+      (any? (lambda (other) (and (not (= pane (::id other))) (shows? other path)))
+            (::panes model)))
 
     ;; The active pane's sibling takes its place. The last pane stays empty.
     (: close-pane (-> Ide Step))
     (define (close-pane model)
-      (let ((active (Ide-active model)))
-        (match (sibling (Ide-layout model) active)
+      (let ((active (::active model)))
+        (match (sibling (::layout model) active)
           ((Some beside)
            (let* ((next (first-leaf beside))
-                  (model (Ide-layout-set model (without-leaf (Ide-layout model) active)))
+                  (model (Ide-layout-set model (without-leaf (::layout model) active)))
                   (model (Ide-panes-set model
-                                        (filter (lambda (pane) (not (= (Pane-id pane) active)))
-                                                (Ide-panes model)))))
+                                        (filter (lambda (pane) (not (= (::id pane) active)))
+                                                (::panes model)))))
              (Pair (Ide-active-set model next) (list (focusing model next)))))
           ((None)
            (let ((empty (pane-set model (Pane-path-set (pane-of model active) (None)))))
@@ -1599,7 +1598,7 @@
     (: grabbed (-> Grip Msg ! dom))
     (define (grabbed grip)
       (match grip
-        ((FilesEdge) (Grabbed (Resizing (Measure-width (measured "workbench")))))
+        ((FilesEdge) (Grabbed (Resizing (::width (measured "workbench")))))
         ((Divider split) (Grabbed (Dividing split (measured "panes"))))))
 
     (: measured (-> String Measure ! dom))
@@ -1612,24 +1611,24 @@
     ;; divider follows the pointer across its split.
     (: dragged (-> Ide F64 F64 Ide))
     (define (dragged model x y)
-      (match (Ide-drag model)
+      (match (::drag model)
         ((Some (Resizing width)) (Ide-files-width-set model (max 120.0 (min (* width 0.7) x))))
         ((Some (Dividing split box))
-         (match (division-of (Ide-layout model) split)
+         (match (division-of (::layout model) split)
            ((Some division)
-            (Ide-layout-set model (ratio-set (Ide-layout model) split (pointed division box x y))))
+            (Ide-layout-set model (ratio-set (::layout model) split (pointed division box x y))))
            ((None) model)))
         ((None) model)))
 
     ;; Where the pointer lies across the split, in the room's box on the page.
     (: pointed (-> Division Measure F64 F64 F64))
     (define (pointed division box x y)
-      (let ((area (Division-area division)))
-        (if (string=? (Division-direction division) "column")
-            (/ (- y (+ (Measure-top box) (* (Area-top area) (Measure-height box))))
-               (* (Area-height area) (Measure-height box)))
-            (/ (- x (+ (Measure-left box) (* (Area-left area) (Measure-width box))))
-               (* (Area-width area) (Measure-width box))))))
+      (let ((area (::area division)))
+        (if (string=? (::direction division) "column")
+            (/ (- y (+ (::top box) (* (::top area) (::height box))))
+               (* (::height area) (::height box)))
+            (/ (- x (+ (::left box) (* (::left area) (::width box))))
+               (* (::width area) (::width box))))))
 
     ;; ---- Commands ----
 
@@ -1690,7 +1689,7 @@
                                                                     (stay
                                                                      (Ide-files-shown-set model
                                                                                           (not
-                                                                                           (Ide-files-shown
+                                                                                           (::files-shown
                                                                                             model))))))
                                   (command-Command "split-right"
                                                    (lambda (model) (divided model "row")))
@@ -1707,7 +1706,7 @@
     (: shortcuts shortcut-Shortcuts)
     (define shortcuts
       (match (shortcut-register
-              (vector-map command-Command-name (command-Registry-commands commands))
+              (vector-map ::name (::commands commands))
               (list->vector (concatenate (list (bound-chords "command-palette"
                                                              (Cons (Chord "F1" 0)
                                                                    (primary-chords "P" shift-key)))
@@ -1752,12 +1751,12 @@
     (define (invoked model run)
       (then (run (search-invalidated model))
             (lambda (next)
-              (if (palette-visible? (Ide-palette next)) (stay next)
-                  (Pair next (list (focusing next (Ide-active next))))))))
+              (if (palette-visible? (::palette next)) (stay next)
+                  (Pair next (list (focusing next (::active next))))))))
 
     (: palette-open (-> Ide palette-Mode Step))
     (define (palette-open model mode)
-      (palette-step model (palette-open-component (Ide-palette model) mode)))
+      (palette-step model (palette-open-component (::palette model) mode)))
 
     (: navigation-current? (-> I64 Bool ! dom))
     (define (navigation-current? navigation)
@@ -1769,10 +1768,10 @@
     (define (file-choices model)
       (list-sort string<?
                  (fold-left (lambda (paths buffer)
-                              (if (member? (Buffer-path buffer) paths)
+                              (if (member? (::path buffer) paths)
                                   paths
-                                  (Cons (Buffer-path buffer) paths)))
-                            (Project-files (Ide-project model)) (Ide-buffers model))))
+                                  (Cons (::path buffer) paths)))
+                            (::files (::project model)) (::buffers model))))
 
     ;; ---- Palette boundary ----
 
@@ -1781,7 +1780,7 @@
       (match (active-buffer model)
         ((Some buffer)
          (if (loaded? buffer)
-             (Some (search-Draft (Buffer-path buffer) (display-text (Buffer-text buffer))))
+             (Some (search-Draft (::path buffer) (display-text (::text buffer))))
              (None)))
         ((None) (None))))
 
@@ -1789,17 +1788,17 @@
     (define (palette-context model)
       (palette-Context
        (map (lambda (name) (palette-Entry name (command-keys name)))
-            (vector->list (vector-map command-Command-name (command-Registry-commands commands))))
+            (vector->list (vector-map ::name (::commands commands))))
        (file-choices model)))
 
     (: palette-message (-> Ide palette-Message Step))
     (define (palette-message model message)
-      (palette-step model (palette-update (Ide-palette model) (palette-context model) message)))
+      (palette-step model (palette-update (::palette model) (palette-context model) message)))
 
     (: reconcile-palette (-> Ide Step))
     (define (reconcile-palette model)
-      (if (palette-visible? (Ide-palette model))
-          (palette-step model (palette-reconcile (Ide-palette model) (current-draft model)))
+      (if (palette-visible? (::palette model))
+          (palette-step model (palette-reconcile (::palette model) (current-draft model)))
           (stay model)))
 
     (: palette-commands (-> (List (FnOnce palette-Message ! tasks dom fetch))
@@ -1826,16 +1825,16 @@
     (define (palette-chosen model chosen)
       (match chosen
         ((palette-InvokeNamed name) (update-message model (DispatchCommand name)))
-        ((palette-OpenPath path) (opening model path (Focus (Ide-active model))))
+        ((palette-OpenPath path) (opening model path (Focus (::active model))))
         ((palette-OpenSavedHit hit)
-         (opening model (Point-file (Hit-point hit)) (SearchPoint (Ide-active model) hit)))
+         (opening model (::file (::point hit)) (SearchPoint (::active model) hit)))
         ((palette-SelectDraftHit draft hit) (draft-followed model draft hit))
         ((palette-CreatedPath path directory)
          (then (listing model)
                (lambda (next)
-                 (if directory (Pair next (list (focusing next (Ide-active next))))
-                     (opening next path (Focus (Ide-active next)))))))
-        ((palette-Dismissed) (Pair model (list (focusing model (Ide-active model)))))))
+                 (if directory (Pair next (list (focusing next (::active next))))
+                     (opening next path (Focus (::active next)))))))
+        ((palette-Dismissed) (Pair model (list (focusing model (::active model)))))))
 
     (: search-buffer (-> Ide Step))
     (define (search-buffer model)
@@ -1847,17 +1846,17 @@
 
     (: search-invalidated (-> Ide Ide))
     (define (search-invalidated model)
-      (Ide-palette-set model (palette-cancel (Ide-palette model))))
+      (Ide-palette-set model (palette-cancel (::palette model))))
 
     (: draft-followed (-> Ide search-Draft Occurrence Step))
     (define (draft-followed model draft hit)
       (match (current-draft model)
         ((Some current)
          (if (search-same-draft? current draft)
-             (Pair model (list (revealing model (Ide-active model) (search-Draft-path draft)
-                                          (search-Draft-text draft)
-                                          (Point (search-Draft-path draft) (Occurrence-line hit)
-                                                 (Occurrence-column hit)))))
+             (Pair model (list (revealing model (::active model) (::path draft)
+                                          (::text draft)
+                                          (Point (::path draft) (::line hit)
+                                                 (::column hit)))))
              (stay model)))
         ((None) (stay model))))
 
@@ -1865,29 +1864,29 @@
     (define (search-followed model pane hit confirmed)
       (match (Pair (pane-buffer model pane) confirmed)
         ((Pair (Some buffer) (Some snapshot))
-         (if (and (showing? model pane (Point-file (Hit-point hit)))
-                  (string=? (Snapshot-revision snapshot) (Hit-revision hit))
+         (if (and (showing? model pane (::file (::point hit)))
+                  (string=? (::revision snapshot) (::revision hit))
                   (hit-current? hit buffer))
              (list (revealing model pane
-                              (Buffer-path buffer)
-                              (display-text (Buffer-text buffer))
-                              (Hit-point hit)))
+                              (::path buffer)
+                              (display-text (::text buffer))
+                              (::point hit)))
              (list (focusing model pane))))
-        (_ (if (showing? model pane (Point-file (Hit-point hit)))
+        (_ (if (showing? model pane (::file (::point hit)))
                (list (focusing model pane)) (Nil)))))
 
     (: hit-current? (-> Hit Buffer Bool))
     (define (hit-current? hit buffer)
-      (and (not (dirty? buffer)) (not (Buffer-saving buffer)) (string=? (Buffer-problem buffer) "")
-           (match (Buffer-baseline buffer)
-             ((Some snapshot) (string=? (Hit-revision hit) (Snapshot-revision snapshot)))
+      (and (not (dirty? buffer)) (not (::saving buffer)) (string=? (::problem buffer) "")
+           (match (::baseline buffer)
+             ((Some snapshot) (string=? (::revision hit) (::revision snapshot)))
              ((None) #f))))
 
     ;; ---- Window commands ----
 
     (: notice (-> Ide String Step))
     (define (notice model text)
-      (stay (Ide-status-set model (Status text "notice" (Status-attempt (Ide-status model))))))
+      (stay (Ide-status-set model (Status text "notice" (::attempt (::status model))))))
 
     (: installing (-> Ide Step))
     (define (installing model)
@@ -1915,10 +1914,10 @@
     ;; command reached the service leaves its outcome unknown.
     (: controlling (-> Ide String Step))
     (define (controlling model action)
-      (let ((runs (Ide-runs model)))
-        (if (Runs-pending runs)
+      (let ((runs (::runs model)))
+        (if (::pending runs)
             (stay model)
-            (let ((target (Runs-selected runs)))
+            (let ((target (::selected runs)))
               (Pair (Ide-runs-set model (Runs-problem-set (Runs-pending-set runs #t) ""))
                     (list (once (lambda ()
                                   (Controlled action
@@ -1933,7 +1932,7 @@
 
     (: controlled (-> Ide String String (Result Json Failure) Step))
     (define (controlled model action target result)
-      (let ((runs (Runs-pending-set (Ide-runs model) #f)))
+      (let ((runs (Runs-pending-set (::runs model) #f)))
         (stay (Ide-runs-set model
                             (match result
                               ((Ok _) runs)
@@ -1945,9 +1944,9 @@
                                                                 ": "
                                                                 (if
                                                                  (and
-                                                                  (>= (Failure-status failure) 400)
-                                                                  (< (Failure-status failure) 500))
-                                                                 (Failure-message failure)
+                                                                  (>= (::status failure) 400)
+                                                                  (< (::status failure) 500))
+                                                                 (::message failure)
                                                                  "Outcome unknown; the command may have taken effect. Check process status before trying again.")))))))))
 
     ;; ---- Drawing ----
@@ -1976,8 +1975,8 @@
       (let ((base (top-level-start text start)))
         (map run-view
              (reverse (fold-left (lambda (runs token)
-                                   (let ((from (max start (+ base (Token-start token))))
-                                         (to (min end (+ base (Token-end token)))))
+                                   (let ((from (max start (+ base (::start token))))
+                                         (to (min end (+ base (::end token)))))
                                      (if (< from to)
                                          (joined runs (token-class token) (substring text from to))
                                          runs)))
@@ -1988,7 +1987,7 @@
     ;; whitespace and plain names are plain text.
     (: token-class (-> Token String))
     (define (token-class token)
-      (match (Token-class token)
+      (match (::class token)
         ((Blank) "")
         ((Identifier) "")
         (class (string-append "tok-" (class-name class)))))
@@ -2013,8 +2012,8 @@
     ;; exact point; only the mark's display extends it to a lexical range.
     (: source-offset (-> String Point I64))
     (define (source-offset text point)
-      (let loop ((offset (line-offset text (Point-line point))) (column 1))
-        (if (and (< column (Point-column point))
+      (let loop ((offset (line-offset text (::line point))) (column 1))
+        (if (and (< column (::column point))
                  (< offset (string-length text))
                  (not (char=? (string-ref text offset) #\newline)))
             (loop (+ offset 1) (+ column 1))
@@ -2026,11 +2025,11 @@
                (list (Attr "class" "marks"))
                (match found
                  ((Some diagnostic)
-                  (match (Diagnostic-source diagnostic)
+                  (match (::source diagnostic)
                     ((Some point)
                      (range-mark text
                                  (highlight-range text (source-offset text point))
-                                 (Diagnostic-message diagnostic)))
+                                 (::message diagnostic)))
                     ((None) (Nil))))
                  ((None) (Nil)))))
 
@@ -2038,7 +2037,7 @@
     ;; Newline and EOF points retain a visible cell without changing the source.
     (: range-mark (-> String (Pair I64 I64) String (List (Html Msg))))
     (define (range-mark text range message)
-      (let ((start (Pair-first range)) (end (Pair-second range)))
+      (let ((start (::first range)) (end (::second range)))
         (list (Text (substring text 0 start))
               (Element "span"
                        (list (Attr "class" "error-highlight") (Attr "title" message))
@@ -2065,16 +2064,16 @@
       (Element "div"
                (list (Attr "id" "workbench") (Attr "class" "ide")
                      (StringProperty "snailNavigation"
-                                     (show (palette-State-generation (Ide-palette model)))))
+                                     (show (::generation (::palette model)))))
                (append (list (layout-view model)
                              (diagnostics-view model)
-                             (runs-view (Ide-runs model))
+                             (runs-view (::runs model))
                              (status-view model))
                        (append (drag-view model) (palette-view model)))))
 
     (: status-view (-> Ide (Html Msg)))
     (define (status-view model)
-      (let ((status (Ide-status model)))
+      (let ((status (::status model)))
         (Element "footer" (list (Attr "class" "statusbar"))
                  (list (tool "toggle-files"
                              "tool"
@@ -2090,17 +2089,17 @@
                              (DispatchCommand "command-palette"))
                        (Element "span"
                                 (list (Attr "id" "status") (Attr "class" "status")
-                                      (Attr "role" "status") (Attr "title" (Status-text status))
-                                      (Attr "data-state" (Status-state status))
-                                      (Attr "data-attempt" (Status-attempt status))
-                                      (StringProperty "textContent" (Status-text status)))
+                                      (Attr "role" "status") (Attr "title" (::text status))
+                                      (Attr "data-state" (::state status))
+                                      (Attr "data-attempt" (::attempt status))
+                                      (StringProperty "textContent" (::text status)))
                                 (Nil))))))
 
     (: palette-view (-> Ide (List (Html Msg))))
     (define (palette-view model)
-      (if (palette-visible? (Ide-palette model))
+      (if (palette-visible? (::palette model))
           (map (lambda (html) (map-html PaletteEvent html))
-               (palette-view-component (Ide-palette model) (palette-context model)))
+               (palette-view-component (::palette model) (palette-context model)))
           (Nil)))
 
     (: command-keys (-> String String))
@@ -2108,28 +2107,28 @@
       (string-join
        (delete-duplicates
         string=?
-        (map (lambda (binding) (chord-label (shortcut-Binding-chord binding)))
-             (filter (lambda (binding) (string=? name (shortcut-Binding-name binding)))
-                     (vector->list (shortcut-Shortcuts-bindings shortcuts)))))
+        (map (lambda (binding) (chord-label (::chord binding)))
+             (filter (lambda (binding) (string=? name (::name binding)))
+                     (vector->list (::bindings shortcuts)))))
        " / "))
 
     (: chord-label (-> Chord String))
     (define (chord-label chord)
-      (string-append (if (= 0 (i32-and (Chord-modifiers chord) control-key)) "" "Ctrl+")
-                     (if (= 0 (i32-and (Chord-modifiers chord) meta-key)) "" "⌘+")
-                     (if (= 0 (i32-and (Chord-modifiers chord) alt-key)) "" "Alt+")
-                     (if (= 0 (i32-and (Chord-modifiers chord) shift-key)) "" "Shift+")
-                     (string-upcase (Chord-key chord))))
+      (string-append (if (= 0 (i32-and (::modifiers chord) control-key)) "" "Ctrl+")
+                     (if (= 0 (i32-and (::modifiers chord) meta-key)) "" "⌘+")
+                     (if (= 0 (i32-and (::modifiers chord) alt-key)) "" "Alt+")
+                     (if (= 0 (i32-and (::modifiers chord) shift-key)) "" "Shift+")
+                     (string-upcase (::key chord))))
 
     (: layout-view (-> Ide (Html Msg)))
     (define (layout-view model)
       (Element "main"
                (list
                 (Attr "class"
-                      (if (Ide-files-shown model) "project-layout" "project-layout no-files"))
+                      (if (::files-shown model) "project-layout" "project-layout no-files"))
                 (Attr "style"
                       (string-append "--files-width: "
-                                     (show (f64->i64 (round (Ide-files-width model))))
+                                     (show (f64->i64 (round (::files-width model))))
                                      "px")))
                (list (files-view model)
                      (Element "div"
@@ -2166,7 +2165,7 @@
     ;; Each file is the parts of its path left to place, and its path.
     (: file-tree (-> (List (Pair (List String) String)) (List (List String)) (List Tree)))
     (define (file-tree files directories)
-      (let* ((nested (filter (lambda (file) (> (length (Pair-first file)) 1)) files))
+      (let* ((nested (filter (lambda (file) (> (length (::first file)) 1)) files))
              (directories (filter (lambda (parts) (not (null? parts))) directories))
              (names (list-sort string<?
                                (delete-duplicates string=?
@@ -2177,40 +2176,40 @@
                        (Folder name
                                (file-tree
                                 (map (lambda (file)
-                                       (Pair (list-tail (Pair-first file) 1) (Pair-second file)))
+                                       (Pair (list-tail (::first file) 1) (::second file)))
                                      (filter (lambda (file) (string=? (car-part file) name))
                                              nested))
                                 (map (lambda (parts) (list-tail parts 1))
                                      (filter (lambda (parts) (string=? (list-ref parts 0) name))
                                              directories)))))
                      names)
-                (map (lambda (file) (File (car-part file) (Pair-second file)))
+                (map (lambda (file) (File (car-part file) (::second file)))
                      (list-sort (lambda (a b) (string<? (car-part a) (car-part b)))
-                                (filter (lambda (file) (= (length (Pair-first file)) 1)) files))))))
+                                (filter (lambda (file) (= (length (::first file)) 1)) files))))))
 
     (: car-part (-> (Pair (List String) String) String))
     (define (car-part file)
-      (match (Pair-first file)
+      (match (::first file)
         ((Cons part _) part)
         ((Nil) "")))
 
     (: files-view (-> Ide (Html Msg)))
     (define (files-view model)
-      (let* ((project (Ide-project model))
-             (unlisted (filter (lambda (path) (not (member? path (Project-files project))))
-                               (map Buffer-path (Ide-buffers model)))))
+      (let* ((project (::project model))
+             (unlisted (filter (lambda (path) (not (member? path (::files project))))
+                               (map ::path (::buffers model)))))
         (Element "nav"
                  (list (Attr "id" "files") (Attr "class" "dock files") (Attr "aria-label" "Files"))
                  (append (list (Element "h2"
                                         (Nil)
-                                        (list (Text (if (string=? (Project-name project) "")
+                                        (list (Text (if (string=? (::name project) "")
                                                         "Project"
-                                                        (Project-name project)))))
+                                                        (::name project)))))
                                (tree-view model
                                           (file-tree
                                            (map (lambda (path) (Pair (path-parts path) path))
-                                                (Project-files project))
-                                           (map path-parts (Project-directories project)))
+                                                (::files project))
+                                           (map path-parts (::directories project)))
                                           ""))
                          (if (null? unlisted)
                              (Nil)
@@ -2237,7 +2236,7 @@
     (: folder-view (-> Ide String (List Tree) String (Html Msg)))
     (define (folder-view model name entries path)
       (Element "details"
-               (list (FlagProperty "open" (member? path (Ide-expanded model))))
+               (list (FlagProperty "open" (member? path (::expanded model))))
                (list (Element "summary"
                               (list
                                (On "click" (Nil) (Always) (lambda (event) (ToggleFolder path))))
@@ -2247,7 +2246,7 @@
     (: file-button (-> Ide String String (Html Msg)))
     (define (file-button model name path)
       (let ((buffer (buffer-at model path))
-            (active (shows? (pane-of model (Ide-active model)) path)))
+            (active (shows? (pane-of model (::active model)) path)))
         (Element "button"
                  (list (Attr "class"
                              (string-append "file"
@@ -2264,8 +2263,8 @@
                              (match buffer
                                ((Some found)
                                 (cond
-                                 ((not (string=? (Buffer-failure found) "")) (Buffer-failure found))
-                                 ((not (string=? (Buffer-problem found) "")) (Buffer-problem found))
+                                 ((not (string=? (::failure found) "")) (::failure found))
+                                 ((not (string=? (::problem found) "")) (::problem found))
                                  (else path)))
                                ((None) path)))
                        (On "click" (Nil) (Allow) (lambda (event) (Open path))))
@@ -2278,15 +2277,15 @@
     ;; others, so each keeps its field, with its caret and undo history.
     (: panes-view (-> Ide (List (Html Msg))))
     (define (panes-view model)
-      (let ((areas (pane-areas (Ide-layout model) whole)))
+      (let ((areas (pane-areas (::layout model) whole)))
         (append (map (lambda (pane)
                        (pane-view model
-                                  (Pane-id pane)
-                                  (match (assoc-ref areas (Pane-id pane))
+                                  (::id pane)
+                                  (match (assoc-ref areas (::id pane))
                                     ((Some area) area)
                                     ((None) whole))))
-                     (Ide-panes model))
-                (map divider-view (divisions (Ide-layout model) whole)))))
+                     (::panes model))
+                (map divider-view (divisions (::layout model) whole)))))
 
     (: percent (-> F64 String))
     (define (percent fraction)
@@ -2295,36 +2294,36 @@
     (: placed (-> Area String))
     (define (placed area)
       (string-append "left: "
-                     (percent (Area-left area))
+                     (percent (::left area))
                      "; top: "
-                     (percent (Area-top area))
+                     (percent (::top area))
                      "; width: "
-                     (percent (Area-width area))
+                     (percent (::width area))
                      "; height: "
-                     (percent (Area-height area))))
+                     (percent (::height area))))
 
     ;; A divider lies along the edge the split's ratio puts between its halves,
     ;; as long as the edge; ide.css gives it its thickness.
     (: divider-view (-> Division (Html Msg)))
     (define (divider-view division)
-      (let* ((direction (Division-direction division))
+      (let* ((direction (::direction division))
              (edge
-              (Pair-second (halves (Division-area division) direction (Division-ratio division))))
+              (::second (halves (::area division) direction (::ratio division))))
              (corner (string-append "left: "
-                                    (percent (Area-left edge))
+                                    (percent (::left edge))
                                     "; top: "
-                                    (percent (Area-top edge)))))
+                                    (percent (::top edge)))))
         (Element "div"
-                 (list (Keyed (string-append "divider-" (show (Division-split division))))
+                 (list (Keyed (string-append "divider-" (show (::split division))))
                        (Attr "class" (string-append "divider " direction))
                        (Attr "style"
                              (if (string=? direction "column")
-                                 (string-append corner "; width: " (percent (Area-width edge)))
-                                 (string-append corner "; height: " (percent (Area-height edge)))))
+                                 (string-append corner "; width: " (percent (::width edge)))
+                                 (string-append corner "; height: " (percent (::height edge)))))
                        (On "pointerdown"
                            (Nil)
                            (Always)
-                           (lambda (event) (Grab (Divider (Division-split division))))))
+                           (lambda (event) (Grab (Divider (::split division))))))
                  (Nil))))
 
     (: pane-view (-> Ide I64 Area (Html Msg)))
@@ -2332,7 +2331,7 @@
       (let* ((pane (pane-of model id)) (buffer (pane-buffer model id)))
         (Element "div"
                  (list (Keyed (string-append "pane-" (show id)))
-                       (Attr "class" (if (= id (Ide-active model)) "pane active" "pane"))
+                       (Attr "class" (if (= id (::active model)) "pane active" "pane"))
                        (Attr "style" (placed area)))
                  (list (Element "div"
                                 (list (Attr "class" "pane-header"))
@@ -2351,15 +2350,15 @@
     (: pane-title (-> (Option Buffer) String))
     (define (pane-title buffer)
       (match buffer
-        ((Some found) (string-append (Buffer-path found) (if (dirty? found) " ●" "")))
+        ((Some found) (string-append (::path found) (if (dirty? found) " ●" "")))
         ((None) "Choose a file")))
 
     (: problem-view (-> (Option Buffer) (Html Msg)))
     (define (problem-view buffer)
       (let ((problem (match buffer
                        ((Some found)
-                        (cond ((not (string=? (Buffer-failure found) "")) (Buffer-failure found))
-                              ((not (string=? (Buffer-problem found) "")) (Buffer-problem found))
+                        (cond ((not (string=? (::failure found) "")) (::failure found))
+                              ((not (string=? (::problem found) "")) (::problem found))
                               ((not (loaded? found)) "Loading…")
                               (else "")))
                        ((None) ""))))
@@ -2371,12 +2370,12 @@
     ;; which is as big as its text, so they scroll together.
     (: editor-view (-> Ide Pane (Option Buffer) (Html Msg)))
     (define (editor-view model pane buffer)
-      (let* ((id (Pane-id pane))
+      (let* ((id (::id pane))
              (text (match buffer
-                     ((Some found) (display-text (Buffer-text found)))
+                     ((Some found) (display-text (::text found)))
                      ((None) "")))
              (scheme (match buffer
-                       ((Some found) (source-file? (Buffer-path found)))
+                       ((Some found) (source-file? (::path found)))
                        ((None) #f)))
              (lines (match buffer
                       ((Some _) (+ (count-lines text 0 (string-length text)) 1))
@@ -2387,7 +2386,7 @@
                        (On "scroll"
                            (list (Scroll))
                            (Allow)
-                           (lambda (event) (Scrolled id (Event-scroll-top event)))))
+                           (lambda (event) (Scrolled id (::scroll-top event)))))
                  (list (Element "div"
                                 (list (Attr "class" "gutter"))
                                 (list (Element "pre"
@@ -2398,7 +2397,7 @@
                                                             newline-text))))))
                        (Element "div"
                                 (list (Attr "class" "code"))
-                                (list (highlight-view text (Pane-scroll pane) scheme)
+                                (list (highlight-view text (::scroll pane) scheme)
                                       (marks-view text
                                                   (match buffer
                                                     ((Some found) (marked model found))
@@ -2416,7 +2415,7 @@
                              (Attr "cols" (show (+ (longest-line text) 2)))
                              (Attr "aria-busy" (match buffer
                                                  ((Some found)
-                                                  (if (Buffer-saving found) "true" "false"))
+                                                  (if (::saving found) "true" "false"))
                                                  ((None) "false")))
                              (FlagProperty "disabled"
                                            (match buffer
@@ -2425,12 +2424,12 @@
                              (StringProperty "value" text)
                              (StringProperty "snailPath"
                                              (match buffer
-                                               ((Some found) (Buffer-path found))
+                                               ((Some found) (::path found))
                                                ((None) "")))
                              (On "input"
                                  (list (Value))
                                  (Allow)
-                                 (lambda (event) (Typed id (Event-value event))))
+                                 (lambda (event) (Typed id (::value event))))
                              (On "focus" (Nil) (Allow) (lambda (event) (Focused id))))
                        (if scheme
                            (list (On "keydown"
@@ -2438,10 +2437,10 @@
                                      (Chords editing-chords)
                                      (lambda (event)
                                        (Pressed id
-                                                (Event-key event)
-                                                (Event-value event)
-                                                (Event-selection-start event)
-                                                (Event-selection-end event)))))
+                                                (::key event)
+                                                (::value event)
+                                                (::selection-start event)
+                                                (::selection-end event)))))
                            (Nil)))
                (Nil)))
 
@@ -2453,59 +2452,59 @@
                (list (Attr "id" "diagnostics")
                      (Attr "class" "diagnostics")
                      (Attr "role" "status")
-                     (FlagProperty "hidden" (null? (Ide-diagnostics model))))
+                     (FlagProperty "hidden" (null? (::diagnostics model))))
                (map-indexed (lambda (index diagnostic) (diagnostic-view model index diagnostic))
-                            (Ide-diagnostics model))))
+                            (::diagnostics model))))
 
     ;; A diagnostic in a project file is a button that shows its point.
     (: diagnostic-view (-> Ide I64 Diagnostic (Html Msg)))
     (define (diagnostic-view model index diagnostic)
-      (let* ((source (Diagnostic-source diagnostic))
-             (path (source-path (Ide-project model) source))
-             (text (string-append (Diagnostic-severity diagnostic)
+      (let* ((source (::source diagnostic))
+             (path (source-path (::project model) source))
+             (text (string-append (::severity diagnostic)
                                   ": "
                                   (match source
                                     ((Some point)
                                      (string-append (match path
                                                       ((Some found) found)
-                                                      ((None) (Point-file point)))
+                                                      ((None) (::file point)))
                                                     ":"
-                                                    (show (Point-line point))
+                                                    (show (::line point))
                                                     ":"
-                                                    (show (Point-column point))
+                                                    (show (::column point))
                                                     ": "))
                                     ((None) ""))
-                                  (Diagnostic-message diagnostic))))
+                                  (::message diagnostic))))
         (match path
           ((Some _)
            (Element "button"
                     (list (On "click"
                               (Nil)
                               (Allow)
-                              (lambda (event) (Show (Ide-generation model) index))))
+                              (lambda (event) (Show (::generation model) index))))
                     (list (Text text))))
           ((None) (Element "div" (Nil) (list (Text text)))))))
 
     (: runs-view (-> Runs (Html Msg)))
     (define (runs-view runs)
       (let* ((run (selected-run runs))
-             (pending (Runs-pending runs))
+             (pending (::pending runs))
              (available (match run
-                          ((Some found) (Run-available found))
+                          ((Some found) (::available found))
                           ((None) #f)))
              (wanted (match run
-                       ((Some found) (Run-wanted found))
+                       ((Some found) (::wanted found))
                        ((None) #f)))
              (attempt (match run
-                        ((Some found) (Run-attempt found))
+                        ((Some found) (::attempt found))
                         ((None) (None))))
-             (problem (Runs-problem runs)))
+             (problem (::problem runs)))
         (Element "section"
                  (list (Attr "id" "runs")
                        (Attr "class" "runs")
                        (Attr "aria-label" "Applications")
                        (FlagProperty "hidden"
-                                     (and (null? (Runs-runs runs))
+                                     (and (null? (::runs runs))
                                           (not pending)
                                           (string=? problem ""))))
                  (list (Element "div"
@@ -2519,10 +2518,10 @@
                                                          (list (Value))
                                                          (Allow)
                                                          (lambda (event)
-                                                           (Choose (Event-value event)))))
+                                                           (Choose (::value event)))))
                                                (map (lambda (found)
-                                                      (option-view found (Runs-selected runs)))
-                                                    (Runs-runs runs)))
+                                                      (option-view found (::selected runs)))
+                                                    (::runs runs)))
                                       (run-button "run-start"
                                                   "Start"
                                                   (or pending (not available) wanted)
@@ -2553,23 +2552,23 @@
                                                    "stdout"
                                                    "run-stdout"
                                                    (match attempt
-                                                     ((Some found) (Attempt-stdout found))
+                                                     ((Some found) (::stdout found))
                                                      ((None) "")))
                                       (output-view "Standard error"
                                                    "stderr"
                                                    "run-stderr"
                                                    (match attempt
-                                                     ((Some found) (Attempt-stderr found))
+                                                     ((Some found) (::stderr found))
                                                      ((None) "")))))))))
 
     (: option-view (-> Run String (Html Msg)))
     (define (option-view run selected)
       (Element "option"
-               (list (Keyed (Run-target run))
-                     (Attr "value" (Run-target run))
-                     (FlagProperty "selected" (string=? (Run-target run) selected)))
+               (list (Keyed (::target run))
+                     (Attr "value" (::target run))
+                     (FlagProperty "selected" (string=? (::target run) selected)))
                (list
-                (Text (string-append (Run-target run) (if (Run-available run) "" " (removed)"))))))
+                (Text (string-append (::target run) (if (::available run) "" " (removed)"))))))
 
     (: run-button (-> String String Bool String (Html Msg)))
     (define (run-button id label disabled action)
@@ -2594,22 +2593,22 @@
     ;; reach the drag wherever they go.
     (: drag-view (-> Ide (List (Html Msg))))
     (define (drag-view model)
-      (match (Ide-drag model)
+      (match (::drag model)
         ((Some drag)
          (list (Element "div"
                         (list (Attr "class"
                                     (match drag
                                       ((Dividing split _)
-                                       (match (division-of (Ide-layout model) split)
+                                       (match (division-of (::layout model) split)
                                          ((Some division)
                                           (string-append "drag-overlay "
-                                                         (Division-direction division)))
+                                                         (::direction division)))
                                          ((None) "drag-overlay row")))
                                       ((Resizing _) "drag-overlay row")))
                               (On "pointermove"
                                   (list (Pointer))
                                   (Allow)
-                                  (lambda (event) (Dragged (Event-x event) (Event-y event))))
+                                  (lambda (event) (Dragged (::x event) (::y event))))
                               (On "pointerup" (Nil) (Allow) (lambda (event) (Dropped))))
                         (Nil))))
         ((None) (Nil))))
@@ -2623,10 +2622,10 @@
       (append (list (On "keydown"
                         (list (Key))
                         (Chords (shortcut-chords shortcuts))
-                        (lambda (event) (Shortcut (Event-key event) (Event-modifiers event))))
+                        (lambda (event) (Shortcut (::key event) (::modifiers event))))
                     (On "online" (Nil) (Allow) (lambda (event) (Connect)))
                     (On "snail-refresh-failed" (Nil) (Allow) (lambda (event) (RefreshFailed))))
-              (if (any? dirty? (Ide-buffers model))
+              (if (any? dirty? (::buffers model))
                   (list (On "beforeunload" (Nil) (Always) (lambda (event) (Nothing))))
                   (Nil))))
 
@@ -2657,43 +2656,43 @@
 
     (: kept (-> Ide Recovery))
     (define (kept model)
-      (Recovery 1 (map kept-buffer (Ide-buffers model)) (Ide-panes model) (Ide-layout model)
-                (Ide-active model) (Ide-next model) (Nil)
-                (Ide-files-shown model) (Ide-files-width model)))
+      (Recovery 1 (map kept-buffer (::buffers model)) (::panes model) (::layout model)
+                (::active model) (::next model) (Nil)
+                (::files-shown model) (::files-width model)))
 
     (: kept-buffer (-> Buffer Draft))
     (define (kept-buffer buffer)
-      (Draft (Buffer-path buffer) (Buffer-text buffer)
-             (match (Buffer-baseline buffer)
+      (Draft (::path buffer) (::text buffer)
+             (match (::baseline buffer)
                ((Some baseline) (json->string (file->json baseline)))
                ((None) ""))))
 
     (: restored (-> Recovery Ide))
     (define (restored save)
-      (unless (= (Recovery-version save) 1)
+      (unless (= (::version save) 1)
         (panic "unsupported IDE recovery version; saved drafts are retained"))
-      (let* ((model (Ide-buffers-set initial (map restored-buffer (Recovery-drafts save))))
+      (let* ((model (Ide-buffers-set initial (map restored-buffer (::drafts save))))
              (model (Ide-auto-open-set model #f))
-             (model (Ide-panes-set model (Recovery-panes save)))
-             (model (Ide-layout-set model (Recovery-layout save)))
-             (model (Ide-active-set model (Recovery-active save)))
-             (model (Ide-next-set model (Recovery-next save)))
-             (model (Ide-files-shown-set model (Recovery-files-shown save))))
-        (Ide-files-width-set model (Recovery-files-width save))))
+             (model (Ide-panes-set model (::panes save)))
+             (model (Ide-layout-set model (::layout save)))
+             (model (Ide-active-set model (::active save)))
+             (model (Ide-next-set model (::next save)))
+             (model (Ide-files-shown-set model (::files-shown save))))
+        (Ide-files-width-set model (::files-width save))))
 
     (: restored-buffer (-> Draft Buffer))
     (define (restored-buffer draft)
-      (let ((baseline (if (string=? (Draft-baseline draft) "") (None)
-                          (match (string->json (Draft-baseline draft))
+      (let ((baseline (if (string=? (::baseline draft) "") (None)
+                          (match (string->json (::baseline draft))
                             ((Some json)
                              (match (json->file json)
                                ((Some baseline) (Some baseline))
                                ((None)
                                 (panic "invalid recovered baseline; saved drafts are retained"))))
                             ((None) (panic "invalid recovered file; saved drafts are retained"))))))
-        (Buffer (Draft-path draft) (Draft-text draft) baseline
+        (Buffer (::path draft) (::text draft) baseline
                 (match baseline
-                  ((Some snapshot) (Some (Snapshot-revision snapshot)))
+                  ((Some snapshot) (Some (::revision snapshot)))
                   ((None) (None)))
                 #f 0 "" "")))
     ))

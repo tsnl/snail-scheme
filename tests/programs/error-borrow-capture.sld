@@ -7,4 +7,4 @@
 
 (: escaped (-> (Borrow Model) (-> String)))
 (define (escaped model)
-  (lambda () (Model-title model)))
+  (lambda () (::title model)))

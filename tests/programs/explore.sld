@@ -21,7 +21,7 @@
 
 (: pour (-> Jugs Pour Jugs))
 (define (pour jugs move)
-  (let ((small (Jugs-small jugs)) (large (Jugs-large jugs)))
+  (let ((small (::small jugs)) (large (::large jugs)))
     (match move
       ((FillSmall) (Jugs 3 large))
       ((FillLarge) (Jugs small 5))
@@ -52,9 +52,9 @@
                         (LargeToSmall)))
                 pour
                 (lambda (jugs)
-                  (if (= (Jugs-large jugs) 4) (Some "the large jug holds 4 litres") (None)))
+                  (if (= (::large jugs) 4) (Some "the large jug holds 4 litres") (None)))
                 10)
   ((Some violation)
-   (for-each (lambda (move) (write-line (describe move))) (Violation-moves violation))
-   (write-line (Violation-reason violation)))
+   (for-each (lambda (move) (write-line (describe move))) (::moves violation))
+   (write-line (::reason violation)))
   ((None) (write-line "no state within 10 moves")))

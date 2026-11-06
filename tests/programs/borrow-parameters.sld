@@ -8,7 +8,7 @@
 
 (: title (-> (Borrow Model) String))
 (define (title model)
-  (Model-title model))
+  (::title model))
 
 (: forward (All (M) (-> (Borrow M) (-> (Borrow M) String) String)))
 (define (forward model read)
@@ -24,14 +24,14 @@
 ;; The callback owns the copied text; it does not retain the borrowed model.
 (: callback (-> (Borrow Model) (-> String)))
 (define (callback model)
-  (let ((text (Model-title model)))
+  (let ((text (::title model)))
     (lambda () text)))
 
 (let ((model (Model "ready" (once (lambda () (write-line "finished"))))))
   (let ((read (with-borrow (borrowed model)
                            (let ((alias borrowed))
                              (write-line (title alias))
-                             (write-line (forward borrowed (Reader-read (identity (Reader title)))))
+                             (write-line (forward borrowed (::read (identity (Reader title)))))
                              (callback alias)))))
     (match model
       ((Model _ work) (work)))

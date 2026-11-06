@@ -17,17 +17,17 @@
 (: play (-> String (List Input) Unit ! console))
 (define (play name inputs)
   (write-line (string-append name ": "
-                             (string-join (Pair-second (fold-left (lambda (state input)
-                                                                    (match (recognize
-                                                                            (Pair-first state)
-                                                                            input)
-                                                                      ((Pair gestures meanings)
-                                                                       (Pair gestures
-                                                                             (append
-                                                                              (Pair-second state)
-                                                                              (map gesture-text
-                                                                                   meanings))))))
-                                                                  (Pair no-gestures (Nil)) inputs))
+                             (string-join (::second (fold-left (lambda (state input)
+                                                                 (match (recognize
+                                                                         (::first state)
+                                                                         input)
+                                                                   ((Pair gestures meanings)
+                                                                    (Pair gestures
+                                                                          (append
+                                                                           (::second state)
+                                                                           (map gesture-text
+                                                                                meanings))))))
+                                                               (Pair no-gestures (Nil)) inputs))
                                           "; "))))
 
 (play "pointing" (list (PointerMove 1 10 10) (PointerMove 1 12 11)))

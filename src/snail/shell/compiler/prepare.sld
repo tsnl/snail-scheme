@@ -20,11 +20,6 @@
 (define-library (snail shell compiler prepare)
   (export
    Prepared
-   Prepared-declarations
-   Prepared-definitions
-   Prepared-initializers
-   Prepared-statements
-   Prepared-exported
    prepare-program
    prepare-library
    Callees
@@ -37,7 +32,7 @@
    (snail shell compiler read)
    (snail shell compiler core)
    (snail shell compiler capabilities)
-   (only (snail shell compiler check) Typed Typed-items)
+   (only (snail shell compiler check) Typed)
    (only (snail shell compiler ownership) consumed-references)
    (snail shell compiler specialize))
   (begin

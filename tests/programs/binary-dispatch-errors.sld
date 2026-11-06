@@ -25,9 +25,9 @@
   (handle dyn-cast
       ((conversion-failed
         (lambda (error)
-          (unless (and (= argument (CastError-argument error))
-                       (string=? domain (string-join (CastError-expected error) ","))
-                       (match (CastError-reason error) ((UnsupportedInstance) #t) (_ #f)))
+          (unless (and (= argument (::argument error))
+                       (string=? domain (string-join (::expected error) ","))
+                       (match (::reason error) ((UnsupportedInstance) #t) (_ #f)))
             (panic "wrong dispatch failure")))))
     (body)
     (panic "expected dispatch failure")))

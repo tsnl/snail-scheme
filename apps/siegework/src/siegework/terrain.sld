@@ -31,17 +31,7 @@
    Water
    Ice
    Site
-   Site-cell
-   Site-rate
    Land
-   Land-seed
-   Land-biome
-   Land-hub
-   Land-starter
-   Land-ground
-   Land-mainland
-   Land-sites
-   Land-fronts
    new-land
    land-seed
    ground-at
@@ -108,11 +98,11 @@
 
     (: ground-at (-> Land Cell Ground))
     (define (ground-at land cell)
-      (vector-ref (Land-ground land) (cell-index cell)))
+      (vector-ref (::ground land) (cell-index cell)))
 
     (: mainland? (-> Land Cell Bool))
     (define (mainland? land cell)
-      (vector-ref (Land-mainland land) (cell-index cell)))
+      (vector-ref (::mainland land) (cell-index cell)))
 
     ;; Seeds are 1 to 65535; any integer maps into that range.
     (: land-seed (-> I64 I64))
@@ -278,8 +268,8 @@
     ;; the high ground, with rock on the highest.
     (: wild-ground (-> Biome I64 Cell Ground))
     (define (wild-ground biome seed cell)
-      (let* ((x (Cell-x cell))
-             (y (Cell-y cell))
+      (let* ((x (::x cell))
+             (y (::y cell))
              (height (field seed 1 x y))
              (wet (field seed 3 x y)))
         (match biome
@@ -357,7 +347,7 @@
                           12
                           (filter (lambda (cell) (and (site? cell) (apart? cell second)))
                                   (ring hub 11 15)))))
-        (delete-duplicates (lambda (a b) (cell=? (Site-cell a) (Site-cell b)))
+        (delete-duplicates (lambda (a b) (cell=? (::cell a) (::cell b)))
                            (concatenate (list (site second 3)
                                               (site third 6)
                                               (regional-sites seed hub site?)
@@ -394,8 +384,8 @@
                        (within? cell center outer)
                        (not (within? cell center inner))))
                 (map (lambda (i)
-                       (Cell (+ (Cell-x center) (- (remainder i side) outer))
-                             (+ (Cell-y center) (- (quotient i side) outer))))
+                       (Cell (+ (::x center) (- (remainder i side) outer))
+                             (+ (::y center) (- (quotient i side) outer))))
                      (iota (* side side))))))
 
     ;; Two regions in five of the 16-cell regions hold a site yielding 2 to

@@ -1,8 +1,6 @@
 (define-library (sample geometry)
   (export
    Point
-   Point-x
-   Point-y
    distance-squared
    swap!)
   (import
@@ -15,7 +13,7 @@
 
     (: distance-squared (-> Point Point I64))
     (define (distance-squared a b)
-      (let ((dx (- (Point-x a) (Point-x b))) (dy (- (Point-y a) (Point-y b))))
+      (let ((dx (- (::x a) (::x b))) (dy (- (::y a) (::y b))))
         (+ (* dx dx) (* dy dy))))
 
     ;; A macro whose template introduces `temporary`; it must not capture

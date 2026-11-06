@@ -4,12 +4,7 @@
 (define-library (project)
   (export
    Project
-   Project-name
-   Project-estimates
-   Report
-   Report-name
-   Report-tasks
-   Report-days)
+   Report)
   (import
    (snail core base))
   (begin

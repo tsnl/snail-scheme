@@ -12,6 +12,6 @@
 (let ((token (Token 1)) (other (Token 2)))
   (with-borrow (borrowed token)
                (consume other)
-               (Token-number borrowed))
+               (::number borrowed))
   (consume other)
   (drop token))

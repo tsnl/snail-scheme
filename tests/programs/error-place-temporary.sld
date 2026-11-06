@@ -7,4 +7,4 @@
   ((work (FnOnce Unit))
    (tries I64)))
 
-(Task-tries (Task (once (lambda () (unit))) 0))
+(::tries (Task (once (lambda () (unit))) 0))

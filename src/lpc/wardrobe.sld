@@ -8,7 +8,6 @@
    Worn
    Outfit
    Character
-   Character-sheets
    dress
    character-paths
    fingerprint
@@ -53,16 +52,16 @@
     ;; the legs, the torso, the head, and the hair over the head.
     (: dress (-> Build Head Skin Outfit (Option Character)))
     (define (dress build head skin outfit)
-      (match (list (worn-sheets build (Feet) (Outfit-feet outfit))
-                   (worn-sheets build (Legs) (Outfit-legs outfit))
-                   (worn-sheets build (Torso) (Outfit-torso outfit)))
+      (match (list (worn-sheets build (Feet) (::feet outfit))
+                   (worn-sheets build (Legs) (::legs outfit))
+                   (worn-sheets build (Torso) (::torso outfit)))
         ((Cons (Some feet) (Cons (Some legs) (Cons (Some torso) (Nil))))
          (Some (Character (concatenate (list (list (body-sheet build skin))
                                              feet
                                              legs
                                              torso
                                              (list (head-sheet head skin))
-                                             (match (Outfit-hair outfit)
+                                             (match (::hair outfit)
                                                ((Some (Hair style color))
                                                 (list (hair-sheet build style color)))
                                                ((None) (Nil))))))))
@@ -92,7 +91,7 @@
     ;; The files the character's layers come from, to embed.
     (: character-paths (-> Character (List String)))
     (define (character-paths who)
-      (map Sheet-path (Character-sheets who)))
+      (map ::path (::sheets who)))
 
     ;; ---- Pictures ----
 
@@ -103,13 +102,13 @@
     (define (fingerprint who)
       (fold-left (lambda (hash word) (* (i32-xor hash word) 16777619))
                  -2128831035
-                 (concatenate (map sheet-words (Character-sheets who)))))
+                 (concatenate (map sheet-words (::sheets who)))))
 
     (: sheet-words (-> Sheet (List I32)))
     (define (sheet-words sheet)
-      (append (map char->i32 (string->list (Sheet-path sheet)))
-              (concatenate (map (lambda (swap) (list (Pair-first swap) (Pair-second swap)))
-                                (Sheet-swaps sheet)))))
+      (append (map char->i32 (string->list (::path sheet)))
+              (concatenate (map (lambda (swap) (list (::first swap) (::second swap)))
+                                (::swaps sheet)))))
 
     ;; The character's walking rows as picture `key`, from the sources `art`
     ;; finds for each sheet. Its version is the character's fingerprint, so
@@ -117,15 +116,15 @@
     ;; whose file `art` lacks is left out.
     (: walk-picture (-> (-> String (Option Source)) I32 Character Picture))
     (define (walk-picture art key who)
-      (Picture key (fingerprint who) (Rect-width walk-region) (Rect-height walk-region)
+      (Picture key (fingerprint who) (::width walk-region) (::height walk-region)
                (lambda ()
                  (concatenate
                   (map (lambda (sheet)
-                         (match (art (Sheet-path sheet))
+                         (match (art (::path sheet))
                            ((Some source)
-                            (list (Layer source (Sheet-from sheet) 0 0 (Sheet-swaps sheet))))
+                            (list (Layer source (::from sheet) 0 0 (::swaps sheet))))
                            ((None) (Nil))))
-                       (Character-sheets who))))))
+                       (::sheets who))))))
 
     ;; The character in picture `key`, shoulders up, each texel `scale`
     ;; pixels wide.

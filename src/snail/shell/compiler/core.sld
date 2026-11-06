@@ -18,13 +18,7 @@
    mut-row
    unchecked
    Constraint
-   Constraint-class
-   Constraint-types
    Scheme
-   Scheme-vars
-   Scheme-constraints
-   Scheme-copy
-   Scheme-type
    mono-scheme
    Substitution
    type->string
@@ -67,9 +61,6 @@
    Glue
    Refused
    Expr
-   Expr-term
-   Expr-type
-   Expr-loc
    Term
    Lit
    Var
@@ -86,8 +77,6 @@
    TryConvert
    TypeTest
    Clause
-   Clause-pattern
-   Clause-body
    Pattern
    PWild
    PVar
@@ -97,27 +86,10 @@
    expr-references
    expr-children
    DataType
-   DataType-name
-   DataType-params
-   DataType-cases
-   DataType-enum?
-   DataType-owned?
    DataType-owned?-set
    Case
-   Case-name
-   Case-type
-   Case-tag
-   Case-fields
    Field
-   Field-name
-   Field-type
-   Field-mutable?
    Class
-   Class-name
-   Class-params
-   Class-rows
-   Class-outputs
-   Class-methods
    row-arguments
    type-arguments
    match-types
@@ -125,24 +97,9 @@
    output-arguments
    row-variable
    Instance
-   Instance-name
-   Instance-class
-   Instance-vars
-   Instance-types
-   Instance-requires
-   Instance-copy
-   Instance-methods
-   Instance-set
    Instance-methods-set
    Import
-   Import-module
-   Import-symbol
    Effect
-   Effect-name
-   Effect-operations
-   Effect-control
-   Effect-defaults
-   Effect-around-main
    operation-latent
    Value
    Defined
@@ -168,10 +125,6 @@
    empty-program
    primitive-global
    primitive-delta
-   Program-instances
-   Program-classes
-   Program-types
-   Program-effects
    program-annotations
    program-field-annotations
    program-with-annotations

@@ -10,7 +10,7 @@
  (snail core base)
  (snail core io)
  (siegework grid)
- (only (siegework terrain) Land-starter)
+ (only (siegework terrain))
  (siegework world)
  (siegework colony)
  (siegework simulation))
@@ -28,44 +28,44 @@
 
 (: visible-count (-> World I64))
 (define (visible-count world)
-  (vector-fold (lambda (n seen) (if seen (+ n 1) n)) 0 (World-visible world)))
+  (vector-fold (lambda (n seen) (if seen (+ n 1) n)) 0 (::visible world)))
 
 (: wire-text (-> Wire String))
 (define (wire-text wire)
-  (string-append (cell-text (Node-cell (Wire-from wire)))
+  (string-append (cell-text (::cell (::from wire)))
                  "-"
-                 (cell-text (Node-cell (Wire-to wire)))))
+                 (cell-text (::cell (::to wire)))))
 
 (: cell-text (-> Cell String))
 (define (cell-text cell)
-  (string-append (show (Cell-x cell)) "," (show (Cell-y cell))))
+  (string-append (show (::x cell)) "," (show (::y cell))))
 
 (: report-wires (-> World Unit ! console))
 (define (report-wires world)
   (write-line (string-append "wires "
-                             (string-join (map wire-text (Network-wires (World-network world)))
+                             (string-join (map wire-text (::wires (::network world)))
                                           " "))))
 
 (: report (-> World Unit ! console))
 (define (report world)
   (write-line (string-append "tick "
-                             (show (World-tick world))
+                             (show (::tick world))
                              ", produced "
-                             (show (Ledger-produced (World-ledger world)))
-                             ", wires " (show (length (Network-wires (World-network world))))
+                             (show (::produced (::ledger world)))
+                             ", wires " (show (length (::wires (::network world))))
                              ", visible " (show (visible-count world)) ": "
                              (string-join (map (lambda (b)
-                                                 (string-append (kind-name (Building-kind b))
+                                                 (string-append (kind-name (::kind b))
                                                                 " "
-                                                                (show (Cell-x (Building-cell b)))
+                                                                (show (::x (::cell b)))
                                                                 ","
-                                                                (show (Cell-y (Building-cell b)))
+                                                                (show (::y (::cell b)))
                                                                 (cond
                                                                  ((not (built? b)) " unfinished")
-                                                                 ((powered? world (Building-id b))
+                                                                 ((powered? world (::id b))
                                                                   " powered")
                                                                  (else " unpowered"))))
-                                               (World-buildings world))
+                                               (::buildings world))
                                           "; "))))
 
 (let ()
@@ -73,7 +73,7 @@
   (define relay (Cell 30 39))
   (define world (new-world 3))
   (define world (order world (Build (Extractor) west #f)))
-  (define world (order world (Build (Extractor) (Land-starter (World-land world)) #f)))
+  (define world (order world (Build (Extractor) (::starter (::land world)) #f)))
   (define world (order world (Build (Pylon) relay #f)))
   (define world (run world 250))
   (define world (order world (Build (Extractor) west #f)))

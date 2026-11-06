@@ -69,15 +69,15 @@
 (define (show-response label response)
   (write-line (string-append label
                              " -> "
-                             (show (Response-status response))
+                             (show (::status response))
                              " "
                              (match (find (lambda (header)
-                                            (string=? (Header-name header) "Content-Type"))
-                                          (Response-headers response))
-                               ((Some header) (Header-value header))
+                                            (string=? (::name header) "Content-Type"))
+                                          (::headers response))
+                               ((Some header) (::value header))
                                ((None) "no type"))
                              ": "
-                             (match (utf8->string (Response-body response))
+                             (match (utf8->string (::body response))
                                ((Ok text) text)
                                ((Err _) "not text")))))
 

@@ -71,8 +71,8 @@
 
     (: camera-of (-> MillScreen Camera))
     (define (camera-of screen)
-      (let* ((width (max 1.0 (i32->f32 (MillScreen-width screen))))
-             (height (max 1.0 (i32->f32 (MillScreen-height screen))))
+      (let* ((width (max 1.0 (i32->f32 (::width screen))))
+             (height (max 1.0 (i32->f32 (::height screen))))
              (across (max 120.0 (- width (* 2.0 (hud-column width)))))
              (down (max 120.0 (- height 24.0)))
              (pixels-per-unit
@@ -107,14 +107,14 @@
       (match (ground-point (camera-of screen)
                            x
                            y
-                           (MillScreen-width screen)
-                           (MillScreen-height screen))
+                           (::width screen)
+                           (::height screen))
         ((Some point)
          (fold-left (lambda (best person)
                       (if (and (over? point person)
                                (match best
                                  ((Some other)
-                                  (> (Vec3-z (person-point person)) (Vec3-z (person-point other))))
+                                  (> (::z (person-point person)) (::z (person-point other))))
                                  ((None) #t)))
                           (Some person)
                           best))
@@ -125,8 +125,8 @@
     (: over? (-> Vec3 I64 Bool))
     (define (over? point person)
       (let* ((at (person-point person))
-             (across (abs (- (Vec3-x point) (Vec3-x at))))
-             (down (- (Vec3-z point) (Vec3-z at))))
+             (across (abs (- (::x point) (::x at))))
+             (down (- (::z point) (::z at))))
         (and (< across (* 0.32 figure-size)) (< down 0.7) (> down (negate (* 0.85 figure-size))))))
 
     ;; ---- Actions ----
@@ -151,9 +151,9 @@
     ;; Takes the shift, or shows why it cannot be taken.
     (: act (-> MillScreen Action MillScreen))
     (define (act screen action)
-      (let ((before (MillScreen-mill screen)))
+      (let ((before (::mill screen)))
         (match (take-shift before action)
-          ((Ok result) (record-shift screen before (Pair-first result) (Pair-second result)))
+          ((Ok result) (record-shift screen before (::first result) (::second result)))
           ((Err message) (MillScreen-message-set screen (list message))))))
 
     ;; Remembers the new state, what it said, and who heard something new.
@@ -163,22 +163,22 @@
              (screen (MillScreen-forecast-set screen (forecast after)))
              (screen (MillScreen-message-set screen message))
              (screen (MillScreen-fresh-set screen (newly-heard before after))))
-        (MillScreen-version-set screen (+ (MillScreen-version screen) 1))))
+        (MillScreen-version-set screen (+ (::version screen) 1))))
 
     (: press (-> MillScreen I32 MillScreen))
     (define (press screen action)
       (cond ((guide-action? action)
              (MillScreen-guide-set screen
-                                   (turn-guide (MillScreen-guide screen) guide-pages action)))
+                                   (turn-guide (::guide screen) guide-pages action)))
             ((>= action action-choose)
              (MillScreen-selected-set screen (Some (i32->i64 (- action action-choose)))))
             ((= action action-restart)
-             (new-mill-screen (Mill-scenario (MillScreen-mill screen))
-                              (+ (MillScreen-version screen) 1)
-                              (MillScreen-width screen)
-                              (MillScreen-height screen)))
+             (new-mill-screen (::scenario (::mill screen))
+                              (+ (::version screen) 1)
+                              (::width screen)
+                              (::height screen)))
             ((= action action-wait) (act screen (Wait)))
-            (else (match (MillScreen-selected screen)
+            (else (match (::selected screen)
                     ((Some person) (act screen (person-action action person)))
                     ((None) (MillScreen-message-set screen (list "Click a person first.")))))))
 
@@ -210,16 +210,16 @@
     ;; the renderer turns x toward (cos yaw, -sin yaw).
     (: segment (-> Vec3 Vec3 Item))
     (define (segment a b)
-      (let* ((dx (- (Vec3-x b) (Vec3-x a))) (dz (- (Vec3-z b) (Vec3-z a))))
+      (let* ((dx (- (::x b) (::x a))) (dz (- (::z b) (::z a))))
         (flat
-         (item (Box) (Vec3 (* 0.5 (+ (Vec3-x a) (Vec3-x b))) 0.0 (* 0.5 (+ (Vec3-z a) (Vec3-z b))))
+         (item (Box) (Vec3 (* 0.5 (+ (::x a) (::x b))) 0.0 (* 0.5 (+ (::z a) (::z b))))
                (Vec3 (sqrt (+ (* dx dx) (* dz dz))) 0.01 0.08)
                (f64->f32 (atan2 (f32->f64 (negate dz)) (f32->f64 dx)))
                dark))))
 
     (: tie-items (-> (List Item)))
     (define (tie-items)
-      (map (lambda (tie) (segment (person-point (Pair-first tie)) (person-point (Pair-second tie))))
+      (map (lambda (tie) (segment (person-point (::first tie)) (person-point (::second tie))))
            ties))
 
     (: audience-color (-> I64 I32))
@@ -248,9 +248,9 @@
              (color (if (> a 0) first-color second-color)))
         (map (lambda (index)
                (flat (item (Tile)
-                           (Vec3 (+ (Vec3-x at) (* direction (+ 0.24 (* 0.36 (i64->f32 index)))))
+                           (Vec3 (+ (::x at) (* direction (+ 0.24 (* 0.36 (i64->f32 index)))))
                                  0.6
-                                 (- (Vec3-z at) 1.55))
+                                 (- (::z at) 1.55))
                            (Vec3 0.3 1.0 0.3) 0.0 color)))
              (iota (max a b)))))
 
@@ -261,13 +261,13 @@
     ;; still shows it.
     (: person-items (-> MillScreen I64 (List Item)))
     (define (person-items screen person)
-      (let* ((mill (MillScreen-mill screen)) (at (person-point person)) (size (base-size person))
-             (fresh? (member? person (MillScreen-fresh screen)))
-             (layer (+ 0.1 (* 0.01 (- (Vec3-z at) town-top)))))
+      (let* ((mill (::mill screen)) (at (person-point person)) (size (base-size person))
+             (fresh? (member? person (::fresh screen)))
+             (layer (+ 0.1 (* 0.01 (- (::z at) town-top)))))
         (concatenate
          (list (list (hexagon person size 0.03 (audience-color (audience-of person)))
                      (pose-flat (walk-book (person-picture person)) (if fresh? (Stroll) (Stand))
-                                (Vec3 (Vec3-x at) layer (+ (Vec3-z at) feet-offset))
+                                (Vec3 (::x at) layer (+ (::z at) feet-offset))
                                 toward-viewer
                                 figure-size
                                 (camera-of screen)))
@@ -282,11 +282,11 @@
     ;; a grey one.
     (: marker-items (-> MillScreen (List Item)))
     (define (marker-items screen)
-      (append (match (MillScreen-selected screen)
+      (append (match (::selected screen)
                 ((Some person)
                  (list (hexagon person (+ (base-size person) 0.8) 0.015 (rgb 190 200 215))))
                 ((None) (Nil)))
-              (match (MillScreen-hover screen)
+              (match (::hover screen)
                 ((Some person)
                  (list (hexagon person (+ (base-size person) 0.65) 0.016 (rgb 110 118 132))))
                 ((None) (Nil)))))
@@ -294,14 +294,14 @@
     (: marker-version (-> MillScreen I32))
     (define (marker-version screen)
       (let ((code (lambda (choice) (match choice ((Some person) (+ person 1)) ((None) 0)))))
-        (i64->i32 (+ (* 32 (code (MillScreen-selected screen))) (code (MillScreen-hover screen))))))
+        (i64->i32 (+ (* 32 (code (::selected screen))) (code (::hover screen))))))
 
     ;; `art` gives the bytes of each sheet the cast wears.
     (: view-mill-screen (-> MillScreen (-> String (Option Source)) Frame))
     (define (view-mill-screen screen art)
       (Frame (camera-of screen) sunlight backdrop 1.0
              (list (Batch 0 0 (Solid) tie-items)
-                   (Batch 1 (i64->i32 (MillScreen-version screen)) (Solid)
+                   (Batch 1 (i64->i32 (::version screen)) (Solid)
                           (lambda ()
                             (concatenate (map (lambda (person) (person-items screen person))
                                               (iota person-count)))))
@@ -314,15 +314,15 @@
     ;; The scenario, with the shift and coins as dials.
     (: status-panel (-> MillScreen Panel))
     (define (status-panel screen)
-      (let* ((mill (MillScreen-mill screen)) (shift (Mill-shift mill)) (last (last-shift mill)))
+      (let* ((mill (::mill screen)) (shift (::shift mill)) (last (last-shift mill)))
         (Panel "status" (At (TopLeft) 0)
-               (list (label "title" (Rules-name (scenario-rules (Mill-scenario mill))))
+               (list (label "title" (::name (scenario-rules (::scenario mill))))
                      (Dial (look "shift")
                            (string-append "Shift " (show (min shift last)) " of " (show last))
                            (/ (i64->f32 (- shift 1)) (i64->f32 last)))
                      (Dial (look "coins")
-                           (string-append (show (Mill-coins mill)) " coins")
-                           (/ (i64->f32 (Mill-coins mill)) 10.0))))))
+                           (string-append (show (::coins mill)) " coins")
+                           (/ (i64->f32 (::coins mill)) 10.0))))))
 
     ;; The goal as a checklist, and when it is judged.
     (: goal-panel (-> Mill Panel))
@@ -332,12 +332,12 @@
                    (append (map-indexed goal-label (mill-goals mill))
                            (list (toned "deadline"
                                         (Muted)
-                                        (Rules-deadline (scenario-rules (Mill-scenario mill)))))))))
+                                        (::deadline (scenario-rules (::scenario mill)))))))))
 
     (: goal-label (-> I64 Goal Widget))
     (define (goal-label index goal)
-      (let ((key (string-append "goal-" (show index))) (text (Goal-text goal)))
-        (match (Goal-progress goal)
+      (let ((key (string-append "goal-" (show index))) (text (::text goal)))
+        (match (::progress goal)
           ((Met) (toned key (Good) (string-append "✓ " text)))
           ((Done) (toned key (Good) (string-append "✓ " text)))
           ((Unmet) (toned key (Danger) (string-append "✗ " text)))
@@ -348,7 +348,7 @@
     ;; forced shift, or the next step of a move.
     (: hint (-> MillScreen Widget))
     (define (hint screen)
-      (let ((mill (MillScreen-mill screen)) (chosen (MillScreen-selected screen)))
+      (let ((mill (::mill screen)) (chosen (::selected screen)))
         (match (mill-result mill)
           ((Some (Pair won? text))
            (toned "hint"
@@ -385,7 +385,7 @@
     (: last-panel (-> MillScreen Panel))
     (define (last-panel screen)
       (Panel "last" (At (TopLeft) 0)
-             (match (MillScreen-message screen)
+             (match (::message screen)
                ((Nil) (list (toned "last-none" (Muted) "Nothing has happened yet.")))
                (texts (Cons (section-heading "last" "Last shift") (line-labels "last" texts))))))
 
@@ -395,7 +395,7 @@
     ;; is chosen.
     (: toward-chosen (-> MillScreen I32 (Option Action)))
     (define (toward-chosen screen number)
-      (match (MillScreen-selected screen)
+      (match (::selected screen)
         ((Some person) (Some (person-action number person)))
         ((None) (None))))
 
@@ -411,7 +411,7 @@
                         caption
                         number
                         0
-                        (refusal (MillScreen-mill screen) action)
+                        (refusal (::mill screen) action)
                         (move-help action)))
         ((None)
          (choice-button key text caption number 0 (Some "Choose a person on the map first.") ""))))
@@ -465,7 +465,7 @@
     (define (action-panel screen)
       (Panel "actions" (At (TopLeft) 0)
              (append (Cons (section-heading "moves" "Your move: one per shift")
-                           (if (mill-over? (MillScreen-mill screen)) (Nil) (move-buttons screen)))
+                           (if (mill-over? (::mill screen)) (Nil) (move-buttons screen)))
                      (list (button "restart" "Restart" action-restart)))))
 
     ;; ---- People ----
@@ -475,10 +475,10 @@
     (: person-panel (-> MillScreen Panel))
     (define (person-panel screen)
       (Panel "person" (At (TopRight) 0)
-             (match (match (MillScreen-hover screen)
+             (match (match (::hover screen)
                       ((Some person) (Some person))
-                      ((None) (MillScreen-selected screen)))
-               ((Some person) (person-widgets (MillScreen-mill screen) person))
+                      ((None) (::selected screen)))
+               ((Some person) (person-widgets (::mill screen) person))
                ((None)
                 (list (toned "person-none"
                              (Muted)
@@ -497,7 +497,7 @@
                                              ""))))
              (section "believes" "Believes" "Nothing about you."
                       (map (lambda (belief)
-                             (label (string-append "chip-" (trait-name (Pair-first belief)))
+                             (label (string-append "chip-" (trait-name (::first belief)))
                                     (belief-text belief)))
                            (person-beliefs mill person)))
              (match (story-lines mill person)
@@ -516,7 +516,7 @@
     ;; "reliable 2".
     (: belief-text (-> (Pair Trait I64) String))
     (define (belief-text belief)
-      (string-append (trait-name (Pair-first belief)) " " (show (Pair-second belief))))
+      (string-append (trait-name (::first belief)) " " (show (::second belief))))
 
     ;; What each audience believes, beside its color.
     (: audience-panel (-> MillScreen Panel))
@@ -526,7 +526,7 @@
                    (map (lambda (audience)
                           (label (string-append "audience-" (show audience))
                                  (string-append (audience-name audience) ": "
-                                                (match (audience-beliefs (MillScreen-mill screen)
+                                                (match (audience-beliefs (::mill screen)
                                                                          audience)
                                                   ((Nil) "nothing yet")
                                                   (beliefs
@@ -536,14 +536,14 @@
     ;; What would change if you lay low, and what could come back to bite.
     (: outlook-panel (-> MillScreen Panel))
     (define (outlook-panel screen)
-      (let ((mill (MillScreen-mill screen)))
+      (let ((mill (::mill screen)))
         (Panel "outlook" (At (TopRight) 0)
                (append (if (mill-over? mill)
                            (Nil)
                            (section "forecast"
                                     "If you lie low"
                                     "Nothing changes."
-                                    (line-labels "forecast" (MillScreen-forecast screen))))
+                                    (line-labels "forecast" (::forecast screen))))
                        (section "liabilities"
                                 "Liabilities"
                                 "None yet."
@@ -599,7 +599,7 @@
       (concatenate
        (list first
              (list (status-panel screen)
-                   (goal-panel (MillScreen-mill screen))
+                   (goal-panel (::mill screen))
                    (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
                    (action-panel screen)
                    (last-panel screen)
@@ -607,6 +607,6 @@
                    key-panel
                    (person-panel screen)
                    (outlook-panel screen))
-             (guide-panels "Rumor mill" guide-pages (MillScreen-guide screen)))))
+             (guide-panels "Rumor mill" guide-pages (::guide screen)))))
 
     ))

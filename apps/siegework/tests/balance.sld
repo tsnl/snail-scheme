@@ -13,7 +13,7 @@
  (snail core base)
  (snail core io)
  (siegework grid)
- (only (siegework terrain) Land-starter)
+ (only (siegework terrain))
  (siegework world)
  (siegework colony)
  (siegework siege)
@@ -34,18 +34,18 @@
 
 (: offset (-> World I64 I64 Cell))
 (define (offset world dx dy)
-  (let ((hub (Hub-cell (World-hub world))))
-    (Cell (+ (Cell-x hub) dx) (+ (Cell-y hub) dy))))
+  (let ((hub (::cell (::hub world))))
+    (Cell (+ (::x hub) dx) (+ (::y hub) dy))))
 
 (: started (-> I64 World))
 (define (started seed)
   (let ((world (new-world seed)))
-    (try world (Build (Extractor) (Land-starter (World-land world)) #f))))
+    (try world (Build (Extractor) (::starter (::land world)) #f))))
 
 (: reinforce (-> World World))
 (define (reinforce world)
   (try (fold-left (lambda (world d)
-                    (try world (Build (Turret) (offset world (Pair-first d) (Pair-second d)) #f)))
+                    (try world (Build (Turret) (offset world (::first d) (::second d)) #f)))
                   world
                   (list (Pair -2 0)
                         (Pair 0 2)
@@ -65,7 +65,7 @@
 
 (: built-count (-> World I64))
 (define (built-count world)
-  (length (filter built? (World-buildings world))))
+  (length (filter built? (::buildings world))))
 
 (: ready-for-first-attack? (-> I64 Bool))
 (define (ready-for-first-attack? seed)
@@ -76,14 +76,14 @@
 
 (: undefended-falls? (-> I64 Bool))
 (define (undefended-falls? seed)
-  (match (World-outcome (run (started seed) 1000))
+  (match (::outcome (run (started seed) 1000))
     ((Lost) #t)
     (_ #f)))
 
 (: defended-holds? (-> I64 Bool))
 (define (defended-holds? seed)
   (let ((world (defend (started seed) 3000)))
-    (and (playing? world) (= (World-tick world) 3000))))
+    (and (playing? world) (= (::tick world) 3000))))
 
 (: check (-> String (-> I64 Bool) Unit ! console))
 (define (check claim holds?)

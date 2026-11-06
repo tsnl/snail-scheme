@@ -39,15 +39,15 @@
 (: update-test (-> Bool (Mailbox Unit) (Ref I64) Model Msg
                    (Pair Model (List (FnOnce Msg ! mut console tasks dom fetch)))))
 (define (update-test delayed-read gate completed model message)
-  (let ((answers (+ (Model-answers model) (match message ((Answered _ _) 1) (_ 0)))))
-    (match (update (Model-ide model) message)
+  (let ((answers (+ (::answers model) (match message ((Answered _ _) 1) (_ 0)))))
+    (match (update (::ide model) message)
       ((Pair next commands)
        (Pair (Model next answers)
              (match message
                ((PaletteEvent (palette-Query _))
                 (Cons (once (lambda ()
                               (PaletteEvent
-                               (palette-Due (palette-State-generation (Ide-palette next))))))
+                               (palette-Due (::generation (::palette next))))))
                       (widened commands)))
                ((Answered _ _)
                 (if (and (not delayed-read) (= 2 answers))
@@ -61,10 +61,10 @@
 
 (: verify-focus (-> (Pair Node Document) Unit))
 (define (verify-focus result)
-  (let ((expected (string-append "focus " (show (Node-handle (Pair-first result)))))
+  (let ((expected (string-append "focus " (show (::handle (::first result)))))
         (last (find (lambda (line) (and (>= (string-length line) 6)
                                         (string=? (substring line 0 6) "focus ")))
-                    (reverse (document-trace (Pair-second result))))))
+                    (reverse (document-trace (::second result))))))
     (match last
       ((Some line) (unless (string=? line expected) (panic "old task stole focus")))
       ((None) (panic "no focus")))))
@@ -113,14 +113,14 @@
                                                            completed
                                                            model
                                                            message))
-                                            (lambda (model) (view (Model-ide model)))
-                                            (lambda (model) (window (Model-ide model)))
+                                            (lambda (model) (view (::ide model)))
+                                            (lambda (model) (window (::ide model)))
                                             (lambda (model) (unit))
                                             (lambda (model) (mailbox-post gate (unit))))))
-                         (unless (= (ref-get reads) (Model-answers final))
+                         (unless (= (ref-get reads) (::answers final))
                            (panic "the delayed read did not finish")))
                        (match (element-by-id "text-0")
-                         ((Some field) (write-line (show (Pair-first (selection-range field)))))
+                         ((Some field) (write-line (show (::first (selection-range field)))))
                          ((None) (panic "missing original field")))
                        (match (element-by-id (if delayed-read "text-0" "text-1"))
                          ((Some node) node)

@@ -36,46 +36,6 @@
    read-event
    message->json
    json->message
-   Project-name
-   Project-directory
-   Project-files
-   Project-directories
-   Snapshot-text
-   Snapshot-revision
-   Point-file
-   Point-line
-   Point-column
-   Report-severity
-   Report-message
-   Report-source
-   Build-phase
-   Build-id
-   Build-diagnostics
-   Attempt-build
-   Attempt-pid
-   Attempt-phase
-   Attempt-code
-   Attempt-signal
-   Attempt-error
-   Attempt-stdout
-   Attempt-stderr
-   Run-target
-   Run-desired
-   Run-attempt
-   Run-wanted
-   Run-available
-   ServerState-instance
-   ServerState-files
-   ServerState-build
-   ServerState-runs
-   ServerState-editor
-   ServerState-editor-problem
-   Hit-point
-   Hit-revision
-   Hit-snippet
-   SearchResults-hits
-   SearchResults-skipped
-   SearchResults-limited
    Run-wanted-set
    Run-available-set)
   (import
@@ -250,10 +210,10 @@
     (define (project->json value)
       (JsonObject
        (list
-        (Pair "name" (JsonString (Project-name value)))
-        (Pair "directory" (JsonString (Project-directory value)))
-        (Pair "files" (JsonArray (map JsonString (Project-files value))))
-        (Pair "directories" (JsonArray (map JsonString (Project-directories value)))))))
+        (Pair "name" (JsonString (::name value)))
+        (Pair "directory" (JsonString (::directory value)))
+        (Pair "files" (JsonArray (map JsonString (::files value))))
+        (Pair "directories" (JsonArray (map JsonString (::directories value)))))))
 
     (: json->project (-> Json (Option Project)))
     (define (json->project json)
@@ -267,8 +227,8 @@
     (define (file->json value)
       (JsonObject
        (list
-        (Pair "text" (JsonString (Snapshot-text value)))
-        (Pair "revision" (JsonString (Snapshot-revision value))))))
+        (Pair "text" (JsonString (::text value)))
+        (Pair "revision" (JsonString (::revision value))))))
 
     (: json->file (-> Json (Option Snapshot)))
     (define (json->file json)
@@ -280,9 +240,9 @@
     (define (point->json value)
       (JsonObject
        (list
-        (Pair "file" (JsonString (Point-file value)))
-        (Pair "line" (JsonInteger (Point-line value)))
-        (Pair "column" (JsonInteger (Point-column value))))))
+        (Pair "file" (JsonString (::file value)))
+        (Pair "line" (JsonInteger (::line value)))
+        (Pair "column" (JsonInteger (::column value))))))
 
     (: json->point (-> Json (Option Point)))
     (define (json->point json)
@@ -295,9 +255,9 @@
     (define (report->json value)
       (JsonObject
        (list
-        (Pair "severity" (JsonString (Report-severity value)))
-        (Pair "message" (JsonString (Report-message value)))
-        (Pair "source" (maybe-json point->json (Report-source value))))))
+        (Pair "severity" (JsonString (::severity value)))
+        (Pair "message" (JsonString (::message value)))
+        (Pair "source" (maybe-json point->json (::source value))))))
 
     (: json->report (-> Json (Option Report)))
     (define (json->report json)
@@ -310,9 +270,9 @@
     (define (build->json value)
       (JsonObject
        (list
-        (Pair "phase" (JsonString (Build-phase value)))
-        (Pair "id" (JsonInteger (Build-id value)))
-        (Pair "diagnostics" (JsonArray (map report->json (Build-diagnostics value)))))))
+        (Pair "phase" (JsonString (::phase value)))
+        (Pair "id" (JsonInteger (::id value)))
+        (Pair "diagnostics" (JsonArray (map report->json (::diagnostics value)))))))
 
     (: json->build (-> Json (Option Build)))
     (define (json->build json)
@@ -325,14 +285,14 @@
     (define (attempt->json value)
       (JsonObject
        (list
-        (Pair "build" (JsonInteger (Attempt-build value)))
-        (Pair "pid" (maybe-json JsonInteger (Attempt-pid value)))
-        (Pair "phase" (JsonString (Attempt-phase value)))
-        (Pair "code" (maybe-json JsonInteger (Attempt-code value)))
-        (Pair "signal" (nullable-string (Attempt-signal value)))
-        (Pair "error" (nullable-string (Attempt-error value)))
-        (Pair "stdout" (JsonString (Attempt-stdout value)))
-        (Pair "stderr" (JsonString (Attempt-stderr value))))))
+        (Pair "build" (JsonInteger (::build value)))
+        (Pair "pid" (maybe-json JsonInteger (::pid value)))
+        (Pair "phase" (JsonString (::phase value)))
+        (Pair "code" (maybe-json JsonInteger (::code value)))
+        (Pair "signal" (nullable-string (::signal value)))
+        (Pair "error" (nullable-string (::error value)))
+        (Pair "stdout" (JsonString (::stdout value)))
+        (Pair "stderr" (JsonString (::stderr value))))))
 
     (: json->attempt (-> Json (Option Attempt)))
     (define (json->attempt json)
@@ -350,11 +310,11 @@
     (define (run->json value)
       (JsonObject
        (list
-        (Pair "target" (JsonString (Run-target value)))
-        (Pair "desired" (desired->json (Run-desired value)))
-        (Pair "attempt" (maybe-json attempt->json (Run-attempt value)))
-        (Pair "wanted" (JsonBool (Run-wanted value)))
-        (Pair "available" (JsonBool (Run-available value))))))
+        (Pair "target" (JsonString (::target value)))
+        (Pair "desired" (desired->json (::desired value)))
+        (Pair "attempt" (maybe-json attempt->json (::attempt value)))
+        (Pair "wanted" (JsonBool (::wanted value)))
+        (Pair "available" (JsonBool (::available value))))))
 
     (: json->run (-> Json (Option Run)))
     (define (json->run json)
@@ -369,12 +329,12 @@
     (define (state->json value)
       (JsonObject
        (list
-        (Pair "instance" (JsonString (ServerState-instance value)))
-        (Pair "files" (JsonInteger (ServerState-files value)))
-        (Pair "build" (build->json (ServerState-build value)))
-        (Pair "runs" (JsonArray (map run->json (ServerState-runs value))))
-        (Pair "editor" (JsonString (ServerState-editor value)))
-        (Pair "editor-problem" (JsonString (ServerState-editor-problem value))))))
+        (Pair "instance" (JsonString (::instance value)))
+        (Pair "files" (JsonInteger (::files value)))
+        (Pair "build" (build->json (::build value)))
+        (Pair "runs" (JsonArray (map run->json (::runs value))))
+        (Pair "editor" (JsonString (::editor value)))
+        (Pair "editor-problem" (JsonString (::editor-problem value))))))
 
     (: json->state (-> Json (Option ServerState)))
     (define (json->state json)
@@ -390,9 +350,9 @@
     (define (search->json value)
       (JsonObject
        (list
-        (Pair "hits" (JsonArray (map hit->json (SearchResults-hits value))))
-        (Pair "skipped" (JsonInteger (SearchResults-skipped value)))
-        (Pair "limited" (JsonBool (SearchResults-limited value))))))
+        (Pair "hits" (JsonArray (map hit->json (::hits value))))
+        (Pair "skipped" (JsonInteger (::skipped value)))
+        (Pair "limited" (JsonBool (::limited value))))))
 
     (: json->search (-> Json (Option SearchResults)))
     (define (json->search json)
@@ -403,11 +363,11 @@
 
     (: hit->json (-> Hit Json))
     (define (hit->json hit)
-      (JsonObject (list (Pair "path" (JsonString (Point-file (Hit-point hit))))
-                        (Pair "line" (JsonInteger (Point-line (Hit-point hit))))
-                        (Pair "column" (JsonInteger (Point-column (Hit-point hit))))
-                        (Pair "revision" (JsonString (Hit-revision hit)))
-                        (Pair "snippet" (JsonString (Hit-snippet hit))))))
+      (JsonObject (list (Pair "path" (JsonString (::file (::point hit))))
+                        (Pair "line" (JsonInteger (::line (::point hit))))
+                        (Pair "column" (JsonInteger (::column (::point hit))))
+                        (Pair "revision" (JsonString (::revision hit)))
+                        (Pair "snippet" (JsonString (::snippet hit))))))
 
     (: json->hit (-> Json (Option Hit)))
     (define (json->hit json)

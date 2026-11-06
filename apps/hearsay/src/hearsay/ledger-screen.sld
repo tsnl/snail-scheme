@@ -44,7 +44,7 @@
 
     (: refresh (-> LedgerScreen LedgerScreen))
     (define (refresh screen)
-      (let* ((ledger (LedgerScreen-ledger screen))
+      (let* ((ledger (::ledger screen))
              (screen (LedgerScreen-vee-offers-set screen (offer-choices ledger vee)))
              (screen (LedgerScreen-kit-offers-set screen (offer-choices ledger kit)))
              (screen (LedgerScreen-contacts-set screen (contact-choices ledger)))
@@ -65,38 +65,38 @@
 
     (: group-choices (-> LedgerScreen I32 (List Choice)))
     (define (group-choices screen group)
-      (cond ((= group action-vee-offers) (LedgerScreen-vee-offers screen))
-            ((= group action-contacts) (LedgerScreen-contacts screen))
-            ((= group action-jobs) (LedgerScreen-jobs screen))
-            ((= group action-promises) (LedgerScreen-promises screen))
-            ((= group action-kit-offers) (LedgerScreen-kit-offers screen))
+      (cond ((= group action-vee-offers) (::vee-offers screen))
+            ((= group action-contacts) (::contacts screen))
+            ((= group action-jobs) (::jobs screen))
+            ((= group action-promises) (::promises screen))
+            ((= group action-kit-offers) (::kit-offers screen))
             (else (Nil))))
 
     (: command-at (-> LedgerScreen I32 I32 (Option Command)))
     (define (command-at screen group index)
       (let ((choices (group-choices screen group)))
         (if (and (>= index 0) (< (i32->i64 index) (length choices)))
-            (Some (Choice-command (list-ref choices (i32->i64 index))))
+            (Some (::command (list-ref choices (i32->i64 index))))
             (None))))
 
     ;; The end of a round needs no message: the board shows what it did.
     (: run (-> LedgerScreen Command LedgerScreen))
     (define (run screen command)
-      (match (ledger-act (LedgerScreen-ledger screen) command)
+      (match (ledger-act (::ledger screen) command)
         ((Ok result)
-         (refresh (LedgerScreen-message-set (LedgerScreen-ledger-set screen (Pair-first result))
+         (refresh (LedgerScreen-message-set (LedgerScreen-ledger-set screen (::first result))
                                             (match command
                                               ((EndRound) (Nil))
-                                              (_ (Pair-second result))))))
+                                              (_ (::second result))))))
         ((Err message) (LedgerScreen-message-set screen (list message)))))
 
     (: press (-> LedgerScreen I32 I32 LedgerScreen))
     (define (press screen action argument)
       (cond ((guide-action? action)
              (LedgerScreen-guide-set screen
-                                     (turn-guide (LedgerScreen-guide screen) guide-pages action)))
+                                     (turn-guide (::guide screen) guide-pages action)))
             ((= action action-end) (run screen (EndRound)))
-            ((= action action-new) (new-ledger-screen (+ (LedgerScreen-seed screen) 1)))
+            ((= action action-new) (new-ledger-screen (+ (::seed screen) 1)))
             (else (match (command-at screen action argument)
                     ((Some command) (run screen command))
                     ((None) screen)))))
@@ -122,10 +122,10 @@
     (define (choice-buttons choices group prefix)
       (map-indexed (lambda (index choice)
                      (choice-button (string-append prefix "-" (show index))
-                                    (Choice-text choice)
-                                    (Choice-caption choice)
+                                    (::text choice)
+                                    (::caption choice)
                                     group
-                                    (i64->i32 index) (Choice-refusal choice) ""))
+                                    (i64->i32 index) (::refusal choice) ""))
                    choices))
 
     ;; ---- Standings ----
@@ -138,7 +138,7 @@
              (list (label "title" "Favor ledger")
                    (Dial (look "round")
                          (ledger-header ledger)
-                         (/ (i64->f32 (- (Ledger-round ledger) 1)) (i64->f32 round-count)))
+                         (/ (i64->f32 (- (::round ledger) 1)) (i64->f32 round-count)))
                    (section-heading "you" "You") (label "you-stats" (fixer-stats ledger you))
                    (label "you-markers" (string-join (fixer-holdings ledger you) "\n")))))
 
@@ -147,7 +147,7 @@
     ;; Vee's column is left of Kit's.
     (: rival-panel (-> LedgerScreen I64 Panel))
     (define (rival-panel screen who)
-      (let ((ledger (LedgerScreen-ledger screen)) (vee? (= who vee)))
+      (let ((ledger (::ledger screen)) (vee? (= who vee)))
         (Panel (if vee? "vee" "kit") (At (TopRight) (if vee? 1 0))
                (append (list (portrait "portrait" (rival-picture who) 2)
                              (section-heading "name" (fixer-name who))
@@ -157,10 +157,10 @@
                            (Nil)
                            (section "offers" "Offers" "Nothing this round."
                                     (if vee?
-                                        (choice-buttons (LedgerScreen-vee-offers screen)
+                                        (choice-buttons (::vee-offers screen)
                                                         action-vee-offers
                                                         "offer")
-                                        (choice-buttons (LedgerScreen-kit-offers screen)
+                                        (choice-buttons (::kit-offers screen)
                                                         action-kit-offers
                                                         "offer"))))))))
 
@@ -168,7 +168,7 @@
     ;; falling due, a job you can do, or else how to work toward one.
     (: hint (-> LedgerScreen Widget))
     (define (hint screen)
-      (let ((ledger (LedgerScreen-ledger screen)))
+      (let ((ledger (::ledger screen)))
         (cond ((ledger-over? ledger)
                (toned "hint"
                       (Good)
@@ -178,8 +178,8 @@
                (toned "hint" (Warning)
                       (string-append "You owe " (string-join (due-now ledger) " and ")
                                      " a marker by the end of this round. Honor it under Promises, or refusing costs 1 standing.")))
-              ((any? (lambda (choice) (match (Choice-refusal choice) ((None) #t) (_ #f)))
-                     (LedgerScreen-jobs screen))
+              ((any? (lambda (choice) (match (::refusal choice) ((None) #t) (_ #f)))
+                     (::jobs screen))
                (toned "hint"
                       (Good)
                       "You hold the markers for a job: do it under Jobs for standing."))
@@ -192,24 +192,24 @@
     ;; the contacts and the news beside them; each rival on the right.
     (: playing-panels (-> LedgerScreen (List Panel)))
     (define (playing-panels screen)
-      (let ((ledger (LedgerScreen-ledger screen)))
+      (let ((ledger (::ledger screen)))
         (list (standings-panel ledger)
               (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
               (Panel "jobs" (At (TopLeft) 0)
                      (section "jobs"
                               "Jobs: one marker per ability"
                               "No jobs open."
-                              (choice-buttons (LedgerScreen-jobs screen) action-jobs "job")))
+                              (choice-buttons (::jobs screen) action-jobs "job")))
               (Panel "promises" (At (TopLeft) 0)
                      (section "promises" "Promises" "None yet."
-                              (append (choice-buttons (LedgerScreen-promises screen)
+                              (append (choice-buttons (::promises screen)
                                                       action-promises
                                                       "promise")
                                       (line-labels "owed" (owed-lines ledger)))))
               (Panel "contacts" (At (TopLeft) 1)
                      (append
                       (section "contacts" "Contacts: meet a want, get a marker" "No contacts."
-                               (choice-buttons (LedgerScreen-contacts screen)
+                               (choice-buttons (::contacts screen)
                                                action-contacts
                                                "contact"))
                       (list (button "end" "End the round" action-end)
@@ -220,16 +220,16 @@
     (: news-panel (-> LedgerScreen Panel))
     (define (news-panel screen)
       (Panel "news" (At (TopLeft) 1)
-             (append (line-labels "message" (LedgerScreen-message screen))
+             (append (line-labels "message" (::message screen))
                      (section "last-round"
                               "Last end of round"
                               "Nothing yet."
                               (line-labels "last-round"
-                                           (Ledger-last-round (LedgerScreen-ledger screen)))))))
+                                           (::last-round (::ledger screen)))))))
 
     (: final-panels (-> LedgerScreen (List Panel)))
     (define (final-panels screen)
-      (list (standings-panel (LedgerScreen-ledger screen))
+      (list (standings-panel (::ledger screen))
             (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
             (Panel "contacts" (At (TopLeft) 1) (list (button "new" "New game" action-new)))
             (news-panel screen)
@@ -273,9 +273,9 @@
     (define (ledger-screen-hud screen first)
       (concatenate
        (list first
-             (if (ledger-over? (LedgerScreen-ledger screen))
+             (if (ledger-over? (::ledger screen))
                  (final-panels screen)
                  (playing-panels screen))
-             (guide-panels "Favor ledger" guide-pages (LedgerScreen-guide screen)))))
+             (guide-panels "Favor ledger" guide-pages (::guide screen)))))
 
     ))

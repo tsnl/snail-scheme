@@ -32,7 +32,7 @@
      (string-join
       (Cons "ok" (map (lambda (char) (hex-digits (char->i32 char) 6)) (string->list text)))
       " "))
-    ((Err error) (string-append "error at " (show (Utf8Error-offset error))))))
+    ((Err error) (string-append "error at " (show (::offset error))))))
 
 ;; Each width's first and last scalar, the surrogates around them, the
 ;; byte order mark, and a code beyond U+10FFFF.

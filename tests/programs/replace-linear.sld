@@ -15,7 +15,7 @@
 
 (: retry (-> Job Job))
 (define (retry job)
-  (Job-attempts-set job (+ (Job-attempts job) 1)))
+  (Job-attempts-set job (+ (::attempts job) 1)))
 ;; ANCHOR_END: retry
 
 (: run (-> Job Unit ! console))
@@ -43,7 +43,7 @@
 (run (retry (retry (Job "build" 0 (once (lambda () (write-line "built")))))))
 (run (bump Job-attempts-set (Job "deploy" 0 (once (lambda () (write-line "deployed"))))))
 (let* ((original (Labelled 1 "original")) (changed (relabel original)))
-  (write-line (string-append (Labelled-label original) ", " (Labelled-label changed))))
+  (write-line (string-append (::label original) ", " (::label changed))))
 (match (relabel (Labelled (Job "test" 0 (once (lambda () (write-line "tested")))) "job"))
   ((Labelled job label)
    (write-line label)

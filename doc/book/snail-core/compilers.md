@@ -114,8 +114,9 @@ function of the expander has `mut` in its row — and where it does not, the
   passes so definitions may refer to later ones; local bodies are
   sequential. Declarations become entities in the program tables: a struct
   or enum is a `DataType` whose fields say whether they are mutable, with
-  an accessor for each field and, depending on mutability, a pure
-  replacement or a setter and a swapper. Derived
+  an accessor for each field, bound as the field class instance's method
+  for a struct and by name for an enum case, and, depending on
+  mutability, a pure replacement or a setter and a swapper. Derived
   wire instances are generated as ordinary instance syntax that resolves in
   the implicit libraries, `(snail shell wire)` among them, which the build's
   first deriving clause loads, and expressions become core `Expr`s with
@@ -425,7 +426,7 @@ function of the expander has `mut` in its row — and where it does not, the
   subtypes of a base holding the tag. A field holding a struct is laid out
   inline, as that struct's fields, so a nested value costs no second
   object and a cell's content lies in the cell; reading it whole builds
-  one, and a nested pattern or a chain of accessors reads the fields where
+  one, and a nested pattern or a chain of field paths reads the fields where
   they lie ("Inline fields"). `Ref`'s content is a `mut` struct field, or
   several; `set!` and `replace!` write a place, a chain of field reads from
   a cell, into the slots of the cell, and a swap reads the old content

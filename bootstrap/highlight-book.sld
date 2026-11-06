@@ -60,8 +60,8 @@
   (match json
     ((JsonObject members)
      (JsonObject (map (lambda (member)
-                        (Pair (Pair-first member)
-                              (change (Pair-first member) (Pair-second member))))
+                        (Pair (::first member)
+                              (change (::first member) (::second member))))
                       members)))
     (other other)))
 
@@ -96,8 +96,8 @@
        ((None) (blocks rest (Cons line out)))
        ((Some fence)
         (let* ((split (until-closing fence rest (Nil)))
-               (body (Pair-first split))
-               (after (Pair-second split)))
+               (body (::first split))
+               (after (::second split)))
           (blocks (match after
                     ((Cons _ next) next)
                     ((Nil) (Nil)))
@@ -125,9 +125,9 @@
 (: highlighted (-> Fence (List String) String))
 (define (highlighted fence body)
   (let ((code (string-concatenate
-               (map (lambda (line) (string-append (without-indent line (Fence-indent fence)) "\n"))
+               (map (lambda (line) (string-append (without-indent line (::indent fence)) "\n"))
                     body))))
-    (string-append (make-string (Fence-indent fence) #\space)
+    (string-append (make-string (::indent fence) #\space)
                    "<pre><code class=\"nohighlight\">"
                    (newlines-as-references (code-html code))
                    "</code></pre>")))
@@ -149,15 +149,15 @@
 (: closes? (-> Fence String Bool))
 (define (closes? fence line)
   (let* ((indent (count-while line 0 (lambda (c) (char=? c #\space))))
-         (end (count-while line indent (lambda (c) (char=? c (Fence-marker fence))))))
-    (and (>= (- end indent) (Fence-length fence))
+         (end (count-while line indent (lambda (c) (char=? c (::marker fence))))))
+    (and (>= (- end indent) (::length fence))
          (= (count-while line end (lambda (c) (or (char=? c #\space) (char=? c #\tab))))
             (string-length line)))))
 
 ;; The info string's first word, which ends at whitespace or a comma.
 (: language (-> Fence String))
 (define (language fence)
-  (let* ((info (Fence-info fence))
+  (let* ((info (::info fence))
          (start (count-while info 0 char-whitespace?))
          (end (count-while info start (lambda (c) (not (or (char-whitespace? c) (char=? c #\,)))))))
     (substring info start end)))
@@ -205,8 +205,8 @@
 
 (: token-html (-> (Vector Char) Token String))
 (define (token-html chars token)
-  (let ((text (escape-html (subvector chars (Token-start token) (Token-end token)))))
-    (match (Token-class token)
+  (let ((text (escape-html (subvector chars (::start token) (::end token)))))
+    (match (::class token)
       ((Blank) text)
       (class (string-append "<span class=\"tok-" (class-name class) "\">" text "</span>")))))
 

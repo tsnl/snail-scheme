@@ -23,7 +23,7 @@
     (: web-app-manifest (-> String Json))
     (define (web-app-manifest name)
       (JsonObject
-       (append (map (lambda (field) (Pair (Pair-first field) (JsonString (Pair-second field))))
+       (append (map (lambda (field) (Pair (::first field) (JsonString (::second field))))
                     (list (Pair "name" name) (Pair "short_name" name)
                           (Pair "start_url" "./") (Pair "scope" "./") (Pair "display" "standalone")
                           (Pair "background_color" "#24282f") (Pair "theme_color" "#24282f")))
@@ -63,8 +63,8 @@
       (string-append "<" name
                      (string-concatenate
                       (map (lambda (attribute)
-                             (string-append " " (Pair-first attribute) "=\""
-                                            (attribute-text (Pair-second attribute)) "\""))
+                             (string-append " " (::first attribute) "=\""
+                                            (attribute-text (::second attribute)) "\""))
                            attributes))
                      ">"))
 
@@ -93,10 +93,10 @@
     ;; A doctype/preamble stays before the generated head.
     (: insert-metadata (-> String (List PageMetadata) String))
     (define (insert-metadata text items)
-      (let* ((head (head-boundary text)) (at (Pair-first head))
+      (let* ((head (head-boundary text)) (at (::first head))
              (added (string-concatenate (map metadata-text items))))
         (string-append (substring text 0 at)
-                       (if (Pair-second head) added (string-append "<head>" added))
+                       (if (::second head) added (string-append "<head>" added))
                        (substring text at (string-length text)))))
 
     (: with-web-app (-> String Bool String))
@@ -108,7 +108,7 @@
     ;; base must never pin the app's installation identity to one generation.
     (: stable-web-app (-> String String String))
     (define (stable-web-app text mount)
-      (let ((start (Pair-first (head-boundary text))))
+      (let ((start (::first (head-boundary text))))
         (if (text-at? text start default-link)
             (string-append (substring text 0 start)
                            (metadata-text

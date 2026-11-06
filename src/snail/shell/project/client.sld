@@ -1,6 +1,6 @@
 ;; Typed HTTP replies shared by the editor and its feature libraries.
 (define-library (snail shell project client)
-  (export Failure Failure-status Failure-message api url-component file-url
+  (export Failure api url-component file-url
           decoded-reply file-reply project-reply search-reply)
   (import
    (snail core base)
@@ -29,8 +29,8 @@
 
     (: reply-json (-> Reply (Result Json Failure)))
     (define (reply-json reply)
-      (let ((status (Reply-status reply)))
-        (match (if (= status 204) (Some (JsonNull)) (string->json (Reply-body reply)))
+      (let ((status (::status reply)))
+        (match (if (= status 204) (Some (JsonNull)) (string->json (::body reply)))
           ((Some json)
            (if (and (>= status 200) (< status 300))
                (Ok json)

@@ -5,19 +5,10 @@
 (define-library (snail shell compiler specialize)
   (export
    Specialization
-   Specialization-typed
    prepare-specialization
    State
-   State-control
    Declarations
-   Declarations-program
-   Declarations-owner
-   Declarations-control
-   Declarations-bindings
    Binding
-   Binding-type
-   Binding-function?
-   Binding-external?
    new-state
    specialization-declarations
    specialization-definitions

@@ -33,10 +33,10 @@
 (with-instances (erased alternate)
                 (handle dyn-cast ((conversion-failed (lambda (error)
                                                        (write-line "unsupported")
-                                                       (display (CastError-argument error))
+                                                       (display (::argument error))
                                                        (newline)
                                                        (write-line
-                                                        (string-join (CastError-expected error)
+                                                        (string-join (::expected error)
                                                                      ",")))))
                   (handle log ((message (lambda (text) (write-line text))))
                     (display (subtract (ann 10 Any) 2.5))

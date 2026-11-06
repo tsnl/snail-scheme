@@ -58,6 +58,6 @@
                                (lambda (model) (unit))
                                (lambda (model) (unit))))))))
              (for-each write-line (ref-get requests))
-             (match (buffer-at (Pair-first result) "lib/notes.txt")
-               ((Some buffer) (write-line (Buffer-text buffer)))
+             (match (buffer-at (::first result) "lib/notes.txt")
+               ((Some buffer) (write-line (::text buffer)))
                ((None) (panic "file navigation did not finish"))))))))

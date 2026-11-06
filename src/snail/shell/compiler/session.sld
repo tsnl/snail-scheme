@@ -9,17 +9,10 @@
 (define-library (snail shell compiler session)
   (export
    Session
-   Session-directories
    make-session
    no-inputs
    Built
-   Built-name
-   Built-text
-   Built-compiled?
-   Built-links
    LinkedFile
-   LinkedFile-digest
-   LinkedFile-path
    build-session)
   (import
    (snail core base)

@@ -53,7 +53,7 @@
 
 (instance (::x Circle I64)
   (define (::x circle)
-    (* 2 (Circle-radius circle))))
+    (* 2 (::radius circle))))
 
 (write-line (show (::x (Circle 21))))
 

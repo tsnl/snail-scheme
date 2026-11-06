@@ -5,8 +5,6 @@
   (export
    map-size
    Cell
-   Cell-x
-   Cell-y
    cell=?
    cell-index
    index-cell
@@ -36,11 +34,11 @@
 
     (: cell=? (-> Cell Cell Bool))
     (define (cell=? a b)
-      (and (= (Cell-x a) (Cell-x b)) (= (Cell-y a) (Cell-y b))))
+      (and (= (::x a) (::x b)) (= (::y a) (::y b))))
 
     (: cell-index (-> Cell I64))
     (define (cell-index cell)
-      (+ (Cell-x cell) (* map-size (Cell-y cell))))
+      (+ (::x cell) (* map-size (::y cell))))
 
     (: index-cell (-> I64 Cell))
     (define (index-cell index)
@@ -48,19 +46,19 @@
 
     (: in-bounds? (-> Cell Bool))
     (define (in-bounds? cell)
-      (and (<= 0 (Cell-x cell))
-           (< (Cell-x cell) map-size)
-           (<= 0 (Cell-y cell))
-           (< (Cell-y cell) map-size)))
+      (and (<= 0 (::x cell))
+           (< (::x cell) map-size)
+           (<= 0 (::y cell))
+           (< (::y cell) map-size)))
 
     (: distance-squared (-> Cell Cell I64))
     (define (distance-squared a b)
-      (let ((dx (- (Cell-x a) (Cell-x b))) (dy (- (Cell-y a) (Cell-y b))))
+      (let ((dx (- (::x a) (::x b))) (dy (- (::y a) (::y b))))
         (+ (* dx dx) (* dy dy))))
 
     (: manhattan (-> Cell Cell I64))
     (define (manhattan a b)
-      (+ (abs (- (Cell-x a) (Cell-x b))) (abs (- (Cell-y a) (Cell-y b)))))
+      (+ (abs (- (::x a) (::x b))) (abs (- (::y a) (::y b)))))
 
     ;; Within a circle of `radius` cells around `center`.
     (: within? (-> Cell Cell I64 Bool))
@@ -80,7 +78,7 @@
     ;; East, west, south, north: a fixed order, so ties break the same way.
     (: neighbors (-> Cell (List Cell)))
     (define (neighbors cell)
-      (let ((x (Cell-x cell)) (y (Cell-y cell)))
+      (let ((x (::x cell)) (y (::y cell)))
         (filter in-bounds?
                 (list (Cell (+ x 1) y) (Cell (- x 1) y) (Cell x (+ y 1)) (Cell x (- y 1))))))
 
@@ -95,11 +93,11 @@
     ;; between two rocks.
     (: line-cells (-> Cell Cell (List Cell)))
     (define (line-cells a b)
-      (let ((dx (abs (- (Cell-x b) (Cell-x a)))) (dy (abs (- (Cell-y b) (Cell-y a))))
-            (sx (if (< (Cell-x a) (Cell-x b)) 1 -1)) (sy (if (< (Cell-y a) (Cell-y b)) 1 -1)))
-        (let walk ((x (Cell-x a)) (y (Cell-y a)) (nx 1) (ny 1) (cells (Nil)))
+      (let ((dx (abs (- (::x b) (::x a)))) (dy (abs (- (::y b) (::y a))))
+            (sx (if (< (::x a) (::x b)) 1 -1)) (sy (if (< (::y a) (::y b)) 1 -1)))
+        (let walk ((x (::x a)) (y (::y a)) (nx 1) (ny 1) (cells (Nil)))
           (let ((cells (Cons (Cell x y) cells)) (order (- (* ny dx) (* nx dy))))
-            (cond ((and (= x (Cell-x b)) (= y (Cell-y b))) (reverse cells))
+            (cond ((and (= x (::x b)) (= y (::y b))) (reverse cells))
                   ((< order 0) (walk x (+ y sy) nx (+ ny 2) cells))
                   ((> order 0) (walk (+ x sx) y (+ nx 2) ny cells))
                   (else (walk (+ x sx)

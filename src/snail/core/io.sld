@@ -40,9 +40,6 @@
    SymbolicLink
    OtherKind
    FileStatus
-   FileStatus-kind
-   FileStatus-size
-   FileStatus-modified
    make-directory
    make-directories
    rename-file
@@ -370,7 +367,7 @@
     (: directory? (-> String Bool ! fs))
     (define (directory? path)
       (match (file-status path)
-        ((Ok status) (match (FileStatus-kind status)
+        ((Ok status) (match (::kind status)
                        ((Directory) #t)
                        (_ #f)))
         ((Err _) #f)))
@@ -397,7 +394,7 @@
     (: remove-tree (-> String (Result Unit FileError) ! fs))
     (define (remove-tree path)
       (match (file-status path)
-        ((Ok status) (match (FileStatus-kind status)
+        ((Ok status) (match (::kind status)
                        ((Directory) (match (list-directory path)
                                       ((Ok names) (remove-entries path names))
                                       ((Err error) (Err error))))

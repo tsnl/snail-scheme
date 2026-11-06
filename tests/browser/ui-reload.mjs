@@ -80,9 +80,9 @@ try {
 
   // A stopped root extracts its save without presenting or replaying its
   // startup messages. Only starting the repaired application increments it.
-  const trap = '      (when (string=? (Notes-draft model) "trap") (panic "document update trap"))\n';
+  const trap = '      (when (string=? (::draft model) "trap") (panic "document update trap"))\n';
   await edit('(define (interface-messages model) (list (Load)))',
-    '(define (interface-messages model) (list (Added (+ (Notes-added model) 1))))',
+    '(define (interface-messages model) (list (Added (+ (::added model) 1))))',
     '(define (view model)\n', '(define (view model)\n' + trap,
     '(Text "Add note")', '(Text "Trap test")');
   await until(async () => await button() === 'Trap test', 'the recovery test application');

@@ -69,16 +69,16 @@
         ((Added count) (Pair (Notes-added-set model count) (Nil)))
         ((Remove id)
          (Pair (Notes-notes-set model
-                                (filter (lambda (note) (not (= (Note-id note) id)))
-                                        (Notes-notes model)))
+                                (filter (lambda (note) (not (= (::id note) id)))
+                                        (::notes model)))
                (Nil)))
         ((Load) (Pair model (list (once load))))
         ((Loaded text)
-         (Pair (Notes-server-set model (Server-greeting-set (Notes-server model) text)) (Nil)))
+         (Pair (Notes-server-set model (Server-greeting-set (::server model) text)) (Nil)))
         ((Share)
-         (Pair model (list (once (lambda () (share (Notes-notes model) (Notes-next model)))))))
+         (Pair model (list (once (lambda () (share (::notes model) (::next model)))))))
         ((Shared text)
-         (Pair (Notes-server-set model (Server-shared-set (Notes-server model) text)) (Nil)))
+         (Pair (Notes-server-set model (Server-shared-set (::server model) text)) (Nil)))
         ((Listen)
          (Pair model
                (list
@@ -102,9 +102,9 @@
 
     (: heard (-> Notes String Notes))
     (define (heard model text)
-      (let ((server (Notes-server model)))
+      (let ((server (::server model)))
         (Notes-server-set model
-                          (Server-heard-set server (append (Server-heard server) (list text))))))
+                          (Server-heard-set server (append (::heard server) (list text))))))
 
     ;; ---- The server ----
 
@@ -119,12 +119,12 @@
                                 "/api/notes"
                                 (list (Header "Content-Type" "text/plain")
                                       (Header "If-Match" (show next)))
-                                (string-join (map Note-text notes) (make-string 1 #\newline))))))
+                                (string-join (map ::text notes) (make-string 1 #\newline))))))
 
     (: replied (-> (Result Reply String) String))
     (define (replied result)
       (match result
-        ((Ok reply) (string-append (show (Reply-status reply)) " " (Reply-body reply)))
+        ((Ok reply) (string-append (show (::status reply)) " " (::body reply)))
         ((Err why) (string-append "failed: " why))))
 
     ;; The next event, which the update that hears it waits past.
@@ -132,23 +132,23 @@
     (define (hear stream)
       (match (stream-next stream)
         ((Some event)
-         (Heard stream (string-append (StreamEvent-kind event) ":" (StreamEvent-data event))))
+         (Heard stream (string-append (::kind event) ":" (::data event))))
         ((None) (Ended))))
 
     ;; A note from the draft, unless it is empty, and the command that counts
     ;; it once it has yielded.
     (: added (-> Notes (Pair Notes (List (Command Message)))))
     (define (added model)
-      (if (string=? (Notes-draft model) "")
+      (if (string=? (::draft model) "")
           (Pair model (Nil))
-          (let ((count (+ (Notes-added model) 1)))
+          (let ((count (+ (::added model) 1)))
             (Pair
              (Notes
-              (append (Notes-notes model) (list (Note (Notes-next model) (Notes-draft model))))
+              (append (::notes model) (list (Note (::next model) (::draft model))))
               ""
-              (+ (Notes-next model) 1)
-              (Notes-added model)
-              (Notes-server model))
+              (+ (::next model) 1)
+              (::added model)
+              (::server model))
              (list (once (lambda ()
                            (yield)
                            (with-draft focus-node)
@@ -175,17 +175,17 @@
                (list (Element "input"
                               (list (Attr "id" "draft")
                                     (Attr "placeholder" "A note")
-                                    (StringProperty "value" (Notes-draft model))
+                                    (StringProperty "value" (::draft model))
                                     (On "input"
                                         (list (Value))
                                         (Allow)
-                                        (lambda (event) (Typed (Event-value event))))
+                                        (lambda (event) (Typed (::value event))))
                                     (On "keydown"
                                         (list (Key) (Selection))
                                         (Chords (list (Chord "Enter" 0) (Chord "Tab" 0)))
                                         (lambda (event)
-                                          (Pressed (Event-key event)
-                                                   (Event-selection-start event)))))
+                                          (Pressed (::key event)
+                                                   (::selection-start event)))))
                               (Nil))
                      (Element "button"
                               (list (Attr "id" "add")
@@ -195,7 +195,7 @@
                               (list (Attr "id" "bullet")
                                     (On "click" (Nil) (Allow) (lambda (event) (Bullet))))
                               (list (Text "Bullet")))
-                     (Element "ul" (list (Attr "id" "notes")) (map note-view (Notes-notes model)))
+                     (Element "ul" (list (Attr "id" "notes")) (map note-view (::notes model)))
                      (Element "div"
                               (Nil)
                               (list (button "share" "Share" (Share))
@@ -203,16 +203,16 @@
                                     (button "clear" "Clear" (Clear))))
                      (Element "p"
                               (list (Attr "id" "greeting"))
-                              (list (Text (Server-greeting (Notes-server model)))))
+                              (list (Text (::greeting (::server model)))))
                      (Element "p"
                               (list (Attr "id" "shared"))
-                              (list (Text (Server-shared (Notes-server model)))))
+                              (list (Text (::shared (::server model)))))
                      (Element "p"
                               (list (Attr "id" "heard"))
-                              (list (Text (string-join (Server-heard (Notes-server model)) ","))))
+                              (list (Text (string-join (::heard (::server model)) ","))))
                      (Element "p"
                               (list (Attr "id" "added"))
-                              (list (Text (string-append (show (Notes-added model)) " added")))))))
+                              (list (Text (string-append (show (::added model)) " added")))))))
 
     (: button (-> String String Message (Html Message)))
     (define (button id label message)
@@ -223,23 +223,23 @@
     (: note-view (-> Note (Html Message)))
     (define (note-view note)
       (Element "li"
-               (list (Keyed (show (Note-id note))))
-               (list (Text (Note-text note))
+               (list (Keyed (show (::id note))))
+               (list (Text (::text note))
                      (Element "button"
-                              (list (Attr "id" (string-append "remove-" (show (Note-id note))))
+                              (list (Attr "id" (string-append "remove-" (show (::id note))))
                                     (On "click"
                                         (Nil)
                                         (Allow)
-                                        (lambda (event) (Remove (Note-id note)))))
+                                        (lambda (event) (Remove (::id note)))))
                               (list (Text "Remove"))))))
 
     (: save (-> Notes Save))
     (define (save model)
-      (Save (Notes-notes model) (Notes-next model)))
+      (Save (::notes model) (::next model)))
 
     (: restore (-> Save Notes))
     (define (restore saved)
-      (Notes (Save-notes saved) "" (Save-next saved) 0 no-server))
+      (Notes (::notes saved) "" (::next saved) 0 no-server))
 
     (: window (-> Notes (List (Attribute Message))))
     (define (window model)

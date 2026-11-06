@@ -61,7 +61,7 @@
 (define mislinked-path "build/tests/mislinked.wasm")
 (write-file mislinked-path (list->string (map i32->char mislinked)))
 (for-each (lambda (entry)
-            (match (load-module (Pair-first entry) (Pair-second entry))
+            (match (load-module (::first entry) (::second entry))
               ((Ok _) (write-line "loaded"))
               ((Err error) (write-line (load-error-message error)))))
           (list (Pair "adder" path)
