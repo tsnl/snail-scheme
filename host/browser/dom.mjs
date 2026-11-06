@@ -23,7 +23,7 @@ const ALLOW = 0, CHORDS = 2;
 // program reads beside its fields.
 export function createDom(container, runtime, {refresh = () => {}} = {}) {
   const decoder = new TextDecoder();
-  let nodes, handles, listeners, owned, next, nextListener, reply = [], measured = [];
+  let nodes, handles, listeners, owned, next, nextListener = 1, reply = [], measured = [];
   reset();
 
   // A program that starts, cold or after a reload, knows no handles, so the
@@ -36,7 +36,7 @@ export function createDom(container, runtime, {refresh = () => {}} = {}) {
     listeners = new Map();
     owned = new WeakMap();
     next = 1;
-    nextListener = 1;
+    // Listener ids never repeat: queued events from a replaced view are stale.
   }
   const text = address => decoder.decode(byteSnapshot(runtime.execution.entry.memory, address));
   // A name and its value cross as one string, the name ended by a NUL.

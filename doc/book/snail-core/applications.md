@@ -234,10 +234,13 @@ program starts. `tests/apps/notes` is the example, and
 `tests/browser/ui.mjs` drives it in Chromium against a server of its
 own.
 
-*Proposed* ([#514](https://github.com/tsnl/snail-scheme/issues/514)):
-periodic saves, and live reload of an interface's page. Today `ui.mjs` loads a release build's
-`program.wasm`, and the interface saves only when the page is hidden or
-reloads.
+Both `ui.mjs` and the scene's `host.mjs` delegate loading and replacement to
+`host/browser/application.mjs`. Document applications now support development
+modules and live reload through the same transaction as scenes. Listener
+identities are never reused after replacement, so queued events from an old
+document cannot invoke a new listener. Periodic document saves remain proposed
+([#514](https://github.com/tsnl/snail-scheme/issues/514)); the interface currently
+saves when the page is hidden or reloads.
 
 <a id="live-reload"></a>
 
@@ -313,7 +316,8 @@ Read-only seed and canvas dimensions remain available to all tasks.
 ## Event and reload boundaries
 
 `host/browser/runtime.mjs` owns an invocation's queue and storage bindings;
-`host.mjs` retains the canvas, renderer, pictures and HUD across invocations.
+`application.mjs` owns loading and the replacement transaction. `host.mjs` retains
+the scene devices, while `ui.mjs` resets the document and fetch devices for each run.
 DOM listeners enqueue input rather than calling Wasm. Consecutive moves for the
 same pointer and consecutive resizes coalesce without crossing other input.
 Consuming a pending frame requests the next animation frame, so slow work does

@@ -8,7 +8,7 @@
 // the client running to reload the page once it is fixed.
 import {createReloadClient, restyleLinks} from './reload-client.mjs';
 
-const loadHost = () => import(new URL('host.mjs', document.baseURI).href).catch(() => null);
+const loadHost = () => import(new URL('application.mjs', document.baseURI).href).catch(() => null);
 const beside = file => new URL(file, import.meta.url);
 
 const client = await createReloadClient(new Uint8Array(await (await fetch(beside('reload.wasm'), {cache: 'no-store'})).arrayBuffer()), {

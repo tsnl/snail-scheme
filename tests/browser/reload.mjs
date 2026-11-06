@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import {cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {basename, join} from 'node:path';
 import {startDevelopment} from '../development-service.mjs';
 import {openBrowser, until} from './chromium.mjs';
 
@@ -32,7 +32,7 @@ const addStateField = (source, field) => edit(source, /\(height I32\)((?:\n   \(
 
 const directory = await realpath(await mkdtemp(join(tmpdir(), 'snail-reload-')));
 const app = join(directory, 'counter'), source = join(app, 'main.sld');
-await cp(join(root, 'tests/apps/counter'), app, {recursive: true});
+await cp(join(root, 'tests/apps/counter'), app, {recursive: true, filter: path => basename(path) !== 'build'});
 const service = await startDevelopment(root, app);
 const browser = await openBrowser();
 // The page's own modules, from the build its base names.
@@ -112,7 +112,7 @@ try {
     };`});
   await browser.navigate(base);
   await until(() => browser.evaluate('typeof resumeSavedLoad === "function"'), 'the suspended initial load');
-  await browser.evaluate(`${pageModule('host.mjs')}.then(({running}) => {
+  await browser.evaluate(`${pageModule('application.mjs')}.then(({running}) => {
     const app = running[0], startup = app.startup, stop = app.runtime.stop.bind(app.runtime);
     globalThis.startupWaited = false; globalThis.stopCount = 0;
     Object.defineProperty(app, 'startup', {get() { globalThis.startupWaited = true; return startup; }});
