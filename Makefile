@@ -65,18 +65,18 @@ check:
 	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --check
 	$(NIXFMT) --check shell.nix
 
-# The native project service and browser editor for Siegework.
+# The native project service and browser editor for the whole repository.
 ide:
-	CHIBI="$(CHIBI)" SNAIL_HEAP="$(HEAP)" ./snail dev apps/siegework
+	CHIBI="$(CHIBI)" SNAIL_HEAP="$(HEAP)" ./snail dev .
 
-# Each application's project describes its site target, in APP/build/site.
+# The root project names each application, with output in build/NAME.
 site: siegework hearsay
 
 siegework:
-	CHIBI="$(CHIBI)" SNAIL_HEAP="$(HEAP)" ./snail build --release apps/siegework site
+	CHIBI="$(CHIBI)" SNAIL_HEAP="$(HEAP)" ./snail build --release . siegework
 
 hearsay:
-	CHIBI="$(CHIBI)" SNAIL_HEAP="$(HEAP)" ./snail build --release apps/hearsay site
+	CHIBI="$(CHIBI)" SNAIL_HEAP="$(HEAP)" ./snail build --release . hearsay
 
 # The GitHub Pages site in build/pages: the book, with Siegework at
 # play/siegework/. Hearsay stays unpublished: its LPC art must be credited
@@ -84,7 +84,7 @@ hearsay:
 pages: siegework
 	"$(MDBOOK)" build --dest-dir build/pages
 	mkdir -p build/pages/play/siegework
-	cp -R apps/siegework/build/site/. build/pages/play/siegework/
+	cp -R build/siegework/. build/pages/play/siegework/
 	test -f build/pages/index.html
 	test -f build/pages/games/siegework.html
 	test -f build/pages/play/siegework/program.wasm
