@@ -73,6 +73,7 @@
       (cond ((= char #\") "\\\"")
             ((= char #\\) "\\\\")
             ((= char #\newline) "\\n")
+            ((= char #\return) "\\r")
             ((= char #\tab) "\\t")
             (else (make-string 1 char))))
 

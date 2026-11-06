@@ -1,0 +1,7 @@
+implicit head
+existing head and attributes
+quoted doctype, comments and stable identity
+metadata is escaped attribute data
+BOM retained
+carriage returns survive HTML parsing
+implicit head contents stay in the head

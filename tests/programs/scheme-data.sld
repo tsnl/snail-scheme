@@ -22,3 +22,11 @@
 (match (Pair (read-datum "(1 (2 #(3)))") (read-datum "(1 (2 #(3)))"))
   ((Pair (Ok a) (Ok b)) (display (datum=? a b)) (newline))
   (_ (write-line "unreadable")))
+
+;; External strings escape both SSE line terminators and read back exactly.
+(let* ((text (ann (string-append "a" (make-string 1 #\return) "b") Any))
+       (printed (datum->string text)))
+  (write-line printed)
+  (write-line (show (match (read-datum printed)
+                      ((Ok read) (datum=? text read))
+                      ((Err _) #f)))))

@@ -68,13 +68,19 @@ try {
   // reload client, which hears of the build the page was served from.
   const pinned = id => `/site/.snail/builds/${id}/`;
   const page = (await get('/site/')).text;
-  assert.ok(page.startsWith(`<!doctype html><base href="${pinned(first.id)}">`));
-  assert.match(page, new RegExp(`<script type="application/snail-manifest" id="snail-manifest">\\(base "${pinned(first.id)}"\\) \\(files .*\\("host\\.mjs" "[0-9a-f]{64}"\\).*\\) \\(modules .*\\("snail\\.core\\.base" "[0-9a-f]{64}"\\)`));
+  assert.ok(page.startsWith(`<!doctype html>\n<head><base href="${pinned(first.id)}">`));
+  assert.match(page, new RegExp(`<meta id="snail-manifest" content="\\(base &quot;${pinned(first.id)}&quot;\\) \\(files .*host\\.mjs.*\\) \\(modules .*snail\\.core\\.base`));
   assert.match(page, /<script type="module" src="\/site\/\.snail\/reload\.mjs"><\/script>/);
   for (const file of ['reload.mjs', 'reload-client.mjs', 'load.mjs', 'reload.wasm']) {
     assert.equal((await get(`/site/.snail/${file}`)).status, 200, file);
   }
   assert.match(await firstEvent(`${origin}/site/.snail/events`), new RegExp(`^\\(built \\d+ \\(base "${pinned(first.id)}"\\)`));
+  assert.match(page, /id="snail-web-app" rel="manifest" href="\/site\/manifest.webmanifest"/);
+  const webApp = await get('/site/manifest.webmanifest');
+  assert.equal(webApp.type, 'application/manifest+json');
+  const identity = JSON.parse(webApp.text);
+  assert.equal(identity.id, undefined, 'identity defaults to the resolved start URL');
+  assert.equal(new URL(identity.start_url, site.url + 'manifest.webmanifest').href, site.url);
   const manifest = await get(pinned(first.id) + 'modules.json');
   assert.equal(manifest.status, 200);
   assert.equal(manifest.type, 'application/json');
@@ -119,6 +125,8 @@ try {
   assert.match(await firstEvent(`${origin}/site/.snail/events`),
     new RegExp(`^\\(failed "[^"]*main\\.sld:\\d+:\\d+: [^"]+" \\(base "${pinned(third.id)}"\\)`));
   assert.ok((await get('/site/')).text.includes(`<base href="${pinned(third.id)}">`), 'the page stays the last good build');
+  assert.deepEqual(JSON.parse((await get('/site/manifest.webmanifest')).text), identity, 'web app identity survives reclaimed builds');
+  assert.match((await get('/site/')).text, /href="\/site\/manifest.webmanifest"/);
   console.log("project bundles: the applications' origin, pinned builds, the reload client, failures, reclamation and refusals");
 } finally {
   await service.stop();

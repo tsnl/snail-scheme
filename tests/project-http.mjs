@@ -70,6 +70,16 @@ try {
   assert.equal((await service.get('/main.sld')).status, 404, 'no arbitrary project files on the editor origin');
   assert.equal((await service.get('/host/ide/ide.mjs')).status, 404, 'asset lookup is an allowlist');
 
+  const webApp = await service.get('/manifest.webmanifest');
+  assert.equal(webApp.headers.get('content-type'), 'application/manifest+json');
+  assert.equal((await webApp.json()).display, 'standalone');
+  for (const size of [192, 512]) {
+    const response = await service.get(`/snail-icon-${size}.png`);
+    assert.equal(response.headers.get('content-type'), 'image/png');
+    const bytes = Buffer.from(await response.arrayBuffer());
+    assert.equal(bytes.readUInt32BE(16), size); assert.equal(bytes.readUInt32BE(20), size);
+  }
+
   // HTTP Save writes disk and requests nothing: saving a file that is no
   // build input starts no attempt, so only the observer schedules compilation.
   const note = await read('notes.txt');

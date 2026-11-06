@@ -114,7 +114,18 @@
     (define (text-file-name? path)
       (let ((name (string-downcase path)))
         (any? (lambda (extension) (ends-with? name (string-append "." extension)))
-              (list "sld" "scm" "datum" "html" "css" "js" "mjs" "json" "svg" "txt" "md"))))
+              (list "sld"
+                    "scm"
+                    "datum"
+                    "html"
+                    "css"
+                    "js"
+                    "mjs"
+                    "json"
+                    "webmanifest"
+                    "svg"
+                    "txt"
+                    "md"))))
 
     (: ends-with? (-> String String Bool))
     (define (ends-with? text suffix)
