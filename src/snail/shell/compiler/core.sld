@@ -170,6 +170,10 @@
    Program-classes
    Program-types
    Program-effects
+   program-annotations
+   program-field-annotations
+   program-with-annotations
+   program-with-field-annotations
    program-value
    program-type
    program-class
@@ -203,7 +207,8 @@
   (import
    (snail core base)
    (snail core table)
-   (snail shell compiler read))
+   (snail shell compiler read)
+   (snail shell compiler annotations))
   (begin
 
     ;; ---- Types ----
@@ -1048,6 +1053,14 @@
 
     ;; ---- Programs ----
 
+    ;; Metadata belongs to a canonical declaration. Fields belong to their
+    ;; canonical constructor and field name, not to the generated accessor
+    ;; functions. Accessor/Setter/Replacer already carry that origin as a
+    ;; Case and field index. Metadata never enters type identity or layout.
+    (struct Metadata
+      ((annotations (List Annotation))
+       (fields (Table (List Annotation)))))
+
     ;; A program is a value: the expander threads it through expansion,
     ;; handing each addition the newest, and the later passes only read it.
     ;; Items are kept newest first. `libraries` names each library, newest
@@ -1061,12 +1074,52 @@
        (classes (Table Class))
        (instances (Table (List Instance)))
        (effects (Table Effect))
+       (metadata (Table Metadata))
        (items (List Item))
        (libraries (List (Pair String I64)))))
 
     (: empty-program Program)
     (define empty-program
-      (Program empty-table empty-table empty-table empty-table empty-table (Nil) (Nil)))
+      (Program empty-table empty-table empty-table empty-table empty-table empty-table (Nil) (Nil)))
+
+    (: metadata-of (-> Program String Metadata))
+    (define (metadata-of program name)
+      (match (table-ref (Program-metadata program) name)
+        ((Some metadata) metadata)
+        ((None) (Metadata (Nil) empty-table))))
+
+    (: program-annotations (-> Program String (List Annotation)))
+    (define (program-annotations program name)
+      (Metadata-annotations (metadata-of program name)))
+
+    (: program-field-annotations (-> Program String String (List Annotation)))
+    (define (program-field-annotations program constructor field)
+      (match (table-ref (Metadata-fields (metadata-of program constructor)) field)
+        ((Some annotations) annotations)
+        ((None) (Nil))))
+
+    (: program-with-annotations (-> Program String (List Annotation) Program))
+    (define (program-with-annotations program name annotations)
+      (let ((before (metadata-of program name)))
+        (if (null? annotations)
+            program
+            (Program-metadata-set program
+                                  (table-set (Program-metadata program) name
+                                             (Metadata
+                                              (append (Metadata-annotations before) annotations)
+                                              (Metadata-fields before)))))))
+
+    (: program-with-field-annotations (-> Program String String (List Annotation) Program))
+    (define (program-with-field-annotations program constructor field annotations)
+      (let ((before (metadata-of program constructor)))
+        (if (null? annotations)
+            program
+            (Program-metadata-set program
+                                  (table-set (Program-metadata program) constructor
+                                             (Metadata (Metadata-annotations before)
+                                                       (table-set (Metadata-fields before)
+                                                                  field
+                                                                  annotations)))))))
 
     (: program-value (-> Program String (Option Value)))
     (define (program-value program name)
@@ -1213,6 +1266,7 @@
                  (owned (Program-classes program) owner)
                  (owned-instances (Program-instances program) owner)
                  (owned (Program-effects program) owner)
+                 (owned (Program-metadata program) owner)
                  (take (Program-items program) count) (take (Program-libraries program) 1))))
 
     ;; A field class and its method belong to no library, so every delta
@@ -1259,6 +1313,7 @@
                                                (class-list (Program-instances delta) class))))
                           (Program-instances program) (table-keys (Program-instances delta)))
                (table-union (Program-effects program) (Program-effects delta))
+               (table-union (Program-metadata program) (Program-metadata delta))
                (append (Program-items delta) (Program-items program))
                (append (Program-libraries delta) (Program-libraries program))))
 

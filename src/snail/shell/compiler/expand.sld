@@ -35,6 +35,7 @@
    (snail core table)
    (snail core io)
    (snail shell compiler read)
+   (snail shell compiler annotations)
    (only (snail shell compiler inputs)
          ArtifactFiles
          Inputs
@@ -1427,10 +1428,10 @@
                           (match form
                             ((Form (Cons (Ident ":" _ _)
                                          (Cons (Ident name _ _)
-                                               (Cons (Form (Cons (Ident "All" _ _) _) _) (Nil))))
+                                               (Cons (Form (Cons (Ident "All" _ _) _) _) _)))
                                    _)
                              (Nil))
-                            ((Form (Cons (Ident ":" _ _) (Cons (Ident name _ _) (Cons _ (Nil)))) _)
+                            ((Form (Cons (Ident ":" _ _) (Cons (Ident name _ _) (Cons _ _))) _)
                              (list name))
                             (_ (Nil))))
                         forms)))
@@ -1626,38 +1627,69 @@
     (: scan-top-level (-> Context Env Syntax (Pair (List Pending) Context) ! fs compile))
     (define (scan-top-level cx env form)
       (expanding cx ((form (expand-head env form)))
-                 (match (head-binding cx env form)
-                   ((Some (Core "begin"))
-                    (expanding cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
-                                                  (form-tail form))))
-                               (Pair (concatenate scanned) cx)))
-                   ((Some (Core "with-instances"))
-                    (match (form-tail form)
-                      ((Cons sets body)
-                       (let ((scope
-                              (InstanceScope (form-items sets "a list of instance sets") env)))
-                         (expanding cx ((scanned
-                                         (each (lambda (cx item) (scan-top-level cx scope item))
-                                               body)))
-                                    (Pair (Cons (Pending "instance-scope" form scope)
-                                                (concatenate scanned))
-                                          cx))))
-                      (_ (compile-error (syntax-loc form)
-                                        "expected (with-instances (set ...) body ...)"))))
-                   ((Some (Core "define-instance-set")) (scan-instance-set cx env form))
-                   ((Some (Core "define-syntax")) (Pair (Nil) (define-top-macro cx env form)))
-                   ((Some (Core "primitive"))
-                    (compile-error (syntax-loc form)
-                                   "primitives are declared only in (snail core primitive)"))
-                   ((Some (Core "define"))
-                    (let ((ident (definition-name form)))
-                      (Pair (list (Pending "define" form env))
-                            (bind-top cx env ident (Global (unique-name cx ident))))))
-                   ((Some (Core keyword))
-                    (if (member? keyword declaration-keywords)
-                        (scan-declared cx env keyword form)
-                        (Pair (list (Pending "expression" form env)) cx)))
-                   (_ (Pair (list (Pending "expression" form env)) cx)))))
+                 (let* ((parsed (declaration-annotations cx env form)) (bare (Pair-first parsed))
+                        (owner (if (null? (Pair-second parsed)) (None)
+                                   (Some (declared-name (declaration-head bare)))))
+                        (scanned (scan-top-level-form cx env bare)))
+                   (Pair (Pair-first scanned)
+                         (match owner
+                           ((None) (Pair-second scanned))
+                           ((Some name) (with-name-annotations (Pair-second scanned) name
+                                                               (Pair-second parsed))))))))
+
+    ;; Annotation slots belong to declaration grammars, never executable
+    ;; bodies or raw macro arguments. Expand a macro first; it can emit an
+    ;; annotated signature just as a handwritten declaration can.
+    (: declaration-annotations (-> Context Env Syntax (Pair Syntax (List Annotation)) ! compile))
+    (define (declaration-annotations cx env form)
+      (match (head-binding cx env form)
+        ((Some (Core keyword))
+         (case keyword
+           ((":" "type" "effect") (split-annotations form 3))
+           (("struct" "enum" "typeclass") (split-annotations form 2))
+           (("extern") (split-annotations form 5))
+           (else (Pair form (Nil)))))
+        (_ (Pair form (Nil)))))
+
+    (: with-name-annotations (-> Context Syntax (List Annotation) Context))
+    (define (with-name-annotations cx ident annotations)
+      (Context-program-set cx (program-with-annotations (Context-program cx)
+                                                        (unique-name cx ident) annotations)))
+
+    (: scan-top-level-form (-> Context Env Syntax (Pair (List Pending) Context) ! fs compile))
+    (define (scan-top-level-form cx env form)
+      (match (head-binding cx env form)
+        ((Some (Core "begin"))
+         (expanding cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
+                                       (form-tail form))))
+                    (Pair (concatenate scanned) cx)))
+        ((Some (Core "with-instances"))
+         (match (form-tail form)
+           ((Cons sets body)
+            (let ((scope
+                   (InstanceScope (form-items sets "a list of instance sets") env)))
+              (expanding cx ((scanned
+                              (each (lambda (cx item) (scan-top-level cx scope item))
+                                    body)))
+                         (Pair (Cons (Pending "instance-scope" form scope)
+                                     (concatenate scanned))
+                               cx))))
+           (_ (compile-error (syntax-loc form)
+                             "expected (with-instances (set ...) body ...)"))))
+        ((Some (Core "define-instance-set")) (scan-instance-set cx env form))
+        ((Some (Core "define-syntax")) (Pair (Nil) (define-top-macro cx env form)))
+        ((Some (Core "primitive"))
+         (compile-error (syntax-loc form)
+                        "primitives are declared only in (snail core primitive)"))
+        ((Some (Core "define"))
+         (let ((ident (definition-name form)))
+           (Pair (list (Pending "define" form env))
+                 (bind-top cx env ident (Global (unique-name cx ident))))))
+        ((Some (Core keyword))
+         (if (member? keyword declaration-keywords)
+             (scan-declared cx env keyword form)
+             (Pair (list (Pending "expression" form env)) cx)))
+        (_ (Pair (list (Pending "expression" form env)) cx))))
 
     (: scan-instance-set (-> Context Env Syntax (Pair (List Pending) Context) ! fs compile))
     (define (scan-instance-set cx env form)
@@ -1904,10 +1936,11 @@
         (unless (= (length params) (length (delete-duplicates string=? params)))
           (compile-error (syntax-loc head)
                          "class parameters and associated types must be distinct"))
-        (Context-program-set
-         (fold-left (lambda (cx declaration) (scan-class-member cx env name declaration))
-                    cx declarations)
-         (program-with-class (Context-program cx) (Class id params (Nil) outputs (Nil))))))
+        (fold-left (lambda (cx declaration) (scan-class-member cx env name declaration))
+                   (Context-program-set cx
+                                        (program-with-class (Context-program cx)
+                                                            (Class id params (Nil) outputs (Nil))))
+                   declarations)))
 
     (: associated-form? (-> Syntax Bool))
     (define (associated-form? form)
@@ -1917,7 +1950,7 @@
 
     (: associated-identifier (-> Syntax Syntax ! compile))
     (define (associated-identifier form)
-      (match form
+      (match (Pair-first (split-annotations form 2))
         ((Form (Cons _ (Cons (Ident name mark loc) (Nil))) _) (Ident name mark loc))
         (_ (compile-error (syntax-loc form)
                           "expected (type Output); associated types take no parameters"))))
@@ -1928,6 +1961,18 @@
 
     (: scan-class-member (-> Context Env Syntax Syntax Context ! compile))
     (define (scan-class-member cx env class form)
+      (let* ((associated? (associated-form? form))
+             (parsed (split-annotations form (if associated? 2 3)))
+             (bare (Pair-first parsed))
+             (name (if associated?
+                       (suffixed-ident class (string-append "." (associated-name bare))
+                                       (syntax-loc bare))
+                       (declared-name (declaration-head bare))))
+             (cx (scan-class-member-form cx env class bare)))
+        (with-name-annotations cx name (Pair-second parsed))))
+
+    (: scan-class-member-form (-> Context Env Syntax Syntax Context ! compile))
+    (define (scan-class-member-form cx env class form)
       (if (associated-form? form)
           (let* ((member (associated-name form))
                  (name (suffixed-ident class (string-append "." member) (syntax-loc form))))
@@ -1943,48 +1988,77 @@
              (cx (bind-top cx env name (EffectName (unique-name cx name)))))
         (match rest
           ((Cons operations _)
-           (fold-left (lambda (cx operation)
-                        (match operation
-                          ((Form (Cons (Ident "ctl" _ _) (Cons operation-name (Cons _ (Nil)))) _)
-                           (bind-member cx env operation-name))
-                          ((Form (Cons operation-name _) _) (bind-member cx env operation-name))
-                          (_ (compile-error (syntax-loc operation)
-                                            "expected (operation type) or (ctl operation type)"))))
+           (fold-left (lambda (cx operation) (scan-operation cx env operation))
                       cx (form-items operations "a list of operations")))
           (_ (compile-error (syntax-loc form) "expected (effect Name ((operation type) ...))")))))
+
+    (: operation-form-arity (-> Syntax I64))
+    (define (operation-form-arity operation)
+      (match operation
+        ((Form (Cons (Ident "ctl" _ _) _) _) 3)
+        (_ 2)))
+
+    (: scan-operation (-> Context Env Syntax Context ! compile))
+    (define (scan-operation cx env operation)
+      (let* ((parsed (split-annotations operation (operation-form-arity operation)))
+             (name (match (Pair-first parsed)
+                     ((Form (Cons (Ident "ctl" _ _) (Cons name (Cons _ (Nil)))) _) name)
+                     ((Form (Cons name (Cons _ (Nil))) _) name)
+                     (_ (compile-error (syntax-loc operation)
+                                       "expected (operation type) or (ctl operation type)"))))
+             (cx (bind-member cx env name)))
+        (with-name-annotations cx name (Pair-second parsed))))
 
     (: bind-member (-> Context Env Syntax Context ! compile))
     (define (bind-member cx env ident)
       (let ((ident (expect-ident ident "a name")))
         (bind-top cx env ident (Global (unique-name cx ident)))))
 
+    (struct CaseSyntax
+      ((name Syntax)
+       (fields (List Syntax))
+       (annotations (List Annotation))))
+
+    (: parse-case (-> Syntax CaseSyntax ! compile))
+    (define (parse-case case)
+      (let ((parsed (split-annotations case 1)))
+        (match (Pair-first parsed)
+          ((Form (Cons name (Nil)) _)
+           (CaseSyntax (expect-ident name "a case name") (Nil) (Pair-second parsed)))
+          ((Form (Cons name (Cons fields (Nil))) _)
+           (CaseSyntax (expect-ident name "a case name")
+                       (form-items fields "a field list") (Pair-second parsed)))
+          (_ (compile-error (syntax-loc case)
+                            "expected (Case), or (Case ((field type) ...)), optionally with (annotations ...)")))))
+
     (: scan-case (-> Context Env Syntax Context ! compile))
     (define (scan-case cx env case)
-      (match (form-items case "an enum case")
-        ((Cons name fields)
-         (let ((cx (bind-member cx env name)))
-           (bind-fields cx
-                        env
-                        name
-                        (match fields
-                          ((Cons fields _) (form-items fields "a field list"))
-                          ((Nil) (Nil)))
-                        #f)))
-        ((Nil) (compile-error (syntax-loc case) "expected an enum case"))))
+      (let* ((parsed (parse-case case)) (name (CaseSyntax-name parsed))
+             (cx (bind-member cx env name))
+             (cx (bind-fields cx env name (CaseSyntax-fields parsed) #f)))
+        (with-name-annotations cx name (CaseSyntax-annotations parsed))))
 
     ;; A field as written: `(name type)`, or `(name mut type)` for a
-    ;; mutable one.
+    ;; mutable one, optionally followed by an annotation list.
     (struct FieldSyntax
       ((name Syntax)
        (mutable? Bool)
-       (type Syntax)))
+       (type Syntax)
+       (annotations (List Annotation))))
 
     (: parse-field (-> Syntax FieldSyntax ! compile))
     (define (parse-field field)
-      (match field
-        ((Form (Cons name (Cons type (Nil))) _) (FieldSyntax name #f type))
-        ((Form (Cons name (Cons (Ident "mut" _ _) (Cons type (Nil)))) _) (FieldSyntax name #t type))
-        (_ (compile-error (syntax-loc field) "expected (field type) or (field mut type)"))))
+      (let* ((required (match field
+                         ((Form (Cons _ (Cons (Ident "mut" _ _) _)) _) 3)
+                         (_ 2)))
+             (parsed (split-annotations field required))
+             (annotations (Pair-second parsed)))
+        (match (Pair-first parsed)
+          ((Form (Cons name (Cons type (Nil))) _) (FieldSyntax name #f type annotations))
+          ((Form (Cons name (Cons (Ident "mut" _ _) (Cons type (Nil)))) _)
+           (FieldSyntax name #t type annotations))
+          (_ (compile-error (syntax-loc field)
+                            "expected (field type) or (field mut type), optionally with (annotations ...)")))))
 
     ;; Accessors are `Name-field`. A struct whose fields are all immutable
     ;; also gets pure replacements, `Name-field-set`. A mutable field gets
@@ -1996,12 +2070,22 @@
       (let* ((parsed (map parse-field fields)) (pure? (not (any? FieldSyntax-mutable? parsed))))
         (for-each (lambda (field) (check-mutable-field cx field)) parsed)
         (fold-left (lambda (cx field)
-                     (fold-left (lambda (cx suffix)
-                                  (bind-member cx
-                                               env
-                                               (field-ident name (FieldSyntax-name field) suffix)))
-                                cx
-                                (Cons "" (field-suffixes field struct? pure?))))
+                     (let ((cx (Context-program-set cx
+                                                    (program-with-field-annotations
+                                                     (Context-program cx)
+                                                     (unique-name cx name)
+                                                     (Ident-name
+                                                      (expect-ident (FieldSyntax-name field)
+                                                                    "a field name"))
+                                                     (FieldSyntax-annotations field)))))
+                       (fold-left (lambda (cx suffix)
+                                    (bind-member cx
+                                                 env
+                                                 (field-ident name
+                                                              (FieldSyntax-name field)
+                                                              suffix)))
+                                  cx
+                                  (Cons "" (field-suffixes field struct? pure?)))))
                    cx parsed)))
 
     ;; `Ref` is the struct with a mutable field, declared in (snail core
@@ -2120,8 +2204,8 @@
                    (_ (panic "internal error: type"))))
              (scope (type-scope env params))
              (cases (if enum?
-                        (map (lambda (case) (form-items case "an enum case")) (enum-cases form))
-                        (list (Cons (declared-name head) (declaration-body form)))))
+                        (map parse-case (enum-cases form))
+                        (list (CaseSyntax (declared-name head) (struct-fields form) (Nil)))))
              (data (DataType id
                              (map Ident-name params)
                              (map-indexed (lambda (tag case) (resolve-case cx scope case id tag))
@@ -2134,16 +2218,10 @@
                                         (program-with-type (Context-program cx) data)
                                         (DataType-cases data)))))
 
-    (: resolve-case (-> Context Env (List Syntax) String I64 Case ! compile))
+    (: resolve-case (-> Context Env CaseSyntax String I64 Case ! compile))
     (define (resolve-case cx scope case type tag)
-      (match case
-        ((Cons name fields)
-         (Case (constructor-name cx scope name) type tag
-               (map (lambda (field) (resolve-field cx scope field))
-                    (match fields
-                      ((Cons fields _) (form-items fields "a field list"))
-                      ((Nil) (Nil))))))
-        ((Nil) (panic "internal error: empty case"))))
+      (Case (constructor-name cx scope (CaseSyntax-name case)) type tag
+            (map (lambda (field) (resolve-field cx scope field)) (CaseSyntax-fields case))))
 
     (: resolve-field (-> Context Env Syntax Field ! compile))
     (define (resolve-field cx scope field)
@@ -2326,7 +2404,7 @@
     (: declare-method
        (-> Context Env Env String (List Syntax) Constraint Syntax (Pair String Context) ! compile))
     (define (declare-method cx env scope class params self signature)
-      (match signature
+      (match (Pair-first (split-annotations signature 3))
         ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
          (let ((own (resolve-scheme cx scope type)) (global (global-binding cx env name)))
            (Pair global
@@ -2952,7 +3030,7 @@
     ;; whether it is a control operation.
     (: declare-operation (-> Context Env String Syntax (Pair (Pair String Bool) Context) ! compile))
     (define (declare-operation cx env effect operation)
-      (match operation
+      (match (Pair-first (split-annotations operation (operation-form-arity operation)))
         ((Form (Cons (Ident "ctl" _ _) (Cons name (Cons type (Nil)))) _)
          (declare-operation-type cx env effect name type #t))
         ((Form (Cons name (Cons type (Nil))) _) (declare-operation-type cx env effect name type #f))
@@ -3853,12 +3931,9 @@
     (define (derived-instances cx form enum?)
       (let* ((head (declaration-head form)) (loc (syntax-loc form))
              (cases (if enum?
-                        (map (lambda (case)
-                               (match (form-items case "an enum case")
-                                 ((Cons name (Cons fields _))
-                                  (Pair name (length (form-items fields "a field list"))))
-                                 ((Cons name (Nil)) (Pair name 0))
-                                 ((Nil) (compile-error (syntax-loc case) "expected an enum case"))))
+                        (map (lambda (form)
+                               (let ((case (parse-case form)))
+                                 (Pair (CaseSyntax-name case) (length (CaseSyntax-fields case)))))
                              (enum-cases form))
                         (list (Pair (declared-name head) (length (struct-fields form)))))))
         (when (and (not enum?)
@@ -4392,8 +4467,71 @@
           (test-discovery (list discover library) discover)
           (test-links (string-append directory "/links"))
           (test-primitives (string-append directory "/primitive") library)
+          (test-annotation-metadata (string-append directory "/annotations") library)
           (test-deriving-runs (string-append directory "/deriving") library)
           (test-deriving-key (string-append directory "/deriving-key") library)))
+
+      ;; Metadata follows canonical declarations through imports and replay.
+      ;; Updating only a field's documentation does not change its wire or
+      ;; dynamic type identity, and equal field names have distinct owners.
+      (define (test-annotation-metadata directory library)
+        (create-directory* (string-append directory "/sample"))
+        (let ((source (string-append directory "/main.sld"))
+              (module (string-append directory "/sample/docs.sld"))
+              (directories (list directory library)))
+          (write-file source "(import (prefix (sample docs) renamed-)) (renamed-Entry \"ok\")")
+          (write-file module (annotation-library "original"))
+          (let* ((first (expand-program directories
+                                        annotation-generator
+                                        no-inputs
+                                        source
+                                        empty-expansion))
+                 (replayed (expand-program directories annotation-generator no-inputs source first))
+                 (program (ExpandedProgram-program replayed))
+                 (entry (program-type program "sample.docs:Entry")))
+            (expect (annotation-documentation (program-annotations program "sample.docs:Entry"))
+                    (Some "A record.\nIts fields are immutable."))
+            (expect (annotation-documentation
+                     (program-field-annotations program "sample.docs:Entry" "value"))
+                    (Some "original"))
+            (expect (annotation-documentation
+                     (program-field-annotations program "sample.docs:Other" "value"))
+                    (Some "A different field."))
+            (expect (program-annotations program "sample.docs:Entry-value") (Nil))
+            (expect (annotation-documentation (program-annotations program "sample.docs:label"))
+                    (Some "Name this value."))
+            (expect (annotation-documentation (program-annotations program "sample.docs:Waiting"))
+                    (Some "No value yet."))
+            (expect (annotation-documentation (program-annotations program "sample.docs:read-name"))
+                    (Some "Read a name."))
+            (write-file module (annotation-library "updated"))
+            (let* ((changed
+                    (expand-program directories annotation-generator no-inputs source replayed))
+                   (next (ExpandedProgram-program changed)))
+              (expect (annotation-documentation
+                       (program-field-annotations next "sample.docs:Entry" "value"))
+                      (Some "updated"))
+              (expect (any-type-id next (TCon "sample.docs:Entry" (Nil)))
+                      (any-type-id program (TCon "sample.docs:Entry" (Nil))))
+              (expect (case-type-id next
+                                    (list-ref
+                                     (DataType-cases (program-type next "sample.docs:Entry"))
+                                     0))
+                      (case-type-id program (list-ref (DataType-cases entry) 0)))))))
+
+      (define (annotation-generator loading forms)
+        (panic "annotation fixture must not request a generator"))
+
+      (define (annotation-library documentation)
+        (string-append
+         "(define-library (sample docs) (export Entry) (import (snail core base)) (begin\n"
+         "(struct Entry ((value String (annotations (doc " (datum->string (DString documentation))
+         ")))) (annotations (doc \"A record.\") (doc \"Its fields are immutable.\")))\n"
+         "(struct Other ((value I64 (annotations (doc \"A different field.\")))))\n"
+         "(enum Readiness (Waiting (annotations (doc \"No value yet.\"))))\n"
+         "(typeclass (Named T) (: label (-> T String) (annotations (doc \"Name this value.\"))))\n"
+         "(effect names ((read-name (-> Unit String) (annotations (doc \"Read a name.\")))))\n"
+         "))"))
 
       ;; A producer names its recipe after its imports, as the path the
       ;; recipe was found at.
