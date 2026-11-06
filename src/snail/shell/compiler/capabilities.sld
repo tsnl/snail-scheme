@@ -49,7 +49,7 @@
            ((Some names)
             (cond ((member? name (list "Any" "Funcref" "Borrow")) (None))
                   ((or (member? name names)
-                       (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
+                       (any? (lambda (entry) (string=? name (::first entry))) builtin-types))
                    (Some names))
                   (else (first-order-fields program name args (Cons name names)))))
            ((None) (None))))
@@ -58,10 +58,10 @@
 
     (: first-order-fields (-> Program String (List Type) (List String) (Option (List String))))
     (define (first-order-fields program name args entered)
-      (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
+      (let* ((data (program-type program name)) (bindings (zip (::params data) args)))
         (fold-left (lambda (found field)
-                     (first-order-search program (substitute bindings (Field-type field)) found))
-                   (Some entered) (concatenate (map Case-fields (DataType-cases data))))))
+                     (first-order-search program (substitute bindings (::type field)) found))
+                   (Some entered) (concatenate (map ::fields (::cases data))))))
 
     ;; ---- Type grades ----
 
@@ -90,7 +90,7 @@
     ;; holds a parameter only in a `Ref` is unrestricted.
     (: linear-type? (-> Program (List String) Type Bool))
     (define (linear-type? program copy type)
-      (Linearity-found? (linear-search program copy type (Linearity #f (Nil) (Nil)))))
+      (::found? (linear-search program copy type (Linearity #f (Nil) (Nil)))))
 
     (: linear-search (-> Program (List String) Type Linearity Linearity))
     (define (linear-search program copy type progress)
@@ -108,14 +108,14 @@
     (: linear-instance (-> Program (List String) String (List Type) Linearity Linearity))
     (define (linear-instance program copy name args progress)
       (let ((key (type-key (TCon name args))))
-        (cond ((member? key (Linearity-keys progress)) progress)
-              ((or (member? name (Linearity-names progress))
-                   (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
+        (cond ((member? key (::keys progress)) progress)
+              ((or (member? name (::names progress))
+                   (any? (lambda (entry) (string=? name (::first entry))) builtin-types))
                (linear-any program copy args progress))
               (else
-               (let* ((names (Linearity-names progress))
+               (let* ((names (::names progress))
                       (entered
-                       (Linearity #f (Cons key (Linearity-keys progress)) (Cons name names))))
+                       (Linearity #f (Cons key (::keys progress)) (Cons name names))))
                  (Linearity-names-set (linear-fields program copy name args entered) names))))))
 
     (: linear-any (-> Program (List String) (List Type) Linearity Linearity))
@@ -124,7 +124,7 @@
 
     (: linear-next (-> Program (List String) Type Linearity Linearity))
     (define (linear-next program copy type found)
-      (if (Linearity-found? found)
+      (if (::found? found)
           found
           (linear-search program copy type found)))
 
@@ -132,21 +132,21 @@
     ;; only the variables of the type being searched.
     (: linear-fields (-> Program (List String) String (List Type) Linearity Linearity))
     (define (linear-fields program copy name args progress)
-      (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
-        (if (DataType-owned? data)
+      (let* ((data (program-type program name)) (bindings (zip (::params data) args)))
+        (if (::owned? data)
             (Linearity-found?-set progress #t)
             (fold-left (lambda (found case) (linear-case program copy bindings case found))
-                       progress (DataType-cases data)))))
+                       progress (::cases data)))))
 
     ;; A mutable field never makes its holder linear: its content leaves
     ;; only by being swapped out, so sharing the holder never duplicates it.
     (: linear-case (-> Program (List String) Substitution Case Linearity Linearity))
     (define (linear-case program copy bindings case found)
       (fold-left (lambda (found field)
-                   (if (Field-mutable? field)
+                   (if (::mutable? field)
                        found
-                       (linear-next program copy (substitute bindings (Field-type field)) found)))
-                 found (Case-fields case)))
+                       (linear-next program copy (substitute bindings (::type field)) found)))
+                 found (::fields case)))
 
     ;; The variables a signature would have to declare Copy to make `type`
     ;; unrestricted, or none when a concrete part of it is linear, which
@@ -199,12 +199,12 @@
                                     copy
                                     bound
                                     (string-append "the instance "
-                                                   (type->string (TCon (Instance-class instance)
-                                                                       (Instance-types instance)))
+                                                   (type->string (TCon (::class instance)
+                                                                       (::types instance)))
                                                    " requires "
                                                    (copy-declaration (list var)))))
                      (_ refusal)))
-                 (None) (Instance-copy instance)))
+                 (None) (::copy instance)))
 
     ;; ---- Releasing and cloning ----
 
@@ -238,7 +238,7 @@
              (Trivial)
              (Refused "a FnOnce runs once, so it has no clone")))
         ((TCon name _)
-         (if (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types)
+         (if (any? (lambda (entry) (string=? name (::first entry))) builtin-types)
              (Trivial)
              (match (lifecycle-instance program class name)
                ((Some instance) (Implemented instance))
@@ -266,7 +266,7 @@
         ((Pair (None) _) #t)
         ((Pair _ (Trivial)) #t)
         ((Pair (Some (Implemented charged)) (Implemented found))
-         (string=? (Instance-name charged) (Instance-name found)))
+         (string=? (::name charged) (::name found)))
         ((Pair (Some (Glue)) (Glue)) #t)
         (_ #f)))
 
@@ -277,10 +277,10 @@
         (cond ((not (linear-type? program copy type)) (Trivial))
               ((string=? class drop-class)
                (if (drop-runs? program copy type (Nil) (Nil)) (Glue) (Trivial)))
-              ((DataType-owned? data)
+              ((::owned? data)
                (Refused (string-append (short-name name)
                                        " is linear by its declaration, so only a Clone instance copies one")))
-              ((any? (lambda (case) (any? Field-mutable? (Case-fields case))) (DataType-cases data))
+              ((any? (lambda (case) (any? ::mutable? (::fields case))) (::cases data))
                (Refused (string-append (short-name name)
                                        " has a mutable field, which a clone could only share; give it a Clone instance")))
               (else (Glue)))))
@@ -307,7 +307,7 @@
         ((TCon name _)
          (cond ((member? (type-key type) keys) #f)
                ((member? name names) #t)
-               ((any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types) #f)
+               ((any? (lambda (entry) (string=? name (::first entry))) builtin-types) #f)
                (else (match (lifecycle-instance program drop-class name)
                        ((Some _) #t)
                        ((None) (fields-drop-run? program copy type keys names))))))
@@ -321,33 +321,33 @@
                  (any? (lambda (field)
                          (drop-runs? program
                                      copy
-                                     (Pair-second field)
+                                     (::second field)
                                      (Cons (type-key type) keys)
                                      (Cons name names)))
                        (glue-fields program copy type case)))
-               (DataType-cases (program-type program name))))
+               (::cases (program-type program name))))
         (_ #f)))
 
     ;; The fields of `case` that glue drops or clones, by index, at the type
     ;; `type` gives its declaration's parameters: the immutable linear ones.
     (: glue-fields (-> Program (List String) Type Case (List (Pair I64 Type))))
     (define (glue-fields program copy type case)
-      (filter (lambda (field) (linear-type? program copy (Pair-second field)))
+      (filter (lambda (field) (linear-type? program copy (::second field)))
               (concatenate
                (map-indexed (lambda (index pair)
-                              (if (Field-mutable? (Pair-first pair))
+                              (if (::mutable? (::first pair))
                                   (Nil)
-                                  (list (Pair index (Pair-second pair)))))
-                            (zip (Case-fields case) (field-types program type case))))))
+                                  (list (Pair index (::second pair)))))
+                            (zip (::fields case) (field-types program type case))))))
 
     ;; Each field of `case` at the type `type` gives its declaration's
     ;; parameters.
     (: field-types (-> Program Type Case (List Type)))
     (define (field-types program type case)
       (let ((bindings (match type
-                        ((TCon name args) (zip (DataType-params (program-type program name)) args))
+                        ((TCon name args) (zip (::params (program-type program name)) args))
                         (_ (Nil)))))
-        (map (lambda (field) (substitute bindings (Field-type field))) (Case-fields case))))
+        (map (lambda (field) (substitute bindings (::type field))) (::fields case))))
 
     ;; An instance of a lifecycle class is declared in its type's library
     ;; for the type at distinct variables, so a type has at most one of
@@ -355,7 +355,7 @@
     (: lifecycle-instance (-> Program String String (Option Instance)))
     (define (lifecycle-instance program class name)
       (find (lambda (instance)
-              (match (Instance-types instance)
+              (match (::types instance)
                 ((Cons _ (Cons (TCon head _) (Nil))) (string=? head name))
                 (_ #f)))
             (class-instances program class)))
@@ -380,7 +380,7 @@
        (-> Program String (List String) (List Constraint) Type (Result (List Type) String)))
     (define (lifecycle-rows program class copy givens type)
       (match (lifecycle-search program class copy givens type (Ok (RowSearch (Nil) (Nil) (Nil))))
-        ((Ok found) (Ok (reverse (RowSearch-rows found))))
+        ((Ok found) (Ok (reverse (::rows found))))
         ((Err message) (Err message))))
 
     (: lifecycle-search
@@ -398,7 +398,7 @@
          (cond ((member? name copy) progress)
                (else (match (given-row givens class name)
                        ((Some row)
-                        (Ok (RowSearch-rows-set found (Cons row (RowSearch-rows found)))))
+                        (Ok (RowSearch-rows-set found (Cons row (::rows found)))))
                        ((None) (Err (missing-requirement class name)))))))
         ((Pair _ (Ok found))
          (match (lifecycle-plan program class copy type)
@@ -418,7 +418,7 @@
         ((Pair _ (TCon "FnOnce" (Cons (TFun _ _ row) (Nil))))
          (if (string=? class drop-class)
              (Ok (RowSearch-rows-set found
-                                     (Cons (without-control program row) (RowSearch-rows found))))
+                                     (Cons (without-control program row) (::rows found))))
              (Ok found)))
         (_ (Ok found))))
 
@@ -427,8 +427,8 @@
       (match row
         ((TRow labels tail)
          (TRow (filter (lambda (label)
-                         (match (table-ref (Program-effects program) label)
-                           ((Some effect) (null? (Effect-control effect)))
+                         (match (table-ref (::effects program) label)
+                           ((Some effect) (null? (::control effect)))
                            ((None) #t)))
                        labels)
                (match tail
@@ -472,16 +472,16 @@
                                           copy
                                           givens
                                           (substitute bindings
-                                                      (list-ref (Constraint-types required) 1))
+                                                      (list-ref (::types required) 1))
                                           progress))
                       (Ok
-                       (RowSearch-rows-set found (Cons (head-row instance) (RowSearch-rows found))))
-                      (Instance-requires instance))))))
+                       (RowSearch-rows-set found (Cons (head-row instance) (::rows found))))
+                      (::requires instance))))))
 
     ;; The labels a lifecycle instance's head names, as a closed row.
     (: head-row (-> Instance Type))
     (define (head-row instance)
-      (match (Instance-types instance)
+      (match (::types instance)
         ((Cons (TRow labels _) _) (TRow labels (None)))
         (_ (panic "internal error: a lifecycle instance names its row"))))
 
@@ -489,7 +489,7 @@
     ;; against its head, which names its type at distinct variables.
     (: instance-bindings (-> Instance Type Substitution))
     (define (instance-bindings instance type)
-      (match (Pair (Instance-types instance) type)
+      (match (Pair (::types instance) type)
         ((Pair (Cons _ (Cons (TCon _ params) (Nil))) (TCon _ args))
          (zip (map (lambda (param)
                      (match param
@@ -503,18 +503,18 @@
        (-> Program String (List String) (List Constraint) Type RowSearch (Result RowSearch String)))
     (define (glue-search program class copy givens type found)
       (let ((name (type-name type)) (key (type-key type)))
-        (cond ((member? key (RowSearch-keys found)) (Ok found))
-              ((member? name (RowSearch-names found)) (Err (nonregular-glue class type)))
+        (cond ((member? key (::keys found)) (Ok found))
+              ((member? name (::names found)) (Err (nonregular-glue class type)))
               (else
                (match (glue-fields-search program
                                           class
                                           copy
                                           givens
                                           type
-                                          (RowSearch (RowSearch-rows found)
-                                                     (Cons key (RowSearch-keys found))
-                                                     (Cons name (RowSearch-names found))))
-                 ((Ok inner) (Ok (RowSearch-names-set inner (RowSearch-names found))))
+                                          (RowSearch (::rows found)
+                                                     (Cons key (::keys found))
+                                                     (Cons name (::names found))))
+                 ((Ok inner) (Ok (RowSearch-names-set inner (::names found))))
                  (failed failed))))))
 
     ;; Glue performs what dropping or cloning each field it reaches does.
@@ -522,10 +522,10 @@
        (-> Program String (List String) (List Constraint) Type RowSearch (Result RowSearch String)))
     (define (glue-fields-search program class copy givens type found)
       (fold-left (lambda (progress field)
-                   (lifecycle-search program class copy givens (Pair-second field) progress))
+                   (lifecycle-search program class copy givens (::second field) progress))
                  (Ok found)
                  (concatenate (map (lambda (case) (glue-fields program copy type case))
-                                   (DataType-cases (program-type program (type-name type)))))))
+                                   (::cases (program-type program (type-name type)))))))
 
     ;; A declaration met again at other arguments would need glue for every
     ;; depth, so it needs an instance instead.
@@ -545,12 +545,12 @@
     (: given-row (-> (List Constraint) String String (Option Type)))
     (define (given-row givens class name)
       (match (find (lambda (given)
-                     (and (string=? (Constraint-class given) class)
-                          (match (Constraint-types given)
+                     (and (string=? (::class given) class)
+                          (match (::types given)
                             ((Cons _ (Cons (TRigid other) (Nil))) (string=? other name))
                             (_ #f))))
                    givens)
-        ((Some given) (Some (first-type (Constraint-types given))))
+        ((Some given) (Some (first-type (::types given))))
         ((None) (None))))
 
     (: first-type (-> (List Type) Type))
@@ -570,8 +570,8 @@
     ;; declared.
     (: contains-itself? (-> Program DataType Bool))
     (define (contains-itself? program data)
-      (any? (lambda (field) (reaches? program (DataType-name data) field (Nil)))
-            (struct-field-types data (map TRigid (DataType-params data)))))
+      (any? (lambda (field) (reaches? program (::name data) field (Nil)))
+            (struct-field-types data (map TRigid (::params data)))))
 
     (: reaches? (-> Program String Type (List String) Bool))
     (define (reaches? program target type entered)
@@ -579,10 +579,10 @@
         ((TCon name args)
          (cond ((string=? name target) #t)
                ((or (member? name entered)
-                    (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
+                    (any? (lambda (entry) (string=? name (::first entry))) builtin-types))
                 #f)
                (else (let ((data (program-type program name)))
-                       (and (not (DataType-enum? data))
+                       (and (not (::enum? data))
                             (any?
                              (lambda (field) (reaches? program target field (Cons name entered)))
                              (struct-field-types data args)))))))
@@ -592,8 +592,8 @@
     ;; `args`.
     (: struct-field-types (-> DataType (List Type) (List Type)))
     (define (struct-field-types data args)
-      (let ((bindings (zip (DataType-params data) args)))
-        (match (DataType-cases data)
+      (let ((bindings (zip (::params data) args)))
+        (match (::cases data)
           ((Cons case _)
-           (map (lambda (field) (substitute bindings (Field-type field))) (Case-fields case)))
+           (map (lambda (field) (substitute bindings (::type field))) (::fields case)))
           ((Nil) (panic "internal error: a struct has one case")))))))

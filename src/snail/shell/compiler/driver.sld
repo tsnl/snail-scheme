@@ -52,19 +52,19 @@
 
     (: write-program (-> String String WholeProgram Unit ! fs))
     (define (write-program output generated program)
-      (write-file output (WholeProgram-text program))
-      (write-links generated (WholeProgram-links program)))
+      (write-file output (::text program))
+      (write-links generated (::links program)))
 
     (: write-modules (-> String String (List Built) Unit ! fs))
     (define (write-modules directory generated modules)
       (for-each (lambda (module)
-                  (write-file (string-append directory "/" (Built-name module) ".wat")
-                              (Built-text module)))
+                  (write-file (string-append directory "/" (::name module) ".wat")
+                              (::text module)))
                 modules)
       (write-file (string-append directory "/modules")
                   (string-concatenate
-                   (map (lambda (module) (string-append (Built-name module) "\n")) modules)))
-      (write-links generated (concatenate (map Built-links modules))))
+                   (map (lambda (module) (string-append (::name module) "\n")) modules)))
+      (write-links generated (concatenate (map ::links modules))))
 
     ;; ---- Linked files ----
 
@@ -78,12 +78,12 @@
                   (string-concatenate
                    (map (lambda (link)
                           (string-append "("
-                                         (datum->string (DString (LinkedFile-digest link)))
+                                         (datum->string (DString (::digest link)))
                                          " "
-                                         (datum->string (DString (LinkedFile-path link)))
+                                         (datum->string (DString (::path link)))
                                          ")\n"))
                         (delete-duplicates (lambda (a b)
-                                             (string=? (LinkedFile-digest a) (LinkedFile-digest b)))
+                                             (string=? (::digest a) (::digest b)))
                                            links)))))
 
     ))
