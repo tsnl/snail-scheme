@@ -45,7 +45,7 @@ The file contains exactly one proper list of explicit `build-target` and
 `run-target` forms. Every field is exactly `(key value)`, including list values
 such as `(library-roots ("src" "shared"))` and `(args ())`.
 
-Program builds require one `entry`: a source path string, or an exported
+Both build kinds require one `entry`: a source path string, or an exported
 concrete application type such as `(entry ((example console) Printer))`. The
 library name is a nonempty list of identifiers; the final identifier names the
 type. The builder emits an ordinary typed `Application.start` call, so missing
@@ -53,8 +53,7 @@ instances, unknown types and unsupplied type arguments are compiler errors.
 The generated source lives under `build/.snail-entry/`, named by its content
 digest so its path stays stable across development builds.
 
-Browser builds require a source path string. Both kinds accept an optional
-`library-roots` list; browser builds also accept an optional `public` directory.
+Both kinds accept an optional `library-roots` list. Browser builds also accept an optional `public` directory.
 Omitted roots mean an empty list; the toolchain supplies its standard library.
 Run targets name a program build and accept an optional `args` list of literal
 strings, preserving order and empty strings. Runs may precede their builds.

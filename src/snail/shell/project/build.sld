@@ -176,13 +176,13 @@
                ((ProgramTarget program)
                 (Target (ProgramBuild-name program)
                         #f
-                        (entry-source builder (ProgramBuild-entry program))
+                        (entry-source builder #f (ProgramBuild-entry program))
                         (library-directories builder (ProgramBuild-libraries program))
                         (ProgramBuild-loc program)))
                ((BrowserTarget browser)
                 (Target (BrowserBuild-name browser)
                         #t
-                        (entry-source builder (BrowserBuild-entry browser))
+                        (entry-source builder #t (BrowserBuild-entry browser))
                         (library-directories builder (BrowserBuild-libraries browser))
                         (BrowserBuild-loc browser)))))
            (Project-builds (Builder-description builder))))
@@ -191,12 +191,12 @@
     ;; type checking and instance selection establish its contract. A digest
     ;; names immutable scaffolding: development sessions keep the same source
     ;; identity, and concurrent builds never replace one another's entry.
-    (: entry-source (-> Builder ProjectEntry String ! fs building))
-    (define (entry-source builder entry)
+    (: entry-source (-> Builder Bool ProjectEntry String ! fs building))
+    (define (entry-source builder browser? entry)
       (match entry
         ((SourceEntry path) (in-project builder path))
         ((ApplicationEntry library name)
-         (let* ((text (application-source library name))
+         (let* ((text (application-source browser? library name))
                 (directory (string-append (Builder-project builder) "/build/.snail-entry"))
                 (file
                  (string-append directory "/" (bytes->hex (sha256 (string->utf8 text))) ".sld")))
@@ -209,11 +209,15 @@
                (expect-done (rename-file writing file) (string-append "cannot place " file))))
            file))))
 
-    (: application-source (-> (List String) String String))
-    (define (application-source library name)
+    (: application-source (-> Bool (List String) String String))
+    (define (application-source browser? library name)
       (string-append "(import (snail core base) (snail shell application) "
+                     (if browser? "(snail shell page) " "")
                      "(prefix (" (string-join library " ") ") selected:))\n"
-                     "(start (ann (Entry) (Entry selected:" name ")))\n"))
+                     (if browser?
+                         "(define-page-entry selected:"
+                         "(start (ann (Entry) (Entry selected:")
+                     name (if browser? ")\n" ")))\n")))
 
     (: in-project (-> Builder ProjectPath String))
     (define (in-project builder path)

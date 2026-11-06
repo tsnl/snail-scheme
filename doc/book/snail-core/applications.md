@@ -14,8 +14,12 @@ A program [project](projects.md) can name `(entry ((example console) Printer))`;
 the builder imports that library and calls `start` with an `Entry Printer`.
 Ordinary instance resolution checks the contract and determines its effects.
 Initialization, custom handlers and background tasks belong inside `start`.
-Source-file entries remain available for scripts and tooling. Browser engines
-currently use the forms below.
+Source-file entries remain available for scripts and tooling. Browser targets
+can also select a type; `define-page-entry` calls its `start` as the page's root
+task. The scene and document forms below use the same `run-page` lifecycle for
+restore, saving and checkpoint publication. `define-page-state` supplies ordinary
+`PageState` evidence at each concrete state type without weakening reification
+checks.
 
 `(snail shell app)` defines interactive browser applications as total functions over
 a state:
@@ -52,14 +56,13 @@ scheduler until the loop answers ([task lifetime](#task-lifetime)).
 `next-event` drains the host queue and, when it is empty, waits for the
 next event by ticket
 ([waiting on the host](../runtimes/tasks.md#waiting-on-the-host)). `FrameEvent` carries elapsed milliseconds, `InputEvent` carries an
-`Input`, `Hidden` saves without stopping, and `Reload` saves and returns the
-state. The `Frame` type continues to describe drawing data.
+`Input`, `Hidden` and `SaveRequested` save without stopping, and `Reload` saves and returns. The `Frame` type continues to describe drawing data.
 
 DOM listeners enqueue input. The host keeps at most one pending display
 frame and coalesces consecutive pointer moves and resizes without crossing
 other input. Storage waits for a whole load or store, copying save bytes
-before the browser's work begins. The loop saves every five seconds and when the
-page becomes hidden. Only a complete successful event commits its state;
+before the browser's work begins. A shared host timer requests a save every five seconds, independent of
+animation frames, and the loop also saves when the page becomes hidden. Only a complete successful event commits its state;
 a trap leaves the preceding checkpoint available through `app_state`.
 Because time is input, an application decides how time passes and can stop
 it at any frame. Headless tests run on the pinned Node 26, in both
@@ -116,7 +119,7 @@ canvas, in the shape Elm gave them:
 | `view : Model -> (Html M)` | A tree of elements and texts. An element's attributes, typed properties (`StringProperty`, `NumberProperty`, `FlagProperty`) and listeners (`On`) are plain data; a listener holds a function from what its event carried to a message `M`. |
 | `update : Model M -> (Pair Model (List (FnOnce M ! tasks e)))` | The next model, and the commands the message starts: one-shot work, run as tasks, each answering a message. |
 
-`run-ui model start update view window checkpoint` shows the view in the
+`run-ui model start update view window commit checkpoint` shows the view in the
 document's root through the `dom` effect of `(snail shell dom)`, updates
 it with each message in `start`, as when it must ask its server before
 anything else happens, then handles one delivery at a time until the
@@ -124,9 +127,10 @@ document closes, and answers the last model. The window is no node of the
 view's tree, so `window : Model -> (List (Attribute M))` gives its
 listeners, for what reaches the whole page, such as a shortcut or the page
 going back online, and they are patched as an element's are.
-`next-event` delivers a listener's event, a wake, the page hidden, or the
-document closed; `checkpoint` is given the model when the page is hidden
-and when it closes. Only the interface's own task waits on the document,
+`next-event` delivers a listener's event, a wake, a save request, the page
+hidden, or the document closed. `commit` receives each successfully presented
+model; `checkpoint` persists it on a save request, hiding, and close.
+Only the interface's own task waits on the document,
 so a command posts its answer to the interface's mailbox and performs
 `wake`, and the interface drains the mailbox when it is woken; a command
 still running when the document closes never answers. After each update
@@ -218,11 +222,13 @@ drops, and a stream that names the kind `error` hears an event each time.
 One command waits on a stream at a time, and the update that hears
 an event issues the next wait, so a stream needs no machinery beyond
 one-shot commands.
-The interface boots as an application does, from a handed-over model of
-its type, else the stored save, else `init`. It runs `run-ui` as the
-page's root task under `with-page-dom` from `(snail shell dom page)` and
-`with-page-fetch` from `(snail shell fetch page)`, whose `checkpoint`
-stores the save. The page loads `startInterface` from
+The shared page lifecycle first adopts a handed-over model of its type, otherwise
+restores saved bytes. Only a cold start without a save initializes a fresh model.
+The engine runs `run-ui` as the page's root task under `with-page-dom` from
+`(snail shell dom page)` and
+`with-page-fetch` from `(snail shell fetch page)`. Completed presentations commit
+the model and acknowledge startup; the shared saver stores the encoded model.
+The page loads `startInterface` from
 `ui.mjs`, which a browser build ships, with a container element in place
 of the canvas. `host/browser/dom.mjs` keeps the interface's nodes and
 listeners in tables by handle and frees a removed node's subtree. A
@@ -235,12 +241,11 @@ program starts. `tests/apps/notes` is the example, and
 own.
 
 Both `ui.mjs` and the scene's `host.mjs` delegate loading and replacement to
-`host/browser/application.mjs`. Document applications now support development
-modules and live reload through the same transaction as scenes. Listener
-identities are never reused after replacement, so queued events from an old
-document cannot invoke a new listener. Periodic document saves remain proposed
-([#514](https://github.com/tsnl/snail-scheme/issues/514)); the interface currently
-saves when the page is hidden or reloads.
+`host/browser/application.mjs`. Document applications support development modules,
+periodic saves and live reload through the same transaction as scenes.
+`tests/browser/ui-reload.mjs` covers saved state, direct model handover and rollback
+after a rejected view. Listener identities are never reused after replacement,
+so queued events from an old document cannot invoke a new listener.
 
 <a id="live-reload"></a>
 
@@ -286,11 +291,13 @@ fast, and the browser editor that subscribes to the same service.
 ## Task lifetime
 
 The loop is a task of the program's [scheduler](../runtimes/tasks.md).
-`app-main` dispatches it through `app-start`, which answers its id, and
-the host turns the scheduler until the loop answers: `app-start` records
-the answer in a cell of `(snail shell page)`, which the host reads through
-the `app_outcome` and `app_handover` exports. A trap whose task is the
-loop's, by `tasks:running`, is the loop's failure; any other is a child's,
+`app-main` dispatches it through `start-page`, which answers its id. The host
+turns the scheduler until the root returns or fails. `(snail shell page)`
+exposes `app_done` to distinguish a successful return from suspension or an
+invalid disappearance, and `app_state` for the optional checkpoint. Normal
+return and failure use that same checkpoint; a root that never adopts state
+has none. Completion and presentation readiness are independent. A trap whose
+task is the loop's, by `tasks:running`, is the loop's failure; any other is a child's,
 reported and survived. Normal root completion after initial presentation
 lets children finish: the host turns until no task is live. Root failure
 or return before that acceptance boundary closes the scheduler, dropping
@@ -333,14 +340,16 @@ scalar services is never left mid-call.
 
 Reload fences the old queue with `Reload`. Its accepted prefix finishes, the root
 saves and returns, and the runtime closes the remaining tasks. New input
-waits for the replacement. Resize and an initial zero-time frame must finish before
-its first presentation is accepted; until then the old program and handover
-remain available for rollback. Cold startup, including a retry, finishes before
+waits for the replacement. The engine explicitly acknowledges its first completed
+presentation: a scene handles resize and a zero-time frame, while a document
+presents its initial model and startup messages. Until that acknowledgement,
+the old program and handover remain available for rollback. Cold startup, including a retry, finishes before
 a relink may stop it. A live migration never silently discards incompatible
 state; only a cold start may retry without an incompatible saved value.
 
 After a trap, `app_state` exposes the last complete checkpoint. Serializing it
-runs the old entry with `Reload` first, avoiding the failing update or view.
+runs the old entry in handover-only mode: the shared page lifecycle saves it
+without entering either engine, avoiding a failing view or replayed startup messages.
 The consumed failing event is dropped; unread input remains. A cold first-frame
 failure also retains its owner so a source fix can resume it.
 A closure kept in the state can retain old code; applications storing functions

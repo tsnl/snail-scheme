@@ -222,6 +222,10 @@ async function checkStartupFailures() {
   const loading = rejected.runtime.start(rejected.entry);
   await assert.rejects(loading.ready.promise, /load failed/);
   assert.equal((await loading.done).state, null, 'a preboot failure cannot invent a checkpoint');
+  const incoming = rejected.entry.exports.other();
+  const retry = rejected.runtime.start(rejected.entry, incoming);
+  await assert.rejects(retry.ready.promise, /load failed/);
+  assert.equal((await retry.done).state, incoming, 'a preboot failure retains the incoming state for rollback');
   rejected.settled();
   const trapped = await application();
   trapped.observed.failFrame = true;
@@ -248,15 +252,18 @@ async function checkStorageFailure() {
 
 async function checkRootReturn() {
   const app = await application();
+  await app.runtime.start(app.entry).ready.promise;
+  const previous = await app.runtime.stop();
   const entry = {...app.entry, main: app.entry.exports.background_main};
-  const run = app.runtime.start(entry);
+  const run = app.runtime.start(entry, previous.state);
   assert.equal(await run.ready.promise, 2);
   await run.root;
   let settled = false;
   run.done.then(() => { settled = true; });
   await turn();
   assert.equal(settled, false, 'a child outlives a normally returning root');
-  await app.runtime.stop();
+  const handover = await app.runtime.stop();
+  assert.equal(handover.state, null, 'a root that never adopts the incoming state has no checkpoint');
   assert.equal(live(entry), 0, 'reload cancels and drains the remaining child');
   app.settled();
 }
@@ -293,24 +300,25 @@ async function checkProtocolOwnership() {
   const {errors} = app.observed;
   const run = app.runtime.start(app.entry);
   await turn();
-  for (const which of [0, 1, 2, 3]) app.entry.exports.spawn_child(which);
+  for (const which of [0, 1, 2, 3, 4, 5]) app.entry.exports.spawn_child(which);
   run.tasks.interrupt();
-  await until(() => errors.length === 4);
+  await until(() => errors.length === 6);
   for (const error of errors) assert.match(error.message, /belong to the root task/);
   assert.equal(loads, 1, 'a child cannot replace the root load buffer');
   assert.equal(saves.length, 0); assert.equal(run.boot, null);
   loaded.resolve(undefined); await run.ready.promise;
+  assert.equal(app.entry.exports.count(app.entry.app.app_state()), 0n, 'children cannot publish a checkpoint');
   const stopping = app.runtime.stop();
   await turn();
   assert.equal(saves.length, 1);
   app.entry.exports.spawn_child(1);
   run.tasks.interrupt();
-  await until(() => errors.length === 5);
+  await until(() => errors.length === 7);
   assert.equal(saves.length, 1, 'a child cannot start persistence during checkpoint handover');
   stored.resolve();
   const handover = await stopping;
   assert.deepEqual(handover.saved, saves[0]);
-  assert.equal(errors.length, 5);
+  assert.equal(errors.length, 7);
   app.settled();
 }
 

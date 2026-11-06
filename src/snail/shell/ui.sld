@@ -457,8 +457,8 @@
     ;; `window` gives the window, updates it with each message in `start`,
     ;; and runs the interface, a delivery at a time, until the document
     ;; closes, then answers the last model. An event at a listener the view has since
-    ;; dropped is ignored. `checkpoint` is given the model when the page is
-    ;; hidden and when the document closes, to keep what would be lost; a
+    ;; dropped is ignored. `commit` publishes complete presentations;
+    ;; `checkpoint` saves on request, hiding and close. A
     ;; command still running then never answers. Both `view` and `update`
     ;; take the model, and the loop keeps it for `checkpoint`, so a model
     ;; is shared rather than moved: it must be Copy.
@@ -469,17 +469,18 @@
                 (-> Model M (Pair Model (List (FnOnce M ! tasks e))))
                 (-> Model (Html M))
                 (-> Model (List (Attribute M)))
+                (-> Model Unit ! e)
                 (-> Model Unit ! tasks e)
                 Model
                 ! mut dom tasks e)))
-    (define (run-ui model start update view window checkpoint)
+    (define (run-ui model start update view window commit checkpoint)
       (let ((box (make-mailbox)) (shown (create (view model))))
         (insert-node (document-root) (shown-node shown) (None))
         (serve box
                update
                view
                window
-               checkpoint
+               commit checkpoint
                (fold-left (lambda (running message)
                             (updated box update view window running message))
                           (showing model shown (window-shown (window model)))
@@ -491,26 +492,37 @@
                 (-> Model M (Pair Model (List (FnOnce M ! tasks e))))
                 (-> Model (Html M))
                 (-> Model (List (Attribute M)))
+                (-> Model Unit ! e)
                 (-> Model Unit ! tasks e)
                 (Running Model M)
                 Model
                 ! mut dom tasks e)))
-    (define (serve box update view window checkpoint running)
+    (define (serve box update view window commit checkpoint running)
+      (commit (Running-model running))
       (match (next-event)
         ((Fired listener event)
          (serve box
                 update
                 view
                 window
-                checkpoint
+                commit checkpoint
                 (match (table-ref (Running-listeners running) (show (Listener-id listener)))
                   ((Some message) (updated box update view window running (message event)))
                   ((None) running))))
         ((Woken)
-         (serve box update view window checkpoint (answered box update view window running)))
+         (serve box
+                update
+                view
+                window
+                commit
+                checkpoint
+                (answered box update view window commit running)))
         ((Hidden)
          (checkpoint (Running-model running))
-         (serve box update view window checkpoint running))
+         (serve box update view window commit checkpoint running))
+        ((SaveRequested)
+         (checkpoint (Running-model running))
+         (serve box update view window commit checkpoint running))
         ((Closed)
          (checkpoint (Running-model running))
          (Running-model running))))
@@ -522,13 +534,16 @@
                 (-> Model M (Pair Model (List (FnOnce M ! tasks e))))
                 (-> Model (Html M))
                 (-> Model (List (Attribute M)))
+                (-> Model Unit ! e)
                 (Running Model M)
                 (Running Model M)
                 ! mut dom e)))
-    (define (answered box update view window running)
+    (define (answered box update view window commit running)
       (match (mailbox-try-receive box)
         ((Some message)
-         (answered box update view window (updated box update view window running message)))
+         (let ((next (updated box update view window running message)))
+           (commit (Running-model next))
+           (answered box update view window commit next)))
         ((None) running)))
 
     ;; The update for one message, the commands it started dispatched, and
