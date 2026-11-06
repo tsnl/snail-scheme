@@ -223,7 +223,7 @@
            ((Ok _)
             (match (if directory
                        (make-directory (absolute root path))
-                       (make-file (absolute root path)))
+                       (write-text-file (absolute root path) "" (CreateNew)))
               ((Ok _) (Ok (unit)))
               ((Err error) (Err (DiskFailed error)))))))))
 
@@ -310,7 +310,7 @@
     (: save-staged
        (-> String ProjectPath String String String (Result ProjectText FileRefusal) ! fs modes))
     (define (save-staged root file expected text staged)
-      (match (write-text-file staged text)
+      (match (write-text-file staged text (CreateNew))
         ((Ok _)
          (match (expect root file expected)
            ((Ok _) (replace (absolute root file) staged text))

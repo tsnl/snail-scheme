@@ -834,13 +834,16 @@
        (skipped I64)
        (limited Bool)))
 
+    (struct Creation
+      ((directory Bool)
+       (pending Bool)
+       (problem String)))
+
     (enum PaletteMode
       (Commands)
       (Files)
       (Contents)
-      (Creating ((directory Bool)
-                 (pending Bool)
-                 (problem String))))
+      (Creating ((state Creation))))
 
     (struct Palette
       ((mode PaletteMode)
@@ -1778,10 +1781,12 @@
                                                    (lambda (model) (palette-open model (Contents))))
                                   (command-Command "new-file"
                                                    (lambda (model)
-                                                     (palette-open model (Creating #f #f ""))))
+                                                     (palette-open model
+                                                                   (Creating (Creation #f #f "")))))
                                   (command-Command "new-directory"
                                                    (lambda (model)
-                                                     (palette-open model (Creating #t #f ""))))
+                                                     (palette-open model
+                                                                   (Creating (Creation #t #f "")))))
                                   (command-Command "save-buffer" saving)
                                   (command-Command "format-buffer" formatting)
                                   (command-Command "reload-buffer" reloading)
@@ -1898,7 +1903,7 @@
          (map (lambda (path) (Choice path "" (PickFile path)))
               (take (filter (lambda (path) (search-match? (Palette-query palette) path))
                             (file-choices model)) 200)))
-        ((Creating directory pending _)
+        ((Creating (Creation directory pending _))
          (if (or pending (string=? (Palette-query palette) "")) (Nil)
              (list (Choice (string-append (if directory "Create directory: " "Create file: ")
                                           (Palette-query palette)) "Enter" (CreatePath)))))
@@ -1964,11 +1969,13 @@
 
     (: query-mode (-> PaletteMode PaletteMode))
     (define (query-mode mode)
-      (match mode ((Creating directory _ _) (Creating directory #f "")) (_ mode)))
+      (match mode
+        ((Creating (Creation directory _ _)) (Creating (Creation directory #f "")))
+        (_ mode)))
 
     (: creation-pending? (-> Palette Bool))
     (define (creation-pending? palette)
-      (match (Palette-mode palette) ((Creating _ pending _) pending) (_ #f)))
+      (match (Palette-mode palette) ((Creating (Creation _ pending _)) pending) (_ #f)))
 
     (: contents? (-> Palette Bool))
     (define (contents? palette)
@@ -2074,10 +2081,12 @@
       (match (Ide-palette model)
         ((Some palette)
          (match (Palette-mode palette)
-           ((Creating directory #f _)
+           ((Creating (Creation directory #f _))
             (let ((path (Palette-query palette)) (sequence (Ide-searches model)))
               (Pair
-               (Ide-palette-set model (Some (Palette-mode-set palette (Creating directory #t ""))))
+               (Ide-palette-set model
+                                (Some
+                                 (Palette-mode-set palette (Creating (Creation directory #t "")))))
                (list (once (lambda ()
                              (Created sequence path directory
                                       (api "POST"
@@ -2097,10 +2106,10 @@
              (match result
                ((Err failure)
                 (stay (Ide-palette-set model (Some (Palette-mode-set palette
-                                                                     (Creating directory
-                                                                               #f
-                                                                               (Failure-message
-                                                                                failure)))))))
+                                                                     (Creating (Creation directory
+                                                                                         #f
+                                                                                         (Failure-message
+                                                                                          failure))))))))
                ((Ok _)
                 (invoked model (lambda (model)
                                  (then (listing model)
@@ -2328,7 +2337,8 @@
         ((Commands) "Run a command…")
         ((Files) "Go to file…")
         ((Contents) "Search saved text…")
-        ((Creating directory _ _) (if directory "New directory path…" "New file path…"))))
+        ((Creating (Creation directory _ _))
+         (if directory "New directory path…" "New file path…"))))
 
     (: palette-input (-> Palette I64 (Html Msg)))
     (define (palette-input palette selected)
@@ -2371,7 +2381,8 @@
                 ((Some (Err failure)) (Failure-message failure))
                 ((Some (Ok _)) "No matches in saved text")))
           (match (Palette-mode palette)
-            ((Creating _ pending _) (if pending "Creating…" "Enter a path relative to the project"))
+            ((Creating (Creation _ pending _))
+             (if pending "Creating…" "Enter a path relative to the project"))
             (_ "No matches"))))
 
     (: palette-help (-> Palette String))
@@ -2390,7 +2401,7 @@
                                                "")))
                            (_ "")))
           (match (Palette-mode palette)
-            ((Creating _ _ problem)
+            ((Creating (Creation _ _ problem))
              (if (string=? problem "")
                  "Enter creates · Escape closes · Parent directory must exist"
                  problem))
