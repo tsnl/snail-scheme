@@ -62,7 +62,7 @@
            ! mut fs compile))
     (define (source->wat directories source generate inputs)
       (let* ((expanded (source->expanded directories source generate inputs))
-             (typed (check-program (ExpandedProgram-program expanded)))
+             (typed (check-program (::program expanded)))
              (module (emit-module (prepare-program typed))))
         (WholeProgram (wat->string module) (program-links expanded))))
 
@@ -78,7 +78,7 @@
            (List Built)
            ! mut fs compile))
     (define (source->modules directories source generate inputs)
-      (Pair-first (build-session (make-session directories) source generate inputs)))
+      (::first (build-session (make-session directories) source generate inputs)))
 
     (: source->schemas
        (-> (List String)
@@ -88,8 +88,8 @@
            String
            ! fs compile))
     (define (source->schemas directories source generate inputs)
-      (let ((typed (check-program (ExpandedProgram-program
+      (let ((typed (check-program (::program
                                    (source->expanded directories source generate inputs)))))
-        (wire-schemas (Typed-program typed))))
+        (wire-schemas (::program typed))))
 
     ))

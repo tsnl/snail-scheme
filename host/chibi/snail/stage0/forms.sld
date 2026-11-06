@@ -16,11 +16,13 @@
    handle
    ref
    ref-get
-   ref-set!)
+   ref-set!
+   field-of)
   (import
    (scheme base)
    (scheme cxr)
-   (only (chibi) er-macro-transformer))
+   (only (chibi) er-macro-transformer)
+   (srfi 69))
   (begin
 
     ;; ---- Erased declarations ----
@@ -128,7 +130,30 @@
                          (if (pair? body) (car body) '()))))
            `(,(rename 'begin)
              ,(constructor-definition name fields rename)
+             (,(rename 'register-fields!) ,name ',(map car fields))
              ,@(record-definitions name fields #t rename))))))
+
+    ;; ---- Field paths ----
+
+    ;; `(::f v)` reads the field `f` of whatever struct `v` is. Snail-Core's
+    ;; expander provides a class per label; stage 0 instead keeps one table
+    ;; from each struct's constructor, which is the value's slot 0, to its
+    ;; field names, filled as the struct is defined, and Chibi's (snail core
+    ;; base) defines each `::f` the compiler's sources mention over
+    ;; `field-of`. An enum case is not registered, so a path on one errors.
+    (define struct-fields (make-hash-table eq?))
+
+    (define (register-fields! constructor fields)
+      (hash-table-set! struct-fields constructor fields))
+
+    (define (field-of value label)
+      (let loop ((fields (hash-table-ref struct-fields
+                                         (vector-ref value 0)
+                                         (lambda () (error "not a struct" value))))
+                 (index 1))
+        (cond ((null? fields) (error "no such field" label value))
+              ((eq? (car fields) label) (vector-ref value index))
+              (else (loop (cdr fields) (+ index 1))))))
 
     ;; The enum's name is bound too, so libraries can export it.
     (define-syntax enum
@@ -315,6 +340,8 @@
 
       (define (test-forms)
         (expect (Documented-text (Documented "text")) "text")
+        (expect (field-of (Counter "n" 3) 'count) 3)
+        (expect (failure-message (lambda () (field-of (Counter "n" 3) 'total))) "no such field")
         (expect (DocumentedReady-value (DocumentedReady 5)) 5)
         (expect (match (DocumentedWaiting) ((DocumentedWaiting) #t) (_ #f)) #t)
         (expect documented-number 8)

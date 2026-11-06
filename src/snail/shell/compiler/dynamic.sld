@@ -31,10 +31,10 @@
 
     (: parse-dispatch (-> Class Instance (List Type) Loc Dispatch ! compile))
     (define (parse-dispatch class instance targets loc)
-      (unless (and (null? (Instance-vars instance))
-                   (null? (Instance-requires instance))
-                   (= (length (filter any-type? (Instance-types instance))) 1)
-                   (not (lifecycle-class? (Class-name class))))
+      (unless (and (null? (::vars instance))
+                   (null? (::requires instance))
+                   (= (length (filter any-type? (::types instance))) 1)
+                   (not (lifecycle-class? (::name class))))
         (compile-error loc
                        "dispatch needs a ground instance head with exactly one Any type argument"))
       (when (null? targets) (compile-error loc "dispatch needs at least one concrete type"))
@@ -58,9 +58,9 @@
 
     (: dispatch-variable (-> Class Instance String))
     (define (dispatch-variable class instance)
-      (match (find (lambda (pair) (any-type? (Pair-second pair)))
-                   (zip (Class-params class) (Instance-types instance)))
-        ((Some pair) (Pair-first pair))
+      (match (find (lambda (pair) (any-type? (::second pair)))
+                   (zip (::params class) (::types instance)))
+        ((Some pair) (::first pair))
         ((None) (panic "internal error: dispatch without Any"))))
 
     ;; ---- Methods ----
@@ -70,18 +70,18 @@
     ;; of the class parameter that this dispatcher erases.
     (: dispatch-method (-> Program Class Instance String Dispatch Loc Expr ! compile))
     (define (dispatch-method program class instance method dispatch loc)
-      (let* ((var (Dispatch-variable dispatch))
-             (fixed (filter (lambda (pair) (not (string=? var (Pair-first pair))))
-                            (zip (Class-params class) (Instance-types instance)))))
+      (let* ((var (::variable dispatch))
+             (fixed (filter (lambda (pair) (not (string=? var (::first pair))))
+                            (zip (::params class) (::types instance)))))
         (match (program-value program method)
           ((Some (Method _ (Scheme vars (Cons _ (Nil)) _ type)))
-           (unless (= (length vars) (length (Class-params class)))
+           (unless (= (length vars) (length (::params class)))
              (compile-error loc "dispatch does not support independently polymorphic methods"))
            (dispatch-lambda instance
                             method
                             var
                             (substitute fixed type)
-                            (Dispatch-targets dispatch)
+                            (::targets dispatch)
                             loc))
           (_ (compile-error loc
                             "dispatch does not support methods with additional class requirements")))))
@@ -91,7 +91,7 @@
       (match type
         ((TFun params result _)
          (for-each (lambda (part) (check-dispatch-position var part loc)) (Cons result params))
-         (let* ((prefix (string-append (Instance-name instance) "." (short-name method)))
+         (let* ((prefix (string-append (::name instance) "." (short-name method)))
                 (names (map (lambda (index)
                               (string-append prefix ".argument." (i64->string index)))
                             (iota (length params))))
@@ -131,11 +131,11 @@
     (: dispatch-branches
        (-> String String String (List (Pair Type Expr)) Type I64 (List Type) Loc Expr))
     (define (dispatch-branches prefix method var args result index targets loc)
-      (let ((selector (Pair-second (list-ref args index))))
+      (let ((selector (::second (list-ref args index))))
         (fold-right (lambda (entry rest)
                       (dispatch-case
-                       (string-append prefix ".case." (i64->string (Pair-first entry)))
-                       method var args result index (Pair-second entry) rest loc))
+                       (string-append prefix ".case." (i64->string (::first entry)))
+                       method var args result index (::second entry) rest loc))
                     (conversion-failure
                      (conversion-error "UnsupportedInstance" targets selector method index loc)
                      unchecked loc)
@@ -150,13 +150,13 @@
              (selected (map-indexed (lambda (i arg)
                                       (if (= i index) (Pair target (reference name loc)) arg))
                                     args)))
-        (recover-value (Pair-second (list-ref args index)) target name
+        (recover-value (::second (list-ref args index)) target name
                        (dispatch-call prefix method var selected result target loc) rest loc)))
 
     (: dispatch-argument (-> String String String Type I64 (Pair Type Expr) Loc Expr))
     (define (dispatch-argument prefix method var target index argument loc)
-      (let ((value (Pair-second argument)))
-        (if (type=? (Pair-first argument) (TRigid var))
+      (let ((value (::second argument)))
+        (if (type=? (::first argument) (TRigid var))
             (let ((name (string-append prefix ".argument." (i64->string index))))
               (recover-value value target name (reference name loc)
                              (conversion-failure
@@ -173,7 +173,7 @@
     (define (dispatch-call prefix method var args result target loc)
       (let* ((arguments (map (lambda (entry)
                                (dispatch-argument prefix method var target
-                                                  (Pair-first entry) (Pair-second entry) loc))
+                                                  (::first entry) (::second entry) loc))
                              (zip (iota (length args)) args)))
              (call (expression (App (reference method loc) arguments) loc)))
         (if (type=? result (TRigid var))
@@ -197,8 +197,8 @@
 
     (: select-probe (-> (Pair Expr Pattern) Expr Expr Loc Expr))
     (define (select-probe probe success failure loc)
-      (expression (Match (Pair-first probe)
-                         (list (Clause (Pair-second probe) success)
+      (expression (Match (::first probe)
+                         (list (Clause (::second probe) success)
                                (Clause (PWild unchecked) failure))) loc))
 
     (: recover-value (-> Expr Type String Expr Expr Loc Expr))
@@ -211,8 +211,8 @@
                             (conversion-probe (list-ref values index) (list-ref targets index)
                                               (list-ref names index) loc)) (iota 2)))
              (value (expression (App (reference "snail.core.base:Pair" loc)
-                                     (map Pair-first probes)) loc))
-             (pattern (PCon "snail.core.base:Pair" (map Pair-second probes) unchecked)))
+                                     (map ::first probes)) loc))
+             (pattern (PCon "snail.core.base:Pair" (map ::second probes) unchecked)))
         (select-probe (Pair value pattern) success failure loc)))
 
     ;; ---- Binary policies ----
@@ -242,8 +242,8 @@
               (map (lambda (pair) (resolve-binary-case program class pair active loc)) domain))
              (heads (delete-duplicates types=? (concatenate (map erased-heads domain)))))
         (map (lambda (entry)
-               (generate-binary-instance class cases (Pair-second entry) owner
-                                         (string-append name "." (i64->string (Pair-first entry)))
+               (generate-binary-instance class cases (::second entry) owner
+                                         (string-append name "." (i64->string (::first entry)))
                                          loc))
              (zip (iota (length heads)) heads))))
 
@@ -252,23 +252,23 @@
     ;; require a different conversion contract, so they fail at declaration.
     (: check-binary-class (-> Program Class Loc Unit ! compile))
     (define (check-binary-class program class loc)
-      (unless (and (= (length (Class-rows class)) 1)
-                   (= (length (Class-outputs class)) 1)
-                   (= (length (type-arguments class (map TRigid (Class-params class)))) 2)
-                   (not (null? (Class-methods class))))
+      (unless (and (= (length (::rows class)) 1)
+                   (= (length (::outputs class)) 1)
+                   (= (length (type-arguments class (map TRigid (::params class)))) 2)
+                   (not (null? (::methods class))))
         (compile-error loc
                        "dynamic-instances needs a binary class with one effect row and one associated output"))
       (for-each (lambda (method) (check-binary-method program class method loc))
-                (Class-methods class)))
+                (::methods class)))
 
     (: check-binary-method (-> Program Class String Loc Unit ! compile))
     (define (check-binary-method program class method loc)
       (match (program-value program method)
         ((Some (Method _ (Scheme vars (Cons _ (Nil)) _ (TFun params result row))))
-         (unless (and (= (length vars) (length (Class-params class)))
-                      (types=? params (type-arguments class (map TRigid (Class-params class))))
-                      (type=? result (TRigid (list-ref (Class-outputs class) 0)))
-                      (type=? row (TRow (Nil) (Some (TRigid (list-ref (Class-rows class) 0))))))
+         (unless (and (= (length vars) (length (::params class)))
+                      (types=? params (type-arguments class (map TRigid (::params class))))
+                      (type=? result (TRigid (list-ref (::outputs class) 0)))
+                      (type=? row (TRow (Nil) (Some (TRigid (list-ref (::rows class) 0))))))
            (compile-error loc "dynamic-instances needs methods of type (-> A B Output ! e)")))
         (_
          (compile-error loc "dynamic-instances does not support independent method requirements"))))
@@ -279,11 +279,11 @@
                    (every? (lambda (type) (and (ground-type? type) (not (any-type? type)))) inputs))
         (compile-error loc "dynamic-instances domain entries are two concrete, non-Any types"))
       (let ((matches (filter (lambda (instance)
-                               (match (match-types (Instance-vars instance)
-                                                   (type-arguments class (Instance-types instance))
+                               (match (match-types (::vars instance)
+                                                   (type-arguments class (::types instance))
                                                    inputs (Nil))
                                  ((Some _) #t) ((None) #f)))
-                             (visible-instances program (Class-name class) active))))
+                             (visible-instances program (::name class) active))))
         (match matches
           ((Cons instance (Nil)) (binary-case class instance inputs loc))
           ((Nil)
@@ -292,20 +292,20 @@
 
     (: binary-case (-> Class Instance (List Type) Loc BinaryCase ! compile))
     (define (binary-case class instance inputs loc)
-      (unless (null? (Instance-requires instance))
+      (unless (null? (::requires instance))
         (compile-error loc "dynamic-instances source instances must have no class prerequisites"))
-      (match (match-types (Instance-vars instance)
-                          (type-arguments class (Instance-types instance))
+      (match (match-types (::vars instance)
+                          (type-arguments class (::types instance))
                           inputs
                           (Nil))
         ((Some bindings)
-         (let* ((head (map (lambda (type) (substitute bindings type)) (Instance-types instance)))
+         (let* ((head (map (lambda (type) (substitute bindings type)) (::types instance)))
                 (output (list-ref (output-arguments class head) 0))
                 (row (list-ref (row-arguments class head) 0)))
            (unless (and (ground-type? output) (ground-type? row))
              (compile-error loc "dynamic-instances source outputs and rows must be determined"))
            (match row
-             ((TRow labels (None)) (BinaryCase inputs output labels (Instance-methods instance)))
+             ((TRow labels (None)) (BinaryCase inputs output labels (::methods instance)))
              (_ (compile-error loc "dynamic-instances source effect rows must be closed")))))
         ((None) (panic "internal error: selected binary instance did not match"))))
 
@@ -316,44 +316,44 @@
 
     (: accepts-pair? (-> (List Type) BinaryCase Bool))
     (define (accepts-pair? head branch)
-      (every? (lambda (pair) (or (any-type? (Pair-first pair))
-                                 (type=? (Pair-first pair) (Pair-second pair))))
-              (zip head (BinaryCase-inputs branch))))
+      (every? (lambda (pair) (or (any-type? (::first pair))
+                                 (type=? (::first pair) (::second pair))))
+              (zip head (::inputs branch))))
 
     (: generate-binary-instance
        (-> Class (List BinaryCase) (List Type) String String Loc GeneratedInstance))
     (define (generate-binary-instance class domain inputs owner name loc)
       (let* ((cases (filter (lambda (branch) (accepts-pair? inputs branch)) domain))
-             (outputs (delete-duplicates type=? (map BinaryCase-output cases)))
+             (outputs (delete-duplicates type=? (map ::output cases)))
              (output (if (= (length outputs) 1) (list-ref outputs 0) (TCon "Any" (Nil))))
              (row (TRow (fold-left
-                         (lambda (labels branch) (label-union labels (BinaryCase-effects branch)))
+                         (lambda (labels branch) (label-union labels (::effects branch)))
                          (list dyn-cast-label) cases) (None)))
              (methods
               (map (lambda (method) (Pair method (string-append name "." (short-name method))))
-                   (Class-methods class)))
-             (instance (Instance name (Class-name class) (Nil) (binary-head class inputs output row)
+                   (::methods class)))
+             (instance (Instance name (::name class) (Nil) (binary-head class inputs output row)
                                  (Nil) (Nil) methods (Some owner))))
         (GeneratedInstance instance
                            (map (lambda (method)
-                                  (Define (Pair-second method)
-                                    (binary-lambda (Pair-first method) inputs output cases
-                                                   (Pair-second method) loc))) methods))))
+                                  (Define (::second method)
+                                    (binary-lambda (::first method) inputs output cases
+                                                   (::second method) loc))) methods))))
 
     (: binary-head (-> Class (List Type) Type Type (List Type)))
     (define (binary-head class inputs output row)
       (let ((bindings (zip (filter (lambda (param)
                                      (not (member? param
-                                                   (append (Class-rows class)
-                                                           (Class-outputs class)))))
-                                   (Class-params class)) inputs)))
+                                                   (append (::rows class)
+                                                           (::outputs class)))))
+                                   (::params class)) inputs)))
         (map (lambda (param)
-               (cond ((member? param (Class-rows class)) row)
-                     ((member? param (Class-outputs class)) output)
+               (cond ((member? param (::rows class)) row)
+                     ((member? param (::outputs class)) output)
                      (else (match (assoc-ref bindings param)
                              ((Some type) type)
                              ((None) (panic "internal error: binary input parameter"))))))
-             (Class-params class))))
+             (::params class))))
 
     (: binary-lambda (-> String (List Type) Type (List BinaryCase) String Loc Expr))
     (define (binary-lambda method inputs output cases name loc)
@@ -366,10 +366,10 @@
                                                          inputs
                                                          args
                                                          output
-                                                         (Pair-second entry)
+                                                         (::second entry)
                                                          (string-append name ".case."
                                                                         (i64->string
-                                                                         (Pair-first entry)))
+                                                                         (::first entry)))
                                                          rest loc))
                                         failure (zip (iota (length cases)) cases)) #f) loc)))
 
@@ -383,7 +383,7 @@
                                              (reference (list-ref names i) loc) (list-ref args i)))
                              (iota 2)))
              (body (binary-call method converted output branch loc))
-             (targets (BinaryCase-inputs branch)))
+             (targets (::inputs branch)))
         (cond ((every? any-type? inputs) (recover-pair args targets names body rest loc))
               (else (let ((index (if (any-type? (list-ref inputs 0)) 0 1)))
                       (recover-value (list-ref args index) (list-ref targets index)
@@ -395,7 +395,7 @@
     (: binary-failure (-> String (List Type) (List Expr) (List BinaryCase) Type Loc Expr))
     (define (binary-failure method inputs args cases output loc)
       (let ((lefts (delete-duplicates type=?
-                                      (map (lambda (branch) (list-ref (BinaryCase-inputs branch) 0))
+                                      (map (lambda (branch) (list-ref (::inputs branch) 0))
                                            cases))))
         (cond ((not (any-type? (list-ref inputs 0)))
                (binary-side-failure method args cases 1 output loc))
@@ -405,7 +405,7 @@
                (fold-right (lambda (left rest)
                              (let ((eligible (filter (lambda (branch)
                                                        (type=? left
-                                                               (list-ref (BinaryCase-inputs branch)
+                                                               (list-ref (::inputs branch)
                                                                          0)))
                                                      cases)))
                                (expression (If (expression (TypeTest (list-ref args 0) left) loc)
@@ -425,16 +425,16 @@
        (conversion-error "UnsupportedInstance"
                          (delete-duplicates type=?
                                             (map (lambda (branch)
-                                                   (list-ref (BinaryCase-inputs branch) index))
+                                                   (list-ref (::inputs branch) index))
                                                  cases))
                          (list-ref args index) method index loc) output loc))
 
     (: binary-call (-> String (List Expr) Type BinaryCase Loc Expr))
     (define (binary-call method args output branch loc)
-      (let* ((implementation (match (assoc-ref (BinaryCase-methods branch) method)
+      (let* ((implementation (match (assoc-ref (::methods branch) method)
                                ((Some name) name)
                                ((None) (panic "internal error: missing binary implementation"))))
              (call (expression (App (reference implementation loc) args) loc)))
-        (if (and (any-type? output) (not (any-type? (BinaryCase-output branch))))
+        (if (and (any-type? output) (not (any-type? (::output branch))))
             (expression (Convert call output) loc) call)))
     ))

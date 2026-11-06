@@ -412,7 +412,7 @@
 
     (: row->string (-> Type String))
     (define (row->string row)
-      (let* ((parts (row-parts row (Nil))) (labels (Pair-first parts)) (tail (Pair-second parts)))
+      (let* ((parts (row-parts row (Nil))) (labels (::first parts)) (tail (::second parts)))
         (match tail
           ((None) (if (null? labels) "" (string-append " !" (labels->string labels))))
           ((Some tail) (string-append " !" (labels->string labels) " " (type->string tail))))))
@@ -484,7 +484,7 @@
     (: program-with-field-class (-> Program String Program))
     (define (program-with-field-class program label)
       (let ((class (field-class-name label)))
-        (if (table-contains? (Program-classes program) class)
+        (if (table-contains? (::classes program) class)
             program
             (program-with-value
              (program-with-class program (Class class (list "R" "T") (Nil) (Nil) (list class)))
@@ -500,16 +500,16 @@
     ;; the struct's library, so a replay of that library carries it.
     (: program-with-field-instance (-> Program DataType String Type String Program))
     (define (program-with-field-instance program data label type accessor)
-      (let ((class (field-class-name label)) (params (DataType-params data)))
+      (let ((class (field-class-name label)) (params (::params data)))
         (program-with-instance (program-with-field-class program label)
-                               (Instance (string-append (name-owner (DataType-name data))
+                               (Instance (string-append (name-owner (::name data))
                                                         ":"
                                                         class
                                                         "@"
-                                                        (short-name (DataType-name data)))
+                                                        (short-name (::name data)))
                                          class
                                          params
-                                         (list (TCon (DataType-name data) (map TRigid params)) type)
+                                         (list (TCon (::name data) (map TRigid params)) type)
                                          (Nil)
                                          (Nil)
                                          (list (Pair class accessor))
@@ -519,10 +519,10 @@
     ;; instance is one; a declared instance computes its field instead.
     (: field-instance-accessor (-> Program String String (Option Value)))
     (define (field-instance-accessor program class instance)
-      (match (find (lambda (candidate) (string=? (Instance-name candidate) instance))
+      (match (find (lambda (candidate) (string=? (::name candidate) instance))
                    (class-instances program class))
         ((Some found)
-         (match (assoc-ref (Instance-methods found) class)
+         (match (assoc-ref (::methods found) class)
            ((Some target)
             (match (program-value program target)
               ((Some (Accessor case index scheme)) (Some (Accessor case index scheme)))
@@ -624,7 +624,7 @@
     (: types=? (-> (List Type) (List Type) Bool))
     (define (types=? as bs)
       (and (= (length as) (length bs))
-           (every? (lambda (pair) (type=? (Pair-first pair) (Pair-second pair))) (zip as bs))))
+           (every? (lambda (pair) (type=? (::first pair) (::second pair))) (zip as bs))))
 
     ;; ---- Label sets ----
 
@@ -672,9 +672,9 @@
 
     (: substitute-constraint (-> Substitution Constraint Constraint))
     (define (substitute-constraint substitution constraint)
-      (Constraint (Constraint-class constraint)
+      (Constraint (::class constraint)
                   (map (lambda (type) (substitute substitution type))
-                       (Constraint-types constraint))))
+                       (::types constraint))))
 
     ;; ---- Class evidence ----
 
@@ -792,7 +792,7 @@
 
     (: lambda-expr? (-> Expr Bool))
     (define (lambda-expr? expr)
-      (match (Expr-term expr)
+      (match (::term expr)
         ((Lambda _ _ _) #t)
         (_ #f)))
 
@@ -800,7 +800,7 @@
     ;; bodies. This describes the IR shape, not when an expression runs.
     (: expr-children (-> Expr (List Expr)))
     (define (expr-children expr)
-      (match (Expr-term expr)
+      (match (::term expr)
         ((Lit _) (Nil))
         ((Var _ _ _) (Nil))
         ((Lambda _ body _) (list body))
@@ -808,26 +808,26 @@
         ((If test then otherwise) (list test then otherwise))
         ((Let _ value body) (list value body))
         ((Seq first rest) (list first rest))
-        ((Match scrutinee clauses) (Cons scrutinee (map Clause-body clauses)))
+        ((Match scrutinee clauses) (Cons scrutinee (map ::body clauses)))
         ((ScopedInstances _ body) (list body))
         ((Ann inner _) (list inner))
         ((Convert inner _) (list inner))
         ((TryConvert inner _) (list inner))
         ((TypeTest inner _) (list inner))
-        ((Handle _ implementations body) (append (map Pair-second implementations) (list body)))))
+        ((Handle _ implementations body) (append (map ::second implementations) (list body)))))
 
     ;; Every name an expression refers to, once each, in order of first
     ;; occurrence. Locals are included, since names are unique.
     (: expr-references (-> Expr (List String)))
     (define (expr-references expr)
-      (reverse (Pair-second (collect-references (Pair empty-table (Nil)) expr))))
+      (reverse (::second (collect-references (Pair empty-table (Nil)) expr))))
 
     ;; Adds the names not yet seen to the found list, newest first, and to
     ;; the seen table.
     (: collect-references
        (-> (Pair (Table Bool) (List String)) Expr (Pair (Table Bool) (List String))))
     (define (collect-references found expr)
-      (match (Expr-term expr)
+      (match (::term expr)
         ((Var name _ _)
          (match found
            ((Pair seen names)
@@ -878,23 +878,23 @@
     ;; parameters, and those it gives its types, each in order.
     (: row-arguments (-> Class (List Type) (List Type)))
     (define (row-arguments class types)
-      (map Pair-second
-           (filter (lambda (pair) (member? (Pair-first pair) (Class-rows class)))
-                   (zip (Class-params class) types))))
+      (map ::second
+           (filter (lambda (pair) (member? (::first pair) (::rows class)))
+                   (zip (::params class) types))))
 
     (: type-arguments (-> Class (List Type) (List Type)))
     (define (type-arguments class types)
-      (map Pair-second
+      (map ::second
            (filter (lambda (pair)
-                     (not (member? (Pair-first pair)
-                                   (append (Class-rows class) (Class-outputs class)))))
-                   (zip (Class-params class) types))))
+                     (not (member? (::first pair)
+                                   (append (::rows class) (::outputs class)))))
+                   (zip (::params class) types))))
 
     ;; Associated members are hidden trailing arguments. Like rows they
     ;; are established by the selected evidence, never used to select it.
     (: output-arguments (-> Class (List Type) (List Type)))
     (define (output-arguments class types)
-      (list-drop types (- (length (Class-params class)) (length (Class-outputs class)))))
+      (list-drop types (- (length (::params class)) (length (::outputs class)))))
 
     ;; One-way matching of an instance head; only its own variables bind.
     (: match-types (-> (List String) (List Type) (List Type) Substitution (Option Substitution)))
@@ -903,7 +903,7 @@
           (fold-left (lambda (result pair)
                        (match result
                          ((Some bindings)
-                          (match-type vars (Pair-first pair) (Pair-second pair) bindings))
+                          (match-type vars (::first pair) (::second pair) bindings))
                          ((None) (None))))
                      (Some bindings) (zip patterns types))
           (None)))
@@ -979,7 +979,7 @@
     ;; its name has type Fn where one is expected. An instance method has
     ;; its class method's scheme and no signature of its own, and like a
     ;; default no program names it. A field has four
-    ;; operations: an Accessor reads it, `Name-field`; a Replacer copies an
+    ;; operations: an Accessor reads it, `::field`; a Replacer copies an
     ;; immutable struct with it replaced, `Name-field-set`; and a mutable
     ;; field's Setter writes it in place, `Name-field-set!`, as its Swapper
     ;; does while answering the old content, `Name-field-replace!`.
@@ -1040,7 +1040,7 @@
     ;; perform, under the handlers in scope where it is performed.
     (: operation-latent (-> String Scheme (List String)))
     (define (operation-latent effect scheme)
-      (match (Scheme-type scheme)
+      (match (::type scheme)
         ((TFun _ _ (TRow labels _)) (filter (lambda (label) (not (string=? label effect))) labels))
         (_ (Nil))))
 
@@ -1102,17 +1102,17 @@
 
     (: metadata-of (-> Program String Metadata))
     (define (metadata-of program name)
-      (match (table-ref (Program-metadata program) name)
+      (match (table-ref (::metadata program) name)
         ((Some metadata) metadata)
         ((None) (Metadata (Nil) empty-table))))
 
     (: program-annotations (-> Program String (List Annotation)))
     (define (program-annotations program name)
-      (Metadata-annotations (metadata-of program name)))
+      (::annotations (metadata-of program name)))
 
     (: program-field-annotations (-> Program String String (List Annotation)))
     (define (program-field-annotations program constructor field)
-      (match (table-ref (Metadata-fields (metadata-of program constructor)) field)
+      (match (table-ref (::fields (metadata-of program constructor)) field)
         ((Some annotations) annotations)
         ((None) (Nil))))
 
@@ -1122,10 +1122,10 @@
         (if (null? annotations)
             program
             (Program-metadata-set program
-                                  (table-set (Program-metadata program) name
+                                  (table-set (::metadata program) name
                                              (Metadata
-                                              (append (Metadata-annotations before) annotations)
-                                              (Metadata-fields before)))))))
+                                              (append (::annotations before) annotations)
+                                              (::fields before)))))))
 
     (: program-with-field-annotations (-> Program String String (List Annotation) Program))
     (define (program-with-field-annotations program constructor field annotations)
@@ -1133,39 +1133,39 @@
         (if (null? annotations)
             program
             (Program-metadata-set program
-                                  (table-set (Program-metadata program) constructor
-                                             (Metadata (Metadata-annotations before)
-                                                       (table-set (Metadata-fields before)
+                                  (table-set (::metadata program) constructor
+                                             (Metadata (::annotations before)
+                                                       (table-set (::fields before)
                                                                   field
                                                                   annotations)))))))
 
     (: program-value (-> Program String (Option Value)))
     (define (program-value program name)
-      (table-ref (Program-values program) name))
+      (table-ref (::values program) name))
 
     ;; Types, classes and effects are looked up by names the expander
     ;; resolved, so each lookup succeeds.
     (: program-type (-> Program String DataType))
     (define (program-type program name)
-      (match (table-ref (Program-types program) name)
+      (match (table-ref (::types program) name)
         ((Some data) data)
         ((None) (panic (string-append "internal error: no type " name)))))
 
     (: program-class (-> Program String Class))
     (define (program-class program name)
-      (match (table-ref (Program-classes program) name)
+      (match (table-ref (::classes program) name)
         ((Some class) class)
         ((None) (panic (string-append "internal error: no class " name)))))
 
     (: program-effect (-> Program String Effect))
     (define (program-effect program name)
-      (match (table-ref (Program-effects program) name)
+      (match (table-ref (::effects program) name)
         ((Some effect) effect)
         ((None) (panic (string-append "internal error: no effect " name)))))
 
     (: class-instances (-> Program String (List Instance)))
     (define (class-instances program class)
-      (match (table-ref (Program-instances program) class)
+      (match (table-ref (::instances program) class)
         ((Some instances) instances)
         ((None) (Nil))))
 
@@ -1175,7 +1175,7 @@
     (: visible-instances (-> Program String (List String) (List Instance)))
     (define (visible-instances program class sets)
       (filter (lambda (instance)
-                (match (Instance-set instance)
+                (match (::set instance)
                   ((None) #t)
                   ((Some name) (member? name sets))))
               (class-instances program class)))
@@ -1183,18 +1183,18 @@
     (: check-active-instances (-> Program (List String) Loc Unit ! compile))
     (define (check-active-instances program sets loc)
       (for-each (lambda (class)
-                  (let ((visible (visible-instances program (Class-name class) sets)))
+                  (let ((visible (visible-instances program (::name class) sets)))
                     (for-each (lambda (instance)
                                 (check-instance-overlap program instance visible loc)) visible)))
-                (table-values (Program-classes program))))
+                (table-values (::classes program))))
 
     (: check-instance-overlap (-> Program Instance (List Instance) Loc Unit ! compile))
     (define (check-instance-overlap program instance others loc)
-      (let ((class (program-class program (Instance-class instance))))
+      (let ((class (program-class program (::class instance))))
         (for-each (lambda (other)
-                    (when (and (not (string=? (Instance-name instance) (Instance-name other)))
-                               (heads-overlap? (type-arguments class (Instance-types instance))
-                                               (type-arguments class (Instance-types other))))
+                    (when (and (not (string=? (::name instance) (::name other)))
+                               (heads-overlap? (type-arguments class (::types instance))
+                                               (type-arguments class (::types other))))
                       (compile-error loc
                                      "this instance overlaps another instance of the class on its input types")))
                   others)))
@@ -1202,7 +1202,7 @@
     (: heads-overlap? (-> (List Type) (List Type) Bool))
     (define (heads-overlap? as bs)
       (and (= (length as) (length bs))
-           (every? (lambda (pair) (head-overlaps? (Pair-first pair) (Pair-second pair)))
+           (every? (lambda (pair) (head-overlaps? (::first pair) (::second pair)))
                    (zip as bs))))
 
     (: head-overlaps? (-> Type Type Bool))
@@ -1223,12 +1223,12 @@
     (define (selected-method-arguments program class types evidence)
       (match evidence
         ((Cons (EvInstance id arguments _) _)
-         (match (find (lambda (instance) (string=? (Instance-name instance) id))
+         (match (find (lambda (instance) (string=? (::name instance) id))
                       (class-instances program class))
            ((Some instance)
-            (let ((bindings (zip (Instance-vars instance) arguments)))
-              (append (map (lambda (type) (substitute bindings type)) (Instance-types instance))
-                      (list-drop types (length (Instance-types instance))))))
+            (let ((bindings (zip (::vars instance) arguments)))
+              (append (map (lambda (type) (substitute bindings type)) (::types instance))
+                      (list-drop types (length (::types instance))))))
            ((None) types)))
         (_ types)))
 
@@ -1236,31 +1236,31 @@
     ;; one it was given.
     (: program-with-value (-> Program String Value Program))
     (define (program-with-value program name value)
-      (Program-values-set program (table-set (Program-values program) name value)))
+      (Program-values-set program (table-set (::values program) name value)))
 
     (: program-with-type (-> Program DataType Program))
     (define (program-with-type program data)
-      (Program-types-set program (table-set (Program-types program) (DataType-name data) data)))
+      (Program-types-set program (table-set (::types program) (::name data) data)))
 
     (: program-with-class (-> Program Class Program))
     (define (program-with-class program class)
-      (Program-classes-set program (table-set (Program-classes program) (Class-name class) class)))
+      (Program-classes-set program (table-set (::classes program) (::name class) class)))
 
     (: program-with-instance (-> Program Instance Program))
     (define (program-with-instance program instance)
-      (let ((class (Instance-class instance)))
-        (Program-instances-set program (table-set (Program-instances program) class
+      (let ((class (::class instance)))
+        (Program-instances-set program (table-set (::instances program) class
                                                   (append (class-instances program class)
                                                           (list instance))))))
 
     (: program-with-effect (-> Program Effect Program))
     (define (program-with-effect program effect)
       (Program-effects-set program
-                           (table-set (Program-effects program) (Effect-name effect) effect)))
+                           (table-set (::effects program) (::name effect) effect)))
 
     (: program-items (-> Program (List Item)))
     (define (program-items program)
-      (reverse (Program-items program)))
+      (reverse (::items program)))
 
     ;; A library's run joins the program whole: its items, newest first,
     ;; become the program's newest, and the count it records is theirs. A
@@ -1268,24 +1268,24 @@
     ;; counted in the other's run.
     (: program-with-library (-> Program String (List Item) Program))
     (define (program-with-library program name items)
-      (Program-libraries-set (Program-items-set program (append items (Program-items program)))
-                             (Cons (Pair name (length items)) (Program-libraries program))))
+      (Program-libraries-set (Program-items-set program (append items (::items program)))
+                             (Cons (Pair name (length items)) (::libraries program))))
 
     ;; What the newest library added: the globals named for it, and its run
     ;; of items, which are the newest. A later build replays it with
     ;; `program-with` instead of expanding the library again.
     (: program-delta (-> Program String Program))
     (define (program-delta program owner)
-      (let ((count (match (Program-libraries program)
+      (let ((count (match (::libraries program)
                      ((Cons (Pair _ count) _) count)
                      ((Nil) 0))))
-        (Program (owned (Program-values program) owner)
-                 (owned (Program-types program) owner)
-                 (owned (Program-classes program) owner)
-                 (owned-instances (Program-instances program) owner)
-                 (owned (Program-effects program) owner)
-                 (owned (Program-metadata program) owner)
-                 (take (Program-items program) count) (take (Program-libraries program) 1))))
+        (Program (owned (::values program) owner)
+                 (owned (::types program) owner)
+                 (owned (::classes program) owner)
+                 (owned-instances (::instances program) owner)
+                 (owned (::effects program) owner)
+                 (owned (::metadata program) owner)
+                 (take (::items program) count) (take (::libraries program) 1))))
 
     ;; A field class and its method belong to no library, so every delta
     ;; carries the ones known when it was made; a replay unions them back.
@@ -1304,7 +1304,7 @@
     (define (owned-instances table owner)
       (fold-left (lambda (result class)
                    (match (filter (lambda (instance)
-                                    (string=? (name-owner (Instance-name instance)) owner))
+                                    (string=? (name-owner (::name instance)) owner))
                                   (class-list table class))
                      ((Nil) result)
                      (instances (table-set result class instances))))
@@ -1321,19 +1321,19 @@
     ;; within a class does not matter, since no two of them overlap.
     (: program-with (-> Program Program Program))
     (define (program-with program delta)
-      (Program (table-union (Program-values program) (Program-values delta))
-               (table-union (Program-types program) (Program-types delta))
-               (table-union (Program-classes program) (Program-classes delta))
+      (Program (table-union (::values program) (::values delta))
+               (table-union (::types program) (::types delta))
+               (table-union (::classes program) (::classes delta))
                (fold-left (lambda (table class)
                             (table-set table
                                        class
                                        (append (class-list table class)
-                                               (class-list (Program-instances delta) class))))
-                          (Program-instances program) (table-keys (Program-instances delta)))
-               (table-union (Program-effects program) (Program-effects delta))
-               (table-union (Program-metadata program) (Program-metadata delta))
-               (append (Program-items delta) (Program-items program))
-               (append (Program-libraries delta) (Program-libraries program))))
+                                               (class-list (::instances delta) class))))
+                          (::instances program) (table-keys (::instances delta)))
+               (table-union (::effects program) (::effects delta))
+               (table-union (::metadata program) (::metadata delta))
+               (append (::items delta) (::items program))
+               (append (::libraries delta) (::libraries program))))
 
     ;; `table` with every entry of `additions`, which win where both have a
     ;; key.
@@ -1349,7 +1349,7 @@
     ;; checked copies, into each library's run.
     (: library-items (-> Program (List Item) (List (Pair String (List Item)))))
     (define (library-items program items)
-      (let loop ((libraries (reverse (Program-libraries program))) (items items) (out (Nil)))
+      (let loop ((libraries (reverse (::libraries program))) (items items) (out (Nil)))
         (match libraries
           ((Cons (Pair name count) rest)
            (loop rest (list-tail items count) (Cons (Pair name (take items count)) out)))
@@ -1416,35 +1416,35 @@
       (let ((state (vector-fold (lambda (state c) (wide-step state (char->integer c)))
                                 (Pair 3421674724 2216829733)
                                 (string->vector text))))
-        (+ (* (if (>= (Pair-first state) 2147483648)
-                  (- (Pair-first state) 4294967296)
-                  (Pair-first state))
+        (+ (* (if (>= (::first state) 2147483648)
+                  (- (::first state) 4294967296)
+                  (::first state))
               4294967296)
-           (Pair-second state))))
+           (::second state))))
 
     (: wide-step (-> (Pair I64 I64) I64 (Pair I64 I64)))
     (define (wide-step state code)
-      (let* ((low (i64-xor (Pair-second state) code)) (product (* low 435)))
-        (Pair (i64-and (+ (+ (* (Pair-first state) 435) (quotient product 4294967296))
+      (let* ((low (i64-xor (::second state) code)) (product (* low 435)))
+        (Pair (i64-and (+ (+ (* (::first state) 435) (quotient product 4294967296))
                           (* (i64-and low 16777215) 256))
                        4294967295)
               (i64-and product 4294967295))))
 
     (: case-schema (-> Program Case (List String) String))
     (define (case-schema program case visiting)
-      (let* ((data (program-type program (Case-type case)))
-             (visiting (Cons (DataType-name data) visiting)))
-        (string-append (Case-name case) "("
+      (let* ((data (program-type program (::type case)))
+             (visiting (Cons (::name data) visiting)))
+        (string-append (::name case) "("
                        (string-concatenate
                         (map (lambda (field)
-                               (string-append (Field-name field)
-                                              (if (Field-mutable? field) " mut:" ":")
+                               (string-append (::name field)
+                                              (if (::mutable? field) " mut:" ":")
                                               (type-schema program
-                                                           (Field-type field)
-                                                           (DataType-params data)
+                                                           (::type field)
+                                                           (::params data)
                                                            visiting)
                                               ";"))
-                             (Case-fields case)))
+                             (::fields case)))
                        ")")))
 
     ;; A type parameter is written by its position, so renaming it keeps the
@@ -1465,11 +1465,11 @@
                                                  args))
                         ">"
                         (if (or (member? name visiting)
-                                (not (table-contains? (Program-types program) name)))
+                                (not (table-contains? (::types program) name)))
                             ""
                             (string-concatenate
                              (map (lambda (case) (case-schema program case visiting))
-                                  (DataType-cases (program-type program name)))))))
+                                  (::cases (program-type program name)))))))
         (_ "fn")))
 
     ;; ---- Wire schemas ----
@@ -1481,9 +1481,9 @@
     (define (wire-schemas program)
       (string-concatenate
        (map (lambda (instance)
-              (match (Instance-types instance)
+              (match (::types instance)
                 ((Cons (TCon name _) (Nil))
-                 (if (table-contains? (Program-types program) name)
+                 (if (table-contains? (::types program) name)
                      (data-schema program (program-type program name))
                      ""))
                 (_ "")))
@@ -1492,23 +1492,23 @@
     (: data-schema (-> Program DataType String))
     (define (data-schema program data)
       (string-append
-       "(" (DataType-name data)
+       "(" (::name data)
        (string-concatenate
         (map (lambda (case)
                (string-append "\n  ("
-                              (short-name (Case-name case))
+                              (short-name (::name case))
                               " "
                               (i64->string (case-type-id program case))
                               (string-concatenate
                                (map (lambda (field)
                                       (string-append " ("
-                                                     (Field-name field)
+                                                     (::name field)
                                                      " "
-                                                     (type-key (Field-type field))
+                                                     (type-key (::type field))
                                                      ")"))
-                                    (Case-fields case)))
+                                    (::fields case)))
                               ")"))
-             (DataType-cases data)))
+             (::cases data)))
        ")\n"))
 
     ;; ---- Strongly connected components ----
@@ -1539,7 +1539,7 @@
                      (lambda (search node) (if (reached? search node) search (visit search node)))
                      (Search edges empty-table empty-table empty-table (Nil) 0 (Nil))
                      (iota (vector-length edges)))))
-        (reverse (Search-components search))))
+        (reverse (::components search))))
 
     (: node-key (-> I64 String))
     (define (node-key node)
@@ -1547,25 +1547,25 @@
 
     (: reached? (-> Search I64 Bool))
     (define (reached? search node)
-      (match (table-ref (Search-index search) (node-key node))
+      (match (table-ref (::index search) (node-key node))
         ((Some _) #t)
         ((None) #f)))
 
     (: node-index (-> Search I64 I64))
     (define (node-index search node)
-      (match (table-ref (Search-index search) (node-key node))
+      (match (table-ref (::index search) (node-key node))
         ((Some number) number)
         ((None) (panic "internal error: the search has not reached this node"))))
 
     (: node-low (-> Search I64 I64))
     (define (node-low search node)
-      (match (table-ref (Search-low search) (node-key node))
+      (match (table-ref (::low search) (node-key node))
         ((Some number) number)
         ((None) (panic "internal error: the search has not reached this node"))))
 
     (: open? (-> Search I64 Bool))
     (define (open? search node)
-      (match (table-ref (Search-open search) (node-key node))
+      (match (table-ref (::open search) (node-key node))
         ((Some flag) flag)
         ((None) #f)))
 
@@ -1573,16 +1573,16 @@
     ;; when nothing it reached leads back past it.
     (: visit (-> Search I64 Search))
     (define (visit search node)
-      (let* ((number (Search-count search))
-             (entered (Search (Search-edges search)
-                              (table-set (Search-index search) (node-key node) number)
-                              (table-set (Search-low search) (node-key node) number)
-                              (table-set (Search-open search) (node-key node) #t)
-                              (Cons node (Search-stack search))
+      (let* ((number (::count search))
+             (entered (Search (::edges search)
+                              (table-set (::index search) (node-key node) number)
+                              (table-set (::low search) (node-key node) number)
+                              (table-set (::open search) (node-key node) #t)
+                              (Cons node (::stack search))
                               (+ number 1)
-                              (Search-components search)))
+                              (::components search)))
              (followed (fold-left (lambda (search next) (follow search node next))
-                                  entered (vector-ref (Search-edges search) node))))
+                                  entered (vector-ref (::edges search) node))))
         (if (= (node-low followed node) number) (pop-component followed node) followed)))
 
     ;; Lowers `node`'s link through its edge to `next`, visiting `next`
@@ -1598,7 +1598,7 @@
     (: lower (-> Search I64 I64 Search))
     (define (lower search node number)
       (Search-low-set search
-                      (table-set (Search-low search)
+                      (table-set (::low search)
                                  (node-key node)
                                  (min (node-low search node) number))))
 
@@ -1606,13 +1606,13 @@
     (: pop-component (-> Search I64 Search))
     (define (pop-component search node)
       (let loop ((search search) (component (Nil)))
-        (match (Search-stack search)
+        (match (::stack search)
           ((Cons top rest)
            (let ((search (Search-open-set (Search-stack-set search rest)
-                                          (table-set (Search-open search) (node-key top) #f))))
+                                          (table-set (::open search) (node-key top) #f))))
              (if (= top node)
                  (Search-components-set search
-                                        (Cons (Cons top component) (Search-components search)))
+                                        (Cons (Cons top component) (::components search)))
                  (loop search (Cons top component)))))
           ((Nil) (panic "internal error: empty search stack")))))
 
@@ -1632,7 +1632,7 @@
     ;; implements everything it declares, so it records no run of items.
     (: primitive-delta (-> Program Program))
     (define (primitive-delta program)
-      (Program-values-set empty-program (owned (Program-values program) "prim")))
+      (Program-values-set empty-program (owned (::values program) "prim")))
 
     )
 
