@@ -76,6 +76,12 @@ function of the expander has `mut` in its row — and where it does not, the
   there, such as an entry an editor just deleted, fails with one
   (`read-source-file` in `inputs.sld`), so a resident builder reports it
   rather than stopping.
+- **[`annotations.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/annotations.sld)** parses the optional
+  annotation list into typed metadata with source locations. Each annotation
+  owns its argument grammar; `doc` accepts literal strings and preserves
+  repeated fragments. Unknown annotations fail here. The expander attaches
+  metadata to canonical declarations and fields, and retains it through
+  library replay. Annotations do not enter type identity or generated layouts.
 - **[`core.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/core.sld)** defines the data the later
   passes share: `Type` (with effect rows), `Scheme`, class `Evidence`, the
   `Expr` tree, `Pattern`s, declared entities (`DataType`, `Class`,

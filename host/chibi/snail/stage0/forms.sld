@@ -31,9 +31,10 @@
 
     ;; An alias's name is bound, so libraries can export it.
     (define-syntax type
-      (syntax-rules ()
-        ((_ (name parameter ...) body) (define name 'name))
-        ((_ name body) (define name 'name))))
+      (er-macro-transformer
+       (lambda (form rename compare)
+         (let ((name (head-name (cadr form))))
+           `(,(rename 'define) ,name ',name)))))
 
     (define-syntax ann
       (syntax-rules ()
@@ -65,6 +66,15 @@
     ;; struct gets no pure replacements, as Snail-Core's own expander decides.
     (define (head-name head)
       (if (pair? head) (car head) head))
+
+    ;; Annotations affect compiler metadata only. Stage 0 erases the optional
+    ;; trailing list before counting an enum's cases or a case's fields.
+    (define (without-annotations parts)
+      (let ((backwards (reverse parts)))
+        (if (and (pair? backwards) (pair? (car backwards))
+                 (eq? (caar backwards) 'annotations))
+            (reverse (cdr backwards))
+            parts)))
 
     (define (joined-name . parts)
       (string->symbol
@@ -114,7 +124,8 @@
       (er-macro-transformer
        (lambda (form rename compare)
          (let ((name (head-name (cadr form)))
-               (fields (if (pair? (cddr form)) (caddr form) '())))
+               (fields (let ((body (without-annotations (cddr form))))
+                         (if (pair? body) (car body) '()))))
            `(,(rename 'begin)
              ,(constructor-definition name fields rename)
              ,@(record-definitions name fields #t rename))))))
@@ -127,10 +138,11 @@
            (,(rename 'define) ,(head-name (cadr form)) ',(head-name (cadr form)))
            ,@(apply append
                     (map (lambda (case)
-                           (let ((fields (if (pair? (cdr case)) (cadr case) '())))
+                           (let* ((body (without-annotations (cdr case)))
+                                  (fields (if (pair? body) (car body) '())))
                              (cons (constructor-definition (car case) fields rename)
                                    (record-definitions (car case) fields #f rename))))
-                         (cddr form)))))))
+                         (without-annotations (cddr form))))))))
 
     ;; ---- Pattern matching ----
 
@@ -213,7 +225,7 @@
       (er-macro-transformer
        (lambda (form rename compare)
          (let ((name (cadr form)))
-           (unless (null? (cdddr form))
+           (unless (null? (without-annotations (cdddr form)))
              (error "stage 0's effect takes no default clause" name))
            `(,(rename 'begin)
              (,(rename 'define) ,name (,(rename 'make-parameter) #f))
@@ -273,9 +285,11 @@
     (import
      (snail stage0 testing))
     (begin
+      (define annotations 1)
       (effect Stop
-        ((ctl stop (-> I64 Never))
-         (ctl ask (-> I64 I64))))
+        ((ctl stop (-> I64 Never) (annotations (doc "Stop now.")))
+         (ctl ask (-> I64 I64)))
+        (annotations (doc "A documented control effect.")))
 
       (define (failure-message thunk)
         (guard (failure ((error-object? failure) (error-object-message failure))) (thunk)))
@@ -286,7 +300,24 @@
         ((name String)
          (count mut I64)))
 
+      ;; Metadata erases before stage 0 counts fields or enum cases.
+      (struct Documented
+        ((text String (annotations (doc "Text."))))
+        (annotations (doc "A record.")))
+      (enum DocumentedResult
+        (DocumentedReady ((value I64 (annotations (doc "Value."))))
+                         (annotations (doc "Ready.")))
+        (DocumentedWaiting (annotations (doc "Waiting.")))
+        (annotations (doc "A result.")))
+      (type DocumentedAlias I64 (annotations (doc "An alias.")))
+      (: documented-number I64 (annotations (doc "A value.")))
+      (define documented-number 8)
+
       (define (test-forms)
+        (expect (Documented-text (Documented "text")) "text")
+        (expect (DocumentedReady-value (DocumentedReady 5)) 5)
+        (expect (match (DocumentedWaiting) ((DocumentedWaiting) #t) (_ #f)) #t)
+        (expect documented-number 8)
         ;; The implementation's answer is the handle's; nothing after the
         ;; operation runs, and a guard between them does not see it.
         (expect (handle Stop ((stop (lambda (code) (* code 10))) (ask (lambda (n resume) n)))

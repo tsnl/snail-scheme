@@ -96,6 +96,43 @@ Patterns are `_`, variables, literals (numbers, characters, strings,
 booleans) and constructor patterns, nested freely. `(List T)` is an ordinary
 enum with cases `Nil` and `Cons`.
 
+## Annotations
+
+A top-level type signature (`:`), `struct`, `enum`, `type`, `typeclass`, `effect`,
+`extern`, a struct or enum field, an enum case, a typeclass member or an
+effect operation can end with an optional
+`(annotations ...)` list. Omitting it and writing an empty list both leave
+the declaration undocumented. Each entry is an annotation application;
+its own parser establishes its argument types and meaning.
+
+```scheme
+{{#include ../../../tests/programs/annotations.sld:annotations}}
+```
+
+The first supported annotation is `(doc "text")`. Its argument must be a
+literal string. Repeated `doc` entries retain their source order and are
+joined with a newline when displayed. Comments are not documentation
+metadata, and annotation arguments are not evaluated. Unknown names and
+malformed arguments are compile errors; adding another annotation requires
+an argument parser, allowed targets and a consumer. Library-defined annotation
+kinds and executable attribute macros are not implemented.
+
+Metadata belongs to the canonical declaration; import prefixes and renames
+do not change its owner. A field belongs to its declaring constructor and
+field name, independently of the generated accessor and replacement functions.
+Those functions already carry their field origin, which tooling can follow
+for documentation. Metadata is retained when a library is reused by an
+incremental build and does not contribute to type identity, wire schemas,
+ownership, field order or runtime layout.
+
+Function and value documentation belongs on its type signature, outside
+its executable definition. A macro can emit an annotated signature followed
+by a definition. Raw macro arguments and ordinary expressions are not
+annotation slots: a function named `annotations` remains an ordinary function.
+The reader is unchanged; `:` is an identifier bound to the signature form,
+not special punctuation. In an enum's final clause, `annotations` is reserved
+for its metadata container, like `deriving` is reserved for derived instances.
+
 ## Typeclasses
 
 A typeclass declares methods over its parameters; instances may be generic

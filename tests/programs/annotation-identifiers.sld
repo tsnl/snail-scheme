@@ -1,0 +1,10 @@
+(import
+ (snail core base)
+ (snail core io))
+(: annotations (-> I64 I64))
+(define (annotations value) (+ value 1))
+(define result (annotations 3))
+(write-line (show result))
+(: define I64 (annotations (doc "A value named define.")))
+(define define 7)
+(write-line (show define))
