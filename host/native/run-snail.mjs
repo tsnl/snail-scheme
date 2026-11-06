@@ -57,7 +57,15 @@ class Exit { constructor(code) { this.code = code; } }
 
 function exiting(wasi) {
   const imports = wasi.getImportObject();
-  imports.wasi_snapshot_preview1 = {...imports.wasi_snapshot_preview1, proc_exit(code) { throw new Exit(code); }};
+  const native = imports.wasi_snapshot_preview1;
+  imports.wasi_snapshot_preview1 = {...native, proc_exit(code) { throw new Exit(code); },
+    // uvwasi resolves SYMLINK_FOLLOW before applying CREAT | EXCL. Clear
+    // that lookup flag for exclusive creation so a dangling leaf cannot
+    // become a newly created link target before the OS checks exclusivity.
+    path_open(fd, lookup, path, length, flags, ...rest) {
+      return native.path_open(fd, (flags & 5) === 5 ? lookup & ~1 : lookup, path, length, flags, ...rest);
+    },
+  };
   return {getImportObject: () => imports, initialize: instance => wasi.initialize(instance)};
 }
 

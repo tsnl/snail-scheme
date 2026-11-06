@@ -33,7 +33,7 @@
 
 (: write-report (-> String String String Unit ! console fs))
 (define (write-report label name text)
-  (report label (match (write-text-file (at name) text)
+  (report label (match (write-text-file (at name) text (CreateOrReplace))
                   ((Ok _) "ok")
                   ((Err error) (string-append "error: " (show error))))))
 

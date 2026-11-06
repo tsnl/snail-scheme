@@ -38,7 +38,7 @@
             (status-size (lambda () 0))
             (status-modified (lambda () 0))
             (path-read-text (lambda (limit name) -1))
-            (path-write-text (lambda (names) -1)))
+            (path-write-text (lambda (mode names) -1)))
          (and (file-exists? "λ/😀 name") (not (file-exists? "elsewhere"))
               (match (list-directory "λ")
                 ((Ok names) (string=? (string-join names ",") "x,y"))

@@ -115,7 +115,7 @@
       (Reconciling)
       (Prompted)
       (Ticked ((reply (Mailbox Bool))))
-      (Listing ((reply (Mailbox (Result (List String) String)))))
+      (Listing ((reply (Mailbox (Result Inventory String)))))
       (Stopping))
 
     ;; What a run target's supervisor is asked: to run a request, or none;
@@ -998,7 +998,7 @@
              (unless stopping (loop (rescan setup owner disk #t) #f)))
             ((Listing reply)
              (let ((next (rescan setup owner disk #t)))
-               (mailbox-post reply (disk-result next (inventory-files (Disk-taken next))))
+               (mailbox-post reply (disk-result next (Disk-taken next)))
                (loop next stopping)))
             ((Prompted) (loop (if stopping disk (rescan setup owner disk #t)) stopping))
             ((Reconciling)
@@ -1680,6 +1680,10 @@
          (match (run-control action (query-value query "target"))
            ((Some event) (commanding request owner event))
            ((None) (refused 404 "unknown project endpoint"))))
+        ((Pair "POST" (Cons "api" (Cons "file" (Nil))))
+         (create-entry-response setup disk request (query-value query "path") #f))
+        ((Pair "POST" (Cons "api" (Cons "directory" (Nil))))
+         (create-entry-response setup disk request (query-value query "path") #t))
         ((Pair "PUT" (Cons "api" (Cons "file" (Nil))))
          (save setup disk request (query-value query "path")))
         (_ (refused 404 "unknown project endpoint"))))
@@ -1711,17 +1715,23 @@
         (let ((answer (mailbox-receive reply)))
           (json-response (Answer-status answer) (Answer-body answer)))))
 
+    (struct ProjectEntries
+      ((files (List String))
+       (directories (List String))))
+
     ;; Both listing and search use a fresh inventory, filtered through the
     ;; same served-path boundary as file reads.
-    (: project-files (-> Setup (Mailbox Scan) (Result (List String) Response) ! mut tasks fs))
+    (: project-files (-> Setup (Mailbox Scan) (Result ProjectEntries Response) ! mut tasks fs))
     (define (project-files setup disk)
       (let ((reply (make-mailbox)))
         (mailbox-post disk (Listing reply))
         (match (mailbox-receive reply)
           ((Err message) (Err (refused 500 message)))
-          ((Ok paths)
-           (match (project-text-paths (Setup-project setup) paths)
-             ((Ok files) (Ok files))
+          ((Ok taken)
+           (match (project-text-paths (Setup-project setup) (inventory-files taken))
+             ((Ok files)
+              (Ok (ProjectEntries files (project-directory-paths (Setup-project setup)
+                                                                 (inventory-directories taken)))))
              ((Err refusal) (Err (file-refusal refusal))))))))
 
     (: project-listing (-> Setup (Mailbox Scan) Response ! mut tasks fs))
@@ -1733,7 +1743,14 @@
            (json-response 200
                           (JsonObject (list (Pair "name" (JsonString (base-name project)))
                                             (Pair "directory" (JsonString project))
-                                            (Pair "files" (JsonArray (map JsonString files))))))))))
+                                            (Pair "directories"
+                                                  (JsonArray (map JsonString
+                                                                  (ProjectEntries-directories
+                                                                   files))))
+                                            (Pair "files"
+                                                  (JsonArray (map JsonString
+                                                                  (ProjectEntries-files
+                                                                   files)))))))))))
 
     (: project-search (-> Setup (Mailbox Scan) String Response ! mut tasks fs))
     (define (project-search setup disk text)
@@ -1745,7 +1762,9 @@
            ((Ok paths)
             (json-response 200
                            (search-json
-                            (search-search-project (Setup-project setup) paths query))))))))
+                            (search-search-project (Setup-project setup)
+                                                   (ProjectEntries-files paths)
+                                                   query))))))))
 
     (: search-json (-> search-Results Json))
     (define (search-json results)
@@ -1779,8 +1798,21 @@
         ((ChangedOnDisk) (refused 409 "the file changed on disk; reload it before saving"))
         ((NotServed message) (refused 400 message))
         ((DiskFailed (NotFound)) (refused 404 "no such file or directory"))
+        ((DiskFailed (AlreadyExists))
+         (refused 409 "a file or directory already exists at that path"))
         ((DiskFailed (PermissionDenied)) (refused 403 "permission denied"))
         ((DiskFailed error) (refused 500 (show error)))))
+
+    (: create-entry-response (-> Setup (Mailbox Scan) Request String Bool Response ! mut fs))
+    (define (create-entry-response setup disk request path directory)
+      (if (> (vector-length (Request-body request)) 0)
+          (refused 400 "creation takes no request body")
+          (match (if directory (create-project-directory (Setup-project setup) path)
+                     (create-project-file (Setup-project setup) path))
+            ((Err refusal) (file-refusal refusal))
+            ((Ok _)
+             (mailbox-post disk (Prompted))
+             (json-response 201 (JsonObject (list (Pair "path" (JsonString path)))))))))
 
     ;; A save names one quoted revision and sends UTF-8 text/plain. Once it
     ;; is on disk, the disk task scans, so the build sees it within the

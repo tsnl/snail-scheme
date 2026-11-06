@@ -12,6 +12,7 @@
    inventory
    inventory-changes
    inventory-files
+   inventory-directories
    hints
    Watch
    watch-tree
@@ -117,6 +118,16 @@
                   (match (table-ref fingerprints path)
                     ((Some print) (and (>= (string-length print) 5)
                                        (string=? (substring print 0 5) "file ")))
+                    ((None) #f)))
+                (table-keys fingerprints))))
+
+    ;; Real directories only: the inventory never traverses symbolic links.
+    (: inventory-directories (-> Inventory (List String)))
+    (define (inventory-directories taken)
+      (let ((fingerprints (Inventory-fingerprints taken)))
+        (filter (lambda (path)
+                  (match (table-ref fingerprints path)
+                    ((Some print) (string=? print "directory"))
                     ((None) #f)))
                 (table-keys fingerprints))))
 

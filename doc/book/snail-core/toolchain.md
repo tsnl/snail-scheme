@@ -424,6 +424,15 @@ and skipped unreadable files. The scanner yields between files and scan chunks.
 Typing is debounced, and request numbers reject old successes and failures even
 when a query changes from A to B and back to A, or the palette closes and reopens.
 
+`new-file` and `new-directory` use the palette to enter a project-relative path.
+The parent directory must already exist. Creation refuses existing entries,
+including symlinks, and never truncates them; files use the editor's supported
+text extensions. A new file opens in the editor, ready to type and save. Empty
+directories come from the shared watcher inventory and survive reconnects.
+The API accepts bodyless `POST /api/file?path=PATH` and
+`POST /api/directory?path=PATH`, with the same origin and parent-path checks as
+saves. Successful creation prompts the shared watcher; it does not request a
+build itself. A completion for an obsolete palette cannot change the active file.
 
 Command/Ctrl+S saves, Command/Ctrl+B toggles files, Alt+Shift+F formats,
 and Command/Ctrl+backslash splits right (Shift splits down). Command/Ctrl+W
