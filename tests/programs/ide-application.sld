@@ -61,7 +61,7 @@
                  (lambda (method url headers body)
                    (if (string=? url "/api/project")
                        (Ok (Reply 200
-                                  "{\"name\":\"test\",\"directory\":\"/test\",\"files\":[\"notes.txt\"]}"))
+                                  "{\"name\":\"test\",\"directory\":\"/test\",\"files\":[\"notes.txt\"],\"directories\":[]}"))
                        (let ((saving (string=? method "PUT")))
                          (if saving
                              (begin (ref-set! disk body) (ref-set! revision "saved")
@@ -83,7 +83,7 @@
                                (if (ref-get streamed) (None)
                                    (begin
                                      (ref-set! streamed #t)
-                                     (Some (StreamEvent "files" "{}"))))))
+                                     (Some (StreamEvent "open" ""))))))
                 (stream-close (lambda (stream) (panic "unexpected stream close"))))
              (with-memory-dom cues
                               (lambda ()

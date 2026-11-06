@@ -39,8 +39,8 @@ async function throughTheService() {
   write('client.sld', '(import (snail core base)) (unit)');
   write('public/index.html', '<!doctype html><title>first</title>');
   const service = await startDevelopment(root, project), stream = await service.events();
-  const phases = id => stream.seen.filter(event => event.kind === 'status' && event.data.id === id).map(event => event.data.phase);
-  const invalidations = () => stream.seen.filter(event => event.kind === 'files').length;
+  const phases = id => [...new Set(stream.seen.filter(event => event.kind === 'snapshot' && event.data.build.id === id).map(event => event.data.build.phase))];
+  const invalidations = () => stream.seen.filter(event => event.kind === 'snapshot').at(-1)?.data.files ?? 0;
   let writer = null;
 
   try {
@@ -72,7 +72,7 @@ async function throughTheService() {
     write('main.sld', program('repaired'));
     let repaired = await service.settled(deleted.id);
     assert.deepEqual(repaired.diagnostics, []);
-    assert.ok(stream.seen.filter(event => event.kind === 'status' && event.data.phase === 'building').every(event => event.data.diagnostics.length === 0));
+    assert.ok(stream.seen.filter(event => event.kind === 'snapshot' && event.data.build.phase === 'building').every(event => event.data.build.diagnostics.length === 0));
     assert.ok(invalidations() > observed, 'the observer reports the edits to the editor too');
 
     // Artifact context must not overwrite a failing dependency's real source.

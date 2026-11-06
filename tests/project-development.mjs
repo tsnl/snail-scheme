@@ -67,7 +67,7 @@ async function throughTheService() {
   gateProducer();
   const source = fs.readFileSync(join(project, 'server.sld'), 'utf8');
   const service = await startDevelopment(root, project), stream = await service.events();
-  const phases = id => stream.seen.filter(event => event.kind === 'status' && event.data.id === id).map(event => event.data.phase);
+  const phases = id => [...new Set(stream.seen.filter(event => event.kind === 'snapshot' && event.data.build.id === id).map(event => event.data.build.phase))];
   let held = null;
 
   try {

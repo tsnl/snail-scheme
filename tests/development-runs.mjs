@@ -46,7 +46,7 @@ async function throughTheService() {
   const ready = (name, text) => service.until(async () => (await run(name))?.attempt?.stdout.includes(text), `${name} to print ${JSON.stringify(text)}`);
   const stopped = name => service.until(async () => ['exited', 'failed'].includes((await run(name))?.attempt?.phase), `${name} to stop`);
   const pid = async name => (await run(name)).attempt.pid;
-  const frames = kind => stream.seen.filter(event => event.kind === kind).map(event => event.data);
+  const frames = () => stream.seen.filter(event => event.kind === 'snapshot').map(event => event.data);
   let writer = null;
 
   try {
@@ -118,8 +118,8 @@ async function throughTheService() {
     accepted = await service.settled(superseded); await ready('app', 'newest\n');
     assert.equal(main(accepted).compiled, 0);
     assert.notEqual(await pid('app'), beforeSuperseded); dead(beforeSuperseded);
-    assert.ok(frames('status').some(status => status.id === superseded && status.phase === 'superseded'));
-    assert.ok(!frames('runs').some(runs => runs.some(run => run.attempt?.build === superseded)));
+    assert.ok(frames().some(state => state.build.id === superseded && state.build.phase === 'superseded'));
+    assert.ok(!frames().some(state => state.runs.some(run => run.attempt?.build === superseded)));
 
     // Removing and reintroducing a name reuses its owner, but not its old intent.
     const removedPid = await pid('app');

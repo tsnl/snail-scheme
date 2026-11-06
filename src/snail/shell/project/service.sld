@@ -41,6 +41,7 @@
    (snail shell development)
    (snail shell project bundle)
    (snail shell project files)
+   (prefix (snail shell project protocol) protocol-)
    (prefix (snail shell project search) search-))
   (begin
 
@@ -87,7 +88,7 @@
       (Overdue)
       (RunChanged
        ((name String)
-        (status Json)))
+        (status protocol-Run)))
       (RunStopped)
       (Joined
        ((id I64)
@@ -155,12 +156,12 @@
     (struct Supervised
       ((name String)
        (inbox (Mailbox Supervision))
-       (status Json)))
+       (status protocol-Run)))
 
     ;; Everything the step leaves to its host. `targets` is the latest
     ;; reply's candidate, by epoch, and `published` the targets of the one
-    ;; published, as the status shows them. `frames` are the last status
-    ;; and runs frames sent, so a frame is sent only when it changes.
+    ;; published, as the status shows them. `frames` is the last complete
+    ;; editor snapshot sent. The owner holds its instance and file counter.
     ;; `connections` are the ones whose handlers have not finished, by
     ;; number, and `clients` those of them that are event streams; `told`
     ;; is the event last sent to each browser target's pages.
@@ -186,7 +187,9 @@
        (clients (List Client))
        (told (List (Pair String String)))
        (connections (List (Pair I64 Connection)))
-       (frames (Pair String String))
+       (frames String)
+       (instance String)
+       (files I64)
        (stopping (Option (List Command)))
        (waiting I64)
        (done Bool)))
@@ -196,13 +199,13 @@
     ;; Dispatches the task that starts the service; the scheduler runs it
     ;; once the program's main returns. The service ends when the owner has
     ;; shut everything down, and fails the program if the step went fatal.
-    (: develop (-> Setup Unit ! mut tcp process fs modes hints console signals))
+    (: develop (-> Setup Unit ! mut tcp process fs modes hints console signals clock))
     (define (develop setup)
       (dispatch-local (once (lambda () (start setup)))))
 
     ;; Listens, starts the resident, announces the editor's URL and the
     ;; applications', and dispatches every other task.
-    (: start (-> Setup Unit ! mut tasks tcp process fs modes hints console signals))
+    (: start (-> Setup Unit ! mut tasks tcp process fs modes hints console signals clock))
     (define (start setup)
       (let* ((listener (listening setup))
              (applications (applications-listening (Setup-port setup)))
@@ -279,7 +282,7 @@
 
     (: new-host
        (-> Setup (Mailbox Message) (Mailbox Scan) (Mailbox (Option String)) Process Listener
-           Listener Host))
+           Listener Host ! clock))
     (define (new-host setup owner disk requests resident listener applications)
       (Host setup
             owner
@@ -299,7 +302,9 @@
             (Nil)
             (Nil)
             (Nil)
-            (Pair "" "")
+            ""
+            (string-append (show (Process-id resident)) ":" (show (monotonic-nanoseconds)))
+            0
             (None)
             0
             #f))
@@ -370,11 +375,12 @@
     (define (answer-for host event refusal)
       (match refusal
         ((Some (UnknownRunTarget name))
-         (Answer 404 (message->json (string-append "unknown accepted run target: " name))))
-        ((Some (ServiceClosed)) (Answer 503 (message->json "project development is closing")))
+         (Answer 404 (protocol-message->json (string-append "unknown accepted run target: " name))))
+        ((Some (ServiceClosed))
+         (Answer 503 (protocol-message->json "project development is closing")))
         ((None)
          (match event
-           ((RequestBuild) (Answer 202 (editor-status (Host-snapshot host))))
+           ((RequestBuild) (Answer 202 (protocol-build->json (editor-status (Host-snapshot host)))))
            (_ (Answer 204 (JsonNull)))))))
 
     ;; ---- Carrying out commands ----
@@ -530,7 +536,7 @@
                           (append (Host-runs host)
                                   (list (Supervised name inbox (idle-run name)))))))))
 
-    (: run-changed (-> Host String Json Host))
+    (: run-changed (-> Host String protocol-Run Host))
     (define (run-changed host name status)
       (Host-runs-set host
                      (map (lambda (run)
@@ -615,19 +621,21 @@
                                 (Candidate-generations (Published-candidate published)))))
                         publications)))
 
-    (: editor-status (-> Snapshot Json))
+    (: editor-status (-> Snapshot protocol-Build))
     (define (editor-status snapshot)
-      (JsonObject (list (Pair "phase" (JsonString (phase-name (Snapshot-phase snapshot))))
-                        (Pair "id" (JsonInteger (Snapshot-id snapshot)))
-                        (Pair "diagnostics"
-                              (JsonArray
-                               (map diagnostic->json (Snapshot-diagnostics snapshot)))))))
+      (protocol-Build (phase-name (Snapshot-phase snapshot)) (Snapshot-id snapshot)
+                      (map diagnostic-report (Snapshot-diagnostics snapshot))))
+
+    (: editor-state (-> Host protocol-ServerState))
+    (define (editor-state host)
+      (protocol-ServerState (Host-instance host) (Host-files host)
+                            (editor-status (Host-snapshot host)) (run-states host)))
 
     ;; All a client can observe in one snapshot: the attempt, the published
     ;; targets, the resident's process and the run targets.
     (: status->json (-> Host Json))
     (define (status->json host)
-      (match (editor-status (Host-snapshot host))
+      (match (protocol-build->json (editor-status (Host-snapshot host)))
         ((JsonObject members)
          (JsonObject (append members
                              (list (Pair "published" (Host-published host))
@@ -652,70 +660,49 @@
         ((Superseded) "superseded")
         ((Fatal) "fatal")))
 
-    (: diagnostic->json (-> Diagnostic Json))
-    (define (diagnostic->json diagnostic)
-      (JsonObject (list (Pair "severity" (JsonString "error"))
-                        (Pair "message" (JsonString (Diagnostic-message diagnostic)))
-                        (Pair "source"
-                              (match (Diagnostic-source diagnostic)
-                                ((Some point)
-                                 (JsonObject
-                                  (list (Pair "file" (JsonString (SourcePoint-file point)))
-                                        (Pair "line" (JsonInteger (SourcePoint-line point)))
-                                        (Pair "column"
-                                              (JsonInteger (SourcePoint-column point))))))
-                                ((None) (JsonNull)))))))
+    (: diagnostic-report (-> Diagnostic protocol-Report))
+    (define (diagnostic-report diagnostic)
+      (protocol-Report "error" (Diagnostic-message diagnostic)
+                       (match (Diagnostic-source diagnostic)
+                         ((Some point) (Some (protocol-Point (SourcePoint-file point)
+                                                             (SourcePoint-line point)
+                                                             (SourcePoint-column point))))
+                         ((None) (None)))))
 
-    (: message->json (-> String Json))
-    (define (message->json message)
-      (JsonObject (list (Pair "message" (JsonString message)))))
-
-    ;; Each run target the step knows, with its process as its supervisor
-    ;; last reported it.
     (: runs->json (-> Host Json))
     (define (runs->json host)
-      (JsonArray (map (lambda (run)
-                        (match (run-status host (RunStatus-name run))
-                          ((JsonObject members)
-                           (JsonObject (append members
-                                               (list
-                                                (Pair "wanted" (JsonBool (RunStatus-wanted run)))
-                                                (Pair "available"
-                                                      (JsonBool (RunStatus-available run)))))))
-                          (other other)))
-                      (Snapshot-runs (Host-snapshot host)))))
+      (JsonArray (map protocol-run->json (run-states host))))
 
-    (: run-status (-> Host String Json))
+    ;; One typed snapshot combines the step's intention and each supervisor's
+    ;; latest observation. Neither task constructs fragments of wire JSON.
+    (: run-states (-> Host (List protocol-Run)))
+    (define (run-states host)
+      (map (lambda (run)
+             (protocol-Run-available-set
+              (protocol-Run-wanted-set (run-status host (RunStatus-name run))
+                                       (RunStatus-wanted run))
+              (RunStatus-available run)))
+           (Snapshot-runs (Host-snapshot host))))
+
+    (: run-status (-> Host String protocol-Run))
     (define (run-status host name)
       (match (find (lambda (run) (string=? (Supervised-name run) name)) (Host-runs host))
         ((Some run) (Supervised-status run))
         ((None) (idle-run name))))
 
-    (: idle-run (-> String Json))
+    (: idle-run (-> String protocol-Run))
     (define (idle-run name)
-      (JsonObject (list (Pair "target" (JsonString name))
-                        (Pair "desired" (JsonNull))
-                        (Pair "attempt" (JsonNull)))))
+      (protocol-Run name (None) (None) #f #f))
 
     ;; ---- Event streams ----
 
-    (: frame (-> String Json String))
-    (define (frame kind value)
-      (string-append "event: " kind "\ndata: " (json->string value) "\n\n"))
-
-    ;; The status and runs frames that changed since the last sent, in one
-    ;; write, so a large status cannot leave the runs frame to find a
-    ;; healthy stream still writing it.
+    ;; A complete snapshot replaces the separate build, process and file
+    ;; events. Suppress duplicates; a new connection always gets current state.
     (: broadcast-changes (-> Host Host ! mut tcp))
     (define (broadcast-changes host)
-      (let* ((status (frame "status" (editor-status (Host-snapshot host))))
-             (runs (frame "runs" (runs->json host)))
-             (sent (Host-frames host))
-             (text (string-append (if (string=? status (Pair-first sent)) "" status)
-                                  (if (string=? runs (Pair-second sent)) "" runs))))
-        (if (string=? text "")
-            host
-            (broadcast (Host-frames-set host (Pair status runs)) text))))
+      (let ((text (protocol-state->event (editor-state host))))
+        (if (string=? text (Host-frames host)) host
+            (broadcast (Host-frames-set host text) text))))
 
     ;; A change under the project tells each editor to list its files again.
     (: touched-files (-> Host Event Host ! mut tcp))
@@ -726,7 +713,7 @@
            (if (any? (lambda (path) (or (string=? path project)
                                         (starts-with? path (string-append project "/"))))
                      paths)
-               (broadcast host (frame "files" (JsonNull)))
+               (broadcast-changes (Host-files-set host (+ (Host-files host) 1)))
                host)))
         (_ host)))
 
@@ -764,10 +751,11 @@
            ! mut tcp fs))
     (define (joined host id watching connection frames reply)
       (cond ((option-some? (Host-stopping host))
-             (mailbox-post reply (Answer 503 (message->json "project development is closing")))
+             (mailbox-post reply
+                           (Answer 503 (protocol-message->json "project development is closing")))
              host)
             ((>= (length (Host-clients host)) 64)
-             (mailbox-post reply (Answer 429 (message->json "too many event connections")))
+             (mailbox-post reply (Answer 429 (protocol-message->json "too many event connections")))
              host)
             (else
              (mailbox-post reply (Answer 200 (JsonNull)))
@@ -862,10 +850,7 @@
 
     (: first-frames (-> Host String))
     (define (first-frames host)
-      (string-append "retry: 1000\n\n"
-                     (frame "status" (editor-status (Host-snapshot host)))
-                     (frame "runs" (runs->json host))
-                     (frame "files" (JsonNull))))
+      (string-append "retry: 1000\n\n" (protocol-state->event (editor-state host))))
 
     (: option-some? (All (T) (requires (Copy T)) (-> (Option T) Bool)))
     (define (option-some? option)
@@ -1335,7 +1320,7 @@
                                                    (mailbox-receive
                                                     (Supervisor-inbox supervisor))))))
         (mailbox-post (Supervisor-owner supervisor)
-                      (RunChanged (Supervisor-name supervisor) (supervisor->json supervisor)))
+                      (RunChanged (Supervisor-name supervisor) (supervisor-state supervisor)))
         (if (and (Supervisor-finishing supervisor) (not (running? supervisor)))
             (mailbox-post (Supervisor-owner supervisor) (RunStopped))
             (supervise supervisor))))
@@ -1494,42 +1479,29 @@
         ((None) supervisor)))
 
     ;; The target's status: what is wanted, and the process it owns.
-    (: supervisor->json (-> Supervisor Json))
-    (define (supervisor->json supervisor)
-      (JsonObject (list (Pair "target" (JsonString (Supervisor-name supervisor)))
-                        (Pair "desired"
-                              (match (Supervisor-desired supervisor)
-                                ((Some (Pair _ request))
-                                 (JsonObject
-                                  (list (Pair "build" (JsonInteger (RunRequest-build request))))))
-                                ((None) (JsonNull))))
-                        (Pair "attempt"
-                              (match (Supervisor-child supervisor)
-                                ((Some child) (child->json child))
-                                ((None) (JsonNull)))))))
+    (: supervisor-state (-> Supervisor protocol-Run))
+    (define (supervisor-state supervisor)
+      (protocol-Run (Supervisor-name supervisor)
+                    (match (Supervisor-desired supervisor)
+                      ((Some (Pair _ request)) (Some (RunRequest-build request)))
+                      ((None) (None)))
+                    (match (Supervisor-child supervisor)
+                      ((Some child) (Some (child-state child)))
+                      ((None) (None)))
+                    #f #f))
 
-    (: child->json (-> Child Json))
-    (define (child->json child)
-      (JsonObject (list (Pair "build" (JsonInteger (RunRequest-build (Child-request child))))
-                        (Pair "pid"
-                              (match (Child-process child)
-                                ((Some process) (JsonInteger (i32->i64 (Process-id process))))
-                                ((None) (JsonNull))))
-                        (Pair "phase" (JsonString (child-phase child)))
-                        (Pair "code"
-                              (match (Child-exit child)
-                                ((Some (Ok (Exited code))) (JsonInteger (i32->i64 code)))
-                                (_ (JsonNull))))
-                        (Pair "signal"
-                              (match (Child-exit child)
-                                ((Some (Ok (Signaled name))) (JsonString name))
-                                (_ (JsonNull))))
-                        (Pair "error"
-                              (match (Child-exit child)
-                                ((Some (Err error)) (JsonString (ProcessError-code error)))
-                                (_ (JsonNull))))
-                        (Pair "stdout" (JsonString (lossy-text (Child-stdout child))))
-                        (Pair "stderr" (JsonString (lossy-text (Child-stderr child)))))))
+    (: child-state (-> Child protocol-Attempt))
+    (define (child-state child)
+      (protocol-Attempt
+       (RunRequest-build (Child-request child))
+       (match (Child-process child)
+         ((Some process) (Some (i32->i64 (Process-id process)))) ((None) (None)))
+       (child-phase child)
+       (match (Child-exit child)
+         ((Some (Ok (Exited code))) (Some (i32->i64 code))) (_ (None)))
+       (match (Child-exit child) ((Some (Ok (Signaled name))) name) (_ ""))
+       (match (Child-exit child) ((Some (Err error)) (ProcessError-code error)) (_ ""))
+       (lossy-text (Child-stdout child)) (lossy-text (Child-stderr child))))
 
     (: child-phase (-> Child String))
     (define (child-phase child)
@@ -1583,7 +1555,7 @@
 
     (: refused (-> I32 String Response))
     (define (refused status message)
-      (json-response status (message->json message)))
+      (json-response status (protocol-message->json message)))
 
     ;; A connection's one request, by the connection's number.
     (: serve-connection
@@ -1743,16 +1715,10 @@
         ((Ok files)
          (let ((project (Setup-project setup)))
            (json-response 200
-                          (JsonObject (list (Pair "name" (JsonString (base-name project)))
-                                            (Pair "directory" (JsonString project))
-                                            (Pair "directories"
-                                                  (JsonArray (map JsonString
-                                                                  (ProjectEntries-directories
-                                                                   files))))
-                                            (Pair "files"
-                                                  (JsonArray (map JsonString
-                                                                  (ProjectEntries-files
-                                                                   files)))))))))))
+                          (protocol-project->json
+                           (protocol-Project (base-name project) project
+                                             (ProjectEntries-files files)
+                                             (ProjectEntries-directories files))))))))
 
     (: project-search (-> Setup (Mailbox Scan) String Response ! mut tasks fs))
     (define (project-search setup disk text)
@@ -1770,28 +1736,21 @@
 
     (: search-json (-> search-Results Json))
     (define (search-json results)
-      (JsonObject
-       (list (Pair "hits" (JsonArray (map hit-json (search-Results-hits results))))
-             (Pair "skipped" (JsonInteger (search-Results-skipped results)))
-             (Pair "limited" (JsonBool (search-Results-limited results))))))
-
-    (: hit-json (-> search-Hit Json))
-    (define (hit-json hit)
-      (JsonObject
-       (list (Pair "path" (JsonString (search-Hit-path hit)))
-             (Pair "revision" (JsonString (search-Hit-revision hit)))
-             (Pair "line" (JsonInteger (search-Hit-line hit)))
-             (Pair "column" (JsonInteger (search-Hit-column hit)))
-             (Pair "snippet" (JsonString (search-Hit-snippet hit))))))
+      (protocol-search->json
+       (protocol-SearchResults
+        (map (lambda (hit)
+               (protocol-Hit (protocol-Point (search-Hit-path hit) (search-Hit-line hit)
+                                             (search-Hit-column hit))
+                             (search-Hit-revision hit) (search-Hit-snippet hit)))
+             (search-Results-hits results))
+        (search-Results-skipped results) (search-Results-limited results))))
 
     (: file-response (-> (Result ProjectText FileRefusal) Response))
     (define (file-response result)
       (match result
         ((Ok text)
-         (json-response 200
-                        (JsonObject (list (Pair "text" (JsonString (ProjectText-text text)))
-                                          (Pair "revision"
-                                                (JsonString (ProjectText-revision text)))))))
+         (json-response 200 (protocol-file->json (protocol-Snapshot (ProjectText-text text)
+                                                                    (ProjectText-revision text)))))
         ((Err refusal) (file-refusal refusal))))
 
     (: file-refusal (-> FileRefusal Response))
