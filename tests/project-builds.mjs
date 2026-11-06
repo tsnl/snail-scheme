@@ -35,14 +35,24 @@ try {
 
   await build('page');
   const first = await realpath(output('page'));
-  assert.equal(await readFile(join(first, 'index.html'), 'utf8'), '<!doctype html><title>Project</title>');
+  assert.equal(await readFile(join(first, 'index.html'), 'utf8'), '<!doctype html><head><link id="snail-web-app" rel="manifest" href="./manifest.webmanifest"><title>Project</title>');
+  const webApp = JSON.parse(await readFile(join(first, 'manifest.webmanifest'), 'utf8'));
+  assert.equal(webApp.id, undefined); assert.equal(webApp.start_url, './'); assert.equal(webApp.scope, './');
+  assert.equal(webApp.display, 'standalone');
+  for (const size of [192, 512]) {
+    const png = await readFile(join(first, `snail-icon-${size}.png`));
+    assert.equal(png.readUInt32BE(16), size); assert.equal(png.readUInt32BE(20), size);
+  }
   assert.deepEqual(await readFile(join(first, 'nested/data.bin')), Buffer.from([0, 255, 127]));
   assert.equal(await readFile(join(first, 'host.mjs'), 'utf8'), await readFile(join(root, 'host/browser/host.mjs'), 'utf8'));
 
+  const customManifest = JSON.stringify({id:'/custom-project-app', name:'My application', start_url:'./', display:'fullscreen'});
+  await writeFile(join(project, 'public/manifest.webmanifest'), customManifest);
   await rm(join(project, 'public/obsolete.txt'));
   await build('page');
   const second = await realpath(output('page'));
   assert.notEqual(second, first);
+  assert.equal(await readFile(join(second, 'manifest.webmanifest'), 'utf8'), customManifest, 'custom manifest replaces the default whole');
   await assert.rejects(readFile(join(second, 'obsolete.txt')), {code: 'ENOENT'});
   assert.equal(await readFile(join(first, 'obsolete.txt'), 'utf8'), 'first generation', 'old readers keep their complete generation');
 

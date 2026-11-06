@@ -127,6 +127,7 @@
         ((Some #\\)
          (match (char-at text (+ index 1))
            ((Some #\n) (read-string-literal text (+ index 2) (Cons #\newline chars)))
+           ((Some #\r) (read-string-literal text (+ index 2) (Cons #\return chars)))
            ((Some #\t) (read-string-literal text (+ index 2) (Cons #\tab chars)))
            ((Some c) (read-string-literal text (+ index 2) (Cons c chars)))
            ((None) (Failed "unterminated string"))))

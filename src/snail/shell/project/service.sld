@@ -24,6 +24,7 @@
    Setup
    develop)
   (import
+   (snail shell project web-app)
    (snail core base)
    (snail core io)
    (snail shell task)
@@ -1646,6 +1647,7 @@
       (let ((method (RequestHead-method (Request-head request))) (path (Target-path target)))
         (cond ((not (string=? method "GET"))
                (Some (api setup owner disk request method path (Target-query target))))
+              ((same-strings? path (list "manifest.webmanifest")) (Some (editor-manifest)))
               ((same-strings? path (list "api" "events"))
                (stream-events owner id connection (None))
                (None))
@@ -2013,19 +2015,36 @@
     ;; are never served here.
     (: asset (-> Setup (List String) (Option (Pair String String))))
     (define (asset setup path)
+      (match (if (root-path? path) (list "index.html") path)
+        ((Cons name (Nil))
+         (match (find (lambda (asset) (string=? name (Pair-first asset))) (editor-assets setup))
+           ((Some asset) (Some (Pair-second asset)))
+           ((None) (None))))
+        (_ (None))))
+
+    ;; The public name, source path and media type are one declaration.
+    (: editor-assets (-> Setup (List (Pair String (Pair String String)))))
+    (define (editor-assets setup)
       (let ((root (Setup-root setup)))
-        (match (if (root-path? path) (Nil) path)
-          ((Nil) (Some (Pair (string-append root "/host/ide/index.html") "text/html")))
-          ((Cons name (Nil))
-           (cond ((string=? name "ide.wasm") (Some (Pair (Setup-editor setup) "application/wasm")))
-                 ((string=? name "ide.css")
-                  (Some (Pair (string-append root "/host/ide/ide.css") "text/css")))
-                 ((string=? name "ide.mjs")
-                  (Some (Pair (string-append root "/host/ide/ide.mjs") "text/javascript")))
-                 ((member? name interface-modules)
-                  (Some (Pair (string-append root "/host/browser/" name) "text/javascript")))
-                 (else (None))))
-          (_ (None)))))
+        (append
+         (list (Pair "index.html" (Pair (string-append root "/host/ide/index.html") "text/html"))
+               (Pair "ide.wasm" (Pair (Setup-editor setup) "application/wasm"))
+               (Pair "ide.css" (Pair (string-append root "/host/ide/ide.css") "text/css"))
+               (Pair "ide.mjs" (Pair (string-append root "/host/ide/ide.mjs") "text/javascript")))
+         (map (lambda (asset)
+                (Pair (Pair-first asset)
+                      (Pair (string-append root "/host/browser/" (Pair-first asset))
+                            (Pair-second asset))))
+              (append (list (Pair "snail-icon-192.png" "image/png")
+                            (Pair "snail-icon-512.png" "image/png")
+                            (Pair "snail-icon.svg" "image/svg+xml"))
+                      (map (lambda (name) (Pair name "text/javascript")) interface-modules))))))
+
+    (: editor-manifest (-> Response))
+    (define (editor-manifest)
+      (Response 200
+                (Cons (Header "Content-Type" "application/manifest+json") security-headers)
+                (string->utf8 (json->string (web-app-manifest "Snail IDE")))))
 
     ;; What host/browser/ui.mjs imports, and what they import.
     (: interface-modules (List String))

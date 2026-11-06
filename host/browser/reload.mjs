@@ -16,7 +16,7 @@ const client = await createReloadClient(new Uint8Array(await (await fetch(beside
   relink: async (module, fresh, manifest) => (await loadHost()).relinkAll(module, fresh, manifest),
   save: async () => (await loadHost())?.saveAll(),
 });
-client.start(document.getElementById('snail-manifest').textContent);
+client.start(document.getElementById('snail-manifest').getAttribute('content'));
 new EventSource(beside('events')).addEventListener('message', message => client.event(message.data));
 
 // An uncaught error comes with the lines the programs last wrote to standard

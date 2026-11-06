@@ -1,8 +1,8 @@
-/ -> 200 text/html; charset=utf-8: <!doctype html><base href="/site/.snail/builds/4/"><script type="application/snail-manifest" id="snail-manifest">(base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "aaaa") ("main" "bbbb"))</script><script type="module" src="/site/.snail/reload.mjs"></script>
-<title>four</title>
+/ -> 200 text/html; charset=utf-8: <!doctype html>
+<head><base href="/site/.snail/builds/4/"><meta id="snail-manifest" content="(base &quot;/site/.snail/builds/4/&quot;) (files (&quot;index.html&quot; &quot;i4&quot;) (&quot;style.css&quot; &quot;s4&quot;)) (modules (&quot;snail core base&quot; &quot;aaaa&quot;) (&quot;main&quot; &quot;bbbb&quot;))"><script type="module" src="/site/.snail/reload.mjs"></script><title>four</title>
 
-/index.html -> 200 text/html; charset=utf-8: <!doctype html><base href="/site/.snail/builds/4/"><script type="application/snail-manifest" id="snail-manifest">(base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "aaaa") ("main" "bbbb"))</script><script type="module" src="/site/.snail/reload.mjs"></script>
-<title>four</title>
+/index.html -> 200 text/html; charset=utf-8: <!doctype html>
+<head><base href="/site/.snail/builds/4/"><meta id="snail-manifest" content="(base &quot;/site/.snail/builds/4/&quot;) (files (&quot;index.html&quot; &quot;i4&quot;) (&quot;style.css&quot; &quot;s4&quot;)) (modules (&quot;snail core base&quot; &quot;aaaa&quot;) (&quot;main&quot; &quot;bbbb&quot;))"><script type="module" src="/site/.snail/reload.mjs"></script><title>four</title>
 
 /modules.json -> 200 application/json: {"store": "../.snail-store/", "runtime": {"digest": "cccc", "size": 7}, "modules": [{"name": "snail core base", "digest": "aaaa", "size": 13}, {"name": "main", "digest": "bbbb", "size": 0}], "files": []}
 /modules/a.wasm -> 200 application/wasm: four's module
