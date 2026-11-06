@@ -383,6 +383,34 @@ preserves exact bytes until saved.
 The browser has no compiler, copied project, directory handles or persistent
 project storage. Closing/reloading a page with drafts asks before discarding them.
 
+The editor has no top toolbar. Its command palette opens with Command/Ctrl+Shift+P,
+F1, or the `>_` button in the status strip. Type a command name, use arrows or Tab
+to choose, Enter to run, and Escape to return to the editor. Names such as
+`save-buffer`, `format-buffer`, `reload-buffer`, `build-project`, `split-right`,
+`split-down`, `toggle-files`, and `close-editor` name Scheme functions. The
+palette, buttons and keyboard dispatch command names through the application loop.
+`(snail shell ui commands)` holds an ordered vector of names and Scheme actions.
+`(snail shell ui shortcuts)` separately maps complete key chords to those names,
+checking duplicate chords and unknown commands when the mappings are built.
+Dispatch schedules an invocation against the current model; asynchronous work
+then returns messages through the existing UI task queue. File reads, saves and
+searches retain the evidence specific to their own results.
+
+The application lives in `(snail shell ide application)`; `host/ide/ide.sld`
+only binds it to the browser page. Scheme scenarios can run its exact update,
+view and command loop over the memory DOM and a controlled fetch handler.
+Chromium checks retain the browser-specific behavior: focus, default keyboard
+actions, undo, cancellation and browser lifecycle. JavaScript is the browser
+launcher and API boundary, not the implementation of IDE behavior.
+
+Command/Ctrl+S saves, Command/Ctrl+B toggles files, Command/Ctrl+Shift+F formats,
+and Command/Ctrl+backslash splits right (Shift splits down). Command/Ctrl+W
+closes the active editor when the browser delivers that key; browsers may reserve
+it to close their own tab or window. Alt+W and the editor's × button provide
+alternatives. Closing the last view of an unsaved buffer asks before discarding
+it; closing one of several views keeps the shared buffer. The last pane stays
+empty until another file is opened.
+
 The Applications panel selects one run target and provides Start, Stop and Restart.
 It shows requested and observed builds, PID, exit outcome and separate stdout/stderr
 tails. Output is literal text and preserves scroll position; it does not refresh
