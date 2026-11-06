@@ -86,8 +86,11 @@ references and access each other's GC values.
 
 `snail dev PROJECT` starts one native development process and prints its editor
 URL. `--port PORT` selects a port (8000 by default; 0 chooses a free one).
-`make ide` runs it for Siegework. The browser owns open buffers and drafts;
-the native service owns disk files, observation and compilation.
+`make ide` runs `snail dev .` for the whole repository: its compiler, IDE,
+libraries and applications share one file tree, and the root `project.datum`
+names the `siegework` and `hearsay` browser targets. The browser owns open
+buffers and drafts; the native service owns disk files, observation and
+compilation.
 
 ```text
 editor Save or external writer -> disk -> disk task

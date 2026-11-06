@@ -12,6 +12,7 @@ on:
       - scripts/**
       - src/**
       - book.toml
+      - project.datum
       - snail
       - Makefile
       - rust-toolchain.toml

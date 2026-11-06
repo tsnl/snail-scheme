@@ -1,0 +1,10 @@
+((build-target siegework
+               (browser
+                (entry "apps/siegework/main.sld")
+                (library-roots ("apps/siegework/src"))
+                (public "apps/siegework/public")))
+ (build-target hearsay
+               (browser
+                (entry "apps/hearsay/main.sld")
+                (library-roots ("apps/hearsay/src"))
+                (public "apps/hearsay/public"))))
