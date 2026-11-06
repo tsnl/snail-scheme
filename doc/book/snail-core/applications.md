@@ -140,6 +140,19 @@ asks the person a question and answers whether they agreed. When the view
 gives a field a new value, as when another view of its text changed it,
 the field keeps its selection and scroll as far as the new text reaches.
 
+Browser installation and fullscreen are shared Snail-Core capabilities. Any
+application using `(snail shell dom)` with the page handler can invoke them;
+the IDE's named commands are one UI for those operations. Every browser target
+also receives the default manifest and icons during packaging, unless it
+supplies its own manifest. An application chooses its own installation button
+or command; the packager does not inject IDE controls into it.
+
+The scalar declarations in `(snail runtime browser dom)` define the browser
+boundary. `(snail shell dom page)` converts their results into typed values and
+task completions; `host/browser/install.mjs` retains the browser's opaque offer
+and calls its native APIs. Scheme code owns application behavior, and Chromium
+tests cover the browser decisions that the memory DOM cannot make.
+
 The same `dom` effect exposes browser window capabilities. `installation-status`
 reports an available installation offer, an installed/standalone app, or no offer.
 `install-app` awaits a single-use offer and returns accepted, dismissed,
