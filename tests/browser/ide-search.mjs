@@ -141,7 +141,50 @@ try {
   await until(() => browser.evaluate('!document.getElementById("command-query")'), 'stale revision opened');
   await sleep(250);
   assert.equal(await browser.evaluate('document.querySelector("textarea").selectionStart'), 0, 'old coordinates are rejected');
-  console.log('ide-search: files, saved and draft matches, cursor safety, and stale success/failure replies');
+
+  // Search can jump beyond the first screen. Use actual pointer input here:
+  // setting selectionStart would also succeed on an offscreen textarea.
+  const longLines = Array.from({length: 240}, (_, i) => `; line ${i + 1}: ${i === 89 ? 'cursor-target' : 'ordinary text'}`);
+  const longText = longLines.join('\n') + '\n';
+  const offset = line => longLines.slice(0, line).reduce((count, text) => count + text.length + 1, 0);
+  await writeFile(join(project, 'long.sld'), longText);
+  await command(browser, 'search-project'); await query('cursor-target');
+  await until(async () => (await labels()).join() === 'long.sld:90:12', 'result beyond first screen');
+  await key({key: 'Enter'});
+  await until(() => browser.evaluate('document.querySelector(".pane.active textarea").snailPath === "long.sld" && document.querySelector(".pane.active .editor").scrollTop > 1000'), 'deep result revealed');
+  const point = line => browser.evaluate(`(() => {
+    const field = document.querySelector('.pane.active textarea'), box = field.getBoundingClientRect(), style = getComputedStyle(field);
+    return {x: box.left + parseFloat(style.paddingLeft) + 1,
+      y: box.top + parseFloat(style.paddingTop) + (${line} + .5) * parseFloat(style.lineHeight)};
+  })()`);
+  const mouse = (type, where, buttons) => browser.send('Input.dispatchMouseEvent', {type, ...where, button: 'left', buttons, clickCount: 1});
+  const click = async where => { await mouse('mousePressed', where, 1); await mouse('mouseReleased', where, 0); };
+  await click(await point(100));
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").selectionStart'), offset(100), 'click reaches the text field below the first screen');
+
+  const beforeScroll = await browser.evaluate('document.querySelector(".pane.active .editor").scrollTop');
+  await browser.send('Input.dispatchMouseEvent', {type: 'mouseWheel', ...await point(100), deltaX: 0, deltaY: 1200});
+  await until(() => browser.evaluate(`document.querySelector('.pane.active .editor').scrollTop > ${beforeScroll + 1000}`), 'wheel scroll after search');
+  const line = await browser.evaluate(`Math.floor(document.querySelector('.pane.active .editor').scrollTop / 20) + 5`);
+  await mouse('mousePressed', await point(line), 1);
+  await mouse('mouseMoved', await point(line + 2), 1);
+  await mouse('mouseReleased', await point(line + 2), 0);
+  assert.deepEqual(await browser.evaluate(`(() => { const field = document.querySelector('.pane.active textarea'); return [field.selectionStart, field.selectionEnd]; })()`), [offset(line), offset(line + 2)], 'drag selects visible text after scrolling');
+  await click(await point(line + 1));
+  await browser.send('Input.insertText', {text: 'typed '});
+  const edited = longText.slice(0, offset(line + 1)) + 'typed ' + longText.slice(offset(line + 1));
+  await until(() => browser.evaluate(`document.querySelector('.pane.active textarea').value === ${JSON.stringify(edited)}`), 'typing at the clicked line');
+  await until(async () => (await title()).includes('●'), 'deep edit retained as a draft');
+  if (screenshot) await browser.screenshot(screenshot);
+
+  // A short file still fills its pane, including the space after its text.
+  await browser.evaluate(`document.querySelector('.file[data-path="main.sld"]').click()`);
+  await until(() => browser.evaluate('document.querySelector(".pane.active textarea").snailPath === "main.sld"'), 'short file restored');
+  const blank = await browser.evaluate(`(() => { const field = document.querySelector('.pane.active textarea'), box = field.closest('.editor').getBoundingClientRect();
+    return {x: field.getBoundingClientRect().left + 20, y: box.bottom - 25}; })()`);
+  await click(blank);
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").selectionStart === document.querySelector(".pane.active textarea").value.length'), true, 'blank space in a short file remains editable');
+  console.log('ide-search: files, saved and draft matches, pointer editing after scrolling, cursor safety, and stale replies');
 } catch (error) {
   console.error(await browser.evaluate(`({query:document.getElementById('command-query')?.value,
     mode:document.getElementById('command-query')?.placeholder,
