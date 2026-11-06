@@ -137,7 +137,9 @@ fails after it; changing its entry or ordered library roots starts a new
 Session. Producers run again each attempt, once each. The
 [compiler chapter](compilers.md#separate-compilation) explains reuse: a change
 to a monomorphic function body recompiles its library; an interface change also
-recompiles importers. A cold start has no retained compiler cache.
+recompiles importers. Expanded instance and generated global identities are
+part of that interface, so callers are rebuilt when those symbols change.
+A cold start has no retained compiler cache.
 
 `snail dev` is the same program's `dev`, whose service is
 `(snail shell project service)`. Its tasks each wait on one thing: the owner,
