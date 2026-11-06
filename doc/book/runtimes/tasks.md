@@ -132,6 +132,52 @@ Only `yield`, `sleep` and `await` let other tasks run. Console and
 filesystem services remain synchronous; performing an arbitrary effect
 does not by itself wait, and the scheduler does not preempt a CPU loop.
 
+## One-shot results
+
+`(snail shell future)` supplies a result channel independently of any task.
+`make-promise` returns a `Pair` of a linear `Promise<T>` and a linear
+`Future<T>`, even when `T` is Copy. Constructors are private. The producer
+consumes its promise in `fulfill`; the receiver consumes its future in
+`poll`, which answers one of:
+
+```scheme
+(enum (Poll T)
+  (Pending ((future (Future T))))
+  (Ready ((result (Completion T)))))
+
+(enum (Completion T)
+  (Completed ((value T)))
+  (Abandoned))
+```
+
+Pending returns the future for the next poll. Ready transfers the result
+exactly once. A result may itself be linear. Polling neither runs work nor
+waits for work: it performs `mut`, but no control effect. A model can own
+the future and keep its last display snapshot alongside it; a pure view
+reads the snapshot through a [`Borrow<Model>` parameter](../snail-core/ownership.md#lexically-scoped-borrows).
+
+`fulfill` answers `Ok Unit` after publication, or `Err T` if the receiver
+was already dropped, returning the unsent value to its caller. Dropping a
+promise publishes Abandoned. Dropping a future cancels reception and drops
+any buffered result with its own Drop effects. These are deterministic
+ownership operations; garbage collection is not responsible for cleanup.
+Ordinary application failures belong in `T`, usually `Result<A, E>`.
+Fatal traps retain the language's fatal contract and do not unwind owners.
+
+Publication performs `mut` and the ordinary `completion` effect. Its
+`completed` operation defaults to doing nothing; a reactor can handle it
+to request another update without inventing a message for each result
+type. Synchronization does not make publication pure: it changes what a
+later poll of another endpoint observes.
+
+`on-ready` consumes and returns a future with a replacement waker, an
+ordinary `-> Unit ! mut` function. A pending future stores it; a ready
+future invokes it immediately. Publication restores the shared slot before
+calling the waker and then `completed`, so either may reenter without
+observing a half-written slot. A scheduler must register its waker and
+park without an intervening yield. The channel has no scheduler, timer,
+polling loop, or task of its own.
+
 ## Mailboxes
 
 A `Mailbox` is how tasks hand each other values. Messages are received in

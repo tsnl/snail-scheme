@@ -614,6 +614,8 @@
     ("tests/programs" "tasks-main")
     ("tests/programs" "once")
     ("tests/programs" "tasks")
+    ("tests/programs" "futures")
+    ("tests/programs" "futures-wake")
     ("tests/programs" "mailbox")
     ("tests/programs" "effect-row-inclusion")
     ("tests/programs" "link-file")
