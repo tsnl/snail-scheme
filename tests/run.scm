@@ -3,7 +3,7 @@
 ;; each line of NAME.err in its diagnostics, in order. Then the Siegework package is built
 ;; and driven headlessly, and the in-process assembler assembles a program.
 ;; Programs compile one at a time, then link and run in parallel. Finally
-;; some programs and Siegework run again as modules linked when they run.
+;; representative programs run again as modules linked when they run.
 ;;
 ;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/run.scm ROOT [NAME ...]
 (import
@@ -133,26 +133,13 @@
 
 ;; ---- Applications ----
 
-(define (compile-siegework root)
-  (guard (failure (#t (report "siegework" "compile failed" (error-text failure))))
-    (let ((text (program->wat root
-                              (cons (path-join root "apps/siegework/src")
-                                    (standard-directories root))
-                              (path-join root "apps/siegework/main.sld"))))
-      (lambda () (check-siegework root text)))))
-
-(define (check-siegework root text)
-  (guard (failure (#t (report "siegework" "headless run failed" (error-text failure))))
-    (let ((program (path-join root "build/tests/siegework/app.wasm")))
-      (link-wat root text program)
-      (let ((result (capture-process (list "node"
-                                           "--no-warnings"
-                                           (path-join root "apps/siegework/tests/headless.mjs")
-                                           program))))
-        (or (zero? (caddr result))
-            (report "siegework"
-                    "headless run failed"
-                    (string-append (car result) (cadr result))))))))
+(define (check-siegework root)
+  (let ((result (capture-process (list "node"
+                                       "--no-warnings"
+                                       (path-join root "apps/siegework/tests/headless.mjs")
+                                       root))))
+    (or (zero? (caddr result))
+        (report "siegework" "headless run failed" (string-append (car result) (cadr result))))))
 
 ;; The toolchain's runtime assembles in-process: a tool linked with it turns
 ;; a program's text into a module, which must print what the program
@@ -392,13 +379,10 @@
 ;; The compiled compiler must emit the same text on V8 and on wasmtime, the
 ;; engines it runs on (build/snail). The integer and GC subset the backend
 ;; uses is deterministic by the spec; only NaN payloads could differ.
-;; Siegework is large enough to reach most of the compiler.
+;; The application fixture exercises classes, effects, tasks and serialization.
 (define (check-engine-agreement root)
   (let* ((tool (path-join root "scripts/snail-tool"))
-         (wat (list "wat"
-                    "-I"
-                    (path-join root "apps/siegework/src")
-                    (path-join root "apps/siegework/main.sld")))
+         (wat (list "wat" (path-join root "tests/app-runtime/main.sld")))
          (v8 (capture-process (append (list "env" "SNAIL_STAGE0=" "SNAIL_ENGINE=node" tool) wat)))
          (wasmtime (capture-process
                     (append (list "env" "SNAIL_STAGE0=" "SNAIL_ENGINE=wasmtime" tool) wat))))
@@ -407,7 +391,9 @@
      ((not (zero? (caddr wasmtime)))
       (report "engine agreement" "the compiler on wasmtime failed" (cadr wasmtime)))
      ((not (equal? (car v8) (car wasmtime)))
-      (report "engine agreement" "V8 and wasmtime emit different text for Siegework" ""))
+      (report "engine agreement"
+              "V8 and wasmtime emit different text for the application fixture"
+              ""))
      (else #t))))
 
 (define (check-project-builds root)
@@ -651,22 +637,6 @@
                     "wrong output when linked"
                     (string-append printed "\nexpected:\n" expected)))))))
 
-(define (run-linked-siegework root)
-  (guard (failure (#t (report "siegework" "linked build failed" (error-text failure))))
-    (let ((output (path-join root "build/tests/linked/siegework")))
-      (build-modules root
-                     (cons (path-join root "apps/siegework/src") (standard-directories root))
-                     (path-join root "apps/siegework/main.sld")
-                     output)
-      (let ((result (capture-process (list "node"
-                                           "--no-warnings"
-                                           (path-join root "apps/siegework/tests/headless.mjs")
-                                           (path-join output "modules.json")))))
-        (or (zero? (caddr result))
-            (report "siegework"
-                    "linked headless run failed"
-                    (string-append (car result) (cadr result))))))))
-
 (define (run-linked-app-runtime root)
   (guard (failure (#t (report "app runtime" "linked build failed" (error-text failure))))
     (let ((output (path-join root "build/tests/linked/app-runtime")))
@@ -678,8 +648,7 @@
 
 (define (run-linked-cases root)
   (append (map (lambda (entry) (run-linked root (car entry) (cadr entry))) linked-cases)
-          (list (run-linked-siegework root)
-                (run-linked-app-runtime root)
+          (list (run-linked-app-runtime root)
                 (run-linked-host-boundary root)
                 (run-linked-socket-boundary root) (run-dynamic-loading root))))
 
@@ -827,7 +796,7 @@
                                   (compile-socket-boundary root)
                                   (compile-termination root)
                                   (compile-app-runtime root)
-                                  (compile-siegework root)
+                                  (lambda () (check-siegework root))
                                   (compile-toolchain-assembler root)
                                   (compile-formatter root)
                                   (compile-book-highlighter root))

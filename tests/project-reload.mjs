@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import {cp, mkdtemp, readFile, realpath, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {basename, join} from 'node:path';
 import {screenImports} from '../host/browser/host.mjs';
 import {createRuntime, applicationEntry} from '../host/browser/runtime.mjs';
 import {createWasi, linkProgram, relinkProgram, runProgram} from '../host/browser/load.mjs';
@@ -12,8 +12,8 @@ import {startDevelopment} from './development-service.mjs';
 
 const root = process.argv[2];
 const directory = await realpath(await mkdtemp(join(tmpdir(), 'snail-project-reload-')));
-const app = join(directory, 'counter'), source = join(app, 'main.sld');
-await cp(join(root, 'tests/apps/counter'), app, {recursive: true});
+const app = join(directory, 'counter'), source = join(app, 'src/counter/application.sld');
+await cp(join(root, 'tests/apps/counter'), app, {recursive: true, filter: path => basename(path) !== 'build'});
 
 // Every read stays in the accepted generation, including reads made after
 // another build publishes. This is the base the service gives its pages.
@@ -45,10 +45,10 @@ async function relink(page, build) {
     const old = page.build.modules[index];
     return entry.name !== old?.name || entry.digest !== old?.digest;
   });
-  assert.equal(changed.name, 'main', 'only the program changes');
+  assert.equal(changed.name, 'counter.application', 'the selected application library changes');
   const {state, saved} = await page.runtime.stop();
   const program = await relinkProgram(page.program, changed.name, build.manifest, build.read);
-  for (const {name} of build.modules.slice(0, -1)) {
+  for (const {name} of build.modules.slice(0, build.modules.indexOf(changed))) {
     assert.equal(program.linked.get(name), page.program.linked.get(name), name);
   }
   const boot = await page.runtime.start(applicationEntry(program), state, {restore: saved}).ready.promise;
@@ -69,7 +69,7 @@ try {
 
   await edit('"hello"', '"hello again"');
   const next = await published(await service.settled(page.build.id));
-  assert.equal(next.target.compiled, 1, 'a function body edit reuses the libraries');
+  assert.equal(next.target.compiled, 2, 'only the application and its entry need new instance symbols');
   await relink(page, next);
   assert.deepEqual([text(page, 'greeting'), text(page, 'count')], ['hello again', '2']);
 

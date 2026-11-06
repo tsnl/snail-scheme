@@ -1,13 +1,16 @@
-// Runs the compiled game without a browser: a recording screen host, keys
+// Builds the typed project and runs it without a browser: a recording screen host, keys
 // that pan, the opening's banner and pulsing crystals, taps that select
 // cells, an order given through the HUD's card, five minutes of play, a drag
 // of the camera, and a save replayed through the application loop.
+//   node apps/siegework/tests/headless.mjs ROOT
+import {execFile} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
-import {dirname, resolve} from 'node:path';
+import {join, resolve} from 'node:path';
+import {promisify} from 'node:util';
 import assert from 'node:assert/strict';
 import {screenImports} from '../../../host/browser/host.mjs';
 import {createRuntime, applicationEntry} from '../../../host/browser/runtime.mjs';
-import {createWasi, instantiate, linkProgram, runProgram} from '../../../host/browser/load.mjs';
+import {createWasi, instantiate} from '../../../host/browser/load.mjs';
 
 const ELAPSED = 11, PRESS = 9, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3, KEY_DOWN = 1, KEY_UP = 2;
 const SUGGESTED = 5;
@@ -25,20 +28,15 @@ function screen() {
 // Where the camera looked in the last frame, on the ground.
 const target = host => [host.frames.at(-1).camera.target[0], host.frames.at(-1).camera.target[2]];
 
-// A linked module, or a modules.json naming the game's library modules,
-// which link to a runtime instance of their own (host/browser/load.mjs).
+// The project's actual package. The smaller application-runtime fixture
+// exercises this same lifecycle under both static and dynamic linking.
 async function instantiateGame(path, host, saved) {
   const runtime = createRuntime({seed: 7, load: async () => saved});
   const wasi = createWasi({print: (fd, line) => console.log(line)});
-  let program;
-  if (path.endsWith('.json')) {
-    program = await linkProgram(file => readFile(resolve(dirname(path), file)), path, wasi, {...runtime.imports, 'snail.runtime.browser.screen': host.imports});
-    runProgram(program);
-  } else {
-    program = await instantiate(await WebAssembly.compile(await readFile(path)), {...wasi.getImportObject(), ...runtime.imports, 'snail.runtime.browser.screen': host.imports});
-    wasi.initialize(program);
-    program.exports.main();
-  }
+  const program = await instantiate(await WebAssembly.compile(await readFile(path)),
+    {...wasi.getImportObject(), ...runtime.imports, 'snail.runtime.browser.screen': host.imports});
+  wasi.initialize(program);
+  program.exports.main();
   await runtime.start(applicationEntry(program)).ready.promise;
   return runtime;
 }
@@ -58,7 +56,9 @@ async function send(game, ...event) {
 const widget = (host, key) => host.widgets.find(entry => entry.key === key);
 const tap = async (game, x, y) => { await send(game, POINTER_DOWN, 1, x, y, 0); await send(game, POINTER_UP, 1, x, y, 0); };
 
-const path = resolve(process.argv[2]);
+const root = resolve(process.argv[2]);
+const built = await promisify(execFile)(join(root, 'snail'), ['build', root, 'siegework']);
+const path = join(built.stdout.trim(), 'program.wasm');
 const host = screen();
 const game = await instantiateGame(path, host);
 const first = host.frames.at(-1);

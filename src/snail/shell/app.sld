@@ -5,19 +5,16 @@
 ;;   update  : State Input -> State
 ;;   view    : State -> Frame
 ;;   hud     : State -> (List Panel)
-;;   save    : State -> Save
-;;   restore : Save -> State
+;;   save    : State -> Bytes
+;;   restore : Bytes -> State
 ;;
-;; `define-application` runs one loop inside the binder returned by reset,
-;; as a task of (snail shell task), which waits on events and storage by
-;; ticket. It checkpoints complete events in one cell. Time reaches the state as input, so the
-;; state decides how time passes, and can stop it at any frame. The host
-;; draws a Frame through the `screen` effect, shows the HUD again after
-;; each input (after time, at most ten times a second), and stores the
-;; serialized Save. The Save may be much smaller than the state: a record
-;; of how to rebuild it. `snail dev` relinks a running page's rebuilt
-;; modules and hands the state to the new program as it is, or through the
-;; save when its types changed.
+;; `SceneApplication` implements the ordinary Application class. Its loop
+;; presents complete events and commits them through (snail shell page),
+;; which owns boot, restore and durable saves for both browser engines.
+;; Time is input, so the state decides how its simulation advances. The
+;; host draws a Frame through `screen` and updates HUD values after each
+;; input (after time, at most ten times a second). A durable save may be
+;; much smaller than the state: a record of how to rebuild it.
 ;;
 ;; Scenes are 3D. Meshes and sprites are both items, drawn by one shader in
 ;; the metallic-roughness model; a sprite is a textured quad that stands
@@ -175,19 +172,28 @@
    FrameEvent
    InputEvent
    Hidden
+   SaveRequested
    Reload
    events
    next-event
    storage
    load-save
    store-save
-   default-reset
-   define-application)
+   PageState
+   define-page-state
+   Scene
+   SceneApplication
+   scene-initialize
+   scene-update
+   scene-view
+   scene-hud
+   scene-save
+   scene-restore)
   (import
-   (snail core base)
+   (rename (snail core base) (instance class-instance))
    (prefix (snail runtime browser screen) host-)
    (snail shell task)
-   (snail shell wire)
+   (snail shell application)
    (snail shell math)
    (snail shell page))
   (begin
@@ -1065,77 +1071,59 @@
                                         (event-field 2)
                                         (event-field 3))))))
 
-    ;; ---- Applications ----
+    ;; ---- Scene applications ----
 
-    (: default-reset (All (T e) (-> (-> (-> T ! e) T ! e))))
-    (define (default-reset)
-      (lambda (run) (run)))
+    (typeclass (Scene S)
+      (: scene-initialize (-> I32 I32 I32 S))
+      (: scene-update (-> S Input S))
+      (: scene-view (-> S Frame))
+      (: scene-hud (-> S (List Panel)))
+      (: scene-save (-> S Bytes))
+      (: scene-restore (-> Bytes S)))
 
-    ;; The scene owns presentation and event reduction. The page owns its
-    ;; root, restoration, checkpoint and durable save protocol.
-    (define-syntax define-application
-      (syntax-rules (reset: effects: init: update: view: hud: save: restore:)
-        ((_ State (reset: reset-run) (init: initialize) more ...)
-         (define-application State (reset: reset-run) (effects:) (init: initialize) more ...))
-        ((_ State
-            (reset: reset-run)
-            (effects: effect ...)
-            (init: initialize)
-            (update: step)
-            (view: draw)
-            (hud: panels) (save: save-state) (restore: restore-state))
-         (begin
-           (define-page-state State)
+    ;; This adapter supplies Application through ordinary instance evidence.
+    ;; A project's selected type may be an alias for (SceneApplication Game).
+    (struct (SceneApplication S)
+      ())
 
-           (: app-initialize (-> State ! events))
-           (define (app-initialize)
-             ((ann initialize (-> I32 I32 I32 State))
-              (random-seed) (canvas-width) (canvas-height)))
+    (class-instance (Application (! mut screen events storage tasks) (SceneApplication S))
+                    (requires (Scene S) (PageState S) (Copy S))
+                    (define (start entry)
+                      (run-page (lambda () (initial-scene entry)) scene-save scene-restore
+                                (lambda (state save) (scene-loop save state 0)))))
 
-           (: app-save-bytes (-> State Bytes))
-           (define (app-save-bytes state)
-             (serialize (save-state state)))
+    ;; The witness selects the state type before initialization; subsequent
+    ;; calls select their Scene evidence from the state itself.
+    (: initial-scene
+       (All (S) (requires (Scene S)) (-> (Entry (SceneApplication S)) S ! events)))
+    (define (initial-scene entry)
+      (scene-initialize (random-seed) (canvas-width) (canvas-height)))
 
-           (: app-restore-bytes (-> Bytes State))
-           (define (app-restore-bytes bytes)
-             (restore-state (deserialize bytes)))
-
-           (: app-run
-              (-> (-> State Unit ! events storage tasks) State I32
-                  Unit ! mut screen events storage tasks))
-           (define (app-run save state since-hud)
-             (match (next-event)
-               ((FrameEvent elapsed)
-                (let* ((next ((ann step (-> State Input State)) state (Elapsed elapsed)))
-                       (frame ((ann draw (-> State Frame)) next))
-                       (hud-time (+ since-hud elapsed))
-                       (show-hud? (>= hud-time 100))
-                       (widgets (if show-hud? ((ann panels (-> State (List Panel))) next) (Nil))))
-                  (render frame)
-                  (when show-hud? (render-hud widgets))
-                  (commit-page next)
-                  (report-ready)
-                  (app-run save next (if show-hud? 0 hud-time))))
-               ((InputEvent input)
-                (let* ((next ((ann step (-> State Input State)) state input))
-                       (widgets ((ann panels (-> State (List Panel))) next)))
-                  (render-hud widgets)
-                  (commit-page next)
-                  (app-run save next 0)))
-               ((Hidden) (save state) (app-run save state since-hud))
-               ((SaveRequested) (save state) (app-run save state since-hud))
-               ((Reload) (save state) (unit))))
-
-           (: app-main (-> (Option Any) I64 ! mut screen events storage effect ...))
-           (define (app-main handover)
-             (start-page
-              handover
-              (once (lambda ()
-                      ((reset-run)
-                       (lambda ()
-                         (run-page app-initialize app-save-bytes app-restore-bytes
-                                   (lambda (state save) (app-run save state 0)))))))))
-
-           (expose app-main "app_main")))))
+    ;; Only successful events publish their immutable state. A frame owns
+    ;; drawing and HUD throttling; an input owns its HUD. Save events share
+    ;; the same queue, independently of display frames.
+    (: scene-loop
+       (All (S) (requires (Scene S) (PageState S) (Copy S))
+            (-> (-> S Unit ! events storage tasks) S I32
+                Unit ! mut screen events storage tasks)))
+    (define (scene-loop save state since-hud)
+      (match (next-event)
+        ((FrameEvent elapsed)
+         (let* ((next (scene-update state (Elapsed elapsed))) (frame (scene-view next))
+                (hud-time (+ since-hud elapsed))
+                (show-hud? (>= hud-time 100)) (widgets (if show-hud? (scene-hud next) (Nil))))
+           (render frame)
+           (when show-hud? (render-hud widgets))
+           (commit-page next)
+           (report-ready)
+           (scene-loop save next (if show-hud? 0 hud-time))))
+        ((InputEvent input)
+         (let* ((next (scene-update state input)) (widgets (scene-hud next)))
+           (render-hud widgets)
+           (commit-page next)
+           (scene-loop save next 0)))
+        ((Hidden) (save state) (scene-loop save state since-hud))
+        ((SaveRequested) (save state) (scene-loop save state since-hud))
+        ((Reload) (save state) (unit))))
 
     ))
