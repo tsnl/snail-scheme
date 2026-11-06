@@ -301,7 +301,7 @@
       (match timers
         ((Nil) (Cons timer (Nil)))
         ((Cons first rest)
-         (if (< (Pending-key timer) (Pending-key first))
+         (if (< (::key timer) (::key first))
              (Cons timer (Cons first rest))
              (Cons first (insert-timer timer rest))))))
 
@@ -310,7 +310,7 @@
       (match timers
         ((Nil) (Nil))
         ((Cons first rest)
-         (if (<= (Pending-key first) now)
+         (if (<= (::key first) now)
              (match first
                ((Pending _ id next)
                 (push-ready! (Runnable id next))
@@ -328,7 +328,7 @@
            (put-timers! (Nil))
            -2)
           ((Cons first rest)
-           (let ((deadline (Pending-key first)))
+           (let ((deadline (::key first)))
              (put-timers! (Cons first rest))
              (- deadline now)))))))
 
@@ -353,7 +353,7 @@
       (match waiters
         ((Nil) (Pair (None) (Nil)))
         ((Cons first rest)
-         (if (= (Pending-key first) ticket)
+         (if (= (::key first) ticket)
              (match first
                ((Pending _ id next) (Pair (Some (Runnable id next)) rest)))
              (match (without ticket rest)
@@ -451,16 +451,16 @@
     ;; the message goes with it, as one it had received would.
     (: mailbox-post (All (T) (-> (Mailbox T) T Unit ! mut)))
     (define (mailbox-post mailbox message)
-      (let ((receivers (Mailbox-receivers mailbox)))
+      (let ((receivers (::receivers mailbox)))
         (match (dequeue (take! receivers))
           ((None)
            (put! receivers (empty-queue))
-           (let ((messages (Mailbox-messages mailbox)))
+           (let ((messages (::messages mailbox)))
              (put! messages (enqueue (take! messages) message))))
           ((Some (Pair receiver rest))
            (put! receivers rest)
-           (if (tasks-wake! (Receiver-ticket receiver))
-               (put! (Receiver-slot receiver) message)
+           (if (tasks-wake! (::ticket receiver))
+               (put! (::slot receiver) message)
                (mailbox-post mailbox message))))))
 
     ;; Receiving takes the oldest message. With none, the swap has already
@@ -469,7 +469,7 @@
     ;; began to wait.
     (: mailbox-receive (All (T) (-> (Mailbox T) T ! mut tasks)))
     (define (mailbox-receive mailbox)
-      (let ((messages (Mailbox-messages mailbox)))
+      (let ((messages (::messages mailbox)))
         (match (dequeue (take! messages))
           ((Some (Pair message rest))
            (put! messages rest)
@@ -481,7 +481,7 @@
     ;; Receiving without waiting: the oldest message, or none.
     (: mailbox-try-receive (All (T) (-> (Mailbox T) (Option T) ! mut)))
     (define (mailbox-try-receive mailbox)
-      (let ((messages (Mailbox-messages mailbox)))
+      (let ((messages (::messages mailbox)))
         (match (dequeue (take! messages))
           ((Some (Pair message rest))
            (put! messages rest)
@@ -494,8 +494,8 @@
     ;; slot is full when the receiver takes it; an empty one traps there.
     (: wait-in-line (All (T) (-> (Mailbox T) T ! mut tasks)))
     (define (wait-in-line mailbox)
-      (let ((receivers (Mailbox-receivers mailbox))
+      (let ((receivers (::receivers mailbox))
             (receiver (Receiver (ticket) (empty-slot))))
         (put! receivers (enqueue (take! receivers) receiver))
-        (await (Receiver-ticket receiver))
-        (take! (Receiver-slot receiver))))))
+        (await (::ticket receiver))
+        (take! (::slot receiver))))))

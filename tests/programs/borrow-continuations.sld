@@ -21,7 +21,7 @@
 (: work (-> (Borrow Model) (FnOnce Unit ! tasks console)))
 (define (work model)
   (local-control)
-  (let ((text (Model-title model)))
+  (let ((text (::title model)))
     (once (lambda ()
             (yield)
             (write-line text)))))

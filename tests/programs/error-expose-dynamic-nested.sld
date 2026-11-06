@@ -9,6 +9,6 @@
 
 (: job-name (-> Job String))
 (define (job-name job)
-  (Job-name job))
+  (::name job))
 
 (expose job-name "job-name" dynamic)

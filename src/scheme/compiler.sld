@@ -189,8 +189,8 @@
                                        (form "arity!"
                                              (list arguments
                                                    (IntegerSyntax
-                                                    (length (Parameters-fixed params)))
-                                                   (BooleanSyntax (match (Parameters-rest params)
+                                                    (length (::fixed params)))
+                                                   (BooleanSyntax (match (::rest params)
                                                                     ((Some _) #t)
                                                                     ((None) #f)))))
                                        (form "let"
@@ -201,11 +201,11 @@
     ;; parameter the remainder.
     (: parameter-cells (-> Parameters Syntax (List Syntax)))
     (define (parameter-cells params arguments)
-      (let ((fixed (Parameters-fixed params)))
+      (let ((fixed (::fixed params)))
         (append (map-indexed (lambda (index name)
                                (cell name (form "list-ref" (list arguments (IntegerSyntax index)))))
                              fixed)
-                (match (Parameters-rest params)
+                (match (::rest params)
                   ((Some name)
                    (list (cell name
                                (form "rest-arguments"
@@ -253,8 +253,8 @@
                     (else (form "let"
                                 (list (ListSyntax
                                        (map (lambda (pair)
-                                              (cell (Pair-first pair)
-                                                    (translate (Pair-second pair))))
+                                              (cell (::first pair)
+                                                    (translate (::second pair))))
                                             (map binding (items first))))
                                       (translate-body rest))))))
         (_ (panic "scheme: expected (let ((name value) ...) body ...)"))))
@@ -263,13 +263,13 @@
     (define (translate-named-let name pairs body)
       (let ((procedure (translate-lambda
                         (datum-list
-                         (map (lambda (pair) (ann (Symbol (Pair-first pair)) Any)) pairs))
+                         (map (lambda (pair) (ann (Symbol (::first pair)) Any)) pairs))
                         body)))
         (form "let" (list (ListSyntax (empty-cells (list name)))
                           (form "ref-set!" (list (variable name) procedure))
                           (form "call"
                                 (list (form "ref-get" (list (variable name)))
-                                      (form "list" (map translate (map Pair-second pairs)))))))))
+                                      (form "list" (map translate (map ::second pairs)))))))))
 
     (: translate-let* (-> (List Any) (List Any) Syntax))
     (define (translate-let* bindings body)
@@ -278,17 +278,17 @@
         ((Cons first rest)
          (let ((pair (binding first)))
            (form "let"
-                 (list (ListSyntax (list (cell (Pair-first pair) (translate (Pair-second pair)))))
+                 (list (ListSyntax (list (cell (::first pair) (translate (::second pair)))))
                        (translate-let* rest body)))))))
 
     (: translate-letrec (-> (List Any) (List Any) Syntax))
     (define (translate-letrec bindings body)
       (let ((pairs (map binding bindings)))
-        (form "let" (Cons (ListSyntax (empty-cells (map Pair-first pairs)))
+        (form "let" (Cons (ListSyntax (empty-cells (map ::first pairs)))
                           (append (map (lambda (pair)
                                          (form "ref-set!"
-                                               (list (variable (Pair-first pair))
-                                                     (translate (Pair-second pair)))))
+                                               (list (variable (::first pair))
+                                                     (translate (::second pair)))))
                                        pairs)
                                   (list (translate-body body)))))))
 

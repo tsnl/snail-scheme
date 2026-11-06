@@ -30,9 +30,8 @@
    i32->f32 f32->i32
    f32->bits bits->f32 f64->bits bits->f64
    Show show i64->string string->i64 f64->string
-   Option Some None Result Ok Err Pair Pair-first Pair-second Never absurd
-   dyn-cast conversion-failed CastError CastError-expected CastError-actual CastError-origin
-   CastError-method CastError-argument CastError-reason
+   Option Some None Result Ok Err Pair Never absurd
+   dyn-cast conversion-failed CastError
    CastReason TypeMismatch UnsupportedInstance ArgumentMismatch
    List
    Cons
@@ -610,7 +609,7 @@
       (match entries
         ((Nil) (None))
         ((Cons entry rest)
-         (if (= (Pair-first entry) key) (Some (Pair-second entry)) (assoc-ref rest key)))))
+         (if (= (::first entry) key) (Some (::second entry)) (assoc-ref rest key)))))
 
     ;; Pairs the items of two lists, stopping at the end of the shorter.
     (: zip (All (A B) (requires (Copy A) (Copy B)) (-> (List A) (List B) (List (Pair A B)))))
@@ -747,7 +746,7 @@
 
     (: mut-vector-length (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) I64 ! mut)))
     (define (mut-vector-length vector)
-      (::length (Ref-contents (MutVector-state vector))))
+      (::length (Ref-contents (::state vector))))
 
     (: mut-vector-ref (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) I64 A ! mut)))
     (define (mut-vector-ref vector index)
@@ -762,7 +761,7 @@
     (: mut-vector-items
        (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) I64 (Array A) ! mut)))
     (define (mut-vector-items vector index)
-      (match (Ref-contents (MutVector-state vector))
+      (match (Ref-contents (::state vector))
         ((Grown length (Some items))
          (if (and (<= 0 index) (< index length))
              items
@@ -771,7 +770,7 @@
 
     (: mut-vector-push! (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) A Unit ! mut)))
     (define (mut-vector-push! vector item)
-      (let ((cell (MutVector-state vector)))
+      (let ((cell (::state vector)))
         (match (Ref-contents cell)
           ((Grown length held)
            (let ((items (room-for length held item)))
@@ -795,7 +794,7 @@
     (: mut-vector-pop!
        (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) (Option A) ! mut)))
     (define (mut-vector-pop! vector)
-      (let ((cell (MutVector-state vector)))
+      (let ((cell (::state vector)))
         (match (Ref-contents cell)
           ((Grown length (Some items))
            (if (> length 0)
@@ -808,7 +807,7 @@
     (: mut-vector->vector
        (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) (Vector A) ! mut)))
     (define (mut-vector->vector vector)
-      (match (Ref-contents (MutVector-state vector))
+      (match (Ref-contents (::state vector))
         ((Grown length (Some items))
          (vector-generate length (lambda (index) (array-ref items index))))
         ((Grown _ (None))

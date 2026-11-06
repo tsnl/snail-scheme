@@ -22,7 +22,7 @@
                  (write-line (child-name child)))
                (with-borrow (also model) (write-line (::title also)))
                (drop other))
-  (with-borrow (child (Model-child model))
+  (with-borrow (child (::child model))
                (write-line (child-name child)))
   (drop model))
 

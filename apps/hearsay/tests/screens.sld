@@ -76,7 +76,7 @@
 (: click (-> Shell (List (Pair I32 I32)) Shell))
 (define (click shell presses)
   (fold-left
-   (lambda (shell press) (update-shell shell (Press (Pair-first press) (Pair-second press))))
+   (lambda (shell press) (update-shell shell (Press (::first press) (::second press))))
    shell
    presses))
 

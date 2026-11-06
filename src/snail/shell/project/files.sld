@@ -9,8 +9,6 @@
   (export
    modes
    ProjectText
-   ProjectText-text
-   ProjectText-revision
    FileRefusal
    ChangedOnDisk
    NotServed
@@ -135,7 +133,7 @@
 
     (: absolute (-> String ProjectPath String))
     (define (absolute root file)
-      (string-append root "/" (ProjectPath-path file)))
+      (string-append root "/" (::path file)))
 
     ;; The project's root must still be a directory, and each directory on
     ;; the way to the file a directory itself, not a link, so a path cannot
@@ -144,8 +142,8 @@
     (define (check-parents root file)
       (match (followed-status root)
         ((Ok status)
-         (match (FileStatus-kind status)
-           ((Directory) (check-directories root (ProjectPath-parts file)))
+         (match (::kind status)
+           ((Directory) (check-directories root (::parts file)))
            (_ (Err (NotServed "the project root must remain a directory")))))
         ((Err error) (Err (DiskFailed error)))))
 
@@ -157,7 +155,7 @@
          (let ((inner (string-append directory "/" name)))
            (match (file-status inner)
              ((Ok status)
-              (match (FileStatus-kind status)
+              (match (::kind status)
                 ((Directory) (check-directories inner (Cons next rest)))
                 (_ (Err (NotServed "project paths cannot traverse symlinks or non-directories")))))
              ((Err error) (Err (DiskFailed error))))))
@@ -172,7 +170,7 @@
     (define (project-text-paths root paths)
       (match (followed-status root)
         ((Ok status)
-         (match (FileStatus-kind status)
+         (match (::kind status)
            ((Directory) (Ok (list-sort string<? (served-among root paths))))
            (_ (Err (NotServed "the project root must remain a directory")))))
         ((Err error) (Err (DiskFailed error)))))
@@ -182,7 +180,7 @@
       (let ((prefix (string-append root "/")))
         (fold-right (lambda (path served)
                       (match (served-under prefix path)
-                        ((Some file) (Cons (ProjectPath-path file) served))
+                        ((Some file) (Cons (::path file) served))
                         ((None) served)))
                     (Nil)
                     paths)))
@@ -207,7 +205,7 @@
                                             (string=? (substring path 0 size) prefix))
                                        (match (project-path
                                                (substring path size (string-length path)))
-                                         ((Some entry) (Cons (ProjectPath-path entry) found))
+                                         ((Some entry) (Cons (::path entry) found))
                                          ((None) found))
                                        found)))
                                (Nil) paths))))
@@ -311,7 +309,7 @@
     (define (expect root file expected)
       (match (snapshot root file)
         ((Ok current)
-         (if (string=? (ProjectText-revision current) expected) (Ok (unit)) (Err (ChangedOnDisk))))
+         (if (string=? (::revision current) expected) (Ok (unit)) (Err (ChangedOnDisk))))
         ((Err (DiskFailed (NotFound))) (Err (ChangedOnDisk)))
         ((Err (DiskFailed (NotADirectory))) (Err (ChangedOnDisk)))
         ((Err (NotServed _)) (Err (ChangedOnDisk)))
@@ -347,7 +345,7 @@
       (let ((build (string-append root "/build")))
         (match (file-status build)
           ((Ok status)
-           (match (FileStatus-kind status)
+           (match (::kind status)
              ((Directory) (fresh-directory build 0))
              (_ (Err (NotServed "project build output must be a directory, not a link")))))
           ((Err _)

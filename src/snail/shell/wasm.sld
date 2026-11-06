@@ -46,9 +46,6 @@
    MemoryImport
    GlobalImport
    Import
-   Import-from
-   Import-name
-   Import-kind
    module-imports
    Provider
    ExportOf
@@ -221,8 +218,8 @@
     (: module-export (-> Module String (Result Funcref LoadError) ! wasm))
     (define (module-export module name)
       (send-argument name)
-      (if (exports-function? (Module-handle module))
-          (begin (send-argument name) (Ok (export-function (Module-handle module))))
+      (if (exports-function? (::handle module))
+          (begin (send-argument name) (Ok (export-function (::handle module))))
           (Err (MissingExport name))))
 
     ;; ---- Plugins ----
@@ -259,10 +256,10 @@
 
     (: link-plugin (-> I32 String Manifest (Result Plugin LoadError) ! wasm fs))
     (define (link-plugin namespace directory manifest)
-      (match (link-libraries namespace directory (Manifest-libraries manifest))
+      (match (link-libraries namespace directory (::libraries manifest))
         ((Some error) (Err error))
         ((None)
-         (match (link-plugin-module namespace directory (Manifest-program manifest))
+         (match (link-plugin-module namespace directory (::program manifest))
            ((Ok program) (Ok (Plugin program)))
            ((Err error) (Err error))))))
 
@@ -278,8 +275,8 @@
 
     (: link-plugin-module (-> I32 String PluginModule (Result Module LoadError) ! wasm fs))
     (define (link-plugin-module namespace directory module)
-      (match (compile-file (relative-to directory (PluginModule-file module)))
-        ((Ok compiled) (instantiate-module namespace compiled (PluginModule-name module)))
+      (match (compile-file (relative-to directory (::file module)))
+        ((Ok compiled) (instantiate-module namespace compiled (::name module)))
         ((Err error) (Err error))))
 
     ;; ---- Manifests ----
@@ -375,8 +372,8 @@
 
     (: module-imports (-> Compiled (List Import) ! wasm))
     (define (module-imports compiled)
-      (map (lambda (index) (import-of (Compiled-handle compiled) (i64->i32 index)))
-           (iota (i32->i64 (import-count (Compiled-handle compiled))))))
+      (map (lambda (index) (import-of (::handle compiled) (i64->i32 index)))
+           (iota (i32->i64 (import-count (::handle compiled))))))
 
     (: import-of (-> I32 I32 Import ! wasm))
     (define (import-of module index)
@@ -428,7 +425,7 @@
     ;; starts still ends the program.
     (: link-module (-> String Compiled (List Provider) (Result Module LoadError) ! wasm))
     (define (link-module name compiled providers)
-      (prepare-link (Compiled-handle compiled))
+      (prepare-link (::handle compiled))
       (for-each provide providers)
       (let ((handle (link-prepared)))
         (if (< handle 0) (Err (LinkFailed name)) (Ok (Module handle)))))
@@ -438,7 +435,7 @@
       (match provider
         ((ExportOf instance export)
          (send-argument export)
-         (provide-export (Module-handle instance))
+         (provide-export (::handle instance))
          (unit))
         ((HostProvided) (provide-host) (unit))
         ((HostIfProvided) (unless (provide-host) (provide-missing)))
@@ -451,7 +448,7 @@
     (: name-instance (-> Module String Bool ! wasm))
     (define (name-instance instance name)
       (send-argument name)
-      (register-instance (Module-handle instance)))
+      (register-instance (::handle instance)))
 
     ;; Calls the function the instance exports as `name`, of no argument or
     ;; one I64, such as its `main` or a scheduler's `tasks:turn`, with
@@ -459,8 +456,8 @@
     (: run-export (-> Module String I64 (Result I64 LoadError) ! wasm))
     (define (run-export instance name argument)
       (send-argument name)
-      (if (exports-function? (Module-handle instance))
-          (begin (send-argument name) (Ok (call-export (Module-handle instance) argument)))
+      (if (exports-function? (::handle instance))
+          (begin (send-argument name) (Ok (call-export (::handle instance) argument)))
           (Err (MissingExport name))))
 
     ;; Calls the function the instance exports as `name` with `function`,
@@ -468,9 +465,9 @@
     (: run-export-with (-> Module String Funcref (Result I64 LoadError) ! wasm))
     (define (run-export-with instance name function)
       (send-argument name)
-      (if (exports-function? (Module-handle instance))
+      (if (exports-function? (::handle instance))
           (begin (send-argument name)
-                 (Ok (call-with-function (Module-handle instance) function)))
+                 (Ok (call-with-function (::handle instance) function)))
           (Err (MissingExport name))))
 
     ;; ---- Plugin functions ----
@@ -482,7 +479,7 @@
     ;; A dynamic export is pure, so the program's handlers are not passed on.
     (: plugin-function (All (A) (requires (Copy A)) (-> Plugin String (Result A LoadError) ! wasm)))
     (define (plugin-function plugin name)
-      (let ((program (Plugin-program plugin)))
+      (let ((program (::program plugin)))
         (match (Pair (module-export program name)
                      (module-export program (string-append name ":signature")))
           ((Pair (Ok function) (Ok signature))

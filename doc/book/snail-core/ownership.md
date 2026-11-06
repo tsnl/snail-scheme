@@ -67,7 +67,7 @@ so is a second use.
   consume the record it is applied to; both would leave the other fields
   with no owner, and are refused. A replacement's other operand is checked
   first, so it may read the record in place, as `(Job-attempts-set job (+
-  (Job-attempts job) 1))` does.
+  (::attempts job) 1))` does.
 - **Cells.** Locals are immutable, and so is every struct: a struct is a
   value with no identity, and a program that changes one holds it in a
   cell. `Ref` is the one struct with a mutable field, declared in
@@ -466,7 +466,7 @@ inner struct's, and no object of the inner type exists there. A
 ```
 
 Building one nested, `(Segment (Point 1 2) (Point 3 4) "d")`, writes five
-values into one allocation; `(Point-y (Segment-to s))` is one field read;
+values into one allocation; `(::to::y s)` is one field read;
 and a nested pattern reads the fields where they lie. A `Point` is its
 own struct only where it is a value on its own: a local, an argument, a
 result, a closure's capture, an Any or an element of an array, and reading

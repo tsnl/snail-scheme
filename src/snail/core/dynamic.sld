@@ -22,16 +22,16 @@
 
     (: cast-error->string (-> CastError String))
     (define (cast-error->string error)
-      (string-append (CastError-origin error) ": dyn-cast: "
-                     (match (CastError-reason error)
+      (string-append (::origin error) ": dyn-cast: "
+                     (match (::reason error)
                        ((TypeMismatch) "type mismatch")
                        ((UnsupportedInstance) "unsupported dynamic instance")
                        ((ArgumentMismatch) "arguments have different payload types"))
-                     "; expected " (string-join (CastError-expected error) " or ")
-                     ", observed type id " (i64->string (CastError-actual error))
-                     (if (string=? (CastError-method error) "") ""
-                         (string-append "; " (CastError-method error) " argument "
-                                        (i64->string (+ 1 (CastError-argument error)))))))
+                     "; expected " (string-join (::expected error) " or ")
+                     ", observed type id " (i64->string (::actual error))
+                     (if (string=? (::method error) "") ""
+                         (string-append "; " (::method error) " argument "
+                                        (i64->string (+ 1 (::argument error)))))))
 
     ;; The abort has already unwound and dropped its owners when reporting
     ;; starts. Returning the failure lets a script choose failure status,

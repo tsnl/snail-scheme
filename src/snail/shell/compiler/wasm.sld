@@ -23,12 +23,10 @@
    (snail shell compiler core)
    (snail shell compiler capabilities)
    (only (snail shell compiler specialize)
-         Declarations Declarations-program Declarations-owner Declarations-control
-         Declarations-bindings Binding Binding-type Binding-function? Binding-external?
+         Declarations Binding
          control-effects)
    (only (snail shell compiler prepare)
-         Prepared Prepared-declarations Prepared-definitions Prepared-initializers
-         Prepared-statements Prepared-exported Callees declaration-callees yields
+         Prepared Callees declaration-callees yields
          holds-yield-point?))
   (begin
 

@@ -9,6 +9,6 @@
 
 (b:instance (b:Show (!) Pair2)
             (b:define (show pair)
-                      (b:string-append (b:show (Pair2-left pair)) "/" (b:show (Pair2-right pair)))))
+                      (b:string-append (b:show (::left pair)) "/" (b:show (::right pair)))))
 
 (write-line (b:show (Pair2 3 4)))

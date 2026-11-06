@@ -1,8 +1,7 @@
 ;; Literal, case-insensitive text search with Unicode scalar coordinates.
 ;; Callers own file identities and revisions; this scanner only sees text.
 (define-library (snail shell text search)
-  (export Query parse-query Occurrence Occurrence-line Occurrence-column
-          Occurrence-snippet scan)
+  (export Query parse-query Occurrence scan)
   (import
    (snail core base)
    (snail shell text)
@@ -32,7 +31,7 @@
     ;; cross a line; CRLF counts as one newline and snippets omit the CR.
     (: scan (-> Query String I64 I64 (List Occurrence) ! tasks))
     (define (scan query text end room)
-      (let ((needle (Query-text query)))
+      (let ((needle (::text query)))
         (let loop ((at 0) (line 1) (start 0) (hits (ann (Nil) (List Occurrence))) (room room)
                    (next-yield 0))
           (cond ((or (>= at end) (= room 0)) (reverse hits))

@@ -10,9 +10,6 @@
 (define-library (snail shell compiler read)
   (export
    Loc
-   Loc-file
-   Loc-line
-   Loc-column
    loc->string
    Datum
    DInt
@@ -32,9 +29,6 @@
    Form-items
    Form-loc
    Mark
-   Mark-key
-   Mark-original
-   Mark-scope
    syntax-loc
    datum=?
    bytes=?
@@ -42,8 +36,6 @@
    syntax->string
    compile-error
    SourceDiagnostic
-   SourceDiagnostic-loc
-   SourceDiagnostic-message
    diagnostic->string
    Diagnostics
    diagnostics->list

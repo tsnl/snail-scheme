@@ -23,12 +23,12 @@
 
 (instance (Store (! console) Directory)
   (define (fetch-object directory name)
-    (write-line (string-append "reading " (Directory-root directory) "/" name))
+    (write-line (string-append "reading " (::root directory) "/" name))
     (string-append "the bytes of " name)))
 
 (instance (Store (!) Table)
   (define (fetch-object table name)
-    (match (assoc-ref (Table-objects table) name)
+    (match (assoc-ref (::objects table) name)
       ((Some text) text)
       ((None) "missing"))))
 

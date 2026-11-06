@@ -25,16 +25,16 @@
 
 (: show-segment (-> Segment String))
 (define (show-segment segment)
-  (string-append (Segment-label segment)
+  (string-append (::label segment)
                  ": "
-                 (show-point (Segment-from segment))
+                 (show-point (::from segment))
                  " to "
-                 (show-point (Segment-to segment))))
+                 (show-point (::to segment))))
 
 ;; Nested construction, a chain of accessors, and a nested pattern.
 (let ((segment (Segment (Point 1 2) (Point 3 4) "diagonal")))
   (write-line (show-segment segment))
-  (write-line (show (Point-y (Segment-to segment))))
+  (write-line (show (::y (::to segment))))
   (match segment
     ((Segment (Point x _) to label)
      (write-line (string-append label " starts at x " (show x) " and ends at " (show-point to))))))
@@ -55,7 +55,7 @@
 
 (: flip (-> Job Job))
 (define (flip job)
-  (Job-at-set job (Point (Point-y (Job-at job)) (Point-x (Job-at job)))))
+  (Job-at-set job (Point (::y (::at job)) (::x (::at job)))))
 
 (match (flip (Job (Point 1 2) (once (lambda () (write-line "worked")))))
   ((Job at work)
@@ -64,11 +64,11 @@
 
 ;; A generic struct lays an inline argument out where it is instantiated.
 (let ((pair (Pair (Point 7 8) "seven-eight")))
-  (write-line (string-append (Pair-second pair) " " (show-point (Pair-first pair)))))
+  (write-line (string-append (::second pair) " " (show-point (::first pair)))))
 
 (: nearest (-> (List Point) Point))
 (define (nearest points)
-  (fold-left (lambda (best point) (if (< (Point-x point) (Point-x best)) point best))
+  (fold-left (lambda (best point) (if (< (::x point) (::x best)) point best))
              (Point 100 100)
              points))
 
@@ -91,7 +91,7 @@
 
 (for-each (lambda (shape) (write-line (describe shape)))
           (list (Dot (Point 4 4)) (Line (Segment (Point 0 1) (Point 2 3) "l")) (Empty)))
-(write-line (show (Point-x (Dot-at (Dot (Point 6 0))))))
+(write-line (show (::x (Dot-at (Dot (Point 6 0))))))
 
 ;; A struct a program changes lives in a cell, whose slots are the
 ;; struct's: a cell of a Cursor is one object of five slots, and a field
@@ -113,7 +113,7 @@
   (write-line (show-point (::last (ref-get cursor)))))
 
 ;; Accessors are functions too, and an Any holds a Point as itself.
-(write-line (string-join (map show (map Point-x (list (Point 1 0) (Point 2 0)))) " "))
+(write-line (string-join (map show (map ::x (list (Point 1 0) (Point 2 0)))) " "))
 (write-line (show-point (match (try-convert (type-convert (Point 9 9) Any) Point)
                           ((Ok value) value)
                           ((Err _) (panic "point round trip failed")))))

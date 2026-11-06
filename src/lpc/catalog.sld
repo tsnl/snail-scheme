@@ -29,16 +29,12 @@
    Minotaur
    heads
    Skin
-   Skin-name
    skins
    HairStyle
-   HairStyle-name
    hair-styles
    HairColor
-   HairColor-name
    hair-colors
    Dye
-   Dye-name
    dyes
    Garment
    Longsleeve
@@ -65,9 +61,6 @@
    garment-dyes
    garment-builds
    Sheet
-   Sheet-path
-   Sheet-from
-   Sheet-swaps
    body-sheet
    head-sheet
    hair-sheet
@@ -318,16 +311,16 @@
     (: body-sheet (-> Build Skin Sheet))
     (define (body-sheet build skin)
       (universal
-       (string-append bases "/bodies/" (build-name build) "/universal/" (Skin-name skin) ".png")))
+       (string-append bases "/bodies/" (build-name build) "/universal/" (::name skin) ".png")))
 
     ;; Each color of the head's own ramp becomes the color at the same place
     ;; in `skin`'s; a head already in that skin needs no swaps.
     (: head-sheet (-> Head Skin Sheet))
     (define (head-sheet head skin)
       (let ((folder (head-folder head)))
-        (Sheet (string-append bases "/heads/" (Pair-first folder) "/universal.png") walk-region
-               (filter (lambda (pair) (not (= (Pair-first pair) (Pair-second pair))))
-                       (zip (ramp (Pair-second folder)) (ramp (Skin-name skin)))))))
+        (Sheet (string-append bases "/heads/" (::first folder) "/universal.png") walk-region
+               (filter (lambda (pair) (not (= (::first pair) (::second pair))))
+                       (zip (ramp (::second folder)) (ramp (::name skin)))))))
 
     ;; Hair is drawn for male heads and female heads; female and pregnant
     ;; bodies wear the female cut.
@@ -335,11 +328,11 @@
     (define (hair-sheet build style color)
       (let ((cut (match build ((Female) "female") ((Pregnant) "female") (_ "male"))))
         (universal (string-append "src/lpc/lpc-hair/hair/"
-                                  (HairStyle-name style)
+                                  (::name style)
                                   "/"
                                   cut
                                   "/"
-                                  (HairColor-name color)
+                                  (::name color)
                                   ".png"))))
 
     ;; ---- Garments ----
@@ -443,8 +436,8 @@
         ((Pair (Pants) (Male)) (Some (Single (Dye "green") male-pants)))
         (_ (let ((folder (garment-folder garment)) (drawn (drawn-build garment build)))
              (if (any? (lambda (other) (string=? (build-name other) (build-name drawn)))
-                       (Pair-second folder))
-                 (Some (Dyed (Pair-first folder) drawn))
+                       (::second folder))
+                 (Some (Dyed (::first folder) drawn))
                  (None))))))
 
     ;; The dyes a build can wear a garment in, none where no pack draws it.
@@ -465,17 +458,17 @@
     (define (garment-sheet build garment dye)
       (match (garment-drawing build garment)
         ((Some (Dyed folder drawn))
-         (if (any? (lambda (other) (string=? (Dye-name other) (Dye-name dye))) dyes)
+         (if (any? (lambda (other) (string=? (::name other) (::name dye))) dyes)
              (Some (universal (string-append "src/lpc/lpc-clothing-updates/spritesheets/"
                                              folder
                                              "/"
                                              (build-name drawn)
                                              "/"
-                                             (Dye-name dye)
+                                             (::name dye)
                                              ".png")))
              (None)))
         ((Some (Single only sheet))
-         (if (string=? (Dye-name only) (Dye-name dye)) (Some sheet) (None)))
+         (if (string=? (::name only) (::name dye)) (Some sheet) (None)))
         ((None) (None))))
 
     ))

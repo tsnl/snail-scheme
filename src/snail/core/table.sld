@@ -71,7 +71,7 @@
              (if (= leaf-hash hash)
                  (Leaf hash
                        (Cons (Pair key value)
-                             (filter (lambda (entry) (not (string=? (Pair-first entry) key)))
+                             (filter (lambda (entry) (not (string=? (::first entry) key)))
                                      entries)))
                  (join hash (Leaf hash (list (Pair key value))) leaf-hash table)))
             ((Branch prefix bit zero one)
@@ -103,10 +103,10 @@
 
     (: table-keys (All (V) (requires (Copy V)) (-> (Table V) (List String))))
     (define (table-keys table)
-      (reverse (table-fold (lambda (keys entry) (Cons (Pair-first entry) keys)) (Nil) table)))
+      (reverse (table-fold (lambda (keys entry) (Cons (::first entry) keys)) (Nil) table)))
 
     (: table-values (All (V) (requires (Copy V)) (-> (Table V) (List V))))
     (define (table-values table)
-      (reverse (table-fold (lambda (values entry) (Cons (Pair-second entry) values)) (Nil) table)))
+      (reverse (table-fold (lambda (values entry) (Cons (::second entry) values)) (Nil) table)))
 
     ))

@@ -5,16 +5,9 @@
 (define-library (snail shell fetch)
   (export
    Header
-   Header-name
-   Header-value
    Reply
-   Reply-status
-   Reply-body
    Stream
-   Stream-id
    StreamEvent
-   StreamEvent-kind
-   StreamEvent-data
    fetch
    request
    stream-open

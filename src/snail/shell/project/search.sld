@@ -2,8 +2,8 @@
 ;; Each hit carries the revision its scalar coordinates were computed from.
 ;; The service yields between files and scan chunks; it holds no index.
 (define-library (snail shell project search)
-  (export Query parse-query Hit Hit-path Hit-revision Hit-line Hit-column Hit-snippet
-          Results Results-hits Results-skipped Results-limited search-project)
+  (export Query parse-query Hit
+          Results search-project)
   (import
    (snail core base)
    (snail core io)
@@ -42,12 +42,12 @@
                   (match (read-project-text root path)
                     ((Err _) (loop rest hits (+ skipped 1) budget))
                     ((Ok snapshot)
-                     (let* ((text (ProjectText-text snapshot))
+                     (let* ((text (::text snapshot))
                             (end (min budget (string-length text)))
                             (found (map (lambda (at)
-                                          (Hit path (ProjectText-revision snapshot)
-                                               (Occurrence-line at) (Occurrence-column at)
-                                               (Occurrence-snippet at)))
+                                          (Hit path (::revision snapshot)
+                                               (::line at) (::column at)
+                                               (::snippet at)))
                                         (scan query text end (- 201 (length hits)))))
                             (all (append hits found)))
                        (if (< end (string-length text))

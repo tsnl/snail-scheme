@@ -33,7 +33,7 @@
 
 (: sum (-> (Vec3 I64) I64))
 (define (sum v)
-  (+ (Vec3-x v) (+ (Vec3-y v) (Vec3-z v))))
+  (+ (::x v) (+ (::y v) (::z v))))
 
 (display (area (Circle 2)))
 (newline)
@@ -44,7 +44,7 @@
 (write-line (color-name (Green)))
 (display (sum (Vec3 1 2 3)))
 (newline)
-(display (Vec3-y (Vec3-y-set (Vec3 1 2 3) 20)))
+(display (::y (Vec3-y-set (Vec3 1 2 3) 20)))
 (newline)
 (display (map area (list (Dot) (Circle 1) (Rectangle 2 5))))
 (newline)

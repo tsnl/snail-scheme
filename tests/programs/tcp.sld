@@ -8,7 +8,7 @@
 (define (require result)
   (match result
     ((Ok value) value)
-    ((Err error) (panic (SocketError-code error)))))
+    ((Err error) (panic (::code error)))))
 
 (: receive-four (-> Connection Bytes ! tcp tasks))
 (define (receive-four connection)
@@ -25,7 +25,7 @@
  (once (lambda ()
          (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
                 (client
-                 (require (connect (require (endpoint "127.0.0.1" (Listener-port listener))))))
+                 (require (connect (require (endpoint "127.0.0.1" (::port listener))))))
                 (server (require (accept listener))))
            (require (close-listener listener))
            (require (close-listener listener))
@@ -36,24 +36,24 @@
            ;; A read takes 1 to 65,536 bytes, and a grace is not negative.
            (for-each (lambda (maximum)
                        (match (read server maximum)
-                         ((Err error) (write-line (SocketError-code error)))
+                         ((Err error) (write-line (::code error)))
                          ((Ok _) (panic "a read out of bounds was started"))))
                      (list (ann 0 I32) (ann 65537 I32)))
            (match (finish-connection server -1)
-             ((Err error) (write-line (SocketError-code error)))
+             ((Err error) (write-line (::code error)))
              ((Ok _) (panic "a negative grace was accepted")))
            (require (close-connection client))
            (require (close-connection server))
            (require (close-connection server))
            (match (read server 1)
-             ((Err error) (write-line (SocketError-code error)))
+             ((Err error) (write-line (::code error)))
              ((Ok _) (panic "closed socket was read"))))
 
          ;; Only `endpoint` makes an Endpoint: four decimal octets without
          ;; leading zeros, and a port from 0 to 65535.
          (for-each (lambda (address)
                      (match (endpoint address 80)
-                       ((Err error) (write-line (SocketError-code error)))
+                       ((Err error) (write-line (::code error)))
                        ((Ok _) (panic (string-append "accepted " address)))))
                    (list "localhost"
                          "1.2.3"
@@ -65,7 +65,7 @@
                          "1.2.3.4 "))
          (for-each (lambda (port)
                      (match (endpoint "127.0.0.1" port)
-                       ((Err error) (write-line (SocketError-code error)))
+                       ((Err error) (write-line (::code error)))
                        ((Ok _) (panic "a port out of range was accepted"))))
                    (list -1 65536))
          (write-line (Endpoint-address (require (endpoint "0.0.0.0" 65535))))
@@ -73,7 +73,7 @@
 
          ;; A token from a replacement handler cannot masquerade as a native handle.
          (match (close-connection (Connection (type-convert (ann 1 I32) Any)))
-           ((Err error) (write-line (SocketError-code error)))
+           ((Err error) (write-line (::code error)))
            ((Ok _) (panic "a fake token was accepted")))
 
          ;; Returning from main must close even a delivered listener left open by user code.
@@ -81,7 +81,7 @@
 
          (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
                 (client
-                 (require (connect (require (endpoint "127.0.0.1" (Listener-port listener))))))
+                 (require (connect (require (endpoint "127.0.0.1" (::port listener))))))
                 (server (require (accept listener))))
            (require (close-listener listener))
            (dispatch-local (once (lambda () (require (finish-connection server 1000)))))

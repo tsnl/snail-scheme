@@ -1,6 +1,6 @@
 (define-library (borrow model)
   (export
-   Model Model-title make-model title)
+   Model make-model title)
   (import
    (snail core base))
   (begin
@@ -14,4 +14,4 @@
 
     (: title (-> (Borrow Model) String))
     (define (title model)
-      (Model-title model))))
+      (::title model))))

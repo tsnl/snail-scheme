@@ -5,17 +5,12 @@
 (define-library (snail shell compiler expand)
   (export
    ExpandedProgram
-   ExpandedProgram-program
    empty-expansion
    library-key
    expand-program
    ArtifactUse
-   ArtifactUse-name
-   ArtifactUse-loc
    discover-artifacts
    LinkedFile
-   LinkedFile-digest
-   LinkedFile-path
    library-links
    program-links
    LibraryFile
@@ -25,10 +20,6 @@
    program-imports
    implicit-libraries
    Reached
-   Reached-library
-   Reached-forms
-   Reached-loc
-   Reached-loading
    library-closure)
   (import
    (snail core base)
@@ -39,7 +30,6 @@
    (only (snail shell compiler inputs)
          ArtifactFiles
          Inputs
-         Inputs-artifacts
          producer-text
          generated-output
          request-input
@@ -2074,11 +2064,8 @@
           (_ (compile-error (syntax-loc field)
                             "expected (field type) or (field mut type), optionally with (annotations ...)")))))
 
-    ;; Accessors are `::field`. A struct whose fields are all immutable
-    ;; also gets pure replacements, `Name-field-set`. A mutable field gets
-    ;; `Name-field-set!` and `Name-field-replace!` instead, and its struct no
-    ;; pure replacements, since a struct with a mutable field has identity.
-    ;; An enum's fields stay immutable: its case accessors are partial.
+    ;; A field's generated names, by `field-suffixes`; a pure struct's
+    ;; accessor name is reserved instead of bound.
     (: bind-fields (-> Context Env Syntax (List Syntax) Bool Context ! compile))
     (define (bind-fields cx env name fields struct?)
       (let* ((parsed (map parse-field fields)) (pure? (not (any? ::mutable? parsed))))
@@ -2098,9 +2085,22 @@
                                                  (field-ident name
                                                               (::name field)
                                                               suffix)))
-                                  cx
-                                  (Cons "" (field-suffixes field struct? pure?)))))
+                                  (if (and struct? pure?) (reserve-field-read cx env name field) cx)
+                                  (field-suffixes field struct? pure?))))
                    cx parsed)))
+
+    ;; A pure struct's field is read by path, but its accessor still exists
+    ;; in the program under `Name-field`, as the field class instance's
+    ;; method, so that name is bound as syntax that refuses use: a read
+    ;; through it says to use the path, and a definition of it is a
+    ;; duplicate rather than a silent replacement of the accessor.
+    (: reserve-field-read (-> Context Env Syntax FieldSyntax Context ! compile))
+    (define (reserve-field-read cx env name field)
+      (bind-top cx env (field-ident name (::name field) "") (Core "field-read")))
+
+    (: field-read-message String)
+    (define field-read-message
+      "a struct's field is read by path, (::field s), not through an accessor")
 
     ;; `Ref` is the struct with a mutable field, declared in (snail core
     ;; base), and the runtime's `UnsafeSlot` in (snail shell slot) the
@@ -2113,14 +2113,23 @@
         (compile-error (syntax-loc (::name field))
                        "only Ref and the runtime's UnsafeSlot have a mutable field; hold the struct in a cell and write its fields with set!")))
 
+    ;; The suffixes of the names a field binds. A struct whose fields are
+    ;; all immutable is a value read by path, `(::field s)`, so it binds
+    ;; only the pure replacement `Name-field-set`; its accessor exists in the
+    ;; program as the field class instance's method. A mutable field, which
+    ;; only Ref and UnsafeSlot have, is read by `Name-field` and written by
+    ;; `Name-field-set!` and `Name-field-replace!`, and its struct has
+    ;; identity, so no pure replacements. An enum's fields stay immutable
+    ;; and have no field instance: a case's partial accessor `Case-field`
+    ;; reads them, or a pattern does.
     (: field-suffixes (-> FieldSyntax Bool Bool (List String) ! compile))
     (define (field-suffixes field struct? pure?)
       (cond ((and (::mutable? field) (not struct?))
              (compile-error (syntax-loc (::name field))
                             "an enum's fields cannot be mutable; hold a struct with a mutable field in the case"))
-            ((::mutable? field) (list "-set!" "-replace!"))
+            ((::mutable? field) (list "" "-set!" "-replace!"))
             ((and struct? pure?) (list "-set"))
-            (else (Nil))))
+            (else (list ""))))
 
     ;; A field identifier shares the mark of its type's name, so a struct a
     ;; macro introduces has accessors only that expansion sees.
@@ -3639,12 +3648,14 @@
         ((Some (TypeName _ _ (Some constructor))) (expr (Var constructor (Nil) (Nil)) loc))
         ((Some (TypeName _ _ (None)))
          (compile-error loc (string-append "a type is not a value: " (Ident-name ident))))
+        ((Some (Core "field-read")) (compile-error loc field-read-message))
         ((None) (compile-error loc (string-append "unbound identifier " (Ident-name ident))))
         (_ (compile-error loc (string-append "syntax used as a value: " (Ident-name ident))))))
 
     (: expand-core (-> Context Env String (List Syntax) Loc (Pair Expr Context) ! compile))
     (define (expand-core cx env keyword items loc)
       (case keyword
+        (("field-read") (compile-error loc field-read-message))
         (("lambda")
          (match items
            ((Cons _ (Cons params body))

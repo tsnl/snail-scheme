@@ -41,7 +41,7 @@ all matching values. It expects the normalized names produced by the parser.
 ## Request targets
 
 ```scheme
-(parse-target (RequestHead-target head))
+(parse-target (::target head))
 ;; Result Target HttpError
 ```
 
@@ -84,7 +84,7 @@ making a claim about records created elsewhere.
 ;; Result ResponseParts HttpError
 ```
 
-`ResponseParts-head` and `ResponseParts-body` are separate immutable byte vectors.
+`::head` and `::body` of a `ResponseParts` are separate immutable byte vectors.
 This avoids copying a representation into one combined response buffer and
 leaves a clear boundary for future streaming. No bytes are written by this call.
 

@@ -12,8 +12,8 @@
   (list (Pair 2 "a") (Pair 1 "b") (Pair 2 "c") (Pair 1 "d") (Pair 2 "e")))
 
 (write-line
- (show (map Pair-second (list-sort (lambda (a b) (< (Pair-first a) (Pair-first b))) entries))))
-(write-line (show (map Pair-second entries)))
+ (show (map ::second (list-sort (lambda (a b) (< (::first a) (::first b))) entries))))
+(write-line (show (map ::second entries)))
 
 ;; A permutation exercises the halves and merges beyond a few elements.
 (: shuffled (List I64))

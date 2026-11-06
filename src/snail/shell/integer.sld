@@ -63,19 +63,19 @@
 
     (: integer-zero? (-> Integer Bool))
     (define (integer-zero? n)
-      (= (vector-length (Integer-limbs n)) 0))
+      (= (vector-length (::limbs n)) 0))
 
     (: integer-negative? (-> Integer Bool))
     (define (integer-negative? n)
-      (Integer-negative n))
+      (::negative n))
 
     (: integer-negate (-> Integer Integer))
     (define (integer-negate n)
-      (canonical (not (Integer-negative n)) (Integer-limbs n)))
+      (canonical (not (::negative n)) (::limbs n)))
 
     (: integer-abs (-> Integer Integer))
     (define (integer-abs n)
-      (Integer #f (Integer-limbs n)))
+      (Integer #f (::limbs n)))
 
     ;; ---- Conversions ----
 
@@ -88,15 +88,15 @@
     (: integer->i64 (-> Integer I64))
     (define (integer->i64 n)
       (let ((magnitude (vector-fold (lambda (total limb) (+ (* total base) limb)) 0
-                                    (reverse-vector (Integer-limbs n)))))
-        (if (Integer-negative n) (negate magnitude) magnitude)))
+                                    (reverse-vector (::limbs n)))))
+        (if (::negative n) (negate magnitude) magnitude)))
 
     (: integer->f64 (-> Integer F64))
     (define (integer->f64 n)
       (let ((magnitude
              (vector-fold (lambda (total limb) (+ (* total 1000000000.0) (i64->f64 limb))) 0.0
-                          (reverse-vector (Integer-limbs n)))))
-        (if (Integer-negative n) (negate magnitude) magnitude)))
+                          (reverse-vector (::limbs n)))))
+        (if (::negative n) (negate magnitude) magnitude)))
 
     (: reverse-vector (-> (Vector I64) (Vector I64)))
     (define (reverse-vector items)
@@ -105,11 +105,11 @@
 
     (: integer->string (-> Integer String))
     (define (integer->string n)
-      (let ((limbs (Integer-limbs n)))
+      (let ((limbs (::limbs n)))
         (if (integer-zero? n)
             "0"
             (string-concatenate
-             (Cons (if (Integer-negative n) "-" "")
+             (Cons (if (::negative n) "-" "")
                    (Cons (show (vector-ref limbs (- (vector-length limbs) 1)))
                          (map (lambda (index) (padded-limb (vector-ref limbs index)))
                               (reverse (iota (- (vector-length limbs) 1))))))))))
@@ -155,10 +155,10 @@
     ;; -1, 0 or 1.
     (: integer-compare (-> Integer Integer I64))
     (define (integer-compare a b)
-      (cond ((and (Integer-negative a) (not (Integer-negative b))) -1)
-            ((and (Integer-negative b) (not (Integer-negative a))) 1)
-            ((Integer-negative a) (compare-magnitudes (Integer-limbs b) (Integer-limbs a)))
-            (else (compare-magnitudes (Integer-limbs a) (Integer-limbs b)))))
+      (cond ((and (::negative a) (not (::negative b))) -1)
+            ((and (::negative b) (not (::negative a))) 1)
+            ((::negative a) (compare-magnitudes (::limbs b) (::limbs a)))
+            (else (compare-magnitudes (::limbs a) (::limbs b)))))
 
     ;; ---- Addition ----
 
@@ -187,13 +187,13 @@
 
     (: integer-add (-> Integer Integer Integer))
     (define (integer-add a b)
-      (cond ((= (bool->sign (Integer-negative a)) (bool->sign (Integer-negative b)))
-             (canonical (Integer-negative a) (add-magnitudes (Integer-limbs a) (Integer-limbs b))))
-            ((>= (compare-magnitudes (Integer-limbs a) (Integer-limbs b)) 0)
-             (canonical (Integer-negative a)
-                        (subtract-magnitudes (Integer-limbs a) (Integer-limbs b))))
-            (else (canonical (Integer-negative b)
-                             (subtract-magnitudes (Integer-limbs b) (Integer-limbs a))))))
+      (cond ((= (bool->sign (::negative a)) (bool->sign (::negative b)))
+             (canonical (::negative a) (add-magnitudes (::limbs a) (::limbs b))))
+            ((>= (compare-magnitudes (::limbs a) (::limbs b)) 0)
+             (canonical (::negative a)
+                        (subtract-magnitudes (::limbs a) (::limbs b))))
+            (else (canonical (::negative b)
+                             (subtract-magnitudes (::limbs b) (::limbs a))))))
 
     (: bool->sign (-> Bool I64))
     (define (bool->sign negative)
@@ -224,8 +224,8 @@
 
     (: integer-multiply (-> Integer Integer Integer))
     (define (integer-multiply a b)
-      (canonical (not (= (bool->sign (Integer-negative a)) (bool->sign (Integer-negative b))))
-                 (multiply-magnitudes (Integer-limbs a) (Integer-limbs b))))
+      (canonical (not (= (bool->sign (::negative a)) (bool->sign (::negative b))))
+                 (multiply-magnitudes (::limbs a) (::limbs b))))
 
     ;; ---- Division ----
 
@@ -236,22 +236,22 @@
       (let loop ((index (- (vector-length a) 1)) (remainder no-limbs) (quotient (Nil)))
         (if (< index 0)
             (Pair (list->vector quotient) remainder)
-            (let* ((current (Integer-limbs (canonical #f
-                                                      (vector-append (vector-generate 1
-                                                                                      (lambda (i)
-                                                                                        (vector-ref
-                                                                                         a
-                                                                                         index)))
-                                                                     remainder))))
+            (let* ((current (::limbs (canonical #f
+                                                (vector-append (vector-generate 1
+                                                                                (lambda (i)
+                                                                                  (vector-ref
+                                                                                   a
+                                                                                   index)))
+                                                               remainder))))
                    (digit (quotient-limb current b)))
               (loop (- index 1)
-                    (Integer-limbs (canonical #f
-                                              (subtract-magnitudes current
-                                                                   (multiply-magnitudes b
-                                                                                        (vector-generate
-                                                                                         1
-                                                                                         (lambda (i)
-                                                                                           digit))))))
+                    (::limbs (canonical #f
+                                        (subtract-magnitudes current
+                                                             (multiply-magnitudes b
+                                                                                  (vector-generate
+                                                                                   1
+                                                                                   (lambda (i)
+                                                                                     digit))))))
                     (Cons digit quotient))))))
 
     ;; The largest d in [0, base) with b * d <= current.
@@ -261,12 +261,12 @@
         (if (= low high)
             low
             (let ((middle (quotient (+ (+ low high) 1) 2)))
-              (if (<= (compare-magnitudes (Integer-limbs (canonical #f
-                                                                    (multiply-magnitudes b
-                                                                                         (vector-generate
-                                                                                          1
-                                                                                          (lambda (i)
-                                                                                            middle)))))
+              (if (<= (compare-magnitudes (::limbs (canonical #f
+                                                              (multiply-magnitudes b
+                                                                                   (vector-generate
+                                                                                    1
+                                                                                    (lambda (i)
+                                                                                      middle)))))
                                           current)
                       0)
                   (search middle high)
@@ -276,21 +276,21 @@
     (: integer-quotient (-> Integer Integer Integer))
     (define (integer-quotient a b)
       (when (integer-zero? b) (panic "integer division by zero"))
-      (canonical (not (= (bool->sign (Integer-negative a)) (bool->sign (Integer-negative b))))
-                 (Pair-first (divide-magnitudes (Integer-limbs a) (Integer-limbs b)))))
+      (canonical (not (= (bool->sign (::negative a)) (bool->sign (::negative b))))
+                 (::first (divide-magnitudes (::limbs a) (::limbs b)))))
 
     (: integer-remainder (-> Integer Integer Integer))
     (define (integer-remainder a b)
       (when (integer-zero? b) (panic "integer division by zero"))
-      (canonical (Integer-negative a)
-                 (Pair-second (divide-magnitudes (Integer-limbs a) (Integer-limbs b)))))
+      (canonical (::negative a)
+                 (::second (divide-magnitudes (::limbs a) (::limbs b)))))
 
     ;; The remainder with the sign of the divisor.
     (: integer-modulo (-> Integer Integer Integer))
     (define (integer-modulo a b)
       (let ((r (integer-remainder a b)))
         (if (and (not (integer-zero? r))
-                 (not (= (bool->sign (Integer-negative r)) (bool->sign (Integer-negative b)))))
+                 (not (= (bool->sign (::negative r)) (bool->sign (::negative b)))))
             (integer-add r b)
             r)))
 

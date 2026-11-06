@@ -36,10 +36,10 @@
 
 (: status-text (-> FileStatus String))
 (define (status-text status)
-  (match (FileStatus-kind status)
+  (match (::kind status)
     ((Directory) "directory")
-    (kind (string-append (kind-name kind) " of " (show (FileStatus-size status)) " bytes, modified "
-                         (if (> (FileStatus-modified status) 0) "after" "before") " 1970"))))
+    (kind (string-append (kind-name kind) " of " (show (::size status)) " bytes, modified "
+                         (if (> (::modified status) 0) "after" "before") " 1970"))))
 
 (: names (-> (List String) String))
 (define (names entries)

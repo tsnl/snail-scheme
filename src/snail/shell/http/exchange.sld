@@ -6,8 +6,8 @@
 ;; request's method, so a server can answer a request it could not read.
 (define-library (snail shell http exchange)
   (export
-   Request Request-head Request-body
-   Response Response-status Response-headers Response-body
+   Request
+   Response
    ExchangeError ProtocolFailure TransportFailure TruncatedHead TruncatedBody ApplicationFailure
    read-request respond serve-one)
   (import
@@ -80,7 +80,7 @@
         ((Err error) (Err (ProtocolFailure error)))
         ((Ok value)
          (match value
-           ((Some parsed) (Ok (RequestPrefix (ParsedHead-request parsed) prefix)))
+           ((Some parsed) (Ok (RequestPrefix (::request parsed) prefix)))
            ((None) (panic "HTTP delimiter did not complete the head"))))))
 
     (: read-head (All (E) (-> Connection (Result RequestPrefix (ExchangeError E)) ! tcp tasks)))
@@ -94,17 +94,17 @@
               ((Ok (Some bytes))
                (let* ((count (vector-length bytes))
                       (scanned (scan-head bytes state))
-                      (end (Pair-first scanned)))
-                 (if (= (Pair-second scanned) 4)
+                      (end (::first scanned)))
+                 (if (= (::second scanned) 4)
                      (parsed-prefix (Cons (subvector bytes 0 end) chunks)
                                     (subvector bytes end count))
-                     (loop (Cons bytes chunks) (+ total count) (Pair-second scanned)))))))))
+                     (loop (Cons bytes chunks) (+ total count) (::second scanned)))))))))
 
     (: read-body
        (All (E) (-> Connection RequestPrefix (Result Request (ExchangeError E)) ! tcp tasks)))
     (define (read-body connection prefix)
-      (let* ((head (RequestPrefix-head prefix)) (expected (RequestHead-body-length head))
-             (initial (RequestPrefix-prefix prefix)) (count (min expected (vector-length initial))))
+      (let* ((head (::head prefix)) (expected (::body-length head))
+             (initial (::prefix prefix)) (count (min expected (vector-length initial))))
         (let loop ((chunks (list (subvector initial 0 count))) (received count))
           (if (= received expected)
               (Ok (Request head (vector-concatenate (reverse chunks))))
@@ -141,10 +141,10 @@
     (: write-response
        (All (E) (-> Connection I32 ResponseParts (Result Unit (ExchangeError E)) ! tcp tasks)))
     (define (write-response connection grace parts)
-      (match (write-bytes connection (ResponseParts-head parts))
+      (match (write-bytes connection (::head parts))
         ((Err error) (Err error))
         ((Ok _)
-         (match (write-bytes connection (ResponseParts-body parts))
+         (match (write-bytes connection (::body parts))
            ((Err error) (Err error))
            ((Ok _)
             (match (finish-connection connection grace)
@@ -161,9 +161,9 @@
                     ! tcp tasks)))
     (define (respond connection grace method response)
       (match (encode-response (match method ((Some name) name) ((None) "GET"))
-                              (Response-status response)
-                              (Response-headers response)
-                              (Response-body response))
+                              (::status response)
+                              (::headers response)
+                              (::body response))
         ((Err error) (Err (ProtocolFailure error)))
         ((Ok parts) (write-response connection grace parts))))
 
@@ -178,7 +178,7 @@
            ((Ok response)
             (respond connection
                      grace
-                     (Some (RequestHead-method (Request-head request)))
+                     (Some (::method (::head request)))
                      response))))))
 
     ;; Exclusive use is a calling convention, not a linear socket guarantee.

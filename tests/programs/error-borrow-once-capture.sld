@@ -7,4 +7,4 @@
 
 (: escape (-> (Borrow Token) (FnOnce I64)))
 (define (escape borrowed)
-  (once (lambda () (Token-number borrowed))))
+  (once (lambda () (::number borrowed))))

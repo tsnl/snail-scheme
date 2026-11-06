@@ -28,7 +28,7 @@ this API. TCP operations are:
 
 | Operation | Success value |
 | --- | --- |
-| `listen endpoint` | `Listener`; `Listener-port` is the actual bound port. |
+| `listen endpoint` | `Listener`; `(::port listener)` is the actual bound port. |
 | `connect endpoint` | `Connection`. |
 | `accept listener` | `Connection`. |
 | `read connection maximum` | `Some Bytes` containing an available nonempty prefix, or `None` at EOF. |
@@ -46,15 +46,15 @@ UDP operations are:
 
 | Operation | Success value |
 | --- | --- |
-| `bind endpoint` | `UdpSocket`; `UdpSocket-port` is the actual bound port. |
+| `bind endpoint` | `UdpSocket`; `(::port socket)` is the actual bound port. |
 | `send socket peer bytes` | `I32` count of the entire datagram accepted locally, including zero; never a partial prefix. |
 | `receive socket maximum` | `Datagram` with an `Endpoint` peer and immutable bytes. |
 | `close-udp socket` | `Unit`. |
 
 UDP payloads and receive bounds are 0–65,507 bytes. Empty packets are messages,
 not EOF. An oversized receive consumes and discards that packet with `EMSGSIZE`;
-the next receive starts at the next packet. `Datagram-peer` supplies the sender's
-address and port, and `Datagram-bytes` supplies the whole payload. Bind port 0
+the next receive starts at the next packet. `::peer` supplies the sender's
+address and port, and `::bytes` supplies the whole payload. Bind port 0
 selects a free port; a send to port 0 fails with `EINVAL` before it reaches
 the host. UDP does not guarantee
 delivery, order or uniqueness.
@@ -250,7 +250,7 @@ code. As for sockets, cancellation unwinds the task.
 
 | Operation | Success value |
 | --- | --- |
-| `spawn (Command program arguments directory)` | `Process`; `Process-id` is the operating system's process id. |
+| `spawn (Command program arguments directory)` | `Process`; `(::id process)` is the operating system's process id. |
 | `read-output process stream maximum` | `Some Bytes`, an available nonempty prefix of `(Stdout)` or `(Stderr)`, or `None` at its end. |
 | `write-input process bytes` | `I32` count of bytes the pipe took, at most 65,536. |
 | `close-input process` | `Unit`; the child reads EOF once written bytes drain. |
