@@ -54,7 +54,7 @@ export function createFetch(runtime) {
     const [url, ...kinds] = description.split('\0');
     const stream = {source: new EventSource(url), messages: [], closed: false, waiter: null};
     const heard = message => { stream.messages.push(message); stream.waiter?.(); };
-    for (const kind of kinds.filter(kind => kind !== 'error')) stream.source.addEventListener(kind, event => heard(`${kind}\0${event.data}`));
+    for (const kind of kinds.filter(kind => kind !== 'error')) stream.source.addEventListener(kind, event => heard(`${kind}\0${event.data ?? ''}`));
     stream.source.addEventListener('error', () => {
       if (stream.source.readyState === EventSource.CLOSED) { stream.closed = true; stream.waiter?.(); }
       else if (kinds.includes('error')) heard('error\0');

@@ -24,8 +24,10 @@ const save = (revision, text, headers = {}, path = 'main.sld') => fetch(`${url}/
 });
 const control = (action, target = 'dev') => service.command(`/api/run/${action}?target=${encodeURIComponent(target)}`);
 const run = async () => (await service.status()).runs.find(run => run.target === 'dev');
-const statuses = stream => stream.seen.filter(event => event.kind === 'status');
-const opened = stream => () => stream.seen.some(event => event.kind === 'files');
+const snapshots = stream => stream.seen.filter(event => event.kind === 'snapshot');
+const statuses = stream => snapshots(stream).map(event => ({data: event.data.build})).filter((event, at, all) =>
+  at === 0 || JSON.stringify(event.data) !== JSON.stringify(all[at - 1].data));
+const opened = stream => () => snapshots(stream).length > 0;
 
 // A disk change becomes a build request when the observer reconciles: GET
 // /api/project awaits a fresh reconciliation, and the debounce then has room.
@@ -38,8 +40,9 @@ const stream = await service.events();
 let writer = null;
 try {
   await service.until(opened(stream), 'the first event frames');
-  assert.equal(stream.seen[0].kind, 'status');
-  assert.equal(stream.seen[1].kind, 'runs');
+  assert.equal(stream.seen[0].kind, 'snapshot');
+  assert.equal(typeof stream.seen[0].data.instance, 'string');
+  assert.ok(Number.isInteger(stream.seen[0].data.files));
   const first = await service.settled(0);
 
   // One snapshot of the session: the attempt, the generation each published
@@ -94,7 +97,7 @@ try {
   const saved = await response.json();
   assert.equal((await save(initial.revision, program('stale'))).status, 409);
   await service.settled(first.id);
-  assert.ok(stream.seen.filter(event => event.kind === 'files').length >= 2);
+  assert.ok(new Set(snapshots(stream).map(event => event.data.files)).size >= 2);
 
   // Build is the request that asks for an attempt, and exactly one follows.
   const built = await service.command('/api/build');
@@ -136,8 +139,9 @@ try {
   const beforeReconnect = (await service.status()).id;
   const reconnected = await service.events();
   await service.until(opened(reconnected), 'the frames of a reconnection');
-  assert.deepEqual(Object.keys(reconnected.seen[0].data).sort(), ['diagnostics', 'id', 'phase']);
-  assert.ok(reconnected.seen[0].data.id >= beforeReconnect && reconnected.seen[0].data.id <= (await service.status()).id);
+  assert.deepEqual(Object.keys(reconnected.seen[0].data).sort(), ['build', 'files', 'instance', 'runs']);
+  assert.equal(reconnected.seen[0].data.instance, stream.seen[0].data.instance);
+  assert.ok(reconnected.seen[0].data.build.id >= beforeReconnect && reconnected.seen[0].data.build.id <= (await service.status()).id);
   await reconnected.close();
 
   // A first status larger than the writable high-water mark must still arrive:
@@ -148,7 +152,7 @@ try {
   await service.settled(before, 'failed');
   const large = await service.events();
   await service.until(opened(large), 'a large first status');
-  assert.ok(large.seen[0].data.diagnostics[0].message.includes(long));
+  assert.ok(large.seen[0].data.build.diagnostics[0].message.includes(long));
   await large.close();
   before = (await service.status()).id;
   fs.writeFileSync(source, program('saved'));
@@ -202,8 +206,8 @@ try {
   await delay(50); assert.equal((await run()).attempt.pid, firstPid);
   assert.equal((await control('restart')).status, 204);
   const rerun = await service.until(async () => { const dev = await run(); return dev.attempt?.pid !== firstPid && dev.attempt?.phase === 'exited' && dev; }, 'a restarted run to exit');
-  await service.until(() => stream.seen.some(event => event.kind === 'runs' && event.data[0]?.attempt?.pid === rerun.attempt.pid && event.data[0].attempt.phase === 'exited'), 'the restarted run on the stream');
-  assert.equal(statuses(stream).length, compilerCount, 'run updates do not replay compiler evidence');
+  await service.until(() => stream.seen.some(event => event.kind === 'snapshot' && event.data.runs[0]?.attempt?.pid === rerun.attempt.pid && event.data.runs[0].attempt.phase === 'exited'), 'the restarted run on the stream');
+  assert.equal(statuses(stream).length, compilerCount, 'run updates carry unchanged compiler evidence');
   assert.equal((await control('stop')).status, 204);
 
   before = (await service.status()).id;
@@ -222,7 +226,7 @@ try {
   await delay(50); process.kill(livePid, 0); // Disconnect owns no application process.
   const runReconnect = await service.events();
   await service.until(opened(runReconnect), 'the frames of a reconnection');
-  assert.equal(runReconnect.seen.find(event => event.kind === 'runs').data[0].attempt.pid, livePid);
+  assert.equal(runReconnect.seen.find(event => event.kind === 'snapshot').data.runs[0].attempt.pid, livePid);
   await runReconnect.close();
 
   before = (await service.status()).id;

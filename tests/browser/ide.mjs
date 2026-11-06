@@ -110,8 +110,8 @@ try {
   await until(async () => (await text()).includes('newer observation'), 'newer baseline before build');
   assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null);
   assert.match(await browser.evaluate('document.getElementById("diagnostics").textContent'), /does not fit String/);
-  await browser.evaluate('document.getElementById("status").textContent = "Connection lost"; window.dispatchEvent(new Event("online"))');
-  await until(() => browser.evaluate('window.newerReads >= 3 && document.getElementById("status").textContent === "Build failed"'), 'replayed failure and fresh files');
+  await browser.evaluate('window.beforeReconnectReads = window.newerReads; document.getElementById("status").textContent = "Connection lost"; window.dispatchEvent(new Event("online"))');
+  await until(() => browser.evaluate('window.newerReads > window.beforeReconnectReads && document.getElementById("status").textContent === "Build failed"'), 'replayed failure and fresh files');
   assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null, 'reconnect cannot rebind an old point to a newer read');
   await browser.evaluate('window.fetch = window.actualFetch');
   await click('reload');
@@ -131,7 +131,7 @@ try {
   await click('save'); await saved();
   assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null);
   await browser.evaluate('window.dispatchEvent(new Event("online"))');
-  await until(() => browser.evaluate('window.savedReads >= 3'), 'replay after acknowledged save');
+  await until(() => browser.evaluate('window.savedReads > 0'), 'replay after acknowledged save');
   assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null, 'reconnect preserves Save invalidation');
   await browser.evaluate('window.fetch = window.actualFetch');
   await click('reload');

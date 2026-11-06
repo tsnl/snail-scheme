@@ -17,6 +17,7 @@
    (snail shell fetch)
    (snail shell json)
    (snail shell json read)
+   (snail shell project protocol)
    (snail shell format)
    (snail shell highlight)
    (snail shell ui)
@@ -288,12 +289,6 @@
 
     ;; ---- Buffers ----
 
-    ;; A file's text as disk had it when a read or save saw it, and the
-    ;; revision the service gave that text.
-    (struct Snapshot
-      ((text String)
-       (revision String)))
-
     ;; An open file: its draft, and the disk contents it was made from, none
     ;; until a read has accepted some; the revision disk was last seen at,
     ;; none before the first read and once a read found the file gone;
@@ -515,7 +510,9 @@
           ((Some json)
            (if (and (>= status 200) (< status 300))
                (Ok json)
-               (Err (Failure status (json-text json "message")))))
+               (Err (Failure status (match (json->message json)
+                                      ((Some message) message)
+                                      ((None) "invalid service error response"))))))
           ((None)
            (Err
             (Failure status
@@ -547,74 +544,28 @@
     (define (file-url path)
       (string-append "/api/file?path=" (url-component path)))
 
-    ;; ---- The service's JSON ----
+    ;; ---- Typed replies ----
 
-    (: json-text (-> Json String String))
-    (define (json-text json name)
-      (match (json-member json name)
-        ((Some (JsonString text)) text)
-        (_ "")))
+    (: decoded-reply
+       (All (T) (requires (Copy T))
+            (-> (-> Json (Option T)) String (Result Json Failure) (Result T Failure))))
+    (define (decoded-reply decode subject reply)
+      (match reply
+        ((Err failure) (Err failure))
+        ((Ok json)
+         (match (decode json)
+           ((Some value) (Ok value))
+           ((None) (Err (Failure 200 (string-append "invalid " subject " response"))))))))
 
-    (: json-number (-> Json String (Option I64)))
-    (define (json-number json name)
-      (match (json-member json name)
-        ((Some (JsonInteger value)) (Some value))
-        (_ (None))))
-
-    (: json-flag (-> Json String Bool))
-    (define (json-flag json name)
-      (match (json-member json name)
-        ((Some (JsonBool value)) value)
-        (_ #f)))
-
-    (: json-items (-> Json String (List Json)))
-    (define (json-items json name)
-      (match (json-member json name)
-        ((Some (JsonArray items)) items)
-        (_ (Nil))))
-
-    ;; A file as the service sends it, which must have its text and revision.
     (: file-reply (-> (Result Json Failure) (Result Snapshot Failure)))
     (define (file-reply reply)
-      (match reply
-        ((Ok json)
-         (match (Pair (json-member json "text") (json-member json "revision"))
-           ((Pair (Some (JsonString text)) (Some (JsonString revision)))
-            (Ok (Snapshot text revision)))
-           (_ (Err (Failure 200 "the service sent a file without its text and revision")))))
-        ((Err failure) (Err failure))))
-
-    ;; The project as the service lists it: its name, its directory, and the
-    ;; text files under it, by path from the directory.
-    (struct Project
-      ((name String)
-       (directory String)
-       (files (List String))
-       (directories (List String))))
+      (decoded-reply json->file "file" reply))
 
     (: project-reply (-> (Result Json Failure) (Result Project Failure)))
     (define (project-reply reply)
-      (match reply
-        ((Ok json)
-         (Ok (Project (json-text json "name")
-                      (json-text json "directory")
-                      (json-strings json "files")
-                      (json-strings json "directories"))))
-        ((Err failure) (Err failure))))
-
-    (: json-strings (-> Json String (List String)))
-    (define (json-strings json name)
-      (concatenate (map (lambda (item) (match item ((JsonString text) (list text)) (_ (Nil))))
-                        (json-items json name))))
+      (decoded-reply json->project "project" reply))
 
     ;; ---- Builds ----
-
-    ;; Where the compiler places a diagnostic: a file, and a line and a column
-    ;; of scalars, counting from 1.
-    (struct Point
-      ((file String)
-       (line I64)
-       (column I64)))
 
     ;; What reads have said of the text a diagnostic was made from: nothing
     ;; yet; nothing that counts, since a save changed the text, so no read can
@@ -632,21 +583,14 @@
        (source (Option Point))
        (observation Observation)))
 
-    (: diagnostic-of (-> Json Diagnostic))
-    (define (diagnostic-of json)
-      (Diagnostic (json-text json "severity")
-                  (json-text json "message")
-                  (match (json-member json "source")
-                    ((Some (JsonObject members))
-                     (let ((source (JsonObject members)))
-                       (match (Pair (json-number source "line") (json-number source "column"))
-                         ((Pair (Some line) (Some column))
-                          (Some (Point (json-text source "file") line column)))
-                         (_ (None)))))
-                    (_ (None)))
+    (: diagnostic-of (-> Report Diagnostic))
+    (define (diagnostic-of report)
+      (Diagnostic (Report-severity report)
+                  (Report-message report)
+                  (Report-source report)
                   (Unobserved)))
 
-    ;; The compiler's status as the toolbar shows it: its words, its state for
+    ;; The compiler's status as the status bar shows it: its words, its state for
     ;; styling (`starting`, `building`, `built` or `failed`), and the attempt
     ;; it reports.
     (struct Status
@@ -654,9 +598,9 @@
        (state String)
        (attempt String)))
 
-    (: compiler-status (-> Json Status))
-    (define (compiler-status json)
-      (let ((phase (json-text json "phase")))
+    (: compiler-status (-> Build Status))
+    (define (compiler-status build)
+      (let ((phase (Build-phase build)))
         (Status (cond ((string=? phase "starting") "Starting the compiler…")
                       ((string=? phase "building") "Building…")
                       ((string=? phase "succeeded") "Built")
@@ -666,34 +610,9 @@
                 (cond ((or (string=? phase "failed") (string=? phase "fatal")) "failed")
                       ((string=? phase "succeeded") "built")
                       (else phase))
-                (match (json-number json "id")
-                  ((Some id) (show id))
-                  ((None) "")))))
+                (show (Build-id build)))))
 
     ;; ---- Runs ----
-
-    ;; A run target's process as the service last reported it: the build it
-    ;; runs, its process id once it has one, its phase, how it ended, if it
-    ;; has, and what it has written.
-    (struct Attempt
-      ((build I64)
-       (pid (Option I64))
-       (phase String)
-       (code (Option I64))
-       (signal String)
-       (error String)
-       (stdout String)
-       (stderr String)))
-
-    ;; A run target: the build requested of it, none when it is to stop; its
-    ;; process; whether it is wanted running; and whether the project still
-    ;; has it.
-    (struct Run
-      ((target String)
-       (desired (Option I64))
-       (attempt (Option Attempt))
-       (wanted Bool)
-       (available Bool)))
 
     ;; The run targets, the one chosen, whether a command to it is in flight,
     ;; and what the last command did wrong.
@@ -703,40 +622,10 @@
        (pending Bool)
        (problem String)))
 
-    (: run-of (-> Json Run))
-    (define (run-of json)
-      (Run (json-text json "target")
-           (match (json-member json "desired")
-             ((Some (JsonObject members)) (json-number (JsonObject members) "build"))
-             (_ (None)))
-           (match (json-member json "attempt")
-             ((Some (JsonObject members)) (Some (attempt-of (JsonObject members))))
-             (_ (None)))
-           (json-flag json "wanted")
-           (json-flag json "available")))
-
-    (: attempt-of (-> Json Attempt))
-    (define (attempt-of json)
-      (Attempt (match (json-number json "build")
-                 ((Some build) build)
-                 ((None) 0))
-               (json-number json "pid")
-               (json-text json "phase")
-               (json-number json "code")
-               (json-text json "signal")
-               (json-text json "error")
-               (json-text json "stdout")
-               (json-text json "stderr")))
-
-    ;; The runs the service reported, keeping the one chosen while it is
-    ;; still there, else choosing the first available, else the first.
-    (: runs-received (-> Runs String Runs))
-    (define (runs-received runs data)
-      (match (string->json data)
-        ((Some (JsonArray items))
-         (let ((list (map run-of items)))
-           (Runs-selected-set (Runs-runs-set runs list) (chosen list (Runs-selected runs)))))
-        (_ runs)))
+    ;; Keep the selected run while it remains in the complete server snapshot.
+    (: runs-received (-> Runs (List Run) Runs))
+    (define (runs-received runs list)
+      (Runs-selected-set (Runs-runs-set runs list) (chosen list (Runs-selected runs))))
 
     (: chosen (-> (List Run) String String))
     (define (chosen runs selected)
@@ -823,17 +712,6 @@
       (Dividing ((split I64)
                  (box Measure))))
 
-    ;; Search coordinates belong to one saved revision, never to a draft.
-    (struct Hit
-      ((point Point)
-       (revision String)
-       (snippet String)))
-
-    (struct SearchResults
-      ((hits (List Hit))
-       (skipped I64)
-       (limited Bool)))
-
     (struct Creation
       ((directory Bool)
        (pending Bool)
@@ -855,8 +733,8 @@
     ;; buffers, in the order they were opened; the sequence of the latest read
     ;; of any; the panes, how they are laid out, the active one and the next
     ;; id for a pane or split; the folders shown closed; whether the files are
-    ;; shown, and how wide; a drag; the compiler's status, its report as it
-    ;; was sent, how many different reports have come, and their diagnostics;
+    ;; shown, and how wide; a drag; the compiler's status, the last server
+    ;; snapshot, how many different build reports have come, and their diagnostics;
     ;; the runs; and the event stream heard now, none while connecting.
     (struct Ide
       ((project Project)
@@ -875,7 +753,7 @@
        (searches I64)
        (auto-open Bool)
        (status Status)
-       (report String)
+       (server (Option ServerState))
        (generation I64)
        (diagnostics (List Diagnostic))
        (runs Runs)
@@ -899,7 +777,7 @@
            0
            #t
            (Status "Connecting…" "starting" "")
-           ""
+           (None)
            0
            (Nil)
            (Runs (Nil) "" #f "")
@@ -1178,7 +1056,7 @@
     ;; processes, a sign that files changed, and each dropped connection.
     (: event-kinds (List String))
     (define event-kinds
-      (list "status" "runs" "files" "error"))
+      (list event-kind "open" "error"))
 
     ;; Connecting closes the stream before, so none of its events, sent or
     ;; not, is heard again.
@@ -1206,37 +1084,75 @@
         ((Some current) (= (Stream-id current) (Stream-id stream)))
         ((None) #f)))
 
-    ;; The next event is heard after this one.
+    ;; Every connection, including EventSource reconnections, refreshes reads
+    ;; and listings. Their new intent numbers reject delayed old replies.
+    ;; The next event is heard after this one. Bad messages leave the last
+    ;; complete snapshot intact and make the protocol failure visible.
     (: heard (-> Ide Stream StreamEvent Step))
     (define (heard model stream event)
-      (let ((kind (StreamEvent-kind event)) (data (StreamEvent-data event)))
-        (then (Pair model (list (hear stream)))
-              (lambda (model)
-                (cond ((string=? kind "status") (received model data))
-                      ((string=? kind "runs")
-                       (stay (Ide-runs-set model (runs-received (Ide-runs model) data))))
-                      ((string=? kind "files") (listing model))
-                      (else (stay (Ide-status-set model
-                                                  (failed-status model
-                                                                 "Connection lost; reconnecting…")))))))))
+      (then (Pair model (list (hear stream)))
+            (lambda (model)
+              (cond ((string=? (StreamEvent-kind event) "open") (reconnected model))
+                    ((string=? (StreamEvent-kind event) event-kind)
+                     (match (read-event (StreamEvent-data event))
+                       ((Some state) (received model state))
+                       ((None)
+                        (stay
+                         (Ide-status-set model (failed-status model "Invalid server snapshot"))))))
+                    (else
+                     (stay (Ide-status-set model
+                                           (failed-status model
+                                                          "Connection lost; reconnecting…"))))))))
 
-    ;; A reconnection repeats the status the service holds; only a different
-    ;; one replaces the diagnostics, and with them what reads said of their
-    ;; text, as a save's invalidation. Every diagnostic's file is read again,
-    ;; to tie it to the text it was made from.
-    (: received (-> Ide String Step))
-    (define (received model data)
-      (match (string->json data)
-        ((Some json)
-         (let* ((fresh (not (string=? data (Ide-report model))))
-                (model (if fresh
-                           (Ide-diagnostics-set (Ide-generation-set (Ide-report-set model data)
-                                                                    (+ (Ide-generation model) 1))
-                                                (map diagnostic-of (json-items json "diagnostics")))
-                           model))
-                (model (Ide-status-set model (compiler-status json))))
-           (if (null? (Ide-diagnostics model)) (stay model) (reading-all model))))
-        ((None) (stay model))))
+    (: reconnected (-> Ide Step))
+    (define (reconnected model)
+      (then (listing model)
+            (lambda (model)
+              (match (Ide-palette model)
+                ((Some palette)
+                 (match (Palette-mode palette)
+                   ((Contents) (palette-query model (Palette-query palette)))
+                   (_ (stay model))))
+                ((None) (stay model))))))
+
+    ;; The stream is ordered and reconnection starts with a complete snapshot.
+    ;; Only a new build report resets diagnostic evidence; process output and
+    ;; repeated snapshots cannot revive a diagnostic invalidated by a save.
+    (: received (-> Ide ServerState Step))
+    (define (received model state)
+      (let* ((old (Ide-server model))
+             (new-server (match old
+                           ((Some previous) (not (string=? (ServerState-instance previous)
+                                                           (ServerState-instance state))))
+                           ((None) #t)))
+             (files (or new-server (match old
+                                     ((Some previous) (not (= (ServerState-files previous)
+                                                              (ServerState-files state))))
+                                     ((None) #t))))
+             (fresh (or new-server (match old
+                                     ((Some previous)
+                                      (not (string=?
+                                            (json->string
+                                             (build->json (ServerState-build previous)))
+                                            (json->string
+                                             (build->json (ServerState-build state))))))
+                                     ((None) #t))))
+             (model (received-build model (ServerState-build state) fresh))
+             (model (Ide-server-set (Ide-runs-set model (runs-received (Ide-runs model)
+                                                                       (ServerState-runs state)))
+                                    (Some state))))
+        (cond (files (listing model))
+              ((and fresh (not (null? (Ide-diagnostics model)))) (reading-all model))
+              (else (stay model)))))
+
+    (: received-build (-> Ide Build Bool Ide))
+    (define (received-build model build fresh)
+      (Ide-status-set
+       (if fresh
+           (Ide-diagnostics-set (Ide-generation-set model (+ (Ide-generation model) 1))
+                                (map diagnostic-of (Build-diagnostics build)))
+           model)
+       (compiler-status build)))
 
     ;; ---- Files ----
 
@@ -2059,38 +1975,7 @@
 
     (: search-reply (-> (Result Json Failure) (Result SearchResults Failure)))
     (define (search-reply reply)
-      (match reply
-        ((Err failure) (Err failure))
-        ((Ok json)
-         (match (Pair (json-number json "skipped") (json-member json "limited"))
-           ((Pair (Some skipped) (Some (JsonBool limited)))
-            (match (json-member json "hits")
-              ((Some (JsonArray items))
-               (match (read-hits items)
-                 ((Some hits) (Ok (SearchResults hits skipped limited)))
-                 ((None) (Err (Failure 200 "invalid search locations")))))
-              (_ (Err (Failure 200 "missing search results")))))
-           (_ (Err (Failure 200 "invalid search response")))))))
-
-    (: read-hits (-> (List Json) (Option (List Hit))))
-    (define (read-hits items)
-      (match items
-        ((Nil) (Some (Nil)))
-        ((Cons item rest)
-         (match (Pair (read-hit item) (read-hits rest))
-           ((Pair (Some hit) (Some hits)) (Some (Cons hit hits)))
-           (_ (None))))))
-
-    (: read-hit (-> Json (Option Hit)))
-    (define (read-hit item)
-      (match (Pair (json-number item "line") (json-number item "column"))
-        ((Pair (Some line) (Some column))
-         (if (and (> line 0) (> column 0) (not (string=? (json-text item "path") ""))
-                  (not (string=? (json-text item "revision") "")))
-             (Some (Hit (Point (json-text item "path") line column)
-                        (json-text item "revision") (json-text item "snippet")))
-             (None)))
-        (_ (None))))
+      (decoded-reply json->search "search" reply))
 
     ;; ---- Window commands ----
 

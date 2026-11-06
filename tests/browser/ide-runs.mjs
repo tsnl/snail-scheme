@@ -70,7 +70,7 @@ try {
   // Lose the response after the command reached the service. It starts once;
   // output, selection and reconnect must not erase the unknown-outcome message.
   await browser.evaluate(`window.runRequests = 0; window.NativeEventSource = window.EventSource;
-    window.EventSource = class extends window.NativeEventSource { constructor(...args) { super(...args); window.runEvents = this; } };
+    window.EventSource = class extends window.NativeEventSource { constructor(...args) { super(...args); window.runEvents = this; this.addEventListener("snapshot", event => window.lastSnapshot = JSON.parse(event.data)); } };
     window.dispatchEvent(new Event('online'));
     window.fetch = async (...args) => { const response = await window.actualFetch(...args);
       if (String(args[0]).startsWith('/api/run/')) { window.runRequests++; await new Promise(resolve => window.rejectRun = resolve); throw new TypeError('lost response'); }
@@ -79,14 +79,14 @@ try {
   await until(async () => await browser.evaluate('Boolean(window.rejectRun)') && (await run('app')).wanted && await live(), 'command reached service');
   // A restarted service may temporarily have no accepted targets. Feedback
   // must stay visible through that authoritative empty observation.
-  await browser.evaluate(`window.runEvents.close(); window.runEvents.dispatchEvent(new MessageEvent('runs', {data:'[]'}));`);
+  await browser.evaluate(`window.runEvents.close(); window.runEvents.dispatchEvent(new MessageEvent('snapshot', {data:JSON.stringify({...window.lastSnapshot, runs:[]})}));`);
   assert.equal(await browser.evaluate('document.getElementById("runs").hidden'), false);
   await browser.evaluate('window.rejectRun()');
   await until(async () => (await run('app')).wanted && await live() && (await text('run-problem')).includes('Outcome unknown'), 'lost command response');
   assert.equal(await browser.evaluate('document.getElementById("runs").hidden'), false);
   await browser.evaluate('window.fetch = window.actualFetch; window.EventSource = window.NativeEventSource; window.dispatchEvent(new Event("online"))');
   await until(() => browser.evaluate('document.getElementById("run-target").options.length === 2'), 'current run catalog');
-  await browser.evaluate(`window.runEvents.dispatchEvent(new MessageEvent('runs', {data:'[]'}));`);
+  await browser.evaluate(`window.runEvents.dispatchEvent(new MessageEvent('snapshot', {data:JSON.stringify({...window.lastSnapshot, runs:[]})}));`);
   assert.equal(await browser.evaluate('document.getElementById("run-target").options.length'), 2, 'a replaced source cannot overwrite the current observation');
   assert.equal(await browser.evaluate('window.runRequests'), 1);
   assert.match(await text('run-problem'), /start app: Outcome unknown/);
