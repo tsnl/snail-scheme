@@ -17,7 +17,7 @@ import {execFile} from 'node:child_process';
 import {cp, mkdtemp, readFile, rm} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
-import {extname, join, normalize} from 'node:path';
+import {basename, extname, join, normalize} from 'node:path';
 import {promisify} from 'node:util';
 import {openBrowser, until} from './chromium.mjs';
 
@@ -66,7 +66,7 @@ function serve(directory) {
 
 const directory = await mkdtemp(join(tmpdir(), 'snail-ui-'));
 const app = join(directory, 'notes');
-await cp(join(root, 'tests/apps/notes'), app, {recursive: true});
+await cp(join(root, 'tests/apps/notes'), app, {recursive: true, filter: path => basename(path) !== 'build'});
 const built = (await promisify(execFile)(join(root, 'snail'), ['build', app, 'site'])).stdout.trim();
 const server = await serve(built);
 const browser = await openBrowser();
