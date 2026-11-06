@@ -57,12 +57,12 @@
 
     (: supply-artifact (-> Inputs String ArtifactFiles Inputs))
     (define (supply-artifact inputs name files)
-      (Inputs-artifacts-set inputs (table-set (Inputs-artifacts inputs) name files)))
+      (Inputs-artifacts-set inputs (table-set (::artifacts inputs) name files)))
 
     (: supply-generated (-> Inputs String Bytes Inputs))
     (define (supply-generated inputs text bytes)
       (Inputs-generated-set inputs
-                            (table-set (Inputs-generated inputs)
+                            (table-set (::generated inputs)
                                        (producer-key text)
                                        (Generated text bytes))))
 
@@ -85,9 +85,9 @@
     ;; The output supplied for the producer with this text, if any.
     (: generated-output (-> Inputs String (Option Bytes)))
     (define (generated-output inputs text)
-      (match (table-ref (Inputs-generated inputs) (producer-key text))
+      (match (table-ref (::generated inputs) (producer-key text))
         ((Some generated)
-         (if (string=? (Generated-text generated) text) (Some (Generated-bytes generated)) (None)))
+         (if (string=? (::text generated) text) (Some (::bytes generated)) (None)))
         ((None) (None))))
 
     ;; ---- Requests ----
@@ -111,10 +111,10 @@
       (match request
         ((GenerateInput key) (string-append "(generate " (quoted key) ")\n"))
         ((ArtifactInput name source)
-         (string-append "(artifact " (quoted name) " " (quoted (Loc-file source)) " "
-                        (i64->string (Loc-line source))
+         (string-append "(artifact " (quoted name) " " (quoted (::file source)) " "
+                        (i64->string (::line source))
                         " "
-                        (i64->string (Loc-column source))
+                        (i64->string (::column source))
                         ")\n"))))
 
     (: parse-request (-> String String CompilerRequest ! compile))
@@ -178,7 +178,7 @@
     ;; it for the forms it was printed from.
     (: printed-producer-text (-> (List String) String String ! fs compile))
     (define (printed-producer-text directories path)
-      (producer-text directories (Pair-second (generating-stack (read-source-file path)))))
+      (producer-text directories (::second (generating-stack (read-source-file path)))))
 
     (: generating-line (-> (List String) String))
     (define (generating-line loading)
@@ -253,10 +253,10 @@
                                                   "\n(unit)")
                                    "producer.sld")))
               (plain (generating-stack (read-text "(unit)" "program.sld"))))
-          (expect (Pair-first printed) (list "sample.knot" "odd\"key"))
-          (expect (length (Pair-second printed)) 1)
-          (expect (Pair-first plain) (list))
-          (expect (length (Pair-second plain)) 1)))
+          (expect (::first printed) (list "sample.knot" "odd\"key"))
+          (expect (length (::second printed)) 1)
+          (expect (::first plain) (list))
+          (expect (length (::second plain)) 1)))
 
       ;; A source that is not there is a diagnostic naming the file.
       (define (test-missing-source)
@@ -278,7 +278,7 @@
                (output (list->vector (list (i32->u8 1) (i32->u8 2))))
                (inputs (supply-generated no-inputs text output)))
           (expect (producer-text (list "/project/src" "/root/src")
-                                 (Pair-second (generating-stack (read-text printed "printed.sld"))))
+                                 (::second (generating-stack (read-text printed "printed.sld"))))
                   text)
           (expect (generated-output inputs text) (Some output))
           (expect (generated-output inputs (producer-text (list "/root/src") forms)) (None))
