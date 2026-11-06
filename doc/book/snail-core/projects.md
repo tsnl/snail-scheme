@@ -4,6 +4,10 @@ A project is one directory described by an inert `project.datum`. The file
 contains data, not Scheme code. Parsing it performs no file access or build;
 the command chooses when to compile and run its named targets.
 
+[Projects without a manifest](source-projects.md) proposes replacing this
+description with source discovery and application selection. It is a design
+under review; this chapter describes the implemented behavior.
+
 ```scheme
 ((build-target client
    (browser
