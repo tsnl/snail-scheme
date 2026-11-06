@@ -1002,6 +1002,10 @@ Bootstrap and compiled execution must agree.
 
 ## Separate compilation
 
+[Proposed packages and independent compilation](packages.md) describes the
+future boundary between independent compiler jobs. The library modules and
+resident Session below are the current implementation.
+
 The unit of compilation is a library (`source->modules` in
 `src/snail/shell/compiler.sld`). In its module:
 
