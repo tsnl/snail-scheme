@@ -52,6 +52,30 @@ Its PID, exit status and signals therefore belong to the application. This uses
 the existing Node 26 POSIX host. Compilation and generator execution retain
 the cold builder's synchronous behavior.
 
+## Contributor checks
+
+`make test` runs the compiler and project unit tests, program fixtures, host
+and development-service checks, and static and linked application checks.
+Each fixture owns its output files and each compile has private scratch, so
+the compiled compiler's fixture checks compile, link and run in the test
+runner's eight child processes. Linked-module cases use the same worker
+limit. `make test-chibi` keeps source compilation serial because each Chibi
+compiler needs a large heap; its static programs still link and run in parallel.
+Stage 0 places Wasm modules in the object store using Chibi's native SHA-256,
+with parity tests against the compiler's portable hash. Hashing these large
+binary artifacts stays in the host; the self-hosted compiler keeps its own
+portable implementation.
+
+CI reports formatting, both Rust crates, tool building and the Snail suite
+as separate steps under the required `Complete correctness checks` job. It
+caches Cargo's test targets and the driver's native and WASI target
+directories; Cargo checks their freshness on every build. Test debug symbols
+and incremental compilation are disabled there to keep these caches small.
+The bootstrapped compiler has a separate exact cache key covering its source,
+bootstrap hosts, Rust runtime and pinned tools. On an exact hit, CI refreshes
+its timestamp to account for checkout's new source timestamps. A changed
+input rebuilds the bootstrap, and test outputs are rebuilt on every run.
+
 ## Assembly, linking and optional optimization
 
 `(snail shell assembler)` offers `assemble` for an independent module and
