@@ -3,7 +3,7 @@
 ;; Scheme tests exercise the same application loop. host/ide/ide.sld binds
 ;; the application to the page; feature libraries own their own services.
 (define-library (snail shell ide application)
-  (export Ide Msg initial update view window kept restored Connect
+  (export Ide Msg initial update view window kept restored Connect Boot
           DispatchCommand InvokeCommand Typed Open Answered Saved Heard
           Buffer Buffer-text Buffer-baseline Buffer-saving Buffer-read
           Snapshot Snapshot-text Snapshot-revision
@@ -21,6 +21,7 @@
    (snail shell format)
    (snail shell highlight)
    (snail shell ui)
+   (snail shell wire)
    (prefix (snail shell ui commands) command-)
    (prefix (snail shell ui shortcuts) shortcut-))
   (begin
@@ -343,7 +344,8 @@
     (struct Pane
       ((id I64)
        (path (Option String))
-       (scroll F64)))
+       (scroll F64))
+      (deriving Serialize Deserialize))
 
     ;; How the panes share the room: one pane, or two nodes side by side
     ;; (`row`) or one above the other (`column`), the first taking `ratio` of
@@ -354,7 +356,8 @@
               (direction String)
               (ratio F64)
               (first Layout)
-              (second Layout))))
+              (second Layout)))
+      (deriving Serialize Deserialize))
 
     (: leaf? (-> Layout I64 Bool))
     (define (leaf? layout pane)
@@ -757,7 +760,9 @@
        (generation I64)
        (diagnostics (List Diagnostic))
        (runs Runs)
-       (events (Option Stream))))
+       (events (Option Stream))
+       (editor String)
+       (refreshing Bool)))
 
     (: initial Ide)
     (define initial
@@ -781,7 +786,9 @@
            0
            (Nil)
            (Runs (Nil) "" #f "")
-           (None)))
+           (None)
+           ""
+           #f))
 
     (: buffer-at (-> Ide String (Option Buffer)))
     (define (buffer-at model path)
@@ -913,6 +920,9 @@
     ;; ---- Messages ----
 
     (enum Msg
+      (Boot)
+      (Booted ((generation String)))
+      (RefreshFailed)
       (Nothing)
       (Connect)
       (Connected ((stream Stream)))
@@ -998,6 +1008,14 @@
     (: update (-> Ide Msg Step))
     (define (update model message)
       (match message
+        ((Boot)
+         (Pair model
+               (list
+                (once (lambda () (Booted (string-property (document-root) "snailGeneration")))))))
+        ((Booted generation)
+         (refresh-if-needed (if (string=? (Ide-editor model) "")
+                                (Ide-editor-set model generation) model)))
+        ((RefreshFailed) (stay (Ide-refreshing-set model #f)))
         ((Nothing) (stay model))
         ((Connect) (connecting model))
         ((Connected stream) (Pair (Ide-events-set model (Some stream)) (list (hear stream))))
@@ -1095,7 +1113,7 @@
               (cond ((string=? (StreamEvent-kind event) "open") (reconnected model))
                     ((string=? (StreamEvent-kind event) event-kind)
                      (match (read-event (StreamEvent-data event))
-                       ((Some state) (received model state))
+                       ((Some state) (then (received model state) refresh-if-needed))
                        ((None)
                         (stay
                          (Ide-status-set model (failed-status model "Invalid server snapshot"))))))
@@ -1153,6 +1171,29 @@
                                 (map diagnostic-of (Build-diagnostics build)))
            model)
        (compiler-status build)))
+
+    ;; A successful server generation is the only reason to auto-refresh.
+    ;; Record the attempted generation so a storage refusal does not retry on
+    ;; every process-output event. The explicit command can retry at any time.
+    (: refresh-if-needed (-> Ide Step))
+    (define (refresh-if-needed model)
+      (match (Ide-server model)
+        ((Some state)
+         (cond ((not (string=? (ServerState-editor-problem state) ""))
+                (stay (Ide-status-set model
+                                      (failed-status model (string-append "IDE update failed: "
+                                                                          (ServerState-editor-problem
+                                                                           state))))))
+               ((and (not (string=? (Ide-editor model) "")) (not (Ide-refreshing model))
+                     (not (string=? (Ide-editor model) (ServerState-editor state))))
+                (refreshing (Ide-editor-set model (ServerState-editor state))))
+               (else (stay model))))
+        ((None) (stay model))))
+
+    (: refreshing (-> Ide Step))
+    (define (refreshing model)
+      (Pair (Ide-refreshing-set model #t)
+            (list (once (lambda () (refresh-page) (Nothing))))))
 
     ;; ---- Files ----
 
@@ -1721,6 +1762,7 @@
                                                                                            (fullscreen?))))))))))
                                   (command-Command "save-buffer" saving)
                                   (command-Command "format-buffer" formatting)
+                                  (command-Command "refresh-ide" refreshing)
                                   (command-Command "reload-buffer" reloading)
                                   (command-Command "build-project"
                                                    (lambda (model)
@@ -1761,6 +1803,7 @@
                                                (bound-chords "format-buffer"
                                                              (list
                                                               (Chord "F" (+ alt-key shift-key))))
+                                               (bound-chords "refresh-ide" (Nil))
                                                (bound-chords "reload-buffer" (Nil))
                                                (bound-chords "build-project" (Nil))
                                                (bound-chords "toggle-files" (primary-chords "b" 0))
@@ -2879,20 +2922,75 @@
                         (list (Key))
                         (Chords (shortcut-chords shortcuts))
                         (lambda (event) (Shortcut (Event-key event) (Event-modifiers event))))
-                    (On "online" (Nil) (Allow) (lambda (event) (Connect))))
+                    (On "online" (Nil) (Allow) (lambda (event) (Connect)))
+                    (On "snail-refresh-failed" (Nil) (Allow) (lambda (event) (RefreshFailed))))
               (if (any? dirty? (Ide-buffers model))
                   (list (On "beforeunload" (Nil) (Always) (lambda (event) (Nothing))))
                   (Nil))))
 
     ;; ---- The interface ----
 
-    ;; The editor keeps nothing across loads: drafts live in the page only, and
-    ;; leaving with one asks first. Its save is empty.
-    (: kept (-> Ide Unit))
-    (define (kept model)
-      (unit))
+    ;; Only user-owned state crosses navigation. Reads, pending commands and
+    ;; server observations are reacquired, never replayed. Keep each original
+    ;; baseline so a changed disk file cannot silently become a draft's base.
+    (struct Draft
+      ((path String)
+       (text String)
+       (baseline String))
+      (deriving Serialize Deserialize))
 
-    (: restored (-> Unit Ide))
+    (struct Recovery
+      ((version I64)
+       (drafts (List Draft))
+       (panes (List Pane))
+       (layout Layout)
+       (active I64)
+       (next I64)
+       (closed (List String))
+       (files-shown Bool)
+       (files-width F64))
+      (deriving Serialize Deserialize))
+
+    (: kept (-> Ide Recovery))
+    (define (kept model)
+      (Recovery 1 (map kept-buffer (Ide-buffers model)) (Ide-panes model) (Ide-layout model)
+                (Ide-active model) (Ide-next model) (Ide-closed model)
+                (Ide-files-shown model) (Ide-files-width model)))
+
+    (: kept-buffer (-> Buffer Draft))
+    (define (kept-buffer buffer)
+      (Draft (Buffer-path buffer) (Buffer-text buffer)
+             (match (Buffer-baseline buffer)
+               ((Some baseline) (json->string (file->json baseline)))
+               ((None) ""))))
+
+    (: restored (-> Recovery Ide))
     (define (restored save)
-      initial)
+      (unless (= (Recovery-version save) 1)
+        (panic "unsupported IDE recovery version; saved drafts are retained"))
+      (let* ((model (Ide-buffers-set initial (map restored-buffer (Recovery-drafts save))))
+             (model (Ide-auto-open-set model #f))
+             (model (Ide-panes-set model (Recovery-panes save)))
+             (model (Ide-layout-set model (Recovery-layout save)))
+             (model (Ide-active-set model (Recovery-active save)))
+             (model (Ide-next-set model (Recovery-next save)))
+             (model (Ide-closed-set model (Recovery-closed save)))
+             (model (Ide-files-shown-set model (Recovery-files-shown save))))
+        (Ide-files-width-set model (Recovery-files-width save))))
+
+    (: restored-buffer (-> Draft Buffer))
+    (define (restored-buffer draft)
+      (let ((baseline (if (string=? (Draft-baseline draft) "") (None)
+                          (match (string->json (Draft-baseline draft))
+                            ((Some json)
+                             (match (json->file json)
+                               ((Some baseline) (Some baseline))
+                               ((None)
+                                (panic "invalid recovered baseline; saved drafts are retained"))))
+                            ((None) (panic "invalid recovered file; saved drafts are retained"))))))
+        (Buffer (Draft-path draft) (Draft-text draft) baseline
+                (match baseline
+                  ((Some snapshot) (Some (Snapshot-revision snapshot)))
+                  ((None) (None)))
+                #f 0 "" "")))
     ))

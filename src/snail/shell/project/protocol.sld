@@ -68,6 +68,8 @@
    ServerState-files
    ServerState-build
    ServerState-runs
+   ServerState-editor
+   ServerState-editor-problem
    Hit-point
    Hit-revision
    Hit-snippet
@@ -130,7 +132,9 @@
       ((instance String)
        (files I64)
        (build Build)
-       (runs (List Run))))
+       (runs (List Run))
+       (editor String)
+       (editor-problem String)))
 
     ;; Search coordinates belong to one saved revision, never to a draft.
     (struct Hit
@@ -368,15 +372,19 @@
         (Pair "instance" (JsonString (ServerState-instance value)))
         (Pair "files" (JsonInteger (ServerState-files value)))
         (Pair "build" (build->json (ServerState-build value)))
-        (Pair "runs" (JsonArray (map run->json (ServerState-runs value)))))))
+        (Pair "runs" (JsonArray (map run->json (ServerState-runs value))))
+        (Pair "editor" (JsonString (ServerState-editor value)))
+        (Pair "editor-problem" (JsonString (ServerState-editor-problem value))))))
 
     (: json->state (-> Json (Option ServerState)))
     (define (json->state json)
       (reading ((instance (field json "instance" read-nonempty))
                 (files (field json "files" read-natural))
                 (build (field json "build" json->build))
-                (runs (field json "runs" (lambda (json) (items json->run json)))))
-               (ServerState instance files build runs)))
+                (runs (field json "runs" (lambda (json) (items json->run json))))
+                (editor (field json "editor" read-nonempty))
+                (editor-problem (field json "editor-problem" read-string)))
+               (ServerState instance files build runs editor editor-problem)))
 
     (: search->json (-> SearchResults Json))
     (define (search->json value)

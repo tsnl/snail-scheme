@@ -25,3 +25,15 @@ export function loadSave(key) {
 export function storeSave(key, bytes) {
   return transaction('readwrite', store => store.put(bytes, key));
 }
+
+// Session saves are isolated by tab and survive navigation on this origin.
+// Read failures propagate: an unavailable or corrupt recovery record must not
+// be mistaken for an empty application and overwritten.
+export function loadSessionSave(key) {
+  const text = sessionStorage.getItem(`snail-save:${key}`);
+  return text === null ? undefined : Uint8Array.from(atob(text), char => char.charCodeAt(0));
+}
+
+export function storeSessionSave(key, bytes) {
+  sessionStorage.setItem(`snail-save:${key}`, btoa(Array.from(bytes, byte => String.fromCharCode(byte)).join('')));
+}

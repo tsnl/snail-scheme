@@ -27,6 +27,7 @@
    BuildPublished
    BuildFailed
    bundle-response
+   bundle-file
    bundle-event)
   (import
    (snail shell project web-app)
@@ -77,7 +78,7 @@
            ((Cons "index.html" (Nil)) (page mount latest))
            ((Cons ".snail" (Cons "builds" (Cons ".snail-store" rest))) (store-object latest rest))
            ((Cons ".snail" (Cons "builds" (Cons epoch rest))) (pinned builds epoch rest))
-           (_ (build-file (BuildDirectory-directory latest) path))))))
+           (_ (bundle-file (BuildDirectory-directory latest) path))))))
 
     ;; An object of the store beside the builds' generations, which every
     ;; retained build's manifest names as ../.snail-store/, so its URL never
@@ -104,7 +105,7 @@
     (: pinned (-> (List BuildDirectory) String (List String) Response ! fs))
     (define (pinned builds epoch path)
       (match (find (lambda (build) (string=? (show (BuildDirectory-epoch build)) epoch)) builds)
-        ((Some build) (build-file (BuildDirectory-directory build) path))
+        ((Some build) (bundle-file (BuildDirectory-directory build) path))
         ((None) (refusal 404 (string-append "build " epoch " is no longer served")))))
 
     ;; ---- The page ----
@@ -144,7 +145,7 @@
     (: client-file (-> Reloading String Response ! fs))
     (define (client-file reloading file)
       (cond ((member? file (list "reload.mjs" "reload-client.mjs" "load.mjs"))
-             (build-file (Reloading-host reloading) (list file)))
+             (bundle-file (Reloading-host reloading) (list file)))
             ((and (string=? file "reload.wasm") (regular-file? (Reloading-program reloading)))
              (found file (read-bytes (Reloading-program reloading))))
             (else (refusal 404 "no such file of the development server"))))
@@ -228,8 +229,8 @@
     ;; A regular file of a build, by the segments of its path under the
     ;; build's directory; a last empty segment names a directory's
     ;; index.html, which is served as it is.
-    (: build-file (-> String (List String) Response ! fs))
-    (define (build-file directory path)
+    (: bundle-file (-> String (List String) Response ! fs))
+    (define (bundle-file directory path)
       (match (relative-path path)
         ((Some relative)
          (let ((file (string-append directory "/" relative)))

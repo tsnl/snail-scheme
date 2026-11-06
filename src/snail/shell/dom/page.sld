@@ -56,6 +56,7 @@
            (focus-node (lambda (node) (host-focus (Node-handle node))))
            ;; dom.mjs keeps the window at handle -1.
            (window-node (lambda () (Node -1)))
+           (refresh-page (lambda () (host-refresh-page)))
            (confirm (lambda (question) (= (host-confirm (string->utf8 question)) 1)))
            (installation-status page-installation-status)
            (install-app page-install)

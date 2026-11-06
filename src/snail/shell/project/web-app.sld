@@ -4,7 +4,14 @@
 ;; A project's own public/manifest.webmanifest replaces this default whole.
 (define-library (snail shell project web-app)
   (export web-app-manifest with-web-app stable-web-app
-          PageMetadata PageBase WebManifest ModuleMap ReloadData ModuleScript insert-metadata)
+          PageMetadata
+          PageBase
+          PageMeta
+          WebManifest
+          ModuleMap
+          ReloadData
+          ModuleScript
+          insert-metadata)
   (import
    (snail core base)
    (snail shell json)
@@ -36,6 +43,8 @@
     ;; so a path containing </script> cannot terminate a raw-text element.
     (enum PageMetadata
       (PageBase ((url String)))
+      (PageMeta ((name String)
+                 (content String)))
       (WebManifest ((url String)))
       (ModuleMap ((url String)))
       (ReloadData ((text String)))
@@ -63,6 +72,8 @@
     (define (metadata-text item)
       (match item
         ((PageBase url) (element-start "base" (list (Pair "href" url))))
+        ((PageMeta name content)
+         (element-start "meta" (list (Pair "name" name) (Pair "content" content))))
         ((WebManifest url) (element-start "link" (list (Pair "id" "snail-web-app")
                                                        (Pair "rel" "manifest") (Pair "href" url))))
         ((ModuleMap url)

@@ -576,6 +576,7 @@
                        (Pair (offset-property (ref-get state) node "selectionStart")
                              (offset-property (ref-get state) node "selectionEnd"))))
                     (window-node (lambda () (Node -1)))
+                    (refresh-page (lambda () (unit)))
                     (confirm
                      (lambda (question)
                        (alter! state

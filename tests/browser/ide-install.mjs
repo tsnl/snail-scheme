@@ -38,7 +38,7 @@ try {
   await offer('dismissed');
   const cancelled = await browser.send('Runtime.evaluate', {awaitPromise:true, returnByValue:true, userGesture:true, expression:
     `(async () => {
-      const {webAppImports} = await import('/install.mjs');
+      const {webAppImports} = await import(new URL('install.mjs', document.baseURI));
       const controller = new AbortController(); controller.abort();
       let pending;
       const imports = webAppImports({execution:{tasks:{start(ticket, work) {
@@ -62,7 +62,7 @@ try {
   assert.equal(await browser.evaluate('window.promptCalls'), 1, 'offers are single use');
   const stopped = await browser.send('Runtime.evaluate', {awaitPromise:true, returnByValue:true, userGesture:true, expression:
     `(async () => {
-      const {webAppImports} = await import('/install.mjs');
+      const {webAppImports} = await import(new URL('install.mjs', document.baseURI));
       const event = new Event('beforeinstallprompt', {cancelable:true});
       let finish;
       event.prompt = () => new Promise(resolve => { finish = resolve; });
