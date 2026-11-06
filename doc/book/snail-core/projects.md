@@ -155,7 +155,7 @@ the builder still does not invent a page.
 The name must be a literal string naming a browser target in the same project.
 The macro constructs an ordinary `ArtifactBundle` containing `ArtifactFile`
 records with relative `path` and immutable `bytes`. `artifact-ref` returns
-`Option Bytes`; record accessors expose the file list. MIME types, routes and
+`Option Bytes`; field paths expose the file list. MIME types, routes and
 transport policy belong to serving code. No special backend representation or
 runtime artifact service is involved.
 

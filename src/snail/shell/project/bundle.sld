@@ -19,8 +19,6 @@
 (define-library (snail shell project bundle)
   (export
    BuildDirectory
-   BuildDirectory-epoch
-   BuildDirectory-directory
    Reloading
    BundleEvent
    BuildUnderway
@@ -78,7 +76,7 @@
            ((Cons "index.html" (Nil)) (page mount latest))
            ((Cons ".snail" (Cons "builds" (Cons ".snail-store" rest))) (store-object latest rest))
            ((Cons ".snail" (Cons "builds" (Cons epoch rest))) (pinned builds epoch rest))
-           (_ (bundle-file (BuildDirectory-directory latest) path))))))
+           (_ (bundle-file (::directory latest) path))))))
 
     ;; An object of the store beside the builds' generations, which every
     ;; retained build's manifest names as ../.snail-store/, so its URL never
@@ -87,7 +85,7 @@
     (define (store-object build path)
       (match path
         ((Cons "sha256" (Cons digest (Nil)))
-         (let ((object (string-append (parent-directory (BuildDirectory-directory build))
+         (let ((object (string-append (parent-directory (::directory build))
                                       "/.snail-store/sha256/"
                                       digest)))
            (if (and (plain-name? digest) (regular-file? object))
@@ -104,8 +102,8 @@
 
     (: pinned (-> (List BuildDirectory) String (List String) Response ! fs))
     (define (pinned builds epoch path)
-      (match (find (lambda (build) (string=? (show (BuildDirectory-epoch build)) epoch)) builds)
-        ((Some build) (bundle-file (BuildDirectory-directory build) path))
+      (match (find (lambda (build) (string=? (show (::epoch build)) epoch)) builds)
+        ((Some build) (bundle-file (::directory build) path))
         ((None) (refusal 404 (string-append "build " epoch " is no longer served")))))
 
     ;; ---- The page ----
@@ -115,7 +113,7 @@
     ;; it is.
     (: page (-> String BuildDirectory Response ! fs))
     (define (page mount build)
-      (let ((path (string-append (BuildDirectory-directory build) "/index.html")))
+      (let ((path (string-append (::directory build) "/index.html")))
         (if (regular-file? path)
             (let ((bytes (read-bytes path)))
               (found "index.html"
@@ -136,7 +134,7 @@
 
     (: build-base (-> String BuildDirectory String))
     (define (build-base mount build)
-      (string-append mount ".snail/builds/" (show (BuildDirectory-epoch build)) "/"))
+      (string-append mount ".snail/builds/" (show (::epoch build)) "/"))
 
     ;; ---- The reload client ----
 
@@ -145,9 +143,9 @@
     (: client-file (-> Reloading String Response ! fs))
     (define (client-file reloading file)
       (cond ((member? file (list "reload.mjs" "reload-client.mjs" "load.mjs"))
-             (bundle-file (Reloading-host reloading) (list file)))
-            ((and (string=? file "reload.wasm") (regular-file? (Reloading-program reloading)))
-             (found file (read-bytes (Reloading-program reloading))))
+             (bundle-file (::host reloading) (list file)))
+            ((and (string=? file "reload.wasm") (regular-file? (::program reloading)))
+             (found file (read-bytes (::program reloading))))
             (else (refusal 404 "no such file of the development server"))))
 
     ;; ---- Manifests and events ----
@@ -165,8 +163,8 @@
                         " "
                         (pairs-text "files"
                                     (filter (lambda (file)
-                                              (not (string=? (Pair-first file) "modules.json")))
-                                            (BuildDirectory-files build)))
+                                              (not (string=? (::first file) "modules.json")))
+                                            (::files build)))
                         " "
                         (pairs-text "modules" (build-modules build))))
         ((None) "(files) (modules)")))
@@ -179,12 +177,12 @@
 
     (: string-pair-datum (-> (Pair String String) Any))
     (define (string-pair-datum pair)
-      (datum-list (list (ann (Pair-first pair) Any) (ann (Pair-second pair) Any))))
+      (datum-list (list (ann (::first pair) Any) (ann (::second pair) Any))))
 
     ;; Each module's library and digest, from the build's modules.json.
     (: build-modules (-> BuildDirectory (List (Pair String String)) ! fs))
     (define (build-modules build)
-      (let ((path (string-append (BuildDirectory-directory build) "/modules.json")))
+      (let ((path (string-append (::directory build) "/modules.json")))
         (match (if (regular-file? path) (string->json (read-file path)) (None))
           ((Some manifest)
            (match (json-member manifest "modules")
@@ -216,7 +214,7 @@
           ((BuildPublished)
            (string-append "(built "
                           (match build
-                            ((Some found) (show (BuildDirectory-milliseconds found)))
+                            ((Some found) (show (::milliseconds found)))
                             ((None) "0"))
                           " "
                           manifest
@@ -264,7 +262,7 @@
     (define (regular-file? path)
       (match (file-status path)
         ((Ok status)
-         (match (FileStatus-kind status)
+         (match (::kind status)
            ((RegularFile) #t)
            (_ #f)))
         ((Err _) #f)))
@@ -301,9 +299,9 @@
 
     (: content-type (-> String String))
     (define (content-type name)
-      (match (find (lambda (type) (ends-with? (string-downcase name) (Pair-first type)))
+      (match (find (lambda (type) (ends-with? (string-downcase name) (::first type)))
                    content-types)
-        ((Some type) (Pair-second type))
+        ((Some type) (::second type))
         ((None) "application/octet-stream")))
 
     (: content-types (List (Pair String String)))

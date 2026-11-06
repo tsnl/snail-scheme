@@ -3,11 +3,7 @@
 (define-library (sample route)
   (export
    Stop
-   Stop-label
-   Stop-shape
-   Route
-   Route-stops
-   Route-length)
+   Route)
   (import
    (snail core base)
    (sample shape))

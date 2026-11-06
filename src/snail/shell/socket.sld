@@ -11,11 +11,11 @@
    tcp listen connect accept read write finish-connection close-listener close-connection
    udp bind send receive close-udp
    Endpoint endpoint Endpoint-address Endpoint-port
-   Listener Listener-token Listener-port
-   Connection Connection-token
-   UdpSocket UdpSocket-token UdpSocket-port
-   Datagram Datagram-peer Datagram-bytes
-   SocketError SocketError-code)
+   Listener
+   Connection
+   UdpSocket
+   Datagram
+   SocketError)
   (import
    (snail core base)
    (prefix (snail runtime native socket) host-)
@@ -60,14 +60,14 @@
     ;; The address as dotted text.
     (: Endpoint-address (-> Endpoint String))
     (define (Endpoint-address endpoint)
-      (let ((address (Ipv4Endpoint-address endpoint)))
+      (let ((address (::address endpoint)))
         (string-join (map (lambda (place) (i64->string (remainder (quotient address place) 256)))
                           (list 16777216 65536 256 1))
                      ".")))
 
     (: Endpoint-port (-> Endpoint I32))
     (define (Endpoint-port endpoint)
-      (Ipv4Endpoint-port endpoint))
+      (::port endpoint))
 
     ;; ---- Bounds ----
 
@@ -213,30 +213,30 @@
 
     (: listener-handle (-> Listener I32))
     (define (listener-handle listener)
-      (let ((token (Listener-token listener)))
+      (let ((token (::token listener)))
         (match (try-convert token NativeListener)
-          ((Ok native) (NativeListener-handle native))
+          ((Ok native) (::handle native))
           ((Err _) 0))))
 
     (: connection-handle (-> Connection I32))
     (define (connection-handle connection)
-      (let ((token (Connection-token connection)))
+      (let ((token (::token connection)))
         (match (try-convert token NativeConnection)
-          ((Ok native) (NativeConnection-handle native))
+          ((Ok native) (::handle native))
           ((Err _) 0))))
 
     (: udp-handle (-> UdpSocket I32))
     (define (udp-handle socket)
-      (let ((token (UdpSocket-token socket)))
+      (let ((token (::token socket)))
         (match (try-convert token NativeUdpSocket)
-          ((Ok native) (NativeUdpSocket-handle native))
+          ((Ok native) (::handle native))
           ((Err _) 0))))
 
     ;; An endpoint crosses to the host as two I32s, its port and its
     ;; address, whose octets the host reads as the I32's unsigned bits.
     (: address-number (-> Endpoint I32))
     (define (address-number endpoint)
-      (i64->i32 (Ipv4Endpoint-address endpoint)))
+      (i64->i32 (::address endpoint)))
 
     ;; ---- Native answers ----
 

@@ -38,9 +38,9 @@
 (define (text-report label result)
   (report label (match result
                   ((Ok text)
-                   (string-append (ProjectText-text text)
+                   (string-append (::text text)
                                   " at "
-                                  (substring (ProjectText-revision text) 0 12)))
+                                  (substring (::revision text) 0 12)))
                   ((Err refusal) (refusal->string refusal)))))
 
 (: read-report (-> String Unit ! console fs))
@@ -51,7 +51,7 @@
 (: revision-of (-> String String ! fs))
 (define (revision-of path)
   (match (read-project-text root path)
-    ((Ok text) (ProjectText-revision text))
+    ((Ok text) (::revision text))
     ((Err _) "")))
 
 (: mode-report (-> String Unit ! console modes))

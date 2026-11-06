@@ -1,13 +1,15 @@
 #!/bin/sh
 # Regenerates the `::label` field paths that Chibi's (snail core base) exports:
-# one dispatcher per label the compiler's sources mention, since stage 0 has
-# no class per label. A label a comment alone mentions costs one unused
-# definition. `--check` reports a stale base.sld instead of writing it.
+# one dispatcher per label the sources Chibi loads mention, the compiler's
+# and the test libraries under tests/snail, since stage 0 has no class per
+# label. A label a comment alone mentions costs one unused definition.
+# `--check` reports a stale base.sld instead of writing it.
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 base="$root/host/chibi/snail/core/base.sld"
-labels=$(grep -rhoE '::[A-Za-z0-9!?*<>=/+_:-]+' \
+labels=$(grep -RhoE '::[A-Za-z0-9!?*<>=/+_:-]+' \
            "$root/src/snail/shell/compiler" "$root/src/snail/shell/compiler.sld" \
+           "$root/tests/snail" "$root/tests/run.scm" \
          | tr ':' '\n' | grep -v '^$' | LC_ALL=C sort -u)
 printf '%s\n' "$labels" | awk -v base="$base" '
   BEGIN { while ((getline line < base) > 0) source[++count] = line }

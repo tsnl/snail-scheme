@@ -8,7 +8,7 @@
  (snail core io)
  (snail shell wire)
  (siegework grid)
- (only (siegework terrain) Land-starter)
+ (only (siegework terrain))
  (siegework world)
  (siegework colony)
  (siegework simulation))
@@ -20,27 +20,27 @@
 
 (: give (-> Played Action Played))
 (define (give played action)
-  (match (command (Played-world played) action)
-    ((Ok (Pair world entry)) (Played world (Cons entry (Played-journal played))))
+  (match (command (::world played) action)
+    ((Ok (Pair world entry)) (Played world (Cons entry (::journal played))))
     ((Err _) played)))
 
 (: run (-> Played I64 Played))
 (define (run played ticks)
   (if (= ticks 0)
       played
-      (run (Played-world-set played (advance (Played-world played))) (- ticks 1))))
+      (run (Played-world-set played (advance (::world played))) (- ticks 1))))
 
 (: offset (-> World I64 I64 Cell))
 (define (offset world dx dy)
-  (let ((hub (Hub-cell (World-hub world))))
-    (Cell (+ (Cell-x hub) dx) (+ (Cell-y hub) dy))))
+  (let ((hub (::cell (::hub world))))
+    (Cell (+ (::x hub) dx) (+ (::y hub) dy))))
 
 (: reinforce (-> Played Played))
 (define (reinforce played)
-  (let ((world (Played-world played)))
+  (let ((world (::world played)))
     (give (fold-left (lambda (played d)
                        (give played
-                             (Build (Turret) (offset world (Pair-first d) (Pair-second d)) #f)))
+                             (Build (Turret) (offset world (::first d) (::second d)) #f)))
                      played
                      (list (Pair -2 0) (Pair 0 2) (Pair 2 0) (Pair 0 -2) (Pair -2 2) (Pair 2 -2)))
           (Upgrade (offset world 0 0)))))
@@ -52,77 +52,77 @@
 ;; Everything the rules decide, as text.
 (: fingerprint (-> World String))
 (define (fingerprint world)
-  (string-join (list (show (World-tick world))
-                     (show (World-energy world))
-                     (show (Ledger-produced (World-ledger world)))
-                     (show (Ledger-spent (World-ledger world)))
-                     (show (Ledger-kills (World-ledger world)))
-                     (show (Hub-health (World-hub world)))
-                     (show (Hub-slots (World-hub world)))
-                     (string-join (map building-text (World-buildings world)) ",")
+  (string-join (list (show (::tick world))
+                     (show (::energy world))
+                     (show (::produced (::ledger world)))
+                     (show (::spent (::ledger world)))
+                     (show (::kills (::ledger world)))
+                     (show (::health (::hub world)))
+                     (show (::slots (::hub world)))
+                     (string-join (map building-text (::buildings world)) ",")
                      (string-join (map (lambda (e)
-                                         (string-append (show (Enemy-id e))
+                                         (string-append (show (::id e))
                                                         "@"
-                                                        (cell-text (Enemy-cell e))
+                                                        (cell-text (::cell e))
                                                         ":"
-                                                        (show (Enemy-health e))))
-                                       (World-enemies world))
+                                                        (show (::health e))))
+                                       (::enemies world))
                                   ",")
-                     (string-join (map (lambda (n) (show (Nest-health n))) (World-nests world)) ",")
+                     (string-join (map (lambda (n) (show (::health n))) (::nests world)) ",")
                      (string-join
-                      (map (lambda (c) (show (Crystal-reserve c))) (World-crystals world))
+                      (map (lambda (c) (show (::reserve c))) (::crystals world))
                       ","))
                " "))
 
 (: building-text (-> Building String))
 (define (building-text b)
-  (string-append (show (Building-id b))
-                 (kind-name (Building-kind b))
-                 (cell-text (Building-cell b))
+  (string-append (show (::id b))
+                 (kind-name (::kind b))
+                 (cell-text (::cell b))
                  "L"
-                 (show (Building-level b))
+                 (show (::level b))
                  "H"
-                 (show (Building-health b))
-                 (match (Building-work b)
-                   ((Some work) (string-append "W" (show (Work-progress work))))
+                 (show (::health b))
+                 (match (::work b)
+                   ((Some work) (string-append "W" (show (::progress work))))
                    ((None) ""))))
 
 (: cell-text (-> Cell String))
 (define (cell-text cell)
-  (string-append (show (Cell-x cell)) "." (show (Cell-y cell))))
+  (string-append (show (::x cell)) "." (show (::y cell))))
 
 (let ()
   (define start (Played (new-world 3) (Nil)))
   (define start
-    (give start (Build (Extractor) (Land-starter (World-land (Played-world start))) #f)))
+    (give start (Build (Extractor) (::starter (::land (::world start))) #f)))
   (define played (play start 20))
-  (define world (Played-world played))
-  (define journal (reverse (Played-journal played)))
+  (define world (::world played))
+  (define journal (reverse (::journal played)))
   (write-line (string-append "played to tick "
-                             (show (World-tick world))
+                             (show (::tick world))
                              " with "
                              (show (length journal))
                              " orders, "
-                             (show (length (World-buildings world)))
+                             (show (length (::buildings world)))
                              " buildings and "
-                             (show (Ledger-kills (World-ledger world)))
+                             (show (::kills (::ledger world)))
                              " kills"))
   (write-line (string-append "replay matches: "
                              (show (string=?
-                                    (fingerprint (Pair-first (replay 3 journal (World-tick world))))
+                                    (fingerprint (::first (replay 3 journal (::tick world))))
                                     (fingerprint world)))))
   (define stray (Cons (Entry 0 (Build (Turret) (offset world 1 1) #f)) journal))
   (write-line (string-append "replay skipping a rejected order matches: "
                              (show (string=?
-                                    (fingerprint (Pair-first (replay 3 stray (World-tick world))))
+                                    (fingerprint (::first (replay 3 stray (::tick world))))
                                     (fingerprint world)))))
   (write-line (string-append "and drops it from the journal: "
-                             (show (= (length (Pair-second (replay 3 stray (World-tick world))))
+                             (show (= (length (::second (replay 3 stray (::tick world))))
                                       (length journal)))))
   (define bytes (serialize journal))
   (define decoded (ann (deserialize bytes) (List Entry)))
   (write-line (string-append "decoded journal matches: "
                              (show (string=?
-                                    (fingerprint (Pair-first (replay 3 decoded (World-tick world))))
+                                    (fingerprint (::first (replay 3 decoded (::tick world))))
                                     (fingerprint world)))))
   (write-line (string-append "journal of " (show (vector-length bytes)) " bytes")))

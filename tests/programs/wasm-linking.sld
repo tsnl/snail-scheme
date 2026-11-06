@@ -51,8 +51,8 @@
 
 (: show-import (-> Import Unit ! console))
 (define (show-import import)
-  (write-line (string-append (Import-from import) " " (Import-name import) " "
-                             (kind-name (Import-kind import)))))
+  (write-line (string-append (::from import) " " (::name import) " "
+                             (kind-name (::kind import)))))
 
 (: show-run (-> Module String Unit ! wasm console))
 (define (show-run instance name)

@@ -9,9 +9,7 @@
 (define-library (snail shell dom)
   (export
    Node
-   Node-handle
    Listener
-   Listener-id
    Capture
    Value
    Key
@@ -24,40 +22,20 @@
    Always
    Chords
    Chord
-   Chord-key
-   Chord-modifiers
    Event
-   Event-value
    Event-value-set
-   Event-key
    Event-key-set
-   Event-modifiers
    Event-modifiers-set
-   Event-x
    Event-x-set
-   Event-y
    Event-y-set
-   Event-buttons
    Event-buttons-set
-   Event-scroll-top
    Event-scroll-top-set
-   Event-scroll-left
    Event-scroll-left-set
-   Event-selection-start
    Event-selection-start-set
-   Event-selection-end
    Event-selection-end-set
-   Event-checked
    Event-checked-set
    no-event
    Measure
-   Measure-left
-   Measure-top
-   Measure-width
-   Measure-height
-   Measure-client-width
-   Measure-client-height
-   Measure-line-height
    Delivery
    Fired
    Woken

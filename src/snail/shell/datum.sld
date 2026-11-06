@@ -5,12 +5,8 @@
   (export
    Null
    Symbol
-   Symbol-name
    SchemePair
-   SchemePair-car
-   SchemePair-cdr
    Procedure
-   Procedure-call
    match-any
    number->datum
    datum-number
@@ -55,7 +51,7 @@
     (: number->datum (-> Number Any))
     (define (number->datum n)
       (match n
-        ((Exact r) (if (rational-integer? r) (ann (Rational-numerator r) Any) (ann r Any)))
+        ((Exact r) (if (rational-integer? r) (ann (::numerator r) Any) (ann r Any)))
         ((Inexact x) (ann x Any))))
 
     ;; A view for equality, comparison and formatting, never stored in Scheme

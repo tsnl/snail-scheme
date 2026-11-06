@@ -8,7 +8,7 @@
 
 (: require (All (T) (-> (Result T SocketError) T)))
 (define (require result)
-  (match result ((Ok value) value) ((Err error) (panic (SocketError-code error)))))
+  (match result ((Ok value) value) ((Err error) (panic (::code error)))))
 
 (: ascii (-> String Bytes))
 (define (ascii text)
@@ -38,7 +38,7 @@
 (: echo (-> Request (Result Response String) ! tasks))
 (define (echo request)
   (sleep 1)
-  (Ok (Response 200 (list (Header "Content-Type" "text/plain")) (Request-body request))))
+  (Ok (Response 200 (list (Header "Content-Type" "text/plain")) (::body request))))
 
 ;; A program waits on sockets from a task, which the scheduler runs once
 ;; main returns.
@@ -46,7 +46,7 @@
  (once (lambda ()
          (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
                 (client
-                 (require (connect (require (endpoint "127.0.0.1" (Listener-port listener))))))
+                 (require (connect (require (endpoint "127.0.0.1" (::port listener))))))
                 (server (require (accept listener))))
            (require (close-listener listener))
            (dispatch-local

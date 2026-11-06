@@ -51,21 +51,21 @@
 
     (: encode-byte (-> Encoder U8 Unit ! mut))
     (define (encode-byte encoder byte)
-      (let ((bytes (ref-get (Encoder-bytes encoder))) (size (ref-get (Encoder-size encoder))))
+      (let ((bytes (ref-get (::bytes encoder))) (size (ref-get (::size encoder))))
         (when (= size (array-length bytes))
           (let ((larger (make-array (* 2 size) (ann 0 U8))))
             (array-copy! larger 0 bytes 0 size)
-            (ref-set! (Encoder-bytes encoder) larger)))
-        (array-set! (ref-get (Encoder-bytes encoder)) size byte)
-        (ref-set! (Encoder-size encoder) (+ size 1))))
+            (ref-set! (::bytes encoder) larger)))
+        (array-set! (ref-get (::bytes encoder)) size byte)
+        (ref-set! (::size encoder) (+ size 1))))
 
     (: decode-byte (-> Decoder U8 ! mut))
     (define (decode-byte decoder)
-      (let ((position (ref-get (Decoder-position decoder))))
-        (when (>= position (vector-length (Decoder-bytes decoder)))
+      (let ((position (ref-get (::position decoder))))
+        (when (>= position (vector-length (::bytes decoder)))
           (panic "wire data ended early"))
-        (ref-set! (Decoder-position decoder) (+ position 1))
-        (vector-ref (Decoder-bytes decoder) position)))
+        (ref-set! (::position decoder) (+ position 1))
+        (vector-ref (::bytes decoder) position)))
 
     ;; The encoder and its buffer are local to this call.
     (: serialize (All (T) (requires (Serialize T) (Copy T)) (-> T Bytes)))
@@ -74,9 +74,9 @@
        (lambda ()
          (let ((encoder (Encoder (ref (make-array 64 (ann 0 U8))) (ref 0))))
            (encode value encoder)
-           (subvector (array->vector (ref-get (Encoder-bytes encoder)))
+           (subvector (array->vector (ref-get (::bytes encoder)))
                       0
-                      (ref-get (Encoder-size encoder)))))))
+                      (ref-get (::size encoder)))))))
 
     ;; Panics if the bytes were not written for this type. The decoder's
     ;; position is local to this call.
@@ -85,7 +85,7 @@
       (unsafe-total
        (lambda ()
          (let* ((decoder (Decoder bytes (ref 0))) (value (decode decoder)))
-           (unless (= (ref-get (Decoder-position decoder)) (vector-length bytes))
+           (unless (= (ref-get (::position decoder)) (vector-length bytes))
              (panic "wire data has trailing bytes"))
            value))))
 

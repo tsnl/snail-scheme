@@ -7,6 +7,6 @@
 
 (: inspect (-> (Borrow Token) I64))
 (define (inspect borrowed)
-  (Token-number borrowed))
+  (::number borrowed))
 
 (expose inspect "inspect")

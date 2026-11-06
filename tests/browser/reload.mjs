@@ -31,8 +31,8 @@ async function edit(path, ...replacements) {
 // state, so its layout changes.
 const addStateField = (source, field) => edit(source, /\(height I32\)((?:\s+\(\w+ I64\))*)\)\)/, `(height I32)$1\n       (${field} I64)))`,
   /\(Counter 0 width height((?: 0)*)\)/, '(Counter 0 width height$1 0)',
-  /\(Counter \(Counter-count counter\) width height((?: 0)*)\)/, '(Counter (Counter-count counter) width height$1 0)',
-  /\(Counter \(Save-count saved\) 0 0((?: 0)*)\)/, '(Counter (Save-count saved) 0 0$1 0)');
+  /\(Counter \(::count counter\) width height((?: 0)*)\)/, '(Counter (::count counter) width height$1 0)',
+  /\(Counter \(::count saved\) 0 0((?: 0)*)\)/, '(Counter (::count saved) 0 0$1 0)');
 
 const directory = await realpath(await mkdtemp(join(tmpdir(), 'snail-reload-')));
 const app = join(directory, 'counter'), source = join(app, 'src/counter/application.sld');
@@ -66,13 +66,13 @@ try {
   assert.equal(await text('count'), '2', 'the save carries the count to a state of another shape');
 
   await addStateField(source, 'more');
-  await edit(source, /\(\(count I64\)\)\s+\(deriving/, '((count I64)\n       (extra I64))\n      (deriving', '(Save (Counter-count counter))', '(Save (Counter-count counter) 0)');
+  await edit(source, /\(\(count I64\)\)\s+\(deriving/, '((count I64)\n       (extra I64))\n      (deriving', '(Save (::count counter))', '(Save (::count counter) 0)');
   await until(async () => (await notice()).includes('could not take over'), 'the refused state');
   assert.equal(await text('count'), '2', 'the old program keeps running');
   await browser.evaluate(`[...document.querySelectorAll('[role="status"] button')].find(b => b.textContent.startsWith('Start over')).click()`);
   await until(async () => await text('count') === '0', 'the fresh start');
   // A consumed failing event is dropped; unread actions cross to the fix.
-  const increment = '(Counter-count-set counter (+ (Counter-count counter) 1))';
+  const increment = '(Counter-count-set counter (+ (::count counter) 1))';
   await edit(source, increment, '(panic "update trap")', '"fixed"', '"ready to trap"');
   await until(async () => await text('greeting') === 'ready to trap', 'the trapping update');
   await browser.evaluate(`document.querySelector('[data-key="add"]').click()`);

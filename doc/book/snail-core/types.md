@@ -67,19 +67,21 @@ and polymorphic values that are not functions, need signatures.
   (Empty))
 ```
 
-A struct `Name` defines the constructor `Name`, accessors `Name-field` and pure
-replacements `Name-field-set`. A struct is a value: its fields are immutable,
+A struct `Name` defines the constructor `Name` and pure replacements
+`Name-field-set`; its fields are read by path, `(::field s)`, below. A
+struct is a value: its fields are immutable,
 and a program that changes one holds it in a cell, `(Ref Name)`, and writes a
 *place*, the cell's content or a field read from it, with `set!` or
 `replace!`: `(set! (::count (ref-get r)) 1)`. Reading or writing a cell
 performs `mut`. `Ref` is the one struct with a mutable field, and a pattern can
 only skip its content, with `_` ([ownership](ownership.md)). An enum defines a
-constructor and accessors per case, and its fields are immutable. Cases are constructors, not types, and are
-always applied: `(Empty)`.
+constructor and partial accessors `Case-field` per case, and its fields are
+immutable. Cases are constructors, not types, and are always applied:
+`(Empty)`.
 
-A field is also read by its label alone: `(::label s)` reads the field
-`label` of whatever struct `s` is, and `(::from::x s)` reads `x` of what
-`from` holds. Each label is a typeclass, `(::label R T)`, over the record
+A field is read by its label alone: `(::label s)` reads the field `label`
+of whatever struct `s` is, and `(::from::x s)` reads `x` of what `from`
+holds. Each label is a typeclass, `(::label R T)`, over the record
 type and the field's type, with the one method `::label`; a struct without
 mutable fields has an instance per field, and the record's type decides
 the field's, so a path needs no annotation where the record's type is
@@ -119,9 +121,9 @@ kinds and executable attribute macros are not implemented.
 
 Metadata belongs to the canonical declaration; import prefixes and renames
 do not change its owner. A field belongs to its declaring constructor and
-field name, independently of the generated accessor and replacement functions.
-Those functions already carry their field origin, which tooling can follow
-for documentation. Metadata is retained when a library is reused by an
+field name, independently of the generated replacement functions. Those
+functions already carry their field origin, which tooling can follow for
+documentation. Metadata is retained when a library is reused by an
 incremental build and does not contribute to type identity, wire schemas,
 ownership, field order or runtime layout.
 

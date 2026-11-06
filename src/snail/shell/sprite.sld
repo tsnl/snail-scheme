@@ -43,10 +43,10 @@
 
     (: strip-texture (All (M) (requires (Copy M)) (-> (Spritebook M) Strip Texture)))
     (define (strip-texture book strip)
-      (let ((width (Spritebook-cell-width book)) (height (Spritebook-cell-height book)))
-        (Texture (Spritebook-picture book)
-                 (Rect (* width (Strip-column strip)) (* height (Strip-row strip)) width height)
-                 (Strip-frames strip) (Strip-period strip))))
+      (let ((width (::cell-width book)) (height (::cell-height book)))
+        (Texture (::picture book)
+                 (Rect (* width (::column strip)) (* height (::row strip)) width height)
+                 (::frames strip) (::period strip))))
 
     ;; ---- Headings ----
 
@@ -61,10 +61,10 @@
     ;; or steep camera would shrink.
     (: heading (-> I64 Vec3 Camera I64))
     (define (heading count facing camera)
-      (let* ((right (Pair-first (screen-axes camera)))
-             (rx (f32->f64 (Vec3-x right)))
-             (rz (f32->f64 (Vec3-z right)))
-             (x (f32->f64 (Vec3-x facing))) (z (f32->f64 (Vec3-z facing)))
+      (let* ((right (::first (screen-axes camera)))
+             (rx (f32->f64 (::x right)))
+             (rz (f32->f64 (::z right)))
+             (x (f32->f64 (::x facing))) (z (f32->f64 (::z facing)))
              (step (/ (* 2.0 pi) (i64->f64 count))))
         (modulo (f64->i64 (round (/ (atan2 (+ (* x rx) (* z rz)) (- (* z rx) (* x rz))) step)))
                 count)))
@@ -93,14 +93,14 @@
     (: posed-texture (All (M) (requires (Copy M)) (-> (Spritebook M) M Vec3 Camera Texture)))
     (define (posed-texture book motion facing camera)
       (strip-texture book
-                     ((Spritebook-strip book)
+                     ((::strip book)
                       motion
-                      (heading (Spritebook-headings book) facing camera))))
+                      (heading (::headings book) facing camera))))
 
     ;; The width that keeps a cell's proportions at `height`.
     (: cell-width-for (All (M) (requires (Copy M)) (-> (Spritebook M) F32 F32)))
     (define (cell-width-for book height)
-      (/ (* height (i32->f32 (Spritebook-cell-width book)))
-         (i32->f32 (Spritebook-cell-height book))))
+      (/ (* height (i32->f32 (::cell-width book)))
+         (i32->f32 (::cell-height book))))
 
     ))

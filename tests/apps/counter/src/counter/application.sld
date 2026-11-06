@@ -27,8 +27,8 @@
     (: step (-> Counter Input Counter))
     (define (step counter input)
       (match input
-        ((Press 1 _) (Counter-count-set counter (+ (Counter-count counter) 1)))
-        ((Resize width height) (Counter (Counter-count counter) width height))
+        ((Press 1 _) (Counter-count-set counter (+ (::count counter) 1)))
+        ((Resize width height) (Counter (::count counter) width height))
         (_ counter)))
 
     ;; One box, its batch versioned by the count, under a fixed camera.
@@ -38,7 +38,7 @@
              (Light (Vec3 0.3 1.0 0.5) 0.8 0.3)
              (rgb 16 20 28)
              1.0
-             (list (Batch 1 (i64->i32 (Counter-count counter)) (Solid)
+             (list (Batch 1 (i64->i32 (::count counter)) (Solid)
                           (lambda ()
                             (list (item (Box)
                                         (Vec3 0.0 0.0 0.0)
@@ -51,16 +51,16 @@
     (define (panels counter)
       (list (Panel "counter" (At (TopLeft) 0)
                    (list (label "greeting" greeting)
-                         (label "count" (i64->string (Counter-count counter)))
+                         (label "count" (i64->string (::count counter)))
                          (button "add" "Add" add-action)))))
 
     (: save (-> Counter Save))
     (define (save counter)
-      (Save (Counter-count counter)))
+      (Save (::count counter)))
 
     (: restore (-> Save Counter))
     (define (restore saved)
-      (Counter (Save-count saved) 0 0))
+      (Counter (::count saved) 0 0))
 
     (type CounterApplication (SceneApplication Counter))
 

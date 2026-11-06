@@ -77,12 +77,17 @@
                                       (ann arguments (List Any))
                                       value)) Any)))
     (ref-set! cell pair)
-    (assert (string=? (Payload-text (call (ref-get %car) (list (ref-get cell)))) "native"))
+    (assert (string=? (::text (type-convert (call (ref-get %car) (list (ref-get cell))) Payload))
+                      "native"))
     (assert
-     (string=? (Payload-text (call (ref-get %vector-ref) (list vector (reading "0")))) "native"))
-    (assert (string=? (Payload-text (call procedure (Nil))) "native"))
+     (string=?
+      (::text (type-convert (call (ref-get %vector-ref) (list vector (reading "0"))) Payload))
+      "native"))
+    (assert (string=? (::text (type-convert (call procedure (Nil)) Payload)) "native"))
     (assert
-     (string=? (Payload-text (call (ref-get %apply) (list procedure (reading "()")))) "native"))
+     (string=?
+      (::text (type-convert (call (ref-get %apply) (list procedure (reading "()"))) Payload))
+      "native"))
     (assert (string=? (datum->string value) "#<opaque>"))
     (assert (type-test (call (ref-get %number?) (list value)) Bool)))
   (let ((sum (call (ref-get %+) (list (reading "9223372036854775807") (reading "1"))))

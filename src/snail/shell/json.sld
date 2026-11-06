@@ -95,7 +95,7 @@
 
     (: member-pieces (-> (Pair String Json) (List String) (List String)))
     (define (member-pieces member pieces)
-      (value-pieces (Pair-second member) (Cons ":" (string-pieces (Pair-first member) pieces))))
+      (value-pieces (::second member) (Cons ":" (string-pieces (::first member) pieces))))
 
     ;; Items with a comma between each two, and no spaces anywhere.
     (: separated

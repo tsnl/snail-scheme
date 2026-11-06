@@ -66,13 +66,13 @@
 (: result-number (-> (Result Payload String) I32))
 (define (result-number value)
   (match value
-    ((Ok payload) (Payload-number payload))
+    ((Ok payload) (::number payload))
     ((Err _) -1)))
 
 (: result-bytes (-> (Result Payload String) Bytes))
 (define (result-bytes value)
   (match value
-    ((Ok payload) (Payload-bytes payload))
+    ((Ok payload) (::bytes payload))
     ((Err _) #u8())))
 
 (: inspect-bytes (-> Bytes I32))

@@ -31,15 +31,15 @@
 
 (: token-text (-> (Vector Char) Token String))
 (define (token-text chars token)
-  (vector->string (subvector chars (Token-start token) (Token-end token))))
+  (vector->string (subvector chars (::start token) (::end token))))
 
 (: tiles? (-> (List Token) I64 I64 Bool))
 (define (tiles? tokens index end)
   (match tokens
     ((Cons token rest)
-     (and (= (Token-start token) index)
-          (< index (Token-end token))
-          (tiles? rest (Token-end token) end)))
+     (and (= (::start token) index)
+          (< index (::end token))
+          (tiles? rest (::end token) end)))
     ((Nil) (= index end))))
 
 (: show-tokens (-> String Unit ! console))
@@ -53,7 +53,7 @@
     (write-line (quoted text))
     (write-line (string-append "  "
                                (string-join (map (lambda (token)
-                                                   (string-append (class-name (Token-class token))
+                                                   (string-append (class-name (::class token))
                                                                   ":"
                                                                   (quoted
                                                                    (token-text chars token))))

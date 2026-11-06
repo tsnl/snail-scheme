@@ -5,11 +5,7 @@
 (define-library (snail shell project)
   (export
    Project
-   Project-builds
-   Project-runs
    ProjectPath
-   ProjectPath-text
-   ProjectPath-loc
    ProjectEntry
    SourceEntry
    ApplicationEntry
@@ -17,21 +13,8 @@
    ProgramTarget
    BrowserTarget
    ProgramBuild
-   ProgramBuild-name
-   ProgramBuild-entry
-   ProgramBuild-libraries
-   ProgramBuild-loc
    BrowserBuild
-   BrowserBuild-name
-   BrowserBuild-entry
-   BrowserBuild-libraries
-   BrowserBuild-public
-   BrowserBuild-loc
    RunTarget
-   RunTarget-name
-   RunTarget-program
-   RunTarget-arguments
-   RunTarget-loc
    target-name
    target-loc
    find-target
@@ -88,14 +71,14 @@
     (: target-name (-> BuildTarget String))
     (define (target-name target)
       (match target
-        ((ProgramTarget program) (ProgramBuild-name program))
-        ((BrowserTarget browser) (BrowserBuild-name browser))))
+        ((ProgramTarget program) (::name program))
+        ((BrowserTarget browser) (::name browser))))
 
     (: target-loc (-> BuildTarget Loc))
     (define (target-loc target)
       (match target
-        ((ProgramTarget program) (ProgramBuild-loc program))
-        ((BrowserTarget browser) (BrowserBuild-loc browser))))
+        ((ProgramTarget program) (::loc program))
+        ((BrowserTarget browser) (::loc browser))))
 
     (: find-target (-> (List BuildTarget) String (Option BuildTarget)))
     (define (find-target builds name)
@@ -161,8 +144,8 @@
     (: entry-path (-> Syntax ProjectPath ! compile))
     (define (entry-path syntax)
       (let ((path (parse-path syntax)))
-        (when (string=? (ProjectPath-text path) ".")
-          (compile-error (ProjectPath-loc path)
+        (when (string=? (::text path) ".")
+          (compile-error (::loc path)
                          "an entry must name a file, not the project directory"))
         path))
 
@@ -286,10 +269,10 @@
           ((Cons (Form (Cons (Ident "run-target" _ _) (Cons name (Cons run (Nil)))) loc) tail)
            (let ((target (parse-run builds (parse-name name) run loc)))
              (match (find (lambda (previous)
-                            (string=? (RunTarget-name previous) (RunTarget-name target)))
+                            (string=? (::name previous) (::name target)))
                           runs)
                ((Some previous)
-                (duplicate "run target" (RunTarget-name target) loc (RunTarget-loc previous)))
+                (duplicate "run target" (::name target) loc (::loc previous)))
                ((None) (loop tail (Cons target runs))))))
           ((Cons form _) (compile-error (syntax-loc form) "expected a run-target declaration")))))
 
@@ -324,48 +307,48 @@
         (let* ((text
                 "((run-target dev (run server (args (\"\" \"--port\" \"8080\")))) (run-target check (run server))\n(build-target client (browser (entry \"client.sld\") (public \"public\")))\n(build-target server (program (library-roots (\".\" \"src\")) (entry \"missing.sld\"))))")
                (project (parse-project text "project.datum"))
-               (run (car (Project-runs project)))
+               (run (car (::runs project)))
                (round-trip (syntax->string (car (read-text text "project.datum")))))
-          (expect (map target-name (Project-builds project)) '("client" "server"))
-          (expect (map RunTarget-name (Project-runs project)) '("dev" "check"))
-          (expect (RunTarget-arguments run) '("" "--port" "8080"))
-          (expect (ProgramBuild-name (RunTarget-program run)) "server")
-          (expect (map ProjectPath-text (ProgramBuild-libraries (RunTarget-program run)))
+          (expect (map target-name (::builds project)) '("client" "server"))
+          (expect (map ::name (::runs project)) '("dev" "check"))
+          (expect (::arguments run) '("" "--port" "8080"))
+          (expect (::name (::program run)) "server")
+          (expect (map ::text (::libraries (::program run)))
                   '("." "src"))
-          (expect (loc->string (ProgramBuild-loc (RunTarget-program run))) "project.datum:3:1")
-          (match (car (Project-builds project))
+          (expect (loc->string (::loc (::program run))) "project.datum:3:1")
+          (match (car (::builds project))
             ((BrowserTarget browser)
-             (match (BrowserBuild-entry browser)
-               ((SourceEntry path) (expect (ProjectPath-text path) "client.sld"))
+             (match (::entry browser)
+               ((SourceEntry path) (expect (::text path) "client.sld"))
                (_ (expect "application" "source")))
-             (match (BrowserBuild-public browser)
-               ((Some path) (expect (ProjectPath-text path) "public"))
+             (match (::public browser)
+               ((Some path) (expect (::text path) "public"))
                ((None) (expect "missing public directory" "public"))))
             (_ (expect "program" "browser")))
           (let ((printed (parse-project round-trip "printed.datum")))
-            (expect (map target-name (Project-builds printed)) '("client" "server"))
-            (expect (map RunTarget-name (Project-runs printed)) '("dev" "check"))
-            (expect (RunTarget-arguments (car (Project-runs printed))) '("" "--port" "8080"))))
-        (match (car (Project-builds
+            (expect (map target-name (::builds printed)) '("client" "server"))
+            (expect (map ::name (::runs printed)) '("dev" "check"))
+            (expect (::arguments (car (::runs printed))) '("" "--port" "8080"))))
+        (match (car (::builds
                      (parse-project
                       "((build-target app (program (entry ((example console) Printer)))))"
                       "typed.datum")))
           ((ProgramTarget program)
-           (match (ProgramBuild-entry program)
+           (match (::entry program)
              ((ApplicationEntry library name)
               (expect library '("example" "console"))
               (expect name "Printer"))
              (_ (expect "source" "application"))))
           (_ (expect "missing application" "application")))
-        (expect (Project-builds (parse-project "()" "project.datum")) '())
+        (expect (::builds (parse-project "()" "project.datum")) '())
         (let* ((project
                 (parse-project
                  "((run-target check (run café.v2 (args ()))) (build-target café.v2 (program (entry \"missing.sld\") (library-roots ()))))"
                  "project.datum"))
-               (run (car (Project-runs project))))
-          (expect (ProgramBuild-name (RunTarget-program run)) "café.v2")
-          (expect (RunTarget-arguments run) '())
-          (expect (ProgramBuild-libraries (RunTarget-program run)) '()))
+               (run (car (::runs project))))
+          (expect (::name (::program run)) "café.v2")
+          (expect (::arguments run) '())
+          (expect (::libraries (::program run)) '()))
         (expect (project-error "((run-target dev\n  (run missing)))")
                 "project.datum:2:8: unknown build target missing")
         (expect (project-error "()\n()")

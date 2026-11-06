@@ -7,13 +7,13 @@
   (export
    process spawn read-output write-input close-input send-signal wait-exit close-process run exec
    signals termination
-   Command Command-program Command-arguments Command-directory
-   Process Process-token Process-id
+   Command
+   Process
    Stream Stdout Stderr
    Signal Terminate Kill Interrupt
    Exit Exited Signaled
-   Captured Captured-exit Captured-stdout Captured-stderr
-   ProcessError ProcessError-code)
+   Captured
+   ProcessError)
   (import
    (snail core base)
    (only (snail core io) environment-variable)
@@ -162,9 +162,9 @@
 
     (: process-handle (-> Process I32))
     (define (process-handle child)
-      (let ((token (Process-token child)))
+      (let ((token (::token child)))
         (match (try-convert token NativeProcess)
-          ((Ok native) (NativeProcess-handle native))
+          ((Ok native) (::handle native))
           ((Err _) 0))))
 
     ;; The host reads a command a character at a time: its directory, the
@@ -172,8 +172,8 @@
     (: send-command (-> Command String Unit))
     (define (send-command command path)
       (for-each send-text
-                (Cons (Command-directory command)
-                      (Cons path (Cons (Command-program command) (Command-arguments command))))))
+                (Cons (::directory command)
+                      (Cons path (Cons (::program command) (::arguments command))))))
 
     (: send-text (-> String Unit))
     (define (send-text text)
@@ -207,11 +207,11 @@
     ;; spawn, run and exec one rule, and the host runs the path it is given.
     (: located (-> Command (Result String ProcessError)))
     (define (located command)
-      (let ((program (Command-program command)))
+      (let ((program (::program command)))
         (match (string-index program #\/)
           ((Some _) (Ok program))
           ((None)
-           (match (find (lambda (path) (executable? (Command-directory command) path))
+           (match (find (lambda (path) (executable? (::directory command) path))
                         (candidates program))
              ((Some path) (Ok path))
              ((None) (Err (ProcessError "ENOENT"))))))))

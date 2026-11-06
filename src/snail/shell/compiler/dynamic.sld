@@ -9,8 +9,6 @@
    parse-dispatch
    dispatch-method
    GeneratedInstance
-   GeneratedInstance-instance
-   GeneratedInstance-definitions
    generate-binary-instances)
   (import
    (snail core base)

@@ -18,7 +18,7 @@
 (define (require result)
   (match result
     ((Ok value) value)
-    ((Err error) (panic (SocketError-code error)))))
+    ((Err error) (panic (::code error)))))
 
 ;; A program waits on sockets from a task, which the scheduler runs once
 ;; main returns.
@@ -35,10 +35,10 @@
               (read (lambda (connection _)
                       (Ok
                        (Some
-                        (ref-get (fixture-convert (Connection-token connection) (Ref Bytes)))))))
+                        (ref-get (fixture-convert (::token connection) (Ref Bytes)))))))
               (write (lambda (connection bytes)
                        (sleep 1)
-                       (ref-set! (fixture-convert (Connection-token connection) (Ref Bytes)) bytes)
+                       (ref-set! (fixture-convert (::token connection) (Ref Bytes)) bytes)
                        (Ok (i64->i32 (vector-length bytes)))))
               (close-listener (lambda (_) (Ok (unit))))
               (finish-connection (lambda (connection grace)
@@ -46,7 +46,7 @@
                                    (display grace)
                                    (newline)
                                    (ref-set!
-                                    (fixture-convert (Connection-token connection) (Ref Bytes))
+                                    (fixture-convert (::token connection) (Ref Bytes))
                                     #u8())
                                    (Ok (unit))))
               (close-connection (lambda (_) (Ok (unit)))))

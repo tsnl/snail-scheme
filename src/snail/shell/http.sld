@@ -3,11 +3,11 @@
 ;; and response streams that end when the connection closes.
 (define-library (snail shell http)
   (export
-   Header Header-name Header-value
-   RequestHead RequestHead-method RequestHead-target RequestHead-headers RequestHead-body-length
-   ParsedHead ParsedHead-request ParsedHead-end
-   ResponseParts ResponseParts-head ResponseParts-body
-   Target Target-path Target-query
+   Header
+   RequestHead
+   ParsedHead
+   ResponseParts
+   Target
    HttpError Malformed Unsupported HeadTooLarge BodyTooLarge InvalidResponse
    head-limit
    body-limit
@@ -215,7 +215,7 @@
     (: header-values (-> (List Header) String (List String)))
     (define (header-values headers name)
       (let ((name (lower-ascii name)))
-        (map Header-value (filter (lambda (header) (string=? (Header-name header) name)) headers))))
+        (map ::value (filter (lambda (header) (string=? (::name header) name)) headers))))
 
     ;; The check precedes arithmetic, including for thousands of digits.
     (: decimal (-> String I64 HttpError (Result I64 HttpError)))
@@ -276,7 +276,7 @@
                          ((Err error) (Err error))
                          ((Ok count)
                           (Ok
-                           (RequestHead (Pair-first line) (Pair-second line) headers count))))))))
+                           (RequestHead (::first line) (::second line) headers count))))))))
         ((Nil) (Err (Malformed "missing Host")))))
 
     (: complete-head (-> (List String) (Result RequestHead HttpError)))
@@ -419,7 +419,7 @@
         (match headers
           ((Nil) (Ok (reverse lines)))
           ((Cons header rest)
-           (let ((name (Header-name header)) (value (Header-value header)))
+           (let ((name (::name header)) (value (::value header)))
              (cond ((or (> (string-length name) remaining)
                         (> (string-length value) (- (- remaining (string-length name)) 4)))
                     (Err (HeadTooLarge)))

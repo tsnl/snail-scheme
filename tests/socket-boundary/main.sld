@@ -64,7 +64,7 @@
 (define (require result)
   (match result
     ((Ok value) value)
-    ((Err error) (panic (SocketError-code error)))))
+    ((Err error) (panic (::code error)))))
 
 (: open (-> (Result Listener SocketError) ! tcp tasks))
 (define (open)
@@ -75,7 +75,7 @@
   (require (fixture-convert answer (Result Listener SocketError))))
 
 (: port (-> Listener I32))
-(define (port listener) (Listener-port listener))
+(define (port listener) (::port listener))
 
 (: dial (-> I32 (Result Connection SocketError) ! tcp tasks))
 (define (dial port)
@@ -106,7 +106,7 @@
 (: bad-read? (-> Any Bool))
 (define (bad-read? answer)
   (match (fixture-convert answer (Result (Option Bytes) SocketError))
-    ((Err error) (string=? (SocketError-code error) "EBADF"))
+    ((Err error) (string=? (::code error) "EBADF"))
     ((Ok _) #f)))
 
 (: send (-> Connection (Result I32 SocketError) ! tcp tasks))
@@ -119,7 +119,7 @@
 (: overwrite (-> Bool ! tcp tasks))
 (define (overwrite)
   (match (write (Connection (type-convert (ann 1 I32) Any)) #u8(9 8 7))
-    ((Err error) (string=? (SocketError-code error) "EBADF"))
+    ((Err error) (string=? (::code error) "EBADF"))
     ((Ok _) #f)))
 
 (: stop-listener (-> Listener Unit ! tcp))
@@ -140,7 +140,7 @@
 (: timed-out? (-> Any Bool))
 (define (timed-out? answer)
   (match (fixture-convert answer (Result Unit SocketError))
-    ((Err error) (string=? (SocketError-code error) "ETIMEDOUT"))
+    ((Err error) (string=? (::code error) "ETIMEDOUT"))
     ((Ok _) #f)))
 
 (: begin-open (-> I64 ! mut tcp udp))
@@ -198,7 +198,7 @@
   (fixture-convert answer UdpSocket))
 
 (: udp-port (-> UdpSocket I32))
-(define (udp-port socket) (UdpSocket-port socket))
+(define (udp-port socket) (::port socket))
 
 (: send-udp (-> UdpSocket I32 (Result I32 SocketError) ! udp tasks))
 (define (send-udp socket port)
@@ -212,14 +212,14 @@
   (require (fixture-convert answer (Result Datagram SocketError))))
 
 (: packet-port (-> Any I32))
-(define (packet-port answer) (Endpoint-port (Datagram-peer (datagram answer))))
+(define (packet-port answer) (Endpoint-port (::peer (datagram answer))))
 
 (: packet-size (-> Any I32))
-(define (packet-size answer) (i64->i32 (vector-length (Datagram-bytes (datagram answer)))))
+(define (packet-size answer) (i64->i32 (vector-length (::bytes (datagram answer)))))
 
 (: packet-byte (-> Any I32 I32))
 (define (packet-byte answer index)
-  (u8->i32 (vector-ref (Datagram-bytes (datagram answer)) (i32->i64 index))))
+  (u8->i32 (vector-ref (::bytes (datagram answer)) (i32->i64 index))))
 
 (: stop-udp (-> UdpSocket Unit ! udp))
 (define (stop-udp socket) (require (close-udp socket)))

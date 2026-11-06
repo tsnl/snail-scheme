@@ -24,7 +24,7 @@
     ((None) (panic "missing artifact"))))
 
 (define client (client-snapshot))
-(display (string-join (map ArtifactFile-path (ArtifactBundle-files client)) "|"))
+(display (string-join (map ::path (::files client)) "|"))
 (newline)
 (print-bytes (required client "nested/data.bin"))
 (print-bytes producer-bytes)

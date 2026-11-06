@@ -63,7 +63,7 @@
           (match (file-status path)
             ((Ok status)
              (let ((fingerprints (table-set fingerprints path (fingerprint status))))
-               (match (FileStatus-kind status)
+               (match (::kind status)
                  ((Directory) (take-directory fingerprints path excluded))
                  (_ (Ok fingerprints)))))
             ((Err (NotFound)) (Ok fingerprints))
@@ -90,10 +90,10 @@
     ;; any of them. A symbolic link is fingerprinted, not followed.
     (: fingerprint (-> FileStatus String))
     (define (fingerprint status)
-      (let ((stamp (string-append (i64->string (FileStatus-size status))
+      (let ((stamp (string-append (i64->string (::size status))
                                   " "
-                                  (i64->string (FileStatus-modified status)))))
-        (match (FileStatus-kind status)
+                                  (i64->string (::modified status)))))
+        (match (::kind status)
           ((RegularFile) (string-append "file " stamp))
           ((Directory) "directory")
           ((SymbolicLink) (string-append "link " stamp))
@@ -106,14 +106,14 @@
     ;; `before` has not, and then those only `before` has.
     (: inventory-changes (-> Inventory Inventory (List String)))
     (define (inventory-changes before after)
-      (let ((old (Inventory-fingerprints before)) (new (Inventory-fingerprints after)))
+      (let ((old (::fingerprints before)) (new (::fingerprints after)))
         (append (filter (lambda (path) (not (same-fingerprint? old new path))) (table-keys new))
                 (filter (lambda (path) (not (table-contains? new path))) (table-keys old)))))
 
     ;; The regular files an inventory found, in no particular order.
     (: inventory-files (-> Inventory (List String)))
     (define (inventory-files taken)
-      (let ((fingerprints (Inventory-fingerprints taken)))
+      (let ((fingerprints (::fingerprints taken)))
         (filter (lambda (path)
                   (match (table-ref fingerprints path)
                     ((Some print) (and (>= (string-length print) 5)
@@ -124,7 +124,7 @@
     ;; Real directories only: the inventory never traverses symbolic links.
     (: inventory-directories (-> Inventory (List String)))
     (define (inventory-directories taken)
-      (let ((fingerprints (Inventory-fingerprints taken)))
+      (let ((fingerprints (::fingerprints taken)))
         (filter (lambda (path)
                   (match (table-ref fingerprints path)
                     ((Some print) (string=? print "directory"))
@@ -183,12 +183,12 @@
     ;; close or be lost, #f.
     (: next-hint (-> Watch Bool ! hints tasks))
     (define (next-hint watch)
-      (next-hint-of (Watch-id watch)))
+      (next-hint-of (::id watch)))
 
     ;; Ends the watch, and answers a wait on it with #f.
     (: close-watch (-> Watch Unit ! hints))
     (define (close-watch watch)
       (send-hint-text "unwatch")
-      (hint-command (Watch-id watch))
+      (hint-command (::id watch))
       (unit))))
 

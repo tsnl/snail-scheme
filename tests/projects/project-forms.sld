@@ -22,15 +22,15 @@
     ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))
     ((Err _) (panic "parsing a project asked for an input"))))
 
-(for-each (lambda (target) (write-line (target-name target))) (Project-builds project))
+(for-each (lambda (target) (write-line (target-name target))) (::builds project))
 (for-each
  (lambda (run)
    (write-line
-    (string-append (RunTarget-name run) " -> " (ProgramBuild-name (RunTarget-program run))))
-   (match (ProgramBuild-entry (RunTarget-program run))
-     ((SourceEntry path) (write-line (ProjectPath-text path)))
+    (string-append (::name run) " -> " (::name (::program run))))
+   (match (::entry (::program run))
+     ((SourceEntry path) (write-line (::text path)))
      (_ (panic "expected a source entry")))
-   (write-line (string-join (RunTarget-arguments run) "|"))
-   (for-each (lambda (path) (write-line (ProjectPath-text path)))
-             (ProgramBuild-libraries (RunTarget-program run))))
- (Project-runs project))
+   (write-line (string-join (::arguments run) "|"))
+   (for-each (lambda (path) (write-line (::text path)))
+             (::libraries (::program run))))
+ (::runs project))

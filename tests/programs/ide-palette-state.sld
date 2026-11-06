@@ -72,11 +72,11 @@
          (a1 (send start (palette-Query "a")))
          (b (send a1 (palette-Query "b")))
          (a2 (send b (palette-Query "a")))
-         (pending (send a2 (palette-Due (palette-State-generation a2))))
+         (pending (send a2 (palette-Due (::generation a2))))
          (ready
-          (send pending (palette-Found (palette-State-generation pending) (result "new.sld"))))
-         (stale (send (send ready (palette-Found (palette-State-generation a1) (result "old.sld")))
-                      (palette-Found (palette-State-generation b)
+          (send pending (palette-Found (::generation pending) (result "new.sld"))))
+         (stale (send (send ready (palette-Found (::generation a1) (result "old.sld")))
+                      (palette-Found (::generation b)
                                      (Err (Failure 500 "obsolete failure")))))
          (clicks (concatenate (map click (palette-view ready context))))
          (closed (palette-cancel pending))
@@ -93,17 +93,17 @@
                          (palette-Query "new.sld")))
          (writing (send creation (palette-KeyPressed "Enter" 0))))
     (check
-     (not (requested? (palette-update a2 context (palette-Due (palette-State-generation a1)))))
+     (not (requested? (palette-update a2 context (palette-Due (::generation a1)))))
      "old debounce is ignored")
     (check (not (requested?
-                 (palette-update pending context (palette-Due (palette-State-generation pending)))))
+                 (palette-update pending context (palette-Due (::generation pending)))))
            "one request per generation")
     (match (palette-update stale context (palette-KeyPressed "Enter" 0))
       ((palette-Step next (Some (palette-OpenSavedHit hit)) commands)
        (drop commands)
-       (check (and (string=? (Point-file (Hit-point hit)) "new.sld")
+       (check (and (string=? (::file (::point hit)) "new.sld")
                    (not (palette-visible? next))
-                   (> (palette-State-generation next) (palette-State-generation stale)))
+                   (> (::generation next) (::generation stale)))
               "A-B-A keeps the new result and selection advances authority"))
       (other (drop other) (panic "selection")))
     (for-each (lambda (message)
@@ -117,30 +117,30 @@
                   (_ (unit)))) clicks)
     (check (and (no-outcome? (palette-update closed
                                              context
-                                             (palette-Found (palette-State-generation pending)
+                                             (palette-Found (::generation pending)
                                                             (result "old"))))
                 (not (palette-visible?
                       (send closed
-                            (palette-Found (palette-State-generation pending) (result "old"))))))
+                            (palette-Found (::generation pending) (result "old"))))))
            "completion after closing stays closed")
     (check (no-outcome? (palette-update reopened
                                         context
-                                        (palette-Found (palette-State-generation pending)
+                                        (palette-Found (::generation pending)
                                                        (result "old"))))
            "completion cannot replace a reopened picker")
-    (check (> (palette-State-generation replaced) (palette-State-generation draft-panel))
+    (check (> (::generation replaced) (::generation draft-panel))
            "draft replacement starts a new search")
     (check (not (requested? (palette-update replaced
                                             context
-                                            (palette-Due (palette-State-generation draft-panel)))))
+                                            (palette-Due (::generation draft-panel)))))
            "old draft debounce is ignored")
     (check (not (requested? (palette-update writing context (palette-KeyPressed "Enter" 0))))
            "creation cannot be submitted twice")
-    (check (= (palette-State-generation (send writing (palette-Query "changed")))
-              (palette-State-generation writing))
+    (check (= (::generation (send writing (palette-Query "changed")))
+              (::generation writing))
            "pending creation keeps its submitted path")
     (check (no-outcome? (palette-update (palette-cancel writing) context
-                                        (palette-Created (palette-State-generation writing)
+                                        (palette-Created (::generation writing)
                                                          (Ok (JsonNull)))))
            "cancelled creation cannot navigate")))
 

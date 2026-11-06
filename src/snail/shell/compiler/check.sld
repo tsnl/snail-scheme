@@ -5,10 +5,7 @@
 (define-library (snail shell compiler check)
   (export
    Typed
-   Typed-program
-   Typed-items
    definition-scheme
-   Typed-schemes
    check-program
    check-library)
   (import

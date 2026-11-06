@@ -29,7 +29,7 @@
   (newline)
   (display (integer (package unboxed)))
   (newline)
-  (display (ann (Holder-value (Holder 7)) I64))
+  (display (ann (::value (Holder 7)) I64))
   (newline)
   (display (increment (first boxed 1)))
   (newline)

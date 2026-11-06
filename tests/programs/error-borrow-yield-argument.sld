@@ -10,7 +10,7 @@
 
 (: inspect (-> (Borrow Token) Unit I64))
 (define (inspect token ignored)
-  (Token-number token))
+  (::number token))
 
 (let ((token (Token 1)))
   (handle Pause

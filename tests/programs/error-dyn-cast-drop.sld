@@ -4,4 +4,4 @@
 (struct Resource
   ((value Any)))
 (instance (Drop (! dyn-cast) Resource)
-  (define (drop resource) (ann (Resource-value resource) I64) (unit)))
+  (define (drop resource) (ann (::value resource) I64) (unit)))

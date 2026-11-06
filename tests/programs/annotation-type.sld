@@ -7,4 +7,4 @@
   ((item (annotations I64) (annotations (doc "An ordinary applied type.")))))
 (: item (annotations I64) (annotations (doc "A value of that type.")))
 (define item (annotations 9))
-(write-line (show (annotations-value (Wrapped-item (Wrapped item)))))
+(write-line (show (::value (::item (Wrapped item)))))

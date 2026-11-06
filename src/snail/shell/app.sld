@@ -43,16 +43,10 @@
    key-enter
    key-space
    Vec3
-   Vec3-x
-   Vec3-y
-   Vec3-z
    Projection
    Perspective
    Orthographic
    Camera
-   Camera-eye
-   Camera-target
-   Camera-projection
    Light
    Mesh
    Box
@@ -64,44 +58,25 @@
    Octahedron
    Quad
    Rect
-   Rect-x
-   Rect-y
-   Rect-width
-   Rect-height
    Source
    Layer
    Picture
    Texture
-   Texture-picture
-   Texture-region
    Texture-region-set
-   Texture-frames
-   Texture-period
    still
    Material
-   Material-texture
-   Material-metalness
-   Material-roughness
    plain
    Facing
    Fixed
    Upright
    Item
-   Item-position
    Item-position-set
-   Item-scale
    Item-scale-set
-   Item-yaw
    Item-yaw-set
-   Item-color
    Item-color-set
-   Item-glow
    Item-glow-set
-   Item-from
    Item-from-set
-   Item-material
    Item-material-set
-   Item-facing
    Item-facing-set
    item
    sprite
@@ -131,8 +106,6 @@
    Disabled
    Selected
    Look
-   Look-key
-   Look-help
    Look-help-set
    Look-tone-set
    look
@@ -163,8 +136,6 @@
    screen
    render
    Ray
-   Ray-origin
-   Ray-direction
    pointer-ray
    screen-axes
    ground-point
@@ -293,7 +264,7 @@
     ;; input meant. Inputs other than pointers mean nothing here.
     (: recognize (-> Gestures Input (Pair Gestures (List Gesture))))
     (define (recognize gestures input)
-      (let ((contacts (Gestures-contacts gestures)))
+      (let ((contacts (::contacts gestures)))
         (match input
           ((PointerDown pointer x y button)
            (Pair (Gestures (press-contact contacts (Contact pointer button x y x y (Holding))))
@@ -307,7 +278,7 @@
     ;; recovers from a release that never arrived.
     (: press-contact (-> (List Contact) Contact (List Contact)))
     (define (press-contact contacts contact)
-      (let ((pressed (append (without-contact contacts (Contact-pointer contact)) (list contact))))
+      (let ((pressed (append (without-contact contacts (::pointer contact)) (list contact))))
         (if (null? (cdr-list pressed))
             pressed
             (map (lambda (c) (Contact-mode-set c (Pinched))) pressed))))
@@ -320,17 +291,17 @@
 
     (: without-contact (-> (List Contact) I32 (List Contact)))
     (define (without-contact contacts pointer)
-      (filter (lambda (c) (not (= (Contact-pointer c) pointer))) contacts))
+      (filter (lambda (c) (not (= (::pointer c) pointer))) contacts))
 
     ;; A pointer pressed alone may drag; among others, moves pinch. A moving
     ;; pointer that is not pressed points.
     (: move-contact (-> (List Contact) I32 I32 I32 (Pair Gestures (List Gesture))))
     (define (move-contact contacts pointer x y)
-      (match (find (lambda (c) (= (Contact-pointer c) pointer)) contacts)
+      (match (find (lambda (c) (= (::pointer c) pointer)) contacts)
         ((Some contact) (if (null? (cdr-list contacts))
                             (lone-move contact x y)
                             (let ((moved (map (lambda (c)
-                                                (if (= (Contact-pointer c) pointer)
+                                                (if (= (::pointer c) pointer)
                                                     (Contact-y-set (Contact-x-set c x) y)
                                                     c))
                                               contacts)))
@@ -342,20 +313,20 @@
     (: lone-move (-> Contact I32 I32 (Pair Gestures (List Gesture))))
     (define (lone-move contact x y)
       (let ((moved (Contact-y-set (Contact-x-set contact x) y)))
-        (match (Contact-mode contact)
+        (match (::mode contact)
           ((Dragging)
            (Pair (Gestures (list moved))
-                 (list (Drag (- x (Contact-x contact)) (- y (Contact-y contact))))))
+                 (list (Drag (- x (::x contact)) (- y (::y contact))))))
           ((Holding) (if (far? contact x y)
                          (Pair (Gestures (list (Contact-mode-set moved (Dragging))))
-                               (list (Drag (- x (Contact-start-x contact))
-                                           (- y (Contact-start-y contact)))))
+                               (list (Drag (- x (::start-x contact))
+                                           (- y (::start-y contact)))))
                          (Pair (Gestures (list moved)) (Nil))))
           ((Pinched) (Pair (Gestures (list moved)) (Nil))))))
 
     (: far? (-> Contact I32 I32 Bool))
     (define (far? contact x y)
-      (let ((dx (- x (Contact-start-x contact))) (dy (- y (Contact-start-y contact))))
+      (let ((dx (- x (::start-x contact))) (dy (- y (::start-y contact))))
         (> (+ (* dx dx) (* dy dy)) 64)))
 
     (: pinch (-> (List Contact) (List Contact) (List Gesture)))
@@ -368,21 +339,21 @@
     (define (spread contacts)
       (match contacts
         ((Cons a (Cons b _))
-         (let ((dx (i32->f32 (- (Contact-x a) (Contact-x b))))
-               (dy (i32->f32 (- (Contact-y a) (Contact-y b)))))
+         (let ((dx (i32->f32 (- (::x a) (::x b))))
+               (dy (i32->f32 (- (::y a) (::y b)))))
            (sqrt (+ (* dx dx) (* dy dy)))))
         (_ 0.0)))
 
     ;; Only a pointer still held, near where it went down, taps.
     (: release-contact (-> (List Contact) I32 I32 I32 (Pair Gestures (List Gesture))))
     (define (release-contact contacts pointer x y)
-      (match (find (lambda (c) (= (Contact-pointer c) pointer)) contacts)
+      (match (find (lambda (c) (= (::pointer c) pointer)) contacts)
         ((Some contact) (Pair (Gestures (without-contact contacts pointer))
-                              (match (Contact-mode contact)
+                              (match (::mode contact)
                                 ((Holding)
                                  (if (far? contact x y)
                                      (Nil)
-                                     (list (Tap x y (Contact-button contact)))))
+                                     (list (Tap x y (::button contact)))))
                                 (_ (Nil)))))
         ((None) (Pair (Gestures contacts) (Nil)))))
 
@@ -555,7 +526,7 @@
     (: flat-sprite (-> Texture Vec3 F32 F32 Item))
     (define (flat-sprite texture position width height)
       (let ((center
-             (Vec3 (Vec3-x position) (Vec3-y position) (- (Vec3-z position) (/ height 2.0)))))
+             (Vec3 (::x position) (::y position) (- (::z position) (/ height 2.0)))))
         (Item (Tile)
               center
               (Vec3 width 1.0 height)
@@ -715,76 +686,76 @@
 
     (: render (-> Frame Unit ! screen))
     (define (render frame)
-      (frame-begin (Frame-background frame) (Frame-motion frame))
-      (render-camera (Frame-camera frame))
-      (render-light (Frame-light frame))
-      (for-each render-picture (Frame-pictures frame))
-      (for-each render-batch (Frame-batches frame))
+      (frame-begin (::background frame) (::motion frame))
+      (render-camera (::camera frame))
+      (render-light (::light frame))
+      (for-each render-picture (::pictures frame))
+      (for-each render-batch (::batches frame))
       (frame-end))
 
     ;; Kind 0 is perspective and 1 orthographic, as in host/browser/renderer.mjs.
     (: render-camera (-> Camera Unit ! screen))
     (define (render-camera view)
-      (let ((eye (Camera-eye view)) (target (Camera-target view)))
-        (match (Camera-projection view)
+      (let ((eye (::eye view)) (target (::target view)))
+        (match (::projection view)
           ((Perspective fov)
-           (camera (Vec3-x eye)
-                   (Vec3-y eye)
-                   (Vec3-z eye)
-                   (Vec3-x target)
-                   (Vec3-y target)
-                   (Vec3-z target)
+           (camera (::x eye)
+                   (::y eye)
+                   (::z eye)
+                   (::x target)
+                   (::y target)
+                   (::z target)
                    0
                    fov))
           ((Orthographic height)
-           (camera (Vec3-x eye)
-                   (Vec3-y eye)
-                   (Vec3-z eye)
-                   (Vec3-x target)
-                   (Vec3-y target)
-                   (Vec3-z target)
+           (camera (::x eye)
+                   (::y eye)
+                   (::z eye)
+                   (::x target)
+                   (::y target)
+                   (::z target)
                    1
                    height)))))
 
     (: render-light (-> Light Unit ! screen))
     (define (render-light sunlight)
-      (let ((direction (Light-direction sunlight)))
-        (light (Vec3-x direction)
-               (Vec3-y direction)
-               (Vec3-z direction)
-               (Light-sun sunlight)
-               (Light-ambient sunlight))))
+      (let ((direction (::direction sunlight)))
+        (light (::x direction)
+               (::y direction)
+               (::z direction)
+               (::sun sunlight)
+               (::ambient sunlight))))
 
     ;; A picture's layers travel only when the host lacks this version, and a
     ;; source's bytes only when the host has never decoded it.
     (: render-picture (-> Picture Unit ! screen))
     (define (render-picture picture)
-      (unless (picture-begin (Picture-key picture)
-                             (Picture-version picture)
-                             (Picture-width picture)
-                             (Picture-height picture))
-        (for-each render-layer ((Picture-layers picture)))
+      (unless (picture-begin (::key picture)
+                             (::version picture)
+                             (::width picture)
+                             (::height picture))
+        (for-each render-layer ((::layers picture)))
         (picture-end)))
 
     (: render-layer (-> Layer Unit ! screen))
     (define (render-layer piece)
-      (let ((from (Layer-from piece)) (source (Layer-source piece)))
-        (unless (layer (Source-key source)
-                       (Rect-x from)
-                       (Rect-y from)
-                       (Rect-width from)
-                       (Rect-height from)
-                       (Layer-x piece)
-                       (Layer-y piece))
+      (let ((from (::from piece)) (source (::source piece)))
+        (unless (layer (::key source)
+                       (::x from)
+                       (::y from)
+                       (::width from)
+                       (::height from)
+                       (::x piece)
+                       (::y piece))
           (send-source source))
-        (for-each (lambda (pair) (swap (Pair-first pair) (Pair-second pair))) (Layer-swaps piece))))
+        (for-each (lambda (pair) (swap (::first pair) (::second pair))) (::swaps piece))))
 
     ;; Bytes go four at a time, little-endian, the last word padded.
     (: send-source (-> Source Unit ! screen))
     (define (send-source source)
-      (let* ((bytes ((Source-bytes source))) (count (vector-length bytes))
+      (let* ((bytes ((::bytes source))) (count (vector-length bytes))
              (byte (lambda (index) (if (< index count) (u8->i32 (vector-ref bytes index)) 0))))
-        (source-begin (Source-key source) (i64->i32 count))
+        (source-begin (::key source) (i64->i32 count))
         (let loop ((index 0))
           (when (< index count)
             (source-word (+ (byte index)
@@ -797,57 +768,57 @@
     ;; this version. Styles 0 to 2 match the `styles` of host/browser/host.mjs.
     (: render-batch (-> Batch Unit ! screen))
     (define (render-batch batch)
-      (unless (match (Batch-style batch)
-                ((Solid) (batch-begin (Batch-key batch) (Batch-version batch) 0 1.0 0.0 0.0 0.0))
+      (unless (match (::style batch)
+                ((Solid) (batch-begin (::key batch) (::version batch) 0 1.0 0.0 0.0 0.0))
                 ((Translucent opacity)
-                 (batch-begin (Batch-key batch) (Batch-version batch) 1 opacity 0.0 0.0 0.0))
+                 (batch-begin (::key batch) (::version batch) 1 opacity 0.0 0.0 0.0))
                 ((Revealed center radius)
-                 (batch-begin (Batch-key batch)
-                              (Batch-version batch)
+                 (batch-begin (::key batch)
+                              (::version batch)
                               2
                               1.0
-                              (Vec3-x center)
-                              (Vec3-z center)
+                              (::x center)
+                              (::z center)
                               radius)))
-        (for-each render-item ((Batch-items batch)))))
+        (for-each render-item ((::items batch)))))
 
     (: render-item (-> Item Unit ! screen))
     (define (render-item item)
-      (let ((position (Item-position item)) (scale (Item-scale item)) (from (Item-from item)))
-        (instance (mesh-index (Item-mesh item))
-          (Vec3-x position)
-          (Vec3-y position)
-          (Vec3-z position)
-          (Vec3-x scale)
-          (Vec3-y scale)
-          (Vec3-z scale)
-          (Item-yaw item)
-          (Item-color item)
-          (Item-glow item)
-          (Vec3-x from) (Vec3-y from) (Vec3-z from))
-        (render-surface (Item-material item) (Item-facing item))))
+      (let ((position (::position item)) (scale (::scale item)) (from (::from item)))
+        (instance (mesh-index (::mesh item))
+          (::x position)
+          (::y position)
+          (::z position)
+          (::x scale)
+          (::y scale)
+          (::z scale)
+          (::yaw item)
+          (::color item)
+          (::glow item)
+          (::x from) (::y from) (::z from))
+        (render-surface (::material item) (::facing item))))
 
     ;; A material and facing follow each instance: an untextured one names
     ;; picture -1.
     (: render-surface (-> Material Facing Unit ! screen))
     (define (render-surface material facing)
       (let ((turn (match facing ((Fixed) 0) ((Upright) 1))))
-        (match (Material-texture material)
+        (match (::texture material)
           ((Some texture)
-           (let ((region (Texture-region texture)))
-             (surface (Material-metalness material)
-                      (Material-roughness material)
+           (let ((region (::region texture)))
+             (surface (::metalness material)
+                      (::roughness material)
                       turn
-                      (Texture-picture texture)
-                      (Rect-x region)
-                      (Rect-y region)
-                      (Rect-width region)
-                      (Rect-height region)
-                      (Texture-frames texture)
-                      (Texture-period texture))))
+                      (::picture texture)
+                      (::x region)
+                      (::y region)
+                      (::width region)
+                      (::height region)
+                      (::frames texture)
+                      (::period texture))))
           ((None)
-           (surface (Material-metalness material)
-                    (Material-roughness material)
+           (surface (::metalness material)
+                    (::roughness material)
                     turn
                     -1
                     0
@@ -880,12 +851,12 @@
     ;; Places and corners match host/browser/hud.mjs.
     (: render-panel (-> Panel Unit ! screen))
     (define (render-panel panel)
-      (match (Panel-place panel)
+      (match (::place panel)
         ((At corner column) (panel-begin 0 (corner-index corner) column 0))
         ((Dialog dismiss) (panel-begin 1 0 0 dismiss))
         ((Banner) (panel-begin 2 0 0 0)))
-      (render-field 0 (Panel-key panel))
-      (for-each render-widget (Panel-widgets panel)))
+      (render-field 0 (::key panel))
+      (for-each render-widget (::widgets panel)))
 
     (: corner-index (-> Corner I32))
     (define (corner-index corner)
@@ -903,32 +874,32 @@
     (define (render-widget widget)
       (match widget
         ((Label face text)
-         (widget-begin 0 (tone-index (Look-tone face)) 0 0 0 0.0)
+         (widget-begin 0 (tone-index (::tone face)) 0 0 0 0.0)
          (render-look face)
          (render-field 4 text))
         ((Button face text caption action argument control ring)
-         (widget-begin 1 (tone-index (Look-tone face)) action argument (control-index control) ring)
+         (widget-begin 1 (tone-index (::tone face)) action argument (control-index control) ring)
          (render-look face) (render-field 4 text) (render-field 5 caption))
         ((Dial face text fraction)
-         (widget-begin 2 (tone-index (Look-tone face)) 0 0 0 fraction)
+         (widget-begin 2 (tone-index (::tone face)) 0 0 0 fraction)
          (render-look face)
          (render-field 4 text))
         ((Link face text url)
-         (widget-begin 3 (tone-index (Look-tone face)) 0 0 0 0.0)
+         (widget-begin 3 (tone-index (::tone face)) 0 0 0 0.0)
          (render-look face)
          (render-field 4 text)
          (render-field 6 url))
         ((Text face spans)
-         (widget-begin 4 (tone-index (Look-tone face)) 0 0 0 0.0)
+         (widget-begin 4 (tone-index (::tone face)) 0 0 0 0.0)
          (render-look face)
          (for-each render-span spans))
         ((Image face picture region scale)
-         (widget-begin 5 (tone-index (Look-tone face)) 0 0 0 0.0)
+         (widget-begin 5 (tone-index (::tone face)) 0 0 0 0.0)
          (widget-image picture
-                       (Rect-x region)
-                       (Rect-y region)
-                       (Rect-width region)
-                       (Rect-height region)
+                       (::x region)
+                       (::y region)
+                       (::width region)
+                       (::height region)
                        scale)
          (render-look face))))
 
@@ -940,10 +911,10 @@
 
     (: render-look (-> Look Unit ! screen))
     (define (render-look face)
-      (render-field 0 (Look-key face))
-      (render-field 1 (Look-icon face))
-      (render-field 2 (Look-help face))
-      (render-field 3 (Look-badge face)))
+      (render-field 0 (::key face))
+      (render-field 1 (::icon face))
+      (render-field 2 (::help face))
+      (render-field 3 (::badge face)))
 
     (: tone-index (-> Tone I32))
     (define (tone-index tone)
@@ -984,12 +955,12 @@
     ;; leaves the pixel's point on the plane through the eye.
     (: pointer-ray (-> Camera I32 I32 I32 I32 Ray))
     (define (pointer-ray view x y width height)
-      (let* ((eye (Camera-eye view)) (forward (normalize (subtract (Camera-target view) eye)))
-             (axes (screen-axes view)) (right (Pair-first axes)) (up (Pair-second axes))
+      (let* ((eye (::eye view)) (forward (normalize (subtract (::target view) eye)))
+             (axes (screen-axes view)) (right (::first axes)) (up (::second axes))
              (aspect (/ (i32->f32 width) (i32->f32 (max height 1))))
              (px (- (* 2.0 (/ (+ (i32->f32 x) 0.5) (i32->f32 (max width 1)))) 1.0))
              (py (- 1.0 (* 2.0 (/ (+ (i32->f32 y) 0.5) (i32->f32 (max height 1)))))))
-        (match (Camera-projection view)
+        (match (::projection view)
           ((Perspective fov)
            (let ((half (f64->f32 (tan (/ (f32->f64 fov) 2.0)))))
              (Ray eye
@@ -1007,8 +978,8 @@
     ;; would; the renderer uses the same rule.
     (: screen-axes (-> Camera (Pair Vec3 Vec3)))
     (define (screen-axes view)
-      (let* ((forward (normalize (subtract (Camera-target view) (Camera-eye view))))
-             (sky (if (> (abs (Vec3-y forward)) 0.999) (Vec3 0.0 0.0 -1.0) (Vec3 0.0 1.0 0.0)))
+      (let* ((forward (normalize (subtract (::target view) (::eye view))))
+             (sky (if (> (abs (::y forward)) 0.999) (Vec3 0.0 0.0 -1.0) (Vec3 0.0 1.0 0.0)))
              (right (normalize (cross forward sky))))
         (Pair right (cross right forward))))
 
@@ -1016,36 +987,36 @@
     (: ground-point (-> Camera I32 I32 I32 I32 (Option Vec3)))
     (define (ground-point view x y width height)
       (let* ((ray (pointer-ray view x y width height))
-             (origin (Ray-origin ray))
-             (direction (Ray-direction ray)))
-        (if (>= (Vec3-y direction) 0.0)
+             (origin (::origin ray))
+             (direction (::direction ray)))
+        (if (>= (::y direction) 0.0)
             (None)
-            (Some (add origin (scale direction (/ (negate (Vec3-y origin)) (Vec3-y direction))))))))
+            (Some (add origin (scale direction (/ (negate (::y origin)) (::y direction))))))))
 
     (: add (-> Vec3 Vec3 Vec3))
     (define (add a b)
-      (Vec3 (+ (Vec3-x a) (Vec3-x b)) (+ (Vec3-y a) (Vec3-y b)) (+ (Vec3-z a) (Vec3-z b))))
+      (Vec3 (+ (::x a) (::x b)) (+ (::y a) (::y b)) (+ (::z a) (::z b))))
 
     (: subtract (-> Vec3 Vec3 Vec3))
     (define (subtract a b)
-      (Vec3 (- (Vec3-x a) (Vec3-x b)) (- (Vec3-y a) (Vec3-y b)) (- (Vec3-z a) (Vec3-z b))))
+      (Vec3 (- (::x a) (::x b)) (- (::y a) (::y b)) (- (::z a) (::z b))))
 
     (: scale (-> Vec3 F32 Vec3))
     (define (scale v k)
-      (Vec3 (* (Vec3-x v) k) (* (Vec3-y v) k) (* (Vec3-z v) k)))
+      (Vec3 (* (::x v) k) (* (::y v) k) (* (::z v) k)))
 
     (: cross (-> Vec3 Vec3 Vec3))
     (define (cross a b)
-      (Vec3 (- (* (Vec3-y a) (Vec3-z b)) (* (Vec3-z a) (Vec3-y b)))
-            (- (* (Vec3-z a) (Vec3-x b)) (* (Vec3-x a) (Vec3-z b)))
-            (- (* (Vec3-x a) (Vec3-y b)) (* (Vec3-y a) (Vec3-x b)))))
+      (Vec3 (- (* (::y a) (::z b)) (* (::z a) (::y b)))
+            (- (* (::z a) (::x b)) (* (::x a) (::z b)))
+            (- (* (::x a) (::y b)) (* (::y a) (::x b)))))
 
     (: normalize (-> Vec3 Vec3))
     (define (normalize v)
       (scale v
              (/ 1.0
-                (sqrt (+ (* (Vec3-x v) (Vec3-x v))
-                         (+ (* (Vec3-y v) (Vec3-y v)) (* (Vec3-z v) (Vec3-z v))))))))
+                (sqrt (+ (* (::x v) (::x v))
+                         (+ (* (::y v) (::y v)) (* (::z v) (::z v))))))))
 
     ;; ---- Application events ----
 

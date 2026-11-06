@@ -7,18 +7,11 @@
 (define-library (snail shell compiler)
   (export
    WholeProgram
-   WholeProgram-text
-   WholeProgram-links
    source->wat
    source->modules
    source->schemas
    Built
-   Built-name
-   Built-text
-   Built-links
    LinkedFile
-   LinkedFile-digest
-   LinkedFile-path
    no-inputs)
   (import
    (snail core base)
