@@ -238,18 +238,29 @@ crash loop.
 `(snail shell project files)` owns one physical project directory and three
 operations: filter the disk task's filenames, read text with a revision, and
 save against that revision. Listing awaits a fresh complete inventory; a failed
-one rejects the request instead of returning stale names. There is no second
-directory traversal. No contents or revisions persist in the service. The editor holds
+one rejects the request instead of returning stale names. No contents or revisions
+persist in the service. The editor holds
 its unsaved text and the revision of its saved baseline; the disk task
 remains the only source of file-change notifications. Save has no compiler call.
 
 The text subset is valid UTF-8 without NUL, up to 8 MiB, preserving BOM, newline
 bytes and a missing final newline. Listing selects regular files ending in `.sld`,
-`.scm`, `.datum`, `.html`, `.css`, `.js`, `.mjs`, `.json`, `.svg`, `.txt` or `.md`;
+`.scm`, `.datum`, `.html`, `.css`, `.js`, `.mjs`, `.json`, `.webmanifest`, `.svg`,
+`.txt` or `.md`, and files named `.gitignore`;
 reading establishes content validity. Other suffixes and extensionless files are
 outside this first editor API. Paths reject traversal and symlinks. `.git` and
 the root `build` directory are excluded; `src/build` remains an ordinary source
 directory. A pipe cannot block the service while it checks for a regular file.
+
+Listing and project search use a fresh [(snail shell gitignore) snapshot](libraries.md#git-ignore-snapshots)
+to hide ignored paths while keeping tracked files visible. A missing Git executable
+or a directory outside a worktree leaves the inventory unfiltered. Rules affect
+discovery; explicit reads, saves, open drafts, compiler inputs and watchers keep
+their existing behavior. An open ignored draft remains under **Open files**.
+Editing `.gitignore` within the project triggers the existing file invalidation
+and refreshes the sidebar. Changes to outside rule files or the Git index take
+effect on the next listing/search request or browser reconnect; those files do
+not have additional watchers.
 
 A revision is the SHA-256 digest of the file's bytes. A read is one version of
 the file if the file's length and modification time stay the same. A save writes

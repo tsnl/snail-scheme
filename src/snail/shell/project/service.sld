@@ -41,6 +41,7 @@
    (snail shell development)
    (snail shell project bundle)
    (snail shell project files)
+   (prefix (snail shell gitignore) ignore-)
    (prefix (snail shell project protocol) protocol-)
    (prefix (snail shell project search) search-))
   (begin
@@ -1549,7 +1550,7 @@
 
     ;; One handler task for each connection.
     (: accept-connections
-       (-> Setup Listener (Mailbox Message) (Mailbox Scan) Unit ! mut tasks tcp fs modes))
+       (-> Setup Listener (Mailbox Message) (Mailbox Scan) Unit ! mut tasks tcp fs modes process))
     (define (accept-connections setup listener owner disk)
       (let loop ((id 0))
         (match (accept listener)
@@ -1579,7 +1580,13 @@
 
     ;; A connection's one request, by the connection's number.
     (: serve-connection
-       (-> Setup (Mailbox Message) (Mailbox Scan) I64 Connection Unit ! mut tasks tcp fs modes))
+       (-> Setup
+           (Mailbox Message)
+           (Mailbox Scan)
+           I64
+           Connection
+           Unit
+           ! mut tasks tcp fs modes process))
     (define (serve-connection setup owner disk id connection)
       (match (read-request connection)
         ((Ok request)
@@ -1614,7 +1621,7 @@
            Connection
            Request
            (Option Response)
-           ! mut tasks tcp fs modes))
+           ! mut tasks tcp fs modes process))
     (define (route setup owner disk id connection request)
       (let ((head (Request-head request)))
         (match (parse-target (RequestHead-target head))
@@ -1634,7 +1641,7 @@
            Request
            Target
            (Option Response)
-           ! mut tasks tcp fs modes))
+           ! mut tasks tcp fs modes process))
     (define (serve-target setup owner disk id connection request target)
       (let ((method (RequestHead-method (Request-head request))) (path (Target-path target)))
         (cond ((not (string=? method "GET"))
@@ -1657,7 +1664,7 @@
            (List String)
            (List (Pair String String))
            Response
-           ! mut tasks fs modes))
+           ! mut tasks fs modes process))
     (define (api setup owner disk request method path query)
       (match (Pair method path)
         ((Pair "GET" (Cons "api" (Cons "project" (Nil)))) (project-listing setup disk))
@@ -1713,8 +1720,10 @@
        (directories (List String))))
 
     ;; Both listing and search use a fresh inventory, filtered through the
-    ;; same served-path boundary as file reads.
-    (: project-files (-> Setup (Mailbox Scan) (Result ProjectEntries Response) ! mut tasks fs))
+    ;; same served-path boundary as file reads, then Git's visibility rules.
+    ;; Ignore filtering never changes compiler inputs or explicit file access.
+    (: project-files
+       (-> Setup (Mailbox Scan) (Result ProjectEntries Response) ! mut tasks fs process))
     (define (project-files setup disk)
       (let ((reply (make-mailbox)))
         (mailbox-post disk (Listing reply))
@@ -1723,11 +1732,24 @@
           ((Ok taken)
            (match (project-text-paths (Setup-project setup) (inventory-files taken))
              ((Ok files)
-              (Ok (ProjectEntries files (project-directory-paths (Setup-project setup)
-                                                                 (inventory-directories taken)))))
+              (visible-entries (Setup-project setup)
+                               (ProjectEntries files (project-directory-paths (Setup-project setup)
+                                                                              (inventory-directories
+                                                                               taken)))))
              ((Err refusal) (Err (file-refusal refusal))))))))
 
-    (: project-listing (-> Setup (Mailbox Scan) Response ! mut tasks fs))
+    (: visible-entries
+       (-> String ProjectEntries (Result ProjectEntries Response) ! mut tasks process))
+    (define (visible-entries directory entries)
+      (match (ignore-read-gitignore directory)
+        ((Err message) (Err (refused 500 message)))
+        ((Ok (None)) (Ok entries))
+        ((Ok (Some snapshot))
+         (let ((visible? (lambda (path) (not (ignore-ignored? snapshot path)))))
+           (Ok (ProjectEntries (filter visible? (ProjectEntries-files entries))
+                               (filter visible? (ProjectEntries-directories entries))))))))
+
+    (: project-listing (-> Setup (Mailbox Scan) Response ! mut tasks fs process))
     (define (project-listing setup disk)
       (match (project-files setup disk)
         ((Err response) response)
@@ -1739,7 +1761,7 @@
                                              (ProjectEntries-files files)
                                              (ProjectEntries-directories files))))))))
 
-    (: project-search (-> Setup (Mailbox Scan) String Response ! mut tasks fs))
+    (: project-search (-> Setup (Mailbox Scan) String Response ! mut tasks fs process))
     (define (project-search setup disk text)
       (match (search-parse-query text)
         ((Err message) (refused 400 message))
