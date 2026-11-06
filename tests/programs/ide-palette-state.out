@@ -1,0 +1,11 @@
+old debounce is ignored
+one request per generation
+A-B-A keeps the new result and selection advances authority
+old rendered choice is ignored
+completion after closing stays closed
+completion cannot replace a reopened picker
+draft replacement starts a new search
+old draft debounce is ignored
+creation cannot be submitted twice
+pending creation keeps its submitted path
+cancelled creation cannot navigate

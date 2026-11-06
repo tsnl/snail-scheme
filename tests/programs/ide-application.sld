@@ -7,7 +7,8 @@
  (snail shell fetch)
  (snail shell json)
  (snail shell ui)
- (snail shell ide application))
+ (snail shell ide application)
+ (only (snail shell ide palette) visible?))
 
 ;; The actual IDE update/view/command loop, with HTTP replies controlled at
 ;; the fetch effect. A Hide cue releases a held reply only after later input
@@ -138,4 +139,4 @@
          (files-after (invoke "toggle-files"))
          (files-after (append (invoke "toggle-files") (list (key "b" control-key))))
          (let ((model (Pair-first (run (NoDelay) (invoke "no-such-command")))))
-           (write-line (show (match (Ide-palette model) ((Some _) #t) ((None) #f))))))))
+           (write-line (show (visible? (Ide-palette model))))))))

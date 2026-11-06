@@ -42,6 +42,19 @@ try {
   await until(() => browser.evaluate('!document.getElementById("command-query")'), 'picked draft');
   assert.equal(await browser.evaluate('document.querySelector("textarea").value'), 'draft only');
 
+  // Current-file search includes unsaved text and uses browser scalar offsets.
+  await browser.evaluate(`(() => { const field = document.querySelector('textarea'); field.value = '😀 draft ONLY'; field.dispatchEvent(new Event('input')); })()`);
+  await key({key: 'f', ctrlKey: true});
+  await until(() => browser.evaluate('document.activeElement?.id === "command-query"'), 'current-file shortcut');
+  await query('only');
+  await until(async () => (await labels()).join() === 'lib/notes.txt:1:9', 'unsaved current-file result');
+  // A replacement through the editor, rather than the query, refreshes results.
+  await browser.evaluate(`(() => { const field = document.querySelector('textarea'); field.value = '😀 changed draft ONLY'; field.dispatchEvent(new Event('input')); })()`);
+  await until(async () => (await labels()).join() === 'lib/notes.txt:1:17', 'draft replacement refreshes search');
+  await key({key: 'Enter'});
+  await until(() => browser.evaluate('document.activeElement?.tagName === "TEXTAREA" && document.activeElement.selectionStart === 17'), 'draft match navigation');
+  assert.equal(await browser.evaluate('document.querySelector("textarea").value'), '😀 changed draft ONLY');
+
   // Keep actual responses, then deliver A1 after B and A2. Matching query
   // text alone cannot distinguish this old success or old failure.
   await browser.evaluate(`window.actualFetch = window.fetch; window.heldSearches = [];
@@ -114,5 +127,12 @@ try {
   await until(() => browser.evaluate('!document.getElementById("command-query")'), 'stale revision opened');
   await sleep(250);
   assert.equal(await browser.evaluate('document.querySelector("textarea").selectionStart'), 0, 'old coordinates are rejected');
-  console.log('ide-search: files, saved matches, draft preservation, and stale success/failure replies');
+  console.log('ide-search: files, saved and draft matches, cursor safety, and stale success/failure replies');
+} catch (error) {
+  console.error(await browser.evaluate(`({query:document.getElementById('command-query')?.value,
+    mode:document.getElementById('command-query')?.placeholder,
+    labels:[...document.querySelectorAll('.choice-label')].map(node=>node.textContent),
+    help:document.querySelector('.palette-help')?.textContent,
+    empty:document.querySelector('.palette-empty')?.textContent})`));
+  throw error;
 } finally { browser.close(); await service.stop(); await rm(project, {recursive: true, force: true}); }
