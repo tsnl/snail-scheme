@@ -247,11 +247,34 @@
             (expect (compiled-names body) (list "sample.a"))
             (expect (compiled-names interface) (list "sample.a" "sample.b" "main"))))
         (test-specialization-replay directory library)
+        (test-instance-replay directory library)
         (test-artifact-replay directory library)
         (test-link-replay directory library)
         (test-extern-library directory library))
 
       (define (no-generation loading forms) (panic "unexpected generated library"))
+
+      ;; A signed helper's edit still gives the library's instance methods
+      ;; fresh names. An importer must select their new evidence and symbols.
+      (define (test-instance-replay directory library)
+        (let ((main (string-append directory "/instance.sld"))
+              (file (string-append directory "/sample/policy.sld")))
+          (define (source body)
+            (string-append
+             "(define-library (sample policy) (export Value value) "
+             "(import (snail core forms) (snail core primitive)) (begin "
+             "(typeclass (Value A) (: value (-> A I64))) "
+             "(instance (Value I64) (define (value x) (helper x))) "
+             "(: helper (-> I64 I64)) (define (helper x) " body ")))"))
+          (write-file file (source "(i64-add x 1)"))
+          (write-file main
+                      "(import (snail core forms) (snail core primitive) (sample policy)) (value (ann 2 I64))")
+          (let ((first (build-session (make-session (list directory library))
+                                      main no-generation no-inputs)))
+            (write-file file (source "(i64-add x 2)"))
+            (expect
+             (compiled-names (build-session (Pair-second first) main no-generation no-inputs))
+             (list "sample.policy" "main")))))
 
       ;; A cached library retains checked generic code, not old concrete
       ;; copies. A new caller can request another type without recompiling
