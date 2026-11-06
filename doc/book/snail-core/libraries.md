@@ -48,6 +48,7 @@ the runtime interfaces.
 | `(snail shell task)` | The `tasks` effect and its scheduler, written in Snail-Core: one-shot local dispatch, cooperative yield, timer and ticket waits, waiting on the host, and `Mailbox` queues between tasks ([task operations](../runtimes/tasks.md)). |
 | `(snail shell slot)` | `UnsafeSlot`, the one shared place a linear value rests between frames: `take!` and `put!`, each trapping when the slot is in the other state. The scheduler's queues and the mailboxes of `(snail shell task)` are built on it; a cell holds no linear value. |
 | `(snail shell process)` | Child processes with piped standard streams, through the `process` effect: `spawn`, reading output, writing and closing input, signals and exit, `run` to run a command to its end, and `exec` to replace the program with one; and `termination`, SIGINT or SIGTERM as a value, through the `signals` effect ([child processes](../runtimes/networking.md#child-processes)). |
+| `(snail shell gitignore)` | Immutable snapshots of ignored disk paths from installed Git, with tracked files preserved ([Git ignore snapshots](#git-ignore-snapshots)). |
 | `(snail shell socket)` | TCP listeners and connections and UDP sockets, through the `tcp` and `udp` effects, each wait by ticket, and `endpoint`, which parses an IPv4 address and a port once ([native networking](../runtimes/networking.md)). |
 | `(snail shell http)`, `(snail shell http exchange)` | An HTTP/1.1 subset: request heads and targets, response and stream heads, and one exchange over a connection ([HTTP protocol](http.md)). |
 | `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource`, which a task waits on, through the `resource` effect ([linked files](types.md#linked-files)). |
@@ -169,6 +170,34 @@ time, but Rust's standard library exposes them on WASI only as unstable
 API, so `FileStatus` has none of these yet.
 `(monotonic-nanoseconds)`, of the `clock` effect, reads WASI's monotonic
 clock, from an origin the host chooses; only differences mean anything.
+
+## Git ignore snapshots
+
+`(snail shell gitignore)` is a native library with two operations:
+`read-gitignore directory` returns a `Result (Option IgnoreSnapshot) String`, and
+`ignored? snapshot path` tests a path relative to that project directory. A snapshot
+is an immutable description of existing disk paths; it does not predict ignores
+for files that have not been created. Reading has `mut`, `tasks` and `process`
+effects; membership is pure.
+
+The library asks installed Git for
+`ls-files --others --ignored --exclude-standard --directory -z`, from the worktree
+root with a literal project pathspec. Git supplies nested `.gitignore` rules,
+negation, local/global excludes and the index; tracked files and their parents
+remain visible. Git's repository-relative prefix also handles project roots opened
+through symlinks. NUL framing preserves unusual filenames.
+
+Missing Git or an undiscoverable worktree yields `Ok None`. The library does not
+interpret `.gitignore` in non-Git folders. Once a worktree is found, failures are
+`Err` and no partial snapshot is accepted. Each query owns its process and drains
+both pipes concurrently, yielding while it waits; stdout is bounded to 16 MiB and
+stderr to 64 KiB. This is Snail-Core over `(snail shell process)`, without IDE types,
+a persistent child, or a second glob matcher.
+
+Repositories embedded within the project, including submodules, keep their
+contents visible according to the outer repository. Opening one as the project
+uses its own rules. Consumers decide when to obtain another snapshot; the library
+has no watcher or mutable cache.
 
 ## Loading WebAssembly
 
