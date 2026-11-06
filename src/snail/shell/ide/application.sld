@@ -4,24 +4,27 @@
 ;; the application to the page; feature libraries own their own services.
 (define-library (snail shell ide application)
   (export Ide Msg initial update view window kept restored Connect Boot
-          DispatchCommand InvokeCommand Typed Open Answered Saved Heard
+          DispatchCommand InvokeCommand Typed Open Answered Saved Heard PaletteEvent
           Buffer Buffer-text Buffer-baseline Buffer-saving Buffer-read
           Snapshot Snapshot-text Snapshot-revision
           Ide-active Ide-panes Ide-files-shown Ide-palette buffer-at dirty? conflict?)
   (import
    (snail core base)
-   (snail shell utf8)
-   (only (snail shell text) string-downcase string-upcase)
-   (only (snail shell task) tasks sleep)
+   (only (snail shell text) string-upcase)
+   (only (snail shell task) tasks)
    (snail shell dom)
    (snail shell fetch)
    (snail shell json)
    (snail shell json read)
+   (snail shell project client)
    (snail shell project protocol)
    (snail shell format)
    (snail shell highlight)
    (snail shell ui)
    (snail shell wire)
+   (prefix (rename (snail shell ide palette) (open open-component) (view view-component)) palette-)
+   (prefix (snail shell ide search) search-)
+   (only (snail shell text search) Occurrence Occurrence-line Occurrence-column)
    (prefix (snail shell ui commands) command-)
    (prefix (snail shell ui shortcuts) shortcut-))
   (begin
@@ -490,84 +493,6 @@
     (define (scroller-id pane)
       (string-append "editor-" (show pane)))
 
-    ;; ---- Requests ----
-
-    ;; Why a request failed: the reply's status, or -1 when there was no
-    ;; reply, and the service's message, or the connection's.
-    (struct Failure
-      ((status I32)
-       (message String)))
-
-    ;; The service's JSON answer, or why there is none. A reply without
-    ;; content answers null.
-    (: api (-> String String (List Header) String (Result Json Failure) ! fetch tasks))
-    (define (api method url headers body)
-      (match (request method url headers body)
-        ((Ok reply) (reply-json reply))
-        ((Err why) (Err (Failure -1 why)))))
-
-    (: reply-json (-> Reply (Result Json Failure)))
-    (define (reply-json reply)
-      (let ((status (Reply-status reply)))
-        (match (if (= status 204) (Some (JsonNull)) (string->json (Reply-body reply)))
-          ((Some json)
-           (if (and (>= status 200) (< status 300))
-               (Ok json)
-               (Err (Failure status (match (json->message json)
-                                      ((Some message) message)
-                                      ((None) "invalid service error response"))))))
-          ((None)
-           (Err
-            (Failure status
-                     (string-append "the service answered " (show status) " without JSON")))))))
-
-    ;; `text` as one component of a URL, as `encodeURIComponent` writes it:
-    ;; its UTF-8 bytes, each but the unreserved characters escaped.
-    (: url-component (-> String String))
-    (define (url-component text)
-      (string-concatenate
-       (map (lambda (byte) (url-byte (u8->i32 byte))) (vector->list (string->utf8 text)))))
-
-    (: url-byte (-> I32 String))
-    (define (url-byte byte)
-      (if (or (and (>= byte 65) (<= byte 90))
-              (and (>= byte 97) (<= byte 122))
-              (and (>= byte 48) (<= byte 57))
-              (member? byte (list 33 39 40 41 42 45 46 95 126)))
-          (make-string 1 (i32->char byte))
-          (string-append "%"
-                         (hex-digit (i32-shift-right/logical byte 4))
-                         (hex-digit (i32-and byte 15)))))
-
-    (: hex-digit (-> I32 String))
-    (define (hex-digit value)
-      (make-string 1 (string-ref "0123456789ABCDEF" (i32->i64 value))))
-
-    (: file-url (-> String String))
-    (define (file-url path)
-      (string-append "/api/file?path=" (url-component path)))
-
-    ;; ---- Typed replies ----
-
-    (: decoded-reply
-       (All (T) (requires (Copy T))
-            (-> (-> Json (Option T)) String (Result Json Failure) (Result T Failure))))
-    (define (decoded-reply decode subject reply)
-      (match reply
-        ((Err failure) (Err failure))
-        ((Ok json)
-         (match (decode json)
-           ((Some value) (Ok value))
-           ((None) (Err (Failure 200 (string-append "invalid " subject " response"))))))))
-
-    (: file-reply (-> (Result Json Failure) (Result Snapshot Failure)))
-    (define (file-reply reply)
-      (decoded-reply json->file "file" reply))
-
-    (: project-reply (-> (Result Json Failure) (Result Project Failure)))
-    (define (project-reply reply)
-      (decoded-reply json->project "project" reply))
-
     ;; ---- Builds ----
 
     ;; What reads have said of the text a diagnostic was made from: nothing
@@ -688,6 +613,7 @@
        (generation I64)
        (diagnostic (Option I64))
        (observation Observation)
+       (navigation I64)
        (follow Follow)))
 
     ;; What opening a file asks once its read has answered: nothing, to focus
@@ -700,7 +626,6 @@
                (generation I64)
                (index I64)))
       (SearchPoint ((pane I64)
-                    (sequence I64)
                     (hit Hit))))
 
     ;; Where a drag began: the files' edge or a split's divider.
@@ -714,23 +639,6 @@
       (Resizing ((width F64)))
       (Dividing ((split I64)
                  (box Measure))))
-
-    (struct Creation
-      ((directory Bool)
-       (pending Bool)
-       (problem String)))
-
-    (enum PaletteMode
-      (Commands)
-      (Files)
-      (Contents)
-      (Creating ((state Creation))))
-
-    (struct Palette
-      ((mode PaletteMode)
-       (query String)
-       (selected I64)
-       (results (Option (Result SearchResults Failure)))))
 
     ;; The editor: the project; the sequence of its latest listing; the open
     ;; buffers, in the order they were opened; the sequence of the latest read
@@ -752,8 +660,7 @@
        (files-shown Bool)
        (files-width F64)
        (drag (Option Drag))
-       (palette (Option Palette))
-       (searches I64)
+       (palette palette-State)
        (auto-open Bool)
        (status Status)
        (server (Option ServerState))
@@ -778,8 +685,7 @@
            #t
            220.0
            (None)
-           (None)
-           0
+           palette-initial
            #t
            (Status "Connecting…" "starting" "")
            (None)
@@ -960,21 +866,7 @@
       (FullscreenFinished ((accepted Bool)))
       (DispatchCommand ((name String)))
       (InvokeCommand ((name String)))
-      (PaletteQuery ((query String)))
-      (CreatePath)
-      (Created ((sequence I64)
-                (path String)
-                (directory Bool)
-                (result (Result Json Failure))))
-      (PickFile ((path String)))
-      (PickHit ((sequence I64)
-                (hit Hit)))
-      (SearchDue ((sequence I64)))
-      (Searched ((sequence I64)
-                 (result (Result SearchResults Failure))))
-      (PaletteKey ((key String)
-                   (modifiers I32)))
-      (DismissPalette)
+      (PaletteEvent ((message palette-Message)))
       (ToggleFolder ((path String)))
       (Grab ((grip Grip)))
       (Grabbed ((drag Drag)))
@@ -1007,6 +899,10 @@
 
     (: update (-> Ide Msg Step))
     (define (update model message)
+      (then (update-message model message) reconcile-palette))
+
+    (: update-message (-> Ide Msg Step))
+    (define (update-message model message)
       (match message
         ((Boot)
          (Pair model
@@ -1046,18 +942,7 @@
                      "Fullscreen needs an explicit click or is unavailable in this browser.")))
         ((DispatchCommand name) (Pair model (list (once (lambda () (InvokeCommand name))))))
         ((InvokeCommand name) (run-command model name))
-        ((PaletteQuery query) (palette-query model query))
-        ((CreatePath) (creating-path model))
-        ((Created sequence path directory result)
-         (created-path model sequence path directory result))
-        ((PickFile path)
-         (invoked model (lambda (model) (opening model path (Focus (Ide-active model))))))
-        ((PickHit sequence hit) (pick-hit model sequence hit))
-        ((SearchDue sequence) (search-due model sequence))
-        ((Searched sequence result) (searched model sequence result))
-        ((PaletteKey key modifiers) (palette-key model key modifiers))
-        ((DismissPalette)
-         (Pair (Ide-palette-set model (None)) (list (focusing model (Ide-active model)))))
+        ((PaletteEvent message) (palette-message model message))
         ((ToggleFolder path) (stay (Ide-closed-set model (toggled (Ide-closed model) path))))
         ((Grab grip) (Pair model (list (once (lambda () (grabbed grip))))))
         ((Grabbed drag) (stay (Ide-drag-set model (Some drag))))
@@ -1124,14 +1009,7 @@
 
     (: reconnected (-> Ide Step))
     (define (reconnected model)
-      (then (listing model)
-            (lambda (model)
-              (match (Ide-palette model)
-                ((Some palette)
-                 (match (Palette-mode palette)
-                   ((Contents) (palette-query model (Palette-query palette)))
-                   (_ (stay model))))
-                ((None) (stay model))))))
+      (then (listing model) (lambda (model) (palette-message model (palette-Reconnected)))))
 
     ;; The stream is ordered and reconnection starts with a complete snapshot.
     ;; Only a new build report resets diagnostic evidence; process output and
@@ -1244,9 +1122,10 @@
           ((Some buffer)
            (match follow
              ((Reveal _ _ _) (reading model path follow))
-             ((SearchPoint _ _ _) (reading model path follow))
+             ((SearchPoint _ _) (reading model path follow))
              (_ (if (loaded? buffer)
-                    (Pair model (followed model path follow))
+                    (Pair model (followed model path follow
+                                          (palette-State-generation (Ide-palette model)) (None)))
                     (reading model path follow)))))
           ((None) (stay model)))))
 
@@ -1262,19 +1141,24 @@
     ;; What opening asked, once the file's read has answered, while the pane
     ;; that asked is active and still shows the file. A point is revealed only
     ;; when the diagnostic is still the one the pane marks.
-    (: followed (-> Ide String Follow (List (Command Msg))))
-    (define (followed model path follow)
-      (if (match (Ide-palette model) ((Some _) #t) ((None) #f)) (Nil)
-          (match follow
-            ((Stay) (Nil))
-            ((SearchPoint pane sequence hit) (search-followed model pane sequence hit))
-            ((Focus pane) (if (showing? model pane path) (list (focusing model pane)) (Nil)))
-            ((Reveal pane generation index)
-             (if (showing? model pane path)
-                 (match (revealed model path generation index)
-                   ((Some point) (list (revealing pane (shown-text model path) point)))
-                   ((None) (list (focusing model pane))))
-                 (Nil))))))
+    (: followed (-> Ide String Follow I64 (Option Snapshot) (List (Command Msg))))
+    (define (followed model path follow navigation confirmed)
+      (if (or (palette-visible? (Ide-palette model))
+              (not (= navigation (palette-State-generation (Ide-palette model))))) (Nil)
+              (match follow
+                ((Stay) (Nil))
+                ((SearchPoint pane hit) (search-followed model pane hit confirmed))
+                ((Focus pane) (if (showing? model pane path) (list (focusing model pane)) (Nil)))
+                ((Reveal pane generation index)
+                 (if (showing? model pane path)
+                     (match confirmed
+                       ((Some _)
+                        (match (revealed model path generation index)
+                          ((Some point)
+                           (list (revealing model pane path (shown-text model path) point)))
+                          ((None) (list (focusing model pane)))))
+                       ((None) (list (focusing model pane))))
+                     (Nil))))))
 
     (: revealed (-> Ide String I64 I64 (Option Point)))
     (define (revealed model path generation index)
@@ -1296,23 +1180,33 @@
 
     (: focusing (-> Ide I64 (Command Msg)))
     (define (focusing model pane)
-      (focus-id (match (pane-buffer model pane)
+      (let ((navigation (palette-State-generation (Ide-palette model)))
+            (id (match (pane-buffer model pane)
                   ((Some buffer) (if (loaded? buffer) (field-id pane) "commands"))
                   ((None) "commands"))))
+        (once (lambda ()
+                (when (navigation-current? navigation)
+                  (match (element-by-id id)
+                    ((Some node) (focus-node node))
+                    ((None) (unit))))
+                (Nothing)))))
 
     ;; The caret at a diagnostic's point, its line scrolled a few lines below
     ;; the top.
-    (: revealing (-> I64 String Point (Command Msg)))
-    (define (revealing pane text point)
-      (once (lambda ()
-              (let ((offset (source-offset text point)))
+    (: revealing (-> Ide I64 String String Point (Command Msg)))
+    (define (revealing model pane path text point)
+      (let ((navigation (palette-State-generation (Ide-palette model))))
+        (once (lambda ()
                 (match (element-by-id (field-id pane))
                   ((Some field)
-                   (focus-node field)
-                   (select-range field (i64->i32 offset) (i64->i32 offset)))
+                   (when (and (navigation-current? navigation) (current-field? field path text))
+                     (let ((offset (source-offset text point)))
+                       (focus-node field)
+                       (select-range field (i64->i32 offset) (i64->i32 offset))
+                       (scrolled-to pane
+                                    (* line-height
+                                       (i64->f64 (max 0 (- (count-lines text 0 offset) 4))))))))
                   ((None) (unit)))
-                (scrolled-to pane
-                             (* line-height (i64->f64 (max 0 (- (count-lines text 0 offset) 4)))))
                 (Nothing)))))
 
     (: scrolled-to (-> I64 F64 Unit ! dom))
@@ -1330,7 +1224,8 @@
       (match (buffer-at model path)
         ((Some buffer)
          (if (Buffer-saving buffer)
-             (Pair model (followed model path follow))
+             (Pair model (followed model path follow
+                                   (palette-State-generation (Ide-palette model)) (None)))
              (let* ((sequence (+ (Ide-reads model) 1))
                     (index (diagnostic-index model path))
                     (asked (Asked path
@@ -1338,13 +1233,15 @@
                                   (Ide-generation model)
                                   index
                                   (observation-at model index)
+                                  (palette-State-generation (Ide-palette model))
                                   follow)))
                (Pair (buffer-set (Ide-reads-set model sequence) (Buffer-read-set buffer sequence))
                      (list (once (lambda ()
                                    (Answered asked
                                              (file-reply
                                               (api "GET" (file-url path) (Nil) ""))))))))))
-        ((None) (Pair model (followed model path follow)))))
+        ((None) (Pair model (followed model path follow
+                                      (palette-State-generation (Ide-palette model)) (None))))))
 
     (: reading-all (-> Ide Step))
     (define (reading-all model)
@@ -1352,20 +1249,28 @@
                  (stay model)
                  (map Buffer-path (Ide-buffers model))))
 
-    ;; Only a buffer's latest read counts; what it asked is done either way.
+    ;; Only the latest successful read confirms coordinates. An obsolete reply
+    ;; must not revive a search hit merely because the cached baseline matches.
     (: answered (-> Ide Asked (Result Snapshot Failure) Step))
     (define (answered model asked result)
       (let* ((path (Asked-path asked))
-             (model (match (buffer-at model path)
-                      ((Some buffer)
-                       (if (= (Buffer-read buffer) (Asked-sequence asked))
-                           (match result
-                             ((Ok snapshot)
-                              (snapshot-read (bound model asked snapshot) buffer snapshot))
-                             ((Err failure) (read-failed model buffer failure)))
-                           model))
-                      ((None) model))))
-        (Pair model (followed model path (Asked-follow asked)))))
+             (confirmed (read-confirmation model asked result))
+             (next (match (buffer-at model path)
+                     ((Some buffer)
+                      (if (= (Buffer-read buffer) (Asked-sequence asked))
+                          (match result
+                            ((Ok snapshot)
+                             (snapshot-read (bound model asked snapshot) buffer snapshot))
+                            ((Err failure) (read-failed model buffer failure))) model))
+                     ((None) model))))
+        (Pair next (followed next path (Asked-follow asked) (Asked-navigation asked) confirmed))))
+
+    (: read-confirmation (-> Ide Asked (Result Snapshot Failure) (Option Snapshot)))
+    (define (read-confirmation model asked result)
+      (match (Pair (buffer-at model (Asked-path asked)) result)
+        ((Pair (Some buffer) (Ok snapshot))
+         (if (= (Buffer-read buffer) (Asked-sequence asked)) (Some snapshot) (None)))
+        (_ (None))))
 
     ;; The draft follows disk unless it has changes of its own.
     (: snapshot-read (-> Ide Buffer Snapshot Ide))
@@ -1738,19 +1643,28 @@
     (define commands
       (match (command-register
               (list->vector (list (command-Command "command-palette"
-                                                   (lambda (model) (palette-open model (Commands))))
+                                                   (lambda (model)
+                                                     (palette-open model (palette-Commands))))
                                   (command-Command "go-to-file"
-                                                   (lambda (model) (palette-open model (Files))))
+                                                   (lambda (model)
+                                                     (palette-open model (palette-Files))))
                                   (command-Command "search-project"
-                                                   (lambda (model) (palette-open model (Contents))))
+                                                   (lambda (model)
+                                                     (palette-open model (palette-Searching
+                                                                          (palette-Search
+                                                                           (search-SavedProject)
+                                                                           (palette-Debouncing))))))
+                                  (command-Command "search-buffer" search-buffer)
                                   (command-Command "new-file"
                                                    (lambda (model)
                                                      (palette-open model
-                                                                   (Creating (Creation #f #f "")))))
+                                                                   (palette-Creating
+                                                                    (palette-Creation #f #f "")))))
                                   (command-Command "new-directory"
                                                    (lambda (model)
                                                      (palette-open model
-                                                                   (Creating (Creation #t #f "")))))
+                                                                   (palette-Creating
+                                                                    (palette-Creation #t #f "")))))
                                   (command-Command "install-app" installing)
                                   (command-Command "toggle-fullscreen" (lambda (model)
                                                                          (Pair model
@@ -1795,6 +1709,7 @@
                                                (bound-chords "go-to-file" (primary-chords "p" 0))
                                                (bound-chords "search-project"
                                                              (primary-chords "F" shift-key))
+                                               (bound-chords "search-buffer" (primary-chords "f" 0))
                                                (bound-chords "new-file" (Nil))
                                                (bound-chords "new-directory" (Nil))
                                                (bound-chords "install-app" (Nil))
@@ -1830,65 +1745,20 @@
 
     (: invoked (-> Ide (-> Ide Step) Step))
     (define (invoked model run)
-      (then (run (Ide-palette-set (search-invalidated model) (None)))
+      (then (run (search-invalidated model))
             (lambda (next)
-              (if (match (Ide-palette next) ((Some _) #t) ((None) #f)) (stay next)
+              (if (palette-visible? (Ide-palette next)) (stay next)
                   (Pair next (list (focusing next (Ide-active next))))))))
 
-    (: palette-open (-> Ide PaletteMode Step))
+    (: palette-open (-> Ide palette-Mode Step))
     (define (palette-open model mode)
-      (let ((next (Ide-searches-set model (+ (Ide-searches model) 1))))
-        (Pair (Ide-palette-set next (Some (Palette mode "" 0 (None))))
-              (list (focus-id "command-query")))))
+      (palette-step model (palette-open-component (Ide-palette model) mode)))
 
-    (: focus-id (-> String (Command Msg)))
-    (define (focus-id id)
-      (once (lambda ()
-              (match (element-by-id id)
-                ((Some node) (focus-node node))
-                ((None) (unit)))
-              (Nothing))))
-
-    ;; Case-insensitive ordered characters let short names find long paths or
-    ;; commands, without a second vocabulary of natural-language labels.
-    (: search-match? (-> String String Bool))
-    (define (search-match? query text)
-      (let loop ((wanted (string->list (string-downcase query)))
-                 (text (string->list (string-downcase text))))
-        (match wanted
-          ((Nil) #t)
-          ((Cons char rest)
-           (if (char-whitespace? char) (loop rest text)
-               (match text
-                 ((Nil) #f)
-                 ((Cons next more) (loop (if (char=? char next) rest wanted) more))))))))
-
-    (struct Choice
-      ((label String)
-       (detail String)
-       (action Msg)))
-
-    (: palette-choices (-> Ide Palette (List Choice)))
-    (define (palette-choices model palette)
-      (match (Palette-mode palette)
-        ((Commands)
-         (map (lambda (name) (Choice name (command-keys name) (DispatchCommand name)))
-              (filter (lambda (name) (search-match? (Palette-query palette) name))
-                      (vector->list
-                       (vector-map command-Command-name (command-Registry-commands commands))))))
-        ((Files)
-         (map (lambda (path) (Choice path "" (PickFile path)))
-              (take (filter (lambda (path) (search-match? (Palette-query palette) path))
-                            (file-choices model)) 200)))
-        ((Creating (Creation directory pending _))
-         (if (or pending (string=? (Palette-query palette) "")) (Nil)
-             (list (Choice (string-append (if directory "Create directory: " "Create file: ")
-                                          (Palette-query palette)) "Enter" (CreatePath)))))
-        ((Contents)
-         (match (Palette-results palette)
-           ((Some (Ok results))
-            (map (lambda (hit) (hit-choice (Ide-searches model) hit)) (SearchResults-hits results)))
-           (_ (Nil))))))
+    (: navigation-current? (-> I64 Bool ! dom))
+    (define (navigation-current? navigation)
+      (match (element-by-id "workbench")
+        ((Some node) (string=? (string-property node "snailNavigation") (show navigation)))
+        ((None) #f)))
 
     (: file-choices (-> Ide (List String)))
     (define (file-choices model)
@@ -1899,115 +1769,107 @@
                                   (Cons (Buffer-path buffer) paths)))
                             (Project-files (Ide-project model)) (Ide-buffers model))))
 
-    (: hit-choice (-> I64 Hit Choice))
-    (define (hit-choice sequence hit)
-      (let ((point (Hit-point hit)))
-        (Choice (string-append (Point-file point) ":" (show (Point-line point)) ":"
-                               (show (Point-column point)))
-                (Hit-snippet hit) (PickHit sequence hit))))
+    ;; ---- Palette boundary ----
 
-    (: palette-key (-> Ide String I32 Step))
-    (define (palette-key model key modifiers)
-      (match (Ide-palette model)
-        ((None) (stay model))
-        ((Some palette)
-         (let* ((choices (palette-choices model palette)) (count (length choices))
-                (at (min (Palette-selected palette) (- count 1)))
-                (backwards (or (string=? key "ArrowUp") (= modifiers shift-key)))
-                (next (max 0 (min (- count 1) (+ at (if backwards -1 1))))))
-           (cond ((string=? key "Escape") (update model (DismissPalette)))
-                 ((and (string=? key "Enter") (> count 0))
-                  (update model (Choice-action (list-ref choices at))))
-                 (else
-                  (stay (Ide-palette-set model (Some (Palette-selected-set palette next))))))))))
+    (: current-draft (-> Ide (Option search-Draft)))
+    (define (current-draft model)
+      (match (active-buffer model)
+        ((Some buffer)
+         (if (loaded? buffer)
+             (Some (search-Draft (Buffer-path buffer) (display-text (Buffer-text buffer))))
+             (None)))
+        ((None) (None))))
 
-    ;; Each opening and query gets a monotonically increasing request number.
-    ;; Closing, changing mode, and A→B→A queries all withdraw old replies.
-    ;; Explicit commands and navigation also cancel pending cursor movement.
-    (: search-invalidated (-> Ide Ide))
-    (define (search-invalidated model)
-      (Ide-searches-set model (+ 1 (Ide-searches model))))
+    (: palette-context (-> Ide palette-Context))
+    (define (palette-context model)
+      (palette-Context
+       (map (lambda (name) (palette-Entry name (command-keys name)))
+            (vector->list (vector-map command-Command-name (command-Registry-commands commands))))
+       (file-choices model)))
 
-    (: palette-query (-> Ide String Step))
-    (define (palette-query model query)
-      (match (Ide-palette model)
-        ((None) (stay model))
-        ((Some palette)
-         (if (creation-pending? palette) (stay model)
-             (let* ((sequence (+ 1 (Ide-searches model)))
-                    (next (Ide-palette-set (Ide-searches-set model sequence)
-                                           (Some (Palette (query-mode (Palette-mode palette))
-                                                          query
-                                                          0
-                                                          (None))))))
-               (if (and (contents? palette) (not (string=? query "")))
-                   (Pair next (list (once (lambda () (sleep 120) (SearchDue sequence)))))
-                   (stay next)))))))
+    (: palette-message (-> Ide palette-Message Step))
+    (define (palette-message model message)
+      (palette-step model (palette-update (Ide-palette model) (palette-context model) message)))
 
-    (: query-mode (-> PaletteMode PaletteMode))
-    (define (query-mode mode)
-      (match mode
-        ((Creating (Creation directory _ _)) (Creating (Creation directory #f "")))
-        (_ mode)))
-
-    (: creation-pending? (-> Palette Bool))
-    (define (creation-pending? palette)
-      (match (Palette-mode palette) ((Creating (Creation _ pending _)) pending) (_ #f)))
-
-    (: contents? (-> Palette Bool))
-    (define (contents? palette)
-      (match (Palette-mode palette) ((Contents) #t) (_ #f)))
-
-    (: search-current? (-> Ide I64 Bool))
-    (define (search-current? model sequence)
-      (and (= sequence (Ide-searches model))
-           (match (Ide-palette model) ((Some palette) (contents? palette)) ((None) #f))))
-
-    (: search-due (-> Ide I64 Step))
-    (define (search-due model sequence)
-      (match (Ide-palette model)
-        ((Some palette)
-         (if (search-current? model sequence)
-             (Pair model (list (once (lambda ()
-                                       (Searched sequence
-                                                 (search-reply (api "GET"
-                                                                    (string-append "/api/search?q="
-                                                                                   (url-component
-                                                                                    (Palette-query
-                                                                                     palette)))
-                                                                    (Nil) "")))))))
-             (stay model)))
-        ((None) (stay model))))
-
-    (: searched (-> Ide I64 (Result SearchResults Failure) Step))
-    (define (searched model sequence result)
-      (match (Ide-palette model)
-        ((Some palette)
-         (if (search-current? model sequence)
-             (stay (Ide-palette-set model (Some (Palette-results-set palette (Some result)))))
-             (stay model)))
-        ((None) (stay model))))
-
-    (: pick-hit (-> Ide I64 Hit Step))
-    (define (pick-hit model sequence hit)
-      (if (search-current? model sequence)
-          (invoked model (lambda (model)
-                           (opening model (Point-file (Hit-point hit))
-                                    (SearchPoint (Ide-active model) (Ide-searches model) hit))))
+    (: reconcile-palette (-> Ide Step))
+    (define (reconcile-palette model)
+      (if (palette-visible? (Ide-palette model))
+          (palette-step model (palette-reconcile (Ide-palette model) (current-draft model)))
           (stay model)))
 
-    ;; A fresh read must still match the result before its point can be used.
-    ;; Opening a dirty or changed file preserves it and only focuses its editor.
-    (: search-followed (-> Ide I64 I64 Hit (List (Command Msg))))
-    (define (search-followed model pane sequence hit)
-      (if (and (= sequence (Ide-searches model)) (showing? model pane (Point-file (Hit-point hit))))
-          (match (pane-buffer model pane)
-            ((Some buffer)
-             (if (hit-current? hit buffer)
-                 (list (revealing pane (display-text (Buffer-text buffer)) (Hit-point hit)))
-                 (list (focusing model pane))))
-            ((None) (Nil)))
-          (Nil)))
+    (: palette-commands (-> (List (FnOnce palette-Message ! tasks dom fetch))
+                            (List (Command Msg))))
+    (define (palette-commands commands)
+      (match commands
+        ((Nil) (Nil))
+        ((Cons command rest)
+         (Cons (once (lambda () (PaletteEvent (command)))) (palette-commands rest)))))
+
+    (: palette-step (-> Ide palette-Step Step))
+    (define (palette-step model step)
+      (match step
+        ((palette-Step state outcome commands)
+         (then (Pair (Ide-palette-set model state) (palette-commands commands))
+               (lambda (next)
+                 (match outcome
+                   ((Some chosen) (palette-chosen next chosen))
+                   ((None) (stay next))))))))
+
+    ;; Selection has already closed the palette and advanced its generation.
+    ;; Do not cancel it again: the read below belongs to that new navigation.
+    (: palette-chosen (-> Ide palette-Outcome Step))
+    (define (palette-chosen model chosen)
+      (match chosen
+        ((palette-InvokeNamed name) (update-message model (DispatchCommand name)))
+        ((palette-OpenPath path) (opening model path (Focus (Ide-active model))))
+        ((palette-OpenSavedHit hit)
+         (opening model (Point-file (Hit-point hit)) (SearchPoint (Ide-active model) hit)))
+        ((palette-SelectDraftHit draft hit) (draft-followed model draft hit))
+        ((palette-CreatedPath path directory)
+         (then (listing model)
+               (lambda (next)
+                 (if directory (Pair next (list (focusing next (Ide-active next))))
+                     (opening next path (Focus (Ide-active next)))))))
+        ((palette-Dismissed) (Pair model (list (focusing model (Ide-active model)))))))
+
+    (: search-buffer (-> Ide Step))
+    (define (search-buffer model)
+      (match (current-draft model)
+        ((Some draft)
+         (palette-open model (palette-Searching (palette-Search (search-CurrentDraft draft)
+                                                                (palette-Debouncing)))))
+        ((None) (notice model "Open a file to search its current text."))))
+
+    (: search-invalidated (-> Ide Ide))
+    (define (search-invalidated model)
+      (Ide-palette-set model (palette-cancel (Ide-palette model))))
+
+    (: draft-followed (-> Ide search-Draft Occurrence Step))
+    (define (draft-followed model draft hit)
+      (match (current-draft model)
+        ((Some current)
+         (if (search-same-draft? current draft)
+             (Pair model (list (revealing model (Ide-active model) (search-Draft-path draft)
+                                          (search-Draft-text draft)
+                                          (Point (search-Draft-path draft) (Occurrence-line hit)
+                                                 (Occurrence-column hit)))))
+             (stay model)))
+        ((None) (stay model))))
+
+    (: search-followed (-> Ide I64 Hit (Option Snapshot) (List (Command Msg))))
+    (define (search-followed model pane hit confirmed)
+      (match (Pair (pane-buffer model pane) confirmed)
+        ((Pair (Some buffer) (Some snapshot))
+         (if (and (showing? model pane (Point-file (Hit-point hit)))
+                  (string=? (Snapshot-revision snapshot) (Hit-revision hit))
+                  (hit-current? hit buffer))
+             (list (revealing model pane
+                              (Buffer-path buffer)
+                              (display-text (Buffer-text buffer))
+                              (Hit-point hit)))
+             (list (focusing model pane))))
+        (_ (if (showing? model pane (Point-file (Hit-point hit)))
+               (list (focusing model pane)) (Nil)))))
 
     (: hit-current? (-> Hit Buffer Bool))
     (define (hit-current? hit buffer)
@@ -2015,10 +1877,6 @@
            (match (Buffer-baseline buffer)
              ((Some snapshot) (string=? (Hit-revision hit) (Snapshot-revision snapshot)))
              ((None) #f))))
-
-    (: search-reply (-> (Result Json Failure) (Result SearchResults Failure)))
-    (define (search-reply reply)
-      (decoded-reply json->search "search" reply))
 
     ;; ---- Window commands ----
 
@@ -2044,51 +1902,6 @@
                  "The browser could not open its installation prompt. Try its Install App menu.")
                 ((InstallNotAvailable)
                  "Use your browser’s Install App or Add to Dock menu if available."))))
-
-    ;; ---- Creating project entries ----
-
-    (: creating-path (-> Ide Step))
-    (define (creating-path model)
-      (match (Ide-palette model)
-        ((Some palette)
-         (match (Palette-mode palette)
-           ((Creating (Creation directory #f _))
-            (let ((path (Palette-query palette)) (sequence (Ide-searches model)))
-              (Pair
-               (Ide-palette-set model
-                                (Some
-                                 (Palette-mode-set palette (Creating (Creation directory #t "")))))
-               (list (once (lambda ()
-                             (Created sequence path directory
-                                      (api "POST"
-                                           (string-append
-                                            (if directory "/api/directory?path=" "/api/file?path=")
-                                            (url-component path)) (Nil) ""))))))))
-           (_ (stay model))))
-        ((None) (stay model))))
-
-    ;; Only the palette that submitted a request may open its file or show
-    ;; its error. The shared watcher publishes the disk change either way.
-    (: created-path (-> Ide I64 String Bool (Result Json Failure) Step))
-    (define (created-path model sequence path directory result)
-      (match (Ide-palette model)
-        ((Some palette)
-         (if (and (= sequence (Ide-searches model)) (creation-pending? palette))
-             (match result
-               ((Err failure)
-                (stay (Ide-palette-set model (Some (Palette-mode-set palette
-                                                                     (Creating (Creation directory
-                                                                                         #f
-                                                                                         (Failure-message
-                                                                                          failure))))))))
-               ((Ok _)
-                (invoked model (lambda (model)
-                                 (then (listing model)
-                                       (lambda (model)
-                                         (if directory (stay model)
-                                             (opening model path (Focus (Ide-active model))))))))))
-             (stay model)))
-        ((None) (stay model))))
 
     ;; ---- Controlling runs ----
 
@@ -2245,7 +2058,9 @@
     (: view (-> Ide (Html Msg)))
     (define (view model)
       (Element "div"
-               (list (Attr "id" "workbench") (Attr "class" "ide"))
+               (list (Attr "id" "workbench") (Attr "class" "ide")
+                     (StringProperty "snailNavigation"
+                                     (show (palette-State-generation (Ide-palette model)))))
                (append (list (layout-view model)
                              (diagnostics-view model)
                              (runs-view (Ide-runs model))
@@ -2276,131 +2091,12 @@
                                       (StringProperty "textContent" (Status-text status)))
                                 (Nil))))))
 
-    ;; The palette keeps focus in its query. Results are options of that
-    ;; combobox; arrows and Tab select, Enter invokes, Escape returns to code.
     (: palette-view (-> Ide (List (Html Msg))))
     (define (palette-view model)
-      (match (Ide-palette model)
-        ((None) (Nil))
-        ((Some palette)
-         (let* ((choices (palette-choices model palette))
-                (selected (min (Palette-selected palette) (- (length choices) 1))))
-           (list (Element "div" (list (Attr "class" "palette-layer"))
-                          (list (Element "button"
-                                         (list (Attr "class" "palette-backdrop")
-                                               (Attr "tabindex" "-1")
-                                               (Attr "aria-label" "Close palette")
-                                               (On "click"
-                                                   (Nil)
-                                                   (Allow)
-                                                   (lambda (event) (DismissPalette))))
-                                         (Nil))
-                                (Element "section"
-                                         (list (Attr "class" "palette") (Attr "role" "dialog")
-                                               (Attr "aria-modal" "true")
-                                               (Attr "aria-label" (palette-title palette)))
-                                         (list (palette-input palette selected)
-                                               (palette-results palette choices selected)
-                                               (Element "p" (list (Attr "id" "palette-help")
-                                                                  (Attr "class" "palette-help"))
-                                                        (list
-                                                         (Text (palette-help palette)))))))))))))
-
-    (: palette-title (-> Palette String))
-    (define (palette-title palette)
-      (match (Palette-mode palette)
-        ((Commands) "Run a command…")
-        ((Files) "Go to file…")
-        ((Contents) "Search saved text…")
-        ((Creating (Creation directory _ _))
-         (if directory "New directory path…" "New file path…"))))
-
-    (: palette-input (-> Palette I64 (Html Msg)))
-    (define (palette-input palette selected)
-      (Element "input"
-               (list (Attr "id" "command-query")
-                     (Attr "placeholder" (palette-title palette))
-                     (Attr "aria-label" (palette-title palette))
-                     (Attr "role" "combobox") (Attr "aria-expanded" "true")
-                     (Attr "aria-controls" "command-results") (Attr "aria-autocomplete" "list")
-                     (Attr "aria-describedby" "palette-help")
-                     (Attr "aria-activedescendant"
-                           (if (< selected 0) "" (string-append "command-result-" (show selected))))
-                     (Attr "autocomplete" "off") (Attr "spellcheck" "false")
-                     (FlagProperty "readOnly" (creation-pending? palette))
-                     (StringProperty "value" (Palette-query palette))
-                     (On "input" (list (Value)) (Allow)
-                         (lambda (event) (PaletteQuery (Event-value event))))
-                     (On "keydown" (list (Key)) (Chords palette-chords)
-                         (lambda (event) (PaletteKey (Event-key event) (Event-modifiers event)))))
-               (Nil)))
-
-    (: palette-results (-> Palette (List Choice) I64 (Html Msg)))
-    (define (palette-results palette choices selected)
-      (Element "div"
-               (list (Attr "id" "command-results") (Attr "role" "listbox")
-                     (NumberProperty "scrollTop" (i64->f64 (max 0 (- (* selected 30) 180)))))
-               (if (null? choices)
-                   (list (Element "p" (list (Attr "class" "palette-empty") (Attr "role" "status"))
-                                  (list (Text (palette-empty palette)))))
-                   (map-indexed
-                    (lambda (index choice) (palette-option choice index (= index selected)))
-                    choices))))
-
-    (: palette-empty (-> Palette String))
-    (define (palette-empty palette)
-      (if (contents? palette)
-          (if (string=? (Palette-query palette) "") "Type text to search project files"
-              (match (Palette-results palette)
-                ((None) "Searching…")
-                ((Some (Err failure)) (Failure-message failure))
-                ((Some (Ok _)) "No matches in saved text")))
-          (match (Palette-mode palette)
-            ((Creating (Creation _ pending _))
-             (if pending "Creating…" "Enter a path relative to the project"))
-            (_ "No matches"))))
-
-    (: palette-help (-> Palette String))
-    (define (palette-help palette)
-      (if (contents? palette)
-          (string-append "Saved text · ignores case · drafts stay unchanged"
-                         (match (Palette-results palette)
-                           ((Some (Ok results))
-                            (string-append (if (SearchResults-limited results)
-                                               " · Results limited; narrow your query"
-                                               "")
-                                           (if (> (SearchResults-skipped results) 0)
-                                               (string-append " · "
-                                                              (show (SearchResults-skipped results))
-                                                              " files skipped")
-                                               "")))
-                           (_ "")))
-          (match (Palette-mode palette)
-            ((Creating (Creation _ _ problem))
-             (if (string=? problem "")
-                 "Enter creates · Escape closes · Parent directory must exist"
-                 problem))
-            ((Files) "↑ ↓ choose · Enter open · Escape close · Up to 200 paths; type to narrow")
-            (_ "↑ ↓ choose · Enter run · Escape close"))))
-
-    (: palette-option (-> Choice I64 Bool (Html Msg)))
-    (define (palette-option choice index selected)
-      (Element "button"
-               (list (Attr "id" (string-append "command-result-" (show index)))
-                     (Attr "class" (if selected "palette-option selected" "palette-option"))
-                     (Attr "role" "option") (Attr "aria-selected" (if selected "true" "false"))
-                     (Attr "tabindex" "-1")
-                     (Attr "data-command"
-                           (match (Choice-action choice) ((DispatchCommand name) name) (_ "")))
-                     (On "mousedown" (Nil) (Always) (lambda (event) (Nothing)))
-                     (On "click" (Nil) (Allow) (lambda (event) (Choice-action choice))))
-               (list
-                (Element "span"
-                         (list (Attr "class" "choice-label"))
-                         (list (Text (Choice-label choice))))
-                (Element "span"
-                         (list (Attr "class" "command-keys"))
-                         (list (Text (Choice-detail choice)))))))
+      (if (palette-visible? (Ide-palette model))
+          (map (lambda (html) (map-html PaletteEvent html))
+               (palette-view-component (Ide-palette model) (palette-context model)))
+          (Nil)))
 
     (: command-keys (-> String String))
     (define (command-keys name)
@@ -2417,11 +2113,6 @@
                      (if (= 0 (i32-and (Chord-modifiers chord) alt-key)) "" "Alt+")
                      (if (= 0 (i32-and (Chord-modifiers chord) shift-key)) "" "Shift+")
                      (string-upcase (Chord-key chord))))
-
-    (: palette-chords (List Chord))
-    (define palette-chords
-      (Cons (Chord "Tab" shift-key)
-            (map (lambda (key) (Chord key 0)) (list "ArrowUp" "ArrowDown" "Enter" "Escape" "Tab"))))
 
     (: layout-view (-> Ide (Html Msg)))
     (define (layout-view model)
