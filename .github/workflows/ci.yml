@@ -15,6 +15,9 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # CI reuses Cargo's compiled dependencies, not incremental edit history.
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
 
 jobs:
   tests:
@@ -38,21 +41,58 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.lock') }}
+      # The driver uses three explicit Cargo target directories in addition
+      # to the two crates' test targets. Caching downloads alone rebuilds
+      # Wasmtime and the WASI assembler on every run.
+      - name: Restore compiled Rust
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            crates/snail-core-support/target
+            crates/snail/target
+            build/native-snail
+            build/wasm-snail-core-support
+            build/wasm-snail-core-support-toolchain
+          key: cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'crates/*/Cargo.*') }}-${{ hashFiles('crates/*/src/**') }}
+          restore-keys: |
+            cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'crates/*/Cargo.*') }}-
+      # Only an exact source/toolchain match may reuse the bootstrap. Never
+      # restore the CPU-specific .cwasm or generated test outputs.
+      - name: Restore bootstrapped compiler
+        id: compiler-cache
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: build/compiler/snailc.wasm
+          key: compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'bootstrap/**', 'scripts/**', 'host/chibi/**', 'host/native/**', 'host/browser/**', 'src/snail/core/**', 'src/snail/shell/compiler.sld', 'src/snail/shell/compiler/**', 'crates/*/Cargo.*', 'crates/*/src/**') }}
+      - name: Mark the exact compiler cache current
+        if: steps.compiler-cache.outputs.cache-hit == 'true'
+        # Checkout gives unchanged sources new mtimes. The exact content key
+        # above proves this compiler is current for those sources.
+        run: touch build/compiler/snailc.wasm
       - name: Install pinned Rust and fetch locked dependencies
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: |
           # rust-toolchain.toml names the version, its components and target.
           rustup toolchain install
           make fetch
-      - name: Run checks
+      - name: Check formatting
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: |
           make check
-          cargo test --manifest-path crates/snail-core-support/Cargo.toml --offline --all-features
           cargo fmt --manifest-path crates/snail-core-support/Cargo.toml --all -- --check
-          cargo test --manifest-path crates/snail/Cargo.toml --offline
           cargo fmt --manifest-path crates/snail/Cargo.toml --all -- --check
-          make test
+      - name: Test Rust support
+        shell: nix-shell --run "bash -euo pipefail {0}"
+        run: cargo test --manifest-path crates/snail-core-support/Cargo.toml --offline --all-features
+      - name: Test native host
+        shell: nix-shell --run "bash -euo pipefail {0}"
+        run: cargo test --manifest-path crates/snail/Cargo.toml --offline
+      - name: Build compiler and development tools
+        shell: nix-shell --run "bash -euo pipefail {0}"
+        run: ./scripts/snail-tool dev-tools >/dev/null
+      - name: Test Snail
+        shell: nix-shell --run "bash -euo pipefail {0}"
+        run: make test
       - name: Retain build evidence
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

@@ -40,6 +40,7 @@
    (scheme process-context)
    (scheme read)
    (scheme write)
+   (only (chibi crypto sha2) sha-256)
    (chibi filesystem)
    (chibi pathname)
    (chibi process)
@@ -56,7 +57,6 @@
          GenerateInput
          ArtifactInput)
    (snail shell compiler inputs)
-   (only (snail shell compiler sha256) sha256 bytes->hex)
    (only (chibi string) string-contains string-cursor->index string-suffix?))
   (begin
 
@@ -445,15 +445,6 @@
     (define (copy-file! from to)
       (write-bytes! to (file-bytes from)))
 
-    ;; Stage 0's Bytes are vectors of integers, as (snail core io) reads them.
-    (define (bytevector->vector bytes)
-      (let ((vector (make-vector (bytevector-length bytes))))
-        (let loop ((index 0))
-          (if (= index (bytevector-length bytes))
-              vector
-              (begin (vector-set! vector index (bytevector-u8-ref bytes index))
-                     (loop (+ index 1)))))))
-
     (define (file-bytes path)
       (call-with-port (open-binary-input-file path)
         (lambda (port) (read-bytevector (file-size path) port))))
@@ -603,9 +594,11 @@
 
     ;; Places `bytes` as an object of the store beside the payload in
     ;; `directory`, unless it is there, answering (DIGEST . SIZE) as a
-    ;; manifest names it.
+    ;; manifest names it. This host hashes whole Wasm modules with Chibi's
+    ;; native SHA-256; interpreting the compiler's portable hash here costs
+    ;; seconds per module. Both produce the same lowercase digest.
     (define (place-object! directory bytes)
-      (let* ((digest (bytes->hex (sha256 (bytevector->vector bytes))))
+      (let* ((digest (sha-256 bytes))
              (to (path-join directory "store" "sha256" digest)))
         (create-directory* (path-directory to))
         (unless (file-exists? to) (write-bytes! to bytes))
@@ -791,8 +784,26 @@
    (snail-tests
     (export test-build)
     (import
+     (only (snail shell compiler sha256) sha256 bytes->hex)
      (snail stage0 testing))
     (begin
+      ;; Binary bytes and SHA padding boundaries must name the same objects
+      ;; as the portable compiler does, including empty and repeated writes.
+      (define (test-object-store root size)
+        (with-private-directory root
+                                (lambda (directory)
+                                  (let ((bytes (make-bytevector size)) (values (make-vector size)))
+                                    (do ((i 0 (+ i 1))) ((= i size))
+                                      (bytevector-u8-set! bytes i (modulo i 256))
+                                      (vector-set! values i (modulo i 256)))
+                                    (let* ((digest (bytes->hex (sha256 values)))
+                                           (object (place-object! directory bytes)))
+                                      (expect object (cons digest size))
+                                      (expect (place-object! directory bytes) object)
+                                      (expect
+                                       (file-bytes (path-join directory "store/sha256" digest))
+                                       bytes))))))
+
       (define (request-failure thunk)
         (guard (failure (#t (failure-message failure))) (thunk) "accepted"))
 
@@ -842,6 +853,7 @@
                                        #t))))))
 
       (define (test-build root)
+        (for-each (lambda (size) (test-object-store root size)) '(0 55 56 63 64 65 257))
         (test-source-request-status root)
         (expect-request-error
          (lambda ()
