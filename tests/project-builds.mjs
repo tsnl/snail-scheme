@@ -89,6 +89,26 @@ try {
   await writeFile(join(project, 'project.datum'), description('.'));
   await assert.rejects(build('page'), /overlaps project build output/);
   assert.equal(await realpath(output('page')), second);
+  // Selecting a type emits an ordinary Application call, including task effects.
+  await mkdir(join(project, 'src', 'typed'), {recursive: true});
+  await writeFile(join(project, 'src', 'typed', 'entry.sld'), `(define-library (typed entry)
+    (export Printer Missing Generic)
+    (import (snail core base) (snail core io) (snail shell application) (snail shell task))
+    (begin
+      (struct Printer ()) (struct Missing ()) (struct (Generic A) ())
+      (instance (Application (! console tasks) Printer)
+        (define (start entry) (yield) (write-line "typed entry")))))`);
+  const selected = type => `((build-target selected
+    (program (entry ((typed entry) ${type})) (library-roots ("src")))))`;
+  await writeFile(join(project, 'project.datum'), selected('Printer'));
+  await build('selected');
+  const typed = await execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'),
+    join(output('selected'), 'program.wasm')]);
+  assert.equal(typed.stdout.trim(), 'typed entry');
+  for (const type of ['Missing', 'Unknown', 'Generic']) {
+    await writeFile(join(project, 'project.datum'), selected(type));
+    await assert.rejects(build('selected'), type === 'Missing' ? /no instance/ : /not a type|type arguments/);
+  }
   console.log('project builds passed');
 } finally {
   await rm(project, {recursive: true, force: true});

@@ -27,7 +27,9 @@
  (lambda (run)
    (write-line
     (string-append (RunTarget-name run) " -> " (ProgramBuild-name (RunTarget-program run))))
-   (write-line (ProjectPath-text (ProgramBuild-entry (RunTarget-program run))))
+   (match (ProgramBuild-entry (RunTarget-program run))
+     ((SourceEntry path) (write-line (ProjectPath-text path)))
+     (_ (panic "expected a source entry")))
    (write-line (string-join (RunTarget-arguments run) "|"))
    (for-each (lambda (path) (write-line (ProjectPath-text path)))
              (ProgramBuild-libraries (RunTarget-program run))))

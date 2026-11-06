@@ -1,5 +1,22 @@
 # Application model
 
+`(snail shell application)` defines one ordinary, effect-polymorphic entry
+contract:
+
+```scheme
+(struct (Entry A) ())
+(typeclass (Application e A)
+  (: start (-> (Entry A) Unit ! e)))
+```
+
+`Entry` selects a concrete application type without constructing its state.
+A program [project](projects.md) can name `(entry ((example console) Printer))`;
+the builder imports that library and calls `start` with an `Entry Printer`.
+Ordinary instance resolution checks the contract and determines its effects.
+Initialization, custom handlers and background tasks belong inside `start`.
+Source-file entries remain available for scripts and tooling. Browser engines
+currently use the forms below.
+
 `(snail shell app)` defines interactive browser applications as total functions over
 a state:
 
