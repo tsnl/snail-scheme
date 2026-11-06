@@ -25,10 +25,18 @@ browser bundle is a dependency, not a directly launched process. Applications
 supply the server and routes; project metadata does not infer them.
 
 ```sh
-./snail build --release apps/siegework site
-python3 -m http.server 4191 --directory apps/siegework/build/site
-./snail dev apps/siegework
+./snail build --release . siegework
+python3 -m http.server 4191 --directory build/siegework
+./snail dev .
 ```
+
+Snail-Scheme uses one root `project.datum` for the whole repository. Its
+`siegework` and `hearsay` targets name entries, library roots and public files
+under `apps/`. Opening the root with `snail dev .` makes the compiler, IDE,
+libraries and applications available in one editor session. Files need not
+belong to a target's import closure to appear in the editor. Each application's
+output is under `build/TARGET`; application directories have no separate project
+description. Test fixtures retain their own projects.
 
 `snail build [--release] PROJECT BUILD-TARGET` publishes one selected target and
 its required artifacts. `snail run PROJECT RUN-TARGET [ARGUMENT ...]` builds and

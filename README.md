@@ -24,9 +24,13 @@ Scheme runs its source to start the first bootstrap.
 ```sh
 nix-shell
 make fetch
-./snail build apps/siegework site
-./snail dev apps/siegework
+./snail build . siegework
+./snail dev .
 ```
+
+The root `project.datum` describes the whole repository, with `siegework` and
+`hearsay` browser targets. The IDE opens the compiler, libraries, IDE sources
+and applications in one file tree. `make ide` opens this same project.
 
 Compiler contributors can also inspect and execute individual source files:
 
@@ -57,14 +61,15 @@ or build it:
 
 ```sh
 make site
-python3 -m http.server 4191 --directory apps/siegework/build/site
+python3 -m http.server 4191 --directory build/siegework
 ```
 
-While you change it, `./snail dev apps/siegework` (or `make ide`) serves the
+While you change it, `./snail dev .` (or `make ide`) serves the
 browser editor at <http://127.0.0.1:8000/> and the game at
-<http://127.0.0.1:8001/site/>. It reads `project.datum`, rebuilds only the
-libraries you edit, and relinks them into the open page, which keeps the game
-and the camera. Saving writes disk, and one shared watcher notifies both
+<http://127.0.0.1:8001/siegework/>. Hearsay runs at
+<http://127.0.0.1:8001/hearsay/>. The service reads the root `project.datum`,
+rebuilds only the libraries you edit, and relinks them into the open page,
+which keeps the game and the camera. Saving writes disk, and one shared watcher notifies both
 compiler and editor, including edits made by other tools. The editor keeps
 highlighting, Scheme indentation, format-on-save and split panes. Builds
 publish fresh diagnostics with source points in saved buffers.

@@ -137,9 +137,10 @@ rules change, change it to match. Browser changes should be seen running:
 
 ## Live reload
 
-Iterate on applications with `./snail dev apps/NAME`, left running; `make
-ide` starts it for Siegework. It serves the browser editor at
-`http://127.0.0.1:8000/` and each browser target at
+Iterate on applications with `./snail dev .`, left running; `make ide`
+opens this same root project for the whole repository. The root
+`project.datum` names the `siegework` and `hearsay` browser targets. It serves
+the browser editor at `http://127.0.0.1:8000/` and each browser target at
 `http://127.0.0.1:8001/TARGET/`, rebuilds only the libraries an edit reaches,
 about 100 ms for a function body in Siegework, and relinks them into each open
 page, keeping the running state; point `tests/browser/page.mjs` at the

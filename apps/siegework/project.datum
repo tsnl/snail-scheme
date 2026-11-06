@@ -1,5 +1,0 @@
-((build-target site
-   (browser
-    (entry "main.sld")
-    (library-roots ("src"))
-    (public "public"))))
