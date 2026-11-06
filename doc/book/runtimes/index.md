@@ -68,7 +68,10 @@ The native engine is the first step taken ([#660](https://github.com/tsnl/snail-
 `(snail shell engine)`, in Snail-Core, links a program compiled one library
 at a time and runs it, so Node and wasmtime each do only what a host must,
 WASI, the Wasm primitives of `(snail shell wasm)`, their device services
-and the loop that turns the scheduler. The page still links through
+and the loop that turns the scheduler. Where the engine reads objects is
+an effect, `linked-content-store`, which each engine's entry handles once:
+the native engine reads files, and since a read may wait, as a fetch
+does, the engine links in a task of its own. The page still links through
 `host/browser/load.mjs`; a browser engine over fetch is the next step.
 `crates/snail` runs programs that
 need only WASI on wasmtime, and the suite runs on it with
