@@ -26,17 +26,6 @@
 
 (extern host-marker "snail.test" "marker" (-> I32))
 
-(: reset-test (All (T e) (-> (-> (-> T ! Marker mut tasks e) T ! mut tasks e))))
-(define (reset-test)
-  (lambda (run)
-    (handle Marker
-        ((marker (lambda () 17)))
-      (dispatch-local (once (lambda ()
-                              (yield)
-                              (unless (= (marker) 17) (panic "a child lost its inherited handler"))
-                              (sleep 100000))))
-      (run))))
-
 ;; The runtime drains children after a normal root return. Explicit reload
 ;; closes that scope after the root has handed over, including this case.
 ;; Each root is a task, as the shared page loop is.
@@ -158,11 +147,27 @@
 (expose inspect-resizes "resizes")
 (expose other-state "other")
 
-(define-application Counter
-  (reset: reset-test)
-  (init: initial)
-  (update: step)
-  (view: draw)
-  (hud: panels)
-  (save: save-counter)
-  (restore: restore-counter))
+(define-page-state Counter)
+
+(instance (Scene Counter)
+  (define (scene-initialize seed width height) (initial seed width height))
+  (define (scene-update state input) (step state input))
+  (define (scene-view state) (draw state))
+  (define (scene-hud state) (panels state))
+  (define (scene-save state) (serialize (save-counter state)))
+  (define (scene-restore bytes) (restore-counter (deserialize bytes))))
+
+(struct TestApplication
+  ())
+
+(instance (Application (! mut screen events storage tasks) TestApplication)
+  (define (start entry)
+    (handle Marker
+        ((marker (lambda () 17)))
+      (dispatch-local (once (lambda ()
+                              (yield)
+                              (unless (= (marker) 17) (panic "a child lost its inherited handler"))
+                              (sleep 100000))))
+      (start (ann (Entry) (Entry (SceneApplication Counter)))))))
+
+(define-page-entry TestApplication)

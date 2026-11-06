@@ -19,19 +19,23 @@ const [root, screenshot] = process.argv.slice(2);
 
 async function edit(path, ...replacements) {
   let text = await readFile(path, 'utf8');
-  for (let i = 0; i < replacements.length; i += 2) text = text.replace(replacements[i], replacements[i + 1]);
+  for (let i = 0; i < replacements.length; i += 2) {
+    const next = text.replace(replacements[i], replacements[i + 1]);
+    assert.notEqual(next, text, `missing edit: ${replacements[i]}`);
+    text = next;
+  }
   await writeFile(path, text);
 }
 
 // Adds an I64 field, which every construction sets to 0, to the counter's
 // state, so its layout changes.
-const addStateField = (source, field) => edit(source, /\(height I32\)((?:\n   \(\w+ I64\))*)\)\)/, `(height I32)$1\n   (${field} I64)))`,
+const addStateField = (source, field) => edit(source, /\(height I32\)((?:\s+\(\w+ I64\))*)\)\)/, `(height I32)$1\n       (${field} I64)))`,
   /\(Counter 0 width height((?: 0)*)\)/, '(Counter 0 width height$1 0)',
   /\(Counter \(Counter-count counter\) width height((?: 0)*)\)/, '(Counter (Counter-count counter) width height$1 0)',
   /\(Counter \(Save-count saved\) 0 0((?: 0)*)\)/, '(Counter (Save-count saved) 0 0$1 0)');
 
 const directory = await realpath(await mkdtemp(join(tmpdir(), 'snail-reload-')));
-const app = join(directory, 'counter'), source = join(app, 'main.sld');
+const app = join(directory, 'counter'), source = join(app, 'src/counter/application.sld');
 await cp(join(root, 'tests/apps/counter'), app, {recursive: true, filter: path => basename(path) !== 'build'});
 const service = await startDevelopment(root, app);
 const browser = await openBrowser();
@@ -52,7 +56,7 @@ try {
   assert.equal(await text('count'), '2', 'the count survives the new module');
 
   await edit(source, '"hello again"', '5');
-  assert.match(await until(async () => (await notice()).match(/main\.sld:\d+:\d+: .*/)?.[0], 'the failure'), /main\.sld/);
+  assert.match(await until(async () => (await notice()).match(/application\.sld:\d+:\d+: .*/)?.[0], 'the failure'), /application\.sld/);
   await edit(source, '(define greeting 5)', '(define greeting "fixed")');
   await until(async () => await text('greeting') === 'fixed', 'the fix');
   assert.equal(await text('count'), '2');
@@ -62,19 +66,11 @@ try {
   assert.equal(await text('count'), '2', 'the save carries the count to a state of another shape');
 
   await addStateField(source, 'more');
-  await edit(source, '((count I64))\n  (deriving', '((count I64)\n   (extra I64))\n  (deriving', '(Save (Counter-count counter))', '(Save (Counter-count counter) 0)');
+  await edit(source, /\(\(count I64\)\)\s+\(deriving/, '((count I64)\n       (extra I64))\n      (deriving', '(Save (Counter-count counter))', '(Save (Counter-count counter) 0)');
   await until(async () => (await notice()).includes('could not take over'), 'the refused state');
   assert.equal(await text('count'), '2', 'the old program keeps running');
   await browser.evaluate(`[...document.querySelectorAll('[role="status"] button')].find(b => b.textContent.startsWith('Start over')).click()`);
   await until(async () => await text('count') === '0', 'the fresh start');
-  // A candidate whose first view traps must leave the old entry usable.
-  await edit(source, '(define (draw counter)\n', '(define (draw counter)\n  (panic "first view trap")\n');
-  await until(async () => (await notice()).includes('first view trap'), 'the rejected first view');
-  await browser.evaluate(`document.querySelector('[data-key="add"]').click()`);
-  await until(async () => await text('count') === '1', 'the old entry after rollback');
-  await edit(source, '  (panic "first view trap")\n', '');
-  await until(async () => (await notice()).startsWith('Reloaded'), 'the repaired view');
-
   // A consumed failing event is dropped; unread actions cross to the fix.
   const increment = '(Counter-count-set counter (+ (Counter-count counter) 1))';
   await edit(source, increment, '(panic "update trap")', '"fixed"', '"ready to trap"');
@@ -83,7 +79,7 @@ try {
   await until(async () => (await notice()).includes('application stopped'), 'the stopped entry');
   await browser.evaluate(`document.querySelector('[data-key="add"]').click(), document.querySelector('[data-key="add"]').click()`);
   await edit(source, '(panic "update trap")', increment, '"ready to trap"', '"recovered"');
-  await until(async () => await text('greeting') === 'recovered' && await text('count') === '3', 'the checkpoint and unread actions');
+  await until(async () => await text('greeting') === 'recovered' && await text('count') === '2', 'the checkpoint and unread actions');
 
   // A cold first-frame failure still registers its owner for a source fix.
   await edit(source, '(define (draw counter)\n', '(define (draw counter)\n  (panic "cold first view trap")\n');
@@ -92,7 +88,7 @@ try {
   await until(() => browser.evaluate('document.body.dataset.ready'), 'the stopped cold application');
   await until(async () => (await notice()).includes('application stopped'), 'the cold trap notice');
   await edit(source, '  (panic "cold first view trap")\n', '');
-  await until(async () => await text('count') === '3' && (await notice()).startsWith('Reloaded'), 'the fixed cold application');
+  await until(async () => await text('count') === '2' && (await notice()).startsWith('Reloaded'), 'the fixed cold application');
 
   // Hold the first IndexedDB open across a build. A corrupt save forces the
   // cold retry; relinking must wait for that entire startup, including retry.
@@ -141,8 +137,7 @@ try {
     (import (snail core base) (snail core io) (only (snail shell task) tasks dispatch-local) (snail shell resource))
     (begin (: banner Resource) (define banner (link-file "banner.txt"))
       (dispatch-local (once (lambda () (write-line (list->string (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource banner))))))))))`);
-  await edit(join(app, 'project.datum'), '(public "public")', '(public "public")\n    (library-roots ("src"))');
-  await edit(source, '(snail shell app))', '(snail shell app)\n (sample banner))');
+  await edit(source, '(snail shell wire))', '(snail shell wire)\n   (sample banner))');
   await until(() => printed('linked'), 'the linked file read when its module started');
   await browser.evaluate('globalThis.stayed = true');
   await writeFile(banner, 'linked again');

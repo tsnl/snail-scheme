@@ -1,4 +1,5 @@
 ((build-target site
    (browser
-    (entry "main.sld")
+    (entry ((counter application) CounterApplication))
+    (library-roots ("src"))
     (public "public"))))
