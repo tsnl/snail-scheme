@@ -26,6 +26,7 @@
    FlagProperty
    On
    Keyed
+   map-html
    run-ui)
   (import
    (snail core base)
@@ -59,6 +60,27 @@
            (prevent Prevent)
            (message (-> Event M))))
       (Keyed ((key String))))
+
+    ;; A component keeps its own message type. Only its event listeners need
+    ;; wrapping when its tree is embedded in a larger application.
+    (: map-html (All (A B) (-> (-> A B) (Html A) (Html B))))
+    (define (map-html wrap html)
+      (match html
+        ((Text text) (Text text))
+        ((Element tag attributes children)
+         (Element tag (map (lambda (attribute) (map-attribute wrap attribute)) attributes)
+                  (map (lambda (child) (map-html wrap child)) children)))))
+
+    (: map-attribute (All (A B) (-> (-> A B) (Attribute A) (Attribute B))))
+    (define (map-attribute wrap attribute)
+      (match attribute
+        ((Attr name value) (Attr name value))
+        ((StringProperty name value) (StringProperty name value))
+        ((NumberProperty name value) (NumberProperty name value))
+        ((FlagProperty name value) (FlagProperty name value))
+        ((Keyed key) (Keyed key))
+        ((On name captures prevent message)
+         (On name captures prevent (lambda (event) (wrap (message event)))))))
 
     ;; ---- What is shown ----
 

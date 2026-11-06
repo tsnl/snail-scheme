@@ -436,15 +436,39 @@ Chromium checks retain the browser-specific behavior: focus, default keyboard
 actions, undo, cancellation and browser lifecycle. JavaScript is the browser
 launcher and API boundary, not the implementation of IDE behavior.
 
+`(snail shell ide palette)` owns its query, selection, search and creation
+phases, local messages, tasks and view. The parent embeds it through one
+`PaletteEvent` and handles concrete outcomes such as opening a path or invoking
+a named command. It passes command names and key labels, paths, and the current
+draft where needed; the component never receives the IDE model. `map-html` in
+`(snail shell ui)` wraps component messages when embedding its view.
+
+The palette’s generation identifies an interaction and its requested navigation.
+Closing, changing a query, reopening, selecting and explicit navigation revoke
+older work, including A→B→A changes. Cancellation withdraws UI authority; it does
+not undo an already submitted file write. A selected saved hit needs a successful
+current read, the same revision, and a clean buffer before moving the caret.
+A draft hit carries the exact path and text searched. Tasks recheck the rendered
+navigation identity and field contents when they touch the DOM. Draft replacement
+by typing, a read or formatting also refreshes an open current-file search.
+
+`(snail shell ide search)` chooses the saved-project HTTP operation or local
+draft search. Both use `(snail shell text search)` for bounded literal matching,
+with scalar coordinates and CRLF handling. `(snail shell project client)` owns
+HTTP failures, URL encoding and decoding into the shared protocol types.
+
+
 Command/Ctrl+P opens `go-to-file`. It filters project paths and open buffers
 by case-insensitive ordered characters; for example, `lnote` finds
 `lib/notes.txt`. Enter opens the selected path through the ordinary buffer
 read, Escape returns focus to the editor, and results are capped at 200 paths.
 The file picker runs in the browser over the service's file listing.
 
-Command/Ctrl+Shift+F opens `search-project`, a literal,
-case-insensitive search of saved project text. Both use the palette's arrows,
-Enter and Escape. Search does not read drafts or replace them: selecting a hit
+Command/Ctrl+F opens `search-buffer` over the current file, including unsaved
+text. Command/Ctrl+Shift+F opens `search-project` over saved project files.
+Both are literal, case-insensitive searches using the palette’s arrows, Enter
+and Escape. Current-file search runs in the browser; project search runs on
+the service. Project search does not read drafts or replace them: selecting a hit
 opens the existing buffer, and moves its caret only when a fresh read still has
 the hit's revision and the buffer is clean. Otherwise it focuses the file.
 

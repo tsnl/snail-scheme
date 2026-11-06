@@ -72,6 +72,10 @@ the runtime interfaces.
 | `(snail shell ui commands)` | An ordered vector of named actions, independent of keyboard policy. `register` rejects duplicate names; `named` retrieves an action. Actions can be Scheme functions with effects. |
 | `(snail shell ui shortcuts)` | Chords mapped to command names. Registration checks duplicate chords and unknown commands; `matching` retrieves a name and `chords` supplies a window listener. |
 | `(snail shell ide application)` | The IDE's model, update, view and commands, runnable over the browser or memory DOM with the same fetch effect. |
+| `(snail shell ide palette)` | Component state, local events, tasks and view for commands, file selection, search and creation. Typed outcomes return to the application. |
+| `(snail shell ide search)` | Saved-project or exact-draft search, retaining the appropriate result provenance. |
+| `(snail shell text search)` | Bounded, case-insensitive literal matching with Unicode scalar coordinates. |
+| `(snail shell project client)` | Typed HTTP replies, failures and URL encoding shared by editor features. |
 
 ### Shell: tools
 
