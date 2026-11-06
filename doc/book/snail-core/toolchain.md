@@ -388,7 +388,10 @@ status 1 and its message; failing to listen ends it before anything starts.
 The editor is a Snail program, `host/ide/ide.sld`: a
 [document interface](applications.md#document-interfaces) that `snail dev`
 serves with the browser host's `ui.mjs`, built by stage 0 with the other
-development tools. It has a file browser and split panes. `(snail shell
+development tools. It has a file browser and split panes. All directories start
+collapsed on each page load; opening one keeps its children collapsed until
+opened in turn. Listing updates preserve the folders opened during the session.
+`(snail shell
 format)` runs in the same program for Tab/Enter indentation and
 format-on-save of Scheme files (`.sld`, `.scm` and `.datum`), and `(snail
 shell highlight)` colors them as the [book does](#code-highlighting). Each
