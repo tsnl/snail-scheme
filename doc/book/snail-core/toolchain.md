@@ -409,6 +409,22 @@ by case-insensitive ordered characters; for example, `lnote` finds
 read, Escape returns focus to the editor, and results are capped at 200 paths.
 The file picker runs in the browser over the service's file listing.
 
+Command/Ctrl+Shift+F opens `search-project`, a literal,
+case-insensitive search of saved project text. Both use the palette's arrows,
+Enter and Escape. Search does not read drafts or replace them: selecting a hit
+opens the existing buffer, and moves its caret only when a fresh read still has
+the hit's revision and the buffer is clean. Otherwise it focuses the file.
+
+`GET /api/search?q=TEXT` uses the editor's fresh file inventory and its existing
+text reader, including its path, symlink, UTF-8 and 8 MiB file restrictions.
+Queries hold 1–128 characters on one line. Results carry paths, SHA-256 revisions,
+1-based scalar lines/columns, and short snippets. Each request scans at most four
+million scalars and returns at most 200 hits; the palette reports limited results
+and skipped unreadable files. The scanner yields between files and scan chunks.
+Typing is debounced, and request numbers reject old successes and failures even
+when a query changes from A to B and back to A, or the palette closes and reopens.
+
+
 Command/Ctrl+S saves, Command/Ctrl+B toggles files, Alt+Shift+F formats,
 and Command/Ctrl+backslash splits right (Shift splits down). Command/Ctrl+W
 closes the active editor when the browser delivers that key; browsers may reserve
