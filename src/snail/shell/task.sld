@@ -25,6 +25,7 @@
 (define-library (snail shell task)
   (export
    tasks yield sleep await ticket
+   Task make-task schedule
    dispatch-local dispatch-task
    through-host
    tasks-turn tasks-wake! tasks-close! tasks-running tasks-live
@@ -97,7 +98,7 @@
     (type Run (FnOnce Step ! host))
 
     ;; A task that is ready, under its id.
-    (struct Task
+    (struct Runnable
       ((id I64)
        (next Run)))
 
@@ -141,7 +142,7 @@
     ;; The queues of tasks rest in the runtime's slots. A queue is taken
     ;; out, changed and put back while no task runs, so a second taker,
     ;; such as a host callback reentering `wake`, traps in the slot.
-    (: ready (UnsafeSlot (Queue Task)))
+    (: ready (UnsafeSlot (Queue Runnable)))
     (define ready (unsafe-slot (empty-queue)))
 
     (: timers (UnsafeSlot (List Pending)))
@@ -150,11 +151,11 @@
     (: waiters (UnsafeSlot (List Pending)))
     (define waiters (unsafe-slot (Nil)))
 
-    (: take-ready! (-> (Queue Task) ! mut))
+    (: take-ready! (-> (Queue Runnable) ! mut))
     (define (take-ready!)
       (take! ready))
 
-    (: put-ready! (-> (Queue Task) Unit ! mut))
+    (: put-ready! (-> (Queue Runnable) Unit ! mut))
     (define (put-ready! queue)
       (put! ready queue))
 
@@ -182,12 +183,27 @@
     (define (add-ready! change)
       (set! (::ready-count (ref-get scheduler)) (+ (::ready-count (ref-get scheduler)) change)))
 
-    (: push-ready! (-> Task Unit ! mut))
+    (: push-ready! (-> Runnable Unit ! mut))
     (define (push-ready! task)
       (put-ready! (enqueue (take-ready!) task))
       (add-ready! 1))
 
     ;; ---- Dispatching ----
+
+    ;; Work is a schedulable value, distinct from its eventual result.
+    ;; Constructing a Task does not run or schedule it. Its row stays in
+    ;; the type until schedule charges it to the caller.
+    (enum (Task e)
+      (Work ((run (FnOnce Unit ! tasks e)))))
+
+    (: make-task (All (e) (-> (FnOnce Unit ! tasks e) (Task (! e)))))
+    (define (make-task work)
+      (Work work))
+
+    (: schedule (All (e) (-> (Task (! e)) I64 ! mut e)))
+    (define (schedule task)
+      (match task
+        ((Work work) (dispatch-task work))))
 
     ;; A task runs `work` under its own handler of `tasks`, until the work
     ;; finishes or waits. The implementations run in the handle's outer
@@ -226,7 +242,7 @@
       (let ((id (+ (::last-task (ref-get scheduler)) 1)))
         (set! (::last-task (ref-get scheduler)) id)
         (add-live! 1)
-        (push-ready! (Task id (inherit-handlers (once (lambda () (start-task work))))))
+        (push-ready! (Runnable id (inherit-handlers (once (lambda () (start-task work))))))
         id))
 
     ;; ---- Turns ----
@@ -254,7 +270,7 @@
       (when (> count 0)
         (match (dequeue (take-ready!))
           ((None) (put-ready! (empty-queue)))
-          ((Some (Pair (Task id run) rest))
+          ((Some (Pair (Runnable id run) rest))
            (put-ready! rest)
            (add-ready! -1)
            (add-live! -1)
@@ -269,7 +285,7 @@
         ((Finished) (unit))
         ((Yielded next)
          (add-live! 1)
-         (push-ready! (Task id next)))
+         (push-ready! (Runnable id next)))
         ((Sleeping delay next)
          (add-live! 1)
          (put-timers!
@@ -297,7 +313,7 @@
          (if (<= (Pending-key first) now)
              (match first
                ((Pending _ id next)
-                (push-ready! (Task id next))
+                (push-ready! (Runnable id next))
                 (wake-due! now rest)))
              (Cons first rest)))))
 
@@ -332,14 +348,14 @@
             #t)
            ((None) #f)))))
 
-    (: without (-> I64 (List Pending) (Pair (Option Task) (List Pending))))
+    (: without (-> I64 (List Pending) (Pair (Option Runnable) (List Pending))))
     (define (without ticket waiters)
       (match waiters
         ((Nil) (Pair (None) (Nil)))
         ((Cons first rest)
          (if (= (Pending-key first) ticket)
              (match first
-               ((Pending _ id next) (Pair (Some (Task id next)) rest)))
+               ((Pending _ id next) (Pair (Some (Runnable id next)) rest)))
              (match (without ticket rest)
                ((Pair found others) (Pair found (Cons first others))))))))
 
@@ -347,16 +363,20 @@
     ;; the tasks of the program it replaces. A task is its rest, a FnOnce;
     ;; dropping one unrun drops the linear values its frames hold, which
     ;; performs what their drops perform, within the task's row, `host`.
+    ;; Detach every queue before any drop runs: a promise's drop may wake
+    ;; another task. Drain again if cleanup dispatched more work.
     (: tasks-close! (-> Unit ! mut host))
     (define (tasks-close!)
-      (drop (take-ready!))
-      (put-ready! (empty-queue))
-      (drop (take-timers!))
-      (put-timers! (Nil))
-      (drop (take-waiters!))
-      (put-waiters! (Nil))
-      (set! (::ready-count (ref-get scheduler)) 0)
-      (set! (::live (ref-get scheduler)) 0))
+      (let ((queued (take-ready!)) (sleeping (take-timers!)) (waiting (take-waiters!)))
+        (put-ready! (empty-queue))
+        (put-timers! (Nil))
+        (put-waiters! (Nil))
+        (set! (::ready-count (ref-get scheduler)) 0)
+        (set! (::live (ref-get scheduler)) 0)
+        (drop queued)
+        (drop sleeping)
+        (drop waiting))
+      (when (> (::live (ref-get scheduler)) 0) (tasks-close!)))
 
     (: tasks-running (-> I64 ! mut))
     (define (tasks-running)

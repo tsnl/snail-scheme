@@ -3855,14 +3855,43 @@
     (define (inherited fn type procedure)
       (match type
         ((TCon "FnOnce" (Cons procedure-type (Nil)))
-         (let* ((m (Fn-module fn)) (signature (function-signature m procedure-type)))
-           (wat "struct.new"
-                (id (inherit-closure m signature))
-                (wat "ref.func" (id (inherit-code m signature)))
-                (dropper-null)
-                (Fn-evidence fn)
-                procedure)))
+         (let* ((m (Fn-module fn))
+                (signature (function-signature m procedure-type))
+                (base (closure-type m (Pair-first signature) (Pair-second signature)))
+                (saved (declare-temp! fn (wat "ref" (id base)))))
+           (wat "block"
+                (wat "result" (wat "ref" (id (inherit-closure m signature))))
+                (wat "local.set" (id saved) procedure)
+                (wat "struct.new"
+                     (id (inherit-closure m signature))
+                     (wat "ref.func" (id (inherit-code m signature)))
+                     (inherited-dropper fn base (wat "local.get" (id saved)))
+                     (Fn-evidence fn)
+                     (wat "local.get" (id saved))))))
         (_ (panic "internal error: inherit-handlers makes a FnOnce"))))
+
+    ;; Cleanup runs under the same saved handlers as the work. Capture the
+    ;; original dropper, not its owner closure, so cleanup never retains
+    ;; the managed wrapper whose resources it releases.
+    (: inherited-dropper (-> Fn String Wat Wat ! mut))
+    (define (inherited-dropper fn base procedure)
+      (let* ((m (Fn-module fn))
+             (signature (Pair (Nil) (Scalar "i32")))
+             (saved (declare-temp! fn (dropper-ref))))
+        (wat "block"
+             (wat "result" (dropper-ref))
+             (wat "local.set" (id saved) (wat "struct.get" (id base) (int 1) procedure))
+             (wat "if"
+                  (wat "result" (dropper-ref))
+                  (wat "ref.is_null" (wat "local.get" (id saved)))
+                  (wat "then" (dropper-null))
+                  (wat "else"
+                       (wat "struct.new"
+                            (id (inherit-closure m signature))
+                            (wat "ref.func" (id (inherit-code m signature)))
+                            (dropper-null)
+                            (Fn-evidence fn)
+                            (wat "ref.as_non_null" (wat "local.get" (id saved)))))))))
 
     ;; Closures of one signature share the subtype that holds the evidence
     ;; and the procedure.
