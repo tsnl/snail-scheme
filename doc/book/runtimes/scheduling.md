@@ -27,6 +27,15 @@ rest early, so that `stopped` is asked again. A CPU loop that does not
 wait still monopolizes the execution agent; the scheduler does not
 preempt it.
 
+An engine ([runtimes](index.md#direction)) runs tasks of its own, linking
+and reading linked files, beside the program's, and the driver turns the
+two as one through the engine's `engine:turn`, `engine:wake`,
+`engine:close-tasks`, `engine:running` and `engine:live`. A turn runs the
+program's turn and then the engine's, answering 0 when the engine's woke
+a task of the program's, and otherwise the sooner of the two answers.
+`engine:running` names a task of the program's by its id and one of the
+engine's by its id negated.
+
 ## Host operations
 
 An operation that completes later is started through a synchronous import

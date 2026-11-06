@@ -8,12 +8,21 @@
 // The exports of the module holding (snail shell task), or null when the
 // program does not link it and has no tasks to drive. A program is a
 // per-library build, a loaded whole program, or its bare instance, as
-// `programEntry` takes them.
+// `programEntry` takes them. An engine ((snail shell engine)) runs tasks
+// of its own beside the program's, and drives the two as one scheduler
+// through its `engine:` exports, which this names as (snail shell task)
+// does.
 export function taskExports(program) {
   const exports = program.names ? program.linked.get('snail.shell.task')?.exports
     : program.exports ?? program.runtime.exports;
+  if (exports?.['engine:turn']) return engineTasks(exports);
   return exports?.['tasks:turn'] ? exports : null;
 }
+
+const engineTasks = exports => ({
+  'tasks:turn': exports['engine:turn'], 'tasks:wake': exports['engine:wake'], 'tasks:close': exports['engine:close-tasks'],
+  'tasks:running': exports['engine:running'], 'tasks:live': exports['engine:live'],
+});
 
 // One run of a program's tasks: its outstanding host operations and the
 // loop that turns the scheduler. `exports` gives the scheduler's exports
