@@ -6,8 +6,8 @@ import {createRenderer} from './renderer.mjs';
 import {createHud} from './hud.mjs';
 import {createPictures} from './pictures.mjs';
 import {loadSave, storeSave} from './storage.mjs';
-import {createWasi, instantiate, linkedFileImports, linkProgram, relinkProgram, runMain, runProgram} from './load.mjs';
-import {createRuntime, applicationEntry, HIDDEN} from './runtime.mjs';
+import {createRuntime} from './runtime.mjs';
+import {startPage, reportApplicationError} from './application.mjs';
 
 // ---- Input encoding ----
 
@@ -137,149 +137,18 @@ function hudImports(hud) {
 
 // ---- Application ----
 
-// The applications running on this page, which the pages that relink, the
-// ones `snail dev` serves, relink and save together.
-export const running = [];
-
-// An application is the program it runs, which may be relinked, with the
-// last lines the program wrote to standard error, and the page's pictures,
-// renderer, HUD and canvas, which outlive any one program. A development
-// build's page names its program's modules.json, a module per library, in
-// a meta tag. Without one the page is published, and loads one linked
-// module from `url`, which the meta tag makes the page ignore. Either way
-// a file the program links is fetched from the program's store, store/
-// beside a linked module or where a manifest says, when a task first
-// reads it.
 export async function startApplication({url, canvas, overlay, storageKey}) {
-  const pictures = createPictures();
-  const application = {canvas, program: null, errors: [], capture: null, pictures,
-                       renderer: await createRenderer(canvas, pictures), hud: null, runtime: null};
-  application.runtime = createRuntime({size: () => [canvas.clientWidth, canvas.clientHeight], seed: (Math.random() * 65536) | 0,
+  const pictures = createPictures(), renderer = await createRenderer(canvas, pictures);
+  const runtime = createRuntime({size: () => [canvas.clientWidth, canvas.clientHeight], seed: (Math.random() * 65536) | 0,
     load: () => loadSave(storageKey), store: bytes => storeSave(storageKey, bytes),
     frames: {request: requestAnimationFrame.bind(globalThis), cancel: cancelAnimationFrame.bind(globalThis)},
     reportError: reportApplicationError});
-  const send = (...event) => application.runtime.send(...event);
-  application.hud = createHud(overlay, (action, argument) => send(PRESS, action, argument),
-                              (action, argument) => send(HOVER, action, argument), pictures);
-  const modules = document.querySelector('meta[name="snail-modules"]')?.content;
-  if (modules) await linkApplication(application, modules, fetchRead(modules));
-  else await instantiateApplication(application, url);
-  application.startup = startCold(application);
-  running.push(application);
-  attachInput(application);
-  addEventListener('visibilitychange', () => { if (document.hidden) send(HIDDEN); });
-  await application.startup;
-  return application;
-}
-
-function applicationImports(application) {
-  return {...application.runtime.imports, 'snail.runtime.browser.screen': screenImports(application.renderer, application.pictures, application.hud)};
-}
-
-async function instantiateApplication(application, url) {
-  const wasi = createWasi({print: printer(application)});
-  const module = await WebAssembly.compileStreaming(fetch(url));
-  const linked = linkedFileImports(fetchRead(url), module, () => application.runtime.execution.tasks);
-  const instance = await instantiate(module, {...wasi.getImportObject(), ...applicationImports(application), ...linked});
-  wasi.initialize(instance);
-  runMain(instance.exports);
-  application.program = instance;
-}
-
-async function linkApplication(application, manifest, read) {
-  const wasi = createWasi({print: printer(application)});
-  application.program = await linkProgram(read, manifest, wasi, applicationImports(application),
-                                          () => application.runtime.execution.tasks);
-  runProgram(application.program);
-}
-
-// Only a cold restoration failure before boot may discard saved bytes.
-// A first-frame trap already has a committed state and must stay recoverable.
-async function startCold(application) {
-  const {runtime, program} = application, entry = applicationEntry(program);
-  const run = runtime.start(entry);
-  try { await run.ready.promise; }
-  catch (error) {
-    await run.done;
-    if (run.boot !== null || run.loaded == null) { reportApplicationError(error); return; }
-    console.warn('discarding an incompatible save:', error.message);
-    const retry = runtime.start(entry, null, {restore: null});
-    try { await retry.ready.promise; }
-    catch (error) { await retry.done; reportApplicationError(error); }
-  }
-}
-
-function reportApplicationError(error) {
-  console.error(error);
-  dispatchEvent(new ErrorEvent('error', {message: error.message, error}));
-}
-
-// A file's bytes, by its path relative to the manifest's or the module's,
-// uncached. A file the server does not have is an error, not its error page.
-function fetchRead(base) {
-  return async file => {
-    const response = await fetch(new URL(file, new URL(base, document.baseURI)), {cache: 'no-store'});
-    if (!response.ok) throw new Error(`${response.status} fetching ${file}`);
-    return new Uint8Array(await response.arrayBuffer());
-  };
-}
-
-// Lines the program writes go to the console. The last twenty it writes to
-// standard error are kept in `errors`, since they explain a trap: a panic
-// prints its message before trapping. While a relink runs, they are also
-// captured for its error.
-function printer(application) {
-  return (fd, text) => {
-    if (fd !== 2) { console.log(text); return; }
-    console.error(text);
-    application.errors.push(text);
-    application.errors.splice(0, application.errors.length - 20);
-    application.capture?.push(text);
-  };
-}
-
-// ---- Relinking ----
-
-// A full page reload first lets every loop save and return.
-export function saveAll() {
-  return Promise.all(running.map(async application => { await application.startup; return application.runtime.stop(); }));
-}
-
-// `manifest` is the modules.json of the build to relink from, which the
-// reload client names; each program reads its files relative to it from
-// then on.
-export async function relinkAll(from, fresh, manifest) {
-  for (const application of running) await relinkApplication(application, from, fresh, manifest);
-}
-
-function forgetPresentation(application) {
-  application.renderer.forget();
-  application.pictures.forget();
-}
-
-// No Snail-Core stack remains while modules relink. Keep the old program and its
-// immutable handover until the candidate finishes its initial presentation.
-// Rejected migration restarts the old entry; host resources outlive both.
-async function relinkApplication(application, from, fresh, manifest) {
-  await application.startup;
-  const {runtime, program: previous} = application;
-  application.capture = [];
-  const {state, saved} = await runtime.stop();
-  try {
-    const program = await relinkProgram(previous, from, manifest, fetchRead(manifest));
-    forgetPresentation(application);
-    const run = runtime.start(applicationEntry(program), fresh ? null : state, {restore: fresh ? null : saved});
-    await run.ready.promise;
-    application.program = program;
-  } catch (error) {
-    await runtime.execution.done;
-    forgetPresentation(application);
-    const rollback = runtime.start(applicationEntry(previous), state, {restore: saved});
-    try { await rollback.ready.promise; } catch { await rollback.done; }
-    throw new Error(application.capture.join('\n') || error.message);
-  } finally {
-    application.capture = null;
-  }
+  const hud = createHud(overlay, (action, argument) => runtime.send(PRESS, action, argument),
+                        (action, argument) => runtime.send(HOVER, action, argument), pictures);
+  attachInput(canvas, runtime);
+  return startPage({runtime,
+    imports: {...runtime.imports, 'snail.runtime.browser.screen': screenImports(renderer, pictures, hud)},
+    reset() { renderer.forget(); pictures.forget(); }}, url);
 }
 
 // Wheel deltas arrive in pixels, lines or pages; the application gets pixels.
@@ -287,9 +156,8 @@ function wheelPixels(event) {
   return Math.round(event.deltaY * [1, 16, innerHeight][event.deltaMode]);
 }
 
-function attachInput(application) {
-  const {canvas} = application;
-  const send = (kind, a = 0, b = 0, c = 0, d = 0) => application.runtime.send(kind, a | 0, b | 0, c | 0, d | 0);
+function attachInput(canvas, runtime) {
+  const send = (kind, a = 0, b = 0, c = 0, d = 0) => runtime.send(kind, a | 0, b | 0, c | 0, d | 0);
   // A key held with Ctrl, Alt or Meta belongs to the browser, so shortcuts
   // such as reloading keep working; Shift travels with the key. Keys typed
   // into a field, such as the IDE's editor, stay there.
