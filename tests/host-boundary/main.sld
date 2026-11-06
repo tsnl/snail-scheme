@@ -83,3 +83,10 @@
 (expose result-number "result-number")
 (expose result-bytes "result-bytes")
 (expose inspect-bytes "inspect-bytes")
+
+;; A concrete inferred entry closes its effect row without a handwritten
+;; export signature. Application scaffolding relies on the same ordinary rule.
+(define (inferred-entry value)
+  (ref-set! checkpoint (type-convert (ann value I64) Any))
+  (ref-get checkpoint))
+(expose inferred-entry "inferred")
