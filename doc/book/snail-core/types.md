@@ -627,6 +627,9 @@ JavaScript object, string or typed array. Exposed `String` and `Bytes` are manag
 arrays; the staging convention above applies to calls into foreign imports.
 Affine values, including records that contain them, cannot cross this unrestricted
 boundary. Exposed signatures remain monomorphic and their effects need host bindings.
+A function export may infer its concrete signature. Its effect row stays available
+for instance solving rather than being generalized; ordinary value-type variables
+still generalize, so an unannotated generic identity function cannot be exposed.
 The host must respect the declared Snail-Core types: Wasm representation checks do not
 prove nominal identity or permit treating immutable `Bytes` as a mutable `Array`.
 

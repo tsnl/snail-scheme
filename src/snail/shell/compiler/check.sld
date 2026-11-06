@@ -2594,13 +2594,13 @@
     ;; An unannotated group of mutually recursive definitions is inferred
     ;; together. A group of functions is generalized; any other group stays
     ;; monomorphic, so later uses can still decide its types.
-    (: check-group (-> Checker (List Item) (Pair (List Item) Checker) ! compile))
-    (define (check-group ck definitions)
+    (: check-group (-> Checker (List Item) (List String) (Pair (List Item) Checker) ! compile))
+    (define (check-group ck definitions exposed)
       (let ((before (Checker-pending-count ck)))
         (learning ck ((then (provisional-schemes definitions))
                       (results (each infer-definition definitions))
                       (then (host-effects results))
-                      (then (generalize-group definitions before)))
+                      (then (generalize-group definitions before exposed)))
                   (Pair (map (lambda (pair)
                                (Define (Define-name (Pair-first pair))
                                  (Pair-first (Pair-second pair))))
@@ -2626,12 +2626,13 @@
 
     ;; A group of functions is generalized over the constraints it raised;
     ;; any other group stays monomorphic, so later uses can still decide it.
-    (: generalize-group (-> Checker (List Item) I64 Checker))
-    (define (generalize-group ck definitions before)
+    (: generalize-group (-> Checker (List Item) I64 (List String) Checker))
+    (define (generalize-group ck definitions before exposed)
       (if (every? (lambda (definition) (lambda-expr? (Define-value definition))) definitions)
           (generalize ck
                       definitions
-                      (take (Checker-pending ck) (- (Checker-pending-count ck) before)))
+                      (take (Checker-pending ck) (- (Checker-pending-count ck) before))
+                      exposed)
           ck))
 
     ;; The checked value and the effect row of its initializer.
@@ -2654,15 +2655,17 @@
     ;; A metavariable becomes a quantified variable (`t1`, `t2`, ...) unless
     ;; something that outlives the group still mentions it: another
     ;; definition's type, or a constraint of this group.
-    (: generalize (-> Checker (List Item) (List Wanted) Checker))
-    (define (generalize ck definitions wanted)
+    (: generalize (-> Checker (List Item) (List Wanted) (List String) Checker))
+    (define (generalize ck definitions wanted exposed)
       (let* ((fixed (map meta-id
                          (append (concatenate (map (lambda (name)
                                                      (free-metas (solution ck)
                                                                  (scheme-type ck name)))
                                                    (Checker-open ck)))
-                                 (concatenate
-                                  (map (lambda (want) (wanted-metas (solution ck) want)) wanted)))))
+                                 (append (concatenate
+                                          (map (lambda (want) (wanted-metas (solution ck) want))
+                                               wanted))
+                                         (exposed-row-metas ck definitions exposed)))))
              (metas (filter (lambda (meta) (not (member? (meta-id meta) fixed)))
                             (delete-duplicates same-meta?
                                                (concatenate (map (lambda (d)
@@ -2686,6 +2689,19 @@
                                            (Nil)
                                            (resolve-type (solution ck) (scheme-type ck name))))))
                    bound definitions)))
+
+    ;; A foreign caller supplies no row argument. Keep an inferred export's
+    ;; row open for instance solving instead of quantifying that row. Its
+    ;; ordinary type variables still generalize and are refused by expose.
+    (: exposed-row-metas (-> Checker (List Item) (List String) (List Type)))
+    (define (exposed-row-metas ck definitions exposed)
+      (concatenate
+       (map (lambda (definition)
+              (if (member? (Define-name definition) exposed)
+                  (match (resolve-type (solution ck) (scheme-type ck (Define-name definition)))
+                    ((TFun _ _ row) (free-metas (solution ck) row))
+                    (_ (Nil)))
+                  (Nil))) definitions)))
 
     (: meta-id (-> Type I64))
     (define (meta-id meta)
@@ -2845,7 +2861,16 @@
         ((Some (Defined _ _ _)) (unit))
         (_ (compile-error loc "an exposed function must be defined")))
       (match (global-scheme ck name)
-        ((Some (Scheme (Nil) (Nil) _ (TFun params result row)))
+        ((Some (Scheme (Nil) (Nil) _ type))
+         (check-exposed-type ck (resolve-type (solution ck) type) dynamic loc))
+        (_ (compile-error loc "an exposed function must be a monomorphic function"))))
+
+    ;; Inferred values may still name their solved metavariable here. Host
+    ;; exports obey the same boundary whether their type was written or inferred.
+    (: check-exposed-type (-> Checker Type Bool Loc Checker ! compile))
+    (define (check-exposed-type ck type dynamic loc)
+      (match type
+        ((TFun params result row)
          (when (any? (lambda (type) (linear? ck type)) (Cons result params))
            (compile-error loc "an exposed function cannot take or return a linear value"))
          (when dynamic (check-dynamic ck (Cons result params) row loc))
@@ -2986,10 +3011,13 @@
     ;; are gone.
     (: check-items (-> Checker (List Item) (Pair (List Item) Checker) ! compile))
     (define (check-items ck items)
-      (let* ((groups (each-recovered (Recovered ck (Nil) (Nil) (Nil))
+      (let* ((exposed (concatenate (map (lambda (item)
+                                          (match item ((Expose name _ _ _) (list name)) (_ (Nil))))
+                                        items)))
+             (groups (each-recovered (Recovered ck (Nil) (Nil) (Nil))
                                      group-references
                                      (lambda (group) (map Define-name group))
-                                     check-group
+                                     (lambda (ck group) (check-group ck group exposed))
                                      (unannotated-groups ck items)))
              (results (fold-left
                        (lambda (results result) (table-set results (Define-name result) result))

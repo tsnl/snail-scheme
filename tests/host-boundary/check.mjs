@@ -59,4 +59,5 @@ assert.throws(() => api['result-number']({}), TypeError);
 assert.throws(() => api['inspect-bytes'](new Uint8Array(4)), TypeError);
 number = -1;
 assert.equal(api['result-number'](api.managed()), -1);
+assert.equal(api.value(api.inferred(43n)), 43n, 'a concrete inferred export retains its effects');
 console.log('host boundary: opaque values, typed managed results and borrowed bytes');
