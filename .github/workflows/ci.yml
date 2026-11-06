@@ -15,6 +15,8 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # Use Bash from PATH so nix-shell does not probe <nixpkgs> for its shell.
+  NIX_BUILD_SHELL: bash
   # CI reuses Cargo's compiled dependencies, not incremental edit history.
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_TEST_DEBUG: 0

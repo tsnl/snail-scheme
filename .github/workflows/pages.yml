@@ -32,6 +32,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Use Bash from PATH so nix-shell does not probe <nixpkgs> for its shell.
+  NIX_BUILD_SHELL: bash
+
 concurrency:
   group: pages-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
