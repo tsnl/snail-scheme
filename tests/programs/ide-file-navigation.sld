@@ -49,8 +49,14 @@
                                        (Event-modifiers-set (Event-key-set no-event "p") meta-key))
                            (Fire "command-query" "input" (Event-value-set no-event "lnote"))
                            (Fire "command-query" "keydown" (Event-key-set no-event "Enter")))
-                     (lambda () (run-ui initial (list (Connect)) update-test view window
-                                        (lambda (model) (unit))))))))
+                     (lambda ()
+                       (run-ui initial
+                               (list (Connect))
+                               update-test
+                               view
+                               window
+                               (lambda (model) (unit))
+                               (lambda (model) (unit))))))))
              (for-each write-line (ref-get requests))
              (match (buffer-at (Pair-first result) "lib/notes.txt")
                ((Some buffer) (write-line (Buffer-text buffer)))
