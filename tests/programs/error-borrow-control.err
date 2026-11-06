@@ -1,0 +1,1 @@
+a call cannot capture a continuation while a lexical borrow is active
