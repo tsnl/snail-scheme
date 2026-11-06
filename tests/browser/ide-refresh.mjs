@@ -60,10 +60,10 @@ try {
   assert.ok((await readFile(join(project, 'main.sld'), 'utf8')).includes('original'), 'refresh never saves a draft to disk');
 
   // Bad Scheme retains the last working generation and the current page.
-  const source = join(fixture, 'host/ide/ide.sld'), originalSource = await readFile(source, 'utf8');
+  const source = join(fixture, 'src/snail/shell/ide/application.sld'), originalSource = await readFile(source, 'utf8');
   const accepted = latest().editor;
   await mark();
-  await writeFile(source, originalSource + '\n(unknown-ide-refresh-name)\n');
+  await writeFile(source, originalSource.replace('\">_\"', '(unknown-ide-refresh-name)'));
   await until(() => Boolean(latest()?.['editor-problem']), 'failed IDE build', 60);
   assert.equal(latest().editor, accepted);
   assert.equal(await browser.evaluate('window.beforeRefresh'), true);
