@@ -1,6 +1,7 @@
 (import
  (snail core base)
- (snail shell app))
+ (snail shell app)
+ (snail shell wire))
 
 (: initial (-> I32 I32 I32 I64))
 (define (initial seed width height)
@@ -23,11 +24,10 @@
 (define (saved state)
   state)
 
-(define-application I64
-  (reset: default-reset)
-  (init: initial)
-  (update: step)
-  (view: draw)
-  (hud: panels)
-  (save: saved)
-  (restore: saved))
+(instance (Scene I64)
+  (define (scene-initialize seed width height) (initial seed width height))
+  (define (scene-update state input) (step state input))
+  (define (scene-view state) (draw state))
+  (define (scene-hud state) (panels state))
+  (define (scene-save state) (serialize (saved state)))
+  (define (scene-restore bytes) (saved (deserialize bytes))))

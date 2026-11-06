@@ -108,15 +108,10 @@ in `tests/programs/declared-effects.sld`, the `Bool` instance of
 `announce` performs nothing and keeps `! console`. A default is held to
 its row all the same ([defaults](#defaults-in-snail-core)). `extern`
 declarations, class method signatures and definitions whose value is not
-a lambda are not compared either. A signature that a macro writes is
-held to each expansion, so a macro that cannot know a row takes the
-effects as an argument. `define-application` cannot know what its reset
-binder performs, so a reset that performs more than the application's
-loop, such as one
-whose background tasks write to the console, says `(effects: console)`
-([application model](applications.md)); claiming `console` for a reset that
-writes nothing is the same error
-(`tests/programs/error-application-unused-effect.sld`).
+a lambda are not compared either. A signature that a macro writes is held to each
+expansion. Application entries avoid duplicating such signatures: the selected
+ordinary `Application e A` instance determines the entry's row, and the generated
+browser export infers it ([application model](applications.md)).
 
 ### Effect polymorphism
 

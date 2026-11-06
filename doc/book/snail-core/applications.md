@@ -9,74 +9,85 @@ contract:
   (: start (-> (Entry A) Unit ! e)))
 ```
 
-`Entry` selects a concrete application type without constructing its state.
-A program [project](projects.md) can name `(entry ((example console) Printer))`;
-the builder imports that library and calls `start` with an `Entry Printer`.
-Ordinary instance resolution checks the contract and determines its effects.
-Initialization, custom handlers and background tasks belong inside `start`.
-Source-file entries remain available for scripts and tooling. Browser targets
-can also select a type; `define-page-entry` calls its `start` as the page's root
-task. The scene and document forms below use the same `run-page` lifecycle for
-restore, saving and checkpoint publication. `define-page-state` supplies ordinary
-`PageState` evidence at each concrete state type without weakening reification
-checks.
+`Entry` is an empty type witness. Selecting an application does not require
+constructing its state: `start` creates that state and runs the program. A
+console application can implement the class directly, perform console and task
+effects, and return when it is done. Custom handlers and background tasks belong
+inside `start`. There is no reset binder or separate declaration of entry effects.
 
-`(snail shell app)` defines interactive browser applications as total functions over
-a state:
-
-| Function | Meaning |
-| --- | --- |
-| `init : seed width height -> State` | The first state. |
-| `update : State Input -> State` | Applies one input: a key, a pointer, a HUD button, the screen's size, or the milliseconds since the last display frame. |
-| `view : State -> Frame` | A frame of items, meshes and sprites, under a camera and a light, with the pictures their textures use. |
-| `hud : State -> (List Panel)` | The HUD's panels of labels, texts, buttons, dials, links and images, shown again after each update. |
-| `save : State -> Save` | What to store, with a wire encoding; it may be a record of how to rebuild the state. |
-| `restore : Save -> State` | The state again. |
-
-These functions operate on immutable state. `define-application`
-runs them inside one loop and the binder returned by `reset`:
+A [project](projects.md) selects an exported concrete type, including an alias:
 
 ```scheme
-(define-application Game
-  (reset: default-reset)
-  (init: new-game)
-  (update: step)
-  (view: draw)
-  (hud: panels)
-  (save: save-game)
-  (restore: restore-game))
+((build-target site
+   (browser
+    (entry ((siegework application) Siegework))
+    (library-roots ("src"))
+    (public "public"))))
 ```
 
-`default-reset` simply runs its argument. A custom reset returns a binder
-that installs effect handlers around startup and the whole loop; its result
-and effect row are quantified on the reset function, so the returned binder
-is monomorphic. The application exports `app_main : (Option Any) -> I64`,
-which starts the loop as a task and answers its id; the host turns the
-scheduler until the loop answers ([task lifetime](#task-lifetime)).
-`next-event` drains the host queue and, when it is empty, waits for the
-next event by ticket
-([waiting on the host](../runtimes/tasks.md#waiting-on-the-host)). `FrameEvent` carries elapsed milliseconds, `InputEvent` carries an
-`Input`, `Hidden` and `SaveRequested` save without stopping, and `Reload` saves and returns. The `Frame` type continues to describe drawing data.
+The builder generates an ordinary import and a typed `start` call. The compiler's
+usual instance resolution checks that the selected type implements `Application`
+and determines its effect row. A program target calls `start` directly. A browser
+target uses `define-page-entry` from `(snail shell page)` to dispatch it as the
+root task and expose the host handover functions. Source-file entries remain
+available for scripts and tooling.
 
-DOM listeners enqueue input. The host keeps at most one pending display
-frame and coalesces consecutive pointer moves and resizes without crossing
-other input. Storage waits for a whole load or store, copying save bytes
-before the browser's work begins. A shared host timer requests a save every five seconds, independent of
-animation frames, and the loop also saves when the page becomes hidden. Only a complete successful event commits its state;
-a trap leaves the preceding checkpoint available through `app_state`.
-Because time is input, an application decides how time passes and can stop
-it at any frame. Headless tests run on the pinned Node 26, in both
-packaging modes.
+Engines can express richer contracts as ordinary classes. `Scene State`
+provides scene callbacks; the generic `SceneApplication State` adapter implements
+`Application` through an ordinary instance, not a compiler-specific superclass
+rule. The scene loop calls its class methods directly, without a second callback
+API. Document interfaces still use `define-ui`. Both engines use `run-page` for
+boot, save and restore, and commit immutable checkpoints through `commit-page`. IPC
+remains outside this contract. Typed session protocols are future library work,
+expressed through effects rather than additional `Application` methods.
 
-The loop and locally dispatched work share one runtime. The root performs
-`mut`, `screen`, `events`, `storage` and `tasks`, since it waits for events
-and saves by ticket; a reset binder that performs more, such as one that
-installs a handler with effects of its own, names those effects with
-`(effects: ...)`, since a signature may not claim effects its body never
-performs. Each task keeps its handlers across its waits. Reload lets the
-loop save and return, then closes the remaining tasks before relinking. Module globals still initialize
-synchronously; dispatch application work from the reset binder or the
-running entry. See [runtimes](https://tsnl.github.io/snail-scheme/runtimes/index.html).
+## Scenes
+
+`(snail shell app)` describes a scene with pure methods over immutable state:
+
+| Method | Meaning |
+| --- | --- |
+| `scene-initialize : seed width height -> State` | The first state. |
+| `scene-update : State Input -> State` | Applies a key, pointer, HUD button, screen size, or elapsed milliseconds. |
+| `scene-view : State -> Frame` | Drawing data: items, meshes and sprites under a camera and light. |
+| `scene-hud : State -> (List Panel)` | Panels of labels, texts, buttons, dials, links and images. |
+| `scene-save : State -> Bytes` | Encodes the durable state, often a record of how to rebuild the full state. |
+| `scene-restore : Bytes -> State` | Decodes the durable state and reconstructs the running state. |
+
+An application library exports an alias and implements the engine's class:
+
+```scheme
+(type GameApplication (SceneApplication Game))
+(define-page-state Game)
+(instance (Scene Game)
+  (define (scene-initialize seed width height) (new-game seed width height))
+  (define (scene-update game input) (step game input))
+  (define (scene-view game) (draw game))
+  (define (scene-hud game) (panels game))
+  (define (scene-save game) (serialize (save-game game)))
+  (define (scene-restore bytes) (restore-game (deserialize bytes))))
+```
+
+`define-page-state` supplies ordinary `PageState` evidence for packing and
+unpacking this concrete state at the host's opaque `Any` boundary. It preserves
+the compiler's checks on reification; it does not permit hidden effectful values
+to cross that boundary. The state must also satisfy `Copy`. Serialization is
+chosen explicitly by the application; these examples use `(snail shell wire)`.
+
+The scene engine performs `mut`, `screen`, `events`, `storage` and `tasks`.
+`next-event` drains the host queue, then waits by ticket when it is empty.
+`FrameEvent` carries elapsed milliseconds; `InputEvent` carries an `Input`.
+`Hidden` and `SaveRequested` save without stopping, and `Reload` saves and returns.
+A shared five-second host timer supplies `SaveRequested` to either engine, so
+saving does not require animation frames. Snail rearms it after each save.
+
+Only a complete successful presentation commits the next state. A trap leaves
+the preceding checkpoint available through `app_state`. The engine reports
+readiness explicitly after its first complete frame. Since elapsed time is
+input, the application decides how its simulation advances. Each task keeps its
+handlers across waits. Reload lets the root save and return, then closes the
+remaining tasks before relinking. Module globals still initialize synchronously;
+dispatch application work from the running entry.
 
 Frames are built from batches of items. The host keeps a batch until its
 version changes, so a still scene costs nothing to send; each item also
