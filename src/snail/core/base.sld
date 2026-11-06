@@ -9,6 +9,7 @@
    define-instance-set
    with-instances
    match
+   with-borrow borrow-copy
    ann
    type-convert
    try-convert
@@ -17,7 +18,7 @@
    effect
    handle
    expose
-   Any U8 I32 I64 F32 F64 Bool Char Unit String Array Vector Ref Bytes FnOnce Fn mut
+   Any U8 I32 I64 F32 F64 Bool Char Unit String Array Vector Ref Bytes FnOnce Fn Borrow mut
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
    not unit panic unsafe-total once call-once Drop drop Clone clone
@@ -113,6 +114,14 @@
            (vector-copy! primitive-vector-copy!))
    (rename (only (snail core primitive) string-append) (string-append append-two-strings)))
   (begin
+
+    ;; ---- Lexical borrowing ----
+
+    (define-syntax with-borrow
+      (syntax-rules ()
+        ((_ (name owner) body ...)
+         (let ((name (borrow owner))) body ...))))
+
 
     ;; ---- Derived syntax ----
 

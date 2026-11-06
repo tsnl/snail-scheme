@@ -33,6 +33,16 @@ adds static provider contracts and tagged saved frames; those features remain
 unimplemented. Reader and surface-syntax work is separate from these backend
 phases.
 
+Lexical borrowing uses these same passes. `with-borrow` expands to a local
+binding of the borrow primitive; `Borrow<T>` remains a type in the checked
+program. Checking recognizes immutable field projections, and ownership
+checking freezes owners, confines aliases to lexical scopes and forbids
+continuation capture while a loan is active. Generic instantiations accept
+owned type arguments, preventing a borrow from being hidden in generic
+storage. The emitter gives a borrow its referent's representation and emits
+introduction and Copy extraction as identities. The
+[ownership chapter](ownership.md#lexically-scoped-borrows) gives the contract.
+
 Static debug and release builds compile the whole program and merge the Rust
 services into one module; release increases optimization. Development builds
 compile one library per module and assemble with the `wat` crate in process.

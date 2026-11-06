@@ -12,6 +12,7 @@
 (define-library (snail core primitive)
   (export
    unit panic unsafe-total unsafe-cast dynamic-cast any-type-id
+   borrow borrow-copy
    once call-once inherit-handlers inherit-handlers-1
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
@@ -79,6 +80,14 @@
     (primitive unsafe-cast (All (A) (-> Funcref A)))
     (primitive dynamic-cast
                (All (A) (requires (Copy A)) (-> Funcref (-> (Vector I64) Bool) (Vector A))))
+
+    ;; ---- Lexical borrows ----
+
+    ;; A loan starts only as a let's initializer. That let is its lexical
+    ;; region: ownership checks the whole body and forbids a borrowed result.
+    ;; The prelude exposes with-borrow instead of this raw operation.
+    (primitive borrow (All (T) (-> T (Borrow T))))
+    (primitive borrow-copy (All (T) (requires (Copy T)) (-> (Borrow T) T)))
 
     ;; ---- One-shot procedures ----
 

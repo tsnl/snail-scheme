@@ -361,7 +361,7 @@
            (("Any") (Reference (any-type m)))
            (("Funcref") (Scalar "funcref"))
            (("Array" "Vector") (Reference (array-type m (element-rep m (first-type args)))))
-           (("FnOnce") (rep m (first-type args)))
+           (("FnOnce" "Borrow") (rep m (first-type args)))
            (("Fn")
             (let ((signature (function-signature m type)))
               (Reference (funcref-type m (Pair-first signature) (Pair-second signature)))))
@@ -602,7 +602,7 @@
     (: builtin-type-names (List String))
     (define builtin-type-names
       (list "U8" "I32" "Bool" "Char" "Unit" "I64" "F32" "F64" "String" "Any" "Funcref" "Array"
-            "Vector" "FnOnce" "Fn"))
+            "Vector" "FnOnce" "Fn" "Borrow"))
 
     (: inline-type? (-> Module Type Bool))
     (define (inline-type? m type)
@@ -1466,7 +1466,7 @@
     (: field-place (-> Fn Case I64 Expr Bool Place ! mut))
     (define (field-place fn case index value multi?)
       (let* ((m (Fn-module fn))
-             (type (Expr-type value))
+             (type (borrow-target (Expr-type value)))
              (field-type (list-ref (case-field-types m type case) index))
              (inline? (accessor-inline? m case index type))
              (offset (field-offset m type case index)))
@@ -1502,7 +1502,7 @@
         ((App callee (Cons arg (Nil)))
          (match (builtin-of fn callee)
            ((Some (Accessor case index _))
-            (if (accessor-inline? (Fn-module fn) case index (Expr-type arg))
+            (if (accessor-inline? (Fn-module fn) case index (borrow-target (Expr-type arg)))
                 (Some (field-place fn case index arg multi?))
                 (None)))
            (_ (None))))
@@ -1514,7 +1514,10 @@
     (define (field-access fn case index value)
       (let* ((m (Fn-module fn))
              (place (field-place fn case index value
-                                 (accessor-inline? m case index (Expr-type value)))))
+                                 (accessor-inline? m
+                                                   case
+                                                   index
+                                                   (borrow-target (Expr-type value))))))
         (with-setup fn place
                     (if (Place-inline? place)
                         (materialize m (Place-type place) (Place-holder place)
@@ -3993,7 +3996,7 @@
              (sequence (lambda (t) (reference-type (rep m t)))))
         (case operation
           (("unit") (list (wat "i32.const" (int 0))))
-          (("once") (list (arg 0)))
+          (("once" "borrow" "borrow-copy") (list (arg 0)))
           (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0) (Fn-evidence fn))))
           (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
           (("discard") (list (wat "drop" (arg 0)) (wat "i32.const" (int 0))))

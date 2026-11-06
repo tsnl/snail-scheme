@@ -47,7 +47,7 @@
         ((Pair (TCon name args) _)
          (match (fold-left (lambda (found arg) (first-order-search program arg found)) entered args)
            ((Some names)
-            (cond ((member? name (list "Any" "Funcref")) (None))
+            (cond ((member? name (list "Any" "Funcref" "Borrow")) (None))
                   ((or (member? name names)
                        (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
                    (Some names))
@@ -95,6 +95,7 @@
     (: linear-search (-> Program (List String) Type Linearity Linearity))
     (define (linear-search program copy type progress)
       (match type
+        ((TCon "Borrow" _) progress)
         ((TCon "FnOnce" _) (Linearity-found?-set progress #t))
         ((TCon name args) (linear-instance program copy name args progress))
         ((TRigid name) (if (member? name copy) progress (Linearity-found?-set progress #t)))

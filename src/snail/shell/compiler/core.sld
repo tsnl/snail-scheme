@@ -7,6 +7,8 @@
    Type
    TCon
    TFun
+   borrow-type?
+   borrow-target
    TRow
    TVar
    TRigid
@@ -236,6 +238,21 @@
     (: empty-row Type)
     (define empty-row (TRow (Nil) (None)))
 
+    ;; Borrow is a scoped, non-owning value type. It remains visible in
+    ;; locals and signatures through checking; only representation lowering
+    ;; uses its target. Lexical ownership checking proves where it may live.
+    (: borrow-type? (-> Type Bool))
+    (define (borrow-type? type)
+      (match type
+        ((TCon "Borrow" (Cons _ (Nil))) #t)
+        (_ #f)))
+
+    (: borrow-target (-> Type Type))
+    (define (borrow-target type)
+      (match type
+        ((TCon "Borrow" (Cons value (Nil))) value)
+        (_ type)))
+
     ;; The function type an `(Fn A B ! e)` holds, which its code has; any
     ;; other type is its own.
     (: fn-arrow (-> Type Type))
@@ -311,6 +328,7 @@
     (: builtin-types (List (Pair String I64)))
     (define builtin-types
       (list (Pair "Any" 0)
+            (Pair "Borrow" 1)
             (Pair "Funcref" 0)
             (Pair "U8" 0)
             (Pair "I32" 0)

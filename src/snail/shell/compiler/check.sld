@@ -695,20 +695,22 @@
     (define (check-lambda ck expr params body captures? type param-types result body-row)
       (learning ck ((row (fresh-meta))
                     (then (unify row body-row (Expr-loc expr)))
-                    (body (within (signed-body (bind-locals ck params param-types) row)
-                                  (lambda (inner)
-                                    (match (if (forbids-mut? (solution inner) body-row)
-                                               (check-confining-body inner body row)
-                                               (infer inner body row))
-                                      ((Pair body inner)
-                                       (match (fit inner result body row (Expr-loc body))
-                                         ((Pair body inner)
-                                          (Pair body
-                                                (cleanup-lambda inner
-                                                                params
-                                                                param-types
-                                                                body
-                                                                row))))))))))
+                    (body
+                     (within (signed-body (bind-locals ck params param-types)
+                                          row)
+                             (lambda (inner)
+                               (match (if (forbids-mut? (solution inner) body-row)
+                                          (check-confining-body inner body row)
+                                          (infer inner body row))
+                                 ((Pair body inner)
+                                  (match (fit inner result body row (Expr-loc body))
+                                    ((Pair body inner)
+                                     (Pair body
+                                           (cleanup-lambda inner
+                                                           params
+                                                           param-types
+                                                           body
+                                                           row))))))))))
                 (let ((value (Expr (Lambda params body captures?) type (Expr-loc expr))))
                   (Pair value (if (Checker-discharged ck)
                                   (Checker-confined-set (Checker-discharged-set ck #f)
@@ -746,6 +748,7 @@
       (let ((before (Checker-pending-count ck)))
         (learning ck ((callee (infer callee row))
                       (args (each (lambda (ck arg) (infer ck arg row)) args))
+                      (callee (borrowed-accessor callee args before))
                       (result (fresh-meta))
                       (latent (fresh-meta))
                       (args (unify-call (Expr-type callee) args result latent row loc))
@@ -753,6 +756,62 @@
                       (then (perform latent row loc))
                       (then (solve-found-rows before row)))
                   (Pair (Expr (App callee args) result loc) ck))))
+
+    ;; An immutable accessor reads through a Borrow without changing
+    ;; it into an owner. Copy fields leave as owned values; linear fields
+    ;; remain borrowed. Ordinary function calls never unwrap Borrow.
+    (: borrowed-accessor (-> Checker Expr (List Expr) I64 (Pair Expr Checker) ! compile))
+    (define (borrowed-accessor ck callee args before)
+      (match (Pair (Expr-term callee) args)
+        ((Pair (Var name _ _) (Cons record (Nil)))
+         (if (borrow-type? (prune (solution ck) (Expr-type record)))
+             (match (program-value (program-of ck) name)
+               ((Some (Accessor case index _))
+                (borrowed-field ck callee record (list-ref (Case-fields case) index)))
+               ((Some (Method class _))
+                (if (field-class? class)
+                    (borrowed-method ck callee record class before)
+                    (Pair callee ck)))
+               (_ (Pair callee ck)))
+             (Pair callee ck)))
+        (_ (Pair callee ck))))
+
+    ;; Field shorthand must resolve to a real slot before it can lend it.
+    ;; A computed field or a generic requirement could consume its owner.
+    (: borrowed-method (-> Checker Expr Expr String I64 (Pair Expr Checker) ! compile))
+    (define (borrowed-method ck callee record class before)
+      (match (Expr-type callee)
+        ((TFun (Cons owner (Nil)) result _)
+         (learning ck ((then (unify owner
+                                    (borrow-target (prune (solution ck) (Expr-type record)))
+                                    (Expr-loc record)))
+                       (then (improve-types before))
+                       (evidence (requirement-evidence (Constraint class (list owner result))
+                                                       (Checker-givens ck) (Checker-copy ck)
+                                                       (Expr-loc record))))
+                   (match (link-field (program-of ck) class (list evidence))
+                     ((Ok field) (borrowed-field ck callee record field))
+                     ((Err _)
+                      (compile-error (Expr-loc record)
+                                     "a Borrow requires a concrete immutable field accessor")))))
+        (_ (panic "internal error: a field method does not have one argument"))))
+
+    (: borrowed-field (-> Checker Expr Expr Field (Pair Expr Checker) ! compile))
+    (define (borrowed-field ck callee record field)
+      (when (Field-mutable? field)
+        (compile-error (Expr-loc record) "a Borrow can read only immutable fields"))
+      (match (Expr-type callee)
+        ((TFun (Cons owner (Nil)) result row)
+         (learning ck ((then (unify owner
+                                    (borrow-target (prune (solution ck) (Expr-type record)))
+                                    (Expr-loc record))))
+                   (Pair (Expr (Expr-term callee)
+                               (TFun (list (Expr-type record))
+                                     (if (linear? ck result)
+                                         (TCon "Borrow" (list result)) result)
+                                     row)
+                               (Expr-loc callee)) ck)))
+        (_ (panic "internal error: an accessor does not have one argument"))))
 
     ;; Arguments are compared one by one, so a mismatch names its argument,
     ;; and each meets its parameter's type (`fit`), which may give it the
@@ -2343,6 +2402,7 @@
          (refuse-function-reference "try-convert" target (Expr-loc expr))
          (check-through-any (Expr-type inner) target (Expr-loc expr)))
         ((TypeTest _ target)
+         (check-boundary-type target (Expr-loc expr))
          (refuse-hidden-effects "type-test" target (Expr-loc expr))
          (refuse-function-reference "type-test" target (Expr-loc expr)))
         (_ (unit)))
@@ -2352,6 +2412,8 @@
     ;; of it: there is no other representation change for it to make.
     (: check-through-any (-> Type Type Loc Unit ! compile))
     (define (check-through-any source target loc)
+      (check-boundary-type source loc)
+      (check-boundary-type target loc)
       (unless (or (string=? (type-key source) (type-key target))
                   (any-type? source)
                   (any-type? target))
@@ -2869,6 +2931,7 @@
     ;; exports obey the same boundary whether their type was written or inferred.
     (: check-exposed-type (-> Checker Type Bool Loc Checker ! compile))
     (define (check-exposed-type ck type dynamic loc)
+      (check-boundary-type type loc)
       (match type
         ((TFun params result row)
          (when (any? (lambda (type) (linear? ck type)) (Cons result params))
