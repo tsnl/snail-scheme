@@ -12,7 +12,7 @@
    (snail core base)
    (snail shell utf8)
    (only (snail shell text) string-downcase string-upcase)
-   (only (snail shell task) tasks)
+   (only (snail shell task) tasks sleep)
    (snail shell dom)
    (snail shell fetch)
    (snail shell json)
@@ -803,7 +803,8 @@
       (Focus ((pane I64)))
       (Reveal ((pane I64)
                (generation I64)
-               (index I64))))
+               (index I64)))
+      )
 
     ;; Where a drag began: the files' edge or a split's divider.
     (enum Grip
@@ -817,9 +818,13 @@
       (Dividing ((split I64)
                  (box Measure))))
 
+    (enum PaletteMode (Commands) (Files))
+
     (struct Palette
-      ((query String)
-       (selected I64)))
+      ((mode PaletteMode)
+       (query String)
+       (selected I64)
+       ))
 
     ;; The editor: the project; the sequence of its latest listing; the open
     ;; buffers, in the order they were opened; the sequence of the latest read
@@ -842,6 +847,7 @@
        (files-width F64)
        (drag (Option Drag))
        (palette (Option Palette))
+
        (auto-open Bool)
        (status Status)
        (report String)
@@ -1039,6 +1045,8 @@
       (DispatchCommand ((name String)))
       (InvokeCommand ((name String)))
       (PaletteQuery ((query String)))
+      (PickFile ((path String)))
+
       (PaletteKey ((key String)
                    (modifiers I32)))
       (DismissPalette)
@@ -1087,7 +1095,9 @@
         ((Answered asked result) (answered model asked result))
         ((Typed pane text) (typed model pane text))
         ((Pressed pane key text start end) (pressed model pane key text start end))
-        ((Focused pane) (stay (Ide-active-set model pane)))
+        ((Focused pane)
+         (stay
+          (Ide-active-set model pane)))
         ((Scrolled pane top) (stay (pane-set model (Pane-scroll-set (pane-of model pane) top))))
         ((Saved path result) (saved model path result))
         ((Formatted path taken) (formatted model path taken))
@@ -1098,10 +1108,10 @@
         ((CloseReady pane path text) (close-ready model pane path text))
         ((DispatchCommand name) (Pair model (list (once (lambda () (InvokeCommand name))))))
         ((InvokeCommand name) (run-command model name))
-        ((PaletteQuery query)
-         (match (Ide-palette model)
-           ((Some _) (stay (Ide-palette-set model (Some (Palette query 0)))))
-           ((None) (stay model))))
+        ((PaletteQuery query) (palette-query model query))
+        ((PickFile path)
+         (invoked model (lambda (model) (opening model path (Focus (Ide-active model))))))
+
         ((PaletteKey key modifiers) (palette-key model key modifiers))
         ((DismissPalette)
          (Pair (Ide-palette-set model (None)) (list (focusing model (Ide-active model)))))
@@ -1230,6 +1240,7 @@
           ((Some buffer)
            (match follow
              ((Reveal _ _ _) (reading model path follow))
+
              (_ (if (loaded? buffer)
                     (Pair model (followed model path follow))
                     (reading model path follow)))))
@@ -1252,6 +1263,7 @@
       (if (match (Ide-palette model) ((Some _) #t) ((None) #f)) (Nil)
           (match follow
             ((Stay) (Nil))
+
             ((Focus pane) (if (showing? model pane path) (list (focusing model pane)) (Nil)))
             ((Reveal pane generation index)
              (if (showing? model pane path)
@@ -1721,21 +1733,28 @@
     (: commands (command-Registry (-> Ide Step)))
     (define commands
       (match (command-register
-              (list->vector
-               (list (command-Command "command-palette" palette-open)
-                     (command-Command "save-buffer" saving)
-                     (command-Command "format-buffer" formatting)
-                     (command-Command "reload-buffer" reloading)
-                     (command-Command "build-project"
-                                      (lambda (model) (Pair model (list (once building)))))
-                     (command-Command "toggle-files"
-                                      (lambda (model)
-                                        (stay
-                                         (Ide-files-shown-set model
-                                                              (not (Ide-files-shown model))))))
-                     (command-Command "split-right" (lambda (model) (divided model "row")))
-                     (command-Command "split-down" (lambda (model) (divided model "column")))
-                     (command-Command "close-editor" closing))))
+              (list->vector (list (command-Command "command-palette"
+                                                   (lambda (model) (palette-open model (Commands))))
+                                  (command-Command "go-to-file"
+                                                   (lambda (model) (palette-open model (Files))))
+
+                                  (command-Command "save-buffer" saving)
+                                  (command-Command "format-buffer" formatting)
+                                  (command-Command "reload-buffer" reloading)
+                                  (command-Command "build-project"
+                                                   (lambda (model)
+                                                     (Pair model (list (once building)))))
+                                  (command-Command "toggle-files" (lambda (model)
+                                                                    (stay
+                                                                     (Ide-files-shown-set model
+                                                                                          (not
+                                                                                           (Ide-files-shown
+                                                                                            model))))))
+                                  (command-Command "split-right"
+                                                   (lambda (model) (divided model "row")))
+                                  (command-Command "split-down"
+                                                   (lambda (model) (divided model "column")))
+                                  (command-Command "close-editor" closing))))
         ((Ok registry) registry)
         ((Err message) (panic message))))
 
@@ -1747,17 +1766,24 @@
     (define shortcuts
       (match (shortcut-register
               (vector-map command-Command-name (command-Registry-commands commands))
-              (list->vector
-               (concatenate
-                (list
-                 (bound-chords "command-palette"
-                               (Cons (Chord "F1" 0) (primary-chords "P" shift-key)))
-                 (bound-chords "save-buffer" (primary-chords "s" 0))
-                 (bound-chords "format-buffer" (primary-chords "F" shift-key))
-                 (bound-chords "toggle-files" (primary-chords "b" 0))
-                 (bound-chords "split-right" (primary-chords "\\" 0))
-                 (bound-chords "split-down" (primary-chords "|" shift-key))
-                 (bound-chords "close-editor" (Cons (Chord "w" alt-key) (primary-chords "w" 0)))))))
+              (list->vector (concatenate (list (bound-chords "command-palette"
+                                                             (Cons (Chord "F1" 0)
+                                                                   (primary-chords "P" shift-key)))
+                                               (bound-chords "go-to-file" (primary-chords "p" 0))
+
+                                               (bound-chords "save-buffer" (primary-chords "s" 0))
+                                               (bound-chords "format-buffer"
+                                                             (list
+                                                              (Chord "F" (+ alt-key shift-key))))
+                                               (bound-chords "reload-buffer" (Nil))
+                                               (bound-chords "build-project" (Nil))
+                                               (bound-chords "toggle-files" (primary-chords "b" 0))
+                                               (bound-chords "split-right" (primary-chords "\\" 0))
+                                               (bound-chords "split-down"
+                                                             (primary-chords "|" shift-key))
+                                               (bound-chords "close-editor"
+                                                             (Cons (Chord "w" alt-key)
+                                                                   (primary-chords "w" 0)))))))
         ((Ok shortcuts) shortcuts)
         ((Err message) (panic message))))
 
@@ -1780,9 +1806,10 @@
               (if (match (Ide-palette next) ((Some _) #t) ((None) #f)) (stay next)
                   (Pair next (list (focusing next (Ide-active next))))))))
 
-    (: palette-open (-> Ide Step))
-    (define (palette-open model)
-      (Pair (Ide-palette-set model (Some (Palette "" 0))) (list (focus-id "command-query"))))
+    (: palette-open (-> Ide PaletteMode Step))
+    (define (palette-open model mode)
+      (Pair (Ide-palette-set model (Some (Palette mode "" 0)))
+            (list (focus-id "command-query"))))
 
     (: focus-id (-> String (Command Msg)))
     (define (focus-id id)
@@ -1806,26 +1833,55 @@
                  ((Nil) #f)
                  ((Cons next more) (loop (if (char=? char next) rest wanted) more))))))))
 
-    (: palette-names (-> Palette (List String)))
-    (define (palette-names palette)
-      (filter (lambda (name) (search-match? (Palette-query palette) name))
-              (vector->list
-               (vector-map command-Command-name (command-Registry-commands commands)))))
+    (struct Choice
+      ((label String)
+       (detail String)
+       (action Msg)))
+
+    (: palette-choices (-> Ide Palette (List Choice)))
+    (define (palette-choices model palette)
+      (match (Palette-mode palette)
+        ((Commands)
+         (map (lambda (name) (Choice name (command-keys name) (DispatchCommand name)))
+              (filter (lambda (name) (search-match? (Palette-query palette) name))
+                      (vector->list
+                       (vector-map command-Command-name (command-Registry-commands commands))))))
+        ((Files)
+         (map (lambda (path) (Choice path "" (PickFile path)))
+              (take (filter (lambda (path) (search-match? (Palette-query palette) path))
+                            (file-choices model)) 200)))
+        ))
+
+    (: file-choices (-> Ide (List String)))
+    (define (file-choices model)
+      (list-sort string<?
+                 (fold-left (lambda (paths buffer)
+                              (if (member? (Buffer-path buffer) paths)
+                                  paths
+                                  (Cons (Buffer-path buffer) paths)))
+                            (Project-files (Ide-project model)) (Ide-buffers model))))
 
     (: palette-key (-> Ide String I32 Step))
     (define (palette-key model key modifiers)
       (match (Ide-palette model)
         ((None) (stay model))
         ((Some palette)
-         (let* ((names (palette-names palette)) (count (length names))
+         (let* ((choices (palette-choices model palette)) (count (length choices))
                 (at (min (Palette-selected palette) (- count 1)))
                 (backwards (or (string=? key "ArrowUp") (= modifiers shift-key)))
                 (next (max 0 (min (- count 1) (+ at (if backwards -1 1))))))
            (cond ((string=? key "Escape") (update model (DismissPalette)))
                  ((and (string=? key "Enter") (> count 0))
-                  (update model (DispatchCommand (list-ref names at))))
+                  (update model (Choice-action (list-ref choices at))))
                  (else
                   (stay (Ide-palette-set model (Some (Palette-selected-set palette next))))))))))
+
+    (: palette-query (-> Ide String Step))
+    (define (palette-query model query)
+      (match (Ide-palette model)
+        ((Some palette)
+         (stay (Ide-palette-set model (Some (Palette (Palette-mode palette) query 0)))))
+        ((None) (stay model))))
 
     ;; ---- Controlling runs ----
 
@@ -2016,13 +2072,13 @@
       (match (Ide-palette model)
         ((None) (Nil))
         ((Some palette)
-         (let* ((names (palette-names palette))
-                (selected (min (Palette-selected palette) (- (length names) 1))))
+         (let* ((choices (palette-choices model palette))
+                (selected (min (Palette-selected palette) (- (length choices) 1))))
            (list (Element "div" (list (Attr "class" "palette-layer"))
                           (list (Element "button"
                                          (list (Attr "class" "palette-backdrop")
                                                (Attr "tabindex" "-1")
-                                               (Attr "aria-label" "Close command palette")
+                                               (Attr "aria-label" "Close palette")
                                                (On "click"
                                                    (Nil)
                                                    (Allow)
@@ -2031,86 +2087,79 @@
                                 (Element "section"
                                          (list (Attr "class" "palette") (Attr "role" "dialog")
                                                (Attr "aria-modal" "true")
-                                               (Attr "aria-label" "Commands"))
-                                         (list (Element "input"
-                                                        (list (Attr "id" "command-query")
-                                                              (Attr "placeholder" "Run a command…")
-                                                              (Attr "aria-label" "Command name")
-                                                              (Attr "role" "combobox")
-                                                              (Attr "aria-expanded" "true")
-                                                              (Attr "aria-controls"
-                                                                    "command-results")
-                                                              (Attr "aria-autocomplete" "list")
-                                                              (Attr "aria-describedby"
-                                                                    "palette-help")
-                                                              (Attr "aria-activedescendant"
-                                                                    (if (< selected 0)
-                                                                        ""
-                                                                        (string-append
-                                                                         "command-result-"
-                                                                         (show
-                                                                          selected))))
-                                                              (Attr "autocomplete" "off")
-                                                              (Attr "spellcheck" "false")
-                                                              (StringProperty "value"
-                                                                              (Palette-query
-                                                                               palette))
-                                                              (On "input"
-                                                                  (list (Value))
-                                                                  (Allow)
-                                                                  (lambda (event)
-                                                                    (PaletteQuery
-                                                                     (Event-value event))))
-                                                              (On "keydown"
-                                                                  (list (Key))
-                                                                  (Chords palette-chords)
-                                                                  (lambda (event)
-                                                                    (PaletteKey (Event-key event)
-                                                                                (Event-modifiers
-                                                                                 event)))))
-                                                        (Nil))
-                                               (Element "div"
-                                                        (list (Attr "id" "command-results")
-                                                              (Attr "role" "listbox")
-                                                              (NumberProperty "scrollTop"
-                                                                              (i64->f64 (max 0
-                                                                                             (-
-                                                                                              (*
-                                                                                               selected
-                                                                                               30)
-                                                                                              180)))))
-                                                        (if (null? names)
-                                                            (list (Element "p"
-                                                                           (list (Attr "class"
-                                                                                       "palette-empty"))
-                                                                           (list
-                                                                            (Text
-                                                                             "No matching commands"))))
-                                                            (map (lambda (index)
-                                                                   (palette-option
-                                                                    (list-ref names index)
-                                                                    index
-                                                                    (= index selected)))
-                                                                 (iota (length names)))))
-                                               (Element "p"
-                                                        (list (Attr "id" "palette-help")
-                                                              (Attr "class" "palette-help"))
+                                               (Attr "aria-label" (palette-title palette)))
+                                         (list (palette-input palette selected)
+                                               (palette-results palette choices selected)
+                                               (Element "p" (list (Attr "id" "palette-help")
+                                                                  (Attr "class" "palette-help"))
                                                         (list
-                                                         (Text
-                                                          "↑ ↓ choose · Enter run · Escape close"))))))))))))
+                                                         (Text (palette-help palette)))))))))))))
 
-    (: palette-option (-> String I64 Bool (Html Msg)))
-    (define (palette-option name index selected)
+    (: palette-title (-> Palette String))
+    (define (palette-title palette)
+      (match (Palette-mode palette)
+        ((Commands) "Run a command…")
+        ((Files) "Go to file…")
+        ))
+
+    (: palette-input (-> Palette I64 (Html Msg)))
+    (define (palette-input palette selected)
+      (Element "input"
+               (list (Attr "id" "command-query")
+                     (Attr "placeholder" (palette-title palette))
+                     (Attr "aria-label" (palette-title palette))
+                     (Attr "role" "combobox") (Attr "aria-expanded" "true")
+                     (Attr "aria-controls" "command-results") (Attr "aria-autocomplete" "list")
+                     (Attr "aria-describedby" "palette-help")
+                     (Attr "aria-activedescendant"
+                           (if (< selected 0) "" (string-append "command-result-" (show selected))))
+                     (Attr "autocomplete" "off") (Attr "spellcheck" "false")
+                     (StringProperty "value" (Palette-query palette))
+                     (On "input" (list (Value)) (Allow)
+                         (lambda (event) (PaletteQuery (Event-value event))))
+                     (On "keydown" (list (Key)) (Chords palette-chords)
+                         (lambda (event) (PaletteKey (Event-key event) (Event-modifiers event)))))
+               (Nil)))
+
+    (: palette-results (-> Palette (List Choice) I64 (Html Msg)))
+    (define (palette-results palette choices selected)
+      (Element "div"
+               (list (Attr "id" "command-results") (Attr "role" "listbox")
+                     (NumberProperty "scrollTop" (i64->f64 (max 0 (- (* selected 30) 180)))))
+               (if (null? choices)
+                   (list (Element "p" (list (Attr "class" "palette-empty") (Attr "role" "status"))
+                                  (list (Text (palette-empty palette)))))
+                   (map-indexed
+                    (lambda (index choice) (palette-option choice index (= index selected)))
+                    choices))))
+
+    (: palette-empty (-> Palette String))
+    (define (palette-empty palette) "No matches")
+
+    (: palette-help (-> Palette String))
+    (define (palette-help palette)
+      (match (Palette-mode palette)
+        ((Files) "↑ ↓ choose · Enter open · Escape close · Up to 200 paths; type to narrow")
+        ((Commands) "↑ ↓ choose · Enter run · Escape close")))
+
+    (: palette-option (-> Choice I64 Bool (Html Msg)))
+    (define (palette-option choice index selected)
       (Element "button"
                (list (Attr "id" (string-append "command-result-" (show index)))
                      (Attr "class" (if selected "palette-option selected" "palette-option"))
                      (Attr "role" "option") (Attr "aria-selected" (if selected "true" "false"))
-                     (Attr "tabindex" "-1") (Attr "data-command" name)
+                     (Attr "tabindex" "-1")
+                     (Attr "data-command"
+                           (match (Choice-action choice) ((DispatchCommand name) name) (_ "")))
                      (On "mousedown" (Nil) (Always) (lambda (event) (Nothing)))
-                     (On "click" (Nil) (Allow) (lambda (event) (DispatchCommand name))))
-               (list (Text name)
-                     (Element "span" (list (Attr "class" "command-keys"))
-                              (list (Text (command-keys name)))))))
+                     (On "click" (Nil) (Allow) (lambda (event) (Choice-action choice))))
+               (list
+                (Element "span"
+                         (list (Attr "class" "choice-label"))
+                         (list (Text (Choice-label choice))))
+                (Element "span"
+                         (list (Attr "class" "command-keys"))
+                         (list (Text (Choice-detail choice)))))))
 
     (: command-keys (-> String String))
     (define (command-keys name)

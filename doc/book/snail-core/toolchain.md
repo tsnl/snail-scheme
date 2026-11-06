@@ -403,7 +403,13 @@ Chromium checks retain the browser-specific behavior: focus, default keyboard
 actions, undo, cancellation and browser lifecycle. JavaScript is the browser
 launcher and API boundary, not the implementation of IDE behavior.
 
-Command/Ctrl+S saves, Command/Ctrl+B toggles files, Command/Ctrl+Shift+F formats,
+Command/Ctrl+P opens `go-to-file`. It filters project paths and open buffers
+by case-insensitive ordered characters; for example, `lnote` finds
+`lib/notes.txt`. Enter opens the selected path through the ordinary buffer
+read, Escape returns focus to the editor, and results are capped at 200 paths.
+The file picker runs in the browser over the service's file listing.
+
+Command/Ctrl+S saves, Command/Ctrl+B toggles files, Alt+Shift+F formats,
 and Command/Ctrl+backslash splits right (Shift splits down). Command/Ctrl+W
 closes the active editor when the browser delivers that key; browsers may reserve
 it to close their own tab or window. Alt+W and the editor's × button provide
