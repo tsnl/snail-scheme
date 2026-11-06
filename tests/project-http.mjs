@@ -36,7 +36,7 @@ async function quiet() {
   await delay(500);
 }
 
-const stream = await service.events();
+let stream = await service.events();
 let writer = null;
 try {
   await service.until(opened(stream), 'the first event frames');
@@ -147,7 +147,10 @@ try {
   await reconnected.close();
 
   // A first status larger than the writable high-water mark must still arrive:
-  // its one diagnostic names a 200,000-character identifier.
+  // its one diagnostic names a 200,000-character identifier. Finish the earlier
+  // stream checks first: this snapshot may backpressure an existing connection,
+  // which the service is allowed to close until the client reconnects.
+  await stream.close();
   const long = 'x'.repeat(200_000);
   let before = (await service.status()).id;
   fs.writeFileSync(source, `(import (snail core base))\n(${long})\n`);
@@ -159,6 +162,7 @@ try {
   before = (await service.status()).id;
   fs.writeFileSync(source, program('saved'));
   await service.settled(before);
+  stream = await service.events();
 
   // A second service cannot take the port, and the first keeps answering.
   const second = await spawnDevelopment(root, project, Number(new URL(url).port)).exited;
