@@ -804,7 +804,9 @@
       (Reveal ((pane I64)
                (generation I64)
                (index I64)))
-      )
+      (SearchPoint ((pane I64)
+                    (sequence I64)
+                    (hit Hit))))
 
     ;; Where a drag began: the files' edge or a split's divider.
     (enum Grip
@@ -818,13 +820,24 @@
       (Dividing ((split I64)
                  (box Measure))))
 
-    (enum PaletteMode (Commands) (Files))
+    ;; Search coordinates belong to one saved revision, never to a draft.
+    (struct Hit
+      ((point Point)
+       (revision String)
+       (snippet String)))
+
+    (struct SearchResults
+      ((hits (List Hit))
+       (skipped I64)
+       (limited Bool)))
+
+    (enum PaletteMode (Commands) (Files) (Contents))
 
     (struct Palette
       ((mode PaletteMode)
        (query String)
        (selected I64)
-       ))
+       (results (Option (Result SearchResults Failure)))))
 
     ;; The editor: the project; the sequence of its latest listing; the open
     ;; buffers, in the order they were opened; the sequence of the latest read
@@ -847,7 +860,7 @@
        (files-width F64)
        (drag (Option Drag))
        (palette (Option Palette))
-
+       (searches I64)
        (auto-open Bool)
        (status Status)
        (report String)
@@ -871,6 +884,7 @@
            220.0
            (None)
            (None)
+           0
            #t
            (Status "Connecting…" "starting" "")
            ""
@@ -1046,7 +1060,11 @@
       (InvokeCommand ((name String)))
       (PaletteQuery ((query String)))
       (PickFile ((path String)))
-
+      (PickHit ((sequence I64)
+                (hit Hit)))
+      (SearchDue ((sequence I64)))
+      (Searched ((sequence I64)
+                 (result (Result SearchResults Failure))))
       (PaletteKey ((key String)
                    (modifiers I32)))
       (DismissPalette)
@@ -1090,14 +1108,14 @@
          (if (current-stream? model stream) (heard model stream event) (stay model)))
         ((Ended) (stay model))
         ((Listed sequence result) (listed model sequence result))
-        ((Open path) (opening model path (Focus (Ide-active model))))
-        ((Show generation index) (showing-diagnostic model generation index))
+        ((Open path) (opening (search-invalidated model) path (Focus (Ide-active model))))
+        ((Show generation index) (showing-diagnostic (search-invalidated model) generation index))
         ((Answered asked result) (answered model asked result))
         ((Typed pane text) (typed model pane text))
         ((Pressed pane key text start end) (pressed model pane key text start end))
         ((Focused pane)
          (stay
-          (Ide-active-set model pane)))
+          (Ide-active-set (if (= pane (Ide-active model)) model (search-invalidated model)) pane)))
         ((Scrolled pane top) (stay (pane-set model (Pane-scroll-set (pane-of model pane) top))))
         ((Saved path result) (saved model path result))
         ((Formatted path taken) (formatted model path taken))
@@ -1111,7 +1129,9 @@
         ((PaletteQuery query) (palette-query model query))
         ((PickFile path)
          (invoked model (lambda (model) (opening model path (Focus (Ide-active model))))))
-
+        ((PickHit sequence hit) (pick-hit model sequence hit))
+        ((SearchDue sequence) (search-due model sequence))
+        ((Searched sequence result) (searched model sequence result))
         ((PaletteKey key modifiers) (palette-key model key modifiers))
         ((DismissPalette)
          (Pair (Ide-palette-set model (None)) (list (focusing model (Ide-active model)))))
@@ -1240,7 +1260,7 @@
           ((Some buffer)
            (match follow
              ((Reveal _ _ _) (reading model path follow))
-
+             ((SearchPoint _ _ _) (reading model path follow))
              (_ (if (loaded? buffer)
                     (Pair model (followed model path follow))
                     (reading model path follow)))))
@@ -1263,7 +1283,7 @@
       (if (match (Ide-palette model) ((Some _) #t) ((None) #f)) (Nil)
           (match follow
             ((Stay) (Nil))
-
+            ((SearchPoint pane sequence hit) (search-followed model pane sequence hit))
             ((Focus pane) (if (showing? model pane path) (list (focusing model pane)) (Nil)))
             ((Reveal pane generation index)
              (if (showing? model pane path)
@@ -1737,7 +1757,8 @@
                                                    (lambda (model) (palette-open model (Commands))))
                                   (command-Command "go-to-file"
                                                    (lambda (model) (palette-open model (Files))))
-
+                                  (command-Command "search-project"
+                                                   (lambda (model) (palette-open model (Contents))))
                                   (command-Command "save-buffer" saving)
                                   (command-Command "format-buffer" formatting)
                                   (command-Command "reload-buffer" reloading)
@@ -1770,7 +1791,8 @@
                                                              (Cons (Chord "F1" 0)
                                                                    (primary-chords "P" shift-key)))
                                                (bound-chords "go-to-file" (primary-chords "p" 0))
-
+                                               (bound-chords "search-project"
+                                                             (primary-chords "F" shift-key))
                                                (bound-chords "save-buffer" (primary-chords "s" 0))
                                                (bound-chords "format-buffer"
                                                              (list
@@ -1801,15 +1823,16 @@
 
     (: invoked (-> Ide (-> Ide Step) Step))
     (define (invoked model run)
-      (then (run (Ide-palette-set model (None)))
+      (then (run (Ide-palette-set (search-invalidated model) (None)))
             (lambda (next)
               (if (match (Ide-palette next) ((Some _) #t) ((None) #f)) (stay next)
                   (Pair next (list (focusing next (Ide-active next))))))))
 
     (: palette-open (-> Ide PaletteMode Step))
     (define (palette-open model mode)
-      (Pair (Ide-palette-set model (Some (Palette mode "" 0)))
-            (list (focus-id "command-query"))))
+      (let ((next (Ide-searches-set model (+ (Ide-searches model) 1))))
+        (Pair (Ide-palette-set next (Some (Palette mode "" 0 (None))))
+              (list (focus-id "command-query")))))
 
     (: focus-id (-> String (Command Msg)))
     (define (focus-id id)
@@ -1850,7 +1873,11 @@
          (map (lambda (path) (Choice path "" (PickFile path)))
               (take (filter (lambda (path) (search-match? (Palette-query palette) path))
                             (file-choices model)) 200)))
-        ))
+        ((Contents)
+         (match (Palette-results palette)
+           ((Some (Ok results))
+            (map (lambda (hit) (hit-choice (Ide-searches model) hit)) (SearchResults-hits results)))
+           (_ (Nil))))))
 
     (: file-choices (-> Ide (List String)))
     (define (file-choices model)
@@ -1860,6 +1887,13 @@
                                   paths
                                   (Cons (Buffer-path buffer) paths)))
                             (Project-files (Ide-project model)) (Ide-buffers model))))
+
+    (: hit-choice (-> I64 Hit Choice))
+    (define (hit-choice sequence hit)
+      (let ((point (Hit-point hit)))
+        (Choice (string-append (Point-file point) ":" (show (Point-line point)) ":"
+                               (show (Point-column point)))
+                (Hit-snippet hit) (PickHit sequence hit))))
 
     (: palette-key (-> Ide String I32 Step))
     (define (palette-key model key modifiers)
@@ -1876,12 +1910,121 @@
                  (else
                   (stay (Ide-palette-set model (Some (Palette-selected-set palette next))))))))))
 
+    ;; Each opening and query gets a monotonically increasing request number.
+    ;; Closing, changing mode, and A→B→A queries all withdraw old replies.
+    ;; Explicit commands and navigation also cancel pending cursor movement.
+    (: search-invalidated (-> Ide Ide))
+    (define (search-invalidated model)
+      (Ide-searches-set model (+ 1 (Ide-searches model))))
+
     (: palette-query (-> Ide String Step))
     (define (palette-query model query)
       (match (Ide-palette model)
+        ((None) (stay model))
         ((Some palette)
-         (stay (Ide-palette-set model (Some (Palette (Palette-mode palette) query 0)))))
+         (let* ((sequence (+ 1 (Ide-searches model)))
+                (next (Ide-palette-set (Ide-searches-set model sequence)
+                                       (Some (Palette (Palette-mode palette) query 0 (None))))))
+           (if (and (contents? palette) (not (string=? query "")))
+               (Pair next (list (once (lambda () (sleep 120) (SearchDue sequence)))))
+               (stay next))))))
+
+    (: contents? (-> Palette Bool))
+    (define (contents? palette)
+      (match (Palette-mode palette) ((Contents) #t) (_ #f)))
+
+    (: search-current? (-> Ide I64 Bool))
+    (define (search-current? model sequence)
+      (and (= sequence (Ide-searches model))
+           (match (Ide-palette model) ((Some palette) (contents? palette)) ((None) #f))))
+
+    (: search-due (-> Ide I64 Step))
+    (define (search-due model sequence)
+      (match (Ide-palette model)
+        ((Some palette)
+         (if (search-current? model sequence)
+             (Pair model (list (once (lambda ()
+                                       (Searched sequence
+                                                 (search-reply (api "GET"
+                                                                    (string-append "/api/search?q="
+                                                                                   (url-component
+                                                                                    (Palette-query
+                                                                                     palette)))
+                                                                    (Nil) "")))))))
+             (stay model)))
         ((None) (stay model))))
+
+    (: searched (-> Ide I64 (Result SearchResults Failure) Step))
+    (define (searched model sequence result)
+      (match (Ide-palette model)
+        ((Some palette)
+         (if (search-current? model sequence)
+             (stay (Ide-palette-set model (Some (Palette-results-set palette (Some result)))))
+             (stay model)))
+        ((None) (stay model))))
+
+    (: pick-hit (-> Ide I64 Hit Step))
+    (define (pick-hit model sequence hit)
+      (if (search-current? model sequence)
+          (invoked model (lambda (model)
+                           (opening model (Point-file (Hit-point hit))
+                                    (SearchPoint (Ide-active model) (Ide-searches model) hit))))
+          (stay model)))
+
+    ;; A fresh read must still match the result before its point can be used.
+    ;; Opening a dirty or changed file preserves it and only focuses its editor.
+    (: search-followed (-> Ide I64 I64 Hit (List (Command Msg))))
+    (define (search-followed model pane sequence hit)
+      (if (and (= sequence (Ide-searches model)) (showing? model pane (Point-file (Hit-point hit))))
+          (match (pane-buffer model pane)
+            ((Some buffer)
+             (if (hit-current? hit buffer)
+                 (list (revealing pane (display-text (Buffer-text buffer)) (Hit-point hit)))
+                 (list (focusing model pane))))
+            ((None) (Nil)))
+          (Nil)))
+
+    (: hit-current? (-> Hit Buffer Bool))
+    (define (hit-current? hit buffer)
+      (and (not (dirty? buffer)) (not (Buffer-saving buffer)) (string=? (Buffer-problem buffer) "")
+           (match (Buffer-baseline buffer)
+             ((Some snapshot) (string=? (Hit-revision hit) (Snapshot-revision snapshot)))
+             ((None) #f))))
+
+    (: search-reply (-> (Result Json Failure) (Result SearchResults Failure)))
+    (define (search-reply reply)
+      (match reply
+        ((Err failure) (Err failure))
+        ((Ok json)
+         (match (Pair (json-number json "skipped") (json-member json "limited"))
+           ((Pair (Some skipped) (Some (JsonBool limited)))
+            (match (json-member json "hits")
+              ((Some (JsonArray items))
+               (match (read-hits items)
+                 ((Some hits) (Ok (SearchResults hits skipped limited)))
+                 ((None) (Err (Failure 200 "invalid search locations")))))
+              (_ (Err (Failure 200 "missing search results")))))
+           (_ (Err (Failure 200 "invalid search response")))))))
+
+    (: read-hits (-> (List Json) (Option (List Hit))))
+    (define (read-hits items)
+      (match items
+        ((Nil) (Some (Nil)))
+        ((Cons item rest)
+         (match (Pair (read-hit item) (read-hits rest))
+           ((Pair (Some hit) (Some hits)) (Some (Cons hit hits)))
+           (_ (None))))))
+
+    (: read-hit (-> Json (Option Hit)))
+    (define (read-hit item)
+      (match (Pair (json-number item "line") (json-number item "column"))
+        ((Pair (Some line) (Some column))
+         (if (and (> line 0) (> column 0) (not (string=? (json-text item "path") ""))
+                  (not (string=? (json-text item "revision") "")))
+             (Some (Hit (Point (json-text item "path") line column)
+                        (json-text item "revision") (json-text item "snippet")))
+             (None)))
+        (_ (None))))
 
     ;; ---- Controlling runs ----
 
@@ -2100,7 +2243,7 @@
       (match (Palette-mode palette)
         ((Commands) "Run a command…")
         ((Files) "Go to file…")
-        ))
+        ((Contents) "Search saved text…")))
 
     (: palette-input (-> Palette I64 (Html Msg)))
     (define (palette-input palette selected)
@@ -2134,13 +2277,33 @@
                     choices))))
 
     (: palette-empty (-> Palette String))
-    (define (palette-empty palette) "No matches")
+    (define (palette-empty palette)
+      (if (contents? palette)
+          (if (string=? (Palette-query palette) "") "Type text to search project files"
+              (match (Palette-results palette)
+                ((None) "Searching…")
+                ((Some (Err failure)) (Failure-message failure))
+                ((Some (Ok _)) "No matches in saved text")))
+          "No matches"))
 
     (: palette-help (-> Palette String))
     (define (palette-help palette)
-      (match (Palette-mode palette)
-        ((Files) "↑ ↓ choose · Enter open · Escape close · Up to 200 paths; type to narrow")
-        ((Commands) "↑ ↓ choose · Enter run · Escape close")))
+      (if (contents? palette)
+          (string-append "Saved text · ignores case · drafts stay unchanged"
+                         (match (Palette-results palette)
+                           ((Some (Ok results))
+                            (string-append (if (SearchResults-limited results)
+                                               " · Results limited; narrow your query"
+                                               "")
+                                           (if (> (SearchResults-skipped results) 0)
+                                               (string-append " · "
+                                                              (show (SearchResults-skipped results))
+                                                              " files skipped")
+                                               "")))
+                           (_ "")))
+          (match (Palette-mode palette)
+            ((Files) "↑ ↓ choose · Enter open · Escape close · Up to 200 paths; type to narrow")
+            (_ "↑ ↓ choose · Enter run · Escape close"))))
 
     (: palette-option (-> Choice I64 Bool (Html Msg)))
     (define (palette-option choice index selected)

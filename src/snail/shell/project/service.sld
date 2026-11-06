@@ -39,7 +39,8 @@
    (snail shell watch)
    (snail shell development)
    (snail shell project bundle)
-   (snail shell project files))
+   (snail shell project files)
+   (prefix (snail shell project search) search-))
   (begin
 
     ;; ---- Setup ----
@@ -1667,6 +1668,8 @@
     (define (api setup owner disk request method path query)
       (match (Pair method path)
         ((Pair "GET" (Cons "api" (Cons "project" (Nil)))) (project-listing setup disk))
+        ((Pair "GET" (Cons "api" (Cons "search" (Nil))))
+         (project-search setup disk (query-value query "q")))
         ((Pair "GET" (Cons "api" (Cons "file" (Nil))))
          (file-response (read-project-text (Setup-project setup) (query-value query "path"))))
         ((Pair "GET" (Cons "api" (Cons "status" (Nil))))
@@ -1708,20 +1711,57 @@
         (let ((answer (mailbox-receive reply)))
           (json-response (Answer-status answer) (Answer-body answer)))))
 
-    (: project-listing (-> Setup (Mailbox Scan) Response ! mut tasks fs))
-    (define (project-listing setup disk)
-      (let ((reply (make-mailbox)) (project (Setup-project setup)))
+    ;; Both listing and search use a fresh inventory, filtered through the
+    ;; same served-path boundary as file reads.
+    (: project-files (-> Setup (Mailbox Scan) (Result (List String) Response) ! mut tasks fs))
+    (define (project-files setup disk)
+      (let ((reply (make-mailbox)))
         (mailbox-post disk (Listing reply))
         (match (mailbox-receive reply)
-          ((Err message) (refused 500 message))
+          ((Err message) (Err (refused 500 message)))
           ((Ok paths)
-           (match (project-text-paths project paths)
-             ((Ok files)
-              (json-response 200
-                             (JsonObject (list (Pair "name" (JsonString (base-name project)))
-                                               (Pair "directory" (JsonString project))
-                                               (Pair "files" (JsonArray (map JsonString files)))))))
-             ((Err refusal) (file-refusal refusal)))))))
+           (match (project-text-paths (Setup-project setup) paths)
+             ((Ok files) (Ok files))
+             ((Err refusal) (Err (file-refusal refusal))))))))
+
+    (: project-listing (-> Setup (Mailbox Scan) Response ! mut tasks fs))
+    (define (project-listing setup disk)
+      (match (project-files setup disk)
+        ((Err response) response)
+        ((Ok files)
+         (let ((project (Setup-project setup)))
+           (json-response 200
+                          (JsonObject (list (Pair "name" (JsonString (base-name project)))
+                                            (Pair "directory" (JsonString project))
+                                            (Pair "files" (JsonArray (map JsonString files))))))))))
+
+    (: project-search (-> Setup (Mailbox Scan) String Response ! mut tasks fs))
+    (define (project-search setup disk text)
+      (match (search-parse-query text)
+        ((Err message) (refused 400 message))
+        ((Ok query)
+         (match (project-files setup disk)
+           ((Err response) response)
+           ((Ok paths)
+            (json-response 200
+                           (search-json
+                            (search-search-project (Setup-project setup) paths query))))))))
+
+    (: search-json (-> search-Results Json))
+    (define (search-json results)
+      (JsonObject
+       (list (Pair "hits" (JsonArray (map hit-json (search-Results-hits results))))
+             (Pair "skipped" (JsonInteger (search-Results-skipped results)))
+             (Pair "limited" (JsonBool (search-Results-limited results))))))
+
+    (: hit-json (-> search-Hit Json))
+    (define (hit-json hit)
+      (JsonObject
+       (list (Pair "path" (JsonString (search-Hit-path hit)))
+             (Pair "revision" (JsonString (search-Hit-revision hit)))
+             (Pair "line" (JsonInteger (search-Hit-line hit)))
+             (Pair "column" (JsonInteger (search-Hit-column hit)))
+             (Pair "snippet" (JsonString (search-Hit-snippet hit))))))
 
     (: file-response (-> (Result ProjectText FileRefusal) Response))
     (define (file-response result)
