@@ -27,11 +27,13 @@
    On
    Keyed
    map-html
-   run-ui)
+   run-ui
+   run-reactor)
   (import
    (snail core base)
    (snail core table)
    (snail shell task)
+   (only (snail shell future) completion completed)
    (snail shell dom))
   (begin
 
@@ -578,6 +580,111 @@
     (define (answer box command)
       (mailbox-post box (command))
       (wake))
+
+    ;; ---- Owned models ----
+
+    ;; The model owns its pending futures. An input is Some message; None
+    ;; is a generic wake after a completion. Update polls without waiting.
+    ;; View, window and snapshot run inside explicit lexical loans. The loop keeps
+    ;; ownership across waits; commit and checkpoint receive only snapshots.
+    ;; The compiler checks update's callback has no control effects.
+    (: run-reactor
+       (All (Model M S e) (requires (Drop (! mut e) Model))
+            (-> Model
+                (List M)
+                (-> Model (Option M) Model ! mut completion e)
+                (-> (Borrow Model) (Html M))
+                (-> (Borrow Model) (List (Attribute M)))
+                (-> (Borrow Model) S)
+                (-> S Unit ! mut e)
+                (-> S Unit ! mut tasks e)
+                Model ! mut dom tasks e)))
+    (define (run-reactor model start update view window snapshot commit checkpoint)
+      (handle completion ((completed wake))
+        (mount-reactor model start update view window snapshot commit checkpoint)))
+
+    (: mount-reactor
+       (All (Model M S e) (requires (Drop (! mut e) Model))
+            (-> Model
+                (List M)
+                (-> Model (Option M) Model ! mut completion e)
+                (-> (Borrow Model) (Html M))
+                (-> (Borrow Model) (List (Attribute M)))
+                (-> (Borrow Model) S)
+                (-> S Unit ! mut e)
+                (-> S Unit ! mut tasks e)
+                Model ! mut completion dom tasks e)))
+    (define (mount-reactor model start update view window snapshot commit checkpoint)
+      (let ((shown (create (with-borrow (read model) (view read))))
+            (window-shown (window-shown (with-borrow (read model) (window read)))))
+        (insert-node (document-root) (shown-node shown) (None))
+        (serve-reactor update view window snapshot commit checkpoint
+                       (fold-left (lambda (running message)
+                                    (step-reactor update view window running (Some message)))
+                                  (showing model shown window-shown)
+                                  start))))
+
+    (: serve-reactor
+       (All (Model M S e) (requires (Drop (! mut e) Model))
+            (-> (-> Model (Option M) Model ! mut completion e)
+                (-> (Borrow Model) (Html M))
+                (-> (Borrow Model) (List (Attribute M)))
+                (-> (Borrow Model) S)
+                (-> S Unit ! mut e)
+                (-> S Unit ! mut tasks e)
+                (Running Model M)
+                Model ! mut completion dom tasks e)))
+    (define (serve-reactor update view window snapshot commit checkpoint running)
+      (match running
+        ((Running model shown window-shown listeners)
+         (commit (with-borrow (read model) (snapshot read)))
+         ;; Give dispatched work a turn even when input is already queued.
+         (yield)
+         (match (next-event)
+           ((Closed) (checkpoint (with-borrow (read model) (snapshot read))) model)
+           ((Hidden)
+            (checkpoint (with-borrow (read model) (snapshot read)))
+            (serve-reactor update view window snapshot commit checkpoint
+                           (Running model shown window-shown listeners)))
+           ((SaveRequested)
+            (checkpoint (with-borrow (read model) (snapshot read)))
+            (serve-reactor update view window snapshot commit checkpoint
+                           (Running model shown window-shown listeners)))
+           ((Woken)
+            (serve-reactor update view window snapshot commit checkpoint
+                           (step-reactor update view window
+                                         (Running model shown window-shown listeners) (None))))
+           ((Fired listener event)
+            (let ((running (Running model shown window-shown listeners)))
+              (serve-reactor update view window snapshot commit checkpoint
+                             (match (table-ref listeners (show (Listener-id listener)))
+                               ((Some message)
+                                (step-reactor update view window running (Some (message event))))
+                               ((None) running)))))))))
+
+    (: step-reactor
+       (All (Model M e)
+            (-> (-> Model (Option M) Model ! mut completion e)
+                (-> (Borrow Model) (Html M))
+                (-> (Borrow Model) (List (Attribute M)))
+                (Running Model M) (Option M)
+                (Running Model M) ! mut completion dom e)))
+    (define (step-reactor update view window running message)
+      (match running
+        ((Running model shown window-shown _)
+         (render-reactor view window (update model message) shown window-shown))))
+
+    ;; Finish both reads before moving the owner into Running. Listeners
+    ;; may capture copied display data, but never the borrowed model.
+    (: render-reactor
+       (All (Model M)
+            (-> (-> (Borrow Model) (Html M))
+                (-> (Borrow Model) (List (Attribute M)))
+                Model (Shown M) (Shown M) (Running Model M) ! dom)))
+    (define (render-reactor view window model shown window-shown)
+      (let ((shown (patch-root shown (with-borrow (read model) (view read))))
+            (window-shown (patch-window window-shown (with-borrow (read model) (window read)))))
+        (showing model shown window-shown)))
 
     ;; The root's one child, patched, or replaced by a new one.
     (: patch-root (All (M) (-> (Shown M) (Html M) (Shown M) ! dom)))

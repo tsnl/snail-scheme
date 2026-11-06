@@ -52,6 +52,7 @@ test-browser:
 	node tests/browser/ide-refresh.mjs "$(CURDIR)"
 	node tests/browser/ui.mjs "$(CURDIR)"
 	node tests/browser/ui-reload.mjs "$(CURDIR)"
+	node tests/browser/ui-futures.mjs "$(CURDIR)"
 
 # Rebuilds the compiler from its source on Chibi, then to a fixpoint.
 bootstrap:

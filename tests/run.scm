@@ -618,6 +618,7 @@
     ("tests/programs" "futures-wake")
     ("tests/programs" "async-futures")
     ("tests/programs" "async-cancel")
+    ("tests/programs" "ui-futures")
     ("tests/programs" "mailbox")
     ("tests/programs" "effect-row-inclusion")
     ("tests/programs" "link-file")
