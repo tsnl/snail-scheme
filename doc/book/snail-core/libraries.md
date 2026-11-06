@@ -69,6 +69,9 @@ the runtime interfaces.
 | `(snail shell fetch page)` | `with-page-fetch`, the handler of `fetch` over the page's `fetch` and `EventSource` (`host/browser/fetch.mjs`). |
 | `(snail shell ui)` | [Document interfaces](applications.md#document-interfaces): `Html` and `Attribute` trees, the keyed reconciler, and `run-ui`, which runs a model, `view` and `update` with commands as tasks, the window's listeners, and messages to start with, and checkpoints the model when the page is hidden or closes. |
 | `(snail shell ui page)` | `define-ui`, which hosts an interface in a page as `define-application` hosts a scene, and `Command`, the type of its commands. |
+| `(snail shell ui commands)` | An ordered vector of named actions, independent of keyboard policy. `register` rejects duplicate names; `named` retrieves an action. Actions can be Scheme functions with effects. |
+| `(snail shell ui shortcuts)` | Chords mapped to command names. Registration checks duplicate chords and unknown commands; `matching` retrieves a name and `chords` supplies a window listener. |
+| `(snail shell ide application)` | The IDE's model, update, view and commands, runnable over the browser or memory DOM with the same fetch effect. |
 
 ### Shell: tools
 

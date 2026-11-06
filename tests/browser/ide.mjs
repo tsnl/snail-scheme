@@ -8,6 +8,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {startDevelopment} from '../development-service.mjs';
 import {openBrowser, sleep, until} from './chromium.mjs';
+import {command} from './ide-commands.mjs';
 
 const [root, screenshot] = process.argv.slice(2), project = await mkdtemp(join(tmpdir(), 'snail-ide-'));
 const source = join(project, 'main.sld'), description = join(project, 'project.datum');
@@ -19,7 +20,7 @@ const service = await startDevelopment(root, project), browser = await openBrows
 const text = () => browser.evaluate('document.querySelector(".pane.active textarea").value');
 const title = () => browser.evaluate('document.querySelector(".pane.active .pane-title").textContent');
 const problem = () => browser.evaluate('document.querySelector(".pane.active .pane-problem").textContent');
-const click = id => browser.evaluate(`document.getElementById(${JSON.stringify(id)}).click()`);
+const click = id => command(browser, ({save: 'save-buffer', reload: 'reload-buffer', build: 'build-project'})[id] ?? id);
 const press = init => browser.evaluate(`document.querySelector('.pane.active textarea').dispatchEvent(new KeyboardEvent('keydown', ${JSON.stringify({bubbles: true, cancelable: true, ...init})}))`);
 const type = (from, to) => browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'), at = t.value.indexOf(${JSON.stringify(from)});
   if (at < 0 || t.disabled) return false; t.focus(); t.setSelectionRange(at, at + ${from.length}); return document.execCommand('insertText', false, ${JSON.stringify(to)}); })()`);
@@ -149,62 +150,16 @@ try {
   await until(async () => (await problem()).includes('Changed on disk'), 'dirty external conflict');
   assert.match(await text(), /"draft"/);
   await click('save');
-  await until(() => browser.evaluate('!document.getElementById("save").disabled'), 'conflicting save completion');
+  await until(() => browser.evaluate('document.querySelector(".pane.active textarea").getAttribute("aria-busy") === "false"'), 'conflicting save completion');
   assert.match(await readFile(source, 'utf8'), /"another writer"/);
   await browser.evaluate('window.confirm = () => true');
   await click('reload');
   await until(async () => (await text()).includes('"another writer"') && !(await problem()), 'explicit reload');
 
-  // Discard is immediate, so a newer watcher read can finish Reload;
-  // subsequent typing survives the older discard request's delayed response.
-  assert.ok(await type('"another writer"', '"discard me"'));
-  await browser.evaluate(`window.actualFetch = window.fetch;
-    window.fetch = async (...args) => { const response = await window.actualFetch(...args);
-      if (String(args[0]).startsWith('/api/file?path=main.sld') && !window.heldReload) {
-        window.heldReload = true; await new Promise(resolve => window.releaseReload = resolve);
-      } return response; };`);
-  await click('reload');
-  await until(() => browser.evaluate('window.heldReload'), 'held reload');
-  await writeFile(source, program('watcher during reload'));
-  await until(async () => (await text()).includes('"watcher during reload"'), 'watcher completes discard');
-  assert.ok(await type('"watcher during reload"', '"typing after reload"'));
-  await browser.evaluate('window.releaseReload(); window.fetch = window.actualFetch');
-  await sleep(100);
-  assert.match(await text(), /"typing after reload"/);
-  await click('reload');
-  await until(async () => (await text()).includes('"watcher during reload"'), 'discard later typing');
-
-  // Hold the successful save response after its real disk write. Later typing
-  // remains a draft against the submitted bytes, even with watcher updates.
-  await browser.evaluate(`window.actualFetch = window.fetch;
-    window.fetch = async (...args) => { const response = await window.actualFetch(...args);
-      if (args[1]?.method === 'PUT' && !window.heldSave) { window.heldSave = true; await new Promise(resolve => window.releaseSave = resolve); }
-      return response; };`);
-  assert.ok(await type('"watcher during reload"', '"submitted"'));
-  await click('save');
-  await until(() => browser.evaluate('window.heldSave'), 'held save response');
-  assert.ok(await type('"submitted"', '"typed later"'));
-  await browser.evaluate('window.releaseSave()');
-  await until(() => browser.evaluate('!document.getElementById("save").disabled'), 'save release');
-  assert.match(await readFile(source, 'utf8'), /"submitted"/);
-  assert.match(await text(), /"typed later"/); assert.match(await title(), /●/);
-  await browser.evaluate('window.fetch = window.actualFetch');
+  // Save/read ordering is exercised by tests/programs/ide-application.sld
+  // against the same update loop, with deterministically delayed fetch replies.
+  assert.ok(await type('"another writer"', '"new revision"'));
   await click('save'); await saved();
-
-  // A read begun before Save cannot restore its older revision afterward.
-  await browser.evaluate(`window.fetch = async (...args) => { const response = await window.actualFetch(...args);
-    if (String(args[0]).startsWith('/api/file?path=main.sld') && !args[1]?.method && !window.heldRead) {
-      window.heldRead = true; await new Promise(resolve => window.releaseRead = resolve);
-    } return response; };`);
-  await writeFile(source, await readFile(source));
-  await until(() => browser.evaluate('window.heldRead'), 'held old file read');
-  assert.ok(await type('"typed later"', '"new revision"'));
-  await click('save'); await saved();
-  await browser.evaluate('window.releaseRead(); window.fetch = window.actualFetch');
-  await sleep(100);
-  assert.ok(await type('"new revision"', '"after stale read"'));
-  await click('save'); await saved();
-  assert.match(await readFile(source, 'utf8'), /"after stale read"/);
 
   // A split adds a pane beside the first, whose field stays, with its caret.
   await browser.evaluate(`(() => { window.firstField = document.querySelector('.pane.active textarea'); window.firstField.setSelectionRange(3, 3); })()`);
@@ -212,7 +167,7 @@ try {
   assert.equal(await browser.evaluate('document.querySelectorAll(".pane").length'), 2);
   assert.equal(await browser.evaluate('document.querySelector(".pane textarea") === window.firstField && window.firstField.isConnected'), true);
   assert.equal(await browser.evaluate('window.firstField.selectionStart'), 3);
-  assert.ok(await type('"after stale read"', '"two panes"'));
+  assert.ok(await type('"new revision"', '"two panes"'));
   assert.match(await browser.evaluate('document.querySelector(".pane textarea").value'), /"two panes"/);
   await click('save'); await saved();
   if (screenshot) await browser.screenshot(screenshot);
@@ -237,12 +192,9 @@ try {
   await until(async () => (await problem()).includes('Deleted on disk'), 'dirty deletion');
   assert.match(await text(), /"deleted draft"/);
   await click('save');
-  await until(() => browser.evaluate('!document.getElementById("save").disabled'), 'deleted save rejection');
+  await until(() => browser.evaluate('document.querySelector(".pane.active textarea").getAttribute("aria-busy") === "false"'), 'deleted save rejection');
   await assert.rejects(readFile(source), {code: 'ENOENT'});
-  // Discard removes the deleted file's buffer for good. The empty pane is not
-  // a lasting state: the deletion's own project listing, which reconciles the
-  // whole observed tree, can land after the discard and open the next file
-  // (#536). So wait until no pane and no file entry names main.sld.
+  // Discard removes the deleted file's buffer without reopening another file.
   await click('reload');
   await until(() => browser.evaluate(`![...document.querySelectorAll('.pane-title')].some(title => title.textContent.startsWith('main.sld'))
     && !document.querySelector('.file[data-path="main.sld"]')`), 'discard deleted draft');
