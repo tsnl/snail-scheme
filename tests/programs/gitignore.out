@@ -1,0 +1,22 @@
+main.sld: visible
+drop.tmp: ignored
+keep.tmp: visible
+global.txt: ignored
+local.txt: ignored
+hidden: visible
+hidden/tracked.txt: visible
+hidden/untracked.txt: ignored
+hidden/deep: ignored
+hidden/deep/lost.txt: ignored
+lib/keep.tmp: visible
+lib/drop.tmp: ignored
+lib/generated1.txt: ignored
+lib/cache: ignored
+élan.tmp: ignored
+newline path: ignored
+file.txt: ignored
+file.txt: ignored
+keep.tmp: visible
+drop.tmp: ignored
+drop.tmp: visible
+outside a repository: unavailable
