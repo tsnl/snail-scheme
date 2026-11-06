@@ -21,7 +21,7 @@
                (Build "failed" 3 (list (Report "error" "unknown λ" (Some (Point "/p/a.sld" 2 4)))))
                (list (Run "main" (Some 2)
                           (Some (Attempt 2 (Some 501) "running" (None) "" "" "hello λ\n" ""))
-                          #t #t))))
+                          #t #t)) "read-only-generation/" ""))
 
 (match (read-event (json->string (state->json state)))
   ((Some received)

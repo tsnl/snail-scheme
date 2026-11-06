@@ -204,6 +204,9 @@ try {
   await until(() => browser.evaluate('document.querySelector(".pane textarea")?.disabled'), 'empty editor after reload');
 
   await writeFile(description, config); await writeFile(source, program('restored'));
+  // Recovery preserves the user's empty pane; reopening is an explicit intent.
+  await until(() => browser.evaluate(`Boolean(document.querySelector('.file[data-path="main.sld"]'))`), 'restored file listing');
+  await browser.evaluate(`document.querySelector('.file[data-path="main.sld"]').click()`);
   await until(async () => (await text())?.includes('"restored"') && await built(), 'project restored from disk');
   const previous = (await service.status()).id;
   await click('build');

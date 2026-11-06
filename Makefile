@@ -48,6 +48,7 @@ test-browser:
 	node tests/browser/ide-installable.mjs "$(CURDIR)"
 	node tests/browser/ide-install.mjs "$(CURDIR)"
 	node tests/browser/ide-runs.mjs "$(CURDIR)"
+	node tests/browser/ide-refresh.mjs "$(CURDIR)"
 	node tests/browser/ui.mjs "$(CURDIR)"
 
 # Rebuilds the compiler from its source on Chibi, then to a fixpoint.

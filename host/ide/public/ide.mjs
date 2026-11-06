@@ -1,0 +1,12 @@
+// Starts the editor, host/ide/ide.sld, as a document interface in the page
+// (host/browser/ui.mjs). The page's security policy runs only scripts of
+// its own origin, so this is a file rather than the page's inline script.
+import {startInterface} from './ui.mjs';
+
+document.getElementById('ide').snailGeneration = new URL('.', import.meta.url).pathname;
+startInterface({url: './program.wasm', container: document.getElementById('ide'), storageKey: `snail-ide:${document.querySelector('meta[name=snail-workspace]').content}`, session: true, strictRestore: true})
+  .catch(error => {
+    document.body.dataset.error = error.message;
+    document.getElementById('ide').textContent = `IDE could not start: ${error.message}. Saved recovery data was left untouched.`;
+    console.error(error);
+  });

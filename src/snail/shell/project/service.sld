@@ -49,7 +49,7 @@
 
     ;; What the service runs with: the repository's root; the command
     ;; line's program and the runtime it links programs with, which the
-    ;; resident runs as; Node, which runs them; the editor's program; the
+    ;; resident runs as; Node, which runs them; the editor's published bundle; the
     ;; reload client's program, which browser targets' pages load; the
     ;; project, absolute; and the port to listen on, 0 for any.
     (struct Setup
@@ -78,6 +78,8 @@
        ((event Event)
         (reply (Mailbox Answer))))
       (Status ((reply (Mailbox Answer))))
+      (EditorAssets ((reply (Mailbox (List EditorBundle)))))
+      (EditorBuilt ((result (Result EditorBundle String))))
       (Applications ((reply (Mailbox (List Application)))))
       (Fired ((serial I64)))
       (Built
@@ -190,6 +192,10 @@
        (frames String)
        (instance String)
        (files I64)
+       (editors (List EditorBundle))
+       (editor-process (Option Process))
+       (editor-again Bool)
+       (editor-problem String)
        (stopping (Option (List Command)))
        (waiting I64)
        (done Bool)))
@@ -282,7 +288,7 @@
 
     (: new-host
        (-> Setup (Mailbox Message) (Mailbox Scan) (Mailbox (Option String)) Process Listener
-           Listener Host ! clock))
+           Listener Host ! clock fs))
     (define (new-host setup owner disk requests resident listener applications)
       (Host setup
             owner
@@ -305,6 +311,11 @@
             ""
             (string-append (show (Process-id resident)) ":" (show (monotonic-nanoseconds)))
             0
+            (list (match (editor-bundle setup)
+                    ((Ok bundle) bundle) ((Err message) (panic message))))
+            (None)
+            #f
+            ""
             (None)
             0
             #f))
@@ -332,9 +343,11 @@
     (: receive (-> Host Message Host ! mut tasks tcp process fs))
     (define (receive host message)
       (match message
-        ((Step event) (stepped (touched-files host event) event))
+        ((Step event) (stepped (touched-editor (touched-files host event) event) event))
         ((Ask event reply) (asked host event reply))
         ((Status reply) (mailbox-post reply (Answer 200 (status->json host))) host)
+        ((EditorAssets reply) (mailbox-post reply (Host-editors host)) host)
+        ((EditorBuilt result) (editor-built host result))
         ((Applications reply) (mailbox-post reply (served-applications host)) host)
         ((Fired serial) (if (= serial (Host-serial host)) (stepped host (TimerFired)) host))
         ((Built epoch reply targets)
@@ -629,7 +642,9 @@
     (: editor-state (-> Host protocol-ServerState))
     (define (editor-state host)
       (protocol-ServerState (Host-instance host) (Host-files host)
-                            (editor-status (Host-snapshot host)) (run-states host)))
+                            (editor-status (Host-snapshot host)) (run-states host)
+                            (editor-base (list-ref (Host-editors host) 0))
+                            (Host-editor-problem host)))
 
     ;; All a client can observe in one snapshot: the attempt, the published
     ;; targets, the resident's process and the run targets.
@@ -883,6 +898,9 @@
       (for-each (lambda (run) (mailbox-post (Supervised-inbox run) (Finish))) (Host-runs host))
       (mailbox-post (Host-requests host) (None))
       (mailbox-post (Host-disk host) (Stopping))
+      (match (Host-editor-process host)
+        ((Some child) (close-process child) (unit))
+        ((None) (unit)))
       (let ((owner (Host-owner host)))
         (dispatch-local (once (lambda () (sleep 2000) (mailbox-post owner (Overdue))))))
       (resumed
@@ -890,7 +908,8 @@
                                                                   (Some rest))
                                                (Nil))
                          (+ (+ (length (Host-runs host)) (length (Host-connections host)))
-                            (if (Host-resident-alive host) 1 0)))))
+                            (+ (if (Host-resident-alive host) 1 0)
+                               (if (option-some? (Host-editor-process host)) 1 0))))))
 
     ;; A connection accepted while stopping is closed at once; its handler
     ;; still reports that it finished.
@@ -950,10 +969,11 @@
     (: watched (-> Setup (Pair (List String) (List String))))
     (define (watched setup)
       (let ((root (Setup-root setup)) (project (Setup-project setup)))
-        (Pair (list project (string-append root "/src") (string-append root "/host/browser"))
+        (Pair (list project (string-append root "/src") (string-append root "/host/browser")
+                    (string-append root "/host/ide"))
               (list (string-append project "/build")
                     (string-append project "/.git")
-                    (string-append root "/build")))))
+                    (string-append root "/build") (string-append root "/host/ide/build")))))
 
     (: take-inventory (-> Setup (Result Inventory String) ! fs))
     (define (take-inventory setup)
@@ -1624,10 +1644,9 @@
                (stream-events owner id connection (None))
                (None))
               (else
-               (Some (match (asset setup path)
-                       ((Some found) (serve-asset found))
-                       ((None)
-                        (api setup owner disk request method path (Target-query target)))))))))
+               (Some (if (match path ((Cons "api" _) #t) (_ #f))
+                         (api setup owner disk request method path (Target-query target))
+                         (editor-asset setup owner path)))))))
 
     (: api
        (-> Setup
@@ -1966,81 +1985,151 @@
                     (else (make-string 1 char))))
             (string->list text))))
 
+    ;; ---- The editor's builds ----
+
+    ;; The IDE is a normal browser target. Keep complete successful generations
+    ;; for this service's lifetime; no client leases or partially updated assets.
+    (struct EditorBundle
+      ((id String)
+       (directory String)))
+
+    (: editor-bundle (-> Setup (Result EditorBundle String) ! fs))
+    (define (editor-bundle setup)
+      (match (read-symbolic-link (Setup-editor setup))
+        ((Ok name)
+         (Ok (EditorBundle name (string-append (Setup-root setup) "/host/ide/build/" name))))
+        ((Err error) (Err (string-append "cannot locate IDE build: " (show error))))))
+
+    (: editor-base (-> EditorBundle String))
+    (define (editor-base bundle)
+      (string-append "/.snail/ide/" (EditorBundle-id bundle) "/"))
+
+    (: touched-editor (-> Host Event Host ! mut tasks process fs tcp))
+    (define (touched-editor host event)
+      (match (Host-stopping host)
+        ((Some _) host)
+        ((None) (editor-change host event))))
+
+    (: editor-change (-> Host Event Host ! mut tasks process fs tcp))
+    (define (editor-change host event)
+      (match event
+        ((Touched paths)
+         (if (any? (lambda (path)
+                     (any? (lambda (part)
+                             (starts-with? path
+                                           (string-append (Setup-root (Host-setup host)) part)))
+                           (list "/src/" "/host/ide/" "/host/browser/"))) paths)
+             (match (Host-editor-process host)
+               ((Some _) (Host-editor-again-set host #t))
+               ((None) (start-editor host)))
+             host))
+        (_ host)))
+
+    (: start-editor (-> Host Host ! mut tasks process fs tcp))
+    (define (start-editor host)
+      (let ((setup (Host-setup host)))
+        (match (spawn (ProcessCommand (Setup-node setup)
+                                      (list "--no-warnings" (runner setup) (Setup-cli setup)
+                                            (Setup-root setup) (Setup-runtime setup)
+                                            "build" "--release"
+                                            (string-append (Setup-root setup) "/host/ide") "ide")
+                                      (Setup-root setup)))
+          ((Err error) (broadcast-changes
+                        (Host-editor-problem-set host (ProcessError-code error))))
+          ((Ok child)
+           (close-input child)
+           (dispatch-local (once (lambda () (await-editor setup (Host-owner host) child))))
+           (Host-editor-process-set (Host-editor-again-set host #f) (Some child))))))
+
+    ;; Drain both pipes while the compiler runs, so neither can block it.
+    ;; The owner remains responsive and closes the child during shutdown.
+    (: await-editor (-> Setup (Mailbox Message) Process Unit ! mut tasks process fs))
+    (define (await-editor setup owner child)
+      (let ((errors (make-mailbox)))
+        (dispatch-local (once (lambda () (mailbox-post errors (editor-output child (Stderr) "")))))
+        (editor-output child (Stdout) "")
+        (let ((exit (wait-exit child)) (error (mailbox-receive errors)))
+          (close-process child)
+          (mailbox-post owner
+                        (EditorBuilt (match exit
+                                       ((Ok (Exited 0)) (editor-bundle setup))
+                                       (_ (Err
+                                           (if (string=? error "") "IDE build failed" error)))))))))
+
+    (: editor-output (-> Process Stream String String ! tasks process))
+    (define (editor-output child stream kept)
+      (match (read-output child stream 65536)
+        ((Ok (Some bytes))
+         (let* ((text (string-append kept (lossy-text bytes))) (size (string-length text)))
+           (editor-output child stream (substring text (max 0 (- size 4096)) size))))
+        (_ kept)))
+
+    (: editor-built (-> Host (Result EditorBundle String) Host ! mut tasks process fs tcp))
+    (define (editor-built host result)
+      (match (Host-stopping host)
+        ((Some _) (stopped-one host))
+        ((None)
+         (let ((host (Host-editor-process-set host (None))))
+           (if (Host-editor-again host) (start-editor host)
+               (broadcast-changes
+                (match result
+                  ((Ok bundle)
+                   (Host-editor-problem-set
+                    (Host-editors-set host (Cons bundle (Host-editors host)))
+                    ""))
+                  ((Err message) (Host-editor-problem-set host message)))))))))
+
     ;; ---- The editor's assets ----
 
-    ;; Only the editor's own files share the API's origin: its page, style
-    ;; and program, the script that starts it, and the browser host's
-    ;; modules for a document interface (host/browser/ui.mjs). Project files
-    ;; are never served here.
-    (: asset (-> Setup (List String) (Option (Pair String String))))
-    (define (asset setup path)
-      (match (if (root-path? path) (list "index.html") path)
-        ((Cons name (Nil))
-         (match (find (lambda (asset) (string=? name (Pair-first asset))) (editor-assets setup))
-           ((Some asset) (Some (Pair-second asset)))
-           ((None) (None))))
-        (_ (None))))
-
-    ;; The public name, source path and media type are one declaration.
-    (: editor-assets (-> Setup (List (Pair String (Pair String String)))))
-    (define (editor-assets setup)
-      (let ((root (Setup-root setup)))
-        (append
-         (list (Pair "index.html" (Pair (string-append root "/host/ide/index.html") "text/html"))
-               (Pair "ide.wasm" (Pair (Setup-editor setup) "application/wasm"))
-               (Pair "ide.css" (Pair (string-append root "/host/ide/ide.css") "text/css"))
-               (Pair "ide.mjs" (Pair (string-append root "/host/ide/ide.mjs") "text/javascript")))
-         (map (lambda (asset)
-                (Pair (Pair-first asset)
-                      (Pair (string-append root "/host/browser/" (Pair-first asset))
-                            (Pair-second asset))))
-              (append (list (Pair "snail-icon-192.png" "image/png")
-                            (Pair "snail-icon-512.png" "image/png")
-                            (Pair "snail-icon.svg" "image/svg+xml"))
-                      (map (lambda (name) (Pair name "text/javascript")) interface-modules))))))
-
+    ;; Page-relative references are pinned to one complete generation. The
+    ;; manifest remains at the stable root, and recovery is keyed by project.
     (: editor-manifest (-> Response))
     (define (editor-manifest)
       (Response 200
                 (Cons (Header "Content-Type" "application/manifest+json") security-headers)
                 (string->utf8 (json->string (web-app-manifest "Snail IDE")))))
 
-    ;; What host/browser/ui.mjs imports, and what they import.
-    (: interface-modules (List String))
-    (define interface-modules
-      (list "ui.mjs"
-            "dom.mjs"
-            "install.mjs"
-            "fetch.mjs"
-            "storage.mjs"
-            "load.mjs"
-            "runtime.mjs"
-            "entry.mjs"
-            "tasks.mjs"))
+    (: editor-asset (-> Setup (Mailbox Message) (List String) Response ! mut tasks fs))
+    (define (editor-asset setup owner path)
+      (let ((reply (make-mailbox)))
+        (mailbox-post owner (EditorAssets reply))
+        (let* ((bundles (mailbox-receive reply)) (latest (list-ref bundles 0)))
+          (cond ((root-path? path) (editor-page setup latest))
+                (else
+                 (match path
+                   ((Cons ".snail" (Cons "ide" (Cons id rest)))
+                    (match (find (lambda (bundle) (string=? (EditorBundle-id bundle) id)) bundles)
+                      ((Some bundle) (editor-file bundle rest))
+                      ((None) (refused 404 "no such IDE generation"))))
+                   ;; Stable icon links belong to the manifest. Other assets
+                   ;; are named by generation, including program.wasm.
+                   ((Cons name (Nil))
+                    (if (member? name
+                                 (list "snail-icon.svg" "snail-icon-192.png" "snail-icon-512.png"))
+                        (editor-file latest path) (refused 404 "no such editor asset")))
+                   (_ (refused 404 "no such editor asset"))))))))
 
-    ;; The page and its scripts may load only from this origin, and no other
-    ;; page may frame them.
-    (: content-policy String)
-    (define content-policy
-      (string-join (list "default-src 'self'"
-                         "script-src 'self' 'wasm-unsafe-eval'"
-                         "style-src 'self' 'unsafe-inline'"
-                         "frame-ancestors 'none'"
-                         "base-uri 'none'"
-                         "worker-src 'none'")
-                   "; "))
+    (: editor-page (-> Setup EditorBundle Response ! fs))
+    (define (editor-page setup bundle)
+      (let ((text (stable-web-app
+                   (read-file (string-append (EditorBundle-directory bundle) "/index.html")) "/")))
+        (Response 200 (Cons (Header "Content-Type" "text/html; charset=utf-8") editor-headers)
+                  (string->utf8
+                   (insert-metadata text (list (PageBase (editor-base bundle))
+                                               (PageMeta "snail-workspace"
+                                                         (Setup-project setup))))))))
 
-    (: serve-asset (-> (Pair String String) Response ! fs))
-    (define (serve-asset found)
-      (match found
-        ((Pair path type)
-         (if (file-exists? path)
-             (Response 200
-                       (append (list (Header "Content-Type" type)
-                                     (Header "Content-Security-Policy" content-policy))
-                               security-headers)
-                       (read-bytes path))
-             (refused 404 "editor asset is unavailable")))))
+    (: editor-file (-> EditorBundle (List String) Response ! fs))
+    (define (editor-file bundle path)
+      (let ((response (bundle-file (EditorBundle-directory bundle) path)))
+        (Response (Response-status response)
+                  (append (Response-headers response) editor-headers) (Response-body response))))
+
+    (: editor-headers (List Header))
+    (define editor-headers
+      (Cons (Header "Content-Security-Policy"
+                    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; worker-src 'none'")
+            security-headers))
 
     ;; ---- Writing an event stream ----
 

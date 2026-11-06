@@ -49,7 +49,7 @@ try {
   put('node', node);
   for (const name of ['snail', 'scripts/snail-tool', 'node']) chmodSync(at(name), 0o755);
   for (const name of ['src/a.sld', 'bootstrap/cli.sld', 'host/ide/ide.sld', 'host/browser/reload.sld',
-    'host/browser/host.mjs', 'host/chibi/driver.sld', 'scripts/snail.scm', 'rust-toolchain.toml',
+    'host/browser/host.mjs', 'host/ide/project.datum', 'host/ide/public/ide.css', 'host/chibi/driver.sld', 'scripts/snail.scm', 'rust-toolchain.toml',
     'crates/snail-core-support/Cargo.toml', 'crates/snail-core-support/src/lib.rs']) put(name);
 
   const snail = (...args) => spawnSync(at('snail'), args, {env: {...process.env, NODE: at('node')}, encoding: 'utf8'});
@@ -97,6 +97,11 @@ try {
   assert.match(calls('node.calls').at(-1), / dev .*editor\.wasm .*client\.wasm project$/);
   snail('dev', 'project');
   assert.equal(calls('stage0.calls').length, 12, 'and keeps them apart from build');
+  touch('host/ide/public/ide.css');
+  snail('dev', 'project');
+  assert.equal(calls('stage0.calls').length, 13, 'public assets invalidate the complete IDE bundle');
+  snail('dev', 'project');
+  assert.equal(calls('stage0.calls').length, 13);
   console.log('launcher: cached tools, inputs, missing tools, edits while building, failures and dev');
 } finally {
   rmSync(root, {recursive: true, force: true});

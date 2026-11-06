@@ -21,7 +21,7 @@ const ALLOW = 0, CHORDS = 2;
 // The runtime gives the running program's memory, to read a string argument
 // from staging, and the event it last polled, whose numbers and texts the
 // program reads beside its fields.
-export function createDom(container, runtime) {
+export function createDom(container, runtime, {refresh = () => {}} = {}) {
   const decoder = new TextDecoder();
   let nodes, handles, listeners, owned, next, nextListener, reply = [], measured = [];
   reset();
@@ -133,6 +133,7 @@ export function createDom(container, runtime) {
   // what the user typed leaves the caret where it is.
   const imports = {
     ...webAppImports(runtime),
+    'refresh-page': () => queueMicrotask(refresh),
     root: () => 0,
     'create-element': address => made(document.createElement(text(address))),
     'create-text': address => made(document.createTextNode(text(address))),
@@ -226,5 +227,8 @@ export function createDom(container, runtime) {
     'event-number': index => runtime.execution.event[7 + index],
     'event-text': index => answer(runtime.execution.event[11 + index]),
   };
-  return {imports, reset};
+  return {imports, reset, allowUnload() {
+    for (const listener of listeners.values())
+      if (listener.type === 'beforeunload') listener.node.removeEventListener(listener.type, listener.handler);
+  }};
 }

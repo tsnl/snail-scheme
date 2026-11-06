@@ -715,18 +715,21 @@
                   (standard-directories root)))
 
     ;; The development service adds two programs to the command line's
-    ;; tools, whose `resident` builds for it: the editor, the interface it
-    ;; serves, and the reload client its browser targets' pages load.
+    ;; tools, whose `resident` builds for it: the editor's browser bundle
+    ;; and the reload client its browser targets' pages load.
     (define (build-editor-tools root)
-      (append (list (build-tool root
-                                (path-join root "host/ide/ide.sld")
-                                (path-join root "build/ide-tools/ide.wasm")
-                                (standard-directories root))
-                    (build-tool root
-                                (path-join root "host/browser/reload.sld")
-                                (path-join root "build/ide-tools/reload.wasm")
-                                (standard-directories root)))
-              (build-cli-tools root)))
+      (let* ((tools (build-cli-tools root))
+             (project (path-join root "host/ide")))
+        ;; The IDE is an ordinary browser target. Its public assets and
+        ;; program are published together by the native project builder.
+        (run-command (append (program-command root (car tools))
+                             (list root (cadr tools) "build" "--release" project "ide")))
+        (append (list (path-join project "build/ide")
+                      (build-tool root
+                                  (path-join root "host/browser/reload.sld")
+                                  (path-join root "build/ide-tools/reload.wasm")
+                                  (standard-directories root)))
+                tools)))
 
     ;; The book's highlighter, the preprocessor scripts/highlight-book runs
     ;; while mdbook builds the book.

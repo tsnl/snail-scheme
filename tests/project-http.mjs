@@ -66,7 +66,9 @@ try {
   assert.equal(page.headers['x-frame-options'], 'DENY');
   assert.match(page.headers['content-security-policy'], /frame-ancestors 'none'/);
   assert.match(page.text, /src="\.\/ide\.mjs"/, 'the page starts the editor');
-  const editor = await service.get('/ide.wasm');
+  const base = /<base href="([^"]+)"/.exec(page.text)?.[1];
+  assert.match(base, /^\/\.snail\/ide\//);
+  const editor = await service.get(base + 'program.wasm');
   assert.equal(editor.status, 200, "the editor's program is an asset");
   assert.equal(editor.headers.get('content-type'), 'application/wasm');
   assert.equal((await service.request('/', 'GET', {'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'iframe'})).status, 403);
@@ -139,7 +141,7 @@ try {
   const beforeReconnect = (await service.status()).id;
   const reconnected = await service.events();
   await service.until(opened(reconnected), 'the frames of a reconnection');
-  assert.deepEqual(Object.keys(reconnected.seen[0].data).sort(), ['build', 'files', 'instance', 'runs']);
+  assert.deepEqual(Object.keys(reconnected.seen[0].data).sort(), ['build', 'editor', 'editor-problem', 'files', 'instance', 'runs']);
   assert.equal(reconnected.seen[0].data.instance, stream.seen[0].data.instance);
   assert.ok(reconnected.seen[0].data.build.id >= beforeReconnect && reconnected.seen[0].data.build.id <= (await service.status()).id);
   await reconnected.close();
