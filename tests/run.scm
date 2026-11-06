@@ -2,7 +2,8 @@
 ;; program NAME.sld must print NAME.out exactly, or fail to compile with
 ;; each line of NAME.err in its diagnostics, in order. Then the Siegework package is built
 ;; and driven headlessly, and the in-process assembler assembles a program.
-;; Programs compile one at a time, then link and run in parallel. Finally
+;; Programs compile, link and run in parallel. With the compiler's source
+;; on Chibi, compiles stay serial to bound its heap use. Finally
 ;; representative programs run again as modules linked when they run.
 ;;
 ;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/run.scm ROOT [NAME ...]
@@ -65,6 +66,10 @@
 
 ;; ---- Programs ----
 
+;; A source compile on Chibi needs a large heap. The compiled compiler can
+;; run in each check's child, with its own scratch and output files.
+(define chibi-compiler? (equal? (get-environment-variable "SNAIL_STAGE0") "chibi"))
+
 ;; What a program prints, its standard output then its standard error, on
 ;; the host `program-command` chooses (host/chibi/snail/stage0/build.sld).
 (define (run-wasm root program . arguments)
@@ -119,16 +124,21 @@
       (or (equal? output expected)
           (report name "wrong output" (string-append output "\nexpected:\n" expected))))))
 
+(define (check-case root directories directory build name)
+  (let ((compiled (compile-case root directories directory build name)))
+    (if (procedure? compiled) (compiled) compiled)))
+
 (define (run-suite root suite libraries selected)
   (let* ((directory (path-join root suite)) (build (path-join root "build/tests" suite))
+         (directories (append (map (lambda (library) (path-join root library)) libraries)
+                              (standard-directories root)))
          (names (filter (lambda (name) (or (null? selected) (member name selected)))
                         (case-names directory))))
     (create-directory* build)
     (map (lambda (name)
-           (compile-case root
-                         (append (map (lambda (library) (path-join root library)) libraries)
-                                 (standard-directories root))
-                         directory build name))
+           (if chibi-compiler?
+               (compile-case root directories directory build name)
+               (lambda () (check-case root directories directory build name))))
          names)))
 
 ;; ---- Applications ----
@@ -580,7 +590,7 @@
 ;; host/native/run-snail.mjs and the loader in host/browser/load.mjs, must print what
 ;; their statically linked builds print. A sample of the suites covers each
 ;; kind of definition crossing a module boundary, and Siegework covers an
-;; application. Building runs the compiler, so these run after the others.
+;; application. Each case owns its output directory, as the static cases do.
 (define linked-cases
   '(("examples" "fibonacci")
     ("examples" "effects")
@@ -647,10 +657,16 @@
       (check-app-runtime root (path-join output "modules.json")))))
 
 (define (run-linked-cases root)
-  (append (map (lambda (entry) (run-linked root (car entry) (cadr entry))) linked-cases)
-          (list (run-linked-app-runtime root)
-                (run-linked-host-boundary root)
-                (run-linked-socket-boundary root) (run-dynamic-loading root))))
+  (let ((checks (append (map (lambda (entry)
+                               (lambda () (run-linked root (car entry) (cadr entry))))
+                             linked-cases)
+                        (list (lambda () (run-linked-app-runtime root))
+                              (lambda () (run-linked-host-boundary root))
+                              (lambda () (run-linked-socket-boundary root))
+                              (lambda () (run-dynamic-loading root))))))
+    (if chibi-compiler?
+        (map (lambda (check) (check)) checks)
+        (run-checks checks))))
 
 (define (run-linked-socket-boundary root)
   (let ((output (path-join root "build/tests/linked/socket-boundary")))
@@ -700,12 +716,10 @@
 
 ;; ---- Checks in parallel ----
 
-;; Cases compile one at a time, in this process, before any check starts:
-;; the compiler's source on Chibi, as `make test-chibi` runs it, takes a
-;; heap too large to run many at once. A check links and runs a program in
-;; its own files, and each compile works in a directory of its own, so
-;; checks, some of which compile, run in child processes, `jobs` at a time.
-;; A child reports its own failure and exits with its result.
+;; A check owns its output files, and each compile has private scratch, so
+;; checks run in child processes, `jobs` at a time. With the source compiler
+;; on Chibi, run-suite compiles first, leaving only linking and execution
+;; for these children. A child reports its failure and exits with its result.
 (define jobs 8)
 
 (define (run-checks cases)
