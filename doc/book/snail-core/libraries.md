@@ -146,7 +146,7 @@ each failure.
 | `(followed-status path)` | The `FileStatus` of what a read of `path` finds, following each link to the file it names, so never `SymbolicLink`; a link to nothing is `NotFound`, though `file-status` finds the link. |
 | `(make-symbolic-link target path)`, `(read-symbolic-link path)` | A link and its target, kept as given. |
 | `(read-text-file path limit)` | The text of the regular file at `path`, if it holds at most `limit` bytes of UTF-8, as one version of the file: its length and modification time stayed the same while it was read. A link is not followed. Else a `TextError`: `ReadFailed` with a `FileError`, `NotRegularFile`, `TooLong`, `NotText` or `ChangedWhileRead` (`tests/programs/text-files.sld`). |
-| `(write-text-file path text)` | Makes the file, or replaces its contents in place. |
+| `(write-text-file path text mode)` | Whole-text write with mandatory `WriteMode`: `CreateNew` refuses existing leaves (including dangling symlinks), `ReplaceExisting` refuses missing files, and `CreateOrReplace` permits either. Creating an empty file is writing `""` with `CreateNew`. |
 
 A `FileError` is `NotFound`, `AlreadyExists`, `NotADirectory` (a path
 through a file), `PermissionDenied` or `OtherError`, and `show` describes

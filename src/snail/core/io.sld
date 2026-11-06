@@ -27,6 +27,7 @@
    ChangedWhileRead
    read-text-file
    write-text-file
+   WriteMode CreateNew ReplaceExisting CreateOrReplace
    FileError
    NotFound
    AlreadyExists
@@ -142,7 +143,7 @@
        (status-size (-> I64))
        (status-modified (-> I64))
        (path-read-text (-> I64 String I32))
-       (path-write-text (-> String I32)))
+       (path-write-text (-> I32 String I32)))
       (default ((path-exists support-path-exists)
                 (open-input support-open-input)
                 (open-output support-open-output)
@@ -202,7 +203,7 @@
     (extern support-status-size "snail.core.support" "snail:io/status-size" (-> I64))
     (extern support-status-modified "snail.core.support" "snail:io/status-modified" (-> I64))
     (extern support-path-read-text "snail.core.support" "snail:io/read-text" (-> I64 String I32))
-    (extern support-path-write-text "snail.core.support" "snail:io/write-text" (-> String I32))
+    (extern support-path-write-text "snail.core.support" "snail:io/write-text" (-> I32 String I32))
 
     (: file-exists? (-> String Bool ! fs))
     (define (file-exists? path)
@@ -519,14 +520,22 @@
                   ((Ok count) (Ok (reply-text count)))
                   ((Err error) (Err (ReadFailed error))))))))
 
-    ;; Makes the file at `path`, or replaces its contents in place, with
-    ;; `text`. Unlike write-file, a failure is a value. The path is staged
-    ;; before the text, ended by a NUL, so a path holding one fails.
-    (: write-text-file (-> String String (Result Unit FileError) ! fs))
-    (define (write-text-file path text)
+    ;; Writes are whole values, with an explicit policy for the leaf path.
+    ;; CreateNew refuses every existing leaf, including a dangling symlink.
+    ;; ReplaceExisting never creates a file; CreateOrReplace permits either.
+    (enum WriteMode (CreateNew) (ReplaceExisting) (CreateOrReplace))
+
+    (: write-mode-code (-> WriteMode I32))
+    (define (write-mode-code mode)
+      (match mode ((CreateNew) 0) ((ReplaceExisting) 1) ((CreateOrReplace) 2)))
+
+    ;; A failure is a value. The path is staged before the text, separated
+    ;; by NUL, so a path holding NUL fails before the scalar service runs.
+    (: write-text-file (-> String String WriteMode (Result Unit FileError) ! fs))
+    (define (write-text-file path text mode)
       (match (string-index path #\null)
         ((Some _) (Err (OtherError)))
-        ((None) (path-done (path-write-text (path-pair path text))))))
+        ((None) (path-done (path-write-text (write-mode-code mode) (path-pair path text))))))
 
     ;; ---- Clock ----
 

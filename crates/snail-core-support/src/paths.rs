@@ -21,7 +21,7 @@ use crate::io::{checked, resolved, staged_path, staged_text};
 use std::{
     cell::{Cell, RefCell},
     fs::{File, FileType, Metadata},
-    io::{ErrorKind, Read},
+    io::{ErrorKind, Read, Write},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -313,16 +313,25 @@ pub extern "C" fn read_text(limit: i64, count: u32) -> i32 {
     }
 }
 
-fn write_whole(path: String, text: String) -> Result<i32, PathError> {
-    std::fs::write(resolved(path), text)?;
+/// Modes agree with Snail-Core's WriteMode: exclusive create, existing only,
+/// or either. OpenOptions performs the existence check and open atomically.
+fn write_whole(path: String, text: String, mode: i32) -> Result<i32, PathError> {
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true);
+    match mode {
+        0 => options.create_new(true),
+        1 => options.truncate(true),
+        2 => options.create(true).truncate(true),
+        _ => return Err(PathError::Other),
+    };
+    options.open(resolved(path))?.write_all(text.as_bytes())?;
     Ok(0)
 }
 
-/// Joined as path, NUL, text, so the text is everything after the first
-/// NUL. The file is made, or replaced in place.
+/// Joined as path, NUL, text; embedded NUL in the text remains ordinary data.
 #[unsafe(export_name = "snail:io/write-text")]
-pub extern "C" fn write_text(count: u32) -> i32 {
-    answer(staged_pair(count).and_then(|(path, text)| write_whole(path, text)))
+pub extern "C" fn write_text(mode: i32, count: u32) -> i32 {
+    answer(staged_pair(count).and_then(|(path, text)| write_whole(path, text, mode)))
 }
 
 // ---- Replies ----
@@ -372,6 +381,28 @@ mod tests {
 
     fn reply_text() -> String {
         REPLY.with_borrow(|reply| reply.iter().collect())
+    }
+
+    #[test]
+    fn creating_a_file_never_replaces_an_existing_path() {
+        let directory = scratch("create");
+        let file = directory.join("new");
+        write_whole(text(&file), "".into(), 0).unwrap();
+        std::fs::write(&file, "kept").unwrap();
+        assert_eq!(
+            write_whole(text(&file), "".into(), 0).unwrap_err(),
+            PathError::AlreadyExists
+        );
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "kept");
+        let link = directory.join("link");
+        make_link("missing".into(), text(&link)).unwrap();
+        assert_eq!(
+            write_whole(text(&link), "".into(), 0).unwrap_err(),
+            PathError::AlreadyExists
+        );
+        assert!(!directory.join("missing").exists());
+        assert!(write_whole(text(&directory), "".into(), 0).is_err());
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]
@@ -487,7 +518,7 @@ mod tests {
         assert_eq!(missing, Err(TextError::Path(PathError::NotFound)));
         assert_eq!(TextError::Refused(Refusal::Changed).code(), -9);
         let written = text_path(&directory, "written");
-        assert_eq!(write_whole(written.clone(), "a\0b".into()), Ok(0));
+        assert_eq!(write_whole(written.clone(), "a\0b".into(), 2), Ok(0));
         assert_eq!(std::fs::read_to_string(&written).unwrap(), "a\0b");
         std::fs::remove_dir_all(directory).unwrap();
     }
