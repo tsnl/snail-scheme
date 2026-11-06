@@ -262,6 +262,80 @@ periodic saves and live reload through the same transaction as scenes.
 after a rejected view. Listener identities are never reused after replacement,
 so queued events from an old document cannot invoke a new listener.
 
+### Owned models and futures
+
+`run-reactor model start update view window snapshot commit checkpoint` uses the same HTML
+renderer with an owned, possibly linear model. It is available alongside
+the mailbox-based `run-ui`; existing IDE commands still use that API.
+
+| Function | Ownership and effects |
+| --- | --- |
+| `update : Model (Option M) -> Model ! mut completion e` | Takes the model, polls its futures, dispatches work and returns ownership. `Some M` is input; `None` is a generic completion wake. The compiler rejects an update that can suspend. |
+| `view : (Borrow Model) -> Html<M>` | Reads a lexical borrow of the model in a pure call. |
+| `window : (Borrow Model) -> List<Attribute<M>>` | Borrows the model to describe window listeners. |
+| `snapshot : (Borrow Model) -> Save` | Borrows the model to construct an independent save value. |
+| `commit : Save -> Unit ! mut e` | Publishes a snapshot after a successful presentation. |
+| `checkpoint : Save -> Unit ! mut tasks e` | Stores a snapshot; the loop retains ownership of the model across the wait. |
+
+The runtime holds exactly one model between turns. After update it finishes
+both borrowed reads before moving the model back into its running state.
+`Copy Model` is not required. The loop admits the model's cleanup effects
+so cancellation of a waiting continuation can drop the model it owns.
+
+Dispatch from `(snail shell async)` returns a future immediately. The model
+stores it beside ordinary display data. On a wake, update consumes each
+future in `poll`: Pending returns the endpoint to store again; Ready moves
+its result into the next model. No completion payload travels through the
+input enum. All commands in a registry can choose one result type, while
+other model fields can own futures of other types.
+
+The reactor handles the ordinary `completion` effect by calling `dom`'s
+`wake`. That queues a delivery; it never calls update inline. Notifications
+may be repeated or unrelated, so update must tolerate finding nothing
+ready. The loop yields between deliveries even when more input is queued,
+so the Snail scheduler can advance tasks between updates. Polling itself
+neither runs tasks nor awaits them. A listener returned by view may capture
+a copied field, but the [lexical borrow rules](ownership.md#lexically-scoped-borrows) prevent it from retaining
+the borrowed model or moving one of its linear fields.
+
+The browser example implements the ordinary `Application` class and uses the
+shared `run-page` lifecycle. Its `PageState` is Save, not Model:
+
+```scheme
+(struct FuturesApplication ())
+(define-page-state Save)
+(instance (Application (! mut events storage tasks) FuturesApplication)
+  (define (start entry)
+    (run-page (lambda () (Save (Showing "idle") 0)) serialize deserialize present)))
+```
+
+`present` installs the page's DOM and fetch handlers, restores an owned Model
+from Save, and calls `run-reactor`. Its commit callback calls `commit-page` and
+`report-ready`; its checkpoint callback is the saver supplied by `run-page`.
+The complete example is `tests/apps/futures/src/futures/application.sld`.
+
+The reactor opens `with-borrow` scopes for view, window and snapshot,
+then ends each loan before moving the model or invoking effectful commit
+and checkpoint callbacks.
+
+Here `snapshot : (Borrow Model) -> Save` is pure, and Save is unrestricted,
+serializable data. The loop ends the borrow before publishing or storing
+Save. Saves occur on the shared timer's `SaveRequested`, hiding and close.
+On close the application drops the returned model. Only Save crosses a page
+restart or handover; pending futures belong to the old scheduler and are
+never stored in `Any` or serialized. Restore decides how to represent
+interrupted work or restart a request. This application always restores from
+Save, even when Model's type is unchanged. A view or update trap leaves the
+preceding committed Save available to the shared recovery protocol.
+
+`tests/apps/futures` is a browser example with only Load, Cancel and Click
+inputs. Its model owns a `Future<Result<String, String>>`. The browser
+test holds server replies while input continues, verifies that a canceled
+receiver cannot install a late reply, and refreshes while a request is
+pending. The next instance restores its snapshot and can dispatch again.
+`tests/programs/ui-futures.sld` covers the same ownership path over the
+in-memory DOM.
+
 <a id="live-reload"></a>
 
 ## Hot reload

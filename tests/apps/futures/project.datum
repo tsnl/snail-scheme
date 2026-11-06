@@ -1,0 +1,5 @@
+((build-target site
+   (browser
+    (entry ((futures application) FuturesApplication))
+    (library-roots ("src"))
+    (public "public"))))

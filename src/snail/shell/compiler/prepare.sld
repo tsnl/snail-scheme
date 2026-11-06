@@ -308,7 +308,9 @@
             (Pair "snail.shell.task:make-task"
                   (Restriction 0 "work given to make-task" (list "snail.shell.task:tasks")))
             (Pair "snail.shell.async:dispatch"
-                  (Restriction 0 "work given to dispatch" (list "snail.shell.task:tasks")))))
+                  (Restriction 0 "work given to dispatch" (list "snail.shell.task:tasks")))
+            (Pair "snail.shell.ui:run-reactor"
+                  (Restriction 2 "a reactor update" (Nil)))))
 
     (: restriction (-> Expr (Option Restriction)))
     (define (restriction callee)

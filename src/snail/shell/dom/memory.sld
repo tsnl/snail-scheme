@@ -501,7 +501,6 @@
 
     (: with-memory-dom
        (All (T e)
-            (requires (Copy T))
             (-> (List Cue) (-> T ! dom e) (Pair T Document) ! mut e)))
     (define (with-memory-dom script work)
       (let ((state (ref empty-document)) (cues (ref script)) (woken (ref #f)) (inputs (ref (Nil))))
