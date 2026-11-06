@@ -882,7 +882,7 @@
     (: browser-files (List String))
     (define browser-files
       (list "host.mjs" "runtime.mjs" "tasks.mjs" "entry.mjs" "renderer.mjs" "hud.mjs" "pictures.mjs"
-            "storage.mjs" "load.mjs" "style.css" "ui.mjs" "dom.mjs" "fetch.mjs"
+            "storage.mjs" "load.mjs" "style.css" "ui.mjs" "dom.mjs" "fetch.mjs" "install.mjs"
             "snail-icon.svg" "snail-icon-192.png" "snail-icon-512.png"))
 
     ;; The names some build writes at a generation's root, whether or not

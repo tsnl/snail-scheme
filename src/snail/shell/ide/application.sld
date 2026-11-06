@@ -1068,6 +1068,8 @@
       (CloseReady ((pane I64)
                    (path String)
                    (text String)))
+      (InstallFinished ((result InstallResult)))
+      (FullscreenFinished ((accepted Bool)))
       (DispatchCommand ((name String)))
       (InvokeCommand ((name String)))
       (PaletteQuery ((query String)))
@@ -1141,6 +1143,11 @@
          (stay (Ide-status-set model (failed-status model (Failure-message failure)))))
         ((Close pane) (invoked (Ide-active-set model pane) closing))
         ((CloseReady pane path text) (close-ready model pane path text))
+        ((InstallFinished result) (installation-finished model result))
+        ((FullscreenFinished accepted)
+         (if accepted (stay model)
+             (notice model
+                     "Fullscreen needs an explicit click or is unavailable in this browser.")))
         ((DispatchCommand name) (Pair model (list (once (lambda () (InvokeCommand name))))))
         ((InvokeCommand name) (run-command model name))
         ((PaletteQuery query) (palette-query model query))
@@ -1787,6 +1794,15 @@
                                                    (lambda (model)
                                                      (palette-open model
                                                                    (Creating (Creation #t #f "")))))
+                                  (command-Command "install-app" installing)
+                                  (command-Command "toggle-fullscreen" (lambda (model)
+                                                                         (Pair model
+                                                                               (list
+                                                                                (once (lambda ()
+                                                                                        (FullscreenFinished
+                                                                                         (set-fullscreen
+                                                                                          (not
+                                                                                           (fullscreen?))))))))))
                                   (command-Command "save-buffer" saving)
                                   (command-Command "format-buffer" formatting)
                                   (command-Command "reload-buffer" reloading)
@@ -1823,6 +1839,8 @@
                                                              (primary-chords "F" shift-key))
                                                (bound-chords "new-file" (Nil))
                                                (bound-chords "new-directory" (Nil))
+                                               (bound-chords "install-app" (Nil))
+                                               (bound-chords "toggle-fullscreen" (Nil))
                                                (bound-chords "save-buffer" (primary-chords "s" 0))
                                                (bound-chords "format-buffer"
                                                              (list
@@ -2073,6 +2091,31 @@
                         (json-text item "revision") (json-text item "snippet")))
              (None)))
         (_ (None))))
+
+    ;; ---- Window commands ----
+
+    (: notice (-> Ide String Step))
+    (define (notice model text)
+      (stay (Ide-status-set model (Status text "notice" (Status-attempt (Ide-status model))))))
+
+    (: installing (-> Ide Step))
+    (define (installing model)
+      (Pair model (list (once (lambda () (InstallFinished (install-app)))))))
+
+    (: installation-finished (-> Ide InstallResult Step))
+    (define (installation-finished model result)
+      (notice model
+              (match result
+                ((InstallAccepted)
+                 "Installation accepted; your browser will finish installing the app.")
+                ((InstallDismissed) "Installation dismissed.")
+                ((InstallAlreadyInstalled) "This app is already installed.")
+                ((GestureRequired)
+                 "Open the palette and click install-app to confirm installation.")
+                ((InstallFailed)
+                 "The browser could not open its installation prompt. Try its Install App menu.")
+                ((InstallNotAvailable)
+                 "Use your browser’s Install App or Add to Dock menu if available."))))
 
     ;; ---- Creating project entries ----
 

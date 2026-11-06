@@ -409,6 +409,13 @@ host and port for a local installed app. HTTPS or a loopback origin is needed
 for browser installation; the development server must remain running. These
 manifests do not add offline caching or a service worker.
 
+The `install-app` command opens Chrome's installation prompt when the browser
+has offered one. A dismissed offer is consumed; an expired user activation keeps
+it for another explicit click on the command. Other browsers, or a page that has
+not received an offer, get a status message pointing to the browser's installation
+menu. Acceptance and completed installation are separate outcomes. The
+`toggle-fullscreen` command enters or leaves fullscreen independently of installation.
+
 The editor has no top toolbar. Its command palette opens with Command/Ctrl+Shift+P,
 F1, or the `>_` button in the status strip. Type a command name, use arrows or Tab
 to choose, Enter to run, and Escape to return to the editor. Names such as

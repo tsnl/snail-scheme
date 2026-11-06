@@ -57,6 +57,14 @@
            ;; dom.mjs keeps the window at handle -1.
            (window-node (lambda () (Node -1)))
            (confirm (lambda (question) (= (host-confirm (string->utf8 question)) 1)))
+           (installation-status page-installation-status)
+           (install-app page-install)
+           (fullscreen? (lambda () (= 1 (host-fullscreen))))
+           (set-fullscreen (lambda (enter)
+                             (= 1
+                                (through-host
+                                 (lambda (ticket) (host-start-fullscreen ticket (if enter 1 0)))
+                                 host-finish-fullscreen))))
            (element-by-id (lambda (id)
                             (let ((handle (host-element-by-id (string->utf8 id))))
                               (if (< handle 0) (None) (Some (Node handle))))))
@@ -71,6 +79,19 @@
            (wake (lambda () (host-wake)))
            (next-event page-delivery))
         (work)))
+
+    ;; ---- Window applications ----
+
+    (: page-installation-status (-> InstallationStatus))
+    (define (page-installation-status)
+      (case (host-installation-status)
+        ((1) (InstallAvailable)) ((2) (AppInstalled)) (else (InstallUnavailable))))
+
+    (: page-install (-> InstallResult ! tasks))
+    (define (page-install)
+      (case (through-host host-start-install host-finish-install)
+        ((0) (InstallAccepted)) ((1) (InstallDismissed)) ((2) (InstallNotAvailable))
+        ((3) (GestureRequired)) ((5) (InstallAlreadyInstalled)) (else (InstallFailed))))
 
     ;; ---- Deliveries ----
 

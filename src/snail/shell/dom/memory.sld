@@ -582,6 +582,11 @@
                                (lambda (document)
                                  (traced document (list "confirm" (quoted question)))))
                        #t))
+                    ;; This document has no browser window or installation offer.
+                    (installation-status (lambda () (InstallUnavailable)))
+                    (install-app (lambda () (InstallNotAvailable)))
+                    (fullscreen? (lambda () #f))
+                    (set-fullscreen (lambda (enter) #f))
                     (insert-text
                      (lambda (node start end text)
                        (let ((taken (match (live (ref-get state) (Node-handle node))

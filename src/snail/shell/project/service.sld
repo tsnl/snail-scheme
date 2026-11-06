@@ -2051,6 +2051,7 @@
     (define interface-modules
       (list "ui.mjs"
             "dom.mjs"
+            "install.mjs"
             "fetch.mjs"
             "storage.mjs"
             "load.mjs"

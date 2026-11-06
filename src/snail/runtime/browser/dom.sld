@@ -25,6 +25,12 @@
    unlisten
    focus
    confirm
+   installation-status
+   start-install
+   finish-install
+   fullscreen
+   start-fullscreen
+   finish-fullscreen
    element-by-id
    select-range
    selection-start
@@ -64,6 +70,12 @@
     (extern listen-chord "snail.runtime.browser.dom" "listen-chord" (-> I32 I32 Bytes Unit))
     (extern unlisten "snail.runtime.browser.dom" "unlisten" (-> I32 Unit))
     (extern focus "snail.runtime.browser.dom" "focus" (-> I32 Unit))
+    (extern installation-status "snail.runtime.browser.dom" "installation-status" (-> I32))
+    (extern start-install "snail.runtime.browser.dom" "start-install" (-> I64 Unit))
+    (extern finish-install "snail.runtime.browser.dom" "finish-install" (-> I64 I32))
+    (extern fullscreen "snail.runtime.browser.dom" "fullscreen" (-> I32))
+    (extern start-fullscreen "snail.runtime.browser.dom" "start-fullscreen" (-> I64 I32 Unit))
+    (extern finish-fullscreen "snail.runtime.browser.dom" "finish-fullscreen" (-> I64 I32))
     (extern confirm "snail.runtime.browser.dom" "confirm" (-> Bytes I32))
     (extern element-by-id "snail.runtime.browser.dom" "element-by-id" (-> Bytes I32))
     (extern select-range "snail.runtime.browser.dom" "select-range" (-> I32 I32 I32 Unit))

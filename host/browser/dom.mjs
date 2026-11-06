@@ -9,6 +9,7 @@
 // and a read of one answers "" or 0.
 
 import {byteSnapshot} from './load.mjs';
+import {webAppImports} from './install.mjs';
 
 // The kinds of event an interface is fired, after the host's own 11 to 13
 // (runtime.mjs), and the bits of `capture-bits` and the modifier keys.
@@ -131,6 +132,7 @@ export function createDom(container, runtime) {
   // A property is set only when it differs, so setting an input's value to
   // what the user typed leaves the caret where it is.
   const imports = {
+    ...webAppImports(runtime),
     root: () => 0,
     'create-element': address => made(document.createElement(text(address))),
     'create-text': address => made(document.createTextNode(text(address))),
