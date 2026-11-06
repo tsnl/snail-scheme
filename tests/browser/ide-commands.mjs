@@ -1,4 +1,6 @@
-// Invoke the same named command a person chooses in the palette.
+// Chromium test driver: send the DOM events a person uses in the palette.
+// The registry and invocation live in (snail shell ide application); behavioral
+// tests run that library through run-ui in tests/programs/ide-application.sld.
 import {until} from './chromium.mjs';
 
 export async function command(browser, name) {

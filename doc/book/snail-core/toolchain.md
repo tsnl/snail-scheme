@@ -388,7 +388,20 @@ F1, or the `>_` button in the status strip. Type a command name, use arrows or T
 to choose, Enter to run, and Escape to return to the editor. Names such as
 `save-buffer`, `format-buffer`, `reload-buffer`, `build-project`, `split-right`,
 `split-down`, `toggle-files`, and `close-editor` name Scheme functions. The
-palette and keyboard look up the same registrations in `(snail shell ui commands)`.
+palette, buttons and keyboard dispatch command names through the application loop.
+`(snail shell ui commands)` holds an ordered vector of names and Scheme actions.
+`(snail shell ui shortcuts)` separately maps complete key chords to those names,
+checking duplicate chords and unknown commands when the mappings are built.
+Dispatch schedules an invocation against the current model; asynchronous work
+then returns messages through the existing UI task queue. File reads, saves and
+searches retain the evidence specific to their own results.
+
+The application lives in `(snail shell ide application)`; `host/ide/ide.sld`
+only binds it to the browser page. Scheme scenarios can run its exact update,
+view and command loop over the memory DOM and a controlled fetch handler.
+Chromium checks retain the browser-specific behavior: focus, default keyboard
+actions, undo, cancellation and browser lifecycle. JavaScript is the browser
+launcher and API boundary, not the implementation of IDE behavior.
 
 Command/Ctrl+S saves, Command/Ctrl+B toggles files, Command/Ctrl+Shift+F formats,
 and Command/Ctrl+backslash splits right (Shift splits down). Command/Ctrl+W

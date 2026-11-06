@@ -1,4 +1,5 @@
-// Named Scheme commands have one path from the palette and from keys.
+// Browser-only focus, keyboard delivery and confirm-dialog behavior.
+// Registry, fuzzy selection and request ordering run in Snail-Core fixtures.
 import assert from 'node:assert/strict';
 import {mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -28,16 +29,8 @@ try {
   await until(() => browser.evaluate('document.querySelectorAll(".pane").length === 2'), 'palette split');
   await key({key: 'w', altKey: true});
   await until(() => browser.evaluate('document.querySelectorAll(".pane").length === 1'), 'shortcut close');
-  await command(browser, 'toggle-files');
-  assert.equal(await browser.evaluate('document.querySelector(".project-layout").classList.contains("no-files")'), true);
-  await key({key: 'b', ctrlKey: true});
-  await until(() => browser.evaluate('!document.querySelector(".project-layout").classList.contains("no-files")'), 'shortcut toggle');
   await key({key: 'F1'});
-  await until(() => browser.evaluate('Boolean(document.getElementById("command-query"))'), 'F1 palette');
-  await query('no-such-command');
-  await until(() => browser.evaluate('document.querySelectorAll(".palette-option").length === 0'), 'empty results');
-  await key({key: 'Enter'});
-  assert.ok(await browser.evaluate('Boolean(document.getElementById("command-query"))'));
+  await until(() => browser.evaluate('document.activeElement?.id === "command-query"'), 'palette focus');
   await key({key: 'Escape'});
   await until(() => browser.evaluate('document.activeElement?.tagName === "TEXTAREA"'), 'focus returned');
   await browser.evaluate(`const field = document.querySelector('.pane.active textarea'); field.value += ${JSON.stringify('; draft\n')}; field.dispatchEvent(new Event('input')); window.confirm = () => false;`);

@@ -1,70 +1,40 @@
-;; Named commands and their keys. Registration checks names and chords once;
-;; a palette and a keyboard listener then retrieve the same action. An action
-;; may be any Copy value, including a Scheme function with its own effects.
+;; A named operation is independent of how a person invokes it. A palette,
+;; button or keyboard binding selects a name; the application dispatches it
+;; through its message loop. Actions can be Scheme functions returning work.
 (define-library (snail shell ui commands)
-  (export
-   Command Command-name Command-keys Command-action
-   Registry Registry-commands register named keyed chords)
+  (export Command Command-name Command-action Registry Registry-commands register named)
   (import
    (snail core base)
-   (only (snail shell dom) Chord Chord-key Chord-modifiers))
+   (snail core table))
   (begin
 
     ;; ---- Registration ----
 
     (struct (Command A)
       ((name String)
-       (keys (List Chord))
        (action A)))
 
     (struct (Registry A)
-      ((commands (List (Command A)))))
-
-    (: same-key? (-> Chord Chord Bool))
-    (define (same-key? first second)
-      (and (string=? (Chord-key first) (Chord-key second))
-           (= (Chord-modifiers first) (Chord-modifiers second))))
-
-    (: repeated-key? (-> (List Chord) (List Chord) Bool))
-    (define (repeated-key? keys held)
-      (match keys
-        ((Nil) #f)
-        ((Cons key rest)
-         (or (any? (lambda (other) (same-key? key other)) held)
-             (repeated-key? rest (Cons key held))))))
+      ((commands (Vector (Command A)))))
 
     (: register (All (A) (requires (Copy A))
-                     (-> (List (Command A)) (Result (Registry A) String))))
+                     (-> (Vector (Command A)) (Result (Registry A) String))))
     (define (register commands)
-      (let loop ((rest commands) (names (ann (Nil) (List String)))
-                 (keys (ann (Nil) (List Chord))))
-        (match rest
-          ((Nil) (Ok (Registry commands)))
-          ((Cons command rest)
-           (let ((name (Command-name command)) (more (Command-keys command)))
-             (cond ((string=? name "") (Err "a command needs a name"))
-                   ((member? name names) (Err (string-append "duplicate command: " name)))
-                   ((repeated-key? more keys) (Err (string-append "duplicate shortcut: " name)))
-                   (else (loop rest (Cons name names) (append more keys)))))))))
+      (let loop ((index 0) (names (ann empty-table (Table Bool))))
+        (if (= index (vector-length commands)) (Ok (Registry commands))
+            (let ((name (Command-name (vector-ref commands index))))
+              (cond ((string=? name "") (Err "a command needs a name"))
+                    ((table-contains? names name) (Err (string-append "duplicate command: " name)))
+                    (else (loop (+ index 1) (table-set names name #t))))))))
 
-    ;; ---- Dispatch ----
+    ;; ---- Lookup ----
 
     (: named (All (A) (requires (Copy A)) (-> (Registry A) String (Option A))))
     (define (named registry name)
-      (match (find (lambda (command) (string=? name (Command-name command)))
-                   (Registry-commands registry))
-        ((Some command) (Some (Command-action command)))
-        ((None) (None))))
-
-    (: keyed (All (A) (requires (Copy A)) (-> (Registry A) String I32 (Option A))))
-    (define (keyed registry key modifiers)
-      (match (find (lambda (command)
-                     (any? (lambda (chord) (same-key? chord (Chord key modifiers)))
-                           (Command-keys command)))
-                   (Registry-commands registry))
-        ((Some command) (Some (Command-action command)))
-        ((None) (None))))
-
-    (: chords (All (A) (requires (Copy A)) (-> (Registry A) (List Chord))))
-    (define (chords registry)
-      (concatenate (map Command-keys (Registry-commands registry))))))
+      (let ((commands (Registry-commands registry)))
+        (let loop ((index 0))
+          (cond ((= index (vector-length commands)) (None))
+                ((string=? (Command-name (vector-ref commands index)) name)
+                 (Some (Command-action (vector-ref commands index))))
+                (else (loop (+ index 1)))))))
+    ))

@@ -156,56 +156,10 @@ try {
   await click('reload');
   await until(async () => (await text()).includes('"another writer"') && !(await problem()), 'explicit reload');
 
-  // Discard is immediate, so a newer watcher read can finish Reload;
-  // subsequent typing survives the older discard request's delayed response.
-  assert.ok(await type('"another writer"', '"discard me"'));
-  await browser.evaluate(`window.actualFetch = window.fetch;
-    window.fetch = async (...args) => { const response = await window.actualFetch(...args);
-      if (String(args[0]).startsWith('/api/file?path=main.sld') && !window.heldReload) {
-        window.heldReload = true; await new Promise(resolve => window.releaseReload = resolve);
-      } return response; };`);
-  await click('reload');
-  await until(() => browser.evaluate('window.heldReload'), 'held reload');
-  await writeFile(source, program('watcher during reload'));
-  await until(async () => (await text()).includes('"watcher during reload"'), 'watcher completes discard');
-  assert.ok(await type('"watcher during reload"', '"typing after reload"'));
-  await browser.evaluate('window.releaseReload(); window.fetch = window.actualFetch');
-  await sleep(100);
-  assert.match(await text(), /"typing after reload"/);
-  await click('reload');
-  await until(async () => (await text()).includes('"watcher during reload"'), 'discard later typing');
-
-  // Hold the successful save response after its real disk write. Later typing
-  // remains a draft against the submitted bytes, even with watcher updates.
-  await browser.evaluate(`window.actualFetch = window.fetch;
-    window.fetch = async (...args) => { const response = await window.actualFetch(...args);
-      if (args[1]?.method === 'PUT' && !window.heldSave) { window.heldSave = true; await new Promise(resolve => window.releaseSave = resolve); }
-      return response; };`);
-  assert.ok(await type('"watcher during reload"', '"submitted"'));
-  await click('save');
-  await until(() => browser.evaluate('window.heldSave'), 'held save response');
-  assert.ok(await type('"submitted"', '"typed later"'));
-  await browser.evaluate('window.releaseSave()');
-  await until(() => browser.evaluate('document.querySelector(".pane.active textarea").getAttribute("aria-busy") === "false"'), 'save release');
-  assert.match(await readFile(source, 'utf8'), /"submitted"/);
-  assert.match(await text(), /"typed later"/); assert.match(await title(), /●/);
-  await browser.evaluate('window.fetch = window.actualFetch');
+  // Save/read ordering is exercised by tests/programs/ide-application.sld
+  // against the same update loop, with deterministically delayed fetch replies.
+  assert.ok(await type('"another writer"', '"new revision"'));
   await click('save'); await saved();
-
-  // A read begun before Save cannot restore its older revision afterward.
-  await browser.evaluate(`window.fetch = async (...args) => { const response = await window.actualFetch(...args);
-    if (String(args[0]).startsWith('/api/file?path=main.sld') && !args[1]?.method && !window.heldRead) {
-      window.heldRead = true; await new Promise(resolve => window.releaseRead = resolve);
-    } return response; };`);
-  await writeFile(source, await readFile(source));
-  await until(() => browser.evaluate('window.heldRead'), 'held old file read');
-  assert.ok(await type('"typed later"', '"new revision"'));
-  await click('save'); await saved();
-  await browser.evaluate('window.releaseRead(); window.fetch = window.actualFetch');
-  await sleep(100);
-  assert.ok(await type('"new revision"', '"after stale read"'));
-  await click('save'); await saved();
-  assert.match(await readFile(source, 'utf8'), /"after stale read"/);
 
   // A split adds a pane beside the first, whose field stays, with its caret.
   await browser.evaluate(`(() => { window.firstField = document.querySelector('.pane.active textarea'); window.firstField.setSelectionRange(3, 3); })()`);
@@ -213,7 +167,7 @@ try {
   assert.equal(await browser.evaluate('document.querySelectorAll(".pane").length'), 2);
   assert.equal(await browser.evaluate('document.querySelector(".pane textarea") === window.firstField && window.firstField.isConnected'), true);
   assert.equal(await browser.evaluate('window.firstField.selectionStart'), 3);
-  assert.ok(await type('"after stale read"', '"two panes"'));
+  assert.ok(await type('"new revision"', '"two panes"'));
   assert.match(await browser.evaluate('document.querySelector(".pane textarea").value'), /"two panes"/);
   await click('save'); await saved();
   if (screenshot) await browser.screenshot(screenshot);
