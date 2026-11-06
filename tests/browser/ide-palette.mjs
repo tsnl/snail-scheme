@@ -20,8 +20,21 @@ try {
   await until(async () => (await title()) === 'main.sld', 'first file');
   assert.equal(await browser.evaluate('document.querySelector(".toolbar")'), null);
   assert.equal(await browser.evaluate('document.querySelectorAll(".pane-header button").length'), 1);
-  await key({key: 'P', metaKey: true, shiftKey: true});
-  await until(() => browser.evaluate('document.activeElement?.id === "command-query"'), 'Command+Shift+P');
+  // macOS may report the unshifted letter even while Command+Shift is held.
+  for (const modifier of ['metaKey', 'ctrlKey']) {
+    for (const letter of ['p', 'P']) {
+      assert.equal(await key({key: letter, [modifier]: true, shiftKey: true}), false, 'palette chord prevents browser default');
+      await until(() => browser.evaluate('document.activeElement?.id === "command-query"'), `${modifier}+Shift+${letter}`);
+      await key({key: 'Escape'});
+      await until(() => browser.evaluate('document.activeElement?.tagName === "TEXTAREA"'), 'shortcut returns focus');
+    }
+  }
+  for (const chord of [{key: 'p'}, {key: 'P', shiftKey: true}, {key: 'p', metaKey: true, shiftKey: true, altKey: true},
+    {key: 'p', metaKey: true, shiftKey: true, isComposing: true}])
+    assert.equal(await key(chord), true, 'unbound and composing keys keep browser default');
+  await key({key: 'p', metaKey: true, shiftKey: true});
+  await until(() => browser.evaluate('document.activeElement?.id === "command-query"'), 'Command+Shift+p');
+  assert.equal(await browser.evaluate('document.querySelector(\'[data-command="command-palette"] .command-keys\').textContent'), 'F1 / Ctrl+Shift+P / ⌘+Shift+P');
   await query('spri');
   await until(() => browser.evaluate('document.querySelectorAll(".palette-option").length === 1'), 'fuzzy command');
   assert.equal(await browser.evaluate('document.querySelector(".palette-option").dataset.command'), 'split-right');

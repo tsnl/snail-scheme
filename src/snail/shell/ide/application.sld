@@ -10,7 +10,7 @@
           Ide-active Ide-panes Ide-files-shown Ide-palette buffer-at dirty? conflict?)
   (import
    (snail core base)
-   (only (snail shell text) string-upcase)
+   (only (snail shell text) string-upcase string-downcase)
    (only (snail shell task) tasks)
    (snail shell dom)
    (snail shell fetch)
@@ -643,7 +643,7 @@
     ;; The editor: the project; the sequence of its latest listing; the open
     ;; buffers, in the order they were opened; the sequence of the latest read
     ;; of any; the panes, how they are laid out, the active one and the next
-    ;; id for a pane or split; the folders shown closed; whether the files are
+    ;; id for a pane or split; the folders explicitly expanded; whether the files are
     ;; shown, and how wide; a drag; the compiler's status, the last server
     ;; snapshot, how many different build reports have come, and their diagnostics;
     ;; the runs; and the event stream heard now, none while connecting.
@@ -656,7 +656,7 @@
        (layout Layout)
        (active I64)
        (next I64)
-       (closed (List String))
+       (expanded (List String))
        (files-shown Bool)
        (files-width F64)
        (drag (Option Drag))
@@ -943,7 +943,7 @@
         ((DispatchCommand name) (Pair model (list (once (lambda () (InvokeCommand name))))))
         ((InvokeCommand name) (run-command model name))
         ((PaletteEvent message) (palette-message model message))
-        ((ToggleFolder path) (stay (Ide-closed-set model (toggled (Ide-closed model) path))))
+        ((ToggleFolder path) (stay (Ide-expanded-set model (toggled (Ide-expanded model) path))))
         ((Grab grip) (Pair model (list (once (lambda () (grabbed grip))))))
         ((Grabbed drag) (stay (Ide-drag-set model (Some drag))))
         ((Dragged x y) (stay (dragged model x y)))
@@ -1590,10 +1590,10 @@
              (Pair empty (list (focusing empty active))))))))
 
     (: toggled (-> (List String) String (List String)))
-    (define (toggled closed path)
-      (if (member? path closed)
-          (filter (lambda (other) (not (string=? other path))) closed)
-          (Cons path closed)))
+    (define (toggled paths path)
+      (if (member? path paths)
+          (filter (lambda (other) (not (string=? other path))) paths)
+          (Cons path paths)))
 
     ;; A drag measures what it divides as it begins.
     (: grabbed (-> Grip Msg ! dom))
@@ -1635,9 +1635,14 @@
 
     ;; Commands have names and functions; keyboard policy maps chords to names.
     ;; Every entry point schedules invocation through the application loop.
+    ;; macOS can report lowercase letters with Command+Shift. Bind both cases
+    ;; with the same modifiers, so the browser and the dispatcher agree.
     (: primary-chords (-> String I32 (List Chord)))
     (define (primary-chords key extra)
-      (map (lambda (held) (Chord key (+ held extra))) (list control-key meta-key)))
+      (concatenate
+       (map (lambda (spelling)
+              (map (lambda (held) (Chord spelling (+ held extra))) (list control-key meta-key)))
+            (delete-duplicates string=? (list (string-upcase key) (string-downcase key))))))
 
     (: commands (command-Registry (-> Ide Step)))
     (define commands
@@ -2101,9 +2106,11 @@
     (: command-keys (-> String String))
     (define (command-keys name)
       (string-join
-       (map (lambda (binding) (chord-label (shortcut-Binding-chord binding)))
-            (filter (lambda (binding) (string=? name (shortcut-Binding-name binding)))
-                    (vector->list (shortcut-Shortcuts-bindings shortcuts))))
+       (delete-duplicates
+        string=?
+        (map (lambda (binding) (chord-label (shortcut-Binding-chord binding)))
+             (filter (lambda (binding) (string=? name (shortcut-Binding-name binding)))
+                     (vector->list (shortcut-Shortcuts-bindings shortcuts)))))
        " / "))
 
     (: chord-label (-> Chord String))
@@ -2226,11 +2233,11 @@
                                     (list (folder-view model name inside path)))))))
                     entries)))
 
-    ;; A folder opens and closes as the model says, not by itself.
+    ;; Folders start closed; only an explicit toggle expands one.
     (: folder-view (-> Ide String (List Tree) String (Html Msg)))
     (define (folder-view model name entries path)
       (Element "details"
-               (list (FlagProperty "open" (not (member? path (Ide-closed model)))))
+               (list (FlagProperty "open" (member? path (Ide-expanded model))))
                (list (Element "summary"
                               (list
                                (On "click" (Nil) (Always) (lambda (event) (ToggleFolder path))))
@@ -2641,6 +2648,8 @@
        (layout Layout)
        (active I64)
        (next I64)
+       ;; Keep the old wire field so saved drafts remain readable. Folder
+       ;; expansion starts fresh on each page load.
        (closed (List String))
        (files-shown Bool)
        (files-width F64))
@@ -2649,7 +2658,7 @@
     (: kept (-> Ide Recovery))
     (define (kept model)
       (Recovery 1 (map kept-buffer (Ide-buffers model)) (Ide-panes model) (Ide-layout model)
-                (Ide-active model) (Ide-next model) (Ide-closed model)
+                (Ide-active model) (Ide-next model) (Nil)
                 (Ide-files-shown model) (Ide-files-width model)))
 
     (: kept-buffer (-> Buffer Draft))
@@ -2669,7 +2678,6 @@
              (model (Ide-layout-set model (Recovery-layout save)))
              (model (Ide-active-set model (Recovery-active save)))
              (model (Ide-next-set model (Recovery-next save)))
-             (model (Ide-closed-set model (Recovery-closed save)))
              (model (Ide-files-shown-set model (Recovery-files-shown save))))
         (Ide-files-width-set model (Recovery-files-width save))))
 

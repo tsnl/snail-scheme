@@ -1,7 +1,7 @@
 // Create from the palette; empty directories survive reconnect, and old replies
 // never replace the user's later selection.
 import assert from 'node:assert/strict';
-import {mkdtemp, writeFile, readFile, rm} from 'node:fs/promises';
+import {mkdir, mkdtemp, writeFile, readFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {startDevelopment} from '../development-service.mjs';
@@ -11,16 +11,27 @@ import {command} from './ide-commands.mjs';
 const root = process.argv[2], project = await mkdtemp(join(tmpdir(), 'snail-ide-create-'));
 await writeFile(join(project, 'project.datum'), '()');
 await writeFile(join(project, 'main.sld'), '(import (snail core base))\n');
+await mkdir(join(project, 'tree/branch'), {recursive: true});
 const service = await startDevelopment(root, project), browser = await openBrowser();
 const key = key => browser.evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(key)}, bubbles:true, cancelable:true}))`);
 const query = value => browser.evaluate(`(() => { const q = document.getElementById('command-query'); q.value = ${JSON.stringify(value)}; q.dispatchEvent(new Event('input')); })()`);
 const title = () => browser.evaluate('document.querySelector(".pane.active .pane-title").textContent');
+const folders = () => browser.evaluate('Object.fromEntries([...document.querySelectorAll("#files details")].map(node => [node.querySelector("summary").textContent, node.open]))');
 const create = async (name, path) => { await command(browser, name); await query(path); await key('Enter'); };
 try {
   await browser.navigate(service.url + '/');
   await until(async () => (await title()) === 'main.sld', 'initial editor');
+  assert.deepEqual(await folders(), {tree: false, branch: false}, 'every directory starts collapsed');
+  await browser.evaluate('document.querySelector("#files summary").click()');
+  await until(async () => (await folders()).tree, 'expand parent');
+  assert.equal((await folders()).branch, false, 'expanding a parent leaves its child closed');
+  await browser.evaluate('document.querySelector("#files details details summary").click()');
+  await until(async () => (await folders()).branch, 'expand child');
+  await browser.evaluate('document.querySelector("#files details details summary").click()');
+  await until(async () => !(await folders()).branch, 'collapse child');
   await create('new-directory', 'agent-core');
   await until(() => browser.evaluate('[...document.querySelectorAll("#files summary")].some(node => node.textContent === "agent-core")'), 'empty directory');
+  assert.deepEqual(await folders(), {'agent-core': false, tree: true, branch: false}, 'new directories start closed while listing updates preserve expansion');
   await create('new-file', 'agent-core/main.sld');
   await until(async () => (await title()) === 'agent-core/main.sld', 'new file editor');
   await until(() => browser.evaluate('!document.querySelector("textarea").disabled'), 'new file read');
@@ -32,6 +43,7 @@ try {
   await until(() => browser.evaluate('!document.getElementById("command-query")'), 'directory command completed');
   await browser.navigate(service.url + '/');
   await until(() => browser.evaluate('[...document.querySelectorAll("#files summary")].some(node => node.textContent === "empty")'), 'empty directory after reload');
+  assert.equal(await browser.evaluate('document.querySelectorAll("#files details[open]").length'), 0, 'page load resets folder expansion');
   await create('new-file', 'main.sld');
   await until(() => browser.evaluate('document.getElementById("palette-help").textContent.includes("already exists")'), 'creation refusal');
   await key('Escape');
