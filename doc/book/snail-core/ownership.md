@@ -158,6 +158,73 @@ the owners its exit abandons, before the handler recovers. This includes
 `dyn-cast` conversion failures. Fatal panic and divergence retain their
 separate contracts; neither is a catchable conversion failure.
 
+### Lexically scoped borrows
+
+`Borrow<T>` is a read-only, non-owning value. `with-borrow` opens its lexical
+scope, keeping the owner in place until that scope ends. For example, a
+view can inspect a model that owns linear work:
+
+```scheme
+(: title (-> (Borrow Model) String))
+(define (title model)
+  (Model-title model))
+
+(let ((model (Model "ready" work)))
+  (with-borrow (read model)
+    (let ((alias read))
+      (write-line (title read))
+      (write-line (title alias))))
+  (update model))
+```
+
+The owner must be a local or an immutable field path rooted in a local.
+Mutable storage must first be read into an owned local. The scope freezes
+the owner against moves, drops and replacements. Borrow aliases can be used
+repeatedly and passed to helpers, including imported and higher-order
+functions, whose parameters explicitly take `Borrow<T>`. There is no
+implicit conversion from an owner to a borrow.
+
+An immutable field read through a borrow returns an owned value when the
+field is Copy, or `Borrow<Field>` when the field is linear. Both named
+accessors and concrete field shorthand such as `(::title read)` follow
+this rule. A computed field or a field known only through a generic
+requirement cannot project a borrow: its implementation may consume the
+record. `borrow-copy` copies a whole referent when its type is Copy. Copy a
+title or item ID into a local before capturing it in an HTML event handler;
+that callback owns its data and may outlive the loan.
+
+Borrow values stay in checked locals and function signatures, and erase to
+the referent's Wasm representation without a wrapper allocation. They
+cannot leave a `with-borrow` scope as its result, be returned by a helper,
+be stored in data or mutable cells, be captured by a closure or task, or
+cross an `Any` or host boundary. Mutable field reads through a borrow are
+also rejected. Nested scopes restore only their loans: consuming an
+unrelated owner inside a loan still consumes it outside.
+
+Ordinary generic type variables range over owned types. A generic helper
+can explicitly take `(Borrow T)` with owned `T`; instantiating an ordinary
+`A` with `Borrow<Model>` is refused, even for identity functions. This
+conservative rule prevents generic code from hiding a loan in a container
+or closure. A function value that *accepts* a Borrow is itself owned and
+can be stored or passed generically; its closure cannot retain a Borrow.
+There are no user-written lifetime parameters or mutable borrows.
+
+A borrowed parameter is live throughout its function body. A call that may
+capture a continuation is refused while any lexical loan is active, even
+inside a handler that removes the control effect from the function's
+final row. An unknown effect row may contain control and is refused too.
+A helper's wholly internal handler can still capture its own frames when
+it has no borrowed parameters. Creating a callback that owns only copied
+fields is also allowed: its latent effects run later. These rules check
+ordinary closures, handlers and implicit continuation captures without
+suspending borrowed frames.
+
+`tests/programs/borrow-parameters.sld`, `borrow-fields.sld`,
+`borrow-continuations.sld` and `borrow-per-library.sld` execute these rules,
+including separately linked libraries. The corresponding rejection
+fixtures cover escape, generic hiding, host boundaries, moves, mutable
+storage and continuation capture.
+
 ### Releasing
 
 `drop` is the method of a class over a row
@@ -443,9 +510,11 @@ runtime owns and cancels those explicitly.
 *Proposed, not implemented; the remaining steps are in
 [#550](https://github.com/tsnl/snail-scheme/issues/550).* The grades are
 Rust's, with GC as the only heap; cells, OCaml's `ref`, with places,
-`Drop`, `Clone` and in-place replacement are implemented, above. There are no
-borrows, and none are planned: a linear value is passed to each operation
-that uses it and handed back, however many calls that threads it through.
+`Drop`, `Clone`, in-place replacement and lexically scoped `Borrow<T>`
+values are implemented, above. Mutable borrows and lifetime-polymorphic
+results remain outside this scope. An operation that changes an owned
+linear value still takes it and returns its successor; a read-only
+operation can instead take `Borrow<T>`.
 
 Shared memory between instances is a separate, unsafe library
 ([instances](../runtimes/instances.md)).

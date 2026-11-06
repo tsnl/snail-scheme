@@ -15,6 +15,7 @@
 (define-library (snail shell compiler ownership)
   (export
    check-owned-fields
+   check-boundary-type
    check-item-ownership
    consumed-references)
   (import
@@ -40,8 +41,8 @@
     (: check-type (-> Program (List String) Type Loc Unit ! compile))
     (define (check-type program copy type loc)
       (match type
-        ((TCon "FnOnce" (Cons (TFun params result _) (Nil)))
-         (for-each (lambda (part) (check-type program copy part loc)) (Cons result params)))
+        ((TCon "Borrow" _)
+         (compile-error loc "a Borrow cannot escape into an owned type, result or storage"))
         ((TCon name args)
          (for-each (lambda (arg)
                      (when (and (member? name (list "Array" "Vector"))
@@ -60,8 +61,15 @@
                                                     "a cell holds no linear value: own it in a frame or in the application's state")))
                      (check-type program copy arg loc)) args))
         ((TFun params result _)
-         (for-each (lambda (part) (check-type program copy part loc)) (Cons result params)))
+         (for-each (lambda (param) (check-local-type program copy param loc)) params)
+         (check-type program copy result loc))
         (_ (unit))))
+
+    ;; A borrowed value is allowed only as a local or explicit parameter.
+    ;; Its target is owned: there are no nested or stored Borrow values.
+    (: check-local-type (-> Program (List String) Type Loc Unit ! compile))
+    (define (check-local-type program copy type loc)
+      (check-type program copy (borrow-target type) loc))
 
     ;; A message about a value of a linear type, with the Copy that would
     ;; have made the type unrestricted, if one would.
@@ -94,6 +102,7 @@
     (define (check-owned-types program schemes item)
       (match item
         ((Define name value)
+         (check-type program (item-copy schemes item) (Expr-type value) (Expr-loc value))
          (when (linear-type? program (scheme-vars schemes name) (Expr-type value))
            (compile-error (Expr-loc value) "a linear value cannot be a global"))
          (check-expression-types program (item-copy schemes item) value))
@@ -119,8 +128,27 @@
 
     (: check-expression-types (-> Program (List String) Expr Unit ! compile))
     (define (check-expression-types program copy expr)
-      (check-type program copy (Expr-type expr) (Expr-loc expr))
+      (if (borrow-intrinsic? program expr)
+          (match (Expr-type expr)
+            ((TFun params result _)
+             (for-each (lambda (type) (check-local-type program copy type (Expr-loc expr)))
+                       (Cons result params)))
+            (_ (panic "internal error: a borrow intrinsic is not a function")))
+          (check-local-type program copy (Expr-type expr) (Expr-loc expr)))
       (for-each (lambda (child) (check-expression-types program copy child)) (expr-children expr)))
+
+    ;; Only introduction and direct immutable projections may produce a
+    ;; Borrow. They are compiler operations, never borrow-returning helpers.
+    (: borrow-intrinsic? (-> Program Expr Bool))
+    (define (borrow-intrinsic? program expr)
+      (match (Expr-term expr)
+        ((Var name _ _)
+         (or (string=? name "prim:borrow")
+             (match (Pair (field-operation (Path program (Nil) (Nil) (Nil) #t (None)) expr)
+                          (Expr-type expr))
+               ((Pair (Some (Accessor _ _ _)) (TFun (Cons type _) _ _)) (borrow-type? type))
+               (_ #f))))
+        (_ #f)))
 
     ;; ---- Paths ----
 
@@ -135,6 +163,7 @@
       ((program Program)
        (copy (List String))
        (live (List Owner))
+       (borrowed (List Owner))
        (returns Bool)
        (row (Option Type))))
 
@@ -152,18 +181,28 @@
     (define (live? path name)
       (any? (lambda (owner) (string=? (Owner-name owner) name)) (Path-live path)))
 
+    (: borrowed? (-> Path String Bool))
+    (define (borrowed? path name)
+      (any? (lambda (owner) (string=? (Owner-name owner) name)) (Path-borrowed path)))
+
     ;; The same for a value on this path, under its definition's Copy.
     (: explain (-> Path Type String String))
     (define (explain path type message)
       (explain-type (Path-program path) (Path-copy path) type message))
 
-    ;; A linear name is live from its binding until it is consumed.
+    ;; Borrow aliases are reusable within their lexical scope. They share
+    ;; its capture restriction; linear owners retain their once-only use.
     (: bind (-> Path String Type Path))
     (define (bind path name type)
-      (if (linear? path type) (Path-live-set path (Cons (Owner name type) (Path-live path))) path))
+      (cond ((borrow-type? type)
+             (Path-borrowed-set path (Cons (Owner name type) (Path-borrowed path))))
+            ((linear? path type) (Path-live-set path (Cons (Owner name type) (Path-live path))))
+            (else path)))
 
     (: consume (-> Path Owner Loc Path ! compile))
     (define (consume path owner loc)
+      (when (borrowed? path (Owner-name owner))
+        (compile-error loc "an owner cannot be moved while it is borrowed"))
       (require-live path owner loc)
       (Path-live-set path
                      (filter (lambda (live) (not (string=? (Owner-name live) (Owner-name owner))))
@@ -193,7 +232,8 @@
                                                     (local-name (Owner-name owner))
                                                     "; use it once, or drop it")))))
           ((Nil) (unit)))
-        (Path-live-set inner (filter outside? (Path-live inner)))))
+        (Path-borrowed-set (Path-live-set inner (filter outside? (Path-live inner)))
+                           (Path-borrowed outer))))
 
     ;; Alternatives start from one path. Those that return must leave the
     ;; same names live; if none returns, neither does the whole.
@@ -240,9 +280,7 @@
           ((If test then otherwise)
            (let ((path (check path test)))
              (join path (list (check path then) (check path otherwise)) loc)))
-          ((Let name value body)
-           (let ((path (check path value)))
-             (close-scope path (check (bind path name (Expr-type value)) body) loc)))
+          ((Let name value body) (check-let path name value body loc))
           ((Seq first rest)
            (check-discardable path first)
            (check (check path first) rest))
@@ -265,10 +303,24 @@
            (panic "internal error: try-convert must be lowered before ownership checking"))
           ((TypeTest inner target) (check-conversion path expr inner target)))))
 
+    ;; A private borrow initializer opens a lexical loan. Every exit must
+    ;; return owned data, and closing restores only loan metadata, keeping
+    ;; any consumption of other owners performed by the body.
+    (: check-let (-> Path String Expr Expr Loc Path ! compile))
+    (define (check-let path name value body loc)
+      (match (Expr-term value)
+        ((App (Expr (Var "prim:borrow" _ _) _ _) (Cons owner (Nil)))
+         (check-type (Path-program path) (Path-copy path) (Expr-type body) (Expr-loc body))
+         (close-scope path (check (bind (lend path owner) name (Expr-type value)) body) loc))
+        (_ (let ((path (check path value)))
+             (close-scope path (check (bind path name (Expr-type value)) body) loc)))))
+
     ;; A use of a linear local consumes it. A global is shared, as nothing
     ;; linear is one.
     (: check-reference (-> Path Expr String Path ! compile))
     (define (check-reference path expr name)
+      (when (and (borrowed? path name) (linear? path (Expr-type expr)))
+        (compile-error (Expr-loc expr) "an owner cannot be moved while it is borrowed"))
       (match (field-operation path expr)
         ((Some operation) (check-field-value path operation expr) path)
         ((None)
@@ -284,6 +336,8 @@
     (: check-call (-> Path Expr (List Expr) Path ! compile))
     (define (check-call path callee args)
       (match (Pair (Expr-term callee) args)
+        ((Pair (Var "prim:borrow" _ _) _)
+         (compile-error (Expr-loc callee) "a borrow must be introduced by with-borrow"))
         ((Pair (Var "prim:once" _ _) (Cons value (Nil)))
          (if (lambda-expr? value) (check-lambda path value #t) (check path value)))
         ((Pair (Var "prim:panic" _ _) _) (Path-returns-set (check-all path args) #f))
@@ -301,8 +355,42 @@
               ;; read the record in place.
               ((Replacer _ _ _) (check (check-all path rest) record))
               (_ (check-all (check-chain path record) rest))))
-           ((None) (check-yield-holds (check-all path (Cons callee args)) callee))))
-        (_ (check-yield-holds (check-all path (Cons callee args)) callee))))
+           ((None) (check-ordinary-call path callee args))))
+        (_ (check-ordinary-call path callee args))))
+
+    ;; Borrow parameters receive already-scoped values. Calls never turn
+    ;; an owner into a borrow implicitly, including higher-order calls.
+    (: check-ordinary-call (-> Path Expr (List Expr) Path ! compile))
+    (define (check-ordinary-call path callee args)
+      (check-yield-holds (check-all path (Cons callee args)) callee))
+
+    ;; Only a local or a path of immutable fields is a lendable place.
+    ;; Mutable content can be replaced through an alias while later
+    ;; arguments run, so it must first be read into an owned local.
+    (: lend (-> Path Expr Path ! compile))
+    (define (lend path value)
+      (match (Expr-term value)
+        ((Var name _ _)
+         (when (borrow-type? (Expr-type value))
+           (compile-error (Expr-loc value)
+                          "alias a Borrow with let; with-borrow requires an owner"))
+         (when (and (linear? path (Expr-type value)) (not (borrowed? path name)))
+           (require-live path (Owner name (Expr-type value)) (Expr-loc value)))
+         (Path-borrowed-set path (Cons (Owner name (Expr-type value)) (Path-borrowed path))))
+        ((Ann inner _) (lend path inner))
+        ((App callee (Cons record (Nil))) (lend-field path value callee record))
+        (_ (compile-error (Expr-loc value)
+                          "a borrow must name a local owner or an immutable field path"))))
+
+    (: lend-field (-> Path Expr Expr Expr Path ! compile))
+    (define (lend-field path value callee record)
+      (match (field-operation path callee)
+        ((Some (Accessor case index _))
+         (when (Field-mutable? (list-ref (Case-fields case) index))
+           (compile-error (Expr-loc value) "a borrow cannot refer to mutable field storage"))
+         (lend path record))
+        (_ (compile-error (Expr-loc value)
+                          "a borrow must name a local owner or an immutable field path"))))
 
     ;; The references that move ownership into an expression. Field reads
     ;; borrow their place; a replacement consumes its record. Control uses
@@ -315,10 +403,11 @@
          (filter (lambda (name) (not (member? name params))) (expr-references body)))
         ((App (Expr (Var "prim:set!" _ _) _ _) (Cons _ (Cons value (Nil))))
          (consumed-references program value))
+        ((App (Expr (Var "prim:borrow" _ _) _ _) _) (Nil))
         ((App (Expr (Var "prim:replace!" _ _) _ _) (Cons _ (Cons value (Nil))))
          (consumed-references program value))
         ((App callee (Cons record rest))
-         (match (field-operation (Path program (Nil) (Nil) #t (None)) callee)
+         (match (field-operation (Path program (Nil) (Nil) (Nil) #t (None)) callee)
            ((Some (Replacer _ _ _)) (consumed-children program expr))
            ((Some _) (concatenate (map (lambda (arg) (consumed-references program arg)) rest)))
            ((None) (consumed-children program expr))))
@@ -435,6 +524,9 @@
     (: check-yield-holds (-> Path Expr Path ! compile))
     (define (check-yield-holds path callee)
       (when (callee-may-yield? path callee)
+        (unless (null? (Path-borrowed path))
+          (compile-error (Expr-loc callee)
+                         "a call cannot capture a continuation while a lexical borrow is active"))
         (for-each (lambda (owner)
                     (check-drop-rows path
                                      (Owner-type owner)
@@ -487,14 +579,24 @@
                ((None) #f))))
         (_ #f)))
 
+    ;; Ordinary type variables range over owned values, even when they are
+    ;; Copy. This prevents polymorphic code from hiding a Borrow in a
+    ;; closure, container or opaque result. Explicit Borrow<T> helpers keep
+    ;; T owned and their non-retention contract visible.
+    ;;
     ;; A use of a generic function that may yield binds its type variables
     ;; to types it may hold across the yield. Only a definition or a method
     ;; has a body that could; a primitive, an operation or a constructor
     ;; holds nothing.
     (: check-instantiation (-> Path Expr Value Unit ! compile))
     (define (check-instantiation path expr value)
+      (match value
+        ((Foreign _ _) (check-boundary-type (Expr-type expr) (Expr-loc expr)))
+        (_ (unit)))
       (match (Pair (Expr-term expr) (arrow-row (Expr-type expr)))
         ((Pair (Var name types _) (Some row))
+         (for-each (lambda (type)
+                     (check-type (Path-program path) (Path-copy path) type (Expr-loc expr))) types)
          (when (and (has-body? value) (callee-may-yield? path expr))
            (for-each (lambda (type)
                        (when (linear? path type)
@@ -507,6 +609,18 @@
                                                          " across a yield")
                                           (Expr-loc expr))))
                      types)))
+        (_ (unit))))
+
+    ;; Any and host code cannot enforce lexical scope. Check a foreign
+    ;; reference, not just its calls, so aliasing cannot hide the boundary.
+    (: check-boundary-type (-> Type Loc Unit ! compile))
+    (define (check-boundary-type type loc)
+      (match type
+        ((TCon "Borrow" _)
+         (compile-error loc "a Borrow cannot escape through an Any or host boundary"))
+        ((TCon _ args) (for-each (lambda (arg) (check-boundary-type arg loc)) args))
+        ((TFun params result _)
+         (for-each (lambda (arg) (check-boundary-type arg loc)) (Cons result params)))
         (_ (unit))))
 
     (: has-body? (-> Value Bool))
@@ -682,7 +796,10 @@
       (let ((type (Expr-type record)))
         (if (linear? path type)
             (match (Expr-term record)
-              ((Var name _ _) (require-live path (Owner name type) (Expr-loc record)) path)
+              ((Var name _ _)
+               (unless (borrowed? path name)
+                 (require-live path (Owner name type) (Expr-loc record)))
+               path)
               (_ (compile-error (Expr-loc record)
                                 (explain path
                                          type
@@ -696,6 +813,10 @@
     ;; live in the body either, so the body's use of it is a second use.
     (: check-lambda (-> Path Expr Bool Path ! compile))
     (define (check-lambda path expr once?)
+      (when (any? (lambda (owner) (member? (Owner-name owner) (expr-references expr)))
+                  (Path-borrowed path))
+        (compile-error (Expr-loc expr)
+                       "a closure cannot capture a Borrow or a frozen owner"))
       (let ((captured (let ((references (expr-references expr)))
                         (filter (lambda (owner) (member? (Owner-name owner) references))
                                 (Path-live path))))
@@ -717,11 +838,12 @@
     (define (check-closure-body path expr captured)
       (match (Pair (Expr-term expr) (fn-arrow (Expr-type expr)))
         ((Pair (Lambda params body _) (TFun types _ row))
-         (let* ((empty (Path (Path-program path) (Path-copy path) (Nil) #t (Some row)))
+         (let* ((empty (Path (Path-program path) (Path-copy path) (Nil) (Nil) #t (Some row)))
                 (start
-                 (fold-left (lambda (inner pair) (bind inner (Pair-first pair) (Pair-second pair)))
-                            (Path-live-set empty captured)
-                            (zip params types))))
+                 (fold-left
+                  (lambda (inner pair) (bind inner (Pair-first pair) (Pair-second pair)))
+                  (Path-live-set empty captured)
+                  (zip params types))))
            (close-scope empty (check start body) (Expr-loc expr))
            (unit)))
         (_ (panic "internal error: untyped closure"))))
@@ -787,7 +909,8 @@
     (: check-item-ownership (-> Program (Table Scheme) Item Unit ! compile))
     (define (check-item-ownership program schemes item)
       (check-owned-types program schemes item)
-      (check-item (Path program (item-copy schemes item) (Nil) #t (item-row schemes item)) item))
+      (check-item (Path program (item-copy schemes item) (Nil) (Nil) #t (item-row schemes item))
+                  item))
 
     ;; A definition's row bounds the drops its frames may run; a statement's
     ;; is unbounded.
