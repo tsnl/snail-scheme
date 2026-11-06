@@ -1,4 +1,4 @@
-// A document application uses the same development lifecycle as a
+// A typed document application uses the same development lifecycle as a
 // scene: periodic save, direct state handover, and rollback after a bad view.
 // CHROMIUM=... node tests/browser/ui-reload.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
@@ -10,7 +10,7 @@ import {openBrowser, until} from './chromium.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
 const directory = await realpath(await mkdtemp(join(tmpdir(), 'snail-ui-reload-')));
-const app = join(directory, 'notes'), source = join(app, 'main.sld');
+const app = join(directory, 'notes'), source = join(app, 'src/notes/application.sld');
 await cp(join(root, 'tests/apps/notes'), app, {recursive: true, filter: path => basename(path) !== 'build'});
 const service = await startDevelopment(root, app), browser = await openBrowser();
 const notes = () => browser.evaluate(`[...document.querySelectorAll('#notes li')].map(item => item.firstChild.data).join(',')`);
@@ -78,6 +78,23 @@ try {
   await until(async () => (await notice()).startsWith('Reloaded'), 'the repaired document application');
   assert.equal(await notes(), 'milk,eggs,tea');
 
+  // A stopped root extracts its save without presenting or replaying its
+  // startup messages. Only starting the repaired application increments it.
+  const trap = '      (when (string=? (Notes-draft model) "trap") (panic "document update trap"))\n';
+  await edit('(define (interface-messages model) (list (Load)))',
+    '(define (interface-messages model) (list (Added (+ (Notes-added model) 1))))',
+    '(define (view model)\n', '(define (view model)\n' + trap,
+    '(Text "Add note")', '(Text "Trap test")');
+  await until(async () => await button() === 'Trap test', 'the recovery test application');
+  const count = () => browser.evaluate(`Number(document.getElementById('added').textContent.split(' ')[0])`);
+  const before = await count();
+  await browser.evaluate(`document.getElementById('draft').value = 'trap',
+    document.getElementById('draft').dispatchEvent(new Event('input', {bubbles: true}))`);
+  await until(async () => (await notice()).includes('application stopped'), 'the stopped document');
+  await edit(trap, '', '(Text "Trap test")', '(Text "Recovered")');
+  await until(async () => await button() === 'Recovered', 'the recovered document');
+  assert.equal(await count(), before + 1, 'checkpoint extraction never replays startup messages');
+  assert.equal(await notes(), 'milk,eggs,tea');
   if (screenshot) await browser.screenshot(screenshot);
   console.log('document reload: periodic saves, state handover, stale listeners and rollback passed');
 } catch (error) {

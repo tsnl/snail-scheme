@@ -8,8 +8,8 @@
 // scalar, an offset of 2 to the page and 1 to Snail. Escape on the window
 // clears the draft. The page asks its server for a greeting as it starts,
 // shares its notes with headers and a body, and hears a stream of events
-// until the server ends it. Hiding the page stores the save, a fresh load
-// restores the notes from it, and clearing them asks first.
+// until the server ends it. Clearing the notes asks first. Persistence and
+// replacement are exercised together in ui-reload.mjs.
 //
 //   CHROMIUM=... node tests/browser/ui.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
@@ -125,30 +125,13 @@ try {
   assert.equal(await until(async () => (await said('shared')) || false, 'the shared notes'), '201 text/plain 3 "- eggs\\ntea"');
   await browser.evaluate(`document.getElementById('listen').click()`);
   await until(async () => await said('heard') === 'message:one,note:two,ended', 'the stream heard to its end');
-  await browser.evaluate(`document.getElementById('remove-2').click()`);
-  await until(async () => await notes() === '- eggs', 'the shared note removed');
-
-  await browser.evaluate(`Object.defineProperty(document, 'hidden', {configurable: true, get: () => true}),
-    document.dispatchEvent(new Event('visibilitychange', {bubbles: true}))`);
-  await until(() => browser.evaluate(`new Promise(resolve => {
-    const request = indexedDB.open('snail-applications', 1);
-    request.onsuccess = () => { const get = request.result.transaction('saves').objectStore('saves').get('notes');
-      get.onsuccess = () => resolve(get.result !== undefined); get.onerror = () => resolve(false); };
-    request.onerror = () => resolve(false); })`), 'the stored save');
-
-  await browser.navigate(`http://127.0.0.1:${server.address().port}/`);
-  assert.equal(await ready(), 'true');
-  await until(async () => await notes() === '- eggs', 'the restored notes');
-  await type('tea');
-  await browser.evaluate(`document.getElementById('add').click()`);
-  await until(async () => await notes() === '- eggs,tea', 'a note after the restore');
   await browser.evaluate(`window.confirm = question => (window.asked = question, false), document.getElementById('clear').click()`);
   assert.equal(await until(() => browser.evaluate('window.asked'), 'the question'), 'Remove every note?');
   assert.equal(await notes(), '- eggs,tea', 'declining keeps the notes');
   await browser.evaluate(`window.confirm = () => true, document.getElementById('clear').click()`);
   await until(async () => await notes() === '', 'the notes cleared once agreed');
   if (screenshot) await browser.screenshot(screenshot);
-  console.log('a document interface types, adds, removes, saves and restores');
+  console.log('document interactions: commands, editing, fetch, streaming and confirmation passed');
 } finally {
   browser.close();
   server.close();

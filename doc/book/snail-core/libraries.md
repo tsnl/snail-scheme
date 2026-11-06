@@ -70,7 +70,7 @@ the runtime interfaces.
 | `(snail shell fetch)` | The `fetch` effect: `request method url headers body`, answering a `Reply` or why there was none, and streams of server-sent events of the kinds named, `stream-open`, `stream-next`, which answers a `StreamEvent`, and `stream-close`; a stream that names `error` hears each dropped connection. |
 | `(snail shell fetch page)` | `with-page-fetch`, the handler of `fetch` over the page's `fetch` and `EventSource` (`host/browser/fetch.mjs`). |
 | `(snail shell ui)` | [Document interfaces](applications.md#document-interfaces): `Html` and `Attribute` trees, the keyed reconciler, and `run-ui`, which runs a model, `view` and `update` with commands as tasks, the window's listeners, and messages to start with, commits completed presentations, and saves on request, hiding or close. |
-| `(snail shell ui page)` | `define-ui`, which hosts an interface in a page as `define-application` hosts a scene, and `Command`, the type of its commands. |
+| `(snail shell ui page)` | The `Interface` class with associated `Message` type, `InterfaceApplication` adapter, and `Command`, the type of its commands. |
 | `(snail shell ui commands)` | An ordered vector of named actions, independent of keyboard policy. `register` rejects duplicate names; `named` retrieves an action. Actions can be Scheme functions with effects. |
 | `(snail shell ui shortcuts)` | Chords mapped to command names. Registration checks duplicate chords and unknown commands; `matching` retrieves a name and `chords` supplies a window listener. |
 | `(snail shell ide application)` | The IDE's model, update, view and commands, runnable over the browser or memory DOM with the same fetch effect. |

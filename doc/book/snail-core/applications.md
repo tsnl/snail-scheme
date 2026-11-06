@@ -32,12 +32,13 @@ target uses `define-page-entry` from `(snail shell page)` to dispatch it as the
 root task and expose the host handover functions. Source-file entries remain
 available for scripts and tooling.
 
-Engines can express richer contracts as ordinary classes. `Scene State`
-provides scene callbacks; the generic `SceneApplication State` adapter implements
-`Application` through an ordinary instance, not a compiler-specific superclass
-rule. The scene loop calls its class methods directly, without a second callback
-API. Document interfaces still use `define-ui`. Both engines use `run-page` for
-boot, save and restore, and commit immutable checkpoints through `commit-page`. IPC
+Engines express richer contracts as ordinary classes. `Scene State` and
+`Interface Model` provide scene and document callbacks; the generic
+`SceneApplication State` and `InterfaceApplication Model` adapters implement
+`Application`. These are ordinary instances, not a compiler-specific superclass
+rule. Each engine calls its class methods directly; it has no second API for
+supplying those same methods as callbacks. Both engines use `run-page` for boot,
+save and restore, and commit immutable checkpoints through `commit-page`. IPC
 remains outside this contract. Typed session protocols are future library work,
 expressed through effects rather than additional `Application` methods.
 
@@ -205,24 +206,27 @@ document it left, as HTML and as a trace of every operation.
 `tests/programs/ui-commands.sld` run interfaces this way under `make
 test`.
 
-`define-ui` from `(snail shell ui page)` hosts an interface in a page as
-`define-application` hosts a scene:
+`Interface` from `(snail shell ui page)` gives a document application its
+ordinary `Application` implementation:
 
 ```scheme
-(define-ui Notes Message
-  (init: start)
-  (update: update)
-  (view: view)
-  (window: window)
-  (start: (list (Load)))
-  (save: save)
-  (restore: restore))
+(type NotesApplication (InterfaceApplication Notes))
+(define-page-state Notes)
+(instance (Interface Notes)
+  (type Message NoteMessage)
+  (define (interface-initialize seed) (new-notes seed))
+  (define (interface-update model message) (update model message))
+  (define (interface-view model) (view model))
+  (define (interface-window model) (window model))
+  (define (interface-messages model) (list (Load)))
+  (define (interface-save model) (serialize (save model)))
+  (define (interface-restore bytes) (restore (deserialize bytes))))
 ```
 
-An interface without window listeners gives `(window: (lambda (model)
-(Nil)))`, as an Elm program without subscriptions gives `Sub.none`, and
-one without messages to start with gives `(start: (Nil))`. `init` takes
-the seed alone, and `update`'s commands are `(Command Msg)`,
+`Message` is an associated type of the model's instance. An interface without
+window listeners returns `(Nil)` from `interface-window`; one without startup
+messages returns `(Nil)` from `interface-messages`. Initialization takes the seed
+alone, and update's commands are `(Command Message)`,
 which may wait on tasks, reach the document, and ask the server through
 the `fetch` effect of `(snail shell fetch)`. `request method url headers
 body` answers the server's reply, its status and body, or why there was
