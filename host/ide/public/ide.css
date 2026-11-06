@@ -55,8 +55,9 @@ button { font: inherit; color: inherit; }
 .diagnostics { max-height: 25vh; overflow: auto; margin: 0; padding: 8px 12px; background: #3a2328; color: #f0b7bd; font: var(--code); white-space: pre-wrap; }
 
 /* One scroller per pane holds the gutter and the code, and the field is as big as its text, so they scroll together. The field
-   clips rather than scrolling itself, so the page scrolls the scroller to follow the caret instead. */
-.editor { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-auto-rows: minmax(100%, max-content);
+   clips rather than scrolling itself, so the page scrolls the scroller to follow the caret instead. Keep the grid row's
+   content minimum: a viewport-sized minimum lets the text layers overflow a shorter field that cannot receive clicks. */
+.editor { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr);
   overflow: auto; background: var(--background); }
 .gutter { position: sticky; left: 0; z-index: 1; min-width: 44px; border-right: 1px solid var(--line); background: var(--background); }
 .numbers { margin: 0; padding: 8px 10px 8px 12px; color: #5c6370; font: var(--code); text-align: right; user-select: none; }
