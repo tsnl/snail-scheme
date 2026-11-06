@@ -2191,9 +2191,8 @@
         ((Pair "" text) (Text text))
         ((Pair class text) (Element "span" (list (Attr "class" class)) (list (Text text))))))
 
-    ;; Compiler columns count scalars, as offsets do. A point marks one scalar,
-    ;; or a space at a line's end, never a range guessed from the source or
-    ;; the message.
+    ;; Compiler columns count scalars, as offsets do. Navigation keeps this
+    ;; exact point; only the mark's display extends it to a lexical range.
     (: source-offset (-> String Point I64))
     (define (source-offset text point)
       (let loop ((offset (line-offset text (Point-line point))) (column 1))
@@ -2211,18 +2210,23 @@
                  ((Some diagnostic)
                   (match (Diagnostic-source diagnostic)
                     ((Some point)
-                     (let ((offset (source-offset text point)))
-                       (list (Text (substring text 0 offset))
-                             (Element "span"
-                                      (list (Attr "class" "squiggle")
-                                            (Attr "title" (Diagnostic-message diagnostic)))
-                                      (list (Text (if (and (< offset (string-length text))
-                                                           (not (char=? (string-ref text offset)
-                                                                        #\newline)))
-                                                      (substring text offset (+ offset 1))
-                                                      " ")))))))
+                     (range-mark text
+                                 (highlight-range text (source-offset text point))
+                                 (Diagnostic-message diagnostic)))
                     ((None) (Nil))))
                  ((None) (Nil)))))
+
+    ;; One inline span crosses both lines and the syntax layer's token runs.
+    ;; Newline and EOF points retain a visible cell without changing the source.
+    (: range-mark (-> String (Pair I64 I64) String (List (Html Msg))))
+    (define (range-mark text range message)
+      (let ((start (Pair-first range)) (end (Pair-second range)))
+        (list (Text (substring text 0 start))
+              (Element "span"
+                       (list (Attr "class" "error-highlight") (Attr "title" message))
+                       (list (Text (if (or (= start end) (char=? (string-ref text start) #\newline))
+                                       " "
+                                       (substring text start end))))))))
 
     ;; ---- The view ----
 

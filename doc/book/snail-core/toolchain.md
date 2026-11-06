@@ -511,7 +511,7 @@ different observations, with independent ordering.
 Build status replaces the preceding diagnostic collection at each attempt. The
 page shows messages and compiler-provided locations in a separate panel. A
 location in an editable project file opens that file. A fresh file read after
-the failure binds a one-character squiggle to that observed revision. Later
+the failure binds a red background highlight to that observed revision. Later
 reads withdraw it until the same revision is confirmed; Save invalidates it.
 Drafts and conflicts suppress it. This is an editor observation, not proof of
 the compiler's exact filesystem snapshot; the watcher rejects observed
@@ -519,8 +519,13 @@ supersession without claiming an atomic filesystem revision. Columns count
 Unicode scalars in the original file, as the editor's offsets do, over LF
 display text, including CRLF files; the page's `dom` binding converts offsets
 to the textarea's UTF-16. Generated scratch and external library
-locations remain messages rather than being mapped to another file. These are
-source points, not guessed expression ranges or full source spans.
+locations remain messages rather than being mapped to another file. The compiler
+provides source points, which navigation preserves. For display only,
+`(snail shell highlight)` derives a lexical range: the containing token, or the
+datum starting at an opening bracket or quote. Forms span nested expressions,
+comments, syntax colors and line breaks; an unfinished form runs to EOF.
+Whitespace, newline and EOF points retain a one-cell mark. These display ranges
+are not compiler-provided source spans.
 Manual Build requests compilation; Save writes disk and leaves scheduling to the
 disk task. `(snail shell project protocol)` defines the typed project, file,
 search, build and run values and their JSON codecs for both hosts. Required

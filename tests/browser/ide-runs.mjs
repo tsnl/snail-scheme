@@ -114,16 +114,16 @@ try {
   // Output is independent of compiler errors, editor evidence and drafts.
   const activePid = (await run('app')).attempt.pid;
   await writeFile(join(project, 'main.sld'), program('5'));
-  await until(() => browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent === "5"'), 'compiler point while application runs');
+  await until(() => browser.evaluate('document.querySelector(".pane.active .error-highlight")?.textContent === "5"'), 'compiler point while application runs');
   await sleep(200);
-  await browser.evaluate(`window.fileReads = 0; window.marker = document.querySelector('.pane.active .squiggle');
+  await browser.evaluate(`window.fileReads = 0; window.marker = document.querySelector('.pane.active .error-highlight');
     window.fetch = (...args) => { if (String(args[0]).startsWith('/api/file')) window.fileReads++; return window.actualFetch(...args); };
     document.querySelector('.pane.active textarea').focus();
     document.getElementById('run-stdout').scrollTop = 0;`);
   const outputSize = (await text('run-stdout')).length;
   await until(async () => (await text('run-stdout')).length > outputSize + 100, 'live output with stable editor');
   assert.equal(await browser.evaluate('window.fileReads'), 0);
-  assert.equal(await browser.evaluate('window.marker === document.querySelector(".pane.active .squiggle")'), true);
+  assert.equal(await browser.evaluate('window.marker === document.querySelector(".pane.active .error-highlight")'), true);
   assert.equal(await browser.evaluate('document.activeElement === document.querySelector(".pane.active textarea")'), true);
   assert.equal(await browser.evaluate('document.getElementById("run-stdout").scrollTop'), 0);
   assert.equal((await run('app')).attempt.pid, activePid);
