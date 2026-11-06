@@ -1,5 +1,6 @@
 // One palette for files and saved-text matches; old replies never change a new query.
 import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
 import {mkdtemp, mkdir, writeFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -13,6 +14,10 @@ await writeFile(join(project, 'project.datum'), '()');
 await writeFile(join(project, 'main.sld'), '(import (snail core base))\n; alpha\n');
 const notes = '😀 prefix\r\nfind NEEDLE here\r\n';
 await writeFile(join(project, 'lib/notes.txt'), notes);
+execFileSync('git', ['init', '-q'], {cwd: project});
+execFileSync('git', ['config', 'core.excludesFile', '/dev/null'], {cwd: project});
+await writeFile(join(project, '.gitignore'), 'ignored.txt\n');
+await writeFile(join(project, 'ignored.txt'), 'needle');
 const service = await startDevelopment(root, project), browser = await openBrowser();
 const key = init => browser.evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', ${JSON.stringify({bubbles: true, cancelable: true, ...init})}))`);
 const query = value => browser.evaluate(`(() => { const q = document.getElementById('command-query'); q.value = ${JSON.stringify(value)}; q.dispatchEvent(new Event('input')); })()`);
@@ -21,8 +26,10 @@ const labels = () => browser.evaluate('[...document.querySelectorAll(".choice-la
 try {
   await browser.navigate(service.url + '/');
   await until(async () => (await title()) === 'main.sld', 'initial editor');
+  assert.equal(await browser.evaluate('Boolean(document.querySelector(".file[data-path=\\"ignored.txt\\"]"))'), false);
   await key({key: 'p', metaKey: true});
   await until(() => browser.evaluate('document.activeElement?.id === "command-query"'), 'go to file');
+  assert.ok(!(await labels()).includes('ignored.txt'), 'ignored file absent from file picker');
   await query('lnote');
   await until(async () => (await labels()).join() === 'lib/notes.txt', 'fuzzy path');
   await key({key: 'Enter'});
@@ -41,6 +48,13 @@ try {
   await key({key: 'Enter'});
   await until(() => browser.evaluate('!document.getElementById("command-query")'), 'picked draft');
   assert.equal(await browser.evaluate('document.querySelector("textarea").value'), 'draft only');
+
+  // An ignore change refreshes the sidebar while an open draft survives.
+  await writeFile(join(project, '.gitignore'), 'ignored.txt\nlib/notes.txt\n');
+  await until(() => browser.evaluate('!document.querySelector("#files > ul .file[data-path=\\"lib/notes.txt\\"]")'), 'ignore change updates sidebar');
+  assert.equal(await browser.evaluate('document.querySelector("textarea").value'), 'draft only');
+  await writeFile(join(project, '.gitignore'), 'ignored.txt\n');
+  await until(() => browser.evaluate('Boolean(document.querySelector("#files > ul .file[data-path=\\"lib/notes.txt\\"]"))'), 'rule removal restores sidebar');
 
   // Current-file search includes unsaved text and uses browser scalar offsets.
   await browser.evaluate(`(() => { const field = document.querySelector('textarea'); field.value = '😀 draft ONLY'; field.dispatchEvent(new Event('input')); })()`);
