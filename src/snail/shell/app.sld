@@ -182,7 +182,6 @@
    load-save
    store-save
    default-reset
-   app-start
    define-application)
   (import
    (snail core base)
@@ -1049,6 +1048,7 @@
       (FrameEvent ((elapsed I32)))
       (InputEvent ((input Input)))
       (Hidden)
+      (SaveRequested)
       (Reload))
 
     (: next-event (-> Event ! events tasks))
@@ -1058,6 +1058,7 @@
         (11 (FrameEvent (event-field 0)))
         (12 (Hidden))
         (13 (Reload))
+        (16 (SaveRequested))
         (kind (InputEvent (decode-input kind
                                         (event-field 0)
                                         (event-field 1)
@@ -1066,14 +1067,12 @@
 
     ;; ---- Applications ----
 
-    ;; Only the loop calls application messages. The cell is the last state
-    ;; whose entire event succeeded; a trap never publishes its candidate.
-    ;; States must be immutable data, so a handed-over checkpoint stays reusable.
-    ;; The loop itself performs `mut screen events storage tasks`, tasks for
-    ;; its waits on the host, which its own task handles. A reset binder
-    ;; that performs more, such as one that installs a handler with effects
-    ;; of its own, names those effects with `effects:`, because the checker
-    ;; holds `app-main`'s row to what its body performs.
+    (: default-reset (All (T e) (-> (-> (-> T ! e) T ! e))))
+    (define (default-reset)
+      (lambda (run) (run)))
+
+    ;; The scene owns presentation and event reduction. The page owns its
+    ;; root, restoration, checkpoint and durable save protocol.
     (define-syntax define-application
       (syntax-rules (reset: effects: init: update: view: hud: save: restore:)
         ((_ State (reset: reset-run) (init: initialize) more ...)
@@ -1086,29 +1085,12 @@
             (view: draw)
             (hud: panels) (save: save-state) (restore: restore-state))
          (begin
-           (define current (ref (ann (None) (Option State))))
+           (define-page-state State)
 
-           ;; A live migration must refuse an absent or incompatible save.
-           ;; Cold startup alone may initialize when there is no saved game.
-           (: app-restore (-> Bool (Option (Pair State I32)) ! events storage tasks))
-           (define (app-restore cold?)
-             (match (load-save)
-               ((Some bytes) (Some (Pair (app-restore-bytes bytes) 1)))
-               ((None) (if cold?
-                           (Some (Pair ((ann initialize (-> I32 I32 I32 State))
-                                        (random-seed)
-                                        (canvas-width)
-                                        (canvas-height))
-                                       2))
-                           (None)))))
-
-           (: app-boot (-> (Option Any) (Option (Pair State I32)) ! events storage tasks))
-           (define (app-boot handover)
-             (match handover
-               ((Some state) (match (try-convert state State)
-                               ((Ok state) (Some (Pair state 0)))
-                               ((Err _) (app-restore #f))))
-               ((None) (app-restore #t))))
+           (: app-initialize (-> State ! events))
+           (define (app-initialize)
+             ((ann initialize (-> I32 I32 I32 State))
+              (random-seed) (canvas-width) (canvas-height)))
 
            (: app-save-bytes (-> State Bytes))
            (define (app-save-bytes state)
@@ -1118,58 +1100,42 @@
            (define (app-restore-bytes bytes)
              (restore-state (deserialize bytes)))
 
-           ;; Counters are loop variables, committed with the state. Build
-           ;; pure frame/HUD values before their presentation can have effects.
-           (: app-frame (-> State I32 I32 I32 (Option Any) ! mut screen events storage tasks))
-           (define (app-frame state elapsed since-hud since-save)
-             (let* ((next ((ann step (-> State Input State)) state (Elapsed elapsed)))
-                    (frame ((ann draw (-> State Frame)) next))
-                    (hud-time (+ since-hud elapsed))
-                    (save-time (+ since-save elapsed))
-                    (show-hud? (>= hud-time 100))
-                    (widgets (if show-hud? ((ann panels (-> State (List Panel))) next) (Nil))))
-               (render frame)
-               (when show-hud? (render-hud widgets))
-               (when (>= save-time 5000) (store-save (app-save-bytes next)))
-               (app-run next (if show-hud? 0 hud-time) (if (>= save-time 5000) 0 save-time))))
-
-           (: app-run (-> State I32 I32 (Option Any) ! mut screen events storage tasks))
-           (define (app-run state since-hud since-save)
-             (ref-set! current (Some state))
+           (: app-run
+              (-> (-> State Unit ! events storage tasks) State I32
+                  Unit ! mut screen events storage tasks))
+           (define (app-run save state since-hud)
              (match (next-event)
-               ((FrameEvent elapsed) (app-frame state elapsed since-hud since-save))
+               ((FrameEvent elapsed)
+                (let* ((next ((ann step (-> State Input State)) state (Elapsed elapsed)))
+                       (frame ((ann draw (-> State Frame)) next))
+                       (hud-time (+ since-hud elapsed))
+                       (show-hud? (>= hud-time 100))
+                       (widgets (if show-hud? ((ann panels (-> State (List Panel))) next) (Nil))))
+                  (render frame)
+                  (when show-hud? (render-hud widgets))
+                  (commit-page next)
+                  (report-ready)
+                  (app-run save next (if show-hud? 0 hud-time))))
                ((InputEvent input)
                 (let* ((next ((ann step (-> State Input State)) state input))
                        (widgets ((ann panels (-> State (List Panel))) next)))
                   (render-hud widgets)
-                  (app-run next 0 since-save)))
-               ((Hidden) (store-save (app-save-bytes state)) (app-run state since-hud 0))
-               ((Reload) (store-save (app-save-bytes state)) (Some (type-convert state Any)))))
+                  (commit-page next)
+                  (app-run save next 0)))
+               ((Hidden) (save state) (app-run save state since-hud))
+               ((SaveRequested) (save state) (app-run save state since-hud))
+               ((Reload) (save state) (unit))))
 
-           ;; The host's first Resize and Frame(0) own initial presentation.
-           ;; reset installs its handlers around this monomorphic run, inside
-           ;; the loop's task, which `app-main` answers the id of.
            (: app-main (-> (Option Any) I64 ! mut screen events storage effect ...))
            (define (app-main handover)
-             (app-start
+             (start-page
+              handover
               (once (lambda ()
                       ((reset-run)
                        (lambda ()
-                         (match (app-boot handover)
-                           ((Some boot)
-                            (let ((state (Pair-first boot)))
-                              (ref-set! current (Some state))
-                              (report-boot (Pair-second boot))
-                              (app-run state 0 0)))
-                           ((None) (None)))))))))
+                         (run-page app-initialize app-save-bytes app-restore-bytes
+                                   (lambda (state save) (app-run save state 0)))))))))
 
-           (: app-state (-> Any ! mut))
-           (define (app-state)
-             (match (ref-get current)
-               ((Some state) (type-convert state Any))
-               ((None) (panic "the application has no state yet"))))
-
-           (expose app-main "app_main")
-           (expose app-state "app_state")))))
+           (expose app-main "app_main")))))
 
     ))

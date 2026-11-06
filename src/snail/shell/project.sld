@@ -212,12 +212,7 @@
              ((Form (Cons (Ident key _ _) (Cons value (Nil))) loc)
               (cond
                ((string=? key "entry")
-                (loop rest
-                      (unique-field key loc entry
-                                    (if browser?
-                                        (SourceEntry (entry-path value))
-                                        (parse-entry value)))
-                      libraries public))
+                (loop rest (unique-field key loc entry (parse-entry value)) libraries public))
                ((string=? key "library-roots")
                 (loop rest
                       entry

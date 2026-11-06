@@ -120,6 +120,7 @@
                                            update
                                            view
                                            (lambda (model) (Nil))
+                                           (lambda (model) (unit))
                                            checkpoint)))))
            (write-line (string-append "saved " (show (Model-saved (Pair-first result)))))
            (write-line (document->html (Pair-second result)))

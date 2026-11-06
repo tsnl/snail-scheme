@@ -64,6 +64,7 @@
                                                   update
                                                   view
                                                   (lambda (step) (Nil))
+                                                  (lambda (step) (unit))
                                                   (lambda (step) (unit)))))))
            (write-line (string-append "step " (show (Pair-first result))))
            (write-line (document->html (Pair-second result)))

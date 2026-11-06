@@ -117,6 +117,7 @@
               ((= kind fired-kind) (Fired (Listener (event-field 0)) (fired-event)))
               ((= kind woken-kind) (Woken))
               ((= kind hidden-kind) (Hidden))
+              ((= kind save-kind) (SaveRequested))
               ((= kind reload-kind) (Closed))
               (else (page-delivery)))))
 

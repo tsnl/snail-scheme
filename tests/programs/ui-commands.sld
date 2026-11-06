@@ -160,6 +160,7 @@
                                            update
                                            view
                                            window
+                                           (lambda (model) (unit))
                                            (lambda (model) (unit)))))))
            (write-line (string-append "text: " (Model-text (Pair-first result))))
            (for-each write-line (Model-log (Pair-first result)))

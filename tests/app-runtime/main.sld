@@ -1,7 +1,10 @@
 (import
  (snail core base)
  (snail shell task)
- (snail shell app))
+ (snail shell app)
+ (snail shell application)
+ (snail shell page)
+ (snail shell wire))
 
 ;; A mismatch here is a broken test-host invariant. Guest conversions that
 ;; are expected to fail use dyn-cast handlers in the dedicated fixtures.
@@ -36,26 +39,27 @@
 
 ;; The runtime drains children after a normal root return. Explicit reload
 ;; closes that scope after the root has handed over, including this case.
-;; Each root is a task, as the loop of `define-application` is.
+;; Each root is a task, as the shared page loop is.
 (extern background-boot "snail.runtime.browser.events" "boot" (-> I32 Unit ! events))
+(extern background-ready "snail.runtime.browser.events" "ready" (-> Unit ! events))
 (extern background-poll "snail.runtime.browser.events" "poll" (-> I32 ! events))
 (: background-main (-> (Option Any) I64 ! mut events))
 (define (background-main handover)
-  (app-start (once (lambda ()
-                     (background-boot 2)
-                     (background-poll) ; Resize.
-                     (background-poll) ; Frame.
-                     (background-poll) ; Acknowledge presentation.
-                     (dispatch-local (once (lambda () (sleep 100000))))
-                     handover))))
+  (start-page handover (once (lambda ()
+                               (background-boot 2)
+                               (background-poll) ; Resize.
+                               (background-poll) ; Frame.
+                               (background-ready) ; Acknowledge presentation explicitly.
+                               (dispatch-local (once (lambda () (sleep 100000))))
+                               (unit)))))
 (expose background-main "background_main")
 
 (: unpresented-main (-> (Option Any) I64 ! mut events))
 (define (unpresented-main handover)
-  (app-start (once (lambda ()
-                     (background-boot 2)
-                     (dispatch-local (once (lambda () (sleep 100000))))
-                     handover))))
+  (start-page handover (once (lambda ()
+                               (background-boot 2)
+                               (dispatch-local (once (lambda () (sleep 100000))))
+                               (unit)))))
 (expose unpresented-main "unpresented_main")
 
 ;; Tasks beside the loop cannot enter its protocol: each of these traps.
@@ -74,6 +78,10 @@
 (define (child-boot)
   (background-boot 99))
 
+(: child-commit (-> Unit ! mut events))
+(define (child-commit)
+  (commit-page (Counter 999 0)))
+
 (: spawn-child (-> I32 Unit ! mut storage events))
 (define (spawn-child which)
   (dispatch-local (once (lambda ()
@@ -81,6 +89,8 @@
                             (0 (child-load))
                             (1 (child-store))
                             (2 (child-event))
+                            (4 (child-commit))
+                            (5 (report-ready))
                             (_ (child-boot)))))))
 (expose spawn-child "spawn_child")
 

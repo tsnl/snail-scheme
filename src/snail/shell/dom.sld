@@ -62,6 +62,7 @@
    Fired
    Woken
    Hidden
+   SaveRequested
    Closed
    control-key
    shift-key
@@ -206,6 +207,7 @@
               (event Event)))
       (Woken)
       (Hidden)
+      (SaveRequested)
       (Closed))
 
     ;; ---- Measuring ----

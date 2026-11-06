@@ -88,7 +88,12 @@
                 (stream-close (lambda (stream) (panic "unexpected stream close"))))
              (with-memory-dom cues
                               (lambda ()
-                                (run-ui initial (list (Open "notes.txt")) update-test view window
+                                (run-ui initial
+                                        (list (Open "notes.txt"))
+                                        update-test
+                                        view
+                                        window
+                                        (lambda (model) (unit))
                                         (lambda (model) (mailbox-post gate (unit)))))))))
       (unless (= (ref-get completed) (+ (ref-get reads) (ref-get writes)))
         (panic "the document closed before all replies completed"))

@@ -10,7 +10,11 @@
    seed
    width
    height
-   boot)
+   boot
+   ready
+   checkpoint
+   handover-only
+   save-after)
   (import
    (snail core base))
   (begin
@@ -21,4 +25,8 @@
     (extern seed "snail.runtime.browser.events" "seed" (-> I32))
     (extern width "snail.runtime.browser.events" "width" (-> I32))
     (extern height "snail.runtime.browser.events" "height" (-> I32))
-    (extern boot "snail.runtime.browser.events" "boot" (-> I32 Unit))))
+    (extern boot "snail.runtime.browser.events" "boot" (-> I32 Unit))
+    (extern ready "snail.runtime.browser.events" "ready" (-> Unit))
+    (extern checkpoint "snail.runtime.browser.events" "checkpoint" (-> Unit))
+    (extern handover-only "snail.runtime.browser.events" "handover-only" (-> I32))
+    (extern save-after "snail.runtime.browser.events" "save-after" (-> I32 Unit))))

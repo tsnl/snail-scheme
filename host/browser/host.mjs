@@ -142,6 +142,7 @@ export async function startApplication({url, canvas, overlay, storageKey}) {
   const runtime = createRuntime({size: () => [canvas.clientWidth, canvas.clientHeight], seed: (Math.random() * 65536) | 0,
     load: () => loadSave(storageKey), store: bytes => storeSave(storageKey, bytes),
     frames: {request: requestAnimationFrame.bind(globalThis), cancel: cancelAnimationFrame.bind(globalThis)},
+    initial: () => [[8, canvas.clientWidth, canvas.clientHeight], [11, 0]],
     reportError: reportApplicationError});
   const hud = createHud(overlay, (action, argument) => runtime.send(PRESS, action, argument),
                         (action, argument) => runtime.send(HOVER, action, argument), pictures);

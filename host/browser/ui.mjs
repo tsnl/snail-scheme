@@ -13,7 +13,7 @@ export async function startInterface({url, container, storageKey, session = fals
   const store = bytes => session ? storeSessionSave(storageKey, bytes) : storeSave(storageKey, bytes);
   const runtime = createRuntime({size: () => [container.clientWidth, container.clientHeight],
     seed: (Math.random() * 65536) | 0, load, store,
-    reportError: reportApplicationError});
+    initial: () => [], reportError: reportApplicationError});
   const dom = createDom(container, runtime, {refresh: () => void refresh()}), requests = createFetch(runtime);
   const application = await startPage({runtime, strictRestore,
     imports: {...runtime.imports, 'snail.runtime.browser.dom': dom.imports, 'snail.runtime.browser.fetch': requests.imports},
@@ -77,4 +77,3 @@ export async function startInterface({url, container, storageKey, session = fals
   application.refresh = refresh;
   return application;
 }
-
