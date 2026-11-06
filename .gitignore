@@ -3,6 +3,9 @@
 /result
 /result-*
 
+# Local agent worktrees
+/.claude/worktrees/
+
 # Intermediate build files
 /build/
 /apps/*/build/
