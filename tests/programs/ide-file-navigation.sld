@@ -42,7 +42,7 @@
                                       (if (ref-get events) (None)
                                           (begin
                                             (ref-set! events #t)
-                                            (Some (StreamEvent "files" "{}"))))))
+                                            (Some (StreamEvent "open" ""))))))
                        (stream-close (lambda (stream) (unit))))
                     (with-memory-dom
                      (list (FireWindow "keydown"
