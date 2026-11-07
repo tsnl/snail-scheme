@@ -5,8 +5,9 @@ contains data, not Scheme code. Parsing it performs no file access or build;
 the command chooses when to compile and run its named targets.
 
 [Projects without a manifest](source-projects.md) proposes replacing this
-description with source discovery and application selection. It is a design
-under review; this chapter describes the implemented behavior.
+description with explicit application requests and artifact dependencies
+discovered during macro expansion. It is a design under review; this chapter
+describes the implemented behavior.
 
 ```scheme
 ((build-target client
