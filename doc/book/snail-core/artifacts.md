@@ -107,6 +107,60 @@ small deployment descriptor supplies the selected root and store base. Generated
 pages refer to a stable local descriptor name, not to their own artifact digest;
 otherwise hashing the page and its containing manifest would create a self-reference.
 
+## The concrete output and how a host loads it
+
+A completed application build returns the content reference of its artifact
+manifest. It does not return only an executable filename. The requested output
+configuration determines the payload described by that manifest:
+
+| Output | Payload |
+| --- | --- |
+| Release program | A linked `program.wasm` and its retained resources. The current compiler does not emit a machine-native executable. |
+| Browser | An HTML entry page, JavaScript host support, Wasm and retained resources. |
+| Development program or browser | Per-library Wasm modules, their loading information, the appropriate host entry and retained resources. |
+
+For illustration, a server artifact could contain the following manifest.
+The encoding, hash placeholders and slot names are explanatory, not an ABI:
+
+```json
+{
+  "version": 1,
+  "entry": {"kind": "program", "file": "program.wasm"},
+  "files": {"program.wasm": "sha256:SERVER_CODE"},
+  "resources": {
+    "main": {
+      "r0": {"file": "sha256:LOGO"},
+      "r1": {"artifact": "sha256:FRONTEND"}
+    }
+  }
+}
+```
+
+Hashing this manifest gives the server artifact's identity. `SERVER_CODE` names
+Wasm bytes, `LOGO` names image bytes, and `FRONTEND` names another manifest with
+its own files and bindings. Each object is read from `store/sha256/DIGEST`, or
+through the equivalent store resolver. Hashes identify content; the manifest's
+typed references supply its meaning and relationships.
+
+The host starts with a root manifest reference and a store location. It reads
+the entry module and supplies its symbolic resource imports from that manifest's
+bindings. A file resource can then fetch its blob. A tree resource first resolves
+a logical path through the child's named-file table and then reads the selected
+blob. Programs use resource handles; they do not construct store paths or parse
+hashes themselves. The compiler emits the symbolic references, the builder writes
+the bindings, and the loader performs the runtime resolution.
+
+The server's reference to a browser artifact does not link the frontend's Wasm
+functions into the server. It retains that independent application's files for
+serving. Ordinary library imports and Wasm module linking still establish code
+dependencies within an application; artifact references establish relationships
+between independently built outputs. A raw Wasm file alone does not reconstruct
+the latter bindings.
+
+An exported directory materializes the named files and a local store/descriptor
+for this graph. A tar archive packages the same graph. These are views of a
+completed artifact, not different meanings of the artifact reference.
+
 ## Two dependency relations
 
 The builder records which inputs produced an output for invalidation and ordering.
@@ -178,24 +232,51 @@ an explicit loader ABI change that must work on both native and browser hosts.
 
 Use the existing request/driver boundary and staged planner, extended to return
 an unfinished compiled unit with symbolic resource needs. The compiler describes
-missing work; the builder owns IO and execution. A synchronous, memoized traversal
-is sufficient initially; this does not require a new general-purpose scheduler.
+missing work; the builder owns IO and execution. Use a queue of work and a map
+of completed results, processed by one worker initially:
 
-1. Normalize a root request and mark its build active before resolving its source.
-2. Expand and check its libraries. When loading needs a generated library, compile
-   that producer as a program for the build host, under its inherited loading
-   context.
-3. Collect the producer program's retained resource references. Resolve files and
-   recursively build requested artifacts before executing the producer. Run it
-   with those resources and private scratch, then feed its generated syntax back
-   into the waiting compilation.
-4. Prepare the requesting program's reachable code and collect its retained
-   resource references. Snapshot ordinary files and recursively build referenced
-   applications. Their own producers follow the same loop.
-5. Bind the compiled unit's resource slots, generate the requested output's named
-   files, and intern the completed artifact manifest. Return its content reference.
-6. Only after the requested root is complete, publish or export it. A failed child
-   cannot replace the previously accepted root.
+```text
+pending   : Queue<Job>
+completed : Map<RequestKey, CompletedResult>
+```
+
+An application result contains its artifact-manifest reference. Producer phases
+also have explicit keys and results: preparing a producer's executable and running
+it to obtain generated syntax are different jobs. Keep the result map distinct
+from the content store, which maps content digests to bytes. The map is memoization
+within an attempt; persistent reuse additionally requires validated input evidence.
+
+A queued job contains its normalized request, current phase, dependencies and
+any unfinished compiler result. Some jobs have yet to compile; others only need
+their resource bindings filled in. Keeping that unfinished result prevents the
+parent from compiling repeatedly while its children are completed.
+
+1. Enqueue the root request. Take an eligible job whose known prerequisite results
+   are available, and skip duplicate work if its result is already completed.
+2. Advance that job. Compilation can either finish preparing a unit or report a
+   generated-library input it needs before it can continue. Preserve completed
+   compiler work or the existing checked session when a retry is necessary.
+3. If more work is needed, record the dependency edges, reject cycles, enqueue
+   missing prerequisites and return the suspended job to the pending work. Do
+   not wait inside that job and block the worker from processing its dependencies.
+4. A prepared executable exposes its retained resource references. File snapshots
+   and application artifacts supply those bindings through the same work loop.
+   A producer's executable must be bound before the producer-execution job runs;
+   that job captures generated syntax and promoted resources for the waiting
+   compilation.
+5. Once a job has its required results, finish it. For an application this means
+   binding resource slots, producing named output files and interning its completed
+   artifact manifest. Only then insert its result into `completed`.
+6. Publish or export the requested root only after its completed result exists.
+   A failed prerequisite cannot replace the previously accepted root.
+
+Queue order can start from FIFO order, but waiting jobs must yield to their
+prerequisites. The queue records waiting state and unfinished work; the completed
+map must not contain placeholders indistinguishable from usable artifacts.
+Scheduling can avoid duplicate pending jobs or cheaply skip them on completion.
+Retain dependency edges for cycle checks, including edges discovered on later
+visits. This is a work queue with explicit phase state, not recursive compiler
+invocation or a new general-purpose scheduling API.
 
 Force resources before running an executable phase, rather than starting builds
 on arbitrary runtime reads. A producer branch that is retained but never taken
@@ -229,10 +310,12 @@ must either be promoted into the result or remain disposable scratch.
 
 ## Cycles, sharing and incomplete work
 
-Maintain pending, active, completed and failed states for each request within
-one attempt. A second use of a completed request reuses it. Re-entering a request
-on the active dependency path is a cycle; encountering a shared dependency from
-another completed branch is not. A diamond builds its shared child once.
+Maintain pending, waiting, active, completed and failed states for each request
+within one attempt. A second use of a completed request reuses it. Record an
+edge before deduplicating its queued work and reject an edge that closes a
+dependency cycle. A request already in the queue or currently being processed
+is not by itself a cycle: two parents can need the same child. A diamond builds
+its shared child once.
 
 Track producer phases as well as application requests. For example, building A
 can require a producer that links B, whose source needs the original producer.
