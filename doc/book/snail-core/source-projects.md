@@ -1,17 +1,19 @@
 # Proposed projects without `project.datum`
 
-**Design proposal for review; not implemented.** The direction is to remove
-`project.datum`, consolidate sources under `src/`, and resolve applications on
-demand from explicit build requests. A datum shared by the CLI and an artifact
-macro identifies an application type and output configuration. Macro expansion
+**Design proposal for review; not implemented.** This is the application and
+configuration part of the [query-driven compiler plan](incremental-compiler.md).
+It removes `project.datum` and its manifest model in
+`src/snail/shell/project.sld`, consolidates sources under `src/`, and resolves
+applications on demand from explicit build requests. A datum shared by the CLI and
+an artifact macro identifies an application type and output configuration. Macro expansion
 introduces symbolic resource references and discovers requested applications
 alongside imports. Compilation shares compatible analysis across these roots;
 the builder binds their outputs afterward. Ordinary artifact-reference cycles
 are allowed, while cycles in generated-source evaluation remain errors.
 No application-enumeration scan or target registry is required. The companion
 [artifact and staged-linking proposal](artifacts.md) develops storage, forcing,
-generator lifetimes and independent deployment. The
-[incremental compiler workspace](incremental-compiler.md) shares analysis across
+generator lifetimes and independent deployment. The compiler plan also covers
+performance, simplification and shared analysis across
 applications, generators and editor requests, including reuse across source edits.
 Exact API syntax remains open; none of the proposed forms below is implemented.
 
@@ -185,10 +187,11 @@ target registry or general-purpose build DSL is needed.
 
 ## Implementation sequence to review
 
-Use the [companion delivery sequence](artifacts.md#delivery-and-decisions-still-needing-review)
-to establish deferred linking for existing files before adding recursive
-application requests. The shared request parser and resolver then provide the
-new front door for the CLI, IDE and artifact macro.
+Follow the [compiler migration sequence](incremental-compiler.md#delivery-and-checks)
+for the shared query workspace and the
+[artifact delivery sequence](artifacts.md#delivery-and-decisions-still-needing-review)
+for deferred linking and application resources. The shared request parser and
+resolver then provide the new front door for the CLI, IDE and artifact macro.
 
 Exercise requests for Siegework, Hearsay and the IDE itself, including an
 unrelated broken application that does not block the selected build and a
@@ -203,9 +206,18 @@ runtime and build-time lifetimes. Verify that the frontend can be exported
 independently, that ordinary artifact-reference cycles work, and that generated
 source prerequisites impose only the necessary staging boundaries.
 
-Once those responsibilities have homes, remove manifest parsing and target-name
-lookup, update the development service, commands, fixtures and book, and retire
-the affected `project.datum` files. Preserve the current reload and resource
-behavior through that transition. The eventual implementation needs the
-repository's compiler, bootstrap, native and browser checks; this PR proposes
+The existing `src/snail/shell/project.sld` parses manifest descriptions into
+`Project`, named build targets and resolved run targets. Migrate the required
+entry selection, output configuration, source locations and invocation arguments
+into the new request and launch boundaries. Keep source-file scripts and compiler
+tooling usable through their explicit entry requests.
+
+Once those responsibilities have homes, delete the obsolete manifest parser and
+target model in `project.sld` and remove the affected `project.datum` files. Update
+their imports, the development service, commands, fixtures and book. The build,
+execution and publication services migrate to query results and typed requests;
+their responsibilities remain necessary after the manifest module is retired.
+Preserve current reload and resource behavior through the transition. This
+migration is one milestone of the broader compiler plan. The implementation needs
+the repository's compiler, bootstrap, native and browser checks; this PR proposes
 the work and changes documentation only.

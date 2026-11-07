@@ -4,6 +4,11 @@ The compiler has four main phases: expand, check, prepare, and emit.
 Reading supplies located syntax to expansion. Preparation closes concrete
 specialization and cleanup requests; emission consumes their fixed result.
 
+[Query-driven incremental compilation](incremental-compiler.md) proposes a shared
+query workspace, compiler performance improvements and simpler orchestration across
+applications, generators and editor requests. That design remains under review;
+the pass descriptions here document the implemented compiler.
+
 ```text
 text ──read───▶ located syntax
      ──expand─▶ core program      unique names, resolved types, entity tables

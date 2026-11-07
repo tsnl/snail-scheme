@@ -1,7 +1,8 @@
 # Proposed artifacts and staged linking
 
 **Design proposal; not implemented.** This develops the artifact and lifetime
-model for [projects without a manifest](source-projects.md). The recommendation
+contracts within the [query-driven compiler plan](incremental-compiler.md),
+including [projects without a manifest](source-projects.md). The recommendation
 is one workspace content store, immutable artifact manifests, and deferred
 resource references in compiled code. Building another application becomes one
 way to obtain a linked resource tree. Programs do not start a compiler at runtime.
@@ -645,8 +646,9 @@ resources, and distinguish allowed reference cycles from evaluation deadlocks.
 Generate the standard browser layout and implement self-contained closure export.
 
 Then migrate the project service and `artifact-bundle` consumers, update reload
-binding and observation, and retire `project.datum` as described in the parent
-proposal. Keep automatic store collection, remote caches, avoiding expanded
+binding and observation, and retire `project.datum` and its `project.sld` model
+as described in the source-project proposal. Keep automatic store collection,
+remote caches, avoiding expanded
 requests through DCE and arbitrary build plugins out of this first change.
 
 The remaining design reviews are the exact datum and resource-tree API, browser

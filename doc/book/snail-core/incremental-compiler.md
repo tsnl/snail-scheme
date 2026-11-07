@@ -1,11 +1,16 @@
-# Proposed incremental compiler workspace
+# Proposed query-driven incremental compilation
 
-**Design proposal; not implemented.** The organizing idea is one incremental
-compiler workspace serving many requests. An application, a generated-library
-producer and an editor query ask for different results from the same source.
-Finishing one request does not discard the compiler's knowledge. This is the
-foundation for the [source-project proposal](source-projects.md) and its
-[artifact model](artifacts.md).
+**Design proposal; not implemented.** The primary objective is to organize the
+compiler around incremental, typed queries, improving compilation performance
+and simplifying how the compiler owns and schedules work. One compiler workspace
+serves applications, generated-library producers and editor requests. Finishing
+one request does not discard its knowledge.
+
+This chapter is the main architecture and delivery plan. The
+[source-project proposal](source-projects.md) specifies application selection and
+removal of the manifest model; the [artifact proposal](artifacts.md) specifies
+resource linking, staging and deployment. Those are outcomes of the broader
+compiler work, alongside reuse across edits and a shared basis for editor services.
 
 The implemented [session](compilers.md#separate-compilation) already reuses library
 expansion, checking and emission across builds of a target. The
@@ -14,6 +19,29 @@ specialization state is constructed during preparation, and some identities are
 local to a session lineage. The proposal extends that foundation with shared
 identities and explicit dependencies, rather than promising that combining today's
 session tables is sufficient.
+
+## Scope and intended outcomes
+
+| Goal | Completion evidence |
+| --- | --- |
+| Make compilation incremental from its inputs through emission. | Typed results record dependencies and can be reused across edits, targets and generator stages without changing their meaning. |
+| Optimize compiler work. | Repeated requests avoid redundant expansion, checking and specialization; timings, work counts and retained memory show the costs of both fresh and reused results. |
+| Simplify the compiler. | Query ownership replaces overlapping cache and orchestration paths; the migrated paths are removed, and passes retain explicit inputs, outputs and invariants. |
+| Support editor analysis through the same compiler. | Scopes, declarations, types and diagnostics are available without requiring application emission, with incomplete-source and snapshot contracts. |
+| Replace manifest targets with source requests. | CLI, IDE and artifact macros use the same application/output request; retire `project.datum` and `src/snail/shell/project.sld` after migrating its required responsibilities. |
+| Unify staged generation and artifact production. | Producers and applications share compiler results while keeping execution prerequisites, runtime resources and publication lifetimes explicit. |
+
+Compiler simplification and performance are deliverables in their own right.
+Removing the manifest alone does not complete this plan. The migration may change
+compiler responsibilities and representations where needed to establish these
+boundaries, while preserving language semantics, type/ownership/effect evidence,
+the Chibi bootstrap and native/browser behavior.
+
+Implementation should arrive in reviewable steps with working clients throughout.
+Begin with in-memory query reuse and appropriate existing inference units; expand
+granularity where measured invalidation costs justify it. Full LSP protocol coverage,
+persistent or remote query caches, and new optimizer passes can be separate work
+once the shared compiler contracts are established.
 
 ## One workspace, many requests
 
@@ -89,6 +117,33 @@ distinct from result versions, and track source locations so an unchanged semant
 answer cannot display an old diagnostic span after an edit. The global edit revision
 belongs to validation bookkeeping, not every semantic cache key.
 
+## Simplify ownership and control flow
+
+Give each responsibility one home. The workspace owns query identities, dependency
+evidence and memoized semantic results. Compiler passes compute those results with
+explicit contracts. The scheduler owns pending requests and shares ready work;
+the driver captures external inputs, executes producers and publishes completed
+artifacts. Each application owns only its selection of code/resources and its
+runtime state.
+
+Replace duplicated mechanisms as their clients migrate:
+
+- Target-specific compiler sessions become clients of shared result storage,
+  retaining only the context and output selection that actually differ.
+- Separate discovery expansions and later full expansions consume one recorded
+  expansion result, including its import, generation and artifact requests.
+- A producer's completion preserves compatible checked libraries and constructed
+  specializations for later requests instead of starting another isolated compiler.
+- Reuse and invalidation use the same dependency evidence, with precise ownership
+  of input versions, result equality and diagnostics.
+
+Each migration step should identify which old responsibility disappears and remove
+the corresponding code once callers move. Keep local worklists and fixed points
+where they express a real compiler algorithm, such as recursive specialization or
+type inference. Query scheduling does not replace those algorithms. Use concrete
+typed operations at useful pass boundaries; ordinary helpers need not all become
+queries, and a generic callback framework is not a prerequisite.
+
 ## What happens on an edit
 
 Inputs include file contents, file existence and resolution information, features,
@@ -160,9 +215,9 @@ not claim an atomic snapshot of arbitrary filesystem IO by generators; captured
 files and publication still follow the service's
 [observation rules](toolchain.md#observation-and-acceptance).
 Results and diagnostics identify their snapshot, so an old response cannot overwrite
-a newer answer. Completing one
-query can retain reusable evidence even if another query fails; publishing an
-application still requires a successful complete root. Existing running artifacts
+a newer answer. Completing one query can retain reusable evidence even if another
+query fails; publishing an application still requires a successful complete root.
+Existing running artifacts
 remain separate from the editor's current, possibly broken, source revision.
 
 Effectful generator execution stays under driver control. An editor query can
@@ -172,30 +227,63 @@ policy for scheduling generators during editing remains a review decision.
 
 ## Delivery and checks
 
-Make incrementality an architectural requirement while migrating through existing
-pass boundaries:
+Use this sequence for the overall compiler migration; the companion chapters
+provide the detailed source-request and artifact contracts.
 
-1. Establish explicit input snapshots, reusable library identities and dependency
-   evidence in one workspace. Retain existing pass implementations and serial
-   execution while making two roots share compatible expansion and checking.
-2. Share concrete specialization bodies and their dependencies across roots and
-   generator execution. Preserve per-root code/resource selection and contextual
-   checks. Emission consumes a closed immutable selection of prepared code.
-3. Validate reuse across edits, including result equality, removed dependencies,
-   generated inputs, instance evidence and source locations. Retain valid results
-   independently of whether an entire application publishes successfully.
-4. Expose analysis operations for editor clients with incomplete-input and
-   snapshot contracts. Add bounded parallel execution of independent work; keep
-   the serial executor for bootstrap and deterministic comparison.
+1. Record fresh-build and retained-session baselines, repeated work and ownership
+   of existing caches. Establish explicit input snapshots, stable semantic
+   identities and typed query results with dependency evidence. Start with serial
+   execution so correctness and reuse are visible before adding concurrency.
+2. Migrate expansion, resolution and checking to the shared workspace. Make two
+   roots reuse compatible results, and replace duplicated discovery work with
+   recorded requests from expansion. Preserve the inference units that establish
+   library interfaces and lexical instance evidence.
+3. Share specialization bodies and prepared code across applications and generator
+   stages. Emit closed immutable selections, and retain valid results independently
+   of publication success. Remove the superseded target-specific semantic caches
+   as their clients move to query results.
+4. Establish edit invalidation, result equality and diagnostics across the migrated
+   passes. Expose analysis operations with incomplete-input and snapshot contracts
+   for editor clients. Refine coarse dependencies where measurements show work
+   that can safely be avoided.
+5. Integrate the shared application/output request, staged generation and deferred
+   artifact linking. Migrate commands, the IDE and development service, then
+   retire `project.datum` and the manifest parser/model in `project.sld` as detailed
+   in the [source-project migration](source-projects.md#implementation-sequence-to-review).
+6. Measure the complete paths, remove remaining redundant orchestration, and add
+   bounded parallel execution of independent prepared work. Keep the serial
+   executor for bootstrap and deterministic comparison. Simplification accompanies
+   each step; this final review verifies that the old and new architectures do not
+   both remain responsible for the same work.
 
-Acceptance checks should count completed checking/specialization work as well as
-compare behavior. A producer and application sharing a standard-library instance
-must construct it once; requesting a new instance adds only new work. Incremental
-and cold compilation of the same snapshot must agree on diagnostics and executable
-behavior. Changing a linked image must not recheck code, and changing a selected
-instance must not retain stale evidence. A new edit must retire stale diagnostics
-without disturbing the last accepted application.
+Assess both correctness and cost. On the same source snapshot and configuration,
+incremental and fresh compilation must agree on diagnostics and executable behavior;
+serial and parallel emission must agree on artifact content. Exercise cold builds,
+unchanged requests, function-body edits, interface/macro/instance changes, asset-only
+edits, generated libraries and multiple application roots using representative
+repository programs. Measure wall time, completed work per pass/query and retained
+memory across repeated edits and cancellation. Establish baselines before setting
+numeric performance targets, and account for dependency-validation overhead rather
+than reporting only a cache-hit count.
 
-This is a design change to how the compiler owns and reuses work. It does not
-require replacing every pass, creating a general-purpose build framework, or
-implementing persistent caches before the first shared workspace is useful.
+Require these specific outcomes:
+
+- A producer and application sharing a standard-library specialization construct
+  it once per compatible input set; a new specialization adds only new work.
+- An unchanged request repeats no semantic computation whose evidence still holds.
+  A producer with untracked effects may execute again; equal output preserves
+  downstream results.
+- An asset-only edit rebinds resources without rechecking code. A changed selected
+  instance invalidates the affected evidence, and a removed request drops its old
+  dependency without forcing an obsolete producer.
+- Editor answers use the requested snapshot, tolerate incomplete source where
+  possible, and retire stale diagnostics while the last accepted application runs.
+- Each migrated responsibility has one owner, superseded paths are deleted, and
+  query retention can be bounded without evicting results still owned by active
+  snapshots. Memory reclamation of compiler results is separate from artifact-store
+  garbage collection.
+
+Implementation must pass the repository's relevant compiler, Chibi/bootstrap,
+native and browser checks, including executing generated code. Keep performance
+measurements reproducible and compare fresh-build costs as well as reuse; avoid
+trading reduced recomputation for unexplained regressions in baseline compilation.
