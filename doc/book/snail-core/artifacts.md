@@ -243,12 +243,99 @@ changes would keep changing module bytes. Manifest bindings are the preferred
 design because they separate code reuse from resource updates; their cost is
 an explicit loader ABI change that must work on both native and browser hosts.
 
-## One build loop, including generated libraries
+## Prepare the plan before dispatching emission
+
+Plan the work before dispatching target code generation. The planner owns the
+source snapshot and shared compilation evidence; workers receive immutable
+prepared units. Expansion and lexical resolution identify symbolic resource
+references, but do not establish which ones survive. To preserve pruning, the
+plan's preparation phase also checks the relevant libraries and specializes from
+each application's entry points, initializers and exports.
+
+The boundary is therefore:
+
+```text
+explicit application requests
+  -> expand and resolve libraries
+  -> check libraries and prepare reachable specializations
+  -> retain resource requests and prepare their target plans
+  -> dispatch independent emission jobs in parallel
+  -> bind resources and complete artifact manifests
+```
+
+Keep candidate resource requests attached to their expressions during expansion.
+Descend into a requested application's source only when that reference is retained
+by preparation. Recursing eagerly into every macro invocation could run a
+generated-library producer for an application that the parent later discards.
+Unused children must not regain that eager work merely because it is called
+planning instead of compilation.
+
+This is a prepared-code plan, not a second source scanner. Preserve the resolved,
+checked and specialized results it produces; workers must not repeat those passes
+from source. The current `prepare`/`emit` boundary is a useful starting point,
+although resource references and shared cache identities need the changes below.
+
+Generated libraries prevent a universally complete plan before any compile runs.
+A producer can emit source containing a new artifact request whose target was
+previously unknown. Plan in stages: prepare the producer and the resources needed
+to execute it, dispatch that ready work, run the producer, then extend preparation
+using its output. Freeze each batch of ready jobs before dispatch, and keep the
+same checked evidence and completed results across batches.
+
+For an ordinary source-only closure, preparation can establish the full resource
+graph before any application emission jobs run. With generated source, the same
+architecture establishes successive complete batches. Planning may perform source
+analysis; it still does not materialize an ordinary resource dependency just to
+emit a parent reference to its predetermined path.
+
+## Share compiler work across application roots
+
+Use a shared compiler workspace for one build attempt, rather than one isolated
+front end for every output request. Reuse results when their semantic inputs agree:
+
+| Result | Safe reuse boundary |
+| --- | --- |
+| Parsed syntax | The same source snapshot, origin and reader configuration. |
+| Expanded, resolved library | The same source, imports, macro environment, features and generated/early input evidence. |
+| Checked library | The same resolved library, imported interfaces and instance environment. An importer does not determine that library's definition types. |
+| Specialized definition | The same checked definition, concrete type/effect arguments, selected class evidence and relevant representation/control context. |
+| Prepared code or emitted module | The same semantic bodies, module boundary, backend ABI, compiler version and code-generation options. |
+| Resource bindings and output layout | The particular artifact's retained paths, resource results and output configuration. |
+
+For example, browser and server applications can share a checked pure library and
+the same compatible specialization of a function from it. Different application
+entry wrappers or host-specific imports remain distinct. Two browser outputs
+whose only difference is their page title can share all code-generation work;
+their generated page and artifact manifest differ. Do not put packaging-only
+options into every library's compiler cache key.
+
+The existing session already caches expansion, checked items and emission within
+one retained program session. Sharing across roots requires a deliberate cache
+boundary, not copying its tables between independent sessions: resolved identities,
+input evidence and specialization names must have stable meaning in the shared
+workspace. Stage-local fresh names or revision numbers alone are not reusable
+identities across unrelated sessions.
+
+Share immutable specialization bodies and their dependency descriptions, while
+keeping reachability sets per application and per producer. Sharing a body must
+not make every application retain the union of every other's code or resources.
+Likewise, preserve contextual ownership/control checks at each use where their
+answer depends on the caller's context. Cache a specialization's construction,
+not an unchecked claim that all of its uses are valid. Runtime handler instances
+do not become specialization keys.
+
+Identical monomorphized IR does not necessarily mean a drop-in Wasm binary fragment:
+module indices, imports, exports and assembly still belong to the receiving module.
+Reuse semantic preparation first; share emitted whole modules when their emission
+context matches. This avoids requiring a new cross-program binary linker merely
+to stop repeating type checking or specialization.
+
+## Execute the plan with a queue and result map
 
 Use the existing request/driver boundary and staged planner, extended to return
 finished code with unresolved resource paths. The compiler describes missing
-compile-time inputs; the builder owns IO and execution. Use a queue of work and
-a map of compiled outputs, processed by one worker initially:
+compile-time inputs; the builder owns IO and execution. Use a queue of planned
+work and a map of compiled outputs:
 
 ```text
 pending  : Queue<Job>
@@ -268,13 +355,15 @@ stable resource names rather than the unknown digests of future dependencies.
 The compiled map provides sharing within an attempt; persistent reuse additionally
 requires validated compiler input evidence.
 
-1. Enqueue the root application request. Take a compile job and skip duplicate
-   compilation if its `CompiledOutput` is already in the map.
-2. Compile it to emitted code against predetermined resource paths. Record the
-   finished output immediately, then enqueue retained resource requests that have
-   not yet been processed. Ordinary resource dependencies do not suspend this job.
-3. If compilation instead needs generated syntax, suspend only that compilation
-   and schedule the producer stages. Compile the producer's code without waiting
+1. Prepare a plan from the root application request, obtaining checked, specialized
+   units and any staged prerequisites. Enqueue ready emission jobs and skip work
+   whose compatible compiler result is already available.
+2. Emit code from the prepared units against predetermined resource paths. Record
+   the finished output immediately. Resource jobs are already represented in the
+   plan and can advance independently; ordinary resource dependencies do not
+   suspend this emission job.
+3. If preparation needs generated syntax, suspend only the affected preparation
+   and dispatch the producer stages. Emit the producer's code without waiting
    for its resource contents, complete its required resources, execute it, and
    supply its result to the waiting compilation. Preserve the existing checked
    session where the compiler's missing-input protocol requires a retry.
@@ -294,6 +383,22 @@ frontend`, `complete server`. The server's Wasm exists before the frontend does.
 Only the completed manifest needs the child's content reference. A materialized
 directory can similarly reserve the frontend's relative path first and fill it
 later; neither representation requires the child to precede parent code generation.
+
+Dispatch independent ready jobs to a bounded worker pool. A server and its browser
+resource can emit code concurrently; the resource edge constrains completion of
+the server manifest, not emission of the server's code. Independent library
+preparation can also overlap once imported interfaces are available. A generated
+source prerequisite constrains preparation and therefore emission of its consumer.
+
+The planner owns pending identities and shared result publication. Reserve a job
+once so two workers do not prepare or emit the same unit concurrently. Workers
+consume immutable inputs and return completed values; they do not concurrently
+mutate one symbol table or compiler session. Per-job scratch and atomic content
+insertion keep independent jobs isolated. A serial executor can consume the same
+plan for bootstrap, debugging and reproducibility checks.
+Symbol identities and artifact contents must not depend on worker completion
+order: reserve stable identities during preparation and combine results by their
+canonical keys, leaving emission's temporary indices local to each module.
 
 Queue order can start from FIFO order. Waiting jobs must yield only for results
 their current phase actually needs: generated syntax before parent compilation,
@@ -349,7 +454,7 @@ checks as well.
 
 Only forced requests form artifact build edges. A self-reference pruned from
 unused code need not be a build cycle. Generated syntax can reveal new edges,
-so validate each extension before executing dependent work. Future parallel
+so validate each extension before executing dependent work. Parallel
 execution must distinguish waiting on shared work from an actual dependency
 cycle; a global "currently building" bit alone would not do that.
 
@@ -498,6 +603,10 @@ building it. These cases are acceptance criteria for the eventual implementation
 | Only a Wasm or JavaScript file is selected from an artifact. | Treat it as data; use the whole artifact root when the loader and resource closure are needed for execution. |
 | Several explicit root publications are requested. | Complete their needed artifacts first; do not promise an atomic transaction across multiple publication paths. |
 | The compiler, resource ABI or host contract changes. | Invalidate incompatible compiled-unit caches and reject incompatible manifests; cover the bootstrap transition explicitly. |
+| Two application roots import the same library under the same semantic inputs. | Share expansion and checking; keep target-specific output layout separate. |
+| Two roots request the same compatible specialization. | Share its constructed body, preserve per-root reachability and repeat any context-sensitive validity checks. |
+| A generator emits a previously unknown application-artifact request. | Complete the producer stage, extend preparation, then dispatch the next prepared batch. |
+| Parallel jobs need the same prepared or emitted unit. | Reserve the work once, publish an immutable result, and keep symbol identities and output bytes independent of completion order. |
 
 ## Delivery and decisions still needing review
 
@@ -505,6 +614,11 @@ First introduce symbolic resource references and the compiled-unit boundary for
 ordinary linked files. Prove that unused function references can disappear and
 that static file bindings work on both native and browser hosts. This establishes
 the mechanism before adding recursive application builds.
+
+Make preparation produce an explicit plan with shared library and specialization
+evidence, and consume it with serial and bounded parallel executors. Verify that
+multiple roots reuse compatible analysis without retaining each other's resources
+and that both execution orders produce the same artifact identities.
 
 Next add artifact tree references, normalized output configuration and request
 memoization. Connect generated-library stages through the same resolver, extend
