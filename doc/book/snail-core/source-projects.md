@@ -4,8 +4,10 @@
 `project.datum`, consolidate sources under `src/`, and resolve applications on
 demand from explicit build requests. A datum shared by the CLI and an artifact
 macro identifies an application type and output configuration. Macro expansion
-introduces symbolic resource references; compilation determines which references
-are retained, and the builder materializes their dependencies and rejects cycles.
+introduces symbolic resource references and discovers requested applications
+alongside imports. Compilation shares compatible analysis across these roots;
+the builder binds their outputs afterward. Ordinary artifact-reference cycles
+are allowed, while cycles in generated-source evaluation remain errors.
 No application-enumeration scan or target registry is required. The companion
 [artifact and staged-linking proposal](artifacts.md) develops storage, forcing,
 generator lifetimes and independent deployment. Exact API syntax remains open;
@@ -121,9 +123,10 @@ needs an expression after the manifest is removed. The working proposal is:
 1. The user selects the server application to build.
 2. Expanding the server's source introduces a symbolic tree reference for the
    frontend's browser output.
-3. The compiler finishes the server's code against the frontend's predetermined
-   logical path. If that reference survives compilation, the builder queues the
-   frontend and later binds its immutable tree before publishing the server.
+3. Expansion adds the frontend to the shared worklist. The compiler prepares both
+   applications and emits their code against predetermined logical paths, without
+   waiting for the other's files. The builder binds their completed outputs in an
+   immutable catalog before publishing the server.
 4. The server implements the routes and communication using that tree. A
    generated-library producer that needs the frontend uses the same mechanism
    when preparing its own executable stage.
@@ -149,16 +152,21 @@ not a search for the macro's textual name: renamed imports, wrapper macros and
 generated invocations must work. An invocation stored in an unused macro
 template establishes no dependency until expansion reaches it.
 
-Keep each request on its expression through compilation. Bind only the resources
-retained by the executable phase being built. This permits unused code to lose
-its artifact requests; separately compiled development code may conservatively
-retain more. Ordinary resource references do not block code generation: their
-paths are known before the files exist. Generated source can block compilation;
-executing its producer requires that producer's resources to be complete first.
-Those producer inputs do not automatically become deployment dependencies.
+Register requested targets before visiting their sources, so repeated requests
+and reference cycles converge on existing work. The initial discovery policy
+follows every expanded request, including requests whose uses later disappear
+from compiled code. Avoiding those builds through dead-code elimination is a
+possible later refinement, not a prerequisite for this design.
+
+Ordinary resource references do not block code generation: their paths are known
+before the files exist. Generated source can block expansion; prepare, emit and
+run its producer using the same worklist and compatible compiler caches, then
+resume discovery with the returned syntax. Executing a producer requires its
+resources to be complete first. Those inputs do not automatically become
+deployment dependencies, and cycles in these evaluation prerequisites are errors.
 
 The [artifact proposal](artifacts.md) specifies the common store, request sharing,
-mixed-stage cycle detection, resource binding and closure export. It replaces
+evaluation-cycle detection, resource binding and closure export. It replaces
 eager byte embedding with file/tree handles and keeps output manifests separate
 from build provenance. Reuse the existing planner's ordering and diagnostic
 machinery while changing its discovery/forcing boundary. No manually maintained
@@ -190,7 +198,8 @@ tooling in view when deciding how existing entry paths migrate.
 The [case inventory](artifacts.md#case-inventory) includes a server retaining a
 browser frontend and a generated library consuming an artifact, exercising both
 runtime and build-time lifetimes. Verify that the frontend can be exported
-independently and that pruned references cause no build.
+independently, that ordinary artifact-reference cycles work, and that generated
+source prerequisites impose only the necessary staging boundaries.
 
 Once those responsibilities have homes, remove manifest parsing and target-name
 lookup, update the development service, commands, fixtures and book, and retire
