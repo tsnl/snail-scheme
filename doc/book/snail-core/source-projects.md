@@ -10,8 +10,10 @@ the builder binds their outputs afterward. Ordinary artifact-reference cycles
 are allowed, while cycles in generated-source evaluation remain errors.
 No application-enumeration scan or target registry is required. The companion
 [artifact and staged-linking proposal](artifacts.md) develops storage, forcing,
-generator lifetimes and independent deployment. Exact API syntax remains open;
-none of the proposed forms below is implemented.
+generator lifetimes and independent deployment. The
+[incremental compiler workspace](incremental-compiler.md) shares analysis across
+applications, generators and editor requests, including reuse across source edits.
+Exact API syntax remains open; none of the proposed forms below is implemented.
 
 The [project chapter](projects.md) describes the implemented manifest and build
 contracts. The [application model](applications.md) defines the existing

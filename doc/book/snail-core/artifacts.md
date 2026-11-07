@@ -308,17 +308,11 @@ one universal expansion pass followed by one universal emission pass. The curren
 
 ## Share compiler work across application roots
 
-Use a shared compiler workspace for one build attempt, rather than one isolated
-front end for every output request. Reuse results when their semantic inputs agree:
-
-| Result | Safe reuse boundary |
-| --- | --- |
-| Parsed syntax | The same source snapshot, origin and reader configuration. |
-| Expanded, resolved library | The same source, imports, macro environment, features and generated/early input evidence. |
-| Checked library | The same resolved library, imported interfaces and instance environment. An importer does not determine that library's definition types. |
-| Specialized definition | The same checked definition, concrete type/effect arguments, selected class evidence and relevant representation/control context. |
-| Prepared code or emitted module | The same semantic bodies, module boundary, backend ABI, compiler version and code-generation options. |
-| Resource bindings and output layout | The particular artifact's retained paths, resource results and output configuration. |
+Use the [incremental compiler workspace](incremental-compiler.md) to share
+results across applications, generator stages and edits. Finishing a producer
+does not discard its checked standard library or compatible specializations.
+The workspace records each result's semantic dependencies, so the same mechanism
+answers both whether another root can reuse it and whether an edit invalidates it.
 
 For example, browser and server applications can share a checked pure library and
 the same compatible specialization of a function from it. Different application
@@ -327,21 +321,11 @@ whose only difference is their page title can share all code-generation work;
 their generated page and artifact manifest differ. Do not put packaging-only
 options into every library's compiler cache key.
 
-The existing session already caches expansion, checked items and emission within
-one retained program session. Sharing across roots requires a deliberate cache
-boundary, not copying its tables between independent sessions: resolved identities,
-input evidence and specialization names must have stable meaning in the shared
-workspace. Stage-local fresh names or revision numbers alone are not reusable
-identities across unrelated sessions.
-
-Share immutable specialization bodies and their dependency descriptions, while
-keeping code roots and expanded resource dependencies per application and per
-producer. Sharing a body must not make every application retain the union of
-every other's code or resources.
-Likewise, preserve contextual ownership/control checks at each use where their
-answer depends on the caller's context. Cache a specialization's construction,
-not an unchecked claim that all of its uses are valid. Runtime handler instances
-do not become specialization keys.
+An artifact selects code and resources from that workspace. Keep those selections
+per application and per producer: sharing compiler results must not make each
+application retain every other's code, resources or runtime state. Keep analysis
+results independent of publication, so an unsuccessful build can still contribute
+valid compiler work without replacing the accepted output.
 
 Identical monomorphized IR does not necessarily mean a drop-in Wasm binary fragment:
 module indices, imports, exports and assembly still belong to the receiving module.
@@ -638,9 +622,15 @@ building it. These cases are acceptance criteria for the eventual implementation
 
 ## Delivery and decisions still needing review
 
-First introduce symbolic resource references and the compiled-unit boundary for
-ordinary linked files. Verify that files bind after code generation on both native
-and browser hosts. This establishes the mechanism before adding application builds.
+First establish the shared input, identity and dependency boundaries described in
+the [incremental compiler delivery plan](incremental-compiler.md#delivery-and-checks).
+Verify standard-library reuse between a producer and its consuming application,
+then reuse across source edits. The compiler's existing passes and per-library
+checks provide the starting points.
+
+Introduce symbolic resource references and the compiled-unit boundary for ordinary
+linked files. Verify that files bind after code generation on native and browser
+hosts, and that asset-only edits change bindings without rechecking code.
 
 Make preparation produce an explicit plan with shared library and specialization
 evidence, and consume it with serial and bounded parallel executors. Verify that

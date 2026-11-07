@@ -14,6 +14,7 @@
   - [Projects and targets](snail-core/projects.md)
   - [Proposed projects without a manifest](snail-core/source-projects.md)
   - [Proposed artifacts and staged linking](snail-core/artifacts.md)
+  - [Proposed incremental compiler workspace](snail-core/incremental-compiler.md)
   - [Compiler architecture](snail-core/compilers.md)
   - [Application model](snail-core/applications.md)
   - [Development toolchain](snail-core/toolchain.md)
