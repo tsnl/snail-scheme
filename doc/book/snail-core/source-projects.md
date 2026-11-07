@@ -121,8 +121,9 @@ needs an expression after the manifest is removed. The working proposal is:
 1. The user selects the server application to build.
 2. Expanding the server's source introduces a symbolic tree reference for the
    frontend's browser output.
-3. If compilation retains that reference, the builder produces the frontend and
-   binds its immutable tree into the server's artifact before publication.
+3. The compiler finishes the server's code against the frontend's predetermined
+   logical path. If that reference survives compilation, the builder queues the
+   frontend and later binds its immutable tree before publishing the server.
 4. The server implements the routes and communication using that tree. A
    generated-library producer that needs the frontend uses the same mechanism
    when preparing its own executable stage.
@@ -151,9 +152,10 @@ template establishes no dependency until expansion reaches it.
 Keep each request on its expression through compilation. Bind only the resources
 retained by the executable phase being built. This permits unused code to lose
 its artifact requests; separately compiled development code may conservatively
-retain more. Preparing a generated-library producer forces its resources earlier
-than preparing the final application, but does not make those inputs deployment
-dependencies automatically.
+retain more. Ordinary resource references do not block code generation: their
+paths are known before the files exist. Generated source can block compilation;
+executing its producer requires that producer's resources to be complete first.
+Those producer inputs do not automatically become deployment dependencies.
 
 The [artifact proposal](artifacts.md) specifies the common store, request sharing,
 mixed-stage cycle detection, resource binding and closure export. It replaces

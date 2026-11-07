@@ -192,6 +192,15 @@ reference with a fixed resource type. Keep it on the expression in the compiler'
 representation. Do not turn every encountered reference into an eager global
 initializer or an unconditional build dependency.
 
+Assign that reference a predetermined logical output path without consulting
+its future contents. For example, an application reference can name
+`deps/REQUEST_KEY/`, and a linked file can have a stable, source-qualified resource
+path. These names are illustrative. They can become real relative paths in a
+materialized output, or be resolved through its resource manifest. Neither the
+target file nor the directory needs to exist for the compiler to emit a use of
+that path. A request key can be computed in advance; the content hash of its
+future output cannot.
+
 Malformed request syntax is still a source error. Reading a linked file, loading
 the requested application's library, and proving its `Application` instance can
 wait until the reference survives compilation. A CLI root is always forced.
@@ -204,6 +213,12 @@ collect resource slots from retained code and required initializers. Dead
 functions can then lose their artifact requests. An unknown runtime branch,
 exported callback or retained initializer conservatively keeps its references.
 There is no claim to determine whether an arbitrary function will ever execute.
+
+Complete code generation against these paths: `link-file` and application
+artifact requests do not require the linked bytes to emit the requesting Wasm
+module. Keep the path-to-request association as output metadata. Only a dependency
+whose contents are actually needed to produce code, such as generated source or
+included bytes, can interrupt compilation.
 
 Prefer leaving stable symbolic resource imports in the compiled module and
 binding them to content references in the completed artifact manifest. Scope a
@@ -231,52 +246,60 @@ an explicit loader ABI change that must work on both native and browser hosts.
 ## One build loop, including generated libraries
 
 Use the existing request/driver boundary and staged planner, extended to return
-an unfinished compiled unit with symbolic resource needs. The compiler describes
-missing work; the builder owns IO and execution. Use a queue of work and a map
-of completed results, processed by one worker initially:
+finished code with unresolved resource paths. The compiler describes missing
+compile-time inputs; the builder owns IO and execution. Use a queue of work and
+a map of compiled outputs, processed by one worker initially:
 
 ```text
-pending   : Queue<Job>
-completed : Map<RequestKey, CompletedResult>
+pending  : Queue<Job>
+compiled : Map<RequestKey, CompiledOutput>
 ```
 
-An application result contains its artifact-manifest reference. Producer phases
-also have explicit keys and results: preparing a producer's executable and running
-it to obtain generated syntax are different jobs. Keep the result map distinct
-from the content store, which maps content digests to bytes. The map is memoization
-within an attempt; persistent reuse additionally requires validated input evidence.
+A `CompiledOutput` holds emitted code objects, output layout information and
+retained logical-path-to-resource-request associations. Insert it into `compiled`
+as soon as code generation finishes, even if none of its resource dependencies
+has been produced. It is completed compiler output, not yet a deployable artifact.
+Resource completion later adds the finalized bindings and artifact reference;
+it does not require compiling the parent again.
 
-A queued job contains its normalized request, current phase, dependencies and
-any unfinished compiler result. Some jobs have yet to compile; others only need
-their resource bindings filled in. Keeping that unfinished result prevents the
-parent from compiling repeatedly while its children are completed.
+Keep this map distinct from the content store, which maps content digests to
+bytes. The emitted Wasm can already be interned there because its bytes contain
+stable resource names rather than the unknown digests of future dependencies.
+The compiled map provides sharing within an attempt; persistent reuse additionally
+requires validated compiler input evidence.
 
-1. Enqueue the root request. Take an eligible job whose known prerequisite results
-   are available, and skip duplicate work if its result is already completed.
-2. Advance that job. Compilation can either finish preparing a unit or report a
-   generated-library input it needs before it can continue. Preserve completed
-   compiler work or the existing checked session when a retry is necessary.
-3. If more work is needed, record the dependency edges, reject cycles, enqueue
-   missing prerequisites and return the suspended job to the pending work. Do
-   not wait inside that job and block the worker from processing its dependencies.
-4. A prepared executable exposes its retained resource references. File snapshots
-   and application artifacts supply those bindings through the same work loop.
-   A producer's executable must be bound before the producer-execution job runs;
-   that job captures generated syntax and promoted resources for the waiting
-   compilation.
-5. Once a job has its required results, finish it. For an application this means
-   binding resource slots, producing named output files and interning its completed
-   artifact manifest. Only then insert its result into `completed`.
-6. Publish or export the requested root only after its completed result exists.
-   A failed prerequisite cannot replace the previously accepted root.
+1. Enqueue the root application request. Take a compile job and skip duplicate
+   compilation if its `CompiledOutput` is already in the map.
+2. Compile it to emitted code against predetermined resource paths. Record the
+   finished output immediately, then enqueue retained resource requests that have
+   not yet been processed. Ordinary resource dependencies do not suspend this job.
+3. If compilation instead needs generated syntax, suspend only that compilation
+   and schedule the producer stages. Compile the producer's code without waiting
+   for its resource contents, complete its required resources, execute it, and
+   supply its result to the waiting compilation. Preserve the existing checked
+   session where the compiler's missing-input protocol requires a retry.
+4. Process queued applications and static file snapshots the same way. Track
+   compile-time prerequisite edges separately from ordinary resource-completion
+   edges. Deduplicate queued work or skip it when its result is already recorded.
+5. Once an output's resource results exist, bind its logical paths, finish its
+   named files and intern its artifact manifest. This completion phase can run
+   after the ordinary compilation queue drains, or earlier when a generator
+   needs an executable artifact. Generated-result promotion uses the same store.
+6. Publish or export the requested root only after its artifact and retained
+   closure are complete. A failed child leaves its parent's compiled code reusable
+   but cannot replace the previously accepted deployment.
 
-Queue order can start from FIFO order, but waiting jobs must yield to their
-prerequisites. The queue records waiting state and unfinished work; the completed
-map must not contain placeholders indistinguishable from usable artifacts.
-Scheduling can avoid duplicate pending jobs or cheaply skip them on completion.
-Retain dependency edges for cycle checks, including edges discovered on later
-visits. This is a work queue with explicit phase state, not recursive compiler
-invocation or a new general-purpose scheduling API.
+Thus the ordinary order can be `compile server`, `compile frontend`, `complete
+frontend`, `complete server`. The server's Wasm exists before the frontend does.
+Only the completed manifest needs the child's content reference. A materialized
+directory can similarly reserve the frontend's relative path first and fill it
+later; neither representation requires the child to precede parent code generation.
+
+Queue order can start from FIFO order. Waiting jobs must yield only for results
+their current phase actually needs: generated syntax before parent compilation,
+resources before generator execution, and child artifact identities before
+content-addressed manifest completion. Retain edges for cycle checks, including
+edges discovered on later visits. No runtime scheduling API is introduced.
 
 Force resources before running an executable phase, rather than starting builds
 on arbitrary runtime reads. A producer branch that is retained but never taken
@@ -329,6 +352,12 @@ unused code need not be a build cycle. Generated syntax can reveal new edges,
 so validate each extension before executing dependent work. Future parallel
 execution must distinguish waiting on shared work from an actual dependency
 cycle; a global "currently building" bit alone would not do that.
+
+The manifest model still rejects cycles of retained artifact references: a
+content-addressed parent manifest needs its children's completed identities.
+That is a completion constraint, not a reason that the compiler cannot emit code
+containing the corresponding predetermined paths. Generated-source cycles can
+instead prevent compilation itself from finishing.
 
 ## Cache bytes without claiming every computation is cacheable
 
@@ -434,6 +463,7 @@ building it. These cases are acceptance criteria for the eventual implementation
 | Case | Required work and lifetime |
 | --- | --- |
 | A retained `link-file` names an existing asset. | Snapshot and intern the asset when binding the executable; retain its blob with that artifact. |
+| A linked file or child artifact does not yet exist. | Emit the parent's code against its predetermined logical path and record that compiled output; fill the path/binding before execution or publication. |
 | A file or artifact reference occurs only in eliminated code. | Do not read the file, resolve the child application, or produce its artifact. Request syntax still must be valid. |
 | A reference is in an unused macro template. | Expansion creates no request at all. |
 | A reference is in an initializer, export or potentially called callback. | Retain it conservatively under the compiler's actual reachability rules. |
@@ -460,6 +490,7 @@ building it. These cases are acceptance criteria for the eventual implementation
 | A forced request depends on itself, indirectly or through a producer. | Fail with the mixed-stage dependency chain; publish no replacement root. |
 | A cycle exists only in a pruned reference. | It creates no forced artifact edge and requires no child build. |
 | A dependency fails after another child has completed. | Preserve the previous published root; completed child blobs may remain reusable or collectible. |
+| A resource dependency fails after its parent compiled. | Keep the valid compiler result for reuse; withhold completion and publication of the parent's artifact. |
 | A page or process survives a rebuild and keeps an old resource handle. | Preserve the old content and binding context until its owner releases them. |
 | The workspace is deleted after an independent export. | The exported directory/archive remains complete and usable. |
 | A frontend is hosted externally and addressed by a runtime URL. | The URL does not implicitly request or bundle that application's build. |
