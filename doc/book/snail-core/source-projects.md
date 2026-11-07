@@ -3,11 +3,13 @@
 **Design proposal for review; not implemented.** The direction is to remove
 `project.datum`, consolidate sources under `src/`, and resolve applications on
 demand from explicit build requests. A datum shared by the CLI and an artifact
-macro identifies an application type and desired output. Macro expansion
-discovers further artifact requests; the builder follows those dependencies and
-rejects cycles. No application-enumeration scan or target registry is required.
-Exact syntax and packaging contracts remain open; none of the proposed forms
-below is implemented.
+macro identifies an application type and output configuration. Macro expansion
+introduces symbolic resource references; compilation determines which references
+are retained, and the builder materializes their dependencies and rejects cycles.
+No application-enumeration scan or target registry is required. The companion
+[artifact and staged-linking proposal](artifacts.md) develops storage, forcing,
+generator lifetimes and independent deployment. Exact API syntax remains open;
+none of the proposed forms below is implemented.
 
 The [project chapter](projects.md) describes the implemented manifest and build
 contracts. The [application model](applications.md) defines the existing
@@ -44,10 +46,10 @@ for the existing IDE entry need to be included in the migration.
 ## Resolve applications only when requested
 
 An explicit build request names a concrete type for which the compiler must
-resolve an `Application` instance. Aliases are valid references: the current
-Siegework entry is an alias for `SceneApplication Game`. The compiler can check
-that evidence after resolving the requested library and type through the usual
-source mapping.
+resolve an `Application` instance when the request is forced. Aliases are valid
+references: the current Siegework entry is an alias for `SceneApplication Game`.
+The compiler can check that evidence after resolving the requested library and
+type through the usual source mapping.
 
 There is no initial scan to enumerate every application type. The CLI supplies
 a root request; source expansion can recursively request other applications'
@@ -62,31 +64,35 @@ must not prevent a requested build.
 
 Selecting an existing application is different from registering a named target
 in a manifest. The source declaration would provide the application's identity.
-Exact CLI syntax, defaults, alias identity and output naming are undecided.
+Exact CLI syntax, defaults and output naming are undecided. The artifact proposal
+recommends keeping qualified aliases distinct for initial request memoization.
 Runtime arguments would belong to an invocation; whether the IDE needs saved
 launch settings is a separate question.
 
 ## One datum for an application and its output
 
 Represent a build request as inert S-expression data: a path of symbols
-identifies a concrete application type, paired with a symbol from a defined
-set of output kinds. For illustration only:
+identifies a concrete application type, paired with a well-defined output
+configuration. For illustration only:
 
 ```scheme
-((apps frontend application Frontend) browser)
+((apps frontend application Frontend)
+ (browser ((title "Frontend"))))
 ```
 
 Here `(apps frontend application)` would identify a library under `src/`,
-`Frontend` its concrete application type, and `browser` the requested browser
-artifact. The path uses the ordinary library namespace. This illustrates the
-information required, not a settled grammar or file-extension rule.
+`Frontend` its concrete application type, and the `browser` record the requested
+output and its page configuration. The path uses the ordinary library namespace.
+This illustrates the information required, not a settled grammar or
+file-extension rule.
 
 The CLI, IDE and artifact macro would supply the same datum to the same request
-parser and resolver. Parse it into an application reference and output kind,
-then use ordinary compiler evidence to establish that the referenced type
-satisfies `Application`. Keep source locations for macro requests and useful
-input locations for CLI errors. No manifest target name or separately registered
-dependency list participates in resolution.
+parser and resolver. Parse its shape into an application reference and typed
+configuration without building the application. When forced, use ordinary
+compiler evidence to establish that the referenced type satisfies `Application`.
+Keep source locations for macro requests and useful input locations for CLI
+errors. No manifest target name or separately registered dependency list
+participates in resolution.
 
 The request is deliberately small: identify an application and the artifact
 needed from it. Build-mode defaults, the output-kind vocabulary and the exact
@@ -113,11 +119,13 @@ packaged files, not merely its source library. That artifact dependency still
 needs an expression after the manifest is removed. The working proposal is:
 
 1. The user selects the server application to build.
-2. Expanding the server's source reaches an artifact macro whose datum requests
-   the frontend's browser output.
-3. The builder produces that artifact and supplies its files as data to the
-   server's compilation.
-4. The server implements the routes and communication using those files.
+2. Expanding the server's source introduces a symbolic tree reference for the
+   frontend's browser output.
+3. If compilation retains that reference, the builder produces the frontend and
+   binds its immutable tree into the server's artifact before publication.
+4. The server implements the routes and communication using that tree. A
+   generated-library producer that needs the frontend uses the same mechanism
+   when preparing its own executable stage.
 
 This would replace the manifest-name lookup in
 [`artifact-bundle`](projects.md#artifact-bundles). Consuming the artifact would
@@ -128,79 +136,59 @@ Prefer keeping `Application` concerned with the runtime entry contract. A
 `build` method on it was considered, but risks coupling host-side build
 execution to code that expects the application's platform. Producing a browser
 artifact must not require starting the browser application. The working design
-uses the expansion-time artifact request and existing build staging for that
+uses the deferred artifact request and existing build staging for that
 separation.
 
-## Dependencies discovered through expansion
+## Expansion introduces references; linking forces them
 
 Compiler support for the artifact macro is acceptable in this design. Its
-dependency information must be a result of actual macro expansion in the
-selected application's import closure. Use the expander's resolved operation,
+references must be a result of actual macro expansion in the selected
+application's import closure. Use the expander's resolved operation,
 not a search for the macro's textual name: renamed imports, wrapper macros and
 generated invocations must work. An invocation stored in an unused macro
 template establishes no dependency until expansion reaches it.
 
-At that boundary, the expander records a structured request with its source
-location. The builder resolves the application and output, builds the artifact
-if this invocation does not already have a completed result, and supplies it
-as a compiler input. Expansion can then use the resulting artifact data. The
-expander need not perform host IO or start application processes itself.
+Keep each request on its expression through compilation. Bind only the resources
+retained by the executable phase being built. This permits unused code to lose
+its artifact requests; separately compiled development code may conservatively
+retain more. Preparing a generated-library producer forces its resources earlier
+than preparing the final application, but does not make those inputs deployment
+dependencies automatically.
 
-Repeated requests for the same resolved application and output should share a
-build within an invocation. This does not introduce a new persistent-cache
-contract. Request identity must account for output-affecting configuration and
-resolve aliases consistently, rather than treating arbitrary datum spellings
-as distinct builds.
-
-Track dependencies while discovering and satisfying requests. Detect a request
-that depends on itself and longer cycles, reporting the application/output
-chain and the source locations that introduced its edges. A cycle can pass
-through a generated-library producer. Generated syntax may reveal more requests
-only after its producer runs; refine the plan and check for cycles before
-running the newly dependent phases. A failed or cyclic dependency must not
-publish a replacement for the consuming application's accepted output.
-
-The existing [artifact planner](projects.md#artifact-bundles) already uses
-discovery expansion, generated-library phases and cycle detection. Reuse those
-contracts while replacing manifest-name resolution with application/output
-requests. The concern about unnecessary compiler machinery remains a design
-constraint: dependency edges should come from artifact consumers, with no
-second user-maintained target registry or general-purpose build DSL.
+The [artifact proposal](artifacts.md) specifies the common store, request sharing,
+mixed-stage cycle detection, resource binding and closure export. It replaces
+eager byte embedding with file/tree handles and keeps output manifests separate
+from build provenance. Reuse the existing planner's ordering and diagnostic
+machinery while changing its discovery/forcing boundary. No manually maintained
+target registry or general-purpose build DSL is needed.
 
 ## Remaining decisions for review
 
-- How browser HTML, CSS, public filenames and host files become part of the
-  requested artifact. Content-addressed linked resources do not by themselves
-  specify public URLs or the page shell.
-- How a request distinguishes output kinds and build modes for the same
-  application, and how it identifies an application across aliases.
-- The precise library/type-path and output-kind grammar, including how the
-  shared parser and resolver report invalid requests.
+- The precise library/type-path and output-configuration grammar, including
+  browser page and host options and useful errors for invalid requests.
+- The file/tree resource API, generated-result encoding and native/browser
+  resource-binding contract described in the companion proposal.
 - How build selection, development watching and run controls work without
   manifest build names or run targets.
 
 ## Implementation sequence to review
 
-First settle the common `src/` source mapping and application-reference
-contract. Prove that an explicit request resolves a concrete alias without
-enumerating applications or registering a target. Move application libraries
+Use the [companion delivery sequence](artifacts.md#delivery-and-decisions-still-needing-review)
+to establish deferred linking for existing files before adding recursive
+application requests. The shared request parser and resolver then provide the
+new front door for the CLI, IDE and artifact macro.
+
+Exercise requests for Siegework, Hearsay and the IDE itself, including an
+unrelated broken application that does not block the selected build and a
+requested alias supplied by a generated library. Move application libraries
 under `src/apps/` with matching imports and source-relative assets, preserving
-generated recipes and the stage-0 boundary.
+generated recipes and the stage-0 boundary. Keep source-file scripts and compiler
+tooling in view when deciding how existing entry paths migrate.
 
-Then provide one request parser and resolver for the CLI, IDE and artifact
-macro. Exercise requests for Siegework, Hearsay and the IDE itself, including
-an unrelated broken application that does not block the selected build and a
-requested alias supplied by a generated library. Keep source-file scripts and
-compiler tooling in view when deciding how existing entry paths migrate.
-
-Use a server embedding a browser frontend to exercise expansion-time artifact
-requests and decide the packaging contract. Verify that CLI and macro requests
-resolve the same output, repeated requests share a build, wrapper and generated
-macros expose dependencies, and unused templates request no build. Check direct
-cycles, indirect cycles and cycles revealed through generated libraries. Building
-the server must produce the frontend without running it; resource changes must
-invalidate the consuming output, and failures must preserve existing
-publication guarantees.
+The [case inventory](artifacts.md#case-inventory) includes a server retaining a
+browser frontend and a generated library consuming an artifact, exercising both
+runtime and build-time lifetimes. Verify that the frontend can be exported
+independently and that pruned references cause no build.
 
 Once those responsibilities have homes, remove manifest parsing and target-name
 lookup, update the development service, commands, fixtures and book, and retire
