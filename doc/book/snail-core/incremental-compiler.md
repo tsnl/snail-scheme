@@ -130,6 +130,120 @@ distinct from result versions, and track source locations so an unchanged semant
 answer cannot display an old diagnostic span after an edit. The global edit revision
 belongs to validation bookkeeping, not every semantic cache key.
 
+## Pure rules and their composition
+
+Keep semantic rules as ordinary typed functions with explicit dependencies. A rule
+for a function call receives the relevant callee and argument facts and returns a
+structured result. The composing layer obtains those facts, sequences the work and
+connects operations across passes. This preserves the ability to interleave passes
+while keeping their recursors and semantic operations in cohesive modules.
+
+| Responsibility | Contract |
+| --- | --- |
+| Semantic rule | Compute from explicit immutable facts and context; return checked code, types, effects and the evidence or obligations needed downstream. |
+| Recursor or query implementation | Obtain dependencies, supply rule inputs and choose evaluation order, including calls into other passes. |
+| Query engine | Reuse or compute selected operations, record dependency evidence and maintain the workspace's memo generations. |
+
+For an already-inferred call, the separation might look like this. These are
+illustrative responsibilities, not proposed Snail syntax or settled APIs:
+
+```text
+check_call(callee_facts, argument_facts, context) -> CallResult
+
+check_library(library_identity, context) -> CheckedLibrary
+    obtain resolved syntax and imported interfaces through tracked queries
+    run the checker, composing ordinary semantic rules
+```
+
+The invariant is that every input affecting a cached result appears in its
+immutable arguments or recorded dependencies. Rule identity distinguishes different
+computations over the same arguments. Equal relevant inputs permit reuse; the
+composing layer records how those inputs were obtained so it can establish their
+validity after an edit. Avoid passing the whole workspace or revision where a
+specific interface or piece of evidence suffices.
+
+Rule boundaries and cache boundaries need not coincide. Memoizing a call rule
+after recursively checking every argument still traverses those arguments. Cache
+expensive enclosing units too, so a valid hit can skip their recursors. Ordinary
+helpers need no cache checks, and declaring a rule does not allocate a cache for
+every node. Query entry points own the reuse machinery.
+
+Inference need not follow a bottom-up fold. Expected types can inform child checks;
+unification, effects and instance selection can produce obligations and require
+joint solving. Thread solver state explicitly within its inference unit. Initially
+cache completed checking results at that boundary; temporary inference variables
+must not escape into reusable answers with identities meaningful only to one solver
+invocation. Reusing constraint recipes with fresh variables would require a separate
+contract. Local recursion and fixed points remain visible compiler algorithms.
+
+## Framework boundaries to sketch
+
+The working direction is a small typed framework that supports these boundaries,
+with semantic operations written as ordinary functions. The exact declarations,
+generated interfaces and use of Nanopass remain open for sketches and review.
+Adopting a complete Nanopass implementation is not a prerequisite.
+
+Three kinds of support are worth distinguishing:
+
+- Tree declarations can generate typed representations and constructors. Separate
+  input and output types should express meaningful pass invariants, such as replacing
+  unresolved names with binding identities. Language extension and removal of
+  variants are options to evaluate where they reduce repetition.
+- Types, effect restrictions and module boundaries should keep semantic rules
+  dependent on their supplied facts. Rules do not receive unrestricted workspace
+  or IO access. External-input adapters remain an explicit trusted boundary;
+  generated traversal alone cannot prove that all semantic dependencies were supplied.
+- Typed query declarations can generate entry points for lookup, dependency
+  recording and result publication. Query implementations use tracked operations
+  to obtain inputs, while their semantic helpers stay independent of caching.
+  This avoids adding cache boilerplate to every compiler function.
+
+[Nanopass](https://docs.racket-lang.org/nanopass/index.html) describes intermediate
+languages and transformations and can generate traversal for compatible forms.
+Its tree and pass machinery is a useful reference; a statically typed Snail
+adaptation would still need the dependency and cache contracts above. Keep
+evaluation order, inference units and specialization worklists explicit rather
+than requiring every computation to use one recursive traversal scheme.
+
+### Prior tree macros
+
+The archived Rust implementations provide a smaller starting point for the
+representation declarations:
+
+- Unit's [`define_tree!` on `archive/main-v8`](https://github.com/tsnl/unit/blob/9a6d5ceb89aa4f98bd80e0b6864ff12f248ef3be/src/tree.rs)
+  generates an enum, a distinct struct for each variant and constructors. Its
+  [call checker](https://github.com/tsnl/unit/blob/9a6d5ceb89aa4f98bd80e0b6864ff12f248ef3be/src/typer.rs#L200-L282)
+  dispatches from `Term` to a helper accepting specifically `term::Apply`.
+- Gamma's [`define_tree!` on `dev-28`](https://github.com/tsnl/gamma-lang/blob/46ed3d625453a4e3db5bd773e489faebd5c186d5/src/tree.rs)
+  uses the same representation approach, including conversions from variant structs.
+
+These macros establish node shapes and convenient helper signatures. They do not
+generate dependency tracking or enforce the explicit-input rule style: Unit's
+call helper still recursively resolves children and uses mutable checker
+state. A Snail version should generate native Snail representations; Rust boxing
+and constructor naming are not architectural requirements.
+
+A declaration could distinguish recursive children, semantic payload and occurrence
+metadata, supporting generated reconstruction, equality and fingerprints alongside
+routine traversal. Source locations, scope and hygiene must retain the distinctions
+in the syntax-reuse contract below. Supplying child results to semantic rules is
+another possible generated interface; query declarations remain a separate concern.
+
+Before settling the framework, sketch a simple lowering and a contextual checking
+operation, including a cache hit that skips an enclosing traversal. Review:
+
+- Which invariants deserve separate IR types, and which declarations can be shared?
+- How are child results and inherited context supplied without hiding evaluation
+  order or inference state?
+- Which traversal and representation operations benefit from generation, and where
+  are ordinary functions clearer?
+- How do query declarations express keys, dependency reads and immutable results
+  while preserving the generational lifetime rules?
+
+Any generated forms must remain usable by the compiled compiler and Chibi stage 0,
+preserving the bootstrap's explicit library boundary. The sketches should determine
+the smallest useful API before implementation; no macro syntax is selected here.
+
 ## Reparse, then reuse predecessor syntax
 
 Start by parsing a changed file in full. An unchanged file can reuse its existing
@@ -322,9 +436,11 @@ provide the detailed source-request and artifact contracts.
 
 1. Record fresh-build and retained-session baselines, repeated work and ownership
    of existing caches. Establish explicit input snapshots, stable semantic
-   identities and typed query results with dependency evidence. Introduce predecessor
-   syntax reconciliation and generational result retention in each process. Start
-   with serial execution so correctness and reuse are visible before concurrency.
+   identities and typed query results with dependency evidence. Use the reviewed
+   rule/composition sketches to choose the minimal framework boundaries, keeping
+   semantic functions free of cache boilerplate. Introduce predecessor syntax
+   reconciliation and generational result retention in each process. Start with
+   serial execution so correctness and reuse are visible before concurrency.
 2. Migrate expansion, resolution and checking to the shared workspace. Make two
    roots reuse compatible results, and replace duplicated discovery work with
    recorded requests from expansion. Preserve the inference units that establish
@@ -364,6 +480,10 @@ Require these specific outcomes:
 - An unchanged request repeats no semantic computation whose evidence still holds.
   A producer with untracked effects may execute again; equal output preserves
   downstream results.
+- The same semantic rules work with reuse enabled or disabled. A cache hit at an
+  enclosing checking unit skips its recursor; changed context or dependency evidence
+  invalidates the result. Rule inputs and outputs preserve the typing, ownership
+  and effect evidence needed by subsequent operations.
 - An asset-only edit rebinds resources without rechecking code. A changed selected
   instance invalidates the affected evidence, and a removed request drops its old
   dependency without forcing an obsolete producer.
