@@ -309,8 +309,9 @@ one universal expansion pass followed by one universal emission pass. The curren
 
 ## Share compiler work across application roots
 
-Use the [incremental compiler workspace](incremental-compiler.md) to share
-results across applications, generator stages and edits. Finishing a producer
+Use the builder's [incremental compiler workspace](incremental-compiler.md) to share
+results across applications, generator stages and edits. The LSP has its own
+workspace and cache in a separate process. Finishing a producer
 does not discard its checked standard library or compatible specializations.
 The workspace records each result's semantic dependencies, so the same mechanism
 answers both whether another root can reuse it and whether an edit invalidates it.

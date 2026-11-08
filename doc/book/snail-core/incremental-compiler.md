@@ -2,9 +2,10 @@
 
 **Design proposal; not implemented.** The primary objective is to organize the
 compiler around incremental, typed queries, improving compilation performance
-and simplifying how the compiler owns and schedules work. One compiler workspace
-serves applications, generated-library producers and editor requests. Finishing
-one request does not discard its knowledge.
+and simplifying how the compiler owns and schedules work. The build process and
+LSP process use the same query implementation, each with its own compiler workspace
+and generational cache. Within a workspace, finishing one request does not discard
+the results needed by other requests.
 
 This chapter is the main architecture and delivery plan. The
 [source-project proposal](source-projects.md) specifies application selection and
@@ -43,7 +44,7 @@ granularity where measured invalidation costs justify it. Full LSP protocol cove
 persistent or remote query caches, and new optimizer passes can be separate work
 once the shared compiler contracts are established.
 
-## One workspace, many requests
+## A workspace per process, many requests
 
 The compiler accepts explicit inputs and derives immutable results from them.
 Each reusable operation has a key, its result and the inputs or other results it
@@ -65,6 +66,18 @@ A generator runs one completed selection and contributes new source inputs; work
 then continues. Each program keeps its own entry, initialization and runtime state.
 Shared compiled code does not imply shared runtime instances.
 
+The intended deployment uses separate LSP and build processes. The LSP owns its
+analysis snapshots and cache; the builder owns a cache shared by all application
+targets and generator compilations in that build. Executing a producer in another
+process does not move or discard the builder's compiler results. This separation
+prevents short editor requests from determining retention of build-only work.
+
+The processes share compiler code and contracts, not an in-memory memo table.
+They may perform some of the same analysis independently. Cross-process reuse of
+semantic results is not required for this design; any later persistent cache needs
+its own compatibility evidence. Sharing immutable artifact-store bytes remains a
+separate matter from sharing compiler objects.
+
 ## The standard-library example
 
 Suppose a producer imports the standard library and uses a specialization
@@ -80,8 +93,8 @@ specialized body. Producer and browser code can share semantic results while
 requiring different emitted modules because their host imports or ABI differ.
 Reassembling an output module is distinct from rechecking its source.
 
-The invariant is: compute each distinct result once per valid set of inputs,
-regardless of which target or stage asked for it. A stage number or calling
+The invariant within one workspace is: compute each distinct result once per valid
+set of inputs, regardless of which target or stage asked for it. A stage number or calling
 target must not enter a key unless it genuinely changes that result's meaning.
 
 ## Results and their dependencies
@@ -116,6 +129,53 @@ inserting a declaration must not rename every unchanged definition. Keep identit
 distinct from result versions, and track source locations so an unchanged semantic
 answer cannot display an old diagnostic span after an edit. The global edit revision
 belongs to validation bookkeeping, not every semantic cache key.
+
+## Reparse, then reuse predecessor syntax
+
+Start by parsing a changed file in full. An unchanged file can reuse its existing
+parse directly. As parsing constructs immutable content nodes, compute each node's
+fingerprint from its kind, payload and ordered child fingerprints. These are
+Merkle-style content summaries; no global intern table is required.
+
+After parsing, reconcile the fresh tree with the predecessor generation's tree:
+
+1. Find candidate old subtrees using fingerprints, with an optional temporary
+   index of the predecessor's nodes to handle moved or reordered syntax.
+2. Establish structural equality before reusing a candidate. A hash match alone
+   is not proof of equality. Shared-node identity is a fast positive test; distinct
+   identities can still represent equal content.
+3. Reuse a matching old subtree as a whole. Otherwise reconcile the children and
+   keep or construct the new parent with those child references.
+4. Release the temporary index and redundant freshly parsed nodes when no longer
+   needed. The resulting tree retains only the predecessor nodes it actually uses.
+
+This is sharing between generations, not a promise that all equal nodes everywhere
+have one canonical identity. Cache lookup must still support structural equality;
+it cannot assume unequal pointers imply unequal syntax. Avoid repeated full-tree
+comparisons at every ancestor: stop once a whole subtree matches, or memoize pair
+comparisons within reconciliation. Hashing combines child summaries rather than
+rehashing every descendant. Measure parsing, reconciliation and temporary allocation
+costs; this approach still reads the entire changed file.
+
+If a leaf changes, every ancestor whose child reference changes needs a new node,
+up to the root. Unchanged sibling subtrees remain shared. This is intentional for
+immutable trees: a single edit changes the path to the root, and several edits
+change the union of their paths. The final retained tree can share most of its
+nodes even though full parsing temporarily allocated a fresh tree first.
+
+Separate reusable syntax content from occurrence-specific source locations and
+origins. Moving a subtree must not leave diagnostics pointing at its old location.
+Scope and macro hygiene still belong to resolution and expansion context; identical
+syntax in different scopes is not the same binding or checked expression. An
+operation that observes source location or origin must record that dependency.
+Content fingerprints also do not replace stable declaration identities: editing a
+function's body changes its syntax value while its binding can remain the same.
+
+A changed file root does not establish that every descendant's semantic result
+changed. Reuse depends on query boundaries and the inputs they observe. Initially
+a whole checking unit may still be a library; finer reuse requires smaller sound
+units, not merely hashes on every syntax node. This separation permits a later
+incremental parser without making one a prerequisite for incremental analysis.
 
 ## Simplify ownership and control flow
 
@@ -171,6 +231,35 @@ changed inputs can produce unchanged results, which should stop unnecessary
 recomputation. Disk persistence and remote caching are separate implementation
 choices; the first milestone can keep these results in memory.
 
+## Cache generations and ownership
+
+A generation consists of an input snapshot and query results established for it.
+When an input revision changes, build the new memo index while consulting the
+predecessor. Check the current index first, then validate a predecessor result's
+dependency evidence. Carry forward a reference to the immutable result when valid;
+otherwise compute and record a replacement. Retain the dependency evidence needed
+to validate reused results later. Prior-generation membership alone proves nothing
+about validity under changed inputs.
+
+Do not create an empty cache generation for each hover, type query or application
+root. Requests against the same snapshot accumulate results. Generator execution
+can supply additional inputs, but the builder must preserve compatible results
+through that staging transition and across all participating application roots.
+
+The predecessor index is a construction aid, not a permanent fallback chain.
+Once its required results have been carried forward and no pending work needs that
+fallback, release it. Results and dependency evidence must not accidentally capture
+the entire old workspace. Old readers retain their snapshots until completion or
+cancellation; immutable values shared with the new generation remain reachable.
+Other old values can then be reclaimed without explicitly freeing each result.
+
+Discarding an unused result can cost recomputation if a later request needs it.
+Begin with this explicit retention policy and measure it separately in the LSP and
+builder. A bounded set of recent or active roots can be retained if needed. Separate
+processes prevent the two workloads from evicting each other's compiler results,
+but do not eliminate retention tradeoffs within either process. Syntax reconciliation
+indexes follow the same lifetime rules; disk artifact cleanup remains separate.
+
 ## Generation and artifact references
 
 A resource reference records the identity of another output without reading its
@@ -196,10 +285,11 @@ requires a complete input/effect contract.
 
 ## Editor queries are compiler clients
 
-An LSP adapter asks the workspace for scopes, declarations, types and diagnostics.
+An LSP adapter asks its own workspace for scopes, declarations, types and diagnostics.
 Navigation does not require monomorphization, code generation or a deployable
-application. The same resolved bindings and checked evidence serve builds and
-editor features; the protocol adapter does not maintain a second semantic model.
+application. Builds and editor features use the same binding and checking operations
+in their respective processes; the protocol adapter does not implement a second
+semantic model.
 The [rust-analyzer architecture](https://rust-analyzer.github.io/book/contributing/architecture.html)
 provides a useful example of explicit inputs and incrementally derived semantic
 results with separate syntax and semantic representations.
@@ -232,8 +322,9 @@ provide the detailed source-request and artifact contracts.
 
 1. Record fresh-build and retained-session baselines, repeated work and ownership
    of existing caches. Establish explicit input snapshots, stable semantic
-   identities and typed query results with dependency evidence. Start with serial
-   execution so correctness and reuse are visible before adding concurrency.
+   identities and typed query results with dependency evidence. Introduce predecessor
+   syntax reconciliation and generational result retention in each process. Start
+   with serial execution so correctness and reuse are visible before concurrency.
 2. Migrate expansion, resolution and checking to the shared workspace. Make two
    roots reuse compatible results, and replace duplicated discovery work with
    recorded requests from expansion. Preserve the inference units that establish
@@ -278,6 +369,13 @@ Require these specific outcomes:
   dependency without forcing an obsolete producer.
 - Editor answers use the requested snapshot, tolerate incomplete source where
   possible, and retire stale diagnostics while the last accepted application runs.
+- Full parsing followed by reconciliation reuses equal predecessor subtrees,
+  confirms equality under deliberately colliding fingerprints, and preserves current
+  source locations and scope distinctions. Changed nodes rebuild their ancestor
+  paths while unchanged siblings remain shared.
+- LSP and build processes keep independent memo generations. Requests on one input
+  snapshot accumulate results; old readers keep their snapshots while unused
+  predecessors become reclaimable after their readers and construction work finish.
 - Each migrated responsibility has one owner, superseded paths are deleted, and
   query retention can be bounded without evicting results still owned by active
   snapshots. Memory reclamation of compiler results is separate from artifact-store

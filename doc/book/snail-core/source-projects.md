@@ -13,8 +13,9 @@ are allowed, while cycles in generated-source evaluation remain errors.
 No application-enumeration scan or target registry is required. The companion
 [artifact and staged-linking proposal](artifacts.md) develops storage, forcing,
 generator lifetimes and independent deployment. The compiler plan also covers
-performance, simplification and shared analysis across
-applications, generators and editor requests, including reuse across source edits.
+performance, simplification and reuse across applications, generators and edits.
+The LSP and builder use the same query implementation in separate processes with
+independent caches.
 Exact API syntax remains open; none of the proposed forms below is implemented.
 
 The [project chapter](projects.md) describes the implemented manifest and build
