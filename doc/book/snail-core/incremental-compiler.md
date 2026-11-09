@@ -1,17 +1,23 @@
 # Proposed query-driven incremental compilation
 
-**Design proposal; not implemented.** The primary objective is to organize the
-compiler around incremental, typed queries, improving compilation performance
-and simplifying how the compiler owns and schedules work. The build process and
-LSP process use the same query implementation, each with its own compiler workspace
-and generational cache. Within a workspace, finishing one request does not discard
-the results needed by other requests.
+**Design proposal; not implemented.** The primary objective is a clearer compiler
+architecture: each pass leads with its input and output languages, its semantic
+operations, and the evidence it establishes. A small general-purpose framework
+composes those operations and owns query scheduling and reuse. Incrementality,
+performance and editor analysis follow from those boundaries; adding memo tables
+to the current control flow alone does not satisfy the goal.
+
+The build process and LSP process use the same query implementation, each with its
+own compiler workspace and generational cache. Within a workspace, finishing one
+request does not discard the results needed by other requests.
 
 This chapter is the main architecture and delivery plan. The
 [source-project proposal](source-projects.md) specifies application selection and
 removal of the manifest model; the [artifact proposal](artifacts.md) specifies
 resource linking, staging and deployment. Those are outcomes of the broader
 compiler work, alongside reuse across edits and a shared basis for editor services.
+The [unified roadmap](https://github.com/tsnl/snail-scheme/issues/729) tracks this
+work alongside callable classes, async engines and the other language/runtime plans.
 
 The implemented [session](compilers.md#separate-compilation) already reuses library
 expansion, checking and emission across builds of a target. The
@@ -25,6 +31,7 @@ session tables is sufficient.
 
 | Goal | Completion evidence |
 | --- | --- |
+| Make the compiler's architecture legible. | Pass modules expose their languages and semantic operations; composition and cache ownership have explicit boundaries without requiring cache checks in every function. |
 | Make compilation incremental from its inputs through emission. | Typed results record dependencies and can be reused across edits, targets and generator stages without changing their meaning. |
 | Optimize compiler work. | Repeated requests avoid redundant expansion, checking and specialization; timings, work counts and retained memory show the costs of both fresh and reused results. |
 | Simplify the compiler. | Query ownership replaces overlapping cache and orchestration paths; the migrated paths are removed, and passes retain explicit inputs, outputs and invariants. |
@@ -182,6 +189,101 @@ The working direction is a small typed framework that supports these boundaries,
 with semantic operations written as ordinary functions. The exact declarations,
 generated interfaces and use of Nanopass remain open for sketches and review.
 Adopting a complete Nanopass implementation is not a prerequisite.
+
+### Constructor structs and fixed-arity queries
+
+This revised sketch uses ordinary structs, sums and typeclasses with associated
+outputs. Those language facilities exist; the tree/query declarations and generated
+cache wrappers described here do not. The names and signatures below are for
+review, not a new library API.
+
+As with the archived `define_tree!` macros below, a tree declaration generates a
+sum and a distinct struct for each constructor. For example, its public shape
+could be:
+
+```scheme
+(struct Literal
+  ((value I64)))
+
+(struct Call
+  ((callee Expr)
+   (arguments (List Expr))))
+
+(enum Expr
+  (LiteralExpr (node Literal))
+  (CallExpr (node Call)))
+```
+
+A call rule can take `Call`, not an `Expr` that it must inspect again. Recursive
+children remain ordinary `Expr` fields; a higher-kinded recursion framework is
+not required. Input and output languages use separate types where their invariants
+differ. This sketch describes the typed interface, not a requirement to allocate
+both a wrapper and a payload object for every node.
+
+Give `ask` one fixed signature and an instance for each pass/input pair:
+
+```scheme
+(typeclass (Query Pass Input)
+  (type Output)
+  (: ask (-> Workspace Pass Input (Pair Output Workspace))))
+```
+
+`Workspace` represents the compiler's explicit inputs and memo state. A pass value
+identifies an operation and carries relevant inherited context or configuration.
+An input can be a constructor struct or a request struct bundling additional facts.
+For example, `(Query Lower Literal)` and `(Query Lower Call)` can both produce
+`LoweredExpr`, while a checking request includes its environment and expected type.
+Selection uses the pass and input types, never just the desired return type.
+There is no need for variadic templates: more inputs become named record fields.
+
+The generated instance owns validation, cache lookup, dependency recording and
+publication. On a miss it invokes the composing function, which obtains child
+results through `ask` and calls ordinary semantic rules. A thin sum dispatcher
+routes `Expr` to the appropriate constructor instance. A hit at that constructor
+can therefore skip its entire recursive computation; caching only the final rule
+after visiting every child would not provide that saving.
+
+Do not automatically cache both a sum dispatcher and every arm. Choose boundaries
+that skip useful work. A language declaration supplies constructor types and
+dispatch; a query declaration selects which computations are cached. The pass
+identity, relevant pass fields, input and observed dependencies all contribute to
+validity. Equal-looking syntax in different scopes is not sufficient.
+
+The framework must also provide typed storage for each query's key and output.
+One starting point is a generated workspace with a concrete table per declared
+query family. Adding a family then regenerates that workspace. Associated output
+types alone do not make an arbitrary heterogeneous memo table type-safe. Keep the
+table layout and any equality requirements behind the generated query boundary.
+
+### State propagation and callable classes
+
+Explicit state threading works with the language today. `ask` above returns the
+updated workspace alongside its answer; a sequencing macro can name those steps.
+The current checker's `learning` macro already sequences pairs of answers and
+checker state. This does not require a first-class higher-kinded `Monad` class.
+
+Likewise, a substitution computation can be described as
+`Solver -> Result<Pair<Value, Solver>, Diagnostic>`. Preserve the order in which
+expected types and solutions reach child computations. Caching that computation's
+execution requires its relevant solver inputs and a reusable account of the
+resulting changes; caching a closure that will later run is not the same thing.
+Begin with completed inference units rather than caching results containing
+temporary unification variables from another invocation.
+
+Callable classes are a related language proposal, not a prerequisite for `Query`.
+Today's `Fn` is a noncapturing function representation and `FnOnce` is a linear
+callable; neither is a Rust-style user-implemented callable class. A migration
+toward `Fn`, `FnMut` and `FnOnce` contracts must define repeatable, exclusive and
+consuming invocation, associated results, effects and capture cleanup. The current
+language has no superclass implication, and the ownership meaning of an exclusive
+mutable receiver needs review. Do not silently rename today's code-only `Fn` into
+a different contract. See the [callable proposal](types.md#proposed-callable-typeclass).
+
+Passes can use explicit class methods now. Making pass values ordinary callables
+later may improve the interface, but it should not block sketching or testing the
+framework with existing class machinery.
+
+### What the framework guarantees
 
 Three kinds of support are worth distinguishing:
 
@@ -434,11 +536,14 @@ policy for scheduling generators during editing remains a review decision.
 Use this sequence for the overall compiler migration; the companion chapters
 provide the detailed source-request and artifact contracts.
 
-1. Record fresh-build and retained-session baselines, repeated work and ownership
-   of existing caches. Establish explicit input snapshots, stable semantic
+1. Review one lowering and one contextual checking sketch, starting from their
+   languages and explicit semantic operations. Choose the minimal composition and
+   query framework before rewriting the compiler. Record fresh-build and
+   retained-session baselines, repeated work and ownership of existing caches.
+   Establish explicit input snapshots, stable semantic
    identities and typed query results with dependency evidence. Use the reviewed
-   rule/composition sketches to choose the minimal framework boundaries, keeping
-   semantic functions free of cache boilerplate. Introduce predecessor syntax
+   rule/composition sketches to keep semantic functions free of cache boilerplate.
+   Introduce predecessor syntax
    reconciliation and generational result retention in each process. Start with
    serial execution so correctness and reuse are visible before concurrency.
 2. Migrate expansion, resolution and checking to the shared workspace. Make two
