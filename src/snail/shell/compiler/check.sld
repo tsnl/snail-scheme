@@ -1480,10 +1480,29 @@
                        ((Some _) #t)
                        ((None) #f)))
                  (ambiguous-constraint ck constraint)
-                 (string-append (type->string record)
-                                " has no field "
-                                (substring class 2 (string-length class))))))
+                 (missing-field ck class record))))
           (_ (ambiguous-constraint ck constraint)))))
+
+    ;; The diagnostic for a field a record type lacks. A read through a
+    ;; Borrow is rewritten to its referent's field only where the record is
+    ;; already known to be a Borrow when the read is checked, so a read in
+    ;; an unannotated lambda or named let needs an annotation.
+    (: missing-field (-> Checker String Type String))
+    (define (missing-field ck class record)
+      (let ((field (substring class 2 (string-length class))))
+        (match (Pair (borrow-type? record) (field-type-of ck class (borrow-target record) (Nil)))
+          ((Pair #t (Some _))
+           (string-append "field "
+                          field
+                          " of "
+                          (type->string record)
+                          " was checked before the borrow's type was known; "
+                          "annotate the parameter, or write ("
+                          class
+                          " (ann b "
+                          (type->string record)
+                          "))"))
+          (_ (string-append (type->string record) " has no field " field)))))
 
     ;; Rows and associated outputs are determined arguments. The remaining
     ;; input arguments select evidence; that evidence establishes outputs
@@ -1878,12 +1897,7 @@
           ((Nil)
            (compile-error loc
                           (match (Pair (field-class? (::name class)) types)
-                            ((Pair #t (Cons record _))
-                             (string-append (type->string record)
-                                            " has no field "
-                                            (substring (::name class)
-                                                       2
-                                                       (string-length (::name class)))))
+                            ((Pair #t (Cons record _)) (missing-field ck (::name class) record))
                             (_ (string-append "no instance for "
                                               (constraint->string (::name class) types))))))
           ((Cons instance rest)
