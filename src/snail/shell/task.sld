@@ -25,7 +25,6 @@
 (define-library (snail shell task)
   (export
    tasks yield sleep await ticket
-   Task make-task schedule
    dispatch-local dispatch-task
    through-host
    tasks-turn tasks-wake! tasks-close! tasks-running tasks-live
@@ -189,21 +188,6 @@
       (add-ready! 1))
 
     ;; ---- Dispatching ----
-
-    ;; Work is a schedulable value, distinct from its eventual result.
-    ;; Constructing a Task does not run or schedule it. Its row stays in
-    ;; the type until schedule charges it to the caller.
-    (enum (Task e)
-      (Work ((run (FnOnce Unit ! tasks e)))))
-
-    (: make-task (All (e) (-> (FnOnce Unit ! tasks e) (Task (! e)))))
-    (define (make-task work)
-      (Work work))
-
-    (: schedule (All (e) (-> (Task (! e)) I64 ! mut e)))
-    (define (schedule task)
-      (match task
-        ((Work work) (dispatch-task work))))
 
     ;; A task runs `work` under its own handler of `tasks`, until the work
     ;; finishes or waits. The implementations run in the handle's outer
