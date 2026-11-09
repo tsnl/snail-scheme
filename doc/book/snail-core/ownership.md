@@ -192,7 +192,10 @@ is checked. The parameter of an unannotated lambda or named `let` is not,
 so annotate the parameter or the read, `(::title (ann b (Borrow Model)))`;
 `tests/programs/borrow-loops.sld` shows both. A computed field or a field known only through a generic
 requirement cannot project a borrow: its implementation may consume the
-record. `borrow-copy` copies a whole referent when its type is Copy. Copy a
+record. `borrow-copy` copies a whole referent when its type is Copy. A constructor
+pattern on a borrow binds its fields the same way, with `_` in mutable
+positions; `tests/programs/borrow-patterns.sld` matches a borrowed model
+and a borrowed `Option`. Copy a
 title or item ID into a local before capturing it in an HTML event handler;
 that callback owns its data and may outlive the loan.
 
