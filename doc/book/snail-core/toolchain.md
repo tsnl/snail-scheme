@@ -468,9 +468,16 @@ palette, buttons and keyboard dispatch command names through the application loo
 `(snail shell ui commands)` holds an ordered vector of names and Scheme actions.
 `(snail shell ui shortcuts)` separately maps complete key chords to those names,
 checking duplicate chords and unknown commands when the mappings are built.
-Dispatch schedules an invocation against the current model; asynchronous work
-then returns messages through the existing UI task queue. File reads, saves and
-searches retain the evidence specific to their own results.
+Dispatch schedules an invocation against the current model. Asynchronous work
+returns typed futures owned by the IDE's linear session. Update polls them
+without suspending and applies their common `CommandResult`: a one-shot pure
+transition against current display data. Completion wakes carry no result
+payload or command-specific message. File reads, saves and searches retain
+the evidence specific to their own results, and abandoned producers run the
+same request-specific recovery checks. Dropping a future withdraws reception;
+it does not undo external work such as a submitted file write. The
+[owned-model reactor](applications.md#owned-models-and-futures) describes the
+loop and reload ownership.
 
 The application lives in `(snail shell ide application)`; `host/ide/ide.sld`
 only binds it to the browser page. Scheme scenarios can run its exact update,
@@ -480,7 +487,7 @@ actions, undo, cancellation and browser lifecycle. JavaScript is the browser
 launcher and API boundary, not the implementation of IDE behavior.
 
 `(snail shell ide palette)` owns its query, selection, search and creation
-phases, local messages, tasks and view. The parent embeds it through one
+phases, input messages, command results and view. The parent embeds it through one
 `PaletteEvent` and handles concrete outcomes such as opening a path or invoking
 a named command. It passes command names and key labels, paths, and the current
 draft where needed; the component never receives the IDE model. `map-html` in

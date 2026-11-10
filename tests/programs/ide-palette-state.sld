@@ -61,43 +61,71 @@
 (: draft search-Draft)
 (define draft (search-Draft "main.sld" "before"))
 
-;; No timer or network decides delivery order. Commands are explicitly
-;; discarded, and Due/Found/Created messages are supplied by each scenario.
+(: reply (-> String Reply))
+(define (reply path)
+  (Reply 200 (json->string
+              (search->json (SearchResults (list (Hit (Point path 2 3) "revision" "text")) 0 #f)))))
+
+;; Execute the real returned command, but choose when to apply its result.
+;; A logical timer advances immediately; HTTP responses are fixed values.
+(: execute (-> palette-Step Reply (Pair palette-State palette-CommandResult) ! dom fetch))
+(define (execute step reply)
+  (match step
+    ((palette-Step state _ (Cons (palette-Command command _) rest))
+     (drop rest)
+     (handle tasks
+         ((yield (lambda (resume) (resume (unit))))
+          (sleep (lambda (delay resume) (resume (unit))))
+          (await (lambda (ticket resume) (drop resume) (panic "unexpected wait")))
+          (ticket (lambda () 0)))
+       (handle fetch
+           ((request (lambda (method url headers body) (Ok reply)))
+            (stream-open (lambda (url kinds) (panic "stream")))
+            (stream-next (lambda (stream) (panic "stream")))
+            (stream-close (lambda (stream) (unit))))
+         (Pair state (command)))))
+    (other (drop other) (panic "expected one command"))))
+
+(: accept (-> palette-State palette-CommandResult palette-State ! dom fetch))
+(define (accept before result)
+  (state (result before)))
+
 (: run (-> Unit ! dom fetch console))
 (define (run)
   (let* ((start (state (palette-open palette-initial
                                      (palette-Searching
                                       (palette-Search (search-SavedProject)
                                                       (palette-Debouncing))))))
-         (a1 (send start (palette-Query "a")))
-         (b (send a1 (palette-Query "b")))
-         (a2 (send b (palette-Query "a")))
-         (pending (send a2 (palette-Due (::generation a2))))
-         (ready
-          (send pending (palette-Found (::generation pending) (result "new.sld"))))
-         (stale (send (send ready (palette-Found (::generation a1) (result "old.sld")))
-                      (palette-Found (::generation b)
-                                     (Err (Failure 500 "obsolete failure")))))
+         (a1 (execute (palette-update start context (palette-Query "a")) (reply "unused")))
+         (b (execute (palette-update (::first a1) context (palette-Query "b")) (reply "unused")))
+         (a2 (execute (palette-update (::first b) context (palette-Query "a")) (reply "unused")))
+         (old (execute ((::second a1) (::first a1)) (reply "old.sld")))
+         (failed (execute ((::second b) (::first b))
+                          (Reply 500 "{\"message\":\"obsolete failure\"}")))
+         (new (execute ((::second a2) (::first a2)) (reply "new.sld")))
+         (pending (::first new))
+         (ready (accept pending (::second new)))
+         (stale (accept (accept ready (::second old)) (::second failed)))
          (clicks (concatenate (map click (palette-view ready context))))
          (closed (palette-cancel pending))
          (reopened (state (palette-open closed (palette-Files))))
-         (draft-panel (send (state (palette-open palette-initial
-                                                 (palette-Searching
-                                                  (palette-Search (search-CurrentDraft draft)
-                                                                  (palette-Debouncing)))))
-                            (palette-Query "before")))
-         (replaced (state (palette-reconcile draft-panel
-                                             (Some (search-Draft "main.sld" "after")))))
+         (draft-work
+          (execute (palette-update
+                    (state (palette-open palette-initial
+                                         (palette-Searching
+                                          (palette-Search (search-CurrentDraft draft)
+                                                          (palette-Debouncing)))))
+                    context (palette-Query "before")) (reply "unused")))
+         (draft-panel (::first draft-work))
+         (replaced (state (palette-reconcile draft-panel (Some (search-Draft "main.sld" "after")))))
          (creation (send (state (palette-open palette-initial
                                               (palette-Creating (palette-Creation #f #f ""))))
                          (palette-Query "new.sld")))
-         (writing (send creation (palette-KeyPressed "Enter" 0))))
-    (check
-     (not (requested? (palette-update a2 context (palette-Due (::generation a1)))))
-     "old debounce is ignored")
-    (check (not (requested?
-                 (palette-update pending context (palette-Due (::generation pending)))))
-           "one request per generation")
+         (write (execute (palette-update creation context (palette-KeyPressed "Enter" 0))
+                         (Reply 200 "{}")))
+         (writing (::first write)))
+    (check (not (requested? ((::second a1) (::first a2)))) "old debounce is ignored")
+    (check (not (requested? ((::second a2) pending))) "one request per generation")
     (match (palette-update stale context (palette-KeyPressed "Enter" 0))
       ((palette-Step next (Some (palette-OpenSavedHit hit)) commands)
        (drop commands)
@@ -115,33 +143,18 @@
                                            message))
                           "old rendered choice is ignored"))
                   (_ (unit)))) clicks)
-    (check (and (no-outcome? (palette-update closed
-                                             context
-                                             (palette-Found (::generation pending)
-                                                            (result "old"))))
-                (not (palette-visible?
-                      (send closed
-                            (palette-Found (::generation pending) (result "old"))))))
+    (check (and (no-outcome? ((::second new) closed))
+                (not (palette-visible? (accept closed (::second new)))))
            "completion after closing stays closed")
-    (check (no-outcome? (palette-update reopened
-                                        context
-                                        (palette-Found (::generation pending)
-                                                       (result "old"))))
-           "completion cannot replace a reopened picker")
+    (check (no-outcome? ((::second new) reopened)) "completion cannot replace a reopened picker")
     (check (> (::generation replaced) (::generation draft-panel))
            "draft replacement starts a new search")
-    (check (not (requested? (palette-update replaced
-                                            context
-                                            (palette-Due (::generation draft-panel)))))
-           "old draft debounce is ignored")
+    (check (not (requested? ((::second draft-work) replaced))) "old draft debounce is ignored")
     (check (not (requested? (palette-update writing context (palette-KeyPressed "Enter" 0))))
            "creation cannot be submitted twice")
-    (check (= (::generation (send writing (palette-Query "changed")))
-              (::generation writing))
+    (check (= (::generation (send writing (palette-Query "changed"))) (::generation writing))
            "pending creation keeps its submitted path")
-    (check (no-outcome? (palette-update (palette-cancel writing) context
-                                        (palette-Created (::generation writing)
-                                                         (Ok (JsonNull)))))
+    (check (no-outcome? ((::second write) (palette-cancel writing)))
            "cancelled creation cannot navigate")))
 
 (dispatch-local

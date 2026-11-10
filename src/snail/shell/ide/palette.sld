@@ -1,11 +1,12 @@
 ;; One palette owns command/file selection, search and entry creation. Its
-;; local messages and tasks do not know the IDE model. Only completed choices
+;; input and result transitions do not know the IDE model. Only completed choices
 ;; cross back to the application, which owns buffers, panes and navigation.
 (define-library (snail shell ide palette)
   (export State initial visible? cancel
           Context Entry Mode Commands Files Searching Creating Creation
           Search SearchPhase Debouncing Fetching Finished
-          Message Idle Query KeyPressed Pick Due Found Created Dismiss Reconnected
+          Message Idle Query KeyPressed Pick Dismiss Reconnected
+          Command CommandResult
           Outcome InvokeNamed OpenPath OpenSavedHit SelectDraftHit CreatedPath Dismissed
           Step open update reconcile view)
   (import
@@ -86,15 +87,13 @@
                    (modifiers I32)))
       (Pick ((generation I64)
              (action Action)))
-      (Due ((generation I64)))
-      (Found ((generation I64)
-              (result (Result search-Results Failure))))
-      (Created ((generation I64)
-                (result (Result Json Failure))))
       (Dismiss)
       (Reconnected))
 
-    (type Command (FnOnce Message ! tasks dom fetch))
+    (type CommandResult (-> State Step))
+    (struct Command
+      ((work (FnOnce CommandResult ! tasks dom fetch))
+       (interrupted CommandResult)))
 
     (struct Step
       ((state State)
@@ -122,11 +121,11 @@
     (: open (-> State Mode Step))
     (define (open state mode)
       (Step (State (+ 1 (::generation state)) (Some (Panel mode "" 0))) (None)
-            (list (once (lambda ()
-                          (match (element-by-id "command-query")
-                            ((Some field) (focus-node field))
-                            ((None) (unit)))
-                          (Idle))))))
+            (list (Command (once (lambda ()
+                                   (match (element-by-id "command-query")
+                                     ((Some field) (focus-node field))
+                                     ((None) (unit)))
+                                   stay)) stay))))
 
     ;; ---- Updates ----
 
@@ -142,9 +141,6 @@
                ((Choose outcome) (selected state outcome))
                ((Create) (creating state)))
              (stay state)))
-        ((Due generation) (search-due state generation))
-        ((Found generation result) (searched state generation result))
-        ((Created generation result) (created state generation result))
         ((Dismiss) (selected state (Dismissed)))
         ((Reconnected)
          (match (::panel state)
@@ -184,7 +180,11 @@
                     (next (State generation (Some (Panel mode text 0)))))
                (Step next (None)
                      (if (and (searching? mode) (not (string=? text "")))
-                         (list (once (lambda () (sleep 120) (Due generation)))) (Nil))))))
+                         (list (Command (once (lambda ()
+                                                (sleep 120)
+                                                (lambda (current) (search-due current generation))))
+                                        (lambda (current) (search-interrupted current generation))))
+                         (Nil))))))
         ((None) (stay state))))
 
     (: reset-mode (-> Mode Mode))
@@ -234,7 +234,25 @@
         ((Some (Panel (Searching (Search source (Debouncing))) query _))
          (if (and (= generation (::generation state)) (not (string=? query "")))
              (Step (mode-set state (Searching (Search source (Fetching)))) (None)
-                   (list (once (lambda () (Found generation (search-run source query))))))
+                   (list (Command (once (lambda ()
+                                          (let ((result (search-run source query)))
+                                            (lambda (current)
+                                              (searched current generation result)))))
+                                  (lambda (current) (search-interrupted current generation)))))
+             (stay state)))
+        (_ (stay state))))
+
+    (: interrupted-request Failure)
+    (define interrupted-request
+      (Failure 0 "Request interrupted; its server-side outcome may be unknown."))
+
+    (: search-interrupted (-> State I64 Step))
+    (define (search-interrupted state generation)
+      (match (::panel state)
+        ((Some (Panel (Searching (Search source _)) _ _))
+         (if (= generation (::generation state))
+             (stay
+              (mode-set state (Searching (Search source (Finished (Err interrupted-request))))))
              (stay state)))
         (_ (stay state))))
 
@@ -254,13 +272,18 @@
          (if (string=? path "") (stay state)
              (let ((generation (::generation state)))
                (Step (mode-set state (Creating (Creation directory #t ""))) (None)
-                     (list (once (lambda ()
-                                   (Created generation
-                                            (api "POST" (string-append
-                                                         (if directory
-                                                             "/api/directory?path="
-                                                             "/api/file?path=")
-                                                         (url-component path)) (Nil) "")))))))))
+                     (list (Command (once (lambda ()
+                                            (let ((result (api "POST" (string-append
+                                                                       (if directory
+                                                                           "/api/directory?path="
+                                                                           "/api/file?path=")
+                                                                       (url-component path))
+                                                               (Nil)
+                                                               "")))
+                                              (lambda (current)
+                                                (created current generation result)))))
+                                    (lambda (current)
+                                      (created current generation (Err interrupted-request)))))))))
         (_ (stay state))))
 
     ;; Closing does not undo a write. Its watcher event still updates the file

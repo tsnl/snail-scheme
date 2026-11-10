@@ -1,0 +1,7 @@
+save is pending
+abandonment clears saving
+abandonment preserves draft
+abandonment reports failure
+a later save can start
+request started
+dropped receiver leaves producer running
