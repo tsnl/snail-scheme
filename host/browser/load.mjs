@@ -328,7 +328,7 @@ export function wasmImports(program, memory = () => (program().loader ?? program
   const modules = [], instances = [null], namespaces = [], strings = stagedStrings();
   const namespace = handle => (handle === 0 ? program().linked : namespaces[handle - 1]);
   const instance = handle => (handle === 0 ? program().loader ?? program().runtime : instances[handle]);
-  let held = ['', ''], prepared = null, loaded = null;
+  let held = ['', ''], prepared = null, loaded = null, preparedNames = null;
   // The import the next provider is for.
   function current() {
     const entry = prepared?.imports[prepared.bound];
@@ -403,6 +403,23 @@ export function wasmImports(program, memory = () => (program().loader ?? program
       if (name === 'snail.core.support') { program().runtime = instance(handle); return 1; }
       if (linked.has(name) || hostProvided(name)) return 0;
       linked.set(name, instance(handle));
+      return 1;
+    },
+    // The language stages one complete candidate synchronously. A bad entry
+    // discards the candidate, so ignoring its false result cannot publish a
+    // valid prefix. Commit never links, initializes or calls application code.
+    'prepare-names'() { preparedNames = new Map(); },
+    'provide-instance'(handle) {
+      const [name] = strings.take(), value = instance(handle);
+      if (!preparedNames || typeof name !== 'string' || !name || hostProvided(name)
+          || preparedNames.has(name) || !value) { preparedNames = null; return 0; }
+      preparedNames.set(name, value);
+      return 1;
+    },
+    'replace-names'() {
+      const names = preparedNames; preparedNames = null;
+      if (!names) return 0;
+      program().linked = names;
       return 1;
     },
     'call-export'(handle, argument) {

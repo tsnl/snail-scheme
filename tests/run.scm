@@ -633,6 +633,7 @@
     ("tests/programs" "specialization-order")
     ("tests/programs" "specialization-drop")
     ("tests/programs" "generated") ("tests/programs" "wasm")
+    ("tests/programs" "wasm-replacement")
     ("tests/programs" "handler-captures")
     ("tests/programs" "tasks-main")
     ("tests/programs" "once")

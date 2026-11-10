@@ -42,6 +42,7 @@ test-chibi:
 # Live reload and the browser IDE in headless Chromium, which CI does not
 # have; CHROMIUM names the browser.
 test-browser:
+	node tests/browser/wasm-replacement.mjs "$(CURDIR)"
 	node tests/browser/reload.mjs "$(CURDIR)"
 	node tests/browser/ide.mjs "$(CURDIR)"
 	node tests/browser/ide-highlights.mjs "$(CURDIR)"
