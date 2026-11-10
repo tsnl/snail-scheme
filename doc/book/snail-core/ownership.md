@@ -198,8 +198,12 @@ the referent's Wasm representation without a wrapper allocation. They
 cannot leave a `with-borrow` scope as its result, be returned by a helper,
 be stored in data or mutable cells, be captured by a closure or task, or
 cross an `Any` or host boundary. Mutable field reads through a borrow are
-also rejected. Nested scopes restore only their loans: consuming an
-unrelated owner inside a loan still consumes it outside.
+also rejected, so `(ref-get cell)` is refused on a `Borrow<Ref<I64>>`. The
+loan is read-only one level deep: an unrestricted field that holds a `Ref`
+is returned as the cell itself, and writes through that cell are allowed,
+as through any shared cell; `tests/programs/borrow-cells.sld` counts
+through a borrowed model this way. Nested scopes restore only their loans:
+consuming an unrelated owner inside a loan still consumes it outside.
 
 Ordinary generic type variables range over owned types. A generic helper
 can explicitly take `(Borrow T)` with owned `T`; instantiating an ordinary
