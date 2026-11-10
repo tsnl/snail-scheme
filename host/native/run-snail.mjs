@@ -12,6 +12,7 @@ import {socketImports} from './socket-imports.mjs';
 import {createProcesses, createTermination} from './process.mjs';
 import {processImports} from './process-imports.mjs';
 import {createHints} from './hints.mjs';
+import {createAsyncFiles} from './async-files.mjs';
 
 // ---- One reactor initialization and one program invocation ----
 //
@@ -79,7 +80,9 @@ async function run(filename, arguments_) {
   // A task's exit has told its message already.
   const report = error => { failed = true; if (error instanceof Error) console.error(`snail: ${error.message}`); };
   const tasks = createTasks(() => program && taskExports(program), {reportError: report});
+  const asyncFiles = createAsyncFiles(tasks);
   const host = {'snail.runtime.wasm': wasmImports(() => program),
+                'snail.runtime.native.async-files': asyncFiles.imports,
                 'snail.runtime.native.socket': socketImports(() => program, tasks, tcp, udp),
                 'snail.runtime.native.process': processImports(() => program, tasks, processes, termination),
                 'snail.runtime.native.files': {...commandImports({...modeCommands, ...hints.commands}), ...hints.waits(tasks)}};
@@ -98,7 +101,7 @@ async function run(filename, arguments_) {
   } finally {
     try {
       tasks.close(); hints.shutdown(); termination.close();
-      await Promise.all([tcp.shutdown(), udp.shutdown(), processes.shutdown()]);
+      await Promise.all([tcp.shutdown(), udp.shutdown(), processes.shutdown(), asyncFiles.close()]);
     }
     finally {
       clearInterval(keepAlive);

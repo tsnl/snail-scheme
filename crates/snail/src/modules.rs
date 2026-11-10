@@ -364,7 +364,9 @@ impl Loading {
     // loaded module in `namespace` sees.
     fn host(&self, namespace: usize, from: &str) -> Option<Arc<Linker<Host>>> {
         let files = from == "snail.runtime.link" || from == "snail.runtime.resource";
-        (from == "snail.runtime.wasm" || (namespace == 0 && files))
+        (from == "snail.runtime.wasm"
+            || from == "snail.runtime.native.async-files"
+            || (namespace == 0 && files))
             .then(|| Arc::clone(&self.linker))
     }
 

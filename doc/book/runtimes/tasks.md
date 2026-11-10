@@ -133,7 +133,7 @@ this instance, which is single-threaded. Work for another instance travels
 as bytes through a queue, never as a closure ([#553](https://github.com/tsnl/snail-scheme/issues/553), proposed).
 
 Only `yield`, `sleep` and `await` let other tasks run. Console and
-filesystem services remain synchronous; performing an arbitrary effect
+the core `fs` services remain synchronous; performing an arbitrary effect
 does not by itself wait, and the scheduler does not preempt a CPU loop.
 
 ## One-shot results
@@ -220,9 +220,7 @@ socket completion and then fulfills that future.
 
 Filesystem operations in `(snail core io)` are still synchronous. Putting
 one in `dispatch` defers it but does not make the kernel operation
-asynchronous. An io_uring provider is not implemented here; it can use the
-same submit/ticket/completion boundary, with the host waiting until an I/O
-completion or the deadline returned by `tasks:turn`.
+asynchronous. The separate native capability below supplies asynchronous reads.
 
 Dropping a future cancels reception, not external I/O or the producer
 task. Scheduler shutdown does cancel tasks: it first detaches all queues,
@@ -231,6 +229,52 @@ producer abandons its promise, and a dropped waiter releases its future.
 Late wakeups find no queued waiter. Work dispatched by cleanup is drained
 before shutdown returns. Fatal traps are distinct from this orderly
 cancellation and retain their fatal contract.
+
+## Native asynchronous file reads
+
+`(snail shell async-files)` exports the ordinary `files` effect. Its
+`read-file : String I32 -> Result<Bytes, FileError> ! files mut tasks` reads
+an entire file up to the supplied byte limit. It suspends the calling task;
+use `(snail shell async)`'s `dispatch` to obtain a future immediately:
+
+```scheme
+(dispatch (once (lambda () (file-read-file "notes.txt" 1048576))))
+```
+
+Here `file-read-file` is imported with a `file-` prefix. The result is a
+`Future<Result<Bytes, FileError>>`. An update can poll it with `mut` but
+without `tasks`; the producer retains the explicit `files` capability.
+
+Limits range from zero through 16 MiB. The host reads at most limit plus
+one bytes, distinguishing an exact fit from `TooLarge`; metadata is not
+proof that the subsequent read fits. Other error values are `Unavailable`,
+`InvalidInput`, `NotFound`, `PermissionDenied`, and `Failed`. Reads of a
+changing file are not snapshots. This first capability does not change
+core filesystem operations or the IDE service's non-yielding save transaction.
+
+On Linux, the Rust host submits open, read and close through `io_uring`,
+with one outstanding kernel request per file operation and at most 64
+active operations. When the scheduler has no runnable task, the host waits
+for a completion or its earliest deadline using
+[`submit_with_args`](https://docs.rs/io-uring/0.7.16/io_uring/struct.Submitter.html#method.submit_with_args).
+There is no periodic polling or language worker pool. An unavailable ring,
+including one denied by the host environment, returns `Unavailable`; other
+native platforms currently return the same. Node provides matching reads
+through its asynchronous filesystem API. There is no implicit browser backend.
+
+The suspended frame owns a private linear request token. Dropping it
+withdraws reception immediately. The host retains the pathname, buffer and
+descriptor until the outstanding kernel request completes, then closes the
+file before releasing the operation. Cancellation does not promise prompt
+interruption of a blocked kernel request. An already completed, unread result
+is discarded; a stale readiness event cannot resume a canceled task.
+Orderly host shutdown drains abandoned operations. If a fatal kernel-driver
+error prevents that drain, kernel-visible allocations are retained until
+process exit rather than freed while the kernel may access them.
+
+Only scalar operation IDs, tickets, path characters and bytes cross the
+host boundary. The runtime constructs managed `Bytes` on its owning thread,
+after completion; no managed object is shared with the kernel.
 
 ## Mailboxes
 
