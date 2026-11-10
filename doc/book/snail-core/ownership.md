@@ -187,7 +187,10 @@ implicit conversion from an owner to a borrow.
 An immutable field read through a borrow returns an owned value when the
 field is Copy, or `Borrow<Field>` when the field is linear. Both named
 accessors and concrete field shorthand such as `(::title read)` follow
-this rule. A computed field or a field known only through a generic
+this rule where the record is already known to be a borrow when the read
+is checked. The parameter of an unannotated lambda or named `let` is not,
+so annotate the parameter or the read, `(::title (ann b (Borrow Model)))`;
+`tests/programs/borrow-loops.sld` shows both. A computed field or a field known only through a generic
 requirement cannot project a borrow: its implementation may consume the
 record. `borrow-copy` copies a whole referent when its type is Copy. Copy a
 title or item ID into a local before capturing it in an HTML event handler;
