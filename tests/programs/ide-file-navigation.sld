@@ -2,6 +2,7 @@
  (snail core base)
  (snail core io)
  (snail shell task)
+ (snail shell future)
  (snail shell dom)
  (snail shell dom memory)
  (snail shell fetch)
@@ -10,17 +11,14 @@
 
 ;; Files are supplied by the service. Selection and fuzzy filtering run in
 ;; the IDE, and the selected path is read through the ordinary buffer flow.
-(: widened (-> (List (FnOnce Msg ! tasks dom fetch))
-               (List (FnOnce Msg ! mut console tasks dom fetch))))
-(define (widened commands)
-  (match commands
-    ((Nil) (Nil))
-    ((Cons command rest) (Cons (once (lambda () (command))) (widened rest)))))
+(: snapshot (-> (Borrow Session) Ide))
+(define (snapshot session)
+  (::ide session))
 
-(: update-test (-> Ide Msg (Pair Ide (List (FnOnce Msg ! mut console tasks dom fetch)))))
-(define (update-test model msg)
-  (match (update model msg)
-    ((Pair next commands) (Pair next (widened commands)))))
+(: finished (-> Session Ide ! mut))
+(define (finished session)
+  (match session
+    ((Session ide pending) (drop pending) ide)))
 
 (dispatch-local
  (once (lambda ()
@@ -50,13 +48,18 @@
                            (Fire "command-query" "input" (Event-value-set no-event "lnote"))
                            (Fire "command-query" "keydown" (Event-key-set no-event "Enter")))
                      (lambda ()
-                       (run-ui initial
-                               (list (Connect))
-                               update-test
-                               view
-                               window
-                               (lambda (model) (unit))
-                               (lambda (model) (unit))))))))
+                       (finished (run-reactor (begin-session initial)
+                                              (list (Connect))
+                                              (ann update-session
+                                                   (-> Session
+                                                       (Option Msg)
+                                                       Session
+                                                       ! mut completion console dom fetch))
+                                              session-view
+                                              session-window
+                                              snapshot
+                                              (lambda (model) (unit))
+                                              (lambda (model) (unit)))))))))
              (for-each write-line (ref-get requests))
              (match (buffer-at (::first result) "lib/notes.txt")
                ((Some buffer) (write-line (::text buffer)))

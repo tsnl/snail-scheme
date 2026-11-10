@@ -200,8 +200,11 @@ try {
     && !document.querySelector('.file[data-path="main.sld"]')`), 'discard deleted draft');
   await unlink(description);
   await until(() => browser.evaluate('document.querySelectorAll(".file").length === 0'), 'empty project');
-  await browser.navigate(service.url + '/');
-  await until(() => browser.evaluate('document.querySelector(".pane textarea")?.disabled'), 'empty editor after reload');
+  // Explicit refresh checkpoints the current recovery state before navigation;
+  // raw navigation may restore the previous five-second background checkpoint.
+  await browser.evaluate('window.beforeRecoveryRefresh = true');
+  await click('refresh-ide');
+  await until(() => browser.evaluate('window.beforeRecoveryRefresh === undefined && document.querySelector(".pane textarea")?.disabled'), 'empty editor after reload');
 
   await writeFile(description, config); await writeFile(source, program('restored'));
   // Recovery preserves the user's empty pane; reopening is an explicit intent.

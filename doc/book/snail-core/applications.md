@@ -266,7 +266,9 @@ so queued events from an old document cannot invoke a new listener.
 
 `run-reactor model start update view window snapshot commit checkpoint` uses the same HTML
 renderer with an owned, possibly linear model. It is available alongside
-the mailbox-based `run-ui`; existing IDE commands still use that API.
+the mailbox-based `run-ui`, which continues to serve `Interface` applications.
+The IDE uses `run-reactor` with a linear `Session` containing its immutable
+display data and pending command futures.
 
 | Function | Ownership and effects |
 | --- | --- |
@@ -288,6 +290,18 @@ future in `poll`: Pending returns the endpoint to store again; Ready moves
 its result into the next model. No completion payload travels through the
 input enum. All commands in a registry can choose one result type, while
 other model fields can own futures of other types.
+
+The IDE's common `CommandResult` owns a one-shot, pure transition over the
+current display data. It captures the request's result and identity, not an
+old model. Update processes input first, then polls each pre-existing future
+once; commands started during that update wait for a later turn. Each
+transition checks the operation's generation, revision or submitted draft
+before accepting its result. Abandonment follows the same operation-specific
+recovery path, releasing pending state without accepting obsolete results.
+The session's immutable `Ide` field remains `Copy`; copying it shares managed
+data rather than duplicating the text graph. The session itself is linear.
+Its snapshot contains only `Recovery`; futures and event subscriptions never
+cross a reload, and the replacement reconnects under its new scheduler.
 
 The reactor handles the ordinary `completion` effect by calling `dom`'s
 `wake`. That queues a delivery; it never calls update inline. Notifications
