@@ -21,7 +21,7 @@
     (define (dispatch work)
       (match (make-promise)
         ((Pair promise future)
-         (schedule (make-task (once (lambda () (produce promise work)))))
+         (dispatch-task (once (lambda () (produce promise work))))
          future)))
 
     (: produce
