@@ -56,6 +56,7 @@
    link-module
    loading-program
    name-instance
+   replace-instances
    run-export
    run-export-with)
   (import
@@ -110,6 +111,9 @@
        (link-prepared (-> I32))
        (provide-constant (-> I32 Unit))
        (register-instance (-> I32 Bool))
+       (prepare-names (-> Unit))
+       (provide-instance (-> I32 Bool))
+       (replace-names (-> Bool))
        (call-export (-> I32 I64 I64))
        (call-with-function (-> I32 Funcref I64)))
       (default ((argument-character host-argument-character)
@@ -130,6 +134,9 @@
                 (link-prepared host-link-prepared)
                 (provide-constant host-provide-constant)
                 (register-instance host-name-instance)
+                (prepare-names host-prepare-names)
+                (provide-instance host-provide-instance)
+                (replace-names host-replace-names)
                 (call-export host-call-export)
                 (call-with-function host-call-with-function))))
 
@@ -449,6 +456,19 @@
     (define (name-instance instance name)
       (send-argument name)
       (register-instance (::handle instance)))
+
+    ;; Publish the complete library namespace in one host operation. The
+    ;; candidate is staged without suspension or callbacks into loaded code.
+    ;; Any invalid entry poisons the whole candidate; omitted names disappear.
+    ;; Instances and existing references to them are never reinitialized.
+    (: replace-instances (-> (List (Pair String Module)) Bool ! wasm))
+    (define (replace-instances instances)
+      (prepare-names)
+      (for-each (lambda (entry)
+                  (send-argument (::first entry))
+                  (provide-instance (::handle (::second entry)))
+                  (unit)) instances)
+      (replace-names))
 
     ;; Calls the function the instance exports as `name`, of no argument or
     ;; one I64, such as its `main` or a scheduler's `tasks:turn`, with

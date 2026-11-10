@@ -236,6 +236,7 @@ pub struct Loading {
     staged: Option<String>,
     held: [String; 2],
     prepared: Option<Prepared>,
+    prepared_names: Option<HashMap<String, Instance>>,
 }
 
 /// A link under way: the module, its imports, and the providers given so
@@ -298,6 +299,7 @@ impl Loading {
             staged: None,
             held: [String::new(), String::new()],
             prepared: None,
+            prepared_names: None,
         }
     }
 
@@ -333,6 +335,25 @@ impl Loading {
         self.staged
             .take()
             .ok_or_else(|| format_err!("no name is staged"))
+    }
+
+    // Only a complete valid map may reach publication. One invalid entry
+    // drops the candidate; commit cannot accidentally publish its prefix.
+    fn provide_instance(&mut self, handle: i32) -> bool {
+        let name = self.take_name().ok();
+        let instance = self.instance(handle).ok();
+        match (self.prepared_names.as_mut(), name, instance) {
+            (Some(names), Some(name), Some(instance))
+                if !name.is_empty() && !host_provided(&name) && !names.contains_key(&name) =>
+            {
+                names.insert(name, instance);
+                true
+            }
+            _ => {
+                self.prepared_names = None;
+                false
+            }
+        }
     }
 
     // The namespace and the compiled module `instantiate` names.
@@ -484,6 +505,34 @@ pub fn define_loading(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
 // ---- Linking by hand ----
 
 fn define_linking(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "prepare-names",
+        |mut caller: Caller<'_, Host>| {
+            caller.data_mut().loading.prepared_names = Some(HashMap::new());
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "provide-instance",
+        |mut caller: Caller<'_, Host>, handle: i32| {
+            i32::from(caller.data_mut().loading.provide_instance(handle))
+        },
+    )?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
+        "replace-names",
+        |mut caller: Caller<'_, Host>| {
+            let loading = &mut caller.data_mut().loading;
+            match loading.prepared_names.take() {
+                Some(names) => {
+                    loading.namespaces[0] = names;
+                    1
+                }
+                None => 0,
+            }
+        },
+    )?;
     linker.func_wrap(
         "snail.runtime.wasm",
         "import-count",

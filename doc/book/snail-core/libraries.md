@@ -231,6 +231,7 @@ time](compilers.md#loading-modules-at-run-time)). Every failure is a
 (: module-imports (-> Compiled (List Import) ! wasm))      ; (Import from name kind)
 (: link-module (-> String Compiled (List Provider) (Result Module LoadError) ! wasm))
 (: name-instance (-> Module String Bool ! wasm))
+(: replace-instances (-> (List (Pair String Module)) Bool ! wasm))
 (: run-export (-> Module String I64 (Result I64 LoadError) ! wasm))
 ```
 
@@ -252,6 +253,29 @@ for a function answering `n`, or `(Unprovided)` for one that fails if
 called; `run-export` calls an export of no argument or one `I64`, such as
 `main`, for its result
 ([linking by hand](compilers.md#linking-by-hand)).
+
+`replace-instances` publishes a complete library namespace in one synchronous
+step, on both JavaScript hosts and Wasmtime. Link the candidate modules first,
+then supply every name that should remain visible. Omitted names disappear;
+an empty list clears all library names. Existing instances and imports retain
+their identity and remain usable through their handles. Publication does not
+link, initialize or invoke an instance, and does not transfer application state.
+
+Empty names, duplicate names, invalid instance handles and reserved names
+(`snail.runtime.*` and `snail.core.support`) reject the entire replacement and
+return false, leaving the previous namespace intact. The runtime binding and
+private plugin namespaces live outside this replacement. The scalar host
+protocol stages one candidate with `prepare-names` and `provide-instance`, then
+consumes it with `replace-names`. A rejected entry discards the candidate;
+committing an absent candidate fails. The default handler stages without
+suspension or callbacks into loaded code, so overlapping candidates need no
+registry. A fresh preparation discards any previous candidate.
+
+This operation is a prerequisite for the browser engine migration tracked in
+[#660](https://github.com/tsnl/snail-scheme/issues/660). The current browser
+reload path still uses its existing host loader; adopting this publication
+boundary in the engine is separate work. `tests/programs/wasm-replacement.sld`
+exercises the contract on Node, Wasmtime and Chromium.
 
 ## Wire types
 
