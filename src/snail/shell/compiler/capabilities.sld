@@ -47,7 +47,7 @@
         ((Pair (TCon name args) _)
          (match (fold-left (lambda (found arg) (first-order-search program arg found)) entered args)
            ((Some names)
-            (cond ((member? name (list "Any" "Funcref" "Borrow")) (None))
+            (cond ((member? name (list "Any" "Funcref")) (None))
                   ((or (member? name names)
                        (any? (lambda (entry) (string=? name (::first entry))) builtin-types))
                    (Some names))
