@@ -1156,9 +1156,14 @@
                                                          (i64->string (length fields))
                                                          " fields")))
                          (check-mutable-positions case args loc)
-                         (learning ck ((then (unify type result loc))
-                                       (checked (check-fields constructor type args fields loc)))
-                                   (Pair checked ck)))
+                         (let ((owned (borrow-target (prune (solution ck) type))))
+                           (learning ck ((then (unify owned result loc))
+                                         (checked (check-fields constructor
+                                                                owned
+                                                                args
+                                                                (borrowed-fields ck type fields)
+                                                                loc)))
+                                     (Pair checked ck))))
                         (_ (panic "internal error: a constructor is a function")))))
            (_
             (compile-error loc (string-append "not a constructor: " (short-name constructor))))))))
@@ -1180,6 +1185,16 @@
                                                    "-"
                                                    (::name (::first pair)))))))
                 (zip (::fields case) args)))
+
+    ;; A constructor pattern on a borrow binds its fields as field reads
+    ;; through a borrow do: a Copy field as an owned value, a linear field
+    ;; as a borrow. The pattern's own type is the referent's, which names
+    ;; the struct the emitter reads. Mutable positions are already wildcards.
+    (: borrowed-fields (-> Checker Type (List Type) (List Type)))
+    (define (borrowed-fields ck scrutinee fields)
+      (if (borrow-type? (prune (solution ck) scrutinee))
+          (map (lambda (field) (if (linear? ck field) (TCon "Borrow" (list field)) field)) fields)
+          fields))
 
     ;; A constructor pattern's fields, checked in order into one scope:
     ;; names are unique, so the fields' locals simply join.
