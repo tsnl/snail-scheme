@@ -23,6 +23,7 @@
 use std::process::ExitCode;
 
 mod assemble;
+mod async_files;
 mod engine;
 mod links;
 mod modules;

@@ -81,6 +81,13 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
       outcomes.delete(ticket);
       return outcome.deliver();
     },
+    // A dropped operation token may own an already-ready result whose task
+    // was canceled before delivery. Pending work is disposed by settle when
+    // its ticket no longer wakes a continuation.
+    discard(ticket) {
+      const outcome = outcomes.get(ticket);
+      if (outcome) { outcomes.delete(ticket); outcome.dispose(); }
+    },
     // Turns until no task is live, or `stopped` holds after a turn. A trap
     // ends only the task that ran (task.sld's `run-ready!`), so it is
     // reported with that task's id, and the turns go on. Every task waiting

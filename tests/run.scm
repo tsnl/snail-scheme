@@ -513,6 +513,29 @@
                  (report "native UDP" "failed" (string-append (car result) (cadr result))))))
          '(() ("--test-udp-no-try-send"))))
 
+(define (compile-async-files root)
+  (let ((text (program->wat root (standard-directories root)
+                            (path-join root "tests/async-files/main.sld"))))
+    (lambda ()
+      (let ((program (path-join root "build/tests/async-files.wasm")))
+        (link-wat root text program)
+        (check-async-files root program "static")))))
+
+(define (check-async-files root program mode)
+  (let ((printed
+         (run-wasm root program (path-join root (string-append "build/tests/async-data-" mode))))
+        (expected (read-file (path-join root "tests/async-files/main.out"))))
+    (cond ((string=? printed expected) #t)
+          ((string=? printed "SKIP: native async file provider unavailable\n")
+           (display "async files: io_uring unavailable; native integration skipped\n") #t)
+          (else (report "async files" "wrong output" printed)))))
+
+(define (run-linked-async-files root)
+  (let ((output (path-join root "build/tests/linked/async-files")))
+    (build-modules root (standard-directories root)
+                   (path-join root "tests/async-files/main.sld") output)
+    (check-async-files root (path-join output "modules.json") "linked")))
+
 (define (compile-socket-boundary root)
   (let ((text (program->wat root
                             (standard-directories root)
@@ -672,6 +695,7 @@
                         (list (lambda () (run-linked-app-runtime root))
                               (lambda () (run-linked-host-boundary root))
                               (lambda () (run-linked-socket-boundary root))
+                              (lambda () (run-linked-async-files root))
                               (lambda () (run-dynamic-loading root))))))
     (if chibi-compiler?
         (map (lambda (check) (check)) checks)
@@ -817,6 +841,7 @@
                                   (lambda () (check-host-boundary root))
                                   (compile-artifacts root)
                                   (compile-socket-boundary root)
+                                  (compile-async-files root)
                                   (compile-termination root)
                                   (compile-app-runtime root)
                                   (lambda () (check-siegework root))
