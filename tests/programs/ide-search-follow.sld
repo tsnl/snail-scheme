@@ -10,49 +10,71 @@
  (snail shell ide application)
  (prefix (snail shell ide palette) palette-))
 
-(: widened (-> (List (FnOnce Msg ! tasks dom fetch))
-               (List (FnOnce Msg ! mut console tasks dom fetch))))
-(define (widened commands)
-  (match commands
-    ((Nil) (Nil))
-    ((Cons command rest) (Cons (once (lambda () (command))) (widened rest)))))
+(enum Delivery
+  (Input ((message Msg)))
+  (Produced ((read I64)
+             (result CommandResult))))
 
-(: delayed (-> (Mailbox Unit) (Ref I64) (List (FnOnce Msg ! tasks dom fetch))
-               (List (FnOnce Msg ! mut console tasks dom fetch))))
-(define (delayed gate completed commands)
-  (match commands
-    ((Nil) (Nil))
-    ((Cons command rest)
-     (Cons (once (lambda ()
-                   (mailbox-receive gate)
-                   (let ((message (command)))
-                     (ref-set! completed (+ 1 (ref-get completed)))
-                     message)))
-           (delayed gate completed rest)))))
-
-;; Substitute immediate timer delivery, keeping all application messages and
-;; service tasks real. Delay either the read or the DOM task it produces.
+;; This race driver controls when a command runs, using the IDE's actual
+;; pure transitions. The other IDE tests run the owned-future reactor.
 (struct Model
   ((ide Ide)
    (answers I64)))
 
-(: update-test (-> Bool (Mailbox Unit) (Ref I64) Model Msg
-                   (Pair Model (List (FnOnce Msg ! mut console tasks dom fetch)))))
-(define (update-test delayed-read gate completed model message)
-  (let ((answers (+ (::answers model) (match message ((Answered _ _) 1) (_ 0)))))
-    (match (update (::ide model) message)
-      ((Pair next commands)
-       (Pair (Model next answers)
-             (match message
-               ((PaletteEvent (palette-Query _))
-                (Cons (once (lambda ()
-                              (PaletteEvent
-                               (palette-Due (::generation (::palette next))))))
-                      (widened commands)))
-               ((Answered _ _)
-                (if (and (not delayed-read) (= 2 answers))
-                    (delayed gate completed commands) (widened commands)))
-               (_ (widened commands))))))))
+(: jobs (-> Bool (Mailbox Unit) (Ref I64) (Ref I64) (List Command)
+            (List (FnOnce Delivery ! mut console tasks dom fetch))))
+(define (jobs delayed gate completed reads commands)
+  (match commands
+    ((Nil) (Nil))
+    ((Cons (Command work _) rest)
+     (Cons (once (lambda ()
+                   (when delayed
+                     (mailbox-receive gate)
+                     (ref-set! completed (+ 1 (ref-get completed))))
+                   (observed work reads)))
+           (jobs delayed gate completed reads rest)))))
+
+;; Record the request identity at its boundary, before it can suspend.
+(: observed (-> (FnOnce CommandResult ! tasks dom fetch) (Ref I64) Delivery ! mut tasks dom fetch))
+(define (observed work reads)
+  (let ((issued (ref (ann 0 I64))))
+    (let ((result
+           (handle fetch
+               ((request (lambda (method url headers body)
+                           (when (and (>= (string-length url) 10)
+                                      (string=? (substring url 0 10) "/api/file?"))
+                             (ref-set! issued (+ 1 (ref-get reads))))
+                           (request method url headers body)))
+                (stream-open (lambda (url kinds) (stream-open url kinds)))
+                (stream-next (lambda (stream) (stream-next stream)))
+                (stream-close (lambda (stream) (stream-close stream))))
+             (work))))
+      (Produced (ref-get issued) result))))
+
+(: update-test (-> Bool (Mailbox Unit) (Ref I64) (Ref I64) Model Delivery
+                   (Pair Model (List (FnOnce Delivery ! mut console tasks dom fetch)))))
+(define (update-test delayed-read gate completed reads model message)
+  (match message
+    ((Input message)
+     (match (update (::ide model) message)
+       ((Pair next commands)
+        (Pair (Model next (::answers model)) (jobs #f gate completed reads commands)))))
+    ((Produced read (CommandResult accept))
+     (let ((transition (accept)))
+       (match (transition (::ide model))
+         ((Pair next commands)
+          (Pair (Model next (+ (::answers model) (if (> read 0) 1 0)))
+                (jobs (and (not delayed-read) (= read 2)) gate completed reads commands))))))))
+
+(: shown (-> Model (Html Delivery)))
+(define (shown model)
+  (map-html Input (view (::ide model))))
+
+(: window-test (-> Model (List (Attribute Delivery))))
+(define (window-test model)
+  (match (map-html Input (Element "window" (window (::ide model)) (Nil)))
+    ((Element _ attributes _) attributes)
+    (_ (panic "window attributes"))))
 
 (: input (-> String Cue))
 (define (input text) (Fire "command-query" "input" (Event-value-set no-event text)))
@@ -75,7 +97,8 @@
         (answers (ref 0))
         (completed (ref 0))
         (events (ref #f))
-        (gate (make-mailbox)))
+        (gate (make-mailbox))
+        (hides (ref 0)))
     (handle fetch
         ((request (lambda (method url headers body)
                     (cond ((string=? url "/api/project")
@@ -99,24 +122,29 @@
          (stream-close (lambda (stream) (unit))))
       (verify-focus (with-memory-dom
                      (list (FireWindow "keydown" (Event-key-set no-event "F1"))
-                           (input "search-project") enter (input "needle") enter
+                           (input "search-project") enter (input "needle") (Hide) enter
                            (if delayed-read (FireWindow "online" no-event)
                                (FireWindow "keydown"
                                            (Event-modifiers-set (Event-key-set no-event "\\")
                                                                 control-key)))
                            (Hide))
                      (lambda ()
-                       (let ((final (run-ui (Model initial 0) (list (Open "notes.txt"))
+                       (let ((final (run-ui (Model initial 0) (list (Input (Open "notes.txt")))
                                             (lambda (model message)
                                               (update-test delayed-read
                                                            gate
                                                            completed
+                                                           reads
                                                            model
                                                            message))
-                                            (lambda (model) (view (::ide model)))
-                                            (lambda (model) (window (::ide model)))
+                                            shown
+                                            window-test
                                             (lambda (model) (unit))
-                                            (lambda (model) (mailbox-post gate (unit))))))
+                                            (lambda (model)
+                                              (ref-set! hides (+ 1 (ref-get hides)))
+                                              (if (= (ref-get hides) 1)
+                                                  (sleep 150)
+                                                  (mailbox-post gate (unit)))))))
                          (unless (= (ref-get reads) (::answers final))
                            (panic "the delayed read did not finish")))
                        (match (element-by-id "text-0")

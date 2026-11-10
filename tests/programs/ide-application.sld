@@ -2,6 +2,7 @@
  (snail core base)
  (snail core io)
  (snail shell task)
+ (snail shell future)
  (snail shell dom)
  (snail shell dom memory)
  (snail shell fetch)
@@ -39,18 +40,14 @@
   (list (key "F1" 0) (input "command-query" name)
         (Fire "command-query" "keydown" (Event-key-set no-event "Enter"))))
 
-(: update-test (-> Ide Msg (Pair Ide (List (FnOnce Msg ! mut console tasks dom fetch)))))
-(define (update-test model message)
-  (match (update model message)
-    ((Pair model commands)
-     (Pair model (widen commands)))))
+(: snapshot (-> (Borrow Session) Ide))
+(define (snapshot session)
+  (::ide session))
 
-(: widen (-> (List (FnOnce Msg ! tasks dom fetch))
-             (List (FnOnce Msg ! mut console tasks dom fetch))))
-(define (widen commands)
-  (match commands
-    ((Cons command rest) (Cons (once (lambda () (command))) (widen rest)))
-    ((Nil) (Nil))))
+(: finished (-> Session Ide ! mut))
+(define (finished session)
+  (match session
+    ((Session ide pending) (drop pending) ide)))
 
 (: run (-> Delay (List Cue) (Pair Ide Document) ! mut console tasks))
 (define (run delay cues)
@@ -88,13 +85,19 @@
                 (stream-close (lambda (stream) (panic "unexpected stream close"))))
              (with-memory-dom cues
                               (lambda ()
-                                (run-ui initial
-                                        (list (Open "notes.txt"))
-                                        update-test
-                                        view
-                                        window
-                                        (lambda (model) (unit))
-                                        (lambda (model) (mailbox-post gate (unit)))))))))
+                                (finished (run-reactor (begin-session initial)
+                                                       (list (Open "notes.txt"))
+                                                       (ann update-session
+                                                            (-> Session
+                                                                (Option Msg)
+                                                                Session
+                                                                ! mut completion console dom fetch))
+                                                       session-view
+                                                       session-window
+                                                       snapshot
+                                                       (lambda (model) (unit))
+                                                       (lambda (model)
+                                                         (mailbox-post gate (unit))))))))))
       (unless (= (ref-get completed) (+ (ref-get reads) (ref-get writes)))
         (panic "the document closed before all replies completed"))
       (write-line (string-append "requests " (show (ref-get reads)) "/" (show (ref-get writes))))

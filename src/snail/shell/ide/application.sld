@@ -1,16 +1,20 @@
-;; The browser IDE as a host-independent application. Its immutable model,
-;; update and view run over the shared DOM and fetch effects, so a page and
-;; Scheme tests exercise the same application loop. host/ide/ide.sld binds
-;; the application to the page; feature libraries own their own services.
+;; The browser IDE as a host-independent application. A linear session owns
+;; command futures beside immutable display data. Update polls without
+;; suspending; view borrows the session. Pages and Scheme tests exercise the
+;; same loop over DOM and fetch effects; host/ide/ide.sld supplies the page.
 (define-library (snail shell ide application)
   (export Ide Msg initial update view window kept restored Connect Boot
-          DispatchCommand InvokeCommand Typed Open Answered Saved Heard PaletteEvent
+          DispatchCommand Typed Open PaletteEvent
+          Session begin-session update-session session-view session-window session-snapshot
+          Command CommandResult Step Recovery
           Buffer
           Snapshot buffer-at dirty? conflict?)
   (import
    (snail core base)
    (only (snail shell text) string-upcase string-downcase)
    (only (snail shell task) tasks)
+   (snail shell future)
+   (prefix (snail shell async) async-)
    (snail shell dom)
    (snail shell fetch)
    (snail shell json)
@@ -27,7 +31,9 @@
    (prefix (snail shell ui commands) command-)
    (prefix (snail shell ui shortcuts) shortcut-))
   (begin
-    (type (Command M) (FnOnce M ! tasks dom fetch))
+    (struct Command
+      ((work (FnOnce CommandResult ! tasks dom fetch))
+       (interrupted (-> Ide Step))))
 
     ;; ---- Text ----
 
@@ -822,25 +828,18 @@
     (define (failed-status model message)
       (Status message "failed" (::attempt (::status model))))
 
-    ;; ---- Messages ----
+    ;; ---- Input and work ----
 
+    ;; Only intentions and browser input enter the UI message enum. Results
+    ;; travel in futures as one-shot pure transitions on the current data.
     (enum Msg
       (Boot)
-      (Booted ((generation String)))
       (RefreshFailed)
       (Nothing)
       (Connect)
-      (Connected ((stream Stream)))
-      (Heard ((stream Stream)
-              (event StreamEvent)))
-      (Ended)
-      (Listed ((sequence I64)
-               (result (Result Project Failure))))
       (Open ((path String)))
       (Show ((generation I64)
              (index I64)))
-      (Answered ((asked Asked)
-                 (result (Result Snapshot Failure))))
       (Typed ((pane I64)
               (text String)))
       (Pressed ((pane I64)
@@ -851,44 +850,111 @@
       (Focused ((pane I64)))
       (Scrolled ((pane I64)
                  (top F64)))
-      (Saved ((path String)
-              (result (Result Snapshot Failure))))
-      (Formatted ((path String)
-                  (taken Bool)))
-      (Discard ((path String)))
-      (Refused ((failure Failure)))
       (Close ((pane I64)))
-      (CloseReady ((pane I64)
-                   (path String)
-                   (text String)))
-      (InstallFinished ((result InstallResult)))
-      (FullscreenFinished ((accepted Bool)))
       (DispatchCommand ((name String)))
-      (InvokeCommand ((name String)))
       (PaletteEvent ((message palette-Message)))
       (ToggleFolder ((path String)))
       (Grab ((grip Grip)))
-      (Grabbed ((drag Drag)))
       (Dragged ((x F64)
                 (y F64)))
       (Dropped)
       (Shortcut ((key String)
                  (modifiers I32)))
       (Choose ((target String)))
-      (Control ((action String)))
-      (Controlled ((action String)
-                   (target String)
-                   (result (Result Json Failure)))))
+      (Control ((action String))))
 
-    ;; The next model and the commands an update starts.
+    (struct CommandResult
+      ((accept (FnOnce (-> Ide Step)))))
+
+    ;; The current FnOnce constructor takes a nullary thunk. Keep the
+    ;; transition linear and unwrap it only at the point it is applied.
+    (: command-result (-> (-> Ide Step) CommandResult))
+    (define (command-result transition)
+      (CommandResult (once (lambda () transition))))
+
+    (: apply-result (-> CommandResult Ide Step))
+    (define (apply-result result ide)
+      (match result
+        ((CommandResult accept)
+         (let ((transition (accept)))
+           (transition ide)))))
+
     (type Step
-          (Pair Ide (List (Command Msg))))
+          (Pair Ide (List Command)))
+
+    ;; Pending work has exactly one owner. Display data stays immutable and
+    ;; shareable; the session itself cannot be copied or checkpointed.
+    (struct PendingCommand
+      ((future (Future CommandResult))
+       (interrupted (-> Ide Step))))
+
+    (struct Session
+      ((ide Ide)
+       (pending (List PendingCommand))))
+
+    (: interrupted-request Failure)
+    (define interrupted-request
+      (Failure 0 "Request interrupted; its server-side outcome may be unknown."))
+
+    (: begin-session (-> Ide Session))
+    (define (begin-session ide)
+      (Session ide (Nil)))
+
+    (: session-view (-> (Borrow Session) (Html Msg)))
+    (define (session-view session)
+      (view (::ide session)))
+
+    (: session-window (-> (Borrow Session) (List (Attribute Msg))))
+    (define (session-window session)
+      (window (::ide session)))
+
+    (: session-snapshot (-> (Borrow Session) Recovery))
+    (define (session-snapshot session)
+      (kept (::ide session)))
+
+    ;; Input invalidates old intentions before any result is accepted. Only
+    ;; futures present on entry are polled: work spawned by a result waits
+    ;; until a later turn, even if it could complete immediately.
+    (: update-session (-> Session (Option Msg) Session ! mut completion dom fetch))
+    (define (update-session session message)
+      (match session
+        ((Session ide pending)
+         (match (match message ((Some message) (update ide message)) ((None) (stay ide)))
+           ((Pair next commands) (collect-results next pending (dispatch-commands commands)))))))
+
+    (: dispatch-commands
+       (-> (List Command) (List PendingCommand) ! mut completion dom fetch))
+    (define (dispatch-commands commands)
+      (match commands
+        ((Nil) (Nil))
+        ((Cons (Command work interrupted) rest)
+         (Cons (PendingCommand (async-dispatch work) interrupted) (dispatch-commands rest)))))
+
+    (: collect-results
+       (-> Ide (List PendingCommand) (List PendingCommand) Session ! mut completion dom fetch))
+    (define (collect-results ide pending waiting)
+      (match pending
+        ((Nil) (Session ide waiting))
+        ((Cons (PendingCommand future interrupted) rest)
+         (match (poll future)
+           ((Pending future)
+            (collect-results ide rest (append waiting (list (PendingCommand future interrupted)))))
+           ((Ready (Completed result))
+            (continue-results (apply-result result ide) rest waiting))
+           ((Ready (Abandoned))
+            (continue-results (interrupted ide) rest waiting))))))
+
+    (: continue-results (-> Step (List PendingCommand) (List PendingCommand) Session
+                            ! mut completion dom fetch))
+    (define (continue-results step rest waiting)
+      (match (then step reconcile-palette)
+        ((Pair next commands)
+         (collect-results next rest (append waiting (dispatch-commands commands))))))
 
     (: stay (-> Ide Step))
     (define (stay model)
       (Pair model (Nil)))
 
-    ;; Two steps' commands, the first's model given to the second.
     (: then (-> Step (-> Ide Step) Step))
     (define (then step next)
       (match step
@@ -905,52 +971,64 @@
       (match message
         ((Boot)
          (Pair model
-               (list
-                (once (lambda () (Booted (string-property (document-root) "snailGeneration")))))))
-        ((Booted generation)
-         (refresh-if-needed (if (string=? (::editor model) "")
-                                (Ide-editor-set model generation) model)))
+               (list (Command (once (lambda ()
+                                      (let ((generation
+                                             (string-property (document-root) "snailGeneration")))
+                                        (command-result
+                                         (lambda (current) (booted current generation))))))
+                              stay))))
         ((RefreshFailed) (stay (Ide-refreshing-set model #f)))
         ((Nothing) (stay model))
         ((Connect) (connecting model))
-        ((Connected stream) (Pair (Ide-events-set model (Some stream)) (list (hear stream))))
-        ((Heard stream event)
-         (if (current-stream? model stream) (heard model stream event) (stay model)))
-        ((Ended) (stay model))
-        ((Listed sequence result) (listed model sequence result))
         ((Open path) (opening (search-invalidated model) path (Focus (::active model))))
         ((Show generation index) (showing-diagnostic (search-invalidated model) generation index))
-        ((Answered asked result) (answered model asked result))
         ((Typed pane text) (typed model pane text))
         ((Pressed pane key text start end) (pressed model pane key text start end))
         ((Focused pane)
          (stay
           (Ide-active-set (if (= pane (::active model)) model (search-invalidated model)) pane)))
         ((Scrolled pane top) (stay (pane-set model (Pane-scroll-set (pane-of model pane) top))))
-        ((Saved path result) (saved model path result))
-        ((Formatted path taken) (formatted model path taken))
-        ((Discard path) (discarded model path))
-        ((Refused failure)
-         (stay (Ide-status-set model (failed-status model (::message failure)))))
         ((Close pane) (invoked (Ide-active-set model pane) closing))
-        ((CloseReady pane path text) (close-ready model pane path text))
-        ((InstallFinished result) (installation-finished model result))
-        ((FullscreenFinished accepted)
-         (if accepted (stay model)
-             (notice model
-                     "Fullscreen needs an explicit click or is unavailable in this browser.")))
-        ((DispatchCommand name) (Pair model (list (once (lambda () (InvokeCommand name))))))
-        ((InvokeCommand name) (run-command model name))
+        ((DispatchCommand name)
+         (Pair model
+               (list (Command (once (lambda ()
+                                      (command-result
+                                       (lambda (current) (run-command current name)))))
+                              stay))))
         ((PaletteEvent message) (palette-message model message))
         ((ToggleFolder path) (stay (Ide-expanded-set model (toggled (::expanded model) path))))
-        ((Grab grip) (Pair model (list (once (lambda () (grabbed grip))))))
-        ((Grabbed drag) (stay (Ide-drag-set model (Some drag))))
+        ((Grab grip) (Pair model (list (Command (once (lambda () (grabbed grip))) stay))))
         ((Dragged x y) (stay (dragged model x y)))
         ((Dropped) (stay (Ide-drag-set model (None))))
         ((Shortcut key modifiers) (shortcut model key modifiers))
         ((Choose target) (stay (Ide-runs-set model (Runs-selected-set (::runs model) target))))
-        ((Control action) (controlling model action))
-        ((Controlled action target result) (controlled model action target result))))
+        ((Control action) (controlling model action))))
+
+    (: booted (-> Ide String Step))
+    (define (booted model generation)
+      (refresh-if-needed (if (string=? (::editor model) "")
+                             (Ide-editor-set model generation) model)))
+
+    (: connected (-> Ide Stream Step))
+    (define (connected model stream)
+      (Pair (Ide-events-set model (Some stream)) (list (hear stream))))
+
+    (: stream-heard (-> Ide Stream StreamEvent Step))
+    (define (stream-heard model stream event)
+      (if (current-stream? model stream) (heard model stream event) (stay model)))
+
+    (: refused (-> Ide Failure Step))
+    (define (refused model failure)
+      (stay (Ide-status-set model (failed-status model (::message failure)))))
+
+    (: fullscreen-finished (-> Ide Bool Step))
+    (define (fullscreen-finished model accepted)
+      (if accepted (stay model)
+          (notice model "Fullscreen needs an explicit click or is unavailable in this browser.")))
+
+    (: began-drag (-> Ide Drag Step))
+    (define (began-drag model drag)
+      (stay (Ide-drag-set model (Some drag))))
 
     ;; ---- Events ----
 
@@ -967,18 +1045,22 @@
       (let ((old (::events model)))
         (Pair (Ide-status-set (Ide-events-set model (None))
                               (Status "Connecting…" "starting" (::attempt (::status model))))
-              (list (once (lambda ()
-                            (match old
-                              ((Some stream) (stream-close stream))
-                              ((None) (unit)))
-                            (Connected (stream-open "/api/events" event-kinds))))))))
+              (list (Command (once (lambda ()
+                                     (match old
+                                       ((Some stream) (stream-close stream))
+                                       ((None) (unit)))
+                                     (let ((stream (stream-open "/api/events" event-kinds)))
+                                       (command-result
+                                        (lambda (current) (connected current stream))))))
+                             stay)))))
 
-    (: hear (-> Stream (Command Msg)))
+    (: hear (-> Stream Command))
     (define (hear stream)
-      (once (lambda ()
-              (match (stream-next stream)
-                ((Some event) (Heard stream event))
-                ((None) (Ended))))))
+      (Command (once (lambda ()
+                       (match (stream-next stream)
+                         ((Some event)
+                          (command-result (lambda (current) (stream-heard current stream event))))
+                         ((None) (command-result stay))))) stay))
 
     (: current-stream? (-> Ide Stream Bool))
     (define (current-stream? model stream)
@@ -1070,7 +1152,8 @@
     (: refreshing (-> Ide Step))
     (define (refreshing model)
       (Pair (Ide-refreshing-set model #t)
-            (list (once (lambda () (refresh-page) (Nothing))))))
+            (list (Command (once (lambda () (refresh-page) (command-result stay)))
+                           (lambda (current) (stay (Ide-refreshing-set current #f)))))))
 
     ;; ---- Files ----
 
@@ -1081,10 +1164,15 @@
         (then (reading-all (Ide-listing-set model sequence))
               (lambda (model)
                 (Pair model
-                      (list (once (lambda ()
-                                    (Listed sequence
-                                            (project-reply
-                                             (api "GET" "/api/project" (Nil) "")))))))))))
+                      (list (Command (once (lambda ()
+                                             (let ((reply (project-reply
+                                                           (api "GET" "/api/project" (Nil) ""))))
+                                               (command-result (lambda (current)
+                                                                 (listed current
+                                                                         sequence
+                                                                         reply))))))
+                                     (lambda (current)
+                                       (listed current sequence (Err interrupted-request))))))))))
 
     ;; Only the latest listing counts. The first nonempty project listing
     ;; opens main.sld or its first file; explicit closes never reopen a file.
@@ -1140,7 +1228,7 @@
     ;; What opening asked, once the file's read has answered, while the pane
     ;; that asked is active and still shows the file. A point is revealed only
     ;; when the diagnostic is still the one the pane marks.
-    (: followed (-> Ide String Follow I64 (Option Snapshot) (List (Command Msg))))
+    (: followed (-> Ide String Follow I64 (Option Snapshot) (List Command)))
     (define (followed model path follow navigation confirmed)
       (if (or (palette-visible? (::palette model))
               (not (= navigation (::generation (::palette model))))) (Nil)
@@ -1177,36 +1265,38 @@
         ((Some buffer) (display-text (::text buffer)))
         ((None) "")))
 
-    (: focusing (-> Ide I64 (Command Msg)))
+    (: focusing (-> Ide I64 Command))
     (define (focusing model pane)
       (let ((navigation (::generation (::palette model)))
             (id (match (pane-buffer model pane)
                   ((Some buffer) (if (loaded? buffer) (field-id pane) "commands"))
                   ((None) "commands"))))
-        (once (lambda ()
-                (when (navigation-current? navigation)
-                  (match (element-by-id id)
-                    ((Some node) (focus-node node))
-                    ((None) (unit))))
-                (Nothing)))))
+        (Command (once (lambda ()
+                         (when (navigation-current? navigation)
+                           (match (element-by-id id)
+                             ((Some node) (focus-node node))
+                             ((None) (unit))))
+                         (command-result stay))) stay)))
 
     ;; The caret at a diagnostic's point, its line scrolled a few lines below
     ;; the top.
-    (: revealing (-> Ide I64 String String Point (Command Msg)))
+    (: revealing (-> Ide I64 String String Point Command))
     (define (revealing model pane path text point)
       (let ((navigation (::generation (::palette model))))
-        (once (lambda ()
-                (match (element-by-id (field-id pane))
-                  ((Some field)
-                   (when (and (navigation-current? navigation) (current-field? field path text))
-                     (let ((offset (source-offset text point)))
-                       (focus-node field)
-                       (select-range field (i64->i32 offset) (i64->i32 offset))
-                       (scrolled-to pane
-                                    (* line-height
-                                       (i64->f64 (max 0 (- (count-lines text 0 offset) 4))))))))
-                  ((None) (unit)))
-                (Nothing)))))
+        (Command (once (lambda ()
+                         (match (element-by-id (field-id pane))
+                           ((Some field)
+                            (when (and (navigation-current? navigation)
+                                       (current-field? field path text))
+                              (let ((offset (source-offset text point)))
+                                (focus-node field)
+                                (select-range field (i64->i32 offset) (i64->i32 offset))
+                                (scrolled-to pane
+                                             (* line-height
+                                                (i64->f64
+                                                 (max 0 (- (count-lines text 0 offset) 4))))))))
+                           ((None) (unit)))
+                         (command-result stay))) stay)))
 
     (: scrolled-to (-> I64 F64 Unit ! dom))
     (define (scrolled-to pane top)
@@ -1235,10 +1325,15 @@
                                   (::generation (::palette model))
                                   follow)))
                (Pair (buffer-set (Ide-reads-set model sequence) (Buffer-read-set buffer sequence))
-                     (list (once (lambda ()
-                                   (Answered asked
-                                             (file-reply
-                                              (api "GET" (file-url path) (Nil) ""))))))))))
+                     (list (Command (once (lambda ()
+                                            (let ((reply (file-reply
+                                                          (api "GET" (file-url path) (Nil) ""))))
+                                              (command-result (lambda (current)
+                                                                (answered current
+                                                                          asked
+                                                                          reply))))))
+                                    (lambda (current)
+                                      (answered current asked (Err interrupted-request)))))))))
         ((None) (Pair model (followed model path follow
                                       (::generation (::palette model)) (None))))))
 
@@ -1345,12 +1440,12 @@
                                   (indent-change text from to)
                                   (newline-change text from to)))))))
 
-    (: changing (-> I64 Change (Command Msg)))
+    (: changing (-> I64 Change Command))
     (define (changing pane change)
-      (once (lambda ()
-              (match (element-by-id (field-id pane))
-                ((Some field) (apply-change field change) (Nothing))
-                ((None) (Nothing))))))
+      (Command (once (lambda ()
+                       (match (element-by-id (field-id pane))
+                         ((Some field) (apply-change field change) (command-result stay))
+                         ((None) (command-result stay))))) stay))
 
     ;; The keys Tab and Enter, which a Scheme source's field hears.
     (: editing-chords (List Chord))
@@ -1380,28 +1475,32 @@
                                     (Buffer-failure-set
                                      (Buffer-read-set (Buffer-saving-set buffer #t) sequence)
                                      ""))
-                        (list (once (lambda () (saved-text pane buffer baseline))))))))
+                        (list (Command (once (lambda () (saved-text pane buffer baseline)))
+                                       (lambda (current)
+                                         (saved current
+                                                (::path buffer)
+                                                (Err interrupted-request)))))))))
            ((None) (stay model))))
         ((None) (stay model))))
 
     ;; A source is formatted first, in the pane's field; formatting that fails
     ;; does not keep an incomplete draft from being saved.
-    (: saved-text (-> Pane Buffer Snapshot Msg ! dom fetch tasks))
+    (: saved-text (-> Pane Buffer Snapshot CommandResult ! dom fetch tasks))
     (define (saved-text pane buffer baseline)
       (let* ((path (::path buffer))
              (text
               (if (source-file? path)
                   (formatted-in pane (::path buffer) (::text buffer))
                   (::text buffer))))
-        (Saved path
-               (file-reply (api "PUT"
-                                (file-url path)
-                                (list (Header "Content-Type" "text/plain; charset=utf-8")
-                                      (Header "If-Match"
-                                              (string-append "\""
-                                                             (::revision baseline)
-                                                             "\"")))
-                                text)))))
+        (let ((reply (file-reply (api "PUT"
+                                      (file-url path)
+                                      (list (Header "Content-Type" "text/plain; charset=utf-8")
+                                            (Header "If-Match"
+                                                    (string-append "\""
+                                                                   (::revision baseline)
+                                                                   "\"")))
+                                      text))))
+          (command-result (lambda (current) (saved current path reply))))))
 
     ;; The text formatted in the pane's field as typing would, which the
     ;; field's input brings to the buffer too; or the text as it was, when the
@@ -1462,17 +1561,24 @@
          (if (and (loaded? buffer) (source-file? (::path buffer)))
              (let ((pane (pane-of model (::active model))) (path (::path buffer)))
                (Pair (buffer-set model (Buffer-failure-set buffer ""))
-                     (list (once (lambda ()
-                                   (let* ((shown (display-text (::text buffer)))
-                                          (formatted (format-source shown format-width)))
-                                     (Formatted path
-                                                (or (string=? shown formatted)
-                                                    (reformatted pane path shown formatted)))))))))
+                     (list (Command (once (lambda ()
+                                            (let* ((shown (display-text (::text buffer)))
+                                                   (formatted (format-source shown format-width)))
+                                              (let ((taken (or (string=? shown formatted)
+                                                               (reformatted pane
+                                                                            path
+                                                                            shown
+                                                                            formatted))))
+                                                (command-result (lambda (current)
+                                                                  (format-finished current
+                                                                                   path
+                                                                                   taken)))))))
+                                    stay))))
              (stay model)))
         ((None) (stay model))))
 
-    (: formatted (-> Ide String Bool Step))
-    (define (formatted model path taken)
+    (: format-finished (-> Ide String Bool Step))
+    (define (format-finished model path taken)
       (stay (match (buffer-at model path)
               ((Some buffer)
                (if taken
@@ -1491,11 +1597,13 @@
          (cond ((::saving buffer) (stay model))
                ((dirty? buffer)
                 (Pair model
-                      (list (once (lambda ()
-                                    (if (confirm
-                                         "Discard this file’s unsaved changes and reload from disk?")
-                                        (Discard (::path buffer))
-                                        (Nothing)))))))
+                      (list (Command (once (lambda ()
+                                             (if (confirm
+                                                  "Discard this file’s unsaved changes and reload from disk?")
+                                                 (let ((path (::path buffer)))
+                                                   (command-result
+                                                    (lambda (current) (discarded current path))))
+                                                 (command-result stay)))) stay))))
                (else (discarded model (::path buffer)))))
         ((None) (stay model))))
 
@@ -1514,11 +1622,11 @@
                   (Stay)))
         ((None) (stay model))))
 
-    (: building (-> Msg ! fetch tasks))
+    (: building (-> CommandResult ! fetch tasks))
     (define (building)
       (match (api "POST" "/api/build" (Nil) "")
-        ((Ok _) (Nothing))
-        ((Err failure) (Refused failure))))
+        ((Ok _) (command-result stay))
+        ((Err failure) (command-result (lambda (current) (refused current failure))))))
 
     ;; ---- Arranging ----
 
@@ -1548,13 +1656,19 @@
                  ((other-view? model pane path)
                   (close-pane model))
                  ((dirty? buffer)
-                  (Pair model (list (once (lambda ()
-                                            (if (confirm
-                                                 (string-append "Discard unsaved changes to "
-                                                                path
-                                                                "?"))
-                                                (CloseReady pane path (::text buffer))
-                                                (Nothing)))))))
+                  (Pair model (list (Command (once (lambda ()
+                                                     (if (confirm
+                                                          (string-append
+                                                           "Discard unsaved changes to "
+                                                           path
+                                                           "?"))
+                                                         (let ((text (::text buffer)))
+                                                           (command-result (lambda (current)
+                                                                             (close-ready current
+                                                                                          pane
+                                                                                          path
+                                                                                          text))))
+                                                         (command-result stay)))) stay))))
                  (else (close-pane (buffer-removed model path))))))))
 
     (: close-ready (-> Ide I64 String String Step))
@@ -1595,11 +1709,15 @@
           (Cons path paths)))
 
     ;; A drag measures what it divides as it begins.
-    (: grabbed (-> Grip Msg ! dom))
+    (: grabbed (-> Grip CommandResult ! dom))
     (define (grabbed grip)
       (match grip
-        ((FilesEdge) (Grabbed (Resizing (::width (measured "workbench")))))
-        ((Divider split) (Grabbed (Dividing split (measured "panes"))))))
+        ((FilesEdge)
+         (let ((drag (Resizing (::width (measured "workbench")))))
+           (command-result (lambda (current) (began-drag current drag)))))
+        ((Divider split)
+         (let ((drag (Dividing split (measured "panes"))))
+           (command-result (lambda (current) (began-drag current drag)))))))
 
     (: measured (-> String Measure ! dom))
     (define (measured id)
@@ -1670,21 +1788,15 @@
                                                                    (palette-Creating
                                                                     (palette-Creation #t #f "")))))
                                   (command-Command "install-app" installing)
-                                  (command-Command "toggle-fullscreen" (lambda (model)
-                                                                         (Pair model
-                                                                               (list
-                                                                                (once (lambda ()
-                                                                                        (FullscreenFinished
-                                                                                         (set-fullscreen
-                                                                                          (not
-                                                                                           (fullscreen?))))))))))
+                                  (command-Command "toggle-fullscreen" toggling-fullscreen)
                                   (command-Command "save-buffer" saving)
                                   (command-Command "format-buffer" formatting)
                                   (command-Command "refresh-ide" refreshing)
                                   (command-Command "reload-buffer" reloading)
                                   (command-Command "build-project"
                                                    (lambda (model)
-                                                     (Pair model (list (once building)))))
+                                                     (Pair model
+                                                           (list (Command (once building) stay)))))
                                   (command-Command "toggle-files" (lambda (model)
                                                                     (stay
                                                                      (Ide-files-shown-set model
@@ -1801,13 +1913,18 @@
           (palette-step model (palette-reconcile (::palette model) (current-draft model)))
           (stay model)))
 
-    (: palette-commands (-> (List (FnOnce palette-Message ! tasks dom fetch))
-                            (List (Command Msg))))
+    (: palette-commands (-> (List palette-Command) (List Command)))
     (define (palette-commands commands)
       (match commands
         ((Nil) (Nil))
-        ((Cons command rest)
-         (Cons (once (lambda () (PaletteEvent (command)))) (palette-commands rest)))))
+        ((Cons (palette-Command work interrupted) rest)
+         (Cons (Command
+                (once (lambda ()
+                        (let ((transition (work)))
+                          (command-result
+                           (lambda (model) (palette-step model (transition (::palette model))))))))
+                (lambda (model) (palette-step model (interrupted (::palette model)))))
+               (palette-commands rest)))))
 
     (: palette-step (-> Ide palette-Step Step))
     (define (palette-step model step)
@@ -1860,7 +1977,7 @@
              (stay model)))
         ((None) (stay model))))
 
-    (: search-followed (-> Ide I64 Hit (Option Snapshot) (List (Command Msg))))
+    (: search-followed (-> Ide I64 Hit (Option Snapshot) (List Command)))
     (define (search-followed model pane hit confirmed)
       (match (Pair (pane-buffer model pane) confirmed)
         ((Pair (Some buffer) (Some snapshot))
@@ -1884,13 +2001,27 @@
 
     ;; ---- Window commands ----
 
+    (: toggling-fullscreen (-> Ide Step))
+    (define (toggling-fullscreen model)
+      (Pair model (list (Command (once toggle-fullscreen) stay))))
+
+    (: toggle-fullscreen (-> CommandResult ! dom tasks))
+    (define (toggle-fullscreen)
+      (let ((accepted (set-fullscreen (not (fullscreen?)))))
+        (command-result (lambda (current) (fullscreen-finished current accepted)))))
+
     (: notice (-> Ide String Step))
     (define (notice model text)
       (stay (Ide-status-set model (Status text "notice" (::attempt (::status model))))))
 
     (: installing (-> Ide Step))
     (define (installing model)
-      (Pair model (list (once (lambda () (InstallFinished (install-app)))))))
+      (Pair model
+            (list (Command (once (lambda ()
+                                   (let ((result (install-app)))
+                                     (command-result (lambda (current)
+                                                       (installation-finished current result))))))
+                           stay))))
 
     (: installation-finished (-> Ide InstallResult Step))
     (define (installation-finished model result)
@@ -1919,16 +2050,25 @@
             (stay model)
             (let ((target (::selected runs)))
               (Pair (Ide-runs-set model (Runs-problem-set (Runs-pending-set runs #t) ""))
-                    (list (once (lambda ()
-                                  (Controlled action
-                                              target
-                                              (api "POST"
-                                                   (string-append "/api/run/"
-                                                                  action
-                                                                  "?target="
-                                                                  (url-component target))
-                                                   (Nil)
-                                                   ""))))))))))
+                    (list (Command (once (lambda ()
+                                           (let ((reply (api "POST"
+                                                             (string-append "/api/run/"
+                                                                            action
+                                                                            "?target="
+                                                                            (url-component
+                                                                             target))
+                                                             (Nil)
+                                                             "")))
+                                             (command-result (lambda (current)
+                                                               (controlled current
+                                                                           action
+                                                                           target
+                                                                           reply))))))
+                                   (lambda (current)
+                                     (controlled current
+                                                 action
+                                                 target
+                                                 (Err interrupted-request))))))))))
 
     (: controlled (-> Ide String String (Result Json Failure) Step))
     (define (controlled model action target result)
