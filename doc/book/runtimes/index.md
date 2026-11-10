@@ -41,8 +41,9 @@ process-lifetime token.
 An event loop, an I/O readiness service and a scheduler serve different
 purposes. Linux `epoll` reports which descriptors can make progress; it
 does not schedule language closures or preserve effect bindings. Our host
-uses JavaScript platform APIs for I/O notifications, and Snail-Core's
-scheduler for tasks. It does not need its own `epoll` wrapper. See the
+uses JavaScript platform APIs for Node and browser I/O notifications, and
+Linux `io_uring` for [native asynchronous file reads](tasks.md#native-asynchronous-file-reads).
+Snail-Core's scheduler owns tasks on both hosts. It does not need its own `epoll` wrapper. See the
 [Linux interface](https://man7.org/linux/man-pages/man7/epoll.7.html).
 
 ## Scaling the deployed program
@@ -74,7 +75,7 @@ the native engine reads files, and since a read may wait, as a fetch
 does, the engine links in a task of its own. The page still links through
 `host/browser/load.mjs`; a browser engine over fetch is the next step.
 `crates/snail` runs programs that
-need only WASI on wasmtime, and the suite runs on it with
+need WASI and the native async-file capability on wasmtime, and the suite runs on it with
 `make test-wasmtime`, but moving the toolchain onto it is not planned:
 its collector made the compiler compiling itself take 46 s against
 Node's 1.3 s ([#562](https://github.com/tsnl/snail-scheme/issues/562)).

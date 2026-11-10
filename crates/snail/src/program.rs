@@ -40,6 +40,7 @@ use wasmtime::{
 use wasmtime_wasi::I32Exit;
 use wasmtime_wasi::p1::{self, WasiP1Ctx};
 
+use crate::async_files;
 use crate::engine::{call, engine, exit_status, is_precompiled, load, report, wasi};
 use crate::links::{self, Files};
 use crate::modules::{self, Loading, Manifest};
@@ -51,6 +52,7 @@ use crate::modules::{self, Loading, Manifest};
 pub struct Host {
     pub wasi: WasiP1Ctx,
     pub files: Files,
+    pub async_files: async_files::Files,
     pub loading: Loading,
 }
 
@@ -89,6 +91,7 @@ fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
     let host = Host {
         wasi: wasi(path, arguments, &payload.environment)?,
         files,
+        async_files: async_files::Files::default(),
         loading: Loading::new(linker.clone()),
     };
     let mut store = Store::new(&engine, host);
@@ -105,6 +108,7 @@ fn host_linker(engine: &Engine, links: &[String]) -> wasmtime::Result<Linker<Hos
     let mut linker = Linker::new(engine);
     p1::add_to_linker_sync(&mut linker, |host: &mut Host| &mut host.wasi)?;
     links::define(&mut linker, links)?;
+    async_files::define(&mut linker)?;
     modules::define_loading(&mut linker)?;
     modules::define_platform(&mut linker)?;
     Ok(linker)
@@ -113,6 +117,7 @@ fn host_linker(engine: &Engine, links: &[String]) -> wasmtime::Result<Linker<Hos
 // The program's resources close, the engine's program's through
 // `engine:close` first; a status other than 0 is a resource left open.
 fn close(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<i32> {
+    store.data_mut().async_files.close()?;
     let mut status = 0;
     if program
         .runtime
@@ -218,9 +223,10 @@ fn task_export<Params: WasmParams, Results: WasmResults>(
 // Turns until no task is live, answering whether a task failed. A turn
 // answers 0 when a task is ready, -1 when none is live, -2 when every task
 // waits on a ticket, and otherwise how long until the next sleeper wakes.
-// The only host operations this host completes are reads of linked files,
-// which it wakes after the turn that started them, once their tasks wait;
-// with none to wake, every task waiting on a ticket is a deadlock. A trap
+// Linked-file reads and native async file operations wake only after the
+// turn that started them, once their tasks wait. With native work pending,
+// wait for a completion or the next timer; with neither, waiting is deadlock.
+// A trap
 // ends only the task that ran, and so does a WASI exit: a panic tells its
 // message and then exits, which unwinds out of the turn, as run-snail.mjs's
 // WASI throws out of one, and its status is lost.
@@ -233,13 +239,22 @@ fn drive(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<bool> {
     loop {
         let answer = turn.call(&mut *store, now());
         let waking = store.data_mut().files.take_waking();
+        let file_reads = store.data_mut().async_files.collect()?;
+        let has_completions = !waking.is_empty() || !file_reads.is_empty();
+        let files_pending = store.data().async_files.pending();
         match answer {
             Ok(-1) => return Ok(failed),
-            Ok(-2) if waking.is_empty() => {
+            Ok(-2) if !has_completions && !files_pending => {
                 bail!("every task waits on a ticket, and this host completes none")
             }
-            Ok(delay) if delay > 0 && waking.is_empty() => {
-                thread::sleep(Duration::from_millis(delay as u64))
+            Ok(-2) if !has_completions => store.data_mut().async_files.wait(None)?,
+            Ok(delay) if delay > 0 && !has_completions => {
+                let timeout = Duration::from_millis(delay as u64);
+                if files_pending {
+                    store.data_mut().async_files.wait(Some(timeout))?;
+                } else {
+                    thread::sleep(timeout);
+                }
             }
             Ok(_) => {}
             Err(error) => {
@@ -254,6 +269,15 @@ fn drive(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<bool> {
                 bail!("a read of a linked file finished, and the scheduler exports no tasks:wake")
             };
             wake.call(&mut *store, ticket)?;
+        }
+        for (ticket, id) in file_reads {
+            let woke = match &wake {
+                Some(wake) => wake.call(&mut *store, ticket)? != 0,
+                None => false,
+            };
+            if !woke {
+                store.data_mut().async_files.cancel(id);
+            }
         }
     }
 }
