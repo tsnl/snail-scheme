@@ -175,11 +175,11 @@ function of the expander has `mut` in its row — and where it does not, the
   `mut` and `host` effects. The operations the backend implements directly are
   declared in
   [`src/snail/core/primitive.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/core/primitive.sld),
-  read and resolved like any library. `(primitive i32-add (-> I32 I32 I32))`
+  read and resolved like any library. `(primitive i32-add (impl (Fn I32 I32 -> I32)))`
   declares one, as `extern` declares a foreign function: it binds the name to
   the global `prim:i32-add`, the name the checker, specialization and `emit-primitive`
   know it by, whose value is a `Primitive` of the declared scheme. A generic
-  primitive names its variables, `(All (A) (-> (Vector A) I64 A))`. The form
+  primitive names its variables, `(All (A) (impl (Fn (Vector A) I64 -> A)))`. The form
   is accepted only in that library, whose body holds nothing else, so it
   adds no items and has no module; a session replays its values.
 
@@ -285,7 +285,7 @@ function of the expander has `mut` in its row — and where it does not, the
   closure that may not capture, a `fn` or a top-level function, that
   reads a local from around it (`check-closed`), so the backend knows such
   a closure has no environment. Those two are also all that `fit` gives
-  the type `(Fn A B ! e)`, where an argument, an annotation or a signature
+  the type `(fn A -> B ! e)`, where an argument, an annotation or a signature
   expects one. At established Any boundaries `fit` inserts a conversion
   and charges `dyn-cast` for a fallible extraction; other types still
   unify strictly. Explicit conversion follows the same rule. Cleanup
@@ -316,8 +316,9 @@ function of the expander has `mut` in its row — and where it does not, the
   type is first-order data, which dynamic exports require; whether it
   is linear, given the type variables a definition requires `Copy` of,
   which the checker and ownership use; and what dropping a value of it
-  runs. Ordinary arrows say nothing about their captures, and a mutable
-  field, a `Ref`'s among them, is a shared handle whatever it holds. The
+  runs. Concrete callable types retain their capture types, so repeatable
+  callability does not hide a linear environment. Erased `dyn Fn` storage
+  requires `Copy` captures. A mutable field, a `Ref`'s among them, is a shared handle whatever it holds. The
   linear search follows each declaration's immutable fields with its
   arguments bound, once per instantiation, so an argument held only in a
   `Ref` leaves the type unrestricted; a declaration that says
@@ -340,8 +341,12 @@ function of the expander has `mut` in its row — and where it does not, the
   linear local, and a second use, or one still live where its scope ends,
   is an error. Alternatives must consume the same values, except those
   that panic or reach `Never`, which never return. It inserts nothing.
-  Only one-shot closures can own linear captures. Records inherit the
-  grade of their immutable fields, and a type variable is linear
+  Concrete repeatable closures may own linear captures and borrow them
+  for each invocation. `FnMut` requires exclusive receiver access. These
+  lexical loans cannot cross control capture, including through a
+  consuming adapter; existing `Copy` closures and consuming `FnOnce`
+  retain their suspension behavior. Records inherit the grade of their
+  immutable fields, and a type variable is linear
   unless its definition requires `(Copy A)`, so each generic body is
   checked once, for every instantiation. A field operation applied to a
   linear local leaves it live, the place rule, and may not read or
@@ -354,6 +359,13 @@ function of the expander has `mut` in its row — and where it does not, the
   generated drop, clone, or share glue. Reserving a name before visiting its
   recipe makes recursive functions and recursive cleanup finite. Imported
   monomorphic definitions retain their signatures and need no local body.
+
+  A callable type preserves its construction identity, calling signature,
+  and capture types. A checked invocation records whether it borrows or
+  consumes the receiver. When an `FnOnce` requirement is instantiated by a
+  shared owner, specialization inserts the call and the owner's cleanup.
+  Explicit `dyn` erasure uses the same consuming adapter when needed.
+  No adapter extends the lifetime of a receiver loan.
 
   `next-definition` consumes one recipe. A method reference becomes the
   instance method its evidence names; an alias such as `(define + i64-add)`
@@ -438,7 +450,7 @@ function of the expander has `mut` in its row — and where it does not, the
   whose second is a nullable dropper, the thunk that drops its linear
   captures, with captured variables in a subtype; a frame saved at a yield
   point is such a closure too, and dropping a `FnOnce` runs its dropper
-  ("Droppers"). An `Fn` is that function reference
+  ("Droppers"). A `fn` is that function reference
   alone, `ref.func` of a top-level function or of a `fn` compiled to a
   function of the same type, and calling one is `call_ref` with the
   caller's evidence. Tail calls become `return_call`. Every
@@ -690,7 +702,7 @@ contracts; finishing orders GC recursion groups and resolves module indices.
 Instantiate the checked control contract before emitting callers. If that
 contract permits escaping control, use the yield protocol even when body
 analysis might prove a more efficient interface. This gives recursive calls
-stable interfaces without another call-graph analysis. `fun` syntax alone
+stable interfaces without another call-graph analysis. Callable syntax alone
 does not establish direct return, and locally handled control still needs
 lowering inside an outwardly direct function.
 
@@ -930,7 +942,7 @@ concrete saved families with the named package boundary, and the worklist
 builds its cases. The worker switches on the case and calls its adapter and
 family dispatcher specialized for the worker's providers. This is the
 selected [queue representation](effects.md#queuing-a-continuation), not an
-implicit universal `Fun` or `Ref`. Unknown runtime-loaded frame kinds are
+implicit universal `Fn` or `Ref`. Unknown runtime-loaded frame kinds are
 outside this ABI; extending a family requires recompiling its consumers.
 
 ### Effect erasure and stored continuations
@@ -1092,7 +1104,7 @@ its `main`. A function the module exports comes out as a `Funcref`, and
 (match (load-module "cell" "build/cell.wasm")
   ((Ok cell)
    (match (module-export cell "cell:run")
-     ((Ok run) ((ann (unsafe-cast run) (-> I64 I64)) 41))
+     ((Ok run) ((ann (unsafe-cast run) (dyn (Fn I64 -> I64))) 41))
      ((Err error) (panic (load-error-message error)))))
   ((Err error) (panic (load-error-message error))))
 ```
@@ -1101,7 +1113,7 @@ its `main`. A function the module exports comes out as a `Funcref`, and
 code casts it to the WebAssembly type of a Snail-Core function of the
 expected type, which takes the evidence first, and calls it with the
 handlers in scope where the closure is called. At an `Fn`, `(ann
-(unsafe-cast run) (Fn I64 I64))`, the cast is the whole value, with no
+(unsafe-cast run) (fn I64 -> I64))`, the cast is the whole value, with no
 closure around it. The cast is the only check: the engine traps when the
 WebAssembly types differ, and nothing compares Snail-Core types, so the
 unsafe assumption is visible where it is made.
@@ -1140,7 +1152,7 @@ declaration of them, and only functions cross. The plugin marks each
 function it offers:
 
 ```scheme
-(: summarize (-> Project Report))
+(: summarize (impl (Fn Project -> Report)))
 (define (summarize project) ...)
 (expose summarize "summarize" dynamic)
 ```
@@ -1150,7 +1162,7 @@ and the program looks it up at the type it expects:
 ```scheme
 (match (load-plugin "build/plugin/modules.json")
   ((Ok plugin)
-   (match (ann (plugin-function plugin "summarize") (Result (-> Project Report) LoadError))
+   (match (ann (plugin-function plugin "summarize") (Result (dyn (Fn Project -> Report)) LoadError))
      ((Ok summarize) (summarize project))
      ((Err error) (panic (load-error-message error)))))
   ((Err error) (panic (load-error-message error))))

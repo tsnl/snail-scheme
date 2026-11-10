@@ -7,7 +7,7 @@
 ;; ownership chapter includes the text between ANCHOR and ANCHOR_END.
 ;; ANCHOR: handle
 (effect log
-  ((say (-> String Unit))))
+  ((say (dyn (Fn String -> Unit)))))
 
 (struct Handle
   ((name String)))
@@ -24,11 +24,11 @@
   (deriving Move))
 
 ;; A generic drop needs the row of what it drops.
-(: release-all (All (A e) (requires (Drop e A)) (-> (List A) Unit ! e)))
+(: release-all (All (A e) (requires (Drop e A)) (impl (Fn (List A) -> Unit ! e))))
 (define (release-all items)
   (drop items))
 
-(: demo (-> Unit ! log))
+(: demo (impl (Fn -> Unit ! log)))
 (define (demo)
   (drop (Handle "one"))
   ;; Glue drops each linear field, in order.

@@ -13,7 +13,7 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
  (snail core base)
  (snail core io))
 
-(: fibonacci (-> I64 I64))
+(: fibonacci (impl (Fn I64 -> I64)))
 (define (fibonacci n)
   (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
 
@@ -103,8 +103,9 @@ they do not require every source operation to use the same punctuation.
 Familiar projection syntax such as `a.b.c` should be considered on its
 own merits, alongside bindings, calls, signatures and callback bodies.
 
-The proposed [callable signatures](types.md#proposed-callable-typeclass)
-use `impl Fun` contracts in place of `->`, with `fun` for definitions.
+The implemented [callable signatures](types.md#callable-classes) use
+`impl` and `dyn` around `Fn`, `FnMut`, or `FnOnce`, with `->` separating
+the result and `!` introducing effects. Definitions continue to use `define`.
 Direct-style suspension remains available: the compiler turns the remaining
 computation into a one-shot callable. Callable contracts expose continuation
 boundaries, including through wrapper calls. A separate checked call-site
@@ -158,19 +159,18 @@ code. Backslash grouping/splitting is available, but explicit lists can
 keep it out of routine examples. Curly infix does not supply conventional
 operator precedence: write `{a + {b * c}}` to state the grouping.
 
-With the proposed `fun` forms, the same definition could be written as:
+With the existing definition form, the same callable could be written as:
 
 ```text
 #lang snail/sweet
-: square impl(Fun(I64 I64))
-fun square(n)
+: square impl(Fn(I64 -> I64))
+define square(n)
   {n * n}
 ```
 
 Its expansion is the parenthesized definition in
-[callable signatures](types.md#proposed-callable-typeclass). Sweet syntax
-only changes how forms are written; `fun` remains a separate language
-change. Dot projection and typed locators also require their own rules;
+[callable signatures](types.md#callable-classes). Sweet syntax
+only changes how forms are written. Dot projection and typed locators also require their own rules;
 adopting this reader does not itself specify field access.
 
 New-file templates should choose sweet syntax, while every source file

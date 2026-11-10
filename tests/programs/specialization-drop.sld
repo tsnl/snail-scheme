@@ -3,12 +3,12 @@
  (snail core io))
 
 (effect Pause
-  ((ctl pause (-> Unit))))
+  ((ctl pause (dyn (Fn -> Unit)))))
 
 (struct Resource
   ((name String)))
 
-(: released-name (-> String String))
+(: released-name (impl (Fn String -> String)))
 (define (released-name name)
   (string-append "released " name))
 
@@ -21,7 +21,7 @@
 ;; No ordinary call requests Resource's Drop method. Only lowering the
 ;; suspended ownership scope discovers it. Its restriction check must see
 ;; released-name's concrete body, discovered in that same cleanup batch.
-(: work (-> String Unit ! Pause console))
+(: work (impl (Fn String -> Unit ! Pause console)))
 (define (work name)
   (let ((resource (Resource name)))
     (pause)

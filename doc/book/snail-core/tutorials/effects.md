@@ -16,7 +16,7 @@ A callback can use fewer effects than its caller has permission to perform.
 This function adds output around an action while preserving the action's row:
 
 ```scheme
-(: announce (All (A e) (-> (-> A ! e) A ! console e)))
+(: announce (All (A e) (impl (Fn (dyn (Fn -> A ! e)) -> A ! console e))))
 (define (announce action)
   (write-line "calling")
   (action))

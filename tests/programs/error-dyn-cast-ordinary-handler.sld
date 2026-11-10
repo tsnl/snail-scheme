@@ -1,6 +1,6 @@
 (import
  (snail core base))
-(effect Ask ((ask (-> I64))))
+(effect Ask ((ask (dyn (Fn -> I64)))))
 (: boxed Any)
 (define boxed 1)
 (handle dyn-cast ((conversion-failed (lambda (_) 0)))

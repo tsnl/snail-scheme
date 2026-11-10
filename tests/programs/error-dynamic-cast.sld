@@ -4,7 +4,8 @@
 
 ;; A plugin's function is looked up at a function type of data, as only
 ;; such a function can be exposed with `dynamic`.
-(: twice (-> Plugin (Result (-> (-> I64 I64) I64 I64) LoadError) ! wasm))
+(: twice
+   (impl (Fn Plugin -> (Result (dyn (Fn (dyn (Fn I64 -> I64)) I64 -> I64)) LoadError) ! wasm)))
 (define (twice plugin)
   (plugin-function plugin "twice"))
 

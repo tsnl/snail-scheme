@@ -2,15 +2,15 @@
  (snail core base)
  (snail core io))
 
-(: adder (-> I64 (-> I64 I64)))
+(: adder (impl (Fn I64 -> (dyn (Fn I64 -> I64)))))
 (define (adder n)
   (lambda (x) (+ x n)))
 
-(: compose (All (A B C) (-> (-> B C) (-> A B) (-> A C))))
+(: compose (All (A B C) (impl (Fn (dyn (Fn B -> C)) (dyn (Fn A -> B)) -> (dyn (Fn A -> C))))))
 (define (compose f g)
   (lambda (x) (f (g x))))
 
-(: count-down (-> I64 I64))
+(: count-down (impl (Fn I64 -> I64)))
 (define (count-down n)
   (let loop ((i n) (total 0))
     (if (= i 0) total (loop (- i 1) (+ total i)))))

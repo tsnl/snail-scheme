@@ -9,18 +9,18 @@
  (siegework colony)
  (siegework simulation))
 
-(: run (-> World I64 World))
+(: run (impl (Fn World I64 -> World)))
 (define (run world ticks)
   (if (= ticks 0) world (run (advance world) (- ticks 1))))
 
-(: order (-> World Action World ! console))
+(: order (impl (Fn World Action -> World ! console)))
 (define (order world action)
   (match (act world action)
     ((Ok world) world)
     ((Err rejection)
      (begin (write-line (string-append "rejected: " (rejection-text rejection))) world))))
 
-(: owner-text (-> World Owner String))
+(: owner-text (impl (Fn World Owner -> String)))
 (define (owner-text world owner)
   (match owner
     ((OfHub) "hub slot")
@@ -31,7 +31,7 @@
                     ","
                     (show (::y (::cell b)))))))
 
-(: task-text (-> World Task String))
+(: task-text (impl (Fn World Task -> String)))
 (define (task-text world task)
   (let ((work (::work task)))
     (string-append (owner-text world (::owner task))
@@ -41,7 +41,7 @@
                    (show (::duration work))
                    (if (::active task) " active" ""))))
 
-(: report (-> World Unit ! console))
+(: report (impl (Fn World -> Unit ! console)))
 (define (report world)
   (write-line
    (string-append "tick " (show (::tick world)) ", energy " (show (::energy world))

@@ -2,16 +2,16 @@
  (snail core base)
  (snail core io))
 
-(: assert (-> Bool Unit))
+(: assert (impl (Fn Bool -> Unit)))
 (define (assert condition)
   (unless condition (panic "conversion probe assertion failed")))
 
-(: input (-> (Ref String) String Any Any ! mut))
+(: input (impl (Fn (Ref String) String Any -> Any ! mut)))
 (define (input trace label value)
   (ref-set! trace (string-append (ref-get trace) label))
   value)
 
-(: text (-> Any String))
+(: text (impl (Fn Any -> String)))
 (define (text value)
   (match (try-convert value String)
     ((Ok value) (string-append "text: " value))
@@ -65,12 +65,12 @@
 
 ;; A right-hand abort still happens after a failed left probe. Ownership
 ;; sees that exit and releases the surrounding resource before handling it.
-(effect Stop ((ctl stop (-> Never))))
+(effect Stop ((ctl stop (dyn (Fn -> Never)))))
 (struct Resource
   ())
 (instance (Drop (! console) Resource)
   (define (drop resource) (match resource ((Resource) (write-line "released")))))
-(: right (-> (Ref String) Any ! mut Stop))
+(: right (impl (Fn (Ref String) -> Any ! mut Stop)))
 (define (right trace)
   (ref-set! trace (string-append (ref-get trace) "R"))
   (absurd (stop)))

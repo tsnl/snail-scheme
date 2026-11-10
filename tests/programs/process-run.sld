@@ -6,19 +6,19 @@
 
 ;; `run` takes a command to its end, with no task to wait in: the input goes
 ;; in, and how it ended and both outputs come back.
-(: text (-> Bytes String))
+(: text (impl (Fn Bytes -> String)))
 (define (text bytes)
   (match (utf8->string bytes)
     ((Ok text) text)
     ((Err _) (panic "the output is not UTF-8"))))
 
-(: exit-text (-> Exit String))
+(: exit-text (impl (Fn Exit -> String)))
 (define (exit-text exit)
   (match exit
     ((Exited code) (string-append "exited " (show code)))
     ((Signaled name) (string-append "signaled " name))))
 
-(: report (-> (Result Captured ProcessError) Unit ! console))
+(: report (impl (Fn (Result Captured ProcessError) -> Unit ! console)))
 (define (report result)
   (match result
     ((Ok captured)

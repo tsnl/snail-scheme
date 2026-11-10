@@ -5,9 +5,9 @@
 ;; function parameter.
 (struct Job
   ((name String)
-   (run (-> I64 I64))))
+   (run (dyn (Fn I64 -> I64)))))
 
-(: job-name (-> Job String))
+(: job-name (impl (Fn Job -> String)))
 (define (job-name job)
   (::name job))
 

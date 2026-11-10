@@ -4,7 +4,7 @@
 
 ;; Two class parameters, chosen together.
 (typeclass (Convert A B)
-  (: convert (-> A B)))
+  (: convert (impl (Fn A -> B))))
 
 (instance (Convert I64 String)
   (define (convert n) (string-append "#" (show n))))
@@ -14,7 +14,7 @@
 
 ;; A method with a type variable of its own.
 (typeclass (Collection C)
-  (: collect (All (A) (-> C (-> I64 A) (List A)))))
+  (: collect (All (A) (impl (Fn C (dyn (Fn I64 -> A)) -> (List A))))))
 
 (struct Range
   ((start I64)
@@ -27,7 +27,7 @@
               (iota (- (::end range) (::start range)))))))
 
 ;; A generic function whose requirements pass evidence on.
-(: describe-all (All (C) (requires (Collection C)) (-> C (List String))))
+(: describe-all (All (C) (requires (Collection C)) (impl (Fn C -> (List String)))))
 (define (describe-all collection)
   (collect collection (lambda (n) (ann (convert n) String))))
 

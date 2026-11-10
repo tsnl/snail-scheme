@@ -5,6 +5,6 @@
   ((number I64))
   (deriving Move))
 
-(: escape (-> (Borrow Token) (Borrow Token)))
+(: escape (impl (Fn (Borrow Token) -> (Borrow Token))))
 (define (escape borrowed)
   borrowed)

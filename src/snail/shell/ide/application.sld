@@ -32,8 +32,8 @@
    (prefix (snail shell ui shortcuts) shortcut-))
   (begin
     (struct Command
-      ((work (FnOnce CommandResult ! tasks dom fetch))
-       (interrupted (-> Ide Step))))
+      ((work (dyn (FnOnce -> CommandResult ! tasks dom fetch)))
+       (interrupted (dyn (Fn Ide -> Step)))))
 
     ;; ---- Text ----
 
@@ -42,18 +42,18 @@
     (: newline-text String)
     (define newline-text (make-string 1 #\newline))
 
-    (: starts-with? (-> String String Bool))
+    (: starts-with? (impl (Fn String String -> Bool)))
     (define (starts-with? text prefix)
       (and (>= (string-length text) (string-length prefix))
            (string=? (substring text 0 (string-length prefix)) prefix)))
 
-    (: ends-with? (-> String String Bool))
+    (: ends-with? (impl (Fn String String -> Bool)))
     (define (ends-with? text suffix)
       (let ((length (string-length text)) (size (string-length suffix)))
         (and (>= length size) (string=? (substring text (- length size) length) suffix))))
 
     ;; The last newline at or before `index`, or -1.
-    (: newline-before (-> String I64 I64))
+    (: newline-before (impl (Fn String I64 -> I64)))
     (define (newline-before text index)
       (let loop ((at (min index (- (string-length text) 1))))
         (cond ((< at 0) -1)
@@ -61,12 +61,12 @@
               (else (loop (- at 1))))))
 
     ;; Where the line holding `index` starts.
-    (: line-start (-> String I64 I64))
+    (: line-start (impl (Fn String I64 -> I64)))
     (define (line-start text index)
       (+ (newline-before text (- index 1)) 1))
 
     ;; Where the line holding `index` ends: its newline, or the text's end.
-    (: line-end (-> String I64 I64))
+    (: line-end (impl (Fn String I64 -> I64)))
     (define (line-end text index)
       (let loop ((at (max index 0)))
         (cond ((>= at (string-length text)) (string-length text))
@@ -74,7 +74,7 @@
               (else (loop (+ at 1))))))
 
     ;; Where line `line`, counting from 1, starts, or the text's end.
-    (: line-offset (-> String I64 I64))
+    (: line-offset (impl (Fn String I64 -> I64)))
     (define (line-offset text line)
       (let loop ((offset 0) (number 1))
         (if (>= number line)
@@ -83,31 +83,31 @@
               (if (>= end (string-length text)) end (loop (+ end 1) (+ number 1)))))))
 
     ;; The newlines from `from` up to `to`.
-    (: count-lines (-> String I64 I64 I64))
+    (: count-lines (impl (Fn String I64 I64 -> I64)))
     (define (count-lines text from to)
       (let loop ((at from) (count 0))
         (cond ((>= at to) count)
               ((char=? (string-ref text at) #\newline) (loop (+ at 1) (+ count 1)))
               (else (loop (+ at 1) count)))))
 
-    (: blank? (-> Char Bool))
+    (: blank? (impl (Fn Char -> Bool)))
     (define (blank? char)
       (or (char=? char #\space) (char=? char #\tab)))
 
     ;; How many spaces and tabs run from `index`.
-    (: indentation (-> String I64 I64))
+    (: indentation (impl (Fn String I64 -> I64)))
     (define (indentation text index)
       (let loop ((at index))
         (if (and (< at (string-length text)) (blank? (string-ref text at)))
             (loop (+ at 1))
             (- at index))))
 
-    (: spaces (-> I64 String))
+    (: spaces (impl (Fn I64 -> String)))
     (define (spaces count)
       (make-string count #\space))
 
     ;; The lines of a text, without their newlines.
-    (: lines-of (-> String (List String)))
+    (: lines-of (impl (Fn String -> (List String))))
     (define (lines-of text)
       (let loop ((end (string-length text)) (index (- (string-length text) 1)) (lines (Nil)))
         (cond ((< index 0) (Cons (substring text 0 end) lines))
@@ -116,13 +116,13 @@
               (else (loop end (- index 1) lines)))))
 
     ;; Lines `first` to `last` of a text, counting from 0, as one text.
-    (: lines-between (-> String I64 I64 String))
+    (: lines-between (impl (Fn String I64 I64 -> String)))
     (define (lines-between text first last)
       (string-join (take (list-tail (lines-of text) first) (+ (- last first) 1)) newline-text))
 
     ;; The text a field shows, which keeps only newlines of a file's line
     ;; ends.
-    (: display-text (-> String String))
+    (: display-text (impl (Fn String -> String)))
     (define (display-text text)
       (match (string-index text #\return)
         ((Some _)
@@ -135,7 +135,7 @@
         ((None) text)))
 
     ;; The length of the longest line.
-    (: longest-line (-> String I64))
+    (: longest-line (impl (Fn String -> I64)))
     (define (longest-line text)
       (let loop ((at 0) (longest 0))
         (if (> at (string-length text))
@@ -156,7 +156,7 @@
 
     ;; Makes the change in the field, so the page can undo it, and answers
     ;; whether the field took it; one it did not take leaves the selection.
-    (: apply-change (-> Node Change Bool ! dom))
+    (: apply-change (impl (Fn Node Change -> Bool ! dom)))
     (define (apply-change field change)
       (let ((taken (or (and (= (::start change) (::end change))
                             (string=? (::text change) ""))
@@ -174,7 +174,7 @@
     ;; a last one it only reaches the start of. As in Emacs, a caret in the
     ;; indentation moves to the line's first character, and a caret in the
     ;; text stays with it; a selection then selects the lines.
-    (: indent-change (-> String I64 I64 Change))
+    (: indent-change (impl (Fn String I64 I64 -> Change)))
     (define (indent-change text from selected-to)
       (let* ((to
               (if (and (> selected-to from) (char=? (string-ref text (- selected-to 1)) #\newline))
@@ -197,7 +197,7 @@
     ;; The lines from `start` to `end` reindented. The formatter reads them
     ;; from the start of their top-level form; a blank line holding the caret
     ;; gets the indentation it would have with something on it.
-    (: reindented (-> String I64 I64 I64 I64 String))
+    (: reindented (impl (Fn String I64 I64 I64 I64 -> String)))
     (define (reindented text from to start end)
       (if (and (= from to) (= (indentation text start) (- end start)))
           (spaces (line-indentation text start))
@@ -208,7 +208,7 @@
 
     ;; The column the line at `start` would be indented to, found by putting
     ;; a placeholder on it, since a formatted blank line stays empty.
-    (: line-indentation (-> String I64 I64))
+    (: line-indentation (impl (Fn String I64 -> I64)))
     (define (line-indentation text start)
       (let* ((placed (string-append (substring text 0 start)
                                     "x"
@@ -224,13 +224,13 @@
     ;; Emacs takes a top-level form to start at a line that opens a list in
     ;; its first column, looking above the line it indents, so that line may
     ;; belong to the form before it.
-    (: form-start (-> String I64 I64))
+    (: form-start (impl (Fn String I64 -> I64)))
     (define (form-start text start)
       (if (> start 0) (top-level-start text (line-start text (- start 1))) 0))
 
     ;; The start of the line at or above `start` that opens a list in its
     ;; first column, or of the text.
-    (: top-level-start (-> String I64 I64))
+    (: top-level-start (impl (Fn String I64 -> I64)))
     (define (top-level-start text start)
       (if (or (= start 0) (and (< start (string-length text)) (char=? (string-ref text start) #\()))
           start
@@ -239,7 +239,7 @@
     ;; Enter starts a new line indented for what follows the caret, and, as
     ;; Emacs's electric indentation does, drops the spaces it leaves at the
     ;; end of the line before.
-    (: newline-change (-> String I64 I64 Change))
+    (: newline-change (impl (Fn String I64 I64 -> Change)))
     (define (newline-change text from to)
       (let* ((start (trailing-start text from))
              (skip (indentation text to))
@@ -251,7 +251,7 @@
         (Change start (+ to skip) (string-append newline-text (spaces indent)) caret caret)))
 
     ;; Where the spaces and tabs just before `index` start.
-    (: trailing-start (-> String I64 I64))
+    (: trailing-start (impl (Fn String I64 -> I64)))
     (define (trailing-start text index)
       (if (and (> index 0) (blank? (string-ref text (- index 1))))
           (trailing-start text (- index 1))
@@ -259,7 +259,7 @@
 
     ;; Formatting replaces only what changed, and the caret keeps its line and
     ;; its place after the line's indentation.
-    (: format-change (-> String String I64 Change))
+    (: format-change (impl (Fn String String I64 -> Change)))
     (define (format-change text formatted caret)
       (let* ((line (count-lines text 0 caret))
              (start (line-start text caret))
@@ -277,7 +277,7 @@
 
     ;; How many scalars two texts share at their start, and then, of what
     ;; follows that, at their end.
-    (: shared-prefix (-> String String I64))
+    (: shared-prefix (impl (Fn String String -> I64)))
     (define (shared-prefix a b)
       (let loop ((at 0))
         (if (and (< at (string-length a))
@@ -286,7 +286,7 @@
             (loop (+ at 1))
             at)))
 
-    (: shared-suffix (-> String String I64 I64))
+    (: shared-suffix (impl (Fn String String I64 -> I64)))
     (define (shared-suffix a b prefix)
       (let loop ((count 0))
         (if (and (< count (- (string-length a) prefix))
@@ -313,19 +313,19 @@
        (problem String)
        (failure String)))
 
-    (: new-buffer (-> String Buffer))
+    (: new-buffer (impl (Fn String -> Buffer)))
     (define (new-buffer path)
       (Buffer path "" (None) (None) #f 0 "" ""))
 
     ;; The draft has changes of its own.
-    (: dirty? (-> Buffer Bool))
+    (: dirty? (impl (Fn Buffer -> Bool)))
     (define (dirty? buffer)
       (match (::baseline buffer)
         ((Some baseline) (not (string=? (::text buffer) (::text baseline))))
         ((None) #f)))
 
     ;; Disk has moved on from the contents the draft was made from.
-    (: conflict? (-> Buffer Bool))
+    (: conflict? (impl (Fn Buffer -> Bool)))
     (define (conflict? buffer)
       (match (Pair (::baseline buffer) (::observed buffer))
         ((Pair (Some baseline) (Some revision))
@@ -333,7 +333,7 @@
         ((Pair (Some _) (None)) #t)
         (_ #f)))
 
-    (: loaded? (-> Buffer Bool))
+    (: loaded? (impl (Fn Buffer -> Bool)))
     (define (loaded? buffer)
       (match (::baseline buffer)
         ((Some _) #t)
@@ -341,7 +341,7 @@
 
     ;; The compiler reads Scheme sources, which the editor indents, formats
     ;; and colors.
-    (: source-file? (-> String Bool))
+    (: source-file? (impl (Fn String -> Bool)))
     (define (source-file? path)
       (any? (lambda (extension) (ends-with? path extension)) (list ".sld" ".scm" ".datum")))
 
@@ -368,14 +368,14 @@
               (second Layout)))
       (deriving Serialize Deserialize))
 
-    (: leaf? (-> Layout I64 Bool))
+    (: leaf? (impl (Fn Layout I64 -> Bool)))
     (define (leaf? layout pane)
       (match layout
         ((Leaf id) (= id pane))
         (_ #f)))
 
     ;; The layout with the leaf of `pane` replaced by `replacement`.
-    (: leaf-replaced (-> Layout I64 Layout Layout))
+    (: leaf-replaced (impl (Fn Layout I64 Layout -> Layout)))
     (define (leaf-replaced layout pane replacement)
       (match layout
         ((Leaf id) (if (= id pane) replacement layout))
@@ -387,7 +387,7 @@
                 (leaf-replaced second pane replacement)))))
 
     ;; The node beside the leaf of `pane` in its split, if it is in one.
-    (: sibling (-> Layout I64 (Option Layout)))
+    (: sibling (impl (Fn Layout I64 -> (Option Layout))))
     (define (sibling layout pane)
       (match layout
         ((Leaf _) (None))
@@ -399,7 +399,7 @@
                        ((None) (sibling second pane))))))))
 
     ;; The layout without the leaf of `pane`, its sibling in its split's place.
-    (: without-leaf (-> Layout I64 Layout))
+    (: without-leaf (impl (Fn Layout I64 -> Layout)))
     (define (without-leaf layout pane)
       (match layout
         ((Leaf _) layout)
@@ -409,7 +409,7 @@
                (else
                 (Split id direction ratio (without-leaf first pane) (without-leaf second pane)))))))
 
-    (: first-leaf (-> Layout I64))
+    (: first-leaf (impl (Fn Layout -> I64)))
     (define (first-leaf layout)
       (match layout
         ((Leaf id) id)
@@ -429,7 +429,7 @@
       (Area 0.0 0.0 1.0 1.0))
 
     ;; The two parts of `area` a split in `direction` at `ratio` makes.
-    (: halves (-> Area String F64 (Pair Area Area)))
+    (: halves (impl (Fn Area String F64 -> (Pair Area Area))))
     (define (halves area direction ratio)
       (if (string=? direction "column")
           (let ((first (* (::height area) ratio)))
@@ -446,7 +446,7 @@
                         (::height area))))))
 
     ;; Each pane's part of `area`, by the pane's id.
-    (: pane-areas (-> Layout Area (List (Pair I64 Area))))
+    (: pane-areas (impl (Fn Layout Area -> (List (Pair I64 Area)))))
     (define (pane-areas layout area)
       (match layout
         ((Leaf id) (list (Pair id area)))
@@ -462,7 +462,7 @@
        (ratio F64)
        (area Area)))
 
-    (: divisions (-> Layout Area (List Division)))
+    (: divisions (impl (Fn Layout Area -> (List Division))))
     (define (divisions layout area)
       (match layout
         ((Leaf _) (Nil))
@@ -472,13 +472,13 @@
             (Cons (Division id direction ratio area)
                   (append (divisions first one) (divisions second other))))))))
 
-    (: division-of (-> Layout I64 (Option Division)))
+    (: division-of (impl (Fn Layout I64 -> (Option Division))))
     (define (division-of layout split)
       (find (lambda (division) (= (::split division) split)) (divisions layout whole)))
 
     ;; The layout with split `split` dividing at `ratio`, kept to a tenth of
     ;; the room either side.
-    (: ratio-set (-> Layout I64 F64 Layout))
+    (: ratio-set (impl (Fn Layout I64 F64 -> Layout)))
     (define (ratio-set layout split ratio)
       (match layout
         ((Leaf _) layout)
@@ -491,11 +491,11 @@
                     (ratio-set first split ratio)
                     (ratio-set second split ratio))))))
 
-    (: field-id (-> I64 String))
+    (: field-id (impl (Fn I64 -> String)))
     (define (field-id pane)
       (string-append "text-" (show pane)))
 
-    (: scroller-id (-> I64 String))
+    (: scroller-id (impl (Fn I64 -> String)))
     (define (scroller-id pane)
       (string-append "editor-" (show pane)))
 
@@ -517,7 +517,7 @@
        (source (Option Point))
        (observation Observation)))
 
-    (: diagnostic-of (-> Report Diagnostic))
+    (: diagnostic-of (impl (Fn Report -> Diagnostic)))
     (define (diagnostic-of report)
       (Diagnostic (::severity report)
                   (::message report)
@@ -532,7 +532,7 @@
        (state String)
        (attempt String)))
 
-    (: compiler-status (-> Build Status))
+    (: compiler-status (impl (Fn Build -> Status)))
     (define (compiler-status build)
       (let ((phase (::phase build)))
         (Status (cond ((string=? phase "starting") "Starting the compiler…")
@@ -557,11 +557,11 @@
        (problem String)))
 
     ;; Keep the selected run while it remains in the complete server snapshot.
-    (: runs-received (-> Runs (List Run) Runs))
+    (: runs-received (impl (Fn Runs (List Run) -> Runs)))
     (define (runs-received runs list)
       (Runs-selected-set (Runs-runs-set runs list) (chosen list (::selected runs))))
 
-    (: chosen (-> (List Run) String String))
+    (: chosen (impl (Fn (List Run) String -> String)))
     (define (chosen runs selected)
       (if (any? (lambda (run) (string=? (::target run) selected)) runs)
           selected
@@ -571,12 +571,12 @@
                       ((Cons run _) (::target run))
                       ((Nil) ""))))))
 
-    (: selected-run (-> Runs (Option Run)))
+    (: selected-run (impl (Fn Runs -> (Option Run))))
     (define (selected-run runs)
       (find (lambda (run) (string=? (::target run) (::selected runs))) (::runs runs)))
 
     ;; What was asked of a run and what was seen of it.
-    (: run-description (-> (Option Run) String))
+    (: run-description (impl (Fn (Option Run) -> String)))
     (define (run-description found)
       (match found
         ((Some run)
@@ -591,7 +591,7 @@
                           ((None) "no process"))))
         ((None) "No run targets")))
 
-    (: attempt-description (-> Attempt String))
+    (: attempt-description (impl (Fn Attempt -> String)))
     (define (attempt-description attempt)
       (string-append (::phase attempt)
                      ", build "
@@ -702,12 +702,12 @@
            ""
            #f))
 
-    (: buffer-at (-> Ide String (Option Buffer)))
+    (: buffer-at (impl (Fn Ide String -> (Option Buffer))))
     (define (buffer-at model path)
       (find (lambda (buffer) (string=? (::path buffer) path)) (::buffers model)))
 
     ;; The model with `buffer` in place of the one at its path, or added.
-    (: buffer-set (-> Ide Buffer Ide))
+    (: buffer-set (impl (Fn Ide Buffer -> Ide)))
     (define (buffer-set model buffer)
       (let ((path (::path buffer)))
         (Ide-buffers-set model
@@ -718,7 +718,7 @@
                            ((None) (append (::buffers model) (list buffer)))))))
 
     ;; Remove a buffer and every tab that refers to it, choosing adjacent tabs.
-    (: buffer-removed (-> Ide String Ide))
+    (: buffer-removed (impl (Fn Ide String -> Ide)))
     (define (buffer-removed model path)
       (Ide-panes-set (Ide-buffers-set model
                                       (filter
@@ -728,20 +728,20 @@
                             (pane-closed pane path))
                           (::panes model))))
 
-    (: shows? (-> EditorPane String Bool))
+    (: shows? (impl (Fn EditorPane String -> Bool)))
     (define (shows? pane path)
       (match (::path pane)
         ((Some shown) (string=? shown path))
         ((None) #f)))
 
-    (: pane-opening (-> EditorPane String EditorPane))
+    (: pane-opening (impl (Fn EditorPane String -> EditorPane)))
     (define (pane-opening pane path)
       (if (shows? pane path) pane
           (EditorPane (::id pane) (Some path) 0.0
                       (if (member? path (::tabs pane)) (::tabs pane)
                           (append (::tabs pane) (list path))))))
 
-    (: pane-closed (-> EditorPane String EditorPane))
+    (: pane-closed (impl (Fn EditorPane String -> EditorPane)))
     (define (pane-closed pane path)
       (let ((tabs (filter (lambda (other) (not (string=? other path))) (::tabs pane))))
         (if (shows? pane path)
@@ -751,7 +751,7 @@
                         tabs)
             (EditorPane-tabs-set pane tabs))))
 
-    (: tab-after-closing (-> (List String) String (Option String) (Option String)))
+    (: tab-after-closing (impl (Fn (List String) String (Option String) -> (Option String))))
     (define (tab-after-closing tabs path previous)
       (match tabs
         ((Nil) previous)
@@ -760,30 +760,30 @@
              (match rest ((Cons next _) (Some next)) ((Nil) previous))
              (tab-after-closing rest path (Some first))))))
 
-    (: pane-of (-> Ide I64 EditorPane))
+    (: pane-of (impl (Fn Ide I64 -> EditorPane)))
     (define (pane-of model id)
       (match (find (lambda (pane) (= (::id pane) id)) (::panes model))
         ((Some pane) pane)
         ((None) (EditorPane id (None) 0.0 (Nil)))))
 
-    (: pane-set (-> Ide EditorPane Ide))
+    (: pane-set (impl (Fn Ide EditorPane -> Ide)))
     (define (pane-set model changed)
       (Ide-panes-set model
                      (map (lambda (pane) (if (= (::id pane) (::id changed)) changed pane))
                           (::panes model))))
 
-    (: pane-buffer (-> Ide I64 (Option Buffer)))
+    (: pane-buffer (impl (Fn Ide I64 -> (Option Buffer))))
     (define (pane-buffer model id)
       (match (::path (pane-of model id))
         ((Some path) (buffer-at model path))
         ((None) (None))))
 
-    (: active-buffer (-> Ide (Option Buffer)))
+    (: active-buffer (impl (Fn Ide -> (Option Buffer))))
     (define (active-buffer model)
       (pane-buffer model (::active model)))
 
     ;; The active pane shows the file at `path`.
-    (: showing? (-> Ide I64 String Bool))
+    (: showing? (impl (Fn Ide I64 String -> Bool)))
     (define (showing? model pane path)
       (and (= pane (::active model))
            (shows? (pane-of model pane) path)
@@ -794,7 +794,7 @@
     ;; The project file a diagnostic's point is in, when it names one of the
     ;; project's files. Generated scratch and library sources stay messages,
     ;; never mapped onto a project file.
-    (: source-path (-> Project (Option Point) (Option String)))
+    (: source-path (impl (Fn Project (Option Point) -> (Option String))))
     (define (source-path project source)
       (match source
         ((Some point)
@@ -809,7 +809,7 @@
         ((None) (None))))
 
     ;; The index of the first diagnostic at the file at `path`.
-    (: diagnostic-index (-> Ide String (Option I64)))
+    (: diagnostic-index (impl (Fn Ide String -> (Option I64))))
     (define (diagnostic-index model path)
       (list-index (lambda (diagnostic)
                     (match (source-path (::project model) (::source diagnostic))
@@ -817,13 +817,13 @@
                       ((None) #f)))
                   (::diagnostics model)))
 
-    (: observation-at (-> Ide (Option I64) Observation))
+    (: observation-at (impl (Fn Ide (Option I64) -> Observation)))
     (define (observation-at model index)
       (match index
         ((Some at) (::observation (list-ref (::diagnostics model) at)))
         ((None) (Unobserved))))
 
-    (: observation-set (-> Ide I64 Observation Ide))
+    (: observation-set (impl (Fn Ide I64 Observation -> Ide)))
     (define (observation-set model index observation)
       (Ide-diagnostics-set model
                            (map-indexed (lambda (at diagnostic)
@@ -835,7 +835,7 @@
     ;; The diagnostic whose point a pane showing the buffer marks: only while
     ;; the buffer is its disk contents, and only when the buffer's latest read
     ;; confirmed the revision the diagnostic was made from.
-    (: marked (-> Ide Buffer (Option Diagnostic)))
+    (: marked (impl (Fn Ide Buffer -> (Option Diagnostic))))
     (define (marked model buffer)
       (match (Pair (::baseline buffer) (diagnostic-index model (::path buffer)))
         ((Pair (Some baseline) (Some index))
@@ -851,7 +851,7 @@
              (_ (None)))))
         (_ (None))))
 
-    (: failed-status (-> Ide String Status))
+    (: failed-status (impl (Fn Ide String -> Status)))
     (define (failed-status model message)
       (Status message "failed" (::attempt (::status model))))
 
@@ -893,15 +893,15 @@
       (Control ((action String))))
 
     (struct CommandResult
-      ((accept (FnOnce (-> Ide Step)))))
+      ((accept (dyn (FnOnce -> (dyn (Fn Ide -> Step)))))))
 
-    ;; The current FnOnce constructor takes a nullary thunk. Keep the
-    ;; transition linear and unwrap it only at the point it is applied.
-    (: command-result (-> (-> Ide Step) CommandResult))
+    ;; A command owns its transition in a one-shot thunk and unwraps it
+    ;; only at the point it is applied to the current editor state.
+    (: command-result (impl (Fn (dyn (Fn Ide -> Step)) -> CommandResult)))
     (define (command-result transition)
       (CommandResult (once (lambda () transition))))
 
-    (: apply-result (-> CommandResult Ide Step))
+    (: apply-result (impl (Fn CommandResult Ide -> Step)))
     (define (apply-result result ide)
       (match result
         ((CommandResult accept)
@@ -915,7 +915,7 @@
     ;; shareable; the session itself cannot be copied or checkpointed.
     (struct PendingCommand
       ((future (Future CommandResult))
-       (interrupted (-> Ide Step))))
+       (interrupted (dyn (Fn Ide -> Step)))))
 
     (struct Session
       ((ide Ide)
@@ -925,26 +925,26 @@
     (define interrupted-request
       (Failure 0 "Request interrupted; its server-side outcome may be unknown."))
 
-    (: begin-session (-> Ide Session))
+    (: begin-session (impl (Fn Ide -> Session)))
     (define (begin-session ide)
       (Session ide (Nil)))
 
-    (: session-view (-> (Borrow Session) (Html Msg)))
+    (: session-view (impl (Fn (Borrow Session) -> (Html Msg))))
     (define (session-view session)
       (view (::ide session)))
 
-    (: session-window (-> (Borrow Session) (List (Attribute Msg))))
+    (: session-window (impl (Fn (Borrow Session) -> (List (Attribute Msg)))))
     (define (session-window session)
       (window (::ide session)))
 
-    (: session-snapshot (-> (Borrow Session) TabbedRecovery))
+    (: session-snapshot (impl (Fn (Borrow Session) -> TabbedRecovery)))
     (define (session-snapshot session)
       (kept (::ide session)))
 
     ;; Input invalidates old intentions before any result is accepted. Only
     ;; futures present on entry are polled: work spawned by a result waits
     ;; until a later turn, even if it could complete immediately.
-    (: update-session (-> Session (Option Msg) Session ! mut completion dom fetch))
+    (: update-session (impl (Fn Session (Option Msg) -> Session ! mut completion dom fetch)))
     (define (update-session session message)
       (match session
         ((Session ide pending)
@@ -952,7 +952,7 @@
            ((Pair next commands) (collect-results next pending (dispatch-commands commands)))))))
 
     (: dispatch-commands
-       (-> (List Command) (List PendingCommand) ! mut completion dom fetch))
+       (impl (Fn (List Command) -> (List PendingCommand) ! mut completion dom fetch)))
     (define (dispatch-commands commands)
       (match commands
         ((Nil) (Nil))
@@ -960,7 +960,8 @@
          (Cons (PendingCommand (async-dispatch work) interrupted) (dispatch-commands rest)))))
 
     (: collect-results
-       (-> Ide (List PendingCommand) (List PendingCommand) Session ! mut completion dom fetch))
+       (impl
+        (Fn Ide (List PendingCommand) (List PendingCommand) -> Session ! mut completion dom fetch)))
     (define (collect-results ide pending waiting)
       (match pending
         ((Nil) (Session ide waiting))
@@ -973,29 +974,29 @@
            ((Ready (Abandoned))
             (continue-results (interrupted ide) rest waiting))))))
 
-    (: continue-results (-> Step (List PendingCommand) (List PendingCommand) Session
-                            ! mut completion dom fetch))
+    (: continue-results (impl (Fn Step (List PendingCommand) (List PendingCommand) -> Session
+                                  ! mut completion dom fetch)))
     (define (continue-results step rest waiting)
       (match (then step reconcile-palette)
         ((Pair next commands)
          (collect-results next rest (append waiting (dispatch-commands commands))))))
 
-    (: stay (-> Ide Step))
+    (: stay (impl (Fn Ide -> Step)))
     (define (stay model)
       (Pair model (Nil)))
 
-    (: then (-> Step (-> Ide Step) Step))
+    (: then (impl (Fn Step (dyn (Fn Ide -> Step)) -> Step)))
     (define (then step next)
       (match step
         ((Pair model commands)
          (match (next model)
            ((Pair after more) (Pair after (append commands more)))))))
 
-    (: update (-> Ide Msg Step))
+    (: update (impl (Fn Ide Msg -> Step)))
     (define (update model message)
       (then (update-message model message) reconcile-palette))
 
-    (: update-message (-> Ide Msg Step))
+    (: update-message (impl (Fn Ide Msg -> Step)))
     (define (update-message model message)
       (match message
         ((Boot)
@@ -1036,29 +1037,29 @@
         ((Choose target) (stay (Ide-runs-set model (Runs-selected-set (::runs model) target))))
         ((Control action) (controlling model action))))
 
-    (: booted (-> Ide String Step))
+    (: booted (impl (Fn Ide String -> Step)))
     (define (booted model generation)
       (refresh-if-needed (if (string=? (::editor model) "")
                              (Ide-editor-set model generation) model)))
 
-    (: connected (-> Ide Stream Step))
+    (: connected (impl (Fn Ide Stream -> Step)))
     (define (connected model stream)
       (Pair (Ide-events-set model (Some stream)) (list (hear stream))))
 
-    (: stream-heard (-> Ide Stream StreamEvent Step))
+    (: stream-heard (impl (Fn Ide Stream StreamEvent -> Step)))
     (define (stream-heard model stream event)
       (if (current-stream? model stream) (heard model stream event) (stay model)))
 
-    (: refused (-> Ide Failure Step))
+    (: refused (impl (Fn Ide Failure -> Step)))
     (define (refused model failure)
       (stay (Ide-status-set model (failed-status model (::message failure)))))
 
-    (: fullscreen-finished (-> Ide Bool Step))
+    (: fullscreen-finished (impl (Fn Ide Bool -> Step)))
     (define (fullscreen-finished model accepted)
       (if accepted (stay model)
           (notice model "Fullscreen needs an explicit click or is unavailable in this browser.")))
 
-    (: began-drag (-> Ide Drag Step))
+    (: began-drag (impl (Fn Ide Drag -> Step)))
     (define (began-drag model drag)
       (stay (Ide-drag-set model (Some drag))))
 
@@ -1072,7 +1073,7 @@
 
     ;; Connecting closes the stream before, so none of its events, sent or
     ;; not, is heard again.
-    (: connecting (-> Ide Step))
+    (: connecting (impl (Fn Ide -> Step)))
     (define (connecting model)
       (let ((old (::events model)))
         (Pair (Ide-status-set (Ide-events-set model (None))
@@ -1086,7 +1087,7 @@
                                         (lambda (current) (connected current stream))))))
                              stay)))))
 
-    (: hear (-> Stream Command))
+    (: hear (impl (Fn Stream -> Command)))
     (define (hear stream)
       (Command (once (lambda ()
                        (match (stream-next stream)
@@ -1094,7 +1095,7 @@
                           (command-result (lambda (current) (stream-heard current stream event))))
                          ((None) (command-result stay))))) stay))
 
-    (: current-stream? (-> Ide Stream Bool))
+    (: current-stream? (impl (Fn Ide Stream -> Bool)))
     (define (current-stream? model stream)
       (match (::events model)
         ((Some current) (= (::id current) (::id stream)))
@@ -1104,7 +1105,7 @@
     ;; and listings. Their new intent numbers reject delayed old replies.
     ;; The next event is heard after this one. Bad messages leave the last
     ;; complete snapshot intact and make the protocol failure visible.
-    (: heard (-> Ide Stream StreamEvent Step))
+    (: heard (impl (Fn Ide Stream StreamEvent -> Step)))
     (define (heard model stream event)
       (then (Pair model (list (hear stream)))
             (lambda (model)
@@ -1120,14 +1121,14 @@
                                            (failed-status model
                                                           "Connection lost; reconnecting…"))))))))
 
-    (: reconnected (-> Ide Step))
+    (: reconnected (impl (Fn Ide -> Step)))
     (define (reconnected model)
       (then (listing model) (lambda (model) (palette-message model (palette-Reconnected)))))
 
     ;; The stream is ordered and reconnection starts with a complete snapshot.
     ;; Only a new build report resets diagnostic evidence; process output and
     ;; repeated snapshots cannot revive a diagnostic invalidated by a save.
-    (: received (-> Ide ServerState Step))
+    (: received (impl (Fn Ide ServerState -> Step)))
     (define (received model state)
       (let* ((old (::server model))
              (new-server (match old
@@ -1154,7 +1155,7 @@
               ((and fresh (not (null? (::diagnostics model)))) (reading-all model))
               (else (stay model)))))
 
-    (: received-build (-> Ide Build Bool Ide))
+    (: received-build (impl (Fn Ide Build Bool -> Ide)))
     (define (received-build model build fresh)
       (Ide-status-set
        (if fresh
@@ -1166,7 +1167,7 @@
     ;; A successful server generation is the only reason to auto-refresh.
     ;; Record the attempted generation so a storage refusal does not retry on
     ;; every process-output event. The explicit command can retry at any time.
-    (: refresh-if-needed (-> Ide Step))
+    (: refresh-if-needed (impl (Fn Ide -> Step)))
     (define (refresh-if-needed model)
       (match (::server model)
         ((Some state)
@@ -1181,7 +1182,7 @@
                (else (stay model))))
         ((None) (stay model))))
 
-    (: refreshing (-> Ide Step))
+    (: refreshing (impl (Fn Ide -> Step)))
     (define (refreshing model)
       (Pair (Ide-refreshing-set model #t)
             (list (Command (once (lambda () (refresh-page) (command-result stay)))
@@ -1190,7 +1191,7 @@
     ;; ---- Files ----
 
     ;; Files changed: every open buffer is read again, and the project listed.
-    (: listing (-> Ide Step))
+    (: listing (impl (Fn Ide -> Step)))
     (define (listing model)
       (let ((sequence (+ (::listing model) 1)))
         (then (reading-all (Ide-listing-set model sequence))
@@ -1208,7 +1209,7 @@
 
     ;; Only the latest listing counts. The first nonempty project listing
     ;; opens main.sld or its first file; explicit closes never reopen a file.
-    (: listed (-> Ide I64 (Result Project Failure) Step))
+    (: listed (impl (Fn Ide I64 (Result Project Failure) -> Step)))
     (define (listed model sequence result)
       (if (= sequence (::listing model))
           (match result
@@ -1229,7 +1230,7 @@
     ;; Opening shows the file's buffer in the active pane at once, made empty
     ;; when it is new, and reads it when it has nothing from disk yet or a
     ;; diagnostic's point is to be found in it.
-    (: opening (-> Ide String Follow Step))
+    (: opening (impl (Fn Ide String Follow -> Step)))
     (define (opening model path follow)
       (let* ((model (Ide-auto-open-set model #f))
              (model (match (buffer-at model path)
@@ -1248,7 +1249,7 @@
                     (reading model path follow)))))
           ((None) (stay model)))))
 
-    (: showing-diagnostic (-> Ide I64 I64 Step))
+    (: showing-diagnostic (impl (Fn Ide I64 I64 -> Step)))
     (define (showing-diagnostic model generation index)
       (if (= generation (::generation model))
           (match (source-path (::project model)
@@ -1260,7 +1261,7 @@
     ;; What opening asked, once the file's read has answered, while the pane
     ;; that asked is active and still shows the file. A point is revealed only
     ;; when the diagnostic is still the one the pane marks.
-    (: followed (-> Ide String Follow I64 (Option Snapshot) (List Command)))
+    (: followed (impl (Fn Ide String Follow I64 (Option Snapshot) -> (List Command))))
     (define (followed model path follow navigation confirmed)
       (if (or (palette-visible? (::palette model))
               (not (= navigation (::generation (::palette model))))) (Nil)
@@ -1279,7 +1280,7 @@
                        ((None) (list (focusing model pane))))
                      (Nil))))))
 
-    (: revealed (-> Ide String I64 I64 (Option Point)))
+    (: revealed (impl (Fn Ide String I64 I64 -> (Option Point))))
     (define (revealed model path generation index)
       (match (buffer-at model path)
         ((Some buffer)
@@ -1291,13 +1292,13 @@
            (_ (None))))
         ((None) (None))))
 
-    (: shown-text (-> Ide String String))
+    (: shown-text (impl (Fn Ide String -> String)))
     (define (shown-text model path)
       (match (buffer-at model path)
         ((Some buffer) (display-text (::text buffer)))
         ((None) "")))
 
-    (: focusing (-> Ide I64 Command))
+    (: focusing (impl (Fn Ide I64 -> Command)))
     (define (focusing model pane)
       (let ((navigation (::generation (::palette model)))
             (id (match (pane-buffer model pane)
@@ -1313,11 +1314,11 @@
                              ((None) (unit))))
                          (command-result stay))) stay)))
 
-    (: tab-id (-> I64 String String))
+    (: tab-id (impl (Fn I64 String -> String)))
     (define (tab-id pane path)
       (string-append "tab-" (show pane) ":" path))
 
-    (: reveal-tab (-> I64 String Unit ! dom))
+    (: reveal-tab (impl (Fn I64 String -> Unit ! dom)))
     (define (reveal-tab pane path)
       (match (Pair (element-by-id (string-append "tabs-" (show pane)))
                    (element-by-id (tab-id pane path)))
@@ -1333,7 +1334,7 @@
 
     ;; The caret at a diagnostic's point, its line scrolled a few lines below
     ;; the top.
-    (: revealing (-> Ide I64 String String Point Command))
+    (: revealing (impl (Fn Ide I64 String String Point -> Command)))
     (define (revealing model pane path text point)
       (let ((navigation (::generation (::palette model))))
         (Command (once (lambda ()
@@ -1352,7 +1353,7 @@
                            ((None) (unit)))
                          (command-result stay))) stay)))
 
-    (: scrolled-to (-> I64 F64 Unit ! dom))
+    (: scrolled-to (impl (Fn I64 F64 -> Unit ! dom)))
     (define (scrolled-to pane top)
       (match (element-by-id (scroller-id pane))
         ((Some scroller) (set-number-property scroller "scrollTop" top))
@@ -1362,7 +1363,7 @@
 
     ;; A read of the buffer at `path`, unless it is saving. Its sequence
     ;; withdraws what every earlier read said, the point it marked among it.
-    (: reading (-> Ide String Follow Step))
+    (: reading (impl (Fn Ide String Follow -> Step)))
     (define (reading model path follow)
       (match (buffer-at model path)
         ((Some buffer)
@@ -1391,7 +1392,7 @@
         ((None) (Pair model (followed model path follow
                                       (::generation (::palette model)) (None))))))
 
-    (: reading-all (-> Ide Step))
+    (: reading-all (impl (Fn Ide -> Step)))
     (define (reading-all model)
       (fold-left (lambda (step path) (then step (lambda (model) (reading model path (Stay)))))
                  (stay model)
@@ -1399,7 +1400,7 @@
 
     ;; Only the latest successful read confirms coordinates. An obsolete reply
     ;; must not revive a search hit merely because the cached baseline matches.
-    (: answered (-> Ide Asked (Result Snapshot Failure) Step))
+    (: answered (impl (Fn Ide Asked (Result Snapshot Failure) -> Step)))
     (define (answered model asked result)
       (let* ((path (::path asked))
              (confirmed (read-confirmation model asked result))
@@ -1413,7 +1414,7 @@
                      ((None) model))))
         (Pair next (followed next path (::follow asked) (::navigation asked) confirmed))))
 
-    (: read-confirmation (-> Ide Asked (Result Snapshot Failure) (Option Snapshot)))
+    (: read-confirmation (impl (Fn Ide Asked (Result Snapshot Failure) -> (Option Snapshot))))
     (define (read-confirmation model asked result)
       (match (Pair (buffer-at model (::path asked)) result)
         ((Pair (Some buffer) (Ok snapshot))
@@ -1421,7 +1422,7 @@
         (_ (None))))
 
     ;; The draft follows disk unless it has changes of its own.
-    (: snapshot-read (-> Ide Buffer Snapshot Ide))
+    (: snapshot-read (impl (Fn Ide Buffer Snapshot -> Ide)))
     (define (snapshot-read model buffer snapshot)
       (let* ((observed (Buffer-observed-set buffer (Some (::revision snapshot))))
              (loaded (if (dirty? buffer)
@@ -1436,7 +1437,7 @@
 
     ;; Only a read that finds the file gone removes a buffer, and then only
     ;; one without changes of its own; a draft is kept.
-    (: read-failed (-> Ide Buffer Failure Ide))
+    (: read-failed (impl (Fn Ide Buffer Failure -> Ide)))
     (define (read-failed model buffer failure)
       (if (= (::status failure) 404)
           (let ((gone
@@ -1452,7 +1453,7 @@
     ;; A read ties the diagnostic at its file to the revision it found, when
     ;; that is the diagnostic that was there when it was asked, and reads had
     ;; then said nothing of its text or said that same revision.
-    (: bound (-> Ide Asked Snapshot Ide))
+    (: bound (impl (Fn Ide Asked Snapshot -> Ide)))
     (define (bound model asked snapshot)
       (match (Pair (::diagnostic asked) (diagnostic-index model (::path asked)))
         ((Pair (Some index) (Some now))
@@ -1472,7 +1473,7 @@
 
     ;; A draft typed back to its disk contents while disk has moved on reads
     ;; disk again.
-    (: typed (-> Ide I64 String Step))
+    (: typed (impl (Fn Ide I64 String -> Step)))
     (define (typed model pane text)
       (match (pane-buffer model pane)
         ((Some buffer)
@@ -1485,7 +1486,7 @@
         ((None) (stay model))))
 
     ;; Tab and Enter in a Scheme source, made in the field by a command.
-    (: pressed (-> Ide I64 String String I32 I32 Step))
+    (: pressed (impl (Fn Ide I64 String String I32 I32 -> Step)))
     (define (pressed model pane key text start end)
       (let ((from (i32->i64 start)) (to (i32->i64 end)))
         (Pair model
@@ -1494,7 +1495,7 @@
                                   (indent-change text from to)
                                   (newline-change text from to)))))))
 
-    (: changing (-> I64 Change Command))
+    (: changing (impl (Fn I64 Change -> Command)))
     (define (changing pane change)
       (Command (once (lambda ()
                        (match (element-by-id (field-id pane))
@@ -1512,7 +1513,7 @@
     ;; newer typing, and a read begun before it no longer counts. A save
     ;; withdraws the diagnostic at its file for good: the failure was not made
     ;; from the text it writes.
-    (: saving (-> Ide Step))
+    (: saving (impl (Fn Ide -> Step)))
     (define (saving model)
       (match (active-buffer model)
         ((Some buffer)
@@ -1539,7 +1540,7 @@
 
     ;; A source is formatted first, in the pane's field; formatting that fails
     ;; does not keep an incomplete draft from being saved.
-    (: saved-text (-> EditorPane Buffer Snapshot CommandResult ! dom fetch tasks))
+    (: saved-text (impl (Fn EditorPane Buffer Snapshot -> CommandResult ! dom fetch tasks)))
     (define (saved-text pane buffer baseline)
       (let* ((path (::path buffer))
              (text
@@ -1559,7 +1560,7 @@
     ;; The text formatted in the pane's field as typing would, which the
     ;; field's input brings to the buffer too; or the text as it was, when the
     ;; field did not take it.
-    (: formatted-in (-> EditorPane String String String ! dom))
+    (: formatted-in (impl (Fn EditorPane String String -> String ! dom)))
     (define (formatted-in pane path text)
       (let* ((shown (display-text text)) (formatted (format-source shown format-width)))
         (if (or (string=? shown formatted) (not (reformatted pane path shown formatted)))
@@ -1567,7 +1568,7 @@
             formatted)))
 
     ;; The change keeps the caret's line, and the field its scroll.
-    (: reformatted (-> EditorPane String String String Bool ! dom))
+    (: reformatted (impl (Fn EditorPane String String String -> Bool ! dom)))
     (define (reformatted pane path shown formatted)
       (match (element-by-id (field-id (::id pane)))
         ((Some field)
@@ -1581,14 +1582,14 @@
              #f))
         ((None) #f)))
 
-    (: current-field? (-> Node String String Bool ! dom))
+    (: current-field? (impl (Fn Node String String -> Bool ! dom)))
     (define (current-field? field path text)
       (and (string=? (string-property field "snailPath") path)
            (string=? (string-property field "value") text)))
 
     ;; A save that wrote has its text as the new baseline. The file is read
     ;; again even after a failure, as the write may have reached disk.
-    (: saved (-> Ide String (Result Snapshot Failure) Step))
+    (: saved (impl (Fn Ide String (Result Snapshot Failure) -> Step)))
     (define (saved model path result)
       (match (buffer-at model path)
         ((Some buffer)
@@ -1608,7 +1609,7 @@
                   (Stay)))
         ((None) (stay model))))
 
-    (: formatting (-> Ide Step))
+    (: formatting (impl (Fn Ide -> Step)))
     (define (formatting model)
       (match (active-buffer model)
         ((Some buffer)
@@ -1631,7 +1632,7 @@
              (stay model)))
         ((None) (stay model))))
 
-    (: format-finished (-> Ide String Bool Step))
+    (: format-finished (impl (Fn Ide String Bool -> Step)))
     (define (format-finished model path taken)
       (stay (match (buffer-at model path)
               ((Some buffer)
@@ -1644,7 +1645,7 @@
     ;; Reload discards a draft, once the person agrees, then reads disk. The
     ;; discard is at once: a read that answers later loads disk, while typing
     ;; after it is a new draft that survives that read.
-    (: reloading (-> Ide Step))
+    (: reloading (impl (Fn Ide -> Step)))
     (define (reloading model)
       (match (active-buffer model)
         ((Some buffer)
@@ -1661,7 +1662,7 @@
                (else (discarded model (::path buffer)))))
         ((None) (stay model))))
 
-    (: discarded (-> Ide String Step))
+    (: discarded (impl (Fn Ide String -> Step)))
     (define (discarded model path)
       (match (buffer-at model path)
         ((Some buffer)
@@ -1676,7 +1677,7 @@
                   (Stay)))
         ((None) (stay model))))
 
-    (: building (-> CommandResult ! fetch tasks))
+    (: building (impl (Fn -> CommandResult ! fetch tasks)))
     (define (building)
       (match (api "POST" "/api/build" (Nil) "")
         ((Ok _) (command-result stay))
@@ -1686,7 +1687,7 @@
 
     ;; The active pane splits in two, the new one second, showing the same
     ;; file, and active.
-    (: divided (-> Ide String Step))
+    (: divided (impl (Fn Ide String -> Step)))
     (define (divided model direction)
       (let* ((active (::active model))
              (pane (::next model))
@@ -1698,14 +1699,14 @@
              (model (Ide-layout-set model (leaf-replaced (::layout model) active split))))
         (Pair (Ide-next-set (Ide-active-set model pane) (+ pane 2)) (list (focusing model pane)))))
 
-    (: pane-split (-> EditorPane I64 EditorPane))
+    (: pane-split (impl (Fn EditorPane I64 -> EditorPane)))
     (define (pane-split pane id)
       (EditorPane id (::path pane) 0.0
                   (match (::path pane) ((Some path) (list path)) ((None) (Nil)))))
 
     ;; Closing the last view of a draft asks before discarding it. A reply
     ;; names the exact draft it was for; it cannot discard subsequent typing.
-    (: closing (-> Ide Step))
+    (: closing (impl (Fn Ide -> Step)))
     (define (closing model)
       (match (active-buffer model)
         ((None) (close-pane model))
@@ -1730,7 +1731,7 @@
                                                          (command-result stay)))) stay))))
                  (else (closed-tab model pane path)))))))
 
-    (: close-ready (-> Ide I64 String String Step))
+    (: close-ready (impl (Fn Ide I64 String String -> Step)))
     (define (close-ready model pane path text)
       (match (buffer-at model path)
         ((Some buffer)
@@ -1740,12 +1741,12 @@
              (stay model)))
         ((None) (stay model))))
 
-    (: other-view? (-> Ide I64 String Bool))
+    (: other-view? (impl (Fn Ide I64 String -> Bool)))
     (define (other-view? model pane path)
       (any? (lambda (other) (and (not (= pane (::id other))) (member? path (::tabs other))))
             (::panes model)))
 
-    (: closed-tab (-> Ide I64 String Step))
+    (: closed-tab (impl (Fn Ide I64 String -> Step)))
     (define (closed-tab model pane path)
       (let* ((next (pane-closed (pane-of model pane) path))
              (model (pane-set model next))
@@ -1754,7 +1755,7 @@
             (Pair model (list (focusing model pane))))))
 
     ;; The active pane's sibling takes its place. The last pane stays empty.
-    (: close-pane (-> Ide Step))
+    (: close-pane (impl (Fn Ide -> Step)))
     (define (close-pane model)
       (let ((active (::active model)))
         (match (sibling (::layout model) active)
@@ -1769,14 +1770,14 @@
            (let ((empty (pane-set model (EditorPane-path-set (pane-of model active) (None)))))
              (Pair empty (list (focusing empty active))))))))
 
-    (: toggled (-> (List String) String (List String)))
+    (: toggled (impl (Fn (List String) String -> (List String))))
     (define (toggled paths path)
       (if (member? path paths)
           (filter (lambda (other) (not (string=? other path))) paths)
           (Cons path paths)))
 
     ;; A drag measures what it divides as it begins.
-    (: grabbed (-> Grip CommandResult ! dom))
+    (: grabbed (impl (Fn Grip -> CommandResult ! dom)))
     (define (grabbed grip)
       (match grip
         ((FilesEdge)
@@ -1786,7 +1787,7 @@
          (let ((drag (Dividing split (measured "panes"))))
            (command-result (lambda (current) (began-drag current drag)))))))
 
-    (: measured (-> String Measure ! dom))
+    (: measured (impl (Fn String -> Measure ! dom)))
     (define (measured id)
       (match (element-by-id id)
         ((Some node) (measure node))
@@ -1794,7 +1795,7 @@
 
     ;; The files keep between 120 pixels and seven tenths of the page; a
     ;; divider follows the pointer across its split.
-    (: dragged (-> Ide F64 F64 Ide))
+    (: dragged (impl (Fn Ide F64 F64 -> Ide)))
     (define (dragged model x y)
       (match (::drag model)
         ((Some (Resizing width)) (Ide-files-width-set model (max 120.0 (min (* width 0.7) x))))
@@ -1806,7 +1807,7 @@
         ((None) model)))
 
     ;; Where the pointer lies across the split, in the room's box on the page.
-    (: pointed (-> Division Measure F64 F64 F64))
+    (: pointed (impl (Fn Division Measure F64 F64 -> F64)))
     (define (pointed division box x y)
       (let ((area (::area division)))
         (if (string=? (::direction division) "column")
@@ -1821,64 +1822,70 @@
     ;; Every entry point schedules invocation through the application loop.
     ;; macOS can report lowercase letters with Command+Shift. Bind both cases
     ;; with the same modifiers, so the browser and the dispatcher agree.
-    (: primary-chords (-> String I32 (List Chord)))
+    (: primary-chords (impl (Fn String I32 -> (List Chord))))
     (define (primary-chords key extra)
       (concatenate
        (map (lambda (spelling)
               (map (lambda (held) (Chord spelling (+ held extra))) (list control-key meta-key)))
             (delete-duplicates string=? (list (string-upcase key) (string-downcase key))))))
 
-    (: commands (command-Registry (-> Ide Step)))
+    (: commands (command-Registry (dyn (Fn Ide -> Step))))
     (define commands
       (match (command-register
-              (list->vector (list (command-Command "command-palette"
-                                                   (lambda (model)
-                                                     (palette-open model (palette-Commands))))
-                                  (command-Command "go-to-file"
-                                                   (lambda (model)
-                                                     (palette-open model (palette-Files))))
-                                  (command-Command "search-project"
-                                                   (lambda (model)
-                                                     (palette-open model (palette-Searching
-                                                                          (palette-Search
-                                                                           (search-SavedProject)
-                                                                           (palette-Debouncing))))))
-                                  (command-Command "search-buffer" search-buffer)
-                                  (command-Command "new-file"
-                                                   (lambda (model)
-                                                     (palette-open model
-                                                                   (palette-Creating
-                                                                    (palette-Creation #f #f "")))))
-                                  (command-Command "new-directory"
-                                                   (lambda (model)
-                                                     (palette-open model
-                                                                   (palette-Creating
-                                                                    (palette-Creation #t #f "")))))
-                                  (command-Command "install-app" installing)
-                                  (command-Command "toggle-fullscreen" toggling-fullscreen)
-                                  (command-Command "save-buffer" saving)
-                                  (command-Command "format-buffer" formatting)
-                                  (command-Command "refresh-ide" refreshing)
-                                  (command-Command "reload-buffer" reloading)
-                                  (command-Command "build-project"
-                                                   (lambda (model)
-                                                     (Pair model
-                                                           (list (Command (once building) stay)))))
-                                  (command-Command "toggle-files" (lambda (model)
-                                                                    (stay
-                                                                     (Ide-files-shown-set model
-                                                                                          (not
-                                                                                           (::files-shown
-                                                                                            model))))))
-                                  (command-Command "split-right"
-                                                   (lambda (model) (divided model "row")))
-                                  (command-Command "split-down"
-                                                   (lambda (model) (divided model "column")))
-                                  (command-Command "close-editor" closing))))
+              (ann (list->vector (list (command-Command "command-palette"
+                                                        (lambda (model)
+                                                          (palette-open model (palette-Commands))))
+                                       (command-Command "go-to-file"
+                                                        (lambda (model)
+                                                          (palette-open model (palette-Files))))
+                                       (command-Command "search-project"
+                                                        (lambda (model)
+                                                          (palette-open model (palette-Searching
+                                                                               (palette-Search
+                                                                                (search-SavedProject)
+                                                                                (palette-Debouncing))))))
+                                       (command-Command "search-buffer" search-buffer)
+                                       (command-Command "new-file"
+                                                        (lambda (model)
+                                                          (palette-open model
+                                                                        (palette-Creating
+                                                                         (palette-Creation #f
+                                                                                           #f
+                                                                                           "")))))
+                                       (command-Command "new-directory"
+                                                        (lambda (model)
+                                                          (palette-open model
+                                                                        (palette-Creating
+                                                                         (palette-Creation #t
+                                                                                           #f
+                                                                                           "")))))
+                                       (command-Command "install-app" installing)
+                                       (command-Command "toggle-fullscreen" toggling-fullscreen)
+                                       (command-Command "save-buffer" saving)
+                                       (command-Command "format-buffer" formatting)
+                                       (command-Command "refresh-ide" refreshing)
+                                       (command-Command "reload-buffer" reloading)
+                                       (command-Command "build-project"
+                                                        (lambda (model)
+                                                          (Pair model
+                                                                (list
+                                                                 (Command (once building) stay)))))
+                                       (command-Command "toggle-files" (lambda (model)
+                                                                         (stay
+                                                                          (Ide-files-shown-set model
+                                                                                               (not
+                                                                                                (::files-shown
+                                                                                                 model))))))
+                                       (command-Command "split-right"
+                                                        (lambda (model) (divided model "row")))
+                                       (command-Command "split-down"
+                                                        (lambda (model) (divided model "column")))
+                                       (command-Command "close-editor" closing)))
+                   (Vector (command-Command (dyn (Fn Ide -> Step))))))
         ((Ok registry) registry)
         ((Err message) (panic message))))
 
-    (: bound-chords (-> String (List Chord) (List shortcut-Binding)))
+    (: bound-chords (impl (Fn String (List Chord) -> (List shortcut-Binding))))
     (define (bound-chords name chords)
       (map (lambda (chord) (shortcut-Binding chord name)) chords))
 
@@ -1914,14 +1921,14 @@
         ((Ok shortcuts) shortcuts)
         ((Err message) (panic message))))
 
-    (: run-command (-> Ide String Step))
+    (: run-command (impl (Fn Ide String -> Step)))
     (define (run-command model name)
       (match (command-named commands name)
         ((Some run) (if (and (string=? name "search-buffer") (palette-finding? (::palette model)))
                         (run model) (invoked model run)))
         ((None) (stay model))))
 
-    (: shortcut (-> Ide String I32 Step))
+    (: shortcut (impl (Fn Ide String I32 -> Step)))
     (define (shortcut model key modifiers)
       (if (and (palette-finding? (::palette model)) (string=? key "Escape") (= modifiers 0))
           (palette-message model (palette-Dismiss))
@@ -1929,24 +1936,24 @@
             ((Some name) (update model (DispatchCommand name)))
             ((None) (stay model)))))
 
-    (: invoked (-> Ide (-> Ide Step) Step))
+    (: invoked (impl (Fn Ide (dyn (Fn Ide -> Step)) -> Step)))
     (define (invoked model run)
       (then (run (search-invalidated model))
             (lambda (next)
               (if (palette-visible? (::palette next)) (stay next)
                   (Pair next (list (focusing next (::active next))))))))
 
-    (: palette-open (-> Ide palette-Mode Step))
+    (: palette-open (impl (Fn Ide palette-Mode -> Step)))
     (define (palette-open model mode)
       (palette-step model (palette-open-component (::palette model) mode)))
 
-    (: navigation-current? (-> I64 Bool ! dom))
+    (: navigation-current? (impl (Fn I64 -> Bool ! dom)))
     (define (navigation-current? navigation)
       (match (element-by-id "workbench")
         ((Some node) (string=? (string-property node "snailNavigation") (show navigation)))
         ((None) #f)))
 
-    (: file-choices (-> Ide (List String)))
+    (: file-choices (impl (Fn Ide -> (List String))))
     (define (file-choices model)
       (list-sort string<?
                  (fold-left (lambda (paths buffer)
@@ -1957,7 +1964,7 @@
 
     ;; ---- Palette boundary ----
 
-    (: current-draft (-> Ide (Option search-Draft)))
+    (: current-draft (impl (Fn Ide -> (Option search-Draft))))
     (define (current-draft model)
       (match (active-buffer model)
         ((Some buffer)
@@ -1966,24 +1973,24 @@
              (None)))
         ((None) (None))))
 
-    (: palette-context (-> Ide palette-Context))
+    (: palette-context (impl (Fn Ide -> palette-Context)))
     (define (palette-context model)
       (palette-Context
        (map (lambda (name) (palette-Entry name (command-keys name)))
             (vector->list (vector-map ::name (::commands commands))))
        (file-choices model)))
 
-    (: palette-message (-> Ide palette-Message Step))
+    (: palette-message (impl (Fn Ide palette-Message -> Step)))
     (define (palette-message model message)
       (palette-step model (palette-update (::palette model) (palette-context model) message)))
 
-    (: reconcile-palette (-> Ide Step))
+    (: reconcile-palette (impl (Fn Ide -> Step)))
     (define (reconcile-palette model)
       (if (palette-visible? (::palette model))
           (palette-step model (palette-reconcile (::palette model) (current-draft model)))
           (stay model)))
 
-    (: palette-commands (-> (List palette-Command) (List Command)))
+    (: palette-commands (impl (Fn (List palette-Command) -> (List Command))))
     (define (palette-commands commands)
       (match commands
         ((Nil) (Nil))
@@ -1996,7 +2003,7 @@
                 (lambda (model) (palette-step model (interrupted (::palette model)))))
                (palette-commands rest)))))
 
-    (: palette-step (-> Ide palette-Step Step))
+    (: palette-step (impl (Fn Ide palette-Step -> Step)))
     (define (palette-step model step)
       (match step
         ((palette-Step state outcome commands)
@@ -2008,7 +2015,7 @@
 
     ;; Selection has already closed the palette and advanced its generation.
     ;; Do not cancel it again: the read below belongs to that new navigation.
-    (: palette-chosen (-> Ide palette-Outcome Step))
+    (: palette-chosen (impl (Fn Ide palette-Outcome -> Step)))
     (define (palette-chosen model chosen)
       (match chosen
         ((palette-InvokeNamed name) (update-message model (DispatchCommand name)))
@@ -2023,7 +2030,7 @@
                      (opening next path (Focus (::active next)))))))
         ((palette-Dismissed) (Pair model (list (focusing model (::active model)))))))
 
-    (: search-buffer (-> Ide Step))
+    (: search-buffer (impl (Fn Ide -> Step)))
     (define (search-buffer model)
       (match (current-draft model)
         ((Some draft)
@@ -2031,11 +2038,11 @@
                                                                 (palette-Debouncing)))))
         ((None) (notice model "Open a file to search its current text."))))
 
-    (: search-invalidated (-> Ide Ide))
+    (: search-invalidated (impl (Fn Ide -> Ide)))
     (define (search-invalidated model)
       (Ide-palette-set model (palette-cancel (::palette model))))
 
-    (: draft-followed (-> Ide search-Draft Occurrence I64 Step))
+    (: draft-followed (impl (Fn Ide search-Draft Occurrence I64 -> Step)))
     (define (draft-followed model draft hit size)
       (match (current-draft model)
         ((Some current)
@@ -2046,7 +2053,7 @@
 
     ;; Keep focus where the user left it: selecting another match must not
     ;; take the find input away. The DOM boundary uses scalar offsets too.
-    (: finding (-> Ide search-Draft Occurrence I64 Command))
+    (: finding (impl (Fn Ide search-Draft Occurrence I64 -> Command)))
     (define (finding model draft hit size)
       (let ((pane (::active model)) (navigation (::generation (::palette model))))
         (Command (once (lambda ()
@@ -2065,7 +2072,7 @@
                            ((None) (unit)))
                          (command-result stay))) stay)))
 
-    (: search-followed (-> Ide I64 Hit (Option Snapshot) (List Command)))
+    (: search-followed (impl (Fn Ide I64 Hit (Option Snapshot) -> (List Command))))
     (define (search-followed model pane hit confirmed)
       (match (Pair (pane-buffer model pane) confirmed)
         ((Pair (Some buffer) (Some snapshot))
@@ -2080,7 +2087,7 @@
         (_ (if (showing? model pane (::file (::point hit)))
                (list (focusing model pane)) (Nil)))))
 
-    (: hit-current? (-> Hit Buffer Bool))
+    (: hit-current? (impl (Fn Hit Buffer -> Bool)))
     (define (hit-current? hit buffer)
       (and (not (dirty? buffer)) (not (::saving buffer)) (string=? (::problem buffer) "")
            (match (::baseline buffer)
@@ -2089,20 +2096,20 @@
 
     ;; ---- Window commands ----
 
-    (: toggling-fullscreen (-> Ide Step))
+    (: toggling-fullscreen (impl (Fn Ide -> Step)))
     (define (toggling-fullscreen model)
       (Pair model (list (Command (once toggle-fullscreen) stay))))
 
-    (: toggle-fullscreen (-> CommandResult ! dom tasks))
+    (: toggle-fullscreen (impl (Fn -> CommandResult ! dom tasks)))
     (define (toggle-fullscreen)
       (let ((accepted (set-fullscreen (not (fullscreen?)))))
         (command-result (lambda (current) (fullscreen-finished current accepted)))))
 
-    (: notice (-> Ide String Step))
+    (: notice (impl (Fn Ide String -> Step)))
     (define (notice model text)
       (stay (Ide-status-set model (Status text "notice" (::attempt (::status model))))))
 
-    (: installing (-> Ide Step))
+    (: installing (impl (Fn Ide -> Step)))
     (define (installing model)
       (Pair model
             (list (Command (once (lambda ()
@@ -2111,7 +2118,7 @@
                                                        (installation-finished current result))))))
                            stay))))
 
-    (: installation-finished (-> Ide InstallResult Step))
+    (: installation-finished (impl (Fn Ide InstallResult -> Step)))
     (define (installation-finished model result)
       (notice model
               (match result
@@ -2131,7 +2138,7 @@
     ;; One command to the runs at a time. Its reply only acknowledges it: the
     ;; event stream reports what the process does. A reply lost after the
     ;; command reached the service leaves its outcome unknown.
-    (: controlling (-> Ide String Step))
+    (: controlling (impl (Fn Ide String -> Step)))
     (define (controlling model action)
       (let ((runs (::runs model)))
         (if (::pending runs)
@@ -2158,7 +2165,7 @@
                                                  target
                                                  (Err interrupted-request))))))))))
 
-    (: controlled (-> Ide String String (Result Json Failure) Step))
+    (: controlled (impl (Fn Ide String String (Result Json Failure) -> Step)))
     (define (controlled model action target result)
       (let ((runs (Runs-pending-set (::runs model) #f)))
         (stay (Ide-runs-set model
@@ -2186,7 +2193,7 @@
     ;; The highlight layer draws from ten lines above the scroll 160 lines,
     ;; more than a pane shows, in runs of one class each. The highlighter reads
     ;; them from the start of their top-level form, as Emacs resynchronizes.
-    (: highlight-view (-> String F64 Bool (Html Msg)))
+    (: highlight-view (impl (Fn String F64 Bool -> (Html Msg))))
     (define (highlight-view text scroll scheme)
       (let* ((first (max 0 (- (f64->i64 (floor (/ scroll line-height))) 10)))
              (start (line-offset text (+ first 1)))
@@ -2198,7 +2205,7 @@
                      (highlight-runs text start end)
                      (list (Text (substring text start end)))))))
 
-    (: highlight-runs (-> String I64 I64 (List (Html Msg))))
+    (: highlight-runs (impl (Fn String I64 I64 -> (List (Html Msg)))))
     (define (highlight-runs text start end)
       (let ((base (top-level-start text start)))
         (map run-view
@@ -2213,7 +2220,7 @@
 
     ;; A class of the highlight's styles in ide.css, as the book's are named;
     ;; whitespace and plain names are plain text.
-    (: token-class (-> Token String))
+    (: token-class (impl (Fn Token -> String)))
     (define (token-class token)
       (match (::class token)
         ((Blank) "")
@@ -2221,7 +2228,7 @@
         (class (string-append "tok-" (class-name class)))))
 
     ;; The runs, newest first, with a piece of `class` added.
-    (: joined (-> (List (Pair String String)) String String (List (Pair String String))))
+    (: joined (impl (Fn (List (Pair String String)) String String -> (List (Pair String String)))))
     (define (joined runs class piece)
       (match runs
         ((Cons (Pair last text) rest)
@@ -2230,7 +2237,7 @@
              (Cons (Pair class piece) runs)))
         ((Nil) (list (Pair class piece)))))
 
-    (: run-view (-> (Pair String String) (Html Msg)))
+    (: run-view (impl (Fn (Pair String String) -> (Html Msg))))
     (define (run-view run)
       (match run
         ((Pair "" text) (Text text))
@@ -2238,7 +2245,7 @@
 
     ;; Compiler columns count scalars, as offsets do. Navigation keeps this
     ;; exact point; only the mark's display extends it to a lexical range.
-    (: source-offset (-> String Point I64))
+    (: source-offset (impl (Fn String Point -> I64)))
     (define (source-offset text point)
       (let loop ((offset (line-offset text (::line point))) (column 1))
         (if (and (< column (::column point))
@@ -2247,7 +2254,7 @@
             (loop (+ offset 1) (+ column 1))
             offset)))
 
-    (: marks-view (-> String (Option Diagnostic) (Html Msg)))
+    (: marks-view (impl (Fn String (Option Diagnostic) -> (Html Msg))))
     (define (marks-view text found)
       (Element "pre"
                (list (Attr "class" "marks"))
@@ -2263,7 +2270,7 @@
 
     ;; One inline span crosses both lines and the syntax layer's token runs.
     ;; Newline and EOF points retain a visible cell without changing the source.
-    (: range-mark (-> String (Pair I64 I64) String (List (Html Msg))))
+    (: range-mark (impl (Fn String (Pair I64 I64) String -> (List (Html Msg)))))
     (define (range-mark text range message)
       (let ((start (::first range)) (end (::second range)))
         (list (Text (substring text 0 start))
@@ -2277,7 +2284,7 @@
 
     ;; The textarea's native selection is hidden while find owns focus.
     ;; Draw the same range over the syntax layer without changing its text.
-    (: find-mark (-> Ide I64 String (Html Msg)))
+    (: find-mark (impl (Fn Ide I64 String -> (Html Msg))))
     (define (find-mark model pane text)
       (Element "pre" (list (Attr "class" "marks") (Attr "aria-hidden" "true"))
                (match (palette-current-match (::palette model))
@@ -2294,7 +2301,7 @@
                  (_ (Nil)))))
 
     ;; A compact button that leaves focus in the editor until its command runs.
-    (: tool (-> String String String String Bool Msg (Html Msg)))
+    (: tool (impl (Fn String String String String Bool Msg -> (Html Msg))))
     (define (tool id class title label disabled message)
       (Element "button"
                (list (Attr "id" id)
@@ -2305,7 +2312,7 @@
                      (On "click" (Nil) (Allow) (lambda (event) message)))
                (list (Text label))))
 
-    (: view (-> Ide (Html Msg)))
+    (: view (impl (Fn Ide -> (Html Msg))))
     (define (view model)
       (Element "div"
                (list (Attr "id" "workbench") (Attr "class" "ide")
@@ -2317,7 +2324,7 @@
                              (status-view model))
                        (append (drag-view model) (palette-view model)))))
 
-    (: status-view (-> Ide (Html Msg)))
+    (: status-view (impl (Fn Ide -> (Html Msg))))
     (define (status-view model)
       (let ((status (::status model)))
         (Element "footer" (list (Attr "class" "statusbar"))
@@ -2341,21 +2348,21 @@
                                       (StringProperty "textContent" (::text status)))
                                 (Nil))))))
 
-    (: palette-view (-> Ide (List (Html Msg))))
+    (: palette-view (impl (Fn Ide -> (List (Html Msg)))))
     (define (palette-view model)
       (if (and (palette-visible? (::palette model)) (not (palette-finding? (::palette model))))
           (map (lambda (html) (map-html PaletteEvent html))
                (palette-view-component (::palette model) (palette-context model)))
           (Nil)))
 
-    (: find-view (-> Ide I64 (List (Html Msg))))
+    (: find-view (impl (Fn Ide I64 -> (List (Html Msg)))))
     (define (find-view model pane)
       (if (and (= pane (::active model)) (palette-finding? (::palette model)))
           (map (lambda (html) (map-html PaletteEvent html))
                (palette-find-view (::palette model) (palette-context model)))
           (Nil)))
 
-    (: command-keys (-> String String))
+    (: command-keys (impl (Fn String -> String)))
     (define (command-keys name)
       (string-join
        (delete-duplicates
@@ -2365,7 +2372,7 @@
                      (vector->list (::bindings shortcuts)))))
        " / "))
 
-    (: chord-label (-> Chord String))
+    (: chord-label (impl (Fn Chord -> String)))
     (define (chord-label chord)
       (string-append (if (= 0 (i32-and (::modifiers chord) control-key)) "" "Ctrl+")
                      (if (= 0 (i32-and (::modifiers chord) meta-key)) "" "⌘+")
@@ -2373,7 +2380,7 @@
                      (if (= 0 (i32-and (::modifiers chord) shift-key)) "" "Shift+")
                      (string-upcase (::key chord))))
 
-    (: layout-view (-> Ide (Html Msg)))
+    (: layout-view (impl (Fn Ide -> (Html Msg))))
     (define (layout-view model)
       (Element "main"
                (list
@@ -2407,7 +2414,7 @@
       (Folder ((name String)
                (entries (List Tree)))))
 
-    (: path-parts (-> String (List String)))
+    (: path-parts (impl (Fn String -> (List String))))
     (define (path-parts path)
       (let loop ((end (string-length path)) (index (- (string-length path) 1)) (parts (Nil)))
         (cond ((< index 0) (Cons (substring path 0 end) parts))
@@ -2416,7 +2423,7 @@
               (else (loop end (- index 1) parts)))))
 
     ;; Each file is the parts of its path left to place, and its path.
-    (: file-tree (-> (List (Pair (List String) String)) (List (List String)) (List Tree)))
+    (: file-tree (impl (Fn (List (Pair (List String) String)) (List (List String)) -> (List Tree))))
     (define (file-tree files directories)
       (let* ((nested (filter (lambda (file) (> (length (::first file)) 1)) files))
              (directories (filter (lambda (parts) (not (null? parts))) directories))
@@ -2440,13 +2447,13 @@
                      (list-sort (lambda (a b) (string<? (car-part a) (car-part b)))
                                 (filter (lambda (file) (= (length (::first file)) 1)) files))))))
 
-    (: car-part (-> (Pair (List String) String) String))
+    (: car-part (impl (Fn (Pair (List String) String) -> String)))
     (define (car-part file)
       (match (::first file)
         ((Cons part _) part)
         ((Nil) "")))
 
-    (: files-view (-> Ide (Html Msg)))
+    (: files-view (impl (Fn Ide -> (Html Msg))))
     (define (files-view model)
       (let* ((project (::project model))
              (unlisted (filter (lambda (path) (not (member? path (::files project))))
@@ -2470,7 +2477,7 @@
                                    (map (lambda (path) (file-button model path path))
                                         unlisted)))))))
 
-    (: tree-view (-> Ide (List Tree) String (Html Msg)))
+    (: tree-view (impl (Fn Ide (List Tree) String -> (Html Msg))))
     (define (tree-view model entries prefix)
       (Element "ul"
                (Nil)
@@ -2486,7 +2493,7 @@
                     entries)))
 
     ;; Folders start closed; only an explicit toggle expands one.
-    (: folder-view (-> Ide String (List Tree) String (Html Msg)))
+    (: folder-view (impl (Fn Ide String (List Tree) String -> (Html Msg))))
     (define (folder-view model name entries path)
       (Element "details"
                (list (FlagProperty "open" (member? path (::expanded model))))
@@ -2496,7 +2503,7 @@
                               (list (Text name)))
                      (tree-view model entries path))))
 
-    (: file-button (-> Ide String String (Html Msg)))
+    (: file-button (impl (Fn Ide String String -> (Html Msg))))
     (define (file-button model name path)
       (let ((buffer (buffer-at model path))
             (active (shows? (pane-of model (::active model)) path)))
@@ -2528,7 +2535,7 @@
     ;; The panes are the room's children, each placed in its part of it, and
     ;; the dividers lie over their edges. A split adds a pane and moves the
     ;; others, so each keeps its field, with its caret and undo history.
-    (: panes-view (-> Ide (List (Html Msg))))
+    (: panes-view (impl (Fn Ide -> (List (Html Msg)))))
     (define (panes-view model)
       (let ((areas (pane-areas (::layout model) whole)))
         (append (map (lambda (pane)
@@ -2540,11 +2547,11 @@
                      (::panes model))
                 (map divider-view (divisions (::layout model) whole)))))
 
-    (: percent (-> F64 String))
+    (: percent (impl (Fn F64 -> String)))
     (define (percent fraction)
       (string-append (f64->string (* fraction 100.0)) "%"))
 
-    (: placed (-> Area String))
+    (: placed (impl (Fn Area -> String)))
     (define (placed area)
       (string-append "left: "
                      (percent (::left area))
@@ -2557,7 +2564,7 @@
 
     ;; A divider lies along the edge the split's ratio puts between its halves,
     ;; as long as the edge; ide.css gives it its thickness.
-    (: divider-view (-> Division (Html Msg)))
+    (: divider-view (impl (Fn Division -> (Html Msg))))
     (define (divider-view division)
       (let* ((direction (::direction division))
              (edge
@@ -2579,7 +2586,7 @@
                            (lambda (event) (Grab (Divider (::split division))))))
                  (Nil))))
 
-    (: pane-view (-> Ide I64 Area (Html Msg)))
+    (: pane-view (impl (Fn Ide I64 Area -> (Html Msg))))
     (define (pane-view model id area)
       (let* ((pane (pane-of model id)) (buffer (pane-buffer model id)))
         (Element "div"
@@ -2598,7 +2605,7 @@
                                (editor-view model pane buffer)
                                (problem-view buffer)) (find-view model id)))))
 
-    (: tabs-view (-> Ide EditorPane (Html Msg)))
+    (: tabs-view (impl (Fn Ide EditorPane -> (Html Msg))))
     (define (tabs-view model pane)
       (Element "div" (list (Attr "id" (string-append "tabs-" (show (::id pane))))
                            (Attr "class" "pane-tabs") (Attr "role" "tablist")
@@ -2609,7 +2616,7 @@
                                   (list (Text "Choose a file"))))
                    (map (lambda (path) (tab-view model pane path)) (::tabs pane)))))
 
-    (: tab-view (-> Ide EditorPane String (Html Msg)))
+    (: tab-view (impl (Fn Ide EditorPane String -> (Html Msg))))
     (define (tab-view model pane path)
       (let ((selected (shows? pane path)))
         (Element "button"
@@ -2623,13 +2630,13 @@
                  (list (Element "span" (list (Attr "class" (if selected "pane-title" "tab-title")))
                                 (list (Text (pane-title (buffer-at model path)))))))))
 
-    (: pane-title (-> (Option Buffer) String))
+    (: pane-title (impl (Fn (Option Buffer) -> String)))
     (define (pane-title buffer)
       (match buffer
         ((Some found) (string-append (::path found) (if (dirty? found) " ●" "")))
         ((None) "Choose a file")))
 
-    (: problem-view (-> (Option Buffer) (Html Msg)))
+    (: problem-view (impl (Fn (Option Buffer) -> (Html Msg))))
     (define (problem-view buffer)
       (let ((problem (match buffer
                        ((Some found)
@@ -2644,7 +2651,7 @@
 
     ;; One scroller holds the gutter, the highlight and marks, and the field,
     ;; which is as big as its text, so they scroll together.
-    (: editor-view (-> Ide EditorPane (Option Buffer) (Html Msg)))
+    (: editor-view (impl (Fn Ide EditorPane (Option Buffer) -> (Html Msg))))
     (define (editor-view model pane buffer)
       (let* ((id (::id pane))
              (text (match buffer
@@ -2682,7 +2689,7 @@
                                       (find-mark model id text)
                                       (field-view id buffer text scheme lines)))))))
 
-    (: field-view (-> I64 (Option Buffer) String Bool I64 (Html Msg)))
+    (: field-view (impl (Fn I64 (Option Buffer) String Bool I64 -> (Html Msg))))
     (define (field-view id buffer text scheme lines)
       (Element "textarea"
                (append (list (Attr "id" (field-id id))
@@ -2724,7 +2731,7 @@
 
     ;; ---- Diagnostics and runs' views ----
 
-    (: diagnostics-view (-> Ide (Html Msg)))
+    (: diagnostics-view (impl (Fn Ide -> (Html Msg))))
     (define (diagnostics-view model)
       (Element "div"
                (list (Attr "id" "diagnostics")
@@ -2735,7 +2742,7 @@
                             (::diagnostics model))))
 
     ;; A diagnostic in a project file is a button that shows its point.
-    (: diagnostic-view (-> Ide I64 Diagnostic (Html Msg)))
+    (: diagnostic-view (impl (Fn Ide I64 Diagnostic -> (Html Msg))))
     (define (diagnostic-view model index diagnostic)
       (let* ((source (::source diagnostic))
              (path (source-path (::project model) source))
@@ -2763,7 +2770,7 @@
                     (list (Text text))))
           ((None) (Element "div" (Nil) (list (Text text)))))))
 
-    (: runs-view (-> Runs (Html Msg)))
+    (: runs-view (impl (Fn Runs -> (Html Msg))))
     (define (runs-view runs)
       (let* ((run (selected-run runs))
              (pending (::pending runs))
@@ -2839,7 +2846,7 @@
                                                      ((Some found) (::stderr found))
                                                      ((None) "")))))))))
 
-    (: option-view (-> Run String (Html Msg)))
+    (: option-view (impl (Fn Run String -> (Html Msg))))
     (define (option-view run selected)
       (Element "option"
                (list (Keyed (::target run))
@@ -2848,7 +2855,7 @@
                (list
                 (Text (string-append (::target run) (if (::available run) "" " (removed)"))))))
 
-    (: run-button (-> String String Bool String (Html Msg)))
+    (: run-button (impl (Fn String String Bool String -> (Html Msg))))
     (define (run-button id label disabled action)
       (Element "button"
                (list (Attr "id" id)
@@ -2858,7 +2865,7 @@
                (list (Text label))))
 
     ;; Output is text, never markup.
-    (: output-view (-> String String String String (Html Msg)))
+    (: output-view (impl (Fn String String String String -> (Html Msg))))
     (define (output-view label heading id text)
       (Element "section"
                (list (Attr "aria-label" label))
@@ -2869,7 +2876,7 @@
 
     ;; While a drag is under way the page is covered, so the pointer's moves
     ;; reach the drag wherever they go.
-    (: drag-view (-> Ide (List (Html Msg))))
+    (: drag-view (impl (Fn Ide -> (List (Html Msg)))))
     (define (drag-view model)
       (match (::drag model)
         ((Some drag)
@@ -2895,7 +2902,7 @@
 
     ;; The shortcuts, going back online, which connects again, and, while a
     ;; draft has changes of its own, leaving the page, which asks first.
-    (: window (-> Ide (List (Attribute Msg))))
+    (: window (impl (Fn Ide -> (List (Attribute Msg)))))
     (define (window model)
       (append (list (On "keydown"
                         (list (Key))
@@ -2954,17 +2961,17 @@
 
     ;; Read the legacy tag through its encoder, without copying a schema hash.
     ;; Both shapes use the same draft payload; only tab membership is new.
-    (: read-recovery (-> Bytes TabbedRecovery))
+    (: read-recovery (impl (Fn Bytes -> TabbedRecovery)))
     (define (read-recovery bytes)
       (if (case-id=? (recovery-tag bytes) (recovery-tag (serialize (::previous (kept initial)))))
           (TabbedRecovery (deserialize bytes) (Nil))
           (deserialize bytes)))
 
-    (: recovery-tag (-> Bytes I32))
+    (: recovery-tag (impl (Fn Bytes -> I32)))
     (define (recovery-tag bytes)
       (unsafe-total (lambda () (decode-case-id (Decoder bytes (ref 0))))))
 
-    (: kept (-> Ide TabbedRecovery))
+    (: kept (impl (Fn Ide -> TabbedRecovery)))
     (define (kept model)
       (TabbedRecovery
        (Recovery 1 (map kept-buffer (::buffers model))
@@ -2974,14 +2981,14 @@
                  (::files-shown model) (::files-width model))
        (map (lambda (pane) (SavedTabs (::id pane) (::tabs pane))) (::panes model))))
 
-    (: kept-buffer (-> Buffer Draft))
+    (: kept-buffer (impl (Fn Buffer -> Draft)))
     (define (kept-buffer buffer)
       (Draft (::path buffer) (::text buffer)
              (match (::baseline buffer)
                ((Some baseline) (json->string (file->json baseline)))
                ((None) ""))))
 
-    (: restored (-> TabbedRecovery Ide))
+    (: restored (impl (Fn TabbedRecovery -> Ide)))
     (define (restored saved)
       (let ((save (::previous saved)))
         (unless (= (::version save) 1)
@@ -2997,14 +3004,14 @@
                (model (Ide-files-shown-set model (::files-shown save))))
           (Ide-files-width-set model (::files-width save)))))
 
-    (: restored-pane (-> Pane (List SavedTabs) EditorPane))
+    (: restored-pane (impl (Fn Pane (List SavedTabs) -> EditorPane)))
     (define (restored-pane pane groups)
       (let ((tabs (match (find (lambda (group) (= (::pane group) (::id pane))) groups)
                     ((Some group) (::paths group))
                     ((None) (match (::path pane) ((Some path) (list path)) ((None) (Nil)))))))
         (EditorPane (::id pane) (::path pane) (::scroll pane) tabs)))
 
-    (: restored-buffer (-> Draft Buffer))
+    (: restored-buffer (impl (Fn Draft -> Buffer)))
     (define (restored-buffer draft)
       (let ((baseline (if (string=? (::baseline draft) "") (None)
                           (match (string->json (::baseline draft))

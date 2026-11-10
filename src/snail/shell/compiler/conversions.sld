@@ -25,24 +25,24 @@
     (: any-type Type)
     (define any-type (TCon "Any" (Nil)))
 
-    (: cast-result-type (-> Type Type))
+    (: cast-result-type (impl (Fn Type -> Type)))
     (define (cast-result-type target)
       (TCon "snail.core.base:Result" (list target error-type)))
 
-    (: call (-> String (List Type) Type Type (List Expr) Loc Expr))
+    (: call (impl (Fn String (List Type) Type Type (List Expr) Loc -> Expr)))
     (define (call name types result row args loc)
       (Expr (App (Expr (Var name types (Nil)) (TFun (map ::type args) result row) loc) args)
             result loc))
 
-    (: text-value (-> String Loc Expr))
+    (: text-value (impl (Fn String Loc -> Expr)))
     (define (text-value value loc)
       (Expr (Lit (DString value)) (TCon "String" (Nil)) loc))
 
-    (: integer-value (-> I64 Loc Expr))
+    (: integer-value (impl (Fn I64 Loc -> Expr)))
     (define (integer-value value loc)
       (Expr (Lit (DInt value)) (TCon "I64" (Nil)) loc))
 
-    (: string-list (-> (List String) Loc Expr))
+    (: string-list (impl (Fn (List String) Loc -> Expr)))
     (define (string-list values loc)
       (let ((string (TCon "String" (Nil)))
             (list-type (TCon "snail.core.base:List" (list (TCon "String" (Nil))))))
@@ -52,7 +52,7 @@
                     (call "snail.core.base:Nil" (list string) list-type empty-row (Nil) loc)
                     values)))
 
-    (: conversion-error (-> String (List Type) Expr String I64 Loc Expr))
+    (: conversion-error (impl (Fn String (List Type) Expr String I64 Loc -> Expr)))
     (define (conversion-error reason expected value method argument loc)
       (call "snail.core.base:CastError" (Nil) error-type empty-row
             (list (call (string-append "snail.core.base:" reason) (Nil)
@@ -64,7 +64,7 @@
                   (integer-value argument loc))
             loc))
 
-    (: conversion-failure (-> Expr Type Loc Expr))
+    (: conversion-failure (impl (Fn Expr Type Loc -> Expr)))
     (define (conversion-failure error target loc)
       (Expr (Match (call "snail.core.base:conversion-failed" (Nil)
                          (TCon "snail.core.base:Never" (Nil))
@@ -73,7 +73,7 @@
 
     ;; Only the success branch constructs a raw projection. Its type test
     ;; established both the identity and the representation of that value.
-    (: checked-branch (-> Bool Expr Type Loc Expr))
+    (: checked-branch (impl (Fn Bool Expr Type Loc -> Expr)))
     (define (checked-branch attempt? value target loc)
       (let ((checked (if (any-type? target) value (Expr (Convert value target) target loc))))
         (if attempt?
@@ -81,7 +81,7 @@
                   empty-row (list checked) loc)
             checked)))
 
-    (: failed-branch (-> Bool Expr Type Loc Expr))
+    (: failed-branch (impl (Fn Bool Expr Type Loc -> Expr)))
     (define (failed-branch attempt? value target loc)
       (let ((error (conversion-error "TypeMismatch" (list target) value "" -1 loc)))
         (if attempt?
@@ -89,7 +89,7 @@
                   empty-row (list error) loc)
             (conversion-failure error target loc))))
 
-    (: projection (-> I64 Bool Expr Type Loc (Pair Expr I64)))
+    (: projection (impl (Fn I64 Bool Expr Type Loc -> (Pair Expr I64))))
     (define (projection count attempt? inner target loc)
       (let* ((name (string-append "%dyn-cast." (i64->string count) "%"))
              (value (Expr (Var name (Nil) (Nil)) any-type loc))
@@ -113,7 +113,7 @@
        (name String)
        (loc Loc)))
 
-    (: probe (-> Expr Pattern (Option Probe)))
+    (: probe (impl (Fn Expr Pattern -> (Option Probe))))
     (define (probe value pattern)
       (match (Pair (::term value) pattern)
         ((Pair (TryConvert input target)
@@ -121,7 +121,7 @@
          (Some (Probe input target name (::loc value))))
         (_ (None))))
 
-    (: probes (-> Expr Pattern (Option (List Probe))))
+    (: probes (impl (Fn Expr Pattern -> (Option (List Probe)))))
     (define (probes value pattern)
       (match (Pair (::term value) pattern)
         ((Pair (App (Expr (Var "snail.core.base:Pair" _ _) _ _)
@@ -138,7 +138,7 @@
     ;; their payload; it neither creates a resource nor needs cleanup when
     ;; another probe fails. Type tests and projections still reach ownership
     ;; checking, which rejects ineligible payload types as before.
-    (: probe-test (-> (List (Pair Probe Expr)) Loc Expr))
+    (: probe-test (impl (Fn (List (Pair Probe Expr)) Loc -> Expr)))
     (define (probe-test held loc)
       (let ((bool (TCon "Bool" (Nil))))
         (fold-right (lambda (entry rest)
@@ -149,7 +149,7 @@
                                  rest (Expr (Lit (DBool #f)) bool loc)) bool loc))))
                     (Expr (Lit (DBool #t)) bool loc) held)))
 
-    (: probe-values (-> (List (Pair Probe Expr)) Expr Loc Expr))
+    (: probe-values (impl (Fn (List (Pair Probe Expr)) Expr Loc -> Expr)))
     (define (probe-values held body loc)
       (fold-right (lambda (entry body)
                     (let ((probe (::first entry)))
@@ -162,7 +162,7 @@
     ;; Evaluate every input before selecting a branch: Pair is strict even
     ;; when its left probe fails. The fallback appears once, preserving the
     ;; unique names of its local bindings and control continuations.
-    (: probe-body (-> I64 (List Probe) (List Expr) Expr Expr Expr Expr))
+    (: probe-body (impl (Fn I64 (List Probe) (List Expr) Expr Expr Expr -> Expr)))
     (define (probe-body count probes inputs success failure matched)
       (let* ((loc (::loc matched))
              (names (map (lambda (i) (string-append "%dyn-cast." (i64->string (+ count i)) "%"))
@@ -187,7 +187,7 @@
          (match (step count argument ...)
            ((Pair name count) (lowering count (rest ...) body ...))))))
 
-    (: lower-probes (-> I64 (List Probe) Expr Expr Expr (Pair Expr I64)))
+    (: lower-probes (impl (Fn I64 (List Probe) Expr Expr Expr -> (Pair Expr I64))))
     (define (lower-probes count probes success failure matched)
       (lowering count ((inputs (lower-exprs (map ::input probes)))
                        (success (lower-expr success))
@@ -195,7 +195,7 @@
                 (Pair (probe-body count probes inputs success failure matched)
                       (+ count (length probes)))))
 
-    (: lower-expr (-> I64 Expr (Pair Expr I64)))
+    (: lower-expr (impl (Fn I64 Expr -> (Pair Expr I64))))
     (define (lower-expr count expr)
       (let ((rebuild (lambda (term) (Expr term (::type expr) (::loc expr)))))
         (match (::term expr)
@@ -240,7 +240,7 @@
                       count)))
           (_ (Pair expr count)))))
 
-    (: lower-match (-> I64 Expr Expr (List Clause) (Pair Expr I64)))
+    (: lower-match (impl (Fn I64 Expr Expr (List Clause) -> (Pair Expr I64))))
     (define (lower-match count expr value clauses)
       (match clauses
         ((Cons (Clause pattern success) (Cons (Clause (PWild _) failure) (Nil)))
@@ -249,12 +249,12 @@
            ((None) (lower-ordinary-match count expr value clauses))))
         (_ (lower-ordinary-match count expr value clauses))))
 
-    (: lower-ordinary-match (-> I64 Expr Expr (List Clause) (Pair Expr I64)))
+    (: lower-ordinary-match (impl (Fn I64 Expr Expr (List Clause) -> (Pair Expr I64))))
     (define (lower-ordinary-match count expr value clauses)
       (lowering count ((value (lower-expr value)) (clauses (lower-clauses clauses)))
                 (Pair (Expr (Match value clauses) (::type expr) (::loc expr)) count)))
 
-    (: lower-exprs (-> I64 (List Expr) (Pair (List Expr) I64)))
+    (: lower-exprs (impl (Fn I64 (List Expr) -> (Pair (List Expr) I64))))
     (define (lower-exprs count exprs)
       (match exprs
         ((Cons first rest)
@@ -262,7 +262,7 @@
                    (Pair (Cons first rest) count)))
         ((Nil) (Pair (Nil) count))))
 
-    (: lower-clauses (-> I64 (List Clause) (Pair (List Clause) I64)))
+    (: lower-clauses (impl (Fn I64 (List Clause) -> (Pair (List Clause) I64))))
     (define (lower-clauses count clauses)
       (match clauses
         ((Cons clause rest)
@@ -270,7 +270,7 @@
                    (Pair (Cons (Clause (::pattern clause) body) rest) count)))
         ((Nil) (Pair (Nil) count))))
 
-    (: lower-item (-> I64 Item (Pair Item I64)))
+    (: lower-item (impl (Fn I64 Item -> (Pair Item I64))))
     (define (lower-item count item)
       (match item
         ((Define name value)
@@ -279,7 +279,7 @@
          (lowering count ((value (lower-expr value))) (Pair (Do value) count)))
         (_ (Pair item count))))
 
-    (: lower-conversions (-> (List Item) (List Item)))
+    (: lower-conversions (impl (Fn (List Item) -> (List Item))))
     (define (lower-conversions items)
       (reverse
        (::first

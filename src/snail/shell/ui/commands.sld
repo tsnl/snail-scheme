@@ -18,7 +18,7 @@
       ((commands (Vector (Command A)))))
 
     (: register (All (A) (requires (Copy A))
-                     (-> (Vector (Command A)) (Result (Registry A) String))))
+                     (impl (Fn (Vector (Command A)) -> (Result (Registry A) String)))))
     (define (register commands)
       (let loop ((index 0) (names (ann empty-table (Table Bool))))
         (if (= index (vector-length commands)) (Ok (Registry commands))
@@ -29,7 +29,7 @@
 
     ;; ---- Lookup ----
 
-    (: named (All (A) (requires (Copy A)) (-> (Registry A) String (Option A))))
+    (: named (All (A) (requires (Copy A)) (impl (Fn (Registry A) String -> (Option A)))))
     (define (named registry name)
       (let ((commands (::commands registry)))
         (let loop ((index 0))

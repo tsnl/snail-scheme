@@ -238,7 +238,7 @@
     (define builds
       (list (Male) (Female) (Teen) (Muscular) (Pregnant)))
 
-    (: build-name (-> Build String))
+    (: build-name (impl (Fn Build -> String)))
     (define (build-name build)
       (match build
         ((Male) "male")
@@ -277,7 +277,7 @@
     ;; A head's folder, and the skin ramp its walking sheet is drawn in.
     ;; The pack recolors heads only for its smaller sheets, so the walking
     ;; rows are recolored here by swapping one ramp for another.
-    (: head-folder (-> Head (Pair String String)))
+    (: head-folder (impl (Fn Head -> (Pair String String))))
     (define (head-folder head)
       (match head
         ((HumanMale) (Pair "human_male" "light"))
@@ -304,18 +304,18 @@
 
     (define bases "src/lpc/lpc-character-bases-v3_1")
 
-    (: universal (-> String Sheet))
+    (: universal (impl (Fn String -> Sheet)))
     (define (universal path)
       (Sheet path walk-region (Nil)))
 
-    (: body-sheet (-> Build Skin Sheet))
+    (: body-sheet (impl (Fn Build Skin -> Sheet)))
     (define (body-sheet build skin)
       (universal
        (string-append bases "/bodies/" (build-name build) "/universal/" (::name skin) ".png")))
 
     ;; Each color of the head's own ramp becomes the color at the same place
     ;; in `skin`'s; a head already in that skin needs no swaps.
-    (: head-sheet (-> Head Skin Sheet))
+    (: head-sheet (impl (Fn Head Skin -> Sheet)))
     (define (head-sheet head skin)
       (let ((folder (head-folder head)))
         (Sheet (string-append bases "/heads/" (::first folder) "/universal.png") walk-region
@@ -324,7 +324,7 @@
 
     ;; Hair is drawn for male heads and female heads; female and pregnant
     ;; bodies wear the female cut.
-    (: hair-sheet (-> Build HairStyle HairColor Sheet))
+    (: hair-sheet (impl (Fn Build HairStyle HairColor -> Sheet)))
     (define (hair-sheet build style color)
       (let ((cut (match build ((Female) "female") ((Pregnant) "female") (_ "male"))))
         (universal (string-append "src/lpc/lpc-hair/hair/"
@@ -377,7 +377,7 @@
       (Torso)
       (deriving Serialize Deserialize))
 
-    (: garment-slot (-> Garment Slot))
+    (: garment-slot (impl (Fn Garment -> Slot)))
     (define (garment-slot garment)
       (match garment
         ((Pants) (Legs))
@@ -390,7 +390,7 @@
 
     ;; A garment's folder in the clothing updates, and the builds it is drawn
     ;; for there.
-    (: garment-folder (-> Garment (Pair String (List Build))))
+    (: garment-folder (impl (Fn Garment -> (Pair String (List Build)))))
     (define (garment-folder garment)
       (match garment
         ((Longsleeve) (Pair "torso/clothes/longsleeve" (list (Male) (Female) (Teen) (Pregnant))))
@@ -416,7 +416,7 @@
 
     ;; No pack draws teen footwear, but a teen's feet stand close enough to
     ;; a man's that the male sheets fit.
-    (: drawn-build (-> Garment Build Build))
+    (: drawn-build (impl (Fn Garment Build -> Build)))
     (define (drawn-build garment build)
       (match (Pair (garment-slot garment) build)
         ((Pair (Feet) (Teen)) (Male))
@@ -430,7 +430,7 @@
 
     ;; How a garment is drawn for a build, or None where no pack draws it.
     ;; This is the one place that says what each build can wear.
-    (: garment-drawing (-> Build Garment (Option Drawing)))
+    (: garment-drawing (impl (Fn Build Garment -> (Option Drawing))))
     (define (garment-drawing build garment)
       (match (Pair garment build)
         ((Pair (Pants) (Male)) (Some (Single (Dye "green") male-pants)))
@@ -441,7 +441,7 @@
                  (None))))))
 
     ;; The dyes a build can wear a garment in, none where no pack draws it.
-    (: garment-dyes (-> Build Garment (List Dye)))
+    (: garment-dyes (impl (Fn Build Garment -> (List Dye))))
     (define (garment-dyes build garment)
       (match (garment-drawing build garment)
         ((Some (Dyed _ _)) dyes)
@@ -449,12 +449,12 @@
         ((None) (Nil))))
 
     ;; The builds that can wear a garment.
-    (: garment-builds (-> Garment (List Build)))
+    (: garment-builds (impl (Fn Garment -> (List Build))))
     (define (garment-builds garment)
       (filter (lambda (build) (not (null? (garment-dyes build garment)))) builds))
 
     ;; The garment in `dye` on `build`, or None where no pack draws it so.
-    (: garment-sheet (-> Build Garment Dye (Option Sheet)))
+    (: garment-sheet (impl (Fn Build Garment Dye -> (Option Sheet))))
     (define (garment-sheet build garment dye)
       (match (garment-drawing build garment)
         ((Some (Dyed folder drawn))

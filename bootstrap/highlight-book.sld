@@ -16,7 +16,7 @@
 
 ;; The book's chapters, each with its content highlighted. Separators and
 ;; part titles have no content; a chapter's sub-items are chapters too.
-(: highlight-book (-> Json Json))
+(: highlight-book (impl (Fn Json -> Json)))
 (define (highlight-book input)
   (match input
     ((JsonArray (Cons _ (Cons book (Nil))))
@@ -27,13 +27,13 @@
                          value))))
     (_ (panic "the book's highlighter expected [context, book]"))))
 
-(: map-items (-> Json Json))
+(: map-items (impl (Fn Json -> Json)))
 (define (map-items items)
   (match items
     ((JsonArray list) (JsonArray (map highlight-item list)))
     (other other)))
 
-(: highlight-item (-> Json Json))
+(: highlight-item (impl (Fn Json -> Json)))
 (define (highlight-item item)
   (match (json-member item "Chapter")
     ((Some _)
@@ -42,7 +42,7 @@
                      (if (string=? name "Chapter") (highlight-chapter chapter) chapter))))
     ((None) item)))
 
-(: highlight-chapter (-> Json Json))
+(: highlight-chapter (impl (Fn Json -> Json)))
 (define (highlight-chapter chapter)
   (with-members chapter
                 (lambda (name value)
@@ -55,7 +55,7 @@
 
 ;; An object with each member's value replaced by what `change` makes of
 ;; it, in order; anything else as it is.
-(: with-members (-> Json (-> String Json Json) Json))
+(: with-members (impl (Fn Json (dyn (Fn String Json -> Json)) -> Json)))
 (define (with-members json change)
   (match json
     ((JsonObject members)
@@ -82,12 +82,12 @@
    (length I64)
    (info String)))
 
-(: highlight-blocks (-> String String))
+(: highlight-blocks (impl (Fn String -> String)))
 (define (highlight-blocks markdown)
   (string-join (reverse (blocks (lines-of markdown) (Nil))) "\n"))
 
 ;; The lines after `lines`, in reverse, onto `out`.
-(: blocks (-> (List String) (List String) (List String)))
+(: blocks (impl (Fn (List String) (List String) -> (List String))))
 (define (blocks lines out)
   (match lines
     ((Nil) out)
@@ -107,7 +107,8 @@
 
 ;; A block's lines before the fence that closes it, and the lines from that
 ;; fence on, none when the chapter ends first.
-(: until-closing (-> Fence (List String) (List String) (Pair (List String) (List String))))
+(: until-closing
+   (impl (Fn Fence (List String) (List String) -> (Pair (List String) (List String)))))
 (define (until-closing fence lines body)
   (match lines
     ((Cons line rest)
@@ -116,13 +117,13 @@
          (until-closing fence rest (Cons line body))))
     ((Nil) (Pair (reverse body) (Nil)))))
 
-(: first-only (-> (List String) (List String)))
+(: first-only (impl (Fn (List String) -> (List String))))
 (define (first-only lines)
   (match lines
     ((Cons line _) (list line))
     ((Nil) (Nil))))
 
-(: highlighted (-> Fence (List String) String))
+(: highlighted (impl (Fn Fence (List String) -> String)))
 (define (highlighted fence body)
   (let ((code (string-concatenate
                (map (lambda (line) (string-append (without-indent line (::indent fence)) "\n"))
@@ -132,7 +133,7 @@
                    (newlines-as-references (code-html code))
                    "</code></pre>")))
 
-(: fence-of (-> String (Option Fence)))
+(: fence-of (impl (Fn String -> (Option Fence))))
 (define (fence-of line)
   (let* ((indent (count-while line 0 (lambda (c) (char=? c #\space))))
          (marker (if (< indent (string-length line)) (string-ref line indent) #\space))
@@ -146,7 +147,7 @@
 
 ;; A line of spaces, then at least as many of the fence's character, then
 ;; only spaces and tabs.
-(: closes? (-> Fence String Bool))
+(: closes? (impl (Fn Fence String -> Bool)))
 (define (closes? fence line)
   (let* ((indent (count-while line 0 (lambda (c) (char=? c #\space))))
          (end (count-while line indent (lambda (c) (char=? c (::marker fence))))))
@@ -155,7 +156,7 @@
             (string-length line)))))
 
 ;; The info string's first word, which ends at whitespace or a comma.
-(: language (-> Fence String))
+(: language (impl (Fn Fence -> String)))
 (define (language fence)
   (let* ((info (::info fence))
          (start (count-while info 0 char-whitespace?))
@@ -166,31 +167,31 @@
 
 ;; The index of the first character from `start` that `keep?` refuses, or
 ;; the text's length.
-(: count-while (-> String I64 (-> Char Bool) I64))
+(: count-while (impl (Fn String I64 (dyn (Fn Char -> Bool)) -> I64)))
 (define (count-while text start keep?)
   (if (and (< start (string-length text)) (keep? (string-ref text start)))
       (count-while text (+ start 1) keep?)
       start))
 
-(: contains-char? (-> String Char Bool))
+(: contains-char? (impl (Fn String Char -> Bool)))
 (define (contains-char? text char)
   (match (string-index text char)
     ((Some _) #t)
     ((None) #f)))
 
-(: without-indent (-> String I64 String))
+(: without-indent (impl (Fn String I64 -> String)))
 (define (without-indent line indent)
   (let ((spaces (count-while line 0 (lambda (c) (char=? c #\space)))))
     (substring line (min spaces indent) (string-length line))))
 
-(: lines-of (-> String (List String)))
+(: lines-of (impl (Fn String -> (List String))))
 (define (lines-of text)
   (match (string-index text #\newline)
     ((Some index)
      (Cons (substring text 0 index) (lines-of (substring text (+ index 1) (string-length text)))))
     ((None) (list text))))
 
-(: newlines-as-references (-> String String))
+(: newlines-as-references (impl (Fn String -> String)))
 (define (newlines-as-references text)
   (string-join (lines-of text) "&#10;"))
 
@@ -198,12 +199,12 @@
 
 ;; Each token but whitespace becomes a span whose class, `tok-` and the
 ;; class's name, doc/highlight.css colors.
-(: code-html (-> String String))
+(: code-html (impl (Fn String -> String)))
 (define (code-html code)
   (let ((chars (string->vector code)))
     (string-concatenate (map (lambda (token) (token-html chars token)) (highlight-tokens code)))))
 
-(: token-html (-> (Vector Char) Token String))
+(: token-html (impl (Fn (Vector Char) Token -> String)))
 (define (token-html chars token)
   (let ((text (escape-html (subvector chars (::start token) (::end token)))))
     (match (::class token)
@@ -211,7 +212,7 @@
       (class (string-append "<span class=\"tok-" (class-name class) "\">" text "</span>")))))
 
 ;; Text as HTML shows it: `&`, `<` and `>` become character references.
-(: escape-html (-> (Vector Char) String))
+(: escape-html (impl (Fn (Vector Char) -> String)))
 (define (escape-html chars)
   (string-concatenate
    (map (lambda (c)
@@ -223,7 +224,7 @@
 
 ;; ---- The invocation ----
 
-(: read-input (-> (List String) String ! console))
+(: read-input (impl (Fn (List String) -> String ! console)))
 (define (read-input lines)
   (match (read-line)
     ((None) (string-join (reverse lines) "\n"))

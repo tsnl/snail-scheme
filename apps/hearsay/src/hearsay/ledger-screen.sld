@@ -38,11 +38,11 @@
        (guide (Option I64)))
       (deriving Serialize Deserialize))
 
-    (: new-ledger-screen (-> I64 LedgerScreen))
+    (: new-ledger-screen (impl (Fn I64 -> LedgerScreen)))
     (define (new-ledger-screen seed)
       (refresh (LedgerScreen seed (new-ledger seed) (Nil) (Nil) (Nil) (Nil) (Nil) (Nil) (None))))
 
-    (: refresh (-> LedgerScreen LedgerScreen))
+    (: refresh (impl (Fn LedgerScreen -> LedgerScreen)))
     (define (refresh screen)
       (let* ((ledger (::ledger screen))
              (screen (LedgerScreen-vee-offers-set screen (offer-choices ledger vee)))
@@ -63,7 +63,7 @@
     (define action-new 6)
     (define action-kit-offers 7)
 
-    (: group-choices (-> LedgerScreen I32 (List Choice)))
+    (: group-choices (impl (Fn LedgerScreen I32 -> (List Choice))))
     (define (group-choices screen group)
       (cond ((= group action-vee-offers) (::vee-offers screen))
             ((= group action-contacts) (::contacts screen))
@@ -72,7 +72,7 @@
             ((= group action-kit-offers) (::kit-offers screen))
             (else (Nil))))
 
-    (: command-at (-> LedgerScreen I32 I32 (Option Command)))
+    (: command-at (impl (Fn LedgerScreen I32 I32 -> (Option Command))))
     (define (command-at screen group index)
       (let ((choices (group-choices screen group)))
         (if (and (>= index 0) (< (i32->i64 index) (length choices)))
@@ -80,7 +80,7 @@
             (None))))
 
     ;; The end of a round needs no message: the board shows what it did.
-    (: run (-> LedgerScreen Command LedgerScreen))
+    (: run (impl (Fn LedgerScreen Command -> LedgerScreen)))
     (define (run screen command)
       (match (ledger-act (::ledger screen) command)
         ((Ok result)
@@ -90,7 +90,7 @@
                                               (_ (::second result))))))
         ((Err message) (LedgerScreen-message-set screen (list message)))))
 
-    (: press (-> LedgerScreen I32 I32 LedgerScreen))
+    (: press (impl (Fn LedgerScreen I32 I32 -> LedgerScreen)))
     (define (press screen action argument)
       (cond ((guide-action? action)
              (LedgerScreen-guide-set screen
@@ -101,7 +101,7 @@
                     ((Some command) (run screen command))
                     ((None) screen)))))
 
-    (: update-ledger-screen (-> LedgerScreen Input LedgerScreen))
+    (: update-ledger-screen (impl (Fn LedgerScreen Input -> LedgerScreen)))
     (define (update-ledger-screen screen input)
       (match input
         ((Press action argument) (press screen action argument))
@@ -109,7 +109,7 @@
 
     ;; The scene is empty; its pictures are the rivals' portraits for the
     ;; HUD, from the sheets `art` gives.
-    (: view-ledger-screen (-> LedgerScreen (-> String (Option Source)) Frame))
+    (: view-ledger-screen (impl (Fn LedgerScreen (dyn (Fn String -> (Option Source))) -> Frame)))
     (define (view-ledger-screen screen art)
       (empty-frame
        (map (lambda (who) (walk-picture art (rival-picture who) (rival who))) (list vee kit))))
@@ -118,7 +118,7 @@
 
     ;; Choice i of a group is a button pressing the group's action with
     ;; argument i.
-    (: choice-buttons (-> (List Choice) I32 String (List Widget)))
+    (: choice-buttons (impl (Fn (List Choice) I32 String -> (List Widget))))
     (define (choice-buttons choices group prefix)
       (map-indexed (lambda (index choice)
                      (choice-button (string-append prefix "-" (show index))
@@ -132,7 +132,7 @@
 
     ;; Your coins, standing, record and markers. The dial fills as rounds
     ;; end.
-    (: standings-panel (-> Ledger Panel))
+    (: standings-panel (impl (Fn Ledger -> Panel)))
     (define (standings-panel ledger)
       (Panel "standings" (At (TopLeft) 0)
              (list (label "title" "Favor ledger")
@@ -145,7 +145,7 @@
     ;; A rival beside their portrait: their coins, standing, record, markers
     ;; and the job they are after, then their offers while the game is on.
     ;; Vee's column is left of Kit's.
-    (: rival-panel (-> LedgerScreen I64 Panel))
+    (: rival-panel (impl (Fn LedgerScreen I64 -> Panel)))
     (define (rival-panel screen who)
       (let ((ledger (::ledger screen)) (vee? (= who vee)))
         (Panel (if vee? "vee" "kit") (At (TopRight) (if vee? 1 0))
@@ -166,7 +166,7 @@
 
     ;; What needs doing now: the result once the game is over, a promise
     ;; falling due, a job you can do, or else how to work toward one.
-    (: hint (-> LedgerScreen Widget))
+    (: hint (impl (Fn LedgerScreen -> Widget)))
     (define (hint screen)
       (let ((ledger (::ledger screen)))
         (cond ((ledger-over? ledger)
@@ -190,7 +190,7 @@
 
     ;; Your standing, what to do, the jobs and your promises down the left;
     ;; the contacts and the news beside them; each rival on the right.
-    (: playing-panels (-> LedgerScreen (List Panel)))
+    (: playing-panels (impl (Fn LedgerScreen -> (List Panel))))
     (define (playing-panels screen)
       (let ((ledger (::ledger screen)))
         (list (standings-panel ledger)
@@ -217,7 +217,7 @@
               (news-panel screen) (rival-panel screen vee) (rival-panel screen kit))))
 
     ;; What the last command said, and what the last end of round did.
-    (: news-panel (-> LedgerScreen Panel))
+    (: news-panel (impl (Fn LedgerScreen -> Panel)))
     (define (news-panel screen)
       (Panel "news" (At (TopLeft) 1)
              (append (line-labels "message" (::message screen))
@@ -227,7 +227,7 @@
                               (line-labels "last-round"
                                            (::last-round (::ledger screen)))))))
 
-    (: final-panels (-> LedgerScreen (List Panel)))
+    (: final-panels (impl (Fn LedgerScreen -> (List Panel))))
     (define (final-panels screen)
       (list (standings-panel (::ledger screen))
             (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
@@ -269,7 +269,7 @@
                   (Nil))))
 
     ;; `first` are panels to show before the screen's own.
-    (: ledger-screen-hud (-> LedgerScreen (List Panel) (List Panel)))
+    (: ledger-screen-hud (impl (Fn LedgerScreen (List Panel) -> (List Panel))))
     (define (ledger-screen-hud screen first)
       (concatenate
        (list first

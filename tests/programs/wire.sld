@@ -18,7 +18,7 @@
   (Polygon ((points (List Point))))
   (deriving Serialize Deserialize))
 
-(: tree-sum (-> (Tree I64) I64))
+(: tree-sum (impl (Fn (Tree I64) -> I64)))
 (define (tree-sum tree)
   (match tree
     ((Leaf) 0)

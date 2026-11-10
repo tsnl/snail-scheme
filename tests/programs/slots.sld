@@ -7,16 +7,16 @@
 ;; frames: a queue of work items in a global, taken out and put back around
 ;; each change. A cell could not hold it, since a cell holds no linear
 ;; value.
-(type Work (FnOnce Unit ! console))
+(type Work (dyn (FnOnce -> Unit ! console)))
 
 (: queue (UnsafeSlot (List Work)))
 (define queue (unsafe-slot (Nil)))
 
-(: enqueue! (-> Work Unit ! mut))
+(: enqueue! (impl (Fn Work -> Unit ! mut)))
 (define (enqueue! work)
   (put! queue (append (take! queue) (list work))))
 
-(: run-all! (-> Unit ! mut console))
+(: run-all! (impl (Fn -> Unit ! mut console)))
 (define (run-all!)
   (match (take! queue)
     ((Nil) (put! queue (Nil)))

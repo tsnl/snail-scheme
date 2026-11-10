@@ -54,11 +54,11 @@
     (: no-inputs Inputs)
     (define no-inputs (Inputs empty-table empty-table))
 
-    (: supply-artifact (-> Inputs String ArtifactFiles Inputs))
+    (: supply-artifact (impl (Fn Inputs String ArtifactFiles -> Inputs)))
     (define (supply-artifact inputs name files)
       (Inputs-artifacts-set inputs (table-set (::artifacts inputs) name files)))
 
-    (: supply-generated (-> Inputs String Bytes Inputs))
+    (: supply-generated (impl (Fn Inputs String Bytes -> Inputs)))
     (define (supply-generated inputs text bytes)
       (Inputs-generated-set inputs
                             (table-set (::generated inputs)
@@ -69,20 +69,20 @@
     ;; imports resolve in, then its program. One table serves every target
     ;; of a build, and two targets with different directories may resolve
     ;; the same recipe's imports to different libraries.
-    (: producer-text (-> (List String) (List Syntax) String))
+    (: producer-text (impl (Fn (List String) (List Syntax) -> String)))
     (define (producer-text directories forms)
       (string-append (string-join (map quoted directories) " ") "\n" (program-text forms)))
 
-    (: producer-key (-> String String))
+    (: producer-key (impl (Fn String -> String)))
     (define (producer-key text)
       (i64->string (fnv-1a text)))
 
-    (: program-text (-> (List Syntax) String))
+    (: program-text (impl (Fn (List Syntax) -> String)))
     (define (program-text forms)
       (string-join (map syntax->string forms) "\n"))
 
     ;; The output supplied for the producer with this text, if any.
-    (: generated-output (-> Inputs String (Option Bytes)))
+    (: generated-output (impl (Fn Inputs String -> (Option Bytes))))
     (define (generated-output inputs text)
       (match (table-ref (::generated inputs) (producer-key text))
         ((Some generated)
@@ -95,17 +95,17 @@
     ;; at an `artifact-files` use, asks for it by performing `need`. Nothing
     ;; after the call runs: the entry point's handler takes the request and
     ;; hands it to its caller.
-    (: request-input (All (A) (-> CompilerRequest A ! compile)))
+    (: request-input (All (A) (impl (Fn CompilerRequest -> A ! compile))))
     (define (request-input request)
       (absurd (need request)))
 
     ;; A process caller finds a request as a datum in the compile's
     ;; generated directory once the compiler has exited with status 1.
-    (: publish-request (-> String CompilerRequest Unit ! fs))
+    (: publish-request (impl (Fn String CompilerRequest -> Unit ! fs)))
     (define (publish-request directory request)
       (write-file (string-append directory "/request.datum") (request->string request)))
 
-    (: request->string (-> CompilerRequest String))
+    (: request->string (impl (Fn CompilerRequest -> String)))
     (define (request->string request)
       (match request
         ((GenerateInput key) (string-append "(generate " (quoted key) ")\n"))
@@ -116,7 +116,7 @@
                         (i64->string (::column source))
                         ")\n"))))
 
-    (: parse-request (-> String String CompilerRequest ! compile))
+    (: parse-request (impl (Fn String String -> CompilerRequest ! compile)))
     (define (parse-request text filename)
       (match (read-text text filename)
         ((Cons (Form (Cons (Ident "generate" _ _) (Cons (Atom (DString key) _) (Nil))) loc) (Nil))
@@ -136,13 +136,13 @@
         (_ (compile-error (Loc filename 1 1)
                           "expected exactly one generate or artifact compiler request"))))
 
-    (: generated-key? (-> String Bool))
+    (: generated-key? (impl (Fn String -> Bool)))
     (define (generated-key? key)
       (and (> (string-length key) 0)
            (every? (lambda (c) (let ((value (char->integer c))) (and (>= value 48) (<= value 57))))
                    (string->list key))))
 
-    (: quoted (-> String String))
+    (: quoted (impl (Fn String -> String)))
     (define (quoted text)
       (datum->string (DString text)))
 
@@ -158,7 +158,8 @@
     ;; library it generates an import cycle. The key is the one the build's
     ;; inputs use, which leaves that line out, since what the producer writes
     ;; does not depend on the chain that reached it.
-    (: generated-syntax (-> String (List String) (List String) (List Syntax) Bytes ! fs compile))
+    (: generated-syntax
+       (impl (Fn String (List String) (List String) (List Syntax) -> Bytes ! fs compile)))
     (define (generated-syntax directory directories loading forms)
       (let* ((key (producer-key (producer-text directories forms)))
              (output (string-append directory "/" key ".syntax")))
@@ -169,17 +170,17 @@
 
     ;; Prints the producer `forms` as the program at `path`, beginning with
     ;; the libraries `loading` when it was reached.
-    (: print-producer (-> String (List String) (List Syntax) Unit ! fs))
+    (: print-producer (impl (Fn String (List String) (List Syntax) -> Unit ! fs)))
     (define (print-producer path loading forms)
       (write-file path (string-append (generating-line loading) "\n" (program-text forms))))
 
     ;; The text of the producer printed at `path`, as `producer-text` gave
     ;; it for the forms it was printed from.
-    (: printed-producer-text (-> (List String) String String ! fs compile))
+    (: printed-producer-text (impl (Fn (List String) String -> String ! fs compile)))
     (define (printed-producer-text directories path)
       (producer-text directories (::second (generating-stack (read-source-file path)))))
 
-    (: generating-line (-> (List String) String))
+    (: generating-line (impl (Fn (List String) -> String)))
     (define (generating-line loading)
       (string-append "(generating"
                      (string-concatenate
@@ -192,7 +193,7 @@
     ;; build's entry an editor has just deleted, fails the compile with a
     ;; diagnostic about the file as a whole, so a resident caller reports
     ;; it and builds again once the file is back.
-    (: read-source-file (-> String (List Syntax) ! fs compile))
+    (: read-source-file (impl (Fn String -> (List Syntax) ! fs compile)))
     (define (read-source-file path)
       (if (file-exists? path)
           (read-text (read-file path) path)
@@ -201,14 +202,14 @@
     ;; The libraries a program's first form says were loading when it was
     ;; printed, and the forms after it. A program that does not begin with
     ;; `generating` starts with nothing loading.
-    (: generating-stack (-> (List Syntax) (Pair (List String) (List Syntax)) ! compile))
+    (: generating-stack (impl (Fn (List Syntax) -> (Pair (List String) (List Syntax)) ! compile)))
     (define (generating-stack forms)
       (match forms
         ((Cons (Form (Cons (Ident "generating" _ _) keys) _) rest)
          (Pair (map loading-key keys) rest))
         (_ (Pair (Nil) forms))))
 
-    (: loading-key (-> Syntax String ! compile))
+    (: loading-key (impl (Fn Syntax -> String ! compile)))
     (define (loading-key key)
       (match key
         ((Atom (DString text) _) text)

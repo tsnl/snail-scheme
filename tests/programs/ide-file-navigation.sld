@@ -12,16 +12,16 @@
 
 ;; Files are supplied by the service. Selection and fuzzy filtering run in
 ;; the IDE, and the selected path is read through the ordinary buffer flow.
-(: snapshot (-> (Borrow Session) Ide))
+(: snapshot (impl (Fn (Borrow Session) -> Ide)))
 (define (snapshot session)
   (::ide session))
 
-(: finished (-> Session Ide ! mut))
+(: finished (impl (Fn Session -> Ide ! mut)))
 (define (finished session)
   (match session
     ((Session ide pending) (drop pending) ide)))
 
-(: recovered (-> Bytes Unit ! console))
+(: recovered (impl (Fn Bytes -> Unit ! console)))
 (define (recovered bytes)
   (let ((model (restored (read-recovery bytes))))
     (write-line (string-join (::tabs (list-ref (::panes model) 0)) ","))
@@ -61,10 +61,10 @@
                        (finished (run-reactor (begin-session initial)
                                               (list (Connect))
                                               (ann update-session
-                                                   (-> Session
-                                                       (Option Msg)
-                                                       Session
-                                                       ! mut completion console dom fetch))
+                                                   (dyn (Fn Session
+                                                            (Option Msg)
+                                                            -> Session
+                                                            ! mut completion console dom fetch)))
                                               session-view
                                               session-window
                                               snapshot

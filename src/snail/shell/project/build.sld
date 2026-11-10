@@ -92,7 +92,7 @@
       (CompileFailure ((diagnostics Diagnostics)))
       (BuildFailure ((message String))))
 
-    (: failure->string (-> Failure String))
+    (: failure->string (impl (Fn Failure -> String)))
     (define (failure->string failure)
       (match failure
         ((CompileFailure diagnostics) (diagnostics->string diagnostics))
@@ -102,13 +102,13 @@
     ;; failure runs, so a yield to this effect saves no frames. `attempt`
     ;; turns the work into a Result.
     (effect building
-      ((ctl stop (-> Failure Never))))
+      ((ctl stop (dyn (Fn Failure -> Never)))))
 
-    (: fail-build (All (A) (-> String A ! building)))
+    (: fail-build (All (A) (impl (Fn String -> A ! building))))
     (define (fail-build message)
       (absurd (stop (BuildFailure message))))
 
-    (: attempt (All (T e) (-> (-> T ! building e) (Result T Failure) ! e)))
+    (: attempt (All (T e) (impl (Fn (dyn (Fn -> T ! building e)) -> (Result T Failure) ! e))))
     (define (attempt work)
       (handle building
           ((stop (lambda (failure) (Err failure))))
@@ -117,7 +117,8 @@
     ;; A compile that fails stops the build with its diagnostic. The plan
     ;; supplies every input a phase needs before it runs, so a compile that
     ;; asks for one names a need the planner missed.
-    (: compiled (All (T e) (requires (Copy T)) (-> (-> T ! compile e) T ! building e)))
+    (: compiled
+       (All (T e) (requires (Copy T)) (impl (Fn (dyn (Fn -> T ! compile e)) -> T ! building e))))
     (define (compiled work)
       (match (compiling work)
         ((Ok value) value)
@@ -129,7 +130,7 @@
     ;; ---- Projects ----
 
     ;; The project described by `directory`'s project.datum.
-    (: read-project (-> String (Result Project Failure) ! fs))
+    (: read-project (impl (Fn String -> (Result Project Failure) ! fs)))
     (define (read-project directory)
       (let ((file (project-file directory)))
         (attempt (lambda ()
@@ -137,7 +138,7 @@
                      (fail-build (string-append "there is no project file at " file)))
                    (compiled (lambda () (parse-project (read-file file) file)))))))
 
-    (: project-file (-> String String))
+    (: project-file (impl (Fn String -> String)))
     (define (project-file directory)
       (string-append directory "/project.datum"))
 
@@ -156,7 +157,7 @@
     ;; A project's build targets as the planner takes them, in declaration
     ;; order: each entry and library root found in the project's directory,
     ;; and the standard libraries' directory after the roots.
-    (: plan-targets (-> Builder (List Target) ! fs building))
+    (: plan-targets (impl (Fn Builder -> (List Target) ! fs building)))
     (define (plan-targets builder)
       (map (lambda (target)
              (match target
@@ -178,7 +179,7 @@
     ;; type checking and instance selection establish its contract. A digest
     ;; names immutable scaffolding: development sessions keep the same source
     ;; identity, and concurrent builds never replace one another's entry.
-    (: entry-source (-> Builder Bool ProjectEntry String ! fs building))
+    (: entry-source (impl (Fn Builder Bool ProjectEntry -> String ! fs building)))
     (define (entry-source builder browser? entry)
       (match entry
         ((SourceEntry path) (in-project builder path))
@@ -196,7 +197,7 @@
                (expect-done (rename-file writing file) (string-append "cannot place " file))))
            file))))
 
-    (: application-source (-> Bool (List String) String String))
+    (: application-source (impl (Fn Bool (List String) String -> String)))
     (define (application-source browser? library name)
       (string-append "(import (snail core base) (snail shell application) "
                      (if browser? "(snail shell page) " "")
@@ -206,18 +207,18 @@
                          "(start (ann (Entry) (Entry selected:")
                      name (if browser? ")\n" ")))\n")))
 
-    (: in-project (-> Builder ProjectPath String))
+    (: in-project (impl (Fn Builder ProjectPath -> String)))
     (define (in-project builder path)
       (if (string=? (::text path) ".")
           (::project builder)
           (string-append (::project builder) "/" (::text path))))
 
-    (: library-directories (-> Builder (List ProjectPath) (List String)))
+    (: library-directories (impl (Fn Builder (List ProjectPath) -> (List String))))
     (define (library-directories builder roots)
       (append (map (lambda (root) (in-project builder root)) roots)
               (list (string-append (::root (::tools builder)) "/src"))))
 
-    (: root-target (-> (List Target) String String Target ! building))
+    (: root-target (impl (Fn (List Target) String String -> Target ! building)))
     (define (root-target targets file name)
       (match (find (lambda (target) (string=? (::name target) name)) targets)
         ((Some target) target)
@@ -292,9 +293,9 @@
     ;; answers what it built, and what the sessions in `retained` became:
     ;; a failed build keeps each session it advanced.
     (: build-project
-       (-> Tools String Project (List String) Mode String String (List Retained)
-           (Pair (Result Candidate Failure) (List Retained))
-           ! mut fs clock process))
+       (impl (Fn Tools String Project (List String) Mode String String (List Retained)
+                 -> (Pair (Result Candidate Failure) (List Retained))
+                 ! mut fs clock process)))
     (define (build-project tools directory project names mode scratch prefix retained)
       (match (attempt (lambda () (fresh-scratch scratch)))
         ((Err failure) (Pair (Err failure) retained))
@@ -305,13 +306,13 @@
            (remove-tree working)
            built))))
 
-    (: fresh-scratch (-> String String ! fs clock building))
+    (: fresh-scratch (impl (Fn String -> String ! fs clock building)))
     (define (fresh-scratch scratch)
       (expect-done (make-directories scratch) (string-append "cannot make " scratch))
       (fresh-directory (string-append scratch "/build-") "" (monotonic-nanoseconds)))
 
     ;; A target's session goes with the target.
-    (: still-built (-> Project (List Retained) (List Retained)))
+    (: still-built (impl (Fn Project (List Retained) -> (List Retained))))
     (define (still-built project retained)
       (filter (lambda (entry)
                 (match (find-target (::builds project) (::name entry))
@@ -320,8 +321,12 @@
               retained))
 
     (: build-roots
-       (-> Builder (List String) (List Retained) (Pair (Result Candidate Failure) (List Retained))
-           ! mut fs clock process))
+       (impl (Fn Builder
+                 (List String)
+                 (List Retained)
+                 ->
+                 (Pair (Result Candidate Failure) (List Retained))
+                 ! mut fs clock process)))
     (define (build-roots builder names retained)
       (match (attempt (lambda () (plan-roots builder names)))
         ((Err failure) (Pair (Err failure) retained))
@@ -329,7 +334,7 @@
          (let ((progress (run-waves builder plan (Progress no-inputs (Nil) (Nil) retained (None)))))
            (Pair (outcome builder progress) (::retained progress))))))
 
-    (: plan-roots (-> Builder (List String) Plan ! fs building))
+    (: plan-roots (impl (Fn Builder (List String) -> Plan ! fs building)))
     (define (plan-roots builder names)
       (let* ((targets (plan-targets builder))
              (file (project-file (::project builder)))
@@ -339,7 +344,7 @@
         (compiled (lambda () (plan-build targets roots no-inputs printed)))))
 
     ;; A build that failed discards every generation it made.
-    (: outcome (-> Builder Progress (Result Candidate Failure) ! fs))
+    (: outcome (impl (Fn Builder Progress -> (Result Candidate Failure) ! fs)))
     (define (outcome builder progress)
       (match (::failure progress)
         ((Some failure)
@@ -352,7 +357,7 @@
     ;; Runs each wave's phases in order. A wave that leaves phases waiting
     ;; has run the producers whose outputs they need, and the plan refined
     ;; with them hands out the next.
-    (: run-waves (-> Builder Plan Progress Progress ! mut fs clock process))
+    (: run-waves (impl (Fn Builder Plan Progress -> Progress ! mut fs clock process)))
     (define (run-waves builder plan progress)
       (let* ((wave (next-phases plan))
              (plan (::second wave))
@@ -366,14 +371,15 @@
               ((Err failure) (Progress-failure-set progress (Some failure))))
             progress)))
 
-    (: failed? (-> Progress Bool))
+    (: failed? (impl (Fn Progress -> Bool)))
     (define (failed? progress)
       (match (::failure progress)
         ((Some _) #t)
         ((None) #f)))
 
     ;; A phase after a failure does not run; a phase that fails records it.
-    (: run-phase (-> Builder Plan (Pair I64 Phase) Progress Progress ! mut fs clock process))
+    (: run-phase
+       (impl (Fn Builder Plan (Pair I64 Phase) Progress -> Progress ! mut fs clock process)))
     (define (run-phase builder plan entry progress)
       (if (failed? progress)
           progress
@@ -382,7 +388,8 @@
             ((Err failure) (Progress-failure-set progress (Some failure))))))
 
     (: phase-work
-       (-> Builder Plan (Pair I64 Phase) Progress Progress ! mut fs clock process building))
+       (impl
+        (Fn Builder Plan (Pair I64 Phase) Progress -> Progress ! mut fs clock process building)))
     (define (phase-work builder plan entry progress)
       (let ((progress (supply-embedded builder (embedded-names plan (::first entry)) progress)))
         (match (::second entry)
@@ -396,7 +403,7 @@
 
     ;; The targets whose files the phase at `node` embeds: the builds among
     ;; its needs, each built in an earlier wave, or earlier in this one.
-    (: embedded-names (-> Plan I64 (List String)))
+    (: embedded-names (impl (Fn Plan I64 -> (List String))))
     (define (embedded-names plan node)
       (let ((steps (::steps plan)))
         (match (::needs (vector-ref steps node))
@@ -410,7 +417,7 @@
 
     ;; Each embedded target's files join the inputs once, read as they are
     ;; in its generation.
-    (: supply-embedded (-> Builder (List String) Progress Progress ! fs building))
+    (: supply-embedded (impl (Fn Builder (List String) Progress -> Progress ! fs building)))
     (define (supply-embedded builder names progress)
       (fold-left (lambda (progress name)
                    (if (member? name (::supplied progress))
@@ -425,7 +432,7 @@
                  progress
                  names))
 
-    (: generation-named (-> Progress String Generation))
+    (: generation-named (impl (Fn Progress String -> Generation)))
     (define (generation-named progress name)
       (match (find
               (lambda (generation) (string=? (::name (::output generation)) name))
@@ -438,7 +445,7 @@
     ;; store they are in. The snapshot an embedding build gets carries
     ;; them, each at store/sha256/DIGEST, and a manifest that says so, so
     ;; an embedded page is complete wherever it is served from.
-    (: snapshot (-> Generation ArtifactFiles ! fs building))
+    (: snapshot (impl (Fn Generation -> ArtifactFiles ! fs building)))
     (define (snapshot generation)
       (let ((files (map (lambda (file) (Pair (::first file) (read-bytes (::second file))))
                         (::files generation))))
@@ -447,7 +454,7 @@
            (with-objects (::directory (::output generation)) files bytes))
           ((None) files))))
 
-    (: with-objects (-> String ArtifactFiles Bytes ArtifactFiles ! fs building))
+    (: with-objects (impl (Fn String ArtifactFiles Bytes -> ArtifactFiles ! fs building)))
     (define (with-objects directory files bytes)
       (match (manifest-json bytes)
         ((Some json)
@@ -465,7 +472,7 @@
                                    (manifest-digests json))))))
         ((None) (fail-build (string-append directory "/modules.json is not a manifest")))))
 
-    (: manifest-json (-> Bytes (Option Json)))
+    (: manifest-json (impl (Fn Bytes -> (Option Json))))
     (define (manifest-json bytes)
       (match (utf8->string bytes)
         ((Ok text) (string->json text))
@@ -473,7 +480,7 @@
 
     ;; The digests of the objects a manifest names: the runtime, each
     ;; module and each linked file.
-    (: manifest-digests (-> Json (List String)))
+    (: manifest-digests (impl (Fn Json -> (List String))))
     (define (manifest-digests json)
       (map (lambda (entry) (json-text entry "digest"))
            (concatenate (list (match (json-member json "runtime")
@@ -483,7 +490,7 @@
                               (json-array json "files")))))
 
     ;; The manifest with its objects in store/ beside it.
-    (: store-set (-> Json Json))
+    (: store-set (impl (Fn Json -> Json)))
     (define (store-set json)
       (match json
         ((JsonObject members)
@@ -494,19 +501,19 @@
                           members)))
         (_ json)))
 
-    (: json-text (-> Json String String))
+    (: json-text (impl (Fn Json String -> String)))
     (define (json-text json name)
       (match (json-member json name)
         ((Some (JsonString text)) text)
         (_ "")))
 
-    (: json-array (-> Json String (List Json)))
+    (: json-array (impl (Fn Json String -> (List Json))))
     (define (json-array json name)
       (match (json-member json name)
         ((Some (JsonArray items)) items)
         (_ (Nil))))
 
-    (: by-node (-> (List Generation) (List Generation)))
+    (: by-node (impl (Fn (List Generation) -> (List Generation))))
     (define (by-node generations)
       (list-sort (lambda (a b) (< (::node a) (::node b))) generations))
 
@@ -515,7 +522,7 @@
     ;; Builds a target into a new generation, which goes if the build of it
     ;; fails. A development build's session advances once its modules are
     ;; assembled, so a failure packaging the target keeps it.
-    (: build-target (-> Builder I64 Target Progress Progress ! mut fs clock building))
+    (: build-target (impl (Fn Builder I64 Target Progress -> Progress ! mut fs clock building)))
     (define (build-target builder node target progress)
       (let* ((name (::name target))
              (directory (prepare-generation builder name))
@@ -535,7 +542,7 @@
 
     ;; `work`'s value; when it fails, `directory` goes before the failure
     ;; does.
-    (: removing (All (T e) (-> String (-> T ! building e) T ! fs building e)))
+    (: removing (All (T e) (impl (Fn String (dyn (Fn -> T ! building e)) -> T ! fs building e))))
     (define (removing directory work)
       (match (attempt work)
         ((Ok value) value)
@@ -552,7 +559,7 @@
        (linked (List String))
        (retained (List Retained))))
 
-    (: program-output (-> Program String String (List (Pair String String)) Output ! fs))
+    (: program-output (impl (Fn Program String String (List (Pair String String)) -> Output ! fs)))
     (define (program-output program name directory files)
       (let ((digests (file-digests files)))
         (Output name
@@ -566,7 +573,7 @@
     ;; The target's program in its generation, with the files it links: one
     ;; module for a debug or release build, a module per library for a
     ;; development build.
-    (: build-program (-> Builder I64 Target String Progress Program ! mut fs building))
+    (: build-program (impl (Fn Builder I64 Target String Progress -> Program ! mut fs building)))
     (define (build-program builder node target directory progress)
       (in-working builder
                   node
@@ -590,14 +597,14 @@
 
     ;; A browser target's host files and public tree; then the files the
     ;; generation holds.
-    (: package (-> Builder Target String (List (Pair String String)) ! fs building))
+    (: package (impl (Fn Builder Target String -> (List (Pair String String)) ! fs building)))
     (define (package builder target directory)
       (when (::browser? target)
         (package-browser builder (::name target) directory))
       (generation-files directory))
 
     ;; `work` in a directory of its own in the build's scratch, removed after.
-    (: in-working (All (T e) (-> Builder I64 (-> String T ! fs e) T ! fs e)))
+    (: in-working (All (T e) (impl (Fn Builder I64 (dyn (Fn String -> T ! fs e)) -> T ! fs e))))
     (define (in-working builder node work)
       (let ((working (in-scratch builder (string-append "phase-" (show node)))))
         (make-directories working)
@@ -605,7 +612,7 @@
           (remove-tree working)
           result)))
 
-    (: in-scratch (-> Builder String String))
+    (: in-scratch (impl (Fn Builder String -> String)))
     (define (in-scratch builder name)
       (string-append (::scratch builder) "/" name))
 
@@ -615,8 +622,8 @@
     ;; linked with the runtime into `output`; the files it links ship beside
     ;; it. The compile's own files stay in `working`.
     (: link-program
-       (-> Builder String (List String) Inputs String String (List LinkedFile)
-           ! mut fs building))
+       (impl (Fn Builder String (List String) Inputs String String -> (List LinkedFile)
+                 ! mut fs building)))
     (define (link-program builder entry directories inputs working output)
       (let ((program (compiled (lambda ()
                                  (source->wat directories
@@ -644,7 +651,8 @@
     ;; themselves, so a generation holds no object, and an edit that
     ;; changes no file adds none. Each object placed is answered with its
     ;; digest and size, for the manifest.
-    (: place-links (-> String String (List LinkedFile) (List (Pair String I64)) ! fs building))
+    (: place-links
+       (impl (Fn String String (List LinkedFile) -> (List (Pair String I64)) ! fs building)))
     (define (place-links store token links)
       (map (lambda (link) (place-link store token link))
            (delete-duplicates (lambda (a b) (string=? (::digest a) (::digest b)))
@@ -653,7 +661,7 @@
     ;; A file is named for the digest of the bytes its compile read, so the
     ;; bytes placed must be those: a file edited since fails the build, and
     ;; the next one compiles against its new bytes.
-    (: place-link (-> String String LinkedFile (Pair String I64) ! fs building))
+    (: place-link (impl (Fn String String LinkedFile -> (Pair String I64) ! fs building)))
     (define (place-link store token link)
       (let ((from (::path link)) (digest (::digest link)))
         (unless (kind-is? from (RegularFile))
@@ -670,7 +678,7 @@
     ;; this build alone writes, and renamed into it, so a reader never sees
     ;; a partial object, and two builds placing one object at once each
     ;; rename the same bytes.
-    (: place-object (-> String String String Bytes Unit ! fs building))
+    (: place-object (impl (Fn String String String Bytes -> Unit ! fs building)))
     (define (place-object store token digest bytes)
       (let ((to (object-path store digest)))
         (unless (kind-is? to (RegularFile))
@@ -679,12 +687,12 @@
             (write-bytes writing bytes)
             (expect-done (rename-file writing to) (string-append "cannot place " to))))))
 
-    (: object-path (-> String String String))
+    (: object-path (impl (Fn String String -> String)))
     (define (object-path store digest)
       (string-append store "/sha256/" digest))
 
     ;; The store a project's development builds share.
-    (: project-store (-> Builder String))
+    (: project-store (impl (Fn Builder -> String)))
     (define (project-store builder)
       (string-append (::project builder) "/build/.snail-store"))
 
@@ -700,7 +708,8 @@
     ;; module written to the generation, assembled again only when the
     ;; session compiled it again. The session the compile left is retained
     ;; with the modules it was assembled into.
-    (: develop-program (-> Builder Target String String Progress Program ! mut fs building))
+    (: develop-program
+       (impl (Fn Builder Target String String Progress -> Program ! mut fs building)))
     (define (develop-program builder target directory working progress)
       (let* ((previous (retained-for (::retained progress) target))
              (built (compiled (lambda ()
@@ -730,7 +739,7 @@
                         (lambda (entry) (not (string=? (::name entry) (::name target))))
                         (::retained progress))))))
 
-    (: retained-for (-> (List Retained) Target Retained))
+    (: retained-for (impl (Fn (List Retained) Target -> Retained)))
     (define (retained-for retained target)
       (match (find (lambda (entry)
                      (and (string=? (::name entry) (::name target))
@@ -745,7 +754,7 @@
                    (make-session (::directories target))
                    (Nil)))))
 
-    (: same-strings? (-> (List String) (List String) Bool))
+    (: same-strings? (impl (Fn (List String) (List String) -> Bool)))
     (define (same-strings? a b)
       (match (Pair a b)
         ((Pair (Nil) (Nil)) #t)
@@ -754,7 +763,7 @@
 
     ;; Each module as this build has it: as the last build assembled it when
     ;; the session did not compile it again, which keeps its text.
-    (: assemble-modules (-> (List Built) (List Assembled) (List Assembled) ! building))
+    (: assemble-modules (impl (Fn (List Built) (List Assembled) -> (List Assembled) ! building)))
     (define (assemble-modules built previous)
       (map (lambda (module)
              (match (if (::compiled? module)
@@ -766,7 +775,7 @@
                ((None) (assemble-module module))))
            built))
 
-    (: assemble-module (-> Built Assembled ! building))
+    (: assemble-module (impl (Fn Built -> Assembled ! building)))
     (define (assemble-module module)
       (let ((text (::text module)))
         (match (assemble text)
@@ -781,7 +790,7 @@
     ;; object of the project's store, and modules.json in the generation
     ;; naming them, in link order, with the files the program links.
     (: write-modules
-       (-> Builder String (List Assembled) (List (Pair String I64)) Unit ! fs building))
+       (impl (Fn Builder String (List Assembled) (List (Pair String I64)) -> Unit ! fs building)))
     (define (write-modules builder directory modules files)
       (let ((store (project-store builder))
             (token (base-name directory))
@@ -799,7 +808,7 @@
     ;; The manifest: the store its objects are in, relative to it, the
     ;; runtime, each module in link order, and each file the program links,
     ;; every object by digest with its size.
-    (: manifest (-> (Pair String I64) (List Assembled) (List (Pair String I64)) Json))
+    (: manifest (impl (Fn (Pair String I64) (List Assembled) (List (Pair String I64)) -> Json)))
     (define (manifest runtime modules files)
       (JsonObject
        (list (Pair "runtime" (object-json runtime))
@@ -815,18 +824,18 @@
              (Pair "files" (JsonArray (map object-json files))))))
 
     ;; An object as a manifest names it: its digest and size.
-    (: object-json (-> (Pair String I64) Json))
+    (: object-json (impl (Fn (Pair String I64) -> Json)))
     (define (object-json object)
       (JsonObject (object-members object)))
 
-    (: object-members (-> (Pair String I64) (List (Pair String Json))))
+    (: object-members (impl (Fn (Pair String I64) -> (List (Pair String Json)))))
     (define (object-members object)
       (list (Pair "digest" (JsonString (::first object)))
             (Pair "size" (JsonInteger (::second object)))))
 
     ;; Runs a command to its end, and stops the build with what it wrote to
     ;; stderr unless it exits with status 0.
-    (: run-command (-> Command String Unit ! process building))
+    (: run-command (impl (Fn Command String -> Unit ! process building)))
     (define (run-command command name)
       (match (run command #u8())
         ((Err error) (fail-build (string-append "cannot run " name ": " (::code error))))
@@ -837,13 +846,13 @@
 
     ;; A failed command's stderr, or how it ended when it wrote nothing
     ;; that reads as text.
-    (: failure-text (-> Captured Exit String))
+    (: failure-text (impl (Fn Captured Exit -> String)))
     (define (failure-text captured exit)
       (match (utf8->string (::stderr captured))
         ((Ok stderr) (if (string=? stderr "") (how-it-ended exit) stderr))
         ((Err _) (how-it-ended exit))))
 
-    (: how-it-ended (-> Exit String))
+    (: how-it-ended (impl (Fn Exit -> String)))
     (define (how-it-ended exit)
       (match exit
         ((Exited code) (string-append "exited with " (show code)))
@@ -854,7 +863,7 @@
     ;; A producer is compiled from the source the planner printed, linked,
     ;; and run to write its library's syntax, which the
     ;; inputs supply from then on.
-    (: produce (-> Builder I64 Producer Inputs Inputs ! mut fs process building))
+    (: produce (impl (Fn Builder I64 Producer Inputs -> Inputs ! mut fs process building)))
     (define (produce builder node producer inputs)
       (in-working builder
                   node
@@ -872,7 +881,7 @@
                       (run-producer builder program output)
                       (supply-producer producer inputs output)))))
 
-    (: run-producer (-> Builder String String Unit ! fs process building))
+    (: run-producer (impl (Fn Builder String String -> Unit ! fs process building)))
     (define (run-producer builder program output)
       (let ((tools (::tools builder)))
         (run-command (Command (::node tools)
@@ -887,7 +896,7 @@
 
     ;; The producer is read back from its printed source, so the inputs
     ;; hold the text a compile looks its output up by.
-    (: supply-producer (-> Producer Inputs String Inputs ! fs building))
+    (: supply-producer (impl (Fn Producer Inputs String -> Inputs ! fs building)))
     (define (supply-producer producer inputs output)
       (let ((text (compiled (lambda ()
                               (printed-producer-text (::directories producer)
@@ -924,7 +933,7 @@
     ;; one. The page is the project's own index.html; none is generated.
     ;; UTF-8 pages receive a manifest link; a development page is also told
     ;; where modules.json is. A public manifest replaces the default whole.
-    (: package-browser (-> Builder String String Unit ! fs building))
+    (: package-browser (impl (Fn Builder String String -> Unit ! fs building)))
     (define (package-browser builder name directory)
       (copy-browser-assets builder name directory)
       (ensure-web-manifest (string-append (base-name (::project builder)) " / " name)
@@ -933,13 +942,13 @@
 
     ;; Public assets were copied first. A supplied manifest is a complete
     ;; replacement; the default is a regular file in the same output tree.
-    (: ensure-web-manifest (-> String String Unit ! fs))
+    (: ensure-web-manifest (impl (Fn String String -> Unit ! fs)))
     (define (ensure-web-manifest name directory)
       (let ((path (string-append directory "/manifest.webmanifest")))
         (unless (file-exists? path)
           (write-file path (json->string (web-app-manifest name))))))
 
-    (: prepare-browser-page (-> String Bool Unit ! fs))
+    (: prepare-browser-page (impl (Fn String Bool -> Unit ! fs)))
     (define (prepare-browser-page directory development)
       (let ((path (string-append directory "/index.html")))
         (when (kind-is? path (RegularFile))
@@ -947,13 +956,13 @@
             ((Err _) (unit))
             ((Ok text) (write-file path (with-web-app text development)))))))
 
-    (: development? (-> Builder Bool))
+    (: development? (impl (Fn Builder -> Bool)))
     (define (development? builder)
       (match (::mode builder)
         ((Development) #t)
         (_ #f)))
 
-    (: copy-browser-assets (-> Builder String String Unit ! fs building))
+    (: copy-browser-assets (impl (Fn Builder String String -> Unit ! fs building)))
     (define (copy-browser-assets builder name directory)
       (for-each (lambda (file)
                   (copy-into
@@ -971,7 +980,7 @@
     ;; The public directory, which may not be the project's own or lie in
     ;; its build output, and whose every component is a directory, not a
     ;; link.
-    (: public-directory (-> Builder ProjectPath String ! fs building))
+    (: public-directory (impl (Fn Builder ProjectPath -> String ! fs building)))
     (define (public-directory builder path)
       (let ((text (::text path)))
         (when (or (string=? text ".") (string=? (first-component text) "build"))
@@ -989,7 +998,7 @@
     ;; Copies a public tree into the generation. Nothing in it may replace
     ;; a file the build made, use a name reserved at the root, or be
     ;; anything but a regular file or a directory.
-    (: copy-public (-> String String Bool Unit ! fs building))
+    (: copy-public (impl (Fn String String Bool -> Unit ! fs building)))
     (define (copy-public source output top?)
       (for-each (lambda (name)
                   (let ((from (string-append source "/" name)) (to (string-append output "/" name)))
@@ -1015,7 +1024,7 @@
     ;; A new generation for the target `name` in the project's build
     ;; directory, holding only its ownership marker. The output link there,
     ;; if any, must be one a build published.
-    (: prepare-generation (-> Builder String String ! fs clock building))
+    (: prepare-generation (impl (Fn Builder String -> String ! fs clock building)))
     (define (prepare-generation builder name)
       (let ((build (string-append (::project builder) "/build")))
         (when (kind-is? build (SymbolicLink))
@@ -1030,7 +1039,7 @@
 
     ;; A directory `STEM N SUFFIX` that no other build has made, as mkdtemp
     ;; makes one: N starts at `token`, and goes up while the name is taken.
-    (: fresh-directory (-> String String I64 String ! fs building))
+    (: fresh-directory (impl (Fn String String I64 -> String ! fs building)))
     (define (fresh-directory stem suffix token)
       (let ((directory (string-append stem (show token) suffix)))
         (match (make-directory directory)
@@ -1040,7 +1049,7 @@
 
     ;; An output is replaced only when it is a link to a generation beside
     ;; it whose marker names the target.
-    (: check-output (-> String String Unit ! fs building))
+    (: check-output (impl (Fn String String -> Unit ! fs building)))
     (define (check-output output name)
       (match (status-kind output)
         ((None) (unit))
@@ -1057,33 +1066,34 @@
              (unmanaged output))))
         ((Some _) (unmanaged output))))
 
-    (: unmanaged (All (A) (-> String A ! building)))
+    (: unmanaged (All (A) (impl (Fn String -> A ! building))))
     (define (unmanaged output)
       (fail-build (string-append "refusing to replace an unmanaged project output: " output)))
 
     ;; The files of a completed generation, each relative name with its
     ;; path, in name order, without the root's ownership marker.
-    (: generation-files (-> String (List (Pair String String)) ! fs building))
+    (: generation-files (impl (Fn String -> (List (Pair String String)) ! fs building)))
     (define (generation-files directory)
       (list-sort (lambda (a b) (string<? (::first a) (::first b)))
                  (files-under directory "")))
 
     ;; The digest of each file of a generation but its objects, which are
     ;; named for theirs, by name.
-    (: file-digests (-> (List (Pair String String)) (List (Pair String String)) ! fs))
+    (: file-digests (impl (Fn (List (Pair String String)) -> (List (Pair String String)) ! fs)))
     (define (file-digests files)
       (map (lambda (file)
              (Pair (::first file) (bytes->hex (sha256 (read-bytes (::second file))))))
            (filter (lambda (file) (not (content-named? (::first file)))) files)))
 
-    (: content-named? (-> String Bool))
+    (: content-named? (impl (Fn String -> Bool)))
     (define (content-named? name)
       (starts-with? name "store/"))
 
     ;; A digest of a generation's files: each relative name, with its
     ;; file's digest, but only the name of an object, which is the digest
     ;; of its bytes.
-    (: generation-digest (-> (List (Pair String String)) (List (Pair String String)) String))
+    (: generation-digest
+       (impl (Fn (List (Pair String String)) (List (Pair String String)) -> String)))
     (define (generation-digest files digests)
       (bytes->hex
        (sha256
@@ -1096,7 +1106,7 @@
                                                ((None) (Nil))))))
                           files)))))))
 
-    (: files-under (-> String String (List (Pair String String)) ! fs building))
+    (: files-under (impl (Fn String String -> (List (Pair String String)) ! fs building)))
     (define (files-under directory relative)
       (concatenate
        (map (lambda (name)
@@ -1121,7 +1131,7 @@
     ;; generation, before any is renamed into place. Each rename is atomic;
     ;; several are not one transaction, so a later rename that fails keeps
     ;; the outputs published before it and removes only the rest.
-    (: publish-project (-> Candidate (Result Unit String) ! fs))
+    (: publish-project (impl (Fn Candidate -> (Result Unit String) ! fs)))
     (define (publish-project candidate)
       (let ((outputs (::outputs candidate)) (project (::project candidate)))
         (match (attempt
@@ -1130,11 +1140,11 @@
           ((Ok _) (rename-links project outputs)))))
 
     ;; Removes a candidate's generations, publishing none of them.
-    (: discard-candidate (-> Candidate Unit ! fs))
+    (: discard-candidate (impl (Fn Candidate -> Unit ! fs)))
     (define (discard-candidate candidate)
       (discard (::outputs candidate)))
 
-    (: prepare-link (-> String Output Unit ! fs building))
+    (: prepare-link (impl (Fn String Output -> Unit ! fs building)))
     (define (prepare-link project output)
       (let ((directory (::directory output)))
         (check-output (output-link project output) (::name output))
@@ -1142,7 +1152,7 @@
                                          (string-append directory "/.snail-publish"))
                      (string-append "cannot link " directory))))
 
-    (: rename-links (-> String (List Output) (Result Unit String) ! fs))
+    (: rename-links (impl (Fn String (List Output) -> (Result Unit String) ! fs)))
     (define (rename-links project outputs)
       (match outputs
         ((Nil) (Ok (unit)))
@@ -1154,13 +1164,13 @@
             (discard outputs)
             (Err (string-append "cannot publish " (::name output) ": " (show error))))))))
 
-    (: output-link (-> String Output String))
+    (: output-link (impl (Fn String Output -> String)))
     (define (output-link project output)
       (string-append project "/build/" (::name output)))
 
     ;; A removal that fails leaves that generation; the failure the build
     ;; met is the one it reports.
-    (: discard (-> (List Output) Unit ! fs))
+    (: discard (impl (Fn (List Output) -> Unit ! fs)))
     (define (discard outputs)
       (for-each (lambda (output)
                   (remove-tree (::directory output))
@@ -1171,13 +1181,13 @@
 
     ;; The kind of what is at `path`, not following a link, or None when
     ;; nothing is.
-    (: status-kind (-> String (Option FileKind) ! fs))
+    (: status-kind (impl (Fn String -> (Option FileKind) ! fs)))
     (define (status-kind path)
       (match (file-status path)
         ((Ok status) (Some (::kind status)))
         ((Err _) (None))))
 
-    (: kind-is? (-> String FileKind Bool ! fs))
+    (: kind-is? (impl (Fn String FileKind -> Bool ! fs)))
     (define (kind-is? path kind)
       (match (Pair (status-kind path) kind)
         ((Pair (Some (RegularFile)) (RegularFile)) #t)
@@ -1185,27 +1195,28 @@
         ((Pair (Some (SymbolicLink)) (SymbolicLink)) #t)
         (_ #f)))
 
-    (: exists? (-> String Bool ! fs))
+    (: exists? (impl (Fn String -> Bool ! fs)))
     (define (exists? path)
       (match (status-kind path)
         ((Some _) #t)
         ((None) #f)))
 
-    (: directory-names (-> String (List String) ! fs building))
+    (: directory-names (impl (Fn String -> (List String) ! fs building)))
     (define (directory-names path)
       (match (list-directory path)
         ((Ok names) names)
         ((Err error) (fail-build (string-append "cannot read directory " path ": " (show error))))))
 
     ;; Copies a file's bytes to `to`, making its directory first.
-    (: copy-into (-> String String String Unit ! fs building))
+    (: copy-into (impl (Fn String String String -> Unit ! fs building)))
     (define (copy-into from to failure)
       (unless (kind-is? from (RegularFile))
         (fail-build (string-append failure ": there is no file at " from)))
       (expect-done (make-directories (directory-part to)) failure)
       (write-bytes to (read-bytes from)))
 
-    (: expect-done (All (T) (requires (Copy T)) (-> (Result T FileError) String Unit ! building)))
+    (: expect-done
+       (All (T) (requires (Copy T)) (impl (Fn (Result T FileError) String -> Unit ! building))))
     (define (expect-done result failure)
       (match result
         ((Ok _) (unit))
@@ -1213,12 +1224,12 @@
 
     ;; ---- Text ----
 
-    (: starts-with? (-> String String Bool))
+    (: starts-with? (impl (Fn String String -> Bool)))
     (define (starts-with? text prefix)
       (and (>= (string-length text) (string-length prefix))
            (string=? (substring text 0 (string-length prefix)) prefix)))
 
-    (: split-path (-> String (List String)))
+    (: split-path (impl (Fn String -> (List String))))
     (define (split-path path)
       (match (string-index path #\/)
         ((Some index)
@@ -1226,20 +1237,20 @@
                (split-path (substring path (+ index 1) (string-length path)))))
         ((None) (list path))))
 
-    (: first-component (-> String String))
+    (: first-component (impl (Fn String -> String)))
     (define (first-component path)
       (match (string-index path #\/)
         ((Some index) (substring path 0 index))
         ((None) path)))
 
-    (: base-name (-> String String))
+    (: base-name (impl (Fn String -> String)))
     (define (base-name path)
       (match (last (split-path path))
         ((Some name) name)
         ((None) path)))
 
     ;; The directory that holds `path`, which has at least one slash.
-    (: directory-part (-> String String))
+    (: directory-part (impl (Fn String -> String)))
     (define (directory-part path)
       (substring path 0 (- (string-length path) (+ (string-length (base-name path)) 1))))
 

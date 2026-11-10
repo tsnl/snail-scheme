@@ -10,23 +10,23 @@
 ;; 2 resumed it, and logs to the log around the resume, not to the one
 ;; around the task when `fetch` was performed.
 (effect Async
-  ((ctl await (-> I64 I64))
-   (task-id (-> I64))))
+  ((ctl await (dyn (Fn I64 -> I64)))
+   (task-id (dyn (Fn -> I64)))))
 
 (effect Log
-  ((log (-> String Unit))))
+  ((log (dyn (Fn String -> Unit)))))
 
 (effect Io
-  ((fetch (-> I64 I64 ! Async Log))))
+  ((fetch (dyn (Fn I64 -> I64 ! Async Log)))))
 
 (enum Task
   (Done
    ((value I64)))
   (Waiting
    ((ticket I64)
-    (next (FnOnce I64 Task ! Io Log)))))
+    (next (dyn (FnOnce I64 -> Task ! Io Log))))))
 
-(: start (-> I64 (FnOnce I64 ! Io Async Log) Task ! Io Log))
+(: start (impl (Fn I64 (dyn (FnOnce -> I64 ! Io Async Log)) -> Task ! Io Log)))
 (define (start id body)
   (handle Async
       ((await (lambda (ticket resume)
@@ -36,13 +36,13 @@
     (Done (body))))
 
 ;; Answers each wait with its ticket.
-(: finish (-> Task I64 ! Io Log))
+(: finish (impl (Fn Task -> I64 ! Io Log)))
 (define (finish task)
   (match task
     ((Done value) value)
     ((Waiting ticket next) (finish (next ticket)))))
 
-(: labelled (-> String String Unit ! console))
+(: labelled (impl (Fn String String -> Unit ! console)))
 (define (labelled name line)
   (write-line (string-append name ": " line)))
 

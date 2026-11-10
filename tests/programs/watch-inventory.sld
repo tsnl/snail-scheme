@@ -10,14 +10,14 @@
 ;; system's clock carry the same time.
 (define root "build/tests/watch-inventory")
 
-(: at (-> String String))
+(: at (impl (Fn String -> String)))
 (define (at name)
   (string-append root "/" name))
 
 (: excluded (List String))
 (define excluded (list (at "build")))
 
-(: take (-> Unit Inventory ! fs))
+(: take (impl (Fn Unit -> Inventory ! fs)))
 (define (take ignored)
   (match (inventory (list (at "src") (at "build") (at "missing")) excluded)
     ((Ok taken) taken)
@@ -25,7 +25,7 @@
 
 ;; Saves as an atomic save does: writes beside the file, then renames over
 ;; it.
-(: save (-> String String Unit ! fs))
+(: save (impl (Fn String String -> Unit ! fs)))
 (define (save name text)
   (write-file (at (string-append name ".next")) text)
   (match (rename-file (at (string-append name ".next")) (at name))
@@ -33,24 +33,24 @@
     ((Err error) (panic (show error)))))
 
 ;; The changes as names under the root, in order.
-(: changes (-> Inventory Inventory String))
+(: changes (impl (Fn Inventory Inventory -> String)))
 (define (changes before after)
   (let ((names (map (lambda (path) (substring path (+ (string-length root) 1) (string-length path)))
                     (inventory-changes before after))))
     (string-append "(" (string-join (sorted names) " ") ")")))
 
-(: sorted (-> (List String) (List String)))
+(: sorted (impl (Fn (List String) -> (List String))))
 (define (sorted names)
   (fold-left insert (Nil) names))
 
-(: insert (-> (List String) String (List String)))
+(: insert (impl (Fn (List String) String -> (List String))))
 (define (insert names name)
   (match names
     ((Nil) (list name))
     ((Cons first rest)
      (if (string<? name first) (Cons name names) (Cons first (insert rest name))))))
 
-(: report (-> String Inventory Inventory Inventory ! console))
+(: report (impl (Fn String Inventory Inventory -> Inventory ! console)))
 (define (report label before after)
   (write-line (string-append label " -> " (changes before after)))
   after)

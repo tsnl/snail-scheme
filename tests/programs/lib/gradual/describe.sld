@@ -5,7 +5,7 @@
    (snail core base))
   (begin
     (typeclass (Describe e T)
-      (: describe (-> T String ! e)))
+      (: describe (impl (Fn T -> String ! e))))
 
     (instance (Describe (!) I64)
       (define (describe value) (i64->string value)))

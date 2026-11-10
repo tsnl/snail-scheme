@@ -9,11 +9,11 @@
 ;; handler. So each task's fetch waits on that task's own scheduler.
 ;; ANCHOR: effects
 (effect Async
-  ((ctl await (-> I64 I64))
-   (task-id (-> I64))))
+  ((ctl await (dyn (Fn I64 -> I64)))
+   (task-id (dyn (Fn -> I64)))))
 
 (effect Io
-  ((fetch (-> I64 I64 ! Async))))
+  ((fetch (dyn (Fn I64 -> I64 ! Async)))))
 ;; ANCHOR_END: effects
 
 ;; ANCHOR: tasks
@@ -24,11 +24,11 @@
    ((value I64)))
   (Waiting
    ((ticket I64)
-    (next (FnOnce I64 Task ! Io console)))))
+    (next (dyn (FnOnce I64 -> Task ! Io console))))))
 
 ;; Runs a task to its first wait under its own handler, which hands back
 ;; the rest of the task rather than resuming it.
-(: start (-> I64 (-> I64 ! Io Async console) Task ! Io console))
+(: start (impl (Fn I64 (dyn (Fn -> I64 ! Io Async console)) -> Task ! Io console)))
 (define (start id body)
   (handle Async
       ((await (lambda (ticket resume) (Waiting ticket resume)))
@@ -36,7 +36,7 @@
     (Done (body))))
 
 ;; Two fetches, the second after the first has been answered.
-(: job (-> I64 I64 ! Io Async console))
+(: job (impl (Fn I64 -> I64 ! Io Async console)))
 (define (job first)
   (let ((answer (fetch first)))
     (write-line (string-append "fetched " (show answer)))
@@ -45,7 +45,7 @@
 
 ;; Answers each wait with ten times its ticket, alternating between the
 ;; tasks, long after their handlers returned.
-(: alternate (-> Task Task Unit ! Io console))
+(: alternate (impl (Fn Task Task -> Unit ! Io console)))
 (define (alternate this other)
   (match this
     ((Done value)
@@ -55,7 +55,7 @@
      (write-line (string-append "waiting on " (show ticket)))
      (alternate other (next (* ticket 10))))))
 
-(: drive (-> Task Unit ! Io console))
+(: drive (impl (Fn Task -> Unit ! Io console)))
 (define (drive task)
   (match task
     ((Done value) (write-line (string-append "done with " (show value))))
@@ -77,10 +77,10 @@
 ;; An ordinary effect in a latent row goes to the performer's handler
 ;; too: note's implementation logs where note is performed.
 (effect Log
-  ((log (-> String Unit))))
+  ((log (dyn (Fn String -> Unit)))))
 
 (effect Notes
-  ((note (-> String Unit ! Log))))
+  ((note (dyn (Fn String -> Unit ! Log)))))
 
 (handle Log ((log (lambda (line) (write-line (string-append "outer log: " line)))))
   (handle Notes ((note (lambda (text) (log (string-append "note " text)))))

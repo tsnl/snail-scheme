@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(: checksum (-> Bytes I64))
+(: checksum (impl (Fn Bytes -> I64)))
 (define (checksum bytes)
   (vector-fold (lambda (total byte) (+ total (i32->i64 (u8->i32 byte)))) 0 bytes))
 

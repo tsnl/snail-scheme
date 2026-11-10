@@ -17,7 +17,7 @@
   ((width I64)
    (input Input)))
 
-(: request (-> (List String) Request))
+(: request (impl (Fn (List String) -> Request)))
 (define (request arguments)
   (match arguments
     ((Cons "--width" (Cons columns rest))
@@ -27,11 +27,11 @@
        ((None) (bad-width))))
     (_ (Request format-width (input-of arguments)))))
 
-(: bad-width (-> Request))
+(: bad-width (impl (Fn -> Request)))
 (define (bad-width)
   (panic "format-scheme: --width takes a positive number of columns"))
 
-(: input-of (-> (List String) Input))
+(: input-of (impl (Fn (List String) -> Input)))
 (define (input-of arguments)
   (match arguments
     ((Nil) (StandardInput))
@@ -42,7 +42,7 @@
 ;; ---- Input and output ----
 
 ;; Read scalars, not lines, so EOF does not invent a final newline.
-(: read-input (-> String ! console))
+(: read-input (impl (Fn -> String ! console)))
 (define (read-input)
   (let loop ((characters (Nil)))
     (let ((code (console-read)))
@@ -52,7 +52,7 @@
 
 ;; Every changed path, in order. Check mode leaves files alone; write mode
 ;; leaves already formatted files alone, including their timestamps.
-(: format-files (-> I64 Bool (List String) (List String) ! fs))
+(: format-files (impl (Fn I64 Bool (List String) -> (List String) ! fs)))
 (define (format-files width write? paths)
   (let loop ((paths paths) (changed (Nil)))
     (match paths
@@ -67,7 +67,7 @@
 
 ;; Collect all changed files before reporting, rather than stopping at the
 ;; first one. Panic prints to stderr and exits with status 1, as other tools do.
-(: check-files (-> I64 (List String) Unit ! fs))
+(: check-files (impl (Fn I64 (List String) -> Unit ! fs)))
 (define (check-files width paths)
   (match (format-files width #f paths)
     ((Nil) (unit))
@@ -75,7 +75,7 @@
      (panic (string-join (map (lambda (path) (string-append path ": needs formatting")) changed)
                          "\n")))))
 
-(: perform (-> Request Unit ! console fs))
+(: perform (impl (Fn Request -> Unit ! console fs)))
 (define (perform request)
   (match (::input request)
     ((StandardInput) (write-string (format-source (read-input) (::width request))))

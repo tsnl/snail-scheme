@@ -40,14 +40,15 @@
     ;; inventory is taken is left out, as removed, so the next inventory
     ;; that has it reports it again. One that cannot be read otherwise
     ;; fails the inventory, which leaving it out would report removed.
-    (: inventory (-> (List String) (List String) (Result Inventory String) ! fs))
+    (: inventory (impl (Fn (List String) (List String) -> (Result Inventory String) ! fs)))
     (define (inventory roots excluded)
       (match (take-paths empty-table roots excluded)
         ((Ok fingerprints) (Ok (Inventory fingerprints)))
         ((Err message) (Err message))))
 
     (: take-paths
-       (-> (Table String) (List String) (List String) (Result (Table String) String) ! fs))
+       (impl
+        (Fn (Table String) (List String) (List String) -> (Result (Table String) String) ! fs)))
     (define (take-paths fingerprints paths excluded)
       (match paths
         ((Nil) (Ok fingerprints))
@@ -56,7 +57,8 @@
            ((Ok fingerprints) (take-paths fingerprints rest excluded))
            ((Err message) (Err message))))))
 
-    (: take-path (-> (Table String) String (List String) (Result (Table String) String) ! fs))
+    (: take-path
+       (impl (Fn (Table String) String (List String) -> (Result (Table String) String) ! fs)))
     (define (take-path fingerprints path excluded)
       (if (member? path excluded)
           (Ok fingerprints)
@@ -69,7 +71,8 @@
             ((Err (NotFound)) (Ok fingerprints))
             ((Err error) (Err (unreadable path error))))))
 
-    (: take-directory (-> (Table String) String (List String) (Result (Table String) String) ! fs))
+    (: take-directory
+       (impl (Fn (Table String) String (List String) -> (Result (Table String) String) ! fs)))
     (define (take-directory fingerprints directory excluded)
       (match (list-directory directory)
         ((Ok names)
@@ -79,7 +82,7 @@
         ((Err (NotFound)) (Ok fingerprints))
         ((Err error) (Err (unreadable directory error)))))
 
-    (: unreadable (-> String FileError String))
+    (: unreadable (impl (Fn String FileError -> String)))
     (define (unreadable path error)
       (string-append "cannot read " path ": " (show error)))
 
@@ -88,7 +91,7 @@
     ;; over another differs from it. A directory's is its kind alone: what
     ;; it holds has fingerprints of its own, and its timestamps change with
     ;; any of them. A symbolic link is fingerprinted, not followed.
-    (: fingerprint (-> FileStatus String))
+    (: fingerprint (impl (Fn FileStatus -> String)))
     (define (fingerprint status)
       (let ((stamp (string-append (i64->string (::size status))
                                   " "
@@ -104,14 +107,14 @@
     ;; The paths that differ between two inventories of the same roots:
     ;; those `after` fingerprints otherwise than `before`, or has and
     ;; `before` has not, and then those only `before` has.
-    (: inventory-changes (-> Inventory Inventory (List String)))
+    (: inventory-changes (impl (Fn Inventory Inventory -> (List String))))
     (define (inventory-changes before after)
       (let ((old (::fingerprints before)) (new (::fingerprints after)))
         (append (filter (lambda (path) (not (same-fingerprint? old new path))) (table-keys new))
                 (filter (lambda (path) (not (table-contains? new path))) (table-keys old)))))
 
     ;; The regular files an inventory found, in no particular order.
-    (: inventory-files (-> Inventory (List String)))
+    (: inventory-files (impl (Fn Inventory -> (List String))))
     (define (inventory-files taken)
       (let ((fingerprints (::fingerprints taken)))
         (filter (lambda (path)
@@ -122,7 +125,7 @@
                 (table-keys fingerprints))))
 
     ;; Real directories only: the inventory never traverses symbolic links.
-    (: inventory-directories (-> Inventory (List String)))
+    (: inventory-directories (impl (Fn Inventory -> (List String))))
     (define (inventory-directories taken)
       (let ((fingerprints (::fingerprints taken)))
         (filter (lambda (path)
@@ -131,7 +134,7 @@
                     ((None) #f)))
                 (table-keys fingerprints))))
 
-    (: same-fingerprint? (-> (Table String) (Table String) String Bool))
+    (: same-fingerprint? (impl (Fn (Table String) (Table String) String -> Bool)))
     (define (same-fingerprint? old new path)
       (match (Pair (table-ref old path) (table-ref new path))
         ((Pair (Some was) (Some is)) (string=? was is))
@@ -148,10 +151,10 @@
     ;; sent a character at a time, as `modes` sends paths in
     ;; (snail shell project files); waiting is by ticket.
     (effect hints
-      ((hint-character (-> Char Unit))
-       (hint-end (-> Unit))
-       (hint-command (-> I32 I32))
-       (next-hint-of (-> I32 Bool ! tasks)))
+      ((hint-character (dyn (Fn Char -> Unit)))
+       (hint-end (dyn (Fn -> Unit)))
+       (hint-command (dyn (Fn I32 -> I32)))
+       (next-hint-of (dyn (Fn I32 -> Bool ! tasks))))
       (default
         ((hint-character host-argument-character)
          (hint-end host-argument-end)
@@ -167,26 +170,26 @@
     ;; A watch of `root` and what is under it, but for each path in
     ;; `excluded` and what is under that; None when the host cannot watch
     ;; it, as when it is missing.
-    (: watch-tree (-> String (List String) (Option Watch) ! hints))
+    (: watch-tree (impl (Fn String (List String) -> (Option Watch) ! hints)))
     (define (watch-tree root excluded)
       (for-each send-hint-text (list "watch" root))
       (for-each send-hint-text excluded)
       (let ((id (hint-command 0)))
         (if (< id 0) (None) (Some (Watch id)))))
 
-    (: send-hint-text (-> String Unit ! hints))
+    (: send-hint-text (impl (Fn String -> Unit ! hints)))
     (define (send-hint-text text)
       (for-each hint-character (string->list text))
       (hint-end))
 
     ;; Waits for a hint since the last one taken, #t, or for the watch to
     ;; close or be lost, #f.
-    (: next-hint (-> Watch Bool ! hints tasks))
+    (: next-hint (impl (Fn Watch -> Bool ! hints tasks)))
     (define (next-hint watch)
       (next-hint-of (::id watch)))
 
     ;; Ends the watch, and answers a wait on it with #f.
-    (: close-watch (-> Watch Unit ! hints))
+    (: close-watch (impl (Fn Watch -> Unit ! hints)))
     (define (close-watch watch)
       (send-hint-text "unwatch")
       (hint-command (::id watch))

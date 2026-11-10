@@ -10,7 +10,7 @@
           (annotations (doc "How many operations have completed."))))
   (annotations (doc "An agent's durable state.")))
 
-(: describe-agent (-> Agent String)
+(: describe-agent (dyn (Fn Agent -> String))
    (annotations (doc "Return the agent's display name.")
                 (doc "This does not run an operation.")))
 (define (describe-agent agent)
@@ -25,14 +25,14 @@
   (annotations (doc "The initialization result.")))
 
 (typeclass (Named T)
-  (: name-of (-> T String) (annotations (doc "Return this value's name.")))
+  (: name-of (dyn (Fn T -> String)) (annotations (doc "Return this value's name.")))
   (annotations (doc "Values with a human-readable name.")))
 (instance (Named Agent)
   (define (name-of agent) (::name agent)))
 
 (effect information
-  ((fetch-name (-> Unit String) (annotations (doc "Read the current name.")))
-   (ctl await-name (-> Unit String) (annotations (doc "Wait for a new name."))))
+  ((fetch-name (dyn (Fn Unit -> String)) (annotations (doc "Read the current name.")))
+   (ctl await-name (dyn (Fn Unit -> String)) (annotations (doc "Wait for a new name."))))
   (annotations (doc "The source of names.")))
 
 (: constant I64 (annotations (doc "A documented constant.")))

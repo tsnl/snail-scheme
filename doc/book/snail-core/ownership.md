@@ -7,17 +7,19 @@ the compiler enforces, then what
 
 ## Implemented: linear one-shot work
 
-`(FnOnce A B ! e)` is the **linear** arrow, beside the omega `->`: a
-procedure of that type is used exactly once on every path that returns.
-Ordinary procedures and ordinary data have grade `omega` and can be reused
-or ignored.
+`(dyn (FnOnce A -> B ! e))` is **linear**: a value of that type is used
+exactly once on every path that returns. An unrestricted `dyn Fn` closure
+can be reused or ignored. Concrete `impl Fn` and `impl FnMut` closures own
+their captures and are linear when a capture is linear; repeatable calls
+borrow that owner. Callability and `Copy` are independent
+([callable classes](types.md#callable-classes)).
 
 ```scheme
 (import
  (snail core base)
  (snail core io))
 
-(: greeting (-> String (FnOnce Unit ! console)))
+(: greeting (impl (Fn String -> (dyn (FnOnce -> Unit ! console)))))
 (define (greeting name)
   (once (lambda () (write-line name))))
 
@@ -31,9 +33,9 @@ or ignored.
 `call-once` consumes the work item before entering its body, and so does
 calling it directly, as `(work)`. `drop` releases one without calling it,
 and releases any other value too ([releasing](#releasing)). A `FnOnce`
-may take any number of arguments, as `(FnOnce I64 I64)` takes one; `once`
-builds thunks, and a
-control handler's `resume` is the other kind
+may take any number of arguments, as `(dyn (FnOnce I64 -> I64))` takes one; `once`
+preserves the supplied function's full argument list, and a
+control handler's `resume` is another one-shot callable
 ([effects and handlers](effects.md#control-handlers)).
 
 The compiler inserts no drops. A linear name still live at the end of the
@@ -51,9 +53,9 @@ so is a second use.
   `(absurd (fail diagnostic))` ends a path. Its abandoned owners are
   released before its handler recovers; a fatal panic has no such promise.
 - **Linear data.** A struct or enum with a linear field, once its
-  parameters are bound, is itself linear: `(List (FnOnce Unit))` is. A
+  parameters are bound, is itself linear: `(List (dyn (FnOnce -> Unit)))` is. A
   field holding a linear value only inside a `Ref` does not count, so a
-  `(Mailbox (FnOnce Unit))` is unrestricted. Destructure linear data
+  `(Mailbox (dyn (FnOnce -> Unit)))` is unrestricted. Destructure linear data
   with `match`, which moves the fields out; a wildcard cannot discard a
   linear field. A pure replacement, `(Job-attempts-set job 2)`, consumes a
   linear record and answers it with the other fields moved along, so it
@@ -121,7 +123,7 @@ so is a second use.
   `(Copy T)`. An instance requires `Copy` the same way, in its `requires`,
   and is used only where its head gives that variable an unrestricted
   type: an instance of `(Twice (Option A))` that pairs a value with
-  itself cannot be used at `(Option (FnOnce Unit))`.
+  itself cannot be used at `(Option (dyn (FnOnce -> Unit)))`.
 - **What cannot hold one.** Linear values cannot be globals, elements of
   `Array` or `Vector`, payloads erased into `Any`, or exports, and a
   statement cannot discard one. A vector is a reference that may be
@@ -134,12 +136,12 @@ so is a second use.
   handed no `resume` at all.
 
 ```scheme
-(: swap (All (A B) (-> (Pair A B) (Pair B A))))
+(: swap (All (A B) (impl (Fn (Pair A B) -> (Pair B A)))))
 (define (swap pair)
   (match pair
     ((Pair a b) (Pair b a))))
 
-(: twice (All (A) (requires (Copy A)) (-> A (Pair A A))))
+(: twice (All (A) (requires (Copy A)) (impl (Fn A -> (Pair A A)))))
 (define (twice value)
   (Pair value value))
 ```
@@ -165,7 +167,7 @@ scope, keeping the owner in place until that scope ends. For example, a
 view can inspect a model that owns linear work:
 
 ```scheme
-(: title (-> (Borrow Model) String))
+(: title (impl (Fn (Borrow Model) -> String)))
 (define (title model)
   (Model-title model))
 
@@ -243,7 +245,7 @@ storage and continuation capture.
 
 ```scheme
 (typeclass (Drop e T)
-  (: drop (-> T Unit ! e)))
+  (: drop (impl (Fn T -> Unit ! e))))
 ```
 
 What a drop runs, and so the row it performs, is found from `T` rather
@@ -256,7 +258,7 @@ than matched (`lifecycle-plan` and `lifecycle-rows` in
   it captured: a `once` lambda's linear captures, or the linear locals a
   `resume`'s frames hold. Its type does not say what those are, so the
   drop is charged with the `FnOnce`'s own row, less its control effects,
-  which no drop performs: dropping a `(FnOnce A B ! e)` performs `e`.
+  which no drop performs: dropping a `(dyn (FnOnce A -> B ! e))` performs `e`.
   Data holding a `FnOnce`, such as a queue of tasks, runs glue that drops
   each one.
 - A type with an instance runs the instance's method, and performs the
@@ -378,7 +380,7 @@ class over a row:
 
 ```scheme
 (typeclass (Clone e T)
-  (: clone (-> T (Pair T T) ! e)))
+  (: clone (impl (Fn T -> (Pair T T) ! e))))
 ```
 
 It takes the value and hands it back with a copy, since a linear value
@@ -424,35 +426,23 @@ local of the code around it is an error, "a fn has no environment", and so
 is reading one from a lambda inside it. A top-level function has no locals
 around it, so the expander marks every one as a `fn`.
 
-A `fn`'s type is the ordinary arrow, so it goes wherever a lambda does.
-The checker establishes the fact, and the backend relies on it: a closure
-that may not capture compiles to one immutable global, as any closure
-without captures does, and the backend asserts that it found nothing to
-copy.
-
-An interface asks for a function without an environment by its type,
-`(Fn A B ! e)`, a third arrow beside `->` and `FnOnce`. It is
-unrestricted, and it is a reference to code alone, which takes the
-evidence and then the arguments and no closure, so a host or another
-instance could call it with nothing to hand it:
+A `fn` expression has a concrete callable type when inferred. At a
+`(fn A -> B ! e)` boundary, it provides a code pointer without an environment.
+A top-level function can also provide that representation:
 
 ```scheme
 {{#include ../../../tests/programs/fn-type.sld:fn-type}}
 ```
 
-A `fn`, and the name of a top-level function, have type `Fn` where it is
-expected: as an argument to a parameter of that type, under `ann`, or as
-a definition with that signature. Nothing else has it, not even a local
-bound to a `fn`. A value called before its type is known is taken to be
-an ordinary arrow, so a lambda that calls its `Fn` parameter, `(lambda (f)
-(f x))`, needs that type from somewhere first, such as a pattern over a
-list whose type is known. And no value converts on its own: an `Fn` is called
-directly, as `(f x)`, and goes where a closure is expected inside a
-lambda, `(lambda (x) (f x))`. Calling one passes the caller's handlers,
-so it performs what its row says where it is called. An `Any` holds no
-`Fn`, since a code reference is not the GC reference an `Any` holds;
-data that holds one is, and crosses. `unsafe-cast` at an `Fn` is the
-engine's cast of a `Funcref` alone, with no closure around it.
+A capturing lambda cannot provide a code pointer. The expected type can
+come from a parameter, a field, `ann`, or a definition's signature. A
+local already holding a code pointer retains its type. Wrap one in a
+lambda when a `dyn Fn` closure is expected, as `(lambda (x) (f x))`.
+Calling either representation supplies the caller's handlers and performs
+its declared effects. `once` also adapts code pointers into owned closures.
+An `Any` holds no bare code pointer, since it is not a GC reference;
+data that holds one can cross that boundary. `unsafe-cast` at a `fn`
+type casts a `Funcref` directly.
 
 ### Representation
 
@@ -460,9 +450,8 @@ A linear value is represented as an omega value of the same shape would
 be: a `FnOnce` as the closure of its function type, and a linear struct
 as the struct. Linearity is a fact the checker proves; nothing at run
 time records it, and calling a `FnOnce`, matching a linear struct or
-reading a field of one compiles as it would for an omega value. `drop`
-releases its argument and does nothing else. The one thing linearity
-changes is a replacement, below.
+reading a field of one compiles as it would for an omega value. `drop` runs the cleanup established by the type, including a callable's
+capture dropper. Linearity also restricts field replacement, below.
 
 A struct is a value with no identity, since only `Ref` has a mutable
 field and the language has no reference equality, so nothing can tell it

@@ -19,22 +19,22 @@
                  (list->string (list #\return #\newline))
                  "no final newline"))
 
-(: at (-> String String))
+(: at (impl (Fn String -> String)))
 (define (at name)
   (string-append root "/" name))
 
-(: report (-> String String Unit ! console))
+(: report (impl (Fn String String -> Unit ! console)))
 (define (report label text)
   (write-line (string-append label " -> " text)))
 
-(: refusal->string (-> FileRefusal String))
+(: refusal->string (impl (Fn FileRefusal -> String)))
 (define (refusal->string refusal)
   (match refusal
     ((ChangedOnDisk) "changed on disk")
     ((NotServed message) (string-append "not served: " message))
     ((DiskFailed error) (string-append "disk failed: " (show error)))))
 
-(: text-report (-> String (Result ProjectText FileRefusal) Unit ! console))
+(: text-report (impl (Fn String (Result ProjectText FileRefusal) -> Unit ! console)))
 (define (text-report label result)
   (report label (match result
                   ((Ok text)
@@ -43,24 +43,24 @@
                                   (substring (::revision text) 0 12)))
                   ((Err refusal) (refusal->string refusal)))))
 
-(: read-report (-> String Unit ! console fs))
+(: read-report (impl (Fn String -> Unit ! console fs)))
 (define (read-report path)
   (text-report (string-append "read " path) (read-project-text root path)))
 
 ;; The revision of the file at `path` now, which a save names.
-(: revision-of (-> String String ! fs))
+(: revision-of (impl (Fn String -> String ! fs)))
 (define (revision-of path)
   (match (read-project-text root path)
     ((Ok text) (::revision text))
     ((Err _) "")))
 
-(: mode-report (-> String Unit ! console modes))
+(: mode-report (impl (Fn String -> Unit ! console modes)))
 (define (mode-report path)
   (report (string-append "mode of " path) (match (file-mode (at path))
                                             ((Some mode) (number->octal mode))
                                             ((None) "none"))))
 
-(: number->octal (-> I32 String))
+(: number->octal (impl (Fn I32 -> String)))
 (define (number->octal number)
   (if (< number 8)
       (show number)

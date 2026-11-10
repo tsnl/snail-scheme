@@ -36,7 +36,7 @@
        (instances (Table Instance))
        (definitions (Table Expr))))
 
-    (: prepare-specialization (-> Typed Specialization))
+    (: prepare-specialization (impl (Fn Typed -> Specialization)))
     (define (prepare-specialization typed)
       (let ((instances (fold-left (lambda (table instance)
                                     (table-set table (::name instance) instance))
@@ -97,7 +97,7 @@
       (GlueBody)
       (Imported))
 
-    (: Definition-external? (-> Definition Bool))
+    (: Definition-external? (impl (Fn Definition -> Bool)))
     (define (Definition-external? binding)
       (match (::body binding)
         ((Imported) #t)
@@ -134,7 +134,8 @@
     (: each
        (All (A B)
             (requires (Copy B))
-            (-> State (-> State A (Pair B State)) (List A) (Pair (List B) State))))
+            (impl
+             (Fn State (dyn (Fn State A -> (Pair B State))) (List A) -> (Pair (List B) State)))))
     (define (each state step items)
       (let ((done (fold-left (lambda (done item)
                                (match (step (::second done) item)
@@ -142,17 +143,17 @@
                              (Pair (Nil) state) items)))
         (Pair (reverse (::first done)) (::second done))))
 
-    (: specialization-program (-> State Program))
+    (: specialization-program (impl (Fn State -> Program)))
     (define (specialization-program state)
       (::program (::typed (::input state))))
 
-    (: definition (-> State String Expr))
+    (: definition (impl (Fn State String -> Expr)))
     (define (definition state name)
       (match (table-ref (::definitions (::input state)) name)
         ((Some value) value)
         ((None) (panic (string-append "internal error: no definition " name)))))
 
-    (: scheme-of (-> State String Scheme))
+    (: scheme-of (impl (Fn State String -> Scheme)))
     (define (scheme-of state name)
       (definition-scheme (::typed (::input state)) name))
 
@@ -160,7 +161,7 @@
 
     ;; The specialized name, queueing the copy the first time. Under coherent
     ;; instances the types determine the evidence.
-    (: request (-> State String (List Type) (List Evidence) (Pair String State)))
+    (: request (impl (Fn State String (List Type) (List Evidence) -> (Pair String State))))
     (define (request state name types evidence)
       (let ((spec (if (null? types)
                       name
@@ -176,7 +177,7 @@
 
     ;; All executable work, including recursive glue, uses this reservation
     ;; rule and this queue. Merely looking up a binding never generates code.
-    (: reserve (-> State String Definition State))
+    (: reserve (impl (Fn State String Definition -> State)))
     (define (reserve state name binding)
       (if (table-contains? (::bindings state) name)
           state
@@ -184,13 +185,13 @@
            (State-bindings-set state (table-set (::bindings state) name binding))
            (Cons name (::pending state)))))
 
-    (: requested (-> State String State))
+    (: requested (impl (Fn State String -> State)))
     (define (requested state name)
       (if (external? state name (Nil))
           (import-definition state name (definition state name))
           (::second (request state name (Nil) (Nil)))))
 
-    (: instantiation (-> State String (List Type) (List Evidence) Instantiation))
+    (: instantiation (impl (Fn State String (List Type) (List Evidence) -> Instantiation)))
     (define (instantiation state name types evidence)
       (Instantiation (zip (::vars (scheme-of state name)) types)
                      evidence (::control state)))
@@ -198,14 +199,14 @@
     ;; Complete the entire newly reached graph before a contextual check
     ;; reads any body. Calls reserve identities; they never instantiate here
     ;; recursively, so each queued recipe is consumed exactly once.
-    (: complete-specializations (-> State (Pair (List Item) State)))
+    (: complete-specializations (impl (Fn State -> (Pair (List Item) State))))
     (define (complete-specializations state)
       (let loop ((state state) (items (Nil)))
         (match (next-definition state)
           ((Pair (Some item) state) (loop state (Cons item items)))
           ((Pair (None) state) (Pair (reverse items) state)))))
 
-    (: next-definition (-> State (Pair (Option Item) State)))
+    (: next-definition (impl (Fn State -> (Pair (Option Item) State))))
     (define (next-definition state)
       (match (::pending state)
         ((Cons name rest)
@@ -216,7 +217,7 @@
                          (Pair (Some (Define name value)) state))))
         ((Nil) (Pair (None) state))))
 
-    (: complete-definition (-> State String Definition Expr State))
+    (: complete-definition (impl (Fn State String Definition Expr -> State)))
     (define (complete-definition state name definition value)
       (let ((body (match (::body definition)
                     ((Source origin _ _) (SourceBody origin value))
@@ -225,7 +226,7 @@
                             (table-set (::bindings state) name
                                        (Definition-body-set definition body)))))
 
-    (: instantiate-body (-> State Body (Pair Expr State)))
+    (: instantiate-body (impl (Fn State Body -> (Pair Expr State))))
     (define (instantiate-body state body)
       (match body
         ((Source name types evidence)
@@ -235,7 +236,7 @@
         ((ShareGlue subject loc) (Pair (share-function subject loc) state))
         (_ (panic "internal error: only an unbuilt recipe can be queued"))))
 
-    (: binding-of (-> State String Definition))
+    (: binding-of (impl (Fn State String -> Definition)))
     (define (binding-of state name)
       (match (table-ref (::bindings state) name)
         ((Some binding) binding)
@@ -243,7 +244,7 @@
 
     ;; Freeze signatures and discard all source bodies at the emitter's
     ;; boundary. The program contributes declarations, not its syntax items.
-    (: specialization-declarations (-> State Declarations))
+    (: specialization-declarations (impl (Fn State -> Declarations)))
     (define (specialization-declarations state)
       (Declarations (Program-items-set (specialization-program state) (Nil))
                     (::owner state) (::control state)
@@ -258,7 +259,7 @@
     ;; A read-only snapshot of original source instantiations. Generated
     ;; glue and imports keep their declared rows, as before. Missing local
     ;; bodies mean discovery was not closed before analysis.
-    (: specialization-definitions (-> State (Table Expr)))
+    (: specialization-definitions (impl (Fn State -> (Table Expr))))
     (define (specialization-definitions state)
       (fold-left (lambda (bodies name)
                    (match (::body (binding-of state name))
@@ -271,7 +272,7 @@
     ;; Group concrete initializers by the source definition they came from,
     ;; then follow checked source order. Within one definition, retain the
     ;; specialization discovery order. Functions and glue have no startup work.
-    (: order-initializers (-> State (List Item) (List Item)))
+    (: order-initializers (impl (Fn State (List Item) -> (List Item))))
     (define (order-initializers state items)
       (let ((groups (fold-right (lambda (item groups) (group-initializer state groups item))
                                 empty-table items)))
@@ -282,7 +283,7 @@
                   (_ (Nil))))
               (::items (::typed (::input state)))))))
 
-    (: group-initializer (-> State (Table (List Item)) Item (Table (List Item))))
+    (: group-initializer (impl (Fn State (Table (List Item)) Item -> (Table (List Item)))))
     (define (group-initializer state groups item)
       (match item
         ((Define name value)
@@ -294,7 +295,7 @@
                (_ (panic "internal error: an initializer must have a source definition")))))
         (_ groups)))
 
-    (: initializers-at (-> (Table (List Item)) String (List Item)))
+    (: initializers-at (impl (Fn (Table (List Item)) String -> (List Item))))
     (define (initializers-at groups name)
       (match (table-ref groups name)
         ((Some items) items)
@@ -305,11 +306,11 @@
     ;; Effects are erased here except control effects, because a call that
     ;; may reach a control operation compiles differently from one that
     ;; cannot; specializations differ by their types and their control rows.
-    (: ground (-> Instantiation Type Type))
+    (: ground (impl (Fn Instantiation Type -> Type)))
     (define (ground inst type)
       (erase-rows (::control inst) (substitute (::vars inst) type)))
 
-    (: erase-rows (-> (List String) Type Type))
+    (: erase-rows (impl (Fn (List String) Type -> Type)))
     (define (erase-rows control type)
       (match type
         ((TCon name args) (TCon name (map (lambda (arg) (erase-rows control arg)) args)))
@@ -321,12 +322,12 @@
         (_ type)))
 
     ;; The control effects a row names, in the order of `control`, closed.
-    (: control-row (-> (List String) Type Type))
+    (: control-row (impl (Fn (List String) Type -> Type)))
     (define (control-row control row)
       (let ((labels (row-labels row)))
         (TRow (filter (lambda (effect) (member? effect labels)) control) (None))))
 
-    (: row-labels (-> Type (List String)))
+    (: row-labels (impl (Fn Type -> (List String))))
     (define (row-labels row)
       (match row
         ((TRow labels (Some tail)) (append labels (row-labels tail)))
@@ -336,7 +337,7 @@
     ;; A specialization's name keys its types as `type-key` does, plus the
     ;; control effects in their rows. A row without one keys as before, so
     ;; code that cannot reach a control operation keeps its names.
-    (: spec-key (-> Type String))
+    (: spec-key (impl (Fn Type -> String)))
     (define (spec-key type)
       (match type
         ((TCon name (Nil)) name)
@@ -351,11 +352,11 @@
         ((TRow _ _) (string-append "row" (control-suffix type)))
         (_ (type-key type))))
 
-    (: control-suffix (-> Type String))
+    (: control-suffix (impl (Fn Type -> String)))
     (define (control-suffix row)
       (string-concatenate (map (lambda (effect) (string-append "!" effect)) (row-labels row))))
 
-    (: ground-evidence (-> Instantiation Evidence Evidence))
+    (: ground-evidence (impl (Fn Instantiation Evidence -> Evidence)))
     (define (ground-evidence inst evidence)
       (match evidence
         ((EvParam index) (list-ref (::evidence inst) index))
@@ -366,10 +367,11 @@
         ((EvDerived plan) (EvDerived plan))
         ((EvHole _) (panic "internal error: unsolved evidence"))))
 
-    (: copy-expr (-> State Instantiation Expr (Pair Expr State)))
+    (: copy-expr (impl (Fn State Instantiation Expr -> (Pair Expr State))))
     (define (copy-expr state inst expr)
       (let ((type (ground inst (::type expr))) (loc (::loc expr)))
         (match (::term expr)
+          ((Var "prim:once" _ _) (once-function-value state type loc))
           ((Var name types evidence)
            (reference state
                       name
@@ -377,13 +379,115 @@
                       (map (lambda (e) (ground-evidence inst e)) evidence)
                       type
                       loc))
+          ((App callee args)
+           (specializing state ((callee (copy-callee inst callee)) (args (copy-exprs inst args)))
+                         (specialized-call state callee args type loc)))
+          ((Ann inner target)
+           (specializing state ((inner (copy-expr inst inner)))
+                         (if (and (match (callable-kind type) ((Some "FnOnce") #t) (_ #f))
+                                  (needs-consuming-adapter? state inner))
+                             (once-adapter state inner type loc)
+                             (Pair (Expr (Ann inner (ground inst target)) type loc) state))))
           (term (specializing state
                               ((copied (copy-term inst term)))
                               (Pair (Expr copied type loc) state))))))
 
+    (: copy-callee (impl (Fn State Instantiation Expr -> (Pair Expr State))))
+    (define (copy-callee state inst callee)
+      (match (::term callee)
+        ((Var "prim:once" _ _)
+         (Pair (Expr (Var "prim:once" (Nil) (Nil))
+                     (ground inst (::type callee)) (::loc callee)) state))
+        (_ (copy-expr state inst callee))))
+
+    ;; A first-class once constructor uses the same adaptation as a direct
+    ;; use, including owned shared environments and bare code pointers.
+    (: once-function-value (impl (Fn State Type Loc -> (Pair Expr State))))
+    (define (once-function-value state type loc)
+      (match (fn-arrow type)
+        ((TFun (Cons receiver (Nil)) result _)
+         (let* ((name (string-append "$once.input:" (loc->string loc)))
+                (callee (Expr (Var "prim:once" (Nil) (Nil)) type loc)))
+           (specializing state ((body
+                                 (specialized-call callee (list (local-value name receiver loc))
+                                                   result loc)))
+                         (Pair (Expr (Lambda (list name) body #f) type loc) state))))
+        (_ (panic "internal error: once takes one callable"))))
+
+    ;; A consuming requirement may be instantiated by a shared callable.
+    ;; Its body borrows the environment, so this call owns and releases the
+    ;; environment after the answer, including cleanup on an aborted call.
+    (: specialized-call (impl (Fn State Expr (List Expr) Type Loc -> (Pair Expr State))))
+    (define (specialized-call state callee args type loc)
+      (match (Pair (::term callee) args)
+        ((Pair (Var "prim:once" _ _) (Cons value (Nil)))
+         (if (needs-consuming-adapter? state value)
+             (once-adapter state value type loc)
+             (Pair (Expr (App callee args) type loc) state)))
+        (_ (if (and (match (invocation-mode callee) ((Some "FnOnce") #t) (_ #f))
+                    (needs-consuming-adapter? state callee))
+               (let ((name (string-append "$consuming.receiver:" (loc->string loc))))
+                 (specializing state ((body (consuming-body (local-value name (::type callee) loc)
+                                                            args type loc)))
+                               (Pair (Expr (Let name callee body) type loc) state)))
+               (Pair (Expr (App callee args) type loc) state)))))
+
+    (: needs-consuming-adapter? (impl (Fn State Expr -> Bool)))
+    (define (needs-consuming-adapter? state value)
+      (and (match (callable-kind (::type value)) ((Some "FnOnce") #f) (_ #t))
+           (or (linear-type? (specialization-program state) (Nil) (::type value))
+               (match (::type value) ((TCon "fn" _) #t) (_ #f)))))
+
+    (: local-value (impl (Fn String Type Loc -> Expr)))
+    (define (local-value name type loc)
+      (Expr (Var name (Nil) (Nil)) type loc))
+
+    (: shared-invocation (impl (Fn Expr -> Expr)))
+    (define (shared-invocation receiver)
+      (match (callable-kind (::type receiver))
+        ((Some kind) (Expr (Ann receiver (TCon "$invoke"
+                                               (list (TCon kind (Nil))
+                                                     (fn-arrow (::type receiver)))))
+                           (::type receiver) (::loc receiver)))
+        (_ (panic "internal error: a consuming adapter has a callable receiver"))))
+
+    (: consuming-body (impl (Fn State Expr (List Expr) Type Loc -> (Pair Expr State))))
+    (define (consuming-body state receiver args type loc)
+      (let* ((name (string-append "$consuming.answer:" (loc->string loc)))
+             (call (Expr (App (shared-invocation receiver) args) type loc)))
+        (specializing state ((drop (drop-entry (::type receiver) loc)))
+                      (Pair (Expr (Let name call
+                                       (Expr (Seq (Expr (App (::second drop) (list receiver))
+                                                        unit-type loc)
+                                                  (local-value name type loc)) type loc))
+                                  type loc) state))))
+
+    ;; `once` and dyn FnOnce storage use the same adapter when they take a
+    ;; shared owner. The ordinary once dropper releases it if never called.
+    (: once-adapter (impl (Fn State Expr Type Loc -> (Pair Expr State))))
+    (define (once-adapter state value type loc)
+      (match (fn-arrow type)
+        ((TFun params result row)
+         (let* ((name (string-append "$once.receiver:" (loc->string loc)))
+                (receiver (local-value name (::type value) loc))
+                (names (map-indexed (lambda (index param)
+                                      (string-append "$once.argument:" (i64->string index)
+                                                     ":" (loc->string loc))) params))
+                (args (map (lambda (entry) (local-value (::first entry) (::second entry) loc))
+                           (zip names params))))
+           (specializing state ((body (consuming-body receiver args result loc)))
+                         (let* ((arrow (TFun params result row))
+                                (lambda-value (Expr (Lambda names body #t) arrow loc))
+                                (once (Expr (Var "prim:once" (Nil) (Nil))
+                                            (TFun (list arrow) type empty-row) loc)))
+                           (Pair
+                            (Expr (Let name value (Expr (App once (list lambda-value)) type loc))
+                                  type loc) state)))))
+        (_ (panic "internal error: a once adapter has a signature"))))
+
     ;; A copy requests the specializations it references, so the copies of
     ;; sibling terms are steps in the order they are written.
-    (: copy-term (-> State Instantiation Term (Pair Term State)))
+    (: copy-term (impl (Fn State Instantiation Term -> (Pair Term State))))
     (define (copy-term state inst term)
       (match term
         ((Lit value) (Pair (Lit value) state))
@@ -431,22 +535,22 @@
          (specializing state ((inner (copy-expr inst inner)))
                        (Pair (TypeTest inner (ground inst target)) state)))))
 
-    (: copy-exprs (-> State Instantiation (List Expr) (Pair (List Expr) State)))
+    (: copy-exprs (impl (Fn State Instantiation (List Expr) -> (Pair (List Expr) State))))
     (define (copy-exprs state inst exprs)
       (each state (lambda (state expr) (copy-expr state inst expr)) exprs))
 
-    (: copy-clause (-> State Instantiation Clause (Pair Clause State)))
+    (: copy-clause (impl (Fn State Instantiation Clause -> (Pair Clause State))))
     (define (copy-clause state inst clause)
       (specializing state ((body (copy-expr inst (::body clause))))
                     (Pair (Clause (copy-pattern inst (::pattern clause)) body) state)))
 
     (: copy-implementation
-       (-> State Instantiation (Pair String Expr) (Pair (Pair String Expr) State)))
+       (impl (Fn State Instantiation (Pair String Expr) -> (Pair (Pair String Expr) State))))
     (define (copy-implementation state inst entry)
       (specializing state ((value (copy-expr inst (::second entry))))
                     (Pair (Pair (::first entry) value) state)))
 
-    (: copy-pattern (-> Instantiation Pattern Pattern))
+    (: copy-pattern (impl (Fn Instantiation Pattern -> Pattern)))
     (define (copy-pattern inst pattern)
       (match pattern
         ((PWild type) (PWild (ground inst type)))
@@ -459,7 +563,7 @@
 
     ;; Locals and builtin operations keep their names. A definition becomes
     ;; its specialization; a method becomes its instance's implementation.
-    (: reference (-> State String (List Type) (List Evidence) Type Loc (Pair Expr State)))
+    (: reference (impl (Fn State String (List Type) (List Evidence) Type Loc -> (Pair Expr State))))
     (define (reference state name types evidence type loc)
       (match (program-value (specialization-program state) name)
         ((Some (Defined _ _ _)) (definition-reference state name types evidence type loc))
@@ -499,18 +603,25 @@
     ;; the class method's own name, `drop` or `clone`. `charged` is the plan
     ;; the checker charged for one written in the program, which the ground
     ;; plan may not exceed (`plan-covers?`), and None for one glue makes.
-    (: lifecycle-reference (-> State String String Type (Option Plan) Type Loc (Pair Expr State)))
+    (: lifecycle-reference
+       (impl (Fn State String String Type (Option Plan) Type Loc -> (Pair Expr State))))
     (define (lifecycle-reference state class method subject charged type loc)
-      (match (Pair class subject)
-        ;; Dropping a FnOnce runs the dropper its closure carries, which
-        ;; drops what it captured (wasm.sld, `drop-once`).
-        ((Pair _ (TCon "FnOnce" _))
-         (if (string=? class drop-class)
-             (Pair (Expr (Var "prim:drop-once" (Nil) (Nil)) type loc) state)
-             (planned-reference state class method subject charged type loc)))
-        (_ (planned-reference state class method subject charged type loc))))
+      (if (and (or (concrete-callable? subject)
+                   (match subject ((TCon "FnMut" _) #t) (_ #f)))
+               (string=? class drop-class)
+               (linear-type? (specialization-program state) (Nil) subject))
+          (Pair (Expr (Var "prim:drop-once" (Nil) (Nil)) type loc) state)
+          (match (Pair class subject)
+            ;; Dropping a FnOnce runs the dropper its closure carries, which
+            ;; drops what it captured (wasm.sld, `drop-once`).
+            ((Pair _ (TCon "FnOnce" _))
+             (if (string=? class drop-class)
+                 (Pair (Expr (Var "prim:drop-once" (Nil) (Nil)) type loc) state)
+                 (planned-reference state class method subject charged type loc)))
+            (_ (planned-reference state class method subject charged type loc)))))
 
-    (: planned-reference (-> State String String Type (Option Plan) Type Loc (Pair Expr State)))
+    (: planned-reference
+       (impl (Fn State String String Type (Option Plan) Type Loc -> (Pair Expr State))))
     (define (planned-reference state class method subject charged type loc)
       (match (covered-plan (lifecycle-plan (specialization-program state) class (Nil) subject)
                            charged
@@ -535,13 +646,13 @@
         ((Refused reason)
          (panic (string-append "internal error: the checker allowed this: " reason)))))
 
-    (: charged-plan (-> (List Evidence) (Option Plan)))
+    (: charged-plan (impl (Fn (List Evidence) -> (Option Plan))))
     (define (charged-plan evidence)
       (match evidence
         ((Cons (EvDerived plan) _) plan)
         (_ (panic "internal error: a drop or a clone has derived evidence"))))
 
-    (: covered-plan (-> Plan (Option Plan) Type Plan))
+    (: covered-plan (impl (Fn Plan (Option Plan) Type -> Plan)))
     (define (covered-plan plan charged subject)
       (if (plan-covers? charged plan)
           plan
@@ -552,7 +663,7 @@
     ;; The instance's variables, as the ground type binds them in its head.
     ;; The row its head ends with, if it names one, is left empty: a drop or
     ;; a clone performs no control effect, and only those specialize code.
-    (: instance-arguments (-> Instance Type (List Type)))
+    (: instance-arguments (impl (Fn Instance Type -> (List Type))))
     (define (instance-arguments instance subject)
       (let ((bindings (instance-bindings instance subject)))
         (map (lambda (var)
@@ -563,7 +674,7 @@
 
     ;; Glue has one implementation per concrete type. Reserve its recipe
     ;; now, and build the body only when the emitter asks for the next item.
-    (: glue-reference (-> State String Type Type Loc Body (Pair Expr State)))
+    (: glue-reference (impl (Fn State String Type Type Loc Body -> (Pair Expr State))))
     (define (glue-reference state kind subject type loc body)
       (let ((name (string-append "glue:" kind "<" (spec-key subject) ">")))
         (Pair (Expr (Var name (Nil) (Nil)) type loc)
@@ -572,7 +683,7 @@
     ;; A method use may have the enclosing control row. Generated glue
     ;; itself never yields, independently of which use first requested it.
     ;; Nested function arguments keep their own control rows.
-    (: glue-type (-> Type Type))
+    (: glue-type (impl (Fn Type -> Type)))
     (define (glue-type type)
       (match type
         ((TFun params result _) (TFun params result empty-row))
@@ -580,7 +691,7 @@
 
     ;; Drop glue matches the value apart and drops each linear immutable
     ;; field, skipping the rest.
-    (: drop-function (-> State String Type Loc (Pair Expr State)))
+    (: drop-function (impl (Fn State String Type Loc -> (Pair Expr State))))
     (define (drop-function state method dropped loc)
       (glue-lambda state
                    dropped
@@ -590,7 +701,7 @@
 
     ;; One case's clause binds each field glue drops to a local of its own
     ;; and skips the others, then drops what it bound, in field order.
-    (: drop-clause (-> State String Type Case Loc (Pair Clause State)))
+    (: drop-clause (impl (Fn State String Type Case Loc -> (Pair Clause State))))
     (define (drop-clause state method dropped case loc)
       (let* ((program (specialization-program state))
              (released (glue-fields program (Nil) dropped case)))
@@ -609,7 +720,7 @@
                                     (in-sequence drops loc))
                             state))))
 
-    (: glue-drop (-> State String Case (Pair I64 Type) Loc (Pair Expr State)))
+    (: glue-drop (impl (Fn State String Case (Pair I64 Type) Loc -> (Pair Expr State))))
     (define (glue-drop state method case field loc)
       (let ((type (::second field)))
         (specializing state ((callee (lifecycle-reference drop-class
@@ -632,7 +743,7 @@
     ;; local for each half; and pairs two values of the case, built from
     ;; the halves and the shared other fields. The plan has refused data
     ;; with a mutable field, so every field is immutable here.
-    (: clone-function (-> State String Type Loc (Pair Expr State)))
+    (: clone-function (impl (Fn State String Type Loc -> (Pair Expr State))))
     (define (clone-function state method cloned loc)
       (glue-lambda state
                    cloned
@@ -640,7 +751,7 @@
                    (lambda (state case) (clone-clause state method cloned case loc))
                    loc))
 
-    (: clone-clause (-> State String Type Case Loc (Pair Clause State)))
+    (: clone-clause (impl (Fn State String Type Case Loc -> (Pair Clause State))))
     (define (clone-clause state method cloned case loc)
       (let* ((program (specialization-program state))
              (types (field-types program cloned case))
@@ -660,15 +771,15 @@
     ;; rest, and once none is left, the pair of values rebuilt from the
     ;; halves of every linear field, `halves`.
     (: clone-fields
-       (-> State
-           String
-           Type
-           Case
-           (List Type)
-           (List I64)
-           (List (Pair I64 Type))
-           Loc
-           (Pair Expr State)))
+       (impl (Fn State
+                 String
+                 Type
+                 Case
+                 (List Type)
+                 (List I64)
+                 (List (Pair I64 Type))
+                 Loc
+                 -> (Pair Expr State))))
     (define (clone-fields state method cloned case types halves left loc)
       (match left
         ((Nil)
@@ -688,13 +799,13 @@
                           state))))))
 
     ;; Takes a field's clone apart into a local for each half.
-    (: halves-pattern (-> Case I64 Type Pattern))
+    (: halves-pattern (impl (Fn Case I64 Type -> Pattern)))
     (define (halves-pattern case index type)
       (PCon pair-name
             (list (PVar (half-local case index "a") type) (PVar (half-local case index "b") type))
             (pair-type type)))
 
-    (: field-clone (-> State String Case I64 Type Loc (Pair Expr State)))
+    (: field-clone (impl (Fn State String Case I64 Type Loc -> (Pair Expr State))))
     (define (field-clone state method case index type loc)
       (specializing state ((callee (lifecycle-reference clone-class
                                                         method
@@ -713,7 +824,7 @@
 
     ;; One value of the case, from the `half` of each field in `halves` and
     ;; the field itself otherwise.
-    (: rebuilt (-> Type Case (List Type) (List I64) String Loc Expr))
+    (: rebuilt (impl (Fn Type Case (List Type) (List I64) String Loc -> Expr)))
     (define (rebuilt cloned case types halves half loc)
       (Expr (App (Expr (Var (::name case) (Nil) (Nil)) (TFun types cloned empty-row) loc)
                  (map-indexed (lambda (index type)
@@ -729,7 +840,7 @@
             loc))
 
     ;; A trivial clone pairs the value with itself.
-    (: share-function (-> Type Loc Expr))
+    (: share-function (impl (Fn Type Loc -> Expr)))
     (define (share-function shared loc)
       (let ((value (Expr (Var "glue%value" (Nil) (Nil)) shared loc)))
         (Expr (Lambda (list "glue%value") (pair-of shared value value loc) #f)
@@ -738,7 +849,9 @@
 
     ;; A function of one value of `subject` that matches it apart, with a
     ;; clause for each case.
-    (: glue-lambda (-> State Type Type (-> State Case (Pair Clause State)) Loc (Pair Expr State)))
+    (: glue-lambda
+       (impl
+        (Fn State Type Type (dyn (Fn State Case -> (Pair Clause State))) Loc -> (Pair Expr State))))
     (define (glue-lambda state subject result clause loc)
       (let ((data (program-type (specialization-program state) (type-name subject)))
             (value (Expr (Var "glue%value" (Nil) (Nil)) subject loc)))
@@ -749,7 +862,7 @@
                              loc)
                        state))))
 
-    (: type-name (-> Type String))
+    (: type-name (impl (Fn Type -> String)))
     (define (type-name type)
       (match type
         ((TCon name _) name)
@@ -758,11 +871,11 @@
     (: pair-name String)
     (define pair-name "snail.core.base:Pair")
 
-    (: pair-type (-> Type Type))
+    (: pair-type (impl (Fn Type -> Type)))
     (define (pair-type type)
       (TCon pair-name (list type type)))
 
-    (: pair-of (-> Type Expr Expr Loc Expr))
+    (: pair-of (impl (Fn Type Expr Expr Loc -> Expr)))
     (define (pair-of type first second loc)
       (Expr (App (Expr (Var pair-name (Nil) (Nil))
                        (TFun (list type type) (pair-type type) empty-row)
@@ -773,17 +886,17 @@
 
     ;; Each case's fields have locals of their own, since the clauses of a
     ;; function share its locals, and so does each half of a clone.
-    (: glue-local (-> Case I64 String))
+    (: glue-local (impl (Fn Case I64 -> String)))
     (define (glue-local case index)
       (string-append "glue%" (i64->string (::tag case)) "%" (i64->string index)))
 
-    (: half-local (-> Case I64 String String))
+    (: half-local (impl (Fn Case I64 String -> String)))
     (define (half-local case index half)
       (string-append (glue-local case index) "%" half))
 
     ;; The drops in order, the last one in tail position, so glue for a
     ;; list runs in constant stack.
-    (: in-sequence (-> (List Expr) Loc Expr))
+    (: in-sequence (impl (Fn (List Expr) Loc -> Expr)))
     (define (in-sequence drops loc)
       (match drops
         ((Nil) (Expr (Lit (DUnit)) unit-type loc))
@@ -796,7 +909,7 @@
     ;; Performing an operation runs its Snail-Core default when no handler
     ;; is in scope, so a use of the operation reaches the default too, which
     ;; is copied, or imported from the effect's library, under its own name.
-    (: operation-reference (-> State String String Type Loc (Pair Expr State)))
+    (: operation-reference (impl (Fn State String String Type Loc -> (Pair Expr State))))
     (define (operation-reference state effect name type loc)
       (Pair (Expr (Var name (Nil) (Nil)) type loc)
             (match (assoc-ref
@@ -811,7 +924,7 @@
                            loc)))
               (_ state))))
 
-    (: instance-method (-> State String String String))
+    (: instance-method (impl (Fn State String String -> String)))
     (define (instance-method state instance method)
       (match (table-ref (::instances (::input state)) instance)
         ((Some found)
@@ -824,7 +937,7 @@
     ;; `(define + i64-add)`, is replaced by its target. Another library's
     ;; monomorphic definition stays a reference, which its module imports.
     (: definition-reference
-       (-> State String (List Type) (List Evidence) Type Loc (Pair Expr State)))
+       (impl (Fn State String (List Type) (List Evidence) Type Loc -> (Pair Expr State))))
     (define (definition-reference state name types evidence type loc)
       (let ((value (definition state name)))
         (match (::term value)
@@ -844,7 +957,7 @@
     ;; Imports and emitted definitions share one identity table. In
     ;; particular, exposing an imported function must not enqueue a local
     ;; copy that a later reference could replace with an import.
-    (: import-definition (-> State String Expr State))
+    (: import-definition (impl (Fn State String Expr -> State)))
     (define (import-definition state name value)
       (if (table-contains? (::bindings state) name)
           state
@@ -854,7 +967,7 @@
                                            (lambda-expr? value)
                                            (Imported))))))
 
-    (: external? (-> State String (List Type) Bool))
+    (: external? (impl (Fn State String (List Type) -> Bool)))
     (define (external? state name types)
       (match (::owner state)
         ((Some owner) (and (null? types) (not (string=? (name-owner name) owner))))
@@ -862,14 +975,14 @@
 
     ;; ---- Roots and cleanup requests ----
 
-    (: new-state (-> Specialization (Option String) State))
+    (: new-state (impl (Fn Specialization (Option String) -> State)))
     (define (new-state input owner)
       (State input owner
              (control-effects (::program (::typed input)))
              empty-table (Nil)))
 
     ;; The effects with a control operation, in order of their names.
-    (: control-effects (-> Program (List String)))
+    (: control-effects (impl (Fn Program -> (List String))))
     (define (control-effects program)
       (list-sort string<?
                  (map ::name (filter (lambda (effect) (not (null? (::control effect))))
@@ -878,12 +991,12 @@
     ;; A library exports every monomorphic definition. A whole program only
     ;; needs functions reached by its statements, exposures, and initializers.
     ;; Initializers are roots even when their values are never used.
-    (: start-specialization (-> State (List Item) (Pair (List String) State)))
+    (: start-specialization (impl (Fn State (List Item) -> (Pair (List String) State))))
     (define (start-specialization state items)
       (specializing state ((exports (each root-item items)))
                     (Pair (concatenate exports) state)))
 
-    (: root-item (-> State Item (Pair (List String) State)))
+    (: root-item (impl (Fn State Item -> (Pair (List String) State))))
     (define (root-item state item)
       (match item
         ((Expose name _ _ _) (Pair (Nil) (requested state name)))
@@ -895,12 +1008,12 @@
              (Pair (Nil) state)))
         (_ (Pair (Nil) state))))
 
-    (: specialize-statements (-> State (List Item) (Pair (List Item) State)))
+    (: specialize-statements (impl (Fn State (List Item) -> (Pair (List Item) State))))
     (define (specialize-statements state items)
       (each state specialize-statement
             (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items)))
 
-    (: specialize-statement (-> State Item (Pair Item State)))
+    (: specialize-statement (impl (Fn State Item -> (Pair Item State))))
     (define (specialize-statement state item)
       (match item
         ((Do expr)
@@ -911,7 +1024,7 @@
 
     ;; Frame cleanup asks for ordinary definitions or derived glue. Those
     ;; requests join the very same queue as calls discovered in a body.
-    (: request-drops (-> State (List Type) Loc (Pair (Table Expr) State)))
+    (: request-drops (impl (Fn State (List Type) Loc -> (Pair (Table Expr) State))))
     (define (request-drops state types loc)
       (specializing state ((drops (each (lambda (state type) (drop-entry state type loc)) types)))
                     (Pair (fold-left (lambda (table entry)
@@ -919,7 +1032,7 @@
                                      empty-table drops)
                           state)))
 
-    (: drop-entry (-> State Type Loc (Pair (Pair String Expr) State)))
+    (: drop-entry (impl (Fn State Type Loc -> (Pair (Pair String Expr) State))))
     (define (drop-entry state type loc)
       (specializing state ((drop (lifecycle-reference drop-class
                                                       (drop-method state)
@@ -929,13 +1042,13 @@
                                                       loc)))
                     (Pair (Pair (type-key type) drop) state)))
 
-    (: drop-method (-> State String))
+    (: drop-method (impl (Fn State -> String)))
     (define (drop-method state)
       (match (::methods (program-class (specialization-program state) drop-class))
         ((Cons method _) method)
         ((Nil) (panic "internal error: Drop has a method"))))
 
-    (: alias-expr? (-> Expr Bool))
+    (: alias-expr? (impl (Fn Expr -> Bool)))
     (define (alias-expr? expr)
       (match (::term expr)
         ((Var _ _ _) #t)

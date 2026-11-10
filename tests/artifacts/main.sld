@@ -16,7 +16,7 @@
   (syntax-rules ()
     ((_) (bundle "admin"))))
 
-(: print-bundle (-> ArtifactBundle Unit ! console))
+(: print-bundle (impl (Fn ArtifactBundle -> Unit ! console)))
 (define (print-bundle bundle)
   (for-each (lambda (file)
               (display (::path file))

@@ -4,13 +4,13 @@
  (snail shell task)
  (snail shell socket))
 
-(: require (All (T) (-> (Result T SocketError) T)))
+(: require (All (T) (impl (Fn (Result T SocketError) -> T))))
 (define (require result)
   (match result
     ((Ok value) value)
     ((Err error) (panic (::code error)))))
 
-(: receive-four (-> Connection Bytes ! tcp tasks))
+(: receive-four (impl (Fn Connection -> Bytes ! tcp tasks)))
 (define (receive-four connection)
   (let loop ((bytes #u8()))
     (if (= (vector-length bytes) 4)

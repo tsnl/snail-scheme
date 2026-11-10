@@ -1,5 +1,5 @@
 (import
  (snail core base))
 
-(: package (All (T) (-> T Any)))
+(: package (All (T) (impl (Fn T -> Any))))
 (define (package value) value)

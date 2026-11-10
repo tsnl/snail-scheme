@@ -96,6 +96,7 @@
    ::enum?
    ::env
    ::evidence
+   ::exclusive
    ::exit
    ::expand
    ::expanded
@@ -308,6 +309,7 @@
     (define (::enum? value) (field-of value (quote enum?)))
     (define (::env value) (field-of value (quote env)))
     (define (::evidence value) (field-of value (quote evidence)))
+    (define (::exclusive value) (field-of value (quote exclusive)))
     (define (::exit value) (field-of value (quote exit)))
     (define (::expand value) (field-of value (quote expand)))
     (define (::expanded value) (field-of value (quote expanded)))

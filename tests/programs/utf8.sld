@@ -8,7 +8,7 @@
  (snail core io)
  (snail shell utf8))
 
-(: hex-digits (-> I32 I64 String))
+(: hex-digits (impl (Fn I32 I64 -> String)))
 (define (hex-digits value count)
   (string-generate count
                    (lambda (index)
@@ -21,11 +21,11 @@
                                                                                            index))))
                                                     15))))))
 
-(: bytes-text (-> Bytes String))
+(: bytes-text (impl (Fn Bytes -> String)))
 (define (bytes-text bytes)
   (string-join (map (lambda (byte) (hex-digits (u8->i32 byte) 2)) (vector->list bytes)) " "))
 
-(: decoded-text (-> (Result String Utf8Error) String))
+(: decoded-text (impl (Fn (Result String Utf8Error) -> String)))
 (define (decoded-text result)
   (match result
     ((Ok text)

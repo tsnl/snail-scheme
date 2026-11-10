@@ -20,19 +20,19 @@
 ;; events. Its default, the host's, lets the runner detect a leaked handler
 ;; between turns.
 (effect Marker
-  ((marker (-> I32)))
+  ((marker (dyn (Fn -> I32))))
   (default
     ((marker host-marker))))
 
-(extern host-marker "snail.test" "marker" (-> I32))
+(extern host-marker "snail.test" "marker" (impl (Fn -> I32)))
 
 ;; The runtime drains children after a normal root return. Explicit reload
 ;; closes that scope after the root has handed over, including this case.
 ;; Each root is a task, as the shared page loop is.
-(extern background-boot "snail.runtime.browser.events" "boot" (-> I32 Unit ! events))
-(extern background-ready "snail.runtime.browser.events" "ready" (-> Unit ! events))
-(extern background-poll "snail.runtime.browser.events" "poll" (-> I32 ! events))
-(: background-main (-> (Option Any) I64 ! mut events))
+(extern background-boot "snail.runtime.browser.events" "boot" (impl (Fn I32 -> Unit ! events)))
+(extern background-ready "snail.runtime.browser.events" "ready" (impl (Fn -> Unit ! events)))
+(extern background-poll "snail.runtime.browser.events" "poll" (impl (Fn -> I32 ! events)))
+(: background-main (impl (Fn (Option Any) -> I64 ! mut events)))
 (define (background-main handover)
   (start-page handover (once (lambda ()
                                (background-boot 2)
@@ -43,7 +43,7 @@
                                (unit)))))
 (expose background-main "background_main")
 
-(: unpresented-main (-> (Option Any) I64 ! mut events))
+(: unpresented-main (impl (Fn (Option Any) -> I64 ! mut events)))
 (define (unpresented-main handover)
   (start-page handover (once (lambda ()
                                (background-boot 2)
@@ -52,26 +52,26 @@
 (expose unpresented-main "unpresented_main")
 
 ;; Tasks beside the loop cannot enter its protocol: each of these traps.
-(: child-load (-> Unit ! storage tasks))
+(: child-load (impl (Fn -> Unit ! storage tasks)))
 (define (child-load)
   (load-save)
   (unit))
-(: child-store (-> Unit ! storage tasks))
+(: child-store (impl (Fn -> Unit ! storage tasks)))
 (define (child-store)
   (store-save #u8(20)))
-(: child-event (-> Unit ! events tasks))
+(: child-event (impl (Fn -> Unit ! events tasks)))
 (define (child-event)
   (next-event)
   (unit))
-(: child-boot (-> Unit ! events))
+(: child-boot (impl (Fn -> Unit ! events)))
 (define (child-boot)
   (background-boot 99))
 
-(: child-commit (-> Unit ! mut events))
+(: child-commit (impl (Fn -> Unit ! mut events)))
 (define (child-commit)
   (commit-page (Counter 999 0)))
 
-(: spawn-child (-> I32 Unit ! mut storage events))
+(: spawn-child (impl (Fn I32 -> Unit ! mut storage events)))
 (define (spawn-child which)
   (dispatch-local (once (lambda ()
                           (match which
@@ -91,11 +91,11 @@
   ((count I64))
   (deriving Serialize Deserialize))
 
-(: initial (-> I32 I32 I32 Counter))
+(: initial (impl (Fn I32 I32 I32 -> Counter)))
 (define (initial seed width height)
   (Counter 0 0))
 
-(: step (-> Counter Input Counter))
+(: step (impl (Fn Counter Input -> Counter)))
 (define (step counter input)
   (match input
     ((Press 1 _) (Counter-count-set counter (+ (::count counter) 1)))
@@ -104,7 +104,7 @@
     ((Resize _ _) (Counter-resizes-set counter (+ (::resizes counter) 1)))
     (_ counter)))
 
-(: draw (-> Counter Frame))
+(: draw (impl (Fn Counter -> Frame)))
 (define (draw counter)
   (Frame (Camera (Vec3 4.0 4.0 4.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8))
          (Light (Vec3 0.3 1.0 0.5) 0.8 0.3)
@@ -113,32 +113,32 @@
          (Nil)
          (Nil)))
 
-(: panels (-> Counter (List Panel)))
+(: panels (impl (Fn Counter -> (List Panel))))
 (define (panels counter)
   (list (Panel "counter" (At (TopLeft) 0)
                (list (label "count" (i64->string (::count counter)))))))
 
-(: save-counter (-> Counter Save))
+(: save-counter (impl (Fn Counter -> Save)))
 (define (save-counter counter)
   (Save (::count counter)))
 
-(: restore-counter (-> Save Counter))
+(: restore-counter (impl (Fn Save -> Counter)))
 (define (restore-counter saved)
   (Counter (::count saved) 0))
 
-(: inspect-count (-> Any I64))
+(: inspect-count (impl (Fn Any -> I64)))
 (define (inspect-count state)
   (::count (fixture-convert state Counter)))
 
-(: inspect-resizes (-> Any I32))
+(: inspect-resizes (impl (Fn Any -> I32)))
 (define (inspect-resizes state)
   (::resizes (fixture-convert state Counter)))
 
-(: other-state (-> Any))
+(: other-state (impl (Fn -> Any)))
 (define (other-state)
   (type-convert (ann 5 I64) Any))
 
-(: read-marker (-> I32 ! Marker))
+(: read-marker (impl (Fn -> I32 ! Marker)))
 (define (read-marker)
   (marker))
 

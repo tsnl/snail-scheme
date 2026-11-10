@@ -7,10 +7,10 @@
 ;; FnOnce's own row. The book's ownership chapter includes the text between
 ;; ANCHOR and ANCHOR_END.
 (effect audit
-  ((note (-> String Unit))))
+  ((note (dyn (Fn String -> Unit)))))
 
 (effect Ask
-  ((ctl ask (-> I64))))
+  ((ctl ask (dyn (Fn -> I64)))))
 
 (struct Handle
   ((name String)))
@@ -24,7 +24,7 @@
 ;; The handle is live across `ask`, so the frame saved there holds it. Its
 ;; drop performs `audit`, which this function's row allows, so a handler
 ;; that drops the resumption drops the handle.
-(: use-after-ask (-> I64 ! Ask audit))
+(: use-after-ask (impl (Fn -> I64 ! Ask audit)))
 (define (use-after-ask)
   (let ((handle (Handle "h")))
     (let ((answer (ask)))
@@ -32,7 +32,7 @@
       answer)))
 
 ;; Dropping `resume` performs its row, `audit`, which is charged here.
-(: cancelled (-> I64 ! audit))
+(: cancelled (impl (Fn -> I64 ! audit)))
 (define (cancelled)
   (handle Ask
       ((ask (lambda (resume)
@@ -43,7 +43,7 @@
 
 ;; A once lambda whose row allows `audit` may capture the handle; dropping
 ;; the lambda unrun drops the handle.
-(: unrun (-> Unit ! audit))
+(: unrun (impl (Fn -> Unit ! audit)))
 (define (unrun)
   (let ((handle (Handle "w")))
     (let ((work (once (lambda () (drop handle)))))

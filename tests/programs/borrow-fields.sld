@@ -9,7 +9,7 @@
   ((title String)
    (child Child)))
 
-(: child-name (-> (Borrow Child) String))
+(: child-name (impl (Fn (Borrow Child) -> String)))
 (define (child-name child)
   (::name child))
 
@@ -27,7 +27,7 @@
   (drop model))
 
 ;; A Copy target can leave the region as an ordinary value.
-(: copy-value (All (T) (requires (Copy T)) (-> (Borrow T) T)))
+(: copy-value (All (T) (requires (Copy T)) (impl (Fn (Borrow T) -> T))))
 (define (copy-value borrowed)
   (borrow-copy borrowed))
 

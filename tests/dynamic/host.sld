@@ -11,23 +11,23 @@
  (snail shell wasm)
  (project))
 
-(: run-cell (-> String Unit ! wasm fs console))
+(: run-cell (impl (Fn String -> Unit ! wasm fs console)))
 (define (run-cell file)
   (match (load-module "cell" file)
     ((Ok cell)
      (match (module-export cell "cell:run")
-       ((Ok function) (display ((ann (unsafe-cast function) (-> I64 I64)) 41)) (newline))
+       ((Ok function) (display ((ann (unsafe-cast function) (dyn (Fn I64 -> I64))) 41)) (newline))
        ((Err error) (write-line (load-error-message error)))))
     ((Err error) (write-line (load-error-message error)))))
 
-(: summarizer (-> Plugin String (Result (-> Project Report) LoadError) ! wasm))
+(: summarizer (impl (Fn Plugin String -> (Result (dyn (Fn Project -> Report)) LoadError) ! wasm)))
 (define (summarizer plugin name)
   (plugin-function plugin name))
 
 (: project Project)
 (define project (Project "Atlas" "Ada" (list 3 5 5)))
 
-(: summarize-with (-> String String Unit ! wasm fs console))
+(: summarize-with (impl (Fn String String -> Unit ! wasm fs console)))
 (define (summarize-with manifest name)
   (match (load-plugin manifest)
     ((Ok plugin)

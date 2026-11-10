@@ -4,7 +4,7 @@
 
 (typeclass (Combine e A B)
   (type Output)
-  (: combine (-> A B Output ! e)))
+  (: combine (impl (Fn A B -> Output ! e))))
 (define-instance-set ordinary
   (instance (Combine (!) I64 I64)
     (type Output I64)
@@ -20,7 +20,7 @@
                 (define-instance-set erased
                   (dynamic-instances Combine (I64 I64) (I64 F64) (F64 I64))))
 
-(: expect-domain (-> I64 String (-> Unit ! dyn-cast) Unit))
+(: expect-domain (impl (Fn I64 String (dyn (Fn -> Unit ! dyn-cast)) -> Unit)))
 (define (expect-domain argument domain body)
   (handle dyn-cast
       ((conversion-failed

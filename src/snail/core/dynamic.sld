@@ -14,13 +14,13 @@
     ;; ---- Recovery ----
 
     (: try-dynamic
-       (All (A e) (-> (-> A ! dyn-cast e) (Result A CastError) ! e)))
+       (All (A e) (impl (Fn (dyn (Fn -> A ! dyn-cast e)) -> (Result A CastError) ! e))))
     (define (try-dynamic work)
       (handle dyn-cast
           ((conversion-failed (lambda (error) (Err error))))
         (Ok (work))))
 
-    (: cast-error->string (-> CastError String))
+    (: cast-error->string (impl (Fn CastError -> String)))
     (define (cast-error->string error)
       (string-append (::origin error) ": dyn-cast: "
                      (match (::reason error)
@@ -37,7 +37,7 @@
     ;; starts. Returning the failure lets a script choose failure status,
     ;; or an interactive caller continue with its next evaluation.
     (: run-dynamic
-       (All (A e) (-> (-> A ! dyn-cast e) (Result A CastError) ! console e)))
+       (All (A e) (impl (Fn (dyn (Fn -> A ! dyn-cast e)) -> (Result A CastError) ! console e))))
     (define (run-dynamic work)
       (match (try-dynamic work)
         ((Ok value) (Ok value))

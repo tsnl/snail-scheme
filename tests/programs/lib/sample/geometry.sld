@@ -11,7 +11,7 @@
       ((x I64)
        (y I64)))
 
-    (: distance-squared (-> Point Point I64))
+    (: distance-squared (impl (Fn Point Point -> I64)))
     (define (distance-squared a b)
       (let ((dx (- (::x a) (::x b))) (dy (- (::y a) (::y b))))
         (+ (* dx dx) (* dy dy))))

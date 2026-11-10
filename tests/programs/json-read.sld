@@ -9,7 +9,7 @@
  (snail shell json)
  (snail shell json read))
 
-(: read-back (-> String String))
+(: read-back (impl (Fn String -> String)))
 (define (read-back text)
   (match (string->json text)
     ((Some value) (json->string value))

@@ -16,7 +16,7 @@
 
     ;; ---- Handling ----
 
-    (: with-page-fetch (All (T e) (-> (-> T ! fetch e) T ! e)))
+    (: with-page-fetch (All (T e) (impl (Fn (dyn (Fn -> T ! fetch e)) -> T ! e))))
     (define (with-page-fetch work)
       (handle fetch
           ((request page-request)
@@ -34,7 +34,7 @@
     ;; between the parts and the start. The reply's status comes back from
     ;; the wait, -1 when there was no reply, and its body, or why there was
     ;; none, a scalar at a time.
-    (: page-request (-> String String (List Header) String (Result Reply String) ! tasks))
+    (: page-request (impl (Fn String String (List Header) String -> (Result Reply String) ! tasks)))
     (define (page-request method url headers body)
       (host-request-method (string->utf8 method))
       (host-request-url (string->utf8 url))
@@ -50,13 +50,13 @@
     ;; A stream opens with its URL and the kinds it hears as one string, a
     ;; NUL between each. The wait answers -1 once the stream is closed, and
     ;; otherwise leaves the next event's kind and data, a NUL between them.
-    (: page-stream-next (-> Stream (Option StreamEvent) ! tasks))
+    (: page-stream-next (impl (Fn Stream -> (Option StreamEvent) ! tasks)))
     (define (page-stream-next stream)
       (let ((count (through-host (lambda (ticket) (host-stream-start ticket (::id stream)))
                                  host-stream-finish)))
         (if (< count 0) (None) (Some (stream-event (host-reply))))))
 
-    (: stream-event (-> String StreamEvent))
+    (: stream-event (impl (Fn String -> StreamEvent)))
     (define (stream-event text)
       (match (string-index text #\null)
         ((Some end)
@@ -66,7 +66,7 @@
     ;; ---- The browser host ----
 
     ;; The text the last finished wait left.
-    (: host-reply (-> String))
+    (: host-reply (impl (Fn -> String)))
     (define (host-reply)
       (string-generate (i32->i64 (host-reply-count))
                        (lambda (index)

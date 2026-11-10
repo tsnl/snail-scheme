@@ -4,12 +4,12 @@
 
 (struct Model
   ((count (Ref I64))
-   (work (FnOnce Unit))))
+   (work (dyn (FnOnce -> Unit)))))
 
 ;; A Copy field holding a cell leaves the borrow as the cell itself, so a
 ;; borrowed model can be counted through: the loan is read-only one level
 ;; deep, and a shared cell is writable from every holder.
-(: bump (-> (Borrow Model) Unit ! mut))
+(: bump (impl (Fn (Borrow Model) -> Unit ! mut)))
 (define (bump model)
   (let ((cell (::count model)))
     (ref-set! cell (+ 1 (ref-get cell)))))

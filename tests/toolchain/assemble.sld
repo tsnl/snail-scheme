@@ -11,7 +11,7 @@
  (snail core io)
  (snail shell assembler))
 
-(: contains? (-> String String Bool))
+(: contains? (impl (Fn String String -> Bool)))
 (define (contains? text part)
   (let loop ((start 0))
     (cond ((> (+ start (string-length part)) (string-length text)) #f)

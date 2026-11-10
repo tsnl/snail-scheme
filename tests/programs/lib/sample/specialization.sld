@@ -7,7 +7,7 @@
     (: counter (Ref I64))
     (define counter (ref 0))
 
-    (: advance (-> I64 ! mut))
+    (: advance (impl (Fn -> I64 ! mut)))
     (define (advance)
       (let ((next (+ (ref-get counter) 1)))
         (ref-set! counter next)
@@ -31,16 +31,16 @@
 
     ;; Both specializations reserve their names before discovering the
     ;; back-edge. Repeated references reuse the reserved implementation.
-    (: outbound (All (A) (-> A I64 A)))
+    (: outbound (All (A) (impl (Fn A I64 -> A))))
     (define (outbound value count)
       (if (= count 0) value (inbound value (- count 1))))
 
-    (: inbound (All (A) (-> A I64 A)))
+    (: inbound (All (A) (impl (Fn A I64 -> A))))
     (define (inbound value count)
       (if (= count 0) value (outbound value (- count 1))))
 
-    (: fixed (-> I64 I64))
+    (: fixed (impl (Fn I64 -> I64)))
     (define (fixed value) (+ value 1))
 
-    (: round-trip (All (A) (-> A I64 A)))
+    (: round-trip (All (A) (dyn (Fn A I64 -> A))))
     (define round-trip outbound)))

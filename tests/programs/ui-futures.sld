@@ -15,7 +15,7 @@
 (enum Msg
   (Start))
 
-(: update (-> Model (Option Msg) Model ! mut completion))
+(: update (impl (Fn Model (Option Msg) -> Model ! mut completion)))
 (define (update model message)
   (match model
     ((Model text pending)
@@ -25,7 +25,7 @@
         (Model "working" (Some (dispatch (once (lambda () (yield) "finished"))))))
        ((None) (collect text pending))))))
 
-(: collect (-> String (Option (Future String)) Model ! mut))
+(: collect (impl (Fn String (Option (Future String)) -> Model ! mut)))
 (define (collect text pending)
   (match pending
     ((None) (Model text (None)))
@@ -35,20 +35,20 @@
        ((Ready (Completed text)) (Model text (None)))
        ((Ready (Abandoned)) (Model "canceled" (None)))))))
 
-(: view (-> (Borrow Model) (Html Msg)))
+(: view (impl (Fn (Borrow Model) -> (Html Msg))))
 (define (view model)
   (Element "p" (Nil) (list (Text (::text model)))))
 
-(: window (-> (Borrow Model) (List (Attribute Msg))))
+(: window (impl (Fn (Borrow Model) -> (List (Attribute Msg)))))
 (define (window model)
   (Nil))
 
-(: snapshot (-> (Borrow Model) String))
+(: snapshot (impl (Fn (Borrow Model) -> String)))
 (define (snapshot model)
   (::text model))
 
 ;; A storage-like wait owns the live model while a producer completes.
-(: checkpoint (-> String Unit ! tasks))
+(: checkpoint (impl (Fn String -> Unit ! tasks)))
 (define (checkpoint saved)
   (yield))
 

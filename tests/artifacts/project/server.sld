@@ -12,12 +12,12 @@
   (syntax-rules ()
     ((_) (bundle "does-not-exist"))))
 
-(: print-bytes (-> Bytes Unit ! console))
+(: print-bytes (impl (Fn Bytes -> Unit ! console)))
 (define (print-bytes bytes)
   (vector-for-each (lambda (byte) (display (u8->i32 byte)) (display ",")) bytes)
   (newline))
 
-(: required (-> ArtifactBundle String Bytes))
+(: required (impl (Fn ArtifactBundle String -> Bytes)))
 (define (required bundle name)
   (match (artifact-ref bundle name)
     ((Some bytes) bytes)

@@ -6,11 +6,11 @@
 (instance (Num (! dyn-cast) Any)
   (dispatch I64 F64))
 
-(: describe-twice (All (T e) (requires (Describe e T) (Copy T)) (-> T String ! e)))
+(: describe-twice (All (T e) (requires (Describe e T) (Copy T)) (impl (Fn T -> String ! e))))
 (define (describe-twice value)
   (string-append (describe value) (describe value)))
 
-(: sum (All (T e) (requires (Num e T)) (-> T T T ! e)))
+(: sum (All (T e) (requires (Num e T)) (impl (Fn T T -> T ! e))))
 (define (sum a b) (+ a b))
 
 (: left Any)

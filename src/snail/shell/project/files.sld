@@ -54,11 +54,11 @@
     (: text-limit I64)
     (define text-limit 8388608)
 
-    (: revision (-> String String))
+    (: revision (impl (Fn String -> String)))
     (define (revision text)
       (bytes->hex (sha256 (string->utf8 text))))
 
-    (: contains? (-> String Char Bool))
+    (: contains? (impl (Fn String Char -> Bool)))
     (define (contains? text char)
       (match (string-index text char)
         ((Some _) #t)
@@ -76,11 +76,11 @@
        (parts (List String))))
 
     ;; Text requests additionally require an extension the editor serves.
-    (: served-path (-> String (Option ProjectPath)))
+    (: served-path (impl (Fn String -> (Option ProjectPath))))
     (define (served-path path)
       (if (text-file-name? path) (project-path path) (None)))
 
-    (: project-path (-> String (Option ProjectPath)))
+    (: project-path (impl (Fn String -> (Option ProjectPath))))
     (define (project-path path)
       (let ((parts (split-at-slashes path)))
         (if (and (every? ordinary-part? parts)
@@ -90,16 +90,16 @@
             (Some (ProjectPath path parts))
             (None))))
 
-    (: ordinary-part? (-> String Bool))
+    (: ordinary-part? (impl (Fn String -> Bool)))
     (define (ordinary-part? part)
       (not (member? part (list "" "." ".." ".git"))))
 
     ;; The build output at the project's root is not a source.
-    (: under-build? (-> (List String) Bool))
+    (: under-build? (impl (Fn (List String) -> Bool)))
     (define (under-build? parts)
       (member? "build" (take parts 1)))
 
-    (: split-at-slashes (-> String (List String)))
+    (: split-at-slashes (impl (Fn String -> (List String))))
     (define (split-at-slashes path)
       (match (string-index path #\/)
         ((Some at)
@@ -108,7 +108,7 @@
         ((None) (list path))))
 
     ;; The extensions of the text files the editor opens, in any case.
-    (: text-file-name? (-> String Bool))
+    (: text-file-name? (impl (Fn String -> Bool)))
     (define (text-file-name? path)
       (let ((name (string-downcase path)))
         (or (string=? path ".gitignore") (ends-with? path "/.gitignore")
@@ -126,19 +126,19 @@
                         "txt"
                         "md")))))
 
-    (: ends-with? (-> String String Bool))
+    (: ends-with? (impl (Fn String String -> Bool)))
     (define (ends-with? text suffix)
       (let ((start (- (string-length text) (string-length suffix))))
         (and (>= start 0) (string=? (substring text start (string-length text)) suffix))))
 
-    (: absolute (-> String ProjectPath String))
+    (: absolute (impl (Fn String ProjectPath -> String)))
     (define (absolute root file)
       (string-append root "/" (::path file)))
 
     ;; The project's root must still be a directory, and each directory on
     ;; the way to the file a directory itself, not a link, so a path cannot
     ;; leave the project.
-    (: check-parents (-> String ProjectPath (Result Unit FileRefusal) ! fs))
+    (: check-parents (impl (Fn String ProjectPath -> (Result Unit FileRefusal) ! fs)))
     (define (check-parents root file)
       (match (followed-status root)
         ((Ok status)
@@ -148,7 +148,7 @@
         ((Err error) (Err (DiskFailed error)))))
 
     ;; Every part but the last names a directory.
-    (: check-directories (-> String (List String) (Result Unit FileRefusal) ! fs))
+    (: check-directories (impl (Fn String (List String) -> (Result Unit FileRefusal) ! fs)))
     (define (check-directories directory parts)
       (match parts
         ((Cons name (Cons next rest))
@@ -166,7 +166,8 @@
     ;; The paths the service serves among `paths`, which name files under
     ;; the project, as the observer's inventory does: relative to the
     ;; project, and in order.
-    (: project-text-paths (-> String (List String) (Result (List String) FileRefusal) ! fs))
+    (: project-text-paths
+       (impl (Fn String (List String) -> (Result (List String) FileRefusal) ! fs)))
     (define (project-text-paths root paths)
       (match (followed-status root)
         ((Ok status)
@@ -175,7 +176,7 @@
            (_ (Err (NotServed "the project root must remain a directory")))))
         ((Err error) (Err (DiskFailed error)))))
 
-    (: served-among (-> String (List String) (List String)))
+    (: served-among (impl (Fn String (List String) -> (List String))))
     (define (served-among root paths)
       (let ((prefix (string-append root "/")))
         (fold-right (lambda (path served)
@@ -186,7 +187,7 @@
                     paths)))
 
     ;; The served path that `path` names, if it is under `prefix`.
-    (: served-under (-> String String (Option ProjectPath)))
+    (: served-under (impl (Fn String String -> (Option ProjectPath))))
     (define (served-under prefix path)
       (let ((length (string-length prefix)))
         (if (and (>= (string-length path) length) (string=? (substring path 0 length) prefix))
@@ -195,7 +196,7 @@
 
     ;; Directories in the same inventory, relative to the root. Unlike a
     ;; text path, a directory needs no filename extension.
-    (: project-directory-paths (-> String (List String) (List String)))
+    (: project-directory-paths (impl (Fn String (List String) -> (List String))))
     (define (project-directory-paths root paths)
       (let ((prefix (string-append root "/")))
         (list-sort string<?
@@ -215,15 +216,15 @@
     ;; Only one entry is made. Its parent must already be a real project
     ;; directory. Both scalar operations create exclusively, so a racing
     ;; writer cannot have its file or symbolic link replaced.
-    (: create-project-file (-> String String (Result Unit FileRefusal) ! fs))
+    (: create-project-file (impl (Fn String String -> (Result Unit FileRefusal) ! fs)))
     (define (create-project-file root path)
       (create-entry root (served-path path) #f))
 
-    (: create-project-directory (-> String String (Result Unit FileRefusal) ! fs))
+    (: create-project-directory (impl (Fn String String -> (Result Unit FileRefusal) ! fs)))
     (define (create-project-directory root path)
       (create-entry root (project-path path) #t))
 
-    (: create-entry (-> String (Option ProjectPath) Bool (Result Unit FileRefusal) ! fs))
+    (: create-entry (impl (Fn String (Option ProjectPath) Bool -> (Result Unit FileRefusal) ! fs)))
     (define (create-entry root found directory)
       (match found
         ((None) (Err (NotServed "invalid project path or unsupported text extension")))
@@ -240,19 +241,19 @@
     ;; ---- Reading ----
 
     ;; The text of the file at `path`, relative to the project at `root`.
-    (: read-project-text (-> String String (Result ProjectText FileRefusal) ! fs))
+    (: read-project-text (impl (Fn String String -> (Result ProjectText FileRefusal) ! fs)))
     (define (read-project-text root path)
       (match (served-path path)
         ((Some file) (snapshot root file))
         ((None) (Err (NotServed "invalid project text path")))))
 
-    (: snapshot (-> String ProjectPath (Result ProjectText FileRefusal) ! fs))
+    (: snapshot (impl (Fn String ProjectPath -> (Result ProjectText FileRefusal) ! fs)))
     (define (snapshot root file)
       (match (check-parents root file)
         ((Ok _) (current-text root file))
         ((Err refusal) (Err refusal))))
 
-    (: current-text (-> String ProjectPath (Result ProjectText FileRefusal) ! fs))
+    (: current-text (impl (Fn String ProjectPath -> (Result ProjectText FileRefusal) ! fs)))
     (define (current-text root file)
       (match (read-text-file (absolute root file) text-limit)
         ((Ok text)
@@ -261,7 +262,7 @@
              (Ok (ProjectText text (revision text)))))
         ((Err error) (Err (text-refusal error)))))
 
-    (: text-refusal (-> TextError FileRefusal))
+    (: text-refusal (impl (Fn TextError -> FileRefusal)))
     (define (text-refusal error)
       (match error
         ((ReadFailed error) (DiskFailed error))
@@ -278,14 +279,14 @@
     ;; rename. Rename is atomic, not compare-and-replace: a writer outside
     ;; the service can race that check.
     (: save-project-text
-       (-> String String String String (Result ProjectText FileRefusal) ! fs modes))
+       (impl (Fn String String String String -> (Result ProjectText FileRefusal) ! fs modes)))
     (define (save-project-text root path expected text)
       (match (Pair (served-path path) (text-problem text))
         ((Pair _ (Some message)) (Err (NotServed message)))
         ((Pair (Some file) (None)) (save-checked root file expected text))
         ((Pair (None) (None)) (Err (NotServed "invalid project text path")))))
 
-    (: text-problem (-> String (Option String)))
+    (: text-problem (impl (Fn String -> (Option String))))
     (define (text-problem text)
       (cond ((contains? text #\null) (Some "expected well-formed text without NUL"))
             ((> (vector-length (string->utf8 text)) text-limit)
@@ -293,7 +294,7 @@
             (else (None))))
 
     (: save-checked
-       (-> String ProjectPath String String (Result ProjectText FileRefusal) ! fs modes))
+       (impl (Fn String ProjectPath String String -> (Result ProjectText FileRefusal) ! fs modes)))
     (define (save-checked root file expected text)
       (match (staging root)
         ((Ok directory)
@@ -305,7 +306,7 @@
     ;; The file on disk is still the revision `expected`. A file gone, or
     ;; no longer one the service serves, has changed as much as one with
     ;; other bytes.
-    (: expect (-> String ProjectPath String (Result Unit FileRefusal) ! fs))
+    (: expect (impl (Fn String ProjectPath String -> (Result Unit FileRefusal) ! fs)))
     (define (expect root file expected)
       (match (snapshot root file)
         ((Ok current)
@@ -318,7 +319,14 @@
     ;; Writes the text to `staged`, gives it the file's mode once the
     ;; revision is checked, and renames it over the file.
     (: save-staged
-       (-> String ProjectPath String String String (Result ProjectText FileRefusal) ! fs modes))
+       (impl (Fn String
+                 ProjectPath
+                 String
+                 String
+                 String
+                 ->
+                 (Result ProjectText FileRefusal)
+                 ! fs modes)))
     (define (save-staged root file expected text staged)
       (match (write-text-file staged text (CreateNew))
         ((Ok _)
@@ -327,7 +335,7 @@
            ((Err refusal) (Err refusal))))
         ((Err error) (Err (DiskFailed error)))))
 
-    (: replace (-> String String String (Result ProjectText FileRefusal) ! fs modes))
+    (: replace (impl (Fn String String String -> (Result ProjectText FileRefusal) ! fs modes)))
     (define (replace path staged text)
       (match (file-mode path)
         ((Some mode)
@@ -340,7 +348,7 @@
 
     ;; A directory of this save's own under the build output, which builds
     ;; and the listing leave out, so a partial save is never a source.
-    (: staging (-> String (Result String FileRefusal) ! fs))
+    (: staging (impl (Fn String -> (Result String FileRefusal) ! fs)))
     (define (staging root)
       (let ((build (string-append root "/build")))
         (match (file-status build)
@@ -353,7 +361,7 @@
              ((Ok _) (fresh-directory build 0))
              ((Err error) (Err (DiskFailed error))))))))
 
-    (: fresh-directory (-> String I64 (Result String FileRefusal) ! fs))
+    (: fresh-directory (impl (Fn String I64 -> (Result String FileRefusal) ! fs)))
     (define (fresh-directory build number)
       (let ((directory (string-append build "/.snail-edit-" (show number))))
         (match (make-directory directory)
@@ -368,31 +376,31 @@
     ;; a path, each sent a character at a time, and a number; the host
     ;; answers with a number, -1 for a failure. Only Node implements it.
     (effect modes
-      ((mode-character (-> Char Unit))
-       (mode-end (-> Unit))
-       (mode-command (-> I32 I32)))
+      ((mode-character (dyn (Fn Char -> Unit)))
+       (mode-end (dyn (Fn -> Unit)))
+       (mode-command (dyn (Fn I32 -> I32))))
       (default ((mode-character host-argument-character)
                 (mode-end host-argument-end)
                 (mode-command host-command))))
 
-    (: mode-command-on (-> String String I32 I32 ! modes))
+    (: mode-command-on (impl (Fn String String I32 -> I32 ! modes)))
     (define (mode-command-on name path number)
       (send-mode-text name)
       (send-mode-text path)
       (mode-command number))
 
-    (: send-mode-text (-> String Unit ! modes))
+    (: send-mode-text (impl (Fn String -> Unit ! modes)))
     (define (send-mode-text text)
       (for-each mode-character (string->list text))
       (mode-end))
 
     ;; The permission bits of the file at `path`, following links.
-    (: file-mode (-> String (Option I32) ! modes))
+    (: file-mode (impl (Fn String -> (Option I32) ! modes)))
     (define (file-mode path)
       (let ((mode (mode-command-on "mode" path 0)))
         (if (< mode 0) (None) (Some mode))))
 
-    (: set-file-mode (-> String I32 Bool ! modes))
+    (: set-file-mode (impl (Fn String I32 -> Bool ! modes)))
     (define (set-file-mode path mode)
       (= (mode-command-on "chmod" path mode) 0))
 

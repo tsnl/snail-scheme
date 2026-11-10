@@ -31,7 +31,7 @@
   (Remove ((id I64)))
   (Saved ((count I64))))
 
-(: update (-> Model Msg (Pair Model (List (FnOnce Msg ! console tasks)))))
+(: update (impl (Fn Model Msg -> (Pair Model (List (dyn (FnOnce -> Msg ! console tasks)))))))
 (define (update model message)
   (match message
     ((Typed text) (Pair (Model-draft-set model text) (Nil)))
@@ -50,7 +50,7 @@
            (Nil)))
     ((Saved count) (Pair (Model-saved-set model count) (Nil)))))
 
-(: view (-> Model (Html Msg)))
+(: view (impl (Fn Model -> (Html Msg))))
 (define (view model)
   (Element "main"
            (Nil)
@@ -73,7 +73,7 @@
                  (Element "ul" (Nil) (map item-view (::items model)))
                  (Text (string-append "saved " (show (::saved model)))))))
 
-(: item-view (-> Item (Html Msg)))
+(: item-view (impl (Fn Item -> (Html Msg))))
 (define (item-view item)
   (Element "li"
            (list (Keyed (show (::id item))))
@@ -83,18 +83,18 @@
                                 (On "click" (Nil) (Allow) (lambda (event) (Remove (::id item)))))
                           (list (Text "x"))))))
 
-(: checkpoint (-> Model Unit ! console))
+(: checkpoint (impl (Fn Model -> Unit ! console)))
 (define (checkpoint model)
   (write-line (string-append "checkpoint: "
                              (string-join (map ::text (::items model)) ", ")
                              "; saved "
                              (show (::saved model)))))
 
-(: typed (-> String Cue))
+(: typed (impl (Fn String -> Cue)))
 (define (typed text)
   (Fire "draft" "input" (Event-value-set no-event text)))
 
-(: clicked (-> String Cue))
+(: clicked (impl (Fn String -> Cue)))
 (define (clicked target)
   (Fire target "click" no-event))
 

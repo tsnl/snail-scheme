@@ -21,8 +21,8 @@
   ((ide Ide)
    (answers I64)))
 
-(: jobs (-> Bool (Mailbox Unit) (Ref I64) (Ref I64) (List Command)
-            (List (FnOnce Delivery ! mut console tasks dom fetch))))
+(: jobs (impl (Fn Bool (Mailbox Unit) (Ref I64) (Ref I64) (List Command)
+                  -> (List (dyn (FnOnce -> Delivery ! mut console tasks dom fetch))))))
 (define (jobs delayed gate completed reads commands)
   (match commands
     ((Nil) (Nil))
@@ -35,7 +35,12 @@
            (jobs delayed gate completed reads rest)))))
 
 ;; Record the request identity at its boundary, before it can suspend.
-(: observed (-> (FnOnce CommandResult ! tasks dom fetch) (Ref I64) Delivery ! mut tasks dom fetch))
+(: observed
+   (impl (Fn (dyn (FnOnce -> CommandResult ! tasks dom fetch))
+             (Ref I64)
+             ->
+             Delivery
+             ! mut tasks dom fetch)))
 (define (observed work reads)
   (let ((issued (ref (ann 0 I64))))
     (let ((result
@@ -51,8 +56,10 @@
              (work))))
       (Produced (ref-get issued) result))))
 
-(: update-test (-> Bool (Mailbox Unit) (Ref I64) (Ref I64) Model Delivery
-                   (Pair Model (List (FnOnce Delivery ! mut console tasks dom fetch)))))
+(: update-test (impl (Fn Bool (Mailbox Unit) (Ref I64) (Ref I64) Model Delivery
+                         ->
+                         (Pair Model
+                               (List (dyn (FnOnce -> Delivery ! mut console tasks dom fetch)))))))
 (define (update-test delayed-read gate completed reads model message)
   (match message
     ((Input message)
@@ -66,22 +73,22 @@
           (Pair (Model next (+ (::answers model) (if (> read 0) 1 0)))
                 (jobs (and (not delayed-read) (= read 2)) gate completed reads commands))))))))
 
-(: shown (-> Model (Html Delivery)))
+(: shown (impl (Fn Model -> (Html Delivery))))
 (define (shown model)
   (map-html Input (view (::ide model))))
 
-(: window-test (-> Model (List (Attribute Delivery))))
+(: window-test (impl (Fn Model -> (List (Attribute Delivery)))))
 (define (window-test model)
   (match (map-html Input (Element "window" (window (::ide model)) (Nil)))
     ((Element _ attributes _) attributes)
     (_ (panic "window attributes"))))
 
-(: input (-> String Cue))
+(: input (impl (Fn String -> Cue)))
 (define (input text) (Fire "command-query" "input" (Event-value-set no-event text)))
 (: enter Cue)
 (define enter (Fire "command-query" "keydown" (Event-key-set no-event "Enter")))
 
-(: verify-focus (-> (Pair Node Document) Unit))
+(: verify-focus (impl (Fn (Pair Node Document) -> Unit)))
 (define (verify-focus result)
   (let ((expected (string-append "focus " (show (::handle (::first result)))))
         (last (find (lambda (line) (and (>= (string-length line) 6)
@@ -91,7 +98,7 @@
       ((Some line) (unless (string=? line expected) (panic "old task stole focus")))
       ((None) (panic "no focus")))))
 
-(: run (-> Bool Unit ! mut console tasks))
+(: run (impl (Fn Bool -> Unit ! mut console tasks)))
 (define (run delayed-read)
   (let ((reads (ref 0))
         (answers (ref 0))

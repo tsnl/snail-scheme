@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(: use (-> (FnOnce Unit) Unit))
+(: use (impl (Fn (dyn (FnOnce -> Unit)) -> Unit)))
 (define (use work)
   (call-once work))
 

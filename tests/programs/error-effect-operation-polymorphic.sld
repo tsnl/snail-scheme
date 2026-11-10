@@ -6,9 +6,9 @@
 ;; Were it polymorphic, its implementation would be checked at whatever
 ;; type its first use chose, while each caller chose its own.
 (effect Pick
-  ((pick (All (A) (-> A A A)))))
+  ((pick (All (A) (dyn (Fn A A -> A))))))
 
-(: choose (-> String ! console))
+(: choose (impl (Fn -> String ! console)))
 (define (choose)
   (handle Pick ((pick (lambda (a b) b)))
     (write-line (string-append (pick "x" "y") (show (pick 1 2))))

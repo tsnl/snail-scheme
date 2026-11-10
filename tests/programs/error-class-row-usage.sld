@@ -5,7 +5,7 @@
 ;; An instance writes its row in its head: closed, or ending with the row of
 ;; its requirements, which this instance does not have.
 (typeclass (Store e S)
-  (: fetch-object (-> S String String ! e)))
+  (: fetch-object (impl (Fn S String -> String ! e))))
 
 (struct Loud
   ((name String)))
