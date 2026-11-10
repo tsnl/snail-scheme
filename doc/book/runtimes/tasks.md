@@ -5,8 +5,6 @@ handles it, both in Snail-Core:
 
 | Operation | Meaning |
 | --- | --- |
-| `(make-task work)` | Construct a linear `Task` without scheduling it. Its type retains the work's effect row. |
-| `(schedule task)` | Transfer a `Task` into the ready queue and return its id. |
 | `(dispatch-local work)` | Transfer a `FnOnce` thunk into an independent local task. |
 | `(dispatch-task work)` | The same, answering the new task's `I64` id. |
 | `(yield)` | Let every other ready task run first. |

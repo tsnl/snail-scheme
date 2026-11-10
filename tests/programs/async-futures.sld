@@ -38,9 +38,3 @@
 (drop (await-future (after 1)))
 (write-line "timer")
 (drop (dispatch (once (lambda () (yield) (Resource "unobserved")))))
-
-;; A separately constructed Task has no Future and runs only on schedule.
-(let ((task (make-task (once (lambda () (write-line "scheduled task"))))))
-  (write-line "task constructed")
-  (schedule task)
-  (unit))
