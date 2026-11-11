@@ -1,5 +1,5 @@
 ;; What every pass shares: where a piece of source is, what a pass says
-;; about it, and the form that sequences steps that can fail. A pass
+;; about it, and how to sequence steps that can fail. A pass
 ;; returns its output or the feedback that stopped it, so every pass is a
 ;; function of its input.
 (define-library (snail compiler source)
@@ -7,7 +7,8 @@
    Loc
    Feedback
    fail
-   result-let*)
+   result-let*
+   map-results)
   (import
    (snail core base))
   (begin
@@ -55,6 +56,25 @@
            ((Ok name) (result-let* (more ...) body ...))
            ((Err name) (Err name))))))
 
+    ;; The value `step` makes of each item, in order, while each is
+    ;; `(Ok value)`. The first failure is the answer, and no item after it
+    ;; is stepped.
+    (: map-results
+       (All (A B Callback)
+            (requires (Copy A)
+                      (Copy B)
+                      (Copy Callback)
+                      (Fn Callback A -> (Result B (List Feedback))))
+            (impl (Fn Callback (List A) -> (Result (List B) (List Feedback))))))
+    (define (map-results step items)
+      (let loop ((items items)
+                 (mapped (Nil)))
+        (match items
+          ((Nil) (Ok (reverse mapped)))
+          ((Cons item rest)
+           (result-let* ((value (step item)))
+             (loop rest (Cons value mapped)))))))
+
     )
 
   ;; ---- Tests ----
@@ -68,7 +88,8 @@
     (begin
       (define (test-source)
         (test-fail)
-        (test-result-let*))
+        (test-result-let*)
+        (test-map-results))
 
       (define (test-fail)
         (expect (fail (Loc "t.sld" 2 3) "a message")
@@ -89,5 +110,15 @@
                 (fail (Loc "t.sld" 1 1) "first"))
         (expect (result-let* ((a (Err "any failure")))
                   (Ok a))
-                (Err "any failure")))))
+                (Err "any failure")))
+
+      ;; Items are stepped in order, and none after the first failure.
+      (define (test-map-results)
+        (define (halved number)
+          (cond ((= number 0) (panic "an item after a failure was stepped"))
+                ((= (remainder number 2) 0) (Ok (quotient number 2)))
+                (else (fail (Loc "t.sld" 1 number) "odd"))))
+        (expect (map-results halved (list)) (Ok (list)))
+        (expect (map-results halved (list 4 2 8)) (Ok (list 2 1 4)))
+        (expect (map-results halved (list 2 3 5 0)) (fail (Loc "t.sld" 1 3) "odd")))))
    (else)))
