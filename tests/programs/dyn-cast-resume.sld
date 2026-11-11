@@ -1,14 +1,13 @@
 (import
  (snail core base)
  (snail core io))
-(effect audit ((note (dyn (Fn String -> Unit)))))
-(effect Ask ((ctl ask (dyn (Fn -> Unit)))))
+(effect audit ((note (dyn (Fn String → Unit)))))
+(effect Ask ((ctl ask (dyn (Fn → Unit)))))
 (struct Resource
   ((name String)))
 (instance (Drop (! audit) Resource)
-  (define (drop resource) (match resource ((Resource name) (note name)))))
-(: work (impl (Fn -> Unit ! Ask audit)))
-(define (work)
+  (define drop (lambda (resource) (match resource ((Resource name) (note name))))))
+(define (work) (→ Unit) (! Ask audit)
   (let ((resource (Resource "held")))
     (ask)
     (drop resource)))
@@ -24,8 +23,7 @@
 
 ;; Running it moves ownership into the resumed frames. A later conversion
 ;; failure releases it there exactly once before the failure handler runs.
-(: resumed-work (impl (Fn -> Unit ! Ask audit dyn-cast)))
-(define (resumed-work)
+(define (resumed-work) (→ Unit) (! Ask audit dyn-cast)
   (let ((resource (Resource "resumed")))
     (ask)
     (ann (ann "bad" Any) I64)
@@ -36,8 +34,7 @@
       (resumed-work))))
 
 ;; The owner is held only for cleanup, never by the ordinary continuation.
-(: only-cleanup (impl (Fn -> Unit ! Ask audit)))
-(define (only-cleanup)
+(define (only-cleanup) (→ Unit) (! Ask audit)
   (let ((resource (Resource "only cleanup")))
     (ask)
     (panic "the test drops this resumption")))
@@ -48,10 +45,9 @@
 ;; A mixed effect may save frames even for an operation that answers Never.
 ;; Its abortive dispatcher must drain them before calling the handler.
 (effect Mixed
-  ((ctl pause (dyn (Fn -> Unit)))
-   (ctl stop (dyn (Fn -> Never)))))
-(: mixed (impl (Fn -> Unit ! Mixed audit)))
-(define (mixed)
+  ((ctl pause (dyn (Fn → Unit)))
+   (ctl stop (dyn (Fn → Never)))))
+(define (mixed) (→ Unit) (! Mixed audit)
   (let ((resource (Resource "mixed")))
     (absurd (stop))))
 (handle audit ((note (lambda (name) (write-line name))))

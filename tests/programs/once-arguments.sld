@@ -6,12 +6,11 @@
   ((label String)))
 
 (instance (Drop (! console) Token)
-  (define (drop token)
-    (match token
-      ((Token label) (write-line label)))))
+  (define drop
+    (lambda (token) (match token
+                      ((Token label) (write-line label))))))
 
-(: offset (impl (Fn Token I64 -> (dyn (FnOnce I64 -> I64 ! console)))))
-(define (offset token amount)
+(define (offset (token Token) (amount I64)) (→ (dyn (FnOnce I64 → I64 ! console)))
   (once (lambda (value)
           (drop token)
           (+ amount value))))
@@ -24,8 +23,7 @@
 (let ((work (once (lambda (first last) (string-append first last)))))
   (write-line (work "left" "right")))
 
-(: consume-job (impl (Fn (dyn (FnOnce -> Unit ! console)) -> I64 ! console)))
-(define (consume-job job)
+(define (consume-job (job (dyn (FnOnce → Unit ! console)))) (→ I64) (! console)
   (job)
   7)
 
@@ -33,10 +31,9 @@
   (write-line (show (work (once (lambda () (write-line "argument")))))))
 
 (effect Pause
-  ((ctl pause (dyn (Fn -> I64)))))
+  ((ctl pause (dyn (Fn → I64)))))
 
-(: suspended (impl (Fn Token -> (dyn (FnOnce I64 -> I64 ! Pause console)))))
-(define (suspended token)
+(define (suspended (token Token)) (→ (dyn (FnOnce I64 → I64 ! Pause console)))
   (once (lambda (value)
           (let ((answer (pause)))
             (drop token)

@@ -49,8 +49,9 @@ async function producerCycles() {
     (import (snail core base) (snail core io) (snail shell syntax) ${imports})
     (begin (write-file "${join(directory, `${name.replace('/', '-')}.ran`)}" "ran")
       (library-syntax (list "${name.replace('/', '" "')}") (list "value") (list (list "snail" "core" "base") ${output})
-        (list (form ":" (list (SymbolSyntax "value") (SymbolSyntax "String")))
-              (form "define" (list (SymbolSyntax "value") (StringSyntax "${name}")))))))`;
+        (list (form "define" (list (SymbolSyntax "value")
+              (form "→" (list (SymbolSyntax "String")))
+              (StringSyntax "${name}")))))))`;
   try {
     await write('project.datum', `((build-target knot (program (entry "knot.sld") (library-roots ("src"))))
       (build-target late (program (entry "late.sld") (library-roots ("src")))))`);

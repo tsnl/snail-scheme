@@ -27,8 +27,9 @@
       ((variable String)
        (targets (List Type))))
 
-    (: parse-dispatch (impl (Fn Class Instance (List Type) Loc -> Dispatch ! compile)))
-    (define (parse-dispatch class instance targets loc)
+    (define (parse-dispatch (class Class) (instance Instance) (targets (List Type)) (loc Loc))
+      (→ Dispatch)
+      (! compile)
       (unless (and (null? (::vars instance))
                    (null? (::requires instance))
                    (= (length (filter any-type? (::types instance))) 1)
@@ -45,8 +46,7 @@
         (compile-error loc "dispatch repeats a concrete type"))
       (Dispatch (dispatch-variable class instance) targets))
 
-    (: ground-type? (impl (Fn Type -> Bool)))
-    (define (ground-type? type)
+    (define (ground-type? (type Type)) (→ Bool)
       (match type
         ((TCon _ args) (every? ground-type? args))
         ((TFun params result row)
@@ -54,8 +54,7 @@
         ((TRow _ (None)) #t)
         (_ #f)))
 
-    (: dispatch-variable (impl (Fn Class Instance -> String)))
-    (define (dispatch-variable class instance)
+    (define (dispatch-variable (class Class) (instance Instance)) (→ String)
       (match (find (lambda (pair) (any-type? (::second pair)))
                    (zip (::params class) (::types instance)))
         ((Some pair) (::first pair))
@@ -66,8 +65,15 @@
     ;; Keep the erased variable while substituting the fixed arguments.
     ;; This distinguishes a method's own Any parameter from an occurrence
     ;; of the class parameter that this dispatcher erases.
-    (: dispatch-method (impl (Fn Program Class Instance String Dispatch Loc -> Expr ! compile)))
-    (define (dispatch-method program class instance method dispatch loc)
+
+    (define (dispatch-method (program Program)
+                             (class Class)
+                             (instance Instance)
+                             (method String)
+                             (dispatch Dispatch)
+                             (loc Loc))
+      (→ Expr)
+      (! compile)
       (let* ((var (::variable dispatch))
              (fixed (filter (lambda (pair) (not (string=? var (::first pair))))
                             (zip (::params class) (::types instance)))))
@@ -84,8 +90,14 @@
           (_ (compile-error loc
                             "dispatch does not support methods with additional class requirements")))))
 
-    (: dispatch-lambda (impl (Fn Instance String String Type (List Type) Loc -> Expr ! compile)))
-    (define (dispatch-lambda instance method var type targets loc)
+    (define (dispatch-lambda (instance Instance)
+                             (method String)
+                             (var String)
+                             (type Type)
+                             (targets (List Type))
+                             (loc Loc))
+      (→ Expr)
+      (! compile)
       (match type
         ((TFun params result _)
          (for-each (lambda (part) (check-dispatch-position var part loc)) (Cons result params))
@@ -108,14 +120,13 @@
 
     ;; Nested occurrences would require element conversions or function
     ;; wrappers. This feature checks whole values; it never rebuilds them.
-    (: check-dispatch-position (impl (Fn String Type Loc -> Unit ! compile)))
-    (define (check-dispatch-position var type loc)
+
+    (define (check-dispatch-position (var String) (type Type) (loc Loc)) (→ Unit) (! compile)
       (when (and (mentions? var type) (not (type=? type (TRigid var))))
         (compile-error loc
                        "dispatch needs the erased class type as a whole parameter or result")))
 
-    (: mentions? (impl (Fn String Type -> Bool)))
-    (define (mentions? var type)
+    (define (mentions? (var String) (type Type)) (→ Bool)
       (match type
         ((TRigid name) (string=? var name))
         ((TCon _ args) (any? (lambda (arg) (mentions? var arg)) args))
@@ -126,9 +137,16 @@
 
     ;; Every selector branch is tested. The final failure describes the
     ;; whole accepted domain, not the last type we happened to try.
-    (: dispatch-branches
-       (impl (Fn String String String (List (Pair Type Expr)) Type I64 (List Type) Loc -> Expr)))
-    (define (dispatch-branches prefix method var args result index targets loc)
+
+    (define (dispatch-branches (prefix String)
+                               (method String)
+                               (var String)
+                               (args (List (Pair Type Expr)))
+                               (result Type)
+                               (index I64)
+                               (targets (List Type))
+                               (loc Loc))
+      (→ Expr)
       (let ((selector (::second (list-ref args index))))
         (fold-right (lambda (entry rest)
                       (dispatch-case
@@ -141,9 +159,17 @@
 
     ;; The selector is already recovered in this branch. Its concrete type
     ;; marks it as an ordinary argument, so the call cannot probe it again.
-    (: dispatch-case
-       (impl (Fn String String String (List (Pair Type Expr)) Type I64 Type Expr Loc -> Expr)))
-    (define (dispatch-case prefix method var args result index target rest loc)
+
+    (define (dispatch-case (prefix String)
+                           (method String)
+                           (var String)
+                           (args (List (Pair Type Expr)))
+                           (result Type)
+                           (index I64)
+                           (target Type)
+                           (rest Expr)
+                           (loc Loc))
+      (→ Expr)
       (let* ((name (string-append prefix ".selector"))
              (selected (map-indexed (lambda (i arg)
                                       (if (= i index) (Pair target (reference name loc)) arg))
@@ -151,8 +177,14 @@
         (recover-value (::second (list-ref args index)) target name
                        (dispatch-call prefix method var selected result target loc) rest loc)))
 
-    (: dispatch-argument (impl (Fn String String String Type I64 (Pair Type Expr) Loc -> Expr)))
-    (define (dispatch-argument prefix method var target index argument loc)
+    (define (dispatch-argument (prefix String)
+                               (method String)
+                               (var String)
+                               (target Type)
+                               (index I64)
+                               (argument (Pair Type Expr))
+                               (loc Loc))
+      (→ Expr)
       (let ((value (::second argument)))
         (if (type=? (::first argument) (TRigid var))
             (let ((name (string-append prefix ".argument." (i64->string index))))
@@ -167,8 +199,14 @@
                               target loc) loc))
             value)))
 
-    (: dispatch-call (impl (Fn String String String (List (Pair Type Expr)) Type Type Loc -> Expr)))
-    (define (dispatch-call prefix method var args result target loc)
+    (define (dispatch-call (prefix String)
+                           (method String)
+                           (var String)
+                           (args (List (Pair Type Expr)))
+                           (result Type)
+                           (target Type)
+                           (loc Loc))
+      (→ Expr)
       (let* ((arguments (map (lambda (entry)
                                (dispatch-argument prefix method var target
                                                   (::first entry) (::second entry) loc))
@@ -178,33 +216,42 @@
             (expression (Convert call (TCon "Any" (Nil))) loc)
             call)))
 
-    (: expression (impl (Fn Term Loc -> Expr)))
-    (define (expression term loc)
+    (define (expression (term Term) (loc Loc)) (→ Expr)
       (Expr term unchecked loc))
 
-    (: reference (impl (Fn String Loc -> Expr)))
-    (define (reference name loc)
+    (define (reference (name String) (loc Loc)) (→ Expr)
       (expression (Var name (Nil) (Nil)) loc))
 
     ;; These ordinary matches bind typed values before the method call.
     ;; Conversion lowering consumes their unused wrappers and errors.
-    (: conversion-probe (impl (Fn Expr Type String Loc -> (Pair Expr Pattern))))
-    (define (conversion-probe value target name loc)
+
+    (define (conversion-probe (value Expr) (target Type) (name String) (loc Loc))
+      (→ (Pair Expr Pattern))
       (Pair (expression (TryConvert value target) loc)
             (PCon "snail.core.base:Ok" (list (PVar name unchecked)) unchecked)))
 
-    (: select-probe (impl (Fn (Pair Expr Pattern) Expr Expr Loc -> Expr)))
-    (define (select-probe probe success failure loc)
+    (define (select-probe (probe (Pair Expr Pattern)) (success Expr) (failure Expr) (loc Loc))
+      (→ Expr)
       (expression (Match (::first probe)
                          (list (Clause (::second probe) success)
                                (Clause (PWild unchecked) failure))) loc))
 
-    (: recover-value (impl (Fn Expr Type String Expr Expr Loc -> Expr)))
-    (define (recover-value value target name success failure loc)
+    (define (recover-value (value Expr)
+                           (target Type)
+                           (name String)
+                           (success Expr)
+                           (failure Expr)
+                           (loc Loc))
+      (→ Expr)
       (select-probe (conversion-probe value target name loc) success failure loc))
 
-    (: recover-pair (impl (Fn (List Expr) (List Type) (List String) Expr Expr Loc -> Expr)))
-    (define (recover-pair values targets names success failure loc)
+    (define (recover-pair (values (List Expr))
+                          (targets (List Type))
+                          (names (List String))
+                          (success Expr)
+                          (failure Expr)
+                          (loc Loc))
+      (→ Expr)
       (let* ((probes (map (lambda (index)
                             (conversion-probe (list-ref values index) (list-ref targets index)
                                               (list-ref names index) loc)) (iota 2)))
@@ -228,10 +275,15 @@
       ((instance Instance)
        (definitions (List Item))))
 
-    (: generate-binary-instances
-       (impl (Fn Program Class (List (List Type)) (List String) String String Loc
-                 -> (List GeneratedInstance) ! compile)))
-    (define (generate-binary-instances program class domain active owner name loc)
+    (define (generate-binary-instances (program Program)
+                                       (class Class)
+                                       (domain (List (List Type)))
+                                       (active (List String))
+                                       (owner String)
+                                       (name String)
+                                       (loc Loc))
+      (→ (List GeneratedInstance))
+      (! compile)
       (check-binary-class program class loc)
       (when (or (null? domain)
                 (not (= (length domain) (length (delete-duplicates types=? domain)))))
@@ -248,8 +300,8 @@
     ;; This initial generator covers ordinary binary operation classes.
     ;; Independent method polymorphism and nested erased occurrences would
     ;; require a different conversion contract, so they fail at declaration.
-    (: check-binary-class (impl (Fn Program Class Loc -> Unit ! compile)))
-    (define (check-binary-class program class loc)
+
+    (define (check-binary-class (program Program) (class Class) (loc Loc)) (→ Unit) (! compile)
       (unless (and (= (length (::rows class)) 1)
                    (= (length (::outputs class)) 1)
                    (= (length (type-arguments class (map TRigid (::params class)))) 2)
@@ -259,8 +311,9 @@
       (for-each (lambda (method) (check-binary-method program class method loc))
                 (::methods class)))
 
-    (: check-binary-method (impl (Fn Program Class String Loc -> Unit ! compile)))
-    (define (check-binary-method program class method loc)
+    (define (check-binary-method (program Program) (class Class) (method String) (loc Loc))
+      (→ Unit)
+      (! compile)
       (match (program-value program method)
         ((Some (Method _ (Scheme vars (Cons _ (Nil)) _ (TFun params result row))))
          (unless (and (= (length vars) (length (::params class)))
@@ -268,13 +321,17 @@
                       (type=? result (TRigid (list-ref (::outputs class) 0)))
                       (type=? row (TRow (Nil) (Some (TRigid (list-ref (::rows class) 0))))))
            (compile-error loc
-                          "dynamic-instances needs methods of type (dyn (Fn A B -> Output ! e))")))
+                          "dynamic-instances needs methods of type (dyn (Fn A B → Output ! e))")))
         (_
          (compile-error loc "dynamic-instances does not support independent method requirements"))))
 
-    (: resolve-binary-case
-       (impl (Fn Program Class (List Type) (List String) Loc -> BinaryCase ! compile)))
-    (define (resolve-binary-case program class inputs active loc)
+    (define (resolve-binary-case (program Program)
+                                 (class Class)
+                                 (inputs (List Type))
+                                 (active (List String))
+                                 (loc Loc))
+      (→ BinaryCase)
+      (! compile)
       (unless (and (= (length inputs) 2)
                    (every? (lambda (type) (and (ground-type? type) (not (any-type? type)))) inputs))
         (compile-error loc "dynamic-instances domain entries are two concrete, non-Any types"))
@@ -290,8 +347,9 @@
            (compile-error loc "dynamic-instances has no active source instance for a domain pair"))
           (_ (compile-error loc "dynamic-instances has overlapping source instances")))))
 
-    (: binary-case (impl (Fn Class Instance (List Type) Loc -> BinaryCase ! compile)))
-    (define (binary-case class instance inputs loc)
+    (define (binary-case (class Class) (instance Instance) (inputs (List Type)) (loc Loc))
+      (→ BinaryCase)
+      (! compile)
       (unless (null? (::requires instance))
         (compile-error loc "dynamic-instances source instances must have no class prerequisites"))
       (match (match-types (::vars instance)
@@ -309,20 +367,22 @@
              (_ (compile-error loc "dynamic-instances source effect rows must be closed")))))
         ((None) (panic "internal error: selected binary instance did not match"))))
 
-    (: erased-heads (impl (Fn (List Type) -> (List (List Type)))))
-    (define (erased-heads inputs)
+    (define (erased-heads (inputs (List Type))) (→ (List (List Type)))
       (let ((any (TCon "Any" (Nil))))
         (list (list any (list-ref inputs 1)) (list (list-ref inputs 0) any) (list any any))))
 
-    (: accepts-pair? (impl (Fn (List Type) BinaryCase -> Bool)))
-    (define (accepts-pair? head branch)
+    (define (accepts-pair? (head (List Type)) (branch BinaryCase)) (→ Bool)
       (every? (lambda (pair) (or (any-type? (::first pair))
                                  (type=? (::first pair) (::second pair))))
               (zip head (::inputs branch))))
 
-    (: generate-binary-instance
-       (impl (Fn Class (List BinaryCase) (List Type) String String Loc -> GeneratedInstance)))
-    (define (generate-binary-instance class domain inputs owner name loc)
+    (define (generate-binary-instance (class Class)
+                                      (domain (List BinaryCase))
+                                      (inputs (List Type))
+                                      (owner String)
+                                      (name String)
+                                      (loc Loc))
+      (→ GeneratedInstance)
       (let* ((cases (filter (lambda (branch) (accepts-pair? inputs branch)) domain))
              (outputs (delete-duplicates type=? (map ::output cases)))
              (output (if (= (length outputs) 1) (list-ref outputs 0) (TCon "Any" (Nil))))
@@ -340,8 +400,8 @@
                                     (binary-lambda (::first method) inputs output cases
                                                    (::second method) loc))) methods))))
 
-    (: binary-head (impl (Fn Class (List Type) Type Type -> (List Type))))
-    (define (binary-head class inputs output row)
+    (define (binary-head (class Class) (inputs (List Type)) (output Type) (row Type))
+      (→ (List Type))
       (let ((bindings (zip (filter (lambda (param)
                                      (not (member? param
                                                    (append (::rows class)
@@ -355,8 +415,13 @@
                              ((None) (panic "internal error: binary input parameter"))))))
              (::params class))))
 
-    (: binary-lambda (impl (Fn String (List Type) Type (List BinaryCase) String Loc -> Expr)))
-    (define (binary-lambda method inputs output cases name loc)
+    (define (binary-lambda (method String)
+                           (inputs (List Type))
+                           (output Type)
+                           (cases (List BinaryCase))
+                           (name String)
+                           (loc Loc))
+      (→ Expr)
       (let* ((names (list (string-append name ".left") (string-append name ".right")))
              (args (map (lambda (name) (reference name loc)) names))
              (failure (binary-failure method inputs args cases output loc)))
@@ -376,9 +441,16 @@
     ;; A generated head erases one or both arguments. The candidate's
     ;; typed bindings feed its selected implementation; a mismatch proceeds
     ;; to the next candidate without constructing a temporary error.
-    (: binary-branch
-       (impl (Fn String (List Type) (List Expr) Type BinaryCase String Expr Loc -> Expr)))
-    (define (binary-branch method inputs args output branch prefix rest loc)
+
+    (define (binary-branch (method String)
+                           (inputs (List Type))
+                           (args (List Expr))
+                           (output Type)
+                           (branch BinaryCase)
+                           (prefix String)
+                           (rest Expr)
+                           (loc Loc))
+      (→ Expr)
       (let* ((names (list (string-append prefix ".left") (string-append prefix ".right")))
              (converted (map (lambda (i) (if (any-type? (list-ref inputs i))
                                              (reference (list-ref names i) loc) (list-ref args i)))
@@ -393,8 +465,14 @@
     ;; A failed pair names the offending side. When the left type is
     ;; supported, the right side's expected types are restricted to that
     ;; left type; this also explains a missing pair in a nonrectangular domain.
-    (: binary-failure (impl (Fn String (List Type) (List Expr) (List BinaryCase) Type Loc -> Expr)))
-    (define (binary-failure method inputs args cases output loc)
+
+    (define (binary-failure (method String)
+                            (inputs (List Type))
+                            (args (List Expr))
+                            (cases (List BinaryCase))
+                            (output Type)
+                            (loc Loc))
+      (→ Expr)
       (let ((lefts (delete-duplicates type=?
                                       (map (lambda (branch) (list-ref (::inputs branch) 0))
                                            cases))))
@@ -420,8 +498,13 @@
                                            loc)))
                            (binary-side-failure method args cases 0 output loc) lefts)))))
 
-    (: binary-side-failure (impl (Fn String (List Expr) (List BinaryCase) I64 Type Loc -> Expr)))
-    (define (binary-side-failure method args cases index output loc)
+    (define (binary-side-failure (method String)
+                                 (args (List Expr))
+                                 (cases (List BinaryCase))
+                                 (index I64)
+                                 (output Type)
+                                 (loc Loc))
+      (→ Expr)
       (conversion-failure
        (conversion-error "UnsupportedInstance"
                          (delete-duplicates type=?
@@ -430,8 +513,12 @@
                                                  cases))
                          (list-ref args index) method index loc) output loc))
 
-    (: binary-call (impl (Fn String (List Expr) Type BinaryCase Loc -> Expr)))
-    (define (binary-call method args output branch loc)
+    (define (binary-call (method String)
+                         (args (List Expr))
+                         (output Type)
+                         (branch BinaryCase)
+                         (loc Loc))
+      (→ Expr)
       (let* ((implementation (match (assoc-ref (::methods branch) method)
                                ((Some name) name)
                                ((None) (panic "internal error: missing binary implementation"))))

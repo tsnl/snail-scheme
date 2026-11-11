@@ -55,52 +55,43 @@
       (BodyTooLarge)
       (InvalidResponse ((reason String))))
 
-    (: head-limit I64)
-    (define head-limit 16384)
-    (: body-limit I64)
-    (define body-limit 8388608)
+    (define head-limit (→ I64) 16384)
+
+    (define body-limit (→ I64) 8388608)
 
     ;; ---- Request syntax ----
 
-    (: digit? (impl (Fn Char -> Bool)))
-    (define (digit? char)
+    (define (digit? (char Char)) (→ Bool)
       (let ((code (char->integer char))) (and (>= code 48) (<= code 57))))
 
-    (: letter? (impl (Fn Char -> Bool)))
-    (define (letter? char)
+    (define (letter? (char Char)) (→ Bool)
       (let ((code (char->integer char)))
         (or (and (>= code 65) (<= code 90)) (and (>= code 97) (<= code 122)))))
 
-    (: contains-char? (impl (Fn String Char -> Bool)))
-    (define (contains-char? text char)
+    (define (contains-char? (text String) (char Char)) (→ Bool)
       (match (string-index text char) ((Some _) #t) ((None) #f)))
 
-    (: token? (impl (Fn String -> Bool)))
-    (define (token? text)
+    (define (token? (text String)) (→ Bool)
       (and (> (string-length text) 0)
            (every? (lambda (char)
                      (or (letter? char) (digit? char) (contains-char? "!#$%&'*+-.^_`|~" char)))
                    (string->list text))))
 
-    (: lower-ascii (impl (Fn String -> String)))
-    (define (lower-ascii text)
+    (define (lower-ascii (text String)) (→ String)
       (string-generate (string-length text)
                        (lambda (index)
                          (let ((code (char->integer (string-ref text index))))
                            (integer->char (if (and (>= code 65) (<= code 90)) (+ code 32) code))))))
 
-    (: field-value? (impl (Fn String -> Bool)))
-    (define (field-value? text)
+    (define (field-value? (text String)) (→ Bool)
       (every? (lambda (char)
                 (let ((code (char->integer char)))
                   (or (= code 9) (and (>= code 32) (<= code 126)))))
               (string->list text)))
 
-    (: ows? (impl (Fn Char -> Bool)))
-    (define (ows? char) (or (= char #\space) (= char #\tab)))
+    (define (ows? (char Char)) (→ Bool) (or (= char #\space) (= char #\tab)))
 
-    (: trim-ows (impl (Fn String -> String)))
-    (define (trim-ows text)
+    (define (trim-ows (text String)) (→ String)
       (let start ((first 0))
         (if (and (< first (string-length text)) (ows? (string-ref text first)))
             (start (+ first 1))
@@ -111,8 +102,8 @@
 
     ;; Inspect only the bounded head prefix. Binary body bytes after the empty
     ;; line are not syntax, and even a large supplied body cannot enlarge it.
-    (: head-end (impl (Fn Bytes -> (Result (Option I64) HttpError))))
-    (define (head-end bytes)
+
+    (define (head-end (bytes Bytes)) (→ (Result (Option I64) HttpError))
       (let loop ((index 0))
         (cond ((= index head-limit) (Err (HeadTooLarge)))
               ((= index (vector-length bytes)) (Ok (None)))
@@ -131,8 +122,8 @@
                        (else (loop (+ index 1)))))))))
 
     ;; head-end established CRLF and ASCII. Exclude the final empty line.
-    (: head-lines (impl (Fn Bytes I64 -> (List String))))
-    (define (head-lines bytes end)
+
+    (define (head-lines (bytes Bytes) (end I64)) (→ (List String))
       (let loop ((first 0) (index 0) (lines (Nil)))
         (cond ((= first (- end 2)) (reverse lines))
               ((= (u8->i32 (vector-ref bytes index)) 13)
@@ -143,18 +134,16 @@
                  (loop (+ index 2) (+ index 2) (Cons line lines))))
               (else (loop first (+ index 1) lines)))))
 
-    (: hex? (impl (Fn Char -> Bool)))
-    (define (hex? char)
+    (define (hex? (char Char)) (→ Bool)
       (or (digit? char) (contains-char? "abcdefABCDEF" char)))
 
     ;; RFC 3986's unreserved and sub-delimiter characters, and those a path
     ;; or query may hold besides; `%` begins an escape.
-    (: uri-char? (impl (Fn Char -> Bool)))
-    (define (uri-char? char)
+
+    (define (uri-char? (char Char)) (→ Bool)
       (or (letter? char) (digit? char) (contains-char? "-._~!$&'()*+,;=:@/?" char)))
 
-    (: target? (impl (Fn String -> Bool)))
-    (define (target? text)
+    (define (target? (text String)) (→ Bool)
       (let loop ((index 0))
         (if (= index (string-length text))
             #t
@@ -165,8 +154,7 @@
                     ((uri-char? char) (loop (+ index 1)))
                     (else #f))))))
 
-    (: request-line (impl (Fn String -> (Result (Pair String String) HttpError))))
-    (define (request-line line)
+    (define (request-line (line String)) (→ (Result (Pair String String) HttpError))
       (match (string-index line #\space)
         ((None) (Err (Malformed "request line")))
         ((Some first)
@@ -179,8 +167,8 @@
                               (substring rest 0 second)
                               (substring rest (+ second 1) (string-length rest)))))))))
 
-    (: request-target (impl (Fn String String String -> (Result (Pair String String) HttpError))))
-    (define (request-target method target version)
+    (define (request-target (method String) (target String) (version String))
+      (→ (Result (Pair String String) HttpError))
       (cond ((or (not (token? method)) (= (string-length target) 0))
              (Err (Malformed "method or target")))
             ((not (and (= (string-length version) 8) (string=? (substring version 0 5) "HTTP/")
@@ -194,8 +182,7 @@
             ((not (target? target)) (Err (Malformed "request target")))
             (else (Ok (Pair method target)))))
 
-    (: request-headers (impl (Fn (List String) -> (Result (List Header) HttpError))))
-    (define (request-headers lines)
+    (define (request-headers (lines (List String))) (→ (Result (List Header) HttpError))
       (let loop ((lines lines) (headers (Nil)))
         (match lines
           ((Nil) (Ok (reverse headers)))
@@ -212,14 +199,14 @@
     ;; ---- Request framing ----
 
     ;; Parsed names are lowercase. Preserve all occurrences in wire order.
-    (: header-values (impl (Fn (List Header) String -> (List String))))
-    (define (header-values headers name)
+
+    (define (header-values (headers (List Header)) (name String)) (→ (List String))
       (let ((name (lower-ascii name)))
         (map ::value (filter (lambda (header) (string=? (::name header) name)) headers))))
 
     ;; The check precedes arithmetic, including for thousands of digits.
-    (: decimal (impl (Fn String I64 HttpError -> (Result I64 HttpError))))
-    (define (decimal text maximum excessive)
+
+    (define (decimal (text String) (maximum I64) (excessive HttpError)) (→ (Result I64 HttpError))
       (if (= (string-length text) 0)
           (Err (Malformed "empty decimal"))
           (let loop ((index 0) (value 0))
@@ -230,14 +217,12 @@
                   (else
                    (loop (+ index 1) (+ (* value 10) (digit-value (string-ref text index)))))))))
 
-    (: host-name? (impl (Fn String -> Bool)))
-    (define (host-name? name)
+    (define (host-name? (name String)) (→ Bool)
       (and (> (string-length name) 0)
            (every? (lambda (char) (or (letter? char) (digit? char) (contains-char? ".-_" char)))
                    (string->list name))))
 
-    (: host-value (impl (Fn String -> (Result Unit HttpError))))
-    (define (host-value text)
+    (define (host-value (text String)) (→ (Result Unit HttpError))
       (if (and (> (string-length text) 0) (= (string-ref text 0) #\[))
           (Err (Unsupported "IPv6 Host literal"))
           (match (string-index text #\:)
@@ -251,8 +236,7 @@
                    ((Err error) (Err error))
                    ((Ok _) (Ok (unit)))))))))
 
-    (: content-length (impl (Fn (List Header) -> (Result I64 HttpError))))
-    (define (content-length headers)
+    (define (content-length (headers (List Header))) (→ (Result I64 HttpError))
       (let ((lengths (header-values headers "content-length"))
             (codings (header-values headers "transfer-encoding")))
         (cond ((and (not (null? lengths)) (not (null? codings)))
@@ -264,9 +248,8 @@
                       ((Cons value rest) (if (null? rest) (decimal value body-limit (BodyTooLarge))
                                              (Err (Malformed "duplicate Content-Length")))))))))
 
-    (: framed-request
-       (impl (Fn (Pair String String) (List Header) -> (Result RequestHead HttpError))))
-    (define (framed-request line headers)
+    (define (framed-request (line (Pair String String)) (headers (List Header)))
+      (→ (Result RequestHead HttpError))
       (match (header-values headers "host")
         ((Cons host rest)
          (if (not (null? rest))
@@ -280,8 +263,7 @@
                            (RequestHead (::first line) (::second line) headers count))))))))
         ((Nil) (Err (Malformed "missing Host")))))
 
-    (: complete-head (impl (Fn (List String) -> (Result RequestHead HttpError))))
-    (define (complete-head lines)
+    (define (complete-head (lines (List String))) (→ (Result RequestHead HttpError))
       (match lines
         ((Nil) (Err (Malformed "missing request line")))
         ((Cons first rest)
@@ -291,8 +273,7 @@
                         ((Err error) (Err error))
                         ((Ok headers) (framed-request line headers))))))))
 
-    (: parse-request-head (impl (Fn Bytes -> (Result (Option ParsedHead) HttpError))))
-    (define (parse-request-head bytes)
+    (define (parse-request-head (bytes Bytes)) (→ (Result (Option ParsedHead) HttpError))
       (match (head-end bytes)
         ((Err error) (Err error))
         ((Ok end) (match end
@@ -304,24 +285,23 @@
     ;; ---- Request targets ----
 
     ;; Every piece between separators, empty ones included.
-    (: split-on (impl (Fn String Char -> (List String))))
-    (define (split-on text separator)
+
+    (define (split-on (text String) (separator Char)) (→ (List String))
       (let loop ((start 0) (index 0) (pieces (Nil)))
         (cond ((= index (string-length text)) (reverse (Cons (substring text start index) pieces)))
               ((= (string-ref text index) separator)
                (loop (+ index 1) (+ index 1) (Cons (substring text start index) pieces)))
               (else (loop start (+ index 1) pieces)))))
 
-    (: hex-value (impl (Fn Char -> I32)))
-    (define (hex-value char)
+    (define (hex-value (char Char)) (→ I32)
       (let ((code (char->i32 char)))
         (cond ((<= code 57) (- code 48))
               ((<= code 70) (- code 55))
               (else (- code 87)))))
 
     ;; The byte that the `%` at `index` escapes, if two hex digits follow it.
-    (: escaped-byte (impl (Fn String I64 -> (Option U8))))
-    (define (escaped-byte text index)
+
+    (define (escaped-byte (text String) (index I64)) (→ (Option U8))
       (if (and (< (+ index 2) (string-length text))
                (hex? (string-ref text (+ index 1)))
                (hex? (string-ref text (+ index 2))))
@@ -333,8 +313,8 @@
     ;; character is a URI character, and the bytes are UTF-8. In a query's
     ;; form encoding `+` is a space, decided before decoding, so `%2B` is
     ;; still a plus.
-    (: percent-decode (impl (Fn String Bool -> (Result String HttpError))))
-    (define (percent-decode text form)
+
+    (define (percent-decode (text String) (form Bool)) (→ (Result String HttpError))
       (let loop ((index 0) (bytes (Nil)))
         (if (= index (string-length text))
             (match (utf8->string (list->vector (reverse bytes)))
@@ -352,15 +332,14 @@
     ;; decoding, so that `%2e%2e` is one too, `..` removes the segment before
     ;; it and `.` removes itself, and either one, last, leaves an empty
     ;; final segment, so `/a/b/..` is `/a/`.
-    (: dot-step (impl (Fn String Bool (List String) -> (List String))))
-    (define (dot-step segment final segments)
+
+    (define (dot-step (segment String) (final Bool) (segments (List String))) (→ (List String))
       (cond ((string=? segment ".") (if final (Cons "" segments) segments))
             ((string=? segment "..")
              (if final (Cons "" (list-drop segments 1)) (list-drop segments 1)))
             (else (Cons segment segments))))
 
-    (: path-segments (impl (Fn String -> (Result (List String) HttpError))))
-    (define (path-segments text)
+    (define (path-segments (text String)) (→ (Result (List String) HttpError))
       (let loop ((pieces (split-on text #\/)) (segments (Nil)))
         (match pieces
           ((Nil) (Ok (reverse segments)))
@@ -371,8 +350,8 @@
 
     ;; The first `=` separates a name from its value; with none, the value
     ;; is empty.
-    (: query-pair (impl (Fn String -> (Result (Pair String String) HttpError))))
-    (define (query-pair piece)
+
+    (define (query-pair (piece String)) (→ (Result (Pair String String) HttpError))
       (let* ((length (string-length piece))
              (equals (match (string-index piece #\=) ((Some index) index) ((None) length))))
         (match (percent-decode (substring piece 0 equals) #t)
@@ -383,8 +362,8 @@
 
     ;; The URL standard's form decoding, which URLSearchParams applies: `&`
     ;; separates pairs, and empty pieces are skipped.
-    (: query-pairs (impl (Fn String -> (Result (List (Pair String String)) HttpError))))
-    (define (query-pairs text)
+
+    (define (query-pairs (text String)) (→ (Result (List (Pair String String)) HttpError))
       (let loop ((pieces (filter (lambda (piece) (> (string-length piece) 0)) (split-on text #\&)))
                  (pairs (Nil)))
         (match pieces
@@ -396,8 +375,8 @@
 
     ;; The path runs to the first `?`, and the query follows it. A target
     ;; with no `/` first is not origin-form, as the head parser decides too.
-    (: parse-target (impl (Fn String -> (Result Target HttpError))))
-    (define (parse-target text)
+
+    (define (parse-target (text String)) (→ (Result Target HttpError))
       (if (or (= (string-length text) 0) (not (= (string-ref text 0) #\/)))
           (Err (Unsupported "request target form"))
           (let* ((length (string-length text))
@@ -410,12 +389,11 @@
 
     ;; ---- Response encoding ----
 
-    (: controlled-header? (impl (Fn String -> Bool)))
-    (define (controlled-header? name)
+    (define (controlled-header? (name String)) (→ Bool)
       (member? name (list "content-length" "transfer-encoding" "connection" "trailer" "upgrade")))
 
-    (: response-fields (impl (Fn (List Header) I64 -> (Result (List String) HttpError))))
-    (define (response-fields headers remaining)
+    (define (response-fields (headers (List Header)) (remaining I64))
+      (→ (Result (List String) HttpError))
       (let loop ((headers headers) (remaining remaining) (lines (Nil)))
         (match headers
           ((Nil) (Ok (reverse lines)))
@@ -435,27 +413,25 @@
                                      (Cons (string-append name ": " value "\r\n") lines)))))))))))
 
     ;; The status line and the one connection field every response has.
-    (: status-lines (impl (Fn I32 -> String)))
-    (define (status-lines status)
+
+    (define (status-lines (status I32)) (→ String)
       (string-append "HTTP/1.1 " (show status) " \r\nConnection: close\r\n"))
 
-    (: response-prefix (impl (Fn I32 I64 -> String)))
-    (define (response-prefix status count)
+    (define (response-prefix (status I32) (count I64)) (→ String)
       (string-append (status-lines status)
                      (if (or (= status 204) (= status 304)) ""
                          (string-append "Content-Length: "
                                         (show (if (= status 205) 0 count))
                                         "\r\n"))))
 
-    (: response-body (impl (Fn String I32 Bytes -> Bytes)))
-    (define (response-body method status bytes)
+    (define (response-body (method String) (status I32) (bytes Bytes)) (→ Bytes)
       (if (or (string=? method "HEAD") (= status 204) (= status 205) (= status 304)) #u8() bytes))
 
     ;; The head after `prefix`: the fields, then the empty line. Every
     ;; character is ASCII, which response-fields established, so each is
     ;; one byte.
-    (: head-bytes (impl (Fn String (List Header) -> (Result Bytes HttpError))))
-    (define (head-bytes prefix headers)
+
+    (define (head-bytes (prefix String) (headers (List Header))) (→ (Result Bytes HttpError))
       (match (response-fields headers (- (- head-limit (string-length prefix)) 2))
         ((Err error) (Err error))
         ((Ok fields)
@@ -463,9 +439,8 @@
            (Ok (vector-generate (string-length head)
                                 (lambda (index) (i32->u8 (char->i32 (string-ref head index))))))))))
 
-    (: encode-response
-       (impl (Fn String I32 (List Header) Bytes -> (Result ResponseParts HttpError))))
-    (define (encode-response method status headers bytes)
+    (define (encode-response (method String) (status I32) (headers (List Header)) (bytes Bytes))
+      (→ (Result ResponseParts HttpError))
       (cond ((or (not (token? method)) (< status 200) (> status 599))
              (Err (InvalidResponse "method or final status")))
             ((and (string=? method "CONNECT") (< status 300)) (Err (Unsupported "CONNECT tunnel")))
@@ -481,8 +456,8 @@
     ;; 8), as an event stream's is. Statuses that forbid a body have no
     ;; stream, and neither does HEAD, which the caller answers with
     ;; encode-response instead.
-    (: encode-stream-head (impl (Fn I32 (List Header) -> (Result Bytes HttpError))))
-    (define (encode-stream-head status headers)
+
+    (define (encode-stream-head (status I32) (headers (List Header))) (→ (Result Bytes HttpError))
       (if (or (< status 200) (> status 599) (member? status (list 204 205 304)))
           (Err (InvalidResponse "streaming status"))
           (head-bytes (status-lines status) headers)))

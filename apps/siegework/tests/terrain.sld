@@ -8,27 +8,23 @@
  (siegework grid)
  (siegework terrain))
 
-(: cell-text (impl (Fn Cell -> String)))
-(define (cell-text cell)
+(define (cell-text (cell Cell)) (→ String)
   (string-append "(" (show (::x cell)) "," (show (::y cell)) ")"))
 
-(: ground-char (impl (Fn Ground -> Char)))
-(define (ground-char ground)
+(define (ground-char (ground Ground)) (→ Char)
   (match ground
     ((Open) #\.)
     ((Rock) #\#)
     ((Water) #\~)
     ((Ice) #\=)))
 
-(: count-ground (impl (Fn Land Ground -> I64)))
-(define (count-ground land wanted)
+(define (count-ground (land Land) (wanted Ground)) (→ I64)
   (vector-fold
    (lambda (total ground) (if (char=? (ground-char ground) (ground-char wanted)) (+ total 1) total))
    0
    (::ground land)))
 
-(: describe (impl (Fn I64 -> Unit ! console)))
-(define (describe seed)
+(define (describe (seed I64)) (→ Unit) (! console)
   (let ((land (new-land seed)))
     (write-line (string-append "seed "
                                (show seed)
@@ -55,27 +51,22 @@
 
 ;; Each row of the map: . open, # rock, ~ water, = ice, H the hub, N a
 ;; nest, * a crystal.
-(: map-row (impl (Fn Land I64 -> String)))
-(define (map-row land y)
+(define (map-row (land Land) (y I64)) (→ String)
   (list->string (map (lambda (x) (cell-char land (Cell x y))) (iota map-size))))
 
-(: cell-char (impl (Fn Land Cell -> Char)))
-(define (cell-char land cell)
+(define (cell-char (land Land) (cell Cell)) (→ Char)
   (cond ((cell=? cell (::hub land)) #\H)
         ((any? (lambda (front) (cell=? front cell)) (::fronts land)) #\N)
         ((any? (lambda (site) (cell=? (::cell site) cell)) (::sites land)) #\*)
         (else (ground-char (ground-at land cell)))))
 
-(: steps-from-hub (impl (Fn Land (dyn (Fn Ground -> Bool)) -> (Vector I64))))
-(define (steps-from-hub land crosses?)
+(define (steps-from-hub (land Land) (crosses? (dyn (Fn Ground → Bool)))) (→ (Vector I64))
   (distance-field (vector-map crosses? (::ground land)) (list (::hub land))))
 
-(: walkable? (impl (Fn Ground -> Bool)))
-(define (walkable? ground)
+(define (walkable? (ground Ground)) (→ Bool)
   (match ground ((Open) #t) ((Ice) #t) (_ #f)))
 
-(: nest-distances (impl (Fn Land -> String)))
-(define (nest-distances land)
+(define (nest-distances (land Land)) (→ String)
   (let ((field (steps-from-hub land walkable?)))
     (string-join
      (map (lambda (front) (show (vector-ref field (cell-index front)))) (::fronts land))
@@ -83,8 +74,7 @@
 
 ;; Every nest can walk to the hub, and every crystal is on open ground the
 ;; hub can wire toward without crossing rock.
-(: playable? (impl (Fn Land -> Bool)))
-(define (playable? land)
+(define (playable? (land Land)) (→ Bool)
   (let ((walk (steps-from-hub land walkable?))
         (wire (steps-from-hub land (lambda (g) (match g ((Rock) #f) (_ #t))))))
     (and (every? (lambda (front) (>= (vector-ref walk (cell-index front)) 0)) (::fronts land))
@@ -93,8 +83,7 @@
                         (>= (vector-ref wire (cell-index (::cell site))) 0)))
                  (::sites land)))))
 
-(: biome-count (impl (Fn (List Land) Biome -> String)))
-(define (biome-count lands biome)
+(define (biome-count (lands (List Land)) (biome Biome)) (→ String)
   (string-append (biome-name biome)
                  " "
                  (show (length (filter (lambda (land)
@@ -102,14 +91,12 @@
                                                    (biome-name biome)))
                                        lands)))))
 
-(: show-map (impl (Fn Land -> Unit ! console)))
-(define (show-map land)
+(define (show-map (land Land)) (→ Unit) (! console)
   (write-line (string-append (biome-name (::biome land)) ", seed " (show (::seed land)) ":"))
   (for-each (lambda (y) (write-line (map-row land y))) (iota map-size))
   (write-line (string-append "walking steps from the hub to each nest: " (nest-distances land))))
 
-(: first-of (impl (Fn Biome I64 -> Land)))
-(define (first-of biome seed)
+(define (first-of (biome Biome) (seed I64)) (→ Land)
   (let ((land (new-land seed)))
     (if (string=? (biome-name (::biome land)) (biome-name biome))
         land

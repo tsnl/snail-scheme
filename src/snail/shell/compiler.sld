@@ -30,14 +30,13 @@
     ;; `generate` runs the producer program of a `generate-library`, given
     ;; the libraries loading when it was reached, and returns the bytes of
     ;; the syntax it writes.
-    (: source->expanded
-       (impl (Fn (List String)
-                 String
-                 (dyn (Fn (List String) (List Syntax) -> Bytes ! fs compile))
-                 Inputs
-                 -> ExpandedProgram
-                 ! fs compile)))
-    (define (source->expanded directories source generate inputs)
+
+    (define (source->expanded (directories (List String))
+                              (source String)
+                              (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                              (inputs Inputs))
+      (→ ExpandedProgram)
+      (! fs compile)
       (expand-program directories generate inputs source empty-expansion))
 
     ;; A program compiled to one module: its text, and the files it links,
@@ -46,14 +45,12 @@
       ((text String)
        (links (List LinkedFile))))
 
-    (: source->wat
-       (impl (Fn (List String)
-                 String
-                 (dyn (Fn (List String) (List Syntax) -> Bytes ! fs compile))
-                 Inputs
-                 -> WholeProgram
-                 ! mut fs compile)))
-    (define (source->wat directories source generate inputs)
+    (define (source->wat (directories (List String))
+                         (source String)
+                         (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                         (inputs Inputs))
+      (→ WholeProgram)
+      (! mut fs compile)
       (let* ((expanded (source->expanded directories source generate inputs))
              (typed (check-program (::program expanded)))
              (module (emit-module (prepare-program typed))))
@@ -63,24 +60,21 @@
     ;; order: each comes after the modules it imports from, with the files
     ;; its library links. This is a session's build with nothing kept from
     ;; before.
-    (: source->modules
-       (impl (Fn (List String)
-                 String
-                 (dyn (Fn (List String) (List Syntax) -> Bytes ! fs compile))
-                 Inputs
-                 -> (List Built)
-                 ! mut fs compile)))
-    (define (source->modules directories source generate inputs)
+
+    (define (source->modules (directories (List String))
+                             (source String)
+                             (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                             (inputs Inputs))
+      (→ (List Built))
+      (! mut fs compile)
       (::first (build-session (make-session directories) source generate inputs)))
 
-    (: source->schemas
-       (impl (Fn (List String)
-                 String
-                 (dyn (Fn (List String) (List Syntax) -> Bytes ! fs compile))
-                 Inputs
-                 -> String
-                 ! fs compile)))
-    (define (source->schemas directories source generate inputs)
+    (define (source->schemas (directories (List String))
+                             (source String)
+                             (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                             (inputs Inputs))
+      (→ String)
+      (! fs compile)
       (let ((typed (check-program (::program
                                    (source->expanded directories source generate inputs)))))
         (wire-schemas (::program typed))))

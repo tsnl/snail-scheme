@@ -16,28 +16,24 @@
 
 (define project "/r/apps/p")
 
-(: description Description)
-(define description
+(define description (→ Description)
   (Description (list "main.sld")
                (list "public")
                (Nil)
                (list (RunDefinition "app" "server" (list "--port")))))
 
-(: candidate (impl (Fn String -> Candidate)))
-(define (candidate digest)
+(define (candidate (digest String)) (→ Candidate)
   (Candidate description
              (list
               (Generation "server" (string-append "/r/apps/p/build/s-" digest) digest (Nil) (Nil)))
              0))
 
-(: succeeded (impl (Fn String -> Reply)))
-(define (succeeded digest)
+(define (succeeded (digest String)) (→ Reply)
   (Reply (Some description) (Some (candidate digest)) (Nil)))
 
 ;; A build into generation `name`, whose files have the digest given, as a
 ;; build of an unchanged program does into a new generation.
-(: built-in (impl (Fn String String -> Reply)))
-(define (built-in name digest)
+(define (built-in (name String) (digest String)) (→ Reply)
   (Reply (Some description)
          (Some (Candidate description
                           (list (Generation "server"
@@ -49,23 +45,20 @@
          (Nil)))
 
 ;; An edit, and the attempt it starts built and published as `epoch`.
-(: rebuilt (impl (Fn I64 Reply -> (List Event))))
-(define (rebuilt epoch reply)
+(define (rebuilt (epoch I64) (reply Reply)) (→ (List Event))
   (list (Touched (list "/r/apps/p/main.sld"))
         (TimerFired)
         (BuildReplied epoch reply)
         (Reconciled (Ok (unit)))
         (PublishReplied epoch (None))))
 
-(: failed Reply)
-(define failed
+(define failed (→ Reply)
   (Reply (Some description)
          (None)
          (list (Diagnostic "unbound identifier x" (Some (SourcePoint "/r/apps/p/main.sld" 1 2))))))
 
 ;; A publication whose description has no run targets.
-(: without-runs Reply)
-(define without-runs
+(define without-runs (→ Reply)
   (let ((bare (Description (list "main.sld") (Nil) (Nil) (Nil))))
     (Reply (Some bare)
            (Some
@@ -73,8 +66,7 @@
            (Nil))))
 
 ;; A build whose program links the file at `path`.
-(: linking (impl (Fn String -> Reply)))
-(define (linking path)
+(define (linking (path String)) (→ Reply)
   (Reply (Some description)
          (Some (Candidate description
                           (list (Generation "server" "/r/apps/p/build/s-l" "l" (Nil) (list path)))
@@ -83,8 +75,7 @@
 
 ;; ---- Printing ----
 
-(: event->string (impl (Fn Event -> String)))
-(define (event->string event)
+(define (event->string (event Event)) (→ String)
   (match event
     ((ResidentStarted) "resident started")
     ((ResidentExited message) (string-append "resident exited: " message))
@@ -113,8 +104,7 @@
     ((RestartRun name) (string-append "restart " name))
     ((Close) "close")))
 
-(: command->string (impl (Fn Command -> String)))
-(define (command->string command)
+(define (command->string (command Command)) (→ String)
   (match command
     ((Build epoch) (string-append "build " (show epoch)))
     ((Reconcile) "reconcile")
@@ -138,8 +128,7 @@
     ((Shutdown) "shutdown")
     ((Closed) "closed")))
 
-(: snapshot->string (impl (Fn Snapshot -> String)))
-(define (snapshot->string snapshot)
+(define (snapshot->string (snapshot Snapshot)) (→ String)
   (string-append "notify "
                  (phase->string (::phase snapshot))
                  " "
@@ -155,15 +144,13 @@
                    ((Nil) ""))
                  (string-concatenate (map run->string (::runs snapshot)))))
 
-(: run->string (impl (Fn RunStatus -> String)))
-(define (run->string run)
+(define (run->string (run RunStatus)) (→ String)
   (string-append " run "
                  (::name run)
                  (if (::wanted run) " wanted" "")
                  (if (::available run) " available" "")))
 
-(: phase->string (impl (Fn Phase -> String)))
-(define (phase->string phase)
+(define (phase->string (phase Phase)) (→ String)
   (match phase
     ((Starting) "starting")
     ((Building) "building")
@@ -174,8 +161,7 @@
 
 ;; ---- Driving ----
 
-(: drive (impl (Fn Service (List Event) -> Service ! console)))
-(define (drive service events)
+(define (drive (service Service) (events (List Event))) (→ Service) (! console)
   (fold-left (lambda (service event)
                (let ((stepped (step service event)))
                  (write-line (string-append "  "
@@ -189,8 +175,7 @@
              service
              events))
 
-(: scenario (impl (Fn String (List Event) -> Service ! console)))
-(define (scenario name events)
+(define (scenario (name String) (events (List Event))) (→ Service) (! console)
   (write-line name)
   (drive (new-service root project) events))
 

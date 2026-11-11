@@ -5,6 +5,5 @@
   ((number I64))
   (deriving Move))
 
-(: escape (impl (Fn (Borrow Token) -> (dyn (FnOnce -> I64)))))
-(define (escape borrowed)
+(define (escape (borrowed (Borrow Token))) (→ (dyn (FnOnce → I64)))
   (once (lambda () (::number borrowed))))

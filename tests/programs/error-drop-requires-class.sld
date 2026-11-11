@@ -7,7 +7,7 @@
   ((item A)))
 
 (instance (Drop (!) (Box A))
-  (requires (Show (!) A))
-  (define (drop box)
-    (match box
-      ((Box item) (drop item)))))
+  (⊨ (Show (!) A))
+  (define drop
+    (lambda (box) (match box
+                    ((Box item) (drop item))))))

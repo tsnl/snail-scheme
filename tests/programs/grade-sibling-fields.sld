@@ -9,12 +9,10 @@
   ((count (Ref I64))
    (current (Ref (Option T)))))
 
-(: share (All (T) (impl (Fn (Shared T) -> (Pair (Shared T) (Shared T))))))
-(define (share shared)
+(define (share (shared (Shared T))) (→ (Pair (Shared T) (Shared T))) (∀ T)
   (Pair shared shared))
 
-(: run-current (impl (Fn (Shared String) -> Unit ! console mut)))
-(define (run-current shared)
+(define (run-current (shared (Shared String))) (→ Unit) (! console mut)
   (ref-set! (::count shared) (+ (ref-get (::count shared)) 1))
   (match (ref-replace! (::current shared) (None))
     ((Some text) (write-line text))
@@ -30,17 +28,17 @@
   ((name String)))
 
 (instance (Drop (! console) Handle)
-  (define (drop handle)
-    (match handle
-      ((Handle name) (write-line (string-append "released " name))))))
+  (define drop
+    (lambda (handle) (match handle
+                       ((Handle name) (write-line (string-append "released " name)))))))
 
 (struct Token
   ((id I64)))
 
 (instance (Drop (! console) Token)
-  (define (drop token)
-    (match token
-      ((Token id) (write-line (string-append "released token " (show id)))))))
+  (define drop
+    (lambda (token) (match token
+                      ((Token id) (write-line (string-append "released token " (show id))))))))
 
 (struct Two
   ((handle (Option Handle))

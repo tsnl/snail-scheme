@@ -41,29 +41,26 @@
 
     ;; ---- Events ----
 
-    (: hidden-kind I32)
-    (define hidden-kind 12)
+    (define hidden-kind (→ I32) 12)
 
-    (: reload-kind I32)
-    (define reload-kind 13)
+    (define reload-kind (→ I32) 13)
 
-    (: save-kind I32)
-    (define save-kind 16)
+    (define save-kind (→ I32) 16)
 
     ;; Waiting for an event, like loading and storing a save below, starts
     ;; on the host and waits by ticket ((snail shell task)'s `through-host`).
     (effect events
-      ((poll-event (dyn (Fn -> I32)))
-       (wait-event (dyn (Fn -> Unit ! tasks)))
-       (event-field (dyn (Fn I32 -> I32)))
-       (random-seed (dyn (Fn -> I32)))
-       (canvas-width (dyn (Fn -> I32)))
-       (canvas-height (dyn (Fn -> I32)))
-       (report-boot (dyn (Fn I32 -> Unit)))
-       (report-ready (dyn (Fn -> Unit)))
-       (checkpoint-root (dyn (Fn -> Unit)))
-       (handover-only (dyn (Fn -> I32)))
-       (save-after (dyn (Fn I32 -> Unit))))
+      ((poll-event (dyn (Fn → I32)))
+       (wait-event (dyn (Fn → Unit ! tasks)))
+       (event-field (dyn (Fn I32 → I32)))
+       (random-seed (dyn (Fn → I32)))
+       (canvas-width (dyn (Fn → I32)))
+       (canvas-height (dyn (Fn → I32)))
+       (report-boot (dyn (Fn I32 → Unit)))
+       (report-ready (dyn (Fn → Unit)))
+       (checkpoint-root (dyn (Fn → Unit)))
+       (handover-only (dyn (Fn → I32)))
+       (save-after (dyn (Fn I32 → Unit))))
       (default
         ((poll-event host-poll)
          (wait-event (lambda () (through-host host-start-wait host-finish-wait)))
@@ -82,9 +79,9 @@
     ;; The root task owns this checkpoint protocol. Detached tasks
     ;; need their own storage binding; they cannot replace the loop's save.
     (effect storage
-      ((load-count (dyn (Fn -> I32 ! tasks)))
-       (loaded-byte (dyn (Fn I32 -> U8)))
-       (store-save (dyn (Fn Bytes -> Unit ! tasks))))
+      ((load-count (dyn (Fn → I32 ! tasks)))
+       (loaded-byte (dyn (Fn I32 → U8)))
+       (store-save (dyn (Fn Bytes → Unit ! tasks))))
       (default
         ((load-count (lambda () (through-host host-start-load host-finish-load)))
          (loaded-byte host-byte)
@@ -92,8 +89,7 @@
                        (through-host (lambda (ticket) (host-start-store ticket bytes))
                                      host-finish-store))))))
 
-    (: load-save (impl (Fn -> (Option Bytes) ! storage tasks)))
-    (define (load-save)
+    (define (load-save) (→ (Option Bytes)) (! storage tasks)
       (let ((count (load-count)))
         (if (< count 0)
             (None)
@@ -105,11 +101,10 @@
     ;; A root may return before its children. Completion records that
     ;; return, independently of readiness and the optional checkpoint below.
     ;; Suspension or failure never sets it.
-    (: completed (Ref Bool))
-    (define completed (ref #f))
 
-    (: page-done (impl (Fn -> I32 ! mut)))
-    (define (page-done)
+    (define completed (→ (Ref Bool)) (ref #f))
+
+    (define (page-done) (→ I32) (! mut)
       (if (ref-get completed) 1 0))
 
     ;; ---- Checkpointed pages ----
@@ -118,15 +113,15 @@
     ;; effects in a function. Engines request this ordinary evidence rather
     ;; than weakening the compiler's Any boundary.
     (typeclass (PageState S)
-      (: pack-state (impl (Fn S -> Any)))
-      (: unpack-state (impl (Fn Any -> (Option S)))))
+      (: pack-state (impl (Fn S → Any)))
+      (: unpack-state (impl (Fn Any → (Option S)))))
 
     (define-syntax define-page-state
       (syntax-rules ()
         ((_ State)
          (instance (PageState State)
-           (define (pack-state state) (type-convert state Any))
-           (define (unpack-state previous)
+           (define (pack-state (state State)) (→ Any) (type-convert state Any))
+           (define (unpack-state (previous Any)) (→ (Option State))
              (match (try-convert previous State)
                ((Ok state) (Some state))
                ((Err _) (None))))))))
@@ -135,38 +130,31 @@
     ;; Only a completed presentation commits; boot keeps an initial recovery
     ;; point without declaring the page ready. The host checks root
     ;; ownership before a caller can replace the checkpoint.
-    (: incoming (Ref (Option Any)))
-    (define incoming (ref (None)))
 
-    (: current (Ref (Option Any)))
-    (define current (ref (None)))
+    (define incoming (→ (Ref (Option Any))) (ref (None)))
 
-    (: commit-page (All (S) (requires (PageState S) (Copy S)) (impl (Fn S -> Unit ! mut events))))
-    (define (commit-page state)
+    (define current (→ (Ref (Option Any))) (ref (None)))
+
+    (define (commit-page (state S)) (→ Unit) (! mut events) (∀ S) (⊨ (PageState S) (Copy S))
       (checkpoint-root)
       (ref-set! current (Some (pack-state state))))
 
-    (: restore-page
-       (All (S) (requires (PageState S) (Copy S))
-            (impl (Fn Bool
-                      (dyn (Fn -> S ! events))
-                      (dyn (Fn Bytes -> S))
-                      ->
-                      (Option (Pair S I32))
-                      ! events storage tasks))))
-    (define (restore-page cold? initialize decode)
+    (define (restore-page (cold? Bool)
+                          (initialize (dyn (Fn → S ! events)))
+                          (decode (dyn (Fn Bytes → S))))
+      (→ (Option (Pair S I32)))
+      (! events storage tasks)
+      (∀ S)
+      (⊨ (PageState S) (Copy S))
       (match (load-save)
         ((Some bytes) (Some (Pair (decode bytes) 1)))
         ((None) (if cold? (Some (Pair (initialize) 2)) (None)))))
 
-    (: boot-page
-       (All (S) (requires (PageState S) (Copy S))
-            (impl (Fn (dyn (Fn -> S ! events))
-                      (dyn (Fn Bytes -> S))
-                      ->
-                      (Option (Pair S I32))
-                      ! mut events storage tasks))))
-    (define (boot-page initialize decode)
+    (define (boot-page (initialize (dyn (Fn → S ! events))) (decode (dyn (Fn Bytes → S))))
+      (→ (Option (Pair S I32)))
+      (! mut events storage tasks)
+      (∀ S)
+      (⊨ (PageState S) (Copy S))
       (match (ref-get incoming)
         ((Some previous)
          (match (unpack-state previous)
@@ -176,14 +164,15 @@
 
     ;; Engines own presentation and event reduction. This shared boundary
     ;; owns restore/refusal, the boot checkpoint and durable save encoding.
-    (: run-page
-       (All (S e) (requires (PageState S) (Copy S))
-            (impl (Fn (dyn (Fn -> S ! events))
-                      (dyn (Fn S -> Bytes))
-                      (dyn (Fn Bytes -> S))
-                      (dyn (Fn S (dyn (Fn S -> Unit ! events storage tasks)) -> Unit ! e))
-                      -> Unit ! mut events storage tasks e))))
-    (define (run-page initialize encode decode run)
+
+    (define (run-page (initialize (dyn (Fn → S ! events)))
+                      (encode (dyn (Fn S → Bytes)))
+                      (decode (dyn (Fn Bytes → S)))
+                      (run (dyn (Fn S (dyn (Fn S → Unit ! events storage tasks)) → Unit ! e))))
+      (→ Unit)
+      (! mut events storage tasks e)
+      (∀ S e)
+      (⊨ (PageState S) (Copy S))
       (match (boot-page initialize decode)
         ((Some (Pair state kind))
          (commit-page state)
@@ -196,9 +185,10 @@
                (run state (lambda (state) (store-save (encode state)) (save-after 5000))))))
         ((None) (unit))))
 
-    (: start-page
-       (All (e) (impl (Fn (Option Any) (dyn (FnOnce -> Unit ! mut tasks e)) -> I64 ! mut e))))
-    (define (start-page handover work)
+    (define (start-page (handover (Option Any)) (work (dyn (FnOnce → Unit ! mut tasks e))))
+      (→ I64)
+      (! mut e)
+      (∀ e)
       (ref-set! incoming handover)
       (ref-set! current (None))
       (ref-set! completed #f)
@@ -206,8 +196,8 @@
 
     ;; Both normal return and failure hand over this same checkpoint. An
     ;; unadopted incoming value is never mistaken for the root's own state.
-    (: page-state (impl (Fn -> (Option Any) ! mut)))
-    (define (page-state)
+
+    (define (page-state) (→ (Option Any)) (! mut)
       (ref-get current))
 
     ;; The only generated browser scaffolding is an ordinary Application
@@ -217,9 +207,10 @@
       (syntax-rules ()
         ((_ App)
          (begin
-           (define (page-main handover)
-             (start-page (ann handover (Option Any))
-                         (once (lambda () (start (ann (Entry) (Entry App)))))))
+           (define page-main
+             (lambda (handover)
+               (start-page (ann handover (Option Any))
+                           (once (lambda () (start (ann (Entry) (Entry App))))))))
            (expose page-main "app_main")))))
 
     (expose page-done "app_done")

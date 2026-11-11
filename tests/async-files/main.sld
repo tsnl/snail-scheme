@@ -7,16 +7,13 @@
  (prefix (snail shell async) async-)
  (prefix (snail shell async-files) file-))
 
-(: check (impl (Fn Bool String -> Unit ! console)))
-(define (check ok label)
+(define (check (ok Bool) (label String)) (→ Unit) (! console)
   (if ok (write-line label) (panic label)))
 
-(: success (impl (Fn (Result Bytes file-FileError) I64 -> Bool)))
-(define (success result size)
+(define (success (result (Result Bytes file-FileError)) (size I64)) (→ Bool)
   (match result ((Ok bytes) (= (vector-length bytes) size)) (_ #f)))
 
-(: cases (impl (Fn String -> Unit ! mut completion tasks file-files console host)))
-(define (cases directory)
+(define (cases (directory String)) (→ Unit) (! mut completion tasks file-files console host)
   (let ((path (string-append directory "/bytes")))
     (check (match (file-read-file path 4)
              ((Ok bytes) (and (= (vector-length bytes) 4)

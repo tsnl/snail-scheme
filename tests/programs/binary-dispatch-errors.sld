@@ -4,24 +4,23 @@
 
 (typeclass (Combine e A B)
   (type Output)
-  (: combine (impl (Fn A B -> Output ! e))))
+  (: combine (impl (Fn A B → Output ! e))))
 (define-instance-set ordinary
   (instance (Combine (!) I64 I64)
     (type Output I64)
-    (define (combine a b) (+ a b)))
+    (define combine (lambda (a b) (+ a b))))
   (instance (Combine (!) I64 F64)
     (type Output F64)
-    (define (combine a b) (+ (i64->f64 a) b)))
+    (define combine (lambda (a b) (+ (i64->f64 a) b))))
   (instance (Combine (!) F64 I64)
     (type Output F64)
-    (define (combine a b) (+ a (i64->f64 b)))))
+    (define combine (lambda (a b) (+ a (i64->f64 b))))))
 
 (with-instances (ordinary)
                 (define-instance-set erased
                   (dynamic-instances Combine (I64 I64) (I64 F64) (F64 I64))))
 
-(: expect-domain (impl (Fn I64 String (dyn (Fn -> Unit ! dyn-cast)) -> Unit)))
-(define (expect-domain argument domain body)
+(define (expect-domain (argument I64) (domain String) (body (dyn (Fn → Unit ! dyn-cast)))) (→ Unit)
   (handle dyn-cast
       ((conversion-failed
         (lambda (error)

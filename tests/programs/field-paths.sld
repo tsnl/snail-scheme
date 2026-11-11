@@ -21,8 +21,7 @@
   ((label String)
    (weight I64)))
 
-(: describe (impl (Fn Segment -> String)))
-(define (describe segment)
+(define (describe (segment Segment)) (→ String)
   (string-append (::label segment)
                  ": "
                  (show (::from::x segment))
@@ -35,8 +34,7 @@
 (write-line (show (::weight (Tag "heavy" 9))))
 
 ;; A generic function reads a field of any record that has it.
-(: labelled (All (R) (requires (::label R String)) (impl (Fn R -> String))))
-(define (labelled record)
+(define (labelled (record R)) (→ String) (∀ R) (⊨ (::label R String))
   (string-append "[" (::label record) "]"))
 
 (write-line (labelled (Tag "t" 1)))
@@ -52,8 +50,8 @@
   ((radius I64)))
 
 (instance (::x Circle I64)
-  (define (::x circle)
-    (* 2 (::radius circle))))
+  (define ::x
+    (lambda (circle) (* 2 (::radius circle)))))
 
 (write-line (show (::x (Circle 21))))
 

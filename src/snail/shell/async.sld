@@ -15,19 +15,22 @@
     ;; the receiver cancels reception, not the task or its external work.
     ;; If nobody receives, the task drops its unsent result under the
     ;; result's own Drop row. Expected failures are values in T.
-    (: dispatch
-       (All (T e) (requires (Drop e T))
-            (impl (Fn (dyn (FnOnce -> T ! tasks e)) -> (Future T) ! mut completion e))))
-    (define (dispatch work)
+
+    (define (dispatch (work (dyn (FnOnce → T ! tasks e))))
+      (→ (Future T))
+      (! mut completion e)
+      (∀ T e)
+      (⊨ (Drop e T))
       (match (make-promise)
         ((Pair promise future)
          (dispatch-task (once (lambda () (produce promise work))))
          future)))
 
-    (: produce
-       (All (T e) (requires (Drop e T))
-            (impl (Fn (Promise T) (dyn (FnOnce -> T ! tasks e)) -> Unit ! mut completion tasks e))))
-    (define (produce promise work)
+    (define (produce (promise (Promise T)) (work (dyn (FnOnce → T ! tasks e))))
+      (→ Unit)
+      (! mut completion tasks e)
+      (∀ T e)
+      (⊨ (Drop e T))
       (drop (fulfill promise (work))))
 
     ;; ---- Waiting ----
@@ -35,10 +38,12 @@
     ;; A pending future remains owned by the suspended continuation, so
     ;; cancellation drops it. No task or host callback can run between
     ;; polling, registering the ticket and parking on it in this runtime.
-    (: await-future
-       (All (T d) (requires (Drop d T))
-            (impl (Fn (Future T) -> (Completion T) ! mut tasks d))))
-    (define (await-future future)
+
+    (define (await-future (future (Future T)))
+      (→ (Completion T))
+      (! mut tasks d)
+      (∀ T d)
+      (⊨ (Drop d T))
       (match (poll future)
         ((Ready result) result)
         ((Pending future)
@@ -49,6 +54,6 @@
 
     ;; The scheduler owns the deadline. The host only sleeps until its
     ;; next deadline or I/O completion; there is no repeated polling.
-    (: after (impl (Fn I64 -> (Future Unit) ! mut completion)))
-    (define (after milliseconds)
+
+    (define (after (milliseconds I64)) (→ (Future Unit)) (! mut completion)
       (dispatch (once (lambda () (sleep milliseconds)))))))

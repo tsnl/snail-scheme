@@ -1,8 +1,7 @@
 (import
  (snail core base))
 
-(: use (impl (Fn (dyn (FnOnce -> Unit)) -> Unit)))
-(define (use work)
+(define (use (work (dyn (FnOnce → Unit)))) (→ Unit)
   (call-once work))
 
 (expose use "use")

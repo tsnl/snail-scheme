@@ -8,8 +8,7 @@
    (sample generic))
   (begin
 
-    (: client-bundle (impl (Fn -> ArtifactBundle)))
-    (define (client-bundle)
+    (define (client-bundle) (→ ArtifactBundle)
       (generic-bundle (ann 7 I64)))
 
     ))

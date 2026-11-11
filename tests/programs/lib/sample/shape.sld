@@ -15,8 +15,7 @@
       (Rectangle ((width I64) (height I64)))
       (deriving Serialize Deserialize))
 
-    (: shape-area (impl (Fn Shape -> I64)))
-    (define (shape-area shape)
+    (define (shape-area (shape Shape)) (→ I64)
       (match shape
         ((Square side) (* side side))
         ((Rectangle width height) (* width height))))))

@@ -13,8 +13,8 @@
 
 ;; The store is files: an object is read at once, and one that is not
 ;; there is none.
-(: with-files (All (A e) (impl (Fn (dyn (Fn -> A ! linked-content-store e)) -> A ! fs e))))
-(define (with-files body)
+
+(define (with-files (body (dyn (Fn → A ! linked-content-store e)))) (→ A) (! fs e) (∀ A e)
   (handle linked-content-store
       ((read-object (lambda (path)
                       (if (file-exists? path)
@@ -22,8 +22,7 @@
                           (None)))))
     (body)))
 
-(: read-file-resource (impl (Fn I64 I32 -> Unit ! mut fs wasm)))
-(define (read-file-resource ticket handle)
+(define (read-file-resource (ticket I64) (handle I32)) (→ Unit) (! mut fs wasm)
   (with-files (lambda () (resource-read ticket handle))))
 
 (expose engine-turn "engine:turn")

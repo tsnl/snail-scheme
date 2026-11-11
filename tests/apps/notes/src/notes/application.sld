@@ -28,8 +28,7 @@
        (shared String)
        (heard (List String))))
 
-    (: no-server Server)
-    (define no-server (Server "" "" (Nil)))
+    (define no-server (→ Server) (Server "" "" (Nil)))
 
     (struct Save
       ((notes (List Note))
@@ -53,12 +52,10 @@
       (Heard ((stream Stream) (text String)))
       (Ended))
 
-    (: start (impl (Fn I32 -> Notes)))
-    (define (start seed)
+    (define (start (seed I32)) (→ Notes)
       (Notes (Nil) "" 0 0 no-server))
 
-    (: update (impl (Fn Notes Message -> (Pair Notes (List (Command Message))))))
-    (define (update model message)
+    (define (update (model Notes) (message Message)) (→ (Pair Notes (List (Command Message))))
       (match message
         ((Typed text) (Pair (Notes-draft-set model text) (Nil)))
         ((Pressed key at) (pressed model key at))
@@ -86,8 +83,7 @@
         ((Heard stream text) (Pair (heard model text) (list (once (lambda () (hear stream))))))
         ((Ended) (Pair (heard model "ended") (Nil)))))
 
-    (: pressed (impl (Fn Notes String I32 -> (Pair Notes (List (Command Message))))))
-    (define (pressed model key at)
+    (define (pressed (model Notes) (key String) (at I32)) (→ (Pair Notes (List (Command Message))))
       (cond ((string=? key "Enter") (update model (Add)))
             ((string=? key "Tab")
              (Pair model
@@ -96,40 +92,34 @@
                                  (Pressed "" 0))))))
             (else (Pair model (Nil)))))
 
-    (: clear (impl (Fn -> Message ! dom)))
-    (define (clear)
+    (define (clear) (→ Message) (! dom)
       (if (confirm "Remove every note?") (Cleared) (Pressed "" 0)))
 
-    (: heard (impl (Fn Notes String -> Notes)))
-    (define (heard model text)
+    (define (heard (model Notes) (text String)) (→ Notes)
       (let ((server (::server model)))
         (Notes-server-set model
                           (Server-heard-set server (append (::heard server) (list text))))))
 
     ;; ---- The server ----
 
-    (: load (impl (Fn -> Message ! fetch tasks)))
-    (define (load)
+    (define (load) (→ Message) (! fetch tasks)
       (Loaded (replied (request "GET" "/api/greeting" (Nil) ""))))
 
     ;; The notes, a line each, sent with the next id the server should expect.
-    (: share (impl (Fn (List Note) I64 -> Message ! fetch tasks)))
-    (define (share notes next)
+    (define (share (notes (List Note)) (next I64)) (→ Message) (! fetch tasks)
       (Shared (replied (request "POST"
                                 "/api/notes"
                                 (list (Header "Content-Type" "text/plain")
                                       (Header "If-Match" (show next)))
                                 (string-join (map ::text notes) (make-string 1 #\newline))))))
 
-    (: replied (impl (Fn (Result Reply String) -> String)))
-    (define (replied result)
+    (define (replied (result (Result Reply String))) (→ String)
       (match result
         ((Ok reply) (string-append (show (::status reply)) " " (::body reply)))
         ((Err why) (string-append "failed: " why))))
 
     ;; The next event, which the update that hears it waits past.
-    (: hear (impl (Fn Stream -> Message ! fetch tasks)))
-    (define (hear stream)
+    (define (hear (stream Stream)) (→ Message) (! fetch tasks)
       (match (stream-next stream)
         ((Some event)
          (Heard stream (string-append (::kind event) ":" (::data event))))
@@ -137,8 +127,7 @@
 
     ;; A note from the draft, unless it is empty, and the command that counts
     ;; it once it has yielded.
-    (: added (impl (Fn Notes -> (Pair Notes (List (Command Message))))))
-    (define (added model)
+    (define (added (model Notes)) (→ (Pair Notes (List (Command Message))))
       (if (string=? (::draft model) "")
           (Pair model (Nil))
           (let ((count (+ (::added model) 1)))
@@ -155,21 +144,18 @@
                            (Added count))))))))
 
     ;; Does `act` to the draft field, if the view still shows it.
-    (: with-draft (impl (Fn (dyn (Fn Node -> Unit ! dom)) -> Unit ! dom)))
-    (define (with-draft act)
+    (define (with-draft (act (dyn (Fn Node → Unit ! dom)))) (→ Unit) (! dom)
       (match (element-by-id "draft")
         ((Some node) (act node))
         ((None) (unit))))
 
     ;; The field's input event, which inserting fires, carries the new draft;
     ;; the command's own answer leaves it as it is.
-    (: bullet (impl (Fn -> Message ! dom)))
-    (define (bullet)
+    (define (bullet) (→ Message) (! dom)
       (with-draft (lambda (node) (insert-text node 0 0 "- ") (unit)))
       (Pressed "" 0))
 
-    (: view (impl (Fn Notes -> (Html Message))))
-    (define (view model)
+    (define (view (model Notes)) (→ (Html Message))
       (Element "main"
                (Nil)
                (list (Element "input"
@@ -214,14 +200,12 @@
                               (list (Attr "id" "added"))
                               (list (Text (string-append (show (::added model)) " added")))))))
 
-    (: button (impl (Fn String String Message -> (Html Message))))
-    (define (button id label message)
+    (define (button (id String) (label String) (message Message)) (→ (Html Message))
       (Element "button"
                (list (Attr "id" id) (On "click" (Nil) (Allow) (lambda (event) message)))
                (list (Text label))))
 
-    (: note-view (impl (Fn Note -> (Html Message))))
-    (define (note-view note)
+    (define (note-view (note Note)) (→ (Html Message))
       (Element "li"
                (list (Keyed (show (::id note))))
                (list (Text (::text note))
@@ -233,16 +217,13 @@
                                         (lambda (event) (Remove (::id note)))))
                               (list (Text "Remove"))))))
 
-    (: save (impl (Fn Notes -> Save)))
-    (define (save model)
+    (define (save (model Notes)) (→ Save)
       (Save (::notes model) (::next model)))
 
-    (: restore (impl (Fn Save -> Notes)))
-    (define (restore saved)
+    (define (restore (saved Save)) (→ Notes)
       (Notes (::notes saved) "" (::next saved) 0 no-server))
 
-    (: window (impl (Fn Notes -> (List (Attribute Message)))))
-    (define (window model)
+    (define (window (model Notes)) (→ (List (Attribute Message)))
       (list (On "keydown"
                 (Nil)
                 (Chords (list (Chord "Escape" 0)))
@@ -254,10 +235,10 @@
 
     (instance (Interface Notes)
       (type Message Message)
-      (define (interface-initialize seed) (start seed))
-      (define (interface-update model message) (update model message))
-      (define (interface-view model) (view model))
-      (define (interface-window model) (window model))
-      (define (interface-messages model) (list (Load)))
-      (define (interface-save model) (serialize (save model)))
-      (define (interface-restore bytes) (restore (deserialize bytes))))))
+      (define interface-initialize (lambda (seed) (start seed)))
+      (define interface-update (lambda (model message) (update model message)))
+      (define interface-view (lambda (model) (view model)))
+      (define interface-window (lambda (model) (window model)))
+      (define interface-messages (lambda (model) (list (Load))))
+      (define interface-save (lambda (model) (serialize (save model))))
+      (define interface-restore (lambda (bytes) (restore (deserialize bytes)))))))

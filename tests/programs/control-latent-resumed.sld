@@ -10,24 +10,23 @@
 ;; 2 resumed it, and logs to the log around the resume, not to the one
 ;; around the task when `fetch` was performed.
 (effect Async
-  ((ctl await (dyn (Fn I64 -> I64)))
-   (task-id (dyn (Fn -> I64)))))
+  ((ctl await (dyn (Fn I64 → I64)))
+   (task-id (dyn (Fn → I64)))))
 
 (effect Log
-  ((log (dyn (Fn String -> Unit)))))
+  ((log (dyn (Fn String → Unit)))))
 
 (effect Io
-  ((fetch (dyn (Fn I64 -> I64 ! Async Log)))))
+  ((fetch (dyn (Fn I64 → I64 ! Async Log)))))
 
 (enum Task
   (Done
    ((value I64)))
   (Waiting
    ((ticket I64)
-    (next (dyn (FnOnce I64 -> Task ! Io Log))))))
+    (next (dyn (FnOnce I64 → Task ! Io Log))))))
 
-(: start (impl (Fn I64 (dyn (FnOnce -> I64 ! Io Async Log)) -> Task ! Io Log)))
-(define (start id body)
+(define (start (id I64) (body (dyn (FnOnce → I64 ! Io Async Log)))) (→ Task) (! Io Log)
   (handle Async
       ((await (lambda (ticket resume)
                 (log (string-append "task " (show id) " waits on " (show ticket)))
@@ -36,14 +35,12 @@
     (Done (body))))
 
 ;; Answers each wait with its ticket.
-(: finish (impl (Fn Task -> I64 ! Io Log)))
-(define (finish task)
+(define (finish (task Task)) (→ I64) (! Io Log)
   (match task
     ((Done value) value)
     ((Waiting ticket next) (finish (next ticket)))))
 
-(: labelled (impl (Fn String String -> Unit ! console)))
-(define (labelled name line)
+(define (labelled (name String) (line String)) (→ Unit) (! console)
   (write-line (string-append name ": " line)))
 
 (handle Io

@@ -4,8 +4,7 @@
 
 ;; The environment and the working directory, as total reads. The suite runs
 ;; with PATH set; the host's own channel for the working directory is hidden.
-(: set? (impl (Fn String -> String)))
-(define (set? name)
+(define (set? (name String)) (→ String)
   (match (environment-variable name)
     ((Some value) (if (string=? value "") "set, empty" "set"))
     ((None) "unset")))

@@ -5,8 +5,7 @@
  (snail core io)
  (snail shell highlight))
 
-(: check-range (impl (Fn String I64 I64 String -> Unit)))
-(define (check-range text point start marked)
+(define (check-range (text String) (point I64) (start I64) (marked String)) (→ Unit)
   (let ((range (highlight-range text point)))
     (unless (and (= (::first range) start)
                  (= (::second range) (+ start (string-length marked)))

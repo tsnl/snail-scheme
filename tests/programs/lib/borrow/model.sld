@@ -6,12 +6,10 @@
   (begin
     (struct Model
       ((title String)
-       (work (dyn (FnOnce -> Unit)))))
+       (work (dyn (FnOnce → Unit)))))
 
-    (: make-model (impl (Fn String -> Model)))
-    (define (make-model text)
+    (define (make-model (text String)) (→ Model)
       (Model text (once (lambda () (unit)))))
 
-    (: title (impl (Fn (Borrow Model) -> String)))
-    (define (title model)
+    (define (title (model (Borrow Model))) (→ String)
       (::title model))))

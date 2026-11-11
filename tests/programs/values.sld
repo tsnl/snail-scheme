@@ -3,9 +3,8 @@
  (snail core io))
 
 ;; A recursive local function returned as a value.
-(: make-counter (impl (Fn -> (dyn (Fn I64 -> I64)))))
-(define (make-counter)
-  (define (count n) (if (= n 0) 0 (+ 1 (count (- n 1)))))
+(define (make-counter) (→ (dyn (Fn I64 → I64)))
+  (define count (lambda (n) (if (= n 0) 0 (+ 1 (count (- n 1))))))
   count)
 
 (struct Point
@@ -24,24 +23,22 @@
 (enum Statement
   (Evaluate ((expr Expr))))
 
-(: evaluate (impl (Fn Expr -> I64)))
-(define (evaluate expr)
+(define (evaluate (expr Expr)) (→ I64)
   (match expr
     ((Number value) value)
     ((Block statements)
      (fold-left (lambda (total statement) (+ total (run statement))) 0 statements))))
 
-(: run (impl (Fn Statement -> I64)))
-(define (run statement)
+(define (run (statement Statement)) (→ I64)
   (match statement
     ((Evaluate expr) (evaluate expr))))
 
 ;; A struct whose field is an effectful function, with the row as a parameter.
 (struct (Task e)
-  ((step (dyn (Fn I64 -> I64 ! e)))))
+  ((step (dyn (Fn I64 → I64 ! e)))))
 
 (effect Note
-  ((note (dyn (Fn String -> Unit)))))
+  ((note (dyn (Fn String → Unit)))))
 
 (display ((make-counter) 25))
 (newline)

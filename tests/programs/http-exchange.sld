@@ -15,17 +15,15 @@
        ((Ok checked) checked)
        ((Err _) (panic "fixture payload has the wrong type"))))))
 
+(define (assert (condition Bool))
+  (→ Unit)
+  (unless condition (panic "HTTP exchange assertion failed")))
 
-(: assert (impl (Fn Bool -> Unit)))
-(define (assert condition) (unless condition (panic "HTTP exchange assertion failed")))
-
-(: ascii (impl (Fn String -> Bytes)))
-(define (ascii text)
+(define (ascii (text String)) (→ Bytes)
   (vector-generate (string-length text)
                    (lambda (index) (i32->u8 (char->i32 (string-ref text index))))))
 
-(: text (impl (Fn Bytes -> String)))
-(define (text bytes)
+(define (text (bytes Bytes)) (→ String)
   (string-generate (vector-length bytes)
                    (lambda (index) (i32->char (u8->i32 (vector-ref bytes index))))))
 
@@ -39,15 +37,14 @@
    (write-size I64)
    (fault String)))
 
-(: stream (impl (Fn Bytes I64 I64 String -> Stream)))
-(define (stream input read-size write-size fault)
+(define (stream (input Bytes) (read-size I64) (write-size I64) (fault String)) (→ Stream)
   (Stream input (ref 0) (ref (ann (Nil) (List Bytes))) (ref 0) (ref 0) read-size write-size fault))
 
-(: token (impl (Fn Connection -> Stream)))
-(define (token connection) (fixture-convert (::token connection) Stream))
+(define (token (connection Connection)) (→ Stream) (fixture-convert (::token connection) Stream))
 
-(: read-stream (impl (Fn Connection I32 -> (Result (Option Bytes) SocketError) ! mut)))
-(define (read-stream connection maximum)
+(define (read-stream (connection Connection) (maximum I32))
+  (→ (Result (Option Bytes) SocketError))
+  (! mut)
   (let* ((state (token connection)) (start (ref-get (::cursor state)))
          (end (min (vector-length (::input state))
                    (+ start (min (i32->i64 maximum) (::read-size state))))))
@@ -58,8 +55,7 @@
           (else (ref-set! (::cursor state) end)
                 (Ok (Some (subvector (::input state) start end)))))))
 
-(: write-stream (impl (Fn Connection Bytes -> (Result I32 SocketError) ! mut)))
-(define (write-stream connection bytes)
+(define (write-stream (connection Connection) (bytes Bytes)) (→ (Result I32 SocketError)) (! mut)
   (let* ((state (token connection)) (count (min (vector-length bytes) (::write-size state))))
     (cond ((string=? (::fault state) "write") (Err (SocketError "TEST_WRITE")))
           ((string=? (::fault state) "oversize-write")
@@ -72,37 +68,37 @@
                      (Cons (subvector bytes 0 count) (ref-get (::output state))))
            (Ok (i64->i32 count))))))
 
-(: finish-stream (impl (Fn Connection I32 -> (Result Unit SocketError) ! mut)))
-(define (finish-stream connection grace)
+(define (finish-stream (connection Connection) (grace I32)) (→ (Result Unit SocketError)) (! mut)
   (let ((state (token connection)))
     (assert (= grace 250))
     (if (string=? (::fault state) "finish")
         (Err (SocketError "TEST_FINISH"))
         (begin (ref-set! (::ended state) 1) (Ok (unit))))))
 
-(: close-stream (impl (Fn Connection -> (Result Unit SocketError) ! mut)))
-(define (close-stream connection)
+(define (close-stream (connection Connection)) (→ (Result Unit SocketError)) (! mut)
   (ref-set! (::ended (token connection)) 2)
   (Err (SocketError "TEST_CLOSE")))
 
-(: run (All (e) (impl (Fn Stream (dyn (Fn Request -> (Result Response String) ! e))
-                          -> (Result Unit (ExchangeError String)) ! tcp tasks e))))
-(define (run state handler)
+(define (run (state Stream) (handler (dyn (Fn Request → (Result Response String) ! e))))
+  (→ (Result Unit (ExchangeError String)))
+  (! tcp tasks e)
+  (∀ e)
   (serve-one (Connection (type-convert state Any)) 250 handler))
 
-(: echo (impl (Fn Request -> (Result Response String) ! tasks)))
-(define (echo request)
+(define (echo (request Request)) (→ (Result Response String)) (! tasks)
   (sleep 1)
   (Ok (Response 200 (Nil) (::body request))))
 
-(: output (impl (Fn Stream -> String ! mut)))
-(define (output state) (text (vector-concatenate (reverse (ref-get (::output state))))))
+(define (output (state Stream))
+  (→ String)
+  (! mut)
+  (text (vector-concatenate (reverse (ref-get (::output state))))))
 
-(: success? (impl (Fn (Result Unit (ExchangeError String)) -> Bool)))
-(define (success? result) (match result ((Ok _) #t) ((Err _) #f)))
+(define (success? (result (Result Unit (ExchangeError String))))
+  (→ Bool)
+  (match result ((Ok _) #t) ((Err _) #f)))
 
-(: request Bytes)
-(define request
+(define request (→ Bytes)
   (ascii "POST /echo HTTP/1.1\r\nHost: test\r\nContent-Length: 4\r\n\r\nbodyignored pipeline"))
 
 ;; A program waits on sockets from a task, which the scheduler runs once

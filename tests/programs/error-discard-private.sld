@@ -10,8 +10,8 @@
   ((name String)))
 
 (instance (Drop (! console) Handle)
-  (define (drop handle)
-    (match handle
-      ((Handle name) (write-line (string-append "released " name))))))
+  (define drop
+    (lambda (handle) (match handle
+                       ((Handle name) (write-line (string-append "released " name)))))))
 
 (discard (Handle "h"))

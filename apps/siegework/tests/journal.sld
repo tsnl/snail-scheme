@@ -18,25 +18,21 @@
   ((world World)
    (journal (List Entry))))
 
-(: give (impl (Fn Played Action -> Played)))
-(define (give played action)
+(define (give (played Played) (action Action)) (→ Played)
   (match (command (::world played) action)
     ((Ok (Pair world entry)) (Played world (Cons entry (::journal played))))
     ((Err _) played)))
 
-(: run (impl (Fn Played I64 -> Played)))
-(define (run played ticks)
+(define (run (played Played) (ticks I64)) (→ Played)
   (if (= ticks 0)
       played
       (run (Played-world-set played (advance (::world played))) (- ticks 1))))
 
-(: offset (impl (Fn World I64 I64 -> Cell)))
-(define (offset world dx dy)
+(define (offset (world World) (dx I64) (dy I64)) (→ Cell)
   (let ((hub (::cell (::hub world))))
     (Cell (+ (::x hub) dx) (+ (::y hub) dy))))
 
-(: reinforce (impl (Fn Played -> Played)))
-(define (reinforce played)
+(define (reinforce (played Played)) (→ Played)
   (let ((world (::world played)))
     (give (fold-left (lambda (played d)
                        (give played
@@ -45,13 +41,11 @@
                      (list (Pair -2 0) (Pair 0 2) (Pair 2 0) (Pair 0 -2) (Pair -2 2) (Pair 2 -2)))
           (Upgrade (offset world 0 0)))))
 
-(: play (impl (Fn Played I64 -> Played)))
-(define (play played rounds)
+(define (play (played Played) (rounds I64)) (→ Played)
   (if (= rounds 0) played (play (run (reinforce played) 100) (- rounds 1))))
 
 ;; Everything the rules decide, as text.
-(: fingerprint (impl (Fn World -> String)))
-(define (fingerprint world)
+(define (fingerprint (world World)) (→ String)
   (string-join (list (show (::tick world))
                      (show (::energy world))
                      (show (::produced (::ledger world)))
@@ -74,8 +68,7 @@
                       ","))
                " "))
 
-(: building-text (impl (Fn Building -> String)))
-(define (building-text b)
+(define (building-text (b Building)) (→ String)
   (string-append (show (::id b))
                  (kind-name (::kind b))
                  (cell-text (::cell b))
@@ -87,8 +80,7 @@
                    ((Some work) (string-append "W" (show (::progress work))))
                    ((None) ""))))
 
-(: cell-text (impl (Fn Cell -> String)))
-(define (cell-text cell)
+(define (cell-text (cell Cell)) (→ String)
   (string-append (show (::x cell)) "." (show (::y cell))))
 
 (let ()

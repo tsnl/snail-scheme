@@ -6,8 +6,7 @@
 ;; Receiving without waiting: an empty mailbox answers none at once, and
 ;; one with messages gives the oldest, leaving the rest for a receiver
 ;; that waits.
-(: tried (impl (Fn (Mailbox String) -> String ! mut)))
-(define (tried mailbox)
+(define (tried (mailbox (Mailbox String))) (→ String) (! mut)
   (match (mailbox-try-receive mailbox)
     ((Some message) message)
     ((None) "none")))

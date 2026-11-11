@@ -2,8 +2,7 @@
  (snail core base))
 
 ;; A statement's value is discarded, so it cannot be linear.
-(: forget (impl (Fn -> Unit)))
-(define (forget)
+(define (forget) (→ Unit)
   (once (lambda () (unit)))
   (unit))
 

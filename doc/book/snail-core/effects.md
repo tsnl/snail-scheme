@@ -130,7 +130,7 @@ squared 9
 
 Here `e` is `console`; with a total `action`, `repeat` is total. `map` in
 `(snail core base)` has the same shape:
-`(All (A B e) (dyn (Fn (dyn (Fn A -> B ! e)) (List A) -> (List B) ! e)))`.
+`(∀ (A B e) (dyn (Fn (dyn (Fn A → B ! e)) (List A) → (List B) ! e)))`.
 
 A class may take a row as a parameter too, so that each of its instances
 performs its own ([rows as parameters](types.md#rows-as-parameters)).
@@ -217,7 +217,7 @@ caller its effect:
 {{#include ../../../tests/programs/effects-handlers.sld:declare}}
 ```
 
-`log`'s type is `(dyn (Fn String -> Unit))`, and calling it adds `Log` to the row,
+`log`'s type is `(dyn (Fn String → Unit))`, and calling it adds `Log` to the row,
 so `total`'s row is `Log`. `Log` has no default, so something must say what
 logging means before `total` can run. Effects take no type parameters, and
 operations are monomorphic ([notable omissions](omissions.md)): a handler
@@ -238,23 +238,23 @@ Using the [callable classes](types.md#callable-classes):
 
 ```scheme
 (typeclass (Ask T)
-  (: ask (impl (Fn -> T))))
+  (: ask (impl (Fn → T))))
 
-(: greet (impl (Fn -> String ! (Ask String))))
-(define (greet)
+
+(define (greet) (→ String) (! (Ask String))
   (string-append "hello, " (ask)))
 
-(: welcome (impl (Fn String -> String)))
-(define (welcome name)
+
+(define (welcome (name String)) (→ String)
   (instance (Ask String)
-    (define (ask) name))
+    (define ask (lambda () name)))
   (greet))
 ```
 
 These forms are illustrative extensions, not accepted syntax today. The
 local instance supplies an anonymous concrete provider whose `ask` method
 captures `name`. Its associated callable type is inferred from that method
-definition and checked against `impl (Fn -> T)`. `greet` receives the selected
+definition and checked against `impl (Fn → T)`. `greet` receives the selected
 provider as an implicit argument; compilation makes `welcome`'s supplied
 argument explicit. Its captured string is runtime data, while its method
 code and callable type are statically selected.
@@ -263,10 +263,10 @@ A parameterized emitting capability has the same interface mechanism:
 
 ```scheme
 (typeclass (Emit T)
-  (: emit (impl (Fn T -> Unit))))
+  (: emit (impl (Fn T → Unit))))
 
-(: produce (impl (Fn -> Unit ! (Emit I64))))
-(define (produce)
+
+(define (produce) (→ Unit) (! (Emit I64))
   (emit 1)
   (emit 2))
 ```
@@ -753,7 +753,7 @@ added 1
 failed: negative: -2
 ```
 
-`(absurd never)`, of type `(All (A) (dyn (Fn Never -> A)))`, gives the call whatever
+`(absurd never)`, of type `(∀ (A) (dyn (Fn Never → A)))`, gives the call whatever
 type the code around it needs, here `checked`'s `I64`. It is a `match` with
 no clauses, which only a value of a type with no cases may have
 (`tests/programs/error-match-empty.sld`). An implementation of such an
@@ -877,8 +877,8 @@ These are how a scheduler closes each step of a task
 
 `resume` takes the operation's result and returns the handler's answer,
 and it performs the row of the code around the `handle`, its **context
-row**. For `(ctl yield (dyn (Fn I64 -> I64)))` handled in a function of row `Log`,
-whose handler answers `Step`, `resume` is `(dyn (FnOnce I64 -> Step ! Log))`.
+row**. For `(ctl yield (dyn (Fn I64 → I64)))` handled in a function of row `Log`,
+whose handler answers `Step`, `resume` is `(dyn (FnOnce I64 → Step ! Log))`.
 
 Calling `resume` runs under the caller's handlers everything the `handle`
 would perform outward: the rest of the body, and, since the handler is
@@ -895,7 +895,7 @@ effect once more. Both are in the context row. So a `Step` that stores
 {{#include ../../../tests/programs/error-control-resume-row.err}}
 ```
 
-Typed `(dyn (FnOnce I64 -> Step ! Log))`, the stored `next` is resumed under a
+Typed `(dyn (FnOnce I64 → Step ! Log))`, the stored `next` is resumed under a
 `Log` handler, the one where it is called, and the `rest` left unrun is
 dropped under one too, since dropping a resumption performs its row
 ([Drops that may run](ownership.md#drops-that-may-run))
@@ -955,7 +955,7 @@ be reachable twice, a cost paid by code that never captures one.
 
 ```scheme
 (effect dyn-cast
-  ((ctl conversion-failed (dyn (Fn CastError -> Never)))))
+  ((ctl conversion-failed (dyn (Fn CastError → Never)))))
 ```
 
 Both explicit and inserted fallible Any conversions require this effect.

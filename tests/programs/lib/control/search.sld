@@ -8,8 +8,7 @@
   (begin
     ;; Signals each negative item, after reporting each item it passes; a
     ;; handler that does not resume stops it at the first.
-    (: signal-negative (impl (Fn (List I64) -> Unit ! Signal console)))
-    (define (signal-negative items)
+    (define (signal-negative (items (List I64))) (→ Unit) (! Signal console)
       (for-each (lambda (item)
                   (write-line (string-append "check " (show item)))
                   (when (< item 0) (signal item)))

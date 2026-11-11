@@ -9,9 +9,9 @@
   ((name String)))
 
 (instance (Drop (! console) Resource)
-  (define (drop resource)
-    (match resource
-      ((Resource name) (write-line (string-append "released " name))))))
+  (define drop
+    (lambda (resource) (match resource
+                         ((Resource name) (write-line (string-append "released " name)))))))
 
 ;; Both endpoints may be owned by suspended continuations. Shutdown must
 ;; detach its waiter queue before dropping a producer wakes its receiver.
@@ -25,8 +25,7 @@
 ;; A future kept outside the canceled producer sees abandonment. A
 ;; completion observer attempting to dispatch during cleanup cannot leave
 ;; a new runnable task behind shutdown.
-(: notified (impl (Fn -> Unit ! mut console)))
-(define (notified)
+(define (notified) (→ Unit) (! mut console)
   (let ((held (Resource "during close")))
     (dispatch-local (once (lambda () (drop held))))))
 

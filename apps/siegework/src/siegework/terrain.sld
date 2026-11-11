@@ -81,36 +81,29 @@
        (sites (List Site))
        (fronts (List Cell))))
 
-    (: reserve-per-rate I64)
-    (define reserve-per-rate 300)
+    (define reserve-per-rate (→ I64) 300)
 
     ;; The crystal beneath each nest, exposed when the nest is destroyed.
-    (: nest-rate I64)
-    (define nest-rate 8)
+    (define nest-rate (→ I64) 8)
 
-    (: biome-name (impl (Fn Biome -> String)))
-    (define (biome-name biome)
+    (define (biome-name (biome Biome)) (→ String)
       (match biome
         ((Meadow) "Meadow")
         ((Desert) "Desert")
         ((Tundra) "Tundra")
         ((Archipelago) "Archipelago")))
 
-    (: ground-at (impl (Fn Land Cell -> Ground)))
-    (define (ground-at land cell)
+    (define (ground-at (land Land) (cell Cell)) (→ Ground)
       (vector-ref (::ground land) (cell-index cell)))
 
-    (: mainland? (impl (Fn Land Cell -> Bool)))
-    (define (mainland? land cell)
+    (define (mainland? (land Land) (cell Cell)) (→ Bool)
       (vector-ref (::mainland land) (cell-index cell)))
 
     ;; Seeds are 1 to 65535; any integer maps into that range.
-    (: land-seed (impl (Fn I64 -> I64)))
-    (define (land-seed seed)
+    (define (land-seed (seed I64)) (→ I64)
       (+ 1 (modulo (- seed 1) 65535)))
 
-    (: new-land (impl (Fn I64 -> Land)))
-    (define (new-land seed)
+    (define (new-land (seed I64)) (→ Land)
       (let* ((biome (biome-of seed))
              (hub (Cell (spawn-x seed) (spawn-y seed)))
              (fronts
@@ -130,8 +123,8 @@
               (Cons (Site starter 2) (crystal-sites seed hub fronts ground)) fronts)))
 
     ;; The cells joined to the hub through ground that `crosses?` accepts.
-    (: joined (impl (Fn (Vector Ground) Cell (dyn (Fn Ground -> Bool)) -> (Vector Bool))))
-    (define (joined ground hub crosses?)
+    (define (joined (ground (Vector Ground)) (hub Cell) (crosses? (dyn (Fn Ground → Bool))))
+      (→ (Vector Bool))
       (vector-map (lambda (steps) (>= steps 0))
                   (distance-field (vector-map crosses? ground) (list hub))))
 
@@ -139,27 +132,23 @@
 
     ;; Seeds and the keys derived from them stay below 2^18 and strides below
     ;; 2^10, so the product never overflows.
-    (: map-offset (impl (Fn I64 I64 I64 -> I64)))
-    (define (map-offset seed stride count)
+    (define (map-offset (seed I64) (stride I64) (count I64)) (→ I64)
       (remainder (remainder (* seed stride) 65521) count))
 
     ;; Scrambles a value into 0 to 2^31 - 1. Each product is of two numbers
     ;; below 2^31, so it stays below 2^62 and both hosts agree.
-    (: mix (impl (Fn I64 -> I64)))
-    (define (mix value)
+    (define (mix (value I64)) (→ I64)
       (let* ((x (i64-and value 2147483647))
              (x (i64-and (* (i64-xor x (i64-shift-right/logical x 16)) 73244475) 2147483647))
              (x (i64-and (* (i64-xor x (i64-shift-right/logical x 16)) 73244475) 2147483647)))
         (i64-xor x (i64-shift-right/logical x 16))))
 
     ;; A value for (x, y) under the seed and a key naming its use.
-    (: hash (impl (Fn I64 I64 I64 I64 -> I64)))
-    (define (hash seed key x y)
+    (define (hash (seed I64) (key I64) (x I64) (y I64)) (→ I64)
       (mix (+ (mix (+ (mix (+ (* seed 64) key)) x)) (* y 65536))))
 
     ;; One of `items` chosen by the seed and a key, if there are any.
-    (: pick (All (A) (requires (Copy A)) (impl (Fn I64 I64 (List A) -> (Option A)))))
-    (define (pick seed key items)
+    (define (pick (seed I64) (key I64) (items (List A))) (→ (Option A)) (∀ A) (⊨ (Copy A))
       (if (null? items)
           (None)
           (Some (list-ref items (remainder (hash seed key 0 0) (length items))))))
@@ -168,8 +157,7 @@
 
     ;; The hub sits within four cells of the map's center. Rejection keeps
     ;; that a disc; each attempt derives a new seed, with no random state.
-    (: spawn-offset (impl (Fn I64 I64 Bool -> I64)))
-    (define (spawn-offset seed attempt horizontal)
+    (define (spawn-offset (seed I64) (attempt I64) (horizontal Bool)) (→ I64)
       (let ((x (- (map-offset seed 73 9) 4)) (y (- (map-offset seed 151 9) 4)))
         (cond ((<= (+ (* x x) (* y y)) 16) (if horizontal x y))
               ((= attempt 23) 0)
@@ -177,17 +165,14 @@
                                   (+ attempt 1)
                                   horizontal)))))
 
-    (: spawn-x (impl (Fn I64 -> I64)))
-    (define (spawn-x seed)
+    (define (spawn-x (seed I64)) (→ I64)
       (+ (quotient map-size 2) (spawn-offset seed 0 #t)))
 
-    (: spawn-y (impl (Fn I64 -> I64)))
-    (define (spawn-y seed)
+    (define (spawn-y (seed I64)) (→ I64)
       (+ (quotient map-size 2) (spawn-offset seed 0 #f)))
 
     ;; The first front lies 20 to 25 cells out along a seeded axis.
-    (: nest-offset (impl (Fn I64 Bool -> I64)))
-    (define (nest-offset seed horizontal)
+    (define (nest-offset (seed I64) (horizontal Bool)) (→ I64)
       (let ((direction (map-offset seed 67 4))
             (major (+ 20 (map-offset seed 173 6)))
             (minor (- (map-offset seed 227 9) 4)))
@@ -196,19 +181,16 @@
             minor)))
 
     ;; The other two fronts are integer rotations of the first by 120 degrees.
-    (: front-offset (impl (Fn I64 I64 Bool -> I64)))
-    (define (front-offset seed front horizontal)
+    (define (front-offset (seed I64) (front I64) (horizontal Bool)) (→ I64)
       (let ((x (nest-offset seed #t)) (y (nest-offset seed #f)) (turn (if (= front 1) 866 -866)))
         (cond ((= front 0) (if horizontal x y))
               (horizontal (quotient (- (* -500 x) (* turn y)) 1000))
               (else (quotient (+ (* turn x) (* -500 y)) 1000)))))
 
-    (: front-x (impl (Fn I64 I64 -> I64)))
-    (define (front-x seed front)
+    (define (front-x (seed I64) (front I64)) (→ I64)
       (+ (spawn-x seed) (front-offset seed front #t)))
 
-    (: front-y (impl (Fn I64 I64 -> I64)))
-    (define (front-y seed front)
+    (define (front-y (seed I64) (front I64)) (→ I64)
       (+ (spawn-y seed) (front-offset seed front #f)))
 
     ;; ---- Noise ----
@@ -216,8 +198,7 @@
     ;; Smooth noise from 0 to 255: random values on a lattice `scale` cells
     ;; apart, blended between the four around each cell with eased weights
     ;; in 256ths, so features have rounded edges instead of diamonds.
-    (: noise (impl (Fn I64 I64 I64 I64 I64 -> I64)))
-    (define (noise seed key scale x y)
+    (define (noise (seed I64) (key I64) (scale I64) (x I64) (y I64)) (→ I64)
       (let ((i (quotient x scale)) (j (quotient y scale))
             (u (ease (remainder x scale) scale)) (v (ease (remainder y scale) scale)))
         (quotient
@@ -227,34 +208,29 @@
                   (* u (corner seed key (+ i 1) (+ j 1))))))
          65536)))
 
-    (: corner (impl (Fn I64 I64 I64 I64 -> I64)))
-    (define (corner seed key i j)
+    (define (corner (seed I64) (key I64) (i I64) (j I64)) (→ I64)
       (remainder (hash seed key i j) 256))
 
     ;; 3t^2 - 2t^3 for t = `step` of `scale`, in 256ths.
-    (: ease (impl (Fn I64 I64 -> I64)))
-    (define (ease step scale)
+    (define (ease (step I64) (scale I64)) (→ I64)
       (let ((t (quotient (* 256 step) scale)))
         (quotient (* (* t t) (- 768 (* 2 t))) 65536)))
 
     ;; Broad shapes from a coarse lattice with detail from a fine one,
     ;; sampled through a warp of up to five cells so lattice lines never
     ;; show as straight edges. Coordinates shift by 64 to stay positive.
-    (: field (impl (Fn I64 I64 I64 I64 -> I64)))
-    (define (field seed key x y)
+    (define (field (seed I64) (key I64) (x I64) (y I64)) (→ I64)
       (let ((u (+ x (+ 64 (quotient (- (noise seed 40 7 (+ x 64) (+ y 64)) 128) 24))))
             (v (+ y (+ 64 (quotient (- (noise seed 41 7 (+ x 64) (+ y 64)) 128) 24)))))
         (quotient (+ (* 2 (noise seed key 10 u v)) (noise seed (+ key 1) 4 u v)) 3)))
 
     ;; Near the middle of a field's range: thin winding lines.
-    (: crest? (impl (Fn I64 I64 I64 I64 I64 -> Bool)))
-    (define (crest? seed key width x y)
+    (define (crest? (seed I64) (key I64) (width I64) (x I64) (y I64)) (→ Bool)
       (< (abs (- (field seed key x y) 128)) width))
 
     ;; ---- Biomes ----
 
-    (: biome-of (impl (Fn I64 -> Biome)))
-    (define (biome-of seed)
+    (define (biome-of (seed I64)) (→ Biome)
       (let ((choice (remainder (mix (+ seed 7)) 4)))
         (cond ((= choice 0) (Meadow))
               ((= choice 1) (Desert))
@@ -266,8 +242,7 @@
     ;; winding between them broken by gaps. Tundra has frozen lakes,
     ;; mountains and scattered boulders. An archipelago is sea but for
     ;; the high ground, with rock on the highest.
-    (: wild-ground (impl (Fn Biome I64 Cell -> Ground)))
-    (define (wild-ground biome seed cell)
+    (define (wild-ground (biome Biome) (seed I64) (cell Cell)) (→ Ground)
       (let* ((x (::x cell))
              (y (::y cell))
              (height (field seed 1 x y))
@@ -289,12 +264,10 @@
 
     ;; The hub stands in open ground four cells around, and each nest in
     ;; open ground five cells around.
-    (: first-ground (impl (Fn Biome I64 Cell -> Ground)))
-    (define (first-ground biome seed cell)
+    (define (first-ground (biome Biome) (seed I64) (cell Cell)) (→ Ground)
       (if (cleared? seed cell) (Open) (wild-ground biome seed cell)))
 
-    (: cleared? (impl (Fn I64 Cell -> Bool)))
-    (define (cleared? seed cell)
+    (define (cleared? (seed I64) (cell Cell)) (→ Bool)
       (or (within? cell (Cell (spawn-x seed) (spawn-y seed)) 4)
           (any? (lambda (front) (within? cell (Cell (front-x seed front) (front-y seed front)) 5))
                 (list 0 1 2))))
@@ -303,31 +276,27 @@
 
     ;; Each front in turn opens the blocked cells on the way to the hub that
     ;; crosses fewest of them, so a front already joined opens nothing.
-    (: passes (impl (Fn Cell (List Cell) (Vector Ground) -> (Vector Ground))))
-    (define (passes hub fronts ground)
+    (define (passes (hub Cell) (fronts (List Cell)) (ground (Vector Ground))) (→ (Vector Ground))
       (fold-left (lambda (ground front)
                    (open-cells ground
                                (crossing-path (vector-map walkable? ground) (list hub) front)))
                  ground
                  fronts))
 
-    (: walkable? (impl (Fn Ground -> Bool)))
-    (define (walkable? ground)
+    (define (walkable? (ground Ground)) (→ Bool)
       (match ground
         ((Open) #t)
         ((Ice) #t)
         (_ #f)))
 
-    (: open-cells (impl (Fn (Vector Ground) (List Cell) -> (Vector Ground))))
-    (define (open-cells ground cells)
+    (define (open-cells (ground (Vector Ground)) (cells (List Cell))) (→ (Vector Ground))
       (fold-left (lambda (ground cell) (vector-set ground (cell-index cell) (Open))) ground cells))
 
     ;; ---- Crystal sites ----
 
     ;; The starter is one of the twenty cells more than three and at most
     ;; four cells from the hub, all in its clearing.
-    (: starter-cell (impl (Fn I64 Cell -> Cell)))
-    (define (starter-cell seed hub)
+    (define (starter-cell (seed I64) (hub Cell)) (→ Cell)
       (let ((cells (ring hub 3 4)))
         (list-ref cells (remainder (hash seed 10 0 0) (length cells)))))
 
@@ -337,8 +306,8 @@
     ;; it; a few across the map; and one near most fronts, so following an
     ;; attack back to its nest leads to richer ground. A cell holds at most
     ;; one site; the first listed keeps it.
-    (: crystal-sites (impl (Fn I64 Cell (List Cell) (Vector Ground) -> (List Site))))
-    (define (crystal-sites seed hub fronts ground)
+    (define (crystal-sites (seed I64) (hub Cell) (fronts (List Cell)) (ground (Vector Ground)))
+      (→ (List Site))
       (let* ((site? (site-cell? ground
                                 (joined ground hub (lambda (g) (match g ((Rock) #f) (_ #t))))
                                 fronts))
@@ -355,29 +324,26 @@
 
     ;; Open ground the hub can wire toward, at least five cells from every
     ;; front.
-    (: site-cell? (impl (Fn (Vector Ground) (Vector Bool) (List Cell) -> (dyn (Fn Cell -> Bool)))))
-    (define (site-cell? ground wired fronts)
+    (define (site-cell? (ground (Vector Ground)) (wired (Vector Bool)) (fronts (List Cell)))
+      (→ (dyn (Fn Cell → Bool)))
       (lambda (cell)
         (and (match (vector-ref ground (cell-index cell)) ((Open) #t) (_ #f))
              (vector-ref wired (cell-index cell))
              (not (any? (lambda (front) (within? cell front 4)) fronts)))))
 
-    (: site (impl (Fn (Option Cell) I64 -> (List Site))))
-    (define (site cell rate)
+    (define (site (cell (Option Cell)) (rate I64)) (→ (List Site))
       (match cell
         ((Some cell) (list (Site cell rate)))
         ((None) (Nil))))
 
-    (: apart? (impl (Fn Cell (Option Cell) -> Bool)))
-    (define (apart? cell other)
+    (define (apart? (cell Cell) (other (Option Cell))) (→ Bool)
       (match other
         ((Some other) (not (within? cell other 8)))
         ((None) #t)))
 
     ;; The cells on the map more than `inner` and at most `outer` cells from
     ;; the center.
-    (: ring (impl (Fn Cell I64 I64 -> (List Cell))))
-    (define (ring center inner outer)
+    (define (ring (center Cell) (inner I64) (outer I64)) (→ (List Cell))
       (let ((side (+ (* 2 outer) 1)))
         (filter (lambda (cell)
                   (and (in-bounds? cell)
@@ -390,8 +356,7 @@
 
     ;; Two regions in five of the 16-cell regions hold a site yielding 2 to
     ;; 6, more than 15 cells from the hub.
-    (: regional-sites (impl (Fn I64 Cell (dyn (Fn Cell -> Bool)) -> (List Site))))
-    (define (regional-sites seed hub site?)
+    (define (regional-sites (seed I64) (hub Cell) (site? (dyn (Fn Cell → Bool)))) (→ (List Site))
       (concatenate (map (lambda (region)
                           (let ((rx (* 16 (remainder region 5))) (ry (* 16 (quotient region 5))))
                             (if (< (remainder (hash seed 13 rx ry) 5) 2)
@@ -405,13 +370,12 @@
                                 (Nil))))
                         (iota 25))))
 
-    (: region-cells (impl (Fn I64 I64 -> (List Cell))))
-    (define (region-cells rx ry)
+    (define (region-cells (rx I64) (ry I64)) (→ (List Cell))
       (map (lambda (i) (Cell (+ rx (remainder i 16)) (+ ry (quotient i 16)))) (iota 256)))
 
     ;; Three fronts in four have a site yielding 4, 6 to 9 cells out.
-    (: front-sites (impl (Fn I64 (List Cell) (dyn (Fn Cell -> Bool)) -> (List Site))))
-    (define (front-sites seed fronts site?)
+    (define (front-sites (seed I64) (fronts (List Cell)) (site? (dyn (Fn Cell → Bool))))
+      (→ (List Site))
       (concatenate (map-indexed (lambda (index front)
                                   (if (< (remainder (hash seed 16 index 0) 4) 3)
                                       (site (pick (+ seed index) 17 (filter site? (ring front 5 9)))

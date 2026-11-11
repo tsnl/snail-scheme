@@ -3,5 +3,4 @@
  (snail core io))
 
 ;; A shared tail does not authorize a label absent from the context.
-(: escape (All (A e) (impl (Fn (dyn (Fn -> A ! console e)) -> A ! e))))
-(define (escape action) (action))
+(define (escape (action (dyn (Fn → A ! console e)))) (→ A) (! e) (∀ A e) (action))

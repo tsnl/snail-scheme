@@ -14,7 +14,6 @@
        ((Ok checked) checked)
        ((Err _) (panic "fixture payload has the wrong type"))))))
 
-
 ;; ---- Requests ----
 
 ;; Each operation that waits runs as a task, as a program's would:
@@ -22,36 +21,30 @@
 ;; `answered` holds for that id, `answer` is the operation's result, as an
 ;; Any, which the accessors below convert back. A task that traps never
 ;; answers; the host reports the trap under the same id.
-(: slots (Ref (List (Pair I64 (Ref (Option Any))))))
-(define slots (ref (Nil)))
+(define slots (→ (Ref (List (Pair I64 (Ref (Option Any)))))) (ref (Nil)))
 
-(: request (impl (Fn (dyn (FnOnce -> Any ! tcp udp tasks)) -> I64 ! mut tcp udp)))
-(define (request work)
+(define (request (work (dyn (FnOnce → Any ! tcp udp tasks)))) (→ I64) (! mut tcp udp)
   (let* ((slot (ref (ann (None) (Option Any))))
          (id (dispatch-task (once (lambda () (ref-set! slot (Some (work))))))))
     (ref-set! slots (Cons (Pair id slot) (ref-get slots)))
     id))
 
-(: slot (impl (Fn I64 -> (Ref (Option Any)) ! mut)))
-(define (slot id)
+(define (slot (id I64)) (→ (Ref (Option Any))) (! mut)
   (match (assoc-ref (ref-get slots) id)
     ((Some found) found)
     ((None) (panic "no such request"))))
 
-(: answered? (impl (Fn I64 -> Bool ! mut)))
-(define (answered? id)
+(define (answered? (id I64)) (→ Bool) (! mut)
   (match (ref-get (slot id))
     ((Some _) #t)
     ((None) #f)))
 
-(: answer (impl (Fn I64 -> Any ! mut)))
-(define (answer id)
+(define (answer (id I64)) (→ Any) (! mut)
   (match (ref-get (slot id))
     ((Some result) result)
     ((None) (panic "the request has not answered"))))
 
-(: truth (impl (Fn Any -> I32)))
-(define (truth answer)
+(define (truth (answer Any)) (→ I32)
   (if (fixture-convert answer Bool) 1 0))
 
 (expose answered? "answered")
@@ -60,115 +53,104 @@
 
 ;; ---- Operations ----
 
-(: require (All (T) (impl (Fn (Result T SocketError) -> T))))
-(define (require result)
+(define (require (result (Result T SocketError))) (→ T) (∀ T)
   (match result
     ((Ok value) value)
     ((Err error) (panic (::code error)))))
 
-(: open (impl (Fn -> (Result Listener SocketError) ! tcp tasks)))
-(define (open)
+(define (open) (→ (Result Listener SocketError)) (! tcp tasks)
   (listen (require (endpoint "127.0.0.1" 0))))
 
-(: listener (impl (Fn Any -> Listener)))
-(define (listener answer)
+(define (listener (answer Any)) (→ Listener)
   (require (fixture-convert answer (Result Listener SocketError))))
 
-(: port (impl (Fn Listener -> I32)))
-(define (port listener) (::port listener))
+(define (port (listener Listener)) (→ I32) (::port listener))
 
-(: dial (impl (Fn I32 -> (Result Connection SocketError) ! tcp tasks)))
-(define (dial port)
+(define (dial (port I32)) (→ (Result Connection SocketError)) (! tcp tasks)
   (connect (require (endpoint "127.0.0.1" port))))
 
-(: take (impl (Fn Listener -> (Result Connection SocketError) ! tcp tasks)))
-(define (take listener) (accept listener))
+(define (take (listener Listener))
+  (→ (Result Connection SocketError))
+  (! tcp tasks)
+  (accept listener))
 
-(: connection (impl (Fn Any -> Connection)))
-(define (connection answer)
+(define (connection (answer Any)) (→ Connection)
   (require (fixture-convert answer (Result Connection SocketError))))
 
-(: receive (impl (Fn Connection I32 -> (Result (Option Bytes) SocketError) ! tcp tasks)))
-(define (receive connection count) (read connection count))
+(define (receive (connection Connection) (count I32))
+  (→ (Result (Option Bytes) SocketError))
+  (! tcp tasks)
+  (read connection count))
 
-(: read-count (impl (Fn Any -> I32)))
-(define (read-count answer)
+(define (read-count (answer Any)) (→ I32)
   (match (require (fixture-convert answer (Result (Option Bytes) SocketError)))
     ((Some bytes) (i64->i32 (vector-length bytes)))
     ((None) -1)))
 
-(: read-byte (impl (Fn Any I32 -> I32)))
-(define (read-byte answer index)
+(define (read-byte (answer Any) (index I32)) (→ I32)
   (match (require (fixture-convert answer (Result (Option Bytes) SocketError)))
     ((Some bytes) (u8->i32 (vector-ref bytes (i32->i64 index))))
     ((None) -1)))
 
-(: bad-read? (impl (Fn Any -> Bool)))
-(define (bad-read? answer)
+(define (bad-read? (answer Any)) (→ Bool)
   (match (fixture-convert answer (Result (Option Bytes) SocketError))
     ((Err error) (string=? (::code error) "EBADF"))
     ((Ok _) #f)))
 
-(: send (impl (Fn Connection -> (Result I32 SocketError) ! tcp tasks)))
-(define (send connection) (write connection #u8(0 255 128 1)))
+(define (send (connection Connection))
+  (→ (Result I32 SocketError))
+  (! tcp tasks)
+  (write connection #u8(0 255 128 1)))
 
-(: written (impl (Fn Any -> I32)))
-(define (written answer)
+(define (written (answer Any)) (→ I32)
   (require (fixture-convert answer (Result I32 SocketError))))
 
-(: overwrite (impl (Fn -> Bool ! tcp tasks)))
-(define (overwrite)
+(define (overwrite) (→ Bool) (! tcp tasks)
   (match (write (Connection (type-convert (ann 1 I32) Any)) #u8(9 8 7))
     ((Err error) (string=? (::code error) "EBADF"))
     ((Ok _) #f)))
 
-(: stop-listener (impl (Fn Listener -> Unit ! tcp)))
-(define (stop-listener listener) (require (close-listener listener)))
+(define (stop-listener (listener Listener)) (→ Unit) (! tcp) (require (close-listener listener)))
 
-(: stop-connection (impl (Fn Connection -> Unit ! tcp)))
-(define (stop-connection connection) (require (close-connection connection)))
+(define (stop-connection (connection Connection))
+  (→ Unit)
+  (! tcp)
+  (require (close-connection connection)))
 
-(: finish (impl (Fn Connection I32 -> (Result Unit SocketError) ! tcp tasks)))
-(define (finish connection grace) (finish-connection connection grace))
+(define (finish (connection Connection) (grace I32))
+  (→ (Result Unit SocketError))
+  (! tcp tasks)
+  (finish-connection connection grace))
 
-(: finished? (impl (Fn Any -> Bool)))
-(define (finished? answer)
+(define (finished? (answer Any)) (→ Bool)
   (match (fixture-convert answer (Result Unit SocketError))
     ((Ok _) #t)
     ((Err _) #f)))
 
-(: timed-out? (impl (Fn Any -> Bool)))
-(define (timed-out? answer)
+(define (timed-out? (answer Any)) (→ Bool)
   (match (fixture-convert answer (Result Unit SocketError))
     ((Err error) (string=? (::code error) "ETIMEDOUT"))
     ((Ok _) #f)))
 
-(: begin-open (impl (Fn -> I64 ! mut tcp udp)))
-(define (begin-open)
+(define (begin-open) (→ I64) (! mut tcp udp)
   (request (once (lambda () (type-convert (open) Any)))))
 
-(: begin-dial (impl (Fn I32 -> I64 ! mut tcp udp)))
-(define (begin-dial port)
+(define (begin-dial (port I32)) (→ I64) (! mut tcp udp)
   (request (once (lambda () (type-convert (dial port) Any)))))
 
-(: begin-take (impl (Fn Listener -> I64 ! mut tcp udp)))
-(define (begin-take listener)
+(define (begin-take (listener Listener)) (→ I64) (! mut tcp udp)
   (request (once (lambda () (type-convert (take listener) Any)))))
 
-(: begin-receive (impl (Fn Connection I32 -> I64 ! mut tcp udp)))
-(define (begin-receive connection count)
+(define (begin-receive (connection Connection) (count I32)) (→ I64) (! mut tcp udp)
   (request (once (lambda () (type-convert (receive connection count) Any)))))
 
-(: begin-send (impl (Fn Connection -> I64 ! mut tcp udp)))
-(define (begin-send connection)
+(define (begin-send (connection Connection)) (→ I64) (! mut tcp udp)
   (request (once (lambda () (type-convert (send connection) Any)))))
 
-(: begin-overwrite (impl (Fn -> I64 ! mut tcp udp)))
-(define (begin-overwrite)
+(define (begin-overwrite) (→ I64) (! mut tcp udp)
   (request (once (lambda () (type-convert (overwrite) Any)))))
 
-(: begin-finish (impl (Fn Connection I32 -> I64 ! mut tcp udp)))
-(define (begin-finish connection grace)
+(define (begin-finish (connection Connection) (grace I32)) (→ I64) (! mut tcp udp)
   (request (once (lambda () (type-convert (finish connection grace) Any)))))
 
 (expose begin-open "begin-open")
@@ -190,50 +172,40 @@
 (expose finished? "finished")
 (expose timed-out? "timed-out")
 
-(: open-udp (impl (Fn -> UdpSocket ! udp tasks)))
-(define (open-udp) (require (bind (require (endpoint "127.0.0.1" 0)))))
+(define (open-udp) (→ UdpSocket) (! udp tasks) (require (bind (require (endpoint "127.0.0.1" 0)))))
 
-(: udp-socket (impl (Fn Any -> UdpSocket)))
-(define (udp-socket answer)
+(define (udp-socket (answer Any)) (→ UdpSocket)
   (fixture-convert answer UdpSocket))
 
-(: udp-port (impl (Fn UdpSocket -> I32)))
-(define (udp-port socket) (::port socket))
+(define (udp-port (socket UdpSocket)) (→ I32) (::port socket))
 
-(: send-udp (impl (Fn UdpSocket I32 -> (Result I32 SocketError) ! udp tasks)))
-(define (send-udp socket port)
+(define (send-udp (socket UdpSocket) (port I32)) (→ (Result I32 SocketError)) (! udp tasks)
   (udp-send socket (require (endpoint "127.0.0.1" port)) #u8(0 255 128 1)))
 
-(: receive-udp (impl (Fn UdpSocket I32 -> (Result Datagram SocketError) ! udp tasks)))
-(define (receive-udp socket count) (udp-receive socket count))
+(define (receive-udp (socket UdpSocket) (count I32))
+  (→ (Result Datagram SocketError))
+  (! udp tasks)
+  (udp-receive socket count))
 
-(: datagram (impl (Fn Any -> Datagram)))
-(define (datagram answer)
+(define (datagram (answer Any)) (→ Datagram)
   (require (fixture-convert answer (Result Datagram SocketError))))
 
-(: packet-port (impl (Fn Any -> I32)))
-(define (packet-port answer) (Endpoint-port (::peer (datagram answer))))
+(define (packet-port (answer Any)) (→ I32) (Endpoint-port (::peer (datagram answer))))
 
-(: packet-size (impl (Fn Any -> I32)))
-(define (packet-size answer) (i64->i32 (vector-length (::bytes (datagram answer)))))
+(define (packet-size (answer Any)) (→ I32) (i64->i32 (vector-length (::bytes (datagram answer)))))
 
-(: packet-byte (impl (Fn Any I32 -> I32)))
-(define (packet-byte answer index)
+(define (packet-byte (answer Any) (index I32)) (→ I32)
   (u8->i32 (vector-ref (::bytes (datagram answer)) (i32->i64 index))))
 
-(: stop-udp (impl (Fn UdpSocket -> Unit ! udp)))
-(define (stop-udp socket) (require (close-udp socket)))
+(define (stop-udp (socket UdpSocket)) (→ Unit) (! udp) (require (close-udp socket)))
 
-(: begin-open-udp (impl (Fn -> I64 ! mut tcp udp)))
-(define (begin-open-udp)
+(define (begin-open-udp) (→ I64) (! mut tcp udp)
   (request (once (lambda () (type-convert (open-udp) Any)))))
 
-(: begin-send-udp (impl (Fn UdpSocket I32 -> I64 ! mut tcp udp)))
-(define (begin-send-udp socket port)
+(define (begin-send-udp (socket UdpSocket) (port I32)) (→ I64) (! mut tcp udp)
   (request (once (lambda () (type-convert (send-udp socket port) Any)))))
 
-(: begin-receive-udp (impl (Fn UdpSocket I32 -> I64 ! mut tcp udp)))
-(define (begin-receive-udp socket count)
+(define (begin-receive-udp (socket UdpSocket) (count I32)) (→ I64) (! mut tcp udp)
   (request (once (lambda () (type-convert (receive-udp socket count) Any)))))
 
 (expose begin-open-udp "begin-open-udp")

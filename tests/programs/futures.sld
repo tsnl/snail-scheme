@@ -7,9 +7,9 @@
   ((name String)))
 
 (instance (Drop (! console) Resource)
-  (define (drop resource)
-    (match resource
-      ((Resource name) (write-line (string-append "released " name))))))
+  (define drop
+    (lambda (resource) (match resource
+                         ((Resource name) (write-line (string-append "released " name)))))))
 
 ;; Polling is immediate, and a pending poll keeps the receiver linear.
 (match (ann (make-promise) (Pair (Promise Resource) (Future Resource)))

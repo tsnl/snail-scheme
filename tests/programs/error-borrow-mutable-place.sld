@@ -1,8 +1,7 @@
 (import
  (snail core base))
 
-(: read-number (impl (Fn (Borrow I64) -> I64)))
-(define (read-number value)
+(define (read-number (value (Borrow I64))) (→ I64)
   (borrow-copy value))
 
 (let ((cell (ref 1)))
