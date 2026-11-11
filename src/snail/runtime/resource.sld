@@ -12,6 +12,6 @@
   (import
    (snail core base))
   (begin
-    (extern read "snail.runtime.resource" "read" (impl (Fn I64 I32 -> Unit)))
-    (extern finish "snail.runtime.resource" "finish" (impl (Fn I64 -> I32)))
-    (extern byte "snail.runtime.resource" "byte" (impl (Fn I32 -> U8)))))
+    (extern read "snail.runtime.resource" "read" (impl (Fn I64 I32 → Unit)))
+    (extern finish "snail.runtime.resource" "finish" (impl (Fn I64 → I32)))
+    (extern byte "snail.runtime.resource" "byte" (impl (Fn I32 → U8)))))

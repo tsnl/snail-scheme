@@ -12,16 +12,13 @@
 ;; A DOM edit can precede its input message. Change the live field after
 ;; formatting was scheduled but before its command runs. Neither replacement
 ;; nor scroll restoration may act on the obsolete field snapshot.
-(: snapshot (impl (Fn (Borrow Session) -> Ide)))
-(define (snapshot session)
+(define (snapshot (session (Borrow Session))) (→ Ide)
   (::ide session))
 
-(: finished (impl (Fn Session -> Ide ! mut)))
-(define (finished session)
+(define (finished (session Session)) (→ Ide) (! mut)
   (match session ((Session ide pending) (drop pending) ide)))
 
-(: replace-field (impl (Fn Bool -> Unit ! dom)))
-(define (replace-field changed-path)
+(define (replace-field (changed-path Bool)) (→ Unit) (! dom)
   (match (Pair (element-by-id "text-0") (element-by-id "editor-0"))
     ((Pair (Some field) (Some scroller))
      (set-string-property field (if changed-path "snailPath" "value")
@@ -30,9 +27,12 @@
     (_ (panic "missing editor")))
   (unit))
 
-(: race-update
-   (impl (Fn Bool (Ref Bool) Session (Option Msg) -> Session ! mut completion dom fetch)))
-(define (race-update changed-path injected session message)
+(define (race-update (changed-path Bool)
+                     (injected (Ref Bool))
+                     (session Session)
+                     (message (Option Msg)))
+  (→ Session)
+  (! mut completion dom fetch)
   (let ((next (update-session session message)))
     ;; The first completion applies the named command and queues formatting.
     ;; Change the DOM before that queued task gets its next scheduler turn.
@@ -41,16 +41,14 @@
       (replace-field changed-path))
     next))
 
-(: report-editor (impl (Fn -> Unit ! dom console)))
-(define (report-editor)
+(define (report-editor) (→ Unit) (! dom console)
   (match (Pair (element-by-id "text-0") (element-by-id "editor-0"))
     ((Pair (Some field) (Some scroller))
      (write-line (string-property field "value"))
      (write-line (show (number-property scroller "scrollTop"))))
     (_ (panic "missing editor"))))
 
-(: run (impl (Fn Bool -> Unit ! mut console tasks)))
-(define (run changed-path)
+(define (run (changed-path Bool)) (→ Unit) (! mut console tasks)
   (handle fetch
       ((request (lambda (method url headers body)
                   (Ok (Reply 200 "{\"text\":\"(a   b)\",\"revision\":\"first\"}"))))
@@ -65,7 +63,7 @@
                                                             (ann update-session
                                                                  (dyn (Fn Session
                                                                           (Option Msg)
-                                                                          -> Session
+                                                                          → Session
                                                                           ! mut completion console dom fetch)))
                                                             session-view session-window snapshot
                                                             (lambda (model) (unit))
@@ -79,13 +77,12 @@
                                                    (race-update changed-path injected model msg))
                                                  (dyn (Fn Session
                                                           (Option Msg)
-                                                          -> Session
+                                                          → Session
                                                           ! mut completion console dom fetch)))
                                             session-view session-window snapshot
                                             (lambda (model) (unit)) (lambda (model) (unit))))
                          (report-editor)))
       (unless (ref-get injected) (panic "the formatting race was not exercised"))
       (unit))))
-
 
 (dispatch-local (once (lambda () (run #f) (run #t))))

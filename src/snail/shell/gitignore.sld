@@ -27,9 +27,10 @@
 
     ;; None means Git is unavailable or the directory is outside a worktree.
     ;; Once a repository is found, failures are errors, never partial results.
-    (: read-gitignore
-       (impl (Fn String -> (Result (Option IgnoreSnapshot) String) ! mut tasks process)))
-    (define (read-gitignore directory)
+
+    (define (read-gitignore (directory String))
+      (→ (Result (Option IgnoreSnapshot) String))
+      (! mut tasks process)
       (match (git-output directory (list "rev-parse" "--is-inside-work-tree" "--show-prefix"))
         ((Err message) (Err message))
         ((Ok (None)) (Ok (None)))
@@ -41,8 +42,8 @@
 
     ;; The first line is fixed vocabulary; the remaining prefix may contain
     ;; newlines. A bare repository and Git's own metadata are not worktrees.
-    (: worktree-prefix (impl (Fn Captured -> (Result (Option String) String))))
-    (define (worktree-prefix result)
+
+    (define (worktree-prefix (result Captured)) (→ (Result (Option String) String))
       (match (::exit result)
         ((Exited 128) (Ok (None)))
         ((Exited 0)
@@ -59,8 +60,8 @@
         (_ (Err (git-failure result)))))
 
     ;; One final newline frames the prefix; newlines inside names stay intact.
-    (: project-prefix (impl (Fn String -> (Result String String))))
-    (define (project-prefix text)
+
+    (define (project-prefix (text String)) (→ (Result String String))
       (let ((length (string-length text)))
         (if (and (> length 0) (char=? (string-ref text (- length 1)) #\newline)
                  (or (= length 1) (char=? (string-ref text (- length 2)) #\/)))
@@ -69,8 +70,8 @@
 
     ;; Git changes directories physically. Each slash in its normalized prefix
     ;; names one parent back to the root, even if the caller used a symlink.
-    (: back-to-root (impl (Fn String -> String)))
-    (define (back-to-root prefix)
+
+    (define (back-to-root (prefix String)) (→ String)
       (fold-left (lambda (path char) (if (char=? char #\/) (string-append path "../") path))
                  "./" (string->list prefix)))
 
@@ -78,9 +79,10 @@
     ;; inside a directory excluded by an ancestor. A literal pathspec limits
     ;; the traversal to this project, even if its name contains glob syntax.
     ;; Its trailing slash must go too, or Git repeats that prefix failure.
-    (: query-ignored
-       (impl (Fn String String -> (Result (Option IgnoreSnapshot) String) ! mut tasks process)))
-    (define (query-ignored directory prefix)
+
+    (define (query-ignored (directory String) (prefix String))
+      (→ (Result (Option IgnoreSnapshot) String))
+      (! mut tasks process)
       (match (git-output directory (list "-C" (back-to-root prefix) "--literal-pathspecs"
                                          "ls-files" "--others" "--ignored" "--exclude-standard"
                                          "--directory"
@@ -98,8 +100,7 @@
               ((Ok paths) (parse-paths prefix paths))))
            (_ (Err (git-failure result)))))))
 
-    (: ignored? (impl (Fn IgnoreSnapshot String -> Bool)))
-    (define (ignored? snapshot relative)
+    (define (ignored? (snapshot IgnoreSnapshot) (relative String)) (→ Bool)
       (let* ((path (string-append (::prefix snapshot) relative))
              (paths (::paths snapshot)))
         (or (table-contains? paths path)
@@ -112,8 +113,8 @@
 
     ;; NUL framing preserves spaces, newlines, backslashes and Unicode.
     ;; Parse once into membership evidence; a truncated record is an error.
-    (: parse-paths (impl (Fn String String -> (Result (Option IgnoreSnapshot) String))))
-    (define (parse-paths prefix text)
+
+    (define (parse-paths (prefix String) (text String)) (→ (Result (Option IgnoreSnapshot) String))
       (let loop ((start 0) (at 0) (paths empty-table))
         (cond ((= at (string-length text))
                (if (= start at) (Ok (Some (IgnoreSnapshot prefix paths)))
@@ -123,14 +124,12 @@
                      (table-set paths (substring text start at) (unit))))
               (else (loop start (+ at 1) paths)))))
 
-    (: decoded (impl (Fn Bytes -> (Result String String))))
-    (define (decoded bytes)
+    (define (decoded (bytes Bytes)) (→ (Result String String))
       (match (utf8->string bytes)
         ((Ok text) (Ok text))
         ((Err _) (Err "gitignore: Git returned a path that is not UTF-8"))))
 
-    (: git-failure (impl (Fn Captured -> String)))
-    (define (git-failure result)
+    (define (git-failure (result Captured)) (→ String)
       (match (utf8->string (::stderr result))
         ((Ok text) (string-append "gitignore: Git failed: " text))
         ((Err _) "gitignore: Git failed")))
@@ -140,9 +139,10 @@
     ;; Each query owns its process and pipes. Both readers run while Git
     ;; runs, so a full pipe cannot deadlock it and other service tasks can
     ;; progress. No persistent child, shared cache or shell interpretation.
-    (: git-output
-       (impl (Fn String (List String) -> (Result (Option Captured) String) ! mut tasks process)))
-    (define (git-output directory arguments)
+
+    (define (git-output (directory String) (arguments (List String)))
+      (→ (Result (Option Captured) String))
+      (! mut tasks process)
       (match (spawn (Command "git" arguments directory))
         ((Err error)
          (if (string=? (::code error) "ENOENT") (Ok (None))
@@ -151,8 +151,9 @@
          (close-input child)
          (collect-git child))))
 
-    (: collect-git (impl (Fn Process -> (Result (Option Captured) String) ! mut tasks process)))
-    (define (collect-git child)
+    (define (collect-git (child Process))
+      (→ (Result (Option Captured) String))
+      (! mut tasks process)
       (let ((errors (make-mailbox)))
         (dispatch-local
          (once (lambda () (mailbox-post errors (read-pipe child (Stderr) 65536 (Nil))))))
@@ -170,9 +171,10 @@
 
     ;; Close on any read failure so the other reader wakes too. Bounds are
     ;; explicit failures, rather than a quietly truncated exclusion set.
-    (: read-pipe
-       (impl (Fn Process Stream I64 (List Bytes) -> (Result Bytes String) ! tasks process)))
-    (define (read-pipe child stream remaining chunks)
+
+    (define (read-pipe (child Process) (stream Stream) (remaining I64) (chunks (List Bytes)))
+      (→ (Result Bytes String))
+      (! tasks process)
       (match (read-output child stream 65536)
         ((Err error)
          (close-process child)

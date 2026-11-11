@@ -9,8 +9,7 @@
        diagnostics->string
        Failed))
 
-(: project Project)
-(define project
+(define project (→ Project)
   (match (compiling
           (lambda ()
             (parse-project

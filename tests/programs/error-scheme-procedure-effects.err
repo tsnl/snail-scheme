@@ -1,2 +1,2 @@
-type mismatch: expected (dyn (Fn (List Any) -> Any)), found
+type mismatch: expected (dyn (Fn (List Any) → Any)), found
 dyn-cast

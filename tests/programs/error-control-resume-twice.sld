@@ -3,10 +3,9 @@
 
 ;; `resume` is linear: an implementation calls it, or drops it, exactly once.
 (effect Choose
-  ((ctl choose (dyn (Fn -> Bool)))))
+  ((ctl choose (dyn (Fn → Bool)))))
 
-(: both (impl (Fn -> (List Bool))))
-(define (both)
+(define (both) (→ (List Bool))
   (handle Choose ((choose (lambda (resume) (append (resume #t) (resume #f)))))
     (list (choose))))
 

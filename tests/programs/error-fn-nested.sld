@@ -3,7 +3,6 @@
  (snail core io))
 
 ;; A lambda inside a `fn` cannot carry a capture out for it.
-(: greet (impl (Fn String -> Unit ! console)))
-(define (greet name)
+(define (greet (name String)) (→ Unit) (! console)
   (let ((say (fn () ((lambda () (write-line name))))))
     (say)))

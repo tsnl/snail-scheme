@@ -3,8 +3,7 @@
  (snail core io)
  (gradual describe))
 
-(: unknown Any)
-(define unknown #t)
+(define unknown (→ Any) #t)
 (handle dyn-cast
     ((conversion-failed (lambda (error)
                           (write-line (match (::reason error)

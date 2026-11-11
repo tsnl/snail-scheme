@@ -64,12 +64,11 @@ b")
      zeta) ; stays on the last line
 (define message
   "a string much longer than forty columns cannot break")
-(: run
-   (impl (Fn Config
-             (List String)
-             ->
-             Status
-             ! fs console)))
+(define (run (config Config)
+             (args (List String)))
+  (→ Status)
+  (! fs console)
+  (status config args))
 (bytes
  #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))
 (display "one")

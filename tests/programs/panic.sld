@@ -2,8 +2,7 @@
  (snail core base)
  (snail core io))
 
-(: head (All (T) (requires (Copy T)) (impl (Fn (List T) -> T))))
-(define (head items)
+(define (head (items (List T))) (→ T) (∀ T) (⊨ (Copy T))
   (match items
     ((Cons item _) item)
     ((Nil) (panic "head of an empty list"))))

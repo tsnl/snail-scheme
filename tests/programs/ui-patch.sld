@@ -17,12 +17,10 @@
 (enum Msg
   (Next))
 
-(: update (impl (Fn I64 Msg -> (Pair I64 (List (dyn (FnOnce -> Msg ! tasks)))))))
-(define (update step message)
+(define (update (step I64) (message Msg)) (→ (Pair I64 (List (dyn (FnOnce → Msg ! tasks)))))
   (Pair (+ step 1) (Nil)))
 
-(: view (impl (Fn I64 -> (Html Msg))))
-(define (view step)
+(define (view (step I64)) (→ (Html Msg))
   (Element "div"
            (Nil)
            (list (Element "button"
@@ -41,15 +39,13 @@
                  (Element "input" (if (= step 0) (list (FlagProperty "disabled" #t)) (Nil)) (Nil))
                  (Element "ul" (Nil) (map item (items step))))))
 
-(: items (impl (Fn I64 -> (List String))))
-(define (items step)
+(define (items (step I64)) (→ (List String))
   (cond ((= step 0) (list "b" "c"))
         ((= step 1) (list "a" "b" "c"))
         ((< step 4) (list "a" "x" "b" "c"))
         (else (list "c" "b"))))
 
-(: item (impl (Fn String -> (Html Msg))))
-(define (item name)
+(define (item (name String)) (→ (Html Msg))
   (Element "li" (list (Keyed name)) (list (Text name))))
 
 (dispatch-local

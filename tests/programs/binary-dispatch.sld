@@ -2,20 +2,20 @@
  (snail core base)
  (snail core io))
 
-(effect log ((message (dyn (Fn String -> Unit)))))
+(effect log ((message (dyn (Fn String → Unit)))))
 (typeclass (Subtract e A B)
   (type Output)
-  (: subtract (impl (Fn A B -> Output ! e))))
+  (: subtract (impl (Fn A B → Output ! e))))
 (define-instance-set ordinary
   (instance (Subtract (!) I64 I64)
     (type Output I64)
-    (define (subtract a b) (- a b)))
+    (define subtract (lambda (a b) (- a b))))
   (instance (Subtract (! log) I64 F64)
     (type Output F64)
-    (define (subtract a b) (message "source") (- (i64->f64 a) b)))
+    (define subtract (lambda (a b) (message "source") (- (i64->f64 a) b))))
   (instance (Subtract (!) F64 I64)
     (type Output F64)
-    (define (subtract a b) (- a (i64->f64 b)))))
+    (define subtract (lambda (a b) (- a (i64->f64 b))))))
 
 (with-instances (ordinary)
                 (define-instance-set erased
@@ -25,10 +25,9 @@
 (define-instance-set alternate
   (instance (Subtract (!) I64 F64)
     (type Output F64)
-    (define (subtract a b) (+ (i64->f64 a) b))))
+    (define subtract (lambda (a b) (+ (i64->f64 a) b)))))
 
-(: ordered (impl (Fn String Any -> Any ! console)))
-(define (ordered label value) (write-line label) value)
+(define (ordered (label String) (value Any)) (→ Any) (! console) (write-line label) value)
 
 (with-instances (erased alternate)
                 (handle dyn-cast ((conversion-failed (lambda (error)
@@ -54,7 +53,8 @@
                     (unit))))
 
 ;; Naming associated evidence does not execute its row.
-(: keep (All (A B e)
-             (requires (Subtract e A B))
-             (impl (Fn (Subtract.Output e A B) -> (Subtract.Output e A B)))))
-(define (keep value) value)
+(define (keep (value (Subtract.Output e A B)))
+  (→ (Subtract.Output e A B))
+  (∀ A B e)
+  (⊨ (Subtract e A B))
+  value)

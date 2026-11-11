@@ -1,1 +1,1 @@
-the instance (Twice (Option A)) requires (Copy A), and (dyn (FnOnce -> Unit ! console)) is linear
+the instance (Twice (Option A)) requires (Copy A), and (dyn (FnOnce → Unit ! console)) is linear

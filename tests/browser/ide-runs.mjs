@@ -16,7 +16,7 @@ const config = includeApp => `(
   (build-target failure (program (entry "failure.sld")))
   ${includeApp ? '(run-target app (run worker))' : ''}
   (run-target crash (run failure)))`;
-const program = value => `(import (snail core base) (snail core io))\n(: greeting String)\n(define greeting ${value})\n(write-line greeting)\n`;
+const program = value => `(import (snail core base) (snail core io))\n(define greeting (→ String) ${value})\n(write-line greeting)\n`;
 await writeFile(join(project, 'project.datum'), config(true));
 await writeFile(join(project, 'main.sld'), program('"hello"'));
 await writeFile(join(project, 'worker.sld'), '(import (snail core base) (snail core io) (snail shell task)) (dispatch-local (once (lambda () (let loop () (write-line "<b>literal output</b>") (sleep 80) (loop)))))');

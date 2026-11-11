@@ -5,12 +5,12 @@
   (begin
     ;; A handle says its name when it is released.
     (effect log
-      ((say (dyn (Fn String -> Unit)))))
+      ((say (dyn (Fn String → Unit)))))
 
     (struct Handle
       ((name String)))
 
     (instance (Drop (! log) Handle)
-      (define (drop handle)
-        (match handle
-          ((Handle name) (say name)))))))
+      (define drop
+        (lambda (handle) (match handle
+                           ((Handle name) (say name))))))))

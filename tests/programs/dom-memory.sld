@@ -9,8 +9,7 @@
 ;; properties read back, listeners made and dropped, and removing a
 ;; subtree. The trace has a line per operation; the tree prints as HTML.
 
-(: build (impl (Fn -> String ! dom)))
-(define (build)
+(define (build) (→ String) (! dom)
   (let* ((root (document-root))
          (list-node (create-element "ul"))
          (first (create-element "li"))
@@ -44,15 +43,13 @@
                      "] "
                      (show (::id keys))))))
 
-(: result (Pair String Document))
-(define result (with-memory-dom (Nil) build))
+(define result (→ (Pair String Document)) (with-memory-dom (Nil) build))
 
 (write-line (::first result))
 (write-line (document->html (::second result)))
 (for-each write-line (document-trace (::second result)))
 
-(: removed Document)
-(define removed
+(define removed (→ Document)
   (::second (with-memory-dom (Nil) (lambda ()
                                      (let ((outer (create-element "div"))
                                            (inner (create-element "p")))

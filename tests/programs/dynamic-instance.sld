@@ -6,21 +6,15 @@
 (instance (Num (! dyn-cast) Any)
   (dispatch I64 F64))
 
-(: describe-twice (All (T e) (requires (Describe e T) (Copy T)) (impl (Fn T -> String ! e))))
-(define (describe-twice value)
+(define (describe-twice (value T)) (→ String) (! e) (∀ T e) (⊨ (Describe e T) (Copy T))
   (string-append (describe value) (describe value)))
 
-(: sum (All (T e) (requires (Num e T)) (impl (Fn T T -> T ! e))))
-(define (sum a b) (+ a b))
+(define (sum (a T) (b T)) (→ T) (! e) (∀ T e) (⊨ (Num e T)) (+ a b))
 
-(: left Any)
-(define left 20)
-(: right Any)
-(define right 22)
-(: word Any)
-(define word "ok")
-(: numbers Any)
-(define numbers (list 1 2 3))
+(define left (→ Any) 20)
+(define right (→ Any) 22)
+(define word (→ Any) "ok")
+(define numbers (→ Any) (list 1 2 3))
 
 (display (sum 20 22))
 (newline)

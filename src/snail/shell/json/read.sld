@@ -19,8 +19,8 @@
     ;; so what the writer wrote reads back as it was. Each reader takes the
     ;; text and the index where its value starts, and gives the value with
     ;; the index after it.
-    (: string->json (impl (Fn String -> (Option Json))))
-    (define (string->json text)
+
+    (define (string->json (text String)) (→ (Option Json))
       (let ((chars (string->vector text)))
         (match (read-value chars (skip-space chars 0))
           ((Some (Pair value end))
@@ -28,27 +28,24 @@
           ((None) (None)))))
 
     ;; The value of an object's first member named `name`.
-    (: json-member (impl (Fn Json String -> (Option Json))))
-    (define (json-member value name)
+
+    (define (json-member (value Json) (name String)) (→ (Option Json))
       (match value
         ((JsonObject members) (assoc-ref members name))
         (_ (None))))
 
     ;; ---- Values ----
 
-    (: skip-space (impl (Fn (Vector Char) I64 -> I64)))
-    (define (skip-space chars index)
+    (define (skip-space (chars (Vector Char)) (index I64)) (→ I64)
       (if (and (< index (vector-length chars))
                (member? (vector-ref chars index) (list #\space #\tab #\newline (integer->char 13))))
           (skip-space chars (+ index 1))
           index))
 
-    (: at? (impl (Fn (Vector Char) I64 Char -> Bool)))
-    (define (at? chars index char)
+    (define (at? (chars (Vector Char)) (index I64) (char Char)) (→ Bool)
       (and (< index (vector-length chars)) (char=? (vector-ref chars index) char)))
 
-    (: read-value (impl (Fn (Vector Char) I64 -> (Option (Pair Json I64)))))
-    (define (read-value chars index)
+    (define (read-value (chars (Vector Char)) (index I64)) (→ (Option (Pair Json I64)))
       (cond ((at? chars index #\{) (read-members chars (skip-space chars (+ index 1)) (Nil)))
             ((at? chars index #\[) (read-items chars (skip-space chars (+ index 1)) (Nil)))
             ((at? chars index #\") (read-string-value chars (+ index 1)))
@@ -57,8 +54,8 @@
             ((at? chars index #\n) (read-word chars index "null" (JsonNull)))
             (else (read-integer chars index))))
 
-    (: read-word (impl (Fn (Vector Char) I64 String Json -> (Option (Pair Json I64)))))
-    (define (read-word chars index word value)
+    (define (read-word (chars (Vector Char)) (index I64) (word String) (value Json))
+      (→ (Option (Pair Json I64)))
       (let ((end (+ index (string-length word))))
         (if (and (<= end (vector-length chars))
                  (string=? (vector->string (subvector chars index end)) word))
@@ -67,8 +64,8 @@
 
     ;; An optional minus and digits, which a fraction or an exponent must
     ;; not follow.
-    (: read-integer (impl (Fn (Vector Char) I64 -> (Option (Pair Json I64)))))
-    (define (read-integer chars index)
+
+    (define (read-integer (chars (Vector Char)) (index I64)) (→ (Option (Pair Json I64)))
       (let ((end (digits-end chars (if (at? chars index #\-) (+ index 1) index))))
         (match (if (any? (lambda (char) (at? chars end char)) (list #\. #\e #\E))
                    (None)
@@ -76,16 +73,16 @@
           ((Some number) (Some (Pair (JsonInteger number) end)))
           ((None) (None)))))
 
-    (: digits-end (impl (Fn (Vector Char) I64 -> I64)))
-    (define (digits-end chars index)
+    (define (digits-end (chars (Vector Char)) (index I64)) (→ I64)
       (if (and (< index (vector-length chars)) (char-numeric? (vector-ref chars index)))
           (digits-end chars (+ index 1))
           index))
 
     ;; An array's items after its `[`; `items` holds those read so far,
     ;; newest first.
-    (: read-items (impl (Fn (Vector Char) I64 (List Json) -> (Option (Pair Json I64)))))
-    (define (read-items chars index items)
+
+    (define (read-items (chars (Vector Char)) (index I64) (items (List Json)))
+      (→ (Option (Pair Json I64)))
       (if (and (null? items) (at? chars index #\]))
           (Some (Pair (JsonArray (Nil)) (+ index 1)))
           (match (read-value chars index)
@@ -97,9 +94,9 @@
             ((None) (None)))))
 
     ;; An object's members after its `{`, as an array's items.
-    (: read-members
-       (impl (Fn (Vector Char) I64 (List (Pair String Json)) -> (Option (Pair Json I64)))))
-    (define (read-members chars index members)
+
+    (define (read-members (chars (Vector Char)) (index I64) (members (List (Pair String Json))))
+      (→ (Option (Pair Json I64)))
       (if (and (null? members) (at? chars index #\}))
           (Some (Pair (JsonObject (Nil)) (+ index 1)))
           (match (read-member chars index)
@@ -112,8 +109,9 @@
             ((None) (None)))))
 
     ;; A member's name, a colon and its value.
-    (: read-member (impl (Fn (Vector Char) I64 -> (Option (Pair (Pair String Json) I64)))))
-    (define (read-member chars index)
+
+    (define (read-member (chars (Vector Char)) (index I64))
+      (→ (Option (Pair (Pair String Json) I64)))
       (match (if (at? chars index #\") (read-string chars (+ index 1) (Nil)) (None))
         ((Some (Pair name end))
          (let ((colon (skip-space chars end)))
@@ -126,8 +124,7 @@
 
     ;; ---- Strings ----
 
-    (: read-string-value (impl (Fn (Vector Char) I64 -> (Option (Pair Json I64)))))
-    (define (read-string-value chars index)
+    (define (read-string-value (chars (Vector Char)) (index I64)) (→ (Option (Pair Json I64)))
       (match (read-string chars index (Nil))
         ((Some (Pair text end)) (Some (Pair (JsonString text) end)))
         ((None) (None))))
@@ -135,8 +132,9 @@
     ;; A string's text after its opening quote, and the index after its
     ;; closing one; `text` holds the characters read so far, newest first.
     ;; A control character must be escaped.
-    (: read-string (impl (Fn (Vector Char) I64 (List Char) -> (Option (Pair String I64)))))
-    (define (read-string chars index text)
+
+    (define (read-string (chars (Vector Char)) (index I64) (text (List Char)))
+      (→ (Option (Pair String I64)))
       (cond ((at? chars index #\") (Some (Pair (list->string (reverse text)) (+ index 1))))
             ((at? chars index #\\)
              (match (read-escape chars (+ index 1))
@@ -146,8 +144,7 @@
              (read-string chars (+ index 1) (Cons (vector-ref chars index) text)))
             (else (None))))
 
-    (: short-escapes (List (Pair Char Char)))
-    (define short-escapes
+    (define short-escapes (→ (List (Pair Char Char)))
       (list (Pair #\" #\")
             (Pair #\\ #\\)
             (Pair #\/ #\/)
@@ -156,8 +153,8 @@
             (Pair #\n #\newline) (Pair #\r (integer->char 13)) (Pair #\t #\tab)))
 
     ;; The character an escape names, after its backslash.
-    (: read-escape (impl (Fn (Vector Char) I64 -> (Option (Pair Char I64)))))
-    (define (read-escape chars index)
+
+    (define (read-escape (chars (Vector Char)) (index I64)) (→ (Option (Pair Char I64)))
       (if (at? chars index #\u)
           (read-unicode chars (+ index 1))
           (match (if (< index (vector-length chars))
@@ -168,8 +165,8 @@
 
     ;; Four hex digits after `\u`; a high surrogate that an escaped low one
     ;; follows makes one scalar with it.
-    (: read-unicode (impl (Fn (Vector Char) I64 -> (Option (Pair Char I64)))))
-    (define (read-unicode chars index)
+
+    (define (read-unicode (chars (Vector Char)) (index I64)) (→ (Option (Pair Char I64)))
       (match (hex-value chars index)
         ((Some code)
          (match (low-surrogate chars (+ index 4) code)
@@ -180,8 +177,8 @@
         ((None) (None))))
 
     ;; The low surrogate escaped at `index`, when `high` is a high one.
-    (: low-surrogate (impl (Fn (Vector Char) I64 I32 -> (Option I32))))
-    (define (low-surrogate chars index high)
+
+    (define (low-surrogate (chars (Vector Char)) (index I64) (high I32)) (→ (Option I32))
       (match (if (and (>= high 55296)
                       (<= high 56319)
                       (at? chars index #\\)
@@ -191,8 +188,7 @@
         ((Some low) (if (and (>= low 56320) (<= low 57343)) (Some low) (None)))
         ((None) (None))))
 
-    (: hex-value (impl (Fn (Vector Char) I64 -> (Option I32))))
-    (define (hex-value chars index)
+    (define (hex-value (chars (Vector Char)) (index I64)) (→ (Option I32))
       (fold-left (lambda (value offset)
                    (match (Pair value
                                 (if (< (+ index offset) (vector-length chars))
@@ -203,8 +199,8 @@
                  (ann (Some 0) (Option I32)) (iota 4)))
 
     ;; Lowercase digits come first, uppercase sixteen places later.
-    (: hex-digit (impl (Fn Char -> (Option I32))))
-    (define (hex-digit char)
+
+    (define (hex-digit (char Char)) (→ (Option I32))
       (match (string-index "0123456789abcdef0123456789ABCDEF" char)
         ((Some position) (Some (i64->i32 (remainder position 16))))
         ((None) (None))))))

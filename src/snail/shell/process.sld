@@ -79,15 +79,15 @@
     ;; standard streams, and nothing of the program runs after. It returns
     ;; only when it cannot, with why.
     (effect process
-      ((spawn (dyn (Fn Command -> (Result Process ProcessError) ! tasks)))
-       (read-output (dyn (Fn Process Stream I32 -> (Result (Option Bytes) ProcessError) ! tasks)))
-       (write-input (dyn (Fn Process Bytes -> (Result I32 ProcessError) ! tasks)))
-       (close-input (dyn (Fn Process -> (Result Unit ProcessError))))
-       (send-signal (dyn (Fn Process Signal -> (Result Unit ProcessError))))
-       (wait-exit (dyn (Fn Process -> (Result Exit ProcessError) ! tasks)))
-       (close-process (dyn (Fn Process -> (Result Unit ProcessError))))
-       (run (dyn (Fn Command Bytes -> (Result Captured ProcessError))))
-       (exec (dyn (Fn Command -> ProcessError))))
+      ((spawn (dyn (Fn Command → (Result Process ProcessError) ! tasks)))
+       (read-output (dyn (Fn Process Stream I32 → (Result (Option Bytes) ProcessError) ! tasks)))
+       (write-input (dyn (Fn Process Bytes → (Result I32 ProcessError) ! tasks)))
+       (close-input (dyn (Fn Process → (Result Unit ProcessError))))
+       (send-signal (dyn (Fn Process Signal → (Result Unit ProcessError))))
+       (wait-exit (dyn (Fn Process → (Result Exit ProcessError) ! tasks)))
+       (close-process (dyn (Fn Process → (Result Unit ProcessError))))
+       (run (dyn (Fn Command Bytes → (Result Captured ProcessError))))
+       (exec (dyn (Fn Command → ProcessError))))
       (default
         ((spawn (lambda (command)
                   (match (located command)
@@ -143,14 +143,14 @@
     ;; during an orderly shutdown still ends the program at once, unless a
     ;; task waits again.
     (effect signals
-      ((termination (dyn (Fn -> Signal ! tasks))))
+      ((termination (dyn (Fn → Signal ! tasks))))
       (default
         ((termination (lambda ()
                         (received-signal (through-host host-start-termination host-finish)))))))
 
     ;; Only SIGINT (2) and SIGTERM (15) are delivered to `termination`.
-    (: received-signal (impl (Fn I32 -> Signal)))
-    (define (received-signal number)
+
+    (define (received-signal (number I32)) (→ Signal)
       (if (= number 2) (Interrupt) (Terminate)))
 
     ;; ---- Native tokens ----
@@ -160,8 +160,7 @@
     (struct NativeProcess
       ((handle I32)))
 
-    (: process-handle (impl (Fn Process -> I32)))
-    (define (process-handle child)
+    (define (process-handle (child Process)) (→ I32)
       (let ((token (::token child)))
         (match (try-convert token NativeProcess)
           ((Ok native) (::handle native))
@@ -169,29 +168,27 @@
 
     ;; The host reads a command a character at a time: its directory, the
     ;; program's path, the name it is run as, then its arguments.
-    (: send-command (impl (Fn Command String -> Unit)))
-    (define (send-command command path)
+
+    (define (send-command (command Command) (path String)) (→ Unit)
       (for-each send-text
                 (Cons (::directory command)
                       (Cons path (Cons (::program command) (::arguments command))))))
 
-    (: send-text (impl (Fn String -> Unit)))
-    (define (send-text text)
+    (define (send-text (text String)) (→ Unit)
       (let loop ((index 0))
         (when (< index (string-length text))
           (host-argument-character (string-ref text index))
           (loop (+ index 1))))
       (host-argument-end))
 
-    (: stream-descriptor (impl (Fn Stream -> I32)))
-    (define (stream-descriptor stream)
+    (define (stream-descriptor (stream Stream)) (→ I32)
       (match stream
         ((Stdout) 1)
         ((Stderr) 2)))
 
     ;; POSIX gives these three signals the same numbers everywhere.
-    (: signal-number (impl (Fn Signal -> I32)))
-    (define (signal-number signal)
+
+    (define (signal-number (signal Signal)) (→ I32)
       (match signal
         ((Terminate) 15)
         ((Kill) 9)
@@ -205,8 +202,8 @@
     ;; directory and a relative one is taken from that directory, as the
     ;; child takes it. With no PATH, nothing is found. Finding it here gives
     ;; spawn, run and exec one rule, and the host runs the path it is given.
-    (: located (impl (Fn Command -> (Result String ProcessError))))
-    (define (located command)
+
+    (define (located (command Command)) (→ (Result String ProcessError))
       (let ((program (::program command)))
         (match (string-index program #\/)
           ((Some _) (Ok program))
@@ -217,20 +214,19 @@
              ((None) (Err (ProcessError "ENOENT"))))))))
 
     ;; Where each entry of PATH, in order, would hold `program`.
-    (: candidates (impl (Fn String -> (List String))))
-    (define (candidates program)
+
+    (define (candidates (program String)) (→ (List String))
       (map (lambda (entry) (string-append (if (string=? entry "") "." entry) "/" program))
            (path-entries)))
 
     ;; PATH's entries, empty ones included.
-    (: path-entries (impl (Fn -> (List String))))
-    (define (path-entries)
+
+    (define (path-entries) (→ (List String))
       (match (environment-variable "PATH")
         ((Some text) (split-entries text))
         ((None) (Nil))))
 
-    (: split-entries (impl (Fn String -> (List String))))
-    (define (split-entries text)
+    (define (split-entries (text String)) (→ (List String))
       (match (string-index text #\:)
         ((Some index)
          (Cons (substring text 0 index)
@@ -240,8 +236,8 @@
     ;; The host answers with access(2), which WASI lacks: whether `path`,
     ;; taken from `directory`, names a regular file this process may
     ;; execute.
-    (: executable? (impl (Fn String String -> Bool)))
-    (define (executable? directory path)
+
+    (define (executable? (directory String) (path String)) (→ Bool)
       (send-text directory)
       (send-text path)
       (= (host-executable) 1))
@@ -250,48 +246,40 @@
 
     ;; As (snail shell socket) reads its answers, with the table in
     ;; (snail runtime native process).
-    (: native
-       (All (T)
-            (impl
-             (Fn (dyn (Fn I64 -> Unit)) (dyn (Fn I32 -> T)) -> (Result T ProcessError) ! tasks))))
-    (define (native start success)
+
+    (define (native (start (dyn (Fn I64 → Unit))) (success (dyn (Fn I32 → T))))
+      (→ (Result T ProcessError))
+      (! tasks)
+      (∀ T)
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 
-    (: answered (All (T) (impl (Fn I32 (dyn (Fn I32 -> T)) -> (Result T ProcessError)))))
-    (define (answered answer success)
+    (define (answered (answer I32) (success (dyn (Fn I32 → T)))) (→ (Result T ProcessError)) (∀ T)
       (if (< answer 0)
           (Err (ProcessError (held-text 0)))
           (Ok (success answer))))
 
-    (: held-bytes (impl (Fn I32 -> Bytes)))
-    (define (held-bytes position)
+    (define (held-bytes (position I32)) (→ Bytes)
       (vector-generate (i32->i64 (host-held-length position))
                        (lambda (index) (i32->u8 (host-held-byte position (i64->i32 index))))))
 
     ;; Error codes and signal names are ASCII.
-    (: held-text (impl (Fn I32 -> String)))
-    (define (held-text position)
+
+    (define (held-text (position I32)) (→ String)
       (string-generate (i32->i64 (host-held-length position))
                        (lambda (index) (i32->char (host-held-byte position (i64->i32 index))))))
 
-    (: spawned (impl (Fn I32 -> Process)))
-    (define (spawned handle)
+    (define (spawned (handle I32)) (→ Process)
       (Process (type-convert (NativeProcess handle) Any) (host-held-number)))
 
-    (: held-read (impl (Fn I32 -> (Option Bytes))))
-    (define (held-read answer)
+    (define (held-read (answer I32)) (→ (Option Bytes))
       (if (= answer 0) (None) (Some (held-bytes 0))))
 
-    (: held-exit (impl (Fn I32 -> Exit)))
-    (define (held-exit answer)
+    (define (held-exit (answer I32)) (→ Exit)
       (if (= answer 0) (Exited (host-held-number)) (Signaled (held-text 0))))
 
-    (: captured (impl (Fn I32 -> Captured)))
-    (define (captured answer)
+    (define (captured (answer I32)) (→ Captured)
       (Captured (held-exit answer) (held-bytes 1) (held-bytes 2)))
 
-    (: count (impl (Fn I32 -> I32)))
-    (define (count written) written)
+    (define (count (written I32)) (→ I32) written)
 
-    (: done (impl (Fn I32 -> Unit)))
-    (define (done _) (unit))))
+    (define (done (_ I32)) (→ Unit) (unit))))

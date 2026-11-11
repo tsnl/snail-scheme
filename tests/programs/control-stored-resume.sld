@@ -6,10 +6,10 @@
 ;; whoever holds it resumes the computation later, after the handler has
 ;; returned, under whatever handlers are in scope where it is called.
 (effect Gen
-  ((ctl yield (dyn (Fn I64 -> Unit)))))
+  ((ctl yield (dyn (Fn I64 → Unit)))))
 
 (effect Log
-  ((log (dyn (Fn String -> Unit)))))
+  ((log (dyn (Fn String → Unit)))))
 
 ;; A step of a generator: done, or a value and the rest, which may be
 ;; resumed once. Holding `resume` makes a Step linear.
@@ -17,18 +17,16 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (dyn (FnOnce Unit -> Step ! Log))))))
+    (next (dyn (FnOnce Unit → Step ! Log))))))
 
 ;; The generator's first step: the handler hands back each value with the
 ;; rest of the body still to run.
-(: start (impl (Fn (dyn (Fn -> Unit ! Gen Log)) -> Step ! Log)))
-(define (start body)
+(define (start (body (dyn (Fn → Unit ! Gen Log)))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (value resume) (Yielded value resume))))
     (body)
     (Done)))
 
-(: count-from (impl (Fn String I64 I64 -> Unit ! Gen Log)))
-(define (count-from name first count)
+(define (count-from (name String) (first I64) (count I64)) (→ Unit) (! Gen Log)
   (when (> count 0)
     (log (string-append name " produces " (show first)))
     (yield first)
@@ -39,16 +37,14 @@
    (right Step)))
 
 ;; Both generators take their first step under one log.
-(: begin-both (impl (Fn -> Pair-of-steps ! console)))
-(define (begin-both)
+(define (begin-both) (→ Pair-of-steps) (! console)
   (handle Log ((log (lambda (line) (write-line (string-append "first log: " line)))))
     (Pair-of-steps (start (lambda () (count-from "a" 1 3)))
                    (start (lambda () (count-from "b" 10 2))))))
 
 ;; The rest alternates between them, long after their handlers returned,
 ;; under another log: each resumed step logs to the handler in scope here.
-(: alternate (impl (Fn Step Step -> Unit ! Log console)))
-(define (alternate this other)
+(define (alternate (this Step) (other Step)) (→ Unit) (! Log console)
   (match this
     ((Done)
      (match other
@@ -69,16 +65,15 @@
 ;; resumer's evidence as its outside, so the yield reaches that handler,
 ;; not the one that was in scope when the generator started.
 (effect Ask
-  ((ctl ask (dyn (Fn -> I64)))))
+  ((ctl ask (dyn (Fn → I64)))))
 
 (enum Asking
   (Finished)
   (Gave
    ((value I64)
-    (next (dyn (FnOnce Unit -> Asking ! Ask))))))
+    (next (dyn (FnOnce Unit → Asking ! Ask))))))
 
-(: scaled (impl (Fn I64 -> Asking ! Ask)))
-(define (scaled count)
+(define (scaled (count I64)) (→ Asking) (! Ask)
   (handle Gen ((yield (lambda (value resume) (Gave value resume))))
     (let loop ((index 1))
       (when (<= index count)
@@ -86,8 +81,7 @@
         (loop (+ index 1))))
     (Finished)))
 
-(: drain (impl (Fn Asking I64 -> Unit ! console)))
-(define (drain step scale)
+(define (drain (step Asking) (scale I64)) (→ Unit) (! console)
   (match step
     ((Finished) (write-line "finished"))
     ((Gave value next)

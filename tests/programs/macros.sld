@@ -21,13 +21,12 @@
 ;; A macro that defines a function the caller names.
 (define-syntax define-square
   (syntax-rules ()
-    ((_ name) (define (name x) (* x x)))))
+    ((_ name) (define (name (x I64)) (→ I64) (* x x)))))
 
 (define-square square)
 
 ;; A core keyword may be shadowed.
-(: twice (impl (Fn (dyn (Fn I64 -> I64)) I64 -> I64)))
-(define (twice if x)
+(define (twice (if (dyn (Fn I64 → I64))) (x I64)) (→ I64)
   (if (if x)))
 
 (display (pairs (1 2 3) (4) 5))

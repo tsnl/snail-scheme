@@ -42,18 +42,15 @@
        (height I32))
       (deriving Serialize Deserialize))
 
-    (: new-shell (impl (Fn I32 I32 I32 -> Shell)))
-    (define (new-shell seed width height)
+    (define (new-shell (seed I32) (width I32) (height I32)) (→ Shell)
       (Shell (Menu) (i32->i64 seed) 0 #f #f width height))
 
     ;; The whole shell is the save; the host reports the screen's size after
     ;; restoring.
-    (: shell-save (impl (Fn Shell -> Shell)))
-    (define (shell-save shell)
+    (define (shell-save (shell Shell)) (→ Shell)
       shell)
 
-    (: shell-restore (impl (Fn Shell -> Shell)))
-    (define (shell-restore shell)
+    (define (shell-restore (shell Shell)) (→ Shell)
       shell)
 
     ;; Menu buttons open rumor-mill scenario i as action 9000 with argument
@@ -64,8 +61,7 @@
 
     ;; ---- Updates ----
 
-    (: open (impl (Fn Shell I32 I32 -> Shell)))
-    (define (open shell action argument)
+    (define (open (shell Shell) (action I32) (argument I32)) (→ Shell)
       (let ((index (i32->i64 argument)) (opened (+ (::opened shell) 1)))
         (cond ((= action action-ledger)
                (show-opened (Shell-ledger-guided-set shell #t)
@@ -82,26 +78,22 @@
 
     ;; Shows a newly opened prototype and counts it, pressing its Guide
     ;; button unless it has been `guided` before.
-    (: show-opened (impl (Fn Shell Screen Bool -> Shell)))
-    (define (show-opened shell screen guided)
+    (define (show-opened (shell Shell) (screen Screen) (guided Bool)) (→ Shell)
       (let ((shown (Shell-opened-set (Shell-screen-set shell screen) (+ (::opened shell) 1))))
         (if guided shown (forward shown (Press guide-open 0)))))
 
-    (: forward (impl (Fn Shell Input -> Shell)))
-    (define (forward shell input)
+    (define (forward (shell Shell) (input Input)) (→ Shell)
       (match (::screen shell)
         ((Menu) shell)
         ((Rumors screen) (Shell-screen-set shell (Rumors (update-mill-screen screen input))))
         ((Favors screen) (Shell-screen-set shell (Favors (update-ledger-screen screen input))))))
 
-    (: press (impl (Fn Shell I32 I32 -> Shell)))
-    (define (press shell action argument)
+    (define (press (shell Shell) (action I32) (argument I32)) (→ Shell)
       (cond ((= action action-menu) (Shell-screen-set shell (Menu)))
             ((match (::screen shell) ((Menu) #t) (_ #f)) (open shell action argument))
             (else (forward shell (Press action argument)))))
 
-    (: update-shell (impl (Fn Shell Input -> Shell)))
-    (define (update-shell shell input)
+    (define (update-shell (shell Shell) (input Input)) (→ Shell)
       (match input
         ((Press action argument) (press shell action argument))
         ((Resize width height)
@@ -112,15 +104,13 @@
 
     ;; `art` gives the bytes of each sheet the cast wears; main.sld passes
     ;; the embedded ones, and tests may pass none.
-    (: view-shell (impl (Fn Shell (dyn (Fn String -> (Option Source))) -> Frame)))
-    (define (view-shell shell art)
+    (define (view-shell (shell Shell) (art (dyn (Fn String → (Option Source))))) (→ Frame)
       (match (::screen shell)
         ((Menu) (empty-frame (Nil)))
         ((Rumors screen) (view-mill-screen screen art))
         ((Favors screen) (view-ledger-screen screen art))))
 
-    (: menu-panels (List Panel))
-    (define menu-panels
+    (define menu-panels (→ (List Panel))
       (list (Panel "menu" (At (TopLeft) 0)
                    (concatenate
                     (list (list (label "title" "Hearsay prototypes")
@@ -148,14 +138,12 @@
 
     ;; Each prototype puts the Menu and Guide buttons first in the top-right
     ;; corner.
-    (: menu-button (List Panel))
-    (define menu-button
+    (define menu-button (→ (List Panel))
       (list (Panel "back" (At (TopRight) 0)
                    (list (button "back" "Menu" action-menu)
                          (button "open-guide" "Guide" guide-open)))))
 
-    (: shell-hud (impl (Fn Shell -> (List Panel))))
-    (define (shell-hud shell)
+    (define (shell-hud (shell Shell)) (→ (List Panel))
       (match (::screen shell)
         ((Menu) menu-panels)
         ((Rumors screen) (mill-screen-hud screen menu-button))

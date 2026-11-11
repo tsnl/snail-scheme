@@ -21,7 +21,7 @@ const description = publicPath => `((build-target cli (program (entry "main.sld"
 try {
   await mkdir(join(project, 'src'));
   await mkdir(join(project, 'public', 'nested'), {recursive: true});
-  await writeFile(join(project, 'src/greeting.sld'), '(define-library (greeting) (export greeting) (import (snail core base)) (begin (: greeting String) (define greeting "hello project")))');
+  await writeFile(join(project, 'src/greeting.sld'), '(define-library (greeting) (export greeting) (import (snail core base)) (begin (define greeting (→ String) "hello project")))');
   await writeFile(join(project, 'main.sld'), source);
   await writeFile(join(project, 'project.datum'), description('public'));
   await writeFile(join(project, 'public/index.html'), '<!doctype html><title>Project</title>');
@@ -97,7 +97,7 @@ try {
     (begin
       (struct Printer ()) (struct Missing ()) (struct (Generic A) ())
       (instance (Application (! console tasks) Printer)
-        (define (start entry) (yield) (write-line "typed entry")))))`);
+        (define start (lambda (entry) (yield) (write-line "typed entry"))))))`);
   const selected = type => `((build-target selected
     (program (entry ((typed entry) ${type})) (library-roots ("src")))))`;
   await writeFile(join(project, 'project.datum'), selected('Printer'));

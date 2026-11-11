@@ -12,22 +12,19 @@
   (begin
     (typeclass (Combine A B)
       (type Output)
-      (: combine (impl (Fn A B -> Output))))
+      (: combine (impl (Fn A B → Output))))
     (define-instance-set addition
       (instance (Combine I64 I64)
         (type Output I64)
-        (define (combine a b) (+ a b))))
+        (define combine (lambda (a b) (+ a b)))))
     (define-instance-set description
       (instance (Combine I64 I64)
         (type Output String)
-        (define (combine a b) (string-append (show a) ":" (show b)))))
+        (define combine (lambda (a b) (string-append (show a) ":" (show b))))))
 
-    (: generic
-       (All (A B)
-            (requires (Combine A B))
-            (impl (Fn A B -> (Combine.Output A B)))))
-    (define (generic a b) (combine a b))
+    (define (generic (a A) (b B)) (→ (Combine.Output A B)) (∀ A B) (⊨ (Combine A B)) (combine a b))
 
     (with-instances (addition)
-                    (: make-adder (impl (Fn I64 -> (dyn (Fn I64 -> I64)))))
-                    (define (make-adder a) (lambda (b) (generic a b))))))
+                    (define (make-adder (a I64))
+                      (→ (dyn (Fn I64 → I64)))
+                      (lambda (b) (generic a b))))))

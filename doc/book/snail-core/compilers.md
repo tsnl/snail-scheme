@@ -175,11 +175,11 @@ function of the expander has `mut` in its row — and where it does not, the
   `mut` and `host` effects. The operations the backend implements directly are
   declared in
   [`src/snail/core/primitive.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/core/primitive.sld),
-  read and resolved like any library. `(primitive i32-add (impl (Fn I32 I32 -> I32)))`
+  read and resolved like any library. `(primitive i32-add (impl (Fn I32 I32 → I32)))`
   declares one, as `extern` declares a foreign function: it binds the name to
   the global `prim:i32-add`, the name the checker, specialization and `emit-primitive`
   know it by, whose value is a `Primitive` of the declared scheme. A generic
-  primitive names its variables, `(All (A) (impl (Fn (Vector A) I64 -> A)))`. The form
+  primitive names its variables, `(∀ (A) (impl (Fn (Vector A) I64 → A)))`. The form
   is accepted only in that library, whose body holds nothing else, so it
   adds no items and has no module; a session replays its values.
 
@@ -285,7 +285,7 @@ function of the expander has `mut` in its row — and where it does not, the
   closure that may not capture, a `fn` or a top-level function, that
   reads a local from around it (`check-closed`), so the backend knows such
   a closure has no environment. Those two are also all that `fit` gives
-  the type `(fn A -> B ! e)`, where an argument, an annotation or a signature
+  the type `(fn A → B ! e)`, where an argument, an annotation or a signature
   expects one. At established Any boundaries `fit` inserts a conversion
   and charges `dyn-cast` for a fallible extraction; other types still
   unify strictly. Explicit conversion follows the same rule. Cleanup
@@ -1104,7 +1104,7 @@ its `main`. A function the module exports comes out as a `Funcref`, and
 (match (load-module "cell" "build/cell.wasm")
   ((Ok cell)
    (match (module-export cell "cell:run")
-     ((Ok run) ((ann (unsafe-cast run) (dyn (Fn I64 -> I64))) 41))
+     ((Ok run) ((ann (unsafe-cast run) (dyn (Fn I64 → I64))) 41))
      ((Err error) (panic (load-error-message error)))))
   ((Err error) (panic (load-error-message error))))
 ```
@@ -1113,7 +1113,7 @@ its `main`. A function the module exports comes out as a `Funcref`, and
 code casts it to the WebAssembly type of a Snail-Core function of the
 expected type, which takes the evidence first, and calls it with the
 handlers in scope where the closure is called. At an `Fn`, `(ann
-(unsafe-cast run) (fn I64 -> I64))`, the cast is the whole value, with no
+(unsafe-cast run) (fn I64 → I64))`, the cast is the whole value, with no
 closure around it. The cast is the only check: the engine traps when the
 WebAssembly types differ, and nothing compares Snail-Core types, so the
 unsafe assumption is visible where it is made.
@@ -1152,8 +1152,8 @@ declaration of them, and only functions cross. The plugin marks each
 function it offers:
 
 ```scheme
-(: summarize (impl (Fn Project -> Report)))
-(define (summarize project) ...)
+
+(define (summarize (project Project)) (→ Report) ...)
 (expose summarize "summarize" dynamic)
 ```
 
@@ -1162,7 +1162,7 @@ and the program looks it up at the type it expects:
 ```scheme
 (match (load-plugin "build/plugin/modules.json")
   ((Ok plugin)
-   (match (ann (plugin-function plugin "summarize") (Result (dyn (Fn Project -> Report)) LoadError))
+   (match (ann (plugin-function plugin "summarize") (Result (dyn (Fn Project → Report)) LoadError))
      ((Ok summarize) (summarize project))
      ((Err error) (panic (load-error-message error)))))
   ((Err error) (panic (load-error-message error))))

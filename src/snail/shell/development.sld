@@ -215,8 +215,7 @@
        (diagnostics (List Diagnostic))
        (runs (List Run))))
 
-    (: new-service (impl (Fn String String -> Service)))
-    (define (new-service root project)
+    (define (new-service (root String) (project String)) (→ Service)
       (Service (Paths root project)
                0
                (None)
@@ -290,8 +289,7 @@
       (Shutdown)
       (Closed))
 
-    (: step (impl (Fn Service Event -> (Pair Service (List Command)))))
-    (define (step service event)
+    (define (step (service Service) (event Event)) (→ (Pair Service (List Command)))
       (match event
         ((ResidentStarted) (Pair service (if (::closing service) (Nil) (list (Reconcile)))))
         ((ResidentExited message) (fatal service message))
@@ -314,8 +312,8 @@
     ;; starts when it fires, if one is still wanted and can start. Every
     ;; arming and firing asks the same question, so a stale timer starts
     ;; nothing and the host never cancels one.
-    (: ready? (impl (Fn Service -> Bool)))
-    (define (ready? service)
+
+    (define (ready? (service Service)) (→ Bool)
       (and (::dirty service)
            (not (::closing service))
            (match (::disk service)
@@ -325,12 +323,10 @@
              ((None) #t)
              ((Some _) #f))))
 
-    (: arming (impl (Fn Service -> (List Command))))
-    (define (arming service)
+    (define (arming (service Service)) (→ (List Command))
       (if (ready? service) (list (Arm)) (Nil)))
 
-    (: request-build (impl (Fn Service -> (Pair Service (List Command)))))
-    (define (request-build service)
+    (define (request-build (service Service)) (→ (Pair Service (List Command)))
       (if (::closing service)
           (Pair service (Nil))
           (let ((service (Service-dirty-set service #t))) (Pair service (arming service)))))
@@ -338,15 +334,14 @@
     ;; A changed path joins the attempt's, whatever it is, since the
     ;; description that decides whether it is an input may be the one the
     ;; attempt's reply brings.
-    (: touched (impl (Fn Service (List String) -> (Pair Service (List Command)))))
-    (define (touched service paths)
+
+    (define (touched (service Service) (paths (List String))) (→ (Pair Service (List Command)))
       (let ((service (touching service paths)))
         (if (any? (lambda (path) (input-path? service path)) paths)
             (request-build service)
             (Pair service (Nil)))))
 
-    (: touching (impl (Fn Service (List String) -> Service)))
-    (define (touching service paths)
+    (define (touching (service Service) (paths (List String))) (→ Service)
       (match (::attempt service)
         ((Some attempt)
          (Service-attempt-set service
@@ -357,16 +352,17 @@
 
     ;; A reconciliation, not an uncertain disk, establishes a change. Once
     ;; the disk can be read again after a failure, a build is wanted.
-    (: uncertain (impl (Fn Service (Option String) -> (Pair Service (List Command)))))
-    (define (uncertain service error)
+
+    (define (uncertain (service Service) (error (Option String))) (→ (Pair Service (List Command)))
       (match (Pair (::disk service) error)
         ((Pair (Untrusted) (None)) (request-build service))
         (_ (Pair service (Nil)))))
 
     ;; The first reconciliation, at start-up, decides whether builds may
     ;; begin; one during an attempt decides what becomes of its reply.
-    (: reconciled (impl (Fn Service (Result Unit String) -> (Pair Service (List Command)))))
-    (define (reconciled service result)
+
+    (define (reconciled (service Service) (result (Result Unit String)))
+      (→ (Pair Service (List Command)))
       (match (::attempt service)
         ((None) (scanned service result))
         ((Some attempt)
@@ -374,8 +370,8 @@
            ((Reconciling reply) (decide service attempt reply result))
            (_ (unexpected service))))))
 
-    (: scanned (impl (Fn Service (Result Unit String) -> (Pair Service (List Command)))))
-    (define (scanned service result)
+    (define (scanned (service Service) (result (Result Unit String)))
+      (→ (Pair Service (List Command)))
       (match result
         ((Ok _)
          (let ((service (Service-disk-set service (Trusted)))) (Pair service (arming service))))
@@ -388,8 +384,8 @@
 
     ;; Subscribers see the attempt begin, and earlier diagnostics go,
     ;; before the resident is asked to build.
-    (: timer-fired (impl (Fn Service -> (Pair Service (List Command)))))
-    (define (timer-fired service)
+
+    (define (timer-fired (service Service)) (→ (Pair Service (List Command)))
       (if (ready? service)
           (let ((service (begun service (+ (::epoch service) 1))))
             (Pair service (list (Notify (snapshot service)) (Build (::epoch service)))))
@@ -397,8 +393,8 @@
 
     ;; The service with attempt `epoch` begun: nothing is dirty yet, the
     ;; disk is trusted again, and the attempt's diagnostics are its own.
-    (: begun (impl (Fn Service I64 -> Service)))
-    (define (begun service epoch)
+
+    (define (begun (service Service) (epoch I64)) (→ Service)
       (report (Service-attempt-set
                (Service-disk-set (Service-dirty-set (Service-epoch-set service epoch) #f)
                                  (Trusted))
@@ -408,8 +404,9 @@
 
     ;; The description a reply carries is kept even when the build failed,
     ;; since it decides which paths are inputs.
-    (: build-replied (impl (Fn Service I64 Reply -> (Pair Service (List Command)))))
-    (define (build-replied service epoch reply)
+
+    (define (build-replied (service Service) (epoch I64) (reply Reply))
+      (→ (Pair Service (List Command)))
       (match (attempt-of service epoch)
         ((Some (Attempt _ (Compiling) touched))
          (Pair (Service-attempt-set (retaining service reply)
@@ -417,8 +414,7 @@
                (list (Reconcile))))
         (_ (unexpected service))))
 
-    (: retaining (impl (Fn Service Reply -> Service)))
-    (define (retaining service reply)
+    (define (retaining (service Service) (reply Reply)) (→ Service)
       (match (::description reply)
         ((Some description) (Service-description-set service (Some description)))
         ((None) service)))
@@ -426,9 +422,9 @@
     ;; With the disk reconciled, a candidate is published unless an input
     ;; changed while it was built, which supersedes it, or the disk could
     ;; not be read.
-    (: decide
-       (impl (Fn Service Attempt Reply (Result Unit String) -> (Pair Service (List Command)))))
-    (define (decide service attempt reply result)
+
+    (define (decide (service Service) (attempt Attempt) (reply Reply) (result (Result Unit String)))
+      (→ (Pair Service (List Command)))
       (let* ((superseded (or (::dirty service)
                              (any? (lambda (path) (input-path? service path))
                                    (::touched attempt))))
@@ -441,15 +437,12 @@
                                          superseded)))
         (settle service attempt (::candidate reply) messages superseded)))
 
-    (: settle
-       (impl (Fn Service
-                 Attempt
-                 (Option Candidate)
-                 (List Diagnostic)
-                 Bool
-                 ->
-                 (Pair Service (List Command)))))
-    (define (settle service attempt candidate messages superseded)
+    (define (settle (service Service)
+                    (attempt Attempt)
+                    (candidate (Option Candidate))
+                    (messages (List Diagnostic))
+                    (superseded Bool))
+      (→ (Pair Service (List Command)))
       (let ((epoch (::epoch attempt)))
         (match candidate
           ((Some candidate)
@@ -458,12 +451,12 @@
                (staging service attempt (Publishing candidate messages) (Publish epoch))))
           ((None) (finish service attempt #t messages superseded)))))
 
-    (: staging (impl (Fn Service Attempt Stage Command -> (Pair Service (List Command)))))
-    (define (staging service attempt stage command)
+    (define (staging (service Service) (attempt Attempt) (stage Stage) (command Command))
+      (→ (Pair Service (List Command)))
       (Pair (Service-attempt-set service (Some (Attempt-stage-set attempt stage))) (list command)))
 
-    (: publish-replied (impl (Fn Service I64 (Option String) -> (Pair Service (List Command)))))
-    (define (publish-replied service epoch error)
+    (define (publish-replied (service Service) (epoch I64) (error (Option String)))
+      (→ (Pair Service (List Command)))
       (match (attempt-of service epoch)
         ((Some attempt)
          (match (Pair (::stage attempt) error)
@@ -480,8 +473,7 @@
            (_ (unexpected service))))
         ((None) (unexpected service))))
 
-    (: discard-replied (impl (Fn Service I64 -> (Pair Service (List Command)))))
-    (define (discard-replied service epoch)
+    (define (discard-replied (service Service) (epoch I64)) (→ (Pair Service (List Command)))
       (match (attempt-of service epoch)
         ((Some attempt)
          (match (::stage attempt)
@@ -494,9 +486,13 @@
     ;; publication took them. A publication of its own puts the run
     ;; targets on its generations; then the outcome is reported, and the
     ;; next attempt armed if one is wanted.
-    (: finish
-       (impl (Fn Service Attempt Bool (List Diagnostic) Bool -> (Pair Service (List Command)))))
-    (define (finish service attempt owned messages superseded)
+
+    (define (finish (service Service)
+                    (attempt Attempt)
+                    (owned Bool)
+                    (messages (List Diagnostic))
+                    (superseded Bool))
+      (→ (Pair Service (List Command)))
       (let* ((epoch (::epoch attempt))
              (accepted (accepting (Service-attempt-set service (None)) epoch))
              (reclaimed (reclaiming (::first accepted)))
@@ -510,21 +506,19 @@
                                  (list (Notify (snapshot service)))
                                  (arming service))))))
 
-    (: outcome (impl (Fn (List Diagnostic) Bool -> Phase)))
-    (define (outcome messages superseded)
+    (define (outcome (messages (List Diagnostic)) (superseded Bool)) (→ Phase)
       (cond (superseded (Superseded))
             ((null? messages) (Succeeded))
             (else (Failed))))
 
     ;; The attempt numbered `epoch`, if it is the one in flight.
-    (: attempt-of (impl (Fn Service I64 -> (Option Attempt))))
-    (define (attempt-of service epoch)
+
+    (define (attempt-of (service Service) (epoch I64)) (→ (Option Attempt))
       (match (::attempt service)
         ((Some attempt) (if (= (::epoch attempt) epoch) (Some attempt) (None)))
         ((None) (None))))
 
-    (: untrusted? (impl (Fn Service -> Bool)))
-    (define (untrusted? service)
+    (define (untrusted? (service Service)) (→ Bool)
       (match (::disk service)
         ((Untrusted) #t)
         (_ #f)))
@@ -535,8 +529,8 @@
     ;; project's or the repository's, the browser host's files, or the
     ;; entry or public directory of one of the description's builds, or a
     ;; directory that holds one.
-    (: input-path? (impl (Fn Service String -> Bool)))
-    (define (input-path? service path)
+
+    (define (input-path? (service Service) (path String)) (→ Bool)
       (let ((root (::root (::paths service)))
             (project (::project (::paths service))))
         (or (string=? path (string-append project "/project.datum"))
@@ -550,16 +544,15 @@
 
     ;; A file the latest publication's programs link, which no compile
     ;; reads, but each build places again.
-    (: linked-input? (impl (Fn Service String -> Bool)))
-    (define (linked-input? service path)
+
+    (define (linked-input? (service Service) (path String)) (→ Bool)
       (match (::publications service)
         ((Cons latest _)
          (any? (lambda (generation) (member? path (::linked generation)))
                (::generations (::candidate latest))))
         ((Nil) #f)))
 
-    (: declared-input? (impl (Fn String Description String -> Bool)))
-    (define (declared-input? project description path)
+    (define (declared-input? (project String) (description Description) (path String)) (→ Bool)
       (or (any? (lambda (entry) (within? path (string-append project "/" entry)))
                 (::entries description))
           (any? (lambda (public)
@@ -568,17 +561,15 @@
                 (::publics description))))
 
     ;; Whether `path` is `directory` or under it.
-    (: within? (impl (Fn String String -> Bool)))
-    (define (within? directory path)
+
+    (define (within? (directory String) (path String)) (→ Bool)
       (or (string=? path directory) (starts-with? path (string-append directory "/"))))
 
-    (: starts-with? (impl (Fn String String -> Bool)))
-    (define (starts-with? text prefix)
+    (define (starts-with? (text String) (prefix String)) (→ Bool)
       (and (<= (string-length prefix) (string-length text))
            (string=? (substring text 0 (string-length prefix)) prefix)))
 
-    (: ends-with? (impl (Fn String String -> Bool)))
-    (define (ends-with? text suffix)
+    (define (ends-with? (text String) (suffix String)) (→ Bool)
       (and (<= (string-length suffix) (string-length text))
            (string=?
             (substring text (- (string-length text) (string-length suffix)) (string-length text))
@@ -590,8 +581,8 @@
     ;; new target it defines and stops wanting those it no longer can
     ;; launch. A run is kept once added, so a name that comes back cannot
     ;; overlap the process it had. Then every run is asked again.
-    (: accepting (impl (Fn Service I64 -> (Pair Service (List Command)))))
-    (define (accepting service epoch)
+
+    (define (accepting (service Service) (epoch I64)) (→ (Pair Service (List Command)))
       (match (published service)
         ((Some published)
          (if (= (::id published) epoch)
@@ -599,8 +590,7 @@
              (Pair service (Nil))))
         ((None) (Pair service (Nil)))))
 
-    (: accepted-runs (impl (Fn Service Published -> (List Run))))
-    (define (accepted-runs service published)
+    (define (accepted-runs (service Service) (published Published)) (→ (List Run))
       (let* ((runs (::runs service))
              (new (filter (lambda (definition)
                             (not (any? (lambda (run)
@@ -613,16 +603,15 @@
                      (map (lambda (definition) (Run (::name definition) #f (None)))
                           new)))))
 
-    (: settle-runs (impl (Fn Service -> (Pair Service (List Command)))))
-    (define (settle-runs service)
+    (define (settle-runs (service Service)) (→ (Pair Service (List Command)))
       (let ((settled (map (lambda (run) (settle-run service run)) (::runs service))))
         (Pair (Service-runs-set service (map ::first settled))
               (concatenate (map ::second settled)))))
 
     ;; A run asks its process for what it now wants, if that differs from
     ;; what it asked for last.
-    (: settle-run (impl (Fn Service Run -> (Pair Run (List Command)))))
-    (define (settle-run service run)
+
+    (define (settle-run (service Service) (run Run)) (→ (Pair Run (List Command)))
       (let ((next (if (::wanted run) (launch service (::name run)) (None))))
         (if (same-intent? (::issued run) next)
             (Pair run (Nil))
@@ -632,8 +621,8 @@
                      (list (Launch (::name run) (Some request)))))
               ((None) (Pair (Run-issued-set run (None)) (list (Launch (::name run) (None)))))))))
 
-    (: same-intent? (impl (Fn (Option Identity) (Option (Pair Identity RunRequest)) -> Bool)))
-    (define (same-intent? issued next)
+    (define (same-intent? (issued (Option Identity)) (next (Option (Pair Identity RunRequest))))
+      (→ Bool)
       (match (Pair issued next)
         ((Pair (None) (None)) #t)
         ((Pair (Some was) (Some (Pair is _)))
@@ -642,8 +631,7 @@
               (same-strings? (::arguments was) (::arguments is))))
         (_ #f)))
 
-    (: same-strings? (impl (Fn (List String) (List String) -> Bool)))
-    (define (same-strings? a b)
+    (define (same-strings? (a (List String)) (b (List String))) (→ Bool)
       (match (Pair a b)
         ((Pair (Nil) (Nil)) #t)
         ((Pair (Cons x rest-a) (Cons y rest-b)) (and (string=? x y) (same-strings? rest-a rest-b)))
@@ -652,8 +640,8 @@
     ;; What the published candidate runs for the target `name`: its build's
     ;; generation, entered at its modules.json, with the target's
     ;; arguments.
-    (: launch (impl (Fn Service String -> (Option (Pair Identity RunRequest)))))
-    (define (launch service name)
+
+    (define (launch (service Service) (name String)) (→ (Option (Pair Identity RunRequest)))
       (match (published service)
         ((Some published)
          (let ((candidate (::candidate published)))
@@ -663,8 +651,8 @@
              ((None) (None)))))
         ((None) (None))))
 
-    (: launch-definition (impl (Fn Published RunDefinition -> (Option (Pair Identity RunRequest)))))
-    (define (launch-definition published definition)
+    (define (launch-definition (published Published) (definition RunDefinition))
+      (→ (Option (Pair Identity RunRequest)))
       (match (find (lambda (generation)
                      (string=? (::name generation) (::build definition)))
                    (::generations (::candidate published)))
@@ -678,46 +666,43 @@
                                  (::arguments definition)))))
         ((None) (None))))
 
-    (: available? (impl (Fn Service String -> Bool)))
-    (define (available? service name)
+    (define (available? (service Service) (name String)) (→ Bool)
       (match (launch service name)
         ((Some _) #t)
         ((None) #f)))
 
     ;; ---- Controlling runs ----
 
-    (: start-run (impl (Fn Service String -> (Pair Service (List Command)))))
-    (define (start-run service name)
+    (define (start-run (service Service) (name String)) (→ (Pair Service (List Command)))
       (match (required-run service name #t)
         ((Ok run)
          (if (::wanted run) (Pair service (Nil)) (controlled service (Run-wanted-set run #t))))
         ((Err refusal) (Pair service (list (Refuse refusal))))))
 
     ;; A run stops whether or not its target can still launch.
-    (: stop-run (impl (Fn Service String -> (Pair Service (List Command)))))
-    (define (stop-run service name)
+
+    (define (stop-run (service Service) (name String)) (→ (Pair Service (List Command)))
       (match (required-run service name #f)
         ((Ok run)
          (if (::wanted run) (controlled service (Run-wanted-set run #f)) (Pair service (Nil))))
         ((Err refusal) (Pair service (list (Refuse refusal))))))
 
     ;; Forgetting what it asked for makes the run ask again.
-    (: restart-run (impl (Fn Service String -> (Pair Service (List Command)))))
-    (define (restart-run service name)
+
+    (define (restart-run (service Service) (name String)) (→ (Pair Service (List Command)))
       (match (required-run service name #t)
         ((Ok run) (controlled service (Run-issued-set (Run-wanted-set run #t) (None))))
         ((Err refusal) (Pair service (list (Refuse refusal))))))
 
-    (: required-run (impl (Fn Service String Bool -> (Result Run Refusal))))
-    (define (required-run service name launchable)
+    (define (required-run (service Service) (name String) (launchable Bool))
+      (→ (Result Run Refusal))
       (cond ((::closing service) (Err (ServiceClosed)))
             ((and launchable (not (available? service name))) (Err (UnknownRunTarget name)))
             (else (match (find (lambda (run) (string=? (::name run) name)) (::runs service))
                     ((Some run) (Ok run))
                     ((None) (Err (UnknownRunTarget name)))))))
 
-    (: controlled (impl (Fn Service Run -> (Pair Service (List Command)))))
-    (define (controlled service run)
+    (define (controlled (service Service) (run Run)) (→ (Pair Service (List Command)))
       (let* ((settled (settle-run service run))
              (reclaimed (reclaiming (Service-runs-set service
                                                       (map (lambda (each)
@@ -740,8 +725,8 @@
     ;; What was published before the service started is not its own to
     ;; reclaim, and what a publication that failed part way linked is not
     ;; among its publications, so both stay.
-    (: reclaiming (impl (Fn Service -> (Pair Service (List Command)))))
-    (define (reclaiming service)
+
+    (define (reclaiming (service Service)) (→ (Pair Service (List Command)))
       (let* ((publications (::publications service))
              (older (list-tail publications (min 2 (length publications))))
              (kept (append (take publications (- (length publications) (length older)))
@@ -754,15 +739,14 @@
         (Pair (Service-publications-set service kept)
               (if (null? dropped) (Nil) (list (Reclaim dropped))))))
 
-    (: issued-directory (impl (Fn Run -> (List String))))
-    (define (issued-directory run)
+    (define (issued-directory (run Run)) (→ (List String))
       (match (::issued run)
         ((Some identity) (list (::directory identity)))
         ((None) (Nil))))
 
     ;; The publications with a generation in `held`, each with only those.
-    (: still-held (impl (Fn (List Published) (List String) -> (List Published))))
-    (define (still-held publications held)
+
+    (define (still-held (publications (List Published)) (held (List String))) (→ (List Published))
       (filter (lambda (published) (not (null? (published-directories published))))
               (map (lambda (published)
                      (let ((candidate (::candidate published)))
@@ -775,12 +759,10 @@
                                              (::milliseconds candidate)))))
                    publications)))
 
-    (: published-directories (impl (Fn Published -> (List String))))
-    (define (published-directories published)
+    (define (published-directories (published Published)) (→ (List String))
       (map ::directory (::generations (::candidate published))))
 
-    (: published (impl (Fn Service -> (Option Published))))
-    (define (published service)
+    (define (published (service Service)) (→ (Option Published))
       (match (::publications service)
         ((Cons latest _) (Some latest))
         ((Nil) (None))))
@@ -791,16 +773,15 @@
     ;; resident down, which finishes the request it is answering, before it
     ;; gives up the attempt's directory, as its stage says. Replies after
     ;; that are not wanted.
-    (: close (impl (Fn Service -> (Pair Service (List Command)))))
-    (define (close service)
+
+    (define (close (service Service)) (→ (Pair Service (List Command)))
       (if (::closing service)
           (Pair service (Nil))
           (Pair (Service-attempt-set (Service-closing-set service #t) (None))
                 (append (Cons (Shutdown) (relinquished (::attempt service)))
                         (list (Closed))))))
 
-    (: relinquished (impl (Fn (Option Attempt) -> (List Command))))
-    (define (relinquished attempt)
+    (define (relinquished (attempt (Option Attempt))) (→ (List Command))
       (match attempt
         ((Some (Attempt epoch (Publishing _ _) _)) (list (Release epoch)))
         ((Some (Attempt epoch _ _)) (list (Abandon epoch)))
@@ -808,26 +789,23 @@
 
     ;; A failure the service cannot continue past: the resident exited, or
     ;; answered what was not asked.
-    (: fatal (impl (Fn Service String -> (Pair Service (List Command)))))
-    (define (fatal service message)
+
+    (define (fatal (service Service) (message String)) (→ (Pair Service (List Command)))
       (if (::closing service)
           (Pair service (Nil))
           (let ((service (report service (Fatal) (list (failure message)))))
             (let ((closed (close service)))
               (Pair (::first closed) (Cons (Notify (snapshot service)) (::second closed)))))))
 
-    (: unexpected (impl (Fn Service -> (Pair Service (List Command)))))
-    (define (unexpected service)
+    (define (unexpected (service Service)) (→ (Pair Service (List Command)))
       (fatal service "unexpected compiler attempt result"))
 
     ;; ---- Reporting ----
 
-    (: report (impl (Fn Service Phase (List Diagnostic) -> Service)))
-    (define (report service phase diagnostics)
+    (define (report (service Service) (phase Phase) (diagnostics (List Diagnostic))) (→ Service)
       (Service-diagnostics-set (Service-phase-set service phase) diagnostics))
 
-    (: snapshot (impl (Fn Service -> Snapshot)))
-    (define (snapshot service)
+    (define (snapshot (service Service)) (→ Snapshot)
       (Snapshot (::phase service)
                 (::epoch service)
                 (::diagnostics service)
@@ -838,6 +816,5 @@
                                   (available? service (::name run))))
                      (::runs service))))
 
-    (: failure (impl (Fn String -> Diagnostic)))
-    (define (failure message)
+    (define (failure (message String)) (→ Diagnostic)
       (Diagnostic message (None)))))

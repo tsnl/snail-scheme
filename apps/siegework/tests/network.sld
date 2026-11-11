@@ -15,39 +15,32 @@
  (siegework colony)
  (siegework simulation))
 
-(: run (impl (Fn World I64 -> World)))
-(define (run world ticks)
+(define (run (world World) (ticks I64)) (→ World)
   (if (= ticks 0) world (run (advance world) (- ticks 1))))
 
-(: order (impl (Fn World Action -> World ! console)))
-(define (order world action)
+(define (order (world World) (action Action)) (→ World) (! console)
   (match (act world action)
     ((Ok world) world)
     ((Err rejection)
      (begin (write-line (string-append "rejected: " (rejection-text rejection))) world))))
 
-(: visible-count (impl (Fn World -> I64)))
-(define (visible-count world)
+(define (visible-count (world World)) (→ I64)
   (vector-fold (lambda (n seen) (if seen (+ n 1) n)) 0 (::visible world)))
 
-(: wire-text (impl (Fn Wire -> String)))
-(define (wire-text wire)
+(define (wire-text (wire Wire)) (→ String)
   (string-append (cell-text (::cell (::from wire)))
                  "-"
                  (cell-text (::cell (::to wire)))))
 
-(: cell-text (impl (Fn Cell -> String)))
-(define (cell-text cell)
+(define (cell-text (cell Cell)) (→ String)
   (string-append (show (::x cell)) "," (show (::y cell))))
 
-(: report-wires (impl (Fn World -> Unit ! console)))
-(define (report-wires world)
+(define (report-wires (world World)) (→ Unit) (! console)
   (write-line (string-append "wires "
                              (string-join (map wire-text (::wires (::network world)))
                                           " "))))
 
-(: report (impl (Fn World -> Unit ! console)))
-(define (report world)
+(define (report (world World)) (→ Unit) (! console)
   (write-line (string-append "tick "
                              (show (::tick world))
                              ", produced "

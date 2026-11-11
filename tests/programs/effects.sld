@@ -3,24 +3,21 @@
  (snail core io))
 
 (effect Log
-  ((log (dyn (Fn String -> Unit)))))
+  ((log (dyn (Fn String → Unit)))))
 
 (effect Counter
-  ((tick (dyn (Fn -> I64)))))
+  ((tick (dyn (Fn → I64)))))
 
-(: work (impl (Fn I64 -> I64 ! Log)))
-(define (work n)
+(define (work (n I64)) (→ I64) (! Log)
   (log (string-append "working on " (show n)))
   (* n 2))
 
-(: quietly (All (A e) (impl (Fn (dyn (Fn -> A ! Log e)) -> A ! e))))
-(define (quietly action)
+(define (quietly (action (dyn (Fn → A ! Log e)))) (→ A) (! e) (∀ A e)
   (handle Log
       ((log (lambda (message) (unit))))
     (action)))
 
-(: loudly (All (A e) (impl (Fn (dyn (Fn -> A ! Log console e)) -> A ! console e))))
-(define (loudly action)
+(define (loudly (action (dyn (Fn → A ! Log console e)))) (→ A) (! console e) (∀ A e)
   (handle Log
       ((log (lambda (message) (write-line (string-append "log: " message)))))
     (action)))

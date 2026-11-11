@@ -2,26 +2,20 @@
  (snail core base)
  (snail core io))
 
-(: boxed Any)
-(define boxed 41)
+(define boxed (→ Any) 41)
 
-(: integer (impl (Fn Any -> I64 ! dyn-cast)))
-(define (integer value) value)
+(define (integer (value Any)) (→ I64) (! dyn-cast) value)
 
-(: package (impl (Fn I64 -> Any)))
-(define (package value) value)
+(define (package (value I64)) (→ Any) value)
 
-(: increment (impl (Fn I64 -> I64)))
-(define (increment value) (+ value 1))
+(define (increment (value I64)) (→ I64) (+ value 1))
 
-(: first (All (T) (requires (Copy T)) (impl (Fn T T -> T))))
-(define (first a b) a)
+(define (first (a T) (b T)) (→ T) (∀ T) (⊨ (Copy T)) a)
 
 (struct Holder
   ((value Any)))
 
-(: unboxed I64)
-(define unboxed (match (try-convert boxed I64) ((Ok value) value) ((Err _) -1)))
+(define unboxed (→ I64) (match (try-convert boxed I64) ((Ok value) value) ((Err _) -1)))
 
 (handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
@@ -38,15 +32,13 @@
   (display (type-test (first boxed boxed) I64))
   (newline))
 
-(: function Any)
-(define function (ann (lambda (x) (+ x 1)) (dyn (Fn I64 -> I64))))
+(define function (→ Any) (ann (lambda (x) (+ x 1)) (dyn (Fn I64 → I64))))
 (handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
-  (display ((ann function (dyn (Fn I64 -> I64))) 9))
+  (display ((ann function (dyn (Fn I64 → I64))) 9))
   (newline))
 
-(: condition Any)
-(define condition #t)
+(define condition (→ Any) #t)
 (handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
   (display (if condition 1 2))
@@ -55,7 +47,7 @@
   (newline))
 
 (effect ask
-  ((ctl answer (dyn (Fn -> Never)))))
+  ((ctl answer (dyn (Fn → Never)))))
 (handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
   (display (ann (handle ask

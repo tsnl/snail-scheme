@@ -124,8 +124,9 @@ async function throughTheService() {
     write('slow.sld', `(generate-library (slow)
       (import (snail core base) (snail core io) (snail shell syntax))
       (library-syntax (list "slow") (list "message") (list (list "snail" "core" "base"))
-        (list (form ":" (list (SymbolSyntax "message") (SymbolSyntax "String")))
-          (form "define" (list (SymbolSyntax "message") (StringSyntax (read-file "${gate}")))))))`);
+        (list (form "define" (list (SymbolSyntax "message")
+          (form "→" (list (SymbolSyntax "String")))
+          (StringSyntax (read-file "${gate}")))))))`);
     write('next-public/index.html', '<!doctype html><title>before</title>');
     write('main.sld', '(import (snail core base) (snail core io) (slow)) (write-line message)');
     write('project.datum', description('next-public'));

@@ -81,6 +81,7 @@
    ::declarations
    ::declared
    ::defaults
+   ::definition
    ::definitions
    ::delta
    ::derives
@@ -124,6 +125,7 @@
    ::global
    ::globals
    ::handle
+   ::header
    ::helpers
    ::holder
    ::imports
@@ -178,6 +180,7 @@
    ::outputs
    ::owned?
    ::owner
+   ::parameters
    ::params
    ::path
    ::pattern
@@ -236,13 +239,16 @@
    ::types
    ::values
    ::variable
+   ::variables
    ::vars
    ::visited
    ::x
    ;; ---- End field path exports ----
    )
   (import
-   (rename (scheme base) (case scheme-case))
+   (rename (scheme base)
+           (case scheme-case)
+           (define scheme-define))
    (only (chibi) _ ...)
    (scheme char)
    (rename (srfi 1) (drop list-drop))
@@ -294,6 +300,7 @@
     (define (::declarations value) (field-of value (quote declarations)))
     (define (::declared value) (field-of value (quote declared)))
     (define (::defaults value) (field-of value (quote defaults)))
+    (define (::definition value) (field-of value (quote definition)))
     (define (::definitions value) (field-of value (quote definitions)))
     (define (::delta value) (field-of value (quote delta)))
     (define (::derives value) (field-of value (quote derives)))
@@ -337,6 +344,7 @@
     (define (::global value) (field-of value (quote global)))
     (define (::globals value) (field-of value (quote globals)))
     (define (::handle value) (field-of value (quote handle)))
+    (define (::header value) (field-of value (quote header)))
     (define (::helpers value) (field-of value (quote helpers)))
     (define (::holder value) (field-of value (quote holder)))
     (define (::imports value) (field-of value (quote imports)))
@@ -391,6 +399,7 @@
     (define (::outputs value) (field-of value (quote outputs)))
     (define (::owned? value) (field-of value (quote owned?)))
     (define (::owner value) (field-of value (quote owner)))
+    (define (::parameters value) (field-of value (quote parameters)))
     (define (::params value) (field-of value (quote params)))
     (define (::path value) (field-of value (quote path)))
     (define (::pattern value) (field-of value (quote pattern)))
@@ -449,6 +458,7 @@
     (define (::types value) (field-of value (quote types)))
     (define (::values value) (field-of value (quote values)))
     (define (::variable value) (field-of value (quote variable)))
+    (define (::variables value) (field-of value (quote variables)))
     (define (::vars value) (field-of value (quote vars)))
     (define (::visited value) (field-of value (quote visited)))
     (define (::x value) (field-of value (quote x)))

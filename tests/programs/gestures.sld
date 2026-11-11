@@ -5,8 +5,7 @@
  (snail core io)
  (snail shell app))
 
-(: gesture-text (impl (Fn Gesture -> String)))
-(define (gesture-text gesture)
+(define (gesture-text (gesture Gesture)) (→ String)
   (match gesture
     ((Point x y) (string-append "point " (show x) "," (show y)))
     ((Tap x y button) (string-append "tap " (show x) "," (show y) " button " (show button)))
@@ -14,8 +13,7 @@
     ((Pinch ratio) (string-append "pinch " (show ratio)))))
 
 ;; Feeds the inputs in order and prints what each one meant.
-(: play (impl (Fn String (List Input) -> Unit ! console)))
-(define (play name inputs)
+(define (play (name String) (inputs (List Input))) (→ Unit) (! console)
   (write-line (string-append name ": "
                              (string-join (::second (fold-left (lambda (state input)
                                                                  (match (recognize

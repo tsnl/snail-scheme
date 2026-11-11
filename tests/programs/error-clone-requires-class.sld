@@ -7,7 +7,7 @@
   ((item A)))
 
 (instance (Clone (! e) (Box A))
-  (requires (Drop e A))
-  (define (clone box)
-    (match box
-      ((Box item) (Pair (Box item) (Box item))))))
+  (⊨ (Drop e A))
+  (define clone
+    (lambda (box) (match box
+                    ((Box item) (Pair (Box item) (Box item)))))))

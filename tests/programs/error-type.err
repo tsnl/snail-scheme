@@ -1,1 +1,1 @@
-error-type.sld:6:18: type mismatch: expected String, found I64
+error-type.sld:5:18: type mismatch: expected String, found I64

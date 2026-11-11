@@ -21,9 +21,12 @@
   ((ide Ide)
    (answers I64)))
 
-(: jobs (impl (Fn Bool (Mailbox Unit) (Ref I64) (Ref I64) (List Command)
-                  -> (List (dyn (FnOnce -> Delivery ! mut console tasks dom fetch))))))
-(define (jobs delayed gate completed reads commands)
+(define (jobs (delayed Bool)
+              (gate (Mailbox Unit))
+              (completed (Ref I64))
+              (reads (Ref I64))
+              (commands (List Command)))
+  (→ (List (dyn (FnOnce → Delivery ! mut console tasks dom fetch))))
   (match commands
     ((Nil) (Nil))
     ((Cons (Command work _) rest)
@@ -35,13 +38,9 @@
            (jobs delayed gate completed reads rest)))))
 
 ;; Record the request identity at its boundary, before it can suspend.
-(: observed
-   (impl (Fn (dyn (FnOnce -> CommandResult ! tasks dom fetch))
-             (Ref I64)
-             ->
-             Delivery
-             ! mut tasks dom fetch)))
-(define (observed work reads)
+(define (observed (work (dyn (FnOnce → CommandResult ! tasks dom fetch))) (reads (Ref I64)))
+  (→ Delivery)
+  (! mut tasks dom fetch)
   (let ((issued (ref (ann 0 I64))))
     (let ((result
            (handle fetch
@@ -56,11 +55,14 @@
              (work))))
       (Produced (ref-get issued) result))))
 
-(: update-test (impl (Fn Bool (Mailbox Unit) (Ref I64) (Ref I64) Model Delivery
-                         ->
-                         (Pair Model
-                               (List (dyn (FnOnce -> Delivery ! mut console tasks dom fetch)))))))
-(define (update-test delayed-read gate completed reads model message)
+(define (update-test (delayed-read Bool)
+                     (gate (Mailbox Unit))
+                     (completed (Ref I64))
+                     (reads (Ref I64))
+                     (model Model)
+                     (message Delivery))
+  (→ (Pair Model
+           (List (dyn (FnOnce → Delivery ! mut console tasks dom fetch)))))
   (match message
     ((Input message)
      (match (update (::ide model) message)
@@ -73,23 +75,20 @@
           (Pair (Model next (+ (::answers model) (if (> read 0) 1 0)))
                 (jobs (and (not delayed-read) (= read 2)) gate completed reads commands))))))))
 
-(: shown (impl (Fn Model -> (Html Delivery))))
-(define (shown model)
+(define (shown (model Model)) (→ (Html Delivery))
   (map-html Input (view (::ide model))))
 
-(: window-test (impl (Fn Model -> (List (Attribute Delivery)))))
-(define (window-test model)
+(define (window-test (model Model)) (→ (List (Attribute Delivery)))
   (match (map-html Input (Element "window" (window (::ide model)) (Nil)))
     ((Element _ attributes _) attributes)
     (_ (panic "window attributes"))))
 
-(: input (impl (Fn String -> Cue)))
-(define (input text) (Fire "command-query" "input" (Event-value-set no-event text)))
-(: enter Cue)
-(define enter (Fire "command-query" "keydown" (Event-key-set no-event "Enter")))
+(define (input (text String))
+  (→ Cue)
+  (Fire "command-query" "input" (Event-value-set no-event text)))
+(define enter (→ Cue) (Fire "command-query" "keydown" (Event-key-set no-event "Enter")))
 
-(: verify-focus (impl (Fn (Pair Node Document) -> Unit)))
-(define (verify-focus result)
+(define (verify-focus (result (Pair Node Document))) (→ Unit)
   (let ((expected (string-append "focus " (show (::handle (::first result)))))
         (last (find (lambda (line) (and (>= (string-length line) 6)
                                         (string=? (substring line 0 6) "focus ")))
@@ -98,8 +97,7 @@
       ((Some line) (unless (string=? line expected) (panic "old task stole focus")))
       ((None) (panic "no focus")))))
 
-(: run (impl (Fn Bool -> Unit ! mut console tasks)))
-(define (run delayed-read)
+(define (run (delayed-read Bool)) (→ Unit) (! mut console tasks)
   (let ((reads (ref 0))
         (answers (ref 0))
         (completed (ref 0))

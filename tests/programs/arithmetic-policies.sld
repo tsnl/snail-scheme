@@ -6,12 +6,9 @@
  (snail shell arithmetic)
  (snail shell arithmetic dynamic))
 
-(: big Integer)
-(define big (integer-from-i64 9223372036854775807))
-(: one Integer)
-(define one (integer-from-i64 1))
-(: half Rational)
-(define half (make-rational one (integer-from-i64 2)))
+(define big (→ Integer) (integer-from-i64 9223372036854775807))
+(define one (→ Integer) (integer-from-i64 1))
+(define half (→ Rational) (make-rational one (integer-from-i64 2)))
 
 (with-instances (arithmetic-base)
                 (write-line (show (add big one)))
@@ -28,8 +25,7 @@
                 (display (divide one 2.0))
                 (newline))
 
-(: erased Any)
-(define erased one)
+(define erased (→ Any) one)
 (with-instances (dynamic-arithmetic)
                 (handle dyn-cast
                     ((conversion-failed (lambda (_) (write-line "unsupported pair"))))

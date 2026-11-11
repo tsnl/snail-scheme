@@ -22,8 +22,7 @@
     ((None) (write-line "none"))))
 
 ;; A generic function over arrays requires Unboxed of its element.
-(: fill-twice (All (A) (requires (Copy A) (Unboxed A)) (impl (Fn A -> (Array A) ! mut))))
-(define (fill-twice item)
+(define (fill-twice (item A)) (→ (Array A)) (! mut) (∀ A) (⊨ (Copy A) (Unboxed A))
   (make-array 2 item))
 
 (write-line (show (array-length (fill-twice 1.5))))
@@ -44,8 +43,7 @@
   (write-line (show (mut-vector-ref numbers 3))))
 
 ;; An empty vector's element type comes from its signature.
-(: empty (MutVector I64))
-(define empty (mut-vector))
+(define empty (→ (MutVector I64)) (mut-vector))
 
 (match (mut-vector-pop! empty)
   ((Some last) (write-line (show last)))

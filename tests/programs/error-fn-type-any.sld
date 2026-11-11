@@ -2,10 +2,8 @@
  (snail core base))
 
 ;; An Any holds a GC reference, and an Fn's code reference is not one.
-(: twice (fn I64 -> I64))
-(define (twice x)
-  (* 2 x))
+(define twice (→ (fn I64 → I64))
+  (lambda (x) (* 2 x)))
 
-(: boxed Any)
-(define boxed
+(define boxed (→ Any)
   (type-convert twice Any))

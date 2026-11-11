@@ -6,27 +6,25 @@
 ;; Log, and is resumed under a Log handler: the one in scope where it is
 ;; called, not the one around `start`.
 (effect Gen
-  ((ctl yield (dyn (Fn I64 -> I64)))))
+  ((ctl yield (dyn (Fn I64 → I64)))))
 
 (effect Log
-  ((log (dyn (Fn String -> Unit)))))
+  ((log (dyn (Fn String → Unit)))))
 
 (enum Step
   (Done)
   (Yielded
    ((value I64)
-    (next (dyn (FnOnce I64 -> Step ! Log))))))
+    (next (dyn (FnOnce I64 → Step ! Log))))))
 
-(: start (impl (Fn (dyn (Fn -> Unit ! Gen)) -> Step ! Log)))
-(define (start body)
+(define (start (body (dyn (Fn → Unit ! Gen)))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (v resume)
                         (log (string-append "handler saw " (show v)))
                         (Yielded v resume))))
     (body)
     (Done)))
 
-(: counter (impl (Fn -> Unit ! Gen)))
-(define (counter)
+(define (counter) (→ Unit) (! Gen)
   (yield 1)
   (yield 2)
   (unit))

@@ -6,6 +6,7 @@
   (export
    Annotation
    Documentation
+   parse-annotations
    split-annotations
    annotation-documentation)
   (import
@@ -25,10 +26,17 @@
 
     ;; ---- Parsing ----
 
+    (define (parse-annotations (form Syntax)) (→ (List Annotation)) (! compile)
+      (match form
+        ((Form (Cons (Ident "annotations" _ _) entries) _) (map parse-annotation entries))
+        (_ (compile-error (syntax-loc form) "expected (annotations annotation ...)"))))
+
     ;; Only declaration parsers call this, after identifying their required
     ;; operands. Never consume a required type or expression as metadata.
-    (: split-annotations (impl (Fn Syntax I64 -> (Pair Syntax (List Annotation)) ! compile)))
-    (define (split-annotations form required)
+
+    (define (split-annotations (form Syntax) (required I64))
+      (→ (Pair Syntax (List Annotation)))
+      (! compile)
       (match form
         ((Form items loc)
          (if (> (length items) required)
@@ -41,8 +49,7 @@
              (Pair form (Nil))))
         (_ (Pair form (Nil)))))
 
-    (: annotation-list? (impl (Fn Syntax -> Bool)))
-    (define (annotation-list? form)
+    (define (annotation-list? (form Syntax)) (→ Bool)
       (match form
         ((Form (Cons (Ident "annotations" _ _) _) _) #t)
         (_ #f)))
@@ -51,8 +58,8 @@
     ;; into inert metadata. Arguments are never evaluated. `doc` applies to
     ;; supported declarations, enum cases and fields; expansion establishes
     ;; the owner. Outside those slots, `annotations` is an ordinary name.
-    (: parse-annotation (impl (Fn Syntax -> Annotation ! compile)))
-    (define (parse-annotation form)
+
+    (define (parse-annotation (form Syntax)) (→ Annotation) (! compile)
       (match form
         ((Form (Cons (Ident "doc" _ _) (Cons (Atom (DString text) _) (Nil))) loc)
          (Documentation text loc))
@@ -65,8 +72,7 @@
 
     ;; ---- Documentation ----
 
-    (: annotation-documentation (impl (Fn (List Annotation) -> (Option String))))
-    (define (annotation-documentation annotations)
+    (define (annotation-documentation (annotations (List Annotation))) (→ (Option String))
       (match annotations
         ((Nil) (None))
         (_ (Some (string-join (map (lambda (annotation)
@@ -86,33 +92,33 @@
      (only (scheme base) car)
      (snail stage0 testing))
     (begin
-      (define (annotation-sample text)
-        (split-annotations (car (read-text text "sample.sld")) 2))
+      (define annotation-sample
+        (lambda (text) (split-annotations (car (read-text text "sample.sld")) 2)))
 
-      (define (test-annotations)
-        (expect (::second (annotation-sample "(field String)")) (Nil))
-        (expect (::second (annotation-sample "(field String (annotations))")) (Nil))
-        (expect (syntax->string (::first (annotation-sample "(field (annotations T))")))
-                "(field (annotations T))")
-        (let* ((parsed (annotation-sample
-                        "(field String (annotations\n(doc \"first\") (doc \"second\")))"))
-               (annotations (::second parsed)))
-          (expect (syntax->string (::first parsed)) "(field String)")
-          (expect (annotation-documentation annotations) (Some "first\nsecond"))
-          (expect (match annotations
-                    ((Cons (Documentation _ loc) _)
-                     (list (::file loc) (::line loc) (::column loc)))
-                    (_ (Nil)))
-                  (list "sample.sld" 2 1)))
-        (expect (annotation-documentation (Nil)) (None))
-        (for-each (lambda (text)
-                    (expect (match (compiling (lambda () (annotation-sample text)))
-                              ((Err (Failed _)) #t)
-                              (_ #f))
-                            #t))
-                  (list "(x T (annotations (doc 3)))"
-                        "(x T (annotations (doc \"one\" \"two\")))"
-                        "(x T (annotations (doc (show 3))))"
-                        "(x T (annotations (dco \"typo\")))"
-                        "(x T (annotations doc))")))))
+      (define test-annotations
+        (lambda () (expect (::second (annotation-sample "(field String)")) (Nil))
+                (expect (::second (annotation-sample "(field String (annotations))")) (Nil))
+                (expect (syntax->string (::first (annotation-sample "(field (annotations T))")))
+                        "(field (annotations T))")
+                (let* ((parsed (annotation-sample
+                                "(field String (annotations\n(doc \"first\") (doc \"second\")))"))
+                       (annotations (::second parsed)))
+                  (expect (syntax->string (::first parsed)) "(field String)")
+                  (expect (annotation-documentation annotations) (Some "first\nsecond"))
+                  (expect (match annotations
+                            ((Cons (Documentation _ loc) _)
+                             (list (::file loc) (::line loc) (::column loc)))
+                            (_ (Nil)))
+                          (list "sample.sld" 2 1)))
+                (expect (annotation-documentation (Nil)) (None))
+                (for-each (lambda (text)
+                            (expect (match (compiling (lambda () (annotation-sample text)))
+                                      ((Err (Failed _)) #t)
+                                      (_ #f))
+                                    #t))
+                          (list "(x T (annotations (doc 3)))"
+                                "(x T (annotations (doc \"one\" \"two\")))"
+                                "(x T (annotations (doc (show 3))))"
+                                "(x T (annotations (dco \"typo\")))"
+                                "(x T (annotations doc))"))))))
    (else)))

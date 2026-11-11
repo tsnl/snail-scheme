@@ -9,11 +9,9 @@
  (project))
 
 ;; Set when the plugin's main runs, which loading it must do first.
-(: label String)
-(define label (string-append "summary of " "the project"))
+(define label (→ String) (string-append "summary of " "the project"))
 
-(: summarize (impl (Fn Project -> Report)))
-(define (summarize project)
+(define (summarize (project Project)) (→ Report)
   (Report (string-append label " " (::name project))
           (length (::estimates project))
           (fold-left + 0 (::estimates project))))

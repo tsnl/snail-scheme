@@ -18,8 +18,7 @@
 
 ;; ---- Printing ----
 
-(: quoted (impl (Fn String -> String)))
-(define (quoted text)
+(define (quoted (text String)) (→ String)
   (string-append "\""
                  (string-concatenate (map (lambda (c)
                                             (cond ((char=? c #\") "\\\"")
@@ -29,12 +28,10 @@
                                           (string->list text)))
                  "\""))
 
-(: token-text (impl (Fn (Vector Char) Token -> String)))
-(define (token-text chars token)
+(define (token-text (chars (Vector Char)) (token Token)) (→ String)
   (vector->string (subvector chars (::start token) (::end token))))
 
-(: tiles? (impl (Fn (List Token) I64 I64 -> Bool)))
-(define (tiles? tokens index end)
+(define (tiles? (tokens (List Token)) (index I64) (end I64)) (→ Bool)
   (match tokens
     ((Cons token rest)
      (and (= (::start token) index)
@@ -42,8 +39,7 @@
           (tiles? rest (::end token) end)))
     ((Nil) (= index end))))
 
-(: show-tokens (impl (Fn String -> Unit ! console)))
-(define (show-tokens text)
+(define (show-tokens (text String)) (→ Unit) (! console)
   (let* ((chars (string->vector text)) (tokens (highlight-tokens text)))
     (unless (and (tiles? tokens 0 (vector-length chars))
                  (string=?
@@ -60,14 +56,12 @@
                                                  tokens)
                                             " ")))))
 
-(: show-reading (impl (Fn String -> Unit ! console)))
-(define (show-reading text)
+(define (show-reading (text String)) (→ Unit) (! console)
   (show-tokens text)
   (write-line (string-append "  read: " (reading text))))
 
 ;; The forms the reader makes of `text`, or the error it stops with.
-(: reading (impl (Fn String -> String)))
-(define (reading text)
+(define (reading (text String)) (→ String)
   (match (compiling (lambda () (read-text text "sample.sld")))
     ((Ok forms) (string-join (map syntax->string forms) " "))
     ((Err (Failed diagnostics)) (diagnostics->string diagnostics))
@@ -76,12 +70,12 @@
 ;; ---- Samples ----
 
 ;; A definition's name, a comment, a number and the core forms.
-(show-reading "(define (twice x) ; doubles\n  (* 2 x))")
-(show-reading "(: label (impl (Fn I64 -> String)))")
+(show-reading "(define (twice (x I64)) (→ I64) ; doubles\n  (* 2 x))")
+(show-reading "(define label (→ String) \"label\")")
 (show-reading "(define ((adder n) x) (+ n x))")
 (show-reading "(struct Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
 (show-reading
- "(effect ask (ctl ask (dyn (Fn Unit -> I64)))) (handle ask ((ask (lambda (resume) 1))) body)")
+ "(effect ask (ctl ask (dyn (Fn Unit → I64)))) (handle ask ((ask (lambda (resume) 1))) body)")
 
 ;; Block comments nest.
 (show-reading "#| outer #| inner |# still outer |#x")

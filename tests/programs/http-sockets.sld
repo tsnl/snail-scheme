@@ -6,37 +6,31 @@
  (snail shell http)
  (snail shell http exchange))
 
-(: require (All (T) (impl (Fn (Result T SocketError) -> T))))
-(define (require result)
+(define (require (result (Result T SocketError))) (→ T) (∀ T)
   (match result ((Ok value) value) ((Err error) (panic (::code error)))))
 
-(: ascii (impl (Fn String -> Bytes)))
-(define (ascii text)
+(define (ascii (text String)) (→ Bytes)
   (vector-generate (string-length text)
                    (lambda (index) (i32->u8 (char->i32 (string-ref text index))))))
 
-(: text (impl (Fn Bytes -> String)))
-(define (text bytes)
+(define (text (bytes Bytes)) (→ String)
   (string-generate (vector-length bytes)
                    (lambda (index) (i32->char (u8->i32 (vector-ref bytes index))))))
 
-(: write-all (impl (Fn Connection Bytes -> Unit ! tcp tasks)))
-(define (write-all connection bytes)
+(define (write-all (connection Connection) (bytes Bytes)) (→ Unit) (! tcp tasks)
   (let loop ((offset 0))
     (when (< offset (vector-length bytes))
       (let ((count (require (write connection (subvector bytes offset (vector-length bytes))))))
         (unless (> count 0) (panic "write did not progress"))
         (loop (+ offset (i32->i64 count)))))))
 
-(: read-all (impl (Fn Connection -> Bytes ! tcp tasks)))
-(define (read-all connection)
+(define (read-all (connection Connection)) (→ Bytes) (! tcp tasks)
   (let loop ((chunks (ann (Nil) (List Bytes))))
     (match (require (read connection 65536))
       ((None) (vector-concatenate (reverse chunks)))
       ((Some bytes) (loop (Cons bytes chunks))))))
 
-(: echo (impl (Fn Request -> (Result Response String) ! tasks)))
-(define (echo request)
+(define (echo (request Request)) (→ (Result Response String)) (! tasks)
   (sleep 1)
   (Ok (Response 200 (list (Header "Content-Type" "text/plain")) (::body request))))
 

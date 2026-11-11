@@ -5,7 +5,7 @@
   ((value I64)))
 (define-instance-set fields
   (instance (::other Record I64)
-    (define (::other record) (::value record))))
+    (define ::other (lambda (record) (::value record)))))
 (define reader (with-instances (fields) ::other))
 (display (reader (Record 17)))
 (newline)

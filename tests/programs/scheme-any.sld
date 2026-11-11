@@ -12,12 +12,10 @@
 (struct Payload
   ((text String)))
 
-(: assert (impl (Fn Bool -> Unit)))
-(define (assert condition)
+(define (assert (condition Bool)) (→ Unit)
   (unless condition (panic "Scheme Any assertion failed")))
 
-(: reading (impl (Fn String -> Any)))
-(define (reading text)
+(define (reading (text String)) (→ Any)
   (match (read-datum text)
     ((Ok value) value)
     ((Err message) (panic message))))

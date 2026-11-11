@@ -1,5 +1,4 @@
 (import
  (snail core base))
-(: duplicate (All (T) (impl (Fn T -> (Pair T T)))))
-(define (duplicate value) (Pair value value))
+(define (duplicate (value T)) (→ (Pair T T)) (∀ T) (Pair value value))
 (duplicate 1)

@@ -4,7 +4,7 @@
 
 (struct Model
   ((title String)
-   (work (dyn (FnOnce -> Unit)))))
+   (work (dyn (FnOnce → Unit)))))
 
 ;; The lambda's parameter has no type when its body is checked, so the
 ;; field read is not rewritten for a borrow; annotate the parameter.

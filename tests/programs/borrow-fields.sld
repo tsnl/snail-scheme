@@ -9,8 +9,7 @@
   ((title String)
    (child Child)))
 
-(: child-name (impl (Fn (Borrow Child) -> String)))
-(define (child-name child)
+(define (child-name (child (Borrow Child))) (→ String)
   (::name child))
 
 ;; A copied field owns its data. A linear field remains a scoped borrow,
@@ -27,8 +26,7 @@
   (drop model))
 
 ;; A Copy target can leave the region as an ordinary value.
-(: copy-value (All (T) (requires (Copy T)) (impl (Fn (Borrow T) -> T))))
-(define (copy-value borrowed)
+(define (copy-value (borrowed (Borrow T))) (→ T) (∀ T) (⊨ (Copy T))
   (borrow-copy borrowed))
 
 (let ((number 42))

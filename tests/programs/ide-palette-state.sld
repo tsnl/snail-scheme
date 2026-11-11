@@ -12,44 +12,36 @@
  (prefix (snail shell ide search) search-)
  (prefix (snail shell ide palette) palette-))
 
-(: context palette-Context)
-(define context
+(define context (→ palette-Context)
   (palette-Context (list (palette-Entry "save-buffer" "Ctrl+S")) (list "main.sld")))
 
-(: state (impl (Fn palette-Step -> palette-State ! dom fetch)))
-(define (state step)
+(define (state (step palette-Step)) (→ palette-State) (! dom fetch)
   (match step ((palette-Step next _ commands) (drop commands) next)))
 
-(: send (impl (Fn palette-State palette-Message -> palette-State ! dom fetch)))
-(define (send state message)
+(define (send (state palette-State) (message palette-Message)) (→ palette-State) (! dom fetch)
   (state-of-update state context message))
 
-(: state-of-update
-   (impl (Fn palette-State palette-Context palette-Message -> palette-State ! dom fetch)))
-(define (state-of-update before context message)
+(define (state-of-update (before palette-State) (context palette-Context) (message palette-Message))
+  (→ palette-State)
+  (! dom fetch)
   (state (palette-update before context message)))
 
-(: check (impl (Fn Bool String -> Unit ! console)))
-(define (check ok label)
+(define (check (ok Bool) (label String)) (→ Unit) (! console)
   (if ok (write-line label) (panic label)))
 
-(: requested? (impl (Fn palette-Step -> Bool ! dom fetch)))
-(define (requested? step)
+(define (requested? (step palette-Step)) (→ Bool) (! dom fetch)
   (match step
     ((palette-Step _ _ commands)
      (match commands ((Nil) #f) ((Cons first rest) (drop first) (drop rest) #t)))))
 
-(: no-outcome? (impl (Fn palette-Step -> Bool ! dom fetch)))
-(define (no-outcome? step)
+(define (no-outcome? (step palette-Step)) (→ Bool) (! dom fetch)
   (match step
     ((palette-Step _ outcome commands) (drop commands) (match outcome ((None) #t) (_ #f)))))
 
-(: result (impl (Fn String -> (Result search-Results Failure))))
-(define (result path)
+(define (result (path String)) (→ (Result search-Results Failure))
   (Ok (search-SavedResults (SearchResults (list (Hit (Point path 2 3) "revision" "text")) 0 #f))))
 
-(: click (impl (Fn (Html palette-Message) -> (List palette-Message))))
-(define (click html)
+(define (click (html (Html palette-Message))) (→ (List palette-Message))
   (match html
     ((Text _) (Nil))
     ((Element _ attributes children)
@@ -59,18 +51,17 @@
                                    (_ (Nil)))) attributes))
              (concatenate (map click children))))))
 
-(: draft search-Draft)
-(define draft (search-Draft "main.sld" "before"))
+(define draft (→ search-Draft) (search-Draft "main.sld" "before"))
 
-(: reply (impl (Fn String -> Reply)))
-(define (reply path)
+(define (reply (path String)) (→ Reply)
   (Reply 200 (json->string
               (search->json (SearchResults (list (Hit (Point path 2 3) "revision" "text")) 0 #f)))))
 
 ;; Execute the real returned command, but choose when to apply its result.
 ;; A logical timer advances immediately; HTTP responses are fixed values.
-(: execute (impl (Fn palette-Step Reply -> (Pair palette-State palette-CommandResult) ! dom fetch)))
-(define (execute step reply)
+(define (execute (step palette-Step) (reply Reply))
+  (→ (Pair palette-State palette-CommandResult))
+  (! dom fetch)
   (match step
     ((palette-Step state _ (Cons (palette-Command command _) rest))
      (drop rest)
@@ -87,12 +78,12 @@
          (Pair state (command)))))
     (other (drop other) (panic "expected one command"))))
 
-(: accept (impl (Fn palette-State palette-CommandResult -> palette-State ! dom fetch)))
-(define (accept before result)
+(define (accept (before palette-State) (result palette-CommandResult))
+  (→ palette-State)
+  (! dom fetch)
   (state (result before)))
 
-(: run (impl (Fn -> Unit ! dom fetch console)))
-(define (run)
+(define (run) (→ Unit) (! dom fetch console)
   (let* ((start (state (palette-open palette-initial
                                      (palette-Searching
                                       (palette-Search (search-SavedProject)
