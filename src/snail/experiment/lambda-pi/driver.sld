@@ -2,7 +2,7 @@
 ;; checking asks for evaluation when a dependent premise needs a value, and
 ;; quotation enters closures to normalize beneath binders. There is no cache.
 (define-library (snail experiment lambda-pi driver)
-  (export Checked infer check assume define-global term-normal type-normal with-results)
+  (export Checked infer check assume define-global term-normal type-normal result-let*)
   (import
    (except (snail core base) ann)
    (snail experiment lambda-pi language)
@@ -21,42 +21,42 @@
 
     ;; Sequencing sugar only: this expands to ordinary Result matches. It
     ;; adds no callbacks, mutable state, scheduler, cache, or implicit inputs.
-    (define-syntax with-results
+    (define-syntax result-let*
       (syntax-rules ()
         ((_ () body ...) (begin body ...))
         ((_ ((name computation) next ...) body ...)
          (match computation
            ((Err problem) (Err problem))
-           ((Ok name) (with-results (next ...) body ...))))))
+           ((Ok name) (result-let* (next ...) body ...))))))
 
     (: infer (-> Context Infer (Result Checked Error)))
     (define (infer context term)
-      (with-results ((type (infer-type context term)))
-                    (Ok (Accepted context (Inf term) type))))
+      (result-let* ((type (infer-type context term)))
+        (Ok (Accepted context (Inf term) type))))
 
     (: check (-> Context Check Check (Result Checked Error)))
     (define (check context term expected)
-      (with-results ((verified (check-term context expected (Universe))))
-                    (let ((type (evaluate-check (::environment context) expected)))
-                      (with-results ((verified (check-term context term type)))
-                                    (Ok (Accepted context term type))))))
+      (result-let* ((verified (check-term context expected (Universe))))
+        (let ((type (evaluate-check (::environment context) expected)))
+          (result-let* ((verified (check-term context term type)))
+            (Ok (Accepted context term type))))))
 
     (: assume (-> Context String Check (Result Context Error)))
     (define (assume context name type)
-      (with-results ((unused (new-name context name))
-                     (verified (check-term context type (Universe))))
-                    (Ok (bind-global context name (evaluate-check (::environment context) type)
-                                     (Stuck (FreeValue (Identifier name)))))))
+      (result-let* ((unused (new-name context name))
+                    (verified (check-term context type (Universe))))
+        (Ok (bind-global context name (evaluate-check (::environment context) type)
+                         (Stuck (FreeValue (Identifier name)))))))
 
     (: define-global (-> Context String Infer (Result Context Error)))
     (define (define-global context name term)
-      (with-results ((unused (new-name context name))
-                     (type (infer-type context term)))
-                    (Ok
-                     (bind-global context
-                                  name
-                                  type
-                                  (evaluate-infer (::environment context) term)))))
+      (result-let* ((unused (new-name context name))
+                    (type (infer-type context term)))
+        (Ok
+         (bind-global context
+                      name
+                      type
+                      (evaluate-infer (::environment context) term)))))
 
     (: term-normal (-> Checked Normal))
     (define (term-normal checked)
@@ -88,27 +88,27 @@
 
     (: infer-annotation (-> Context (:: Check Check) (Result Value Error)))
     (define (infer-annotation context node)
-      (with-results ((verified (check-term context (::type node) (Universe))))
-                    (let ((type (evaluate-check (::environment context) (::type node))))
-                      (with-results ((verified (check-term context (::term node) type)))
-                                    (Ok type)))))
+      (result-let* ((verified (check-term context (::type node) (Universe))))
+        (let ((type (evaluate-check (::environment context) (::type node))))
+          (result-let* ((verified (check-term context (::term node) type)))
+            (Ok type)))))
 
     (: infer-product (-> Context (Product Check Check) (Result Value Error)))
     (define (infer-product context node)
-      (with-results ((verified (check-term context (::domain node) (Universe))))
-                    (let ((domain (evaluate-check (::environment context) (::domain node))))
-                      (with-results ((verified (check-term (under-binder context domain)
-                                                           (::codomain node) (Universe))))
-                                    (Ok (Universe))))))
+      (result-let* ((verified (check-term context (::domain node) (Universe))))
+        (let ((domain (evaluate-check (::environment context) (::domain node))))
+          (result-let* ((verified (check-term (under-binder context domain)
+                                              (::codomain node) (Universe))))
+            (Ok (Universe))))))
 
     ;; ANCHOR: application
     (: infer-application (-> Context (Application Infer Check) (Result Value Error)))
     (define (infer-application context node)
-      (with-results ((function-type (infer-type context (::function node)))
-                     (product (require-product function-type))
-                     (verified (check-term context (::argument node) (::domain product))))
-                    (let ((argument (evaluate-check (::environment context) (::argument node))))
-                      (Ok (evaluate-scope (enter (::codomain product) argument))))))
+      (result-let* ((function-type (infer-type context (::function node)))
+                    (product (require-product function-type))
+                    (verified (check-term context (::argument node) (::domain product))))
+        (let ((argument (evaluate-check (::environment context) (::argument node))))
+          (Ok (evaluate-scope (enter (::codomain product) argument))))))
     ;; ANCHOR_END: application
 
     ;; ---- Checking and conversion ----
@@ -117,25 +117,25 @@
     (define (check-term context term expected)
       (match term
         ((Inf inferable)
-         (with-results ((actual (infer-type context inferable)))
-                       (convert context expected actual)))
+         (result-let* ((actual (infer-type context inferable)))
+           (convert context expected actual)))
         ((Lam node) (check-lambda context node expected))
         ((Zero) (require-natural expected))
         ((Succ (Successor previous))
-         (with-results ((verified (require-natural expected)))
-                       (check-term context previous (Natural))))
+         (result-let* ((verified (require-natural expected)))
+           (check-term context previous (Natural))))
         ((VNil element) (check-empty-vector context element expected))
         ((VCons node) (check-vector-cons context node expected))))
 
     ;; ANCHOR: lambda
     (: check-lambda (-> Context (Binder Check) Value (Result Unit Error)))
     (define (check-lambda context node expected)
-      (with-results ((product (require-product expected)))
-                    (let* ((variable (fresh (length (::local-types context))))
-                           (body-type (evaluate-scope (enter (::codomain product) variable))))
-                      (check-term (under-binder context (::domain product))
-                                  (::body node)
-                                  body-type))))
+      (result-let* ((product (require-product expected)))
+        (let* ((variable (fresh (length (::local-types context))))
+               (body-type (evaluate-scope (enter (::codomain product) variable))))
+          (check-term (under-binder context (::domain product))
+                      (::body node)
+                      body-type))))
     ;; ANCHOR_END: lambda
 
     (: convert (-> Context Value Value (Result Unit Error)))
@@ -149,75 +149,75 @@
 
     (: infer-natural-elimination (-> Context (NatElimination Check Check) (Result Value Error)))
     (define (infer-natural-elimination context node)
-      (with-results ((verified (check-term context (::motive node) nat-motive-type)))
-                    (let ((motive (evaluate-check (::environment context) (::motive node))))
-                      (with-results
-                       ((verified
-                         (check-term context (::base node) (apply-value motive (ZeroValue))))
-                        (verified (check-term context (::step node) (nat-step-type motive)))
-                        (verified (check-term context (::scrutinee node) (Natural))))
-                       (Ok (apply-value motive
-                                        (evaluate-check (::environment context)
-                                                        (::scrutinee node))))))))
+      (result-let* ((verified (check-term context (::motive node) nat-motive-type)))
+        (let ((motive (evaluate-check (::environment context) (::motive node))))
+          (result-let*
+              ((verified
+                (check-term context (::base node) (apply-value motive (ZeroValue))))
+               (verified (check-term context (::step node) (nat-step-type motive)))
+               (verified (check-term context (::scrutinee node) (Natural))))
+            (Ok (apply-value motive
+                             (evaluate-check (::environment context)
+                                             (::scrutinee node))))))))
 
     (: infer-vector-type (-> Context (VectorType Check) (Result Value Error)))
     (define (infer-vector-type context node)
-      (with-results ((verified (check-term context (::element node) (Universe)))
-                     (verified (check-term context (::size node) (Natural))))
-                    (Ok (Universe))))
+      (result-let* ((verified (check-term context (::element node) (Universe)))
+                    (verified (check-term context (::size node) (Natural))))
+        (Ok (Universe))))
 
     (: check-empty-vector (-> Context Check Value (Result Unit Error)))
     (define (check-empty-vector context element expected)
-      (with-results ((verified (check-term context element (Universe))))
-                    (convert context expected
-                             (VectorValue
-                              (VectorType (evaluate-check (::environment context) element)
-                                          (ZeroValue))))))
+      (result-let* ((verified (check-term context element (Universe))))
+        (convert context expected
+                 (VectorValue
+                  (VectorType (evaluate-check (::environment context) element)
+                              (ZeroValue))))))
 
     (: check-vector-cons (-> Context (VectorCons Check) Value (Result Unit Error)))
     (define (check-vector-cons context node expected)
-      (with-results ((verified (check-term context (::element node) (Universe)))
-                     (verified (check-term context (::size node) (Natural))))
-                    (let ((element (evaluate-check (::environment context) (::element node)))
-                          (size (evaluate-check (::environment context) (::size node))))
-                      (with-results ((verified (check-term context (::head node) element))
-                                     (verified (check-term context
-                                                           (::tail node)
-                                                           (VectorValue
-                                                            (VectorType element size)))))
-                                    (convert context expected
-                                             (VectorValue (VectorType element
-                                                                      (SuccessorValue
-                                                                       (Successor size)))))))))
+      (result-let* ((verified (check-term context (::element node) (Universe)))
+                    (verified (check-term context (::size node) (Natural))))
+        (let ((element (evaluate-check (::environment context) (::element node)))
+              (size (evaluate-check (::environment context) (::size node))))
+          (result-let* ((verified (check-term context (::head node) element))
+                        (verified (check-term context
+                                              (::tail node)
+                                              (VectorValue
+                                               (VectorType element size)))))
+            (convert context expected
+                     (VectorValue (VectorType element
+                                              (SuccessorValue
+                                               (Successor size)))))))))
 
     (: infer-vector-elimination (-> Context (VectorElimination Check Check) (Result Value Error)))
     (define (infer-vector-elimination context node)
-      (with-results ((verified (check-term context (::element node) (Universe))))
-                    (let ((element (evaluate-check (::environment context) (::element node))))
-                      (with-results
-                       ((verified
-                         (check-term context (::motive node) (vector-motive-type element))))
-                       (check-vector-branches context node element
-                                              (evaluate-check (::environment context)
-                                                              (::motive node)))))))
+      (result-let* ((verified (check-term context (::element node) (Universe))))
+        (let ((element (evaluate-check (::environment context) (::element node))))
+          (result-let*
+              ((verified
+                (check-term context (::motive node) (vector-motive-type element))))
+            (check-vector-branches context node element
+                                   (evaluate-check (::environment context)
+                                                   (::motive node)))))))
 
     (: check-vector-branches
        (-> Context (VectorElimination Check Check) Value Value (Result Value Error)))
     (define (check-vector-branches context node element motive)
-      (with-results ((verified (check-term context (::base node)
-                                           (apply-many motive
-                                                       (list (ZeroValue) (EmptyValue element)))))
-                     (verified (check-term context (::step node) (vector-step-type element motive)))
-                     (verified (check-term context (::size node) (Natural))))
-                    (let ((size (evaluate-check (::environment context) (::size node))))
-                      (with-results ((verified (check-term context
-                                                           (::scrutinee node)
-                                                           (VectorValue
-                                                            (VectorType element size)))))
-                                    (Ok (apply-many motive
-                                                    (list size
-                                                          (evaluate-check (::environment context)
-                                                                          (::scrutinee node)))))))))
+      (result-let* ((verified (check-term context (::base node)
+                                          (apply-many motive
+                                                      (list (ZeroValue) (EmptyValue element)))))
+                    (verified (check-term context (::step node) (vector-step-type element motive)))
+                    (verified (check-term context (::size node) (Natural))))
+        (let ((size (evaluate-check (::environment context) (::size node))))
+          (result-let* ((verified (check-term context
+                                              (::scrutinee node)
+                                              (VectorValue
+                                               (VectorType element size)))))
+            (Ok (apply-many motive
+                            (list size
+                                  (evaluate-check (::environment context)
+                                                  (::scrutinee node)))))))))
 
     ;; ---- Evaluation ----
 

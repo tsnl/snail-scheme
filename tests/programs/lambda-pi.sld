@@ -51,10 +51,10 @@
 (: context Context)
 (define context
   (context-of
-   (with-results ((context (assume empty-context "A" star))
-                  (context (assume context "x" (reference "A")))
-                  (context (assume context "y" (reference "A"))))
-                 (assume context "f" (pi (reference "A") (reference "A"))))))
+   (result-let* ((context (assume empty-context "A" star))
+                 (context (assume context "x" (reference "A")))
+                 (context (assume context "y" (reference "A"))))
+     (assume context "f" (pi (reference "A") (reference "A"))))))
 
 (: identity Infer)
 (define identity (ann (lam (local 0)) (pi nat nat)))
@@ -94,9 +94,9 @@
   (demand (not (normal=? (term-normal f) (term-normal eta))) "unexpected eta conversion"))
 (let ((families
        (context-of
-        (with-results ((context (assume context "H"
-                                        (pi (pi (reference "A") (reference "A")) star))))
-                      (assume context "hf" (Inf (app (free "H") (reference "f"))))))))
+        (result-let* ((context (assume context "H"
+                                       (pi (pi (reference "A") (reference "A")) star))))
+          (assume context "hf" (Inf (app (free "H") (reference "f"))))))))
   (reject-conversion
    (check families (reference "hf")
           (Inf (app (free "H") (lam (Inf (app (free "f") (local 0)))))))))
