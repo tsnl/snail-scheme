@@ -10,7 +10,8 @@
   (export
    given-outputs
    equations-problem
-   requirement-problem)
+   requirement-problem
+   requirements-problem)
   (import
    (snail core base)
    (prefix (only (snail compiler expand language) Equation) expanded-)
@@ -86,6 +87,24 @@
         ((TypeParameter name) name)
         ((RowParameter name) name)))
 
+    ;; ---- Converted requirements ----
+
+    ;; The first of a scheme's class requirements that does not give its
+    ;; class what it takes, each class as `known` knows it, as the old
+    ;; compiler checks a definition's signature again once every class of
+    ;; the library is declared (`check-signature`). A callable requirement
+    ;; gives the compiler's class its receiver and its arrow, and is never
+    ;; refused.
+    (: requirements-problem (impl (Fn Known (List Requirement) -> (Option String))))
+    (define (requirements-problem known requirements)
+      (match requirements
+        ((Nil) (None))
+        ((Cons (ClassRequirement class types) rest)
+         (match (requirement-problem (class-shape known class) types)
+           ((Some message) (Some message))
+           ((None) (requirements-problem known rest))))
+        ((Cons (CallableRequirement _ _ _) rest) (requirements-problem known rest))))
+
     )
 
   ;; ---- Tests ----
@@ -95,15 +114,18 @@
     (export
      test-requirements)
     (import
+     (snail core table)
      (snail compiler source)
-     (only (snail compiler expand language) Global Label)
+     (only (snail compiler expand language) Global Label ClassGlobal FieldClass FnContract)
      (prefix (only (snail compiler expand language) Variable) expanded-)
+     (snail compiler declare offer)
      (snail stage0 testing))
     (begin
       (define (test-requirements)
         (test-outputs)
         (test-equations)
-        (test-parameters))
+        (test-parameters)
+        (test-converted))
 
       (define loc (Loc "t.sld" 1 1))
 
@@ -153,5 +175,47 @@
                                                    (list (TypeParameter "R") (TypeParameter "T"))
                                                    (list))
                                        (list c))
-                  (Some "a constraint gives each of the class's parameters, as in (count R T)"))))))
+                  (Some "a constraint gives each of the class's parameters, as in (count R T)"))))
+
+      ;; A scheme's requirements with each class as known: (main)'s Store,
+      ;; whose e is a row once its declaration is reached, and a type
+      ;; before, as its scan finds it. The first problem, in order; a
+      ;; callable requirement is never one.
+      (define (test-converted)
+        (let* ((main (list "main"))
+               (store-global (Global main "Store" 0))
+               (scanned (Scanned empty-table
+                                 (by-name empty-table
+                                          "Store"
+                                          (ScannedClass store-global (list "e" "S") (list)))))
+               (store-class (Class store-global
+                                   (list (RowParameter "e") (TypeParameter "S"))
+                                   (list)
+                                   (list)
+                                   (list)
+                                   loc))
+               (before
+                (Known main scanned (Declarations main empty-table empty-table empty-table) (list)))
+               (after (Known main
+                             scanned
+                             (Declarations main
+                                           empty-table
+                                           (by-name empty-table "Store" store-class)
+                                           empty-table)
+                             (list)))
+               (s (Var (Written "S")))
+               (given (lambda (row) (ClassRequirement (ClassGlobal store-global) (list row s))))
+               (callable (CallableRequirement (FnContract)
+                                              s
+                                              (Arrow (list) unit-type (Effects (list) (None))))))
+          (expect (requirements-problem before (list callable (given unit-type))) (None))
+          (expect (requirements-problem after (list callable (given unit-type)))
+                  (Some "a constraint gives the class's row parameter e a row"))
+          (expect
+           (requirements-problem after (list (given (Row (Effects (list) (None)))) (given s)))
+           (None))
+          (expect (requirements-problem after
+                                        (list (ClassRequirement (FieldClass "x") (list s))
+                                              (given unit-type)))
+                  (Some "a constraint gives each of the class's parameters, as in (x R T)"))))))
    (else)))

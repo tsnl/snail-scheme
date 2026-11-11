@@ -20,6 +20,10 @@
 ;;   first, then the method's own, each of its variables kept apart as
 ;;   `(Own variable)`. A row ending with a parameter the head gives a row
 ;;   becomes the one row they make, as the old compiler substitutes it.
+;;
+;; And a type with its variables bound, as the old compiler's `substitute`
+;; makes it, which the schemes above are made with, as is a struct's field
+;; at its type's arguments.
 (define-library (snail compiler declare schemes)
   (export
    constructor-scheme
@@ -27,7 +31,8 @@
    method-scheme
    operation-scheme
    default-scheme
-   implementation-scheme)
+   implementation-scheme
+   substituted)
   (import
    (snail core base)
    (only (snail compiler expand language)

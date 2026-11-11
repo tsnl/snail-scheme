@@ -106,12 +106,6 @@
         ((expanded-ClassGlobal global) (::name global))
         ((expanded-FieldClass label) label)))
 
-    (: checked (impl (Fn (Option String) Loc -> (Result Bool (List Feedback)))))
-    (define (checked problem loc)
-      (match problem
-        ((Some message) (fail loc message))
-        ((None) (Ok #t))))
-
     ;; The type each equation gives its output, in the class's order, once
     ;; the equations give each output exactly once.
     (: instance-outputs

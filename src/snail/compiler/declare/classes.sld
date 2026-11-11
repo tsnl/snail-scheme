@@ -7,7 +7,9 @@
 ;; known there by its shape alone, every parameter a type, since its
 ;; declaration is reached only once its methods are. A method's scheme is
 ;; executable code's. Then each written parameter's kind is found from the
-;; methods' types: a row when one ends a row with it.
+;; methods' types: a row when one ends a row with it. A parameter written
+;; both as a row and as a type, or an output that is a row, is refused at
+;; the class, once every method's scheme is converted.
 (define-library (snail compiler declare classes)
   (export
    declared-class)
@@ -40,14 +42,25 @@
              (scope (Scope known (list (own-requirement global parameters outputs)))))
         (result-let* ((methods (map-results (lambda (signature)
                                               (class-method scope signatures signature))
-                                            (method-signatures members))))
-          (Ok (Class global
-                     (class-parameters parameters
-                                       (map (lambda (method) (::type (::scheme method))) methods))
-                     outputs
-                     methods
-                     annotations
-                     loc)))))
+                                            (method-signatures members)))
+                      (kinds (parameter-kinds parameters outputs methods loc)))
+          (Ok (Class global kinds outputs methods annotations loc)))))
+
+    ;; Each written parameter's kind, from the methods' types, refused at
+    ;; the class.
+    (: parameter-kinds
+       (impl (Fn (List String)
+                 (List Output)
+                 (List Method)
+                 Loc
+                 ->
+                 (Result (List ClassParameter) (List Feedback)))))
+    (define (parameter-kinds parameters outputs methods loc)
+      (match (class-parameters parameters
+                               (map (lambda (output) (::name (::label output))) outputs)
+                               (map (lambda (method) (::type (::scheme method))) methods))
+        ((Ok kinds) (Ok kinds))
+        ((Err message) (fail loc message))))
 
     ;; `(Class parameter ... output ...)`, each a variable.
     (: own-requirement (impl (Fn expanded-Global (List String) (List Output) -> Requirement)))
@@ -217,7 +230,10 @@
           ((Ok class) (expect (::parameters class) (list (RowParameter "e") (TypeParameter "s"))))
           (other (expect other "a class"))))
 
-      ;; The methods in order, the first problem stopping them.
+      ;; The methods in order, the first problem stopping them; then the
+      ;; kinds, refused at the class: a row written as a type, then an
+      ;; output that is a row (error-class-row-kind.sld and
+      ;; error-associated-row.sld).
       (define (test-problems)
         (expect (declared-class known
                                 no-signatures
@@ -227,5 +243,46 @@
                                       (method "b" (applied "Vector" (list) 6) 6))
                                 (list)
                                 loc)
-                (fail (at 5) "wrong number of type arguments: Array")))))
+                (fail (at 5) "wrong number of type arguments: Array"))
+        (expect (declared-class known
+                                no-signatures
+                                (global "Store")
+                                (list "e" "s")
+                                (list (method "mixed"
+                                              (function (list (variable "e"))
+                                                        (applied "Unit" (list) 7)
+                                                        (expanded-Effects (list)
+                                                                          (Some (variable "e"))))
+                                              7)
+                                      (method "b" (applied "Vector" (list) 8) 8))
+                                (list)
+                                (at 6))
+                (fail (at 8) "wrong number of type arguments: Vector"))
+        (expect (declared-class known
+                                no-signatures
+                                (global "Store")
+                                (list "e" "s")
+                                (list (method "mixed"
+                                              (function (list (variable "e"))
+                                                        (applied "Unit" (list) 7)
+                                                        (expanded-Effects (list)
+                                                                          (Some (variable "e"))))
+                                              7))
+                                (list)
+                                (at 6))
+                (fail (at 6) "the class parameter e is written both as a row and as a type"))
+        (expect (declared-class known
+                                no-signatures
+                                (global "Collect")
+                                (list "c")
+                                (list item-output
+                                      (method "bad"
+                                              (function (list (variable "c"))
+                                                        (variable "c")
+                                                        (expanded-Effects (list)
+                                                                          (Some (variable "Item"))))
+                                              9))
+                                (list)
+                                (at 10))
+                (fail (at 10) "an associated type must have kind Type, not an effect row")))))
    (else)))

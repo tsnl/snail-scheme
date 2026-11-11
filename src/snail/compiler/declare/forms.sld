@@ -3,14 +3,18 @@
 ;; the old compiler's, src/snail/shell/compiler/core.sld's
 ;; `builtin-types`, in its order, but for `fn`, which (snail core forms)
 ;; offers as a keyword: `(fn ...)` is Code, never a type's name. The
-;; adapter compares the two. And the one class of another library the
-;; compiler knows by its Global: Drop, of (snail core base), whose
-;; instance makes its type's values moved.
+;; adapter compares the two. The builtin types a rule names by their
+;; Globals: String, and Vector and U8, which make Bytes. And the one class
+;; of another library the compiler knows by its Global: Drop, of (snail core
+;; base), whose instance makes its type's values moved.
 (define-library (snail compiler declare forms)
   (export
    forms-library
    builtin-types
    builtin-arity
+   string-type
+   vector-type
+   u8-type
    drop-class)
   (import
    (snail core base)
@@ -54,6 +58,20 @@
             ((None) (None)))
           (None)))
 
+    ;; ---- Known types ----
+
+    (: string-type Global)
+    (define string-type
+      (Global forms-library "String" 0))
+
+    (: vector-type Global)
+    (define vector-type
+      (Global forms-library "Vector" 0))
+
+    (: u8-type Global)
+    (define u8-type
+      (Global forms-library "U8" 0))
+
     ;; ---- Known classes ----
 
     (: drop-class Global)
@@ -79,5 +97,8 @@
         (expect (builtin-arity (Global forms-library "mut" 0)) (None))
         (expect (builtin-arity (Global (list "snail" "core" "base") "I64" 0)) (None))
         (expect (length builtin-types) 16)
+        (expect
+         (map (lambda (global) (builtin-arity global)) (list string-type vector-type u8-type))
+         (list (Some 0) (Some 1) (Some 0)))
         (expect (::name drop-class) "Drop"))))
    (else)))

@@ -28,7 +28,8 @@
    declared-type
    declared-types
    declared-scheme
-   declared-requirements)
+   declared-requirements
+   type-loc)
   (import
    (snail core base)
    (snail compiler source)
@@ -95,6 +96,19 @@
        (impl (Fn Converting (List expanded-TypeExpr) -> (Result (List Type) (List Feedback)))))
     (define (types-of converting types)
       (map-results (lambda (type) (type-of converting type)) types))
+
+    ;; Where a type is written, the place of a refusal of what it became.
+    (: type-loc (impl (Fn expanded-TypeExpr -> Loc)))
+    (define (type-loc type)
+      (match type
+        ((expanded-Applied _ _ _ loc) loc)
+        ((expanded-Variable _ loc) loc)
+        ((expanded-Projection _ _ _ loc) loc)
+        ((expanded-Callable _ _ _ loc) loc)
+        ((expanded-Code _ loc) loc)
+        ((expanded-Row _ loc) loc)
+        ((expanded-Aliased _ _ _ loc) loc)
+        ((expanded-AliasParameter _ loc) loc)))
 
     ;; A declared or builtin type, at as many arguments as it takes.
     (: applied-type

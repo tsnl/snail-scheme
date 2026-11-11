@@ -131,23 +131,25 @@ src/snail/compiler/
     requirements.sld      rule: what a class requirement gives its class
     projections.sld       rule: the type a projection stands for
     callables.sld         rule: the rules callable types obey in a scheme, and executable code's type
-    kinds.sld             rule: which of a class's parameters are rows
-    operations.sld        rule: an operation's parameters, result and latent effects
+    kinds.sld             rule: which of a class's parameters are rows, each one kind
+    operations.sld        rule: an operation's parameters, result and latent effects, and its defaults
+    host.sld              rule: what a host function may take
+    buildable.sld         rule: whether a struct can be built
     members.sld           rule: which member of a class or an effect a label names
     heads.sld             rule: what an instance's head and equations give its class
     lifecycle.sld         rule: the type a Drop instance makes moved
     identities.sld        rule: a case's TypeId
-    state.sld             the numbers it hands out and what is known, and declaring-let*
+    state.sld             the numbers it hands out and what is known, declaring-let* and checked
     types.sld             part: written types, schemes and requirements
-    values.sld            part: signatures, definitions, externs and primitives
+    values.sld            part: signatures, definitions' bodies, externs and primitives
     data.sld              part: structs and enums
     classes.sld           part: classes
     effects.sld           part: effects and their defaults
     instances.sld         part: instances and their methods
     expressions.sld       part: bodies
-    top.sld               part: the scan, the signatures, each declaration, then every body
+    top.sld               part: the scan, the signatures, each declaration, the structs, then every body
     pass.sld              (snail compiler declare pass): the function `declare`
-    schemes.sld           query: the scheme of each value a declaration makes
+    schemes.sld           query: the scheme of each value a declaration makes, and substitution
   ...
   integrate/              the integrator: one library per job
     files.sld             (snail compiler integrate files): every read of the file system
@@ -698,10 +700,11 @@ reported, in order.
 ### Declared, written by `declare` (implemented)
 
 `declare` is in progress: every declaration becomes its entity and every
-body is declared, with the old compiler's checks of types, heads, members
-and case identities; the checks that a struct can be built, of host
-functions and operation types, and of an instance's head and lifecycle
-are still to come.
+body is declared, with the old compiler's checks of types, kinds, heads,
+members, operations and their defaults, host functions, case identities
+and whether a struct can be built; the checks of an instance's head and
+lifecycle, and the Drop rules on taking apart and replacing, are still to
+come.
 
 Every written type is a `Type` and every signature a `Scheme`. A `Con` is a
 struct, an enum or a builtin of (snail core forms), at as many arguments as
@@ -732,12 +735,16 @@ FnContract arrow`, as the old compiler makes it a bare function type.
 Every declaration is its entity, in the order written. A struct or an enum
 is `Data`: each case tagged by its position, each field's type, whether a
 deriving clause names Move, and whether its library declares a Drop
-instance for it, which only that library can. A class knows which of its
-parameters are rows, and each method's own scheme. An instance has a
-Global of its own and gives each of its class's parameters, its outputs in
-place of its equations. Each label of a method definition, a default and a
-handler clause is the member it names. A `case-id` is its case and that
-case's TypeId. Each definition carries the last signature written for it.
+instance for it, which only that library can; a struct can be built. A
+class knows which of its parameters are rows, each one kind only, and each
+method's own scheme. An operation's type quantifies nothing and never
+names its own effect, and a control operation's is total and has no
+default; no operation has two. A host function takes a String or Bytes
+only last. An instance has a Global of its own and gives each of its
+class's parameters, its outputs in place of its equations. Each label of a
+method definition, a default and a handler clause is the member it names.
+A `case-id` is its case and that case's TypeId. Each definition carries
+the last signature written for it.
 
 ```text
 Declared    ::= Defined library Top* first-unused-number
@@ -849,6 +856,30 @@ row or a variable. A scheme's type is then made to obey the rules of
 callables: its result is no `impl`, each `impl` parameter becomes a
 variable, and then no `impl` is within its result or a parameter.
 
+What is known of a class's rows where a requirement is written is all its
+rows are checked against, as in the old compiler: a signature knows the
+rows of imported classes and refuses at the requirement, a declaration
+those of the classes declared before it, and none of a class of its own
+declared after it, which it never checks. A definition's body first
+checks its signature's requirements again, every class being declared,
+and refuses at the signature, before its value is declared.
+
+The rest of a declaration's checks follow its conversion, each refused
+where the old compiler refuses it and the first stopping the library. A
+class's parameters get their kinds once every method is converted: a
+parameter a method's type ends a row with and also writes as a type is
+refused, the first in the class's order, outputs last, and then an output
+that is a row, both at the class. An operation's type is refused at the
+type when it is no function with a closed row, then when it quantifies,
+then when a control operation's has latent effects, then when they name
+its own effect. Each default, in order, names an operation, refused at its
+label, that may have one, refused at the entry; then an operation with two
+is refused at the effect. A host function's type is refused at the type
+when a String or Bytes is not its last argument. Once every declaration is
+reached, each struct, in the order written, is one a program can build,
+whose every value does not hold another through struct fields, refused at
+its name, and the first such struct stops the library before any body.
+
 ### Typed, written by `settle` (sketch)
 
 Every node has a type and every use of a global its instantiation.
@@ -947,7 +978,9 @@ scheme, but those the old compiler names afresh; and, class by class, its
 instances in the old order, written and implied by a struct's fields, by
 their heads, variables, requirements, sets, the members their methods
 implement and each implementation's scheme. A name a macro's template
-wrote is compared by the name written, and a row's effects as a set. It also compares the integrator's
+wrote is compared by the name written, and a row's effects as a set. A
+program `declare` refuses is compared as a failure is, by its first
+problem, message and place, or every problem of its bodies. It also compares the integrator's
 SHA-256 with the old one, compiled, as `make test-compiler` does on
 Chibi.
 
