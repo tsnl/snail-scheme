@@ -56,18 +56,38 @@ try {
   await writeFile(join(project, '.gitignore'), 'ignored.txt\n');
   await until(() => browser.evaluate('Boolean(document.querySelector("#files > ul .file[data-path=\\"lib/notes.txt\\"]"))'), 'rule removal restores sidebar');
 
-  // Current-file search includes unsaved text and uses browser scalar offsets.
+  // Current-file find is a nonmodal control in the active pane, including drafts.
   await browser.evaluate(`(() => { const field = document.querySelector('textarea'); field.value = '😀 draft ONLY'; field.dispatchEvent(new Event('input')); })()`);
   await key({key: 'f', ctrlKey: true});
   await until(() => browser.evaluate('document.activeElement?.id === "command-query"'), 'current-file shortcut');
+  assert.equal(await browser.evaluate('document.querySelector(".palette-layer")'), null, 'find has no modal backdrop');
+  assert.ok(await browser.evaluate(`(() => { const find = document.getElementById('find-widget').getBoundingClientRect(), pane = document.querySelector('.pane.active').getBoundingClientRect();
+    return find.right <= pane.right && find.right >= pane.right - 12 && find.top >= pane.top && find.top < pane.top + 50 && find.height < 60; })()`), 'compact find sits at the pane top-right');
   await query('only');
-  await until(async () => (await labels()).join() === 'lib/notes.txt:1:9', 'unsaved current-file result');
-  // A replacement through the editor, rather than the query, refreshes results.
-  await browser.evaluate(`(() => { const field = document.querySelector('textarea'); field.value = '😀 changed draft ONLY'; field.dispatchEvent(new Event('input')); })()`);
-  await until(async () => (await labels()).join() === 'lib/notes.txt:1:17', 'draft replacement refreshes search');
+  await until(() => browser.evaluate('document.getElementById("find-count").textContent === "1 matches"'), 'unsaved current-file result');
+  await browser.evaluate(`(() => { const field = document.querySelector('textarea'); field.value = '😀 changed draft ONLY then only'; field.dispatchEvent(new Event('input')); })()`);
+  await until(() => browser.evaluate('document.getElementById("find-count").textContent === "2 matches"'), 'draft replacement refreshes search');
   await key({key: 'Enter'});
-  await until(() => browser.evaluate('document.activeElement?.tagName === "TEXTAREA" && document.activeElement.selectionStart === 17'), 'draft match navigation');
-  assert.equal(await browser.evaluate('document.querySelector("textarea").value'), '😀 changed draft ONLY');
+  await until(() => browser.evaluate('document.querySelector("textarea").selectionStart === 17 && document.querySelector("textarea").selectionEnd === 21'), 'whole Unicode draft match selected');
+  assert.equal(await browser.evaluate('document.activeElement.id'), 'command-query', 'navigation keeps find input focused');
+  await key({key: 'Enter'});
+  await until(() => browser.evaluate('document.querySelector("textarea").selectionStart === 27'), 'next match');
+  await key({key: 'Enter'});
+  await until(() => browser.evaluate('document.querySelector("textarea").selectionStart === 17'), 'next wraps');
+  await key({key: 'Enter', shiftKey: true});
+  await until(() => browser.evaluate('document.querySelector("textarea").selectionStart === 27'), 'previous wraps');
+  await browser.evaluate('document.querySelector("#find-widget button").click()');
+  await until(() => browser.evaluate('document.querySelector("textarea").selectionStart === 17'), 'previous button');
+  await key({key: 'f', metaKey: true});
+  assert.equal(await browser.evaluate('document.getElementById("command-query").value'), 'only', 'reopening find keeps its query');
+  if (screenshot) await browser.screenshot(screenshot + '.find.png');
+  await query('missing');
+  await until(() => browser.evaluate('document.getElementById("find-count").textContent === "No matches"'), 'no matches');
+  assert.equal(await browser.evaluate('document.querySelector("#find-widget button").disabled'), true);
+  await browser.evaluate('document.querySelector("textarea").focus()');
+  assert.ok(await browser.evaluate('Boolean(document.getElementById("find-widget"))'), 'editor remains reachable');
+  await key({key: 'Escape'});
+  await until(() => browser.evaluate('!document.getElementById("find-widget") && document.activeElement?.tagName === "TEXTAREA"'), 'Escape closes from editor');
 
   // Keep actual responses, then deliver A1 after B and A2. Matching query
   // text alone cannot distinguish this old success or old failure.
