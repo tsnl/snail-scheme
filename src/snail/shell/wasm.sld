@@ -223,8 +223,8 @@
 
     (define (module-export (module Module) (name String)) (→ (Result Funcref LoadError)) (! wasm)
       (send-argument name)
-      (if (exports-function? (::handle module))
-          (begin (send-argument name) (Ok (export-function (::handle module))))
+      (if (exports-function? (● module handle))
+          (begin (send-argument name) (Ok (export-function (● module handle))))
           (Err (MissingExport name))))
 
     ;; ---- Plugins ----
@@ -262,10 +262,10 @@
     (define (link-plugin (namespace I32) (directory String) (manifest Manifest))
       (→ (Result Plugin LoadError))
       (! wasm fs)
-      (match (link-libraries namespace directory (::libraries manifest))
+      (match (link-libraries namespace directory (● manifest libraries))
         ((Some error) (Err error))
         ((None)
-         (match (link-plugin-module namespace directory (::program manifest))
+         (match (link-plugin-module namespace directory (● manifest program))
            ((Ok program) (Ok (Plugin program)))
            ((Err error) (Err error))))))
 
@@ -284,8 +284,8 @@
     (define (link-plugin-module (namespace I32) (directory String) (module PluginModule))
       (→ (Result Module LoadError))
       (! wasm fs)
-      (match (compile-file (relative-to directory (::file module)))
-        ((Ok compiled) (instantiate-module namespace compiled (::name module)))
+      (match (compile-file (relative-to directory (● module file)))
+        ((Ok compiled) (instantiate-module namespace compiled (● module name)))
         ((Err error) (Err error))))
 
     ;; ---- Manifests ----
@@ -377,8 +377,8 @@
        (kind ImportKind)))
 
     (define (module-imports (compiled Compiled)) (→ (List Import)) (! wasm)
-      (map (lambda (index) (import-of (::handle compiled) (i64->i32 index)))
-           (iota (i32->i64 (import-count (::handle compiled))))))
+      (map (lambda (index) (import-of (● compiled handle) (i64->i32 index)))
+           (iota (i32->i64 (import-count (● compiled handle))))))
 
     (define (import-of (module I32) (index I32)) (→ Import) (! wasm)
       (let ((kind (import-at module index)))
@@ -430,7 +430,7 @@
     (define (link-module (name String) (compiled Compiled) (providers (List Provider)))
       (→ (Result Module LoadError))
       (! wasm)
-      (prepare-link (::handle compiled))
+      (prepare-link (● compiled handle))
       (for-each provide providers)
       (let ((handle (link-prepared)))
         (if (< handle 0) (Err (LinkFailed name)) (Ok (Module handle)))))
@@ -439,7 +439,7 @@
       (match provider
         ((ExportOf instance export)
          (send-argument export)
-         (provide-export (::handle instance))
+         (provide-export (● instance handle))
          (unit))
         ((HostProvided) (provide-host) (unit))
         ((HostIfProvided) (unless (provide-host) (provide-missing)))
@@ -452,7 +452,7 @@
 
     (define (name-instance (instance Module) (name String)) (→ Bool) (! wasm)
       (send-argument name)
-      (register-instance (::handle instance)))
+      (register-instance (● instance handle)))
 
     ;; Publish the complete library namespace in one host operation. The
     ;; candidate is staged without suspension or callbacks into loaded code.
@@ -462,8 +462,8 @@
     (define (replace-instances (instances (List (Pair String Module)))) (→ Bool) (! wasm)
       (prepare-names)
       (for-each (lambda (entry)
-                  (send-argument (::first entry))
-                  (provide-instance (::handle (::second entry)))
+                  (send-argument (● entry first))
+                  (provide-instance (● (● entry second) handle))
                   (unit)) instances)
       (replace-names))
 
@@ -475,8 +475,8 @@
       (→ (Result I64 LoadError))
       (! wasm)
       (send-argument name)
-      (if (exports-function? (::handle instance))
-          (begin (send-argument name) (Ok (call-export (::handle instance) argument)))
+      (if (exports-function? (● instance handle))
+          (begin (send-argument name) (Ok (call-export (● instance handle) argument)))
           (Err (MissingExport name))))
 
     ;; Calls the function the instance exports as `name` with `function`,
@@ -486,9 +486,9 @@
       (→ (Result I64 LoadError))
       (! wasm)
       (send-argument name)
-      (if (exports-function? (::handle instance))
+      (if (exports-function? (● instance handle))
           (begin (send-argument name)
-                 (Ok (call-with-function (::handle instance) function)))
+                 (Ok (call-with-function (● instance handle) function)))
           (Err (MissingExport name))))
 
     ;; ---- Plugin functions ----
@@ -504,7 +504,7 @@
       (! wasm)
       (∀ A)
       (⊨ (Copy A))
-      (let ((program (::program plugin)))
+      (let ((program (● plugin program)))
         (match (Pair (module-export program name)
                      (module-export program (string-append name ":signature")))
           ((Pair (Ok function) (Ok signature))

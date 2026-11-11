@@ -10,7 +10,7 @@
 ;; borrowed model can be counted through: the loan is read-only one level
 ;; deep, and a shared cell is writable from every holder.
 (define (bump (model (Borrow Model))) (→ Unit) (! mut)
-  (let ((cell (::count model)))
+  (let ((cell (● model count)))
     (ref-set! cell (+ 1 (ref-get cell)))))
 
 (let ((model (Model (ref 0) (once (lambda () (unit))))))

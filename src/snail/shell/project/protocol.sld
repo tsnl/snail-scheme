@@ -203,10 +203,10 @@
     (define (project->json (value Project)) (→ Json)
       (JsonObject
        (list
-        (Pair "name" (JsonString (::name value)))
-        (Pair "directory" (JsonString (::directory value)))
-        (Pair "files" (JsonArray (map JsonString (::files value))))
-        (Pair "directories" (JsonArray (map JsonString (::directories value)))))))
+        (Pair "name" (JsonString (● value name)))
+        (Pair "directory" (JsonString (● value directory)))
+        (Pair "files" (JsonArray (map JsonString (● value files))))
+        (Pair "directories" (JsonArray (map JsonString (● value directories)))))))
 
     (define (json->project (json Json)) (→ (Option Project))
       (reading ((name (field json "name" read-string))
@@ -218,8 +218,8 @@
     (define (file->json (value Snapshot)) (→ Json)
       (JsonObject
        (list
-        (Pair "text" (JsonString (::text value)))
-        (Pair "revision" (JsonString (::revision value))))))
+        (Pair "text" (JsonString (● value text)))
+        (Pair "revision" (JsonString (● value revision))))))
 
     (define (json->file (json Json)) (→ (Option Snapshot))
       (reading ((text (field json "text" read-string))
@@ -229,9 +229,9 @@
     (define (point->json (value Point)) (→ Json)
       (JsonObject
        (list
-        (Pair "file" (JsonString (::file value)))
-        (Pair "line" (JsonInteger (::line value)))
-        (Pair "column" (JsonInteger (::column value))))))
+        (Pair "file" (JsonString (● value file)))
+        (Pair "line" (JsonInteger (● value line)))
+        (Pair "column" (JsonInteger (● value column))))))
 
     (define (json->point (json Json)) (→ (Option Point))
       (reading ((file (field json "file" read-nonempty))
@@ -242,9 +242,9 @@
     (define (report->json (value Report)) (→ Json)
       (JsonObject
        (list
-        (Pair "severity" (JsonString (::severity value)))
-        (Pair "message" (JsonString (::message value)))
-        (Pair "source" (maybe-json point->json (::source value))))))
+        (Pair "severity" (JsonString (● value severity)))
+        (Pair "message" (JsonString (● value message)))
+        (Pair "source" (maybe-json point->json (● value source))))))
 
     (define (json->report (json Json)) (→ (Option Report))
       (reading ((severity (field json "severity" read-string))
@@ -255,9 +255,9 @@
     (define (build->json (value Build)) (→ Json)
       (JsonObject
        (list
-        (Pair "phase" (JsonString (::phase value)))
-        (Pair "id" (JsonInteger (::id value)))
-        (Pair "diagnostics" (JsonArray (map report->json (::diagnostics value)))))))
+        (Pair "phase" (JsonString (● value phase)))
+        (Pair "id" (JsonInteger (● value id)))
+        (Pair "diagnostics" (JsonArray (map report->json (● value diagnostics)))))))
 
     (define (json->build (json Json)) (→ (Option Build))
       (reading ((phase (field json "phase" read-build-phase))
@@ -268,14 +268,14 @@
     (define (attempt->json (value Attempt)) (→ Json)
       (JsonObject
        (list
-        (Pair "build" (JsonInteger (::build value)))
-        (Pair "pid" (maybe-json JsonInteger (::pid value)))
-        (Pair "phase" (JsonString (::phase value)))
-        (Pair "code" (maybe-json JsonInteger (::code value)))
-        (Pair "signal" (nullable-string (::signal value)))
-        (Pair "error" (nullable-string (::error value)))
-        (Pair "stdout" (JsonString (::stdout value)))
-        (Pair "stderr" (JsonString (::stderr value))))))
+        (Pair "build" (JsonInteger (● value build)))
+        (Pair "pid" (maybe-json JsonInteger (● value pid)))
+        (Pair "phase" (JsonString (● value phase)))
+        (Pair "code" (maybe-json JsonInteger (● value code)))
+        (Pair "signal" (nullable-string (● value signal)))
+        (Pair "error" (nullable-string (● value error)))
+        (Pair "stdout" (JsonString (● value stdout)))
+        (Pair "stderr" (JsonString (● value stderr))))))
 
     (define (json->attempt (json Json)) (→ (Option Attempt))
       (reading ((build (field json "build" read-natural))
@@ -291,11 +291,11 @@
     (define (run->json (value Run)) (→ Json)
       (JsonObject
        (list
-        (Pair "target" (JsonString (::target value)))
-        (Pair "desired" (desired->json (::desired value)))
-        (Pair "attempt" (maybe-json attempt->json (::attempt value)))
-        (Pair "wanted" (JsonBool (::wanted value)))
-        (Pair "available" (JsonBool (::available value))))))
+        (Pair "target" (JsonString (● value target)))
+        (Pair "desired" (desired->json (● value desired)))
+        (Pair "attempt" (maybe-json attempt->json (● value attempt)))
+        (Pair "wanted" (JsonBool (● value wanted)))
+        (Pair "available" (JsonBool (● value available))))))
 
     (define (json->run (json Json)) (→ (Option Run))
       (reading ((target (field json "target" read-nonempty))
@@ -308,12 +308,12 @@
     (define (state->json (value ServerState)) (→ Json)
       (JsonObject
        (list
-        (Pair "instance" (JsonString (::instance value)))
-        (Pair "files" (JsonInteger (::files value)))
-        (Pair "build" (build->json (::build value)))
-        (Pair "runs" (JsonArray (map run->json (::runs value))))
-        (Pair "editor" (JsonString (::editor value)))
-        (Pair "editor-problem" (JsonString (::editor-problem value))))))
+        (Pair "instance" (JsonString (● value instance)))
+        (Pair "files" (JsonInteger (● value files)))
+        (Pair "build" (build->json (● value build)))
+        (Pair "runs" (JsonArray (map run->json (● value runs))))
+        (Pair "editor" (JsonString (● value editor)))
+        (Pair "editor-problem" (JsonString (● value editor-problem))))))
 
     (define (json->state (json Json)) (→ (Option ServerState))
       (reading ((instance (field json "instance" read-nonempty))
@@ -327,9 +327,9 @@
     (define (search->json (value SearchResults)) (→ Json)
       (JsonObject
        (list
-        (Pair "hits" (JsonArray (map hit->json (::hits value))))
-        (Pair "skipped" (JsonInteger (::skipped value)))
-        (Pair "limited" (JsonBool (::limited value))))))
+        (Pair "hits" (JsonArray (map hit->json (● value hits))))
+        (Pair "skipped" (JsonInteger (● value skipped)))
+        (Pair "limited" (JsonBool (● value limited))))))
 
     (define (json->search (json Json)) (→ (Option SearchResults))
       (reading ((hits (field json "hits" (lambda (json) (items json->hit json))))
@@ -338,11 +338,11 @@
                (SearchResults hits skipped limited)))
 
     (define (hit->json (hit Hit)) (→ Json)
-      (JsonObject (list (Pair "path" (JsonString (::file (::point hit))))
-                        (Pair "line" (JsonInteger (::line (::point hit))))
-                        (Pair "column" (JsonInteger (::column (::point hit))))
-                        (Pair "revision" (JsonString (::revision hit)))
-                        (Pair "snippet" (JsonString (::snippet hit))))))
+      (JsonObject (list (Pair "path" (JsonString (● (● hit point) file)))
+                        (Pair "line" (JsonInteger (● (● hit point) line)))
+                        (Pair "column" (JsonInteger (● (● hit point) column)))
+                        (Pair "revision" (JsonString (● hit revision)))
+                        (Pair "snippet" (JsonString (● hit snippet))))))
 
     (define (json->hit (json Json)) (→ (Option Hit))
       (reading ((path (field json "path" read-nonempty))

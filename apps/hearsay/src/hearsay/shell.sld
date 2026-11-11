@@ -62,35 +62,35 @@
     ;; ---- Updates ----
 
     (define (open (shell Shell) (action I32) (argument I32)) (→ Shell)
-      (let ((index (i32->i64 argument)) (opened (+ (::opened shell) 1)))
+      (let ((index (i32->i64 argument)) (opened (+ (● shell opened) 1)))
         (cond ((= action action-ledger)
                (show-opened (Shell-ledger-guided-set shell #t)
-                            (Favors (new-ledger-screen (+ (::seed shell) opened)))
-                            (::ledger-guided shell)))
+                            (Favors (new-ledger-screen (+ (● shell seed) opened)))
+                            (● shell ledger-guided)))
               ((and (= action action-scenario) (>= index 0) (< index (length scenarios)))
                (show-opened (Shell-mill-guided-set shell #t)
                             (Rumors (new-mill-screen (list-ref scenarios index)
                                                      (* opened 1000)
-                                                     (::width shell)
-                                                     (::height shell)))
-                            (::mill-guided shell)))
+                                                     (● shell width)
+                                                     (● shell height)))
+                            (● shell mill-guided)))
               (else shell))))
 
     ;; Shows a newly opened prototype and counts it, pressing its Guide
     ;; button unless it has been `guided` before.
     (define (show-opened (shell Shell) (screen Screen) (guided Bool)) (→ Shell)
-      (let ((shown (Shell-opened-set (Shell-screen-set shell screen) (+ (::opened shell) 1))))
+      (let ((shown (Shell-opened-set (Shell-screen-set shell screen) (+ (● shell opened) 1))))
         (if guided shown (forward shown (Press guide-open 0)))))
 
     (define (forward (shell Shell) (input Input)) (→ Shell)
-      (match (::screen shell)
+      (match (● shell screen)
         ((Menu) shell)
         ((Rumors screen) (Shell-screen-set shell (Rumors (update-mill-screen screen input))))
         ((Favors screen) (Shell-screen-set shell (Favors (update-ledger-screen screen input))))))
 
     (define (press (shell Shell) (action I32) (argument I32)) (→ Shell)
       (cond ((= action action-menu) (Shell-screen-set shell (Menu)))
-            ((match (::screen shell) ((Menu) #t) (_ #f)) (open shell action argument))
+            ((match (● shell screen) ((Menu) #t) (_ #f)) (open shell action argument))
             (else (forward shell (Press action argument)))))
 
     (define (update-shell (shell Shell) (input Input)) (→ Shell)
@@ -105,7 +105,7 @@
     ;; `art` gives the bytes of each sheet the cast wears; main.sld passes
     ;; the embedded ones, and tests may pass none.
     (define (view-shell (shell Shell) (art (dyn (Fn String → (Option Source))))) (→ Frame)
-      (match (::screen shell)
+      (match (● shell screen)
         ((Menu) (empty-frame (Nil)))
         ((Rumors screen) (view-mill-screen screen art))
         ((Favors screen) (view-ledger-screen screen art))))
@@ -120,8 +120,8 @@
                           (map-indexed (lambda (index scenario)
                                          (let ((rules (scenario-rules scenario)))
                                            (Button (look (string-append "scenario-" (show index)))
-                                                   (::name rules)
-                                                   (::pitch rules)
+                                                   (● rules name)
+                                                   (● rules pitch)
                                                    action-scenario
                                                    (i64->i32 index)
                                                    (Enabled)
@@ -144,7 +144,7 @@
                          (button "open-guide" "Guide" guide-open)))))
 
     (define (shell-hud (shell Shell)) (→ (List Panel))
-      (match (::screen shell)
+      (match (● shell screen)
         ((Menu) menu-panels)
         ((Rumors screen) (mill-screen-hud screen menu-button))
         ((Favors screen) (ledger-screen-hud screen menu-button))))

@@ -7,9 +7,9 @@
 
 (define (check-range (text String) (point I64) (start I64) (marked String)) (→ Unit)
   (let ((range (highlight-range text point)))
-    (unless (and (= (::first range) start)
-                 (= (::second range) (+ start (string-length marked)))
-                 (string=? (substring text (::first range) (::second range)) marked))
+    (unless (and (= (● range first) start)
+                 (= (● range second) (+ start (string-length marked)))
+                 (string=? (substring text (● range first) (● range second)) marked))
       (panic (string-append "unexpected display range at " (show point) " in " text)))))
 
 ;; Whole tokens, including a point inside an astral character or a string.

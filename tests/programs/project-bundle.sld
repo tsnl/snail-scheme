@@ -63,15 +63,15 @@
 (define (show-response (label String) (response Response)) (→ Unit) (! console)
   (write-line (string-append label
                              " -> "
-                             (show (::status response))
+                             (show (● response status))
                              " "
                              (match (find (lambda (header)
-                                            (string=? (::name header) "Content-Type"))
-                                          (::headers response))
-                               ((Some header) (::value header))
+                                            (string=? (● header name) "Content-Type"))
+                                          (● response headers))
+                               ((Some header) (● header value))
                                ((None) "no type"))
                              ": "
-                             (match (utf8->string (::body response))
+                             (match (utf8->string (● response body))
                                ((Ok text) text)
                                ((Err _) "not text")))))
 

@@ -29,8 +29,8 @@
                      (limited Bool))))
 
     (define (same-draft? (first Draft) (second Draft)) (→ Bool)
-      (and (string=? (::path first) (::path second))
-           (string=? (::text first) (::text second))))
+      (and (string=? (● first path) (● second path))
+           (string=? (● first text) (● second text))))
 
     ;; ---- Searching ----
 
@@ -47,7 +47,7 @@
            ((CurrentDraft draft) (Ok (search-draft draft query)))))))
 
     (define (search-draft (draft Draft) (query Query)) (→ Results) (! tasks)
-      (let* ((text (::text draft))
+      (let* ((text (● draft text))
              (end (min 4000000 (string-length text)))
              (hits (scan query text end 201)))
         (DraftResults draft (take hits 200)

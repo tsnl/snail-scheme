@@ -24,7 +24,7 @@
                                                                                (make-string 1
                                                                                             #\null)))))))
            (stream-next page-stream-next)
-           (stream-close (lambda (stream) (host-stream-close (::id stream)))))
+           (stream-close (lambda (stream) (host-stream-close (● stream id)))))
         (work)))
 
     ;; A request crosses in parts, each a string as UTF-8 Bytes, and starts
@@ -40,9 +40,9 @@
       (host-request-method (string->utf8 method))
       (host-request-url (string->utf8 url))
       (for-each (lambda (header)
-                  (host-request-header (string->utf8 (string-append (::name header)
+                  (host-request-header (string->utf8 (string-append (● header name)
                                                                     (make-string 1 #\null)
-                                                                    (::value header)))))
+                                                                    (● header value)))))
                 headers)
       (host-request-body (string->utf8 body))
       (let ((status (through-host host-start-request host-finish-request)))
@@ -53,7 +53,7 @@
     ;; otherwise leaves the next event's kind and data, a NUL between them.
 
     (define (page-stream-next (stream Stream)) (→ (Option StreamEvent)) (! tasks)
-      (let ((count (through-host (lambda (ticket) (host-stream-start ticket (::id stream)))
+      (let ((count (through-host (lambda (ticket) (host-stream-start ticket (● stream id)))
                                  host-stream-finish)))
         (if (< count 0) (None) (Some (stream-event (host-reply))))))
 

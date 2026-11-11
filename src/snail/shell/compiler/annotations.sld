@@ -96,18 +96,18 @@
         (lambda (text) (split-annotations (car (read-text text "sample.sld")) 2)))
 
       (define test-annotations
-        (lambda () (expect (::second (annotation-sample "(field String)")) (Nil))
-                (expect (::second (annotation-sample "(field String (annotations))")) (Nil))
-                (expect (syntax->string (::first (annotation-sample "(field (annotations T))")))
+        (lambda () (expect (● (annotation-sample "(field String)") second) (Nil))
+                (expect (● (annotation-sample "(field String (annotations))") second) (Nil))
+                (expect (syntax->string (● (annotation-sample "(field (annotations T))") first))
                         "(field (annotations T))")
                 (let* ((parsed (annotation-sample
                                 "(field String (annotations\n(doc \"first\") (doc \"second\")))"))
-                       (annotations (::second parsed)))
-                  (expect (syntax->string (::first parsed)) "(field String)")
+                       (annotations (● parsed second)))
+                  (expect (syntax->string (● parsed first)) "(field String)")
                   (expect (annotation-documentation annotations) (Some "first\nsecond"))
                   (expect (match annotations
                             ((Cons (Documentation _ loc) _)
-                             (list (::file loc) (::line loc) (::column loc)))
+                             (list (● loc file) (● loc line) (● loc column)))
                             (_ (Nil)))
                           (list "sample.sld" 2 1)))
                 (expect (annotation-documentation (Nil)) (None))

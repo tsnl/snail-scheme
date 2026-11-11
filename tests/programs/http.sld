@@ -41,12 +41,12 @@
         "POST /a%2Fb?x=1&x=2 HTTP/1.1\r\nHost: example.test:8080\r\nContent-Length: 3\r\nX-Test: first\r\nx-TEST:\tsecond \t\r\n\r\n")
        (bytes (ascii source))
        (head (parsed (vector-append bytes #u8(0 255 128))))
-       (request (::request head)))
-  (assert (= (::end head) (vector-length bytes)))
-  (assert (= (::body-length request) 3))
-  (write-line (::method request))
-  (write-line (::target request))
-  (for-each write-line (header-values (::headers request) "X-Test"))
+       (request (● head request)))
+  (assert (= (● head end) (vector-length bytes)))
+  (assert (= (● request body-length) 3))
+  (write-line (● request method))
+  (write-line (● request target))
+  (for-each write-line (header-values (● request headers) "X-Test"))
   (let loop ((count 0))
     (when (< count (vector-length bytes))
       (assert (match (parse-request-head (subvector bytes 0 count))
@@ -55,8 +55,8 @@
       (loop (+ count 1)))))
 
 (let ((response (encoded "HEAD" 200 (list (Header "Content-Type" "text/plain")) #u8(97 98 99))))
-  (assert (= (vector-length (::body response)) 0))
-  (assert (string=? (text (::head response))
+  (assert (= (vector-length (● response body)) 0))
+  (assert (string=? (text (● response head))
                     "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 3\r\ncontent-type: text/plain\r\n\r\n")))
 
 ;; Error classes preserve the distinction between bad framing and unsupported
@@ -92,12 +92,12 @@
 (let* ((prefix "GET / HTTP/1.1\r\nHost: a\r\nX: ") (suffix "\r\n\r\n")
        (count (- (- head-limit (string-length prefix)) (string-length suffix)))
        (exact (string-append prefix (make-string count #\x) suffix)))
-  (assert (= (::end (parsed (ascii exact))) head-limit))
+  (assert (= (● (parsed (ascii exact)) end) head-limit))
   (reject-head (string-append prefix (make-string (+ count 1) #\x) suffix) "head-limit"))
 (reject-head (make-string head-limit #\x) "head-limit")
 (let* ((head (ascii "GET / HTTP/1.1\r\nHost: a\r\n\r\n"))
        (with-body (vector-append head (make-vector (+ head-limit 1) (i32->u8 255)))))
-  (assert (= (::end (parsed with-body)) (vector-length head))))
+  (assert (= (● (parsed with-body) end) (vector-length head))))
 (for-each (lambda (byte)
             (let ((head (vector-concatenate (list (ascii "GET / HTTP/1.1\r\nHost: a\r\nX: ")
                                                   (make-vector 1 byte) (ascii "\r\n\r\n")))))
@@ -109,12 +109,12 @@
        (count (quotient (- (- head-limit (string-length prefix)) 2) 4))
        (source
         (string-append prefix (string-concatenate (map (lambda (_) "x:\r\n") (iota count))) "\r\n"))
-       (request (::request (parsed (ascii source)))))
-  (assert (= (length (::headers request)) (+ count 1))))
+       (request (● (parsed (ascii source)) request)))
+  (assert (= (length (● request headers)) (+ count 1))))
 (let ((request
-       (::request
-        (parsed (ascii "POST / HTTP/1.1\r\nHost: a:0\r\nContent-Length: 8388608\r\n\r\n")))))
-  (assert (= (::body-length request) body-limit)))
+       (● (parsed (ascii "POST / HTTP/1.1\r\nHost: a:0\r\nContent-Length: 8388608\r\n\r\n"))
+          request)))
+  (assert (= (● request body-length) body-limit)))
 (reject-head "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 8388609\r\n\r\n" "body-limit")
 (reject-head
  (string-append "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: " (make-string 1000 #\9) "\r\n\r\n")
@@ -123,11 +123,11 @@
 
 (define (check-response (method String) (status I32) (head String) (body Bytes)) (→ Unit)
   (let ((response (encoded method status (Nil) #u8(0 255 128))))
-    (assert (string=? (text (::head response)) head))
-    (assert (= (vector-length (::body response)) (vector-length body)))
+    (assert (string=? (text (● response head)) head))
+    (assert (= (vector-length (● response body)) (vector-length body)))
     (for-each (lambda (index)
                 (assert
-                 (= (vector-ref (::body response) index) (vector-ref body index))))
+                 (= (vector-ref (● response body) index) (vector-ref body index))))
               (iota (vector-length body)))))
 
 (check-response "GET"
@@ -167,11 +167,11 @@
        (count (- (- head-limit (string-length base)) 5))
        (header (Header "X" (make-string count #\x))))
   (assert
-   (= (vector-length (::head (encoded "GET" 200 (list header) #u8()))) head-limit))
+   (= (vector-length (● (encoded "GET" 200 (list header) #u8()) head)) head-limit))
   (reject-response "GET" 200 (list (Header "X" (make-string (+ count 1) #\x))) "head-limit")
   (let ((many (map (lambda (_) (Header "x" ""))
                    (iota (quotient (- head-limit (string-length base)) 5)))))
-    (assert (<= (vector-length (::head (encoded "GET" 200 many #u8()))) head-limit))))
+    (assert (<= (vector-length (● (encoded "GET" 200 many #u8()) head)) head-limit))))
 (write-line "safe output")
 
 ;; Targets decode as `new URL` reads them: the path's segments, each
@@ -188,10 +188,10 @@
                                        " -> "
                                        (string-concatenate
                                         (map (lambda (segment) (string-append "[" segment "]"))
-                                             (::path target))))
+                                             (● target path))))
                         (map
-                         (lambda (pair) (string-append (::first pair) "=" (::second pair)))
-                         (::query target)))
+                         (lambda (pair) (string-append (● pair first) "=" (● pair second)))
+                         (● target query)))
                   " "))))
 
 (for-each (lambda (source) (write-line (target-text source)))
@@ -223,9 +223,9 @@
                 "api/file" "" "*"))
 (match (parse-request-head (ascii "GET /api/file?path=%CE%BB HTTP/1.1\r\nHost: a\r\n\r\n"))
   ((Ok (Some parsed))
-   (match (parse-target (::target (::request parsed)))
+   (match (parse-target (● (● parsed request) target))
      ((Ok target)
-      (assert (match (assoc-ref (::query target) "path")
+      (assert (match (assoc-ref (● target query) "path")
                 ((Some path) (string=? path "λ"))
                 ((None) #f))))
      ((Err _) (panic "rejected a parsed target"))))

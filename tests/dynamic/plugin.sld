@@ -12,8 +12,8 @@
 (define label (→ String) (string-append "summary of " "the project"))
 
 (define (summarize (project Project)) (→ Report)
-  (Report (string-append label " " (::name project))
-          (length (::estimates project))
-          (fold-left + 0 (::estimates project))))
+  (Report (string-append label " " (● project name))
+          (length (● project estimates))
+          (fold-left + 0 (● project estimates))))
 
 (expose summarize "summarize" dynamic)

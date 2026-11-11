@@ -10,18 +10,18 @@
    (child Child)))
 
 (define (child-name (child (Borrow Child))) (→ String)
-  (::name child))
+  (● child name))
 
 ;; A copied field owns its data. A linear field remains a scoped borrow,
 ;; including when its projection is bound to a local alias.
 (let ((model (Model "ready" (Child "nested"))) (other (Child "consumed")))
   (with-borrow (read model)
-               (let ((child (::child read)))
+               (let ((child (● read child)))
                  (write-line (child-name child))
                  (write-line (child-name child)))
-               (with-borrow (also model) (write-line (::title also)))
+               (with-borrow (also model) (write-line (● also title)))
                (drop other))
-  (with-borrow (child (::child model))
+  (with-borrow (child (● model child))
                (write-line (child-name child)))
   (drop model))
 

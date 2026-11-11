@@ -30,10 +30,10 @@
     ((OtherKind) "other")))
 
 (define (status-text (status FileStatus)) (→ String)
-  (match (::kind status)
+  (match (● status kind)
     ((Directory) "directory")
-    (kind (string-append (kind-name kind) " of " (show (::size status)) " bytes, modified "
-                         (if (> (::modified status) 0) "after" "before") " 1970"))))
+    (kind (string-append (kind-name kind) " of " (show (● status size)) " bytes, modified "
+                         (if (> (● status modified) 0) "after" "before") " 1970"))))
 
 (define (names (entries (List String))) (→ String)
   (string-append "(" (string-join entries " ") ")"))

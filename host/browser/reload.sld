@@ -150,14 +150,14 @@
     ((Err message) (panic (string-append "reload: " message)))))
 
 (define (same-manifest? (a Manifest) (b Manifest)) (→ Bool)
-  (and (same-pairs? (::files a) (::files b))
-       (same-pairs? (::modules a) (::modules b))))
+  (and (same-pairs? (● a files) (● b files))
+       (same-pairs? (● a modules) (● b modules))))
 
 (define (same-pairs? (a (List (Pair String String))) (b (List (Pair String String)))) (→ Bool)
   (and (= (length a) (length b))
        (every? (lambda (pair)
-                 (and (string=? (::first (::first pair)) (::first (::second pair)))
-                      (string=? (::second (::first pair)) (::second (::second pair)))))
+                 (and (string=? (● (● pair first) first) (● (● pair second) first))
+                      (string=? (● (● pair first) second) (● (● pair second) second))))
                (zip a b))))
 
 (define (event-manifest (event Event)) (→ Manifest)
@@ -171,23 +171,24 @@
 ;; The files whose digests differ, including files only one side has.
 (define (changed-files (old Manifest) (new Manifest)) (→ (List String))
   (delete-duplicates string=?
-                     (append (differing (::files old) (::files new))
-                             (differing (::files new) (::files old)))))
+                     (append (differing (● old files) (● new files))
+                             (differing (● new files) (● old files)))))
 
 (define (differing (these (List (Pair String String))) (those (List (Pair String String))))
   (→ (List String))
-  (map ::first (filter (lambda (entry) (match (assoc-ref those (::first entry))
-                                         ((Some digest)
-                                          (not (string=? digest (::second entry))))
-                                         ((None) #t)))
-                       these)))
+  (map (lambda (record) (● record first))
+       (filter (lambda (entry) (match (assoc-ref those (● entry first))
+                                 ((Some digest)
+                                  (not (string=? digest (● entry second))))
+                                 ((None) #t)))
+               these)))
 
 ;; The first module, in program order, whose digest differs; the modules
 ;; before it cannot import from it, so they stay linked. A module's bytes
 ;; name the digest of each file it links, so editing a linked file changes
 ;; the module that links it.
 (define (first-changed-module (old Manifest) (new Manifest)) (→ (Option String))
-  (let loop ((old (::modules old)) (new (::modules new)))
+  (let loop ((old (● old modules)) (new (● new modules)))
     (match new
       ((Cons (Pair name digest) rest)
        (match old
@@ -233,12 +234,12 @@
     (cond ((refused? manifest) (unit))
           ((any? (lambda (file) (not (style-sheet? file))) files) (reload-page!))
           (else (for-each (lambda (file)
-                            (restyle! file (digest-of manifest file) (::base manifest)))
+                            (restyle! file (digest-of manifest file) (● manifest base)))
                           (filter style-sheet? files))
                 (match (first-changed-module (ref-get loaded) manifest)
                   ((Some module)
                    (ref-set! relinking (Some manifest))
-                   (relink! module (::base manifest) #f))
+                   (relink! module (● manifest base) #f))
                   ((None) (ref-set! loaded manifest) (show! event (not (null? files)))))))))
 
 (define (refused? (manifest Manifest)) (→ Bool) (! mut)
@@ -247,7 +248,7 @@
     ((None) #f)))
 
 (define (digest-of (manifest Manifest) (file String)) (→ String)
-  (match (assoc-ref (::files manifest) file)
+  (match (assoc-ref (● manifest files) file)
     ((Some digest) digest)
     ((None) "")))
 
@@ -291,10 +292,10 @@
 (define (start-over!) (→ Unit) (! mut page)
   (match (Pair (ref-get refused) (ref-get relinking))
     ((Pair (Some target) (None))
-     (match (::modules target)
+     (match (● target modules)
        ((Cons (Pair first _) _)
         (ref-set! relinking (Some target))
-        (relink! first (::base target) #t))
+        (relink! first (● target base) #t))
        ((Nil) (unit))))
     (_ (unit))))
 

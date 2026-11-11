@@ -20,7 +20,7 @@
 
 ;; Calling an Fn calls its code.
 (define (press (button Button) (count I64)) (→ String)
-  ((::on-press button) count))
+  ((● button on-press) count))
 ;; ANCHOR_END: fn-type
 
 ;; A signature or an annotation also gives a function the type Fn.

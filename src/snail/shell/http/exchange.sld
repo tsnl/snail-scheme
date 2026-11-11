@@ -82,7 +82,7 @@
         ((Err error) (Err (ProtocolFailure error)))
         ((Ok value)
          (match value
-           ((Some parsed) (Ok (RequestPrefix (::request parsed) prefix)))
+           ((Some parsed) (Ok (RequestPrefix (● parsed request) prefix)))
            ((None) (panic "HTTP delimiter did not complete the head"))))))
 
     (define (read-head (connection Connection))
@@ -98,18 +98,18 @@
               ((Ok (Some bytes))
                (let* ((count (vector-length bytes))
                       (scanned (scan-head bytes state))
-                      (end (::first scanned)))
-                 (if (= (::second scanned) 4)
+                      (end (● scanned first)))
+                 (if (= (● scanned second) 4)
                      (parsed-prefix (Cons (subvector bytes 0 end) chunks)
                                     (subvector bytes end count))
-                     (loop (Cons bytes chunks) (+ total count) (::second scanned)))))))))
+                     (loop (Cons bytes chunks) (+ total count) (● scanned second)))))))))
 
     (define (read-body (connection Connection) (prefix RequestPrefix))
       (→ (Result Request (ExchangeError E)))
       (! tcp tasks)
       (∀ E)
-      (let* ((head (::head prefix)) (expected (::body-length head))
-             (initial (::prefix prefix)) (count (min expected (vector-length initial))))
+      (let* ((head (● prefix head)) (expected (● head body-length))
+             (initial (● prefix prefix)) (count (min expected (vector-length initial))))
         (let loop ((chunks (list (subvector initial 0 count))) (received count))
           (if (= received expected)
               (Ok (Request head (vector-concatenate (reverse chunks))))
@@ -151,10 +151,10 @@
       (→ (Result Unit (ExchangeError E)))
       (! tcp tasks)
       (∀ E)
-      (match (write-bytes connection (::head parts))
+      (match (write-bytes connection (● parts head))
         ((Err error) (Err error))
         ((Ok _)
-         (match (write-bytes connection (::body parts))
+         (match (write-bytes connection (● parts body))
            ((Err error) (Err error))
            ((Ok _)
             (match (finish-connection connection grace)
@@ -175,9 +175,9 @@
       (! tcp tasks)
       (∀ E)
       (match (encode-response (match method ((Some name) name) ((None) "GET"))
-                              (::status response)
-                              (::headers response)
-                              (::body response))
+                              (● response status)
+                              (● response headers)
+                              (● response body))
         ((Err error) (Err (ProtocolFailure error)))
         ((Ok parts) (write-response connection grace parts))))
 
@@ -195,7 +195,7 @@
            ((Ok response)
             (respond connection
                      grace
-                     (Some (::method (::head request)))
+                     (Some (● (● request head) method))
                      response))))))
 
     ;; Exclusive use is a calling convention, not a linear socket guarantee.

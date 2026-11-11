@@ -53,7 +53,7 @@
 
     (define (load-text) (→ (Result String String)) (! fetch tasks)
       (match (request "GET" "/api/text" (Nil) "")
-        ((Ok reply) (Ok (::body reply)))
+        ((Ok reply) (Ok (● reply body)))
         ((Err why) (Err why))))
 
     (define (collect (display Display)
@@ -77,16 +77,16 @@
 
     (define (view (model (Borrow Model))) (→ (Html Msg))
       (Element "main"
-               (list (Attr "aria-busy" (match (::display model)
+               (list (Attr "aria-busy" (match (● model display)
                                          ((Waiting) "true")
                                          (_ "false"))))
                (list (Element "h1" (Nil) (list (Text "Future requests")))
                      (Element "p"
                               (list (Attr "id" "result"))
-                              (list (Text (display-text (::display model)))))
+                              (list (Text (display-text (● model display)))))
                      (Element "p"
                               (list (Attr "id" "clicks"))
-                              (list (Text (show (::clicks model)))))
+                              (list (Text (show (● model clicks)))))
                      (button "load" "Load" (Load))
                      (button "cancel" "Cancel" (Cancel))
                      (button "click" "Count" (Click)))))
@@ -100,13 +100,13 @@
       (Nil))
 
     (define (save (model (Borrow Model))) (→ Save)
-      (Save (::display model) (::clicks model)))
+      (Save (● model display) (● model clicks)))
 
     (define (restore (saved Save)) (→ Model)
-      (Model (match (::display saved)
+      (Model (match (● saved display)
                ((Waiting) (Showing "interrupted"))
                (display display))
-             (::clicks saved) (None)))
+             (● saved clicks) (None)))
 
     (struct FuturesApplication
       ())

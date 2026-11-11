@@ -7,7 +7,7 @@
  (snail shell http exchange))
 
 (define (require (result (Result T SocketError))) (→ T) (∀ T)
-  (match result ((Ok value) value) ((Err error) (panic (::code error)))))
+  (match result ((Ok value) value) ((Err error) (panic (● error code)))))
 
 (define (ascii (text String)) (→ Bytes)
   (vector-generate (string-length text)
@@ -32,7 +32,7 @@
 
 (define (echo (request Request)) (→ (Result Response String)) (! tasks)
   (sleep 1)
-  (Ok (Response 200 (list (Header "Content-Type" "text/plain")) (::body request))))
+  (Ok (Response 200 (list (Header "Content-Type" "text/plain")) (● request body))))
 
 ;; A program waits on sockets from a task, which the scheduler runs once
 ;; main returns.
@@ -40,7 +40,7 @@
  (once (lambda ()
          (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
                 (client
-                 (require (connect (require (endpoint "127.0.0.1" (::port listener))))))
+                 (require (connect (require (endpoint "127.0.0.1" (● listener port))))))
                 (server (require (accept listener))))
            (require (close-listener listener))
            (dispatch-local

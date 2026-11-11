@@ -6,9 +6,8 @@
   ((title String)
    (work (dyn (FnOnce → Unit)))))
 
-;; The lambda's parameter has no type when its body is checked, so the
-;; field read is not rewritten for a borrow; annotate the parameter.
-(let ((read (lambda (r) (::title r))))
+;; The receiver becomes a Borrow after this lambda has been inferred.
+(let ((read (lambda (r) (● r title))))
   (let ((model (Model "x" (once (lambda () (unit))))))
     (write-line (with-borrow (b model) (read b)))
     (drop model)))

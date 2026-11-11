@@ -23,23 +23,23 @@
 
 (report "bodies"
         (concatenate
-         (map (lambda (build) (map (lambda (skin) (::path (body-sheet build skin))) skins))
+         (map (lambda (build) (map (lambda (skin) (● (body-sheet build skin) path)) skins))
               builds)))
-(report "heads" (map (lambda (head) (::path (head-sheet head (list-ref skins 0)))) heads))
+(report "heads" (map (lambda (head) (● (head-sheet head (list-ref skins 0)) path)) heads))
 (report "garments"
         (concatenate (map (lambda (garment)
                             (map (lambda (build)
                                    (match (garment-sheet build
                                                          garment
                                                          (list-ref (garment-dyes build garment) 0))
-                                     ((Some sheet) (::path sheet))
+                                     ((Some sheet) (● sheet path))
                                      ((None) "(no sheet)")))
                                  (garment-builds garment)))
                           garments)))
 (report "hair"
         (concatenate (map (lambda (style)
                             (map (lambda (build)
-                                   (::path (hair-sheet build style (list-ref hair-colors 0))))
+                                   (● (hair-sheet build style (list-ref hair-colors 0)) path))
                                  (list (Male) (Female))))
                           hair-styles)))
 
@@ -53,7 +53,7 @@
 (define (describe (who (Option Character))) (→ String)
   (match who
     ((Some character)
-     (string-append "dressed in " (show (length (::sheets character))) " layers"))
+     (string-append "dressed in " (show (length (● character sheets))) " layers"))
     ((None) "refused")))
 
 (write-line (string-append "female: " (describe (dress (Female) (HumanFemale) olive outfit))))
@@ -85,11 +85,11 @@
   ((Some who)
    (for-each (lambda (sheet)
                (write-line (string-append "  "
-                                          (substring (::path sheet)
+                                          (substring (● sheet path)
                                                      8
-                                                     (string-length (::path sheet)))
-                                          " swaps " (show (length (::swaps sheet))))))
-             (::sheets who))
+                                                     (string-length (● sheet path)))
+                                          " swaps " (show (length (● sheet swaps))))))
+             (● who sheets))
    (write-line (string-append "same character, same fingerprint: "
                               (if (same-fingerprint? (Some who)
                                                      (dress (Female) (HumanFemale) olive outfit))
@@ -119,14 +119,14 @@
                                         " ")))
 
 (define (texture-text (item Item)) (→ String)
-  (match (::texture (::material item))
+  (match (● (● item material) texture)
     ((Some (Texture picture region frames period))
      (string-append "picture "
                     (show picture)
                     " at "
-                    (show (::x region))
+                    (show (● region x))
                     ","
-                    (show (::y region))
+                    (show (● region y))
                     ", "
                     (show frames)
                     " frames"))

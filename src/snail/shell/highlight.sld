@@ -145,7 +145,7 @@
       (let ((source (make-source "" text)))
         (let loop ((index 0) (naming (Plain)) (tokens (Nil)))
           (match (next-token source index naming)
-            ((Some (Pair token next)) (loop (::end token) next (Cons token tokens)))
+            ((Some (Pair token next)) (loop (● token end) next (Cons token tokens)))
             ((None) (reverse tokens))))))
 
     ;; The token at `index` and the naming after it, or nothing at the end of
@@ -163,7 +163,7 @@
            ((Pair (EndOfText) _) (None))
            ((Pair lexeme end)
             (let ((classified (lexeme-class source index end lexeme naming)))
-              (Some (Pair (Token index end (::first classified)) (::second classified)))))))))
+              (Some (Pair (Token index end (● classified first)) (● classified second)))))))))
 
     (define (atmosphere-class (atmosphere Atmosphere)) (→ Class)
       (match atmosphere
@@ -221,17 +221,17 @@
           (match (next-token source index (Plain))
             ((None) (Pair point point))
             ((Some (Pair token _))
-             (if (<= (::end token) point)
-                 (loop (::end token))
+             (if (<= (● token end) point)
+                 (loop (● token end))
                  (token-range source token point)))))))
 
     (define (token-range (source Source) (token Token) (point I64)) (→ (Pair I64 I64))
-      (match (::class token)
+      (match (● token class)
         ((Blank) (Pair point (+ point 1)))
         ((Punctuation)
-         (Pair (::start token)
-               (max (::end token) (datum-end source (::start token)))))
-        (_ (Pair (::start token) (::end token)))))
+         (Pair (● token start)
+               (max (● token end) (datum-end source (● token start)))))
+        (_ (Pair (● token start) (● token end)))))
 
     ;; ---- Datum boundaries ----
 
@@ -244,8 +244,8 @@
     (define (datum-end (source Source) (index I64)) (→ I64)
       (let* ((start (atmosphere-end source index))
              (lexeme (lexeme-at source start))
-             (end (::second lexeme)))
-        (match (::first lexeme)
+             (end (● lexeme second)))
+        (match (● lexeme first)
           ((EndOfText) start)
           ((ListClose _) start)
           ((QuoteMark) (datum-end source end))
@@ -257,9 +257,9 @@
     ;; `index`.
     (define (items-end (source Source) (index I64)) (→ I64)
       (let* ((start (atmosphere-end source index)) (lexeme (lexeme-at source start)))
-        (match (::first lexeme)
+        (match (● lexeme first)
           ((EndOfText) start)
-          ((ListClose _) (::second lexeme))
+          ((ListClose _) (● lexeme second))
           (_ (items-end source (datum-end source start))))))
 
     ;; Skips atmosphere as the reader does, with the data `#;` comments out.

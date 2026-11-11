@@ -12,4 +12,4 @@
       (Model text (once (lambda () (unit)))))
 
     (define (title (model (Borrow Model))) (→ String)
-      (::title model))))
+      (● model title))))

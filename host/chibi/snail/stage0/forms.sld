@@ -18,7 +18,8 @@
    ref
    ref-get
    ref-set!
-   field-of)
+   field-of
+   ●)
   (import
    (rename (scheme base) (define scheme-define))
    (scheme cxr)
@@ -152,12 +153,10 @@
 
     ;; ---- Field paths ----
 
-    ;; `(::f v)` reads the field `f` of whatever struct `v` is. Snail-Core's
-    ;; expander provides a class per label; stage 0 instead keeps one table
-    ;; from each struct's constructor, which is the value's slot 0, to its
-    ;; field names, filled as the struct is defined, and Chibi's (snail core
-    ;; base) defines each `::f` the compiler's sources mention over
-    ;; `field-of`. An enum case is not registered, so a path on one errors.
+    ;; Record declarations register labels beside their constructor. The
+    ;; projection macro below quotes each label, so it needs no generated
+    ;; binding or typeclass dispatcher per field.
+
     (scheme-define struct-fields (make-hash-table eq?))
 
     (scheme-define (register-fields! constructor fields)
@@ -185,6 +184,19 @@
                              (cons (constructor-definition (car case) fields rename)
                                    (record-definitions (car case) fields #f rename))))
                          (without-annotations (cddr form))))))))
+
+    ;; Field labels are syntax, and a pointer is followed only while another
+    ;; label remains. A registered zero-field record is not a Ref cell.
+    (scheme-define (field-referent value)
+      (if (and (vector? value) (= (vector-length value) 1)
+               (not (hash-table-exists? struct-fields (vector-ref value 0))))
+          (field-referent (vector-ref value 0))
+          value))
+
+    (define-syntax ●
+      (syntax-rules ()
+        ((_ value label) (field-of (field-referent value) (quote label)))
+        ((_ value label next ...) (● (● value label) next ...))))
 
     ;; ---- Pattern matching ----
 
@@ -417,6 +429,12 @@
       (scheme-define (test-forms)
         (expect (Documented-text (Documented "text")) "text")
         (expect (field-of (Counter "n" 3) 'count) 3)
+        (expect (● (Counter "n" 3) count) 3)
+        (expect (● (ref (ref (Counter "n" 4))) count) 4)
+        (expect (ref-get (● (Counter "n" (ref 5)) count)) 5)
+        (let ((reads 0))
+          (expect (● (begin (set! reads (+ reads 1)) (ref (Counter "n" 6))) count) 6)
+          (expect reads 1))
         (expect (failure-message (lambda () (field-of (Counter "n" 3) 'total)))
                 "no such field")
         (expect (DocumentedReady-value (DocumentedReady 5)) 5)

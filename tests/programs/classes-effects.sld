@@ -23,12 +23,12 @@
 
 (instance (Store (! console) Directory)
   (define fetch-object
-    (lambda (directory name) (write-line (string-append "reading " (::root directory) "/" name))
+    (lambda (directory name) (write-line (string-append "reading " (● directory root) "/" name))
             (string-append "the bytes of " name))))
 
 (instance (Store (!) Table)
   (define fetch-object
-    (lambda (table name) (match (assoc-ref (::objects table) name)
+    (lambda (table name) (match (assoc-ref (● table objects) name)
                            ((Some text) text)
                            ((None) "missing")))))
 

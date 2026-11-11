@@ -23,8 +23,8 @@
 (instance (Collection Range)
   (define collect
     (lambda (range f) (map f
-                           (map (lambda (i) (+ i (::start range)))
-                                (iota (- (::end range) (::start range))))))))
+                           (map (lambda (i) (+ i (● range start)))
+                                (iota (- (● range end) (● range start))))))))
 
 ;; A generic function whose requirements pass evidence on.
 (define (describe-all (collection C)) (→ (List String)) (∀ C) (⊨ (Collection C))

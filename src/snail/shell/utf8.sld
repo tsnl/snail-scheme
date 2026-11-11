@@ -63,13 +63,13 @@
       (match (lead (u8->i32 (vector-ref bytes index)))
         ((None) (None))
         ((Some lead)
-         (let loop ((next 1) (code (::bits lead)))
-           (if (= next (::width lead))
+         (let loop ((next 1) (code (● lead bits)))
+           (if (= next (● lead width))
                (Some (Pair (i32->char code) (+ index next)))
                (match (continuation bytes
                                     (+ index next)
-                                    (if (= next 1) (::low lead) 128)
-                                    (if (= next 1) (::high lead) 191))
+                                    (if (= next 1) (● lead low) 128)
+                                    (if (= next 1) (● lead high) 191))
                  ((None) (None))
                  ((Some byte)
                   (loop (+ next 1) (i32-or (i32-shift-left code 6) (i32-and byte 63))))))))))
@@ -85,8 +85,8 @@
               (match (sequence-at bytes index)
                 ((None) (Err (Utf8Error index)))
                 ((Some decoded)
-                 (array-set! chars count (::first decoded))
-                 (loop (::second decoded) (+ count 1))))))))
+                 (array-set! chars count (● decoded first))
+                 (loop (● decoded second) (+ count 1))))))))
 
     ;; ---- Encoding ----
 

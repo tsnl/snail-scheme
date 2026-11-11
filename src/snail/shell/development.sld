@@ -291,7 +291,7 @@
 
     (define (step (service Service) (event Event)) (→ (Pair Service (List Command)))
       (match event
-        ((ResidentStarted) (Pair service (if (::closing service) (Nil) (list (Reconcile)))))
+        ((ResidentStarted) (Pair service (if (● service closing) (Nil) (list (Reconcile)))))
         ((ResidentExited message) (fatal service message))
         ((Touched paths) (touched service paths))
         ((Uncertain error) (uncertain service error))
@@ -314,12 +314,12 @@
     ;; nothing and the host never cancels one.
 
     (define (ready? (service Service)) (→ Bool)
-      (and (::dirty service)
-           (not (::closing service))
-           (match (::disk service)
+      (and (● service dirty)
+           (not (● service closing))
+           (match (● service disk)
              ((Unscanned) #f)
              (_ #t))
-           (match (::attempt service)
+           (match (● service attempt)
              ((None) #t)
              ((Some _) #f))))
 
@@ -327,7 +327,7 @@
       (if (ready? service) (list (Arm)) (Nil)))
 
     (define (request-build (service Service)) (→ (Pair Service (List Command)))
-      (if (::closing service)
+      (if (● service closing)
           (Pair service (Nil))
           (let ((service (Service-dirty-set service #t))) (Pair service (arming service)))))
 
@@ -342,11 +342,11 @@
             (Pair service (Nil)))))
 
     (define (touching (service Service) (paths (List String))) (→ Service)
-      (match (::attempt service)
+      (match (● service attempt)
         ((Some attempt)
          (Service-attempt-set service
                               (Some (Attempt-touched-set attempt
-                                                         (append (::touched attempt)
+                                                         (append (● attempt touched)
                                                                  paths)))))
         ((None) service)))
 
@@ -354,7 +354,7 @@
     ;; the disk can be read again after a failure, a build is wanted.
 
     (define (uncertain (service Service) (error (Option String))) (→ (Pair Service (List Command)))
-      (match (Pair (::disk service) error)
+      (match (Pair (● service disk) error)
         ((Pair (Untrusted) (None)) (request-build service))
         (_ (Pair service (Nil)))))
 
@@ -363,10 +363,10 @@
 
     (define (reconciled (service Service) (result (Result Unit String)))
       (→ (Pair Service (List Command)))
-      (match (::attempt service)
+      (match (● service attempt)
         ((None) (scanned service result))
         ((Some attempt)
-         (match (::stage attempt)
+         (match (● attempt stage)
            ((Reconciling reply) (decide service attempt reply result))
            (_ (unexpected service))))))
 
@@ -387,8 +387,8 @@
 
     (define (timer-fired (service Service)) (→ (Pair Service (List Command)))
       (if (ready? service)
-          (let ((service (begun service (+ (::epoch service) 1))))
-            (Pair service (list (Notify (snapshot service)) (Build (::epoch service)))))
+          (let ((service (begun service (+ (● service epoch) 1))))
+            (Pair service (list (Notify (snapshot service)) (Build (● service epoch)))))
           (Pair service (Nil))))
 
     ;; The service with attempt `epoch` begun: nothing is dirty yet, the
@@ -415,7 +415,7 @@
         (_ (unexpected service))))
 
     (define (retaining (service Service) (reply Reply)) (→ Service)
-      (match (::description reply)
+      (match (● reply description)
         ((Some description) (Service-description-set service (Some description)))
         ((None) service)))
 
@@ -425,17 +425,17 @@
 
     (define (decide (service Service) (attempt Attempt) (reply Reply) (result (Result Unit String)))
       (→ (Pair Service (List Command)))
-      (let* ((superseded (or (::dirty service)
+      (let* ((superseded (or (● service dirty)
                              (any? (lambda (path) (input-path? service path))
-                                   (::touched attempt))))
+                                   (● attempt touched))))
              (messages (match result
-                         ((Ok _) (::diagnostics reply))
+                         ((Ok _) (● reply diagnostics))
                          ((Err message) (list (failure message)))))
              (service (Service-dirty-set (match result
                                            ((Ok _) service)
                                            ((Err _) (Service-disk-set service (Untrusted))))
                                          superseded)))
-        (settle service attempt (::candidate reply) messages superseded)))
+        (settle service attempt (● reply candidate) messages superseded)))
 
     (define (settle (service Service)
                     (attempt Attempt)
@@ -443,7 +443,7 @@
                     (messages (List Diagnostic))
                     (superseded Bool))
       (→ (Pair Service (List Command)))
-      (let ((epoch (::epoch attempt)))
+      (let ((epoch (● attempt epoch)))
         (match candidate
           ((Some candidate)
            (if (or superseded (untrusted? service))
@@ -459,11 +459,11 @@
       (→ (Pair Service (List Command)))
       (match (attempt-of service epoch)
         ((Some attempt)
-         (match (Pair (::stage attempt) error)
+         (match (Pair (● attempt stage) error)
            ((Pair (Publishing candidate messages) (None))
             (finish (Service-publications-set service
                                               (Cons (Published epoch candidate)
-                                                    (::publications service)))
+                                                    (● service publications)))
                     attempt
                     #f
                     messages
@@ -476,7 +476,7 @@
     (define (discard-replied (service Service) (epoch I64)) (→ (Pair Service (List Command)))
       (match (attempt-of service epoch)
         ((Some attempt)
-         (match (::stage attempt)
+         (match (● attempt stage)
            ((Discarding messages superseded) (finish service attempt #t messages superseded))
            (_ (unexpected service))))
         ((None) (unexpected service))))
@@ -493,16 +493,16 @@
                     (messages (List Diagnostic))
                     (superseded Bool))
       (→ (Pair Service (List Command)))
-      (let* ((epoch (::epoch attempt))
+      (let* ((epoch (● attempt epoch))
              (accepted (accepting (Service-attempt-set service (None)) epoch))
-             (reclaimed (reclaiming (::first accepted)))
-             (service (report (::first reclaimed)
+             (reclaimed (reclaiming (● accepted first)))
+             (service (report (● reclaimed first)
                               (outcome messages superseded)
                               (if superseded (Nil) messages))))
         (Pair service
               (concatenate (list (list (if owned (Abandon epoch) (Release epoch)))
-                                 (::second accepted)
-                                 (::second reclaimed)
+                                 (● accepted second)
+                                 (● reclaimed second)
                                  (list (Notify (snapshot service)))
                                  (arming service))))))
 
@@ -514,12 +514,12 @@
     ;; The attempt numbered `epoch`, if it is the one in flight.
 
     (define (attempt-of (service Service) (epoch I64)) (→ (Option Attempt))
-      (match (::attempt service)
-        ((Some attempt) (if (= (::epoch attempt) epoch) (Some attempt) (None)))
+      (match (● service attempt)
+        ((Some attempt) (if (= (● attempt epoch) epoch) (Some attempt) (None)))
         ((None) (None))))
 
     (define (untrusted? (service Service)) (→ Bool)
-      (match (::disk service)
+      (match (● service disk)
         ((Untrusted) #t)
         (_ #f)))
 
@@ -531,13 +531,13 @@
     ;; directory that holds one.
 
     (define (input-path? (service Service) (path String)) (→ Bool)
-      (let ((root (::root (::paths service)))
-            (project (::project (::paths service))))
+      (let ((root (● (● service paths) root))
+            (project (● (● service paths) project)))
         (or (string=? path (string-append project "/project.datum"))
             (and (or (within? project path) (within? (string-append root "/src") path))
                  (ends-with? path ".sld"))
             (within? (string-append root "/host/browser") path)
-            (match (::description service)
+            (match (● service description)
               ((Some description) (declared-input? project description path))
               ((None) #f))
             (linked-input? service path))))
@@ -546,19 +546,19 @@
     ;; reads, but each build places again.
 
     (define (linked-input? (service Service) (path String)) (→ Bool)
-      (match (::publications service)
+      (match (● service publications)
         ((Cons latest _)
-         (any? (lambda (generation) (member? path (::linked generation)))
-               (::generations (::candidate latest))))
+         (any? (lambda (generation) (member? path (● generation linked)))
+               (● (● latest candidate) generations)))
         ((Nil) #f)))
 
     (define (declared-input? (project String) (description Description) (path String)) (→ Bool)
       (or (any? (lambda (entry) (within? path (string-append project "/" entry)))
-                (::entries description))
+                (● description entries))
           (any? (lambda (public)
                   (let ((directory (string-append project "/" public)))
                     (or (within? directory path) (within? path directory))))
-                (::publics description))))
+                (● description publics))))
 
     ;; Whether `path` is `directory` or under it.
 
@@ -585,50 +585,49 @@
     (define (accepting (service Service) (epoch I64)) (→ (Pair Service (List Command)))
       (match (published service)
         ((Some published)
-         (if (= (::id published) epoch)
+         (if (= (● published id) epoch)
              (settle-runs (Service-runs-set service (accepted-runs service published)))
              (Pair service (Nil))))
         ((None) (Pair service (Nil)))))
 
     (define (accepted-runs (service Service) (published Published)) (→ (List Run))
-      (let* ((runs (::runs service))
+      (let* ((runs (● service runs))
              (new (filter (lambda (definition)
                             (not (any? (lambda (run)
-                                         (string=? (::name run) (::name definition)))
+                                         (string=? (● run name) (● definition name)))
                                        runs)))
-                          (::runs
-                           (::description (::candidate published))))))
-        (map (lambda (run) (if (available? service (::name run)) run (Run-wanted-set run #f)))
+                          (● (● (● published candidate) description) runs))))
+        (map (lambda (run) (if (available? service (● run name)) run (Run-wanted-set run #f)))
              (append runs
-                     (map (lambda (definition) (Run (::name definition) #f (None)))
+                     (map (lambda (definition) (Run (● definition name) #f (None)))
                           new)))))
 
     (define (settle-runs (service Service)) (→ (Pair Service (List Command)))
-      (let ((settled (map (lambda (run) (settle-run service run)) (::runs service))))
-        (Pair (Service-runs-set service (map ::first settled))
-              (concatenate (map ::second settled)))))
+      (let ((settled (map (lambda (run) (settle-run service run)) (● service runs))))
+        (Pair (Service-runs-set service (map (lambda (record) (● record first)) settled))
+              (concatenate (map (lambda (record) (● record second)) settled)))))
 
     ;; A run asks its process for what it now wants, if that differs from
     ;; what it asked for last.
 
     (define (settle-run (service Service) (run Run)) (→ (Pair Run (List Command)))
-      (let ((next (if (::wanted run) (launch service (::name run)) (None))))
-        (if (same-intent? (::issued run) next)
+      (let ((next (if (● run wanted) (launch service (● run name)) (None))))
+        (if (same-intent? (● run issued) next)
             (Pair run (Nil))
             (match next
               ((Some (Pair identity request))
                (Pair (Run-issued-set run (Some identity))
-                     (list (Launch (::name run) (Some request)))))
-              ((None) (Pair (Run-issued-set run (None)) (list (Launch (::name run) (None)))))))))
+                     (list (Launch (● run name) (Some request)))))
+              ((None) (Pair (Run-issued-set run (None)) (list (Launch (● run name) (None)))))))))
 
     (define (same-intent? (issued (Option Identity)) (next (Option (Pair Identity RunRequest))))
       (→ Bool)
       (match (Pair issued next)
         ((Pair (None) (None)) #t)
         ((Pair (Some was) (Some (Pair is _)))
-         (and (string=? (::build was) (::build is))
-              (string=? (::digest was) (::digest is))
-              (same-strings? (::arguments was) (::arguments is))))
+         (and (string=? (● was build) (● is build))
+              (string=? (● was digest) (● is digest))
+              (same-strings? (● was arguments) (● is arguments))))
         (_ #f)))
 
     (define (same-strings? (a (List String)) (b (List String))) (→ Bool)
@@ -644,9 +643,9 @@
     (define (launch (service Service) (name String)) (→ (Option (Pair Identity RunRequest)))
       (match (published service)
         ((Some published)
-         (let ((candidate (::candidate published)))
-           (match (find (lambda (definition) (string=? (::name definition) name))
-                        (::runs (::description candidate)))
+         (let ((candidate (● published candidate)))
+           (match (find (lambda (definition) (string=? (● definition name) name))
+                        (● (● candidate description) runs))
              ((Some definition) (launch-definition published definition))
              ((None) (None)))))
         ((None) (None))))
@@ -654,16 +653,16 @@
     (define (launch-definition (published Published) (definition RunDefinition))
       (→ (Option (Pair Identity RunRequest)))
       (match (find (lambda (generation)
-                     (string=? (::name generation) (::build definition)))
-                   (::generations (::candidate published)))
+                     (string=? (● generation name) (● definition build)))
+                   (● (● published candidate) generations))
         ((Some generation)
-         (Some (Pair (Identity (::build definition)
-                               (::digest generation)
-                               (::arguments definition)
-                               (::directory generation))
-                     (RunRequest (::id published)
-                                 (string-append (::directory generation) "/modules.json")
-                                 (::arguments definition)))))
+         (Some (Pair (Identity (● definition build)
+                               (● generation digest)
+                               (● definition arguments)
+                               (● generation directory))
+                     (RunRequest (● published id)
+                                 (string-append (● generation directory) "/modules.json")
+                                 (● definition arguments)))))
         ((None) (None))))
 
     (define (available? (service Service) (name String)) (→ Bool)
@@ -676,7 +675,7 @@
     (define (start-run (service Service) (name String)) (→ (Pair Service (List Command)))
       (match (required-run service name #t)
         ((Ok run)
-         (if (::wanted run) (Pair service (Nil)) (controlled service (Run-wanted-set run #t))))
+         (if (● run wanted) (Pair service (Nil)) (controlled service (Run-wanted-set run #t))))
         ((Err refusal) (Pair service (list (Refuse refusal))))))
 
     ;; A run stops whether or not its target can still launch.
@@ -684,7 +683,7 @@
     (define (stop-run (service Service) (name String)) (→ (Pair Service (List Command)))
       (match (required-run service name #f)
         ((Ok run)
-         (if (::wanted run) (controlled service (Run-wanted-set run #f)) (Pair service (Nil))))
+         (if (● run wanted) (controlled service (Run-wanted-set run #f)) (Pair service (Nil))))
         ((Err refusal) (Pair service (list (Refuse refusal))))))
 
     ;; Forgetting what it asked for makes the run ask again.
@@ -696,9 +695,9 @@
 
     (define (required-run (service Service) (name String) (launchable Bool))
       (→ (Result Run Refusal))
-      (cond ((::closing service) (Err (ServiceClosed)))
+      (cond ((● service closing) (Err (ServiceClosed)))
             ((and launchable (not (available? service name))) (Err (UnknownRunTarget name)))
-            (else (match (find (lambda (run) (string=? (::name run) name)) (::runs service))
+            (else (match (find (lambda (run) (string=? (● run name) name)) (● service runs))
                     ((Some run) (Ok run))
                     ((None) (Err (UnknownRunTarget name)))))))
 
@@ -706,15 +705,15 @@
       (let* ((settled (settle-run service run))
              (reclaimed (reclaiming (Service-runs-set service
                                                       (map (lambda (each)
-                                                             (if (string=? (::name each)
-                                                                           (::name run))
-                                                                 (::first settled)
+                                                             (if (string=? (● each name)
+                                                                           (● run name))
+                                                                 (● settled first)
                                                                  each))
-                                                           (::runs service)))))
-             (service (::first reclaimed)))
+                                                           (● service runs)))))
+             (service (● reclaimed first)))
         (Pair service
-              (concatenate (list (::second settled)
-                                 (::second reclaimed)
+              (concatenate (list (● settled second)
+                                 (● reclaimed second)
                                  (list (Notify (snapshot service))))))))
 
     ;; ---- Reclaiming generations ----
@@ -727,12 +726,12 @@
     ;; among its publications, so both stay.
 
     (define (reclaiming (service Service)) (→ (Pair Service (List Command)))
-      (let* ((publications (::publications service))
+      (let* ((publications (● service publications))
              (older (list-tail publications (min 2 (length publications))))
              (kept (append (take publications (- (length publications) (length older)))
                            (still-held older
                                        (concatenate
-                                        (map issued-directory (::runs service))))))
+                                        (map issued-directory (● service runs))))))
              (needed (concatenate (map published-directories kept)))
              (dropped (filter (lambda (directory) (not (member? directory needed)))
                               (concatenate (map published-directories older)))))
@@ -740,8 +739,8 @@
               (if (null? dropped) (Nil) (list (Reclaim dropped))))))
 
     (define (issued-directory (run Run)) (→ (List String))
-      (match (::issued run)
-        ((Some identity) (list (::directory identity)))
+      (match (● run issued)
+        ((Some identity) (list (● identity directory)))
         ((None) (Nil))))
 
     ;; The publications with a generation in `held`, each with only those.
@@ -749,21 +748,21 @@
     (define (still-held (publications (List Published)) (held (List String))) (→ (List Published))
       (filter (lambda (published) (not (null? (published-directories published))))
               (map (lambda (published)
-                     (let ((candidate (::candidate published)))
-                       (Published (::id published)
-                                  (Candidate (::description candidate)
+                     (let ((candidate (● published candidate)))
+                       (Published (● published id)
+                                  (Candidate (● candidate description)
                                              (filter (lambda (generation)
-                                                       (member? (::directory generation)
+                                                       (member? (● generation directory)
                                                                 held))
-                                                     (::generations candidate))
-                                             (::milliseconds candidate)))))
+                                                     (● candidate generations))
+                                             (● candidate milliseconds)))))
                    publications)))
 
     (define (published-directories (published Published)) (→ (List String))
-      (map ::directory (::generations (::candidate published))))
+      (map (lambda (record) (● record directory)) (● (● published candidate) generations)))
 
     (define (published (service Service)) (→ (Option Published))
-      (match (::publications service)
+      (match (● service publications)
         ((Cons latest _) (Some latest))
         ((Nil) (None))))
 
@@ -775,10 +774,10 @@
     ;; that are not wanted.
 
     (define (close (service Service)) (→ (Pair Service (List Command)))
-      (if (::closing service)
+      (if (● service closing)
           (Pair service (Nil))
           (Pair (Service-attempt-set (Service-closing-set service #t) (None))
-                (append (Cons (Shutdown) (relinquished (::attempt service)))
+                (append (Cons (Shutdown) (relinquished (● service attempt)))
                         (list (Closed))))))
 
     (define (relinquished (attempt (Option Attempt))) (→ (List Command))
@@ -791,11 +790,11 @@
     ;; answered what was not asked.
 
     (define (fatal (service Service) (message String)) (→ (Pair Service (List Command)))
-      (if (::closing service)
+      (if (● service closing)
           (Pair service (Nil))
           (let ((service (report service (Fatal) (list (failure message)))))
             (let ((closed (close service)))
-              (Pair (::first closed) (Cons (Notify (snapshot service)) (::second closed)))))))
+              (Pair (● closed first) (Cons (Notify (snapshot service)) (● closed second)))))))
 
     (define (unexpected (service Service)) (→ (Pair Service (List Command)))
       (fatal service "unexpected compiler attempt result"))
@@ -806,15 +805,15 @@
       (Service-diagnostics-set (Service-phase-set service phase) diagnostics))
 
     (define (snapshot (service Service)) (→ Snapshot)
-      (Snapshot (::phase service)
-                (::epoch service)
-                (::diagnostics service)
-                (::publications service)
+      (Snapshot (● service phase)
+                (● service epoch)
+                (● service diagnostics)
+                (● service publications)
                 (map (lambda (run)
-                       (RunStatus (::name run)
-                                  (::wanted run)
-                                  (available? service (::name run))))
-                     (::runs service))))
+                       (RunStatus (● run name)
+                                  (● run wanted)
+                                  (available? service (● run name))))
+                     (● service runs))))
 
     (define (failure (message String)) (→ Diagnostic)
       (Diagnostic message (None)))))

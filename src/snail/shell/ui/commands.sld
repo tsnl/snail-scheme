@@ -23,7 +23,7 @@
       (⊨ (Copy A))
       (let loop ((index 0) (names (ann empty-table (Table Bool))))
         (if (= index (vector-length commands)) (Ok (Registry commands))
-            (let ((name (::name (vector-ref commands index))))
+            (let ((name (● (vector-ref commands index) name)))
               (cond ((string=? name "") (Err "a command needs a name"))
                     ((table-contains? names name) (Err (string-append "duplicate command: " name)))
                     (else (loop (+ index 1) (table-set names name #t))))))))
@@ -31,10 +31,10 @@
     ;; ---- Lookup ----
 
     (define (named (registry (Registry A)) (name String)) (→ (Option A)) (∀ A) (⊨ (Copy A))
-      (let ((commands (::commands registry)))
+      (let ((commands (● registry commands)))
         (let loop ((index 0))
           (cond ((= index (vector-length commands)) (None))
-                ((string=? (::name (vector-ref commands index)) name)
-                 (Some (::action (vector-ref commands index))))
+                ((string=? (● (vector-ref commands index) name) name)
+                 (Some (● (vector-ref commands index) action)))
                 (else (loop (+ index 1)))))))
     ))

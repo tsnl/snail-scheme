@@ -6,4 +6,4 @@
    (work (dyn (FnOnce → Unit)))))
 
 (define (escaped (model (Borrow Model))) (→ (dyn (Fn → String)))
-  (lambda () (::title model)))
+  (lambda () (● model title)))

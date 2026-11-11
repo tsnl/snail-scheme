@@ -105,18 +105,18 @@
     (define initial (→ State) (State 0 (None)))
 
     (define (visible? (state State)) (→ Bool)
-      (match (::panel state) ((Some _) #t) ((None) #f)))
+      (match (● state panel) ((Some _) #t) ((None) #f)))
 
     (define (finding? (state State)) (→ Bool)
-      (match (::panel state)
-        ((Some panel) (find-mode? (::mode panel)))
+      (match (● state panel)
+        ((Some panel) (find-mode? (● panel mode)))
         ((None) #f)))
 
     (define (find-mode? (mode Mode)) (→ Bool)
       (match mode ((Searching (Search (search-CurrentDraft _) _)) #t) (_ #f)))
 
     (define (cancel (state State)) (→ State)
-      (State (+ 1 (::generation state)) (None)))
+      (State (+ 1 (● state generation)) (None)))
 
     (define (stay (state State)) (→ Step) (Step state (None) (Nil)))
 
@@ -125,7 +125,7 @@
 
     (define (open (state State) (mode Mode)) (→ Step)
       (Step (if (and (finding? state) (find-mode? mode)) state
-                (State (+ 1 (::generation state)) (Some (Panel mode "" 0)))) (None)
+                (State (+ 1 (● state generation)) (Some (Panel mode "" 0)))) (None)
                 (list (Command (once (lambda ()
                                        (match (element-by-id "command-query")
                                          ((Some field) (focus-node field))
@@ -141,14 +141,14 @@
         ((KeyPressed key modifiers) (pressed state context key modifiers))
         ((FindNext backwards) (find-next state context backwards))
         ((Pick generation action)
-         (if (and (= generation (::generation state)) (visible? state))
+         (if (and (= generation (● state generation)) (visible? state))
              (match action
                ((Choose outcome) (selected state outcome))
                ((Create) (creating state)))
              (stay state)))
         ((Dismiss) (selected state (Dismissed)))
         ((Reconnected)
-         (match (::panel state)
+         (match (● state panel)
            ((Some (Panel (Searching (Search (search-SavedProject) _)) query _))
             (queried state query))
            (_ (stay state))))))
@@ -157,9 +157,9 @@
     ;; Reconcile after every parent update, so results retain exact provenance.
 
     (define (reconcile (state State) (draft (Option search-Draft))) (→ Step)
-      (match (::panel state)
+      (match (● state panel)
         ((Some panel)
-         (match (::mode panel)
+         (match (● panel mode)
            ((Searching (Search (search-CurrentDraft old) _))
             (match draft
               ((Some draft)
@@ -170,17 +170,17 @@
                                                                     (Search
                                                                      (search-CurrentDraft draft)
                                                                      (Debouncing))))))
-                            (::query panel))))
+                            (● panel query))))
               ((None) (selected state (Dismissed)))))
            (_ (stay state))))
         ((None) (stay state))))
 
     (define (queried (state State) (text String)) (→ Step)
-      (match (::panel state)
+      (match (● state panel)
         ((Some panel)
          (if (creation-pending? panel) (stay state)
-             (let* ((generation (+ 1 (::generation state)))
-                    (mode (reset-mode (::mode panel)))
+             (let* ((generation (+ 1 (● state generation)))
+                    (mode (reset-mode (● panel mode)))
                     (next (State generation (Some (Panel mode text (if (finding? state) -1 0))))))
                (Step next (None)
                      (if (and (searching? mode) (not (string=? text "")))
@@ -201,15 +201,15 @@
       (match mode ((Searching _) #t) (_ #f)))
 
     (define (creation-pending? (panel Panel)) (→ Bool)
-      (match (::mode panel) ((Creating (Creation _ pending _)) pending) (_ #f)))
+      (match (● panel mode) ((Creating (Creation _ pending _)) pending) (_ #f)))
 
     (define (mode-set (state State) (mode Mode)) (→ State)
-      (match (::panel state)
+      (match (● state panel)
         ((Some panel) (State-panel-set state (Some (Panel-mode-set panel mode))))
         ((None) state)))
 
     (define (pressed (state State) (context Context) (key String) (modifiers I32)) (→ Step)
-      (match (::panel state)
+      (match (● state panel)
         ((None) (stay state))
         ((Some panel)
          (let* ((options (choices context panel)) (count (length options)))
@@ -220,46 +220,46 @@
                   (find-next state context (or (string=? key "ArrowUp") (= modifiers shift-key))))
                  ((and (string=? key "Enter") (> count 0))
                   (update state context
-                          (Pick (::generation state)
-                                (::action
-                                 (list-ref options (min (::selected panel) (- count 1)))))))
+                          (Pick (● state generation)
+                                (● (list-ref options (min (● panel selected) (- count 1)))
+                                   action))))
                  ((string=? key "Enter") (stay state))
                  (else
                   (let* ((back (or (string=? key "ArrowUp") (= modifiers shift-key)))
-                         (at (max 0 (min (- count 1) (+ (::selected panel) (if back -1 1))))))
+                         (at (max 0 (min (- count 1) (+ (● panel selected) (if back -1 1))))))
                     (stay (State-panel-set state (Some (Panel-selected-set panel at)))))))))))
 
     ;; Local find keeps its input and results while navigation reveals a match.
 
     (define (find-next (state State) (context Context) (backwards Bool)) (→ Step)
-      (match (::panel state)
+      (match (● state panel)
         ((Some panel)
          (let* ((options (choices context panel)) (count (length options))
-                (at (+ (::selected panel) (if backwards -1 1)))
+                (at (+ (● panel selected) (if backwards -1 1)))
                 (at (cond ((< at 0) (- count 1)) ((>= at count) 0) (else at))))
            (if (or (not (finding? state)) (= count 0)) (stay state)
-               (match (::action (list-ref options at))
+               (match (● (list-ref options at) action)
                  ((Choose outcome)
-                  (Step (State (+ 1 (::generation state)) (Some (Panel-selected-set panel at)))
+                  (Step (State (+ 1 (● state generation)) (Some (Panel-selected-set panel at)))
                         (Some outcome) (Nil)))
                  (_ (stay state))))))
         ((None) (stay state))))
 
     (define (current-match (state State)) (→ (Option Outcome))
-      (match (::panel state)
+      (match (● state panel)
         ((Some panel)
-         (let ((options (choices (Context (Nil) (Nil)) panel)) (at (::selected panel)))
+         (let ((options (choices (Context (Nil) (Nil)) panel)) (at (● panel selected)))
            (if (and (finding? state) (>= at 0) (< at (length options)))
-               (match (::action (list-ref options at)) ((Choose outcome) (Some outcome)) (_ (None)))
+               (match (● (list-ref options at) action) ((Choose outcome) (Some outcome)) (_ (None)))
                (None))))
         ((None) (None))))
 
     ;; ---- Search and creation tasks ----
 
     (define (search-due (state State) (generation I64)) (→ Step)
-      (match (::panel state)
+      (match (● state panel)
         ((Some (Panel (Searching (Search source (Debouncing))) query _))
-         (if (and (= generation (::generation state)) (not (string=? query "")))
+         (if (and (= generation (● state generation)) (not (string=? query "")))
              (Step (mode-set state (Searching (Search source (Fetching)))) (None)
                    (list (Command (once (lambda ()
                                           (let ((result (search-run source query)))
@@ -273,9 +273,9 @@
       (Failure 0 "Request interrupted; its server-side outcome may be unknown."))
 
     (define (search-interrupted (state State) (generation I64)) (→ Step)
-      (match (::panel state)
+      (match (● state panel)
         ((Some (Panel (Searching (Search source _)) _ _))
-         (if (= generation (::generation state))
+         (if (= generation (● state generation))
              (stay
               (mode-set state (Searching (Search source (Finished (Err interrupted-request))))))
              (stay state)))
@@ -283,18 +283,18 @@
 
     (define (searched (state State) (generation I64) (result (Result search-Results Failure)))
       (→ Step)
-      (match (::panel state)
+      (match (● state panel)
         ((Some (Panel (Searching (Search source (Fetching))) _ _))
-         (if (= generation (::generation state))
+         (if (= generation (● state generation))
              (stay (mode-set state (Searching (Search source (Finished result)))))
              (stay state)))
         (_ (stay state))))
 
     (define (creating (state State)) (→ Step)
-      (match (::panel state)
+      (match (● state panel)
         ((Some (Panel (Creating (Creation directory #f _)) path _))
          (if (string=? path "") (stay state)
-             (let ((generation (::generation state)))
+             (let ((generation (● state generation)))
                (Step (mode-set state (Creating (Creation directory #t ""))) (None)
                      (list (Command (once (lambda ()
                                             (let ((result (api "POST" (string-append
@@ -314,14 +314,14 @@
     ;; tree, but only the interaction that submitted it may navigate on success.
 
     (define (created (state State) (generation I64) (result (Result Json Failure))) (→ Step)
-      (match (::panel state)
+      (match (● state panel)
         ((Some (Panel (Creating (Creation directory #t _)) path _))
-         (if (= generation (::generation state))
+         (if (= generation (● state generation))
              (match result
                ((Ok _) (selected state (CreatedPath path directory)))
                ((Err failure)
                 (stay (mode-set state
-                                (Creating (Creation directory #f (::message failure)))))))
+                                (Creating (Creation directory #f (● failure message)))))))
              (stay state)))
         (_ (stay state))))
 
@@ -346,16 +346,16 @@
                  ((Cons next more) (loop (if (char=? char next) rest wanted) more))))))))
 
     (define (choices (context Context) (panel Panel)) (→ (List Choice))
-      (let ((query (::query panel)))
-        (match (::mode panel)
+      (let ((query (● panel query)))
+        (match (● panel mode)
           ((Commands)
-           (map (lambda (entry) (Choice (::name entry) (::keys entry)
-                                        (Choose (InvokeNamed (::name entry)))))
-                (filter (lambda (entry) (matches? query (::name entry)))
-                        (::commands context))))
+           (map (lambda (entry) (Choice (● entry name) (● entry keys)
+                                        (Choose (InvokeNamed (● entry name)))))
+                (filter (lambda (entry) (matches? query (● entry name)))
+                        (● context commands))))
           ((Files)
            (map (lambda (path) (Choice path "" (Choose (OpenPath path))))
-                (take (filter (lambda (path) (matches? query path)) (::paths context)) 200)))
+                (take (filter (lambda (path) (matches? query path)) (● context paths)) 200)))
           ((Creating (Creation directory pending _))
            (if (or pending (string=? query "")) (Nil)
                (list
@@ -372,20 +372,20 @@
       (match results
         ((search-SavedResults results)
          (map (lambda (hit)
-                (let ((point (::point hit)))
-                  (Choice (location (::file point) (::line point) (::column point))
-                          (::snippet hit) (Choose (OpenSavedHit hit)))))
-              (::hits results)))
+                (let ((point (● hit point)))
+                  (Choice (location (● point file) (● point line) (● point column))
+                          (● hit snippet) (Choose (OpenSavedHit hit)))))
+              (● results hits)))
         ((search-DraftResults draft hits _)
          (map (lambda (hit)
                 (Choice
-                 (location (::path draft) (::line hit) (::column hit))
-                 (::snippet hit) (Choose (SelectDraftHit draft hit size)))) hits))))
+                 (location (● draft path) (● hit line) (● hit column))
+                 (● hit snippet) (Choose (SelectDraftHit draft hit size)))) hits))))
 
     ;; ---- View ----
 
     (define (find-view (state State) (context Context)) (→ (List (Html Message)))
-      (match (::panel state)
+      (match (● state panel)
         ((Some panel)
          (let ((count (length (choices context panel))))
            (list (Element "section"
@@ -393,7 +393,7 @@
                                 (Attr "role" "search") (Attr "aria-label" "Find in current file")
                                 (On "keydown" (list (Key)) (Chords find-chords)
                                     (lambda (event)
-                                      (KeyPressed (::key event) (::modifiers event)))))
+                                      (KeyPressed (● event key) (● event modifiers)))))
                           (list (find-input panel)
                                 (Element "span"
                                          (list (Attr "id" "find-count") (Attr "role" "status"))
@@ -412,8 +412,8 @@
                      (Attr "aria-label" "Find in current file")
                      (Attr "aria-describedby" "find-count")
                      (Attr "autocomplete" "off") (Attr "spellcheck" "false")
-                     (StringProperty "value" (::query panel))
-                     (On "input" (list (Value)) (Allow) (lambda (event) (Query (::value event)))))
+                     (StringProperty "value" (● panel query))
+                     (On "input" (list (Value)) (Allow) (lambda (event) (Query (● event value)))))
                (Nil)))
 
     (define (find-button (title String) (label String) (disabled Bool) (message Message))
@@ -426,16 +426,16 @@
                (list (Text label))))
 
     (define (find-status (panel Panel) (count I64)) (→ String)
-      (if (string=? (::query panel) "") ""
-          (match (::mode panel)
+      (if (string=? (● panel query) "") ""
+          (match (● panel mode)
             ((Searching (Search _ (Finished (Ok results))))
              (string-append (if (= count 0) "No matches"
-                                (if (< (::selected panel) 0) (string-append (show count) " matches")
-                                    (string-append (show (+ 1 (::selected panel)))
+                                (if (< (● panel selected) 0) (string-append (show count) " matches")
+                                    (string-append (show (+ 1 (● panel selected)))
                                                    " of "
                                                    (show count))))
                             (search-summary results)))
-            ((Searching (Search _ (Finished (Err failure)))) (::message failure))
+            ((Searching (Search _ (Finished (Err failure)))) (● failure message))
             (_ "Searching…"))))
 
     (define find-chords (→ (List Chord))
@@ -443,11 +443,11 @@
             (Chord "ArrowUp" 0) (Chord "ArrowDown" 0)))
 
     (define (view (state State) (context Context)) (→ (List (Html Message)))
-      (match (::panel state)
+      (match (● state panel)
         ((None) (Nil))
         ((Some panel)
          (let* ((choices (choices context panel))
-                (selected (min (::selected panel) (- (length choices) 1))))
+                (selected (min (● panel selected) (- (length choices) 1))))
            (list (Element "div" (list (Attr "class" "palette-layer"))
                           (list (Element "button"
                                          (list (Attr "class" "palette-backdrop")
@@ -466,14 +466,14 @@
                                                (panel-results panel
                                                               choices
                                                               selected
-                                                              (::generation state))
+                                                              (● state generation))
                                                (Element "p" (list (Attr "id" "palette-help")
                                                                   (Attr "class" "palette-help"))
                                                         (list
                                                          (Text (panel-help panel)))))))))))))
 
     (define (panel-title (panel Panel)) (→ String)
-      (match (::mode panel)
+      (match (● panel mode)
         ((Commands) "Run a command…")
         ((Files) "Go to file…")
         ((Searching (Search source _))
@@ -495,11 +495,11 @@
                            (if (< selected 0) "" (string-append "command-result-" (show selected))))
                      (Attr "autocomplete" "off") (Attr "spellcheck" "false")
                      (FlagProperty "readOnly" (creation-pending? panel))
-                     (StringProperty "value" (::query panel))
+                     (StringProperty "value" (● panel query))
                      (On "input" (list (Value)) (Allow)
-                         (lambda (event) (Query (::value event))))
+                         (lambda (event) (Query (● event value))))
                      (On "keydown" (list (Key)) (Chords panel-chords)
-                         (lambda (event) (KeyPressed (::key event) (::modifiers event)))))
+                         (lambda (event) (KeyPressed (● event key) (● event modifiers)))))
                (Nil)))
 
     (define (panel-results (panel Panel) (choices (List Choice)) (selected I64) (generation I64))
@@ -516,11 +516,11 @@
                     choices))))
 
     (define (panel-empty (panel Panel)) (→ String)
-      (match (::mode panel)
+      (match (● panel mode)
         ((Searching (Search _ phase))
-         (if (string=? (::query panel) "") "Type text to search"
+         (if (string=? (● panel query) "") "Type text to search"
              (match phase
-               ((Finished (Err failure)) (::message failure))
+               ((Finished (Err failure)) (● failure message))
                ((Finished (Ok _)) "No matches")
                (_ "Searching…"))))
         ((Creating (Creation _ pending _))
@@ -528,7 +528,7 @@
         (_ "No matches")))
 
     (define (panel-help (panel Panel)) (→ String)
-      (match (::mode panel)
+      (match (● panel mode)
         ((Searching (Search source phase))
          (string-append
           (match source
@@ -551,27 +551,27 @@
                      (Attr "role" "option") (Attr "aria-selected" (if selected "true" "false"))
                      (Attr "tabindex" "-1")
                      (Attr "data-command"
-                           (match (::action choice) ((Choose (InvokeNamed name)) name) (_ "")))
+                           (match (● choice action) ((Choose (InvokeNamed name)) name) (_ "")))
                      (On "mousedown" (Nil) (Always) (lambda (event) (Idle)))
                      (On "click"
                          (Nil)
                          (Allow)
-                         (lambda (event) (Pick generation (::action choice)))))
+                         (lambda (event) (Pick generation (● choice action)))))
                (list
                 (Element "span"
                          (list (Attr "class" "choice-label"))
-                         (list (Text (::label choice))))
+                         (list (Text (● choice label))))
                 (Element "span"
                          (list (Attr "class" "command-keys"))
-                         (list (Text (::detail choice)))))))
+                         (list (Text (● choice detail)))))))
 
     (define (search-summary (results search-Results)) (→ String)
       (match results
         ((search-SavedResults results)
-         (string-append (limit-notice (::limited results))
-                        (if (> (::skipped results) 0)
+         (string-append (limit-notice (● results limited))
+                        (if (> (● results skipped) 0)
                             (string-append " · "
-                                           (show (::skipped results))
+                                           (show (● results skipped))
                                            " files skipped")
                             "")))
         ((search-DraftResults _ _ limited) (limit-notice limited))))

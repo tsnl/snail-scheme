@@ -301,26 +301,26 @@
 
     (define (body-sheet (build Build) (skin Skin)) (→ Sheet)
       (universal
-       (string-append bases "/bodies/" (build-name build) "/universal/" (::name skin) ".png")))
+       (string-append bases "/bodies/" (build-name build) "/universal/" (● skin name) ".png")))
 
     ;; Each color of the head's own ramp becomes the color at the same place
     ;; in `skin`'s; a head already in that skin needs no swaps.
     (define (head-sheet (head Head) (skin Skin)) (→ Sheet)
       (let ((folder (head-folder head)))
-        (Sheet (string-append bases "/heads/" (::first folder) "/universal.png") walk-region
-               (filter (lambda (pair) (not (= (::first pair) (::second pair))))
-                       (zip (ramp (::second folder)) (ramp (::name skin)))))))
+        (Sheet (string-append bases "/heads/" (● folder first) "/universal.png") walk-region
+               (filter (lambda (pair) (not (= (● pair first) (● pair second))))
+                       (zip (ramp (● folder second)) (ramp (● skin name)))))))
 
     ;; Hair is drawn for male heads and female heads; female and pregnant
     ;; bodies wear the female cut.
     (define (hair-sheet (build Build) (style HairStyle) (color HairColor)) (→ Sheet)
       (let ((cut (match build ((Female) "female") ((Pregnant) "female") (_ "male"))))
         (universal (string-append "src/lpc/lpc-hair/hair/"
-                                  (::name style)
+                                  (● style name)
                                   "/"
                                   cut
                                   "/"
-                                  (::name color)
+                                  (● color name)
                                   ".png"))))
 
     ;; ---- Garments ----
@@ -419,8 +419,8 @@
         ((Pair (Pants) (Male)) (Some (Single (Dye "green") male-pants)))
         (_ (let ((folder (garment-folder garment)) (drawn (drawn-build garment build)))
              (if (any? (lambda (other) (string=? (build-name other) (build-name drawn)))
-                       (::second folder))
-                 (Some (Dyed (::first folder) drawn))
+                       (● folder second))
+                 (Some (Dyed (● folder first) drawn))
                  (None))))))
 
     ;; The dyes a build can wear a garment in, none where no pack draws it.
@@ -438,17 +438,17 @@
     (define (garment-sheet (build Build) (garment Garment) (dye Dye)) (→ (Option Sheet))
       (match (garment-drawing build garment)
         ((Some (Dyed folder drawn))
-         (if (any? (lambda (other) (string=? (::name other) (::name dye))) dyes)
+         (if (any? (lambda (other) (string=? (● other name) (● dye name))) dyes)
              (Some (universal (string-append "src/lpc/lpc-clothing-updates/spritesheets/"
                                              folder
                                              "/"
                                              (build-name drawn)
                                              "/"
-                                             (::name dye)
+                                             (● dye name)
                                              ".png")))
              (None)))
         ((Some (Single only sheet))
-         (if (string=? (::name only) (::name dye)) (Some sheet) (None)))
+         (if (string=? (● only name) (● dye name)) (Some sheet) (None)))
         ((None) (None))))
 
     ))

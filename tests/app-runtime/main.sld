@@ -87,10 +87,10 @@
 
 (define (step (counter Counter) (input Input)) (→ Counter)
   (match input
-    ((Press 1 _) (Counter-count-set counter (+ (::count counter) 1)))
+    ((Press 1 _) (Counter-count-set counter (+ (● counter count) 1)))
     ((Press 2 _) (panic "a deliberate update trap"))
-    ((Elapsed elapsed) (Counter-count-set counter (+ (::count counter) (i32->i64 elapsed))))
-    ((Resize _ _) (Counter-resizes-set counter (+ (::resizes counter) 1)))
+    ((Elapsed elapsed) (Counter-count-set counter (+ (● counter count) (i32->i64 elapsed))))
+    ((Resize _ _) (Counter-resizes-set counter (+ (● counter resizes) 1)))
     (_ counter)))
 
 (define (draw (counter Counter)) (→ Frame)
@@ -103,19 +103,19 @@
 
 (define (panels (counter Counter)) (→ (List Panel))
   (list (Panel "counter" (At (TopLeft) 0)
-               (list (label "count" (i64->string (::count counter)))))))
+               (list (label "count" (i64->string (● counter count)))))))
 
 (define (save-counter (counter Counter)) (→ Save)
-  (Save (::count counter)))
+  (Save (● counter count)))
 
 (define (restore-counter (saved Save)) (→ Counter)
-  (Counter (::count saved) 0))
+  (Counter (● saved count) 0))
 
 (define (inspect-count (state Any)) (→ I64)
-  (::count (fixture-convert state Counter)))
+  (● (fixture-convert state Counter) count))
 
 (define (inspect-resizes (state Any)) (→ I32)
-  (::resizes (fixture-convert state Counter)))
+  (● (fixture-convert state Counter) resizes))
 
 (define (other-state) (→ Any)
   (type-convert (ann 5 I64) Any))

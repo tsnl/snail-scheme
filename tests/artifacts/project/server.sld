@@ -22,7 +22,7 @@
     ((None) (panic "missing artifact"))))
 
 (define client (client-snapshot))
-(display (string-join (map ::path (::files client)) "|"))
+(display (string-join (map (lambda (record) (● record path)) (● client files)) "|"))
 (newline)
 (print-bytes (required client "nested/data.bin"))
 (print-bytes producer-bytes)

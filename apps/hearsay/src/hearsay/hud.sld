@@ -112,9 +112,9 @@
       (let ((page (list-ref pages index)) (last? (= (+ index 1) (length pages))))
         (Panel "guide" (Dialog guide-close)
                (concatenate
-                (list (Cons (label "guide-title" (::title page))
-                            (line-labels "guide-text" (::paragraphs page)))
-                      (::extras page)
+                (list (Cons (label "guide-title" (● page title))
+                            (line-labels "guide-text" (● page paragraphs)))
+                      (● page extras)
                       (list (toned "guide-page"
                                    (Muted)
                                    (string-append name

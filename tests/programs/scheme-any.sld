@@ -75,16 +75,16 @@
                                       (ann arguments (List Any))
                                       value)) Any)))
     (ref-set! cell pair)
-    (assert (string=? (::text (type-convert (call (ref-get %car) (list (ref-get cell))) Payload))
+    (assert (string=? (● (type-convert (call (ref-get %car) (list (ref-get cell))) Payload) text)
                       "native"))
     (assert
      (string=?
-      (::text (type-convert (call (ref-get %vector-ref) (list vector (reading "0"))) Payload))
+      (● (type-convert (call (ref-get %vector-ref) (list vector (reading "0"))) Payload) text)
       "native"))
-    (assert (string=? (::text (type-convert (call procedure (Nil)) Payload)) "native"))
+    (assert (string=? (● (type-convert (call procedure (Nil)) Payload) text) "native"))
     (assert
      (string=?
-      (::text (type-convert (call (ref-get %apply) (list procedure (reading "()"))) Payload))
+      (● (type-convert (call (ref-get %apply) (list procedure (reading "()"))) Payload) text)
       "native"))
     (assert (string=? (datum->string value) "#<opaque>"))
     (assert (type-test (call (ref-get %number?) (list value)) Bool)))

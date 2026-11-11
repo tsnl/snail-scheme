@@ -54,27 +54,27 @@
     (define (part (mesh Mesh) (paint Paint) (x F32) (y F32) (z F32) (w F32) (d F32) (h F32))
       (→ Item)
       (Item-glow-set
-       (item mesh (Vec3 x (- z (/ h 2.0)) (negate y)) (Vec3 w h d) 0.0 (::color paint))
-       (::glow paint)))
+       (item mesh (Vec3 x (- z (/ h 2.0)) (negate y)) (Vec3 w h d) 0.0 (● paint color))
+       (● paint glow)))
 
     (define (block (paint Paint) (x F32) (y F32) (z F32) (w F32) (d F32) (h F32)) (→ Item)
       (part (Box) paint x y z w d h))
 
     ;; A flat w by d square at height z.
     (define (flat (paint Paint) (x F32) (y F32) (z F32) (w F32) (d F32)) (→ Item)
-      (Item-glow-set (item (Tile) (Vec3 x z (negate y)) (Vec3 w 1.0 d) 0.0 (::color paint))
-                     (::glow paint)))
+      (Item-glow-set (item (Tile) (Vec3 x z (negate y)) (Vec3 w 1.0 d) 0.0 (● paint color))
+                     (● paint glow)))
 
     ;; Scales the positions and sizes of standing parts.
     (define (resize (parts (List Item)) (kx F32) (ky F32) (kz F32)) (→ (List Item))
       (map (lambda (it)
-             (let* ((p (::position it))
-                    (s (::scale it))
-                    (moved (Vec3 (* kx (::x p)) (* ky (::y p)) (* kz (::z p)))))
+             (let* ((p (● it position))
+                    (s (● it scale))
+                    (moved (Vec3 (* kx (● p x)) (* ky (● p y)) (* kz (● p z)))))
                (Item-from-set (Item-scale-set (Item-position-set it moved)
-                                              (Vec3 (* kx (::x s))
-                                                    (* ky (::y s))
-                                                    (* kz (::z s))))
+                                              (Vec3 (* kx (● s x))
+                                                    (* ky (● s y))
+                                                    (* kz (● s z))))
                               moved)))
            parts))
 
@@ -82,32 +82,32 @@
     (define (place (parts (List Item)) (origin Vec3) (yaw F32)) (→ (List Item))
       (map (lambda (it)
              (Item-yaw-set
-              (Item-from-set (Item-position-set it (turned (::position it) origin yaw))
-                             (turned (::from it) origin yaw))
-              (+ yaw (::yaw it))))
+              (Item-from-set (Item-position-set it (turned (● it position) origin yaw))
+                             (turned (● it from) origin yaw))
+              (+ yaw (● it yaw))))
            parts))
 
     (define (turned (p Vec3) (origin Vec3) (yaw F32)) (→ Vec3)
       (let ((c (f64->f32 (cos (f32->f64 yaw)))) (s (f64->f32 (sin (f32->f64 yaw)))))
-        (Vec3 (+ (::x origin) (+ (* c (::x p)) (* s (::z p))))
-              (+ (::y origin) (::y p))
-              (+ (::z origin) (- (* c (::z p)) (* s (::x p)))))))
+        (Vec3 (+ (● origin x) (+ (* c (● p x)) (* s (● p z))))
+              (+ (● origin y) (● p y))
+              (+ (● origin z) (- (* c (● p z)) (* s (● p x)))))))
 
     ;; Parts that move from one place to another over the coming tick.
     (define (travel (parts (List Item)) (from Vec3) (to Vec3) (yaw F32)) (→ (List Item))
-      (map (lambda (pair) (Item-from-set (::second pair) (::position (::first pair))))
+      (map (lambda (pair) (Item-from-set (● pair second) (● (● pair first) position)))
            (zip (place parts from yaw) (place parts to yaw))))
 
     (define (cell-point (cell Cell) (height F32)) (→ Vec3)
-      (Vec3 (i64->f32 (::x cell)) height (i64->f32 (::y cell))))
+      (Vec3 (i64->f32 (● cell x)) height (i64->f32 (● cell y))))
 
     (define (at-cell (cell Cell) (parts (List Item))) (→ (List Item))
       (place parts (cell-point cell 0.0) 0.0))
 
     (define (between (a Vec3) (b Vec3) (t F32)) (→ Vec3)
-      (Vec3 (+ (::x a) (* t (- (::x b) (::x a))))
-            (+ (::y a) (* t (- (::y b) (::y a))))
-            (+ (::z a) (* t (- (::z b) (::z a))))))
+      (Vec3 (+ (● a x) (* t (- (● b x) (● a x))))
+            (+ (● a y) (* t (- (● b y) (● a y))))
+            (+ (● a z) (* t (- (● b z) (● a z))))))
 
     (define (atan2-f32 (y F32) (x F32)) (→ F32)
       (f64->f32 (atan2 (f32->f64 y) (f32->f64 x))))
@@ -151,38 +151,38 @@
     ;; fixed pattern.
     (define (open-paint (world World) (tiles Tileset) (cell Cell)) (→ Paint)
       (Paint (if (visible? world cell)
-                 (match (::shore tiles)
+                 (match (● tiles shore)
                    ((Some shore) (if (beside-water? world cell) shore (open-tone tiles cell)))
                    ((None) (open-tone tiles cell)))
-                 (::unseen tiles))
+                 (● tiles unseen))
              0.0))
 
     (define (open-tone (tiles Tileset) (cell Cell)) (→ I32)
-      (let ((x (::x cell)) (y (::y cell)))
-        (cond ((= (remainder (+ (* x 13) (* y 7)) 5) 0) (::light tiles))
-              ((= (remainder (+ x (* y 3)) 3) 0) (::deep tiles))
-              (else (::middle tiles)))))
+      (let ((x (● cell x)) (y (● cell y)))
+        (cond ((= (remainder (+ (* x 13) (* y 7)) 5) 0) (● tiles light))
+              ((= (remainder (+ x (* y 3)) 3) 0) (● tiles deep))
+              (else (● tiles middle)))))
 
     ;; Unexplored water does not count, so a shore never gives it away.
     (define (beside-water? (world World) (cell Cell)) (→ Bool)
       (any? (lambda (n)
               (and (explored? world n)
-                   (match (ground-at (::land world) n) ((Water) #t) (_ #f))))
+                   (match (ground-at (● world land) n) ((Water) #t) (_ #f))))
             (neighbors cell)))
 
     ;; Rock is a grey peak in meadows and on islands, a flat-topped mesa in
     ;; the desert, and a snow-capped peak in the tundra. Dug rock is a floor.
     (define (ground-parts (world World) (cell Cell)) (→ (List Item))
-      (let* ((biome (::biome (::land world)))
+      (let* ((biome (● (● world land) biome))
              (tiles (tileset biome))
              (floor (flat (open-paint world tiles cell) 0.0 0.0 0.0 0.99 0.99)))
-        (match (ground-at (::land world) cell)
+        (match (ground-at (● world land) cell)
           ((Open) (list floor))
-          ((Water) (list (flat (Paint (::water tiles) 0.1) 0.0 0.0 0.012 0.99 0.99)))
-          ((Ice) (list (flat (Paint (::ice tiles) 0.2) 0.0 0.0 0.008 0.99 0.99)))
+          ((Water) (list (flat (Paint (● tiles water) 0.1) 0.0 0.0 0.012 0.99 0.99)))
+          ((Ice) (list (flat (Paint (● tiles ice) 0.2) 0.0 0.0 0.008 0.99 0.99)))
           ((Rock) (if (opened? world cell)
-                      (list (flat (Paint (::dug tiles) 0.0) 0.0 0.0 0.0 0.99 0.99))
-                      (Cons floor (rock-parts biome (Paint (::rock tiles) 0.0))))))))
+                      (list (flat (Paint (● tiles dug) 0.0) 0.0 0.0 0.0 0.99 0.99))
+                      (Cons floor (rock-parts biome (Paint (● tiles rock) 0.0))))))))
 
     (define (rock-parts (biome Biome) (paint Paint)) (→ (List Item))
       (match biome
@@ -208,7 +208,7 @@
       (concatenate
        (map (lambda (index) (at-cell (index-cell index) (ground-parts world (index-cell index))))
             (filter
-             (lambda (index) (and (vector-ref (::explored world) index) (include? index)))
+             (lambda (index) (and (vector-ref (● world explored) index) (include? index)))
              (iota (* map-size map-size))))))
 
     ;; ---- Buildings ----
@@ -296,12 +296,12 @@
 
     ;; An unpowered building loses its color and glow.
     (define (unpowered (parts (List Item))) (→ (List Item))
-      (map (lambda (it) (Item-glow-set (Item-color-set it (::color shadow)) 0.0)) parts))
+      (map (lambda (it) (Item-glow-set (Item-color-set it (● shadow color)) 0.0)) parts))
 
     (define (building-items (world World) (building Building)) (→ (List Item))
-      (let ((parts (building-parts (::kind building) (::level building))))
-        (at-cell (::cell building)
-                 (if (or (not (built? building)) (powered? world (::id building)))
+      (let ((parts (building-parts (● building kind) (● building level))))
+        (at-cell (● building cell)
+                 (if (or (not (built? building)) (powered? world (● building id)))
                      parts
                      (unpowered parts)))))
 
@@ -320,13 +320,13 @@
     ;; Crystals in explored ground with energy left, not under a building or
     ;; a living nest.
     (define (open-crystals (world World)) (→ (List Crystal))
-      (filter (lambda (c) (let ((cell (::cell c)))
-                            (and (explored? world cell) (> (::reserve c) 0)
+      (filter (lambda (c) (let ((cell (● c cell)))
+                            (and (explored? world cell) (> (● c reserve) 0)
                                  (match (building-at world cell) ((Some _) #f) ((None) #t))
                                  (match (nest-at world cell)
-                                   ((Some nest) (= (::health nest) 0))
+                                   ((Some nest) (= (● nest health) 0))
                                    ((None) #t)))))
-              (::crystals world)))
+              (● world crystals)))
 
     (define (nest-parts) (→ (List Item))
       (list (block steel 0.0 0.0 0.2 2.8 2.8 0.4) (part (Pyramid) violet 0.0 0.0 1.1 2.5 2.5 2.0)
@@ -335,10 +335,10 @@
             (block warning 0.0 -1.24 0.6 1.1 0.08 0.7)))
 
     (define (nest-items (world World)) (→ (List Item))
-      (concatenate (map (lambda (nest) (at-cell (::cell nest) (nest-parts)))
+      (concatenate (map (lambda (nest) (at-cell (● nest cell) (nest-parts)))
                         (filter (lambda (nest)
-                                  (and (> (::health nest) 0) (explored? world (::cell nest))))
-                                (::nests world)))))
+                                  (and (> (● nest health) 0) (explored? world (● nest cell))))
+                                (● world nests)))))
 
     ;; ---- Wires and outlines ----
 
@@ -348,23 +348,23 @@
     (define (beam (from Cell) (to Cell) (thickness F32) (paint Paint)) (→ Item)
       (let* ((a (cell-point from (- wire-height (/ thickness 2.0))))
              (b (cell-point to (- wire-height (/ thickness 2.0))))
-             (dx (- (::x b) (::x a))) (dz (- (::z b) (::z a))))
+             (dx (- (● b x) (● a x))) (dz (- (● b z) (● a z))))
         (Item-glow-set (item (Box)
                              (between a b 0.5)
                              (Vec3 (sqrt (+ (* dx dx) (* dz dz))) thickness thickness)
                              (atan2-f32 (negate dz) dx)
-                             (::color paint))
-                       (::glow paint))))
+                             (● paint color))
+                       (● paint glow))))
 
     ;; Wires are thin glassy turquoise beams between powered buildings, and
     ;; grey among unpowered ones.
     (define (link-items (world World)) (→ (List Item))
       (map (lambda (wire)
-             (beam (::cell (::from wire)) (::cell (::to wire)) 0.07
-                   (if (powered? world (::id (::from wire)))
+             (beam (● (● wire from) cell) (● (● wire to) cell) 0.07
+                   (if (powered? world (● (● wire from) id))
                        (Paint (rgb 35 242 195) 0.7)
                        (Paint (rgb 120 128 140) 0.2))))
-           (::wires (::network world))))
+           (● (● world network) wires)))
 
     ;; Thin strokes along the edges of a set of cells, shifted by `lane` so
     ;; two outlines on one edge lie side by side.
@@ -376,7 +376,7 @@
     (define (edge-strokes (cells (Vector Bool)) (cell Cell) (paint Paint) (lane F32))
       (→ (List Item))
       (filter-map
-       (lambda (side) (edge-stroke cells cell (::first side) (::second side) paint lane))
+       (lambda (side) (edge-stroke cells cell (● side first) (● side second) paint lane))
        (list (Pair 1 0) (Pair -1 0) (Pair 0 1) (Pair 0 -1))))
 
     (define (edge-stroke (cells (Vector Bool))
@@ -386,45 +386,45 @@
                          (paint Paint)
                          (lane F32))
       (→ (Option Item))
-      (let ((other (Cell (+ (::x cell) dx) (+ (::y cell) dy))))
+      (let ((other (Cell (+ (● cell x) dx) (+ (● cell y) dy))))
         (if (and (in-bounds? other) (vector-ref cells (cell-index other)))
             (None)
             (Some (Item-glow-set (item (Tile)
-                                       (Vec3 (+ (i64->f32 (::x cell))
+                                       (Vec3 (+ (i64->f32 (● cell x))
                                                 (+ (* 0.5 (i64->f32 dx)) (if (= dx 0) 0.0 lane)))
                                              0.075
-                                             (+ (i64->f32 (::y cell))
+                                             (+ (i64->f32 (● cell y))
                                                 (+ (* 0.5 (i64->f32 dy)) (if (= dy 0) 0.0 lane))))
                                        (Vec3 (if (= dx 0) 1.06 0.06) 1.0 (if (= dy 0) 1.06 0.06))
                                        0.0
-                                       (::color paint))
+                                       (● paint color))
                                  0.8)))))
 
     ;; Cyan bounds what powered buildings see; brass bounds what powered
     ;; turrets can shoot.
     (define (coverage-items (world World)) (→ (List Item))
-      (append (outline-items (::visible world) cyan 0.03)
+      (append (outline-items (● world visible) cyan 0.03)
               (outline-items (lit-cells (filter (lambda (node) (turret-node? world node))
-                                                (::powered (::network world))))
+                                                (● (● world network) powered)))
                              brass
                              -0.03)))
 
     (define (turret-node? (world World) (node Node)) (→ Bool)
-      (match (building world (::id node))
+      (match (building world (● node id))
         ((Some b) (turret? b))
         ((None) #f)))
 
     (define (turret? (b Building)) (→ Bool)
-      (match (::kind b)
+      (match (● b kind)
         ((Turret) #t)
         (_ #f)))
 
     (define (structure-items (world World)) (→ (List Item))
       (concatenate
-       (list (base-items) (place (hub-parts) (cell-point (::cell (::hub world)) 0.0) 0.0)
-             (concatenate (map (lambda (b) (building-items world b)) (::buildings world)))
+       (list (base-items) (place (hub-parts) (cell-point (● (● world hub) cell) 0.0) 0.0)
+             (concatenate (map (lambda (b) (building-items world b)) (● world buildings)))
              (concatenate
-              (map (lambda (c) (at-cell (::cell c) (crystal-parts))) (open-crystals world)))
+              (map (lambda (c) (at-cell (● c cell) (crystal-parts))) (open-crystals world)))
              (nest-items world) (coverage-items world))))
 
     ;; ---- Energy ----
@@ -432,18 +432,18 @@
     ;; The node a powered node was reached from, toward the hub: each wire
     ;; runs from the node it was reached from.
     (define (parent (world World) (node Node)) (→ (Option Node))
-      (match (find (lambda (wire) (= (::id (::to wire)) (::id node)))
-                   (::wires (::network world)))
-        ((Some wire) (Some (::from wire)))
+      (match (find (lambda (wire) (= (● (● wire to) id) (● node id)))
+                   (● (● world network) wires))
+        ((Some wire) (Some (● wire from)))
         ((None) (None))))
 
     ;; Every wire energy crosses on its way from a working extractor to the
     ;; hub, as (from, toward) pairs.
     (define (flows (world World)) (→ (List (Pair Node Node)))
-      (delete-duplicates (lambda (a b) (= (::id (::first a)) (::id (::first b))))
+      (delete-duplicates (lambda (a b) (= (● (● a first) id) (● (● b first) id)))
                          (concatenate (map (lambda (node) (route-home world node))
                                            (filter (lambda (node) (working-extractor? world node))
-                                                   (::powered (::network world)))))))
+                                                   (● (● world network) powered))))))
 
     (define (route-home (world World) (node Node)) (→ (List (Pair Node Node)))
       (match (parent world node)
@@ -451,10 +451,10 @@
         ((None) (Nil))))
 
     (define (working-extractor? (world World) (node Node)) (→ Bool)
-      (match (building world (::id node))
-        ((Some b) (and (match (::kind b) ((Extractor) #t) (_ #f))
-                       (match (crystal-at world (::cell b))
-                         ((Some c) (> (::reserve c) 0))
+      (match (building world (● node id))
+        ((Some b) (and (match (● b kind) ((Extractor) #t) (_ #f))
+                       (match (crystal-at world (● b cell))
+                         ((Some c) (> (● c reserve) 0))
                          ((None) #f))))
         ((None) #f)))
 
@@ -463,9 +463,9 @@
     ;; back.
     (define (pulse-items (world World)) (→ (List Item))
       (concatenate (map (lambda (flow)
-                          (flow-pulses (::tick world)
-                                       (::cell (::first flow))
-                                       (::cell (::second flow))))
+                          (flow-pulses (● world tick)
+                                       (● (● flow first) cell)
+                                       (● (● flow second) cell)))
                         (flows world))))
 
     (define (flow-pulses (tick I64) (from Cell) (to Cell)) (→ (List Item))
@@ -493,14 +493,14 @@
     ;; Floating crystals: octahedral minions, tetrahedral raiders, boxy
     ;; burrowers and a great beast, crowned with more crystals as they rank.
     (define (enemy-parts (enemy Enemy)) (→ (List Item))
-      (let* ((rank (::rank enemy))
+      (let* ((rank (● enemy rank))
              (size
-              (match (::behavior enemy) ((Beast) 2.8) (_ (+ 0.85 (* 0.2 (i64->f32 rank))))))
-             (mesh (cond ((::burrower enemy) (Box))
-                         ((match (::behavior enemy) ((Raider) #t) (_ #f)) (Tetrahedron))
+              (match (● enemy behavior) ((Beast) 2.8) (_ (+ 0.85 (* 0.2 (i64->f32 rank))))))
+             (mesh (cond ((● enemy burrower) (Box))
+                         ((match (● enemy behavior) ((Raider) #t) (_ #f)) (Tetrahedron))
                          (else (Octahedron)))))
         (resize (append (list (part mesh
-                                    (if (::burrower enemy) indigo gemstone)
+                                    (if (● enemy burrower) indigo gemstone)
                                     0.0
                                     0.0
                                     0.48
@@ -521,25 +521,25 @@
     ;; An enemy steps from its previous cell on multiples of its period; over
     ;; this tick it covers one period's share of the step.
     (define (enemy-span (world World) (enemy Enemy)) (→ (Pair Vec3 Vec3))
-      (let* ((period (i64->f32 (enemy-period (::behavior enemy))))
-             (phase (i64->f32 (remainder (+ (::tick world) (::id enemy))
-                                         (enemy-period (::behavior enemy)))))
-             (a (cell-point (::previous enemy) 0.0)) (b (cell-point (::cell enemy) 0.0)))
+      (let* ((period (i64->f32 (enemy-period (● enemy behavior))))
+             (phase (i64->f32 (remainder (+ (● world tick) (● enemy id))
+                                         (enemy-period (● enemy behavior)))))
+             (a (cell-point (● enemy previous) 0.0)) (b (cell-point (● enemy cell) 0.0)))
         (Pair (between a b (/ phase period)) (between a b (/ (+ phase 1.0) period)))))
 
     (define (enemy-items (world World) (enemy Enemy)) (→ (List Item))
       (let ((span (enemy-span world enemy)))
-        (travel (enemy-parts enemy) (::first span) (::second span) 0.0)))
+        (travel (enemy-parts enemy) (● span first) (● span second) 0.0)))
 
     (define (enemy-bar (yaw F32) (world World) (enemy Enemy)) (→ (List Item))
       (let ((span (enemy-span world enemy)))
         (bar-items yaw
-                   (::first span)
-                   (::second span)
+                   (● span first)
+                   (● span second)
                    1.0
-                   (+ 0.9 (* 0.25 (i64->f32 (::rank enemy))))
-                   (::health enemy)
-                   (::maximum enemy)
+                   (+ 0.9 (* 0.25 (i64->f32 (● enemy rank))))
+                   (● enemy health)
+                   (● enemy maximum)
                    health-paint)))
 
     ;; ---- Bars ----
@@ -591,52 +591,52 @@
     ;; Damaged buildings show their health, unfinished work its progress, and
     ;; mined crystals what they have left.
     (define (building-bars (yaw F32) (world World) (b Building)) (→ (List Item))
-      (append (if (< (::health b) (kind-health (::kind b)))
+      (append (if (< (● b health) (kind-health (● b kind)))
                   (still-bar yaw
-                             (::cell b)
+                             (● b cell)
                              1.0
                              1.2
-                             (::health b)
-                             (kind-health (::kind b))
+                             (● b health)
+                             (kind-health (● b kind))
                              health-paint)
                   (Nil))
-              (match (::work b)
+              (match (● b work)
                 ((Some work)
                  (still-bar yaw
-                            (::cell b)
+                            (● b cell)
                             1.0
                             1.0
-                            (::progress work)
-                            (::duration work)
+                            (● work progress)
+                            (● work duration)
                             progress-paint))
                 ((None) (Nil)))))
 
     (define (crystal-bars (yaw F32) (world World)) (→ (List Item))
       (concatenate (map (lambda (c)
                           (still-bar yaw
-                                     (::cell c)
+                                     (● c cell)
                                      1.0
                                      0.75
-                                     (::reserve c)
-                                     (* reserve-per-rate (::rate c))
+                                     (● c reserve)
+                                     (* reserve-per-rate (● c rate))
                                      reserve-paint))
                         (filter (lambda (c)
-                                  (match (building-at world (::cell c))
+                                  (match (building-at world (● c cell))
                                     ((Some _) #t)
                                     ((None) #f)))
-                                (::crystals world)))))
+                                (● world crystals)))))
 
     (define (hub-bars (yaw F32) (world World)) (→ (List Item))
-      (let ((hub (::hub world)))
-        (append (still-bar yaw (::cell hub) 1.0 1.25 (::health hub) hub-health health-paint)
-                (match (::work hub)
+      (let ((hub (● world hub)))
+        (append (still-bar yaw (● hub cell) 1.0 1.25 (● hub health) hub-health health-paint)
+                (match (● hub work)
                   ((Some work)
                    (still-bar yaw
-                              (::cell hub)
+                              (● hub cell)
                               1.0
                               1.05
-                              (::progress work)
-                              (::duration work)
+                              (● work progress)
+                              (● work duration)
                               progress-paint))
                   ((None) (Nil))))))
 
@@ -645,37 +645,37 @@
     (define (nest-bars (yaw F32) (world World)) (→ (List Item))
       (concatenate (map (lambda (nest)
                           (still-bar yaw
-                                     (::cell nest)
+                                     (● nest cell)
                                      2.4
                                      3.2
-                                     (::health nest)
+                                     (● nest health)
                                      nest-health
                                      health-paint))
                         (filter (lambda (nest)
-                                  (and (> (::health nest) 0) (explored? world (::cell nest))))
-                                (::nests world)))))
+                                  (and (> (● nest health) 0) (explored? world (● nest cell))))
+                                (● world nests)))))
 
     ;; ---- Combat ----
 
     ;; A turret's guns stay pointed where it last fired.
     (define (cannon-items (world World) (b Building)) (→ (List Item))
-      (let ((cell (::cell b)))
-        (match (::aim b)
-          ((Some to) (place (cannon-parts (::level b)) (cell-point cell 0.0)
-                            (atan2-f32 (negate (i64->f32 (- (::x to) (::x cell))))
-                                       (negate (i64->f32 (- (::y to) (::y cell)))))))
-          ((None) (at-cell cell (cannon-parts (::level b)))))))
+      (let ((cell (● b cell)))
+        (match (● b aim)
+          ((Some to) (place (cannon-parts (● b level)) (cell-point cell 0.0)
+                            (atan2-f32 (negate (i64->f32 (- (● to x) (● cell x))))
+                                       (negate (i64->f32 (- (● to y) (● cell y)))))))
+          ((None) (at-cell cell (cannon-parts (● b level)))))))
 
     ;; A tracer crosses to its target over two ticks, then flashes.
     (define (shot-items (world World) (shot Shot)) (→ (List Item))
-      (let ((age (- (::tick world) (::tick shot)))
-            (from (cell-point (::from shot) 0.6))
-            (to (cell-point (::to shot) 0.35)))
+      (let ((age (- (● world tick) (● shot tick)))
+            (from (cell-point (● shot from) 0.6))
+            (to (cell-point (● shot to) 0.35)))
         (cond ((< age 2) (travel (list (block lamp 0.0 0.0 0.0 0.3 0.075 0.075))
                                  (between from to (/ (i64->f32 age) 2.0))
                                  (between from to (/ (i64->f32 (+ age 1)) 2.0))
-                                 (atan2-f32 (negate (- (::z to) (::z from)))
-                                            (- (::x to) (::x from)))))
+                                 (atan2-f32 (negate (- (● to z) (● from z)))
+                                            (- (● to x) (● from x)))))
               ((= age 2)
                (place
                 (list (block lamp 0.0 0.0 0.0 0.4 0.07 0.07) (block lamp 0.0 0.0 0.0 0.07 0.4 0.07))
@@ -685,9 +685,9 @@
 
     ;; Smoke rises where the colony was struck in the last two seconds.
     (define (smoke-items (world World) (alert Alert)) (→ (List Item))
-      (if (< (- (::tick world) (::tick alert)) 20)
+      (if (< (- (● world tick) (● alert tick)) 20)
           (concatenate
-           (map (lambda (index) (puff (::tick world) (::cell alert) index)) (iota 4)))
+           (map (lambda (index) (puff (● world tick) (● alert cell) index)) (iota 4)))
           (Nil)))
 
     (define (puff (tick I64) (cell Cell) (index I64)) (→ (List Item))
@@ -698,8 +698,8 @@
 
     ;; Dust flies from rock being dug.
     (define (dig-items (world World) (dig Dig)) (→ (List Item))
-      (let ((phase (* (i64->f32 (remainder (::tick world) 8)) 0.045)))
-        (at-cell (::cell dig)
+      (let ((phase (* (i64->f32 (remainder (● world tick) 8)) 0.045)))
+        (at-cell (● dig cell)
                  (list (block cream -0.35 0.1 (+ 0.4 phase) 0.22 0.22 0.22)
                        (block brass 0.2 -0.1 (- 0.8 phase) 0.16 0.16 0.16)
                        (block lamp 0.0 -0.2 0.12 0.45 0.08 0.08)))))
@@ -708,16 +708,16 @@
       (concatenate (list (concatenate (map (lambda (e) (enemy-items world e)) (seen-enemies world)))
                          (concatenate (map (lambda (b) (cannon-items world b))
                                            (filter (lambda (b) (and (built? b) (turret? b)))
-                                                   (::buildings world))))
-                         (concatenate (map (lambda (s) (shot-items world s)) (::shots world)))
-                         (concatenate (map (lambda (a) (smoke-items world a)) (::alerts world)))
+                                                   (● world buildings))))
+                         (concatenate (map (lambda (s) (shot-items world s)) (● world shots)))
+                         (concatenate (map (lambda (a) (smoke-items world a)) (● world alerts)))
                          (concatenate (map (lambda (d) (dig-items world d))
-                                           (filter (lambda (d) (explored? world (::cell d)))
-                                                   (::digs world))))
+                                           (filter (lambda (d) (explored? world (● d cell)))
+                                                   (● world digs))))
                          (pulse-items world))))
 
     (define (seen-enemies (world World)) (→ (List Enemy))
-      (filter (lambda (e) (visible? world (::cell e))) (::enemies world)))
+      (filter (lambda (e) (visible? world (● e cell))) (● world enemies)))
 
     ;; Every bar, turned by `yaw` to face the camera.
     (define (bar-batch-items (world World) (yaw F32)) (→ (List Item))
@@ -725,7 +725,7 @@
        (list (concatenate (map (lambda (e) (enemy-bar yaw world e)) (seen-enemies world)))
              (hub-bars yaw world)
              (crystal-bars yaw world)
-             (concatenate (map (lambda (b) (building-bars yaw world b)) (::buildings world)))
+             (concatenate (map (lambda (b) (building-bars yaw world b)) (● world buildings)))
              (nest-bars yaw world))))
 
     ;; ---- Cursor and previews ----
@@ -738,9 +738,9 @@
                          ((Some cell) (at-cell cell (list (flat paint 0.0 0.0 0.015 0.99 0.99))))
                          ((None) (Nil))))))
         (append
-         (glowing (if (same-cell? (::hover game) (::selected game)) (None) (::hover game))
+         (glowing (if (same-cell? (● game hover) (● game selected)) (None) (● game hover))
                   (Paint (rgb 214 250 190) 0.55))
-         (glowing (::selected game) (Paint (rgb 255 236 140) 0.85)))))
+         (glowing (● game selected) (Paint (rgb 255 236 140) 0.85)))))
 
     ;; The selection's glow covers the hover's on the same cell, rather than
     ;; fighting it at the same height.
@@ -750,7 +750,7 @@
         ((None) #f)))
 
     (define (cursor-version (game Game)) (→ I64)
-      (+ (* (cell-code (::hover game)) 6401) (cell-code (::selected game))))
+      (+ (* (cell-code (● game hover)) 6401) (cell-code (● game selected))))
 
     (define (cell-code (option (Option Cell))) (→ I64)
       (match option
@@ -760,16 +760,16 @@
     ;; On the selected cell, a ghost of the building whose button the
     ;; pointer is over.
     (define (preview-items (game Game)) (→ (List Item))
-      (match (::selected game)
+      (match (● game selected)
         ((Some cell)
-         (match (::preview game)
+         (match (● game preview)
            ((Some kind) (at-cell cell (building-parts kind 1)))
            ((None) (Nil))))
         ((None) (Nil))))
 
     (define (preview-version (game Game)) (→ I64)
-      (+ (* 4 (cell-code (::selected game)))
-         (match (::preview game) ((Some kind) (+ 1 (kind-code kind))) ((None) 0))))
+      (+ (* 4 (cell-code (● game selected)))
+         (match (● game preview) ((Some kind) (+ 1 (kind-code kind))) ((None) 0))))
 
     (define (kind-code (kind Kind)) (→ I64)
       (match kind
@@ -782,80 +782,80 @@
     ;; The sun keeps its place relative to the camera, so every heading is
     ;; lit alike: from the left, above and behind the viewer.
     (define (camera-light (view Camera)) (→ Light)
-      (let* ((eye (::eye view)) (target (::target view))
-             (forward (unit (Vec3 (- (::x target) (::x eye))
-                                  (- (::y target) (::y eye))
-                                  (- (::z target) (::z eye)))))
-             (right (unit (Vec3 (negate (::z forward)) 0.0 (::x forward))))
-             (up (Vec3 (- (* (::y right) (::z forward)) (* (::z right) (::y forward)))
-                       (- (* (::z right) (::x forward)) (* (::x right) (::z forward)))
-                       (- (* (::x right) (::y forward))
-                          (* (::y right) (::x forward))))))
-        (Light (Vec3 (- (+ (* -0.5 (::x right)) (* 0.6 (::x up))) (::x forward))
-                     (- (+ (* -0.5 (::y right)) (* 0.6 (::y up))) (::y forward))
-                     (- (+ (* -0.5 (::z right)) (* 0.6 (::z up))) (::z forward)))
+      (let* ((eye (● view eye)) (target (● view target))
+             (forward (unit (Vec3 (- (● target x) (● eye x))
+                                  (- (● target y) (● eye y))
+                                  (- (● target z) (● eye z)))))
+             (right (unit (Vec3 (negate (● forward z)) 0.0 (● forward x))))
+             (up (Vec3 (- (* (● right y) (● forward z)) (* (● right z) (● forward y)))
+                       (- (* (● right z) (● forward x)) (* (● right x) (● forward z)))
+                       (- (* (● right x) (● forward y))
+                          (* (● right y) (● forward x))))))
+        (Light (Vec3 (- (+ (* -0.5 (● right x)) (* 0.6 (● up x))) (● forward x))
+                     (- (+ (* -0.5 (● right y)) (* 0.6 (● up y))) (● forward y))
+                     (- (+ (* -0.5 (● right z)) (* 0.6 (● up z))) (● forward z)))
                0.65 0.5)))
 
     (define (unit (v Vec3)) (→ Vec3)
-      (let ((length (sqrt (+ (* (::x v) (::x v))
-                             (+ (* (::y v) (::y v)) (* (::z v) (::z v)))))))
-        (Vec3 (/ (::x v) length) (/ (::y v) length) (/ (::z v) length))))
+      (let ((length (sqrt (+ (* (● v x) (● v x))
+                             (+ (* (● v y) (● v y)) (* (● v z) (● v z)))))))
+        (Vec3 (/ (● v x) length) (/ (● v y) length) (/ (● v z) length))))
 
     ;; ---- Frames ----
 
     ;; A batch version: the game's epoch with a count that changes exactly
     ;; when the batch's items would, so a new game never reuses old items.
     (define (stamp (game Game) (count I64)) (→ I32)
-      (i64->i32 (+ (* (remainder (::epoch game) 64) 16777216) (remainder count 16777216))))
+      (i64->i32 (+ (* (remainder (● game epoch) 64) 16777216) (remainder count 16777216))))
 
     ;; Newly explored ground unveils from the middle outward over three
     ;; seconds; until then it is drawn apart from the rest.
     (define (unveiling? (world World)) (→ Bool)
-      (< (- (::tick world) (::tick (::reveal world))) 30))
+      (< (- (● world tick) (● (● world reveal) tick)) 30))
 
     (define (fresh? (world World) (index I64)) (→ Bool)
-      (not (vector-ref (::before (::reveal world)) index)))
+      (not (vector-ref (● (● world reveal) before) index)))
 
     (define (terrain-batches (game Game)) (→ (List Batch))
-      (let* ((world (::world game)) (reveal (::reveal world)) (unveiling (unveiling? world))
+      (let* ((world (● game world)) (reveal (● world reveal)) (unveiling (unveiling? world))
              (progress (min 1.0
-                            (/ (+ (i64->f32 (- (::tick world) (::tick reveal)))
+                            (/ (+ (i64->f32 (- (● world tick) (● reveal tick)))
                                   (world-motion game))
                                30.0))))
         (Cons
-         (Batch 1 (stamp game (+ (* 2 (::structure-version world)) (if unveiling 0 1))) (Solid)
+         (Batch 1 (stamp game (+ (* 2 (● world structure-version)) (if unveiling 0 1))) (Solid)
                 (lambda ()
                   (terrain-items world
                                  (lambda (index) (or (not unveiling) (not (fresh? world index)))))))
          (if unveiling
-             (list (Batch 2 (stamp game (::explored-version world))
-                          (Revealed (cell-point (::center reveal) 0.0)
-                                    (* (i64->f32 (::radius reveal))
+             (list (Batch 2 (stamp game (● world explored-version))
+                          (Revealed (cell-point (● reveal center) 0.0)
+                                    (* (i64->f32 (● reveal radius))
                                        (* progress (- 2.0 progress))))
                           (lambda () (terrain-items world (lambda (index) (fresh? world index))))))
              (Nil)))))
 
     ;; Crystals shimmer, pulsing in strength.
     (define (shimmer-batch (game Game)) (→ Batch)
-      (let* ((world (::world game)) (time (/ (i64->f32 (::shown game)) 1000.0)))
-        (Batch 4 (stamp game (::structure-version world))
+      (let* ((world (● game world)) (time (/ (i64->f32 (● game shown)) 1000.0)))
+        (Batch 4 (stamp game (● world structure-version))
                (Translucent (+ 0.45 (* 0.25 (f64->f32 (sin (f32->f64 (* 2.5 time)))))))
                (lambda ()
-                 (concatenate (map (lambda (c) (at-cell (::cell c) (shimmer-parts)))
+                 (concatenate (map (lambda (c) (at-cell (● c cell) (shimmer-parts)))
                                    (open-crystals world)))))))
 
     ;; During the opening, the crystals in sight pulse white to show where
     ;; the first extractor goes.
     (define (beacon-batches (game Game)) (→ (List Batch))
-      (let* ((world (::world game)) (time (/ (i64->f32 (::shown game)) 1000.0)))
+      (let* ((world (● game world)) (time (/ (i64->f32 (● game shown)) 1000.0)))
         (if (opening? world)
             (list (Batch 10
                          (stamp game
-                                (+ (::structure-version world) (::explored-version world)))
+                                (+ (● world structure-version) (● world explored-version)))
                          (Translucent (+ 0.5 (* 0.3 (f64->f32 (sin (f32->f64 (* 5.0 time)))))))
                          (lambda ()
                            (concatenate (map (lambda (c)
-                                               (at-cell (::cell c)
+                                               (at-cell (● c cell)
                                                         (list (flat (Paint (rgb 255 255 255) 1.0)
                                                                     0.0
                                                                     0.0
@@ -870,40 +870,40 @@
     ;; explored version only grow, so their sum changes whenever either
     ;; does, and a nest uncovered at the end shows its bar.
     (define (bar-batch (game Game)) (→ Batch)
-      (let* ((world (::world game))
+      (let* ((world (● game world))
              (yaw (bar-yaw (heading-angle game)))
              (step (f32->i64 (round (* yaw 256.0)))))
         (Batch 8
-               (stamp game (+ (* 2048 (+ (::tick world) (::explored-version world))) step))
+               (stamp game (+ (* 2048 (+ (● world tick) (● world explored-version))) step))
                (Solid)
                (lambda () (bar-batch-items world yaw)))))
 
     (define (link-batch (game Game)) (→ Batch)
       (Batch 9
-             (stamp game (::structure-version (::world game)))
+             (stamp game (● (● game world) structure-version))
              (Translucent 0.8)
-             (lambda () (link-items (::world game)))))
+             (lambda () (link-items (● game world)))))
 
     (define (cursor-batch (game Game)) (→ Batch)
       (Batch 6 (stamp game (cursor-version game)) (Solid) (lambda () (cursor-items game))))
 
     (define (preview-batch (game Game)) (→ Batch)
-      (let ((time (/ (i64->f32 (::clock game)) 1000.0)))
+      (let ((time (/ (i64->f32 (● game clock)) 1000.0)))
         (Batch 7
                (stamp game (preview-version game))
                (Translucent (+ 0.45 (* 0.15 (f64->f32 (sin (f32->f64 (* 4.0 time)))))))
                (lambda () (preview-items game)))))
 
     (define (view-game (game Game)) (→ Frame)
-      (let* ((world (::world game)) (camera (game-camera game)))
+      (let* ((world (● game world)) (camera (game-camera game)))
         (Frame camera (camera-light camera) sky (world-motion game)
                (concatenate (list (terrain-batches game)
                                   (list (Batch 3
-                                               (stamp game (::structure-version world))
+                                               (stamp game (● world structure-version))
                                                (Solid)
                                                (lambda () (structure-items world)))
                                         (Batch 5
-                                               (stamp game (::tick world))
+                                               (stamp game (● world tick))
                                                (Solid)
                                                (lambda () (moving-items world)))
                                         (bar-batch game) (link-batch game)

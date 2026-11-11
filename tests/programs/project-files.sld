@@ -33,9 +33,9 @@
 (define (text-report (label String) (result (Result ProjectText FileRefusal))) (→ Unit) (! console)
   (report label (match result
                   ((Ok text)
-                   (string-append (::text text)
+                   (string-append (● text text)
                                   " at "
-                                  (substring (::revision text) 0 12)))
+                                  (substring (● text revision) 0 12)))
                   ((Err refusal) (refusal->string refusal)))))
 
 (define (read-report (path String)) (→ Unit) (! console fs)
@@ -44,7 +44,7 @@
 ;; The revision of the file at `path` now, which a save names.
 (define (revision-of (path String)) (→ String) (! fs)
   (match (read-project-text root path)
-    ((Ok text) (::revision text))
+    ((Ok text) (● text revision))
     ((Err _) "")))
 
 (define (mode-report (path String)) (→ Unit) (! console modes)

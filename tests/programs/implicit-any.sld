@@ -23,7 +23,7 @@
   (newline)
   (display (integer (package unboxed)))
   (newline)
-  (display (ann (::value (Holder 7)) I64))
+  (display (ann (● (Holder 7) value) I64))
   (newline)
   (display (increment (first boxed 1)))
   (newline)

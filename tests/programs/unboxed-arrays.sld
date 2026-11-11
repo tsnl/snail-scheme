@@ -10,7 +10,7 @@
 
 (let ((lengths (make-array 3 (Meters 1))))
   (array-set! lengths 2 (Meters 7))
-  (write-line (show (+ (::value (array-ref lengths 0)) (::value (array-ref lengths 2))))))
+  (write-line (show (+ (● (array-ref lengths 0) value) (● (array-ref lengths 2) value)))))
 
 (let ((flags (make-array 2 #f)) (names (make-array 2 "a")) (maybe (make-array 2 (None))))
   (array-set! flags 1 #t)

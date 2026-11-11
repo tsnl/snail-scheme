@@ -50,7 +50,7 @@
     ((Done what) (Pair (logged model what) (Nil)))))
 
 (define (logged (model Model) (what String)) (→ Model)
-  (Model-log-set model (append (::log model) (list what))))
+  (Model-log-set model (append (● model log) (list what))))
 
 (define (indent) (→ Msg) (! dom)
   (match (element-by-id "text")
@@ -61,11 +61,11 @@
        (Done (string-append "indented: "
                             (if took "taken" "refused")
                             ", selection "
-                            (show (::first (selection-range node)))
+                            (show (● (selection-range node) first))
                             "-"
-                            (show (::second (selection-range node)))
+                            (show (● (selection-range node) second))
                             ", line height "
-                            (show (::line-height (measure node)))))))
+                            (show (● (measure node) line-height))))))
     ((None) (Done "no field"))))
 
 (define (late) (→ Msg) (! dom tasks)
@@ -91,15 +91,15 @@
 (define (view (model Model)) (→ (Html Msg))
   (Element "div"
            (Nil)
-           (append (if (::shown model)
+           (append (if (● model shown)
                        (list (Element "textarea"
                                       (list (Keyed "text")
                                             (Attr "id" "text")
-                                            (StringProperty "value" (::text model))
+                                            (StringProperty "value" (● model text))
                                             (On "input"
                                                 (list (Value))
                                                 (Allow)
-                                                (lambda (event) (Typed (::value event)))))
+                                                (lambda (event) (Typed (● event value)))))
                                       (Nil)))
                        (Nil))
                    (list (Element "button"
@@ -151,13 +151,13 @@
                                            window
                                            (lambda (model) (unit))
                                            (lambda (model) (unit)))))))
-           (write-line (string-append "text: " (::text (::first result))))
-           (for-each write-line (::log (::first result)))
-           (write-line (document->html (::second result)))
+           (write-line (string-append "text: " (● (● result first) text)))
+           (for-each write-line (● (● result first) log))
+           (write-line (document->html (● result second)))
            (for-each write-line
                      (filter (lambda (line)
                                (not (or (starts-with? "create" line)
                                         (starts-with? "insert " line)
                                         (starts-with? "listen" line)
                                         (starts-with? "set-attribute" line))))
-                             (document-trace (::second result))))))))
+                             (document-trace (● result second))))))))

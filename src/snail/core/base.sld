@@ -3,6 +3,7 @@
 ;; cells performs `mut`.
 (define-library (snail core base)
   (export
+   ●
    define lambda fn if begin let define-syntax syntax-rules quote : struct enum type
    typeclass
    instance
@@ -370,8 +371,8 @@
     ;; A cell is the one struct with a mutable field, as OCaml's `ref` is;
     ;; every other struct is a value, and a program that changes one holds
     ;; it in a cell. The content lies in the cell: a `(Ref Counter)` is one
-    ;; object whose slots are the counter's, and `(set! (::count (ref-get
-    ;; r)) 1)` writes one of them. The field's operations are exported
+    ;; object whose slots are the counter's, and `(set! (● r count) 1)`
+    ;; writes one of them. The field's operations are exported
     ;; under short names too: `ref` builds a cell, purely; `ref-get` and
     ;; `ref-set!` read and write its content whole; and `ref-replace!`
     ;; swaps in a new value and hands back the old. Being the field's own
@@ -647,7 +648,7 @@
       (match entries
         ((Nil) (None))
         ((Cons entry rest)
-         (if (= (::first entry) key) (Some (::second entry)) (assoc-ref rest key)))))
+         (if (= (● entry first) key) (Some (● entry second)) (assoc-ref rest key)))))
 
     ;; Pairs the items of two lists, stopping at the end of the shorter.
 
@@ -814,7 +815,7 @@
       (! mut)
       (∀ A)
       (⊨ (Copy A) (Unboxed A))
-      (::length (Ref-contents (::state vector))))
+      (● (Ref-contents (● vector state)) length))
 
     (define (mut-vector-ref (vector (MutVector A)) (index I64))
       (→ A)
@@ -837,7 +838,7 @@
       (! mut)
       (∀ A)
       (⊨ (Copy A) (Unboxed A))
-      (match (Ref-contents (::state vector))
+      (match (Ref-contents (● vector state))
         ((Grown length (Some items))
          (if (and (<= 0 index) (< index length))
              items
@@ -849,7 +850,7 @@
       (! mut)
       (∀ A)
       (⊨ (Copy A) (Unboxed A))
-      (let ((cell (::state vector)))
+      (let ((cell (● vector state)))
         (match (Ref-contents cell)
           ((Grown length held)
            (let ((items (room-for length held item)))
@@ -878,7 +879,7 @@
       (! mut)
       (∀ A)
       (⊨ (Copy A) (Unboxed A))
-      (let ((cell (::state vector)))
+      (let ((cell (● vector state)))
         (match (Ref-contents cell)
           ((Grown length (Some items))
            (if (> length 0)
@@ -893,7 +894,7 @@
       (! mut)
       (∀ A)
       (⊨ (Copy A) (Unboxed A))
-      (match (Ref-contents (::state vector))
+      (match (Ref-contents (● vector state))
         ((Grown length (Some items))
          (vector-generate length (lambda (index) (array-ref items index))))
         ((Grown _ (None))

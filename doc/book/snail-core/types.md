@@ -90,27 +90,27 @@ and polymorphic values that are not functions, need signatures.
 ```
 
 A struct `Name` defines the constructor `Name` and pure replacements
-`Name-field-set`; its fields are read by path, `(::field s)`, below. A
+`Name-field-set`; its fields are read by path, `(● s field)`, below. A
 struct is a value: its fields are immutable,
 and a program that changes one holds it in a cell, `(Ref Name)`, and writes a
 *place*, the cell's content or a field read from it, with `set!` or
-`replace!`: `(set! (::count (ref-get r)) 1)`. Reading or writing a cell
+`replace!`: `(set! (● r count) 1)`. Reading or writing a cell
 performs `mut`. `Ref` is the one struct with a mutable field, and a pattern can
 only skip its content, with `_` ([ownership](ownership.md)). An enum defines a
 constructor and partial accessors `Case-field` per case, and its fields are
 immutable. Cases are constructors, not types, and are always applied:
 `(Empty)`.
 
-A field is read by its label alone: `(::label s)` reads the field `label`
-of whatever struct `s` is, and `(::from::x s)` reads `x` of what `from`
-holds. Each label is a typeclass, `(::label R T)`, over the record
-type and the field's type, with the one method `::label`; a struct without
-mutable fields has an instance per field, and the record's type decides
-the field's, so a path needs no annotation where the record's type is
-known. A library may declare an instance for a type that computes the
-field. A generic function that reads the field of any record with that label
-needs `(⊨ (::label R String))`. Names beginning
-with `::` are reserved for paths.
+A field path begins with a nominal record value and names one or more stored
+struct fields: `(● s label)` reads `label`, while `(● s from x)` reads `x`
+from the value held in `from`. Each next label is selected from the value
+produced by the preceding field. When that value is a `Ref`, selection
+traverses the reference for the next label; if the final field itself has a
+`Ref` type, the read returns that `Ref` intact. Immutable reads through a
+`Borrow` preserve the ordinary ownership rule: a Copy field is copied and a
+linear field is borrowed. Field selection has no field classes or computed
+field overloads. The receiver's nominal record type determines every field,
+so a generic receiver needs a nominal record type that exposes the path.
 
 ```scheme
 {{#include ../../../tests/programs/field-paths.sld:paths}}

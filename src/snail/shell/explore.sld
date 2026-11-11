@@ -69,9 +69,9 @@
       (match frontier
         ((Nil) (None))
         ((Cons visit rest)
-         (match (invariant (::state visit))
+         (match (invariant (● visit state))
            ((Some reason)
-            (Some (Violation reason (reverse (::path visit)) (::state visit))))
+            (Some (Violation reason (reverse (● visit path)) (● visit state))))
            ((None) (first-violation rest invariant))))))
 
     ;; The states the frontier reaches for the first time, with `seen`
@@ -86,17 +86,17 @@
       (⊨ (Serialize S) (Copy M) (Copy S))
       (match (fold-left (lambda (found visit)
                           (fold-left (lambda (found move)
-                                       (let* ((state (step (::state visit) move))
+                                       (let* ((state (step (● visit state) move))
                                               (key (state-key state)))
                                          (match found
                                            ((Pair next seen)
                                             (if (table-contains? seen key)
                                                 found
                                                 (Pair
-                                                 (Cons (Visit state (Cons move (::path visit)))
+                                                 (Cons (Visit state (Cons move (● visit path)))
                                                        next)
                                                  (table-set seen key #t)))))))
-                                     found (moves (::state visit))))
+                                     found (moves (● visit state))))
                         (Pair (Nil) seen) frontier)
         ((Pair next seen) (Pair (reverse next) seen))))
 

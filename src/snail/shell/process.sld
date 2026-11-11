@@ -161,9 +161,9 @@
       ((handle I32)))
 
     (define (process-handle (child Process)) (→ I32)
-      (let ((token (::token child)))
+      (let ((token (● child token)))
         (match (try-convert token NativeProcess)
-          ((Ok native) (::handle native))
+          ((Ok native) (● native handle))
           ((Err _) 0))))
 
     ;; The host reads a command a character at a time: its directory, the
@@ -171,8 +171,8 @@
 
     (define (send-command (command Command) (path String)) (→ Unit)
       (for-each send-text
-                (Cons (::directory command)
-                      (Cons path (Cons (::program command) (::arguments command))))))
+                (Cons (● command directory)
+                      (Cons path (Cons (● command program) (● command arguments))))))
 
     (define (send-text (text String)) (→ Unit)
       (let loop ((index 0))
@@ -204,11 +204,11 @@
     ;; spawn, run and exec one rule, and the host runs the path it is given.
 
     (define (located (command Command)) (→ (Result String ProcessError))
-      (let ((program (::program command)))
+      (let ((program (● command program)))
         (match (string-index program #\/)
           ((Some _) (Ok program))
           ((None)
-           (match (find (lambda (path) (executable? (::directory command) path))
+           (match (find (lambda (path) (executable? (● command directory) path))
                         (candidates program))
              ((Some path) (Ok path))
              ((None) (Err (ProcessError "ENOENT"))))))))

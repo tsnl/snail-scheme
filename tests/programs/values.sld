@@ -46,7 +46,8 @@
 (newline)
 (display (length (map (lambda (c) (match c ((Red) "r") ((Green) "g"))) (list (Red) (Green) (Red)))))
 (newline)
-(display (map ::x (map (lambda (p) (Point-x-set p 9)) (list (Point 1 2) (Point 3 4)))))
+(display (map (lambda (record) (● record x))
+              (map (lambda (p) (Point-x-set p 9)) (list (Point 1 2) (Point 3 4)))))
 (newline)
 (display (vector-fold * 1 (list->vector (list 1 2 3 4 5))))
 (newline)
@@ -56,7 +57,7 @@
 (handle Note
     ((note (lambda (text) (write-line (string-append "note: " text)))))
   (for-each note (list "one" "two"))
-  (display ((::step (Task (lambda (n) (note "stepping") (* n 2)))) 21))
+  (display ((● (Task (lambda (n) (note "stepping") (* n 2))) step) 21))
   (newline))
 (display (ann (None) (Option I64)))
 (newline)

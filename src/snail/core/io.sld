@@ -401,7 +401,7 @@
 
     (define (directory? (path String)) (→ Bool) (! fs)
       (match (file-status path)
-        ((Ok status) (match (::kind status)
+        ((Ok status) (match (● status kind)
                        ((Directory) #t)
                        (_ #f)))
         ((Err _) #f)))
@@ -428,7 +428,7 @@
 
     (define (remove-tree (path String)) (→ (Result Unit FileError)) (! fs)
       (match (file-status path)
-        ((Ok status) (match (::kind status)
+        ((Ok status) (match (● status kind)
                        ((Directory) (match (list-directory path)
                                       ((Ok names) (remove-entries path names))
                                       ((Err error) (Err error))))

@@ -37,16 +37,16 @@
     ((Typed text) (Pair (Model-draft-set model text) (Nil)))
     ((Add)
      (let ((items
-            (append (::items model) (list (Item (::next model) (::draft model))))))
-       (Pair (Model items "" (+ (::next model) 1) (::saved model))
+            (append (● model items) (list (Item (● model next) (● model draft))))))
+       (Pair (Model items "" (+ (● model next) 1) (● model saved))
              (list (once (lambda ()
                            (yield)
                            (Saved (length items))))))))
-    ((Reverse) (Pair (Model-items-set model (reverse (::items model))) (Nil)))
+    ((Reverse) (Pair (Model-items-set model (reverse (● model items))) (Nil)))
     ((Remove id)
      (Pair (Model-items-set model
-                            (filter (lambda (item) (not (= (::id item) id)))
-                                    (::items model)))
+                            (filter (lambda (item) (not (= (● item id) id)))
+                                    (● model items)))
            (Nil)))
     ((Saved count) (Pair (Model-saved-set model count) (Nil)))))
 
@@ -55,11 +55,11 @@
            (Nil)
            (list (Element "input"
                           (list (Attr "id" "draft")
-                                (StringProperty "value" (::draft model))
+                                (StringProperty "value" (● model draft))
                                 (On "input"
                                     (list (Value))
                                     (Allow)
-                                    (lambda (event) (Typed (::value event)))))
+                                    (lambda (event) (Typed (● event value)))))
                           (Nil))
                  (Element "button"
                           (list (Attr "id" "add")
@@ -69,23 +69,24 @@
                           (list (Attr "id" "reverse")
                                 (On "click" (Nil) (Allow) (lambda (event) (Reverse))))
                           (list (Text "Reverse")))
-                 (Element "ul" (Nil) (map item-view (::items model)))
-                 (Text (string-append "saved " (show (::saved model)))))))
+                 (Element "ul" (Nil) (map item-view (● model items)))
+                 (Text (string-append "saved " (show (● model saved)))))))
 
 (define (item-view (item Item)) (→ (Html Msg))
   (Element "li"
-           (list (Keyed (show (::id item))))
-           (list (Text (::text item))
+           (list (Keyed (show (● item id))))
+           (list (Text (● item text))
                  (Element "button"
-                          (list (Attr "id" (string-append "remove-" (show (::id item))))
-                                (On "click" (Nil) (Allow) (lambda (event) (Remove (::id item)))))
+                          (list (Attr "id" (string-append "remove-" (show (● item id))))
+                                (On "click" (Nil) (Allow) (lambda (event) (Remove (● item id)))))
                           (list (Text "x"))))))
 
 (define (checkpoint (model Model)) (→ Unit) (! console)
   (write-line (string-append "checkpoint: "
-                             (string-join (map ::text (::items model)) ", ")
+                             (string-join (map (lambda (record) (● record text)) (● model items))
+                                          ", ")
                              "; saved "
-                             (show (::saved model)))))
+                             (show (● model saved)))))
 
 (define (typed (text String)) (→ Cue)
   (Fire "draft" "input" (Event-value-set no-event text)))
@@ -116,6 +117,6 @@
                                            (lambda (model) (Nil))
                                            (lambda (model) (unit))
                                            checkpoint)))))
-           (write-line (string-append "saved " (show (::saved (::first result)))))
-           (write-line (document->html (::second result)))
-           (for-each write-line (document-trace (::second result)))))))
+           (write-line (string-append "saved " (show (● (● result first) saved))))
+           (write-line (document->html (● result second)))
+           (for-each write-line (document-trace (● result second)))))))

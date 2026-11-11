@@ -44,10 +44,10 @@
     ;; newlines. A bare repository and Git's own metadata are not worktrees.
 
     (define (worktree-prefix (result Captured)) (→ (Result (Option String) String))
-      (match (::exit result)
+      (match (● result exit)
         ((Exited 128) (Ok (None)))
         ((Exited 0)
-         (match (decoded (::stdout result))
+         (match (decoded (● result stdout))
            ((Err message) (Err message))
            ((Ok text)
             (cond ((and (>= (string-length text) 6) (string=? (substring text 0 6) "false\n"))
@@ -93,16 +93,16 @@
         ((Err message) (Err message))
         ((Ok (None)) (Err "gitignore: Git became unavailable during the query"))
         ((Ok (Some result))
-         (match (::exit result)
+         (match (● result exit)
            ((Exited 0)
-            (match (decoded (::stdout result))
+            (match (decoded (● result stdout))
               ((Err message) (Err message))
               ((Ok paths) (parse-paths prefix paths))))
            (_ (Err (git-failure result)))))))
 
     (define (ignored? (snapshot IgnoreSnapshot) (relative String)) (→ Bool)
-      (let* ((path (string-append (::prefix snapshot) relative))
-             (paths (::paths snapshot)))
+      (let* ((path (string-append (● snapshot prefix) relative))
+             (paths (● snapshot paths)))
         (or (table-contains? paths path)
             (table-contains? paths (string-append path "/"))
             (let loop ((at 0))
@@ -130,7 +130,7 @@
         ((Err _) (Err "gitignore: Git returned a path that is not UTF-8"))))
 
     (define (git-failure (result Captured)) (→ String)
-      (match (utf8->string (::stderr result))
+      (match (utf8->string (● result stderr))
         ((Ok text) (string-append "gitignore: Git failed: " text))
         ((Err _) "gitignore: Git failed")))
 
@@ -145,8 +145,8 @@
       (! mut tasks process)
       (match (spawn (Command "git" arguments directory))
         ((Err error)
-         (if (string=? (::code error) "ENOENT") (Ok (None))
-             (Err (string-append "gitignore: " (::code error)))))
+         (if (string=? (● error code) "ENOENT") (Ok (None))
+             (Err (string-append "gitignore: " (● error code)))))
         ((Ok child)
          (close-input child)
          (collect-git child))))
@@ -167,7 +167,7 @@
             ((Pair (Ok stdout) (Ok stderr))
              (match exit
                ((Ok ended) (Ok (Some (Captured ended stdout stderr))))
-               ((Err error) (Err (string-append "gitignore: " (::code error))))))))))
+               ((Err error) (Err (string-append "gitignore: " (● error code))))))))))
 
     ;; Close on any read failure so the other reader wakes too. Bounds are
     ;; explicit failures, rather than a quietly truncated exclusion set.
@@ -178,7 +178,7 @@
       (match (read-output child stream 65536)
         ((Err error)
          (close-process child)
-         (Err (string-append "gitignore: " (::code error))))
+         (Err (string-append "gitignore: " (● error code))))
         ((Ok (None)) (Ok (vector-concatenate (reverse chunks))))
         ((Ok (Some bytes))
          (if (> (vector-length bytes) remaining)

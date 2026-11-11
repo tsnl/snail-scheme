@@ -13,8 +13,8 @@
   (Pair shared shared))
 
 (define (run-current (shared (Shared String))) (→ Unit) (! console mut)
-  (ref-set! (::count shared) (+ (ref-get (::count shared)) 1))
-  (match (ref-replace! (::current shared) (None))
+  (ref-set! (● shared count) (+ (ref-get (● shared count)) 1))
+  (match (ref-replace! (● shared current) (None))
     ((Some text) (write-line text))
     ((None) (write-line "nothing to run"))))
 
@@ -22,7 +22,7 @@
   ((Pair first second)
    (run-current first)
    (run-current second)
-   (write-line (string-append "asked " (show (ref-get (::count first))) " times"))))
+   (write-line (string-append "asked " (show (ref-get (● first count))) " times"))))
 
 (struct Handle
   ((name String)))

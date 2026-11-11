@@ -15,7 +15,7 @@
             (if (null? lines) (list "none") lines)))
 
 (define (choice-lines (choices (List Choice))) (→ (List String))
-  (map (lambda (choice) (string-append (::text choice) ", " (::caption choice))) choices))
+  (map (lambda (choice) (string-append (● choice text) ", " (● choice caption))) choices))
 
 ;; Each fixer's standing and holdings; while the game is on, every choice
 ;; and the promises owed you, and once it is over, the result; then what
@@ -34,7 +34,7 @@
              (show-lines "Kit offers" (choice-lines (offer-choices ledger kit)))
              (show-lines "Promises"
                          (append (choice-lines (promise-choices ledger)) (owed-lines ledger)))))
-  (show-lines "Last round" (::last-round ledger))
+  (show-lines "Last round" (● ledger last-round))
   (write-line ""))
 
 ;; ---- Game ----
@@ -49,7 +49,7 @@
     ((Run text command)
      (write-line (string-append "> " text))
      (match (ledger-act ledger command)
-       ((Ok result) (for-each write-line (::second result)) (::first result))
+       ((Ok result) (for-each write-line (● result second)) (● result first))
        ((Err message) (write-line message) ledger)))
     ((Board) (show-board ledger) ledger)))
 

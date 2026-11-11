@@ -13,7 +13,7 @@
 ;; formatting was scheduled but before its command runs. Neither replacement
 ;; nor scroll restoration may act on the obsolete field snapshot.
 (define (snapshot (session (Borrow Session))) (→ Ide)
-  (::ide session))
+  (● session ide))
 
 (define (finished (session Session)) (→ Ide) (! mut)
   (match session ((Session ide pending) (drop pending) ide)))
@@ -55,19 +55,19 @@
        (stream-open (lambda (url kinds) (panic "stream")))
        (stream-next (lambda (stream) (panic "stream")))
        (stream-close (lambda (stream) (panic "stream"))))
-    (let ((loaded (::first (with-memory-dom (Nil)
-                                            (lambda ()
-                                              (finished
-                                               (run-reactor (begin-session initial)
-                                                            (list (Open "main.sld"))
-                                                            (ann update-session
-                                                                 (dyn (Fn Session
-                                                                          (Option Msg)
-                                                                          → Session
-                                                                          ! mut completion console dom fetch)))
-                                                            session-view session-window snapshot
-                                                            (lambda (model) (unit))
-                                                            (lambda (model) (unit))))))))
+    (let ((loaded (● (with-memory-dom (Nil)
+                                      (lambda ()
+                                        (finished
+                                         (run-reactor (begin-session initial)
+                                                      (list (Open "main.sld"))
+                                                      (ann update-session
+                                                           (dyn (Fn Session
+                                                                    (Option Msg)
+                                                                    → Session
+                                                                    ! mut completion console dom fetch)))
+                                                      session-view session-window snapshot
+                                                      (lambda (model) (unit))
+                                                      (lambda (model) (unit)))))) first))
           (injected (ref #f)))
       (with-memory-dom (Nil)
                        (lambda ()

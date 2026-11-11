@@ -6,7 +6,7 @@
   (deriving Move))
 
 (define (inspect (borrowed (Borrow Token))) (→ I64)
-  (::number borrowed))
+  (● borrowed number))
 
 (let ((token (Token 1)))
   (inspect token)

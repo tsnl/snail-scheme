@@ -12,7 +12,7 @@
        (y I64)))
 
     (define (distance-squared (a Point) (b Point)) (→ I64)
-      (let ((dx (- (::x a) (::x b))) (dy (- (::y a) (::y b))))
+      (let ((dx (- (● a x) (● b x))) (dy (- (● a y) (● b y))))
         (+ (* dx dx) (* dy dy))))
 
     ;; A macro whose template introduces `temporary`; it must not capture

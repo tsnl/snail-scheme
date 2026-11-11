@@ -60,13 +60,13 @@
     ;; The address as dotted text.
 
     (define (Endpoint-address (endpoint Endpoint)) (→ String)
-      (let ((address (::address endpoint)))
+      (let ((address (● endpoint address)))
         (string-join (map (lambda (place) (i64->string (remainder (quotient address place) 256)))
                           (list 16777216 65536 256 1))
                      ".")))
 
     (define (Endpoint-port (endpoint Endpoint)) (→ I32)
-      (::port endpoint))
+      (● endpoint port))
 
     ;; ---- Bounds ----
 
@@ -208,28 +208,28 @@
       ((handle I32)))
 
     (define (listener-handle (listener Listener)) (→ I32)
-      (let ((token (::token listener)))
+      (let ((token (● listener token)))
         (match (try-convert token NativeListener)
-          ((Ok native) (::handle native))
+          ((Ok native) (● native handle))
           ((Err _) 0))))
 
     (define (connection-handle (connection Connection)) (→ I32)
-      (let ((token (::token connection)))
+      (let ((token (● connection token)))
         (match (try-convert token NativeConnection)
-          ((Ok native) (::handle native))
+          ((Ok native) (● native handle))
           ((Err _) 0))))
 
     (define (udp-handle (socket UdpSocket)) (→ I32)
-      (let ((token (::token socket)))
+      (let ((token (● socket token)))
         (match (try-convert token NativeUdpSocket)
-          ((Ok native) (::handle native))
+          ((Ok native) (● native handle))
           ((Err _) 0))))
 
     ;; An endpoint crosses to the host as two I32s, its port and its
     ;; address, whose octets the host reads as the I32's unsigned bits.
 
     (define (address-number (endpoint Endpoint)) (→ I32)
-      (i64->i32 (::address endpoint)))
+      (i64->i32 (● endpoint address)))
 
     ;; ---- Native answers ----
 

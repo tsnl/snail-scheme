@@ -73,10 +73,10 @@
                          "\n")))))
 
 (define (perform (request Request)) (→ Unit) (! console fs)
-  (match (::input request)
-    ((StandardInput) (write-string (format-source (read-input) (::width request))))
-    ((CheckFiles paths) (check-files (::width request) paths))
-    ((WriteFiles paths) (format-files (::width request) #t paths) (unit))))
+  (match (● request input)
+    ((StandardInput) (write-string (format-source (read-input) (● request width))))
+    ((CheckFiles paths) (check-files (● request width) paths))
+    ((WriteFiles paths) (format-files (● request width) #t paths) (unit))))
 
 (match (command-line)
   ((Cons _ arguments) (perform (request arguments)))

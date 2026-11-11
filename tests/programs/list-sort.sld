@@ -11,8 +11,9 @@
   (list (Pair 2 "a") (Pair 1 "b") (Pair 2 "c") (Pair 1 "d") (Pair 2 "e")))
 
 (write-line
- (show (map ::second (list-sort (lambda (a b) (< (::first a) (::first b))) entries))))
-(write-line (show (map ::second entries)))
+ (show (map (lambda (record) (● record second))
+            (list-sort (lambda (a b) (< (● a first) (● b first))) entries))))
+(write-line (show (map (lambda (record) (● record second)) entries)))
 
 ;; A permutation exercises the halves and merges beyond a few elements.
 (define shuffled (→ (List I64)) (map (lambda (index) (remainder (* index 97) 257)) (iota 257)))

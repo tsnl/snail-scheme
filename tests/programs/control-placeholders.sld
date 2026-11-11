@@ -31,7 +31,7 @@
   (let ((value (abort 6))) (once (lambda () (write-line (show value))))))
 
 (display (handle Abort ((abort (lambda (value resume) (drop resume) (* value 1000))))
-           (+ (::x (point)) 1)))
+           (+ (● (point) x) 1)))
 (newline)
 (display (handle Abort ((abort (lambda (value resume) (drop resume) value)))
            (match (shape) ((Dot) 0) ((Box width) width))))

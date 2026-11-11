@@ -94,10 +94,10 @@
         ((Archipelago) "Archipelago")))
 
     (define (ground-at (land Land) (cell Cell)) (→ Ground)
-      (vector-ref (::ground land) (cell-index cell)))
+      (vector-ref (● land ground) (cell-index cell)))
 
     (define (mainland? (land Land) (cell Cell)) (→ Bool)
-      (vector-ref (::mainland land) (cell-index cell)))
+      (vector-ref (● land mainland) (cell-index cell)))
 
     ;; Seeds are 1 to 65535; any integer maps into that range.
     (define (land-seed (seed I64)) (→ I64)
@@ -243,8 +243,8 @@
     ;; mountains and scattered boulders. An archipelago is sea but for
     ;; the high ground, with rock on the highest.
     (define (wild-ground (biome Biome) (seed I64) (cell Cell)) (→ Ground)
-      (let* ((x (::x cell))
-             (y (::y cell))
+      (let* ((x (● cell x))
+             (y (● cell y))
              (height (field seed 1 x y))
              (wet (field seed 3 x y)))
         (match biome
@@ -316,7 +316,7 @@
                           12
                           (filter (lambda (cell) (and (site? cell) (apart? cell second)))
                                   (ring hub 11 15)))))
-        (delete-duplicates (lambda (a b) (cell=? (::cell a) (::cell b)))
+        (delete-duplicates (lambda (a b) (cell=? (● a cell) (● b cell)))
                            (concatenate (list (site second 3)
                                               (site third 6)
                                               (regional-sites seed hub site?)
@@ -350,8 +350,8 @@
                        (within? cell center outer)
                        (not (within? cell center inner))))
                 (map (lambda (i)
-                       (Cell (+ (::x center) (- (remainder i side) outer))
-                             (+ (::y center) (- (quotient i side) outer))))
+                       (Cell (+ (● center x) (- (remainder i side) outer))
+                             (+ (● center y) (- (quotient i side) outer))))
                      (iota (* side side))))))
 
     ;; Two regions in five of the 16-cell regions hold a site yielding 2 to

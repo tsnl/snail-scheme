@@ -38,12 +38,15 @@
 
 (define (write-build (output String) (built (List Built))) (→ Unit) (! fs)
   (for-each (lambda (module)
-              (write-module (string-append output "/" (::name module) ".wasm")
-                            (::text module)))
+              (write-module (string-append output "/" (● module name) ".wasm")
+                            (● module text)))
             built)
-  (write-file (string-append output "/modules") (string-join (map ::name built) "\n"))
+  (write-file (string-append output "/modules")
+              (string-join (map (lambda (record) (● record name)) built) "\n"))
   (write-file (string-append output "/compiled")
-              (string-join (map ::name (filter ::compiled? built)) "\n")))
+              (string-join (map (lambda (record) (● record name))
+                                (filter (lambda (record) (● record compiled?)) built))
+                           "\n")))
 
 ;; Every input is supplied, so the compiles ask for none, and the source
 ;; has no errors.
@@ -51,17 +54,16 @@
   (→ Unit)
   (! mut fs reader:compile)
   (write-module (string-append output "/program.wasm")
-                (::text
-                 (source->wat directories source generate (inputs #u8(65 0 255)))))
+                (● (source->wat directories source generate (inputs #u8(65 0 255))) text))
   (let* ((first (build-session (make-session directories) source generate (inputs #u8(65 0 255))))
-         (unchanged (build-session (::second first) source generate (inputs #u8(65 0 255)))))
-    (write-build (string-append output "/first") (::first first))
-    (write-build (string-append output "/unchanged") (::first unchanged))
+         (unchanged (build-session (● first second) source generate (inputs #u8(65 0 255)))))
+    (write-build (string-append output "/first") (● first first))
+    (write-build (string-append output "/unchanged") (● unchanged first))
     (write-build (string-append output "/changed")
-                 (::first (build-session (::second unchanged)
-                                         source
-                                         generate
-                                         (inputs #u8(90 0 255)))))))
+                 (● (build-session (● unchanged second)
+                                   source
+                                   generate
+                                   (inputs #u8(90 0 255))) first))))
 
 (match (command-line)
   ((Cons _ (Cons source (Cons output directories)))

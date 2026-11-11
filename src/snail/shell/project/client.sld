@@ -30,8 +30,8 @@
         ((Err why) (Err (Failure -1 why)))))
 
     (define (reply-json (reply Reply)) (→ (Result Json Failure))
-      (let ((status (::status reply)))
-        (match (if (= status 204) (Some (JsonNull)) (string->json (::body reply)))
+      (let ((status (● reply status)))
+        (match (if (= status 204) (Some (JsonNull)) (string->json (● reply body)))
           ((Some json)
            (if (and (>= status 200) (< status 300))
                (Ok json)
