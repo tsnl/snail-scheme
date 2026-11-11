@@ -21,7 +21,7 @@
 ;;                 | Primitive Global PrimitiveType
 ;;   Instance    ::= Instance ClassRef variable* TypeExpr* Requirement* Equation* InstanceBody
 ;;   InstanceBody ::= Dispatch TypeExpr* | Methods InstanceMethod*   Methods: no Loc
-;;   InstanceMethod ::= InstanceMethod Label Expr                    no Loc but its label's
+;;   InstanceMethod ::= InstanceMethod MethodName Expr               no Loc but its name's
 ;;   SetMember   ::= SetInstance Instance                            no Loc but its instance's
 ;;                 | DynamicInstances ClassRef (TypeExpr*)*
 ;;   Default     ::= Default Label Expr
@@ -40,10 +40,10 @@
 ;;   Pattern     ::= Wild | Bind Local | Equals Datum | Destructure TopValue Pattern*
 ;;
 ;; Every other rule is Expanded's, (snail compiler expand language): Field,
-;; Case, CaseField, Derivation, Member, Operation, PrimitiveType,
-;; Annotation, Constant, TypeExpr and the rules it holds, Scheme,
-;; Requirement, ClassRef, Equation, Local, Global, TopValue, FieldRole and
-;; Label.
+;; Case, CaseField, Derivation, Member, MethodName, Operation,
+;; PrimitiveType, Annotation, Constant, TypeExpr and the rules it holds,
+;; Scheme, Requirement, ClassRef, Equation, Local, Global, TopValue,
+;; FieldRole and Label.
 ;;
 ;; Over the Expanded library it comes from, Bound guarantees:
 ;;
@@ -137,6 +137,7 @@
          Case
          Derivation
          Member
+         MethodName
          Operation
          PrimitiveType
          Annotation
@@ -269,7 +270,7 @@
        ((methods (List InstanceMethod)))))
 
     (struct InstanceMethod
-      ((label Label)
+      ((name MethodName)
        (value Expr)))
 
     (enum SetMember

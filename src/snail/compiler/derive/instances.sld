@@ -229,7 +229,8 @@
     (: method
        (impl (Fn String (List expanded-Local) bound-Expr Loc -> bound-InstanceMethod)))
     (define (method label parameters body loc)
-      (bound-InstanceMethod (expanded-Label label loc) (bound-Lambda parameters body loc)))
+      (bound-InstanceMethod (expanded-MemberName (expanded-Label label loc))
+                            (bound-Lambda parameters body loc)))
 
     ;; ---- Cases ----
 
@@ -394,7 +395,7 @@
             (Pair
              (head "Serialize"
                    (bound-InstanceMethod
-                    (expanded-Label "encode" loc)
+                    (expanded-MemberName (expanded-Label "encode" loc))
                     (bound-Lambda
                      (list (local "value" 7) (local "encoder" 8))
                      (bound-Match
@@ -440,7 +441,7 @@
             (Pair
              (head "Deserialize"
                    (bound-InstanceMethod
-                    (expanded-Label "decode" loc)
+                    (expanded-MemberName (expanded-Label "decode" loc))
                     (bound-Lambda
                      (list (local "decoder" 3))
                      (bound-Let
@@ -524,7 +525,7 @@
                              (list)
                              (bound-Methods
                               (list (bound-InstanceMethod
-                                     (expanded-Label "encode" loc)
+                                     (expanded-MemberName (expanded-Label "encode" loc))
                                      (bound-Lambda
                                       (list (local "value" 0) (local "encoder" 1))
                                       (bound-Match

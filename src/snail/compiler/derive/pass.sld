@@ -1,6 +1,6 @@
 ;; The pass `derive`: a bound library, and the offers of the implicit
 ;; libraries, become the library derived. Each `deriving` clause is what it
-;; asks for: Move marks its type linear, and Serialize and Deserialize are
+;; asks for: Move is said on its type, and Serialize and Deserialize are
 ;; instances, built by (snail compiler derive instances) of the names the
 ;; implicit libraries offer and placed right after their declaration,
 ;; where the old expander scans the instances it writes as syntax. Nothing
@@ -88,7 +88,7 @@
              (loop rest (::second walked) (Cons (::first walked) done)))))))
 
     ;; Each declaration as it was, but that a struct or an enum says
-    ;; whether it is linear and is followed by the instances it derives,
+    ;; whether it derives Move and is followed by the instances it derives,
     ;; and an instance scope's declarations are walked in turn.
     (: walked-top (impl (Fn WireNames Walk bound-Top -> (Pair (List Top) Walk))))
     (define (walked-top names walk top)
@@ -99,7 +99,7 @@
                          (Struct global
                                  parameters
                                  fields
-                                 (linear? derivations)
+                                 (derives-move? derivations)
                                  annotations
                                  name-loc
                                  loc)
@@ -111,7 +111,7 @@
         ((bound-Enum global parameters cases derivations annotations loc)
          (with-instances names
                          walk
-                         (Enum global parameters cases (linear? derivations) annotations loc)
+                         (Enum global parameters cases (derives-move? derivations) annotations loc)
                          (DerivedType global
                                       parameters
                                       (map (lambda (case)
@@ -144,9 +144,9 @@
          (Pair (list (Effect global operations defaults around-main? annotations loc)) walk))
         ((bound-Primitive global type loc) (Pair (list (Primitive global type loc)) walk))))
 
-    ;; `(deriving Move)` makes the type linear.
-    (: linear? (impl (Fn (List expanded-Derivation) -> Bool)))
-    (define (linear? derivations)
+    ;; Whether a clause names Move.
+    (: derives-move? (impl (Fn (List expanded-Derivation) -> Bool)))
+    (define (derives-move? derivations)
       (any? (lambda (derivation)
               (match derivation
                 ((expanded-DeriveMove _) #t)
@@ -239,8 +239,8 @@
 
       ;; The instances follow their declaration, inside an instance scope
       ;; too, numbered from Bound's first unused number; Move makes no
-      ;; instance and marks the type, and a declaration without clauses is
-      ;; as it was.
+      ;; instance and is said on the type, and a declaration without
+      ;; clauses is as it was.
       (define (test-placement)
         (let* ((statement (bound-Statement (bound-Literal (expanded-UnitValue) (at 9))))
                (derived (derive (bound-Defined a

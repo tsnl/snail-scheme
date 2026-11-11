@@ -15,8 +15,9 @@
 ;; not yet printed the library's body, and one stops at the first library
 ;; that asks for a target the caller did not supply, which it waits for.
 ;; The integrator keeps, of each library, its offer, which expanding the
-;; libraries that import it reads, and its latest tree, the library
-;; derived.
+;; libraries that import it reads; the files the build must place beside
+;; the program for it, which it asks of the library bound; and its latest
+;; tree, the library derived.
 (define-library (snail compiler integrate compile)
   (export
    CompiledFile
@@ -39,6 +40,7 @@
    (only (snail compiler expand targets) TargetRequest)
    (only (snail compiler bind supply) TargetFile)
    (snail compiler bind pass)
+   (snail compiler bind placed)
    (only (snail compiler derive language) Derived)
    (snail compiler derive pass)
    (snail compiler integrate walk)
@@ -49,12 +51,14 @@
     ;; ---- Compilations ----
 
     ;; One library's file, its name, the libraries it imports, what it
-    ;; offers, and the library derived.
+    ;; offers, the files to place beside the program for it, and the
+    ;; library derived.
     (struct CompiledFile
       ((file String)
        (library LibraryName)
        (imports (List LibraryName))
        (offer Offer)
+       (placed (List Placed))
        (derived Derived)))
 
     ;; Every library compiled, in order; or the generated libraries the
@@ -148,6 +152,7 @@
                                               (outlined-name outlined)
                                               imports
                                               (::offer expansion)
+                                              (placed-files bound)
                                               derived)
                                 earlier)
                           implicit?)))))))
@@ -310,13 +315,18 @@
           (other (expect other "a program whose linked file is missing"))))
 
       ;; Each library is bound once it expands: the program's linked file
-      ;; is its handle's import, and its statement a call of the handle.
+      ;; is its handle's import, and its statement a call of the handle;
+      ;; the file to place beside the program is kept with the library.
       (define (test-bound directory)
         (match (compiled-at directory "linking.sld")
           ((Ok (CompiledAll files))
            (let* ((main (string-append directory "/linking.sld"))
                   (handle (expanded-Global (list "main") "link-handle" 1))
                   (use (Loc main 2 1)))
+             (expect (::placed (list-ref files 0))
+                     (list
+                      (Placed "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+                              (string-append directory "/data/x.txt"))))
              (expect (::derived (list-ref files 0))
                      (derived-Program
                       (list (derived-LinkImport handle

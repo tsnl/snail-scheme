@@ -1,16 +1,17 @@
-;; Query: the files the build must place beside the program for one
-;; derived library, as the old `library-links` answers them: each file the
-;; library links, once for each digest, in the order the library first
-;; names them. Files with the same bytes are one file, since the payload
-;; asks its host for a file by its digest. It reads Derived, the latest
-;; tree the integrator keeps of a library, whose LinkImports are Bound's.
-(define-library (snail compiler derive placed)
+;; Query: the files the build must place beside the program for one bound
+;; library, as the old `library-links` answers them: each file the library
+;; links, once for each digest, in the order the library first names
+;; them. Files with the same bytes are one file, since the payload asks
+;; its host for a file by its digest. It reads Bound, the tree whose
+;; LinkImports name the files: the integrator asks it once a library is
+;; bound and keeps the answer with the library, whichever tree it keeps.
+(define-library (snail compiler bind placed)
   (export
    Placed
    placed-files)
   (import
    (snail core base)
-   (snail compiler derive language))
+   (snail compiler bind language))
   (begin
 
     ;; A file to place: the digest the payload names it by, and where the
@@ -19,14 +20,14 @@
       ((digest String)
        (file String)))
 
-    (: placed-files (impl (Fn Derived -> (List Placed))))
-    (define (placed-files derived)
+    (: placed-files (impl (Fn Bound -> (List Placed))))
+    (define (placed-files bound)
       (delete-duplicates (lambda (placed other) (string=? (::digest placed) (::digest other)))
-                         (concatenate (map top-placed (derived-tops derived)))))
+                         (concatenate (map top-placed (bound-tops bound)))))
 
-    (: derived-tops (impl (Fn Derived -> (List Top))))
-    (define (derived-tops derived)
-      (match derived
+    (: bound-tops (impl (Fn Bound -> (List Top))))
+    (define (bound-tops bound)
+      (match bound
         ((Defined _ tops _ _) tops)
         ((Program tops _ _) tops)))
 
@@ -49,7 +50,6 @@
     (import
      (snail compiler source)
      (prefix (snail compiler expand language) expanded-)
-     (prefix (only (snail compiler bind language) Literal) bound-)
      (snail stage0 testing))
     (begin
       (define (test-placed)
@@ -60,7 +60,7 @@
                                   (LinkImport (handle 2) (list "b.txt") "bb" "b.txt" loc)
                                   (LinkImport (handle 3) (list "copy.txt") "aa" "copy.txt" loc)
                                   (Define (expanded-Global (list "main") "x" 0)
-                                    (bound-Literal (expanded-UnitValue) loc)
+                                    (Literal (expanded-UnitValue) loc)
                                     loc))
                             (None)
                             4))

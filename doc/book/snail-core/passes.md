@@ -115,12 +115,12 @@ src/snail/compiler/
     needs.sld             part: what a library needs, found in its Supply, and what a miss means
     state.sld             the numbers it hands out, a copy's renaming, and numbering-let*
     pass.sld              (snail compiler bind pass): the function `bind`
+    placed.sld            query: the files the build places beside the program
   derive/
     language.sld          Derived, the tree it writes
     implicit.sld          part: the names a derived instance is written with, in the implicit libraries' offers
     instances.sld         part: a derived Serialize or Deserialize instance, built as nodes
     pass.sld              (snail compiler derive pass): the function `derive`
-    placed.sld            query: the files the build places beside the program
   ...
   integrate/              the integrator: one library per job
     files.sld             (snail compiler integrate files): every read of the file system
@@ -295,7 +295,13 @@ walking the tree to find a free one, and writes where it stopped in its own
 output's root. A `Label` is the one name not resolved: a field's, a path's,
 and that of a class's or an effect's member as a method definition, an
 associated output, a default or a handler writes it; the pass that has the
-declaration resolves it. Types are
+declaration resolves it. A method definition's name is a member's label
+unless it is written as a field path, `(define (::x circle) ...)`, which
+`expand`'s rule for paths reads into its labels, as it reads a path in an
+expression; either keeps the name as written, for messages. A name that is
+a path but for an empty label, `::x::`, is a member's label that names no
+member, since the old expander reads no path there: it finds the method a
+name names by comparing text. Types are
 as written, with their names resolved, but an alias is expanded where it is
 used, as a macro is. An `if` has its alternative, the unit value when none is
 written, which no `Datum` writes, so Expanded's expressions have constants of
@@ -329,7 +335,8 @@ Member      ::= MethodSignature Global Scheme Annotation*
               | AssociatedOutput Label Annotation*              no Loc but its label's
 Instance    ::= Instance ClassRef variable* TypeExpr* Requirement* Equation* InstanceBody
 InstanceBody ::= Dispatch TypeExpr* | Methods InstanceMethod*   Methods: no Loc
-InstanceMethod ::= InstanceMethod Label Expr                    no Loc but its label's
+InstanceMethod ::= InstanceMethod MethodName Expr               no Loc but its name's
+MethodName  ::= MemberName Label | PathName label* Label        no Loc but its label's
 SetMember   ::= SetInstance Instance                            no Loc but its instance's
               | DynamicInstances ClassRef (TypeExpr*)*
 Operation   ::= Operation Global control? Scheme Annotation*
@@ -488,9 +495,10 @@ through the queries; a miss is a compiler bug, and panics.
 
 Bound declares afresh the rules `bind` looks inside, which are those that
 hold an expression or a pattern, and reuses Expanded's for the rest:
-`Field`, `Case`, `Derivation`, `Member`, `Operation`, `PrimitiveType`,
-`Annotation`, `Constant`, the types, `Scheme`, `Requirement`, `ClassRef`,
-`Equation`, `Local`, `Global`, `TopValue` and `Label`.
+`Field`, `Case`, `Derivation`, `Member`, `MethodName`, `Operation`,
+`PrimitiveType`, `Annotation`, `Constant`, the types, `Scheme`,
+`Requirement`, `ClassRef`, `Equation`, `Local`, `Global`, `TopValue` and
+`Label`.
 
 ```text
 Bound       ::= Defined library Top* first-unused-number
@@ -512,7 +520,7 @@ Top         ::= LinkImport Global name* digest file
               | Primitive Global PrimitiveType
 Instance    ::= Instance ClassRef variable* TypeExpr* Requirement* Equation* InstanceBody
 InstanceBody ::= Dispatch TypeExpr* | Methods InstanceMethod*   Methods: no Loc
-InstanceMethod ::= InstanceMethod Label Expr                    no Loc but its label's
+InstanceMethod ::= InstanceMethod MethodName Expr               no Loc but its name's
 SetMember   ::= SetInstance Instance                            no Loc but its instance's
               | DynamicInstances ClassRef (TypeExpr*)*
 Default     ::= Default Label Expr
@@ -530,6 +538,12 @@ Clause      ::= Clause Pattern Expr
 Implementation ::= Implementation Label Expr
 Pattern     ::= Wild | Bind Local | Equals Datum | Destructure TopValue Pattern*
 ```
+
+A query over Bound, `placed-files`, answers what the build must place
+beside the program for a library, as the old `library-links` does: each
+`LinkImport`'s digest and file, once for each digest, in order. Bound is
+the tree that writes the LinkImports, so the query reads it, whichever
+tree the integrator keeps.
 
 ### Supply, what the build found for `bind` (implemented)
 
@@ -561,16 +575,17 @@ before it starts the next, so a problem is reported for the earliest
 library that has one, as the old compiler reports it. The implicit
 libraries a deriving clause needs are compiled after the library that
 derives expands and before it is bound. Of each library the integrator
-keeps its offer and its latest tree, the library derived, and it stops
-at the first library that waits for targets.
+keeps its offer; the files to place beside the program, which it asks
+`placed-files` once the library is bound; and its latest tree, the
+library derived. It stops at the first library that waits for targets.
 
 ### Derived, written by `derive` (implemented)
 
-No `Derivation` remains. A struct or an enum says instead whether it is
-`linear?`: whether a deriving clause of its declaration named Move, so
-that its values are moved and never copied, by its declaration, as the
-old compiler's DataType says with `owned?`; a Drop instance makes a type
-linear too, which is the instance's to say. Each Serialize and each
+No `Derivation` remains. A struct or an enum says instead whether it
+derives Move, `move?`: whether a deriving clause of its declaration names
+Move, which makes its values moved, never copied. That is not all the old
+compiler's DataType says with `owned?`: a Drop instance makes a type's
+values moved too, which is the instance's to say. Each Serialize and each
 Deserialize a deriving clause names is an instance, a `TopInstance` among
 the tops its declaration is in, right after the declaration, in the
 order the clauses name them, where the old expander scans the instance it
@@ -620,8 +635,8 @@ Top         ::= LinkImport Global name* digest file
               | Signature TopValue Scheme Annotation*
               | Statement Expr                                  no Loc but its expression's
               | Expose TopValue symbol dynamic?
-              | Struct Global parameter* Field* linear? Annotation*
-              | Enum Global parameter* Case* linear? Annotation*
+              | Struct Global parameter* Field* move? Annotation*
+              | Enum Global parameter* Case* move? Annotation*
               | Alias Global parameter* Annotation*
               | Class Global parameter* Member* Annotation*
               | TopInstance Instance                            no Loc but its instance's
@@ -645,11 +660,6 @@ library's declarations, so the first such problem is the only one;
 otherwise each instance's body reports the first name it lacks, in the
 order the old expander expands the body, and every body's problem is
 reported, in order.
-
-A query over Derived, `placed-files`, answers what the build must place
-beside the program for a library, as the old `library-links` does: each
-`LinkImport`'s digest and file, once for each digest, in order. It reads
-Derived because the integrator keeps a library's latest tree.
 
 ### Typed, written by `settle` (sketch)
 
@@ -749,6 +759,27 @@ so every existing program stays an oracle. Where the new front end
 knowingly differs from the old compiler, the difference is listed here,
 one line each, with its reason:
 
+- When a library has problems for two passes, the earlier pass's are
+  reported; the old expander, one walk, reports whichever it meets
+  first. `(List Missing Missing)` is "not a type: Missing", where the old
+  expander says the number of type arguments is wrong, since arity is
+  `declare`'s to check; a handler clause's value is expanded before
+  `declare` asks whether its label is an operation of the effect.
+- The field functions and the `Class.Output` names of a declaration that
+  a macro's template writes are visible to that expansion, as the old
+  expander's comment intends; its code leaves them unreachable. No macro
+  in the repository writes such a declaration.
+- "not an instance set" is reported once for a `with-instances`; the old
+  expander reports it once for every body inside.
+- A `syntax-rules` literal that is not an identifier is a problem with a
+  message; the old expander panics.
+- An instance's equations are expanded in the order written; the old
+  expander expands them in the order of the class's outputs, which
+  `declare` knows and `expand` does not.
+- `artifact-files` expands its three expressions once each; the old
+  expander expands them again for every file. `bind` copies them for each
+  file instead, and the one use, in `src/snail/shell/artifact.sld`,
+  passes three constructors, so nothing shows the difference.
 - `bind` asks for every target a library was not supplied at once; the
   old compiler asks for one at a time, since it stops where it first
   reaches one, and asking once saves its caller a build per target.
