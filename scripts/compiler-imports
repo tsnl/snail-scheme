@@ -1,0 +1,262 @@
+#!/bin/sh
+#|
+exec "${CHIBI:-chibi-scheme}" "$0" "$@"
+|#
+;; The lines above run this file under the Chibi the Makefile names: the
+;; shell reaches the `exec` before anything else, and Chibi skips the first
+;; line and the block comment around it.
+;;
+;; Checks the import rule of doc/book/snail-core/passes.md over every
+;; library under src/snail/compiler/, naming each file and import that
+;; breaks it, and exits non-zero if one does. Imports in a `snail-tests`
+;; section are exempt. A library is known by its name:
+;;
+;;   (snail compiler source)          what every pass shares
+;;   (snail compiler integrate)       the integrator
+;;   (snail compiler adapter ...)     the bridge to the old compiler
+;;   (snail compiler PASS language)   a pass's language
+;;   (snail compiler PASS pass)       a pass
+;;   (snail compiler PASS ...)        a query, if its file's first line
+;;                                    starts ";; Query:", and else a rule
+;;
+;;   scripts/compiler-imports --check
+(import
+ (scheme base)
+ (scheme cxr)
+ (scheme file)
+ (scheme read)
+ (scheme write)
+ (scheme process-context)
+ (only (chibi filesystem) directory-files file-directory?)
+ (only (chibi pathname) path-directory)
+ (only (srfi 1) filter append-map)
+ (only (srfi 132) list-sort))
+
+;; ---- Passes ----
+
+;; The passes in the order of the table in passes.md, by folder. A pass's
+;; language may be read by the passes after it.
+(define passes
+  '(read
+    outline
+    expand
+    derive
+    declare
+    dispatch
+    infer
+    solve
+    settle
+    convert
+    close
+    place
+    borrow-check
+    confine
+    specialize
+    glue
+    restrict
+    sequence
+    clean
+    backend))
+
+(define (pass-index pass)
+  (let loop ((passes passes) (index 0))
+    (cond ((null? passes) #f)
+          ((eq? (car passes) pass) index)
+          (else (loop (cdr passes) (+ index 1))))))
+
+(define (earlier? pass than)
+  (< (pass-index pass) (pass-index than)))
+
+;; ---- Kinds ----
+
+;; What a library is, as a list whose head says what kind: (source),
+;; (integrator), (adapter), (language PASS), (pass PASS), (query PASS),
+;; (rule PASS), (core NAME) for one of (snail core ...), (old) for the old
+;; compiler, (unknown) for a library of the new tree that the layout does
+;; not name, and (other) for anything else.
+(define (library-kind root name)
+  (cond ((equal? name '(snail compiler source)) '(source))
+        ((equal? name '(snail compiler integrate)) '(integrator))
+        ((prefix? '(snail compiler adapter) name) '(adapter))
+        ((prefix? '(snail compiler) name) (pass-library-kind root name))
+        ((and (prefix? '(snail core) name) (= (length name) 3)) (list 'core (caddr name)))
+        ((prefix? '(snail shell compiler) name) '(old))
+        (else '(other))))
+
+;; A library in a pass's folder: (snail compiler PASS ...).
+(define (pass-library-kind root name)
+  (let ((pass (and (>= (length name) 4) (caddr name))))
+    (cond ((not (and pass (pass-index pass))) '(unknown))
+          ((equal? (cdddr name) '(language)) (list 'language pass))
+          ((equal? (cdddr name) '(pass)) (list 'pass pass))
+          ((query-file? (library-file root name)) (list 'query pass))
+          (else (list 'rule pass)))))
+
+(define (prefix? start items)
+  (or (null? start)
+      (and (pair? items) (equal? (car start) (car items)) (prefix? (cdr start) (cdr items)))))
+
+(define (library-file root name)
+  (string-append root
+                 "/src/"
+                 (join (map (lambda (part) (if (symbol? part) (symbol->string part) (number->string part)))
+                            name)
+                       "/")
+                 ".sld"))
+
+(define (query-file? path)
+  (and (file-exists? path)
+       (let ((line (call-with-input-file path read-line)))
+         (and (string? line) (prefix? (string->list ";; Query:") (string->list line))))))
+
+;; ---- The rule ----
+
+;; Why a library of kind `importer` may not import one of kind `imported`,
+;; or #f when it may.
+(define (refusal importer imported)
+  (case (car importer)
+    ((source) (unless-allowed (equal? imported '(core base)) "source.sld imports only (snail core base)"))
+    ((language) (language-refusal (cadr importer) imported))
+    ((pass rule query) (pass-refusal (cadr importer) imported))
+    ((integrator) (integrator-refusal imported))
+    ((adapter) (adapter-refusal imported))
+    (else "the layout of passes.md names no such library")))
+
+(define (unless-allowed allowed? reason)
+  (if allowed? #f reason))
+
+;; A language reads only the shared libraries and earlier languages.
+(define (language-refusal pass imported)
+  (case (car imported)
+    ((source) #f)
+    ((core) (core-refusal imported))
+    ((language) (unless-allowed (earlier? (cadr imported) pass)
+                                "a language imports only the languages of earlier passes"))
+    (else "a language imports only (snail core base), (snail core table), (snail compiler source) and earlier languages")))
+
+;; A pass's libraries, its pass.sld, rules and queries, read the shared
+;; libraries, their own folder, and the languages and queries of earlier
+;; passes, but never another pass's rules or any pass.sld.
+(define (pass-refusal pass imported)
+  (case (car imported)
+    ((source) #f)
+    ((core) (core-refusal imported))
+    ((language query)
+     (unless-allowed (not (earlier? pass (cadr imported)))
+                     "a pass's libraries read only the languages and queries of their own and earlier passes"))
+    ((rule) (unless-allowed (eq? (cadr imported) pass) "only a pass's own folder imports its rules"))
+    ((pass) "only the integrator imports a pass.sld")
+    (else "a pass's libraries import only the core, (snail compiler source), languages and queries")))
+
+(define (integrator-refusal imported)
+  (case (car imported)
+    ((source language pass query) #f)
+    ((core) (unless-allowed (member (cadr imported) '(base table io))
+                            "the integrator imports only (snail core base), (snail core table) and (snail core io) of the core"))
+    (else "the integrator imports only the core, passes, languages and queries")))
+
+;; The adapter knows both compilers, but performs no effect.
+(define (adapter-refusal imported)
+  (case (car imported)
+    ((source language pass query rule adapter old) #f)
+    ((core) (core-refusal imported))
+    (else "the adapter imports only the core, the new tree and the old compiler")))
+
+;; Only the integrator imports (snail core io).
+(define (core-refusal imported)
+  (cond ((member (cadr imported) '(base table)) #f)
+        ((eq? (cadr imported) 'io) "only the integrator imports (snail core io)")
+        (else "the new tree imports only (snail core base) and (snail core table) of the core")))
+
+;; ---- Libraries ----
+
+;; Every .sld file under `directory`, relative to `root`, in order.
+(define (library-files root directory)
+  (list-sort string<?
+             (append-map (lambda (entry) (directory-entry-files root directory entry))
+                         (filter (lambda (entry) (not (member entry '("." ".."))))
+                                 (directory-files (string-append root "/" directory))))))
+
+(define (directory-entry-files root directory entry)
+  (let ((path (string-append directory "/" entry)))
+    (cond ((file-directory? (string-append root "/" path)) (library-files root path))
+          ((string-suffix? ".sld" entry) (list path))
+          (else '()))))
+
+;; The `(define-library NAME declaration ...)` form of a file.
+(define (library-form root path)
+  (call-with-input-file (string-append root "/" path) read))
+
+;; The import specifications of a library's declarations, outside its
+;; `snail-tests` sections.
+(define (library-imports declarations)
+  (append-map declaration-imports declarations))
+
+(define (declaration-imports declaration)
+  (cond ((not (pair? declaration)) '())
+        ((eq? (car declaration) 'import) (cdr declaration))
+        ((eq? (car declaration) 'cond-expand) (append-map clause-imports (cdr declaration)))
+        (else '())))
+
+(define (clause-imports clause)
+  (if (eq? (car clause) 'snail-tests) '() (library-imports (cdr clause))))
+
+;; The library an import specification names, under any `only`, `except`,
+;; `prefix` or `rename` around it.
+(define (imported-library spec)
+  (if (and (memq (car spec) '(only except prefix rename)) (pair? (cadr spec)))
+      (imported-library (cadr spec))
+      spec))
+
+;; ---- Checking ----
+
+;; One line for each import of the file at `path` that breaks the rule.
+(define (file-violations root path)
+  (let* ((form (library-form root path))
+         (importer (library-kind root (cadr form))))
+    (if (memq (car importer) '(unknown other))
+        (list (string-append path ": " (written (cadr form)) ": the layout of passes.md names no such library"))
+        (filter string?
+                (map (lambda (spec) (import-violation root path importer (imported-library spec)))
+                     (library-imports (cddr form)))))))
+
+(define (import-violation root path importer name)
+  (let ((reason (refusal importer (library-kind root name))))
+    (and reason (string-append path ": " (written name) ": " reason))))
+
+(define (check root)
+  (let ((violations (append-map (lambda (path) (file-violations root path))
+                                (library-files root "src/snail/compiler"))))
+    (for-each (lambda (line) (display line (current-error-port)) (newline (current-error-port)))
+              violations)
+    (if (null? violations) 0 1)))
+
+;; ---- Text ----
+
+(define (written datum)
+  (let ((port (open-output-string)))
+    (write datum port)
+    (get-output-string port)))
+
+(define (join texts separator)
+  (if (null? texts)
+      ""
+      (let loop ((joined (car texts)) (texts (cdr texts)))
+        (if (null? texts) joined (loop (string-append joined separator (car texts)) (cdr texts))))))
+
+(define (string-suffix? suffix text)
+  (let ((start (- (string-length text) (string-length suffix))))
+    (and (>= start 0) (string=? (substring text start (string-length text)) suffix))))
+
+;; ---- Main ----
+
+(define (root-of script)
+  (let ((scripts (path-directory script)))
+    (string-append scripts "/..")))
+
+(let ((arguments (command-line)))
+  (if (equal? (cdr arguments) '("--check"))
+      (exit (check (root-of (car arguments))))
+      (begin (display "usage: scripts/compiler-imports --check" (current-error-port))
+             (newline (current-error-port))
+             (exit 2))))
