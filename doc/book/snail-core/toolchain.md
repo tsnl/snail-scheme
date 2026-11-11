@@ -510,8 +510,12 @@ HTTP failures, URL encoding and decoding into the shared protocol types.
 
 Command/Ctrl+P opens `go-to-file`. It filters project paths and open buffers
 by case-insensitive ordered characters; for example, `lnote` finds
-`lib/notes.txt`. Enter opens the selected path through the ordinary buffer
-read, Escape returns focus to the editor, and results are capped at 200 paths.
+`lib/notes.txt`. Enter opens the selected path in a tab in the active pane,
+keeping its other tabs. A path already open in that pane selects its existing
+tab; a path open in another pane still opens here. The file browser and search
+results use the same tab-opening operation. Tabs share one buffer per path,
+including unsaved edits. Escape returns focus to the editor, and results are
+capped at 200 paths.
 The file picker runs in the browser over the service's file listing.
 
 Command/Ctrl+F opens `search-buffer` over the current file, including unsaved
@@ -546,11 +550,12 @@ build itself. A completion for an obsolete palette cannot change the active file
 
 Command/Ctrl+S saves, Command/Ctrl+B toggles files, Alt+Shift+F formats,
 and Command/Ctrl+backslash splits right (Shift splits down). Command/Ctrl+W
-closes the active editor when the browser delivers that key; browsers may reserve
+closes the selected tab when the browser delivers that key; browsers may reserve
 it to close their own tab or window. Alt+W and the editor's × button provide
 alternatives. Closing the last view of an unsaved buffer asks before discarding
-it; closing one of several views keeps the shared buffer. The last pane stays
-empty until another file is opened.
+it; an inactive tab in another pane also retains the shared buffer. Closing a
+tab selects another in its pane. Closing the pane's last tab removes the pane
+if it is split; the last pane stays empty until another file is opened.
 
 The Applications panel selects one run target and provides Start, Stop and Restart.
 It shows requested and observed builds, PID, exit outcome and separate stdout/stderr
@@ -638,7 +643,9 @@ On a new IDE generation, the shared document-interface host waits for any text
 composition to finish, prevents further input, drains queued input through the
 application loop, and checkpoints its save. Navigation requires a successful
 storage write. IDE recovery uses session storage, separately for each project
-and tab; it retains drafts, their original disk baselines and the pane layout.
+and tab; it retains drafts, their original disk baselines, pane layout and
+per-pane tab order/selection. The tabbed recovery reader also accepts the
+original single-file pane records, preserving drafts saved by older IDE builds.
 It reconstructs server observations and pending operations instead of replaying
 commands. An incompatible save is retained and reported, never silently erased.
 A storage failure resumes the current program from its recovery checkpoint and

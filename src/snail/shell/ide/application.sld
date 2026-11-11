@@ -6,7 +6,7 @@
   (export Ide Msg initial update view window kept restored Connect Boot
           DispatchCommand Typed Open PaletteEvent
           Session begin-session update-session session-view session-window session-snapshot
-          Command CommandResult Step Recovery
+          Command CommandResult Step Recovery TabbedRecovery read-recovery
           Buffer
           Snapshot buffer-at dirty? conflict?)
   (import
@@ -347,13 +347,14 @@
 
     ;; ---- Panes ----
 
-    ;; An editor pane: the file it shows, none when it is empty, and how far
-    ;; its text is scrolled, which places the lines its highlighting draws.
-    (struct Pane
+    ;; A pane owns an ordered set of tabs and one selected path, never text.
+    ;; Every tab refers to the shared buffers. The selected path is in tabs,
+    ;; or absent exactly when tabs is empty.
+    (struct EditorPane
       ((id I64)
        (path (Option String))
-       (scroll F64))
-      (deriving Serialize Deserialize))
+       (scroll F64)
+       (tabs (List String))))
 
     ;; How the panes share the room: one pane, or two nodes side by side
     ;; (`row`) or one above the other (`column`), the first taking `ratio` of
@@ -657,7 +658,7 @@
        (listing I64)
        (buffers (List Buffer))
        (reads I64)
-       (panes (List Pane))
+       (panes (List EditorPane))
        (layout Layout)
        (active I64)
        (next I64)
@@ -682,7 +683,7 @@
            0
            (Nil)
            0
-           (list (Pane 0 (None) 0.0))
+           (list (EditorPane 0 (None) 0.0 (Nil)))
            (Leaf 0)
            0
            1
@@ -716,7 +717,7 @@
                                  (::buffers model)))
                            ((None) (append (::buffers model) (list buffer)))))))
 
-    ;; The buffer at `path` closed, and the panes that showed it empty.
+    ;; Remove a buffer and every tab that refers to it, choosing adjacent tabs.
     (: buffer-removed (-> Ide String Ide))
     (define (buffer-removed model path)
       (Ide-panes-set (Ide-buffers-set model
@@ -724,22 +725,48 @@
                                        (lambda (buffer) (not (string=? (::path buffer) path)))
                                        (::buffers model)))
                      (map (lambda (pane)
-                            (if (shows? pane path) (Pane-path-set pane (None)) pane))
+                            (pane-closed pane path))
                           (::panes model))))
 
-    (: shows? (-> Pane String Bool))
+    (: shows? (-> EditorPane String Bool))
     (define (shows? pane path)
       (match (::path pane)
         ((Some shown) (string=? shown path))
         ((None) #f)))
 
-    (: pane-of (-> Ide I64 Pane))
+    (: pane-opening (-> EditorPane String EditorPane))
+    (define (pane-opening pane path)
+      (if (shows? pane path) pane
+          (EditorPane (::id pane) (Some path) 0.0
+                      (if (member? path (::tabs pane)) (::tabs pane)
+                          (append (::tabs pane) (list path))))))
+
+    (: pane-closed (-> EditorPane String EditorPane))
+    (define (pane-closed pane path)
+      (let ((tabs (filter (lambda (other) (not (string=? other path))) (::tabs pane))))
+        (if (shows? pane path)
+            (EditorPane (::id pane)
+                        (tab-after-closing (::tabs pane) path (None))
+                        0.0
+                        tabs)
+            (EditorPane-tabs-set pane tabs))))
+
+    (: tab-after-closing (-> (List String) String (Option String) (Option String)))
+    (define (tab-after-closing tabs path previous)
+      (match tabs
+        ((Nil) previous)
+        ((Cons first rest)
+         (if (string=? first path)
+             (match rest ((Cons next _) (Some next)) ((Nil) previous))
+             (tab-after-closing rest path (Some first))))))
+
+    (: pane-of (-> Ide I64 EditorPane))
     (define (pane-of model id)
       (match (find (lambda (pane) (= (::id pane) id)) (::panes model))
         ((Some pane) pane)
-        ((None) (Pane id (None) 0.0))))
+        ((None) (EditorPane id (None) 0.0 (Nil)))))
 
-    (: pane-set (-> Ide Pane Ide))
+    (: pane-set (-> Ide EditorPane Ide))
     (define (pane-set model changed)
       (Ide-panes-set model
                      (map (lambda (pane) (if (= (::id pane) (::id changed)) changed pane))
@@ -851,6 +878,8 @@
       (Scrolled ((pane I64)
                  (top F64)))
       (Close ((pane I64)))
+      (SelectTab ((pane I64)
+                  (path String)))
       (DispatchCommand ((name String)))
       (PaletteEvent ((message palette-Message)))
       (ToggleFolder ((path String)))
@@ -908,7 +937,7 @@
     (define (session-window session)
       (window (::ide session)))
 
-    (: session-snapshot (-> (Borrow Session) Recovery))
+    (: session-snapshot (-> (Borrow Session) TabbedRecovery))
     (define (session-snapshot session)
       (kept (::ide session)))
 
@@ -987,8 +1016,11 @@
         ((Focused pane)
          (stay
           (Ide-active-set (if (= pane (::active model)) model (search-invalidated model)) pane)))
-        ((Scrolled pane top) (stay (pane-set model (Pane-scroll-set (pane-of model pane) top))))
+        ((Scrolled pane top)
+         (stay (pane-set model (EditorPane-scroll-set (pane-of model pane) top))))
         ((Close pane) (invoked (Ide-active-set model pane) closing))
+        ((SelectTab pane path)
+         (opening (search-invalidated (Ide-active-set model pane)) path (Focus pane)))
         ((DispatchCommand name)
          (Pair model
                (list (Command (once (lambda ()
@@ -1204,7 +1236,7 @@
                       ((Some _) model)
                       ((None) (buffer-set model (new-buffer path)))))
              (model
-              (pane-set model (Pane-path-set (pane-of model (::active model)) (Some path)))))
+              (pane-set model (pane-opening (pane-of model (::active model)) path))))
         (match (buffer-at model path)
           ((Some buffer)
            (match follow
@@ -1273,10 +1305,31 @@
                   ((None) "commands"))))
         (Command (once (lambda ()
                          (when (navigation-current? navigation)
+                           (match (::path (pane-of model pane))
+                             ((Some path) (reveal-tab pane path))
+                             ((None) (unit)))
                            (match (element-by-id id)
                              ((Some node) (focus-node node))
                              ((None) (unit))))
                          (command-result stay))) stay)))
+
+    (: tab-id (-> I64 String String))
+    (define (tab-id pane path)
+      (string-append "tab-" (show pane) ":" path))
+
+    (: reveal-tab (-> I64 String Unit ! dom))
+    (define (reveal-tab pane path)
+      (match (Pair (element-by-id (string-append "tabs-" (show pane)))
+                   (element-by-id (tab-id pane path)))
+        ((Pair (Some strip) (Some tab))
+         (let* ((left (number-property tab "offsetLeft"))
+                (right (+ left (number-property tab "offsetWidth")))
+                (start (number-property strip "scrollLeft"))
+                (width (number-property strip "clientWidth")))
+           (set-number-property strip
+                                "scrollLeft"
+                                (max 0.0 (min left (max start (- right width)))))))
+        (_ (unit))))
 
     ;; The caret at a diagnostic's point, its line scrolled a few lines below
     ;; the top.
@@ -1289,6 +1342,7 @@
                             (when (and (navigation-current? navigation)
                                        (current-field? field path text))
                               (let ((offset (source-offset text point)))
+                                (reveal-tab pane path)
                                 (focus-node field)
                                 (select-range field (i64->i32 offset) (i64->i32 offset))
                                 (scrolled-to pane
@@ -1485,7 +1539,7 @@
 
     ;; A source is formatted first, in the pane's field; formatting that fails
     ;; does not keep an incomplete draft from being saved.
-    (: saved-text (-> Pane Buffer Snapshot CommandResult ! dom fetch tasks))
+    (: saved-text (-> EditorPane Buffer Snapshot CommandResult ! dom fetch tasks))
     (define (saved-text pane buffer baseline)
       (let* ((path (::path buffer))
              (text
@@ -1505,7 +1559,7 @@
     ;; The text formatted in the pane's field as typing would, which the
     ;; field's input brings to the buffer too; or the text as it was, when the
     ;; field did not take it.
-    (: formatted-in (-> Pane String String String ! dom))
+    (: formatted-in (-> EditorPane String String String ! dom))
     (define (formatted-in pane path text)
       (let* ((shown (display-text text)) (formatted (format-source shown format-width)))
         (if (or (string=? shown formatted) (not (reformatted pane path shown formatted)))
@@ -1513,7 +1567,7 @@
             formatted)))
 
     ;; The change keeps the caret's line, and the field its scroll.
-    (: reformatted (-> Pane String String String Bool ! dom))
+    (: reformatted (-> EditorPane String String String Bool ! dom))
     (define (reformatted pane path shown formatted)
       (match (element-by-id (field-id (::id pane)))
         ((Some field)
@@ -1640,9 +1694,14 @@
              (model (Ide-panes-set model
                                    (append (::panes model)
                                            (list
-                                            (Pane pane (::path (pane-of model active)) 0.0)))))
+                                            (pane-split (pane-of model active) pane)))))
              (model (Ide-layout-set model (leaf-replaced (::layout model) active split))))
         (Pair (Ide-next-set (Ide-active-set model pane) (+ pane 2)) (list (focusing model pane)))))
+
+    (: pane-split (-> EditorPane I64 EditorPane))
+    (define (pane-split pane id)
+      (EditorPane id (::path pane) 0.0
+                  (match (::path pane) ((Some path) (list path)) ((None) (Nil)))))
 
     ;; Closing the last view of a draft asks before discarding it. A reply
     ;; names the exact draft it was for; it cannot discard subsequent typing.
@@ -1654,7 +1713,7 @@
          (let ((path (::path buffer)) (pane (::active model)))
            (cond ((::saving buffer) (stay model))
                  ((other-view? model pane path)
-                  (close-pane model))
+                  (closed-tab model pane path))
                  ((dirty? buffer)
                   (Pair model (list (Command (once (lambda ()
                                                      (if (confirm
@@ -1669,7 +1728,7 @@
                                                                                           path
                                                                                           text))))
                                                          (command-result stay)))) stay))))
-                 (else (close-pane (buffer-removed model path))))))))
+                 (else (closed-tab model pane path)))))))
 
     (: close-ready (-> Ide I64 String String Step))
     (define (close-ready model pane path text)
@@ -1677,14 +1736,22 @@
         ((Some buffer)
          (if (and (showing? model pane path) (not (::saving buffer))
                   (string=? text (::text buffer)))
-             (close-pane (if (other-view? model pane path) model (buffer-removed model path)))
+             (closed-tab model pane path)
              (stay model)))
         ((None) (stay model))))
 
     (: other-view? (-> Ide I64 String Bool))
     (define (other-view? model pane path)
-      (any? (lambda (other) (and (not (= pane (::id other))) (shows? other path)))
+      (any? (lambda (other) (and (not (= pane (::id other))) (member? path (::tabs other))))
             (::panes model)))
+
+    (: closed-tab (-> Ide I64 String Step))
+    (define (closed-tab model pane path)
+      (let* ((next (pane-closed (pane-of model pane) path))
+             (model (pane-set model next))
+             (model (if (other-view? model pane path) model (buffer-removed model path))))
+        (if (null? (::tabs next)) (close-pane model)
+            (Pair model (list (focusing model pane))))))
 
     ;; The active pane's sibling takes its place. The last pane stays empty.
     (: close-pane (-> Ide Step))
@@ -1699,7 +1766,7 @@
                                                 (::panes model)))))
              (Pair (Ide-active-set model next) (list (focusing model next)))))
           ((None)
-           (let ((empty (pane-set model (Pane-path-set (pane-of model active) (None)))))
+           (let ((empty (pane-set model (EditorPane-path-set (pane-of model active) (None)))))
              (Pair empty (list (focusing empty active))))))))
 
     (: toggled (-> (List String) String (List String)))
@@ -2521,9 +2588,7 @@
                        (Attr "style" (placed area)))
                  (append (list (Element "div"
                                         (list (Attr "class" "pane-header"))
-                                        (list (Element "span"
-                                                       (list (Attr "class" "pane-title"))
-                                                       (list (Text (pane-title buffer))))
+                                        (list (tabs-view model pane)
                                               (tool ""
                                                     "pane-button"
                                                     "Close editor (Cmd/Ctrl+W or Alt+W)"
@@ -2532,6 +2597,31 @@
                                                     (Close id))))
                                (editor-view model pane buffer)
                                (problem-view buffer)) (find-view model id)))))
+
+    (: tabs-view (-> Ide EditorPane (Html Msg)))
+    (define (tabs-view model pane)
+      (Element "div" (list (Attr "id" (string-append "tabs-" (show (::id pane))))
+                           (Attr "class" "pane-tabs") (Attr "role" "tablist")
+                           (Attr "aria-label" "Open files"))
+               (if (null? (::tabs pane))
+                   (list (Element "span"
+                                  (list (Attr "class" "pane-title"))
+                                  (list (Text "Choose a file"))))
+                   (map (lambda (path) (tab-view model pane path)) (::tabs pane)))))
+
+    (: tab-view (-> Ide EditorPane String (Html Msg)))
+    (define (tab-view model pane path)
+      (let ((selected (shows? pane path)))
+        (Element "button"
+                 (list (Keyed path) (Attr "id" (tab-id (::id pane) path))
+                       (Attr "role" "tab") (Attr "data-path" path)
+                       (Attr "class" (if selected "pane-tab active" "pane-tab"))
+                       (Attr "aria-selected" (if selected "true" "false"))
+                       (Attr "aria-controls" (scroller-id (::id pane)))
+                       (Attr "title" path)
+                       (On "click" (Nil) (Allow) (lambda (event) (SelectTab (::id pane) path))))
+                 (list (Element "span" (list (Attr "class" (if selected "pane-title" "tab-title")))
+                                (list (Text (pane-title (buffer-at model path)))))))))
 
     (: pane-title (-> (Option Buffer) String))
     (define (pane-title buffer)
@@ -2554,7 +2644,7 @@
 
     ;; One scroller holds the gutter, the highlight and marks, and the field,
     ;; which is as big as its text, so they scroll together.
-    (: editor-view (-> Ide Pane (Option Buffer) (Html Msg)))
+    (: editor-view (-> Ide EditorPane (Option Buffer) (Html Msg)))
     (define (editor-view model pane buffer)
       (let* ((id (::id pane))
              (text (match buffer
@@ -2569,6 +2659,7 @@
         (Element "div"
                  (list (Attr "id" (scroller-id id))
                        (Attr "class" "editor")
+                       (NumberProperty "scrollTop" (::scroll pane))
                        (On "scroll"
                            (list (Scroll))
                            (Allow)
@@ -2830,6 +2921,13 @@
        (baseline String))
       (deriving Serialize Deserialize))
 
+    ;; Version-one wire records stay unchanged so upgrading cannot strand drafts.
+    (struct Pane
+      ((id I64)
+       (path (Option String))
+       (scroll F64))
+      (deriving Serialize Deserialize))
+
     (struct Recovery
       ((version I64)
        (drafts (List Draft))
@@ -2844,11 +2942,37 @@
        (files-width F64))
       (deriving Serialize Deserialize))
 
-    (: kept (-> Ide Recovery))
+    (struct SavedTabs
+      ((pane I64)
+       (paths (List String)))
+      (deriving Serialize Deserialize))
+
+    (struct TabbedRecovery
+      ((previous Recovery)
+       (tabs (List SavedTabs)))
+      (deriving Serialize Deserialize))
+
+    ;; Read the legacy tag through its encoder, without copying a schema hash.
+    ;; Both shapes use the same draft payload; only tab membership is new.
+    (: read-recovery (-> Bytes TabbedRecovery))
+    (define (read-recovery bytes)
+      (if (case-id=? (recovery-tag bytes) (recovery-tag (serialize (::previous (kept initial)))))
+          (TabbedRecovery (deserialize bytes) (Nil))
+          (deserialize bytes)))
+
+    (: recovery-tag (-> Bytes I32))
+    (define (recovery-tag bytes)
+      (unsafe-total (lambda () (decode-case-id (Decoder bytes (ref 0))))))
+
+    (: kept (-> Ide TabbedRecovery))
     (define (kept model)
-      (Recovery 1 (map kept-buffer (::buffers model)) (::panes model) (::layout model)
-                (::active model) (::next model) (Nil)
-                (::files-shown model) (::files-width model)))
+      (TabbedRecovery
+       (Recovery 1 (map kept-buffer (::buffers model))
+                 (map (lambda (pane) (Pane (::id pane) (::path pane) (::scroll pane)))
+                      (::panes model))
+                 (::layout model) (::active model) (::next model) (Nil)
+                 (::files-shown model) (::files-width model))
+       (map (lambda (pane) (SavedTabs (::id pane) (::tabs pane))) (::panes model))))
 
     (: kept-buffer (-> Buffer Draft))
     (define (kept-buffer buffer)
@@ -2857,18 +2981,28 @@
                ((Some baseline) (json->string (file->json baseline)))
                ((None) ""))))
 
-    (: restored (-> Recovery Ide))
-    (define (restored save)
-      (unless (= (::version save) 1)
-        (panic "unsupported IDE recovery version; saved drafts are retained"))
-      (let* ((model (Ide-buffers-set initial (map restored-buffer (::drafts save))))
-             (model (Ide-auto-open-set model #f))
-             (model (Ide-panes-set model (::panes save)))
-             (model (Ide-layout-set model (::layout save)))
-             (model (Ide-active-set model (::active save)))
-             (model (Ide-next-set model (::next save)))
-             (model (Ide-files-shown-set model (::files-shown save))))
-        (Ide-files-width-set model (::files-width save))))
+    (: restored (-> TabbedRecovery Ide))
+    (define (restored saved)
+      (let ((save (::previous saved)))
+        (unless (= (::version save) 1)
+          (panic "unsupported IDE recovery version; saved drafts are retained"))
+        (let* ((model (Ide-buffers-set initial (map restored-buffer (::drafts save))))
+               (model (Ide-auto-open-set model #f))
+               (model (Ide-panes-set model
+                                     (map (lambda (pane) (restored-pane pane (::tabs saved)))
+                                          (::panes save))))
+               (model (Ide-layout-set model (::layout save)))
+               (model (Ide-active-set model (::active save)))
+               (model (Ide-next-set model (::next save)))
+               (model (Ide-files-shown-set model (::files-shown save))))
+          (Ide-files-width-set model (::files-width save)))))
+
+    (: restored-pane (-> Pane (List SavedTabs) EditorPane))
+    (define (restored-pane pane groups)
+      (let ((tabs (match (find (lambda (group) (= (::pane group) (::id pane))) groups)
+                    ((Some group) (::paths group))
+                    ((None) (match (::path pane) ((Some path) (list path)) ((None) (Nil)))))))
+        (EditorPane (::id pane) (::path pane) (::scroll pane) tabs)))
 
     (: restored-buffer (-> Draft Buffer))
     (define (restored-buffer draft)
