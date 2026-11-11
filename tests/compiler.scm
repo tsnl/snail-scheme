@@ -1,8 +1,8 @@
 ;; The new compiler's unit tests, on Chibi: each library of src/snail/compiler
 ;; that has logic tests itself, with inputs built by hand. Given the
-;; repository's root, it then compares the new reader with the old one over
-;; every tracked library and the adapter's texts; `make test-compiler` runs
-;; both.
+;; repository's root, it then compares the new passes with the old compiler
+;; over every tracked library and the adapters' texts: the readers, then
+;; the outlines. `make test-compiler` runs it all.
 ;;
 ;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/compiler.scm [ROOT]
 (import
@@ -12,6 +12,7 @@
  (scheme process-context)
  (scheme write)
  (only (chibi string) string-split)
+ (only (chibi filesystem) create-directory*)
  (snail stage0 process)
  (only (snail core base) match Some None)
  (only (snail compiler source) test-source)
@@ -19,12 +20,27 @@
  (only (snail compiler read lines) test-lines)
  (only (snail compiler read literals) test-literals)
  (only (snail compiler read pass) test-read)
+ (only (snail compiler read location) test-location)
+ (only (snail compiler include inclusion) test-inclusion)
+ (only (snail compiler include paths) test-paths)
+ (only (snail compiler include pass) test-include)
+ (only (snail compiler outline pass) test-outline)
+ (only (snail compiler outline imports) test-imports)
  (only (snail compiler adapter read)
        read-difference
        malformed-texts
        unusual-texts
        misread-texts
-       text-differences))
+       text-differences)
+ (only (snail compiler adapter outline)
+       Agreed
+       Differed
+       Uncompared
+       file-comparison
+       LibraryHeader
+       ProgramHeader
+       malformed-headers
+       header-comparison))
 
 ;; ---- Unit tests ----
 
@@ -34,6 +50,12 @@
   (test-lines)
   (test-literals)
   (test-read)
+  (test-location)
+  (test-inclusion)
+  (test-paths)
+  (test-include)
+  (test-outline)
+  (test-imports)
   (report "the new compiler's unit tests passed"))
 
 ;; ---- Reader comparison ----
@@ -69,9 +91,8 @@
           ((Some difference)
            (loop (cdr files) (cons (string-append (car files) ": " difference) found)))))))
 
-(define (compare-readers root)
-  (let* ((files (tracked-libraries root))
-         (differences (append (library-differences root files) (text-differences))))
+(define (compare-readers root files)
+  (let ((differences (append (library-differences root files) (text-differences))))
     (for-each report differences)
     (report (string-append "compared the readers on "
                            (number->string (length files))
@@ -84,6 +105,60 @@
                            " differences"))
     (null? differences)))
 
+;; ---- Outline comparison ----
+
+;; What comparing each item found, other than agreement: a pair of
+;; `differed` or `uncompared` and a line naming the item.
+(define (findings compare name items)
+  (let loop ((items items) (found '()))
+    (if (null? items)
+        (reverse found)
+        (loop (cdr items)
+              (match (compare (car items))
+                ((Agreed) found)
+                ((Differed difference)
+                 (cons (cons 'differed (string-append (name (car items)) ": " difference)) found))
+                ((Uncompared reason)
+                 (cons
+                  (cons 'uncompared (string-append (name (car items)) ": not compared: " reason))
+                  found)))))))
+
+(define (header-name header)
+  (let ((port (open-output-string)))
+    (match header
+      ((LibraryHeader text) (write-string "library " port) (write text port))
+      ((ProgramHeader text) (write-string "program " port) (write text port)))
+    (get-output-string port)))
+
+;; The headers are written in build/test-compiler/outline/, beside the
+;; files they include.
+(define (compare-outlines root files)
+  (let ((directory (string-append root "/build/test-compiler/outline")))
+    (create-directory* (string-append directory "/sample"))
+    (let* ((found (append (findings (lambda (file) (file-comparison (string-append root "/" file)))
+                                    (lambda (file) file)
+                                    files)
+                          (findings (lambda (header) (header-comparison directory header))
+                                    header-name
+                                    malformed-headers)))
+           (differences (filter-kind 'differed found)))
+      (for-each (lambda (finding) (report (cdr finding))) found)
+      (report (string-append "compared the outlines of "
+                             (number->string (length files))
+                             " files and "
+                             (number->string (length malformed-headers))
+                             " headers: "
+                             (number->string (length differences))
+                             " differences, "
+                             (number->string (length (filter-kind 'uncompared found)))
+                             " not compared"))
+      (null? differences))))
+
+(define (filter-kind kind found)
+  (cond ((null? found) '())
+        ((eq? (caar found) kind) (cons (car found) (filter-kind kind (cdr found))))
+        (else (filter-kind kind (cdr found)))))
+
 ;; ---- Main ----
 
 (define (report line)
@@ -93,5 +168,9 @@
 (unit-tests)
 (let ((arguments (command-line)))
   (when (pair? (cdr arguments))
-    (unless (compare-readers (cadr arguments))
-      (exit 1))))
+    (let* ((root (cadr arguments))
+           (files (tracked-libraries root))
+           (readers (compare-readers root files))
+           (outlines (compare-outlines root files)))
+      (unless (and readers outlines)
+        (exit 1)))))

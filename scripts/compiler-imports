@@ -35,9 +35,12 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 ;; ---- Passes ----
 
 ;; The passes in the order of the table in passes.md, by folder. A pass's
-;; language may be read by the passes after it.
+;; language may be read by the passes after it. A pass that writes an
+;; earlier pass's language, as `include` writes Syntax, has no language of
+;; its own, and its folder holds no language.sld.
 (define passes
   '(read
+    include
     outline
     expand
     derive
@@ -155,11 +158,11 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
                             "the integrator imports only (snail core base), (snail core table) and (snail core io) of the core"))
     (else "the integrator imports only the core, passes, languages and queries")))
 
-;; The adapter knows both compilers, but performs no effect.
+;; The adapter knows both compilers, and compares them on files, which it
+;; reads and writes as the old functions it calls do.
 (define (adapter-refusal imported)
   (case (car imported)
-    ((source language pass query rule adapter old) #f)
-    ((core) (core-refusal imported))
+    ((source language pass query rule adapter old core) #f)
     (else "the adapter imports only the core, the new tree and the old compiler")))
 
 ;; Only the integrator imports (snail core io).

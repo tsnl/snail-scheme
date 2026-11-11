@@ -87,6 +87,7 @@
    ::deriving
    ::digest
    ::directories
+   ::directory
    ::discharged
    ::edges
    ::effects
@@ -127,6 +128,7 @@
    ::handle
    ::helpers
    ::holder
+   ::identifier
    ::imports
    ::index
    ::initializers
@@ -219,6 +221,7 @@
    ::signed
    ::solution
    ::source
+   ::specs
    ::stack
    ::stamp
    ::starts
@@ -304,6 +307,7 @@
     (define (::deriving value) (field-of value (quote deriving)))
     (define (::digest value) (field-of value (quote digest)))
     (define (::directories value) (field-of value (quote directories)))
+    (define (::directory value) (field-of value (quote directory)))
     (define (::discharged value) (field-of value (quote discharged)))
     (define (::edges value) (field-of value (quote edges)))
     (define (::effects value) (field-of value (quote effects)))
@@ -344,6 +348,7 @@
     (define (::handle value) (field-of value (quote handle)))
     (define (::helpers value) (field-of value (quote helpers)))
     (define (::holder value) (field-of value (quote holder)))
+    (define (::identifier value) (field-of value (quote identifier)))
     (define (::imports value) (field-of value (quote imports)))
     (define (::index value) (field-of value (quote index)))
     (define (::initializers value) (field-of value (quote initializers)))
@@ -436,6 +441,7 @@
     (define (::signed value) (field-of value (quote signed)))
     (define (::solution value) (field-of value (quote solution)))
     (define (::source value) (field-of value (quote source)))
+    (define (::specs value) (field-of value (quote specs)))
     (define (::stack value) (field-of value (quote stack)))
     (define (::stamp value) (field-of value (quote stamp)))
     (define (::starts value) (field-of value (quote starts)))

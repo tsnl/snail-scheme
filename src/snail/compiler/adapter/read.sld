@@ -1,11 +1,16 @@
 ;; The read pass beside the old reader, for as long as both exist: the new
 ;; Syntax as the old compiler's, and a comparison of what the two readers
 ;; make of a text, which tests/compiler.scm runs over every tracked library
-;; and over the texts below. Only this folder knows both compilers, and it
-;; goes when the old one does.
+;; and over the texts below. The conversions and the comparisons of syntax
+;; and feedback serve the later passes' comparisons too. Only this folder
+;; knows both compilers, and it goes when the old one does.
 (define-library (snail compiler adapter read)
   (export
    syntax->old
+   loc->old
+   feedback->old
+   items-difference
+   feedback-difference
    read-difference
    malformed-texts
    unusual-texts
@@ -88,7 +93,7 @@
       (if (= (length news) (length olds))
           (first-difference (zip news olds))
           (Some (string-append place
-                               ": the new reader reads "
+                               ": the new compiler reads "
                                (i64->string (length news))
                                " items, the old "
                                (i64->string (length olds))))))
@@ -109,7 +114,7 @@
         (if (loc=? (old:syntax-loc new) (old:syntax-loc old))
             (shape-difference place new old)
             (Some (string-append place
-                                 ": the new reader places this at "
+                                 ": the new compiler places this at "
                                  (old:loc->string (old:syntax-loc new)))))))
 
     ;; An identifier the old reader marked differs from any the new one
@@ -126,7 +131,7 @@
 
     (: unlike (impl (Fn String old:Syntax old:Syntax -> (Option String))))
     (define (unlike place new old)
-      (Some (string-append place ": the new reader reads " (brief new) ", the old " (brief old))))
+      (Some (string-append place ": the new compiler reads " (brief new) ", the old " (brief old))))
 
     ;; Syntax in a few words: a whole form could be a whole library.
     (: brief (impl (Fn old:Syntax -> String)))
@@ -148,7 +153,7 @@
     (define (feedback-difference news olds)
       (if (same-diagnostics? news olds)
           (None)
-          (Some (string-append "the new reader says "
+          (Some (string-append "the new compiler says "
                                (diagnostics-text news)
                                "; the old says "
                                (diagnostics-text olds)))))

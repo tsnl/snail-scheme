@@ -13,8 +13,8 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 | Pass | Unit | Reads | Writes | The one thing it does | Status |
 | --- | --- | --- | --- | --- | --- |
 | `read` | file | text | Syntax | Text becomes located forms. | implemented |
-| `include` | file | Syntax | Syntax | Each `include-bytes` form becomes the bytes of its file. | planned |
-| `outline` | file | Syntax | Outline | The header is parsed: name, imports, exports. The body stays Syntax. | planned |
+| `include` | file | Syntax | Syntax | Each `include-bytes` form becomes the bytes of its file. | implemented |
+| `outline` | file | Syntax | Outline | The header is parsed: name, imports, exports. The body stays Syntax. | implemented |
 | `expand` | library | Outline | Expanded | Macros run, every name is resolved, every core form is parsed. | planned |
 | `derive` | library | Expanded | Derived | `deriving` clauses become instance declarations. | planned |
 | `declare` | library | Derived | Declared | Written types become types; declarations become entities. | planned |
@@ -43,10 +43,12 @@ module: a whole program, or one library in a development build.
 - A **language** is the set of data types one pass writes. It is declared in
   one file, under a grammar that states it.
 - A **pass** is a pure function from its input languages to its output
-  language. A pass over a library also receives what the libraries it imports
-  offer, and nothing else of them. Instances are the one exception: they are
-  global, so the passes that choose an instance receive every instance in the
-  program, whichever library declares it.
+  language. A pass over a file also receives what the integrator read or
+  decided for it, such as the bytes of the files it includes. A pass over a
+  library also receives what the libraries it imports offer, and nothing else
+  of them. Instances are the one exception: they are global, so the passes
+  that choose an instance receive every instance in the program, whichever
+  library declares it.
 - A **query** is a pure function that reads a language and answers a fact
   about it, such as the imports of an outline or the files an expanded
   library links. It writes no tree.
@@ -64,11 +66,14 @@ only checks, as `confine` does, writes nothing.
 
 ```text
 src/snail/compiler/
-  source.sld              (snail compiler source): Loc, Feedback, result-let*
+  source.sld              (snail compiler source): Loc, Feedback, result-let*, map-results
   read/
     language.sld          (snail compiler read language): the Syntax language
     pass.sld              (snail compiler read pass): the function `read`
     ...                   rules and queries of this pass, one library each
+  include/
+    pass.sld              (snail compiler include pass): writes Syntax, so no language.sld
+    ...
   outline/
     language.sld
     pass.sld
@@ -92,6 +97,7 @@ The import rule keeps the folders apart, and `scripts/compiler-imports
   another pass's `pass.sld` or rules.
 - Only the integrator imports a `pass.sld`, and only the integrator imports
   `(snail core io)`.
+- The adapter is outside these rules; see the last section.
 
 A query library says so on its first line, which starts `;; Query:`. Any
 other library beside `language.sld` and `pass.sld` is a rule library.
@@ -134,10 +140,11 @@ written. Where one remains, a comment says which invariant it rests on.
 a number. No pass builds a name by joining text or reads one by scanning it.
 
 **Sequencing.** `result-let*` from `(snail compiler source)` sequences
-steps that return a `Result`, with the scope of `let*`. A pass that threads
-state defines one binding form for it beside the state, named with the
-`-let*` suffix; each step takes the state first and returns its value with
-the new state.
+steps that return a `Result`, with the scope of `let*`, and `map-results`
+steps each item of a list in order, stopping at the first failure. A pass
+that threads state defines one binding form for it beside the state, named
+with the `-let*` suffix; each step takes the state first and returns its
+value with the new state.
 
 **Rules apart from recursion.** The function that walks a tree obtains what
 a rule needs, calls it, and carries out what it answers. The rule itself
@@ -165,11 +172,13 @@ Grammars use `::=` for a rule, `|` between alternatives, `*` for a list and
 constructor; a lower-case word is a field of the type its name suggests.
 Every node of a tree carries a `Loc` unless its grammar says otherwise.
 
-### Syntax, written by `read` (implemented)
+### Syntax, written by `read` and `include` (implemented)
 
 Every bracket is matched, `'d` is the form `(quote d)`, and each literal's
 value is decoded, with an integer that fits in `I64`. A float keeps its
-text, and a `Text` holds the characters a string literal stands for.
+text, and a `Text` holds the characters a string literal stands for. After
+`include`, no `include-bytes` form remains: each is the `ByteVector` of its
+file, where the form was.
 
 ```text
 Syntax ::= Atom Datum | Ident name | Form Syntax*
@@ -177,15 +186,26 @@ Datum  ::= Integer integer | Float text | Text text | Character character
          | ByteVector bytes | Boolean boolean
 ```
 
-### Outline, written by `outline` (sketch)
+### Outline, written by `outline` (implemented)
+
+A library's file holds one library, under the name it was found by. Its
+declarations are joined into imports, exports and body, each in the order
+written, with every `cond-expand` decided, and every import set and export
+is well formed. A library name is its parts in order, with an integer part
+as its decimal text. A program is its leading imports and its body; when
+it is a producer a build printed, it also names the libraries loading as
+it starts and its recipe's file. Nothing in a body is read, nor a generated
+library's recipe, whose imports and expression become a producer program.
 
 ```text
-Library ::= Defined name Import* Export* Syntax*
-          | Generated name Import* Syntax          a producer program to run
-          | Program Import* Syntax*
-Import  ::= Whole library | Only Import name* | Except Import name*
-          | Prefix Import name | Rename Import (name name)*
-Export  ::= name | Rename name name
+Outline    ::= Defined library Import* Export* Syntax*
+             | Generated library Syntax* Syntax    the recipe's imports and expression
+             | Program key* recipe? Import* Syntax*  no Loc
+Import     ::= Whole library | Only Import Identifier* | Except Import Identifier*
+             | Prefix Import prefix | Rename Import Renaming*
+Renaming   ::= Renaming Identifier name            no Loc but its identifier's
+Export     ::= Export Identifier name              no Loc but its identifier's
+Identifier ::= Identifier name
 ```
 
 ### Expanded, written by `expand` (sketch)
@@ -276,8 +296,9 @@ The new tree is built beside the old one, front to back. `adapter/` in the
 new tree is the only code that knows both: it converts the newest finished
 language into the old compiler's data, so the old passes that remain run
 behind the new ones and the whole test suite keeps judging the result. It
-may import any library of either compiler, and it also holds the
-comparisons between a new pass and the old code that does its job.
+may import any library of either compiler or of the core, and it also holds
+the comparisons between a new pass and the old code that does its job,
+which read and write files as the old functions they call do.
 
 | Milestone | New passes | The adapter hands the old compiler |
 | --- | --- | --- |
