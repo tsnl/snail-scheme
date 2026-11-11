@@ -20,21 +20,39 @@ in. It is replaced when the source is read, so a macro cannot compute the
 path, and nothing else may be named `include-bytes`. A large file is better
 linked than included: see [linked files](#linked-files).
 
-A callable contract is `(impl (Fn Param ... -> Result))`, with an optional
+A callable contract is `(impl (Fn Param ... → Result))`, with an optional
 [effect row](effects.md) after `!`. `FnMut` selects exclusive access and
 `FnOnce` selects a consuming call. `dyn` names callable storage, while
-`(fn Param ... -> Result)` names noncapturing code. The
+`(fn Param ... → Result)` names noncapturing code. The
 [callable classes](#callable-classes) section describes these distinctions.
-A polymorphic signature quantifies type and row variables and lists its
-class requirements:
+A named function carries its type where it is defined. Every parameter has a
+mandatory `(name Type)` annotation, and every named function must state its result
+with `(→ Result)`. Optional effect, generic-variable, constraint and
+documentation clauses follow the parameter list at the start of the
+definition, before its body:
 
 ```scheme
-(: map
-   (All (A B e F)
-        (requires (Copy F) (Fn F A -> B ! e))
-        (impl (Fn F (List A) -> (List B) ! e))))
-(: sum (All (T e) (requires (Num e T)) (impl (Fn (List T) T -> T ! e))))
+(define (map-with (function F) (values (List A)))
+  (→ (List B))
+  (! e)
+  (∀ A B e F)
+  (⊨ (Copy F) (Fn F A → B ! e))
+  (map function values))
+(define (sum (values (List T)))
+  (→ T)
+  (! e)
+  (∀ T e)
+  (⊨ (Num e T))
+  (fold-left + 0 values))
 ```
+
+Ordinary value definitions retain their initializer form and can put an
+explicit type, quantifiers or constraints in the same leading header position,
+for example `(define zero (→ I64) 0)`. Existing separate `(: name type)`
+declarations remain for class, effect and foreign signatures, which have no
+implementation body. Type-level callable signatures use the Unicode `→`;
+universal quantification and requirements use `∀` and `⊨`. These are the only
+spellings: `->`, `All` and `requires` are not aliases.
 
 A type variable is linear unless the signature requires `(Copy T)`, which
 a body needs to use a `T` twice or to discard one
@@ -47,13 +65,14 @@ change numeric type implicitly: use `i64->i32`, `i32->f64` and the other
 conversions. Crossing an `Any` boundary checks the payload's type; it
 does not change that type. Integer arithmetic wraps.
 
-Unannotated top-level functions are generalized over the type variables no
+Local bindings remain monomorphic; place explicitly quantified definitions at
+the top level. Unannotated top-level functions are generalized over the type variables no
 constraint mentions. Other unannotated definitions, and functions whose
 types involve a class constraint, keep one type, which later uses in the
 same library may decide. A library is checked before the libraries that
 import it, so their uses never decide its types: `(define key-left 1)` is an
 `I64` wherever it is imported, and a value meant as an `I32` elsewhere needs
-the signature `(: key-left I32)`. Polymorphic definitions with constraints,
+the inline signature `(define key-left (→ I32) 1)`. Polymorphic definitions with constraints,
 and polymorphic values that are not functions, need signatures.
 
 ## Data
@@ -89,8 +108,8 @@ type and the field's type, with the one method `::label`; a struct without
 mutable fields has an instance per field, and the record's type decides
 the field's, so a path needs no annotation where the record's type is
 known. A library may declare an instance for a type that computes the
-field, and a generic function requires one, `(requires (::label R
-String))`, to read the field of any record that has it. Names beginning
+field. A generic function that reads the field of any record with that label
+needs `(⊨ (::label R String))`. Names beginning
 with `::` are reserved for paths.
 
 ```scheme
@@ -103,9 +122,9 @@ enum with cases `Nil` and `Cons`.
 
 ## Annotations
 
-A top-level type signature (`:`), `struct`, `enum`, `type`, `typeclass`, `effect`,
-`extern`, a struct or enum field, an enum case, a typeclass member or an
-effect operation can end with an optional
+A separate type declaration (`:`), `struct`, `enum`, `type`, `typeclass`,
+`effect`, `extern`, a struct or enum field, an enum case, a typeclass member
+or an effect operation can end with an optional
 `(annotations ...)` list. Omitting it and writing an empty list both leave
 the declaration undocumented. Each entry is an annotation application;
 its own parser establishes its argument types and meaning.
@@ -130,13 +149,19 @@ documentation. Metadata is retained when a library is reused by an
 incremental build and does not contribute to type identity, wire schemas,
 ownership, field order or runtime layout.
 
-Function and value documentation belongs on its type signature, outside
-its executable definition. A macro can emit an annotated signature followed
-by a definition. Raw macro arguments and ordinary expressions are not
-annotation slots: a function named `annotations` remains an ordinary function.
-The reader is unchanged; `:` is an identifier bound to the signature form,
-not special punctuation. In an enum's final clause, `annotations` is reserved
-for its metadata container, like `deriving` is reserved for derived instances.
+Function and value documentation belongs in the definition's leading header,
+after its type clauses and before its initializer or body. For example,
+`(define count (→ I64) (annotations (doc "A count.")) 3)` puts metadata
+before the initializer. A macro can emit that annotated definition. For
+no-body declarations such as class methods and foreign functions, metadata
+stays on their separate declaration. Raw macro arguments and ordinary
+expressions are not annotation slots: a function named `annotations` remains
+an ordinary function. In a leading definition header, `(annotations)` or a
+list of annotation applications is metadata. Wrap a call of that same shape
+in `begin` to use it as the first body expression or initializer. The reader is unchanged; `:` is an identifier bound to
+the signature form, not special punctuation. In an enum's final clause,
+`annotations` is reserved for its metadata container, like `deriving` is
+reserved for derived instances.
 
 ## Typeclasses
 
@@ -145,12 +170,12 @@ and may require other instances:
 
 ```scheme
 (typeclass (Describe T)
-  (: describe (impl (Fn T -> String))))
+  (: describe (impl (Fn T → String))))
 
 (instance (Describe (List T))
-  (requires (Describe T))
-  (define (describe items)
-    (string-join (map describe items) ", ")))
+  (⊨ (Describe T))
+  (define describe
+    (lambda (items) (string-join (map describe items) ", "))))
 ```
 
 The checker chooses each instance when it checks a use and records that
@@ -211,17 +236,19 @@ A class can declare ordinary associated types. Each instance defines them:
 ```scheme
 (typeclass (Add e A B)
   (type Output)
-  (: add (impl (Fn A B -> Output ! e))))
+  (: add (impl (Fn A B → Output ! e))))
 
 (instance (Add (!) I64 F64)
   (type Output F64)
-  (define (add a b) (+ (i64->f64 a) b)))
+  (define add (lambda (a b) (+ (i64->f64 a) b))))
 
-(: sum
-   (All (A B e)
-     (requires (Add e A B))
-     (impl (Fn A B -> (Add.Output e A B) ! e))))
-(define (sum a b) (add a b))
+
+(define (sum (a A) (b B))
+  (→ (Add.Output e A B))
+  (! e)
+  (∀ A B e)
+  (⊨ (Add e A B))
+  (add a b))
 ```
 
 `A` and `B` select the instance. Its `Output` and row are learned after
@@ -231,8 +258,8 @@ annotation demanding `String` fails. Instances with identical inputs and
 different outputs or rows overlap.
 
 Inside a class, `Output` names its own member. Outside, `Add.Output` projects
-from the matching enclosing `requires` evidence. Write the same class
-arguments as that requirement. A projection needs a unique requirement;
+from the matching enclosing `⊨` constraint. Write the same class arguments
+as that constraint. A projection needs a unique requirement;
 two requirements with the same input types cannot be distinguished by
 outputs or rows. Export the projection binding explicitly, alongside the
 class and its methods, when a library's clients need it.
@@ -240,11 +267,12 @@ class and its methods, when a library's clients need it.
 A requirement can constrain an output with an equality:
 
 ```scheme
-(: twice
-   (All (A e)
-     (requires (Copy A) (Add e A A (type Output A)))
-     (impl (Fn A -> A ! e))))
-(define (twice a) (add a a))
+(define (twice (a A))
+  (→ A)
+  (! e)
+  (∀ A e)
+  (⊨ (Copy A) (Add e A A (type Output A)))
+  (add a a))
 ```
 
 The equality checks the selected instance. Merely naming an output or
@@ -270,7 +298,7 @@ a general type-function evaluator.
 (define-instance-set mixed-addition
   (instance (Add (!) I64 F64)
     (type Output F64)
-    (define (add a b) (+ (i64->f64 a) b))))
+    (define add (lambda (a b) (+ (i64->f64 a) b)))))
 
 (with-instances (mixed-addition)
   (add (ann 1 I64) 2.5))
@@ -327,11 +355,10 @@ rows and defaults.
 
 `Fn`, `FnMut`, and `FnOnce` describe how a value can be called. They are
 compiler-derived typeclasses, independent of `Copy` and of effects. Each
-signature puts `->` before its one result and `!` before its effect row:
+callable type puts `→` before its one result and `!` before its effect row:
 
 ```scheme
-(: square (impl (Fn I64 -> I64)))
-(define (square n)
+(define (square (n I64)) (→ I64)
   (* n n))
 ```
 
@@ -358,8 +385,7 @@ Argument-position `impl` introduces a fresh caller-chosen type with a
 callability requirement. The consumer is generic over that type:
 
 ```scheme
-(: run-once (impl (Fn (impl (FnOnce I64 -> I64)) I64 -> I64)))
-(define (run-once function value)
+(define (run-once (function (impl (FnOnce I64 → I64))) (value I64)) (→ I64)
   (function value))
 ```
 
@@ -367,11 +393,10 @@ An explicit type variable is useful when other requirements concern the
 same owner. The receiver type comes before the signature in a constraint:
 
 ```scheme
-(: twice
-   (All (F)
-        (requires (Fn F I64 -> I64) (Drop (!) F))
-        (impl (Fn F I64 -> I64))))
-(define (twice function value)
+(define (twice (function F) (value I64))
+  (→ I64)
+  (∀ F)
+  (⊨ (Fn F I64 → I64) (Drop (!) F))
   (let ((answer (function (function value))))
     (drop function)
     answer))
@@ -393,16 +418,16 @@ different implementations of the same calling contract:
 
 ```scheme
 (struct Job
-  ((run (dyn (FnOnce I64 -> Unit ! console)))))
+  ((run (dyn (FnOnce I64 → Unit ! console)))))
 
-(: greeting (impl (Fn String -> (dyn (FnOnce -> Unit ! console)))))
-(define (greeting text)
+
+(define (greeting (text String)) (→ (dyn (FnOnce → Unit ! console)))
   (once (lambda () (write-line text))))
 ```
 
-`(dyn (Fn Args ... -> Result))` preserves the existing unrestricted closure representation
-and requires `Copy` captures. `(dyn (FnMut Args ... -> Result))` and
-`(dyn (FnOnce Args ... -> Result))`
+`(dyn (Fn Args ... → Result))` preserves the existing unrestricted closure representation
+and requires `Copy` captures. `(dyn (FnMut Args ... → Result))` and
+`(dyn (FnOnce Args ... → Result))`
 are owned storage. Their capture droppers run when they are released.
 This explicit storage keeps heterogeneous jobs, future reducers, task
 queues and saved resumptions possible. The checker inserts erasure at the
@@ -441,7 +466,7 @@ and may be stored in `dyn FnOnce` values. Callability does not imply purity,
 
 ### Code pointers
 
-`(fn A -> B ! e)` is the noncapturing code-pointer representation. A `fn`
+`(fn A → B ! e)` is the noncapturing code-pointer representation. A `fn`
 expression or a top-level function can provide it; a capturing lambda
 cannot. Code pointers satisfy the callable contracts, but retain their
 separate representation at storage and foreign boundaries. Wrap a code
@@ -492,24 +517,16 @@ content leaves a retained place selecting the same field in the new value.
 relates a concrete place type `P` to its unique selected type `T`; write
 that relation as `(Ref P T)`. The compiler derives it from valid place
 construction and projection. User instances cannot assert arbitrary
-storage layouts. Using the proposed parenthesized signature spelling:
+storage layouts. The argument-position `impl` form introduces a fresh type
+variable and its class obligation directly on this function:
 
 ```scheme
-(: zero! (impl (Fn (impl (Ref I64)) -> Unit ! mut)))
-(define (zero! target)
+(define (zero! (target (impl (Ref I64)))) (→ Unit) (! mut)
   (ref-set! target 0))
 ```
 
-This elaborates to a universally quantified argument type, schematically:
-
-```scheme
-(: zero!
-   (All (P)
-     (requires (Ref P I64))
-     (impl (Fn P -> Unit ! mut))))
-```
-
-The caller chooses `P`. Calling `zero!` on two different field paths
+The compiler checks it with a fresh type variable `P`, constrained by
+`(Ref P I64)`, and the caller chooses `P`. Calling `zero!` on two different field paths
 specializes it for their distinct place types; both write an `I64` without
 boxing or converting either place. Each argument-position `impl` introduces
 an independent type variable. A named `P` expresses that two arguments, or
@@ -701,11 +718,11 @@ package's data, and the library reads it when it needs it:
  (only (snail shell task) tasks)
  (snail shell resource))
 
-(: hero Resource)
-(define hero (link-file "art/hero.png"))
 
-(: hero-bytes (impl (Fn -> Bytes ! resource tasks)))
-(define (hero-bytes)
+(define hero (→ Resource) (link-file "art/hero.png"))
+
+
+(define (hero-bytes) (→ Bytes) (! resource tasks)
   (read-resource hero))
 ```
 
@@ -795,7 +812,7 @@ An explicit finite dispatcher supplies one:
 
 ```scheme
 (typeclass (Describe e T)
-  (: describe (impl (Fn T -> String ! e))))
+  (: describe (impl (Fn T → String ! e))))
 
 ;; Declare pure instances (Describe (!) I64) and (Describe (!) String) first.
 (instance (Describe (! dyn-cast) Any)
@@ -885,7 +902,7 @@ row contains `dyn-cast` plus the union of its eligible source rows; handlers
 or signatures must account for that whole row.
 
 The initial generator supports binary classes with one row, one associated
-output, and methods of type `(dyn (Fn A B -> Output ! e))`. Independently polymorphic
+output, and methods of type `(dyn (Fn A B → Output ! e))`. Independently polymorphic
 methods, extra method requirements, and source-instance prerequisites are
 rejected. Both listed inputs must be ground, non-`Any` types that can cross
 the existing erasure boundary. Heterogeneous results must also support
@@ -929,8 +946,7 @@ compile error. A handler for some other effect, including a user-defined
 `dyn-cast` to another effect.
 
 ```scheme
-(: integer (impl (Fn Any -> I64 ! dyn-cast)))
-(define (integer value) value)
+(define (integer (value Any)) (→ I64) (! dyn-cast) value)
 
 (handle dyn-cast ((conversion-failed (lambda (_) -1)))
   (integer "not an integer"))

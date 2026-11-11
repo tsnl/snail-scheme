@@ -7,15 +7,15 @@
 ;; ownership chapter includes the text between ANCHOR and ANCHOR_END.
 ;; ANCHOR: handle
 (effect log
-  ((say (dyn (Fn String -> Unit)))))
+  ((say (dyn (Fn String → Unit)))))
 
 (struct Handle
   ((name String)))
 
 (instance (Drop (! log) Handle)
-  (define (drop handle)
-    (match handle
-      ((Handle name) (say (string-append "released " name))))))
+  (define drop
+    (lambda (handle) (match handle
+                       ((Handle name) (say (string-append "released " name)))))))
 ;; ANCHOR_END: handle
 
 ;; A token is linear by its declaration, and holds nothing to release.
@@ -24,12 +24,10 @@
   (deriving Move))
 
 ;; A generic drop needs the row of what it drops.
-(: release-all (All (A e) (requires (Drop e A)) (impl (Fn (List A) -> Unit ! e))))
-(define (release-all items)
+(define (release-all (items (List A))) (→ Unit) (! e) (∀ A e) (⊨ (Drop e A))
   (drop items))
 
-(: demo (impl (Fn -> Unit ! log)))
-(define (demo)
+(define (demo) (→ Unit) (! log)
   (drop (Handle "one"))
   ;; Glue drops each linear field, in order.
   (drop (Pair (Handle "two") (Handle "three")))

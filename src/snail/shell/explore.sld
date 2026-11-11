@@ -25,14 +25,15 @@
 
     ;; `moves` lists what may happen in a state, `step` applies one, and
     ;; `invariant` explains why a state is wrong, if it is.
-    (: explore (All (S M) (requires (Serialize S) (Copy S) (Copy M))
-                    (impl (Fn S
-                              (dyn (Fn S -> (List M)))
-                              (dyn (Fn S M -> S))
-                              (dyn (Fn S -> (Option String)))
-                              I64
-                              -> (Option (Violation S M))))))
-    (define (explore initial moves step invariant depth)
+
+    (define (explore (initial S)
+                     (moves (dyn (Fn S → (List M))))
+                     (step (dyn (Fn S M → S)))
+                     (invariant (dyn (Fn S → (Option String))))
+                     (depth I64))
+      (→ (Option (Violation S M)))
+      (∀ S M)
+      (⊨ (Serialize S) (Copy S) (Copy M))
       (search (list (Visit initial (Nil)))
               moves
               step
@@ -42,15 +43,16 @@
 
     ;; Checks one frontier, then the states its moves reach for the first
     ;; time. `seen` holds every state reached so far.
-    (: search (All (S M) (requires (Serialize S) (Copy M) (Copy S))
-                   (impl (Fn (List (Visit S M))
-                             (dyn (Fn S -> (List M)))
-                             (dyn (Fn S M -> S))
-                             (dyn (Fn S -> (Option String)))
-                             I64
-                             (Table Bool)
-                             -> (Option (Violation S M))))))
-    (define (search frontier moves step invariant depth seen)
+
+    (define (search (frontier (List (Visit S M)))
+                    (moves (dyn (Fn S → (List M))))
+                    (step (dyn (Fn S M → S)))
+                    (invariant (dyn (Fn S → (Option String))))
+                    (depth I64)
+                    (seen (Table Bool)))
+      (→ (Option (Violation S M)))
+      (∀ S M)
+      (⊨ (Serialize S) (Copy M) (Copy S))
       (match (first-violation frontier invariant)
         ((Some violation) (Some violation))
         ((None)
@@ -59,12 +61,11 @@
              (match (successors frontier moves step seen)
                ((Pair next seen) (search next moves step invariant (- depth 1) seen)))))))
 
-    (: first-violation
-       (All (S M)
-            (requires (Copy M) (Copy S))
-            (impl
-             (Fn (List (Visit S M)) (dyn (Fn S -> (Option String))) -> (Option (Violation S M))))))
-    (define (first-violation frontier invariant)
+    (define (first-violation (frontier (List (Visit S M)))
+                             (invariant (dyn (Fn S → (Option String)))))
+      (→ (Option (Violation S M)))
+      (∀ S M)
+      (⊨ (Copy M) (Copy S))
       (match frontier
         ((Nil) (None))
         ((Cons visit rest)
@@ -75,13 +76,14 @@
 
     ;; The states the frontier reaches for the first time, with `seen`
     ;; grown by them.
-    (: successors (All (S M) (requires (Serialize S) (Copy M) (Copy S))
-                       (impl (Fn (List (Visit S M))
-                                 (dyn (Fn S -> (List M)))
-                                 (dyn (Fn S M -> S))
-                                 (Table Bool)
-                                 -> (Pair (List (Visit S M)) (Table Bool))))))
-    (define (successors frontier moves step seen)
+
+    (define (successors (frontier (List (Visit S M)))
+                        (moves (dyn (Fn S → (List M))))
+                        (step (dyn (Fn S M → S)))
+                        (seen (Table Bool)))
+      (→ (Pair (List (Visit S M)) (Table Bool)))
+      (∀ S M)
+      (⊨ (Serialize S) (Copy M) (Copy S))
       (match (fold-left (lambda (found visit)
                           (fold-left (lambda (found move)
                                        (let* ((state (step (::state visit) move))
@@ -99,8 +101,8 @@
         ((Pair next seen) (Pair (reverse next) seen))))
 
     ;; The encoding as text, one character per byte, to key the table.
-    (: state-key (All (S) (requires (Serialize S) (Copy S)) (impl (Fn S -> String))))
-    (define (state-key state)
+
+    (define (state-key (state S)) (→ String) (∀ S) (⊨ (Serialize S) (Copy S))
       (let ((bytes (serialize state)))
         (string-generate (vector-length bytes)
                          (lambda (index) (i32->char (u8->i32 (vector-ref bytes index)))))))

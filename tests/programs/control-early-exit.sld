@@ -6,7 +6,7 @@
 ;; its handler, whose implementation drops `resume`, so nothing after the
 ;; operation runs, in the search or in the frames that called it.
 (effect Found
-  ((ctl found (dyn (Fn I64 -> Unit)))))
+  ((ctl found (dyn (Fn I64 → Unit)))))
 
 (enum Tree
   (Leaf)
@@ -15,14 +15,12 @@
     (value I64)
     (right Tree))))
 
-(: tree Tree)
-(define tree
+(define tree (→ Tree)
   (Node (Node (Leaf) 3 (Node (Leaf) 8 (Leaf))) 5 (Node (Node (Leaf) 12 (Leaf)) 7 (Leaf))))
 
 ;; An in-order walk that reports each value it passes, so the output shows
 ;; where the walk stopped.
-(: walk (impl (Fn (dyn (Fn I64 -> Bool)) Tree -> Unit ! Found console)))
-(define (walk wanted tree)
+(define (walk (wanted (dyn (Fn I64 → Bool))) (tree Tree)) (→ Unit) (! Found console)
   (match tree
     ((Leaf) (unit))
     ((Node left value right)
@@ -31,8 +29,7 @@
      (when (wanted value) (found value))
      (walk wanted right))))
 
-(: first-where (impl (Fn (dyn (Fn I64 -> Bool)) -> I64 ! console)))
-(define (first-where wanted)
+(define (first-where (wanted (dyn (Fn I64 → Bool)))) (→ I64) (! console)
   (handle Found ((found (lambda (value resume) (drop resume) value)))
     (walk wanted tree)
     -1))
@@ -42,8 +39,7 @@
 
 ;; Operands that ran before the operation keep their effects; the call
 ;; they were for never happens.
-(: sum (impl (Fn Tree -> I64 ! Found)))
-(define (sum tree)
+(define (sum (tree Tree)) (→ I64) (! Found)
   (match tree
     ((Leaf) 0)
     ((Node left value right)
@@ -56,8 +52,7 @@
 
 ;; A `FnOnce` held across the operation is dropped with the frame that held
 ;; it, and never runs.
-(: guarded (impl (Fn (List I64) -> I64 ! console)))
-(define (guarded items)
+(define (guarded (items (List I64))) (→ I64) (! console)
   (handle Found ((found (lambda (value resume) (drop resume) value)))
     (let ((cleanup (once (lambda () (write-line "cleanup ran")))))
       (for-each (lambda (item) (when (< item 0) (found item))) items)

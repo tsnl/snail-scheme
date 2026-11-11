@@ -28,12 +28,10 @@
        (value I64))
       (deriving Serialize Deserialize))
 
-    (: make-random (impl (Fn I64 -> Random)))
-    (define (make-random seed)
+    (define (make-random (seed I64)) (→ Random)
       (random-next (Random seed 0)))
 
-    (: random-next (impl (Fn Random -> Random)))
-    (define (random-next random)
+    (define (random-next (random Random)) (→ Random)
       (let* ((state (+ (::state random) -7046029254386353131))
              (z (i64-xor state (i64-shift-right/logical state 30)))
              (z (* z -4658895280553007687))
@@ -41,17 +39,15 @@
              (z (* z -7723592293110705685)))
         (Random state (i64-xor z (i64-shift-right/logical z 31)))))
 
-    (: random-value (impl (Fn Random -> I64)))
-    (define (random-value random)
+    (define (random-value (random Random)) (→ I64)
       (::value random))
 
-    (: random-state (impl (Fn Random -> I64)))
-    (define (random-state random)
+    (define (random-state (random Random)) (→ I64)
       (::state random))
 
     ;; The latest output reduced to [0, bound).
-    (: random-below (impl (Fn Random I64 -> I64)))
-    (define (random-below random bound)
+
+    (define (random-below (random Random) (bound I64)) (→ I64)
       (modulo (i64-shift-right/logical (::value random) 1) bound))
 
     ))

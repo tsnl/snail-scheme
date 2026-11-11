@@ -20,8 +20,7 @@
 
     ;; ---- Handling ----
 
-    (: with-page-dom (All (T e) (impl (Fn (dyn (Fn -> T ! dom e)) -> T ! events e))))
-    (define (with-page-dom work)
+    (define (with-page-dom (work (dyn (Fn → T ! dom e)))) (→ T) (! events e) (∀ T e)
       (handle dom
           ((document-root (lambda () (Node (host-root))))
            (create-element (lambda (tag) (Node (host-create-element (string->utf8 tag)))))
@@ -83,13 +82,11 @@
 
     ;; ---- Window applications ----
 
-    (: page-installation-status (impl (Fn -> InstallationStatus)))
-    (define (page-installation-status)
+    (define (page-installation-status) (→ InstallationStatus)
       (case (host-installation-status)
         ((1) (InstallAvailable)) ((2) (AppInstalled)) (else (InstallUnavailable))))
 
-    (: page-install (impl (Fn -> InstallResult ! tasks)))
-    (define (page-install)
+    (define (page-install) (→ InstallResult) (! tasks)
       (case (through-host host-start-install host-finish-install)
         ((0) (InstallAccepted)) ((1) (InstallDismissed)) ((2) (InstallNotAvailable))
         ((3) (GestureRequired)) ((5) (InstallAlreadyInstalled)) (else (InstallFailed))))
@@ -102,16 +99,15 @@
     ;; checked; its numbers, the pointer's position and the target's
     ;; scroll offsets, and its texts, the target's value and the key, are
     ;; read beside it.
-    (: fired-kind I32)
-    (define fired-kind 14)
 
-    (: woken-kind I32)
-    (define woken-kind 15)
+    (define fired-kind (→ I32) 14)
+
+    (define woken-kind (→ I32) 15)
 
     ;; The next delivery, skipping the display frames and resizes an
     ;; interface has no use for.
-    (: page-delivery (impl (Fn -> Delivery ! events tasks)))
-    (define (page-delivery)
+
+    (define (page-delivery) (→ Delivery) (! events tasks)
       (let ((kind (poll-event)))
         (cond ((= kind 0) (wait-event) (page-delivery))
               ((= kind fired-kind) (Fired (Listener (event-field 0)) (fired-event)))
@@ -121,8 +117,7 @@
               ((= kind reload-kind) (Closed))
               (else (page-delivery)))))
 
-    (: fired-event (impl (Fn -> Event ! events)))
-    (define (fired-event)
+    (define (fired-event) (→ Event) (! events)
       (Event (host-reply (host-event-text 0))
              (host-reply (host-event-text 1))
              (event-field 1)
@@ -138,8 +133,8 @@
     ;; ---- The browser host ----
 
     ;; A measure crosses a number at a time, in the order of its fields.
-    (: measure-node (impl (Fn I32 -> Measure)))
-    (define (measure-node handle)
+
+    (define (measure-node (handle I32)) (→ Measure)
       (host-measure handle)
       (Measure (host-measured 0)
                (host-measured 1)
@@ -149,20 +144,19 @@
                (host-measured 5)
                (host-measured 6)))
 
-    (: named (impl (Fn String String -> Bytes)))
-    (define (named name value)
+    (define (named (name String) (value String)) (→ Bytes)
       (string->utf8 (string-append name (make-string 1 #\null) value)))
 
-    (: host-reply (impl (Fn I32 -> String)))
-    (define (host-reply count)
+    (define (host-reply (count I32)) (→ String)
       (string-generate (i32->i64 count)
                        (lambda (index)
                          (integer->char (i32->i64 (host-reply-scalar (i64->i32 index)))))))
 
     ;; A listener prevents by kind: 0 never, 1 always, 2 for its chords,
     ;; which follow it.
-    (: listen-node (impl (Fn Node String (List Capture) Prevent -> Listener)))
-    (define (listen-node node event captures prevent)
+
+    (define (listen-node (node Node) (event String) (captures (List Capture)) (prevent Prevent))
+      (→ Listener)
       (let ((id (host-listen (::handle node)
                              (capture-bits captures)
                              (match prevent

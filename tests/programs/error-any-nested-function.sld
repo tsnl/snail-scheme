@@ -5,13 +5,10 @@
 ;; A TypeId drops rows at every depth, so a list of yielding functions is
 ;; refused as a yielding function is.
 (effect Gen
-  ((ctl yield (dyn (Fn I64 -> I64)))))
+  ((ctl yield (dyn (Fn I64 → I64)))))
 
-(: gen (impl (Fn -> I64 ! Gen)))
-(define (gen) (+ 1 (yield 1)))
+(define (gen) (→ I64) (! Gen) (+ 1 (yield 1)))
 
-(: boxed Any)
-(define boxed (type-convert (list gen) Any))
+(define boxed (→ Any) (type-convert (list gen) Any))
 
-(: hidden (List (dyn (Fn -> I64))))
-(define hidden (type-convert boxed (List (dyn (Fn -> I64)))))
+(define hidden (→ (List (dyn (Fn → I64)))) (type-convert boxed (List (dyn (Fn → I64)))))

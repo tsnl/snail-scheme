@@ -3,21 +3,17 @@
  (snail core io)
  (snail shell http))
 
-(: ascii (impl (Fn String -> Bytes)))
-(define (ascii text)
+(define (ascii (text String)) (→ Bytes)
   (vector-generate (string-length text)
                    (lambda (index) (i32->u8 (char->i32 (string-ref text index))))))
 
-(: text (impl (Fn Bytes -> String)))
-(define (text bytes)
+(define (text (bytes Bytes)) (→ String)
   (string-generate (vector-length bytes)
                    (lambda (index) (i32->char (u8->i32 (vector-ref bytes index))))))
 
-(: assert (impl (Fn Bool -> Unit)))
-(define (assert condition) (unless condition (panic "HTTP assertion failed")))
+(define (assert (condition Bool)) (→ Unit) (unless condition (panic "HTTP assertion failed")))
 
-(: kind (impl (Fn HttpError -> String)))
-(define (kind error)
+(define (kind (error HttpError)) (→ String)
   (match error
     ((Malformed _) "malformed")
     ((Unsupported _) "unsupported")
@@ -25,20 +21,18 @@
     ((BodyTooLarge) "body-limit")
     ((InvalidResponse _) "response")))
 
-(: reject-head (impl (Fn String String -> Unit)))
-(define (reject-head source expected)
+(define (reject-head (source String) (expected String)) (→ Unit)
   (match (parse-request-head (ascii source))
     ((Err error) (assert (string=? (kind error) expected)))
     ((Ok _) (panic "accepted invalid head"))))
 
-(: parsed (impl (Fn Bytes -> ParsedHead)))
-(define (parsed bytes)
+(define (parsed (bytes Bytes)) (→ ParsedHead)
   (match (parse-request-head bytes)
     ((Ok value) (match value ((Some head) head) ((None) (panic "incomplete test head"))))
     ((Err _) (panic "rejected test head"))))
 
-(: encoded (impl (Fn String I32 (List Header) Bytes -> ResponseParts)))
-(define (encoded method status headers bytes)
+(define (encoded (method String) (status I32) (headers (List Header)) (bytes Bytes))
+  (→ ResponseParts)
   (match (encode-response method status headers bytes)
     ((Ok response) response)
     ((Err _) (panic "rejected test response"))))
@@ -127,8 +121,7 @@
  "body-limit")
 (write-line "exact limits")
 
-(: check-response (impl (Fn String I32 String Bytes -> Unit)))
-(define (check-response method status head body)
+(define (check-response (method String) (status I32) (head String) (body Bytes)) (→ Unit)
   (let ((response (encoded method status (Nil) #u8(0 255 128))))
     (assert (string=? (text (::head response)) head))
     (assert (= (vector-length (::body response)) (vector-length body)))
@@ -150,8 +143,8 @@
 (check-response "HEAD" 200 "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 3\r\n\r\n" #u8())
 (write-line "response framing")
 
-(: reject-response (impl (Fn String I32 (List Header) String -> Unit)))
-(define (reject-response method status headers expected)
+(define (reject-response (method String) (status I32) (headers (List Header)) (expected String))
+  (→ Unit)
   (match (encode-response method status headers #u8())
     ((Err error) (assert (string=? (kind error) expected)))
     ((Ok _) (panic "accepted invalid response"))))
@@ -187,8 +180,7 @@
 ;; Node from `new URL(target, base)`, splitting its pathname at `/` before
 ;; decoding each segment. Malformed escapes and text that is not UTF-8,
 ;; which Node passes through or replaces, are errors here.
-(: target-text (impl (Fn String -> String)))
-(define (target-text source)
+(define (target-text (source String)) (→ String)
   (match (parse-target source)
     ((Err error) (string-append source " -> error " (kind error)))
     ((Ok target)
@@ -242,8 +234,7 @@
 
 ;; A stream's head has no Content-Length: the body ends when the
 ;; connection closes.
-(: stream-head (impl (Fn I32 (List Header) -> String)))
-(define (stream-head status headers)
+(define (stream-head (status I32) (headers (List Header))) (→ String)
   (match (encode-stream-head status headers)
     ((Ok head) (text head))
     ((Err error) (string-append "error " (kind error)))))

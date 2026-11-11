@@ -8,16 +8,13 @@
  (snail core io)
  (snail shell json))
 
-(: chars (impl (Fn (List I64) -> String)))
-(define (chars codes)
+(define (chars (codes (List I64))) (→ String)
   (list->string (map integer->char codes)))
 
-(: controls String)
-(define controls (chars (append (iota 32) (list 127))))
+(define controls (→ String) (chars (append (iota 32) (list 127))))
 
 ;; A mebibyte of text in lines, as a file's contents would be sent.
-(: long-text String)
-(define long-text
+(define long-text (→ String)
   (string-concatenate (map (lambda (line)
                              (string-append (make-string 63 (integer->char (+ 97 (modulo line 26))))
                                             "\n"))

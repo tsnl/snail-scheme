@@ -6,7 +6,7 @@
 ;; which no caller reads: each representation has one. The handler's
 ;; result is what the program sees.
 (effect Abort
-  ((ctl abort (dyn (Fn I64 -> I64)))))
+  ((ctl abort (dyn (Fn I64 → I64)))))
 
 (struct Point
   ((x I64)
@@ -17,20 +17,18 @@
   (Box
    ((width I64))))
 
-(: point (impl (Fn -> Point ! Abort)))
-(define (point) (Point 1 (abort 2)))
+(define (point) (→ Point) (! Abort) (Point 1 (abort 2)))
 
-(: shape (impl (Fn -> Shape ! Abort)))
-(define (shape) (Box (abort 3)))
+(define (shape) (→ Shape) (! Abort) (Box (abort 3)))
 
-(: text (impl (Fn -> String ! Abort)))
-(define (text) (string-append "x" (show (abort 4))))
+(define (text) (→ String) (! Abort) (string-append "x" (show (abort 4))))
 
-(: adder (impl (Fn -> (dyn (Fn I64 -> I64)) ! Abort)))
-(define (adder) (let ((z (abort 5))) (lambda (y) (* y z))))
+(define (adder) (→ (dyn (Fn I64 → I64))) (! Abort) (let ((z (abort 5))) (lambda (y) (* y z))))
 
-(: later (impl (Fn -> (dyn (FnOnce -> Unit ! console)) ! Abort)))
-(define (later) (let ((value (abort 6))) (once (lambda () (write-line (show value))))))
+(define (later)
+  (→ (dyn (FnOnce → Unit ! console)))
+  (! Abort)
+  (let ((value (abort 6))) (once (lambda () (write-line (show value))))))
 
 (display (handle Abort ((abort (lambda (value resume) (drop resume) (* value 1000))))
            (+ (::x (point)) 1)))
@@ -44,7 +42,7 @@
 (display
  ((handle Abort ((abort (lambda (value resume)
                           (drop resume)
-                          (ann (lambda (y) (+ y value)) (dyn (Fn I64 -> I64)))))) (adder))
+                          (ann (lambda (y) (+ y value)) (dyn (Fn I64 → I64)))))) (adder))
   1))
 (newline)
 ((handle Abort ((abort (lambda (value resume)
@@ -55,11 +53,11 @@
 ;; A handler of an ordinary operation inside the handle is left behind with
 ;; the rest of the body; an effect may mix both kinds of operation.
 (effect Log
-  ((log (dyn (Fn String -> Unit)))))
+  ((log (dyn (Fn String → Unit)))))
 
 (effect Probe
-  ((peek (dyn (Fn -> I64)))
-   (ctl bail (dyn (Fn I64 -> Unit)))))
+  ((peek (dyn (Fn → I64)))
+   (ctl bail (dyn (Fn I64 → Unit)))))
 
 (display (handle Abort ((abort (lambda (value resume) (drop resume) (* value 10))))
            (handle Log ((log (lambda (message) (write-line message))))

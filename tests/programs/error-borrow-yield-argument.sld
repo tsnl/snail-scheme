@@ -2,14 +2,13 @@
  (snail core base))
 
 (effect Pause
-  ((ctl pause (dyn (Fn -> Unit)))))
+  ((ctl pause (dyn (Fn → Unit)))))
 
 (struct Token
   ((number I64))
   (deriving Move))
 
-(: inspect (impl (Fn (Borrow Token) Unit -> I64)))
-(define (inspect token ignored)
+(define (inspect (token (Borrow Token)) (ignored Unit)) (→ I64)
   (::number token))
 
 (let ((token (Token 1)))

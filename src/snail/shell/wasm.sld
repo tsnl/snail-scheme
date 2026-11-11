@@ -93,29 +93,29 @@
     ;; one I64, such as `main` or `tasks:turn`, for its result, and
     ;; `call-with-function` one of a Funcref, such as `tasks:start-main`.
     (effect wasm
-      ((argument-character (dyn (Fn Char -> Unit)))
-       (argument-end (dyn (Fn -> Unit)))
-       (compile (dyn (Fn Bytes -> I32)))
-       (namespace (dyn (Fn -> I32)))
-       (instantiate (dyn (Fn I32 I32 -> I32)))
-       (exports-function? (dyn (Fn I32 -> Bool)))
-       (export-function (dyn (Fn I32 -> Funcref)))
-       (import-count (dyn (Fn I32 -> I32)))
-       (import-at (dyn (Fn I32 I32 -> I32)))
-       (held-length (dyn (Fn I32 -> I32)))
-       (held-char (dyn (Fn I32 I32 -> Char)))
-       (prepare-link (dyn (Fn I32 -> Unit)))
-       (provide-export (dyn (Fn I32 -> Bool)))
-       (provide-host (dyn (Fn -> Bool)))
-       (provide-missing (dyn (Fn -> Unit)))
-       (link-prepared (dyn (Fn -> I32)))
-       (provide-constant (dyn (Fn I32 -> Unit)))
-       (register-instance (dyn (Fn I32 -> Bool)))
-       (prepare-names (dyn (Fn -> Unit)))
-       (provide-instance (dyn (Fn I32 -> Bool)))
-       (replace-names (dyn (Fn -> Bool)))
-       (call-export (dyn (Fn I32 I64 -> I64)))
-       (call-with-function (dyn (Fn I32 Funcref -> I64))))
+      ((argument-character (dyn (Fn Char → Unit)))
+       (argument-end (dyn (Fn → Unit)))
+       (compile (dyn (Fn Bytes → I32)))
+       (namespace (dyn (Fn → I32)))
+       (instantiate (dyn (Fn I32 I32 → I32)))
+       (exports-function? (dyn (Fn I32 → Bool)))
+       (export-function (dyn (Fn I32 → Funcref)))
+       (import-count (dyn (Fn I32 → I32)))
+       (import-at (dyn (Fn I32 I32 → I32)))
+       (held-length (dyn (Fn I32 → I32)))
+       (held-char (dyn (Fn I32 I32 → Char)))
+       (prepare-link (dyn (Fn I32 → Unit)))
+       (provide-export (dyn (Fn I32 → Bool)))
+       (provide-host (dyn (Fn → Bool)))
+       (provide-missing (dyn (Fn → Unit)))
+       (link-prepared (dyn (Fn → I32)))
+       (provide-constant (dyn (Fn I32 → Unit)))
+       (register-instance (dyn (Fn I32 → Bool)))
+       (prepare-names (dyn (Fn → Unit)))
+       (provide-instance (dyn (Fn I32 → Bool)))
+       (replace-names (dyn (Fn → Bool)))
+       (call-export (dyn (Fn I32 I64 → I64)))
+       (call-with-function (dyn (Fn I32 Funcref → I64))))
       (default ((argument-character host-argument-character)
                 (argument-end host-argument-end)
                 (compile host-compile)
@@ -140,8 +140,7 @@
                 (call-export host-call-export)
                 (call-with-function host-call-with-function))))
 
-    (: send-argument (impl (Fn String -> Unit ! wasm)))
-    (define (send-argument text)
+    (define (send-argument (text String)) (→ Unit) (! wasm)
       (let loop ((index 0))
         (when (< index (string-length text))
           (argument-character (string-ref text index))
@@ -150,11 +149,10 @@
 
     ;; What `instantiate` answers when its namespace has a module of that
     ;; name, and when an import has no provider of its type.
-    (: name-taken I32)
-    (define name-taken -1)
 
-    (: program-namespace I32)
-    (define program-namespace 0)
+    (define name-taken (→ I32) -1)
+
+    (define program-namespace (→ I32) 0)
 
     ;; ---- Errors ----
 
@@ -176,8 +174,7 @@
       (SignatureMismatch
        ((name String))))
 
-    (: load-error-message (impl (Fn LoadError -> String)))
-    (define (load-error-message error)
+    (define (load-error-message (error LoadError)) (→ String)
       (match error
         ((Unreadable file) (string-append "cannot read " file))
         ((InvalidManifest file) (string-append file " is not the modules.json of a program"))
@@ -198,14 +195,13 @@
 
     ;; Loads the module in `file` under the library name `name`, into the
     ;; program's namespace.
-    (: load-module (impl (Fn String String -> (Result Module LoadError) ! wasm fs)))
-    (define (load-module name file)
+
+    (define (load-module (name String) (file String)) (→ (Result Module LoadError)) (! wasm fs)
       (match (compile-file file)
         ((Ok compiled) (instantiate-module program-namespace compiled name))
         ((Err error) (Err error))))
 
-    (: compile-file (impl (Fn String -> (Result I32 LoadError) ! wasm fs)))
-    (define (compile-file file)
+    (define (compile-file (file String)) (→ (Result I32 LoadError)) (! wasm fs)
       (if (file-exists? file)
           (let ((compiled (compile (read-bytes file))))
             (if (< compiled 0) (Err (InvalidModule file)) (Ok compiled)))
@@ -213,8 +209,10 @@
 
     ;; The module, linked against those in the namespace, then the runtime
     ;; and the host, with its main run.
-    (: instantiate-module (impl (Fn I32 I32 String -> (Result Module LoadError) ! wasm)))
-    (define (instantiate-module namespace compiled name)
+
+    (define (instantiate-module (namespace I32) (compiled I32) (name String))
+      (→ (Result Module LoadError))
+      (! wasm)
       (send-argument name)
       (let ((handle (instantiate namespace compiled)))
         (cond ((= handle name-taken) (Err (NameTaken name)))
@@ -222,8 +220,8 @@
               (else (Ok (Module handle))))))
 
     ;; The function the module exports as `name`.
-    (: module-export (impl (Fn Module String -> (Result Funcref LoadError) ! wasm)))
-    (define (module-export module name)
+
+    (define (module-export (module Module) (name String)) (→ (Result Funcref LoadError)) (! wasm)
       (send-argument name)
       (if (exports-function? (::handle module))
           (begin (send-argument name) (Ok (export-function (::handle module))))
@@ -255,14 +253,15 @@
     ;; module text depends on the program it was compiled for, so a plugin
     ;; has instances of its own, and its globals, even of a library the
     ;; program imports too. The runtime its manifest names is not loaded.
-    (: load-plugin (impl (Fn String -> (Result Plugin LoadError) ! wasm fs)))
-    (define (load-plugin file)
+
+    (define (load-plugin (file String)) (→ (Result Plugin LoadError)) (! wasm fs)
       (match (read-manifest file)
         ((Ok manifest) (link-plugin (namespace) (directory-of file) manifest))
         ((Err error) (Err error))))
 
-    (: link-plugin (impl (Fn I32 String Manifest -> (Result Plugin LoadError) ! wasm fs)))
-    (define (link-plugin namespace directory manifest)
+    (define (link-plugin (namespace I32) (directory String) (manifest Manifest))
+      (→ (Result Plugin LoadError))
+      (! wasm fs)
       (match (link-libraries namespace directory (::libraries manifest))
         ((Some error) (Err error))
         ((None)
@@ -271,8 +270,10 @@
            ((Err error) (Err error))))))
 
     ;; Why the first library that does not link failed, if one does not.
-    (: link-libraries (impl (Fn I32 String (List PluginModule) -> (Option LoadError) ! wasm fs)))
-    (define (link-libraries namespace directory libraries)
+
+    (define (link-libraries (namespace I32) (directory String) (libraries (List PluginModule)))
+      (→ (Option LoadError))
+      (! wasm fs)
       (match libraries
         ((Nil) (None))
         ((Cons library rest)
@@ -280,25 +281,23 @@
            ((Ok _) (link-libraries namespace directory rest))
            ((Err error) (Some error))))))
 
-    (: link-plugin-module
-       (impl (Fn I32 String PluginModule -> (Result Module LoadError) ! wasm fs)))
-    (define (link-plugin-module namespace directory module)
+    (define (link-plugin-module (namespace I32) (directory String) (module PluginModule))
+      (→ (Result Module LoadError))
+      (! wasm fs)
       (match (compile-file (relative-to directory (::file module)))
         ((Ok compiled) (instantiate-module namespace compiled (::name module)))
         ((Err error) (Err error))))
 
     ;; ---- Manifests ----
 
-    (: read-manifest (impl (Fn String -> (Result Manifest LoadError) ! fs)))
-    (define (read-manifest file)
+    (define (read-manifest (file String)) (→ (Result Manifest LoadError)) (! fs)
       (if (file-exists? file)
           (match (parse-manifest (read-file file))
             ((Some manifest) (Ok manifest))
             ((None) (Err (InvalidManifest file))))
           (Err (Unreadable file))))
 
-    (: parse-manifest (impl (Fn String -> (Option Manifest))))
-    (define (parse-manifest text)
+    (define (parse-manifest (text String)) (→ (Option Manifest))
       (match (string->json text)
         ((Some json)
          (match (json-member json "modules")
@@ -309,16 +308,16 @@
         ((None) (None))))
 
     ;; The store a manifest's objects are in, relative to the manifest.
-    (: manifest-store (impl (Fn Json -> String)))
-    (define (manifest-store json)
+
+    (define (manifest-store (json Json)) (→ String)
       (match (json-member json "store")
         ((Some (JsonString store)) store)
         (_ "store/")))
 
     ;; A manifest whose every entry names a module, with at least the
     ;; program's own.
-    (: manifest-of (impl (Fn (List (Option PluginModule)) -> (Option Manifest))))
-    (define (manifest-of entries)
+
+    (define (manifest-of (entries (List (Option PluginModule)))) (→ (Option Manifest))
       (match (reverse entries)
         ((Cons (Some program) libraries)
          (fold-left (lambda (manifest entry)
@@ -331,23 +330,22 @@
 
     ;; A module's library, and the object holding it, relative to the
     ;; manifest.
-    (: manifest-module (impl (Fn String Json -> (Option PluginModule))))
-    (define (manifest-module store entry)
+
+    (define (manifest-module (store String) (entry Json)) (→ (Option PluginModule))
       (match (Pair (json-member entry "name") (json-member entry "digest"))
         ((Pair (Some (JsonString name)) (Some (JsonString digest)))
          (Some (PluginModule name (string-append store "sha256/" digest))))
         (_ (None))))
 
     ;; A path's directory with its final slash, or "" for a bare name.
-    (: directory-of (impl (Fn String -> String)))
-    (define (directory-of path)
+
+    (define (directory-of (path String)) (→ String)
       (let loop ((index (- (string-length path) 1)))
         (cond ((< index 0) "")
               ((char=? (string-ref path index) #\/) (substring path 0 (+ index 1)))
               (else (loop (- index 1))))))
 
-    (: relative-to (impl (Fn String String -> String)))
-    (define (relative-to directory file)
+    (define (relative-to (directory String) (file String)) (→ String)
       (if (and (> (string-length file) 0) (char=? (string-ref file 0) #\/))
           file
           (string-append directory file)))
@@ -361,8 +359,8 @@
       ((handle I32)))
 
     ;; The module `bytes` hold, or none when they are not one.
-    (: compile-bytes (impl (Fn Bytes -> (Option Compiled) ! wasm)))
-    (define (compile-bytes bytes)
+
+    (define (compile-bytes (bytes Bytes)) (→ (Option Compiled)) (! wasm)
       (let ((handle (compile bytes)))
         (if (< handle 0) (None) (Some (Compiled handle)))))
 
@@ -378,18 +376,15 @@
        (name String)
        (kind ImportKind)))
 
-    (: module-imports (impl (Fn Compiled -> (List Import) ! wasm)))
-    (define (module-imports compiled)
+    (define (module-imports (compiled Compiled)) (→ (List Import)) (! wasm)
       (map (lambda (index) (import-of (::handle compiled) (i64->i32 index)))
            (iota (i32->i64 (import-count (::handle compiled))))))
 
-    (: import-of (impl (Fn I32 I32 -> Import ! wasm)))
-    (define (import-of module index)
+    (define (import-of (module I32) (index I32)) (→ Import) (! wasm)
       (let ((kind (import-at module index)))
         (Import (held-string 0) (held-string 1) (kind-of kind))))
 
-    (: kind-of (impl (Fn I32 -> ImportKind)))
-    (define (kind-of code)
+    (define (kind-of (code I32)) (→ ImportKind)
       (cond ((= code 0) (FunctionImport))
             ((= code 1) (TableImport))
             ((= code 2) (MemoryImport))
@@ -397,8 +392,8 @@
             (else (panic "the host answered an unknown kind of import"))))
 
     ;; A name the host holds, a character at a time.
-    (: held-string (impl (Fn I32 -> String ! wasm)))
-    (define (held-string which)
+
+    (define (held-string (which I32)) (→ String) (! wasm)
       (string-generate (i32->i64 (held-length which))
                        (lambda (index) (held-char which (i64->i32 index)))))
 
@@ -422,8 +417,8 @@
 
     ;; The program that loads, as an instance whose exports a loaded module
     ;; may import.
-    (: loading-program Module)
-    (define loading-program (Module 0))
+
+    (define loading-program (→ Module) (Module 0))
 
     ;; Links `compiled`, called `name` in a failure, with `providers`, one
     ;; per import in import order, and initializes it when it exports
@@ -431,15 +426,16 @@
     ;; host has no such function, an import is left without a provider, or
     ;; a provider is not of the import's type; a trap while the module
     ;; starts still ends the program.
-    (: link-module (impl (Fn String Compiled (List Provider) -> (Result Module LoadError) ! wasm)))
-    (define (link-module name compiled providers)
+
+    (define (link-module (name String) (compiled Compiled) (providers (List Provider)))
+      (→ (Result Module LoadError))
+      (! wasm)
       (prepare-link (::handle compiled))
       (for-each provide providers)
       (let ((handle (link-prepared)))
         (if (< handle 0) (Err (LinkFailed name)) (Ok (Module handle)))))
 
-    (: provide (impl (Fn Provider -> Unit ! wasm)))
-    (define (provide provider)
+    (define (provide (provider Provider)) (→ Unit) (! wasm)
       (match provider
         ((ExportOf instance export)
          (send-argument export)
@@ -453,8 +449,8 @@
     ;; Puts the instance in the program's namespace under `name`, where
     ;; `load-module` and the modules loaded later see it, answering whether
     ;; the name was free.
-    (: name-instance (impl (Fn Module String -> Bool ! wasm)))
-    (define (name-instance instance name)
+
+    (define (name-instance (instance Module) (name String)) (→ Bool) (! wasm)
       (send-argument name)
       (register-instance (::handle instance)))
 
@@ -462,8 +458,8 @@
     ;; candidate is staged without suspension or callbacks into loaded code.
     ;; Any invalid entry poisons the whole candidate; omitted names disappear.
     ;; Instances and existing references to them are never reinitialized.
-    (: replace-instances (impl (Fn (List (Pair String Module)) -> Bool ! wasm)))
-    (define (replace-instances instances)
+
+    (define (replace-instances (instances (List (Pair String Module)))) (→ Bool) (! wasm)
       (prepare-names)
       (for-each (lambda (entry)
                   (send-argument (::first entry))
@@ -474,8 +470,10 @@
     ;; Calls the function the instance exports as `name`, of no argument or
     ;; one I64, such as its `main` or a scheduler's `tasks:turn`, with
     ;; `argument`, answering its result, or 0 when it answers nothing.
-    (: run-export (impl (Fn Module String I64 -> (Result I64 LoadError) ! wasm)))
-    (define (run-export instance name argument)
+
+    (define (run-export (instance Module) (name String) (argument I64))
+      (→ (Result I64 LoadError))
+      (! wasm)
       (send-argument name)
       (if (exports-function? (::handle instance))
           (begin (send-argument name) (Ok (call-export (::handle instance) argument)))
@@ -483,8 +481,10 @@
 
     ;; Calls the function the instance exports as `name` with `function`,
     ;; such as a scheduler's `tasks:start-main` with a program's body.
-    (: run-export-with (impl (Fn Module String Funcref -> (Result I64 LoadError) ! wasm)))
-    (define (run-export-with instance name function)
+
+    (define (run-export-with (instance Module) (name String) (function Funcref))
+      (→ (Result I64 LoadError))
+      (! wasm)
       (send-argument name)
       (if (exports-function? (::handle instance))
           (begin (send-argument name)
@@ -498,9 +498,12 @@
     ;; is compared with that type's once, here, so a stale plugin is refused
     ;; before anything it returns is read; the call then has the plain type.
     ;; A dynamic export is pure, so the program's handlers are not passed on.
-    (: plugin-function
-       (All (A) (requires (Copy A)) (impl (Fn Plugin String -> (Result A LoadError) ! wasm))))
-    (define (plugin-function plugin name)
+
+    (define (plugin-function (plugin Plugin) (name String))
+      (→ (Result A LoadError))
+      (! wasm)
+      (∀ A)
+      (⊨ (Copy A))
       (let ((program (::program plugin)))
         (match (Pair (module-export program name)
                      (module-export program (string-append name ":signature")))
@@ -513,15 +516,14 @@
     ;; no arguments that returns NAME's signature. That a plugin's export so
     ;; named is one is this boundary's unsafe assumption; the engine traps if
     ;; its WebAssembly type is not that function's.
-    (: descriptor (impl (Fn Funcref -> (Vector I64))))
-    (define (descriptor signature)
-      ((ann (unsafe-cast signature) (dyn (Fn -> (Vector I64))))))
 
-    (: checked-function
-       (All (A)
-            (requires (Copy A))
-            (impl (Fn String Funcref (Vector I64) -> (Result A LoadError)))))
-    (define (checked-function name function signature)
+    (define (descriptor (signature Funcref)) (→ (Vector I64))
+      ((ann (unsafe-cast signature) (dyn (Fn → (Vector I64))))))
+
+    (define (checked-function (name String) (function Funcref) (signature (Vector I64)))
+      (→ (Result A LoadError))
+      (∀ A)
+      (⊨ (Copy A))
       (match (vector->list
               (dynamic-cast function (lambda (expected) (same-signature? signature expected))))
         ((Cons typed _) (Ok typed))
@@ -530,8 +532,8 @@
     ;; The policy is strict identity: a plugin's function is taken only at
     ;; exactly the types it was compiled with. A looser one, accepting a
     ;; compatible change, would be decided here.
-    (: same-signature? (impl (Fn (Vector I64) (Vector I64) -> Bool)))
-    (define (same-signature? offered expected)
+
+    (define (same-signature? (offered (Vector I64)) (expected (Vector I64))) (→ Bool)
       (and (= (vector-length offered) (vector-length expected))
            (every? (lambda (index) (= (vector-ref offered index) (vector-ref expected index)))
                    (iota (vector-length offered)))))))

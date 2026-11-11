@@ -128,11 +128,11 @@ Import `(snail shell http exchange)` and call `serve-one` with an exclusively us
 `Connection`, an I32 grace period in milliseconds, and an application function:
 
 ```scheme
-(: serve-one
-   (All (E e)
-     (impl (Fn Connection I32
-         (dyn (Fn Request -> (Result Response E) ! e))
-         -> (Result Unit (ExchangeError E)) ! tcp e))))
+;; serve-one contract (summary notation):
+;; (∀ (E e)
+;;   (impl (Fn Connection I32
+;;       (dyn (Fn Request → (Result Response E) ! e))
+;;       → (Result Unit (ExchangeError E)) ! tcp e)))
 ```
 
 `Request` contains `head : RequestHead` and `body : Bytes`. The callback returns

@@ -17,8 +17,7 @@
   ((width I64)
    (input Input)))
 
-(: request (impl (Fn (List String) -> Request)))
-(define (request arguments)
+(define (request (arguments (List String))) (→ Request)
   (match arguments
     ((Cons "--width" (Cons columns rest))
      (match (string->i64 columns)
@@ -27,12 +26,10 @@
        ((None) (bad-width))))
     (_ (Request format-width (input-of arguments)))))
 
-(: bad-width (impl (Fn -> Request)))
-(define (bad-width)
+(define (bad-width) (→ Request)
   (panic "format-scheme: --width takes a positive number of columns"))
 
-(: input-of (impl (Fn (List String) -> Input)))
-(define (input-of arguments)
+(define (input-of (arguments (List String))) (→ Input)
   (match arguments
     ((Nil) (StandardInput))
     ((Cons "--check" (Cons path rest)) (CheckFiles (Cons path rest)))
@@ -42,8 +39,8 @@
 ;; ---- Input and output ----
 
 ;; Read scalars, not lines, so EOF does not invent a final newline.
-(: read-input (impl (Fn -> String ! console)))
-(define (read-input)
+
+(define (read-input) (→ String) (! console)
   (let loop ((characters (Nil)))
     (let ((code (console-read)))
       (if (= code -1)
@@ -52,8 +49,8 @@
 
 ;; Every changed path, in order. Check mode leaves files alone; write mode
 ;; leaves already formatted files alone, including their timestamps.
-(: format-files (impl (Fn I64 Bool (List String) -> (List String) ! fs)))
-(define (format-files width write? paths)
+
+(define (format-files (width I64) (write? Bool) (paths (List String))) (→ (List String)) (! fs)
   (let loop ((paths paths) (changed (Nil)))
     (match paths
       ((Nil) (reverse changed))
@@ -67,16 +64,15 @@
 
 ;; Collect all changed files before reporting, rather than stopping at the
 ;; first one. Panic prints to stderr and exits with status 1, as other tools do.
-(: check-files (impl (Fn I64 (List String) -> Unit ! fs)))
-(define (check-files width paths)
+
+(define (check-files (width I64) (paths (List String))) (→ Unit) (! fs)
   (match (format-files width #f paths)
     ((Nil) (unit))
     (changed
      (panic (string-join (map (lambda (path) (string-append path ": needs formatting")) changed)
                          "\n")))))
 
-(: perform (impl (Fn Request -> Unit ! console fs)))
-(define (perform request)
+(define (perform (request Request)) (→ Unit) (! console fs)
   (match (::input request)
     ((StandardInput) (write-string (format-source (read-input) (::width request))))
     ((CheckFiles paths) (check-files (::width request) paths))

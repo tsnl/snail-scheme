@@ -61,13 +61,13 @@ Illustrative generated operations use existing effect syntax:
 
 ```scheme
 (effect NotesRead
-  ((paragraphs-ref (dyn (Fn EntityId -> (Option Paragraph))))
-   (documents-ref (dyn (Fn EntityId -> (Option Document))))))
+  ((paragraphs-ref (dyn (Fn EntityId → (Option Paragraph))))
+   (documents-ref (dyn (Fn EntityId → (Option Document))))))
 
 (effect NotesWrite
-  ((paragraphs-insert! (dyn (Fn EntityId Paragraph -> Bool)))
-   (paragraphs-replace! (dyn (Fn EntityId Paragraph -> Bool)))
-   (paragraphs-delete! (dyn (Fn EntityId -> Bool)))))
+  ((paragraphs-insert! (dyn (Fn EntityId Paragraph → Bool)))
+   (paragraphs-replace! (dyn (Fn EntityId Paragraph → Bool)))
+   (paragraphs-delete! (dyn (Fn EntityId → Bool)))))
 ```
 
 Insert returns false if the key exists; replace/delete return false if it is
@@ -88,18 +88,18 @@ a general-purpose `Immutable` marker.
 
 The examples use the existing `(Result A E)` from `(snail core base)`, with `(Ok A)`
 and `(Err E)`.
-The following signatures are schematic generated API contracts:
+The following comment-form types summarize the proposed generated API; they are
+not separate implementation declarations:
 
 ```scheme
-(: notes-read
-   (All (A)
-     (impl (Fn (dyn (Fn -> A ! NotesRead))
-         -> (Result A StoreError) ! store))))
-
-(: notes-write
-   (All (A E)
-     (impl (Fn (dyn (Fn -> (Result A E) ! NotesRead NotesWrite))
-         -> (Result A (WriteError E)) ! store))))
+;; notes-read contract (summary notation):
+;; (∀ (A)
+;;   (impl (Fn (dyn (Fn → A ! NotesRead))
+;;       → (Result A StoreError) ! store)))
+;; notes-write contract (summary notation):
+;; (∀ (A E)
+;;   (impl (Fn (dyn (Fn → (Result A E) ! NotesRead NotesWrite))
+;;       → (Result A (WriteError E)) ! store)))
 ```
 
 `notes-read` binds one consistent snapshot for the whole computation, including
@@ -137,10 +137,8 @@ required, but pure library expansion of the runner is not yet established.
 An edit action might be:
 
 ```scheme
-(: replace-text
-   (impl (Fn EntityId String -> (Result Unit EditError)
-       ! NotesRead NotesWrite)))
-(define (replace-text id text)
+
+(define (replace-text (id EntityId) (text String)) (→ (Result Unit EditError)) (! NotesRead NotesWrite)
   (match (paragraphs-ref id)
     ((None) (Err (MissingParagraph id)))
     ((Some paragraph)
@@ -167,17 +165,17 @@ write result, outside the transaction.
 Assume `Layout` is ordinary immutable data and `typeset` is a pure function:
 
 ```scheme
-(: paragraph-layout
-   (impl (Fn EntityId F32 -> (Option Layout) ! NotesRead)))
-(define-view (paragraph-layout id width)
+(define-view (paragraph-layout (id EntityId) (width F32))
+  (→ (Option Layout))
+  (! NotesRead)
   (match (paragraphs-ref id)
     ((None) (None))
     ((Some paragraph)
      (Some (typeset paragraph width)))))
 
-(: document-layout
-   (impl (Fn EntityId F32 -> (Option (Vector (Option Layout))) ! NotesRead)))
-(define-view (document-layout id width)
+(define-view (document-layout (id EntityId) (width F32))
+  (→ (Option (Vector (Option Layout))))
+  (! NotesRead)
   (match (documents-ref id)
     ((None) (None))
     ((Some document)

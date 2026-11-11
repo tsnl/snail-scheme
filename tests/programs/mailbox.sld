@@ -8,14 +8,12 @@
 ;; before its yield and its second after, so the messages arrive in the
 ;; order the producers ran, and the consumer receives them in that order:
 ;; one by waking from a park, the others already waiting in the queue.
-(: produce (impl (Fn (Mailbox String) String -> Unit ! mut tasks)))
-(define (produce mailbox name)
+(define (produce (mailbox (Mailbox String)) (name String)) (→ Unit) (! mut tasks)
   (mailbox-post mailbox (string-append name " 1"))
   (yield)
   (mailbox-post mailbox (string-append name " 2")))
 
-(: consume (impl (Fn (Mailbox String) I64 -> Unit ! console mut tasks)))
-(define (consume mailbox count)
+(define (consume (mailbox (Mailbox String)) (count I64)) (→ Unit) (! console mut tasks)
   (when (> count 0)
     (write-line (string-append "received " (mailbox-receive mailbox)))
     (consume mailbox (- count 1))))

@@ -1,1 +1,1 @@
-only a fn or a top-level function has type (fn I64 -> I64)
+only a fn or a top-level function has type (fn I64 → I64)

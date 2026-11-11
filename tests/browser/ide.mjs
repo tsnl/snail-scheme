@@ -13,7 +13,7 @@ import {command} from './ide-commands.mjs';
 const [root, screenshot] = process.argv.slice(2), project = await mkdtemp(join(tmpdir(), 'snail-ide-'));
 const source = join(project, 'main.sld'), description = join(project, 'project.datum');
 const config = '((build-target main (program (entry "main.sld"))))';
-const program = text => `(import (snail core base) (snail core io))\n(: greeting String)\n(define greeting "${text}")\n(write-line greeting)\n`;
+const program = text => `(import (snail core base) (snail core io))\n(define greeting (→ String) "${text}")\n(write-line greeting)\n`;
 await writeFile(description, config); await writeFile(source, program('hello'));
 await writeFile(join(project, 'notes.txt'), 'plain text\r\n');
 const service = await startDevelopment(root, project), browser = await openBrowser();
@@ -55,17 +55,17 @@ try {
   await until(() => browser.evaluate('document.getElementById("diagnostics").textContent.includes("does not fit String")'), 'fresh compiler diagnostic');
   await until(() => browser.evaluate('document.querySelector(".pane.active .error-highlight")?.textContent === "5"'), 'fresh source observation');
   assert.equal(await browser.evaluate('document.querySelector(".pane.active .error-highlight")?.textContent'), '5', 'compiler-provided point');
-  assert.ok(await type('(define greeting 5)', '(define greeting\n"fixed")'));
+  assert.ok(await type('(define greeting (→ String) 5)', '(define greeting (→ String)\n"fixed")'));
   await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('"fixed"'); t.setSelectionRange(at, at); })()`);
   await press({key: 'Tab'});
-  assert.match(await text(), /\(define greeting\n  "fixed"\)/);
+  assert.match(await text(), /\(define greeting \(→ String\)\n  "fixed"\)/);
   // Enter indents the new line for what follows it, and the page undoes it as typing.
-  await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('greeting\\n') + 8;
+  await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('"fixed"');
     t.focus(); t.setSelectionRange(at, at); })()`);
   await press({key: 'Enter'});
-  await until(async () => /\(define greeting\n  \n  "fixed"\)/.test(await text()), 'the indented new line');
+  await until(async () => /\(define greeting \(→ String\)\n  \n  "fixed"\)/.test(await text()), 'the indented new line');
   await browser.evaluate(`document.execCommand('undo')`);
-  await until(async () => /\(define greeting\n  "fixed"\)/.test(await text()), 'the undone new line');
+  await until(async () => /\(define greeting \(→ String\)\n  "fixed"\)/.test(await text()), 'the undone new line');
   await press({code: 'KeyS', key: 's', ctrlKey: true});
   await saved(); await until(built, 'fixed build');
   assert.equal(await browser.evaluate('document.getElementById("diagnostics").textContent'), '');
@@ -77,7 +77,7 @@ try {
   await browser.evaluate('document.execCommand = window.insertCommand');
   assert.match(await readFile(source, 'utf8'), /          "unformatted"/);
 
-  const unicode = '(import (snail core base))\r\n(: greeting String)\r\n(define greeting (if #t "😀" 5))\r\n';
+  const unicode = '(import (snail core base))\r\n(define greeting (→ String) (if #t "😀" 5))\r\n';
   // A diagnostic can arrive before its source GETs. Keep the old editor text
   // visible, but do not apply the new point to that older baseline.
   await browser.evaluate(`window.actualFetch = window.fetch; window.sourceReads = []; window.holdSource = true;

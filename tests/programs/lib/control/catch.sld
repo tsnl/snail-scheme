@@ -8,16 +8,14 @@
    (control signal))
   (begin
     ;; The value signalled first, or 0 when the action finishes.
-    (: first-signal (impl (Fn (dyn (Fn -> Unit ! Signal console)) -> I64 ! console)))
-    (define (first-signal action)
+    (define (first-signal (action (dyn (Fn → Unit ! Signal console)))) (→ I64) (! console)
       (handle Signal ((signal (lambda (value resume) (drop resume) value)))
         (action)
         0))
 
     ;; Every value signalled, resuming the action after each: the frames
     ;; the action saves belong to other libraries' modules.
-    (: all-signals (impl (Fn (dyn (Fn -> Unit ! Signal console)) -> (List I64) ! console)))
-    (define (all-signals action)
+    (define (all-signals (action (dyn (Fn → Unit ! Signal console)))) (→ (List I64)) (! console)
       (handle Signal ((signal (lambda (value resume) (Cons value (resume (unit))))))
         (action)
         (Nil)))))

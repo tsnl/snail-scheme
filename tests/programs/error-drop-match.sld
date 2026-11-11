@@ -3,7 +3,6 @@
  (owned handle))
 
 ;; Only the library of a type with a Drop instance takes one apart.
-(: name-of (impl (Fn Handle -> String)))
-(define (name-of handle)
+(define (name-of (handle Handle)) (→ String)
   (match handle
     ((Handle name) name)))

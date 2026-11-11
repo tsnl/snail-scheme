@@ -4,6 +4,5 @@
  (scheme runtime))
 
 ;; Calling an erased Scheme procedure retains its fixed effect signature.
-(: invoke (impl (Fn Any (List Any) -> Any ! console mut)))
-(define (invoke procedure arguments)
+(define (invoke (procedure Any) (arguments (List Any))) (→ Any) (! console mut)
   (call procedure arguments))

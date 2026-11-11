@@ -7,8 +7,7 @@
    (hearsay shell)
    (hearsay art))
   (begin
-    (: view (impl (Fn Shell -> Frame)))
-    (define (view shell)
+    (define (view (shell Shell)) (→ Frame)
       (view-shell shell art))
 
     (type Hearsay (SceneApplication Shell))
@@ -16,9 +15,9 @@
     (define-page-state Shell)
 
     (instance (Scene Shell)
-      (define (scene-initialize seed width height) (new-shell seed width height))
-      (define (scene-update state input) (update-shell state input))
-      (define (scene-view state) (view state))
-      (define (scene-hud state) (shell-hud state))
-      (define (scene-save state) (serialize (shell-save state)))
-      (define (scene-restore bytes) (shell-restore (deserialize bytes))))))
+      (define scene-initialize (lambda (seed width height) (new-shell seed width height)))
+      (define scene-update (lambda (state input) (update-shell state input)))
+      (define scene-view (lambda (state) (view state)))
+      (define scene-hud (lambda (state) (shell-hud state)))
+      (define scene-save (lambda (state) (serialize (shell-save state))))
+      (define scene-restore (lambda (bytes) (shell-restore (deserialize bytes)))))))

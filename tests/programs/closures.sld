@@ -2,16 +2,13 @@
  (snail core base)
  (snail core io))
 
-(: adder (impl (Fn I64 -> (dyn (Fn I64 -> I64)))))
-(define (adder n)
+(define (adder (n I64)) (→ (dyn (Fn I64 → I64)))
   (lambda (x) (+ x n)))
 
-(: compose (All (A B C) (impl (Fn (dyn (Fn B -> C)) (dyn (Fn A -> B)) -> (dyn (Fn A -> C))))))
-(define (compose f g)
+(define (compose (f (dyn (Fn B → C))) (g (dyn (Fn A → B)))) (→ (dyn (Fn A → C))) (∀ A B C)
   (lambda (x) (f (g x))))
 
-(: count-down (impl (Fn I64 -> I64)))
-(define (count-down n)
+(define (count-down (n I64)) (→ I64)
   (let loop ((i n) (total 0))
     (if (= i 0) total (loop (- i 1) (+ total i)))))
 
@@ -23,8 +20,8 @@
 (display (count-down 1000000))
 (newline)
 (let ((base 7))
-  (define (scale x) (* x base))
-  (define (twice f x) (f (f x)))
+  (define scale (lambda (x) (* x base)))
+  (define twice (lambda (f x) (f (f x))))
   (display (twice scale 2))
   (newline))
 (display (fold-left + 0 (map (lambda (x) (* x x)) (list 1 2 3 4))))

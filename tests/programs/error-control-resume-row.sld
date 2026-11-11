@@ -7,20 +7,19 @@
 ;; `log` then needs a Log handler there, so `resume` performs the handle's
 ;; context row, Log here, and a Step that stores it must say so.
 (effect Gen
-  ((ctl yield (dyn (Fn I64 -> I64)))))
+  ((ctl yield (dyn (Fn I64 → I64)))))
 
 (effect Log
-  ((log (dyn (Fn String -> Unit)))))
+  ((log (dyn (Fn String → Unit)))))
 
 ;; ANCHOR: step
 (enum Step
   (Done)
   (Yielded
    ((value I64)
-    (next (dyn (FnOnce I64 -> Step))))))
+    (next (dyn (FnOnce I64 → Step))))))
 
-(: start (impl (Fn (dyn (Fn -> Unit ! Gen)) -> Step ! Log)))
-(define (start body)
+(define (start (body (dyn (Fn → Unit ! Gen)))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (v resume)
                         (log (string-append "handler saw " (show v)))
                         (Yielded v resume))))
@@ -28,8 +27,7 @@
     (Done)))
 ;; ANCHOR_END: step
 
-(: counter (impl (Fn -> Unit ! Gen)))
-(define (counter)
+(define (counter) (→ Unit) (! Gen)
   (yield 1)
   (yield 2)
   (unit))

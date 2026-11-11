@@ -16,8 +16,7 @@
 
     ;; ---- Handling ----
 
-    (: with-page-fetch (All (T e) (impl (Fn (dyn (Fn -> T ! fetch e)) -> T ! e))))
-    (define (with-page-fetch work)
+    (define (with-page-fetch (work (dyn (Fn → T ! fetch e)))) (→ T) (! e) (∀ T e)
       (handle fetch
           ((request page-request)
            (stream-open (lambda (url kinds)
@@ -34,8 +33,10 @@
     ;; between the parts and the start. The reply's status comes back from
     ;; the wait, -1 when there was no reply, and its body, or why there was
     ;; none, a scalar at a time.
-    (: page-request (impl (Fn String String (List Header) String -> (Result Reply String) ! tasks)))
-    (define (page-request method url headers body)
+
+    (define (page-request (method String) (url String) (headers (List Header)) (body String))
+      (→ (Result Reply String))
+      (! tasks)
       (host-request-method (string->utf8 method))
       (host-request-url (string->utf8 url))
       (for-each (lambda (header)
@@ -50,14 +51,13 @@
     ;; A stream opens with its URL and the kinds it hears as one string, a
     ;; NUL between each. The wait answers -1 once the stream is closed, and
     ;; otherwise leaves the next event's kind and data, a NUL between them.
-    (: page-stream-next (impl (Fn Stream -> (Option StreamEvent) ! tasks)))
-    (define (page-stream-next stream)
+
+    (define (page-stream-next (stream Stream)) (→ (Option StreamEvent)) (! tasks)
       (let ((count (through-host (lambda (ticket) (host-stream-start ticket (::id stream)))
                                  host-stream-finish)))
         (if (< count 0) (None) (Some (stream-event (host-reply))))))
 
-    (: stream-event (impl (Fn String -> StreamEvent)))
-    (define (stream-event text)
+    (define (stream-event (text String)) (→ StreamEvent)
       (match (string-index text #\null)
         ((Some end)
          (StreamEvent (substring text 0 end) (substring text (+ end 1) (string-length text))))
@@ -66,8 +66,8 @@
     ;; ---- The browser host ----
 
     ;; The text the last finished wait left.
-    (: host-reply (impl (Fn -> String)))
-    (define (host-reply)
+
+    (define (host-reply) (→ String)
       (string-generate (i32->i64 (host-reply-count))
                        (lambda (index)
                          (integer->char (i32->i64 (host-reply-scalar (i64->i32 index)))))))))

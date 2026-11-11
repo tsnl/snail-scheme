@@ -68,37 +68,32 @@
        (arguments (List String))
        (loc Loc)))
 
-    (: target-name (impl (Fn BuildTarget -> String)))
-    (define (target-name target)
+    (define (target-name (target BuildTarget)) (→ String)
       (match target
         ((ProgramTarget program) (::name program))
         ((BrowserTarget browser) (::name browser))))
 
-    (: target-loc (impl (Fn BuildTarget -> Loc)))
-    (define (target-loc target)
+    (define (target-loc (target BuildTarget)) (→ Loc)
       (match target
         ((ProgramTarget program) (::loc program))
         ((BrowserTarget browser) (::loc browser))))
 
-    (: find-target (impl (Fn (List BuildTarget) String -> (Option BuildTarget))))
-    (define (find-target builds name)
+    (define (find-target (builds (List BuildTarget)) (name String)) (→ (Option BuildTarget))
       (find (lambda (build) (string=? (target-name build) name)) builds))
 
     ;; ---- Literal names and paths ----
 
-    (: path-character? (impl (Fn Char -> Bool)))
-    (define (path-character? c)
+    (define (path-character? (c Char)) (→ Bool)
       (and (not (= (char->integer c) 0)) (not (char=? c #\\)) (not (char=? c #\:))))
 
     ;; Names under `.snail-` belong to the toolchain's own build targets.
-    (: reserved-name? (impl (Fn String -> Bool)))
-    (define (reserved-name? name)
+
+    (define (reserved-name? (name String)) (→ Bool)
       (let ((prefix ".snail-"))
         (and (>= (string-length name) (string-length prefix))
              (string=? (substring name 0 (string-length prefix)) prefix))))
 
-    (: parse-name (impl (Fn Syntax -> String ! compile)))
-    (define (parse-name syntax)
+    (define (parse-name (syntax Syntax)) (→ String) (! compile)
       (match syntax
         ((Ident name _ loc)
          (if (and (not (string=? name ".."))
@@ -110,20 +105,17 @@
                             "a target name must be one path component outside the reserved .snail-* names")))
         (_ (compile-error (syntax-loc syntax) "expected a literal target name"))))
 
-    (: literal-string (impl (Fn Syntax -> String ! compile)))
-    (define (literal-string syntax)
+    (define (literal-string (syntax Syntax)) (→ String) (! compile)
       (match syntax
         ((Atom (DString text) _) text)
         (_ (compile-error (syntax-loc syntax) "expected a literal string"))))
 
-    (: literal-list (impl (Fn Syntax -> (List Syntax) ! compile)))
-    (define (literal-list syntax)
+    (define (literal-list (syntax Syntax)) (→ (List Syntax)) (! compile)
       (match syntax
         ((Form items _) items)
         (_ (compile-error (syntax-loc syntax) "expected a literal list"))))
 
-    (: path-components? (impl (Fn String -> Bool)))
-    (define (path-components? text)
+    (define (path-components? (text String)) (→ Bool)
       (let loop ((start 0) (end 0))
         (if (or (= end (string-length text)) (char=? (string-ref text end) #\/))
             (let ((part (substring text start end)))
@@ -131,8 +123,7 @@
                    (or (= end (string-length text)) (loop (+ end 1) (+ end 1)))))
             (loop start (+ end 1)))))
 
-    (: parse-path (impl (Fn Syntax -> ProjectPath ! compile)))
-    (define (parse-path syntax)
+    (define (parse-path (syntax Syntax)) (→ ProjectPath) (! compile)
       (let ((text (literal-string syntax)) (loc (syntax-loc syntax)))
         (unless (and (> (string-length text) 0)
                      (every? path-character? (string->list text))
@@ -141,16 +132,14 @@
                          "expected a project-relative path using /, without empty, . or .. components, backslash, colon or NUL"))
         (ProjectPath text loc)))
 
-    (: entry-path (impl (Fn Syntax -> ProjectPath ! compile)))
-    (define (entry-path syntax)
+    (define (entry-path (syntax Syntax)) (→ ProjectPath) (! compile)
       (let ((path (parse-path syntax)))
         (when (string=? (::text path) ".")
           (compile-error (::loc path)
                          "an entry must name a file, not the project directory"))
         path))
 
-    (: parse-entry (impl (Fn Syntax -> ProjectEntry ! compile)))
-    (define (parse-entry syntax)
+    (define (parse-entry (syntax Syntax)) (→ ProjectEntry) (! compile)
       (match syntax
         ((Atom (DString _) _) (SourceEntry (entry-path syntax)))
         ((Form (Cons (Form (Cons part parts) _) (Cons name (Nil))) _)
@@ -160,8 +149,10 @@
 
     ;; ---- Build options ----
 
-    (: duplicate (All (A) (impl (Fn String String Loc Loc -> A ! compile))))
-    (define (duplicate kind name here previous)
+    (define (duplicate (kind String) (name String) (here Loc) (previous Loc))
+      (→ A)
+      (! compile)
+      (∀ A)
       (compile-error here
                      (string-append "duplicate "
                                     kind
@@ -170,15 +161,18 @@
                                     "; first declared at "
                                     (loc->string previous))))
 
-    (: unique-field
-       (All (T) (requires (Copy T)) (impl (Fn String Loc (Option T) T -> (Option T) ! compile))))
-    (define (unique-field name loc previous value)
+    (define (unique-field (name String) (loc Loc) (previous (Option T)) (value T))
+      (→ (Option T))
+      (! compile)
+      (∀ T)
+      (⊨ (Copy T))
       (match previous
         ((Some _) (compile-error loc (string-append "duplicate option " name)))
         ((None) (Some value))))
 
-    (: build-fields (impl (Fn Bool String Loc (List Syntax) -> BuildTarget ! compile)))
-    (define (build-fields browser? name declaration forms)
+    (define (build-fields (browser? Bool) (name String) (declaration Loc) (forms (List Syntax)))
+      (→ BuildTarget)
+      (! compile)
       (let loop ((forms forms) (entry (ann (None) (Option ProjectEntry)))
                  (libraries (ann (None) (Option (List ProjectPath))))
                  (public (ann (None) (Option ProjectPath))))
@@ -207,8 +201,9 @@
                (else (compile-error loc (string-append "unknown build option " key)))))
              (_ (compile-error (syntax-loc form) "expected a (key value) build option")))))))
 
-    (: parse-build (impl (Fn String Syntax Loc -> BuildTarget ! compile)))
-    (define (parse-build name syntax declaration)
+    (define (parse-build (name String) (syntax Syntax) (declaration Loc))
+      (→ BuildTarget)
+      (! compile)
       (match syntax
         ((Form (Cons (Ident kind _ _) forms) loc)
          (unless (or (string=? kind "program") (string=? kind "browser"))
@@ -218,8 +213,7 @@
 
     ;; ---- Runs and declarations ----
 
-    (: run-arguments (impl (Fn (List Syntax) -> (List String) ! compile)))
-    (define (run-arguments forms)
+    (define (run-arguments (forms (List Syntax))) (→ (List String)) (! compile)
       (let loop ((forms forms) (arguments (ann (None) (Option (List String)))))
         (match forms
           ((Nil) (match arguments ((Some values) values) ((None) (Nil))))
@@ -228,8 +222,9 @@
                  (unique-field "args" loc arguments (map literal-string (literal-list value)))))
           ((Cons form _) (compile-error (syntax-loc form) "expected (args (STRING ...))")))))
 
-    (: resolve-program (impl (Fn (List BuildTarget) Syntax -> ProgramBuild ! compile)))
-    (define (resolve-program builds syntax)
+    (define (resolve-program (builds (List BuildTarget)) (syntax Syntax))
+      (→ ProgramBuild)
+      (! compile)
       (let ((name (parse-name syntax)) (loc (syntax-loc syntax)))
         (match (find-target builds name)
           ((Some (ProgramTarget program)) program)
@@ -237,8 +232,9 @@
            (compile-error loc "a run target must reference a program build"))
           ((None) (compile-error loc (string-append "unknown build target " name))))))
 
-    (: parse-run (impl (Fn (List BuildTarget) String Syntax Loc -> RunTarget ! compile)))
-    (define (parse-run builds name syntax declaration)
+    (define (parse-run (builds (List BuildTarget)) (name String) (syntax Syntax) (declaration Loc))
+      (→ RunTarget)
+      (! compile)
       (match syntax
         ((Form (Cons (Ident "run" _ _) (Cons target forms)) _)
          (RunTarget name (resolve-program builds target) (run-arguments forms) declaration))
@@ -246,8 +242,8 @@
 
     ;; The reader's syntax already retains forward references. Collect builds,
     ;; then resolve runs directly; no second declaration tree is needed.
-    (: collect-builds (impl (Fn (List Syntax) -> (List BuildTarget) ! compile)))
-    (define (collect-builds declarations)
+
+    (define (collect-builds (declarations (List Syntax))) (→ (List BuildTarget)) (! compile)
       (let loop ((rest declarations) (builds (ann (Nil) (List BuildTarget))))
         (match rest
           ((Nil) (reverse builds))
@@ -261,8 +257,9 @@
           ((Cons form _)
            (compile-error (syntax-loc form) "expected a build-target or run-target declaration")))))
 
-    (: collect-runs (impl (Fn (List Syntax) (List BuildTarget) -> (List RunTarget) ! compile)))
-    (define (collect-runs declarations builds)
+    (define (collect-runs (declarations (List Syntax)) (builds (List BuildTarget)))
+      (→ (List RunTarget))
+      (! compile)
       (let loop ((rest declarations) (runs (ann (Nil) (List RunTarget))))
         (match rest
           ((Nil) (reverse runs))
@@ -277,8 +274,7 @@
                ((None) (loop tail (Cons target runs))))))
           ((Cons form _) (compile-error (syntax-loc form) "expected a run-target declaration")))))
 
-    (: parse-project (impl (Fn String String -> Project ! compile)))
-    (define (parse-project text file)
+    (define (parse-project (text String) (file String)) (→ Project) (! compile)
       (match (read-text text file)
         ((Cons (Form declarations _) (Nil))
          (let ((builds (collect-builds declarations)))
@@ -301,114 +297,121 @@
      (only (chibi string) string-contains)
      (snail stage0 testing))
     (begin
-      (define (project-error text)
-        (or (compile-failure (lambda () (parse-project text "project.datum"))) "accepted"))
+      (define project-error
+        (lambda (text)
+          (or (compile-failure (lambda () (parse-project text "project.datum"))) "accepted")))
 
-      (define (test-project)
-        (let* ((text
-                "((run-target dev (run server (args (\"\" \"--port\" \"8080\")))) (run-target check (run server))\n(build-target client (browser (entry \"client.sld\") (public \"public\")))\n(build-target server (program (library-roots (\".\" \"src\")) (entry \"missing.sld\"))))")
-               (project (parse-project text "project.datum"))
-               (run (car (::runs project)))
-               (round-trip (syntax->string (car (read-text text "project.datum")))))
-          (expect (map target-name (::builds project)) '("client" "server"))
-          (expect (map ::name (::runs project)) '("dev" "check"))
-          (expect (::arguments run) '("" "--port" "8080"))
-          (expect (::name (::program run)) "server")
-          (expect (map ::text (::libraries (::program run)))
-                  '("." "src"))
-          (expect (loc->string (::loc (::program run))) "project.datum:3:1")
-          (match (car (::builds project))
-            ((BrowserTarget browser)
-             (match (::entry browser)
-               ((SourceEntry path) (expect (::text path) "client.sld"))
-               (_ (expect "application" "source")))
-             (match (::public browser)
-               ((Some path) (expect (::text path) "public"))
-               ((None) (expect "missing public directory" "public"))))
-            (_ (expect "program" "browser")))
-          (let ((printed (parse-project round-trip "printed.datum")))
-            (expect (map target-name (::builds printed)) '("client" "server"))
-            (expect (map ::name (::runs printed)) '("dev" "check"))
-            (expect (::arguments (car (::runs printed))) '("" "--port" "8080"))))
-        (match (car (::builds
-                     (parse-project
-                      "((build-target app (program (entry ((example console) Printer)))))"
-                      "typed.datum")))
-          ((ProgramTarget program)
-           (match (::entry program)
-             ((ApplicationEntry library name)
-              (expect library '("example" "console"))
-              (expect name "Printer"))
-             (_ (expect "source" "application"))))
-          (_ (expect "missing application" "application")))
-        (expect (::builds (parse-project "()" "project.datum")) '())
-        (let* ((project
-                (parse-project
-                 "((run-target check (run café.v2 (args ()))) (build-target café.v2 (program (entry \"missing.sld\") (library-roots ()))))"
-                 "project.datum"))
-               (run (car (::runs project))))
-          (expect (::name (::program run)) "café.v2")
-          (expect (::arguments run) '())
-          (expect (::libraries (::program run)) '()))
-        (expect (project-error "((run-target dev\n  (run missing)))")
-                "project.datum:2:8: unknown build target missing")
-        (expect (project-error "()\n()")
-                "project.datum:2:1: a project description must contain exactly one list")
-        (expect
-         (project-error "((build-target a (program\n  (entry \"a.sld\")\n  (entry \"b.sld\"))))")
-         "project.datum:3:3: duplicate option entry")
-        (expect
-         (project-error
-          "((build-target a (program (entry \"a\")))\n (build-target a (program (entry \"b\"))))")
-         "project.datum:2:2: duplicate build target a; first declared at project.datum:1:2")
-        (for-each (lambda (entry)
-                    (let ((actual (project-error (car entry))) (wanted (car (cdr entry))))
-                      (expect (if (string-contains actual wanted) wanted actual) wanted)))
-                  '(("() ()" "exactly one list")
-                    ("((build-target x (program (entry)))" "unclosed list")
-                    ("((build-target x (program (entry))))" "(key value)")
-                    ("((build-target x (program (entry \"x\" \"y\"))))" "(key value)")
-                    ("((build-target y (program (entry \"y\"))) (run-target x (run y (args (5)))))"
-                     "expected a literal string")
-                    ("((build-target y (program (entry \"y\"))) (run-target x (run y (args \"flat\"))))"
-                     "expected a literal list")
-                    ("((build-target x (program (entry \"x\") (library-roots \"src\"))))"
-                     "expected a literal list")
-                    ("((build-target x (program (entry \"x\") (library-roots \"src\" \"shared\"))))"
-                     "(key value)")
-                    ("((launch-target old (run y)))" "expected a build-target or run-target")
-                    ("((init (run \"anything\")))" "expected a build-target")
-                    ("((build-target ../bad (program (entry \"x\"))))" "one path component")
-                    ("((build-target .snail-publish (program (entry \"x\"))))" "reserved .snail-*")
-                    ("((build-target a:b (program (entry \"x\"))))" "one path component")
-                    ("((build-target x (program)))" "requires an entry")
-                    ("((build-target x (program (entry \"x\") (entry \"y\"))))"
-                     "duplicate option entry")
-                    ("((build-target x (program (entry \"x\") (library-roots ()) (library-roots ()))))"
-                     "duplicate option library-roots")
-                    ("((build-target x (browser (entry \"x\") (public \"a\") (public \"b\"))))"
-                     "duplicate option public")
-                    ("((build-target x (program (entry \"x\") (public \"a\"))))"
-                     "unknown build option public")
-                    ("((build-target x (program (entry \"../x\"))))" "project-relative path")
-                    ("((build-target x (program (entry \"/x\"))))" "project-relative path")
-                    ("((build-target x (program (entry \"a//x\"))))" "project-relative path")
-                    ("((build-target x (program (entry \".\"))))" "entry must name a file")
-                    ("((build-target x (program (entry x))))" "expected an entry path string")
-                    ("((build-target x (program (entry (() App)))))"
-                     "expected an entry path string")
-                    ("((build-target x (program (entry ((a b) (Generic I64))))))"
-                     "literal target name")
-                    ("((build-target x (program (entry \"x\"))) (build-target x (program (entry \"y\"))))"
-                     "duplicate build target x")
-                    ("((run-target x (run missing)))" "unknown build target missing")
-                    ("((build-target x (browser (entry \"x\"))) (run-target y (run x)))"
-                     "must reference a program")
-                    ("((build-target y (program (entry \"y\"))) (run-target x (run y (args ()) (args ()))))"
-                     "duplicate option args")
-                    ("((build-target y (program (entry \"y\"))) (run-target x (run y)) (run-target x (run y)))"
-                     "duplicate run target x")
-                    ("((run-target x (shell \"echo hello\")))" "expected (run BUILD-NAME")
-                    ("((build-target x (program (entry \"x\"))) . tail)"
-                     "dotted lists are not part of Snail-Core"))))))
+      (define test-project
+        (lambda () (let* ((text
+                           "((run-target dev (run server (args (\"\" \"--port\" \"8080\")))) (run-target check (run server))\n(build-target client (browser (entry \"client.sld\") (public \"public\")))\n(build-target server (program (library-roots (\".\" \"src\")) (entry \"missing.sld\"))))")
+                          (project (parse-project text "project.datum"))
+                          (run (car (::runs project)))
+                          (round-trip (syntax->string (car (read-text text "project.datum")))))
+                     (expect (map target-name (::builds project)) '("client" "server"))
+                     (expect (map ::name (::runs project)) '("dev" "check"))
+                     (expect (::arguments run) '("" "--port" "8080"))
+                     (expect (::name (::program run)) "server")
+                     (expect (map ::text (::libraries (::program run)))
+                             '("." "src"))
+                     (expect (loc->string (::loc (::program run))) "project.datum:3:1")
+                     (match (car (::builds project))
+                       ((BrowserTarget browser)
+                        (match (::entry browser)
+                          ((SourceEntry path) (expect (::text path) "client.sld"))
+                          (_ (expect "application" "source")))
+                        (match (::public browser)
+                          ((Some path) (expect (::text path) "public"))
+                          ((None) (expect "missing public directory" "public"))))
+                       (_ (expect "program" "browser")))
+                     (let ((printed (parse-project round-trip "printed.datum")))
+                       (expect (map target-name (::builds printed)) '("client" "server"))
+                       (expect (map ::name (::runs printed)) '("dev" "check"))
+                       (expect (::arguments (car (::runs printed))) '("" "--port" "8080"))))
+                (match (car (::builds
+                             (parse-project
+                              "((build-target app (program (entry ((example console) Printer)))))"
+                              "typed.datum")))
+                  ((ProgramTarget program)
+                   (match (::entry program)
+                     ((ApplicationEntry library name)
+                      (expect library '("example" "console"))
+                      (expect name "Printer"))
+                     (_ (expect "source" "application"))))
+                  (_ (expect "missing application" "application")))
+                (expect (::builds (parse-project "()" "project.datum")) '())
+                (let* ((project
+                        (parse-project
+                         "((run-target check (run café.v2 (args ()))) (build-target café.v2 (program (entry \"missing.sld\") (library-roots ()))))"
+                         "project.datum"))
+                       (run (car (::runs project))))
+                  (expect (::name (::program run)) "café.v2")
+                  (expect (::arguments run) '())
+                  (expect (::libraries (::program run)) '()))
+                (expect (project-error "((run-target dev\n  (run missing)))")
+                        "project.datum:2:8: unknown build target missing")
+                (expect (project-error "()\n()")
+                        "project.datum:2:1: a project description must contain exactly one list")
+                (expect
+                 (project-error
+                  "((build-target a (program\n  (entry \"a.sld\")\n  (entry \"b.sld\"))))")
+                 "project.datum:3:3: duplicate option entry")
+                (expect
+                 (project-error
+                  "((build-target a (program (entry \"a\")))\n (build-target a (program (entry \"b\"))))")
+                 "project.datum:2:2: duplicate build target a; first declared at project.datum:1:2")
+                (for-each (lambda (entry)
+                            (let ((actual (project-error (car entry))) (wanted (car (cdr entry))))
+                              (expect (if (string-contains actual wanted) wanted actual) wanted)))
+                          '(("() ()" "exactly one list")
+                            ("((build-target x (program (entry)))" "unclosed list")
+                            ("((build-target x (program (entry))))" "(key value)")
+                            ("((build-target x (program (entry \"x\" \"y\"))))" "(key value)")
+                            ("((build-target y (program (entry \"y\"))) (run-target x (run y (args (5)))))"
+                             "expected a literal string")
+                            ("((build-target y (program (entry \"y\"))) (run-target x (run y (args \"flat\"))))"
+                             "expected a literal list")
+                            ("((build-target x (program (entry \"x\") (library-roots \"src\"))))"
+                             "expected a literal list")
+                            ("((build-target x (program (entry \"x\") (library-roots \"src\" \"shared\"))))"
+                             "(key value)")
+                            ("((launch-target old (run y)))"
+                             "expected a build-target or run-target")
+                            ("((init (run \"anything\")))" "expected a build-target")
+                            ("((build-target ../bad (program (entry \"x\"))))" "one path component")
+                            ("((build-target .snail-publish (program (entry \"x\"))))"
+                             "reserved .snail-*")
+                            ("((build-target a:b (program (entry \"x\"))))" "one path component")
+                            ("((build-target x (program)))" "requires an entry")
+                            ("((build-target x (program (entry \"x\") (entry \"y\"))))"
+                             "duplicate option entry")
+                            ("((build-target x (program (entry \"x\") (library-roots ()) (library-roots ()))))"
+                             "duplicate option library-roots")
+                            ("((build-target x (browser (entry \"x\") (public \"a\") (public \"b\"))))"
+                             "duplicate option public")
+                            ("((build-target x (program (entry \"x\") (public \"a\"))))"
+                             "unknown build option public")
+                            ("((build-target x (program (entry \"../x\"))))"
+                             "project-relative path")
+                            ("((build-target x (program (entry \"/x\"))))" "project-relative path")
+                            ("((build-target x (program (entry \"a//x\"))))"
+                             "project-relative path")
+                            ("((build-target x (program (entry \".\"))))" "entry must name a file")
+                            ("((build-target x (program (entry x))))"
+                             "expected an entry path string")
+                            ("((build-target x (program (entry (() App)))))"
+                             "expected an entry path string")
+                            ("((build-target x (program (entry ((a b) (Generic I64))))))"
+                             "literal target name")
+                            ("((build-target x (program (entry \"x\"))) (build-target x (program (entry \"y\"))))"
+                             "duplicate build target x")
+                            ("((run-target x (run missing)))" "unknown build target missing")
+                            ("((build-target x (browser (entry \"x\"))) (run-target y (run x)))"
+                             "must reference a program")
+                            ("((build-target y (program (entry \"y\"))) (run-target x (run y (args ()) (args ()))))"
+                             "duplicate option args")
+                            ("((build-target y (program (entry \"y\"))) (run-target x (run y)) (run-target x (run y)))"
+                             "duplicate run target x")
+                            ("((run-target x (shell \"echo hello\")))" "expected (run BUILD-NAME")
+                            ("((build-target x (program (entry \"x\"))) . tail)"
+                             "dotted lists are not part of Snail-Core")))))))
    (else)))

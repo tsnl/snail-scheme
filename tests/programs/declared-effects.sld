@@ -5,20 +5,19 @@
 ;; An instance method has its class method's row, even when this instance
 ;; performs less of it.
 (typeclass (Announce T)
-  (: announce (impl (Fn T -> Unit ! console))))
+  (: announce (impl (Fn T → Unit ! console))))
 
 (instance (Announce I64)
-  (define (announce n) (write-line (i64->string n))))
+  (define announce (lambda (n) (write-line (i64->string n)))))
 
 (instance (Announce Bool)
-  (define (announce b) (unit)))
+  (define announce (lambda (b) (unit))))
 
 ;; A definition without a signature has no declared row to compare.
-(define (next n) (+ n 1))
+(define next (lambda (n) (+ n 1)))
 
 ;; A quantified tail is performed by calling the function that carries it.
-(: twice (All (e) (impl (Fn (dyn (Fn -> Unit ! e)) -> Unit ! e))))
-(define (twice action)
+(define (twice (action (dyn (Fn → Unit ! e)))) (→ Unit) (! e) (∀ e)
   (action)
   (action))
 

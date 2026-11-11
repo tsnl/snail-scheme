@@ -6,4 +6,4 @@
   ((value I64)))
 (define-instance-set cleanup
   (instance (Drop (!) Resource)
-    (define (drop value) (unit))))
+    (define drop (lambda (value) (unit)))))

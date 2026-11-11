@@ -86,6 +86,8 @@ example(`(define (f x) (let* ((a (foo x)) (b (bar a)) (c (baz b))) (+ a b c)))
                     delta)
   (list alpha beta))
 `, 40);
+example(`(scheme-define (helper value)\n(body value))\n`,
+  `(scheme-define (helper value)\n  (body value))\n`);
 example(`(define (sum (left I64) (right I64)) (→ I64) (! io) (∀ T) (⊨ Add T) (+ left right))
 `, `(define (sum (left I64) (right I64))
   (→ I64)
@@ -121,15 +123,14 @@ example(`(foo alpha beta gamma delta epsilon) ; fits: the comment does not count
 (define message
   "a string much longer than forty columns cannot break")
 `, 40);
-example(`(: run (impl (Fn Config (List String) -> Status ! fs console)))
+example(`(define (run (config Config) (args (List String))) (→ Status) (! fs console) (status config args))
 (bytes #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))
 (display "one") (display "two") (display "three")
-`, `(: run
-   (impl (Fn Config
-             (List String)
-             ->
-             Status
-             ! fs console)))
+`, `(define (run (config Config)
+             (args (List String)))
+  (→ Status)
+  (! fs console)
+  (status config args))
 (bytes
  #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))
 (display "one")

@@ -3,8 +3,7 @@
  (snail core io)
  (snail shell number))
 
-(: parse (impl (Fn String -> Number)))
-(define (parse text)
+(define (parse (text String)) (→ Number)
   (match (string->number text)
     ((Some n) n)
     ((None) (panic (string-append "not a number: " text)))))

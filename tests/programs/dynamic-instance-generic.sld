@@ -10,12 +10,16 @@
 ;; evidence and in the specialization, even though it used to be erased
 ;; when class instances could perform only ordinary effects.
 (instance (Describe (! e) (Wrapper T))
-  (requires (Describe e T))
-  (define (describe wrapper)
-    (match wrapper ((Wrapper value) (describe value)))))
+  (⊨ (Describe e T))
+  (define describe
+    (lambda (wrapper) (match wrapper ((Wrapper value) (describe value))))))
 
-(: twice (All (T e) (requires (Describe e T) (Copy T)) (impl (Fn T -> String ! e))))
-(define (twice value) (string-append (describe value) (describe value)))
+(define (twice (value T))
+  (→ String)
+  (! e)
+  (∀ T e)
+  (⊨ (Describe e T) (Copy T))
+  (string-append (describe value) (describe value)))
 
 (write-line (twice (Wrapper 7)))
 (handle dyn-cast ((conversion-failed (lambda (_) (write-line "caught generic instance"))))

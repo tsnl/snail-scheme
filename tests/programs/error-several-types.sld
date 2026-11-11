@@ -6,20 +6,18 @@
 ;; source order, though `helper`, which has no signature, is checked
 ;; first. What uses `helper` is not checked: without its type, its
 ;; errors would only echo helper's own.
-(: label (impl (Fn I64 -> String)))
-(define (label n)
+(define (label (n I64)) (→ String)
   (+ n 1))
 
-(define (helper flag)
-  (if flag (string-length flag) 0))
+(define helper
+  (lambda (flag) (if flag (string-length flag) 0)))
 
-(define (uses-helper)
-  (+ (helper #t) 1))
+(define uses-helper
+  (lambda () (+ (helper #t) 1)))
 
 (write-line (show (helper #t)))
 
-(: shout (impl (Fn String -> String)))
-(define (shout text)
+(define (shout (text String)) (→ String)
   (string-append text #\!))
 
 (write-line (shout (label 2)))

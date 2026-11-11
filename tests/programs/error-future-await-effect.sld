@@ -3,6 +3,5 @@
  (snail shell future)
  (snail shell async))
 
-(: step (impl (Fn (Future I64) -> (Completion I64) ! mut)))
-(define (step future)
+(define (step (future (Future I64))) (→ (Completion I64)) (! mut)
   (await-future future))

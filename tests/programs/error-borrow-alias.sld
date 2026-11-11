@@ -5,8 +5,7 @@
   ((number I64))
   (deriving Move))
 
-(: both (impl (Fn (Borrow Token) Token -> Unit)))
-(define (both borrowed owned)
+(define (both (borrowed (Borrow Token)) (owned Token)) (→ Unit)
   (drop owned))
 
 (let ((token (Token 1)))

@@ -1,4 +1,3 @@
 (import
  (snail core base))
-(: integer (impl (Fn Any -> I64)))
-(define (integer value) value)
+(define (integer (value Any)) (→ I64) value)

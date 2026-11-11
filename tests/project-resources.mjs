@@ -67,7 +67,7 @@ async function pageOutput(directory) {
 
 try {
   await write('src/assets/sprites.sld', `(define-library (assets sprites) (export hero villain) (import (snail core base) (snail shell resource))
-    (begin (: hero Resource) (define hero (link-file "art/hero.bin")) (: villain Resource) (define villain (link-file "art/villain.bin"))))`);
+    (begin (define hero (→ Resource) (link-file "art/hero.bin")) (define villain (→ Resource) (link-file "art/villain.bin"))))`);
   await write('src/assets/art/hero.bin', hero);
   await write('src/assets/art/villain.bin', villain);
   await write('main.sld', `(import (snail core base) (snail core io) (only (snail shell task) tasks dispatch-local) (snail shell resource) (assets sprites))

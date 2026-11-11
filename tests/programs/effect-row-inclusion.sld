@@ -3,22 +3,19 @@
  (snail core io))
 
 (effect Value
-  ((value (dyn (Fn -> I64)))))
+  ((value (dyn (Fn → I64)))))
 
 ;; The callback uses e, while its caller also has console permission.
-(: announce (All (A e) (impl (Fn (dyn (Fn -> A ! e)) -> A ! console e))))
-(define (announce action)
+(define (announce (action (dyn (Fn → A ! e)))) (→ A) (! console e) (∀ A e)
   (write-line "calling")
   (action))
 
 ;; The shared rigid tail is also preserved when both rows have known labels.
-(: with-value (All (e) (impl (Fn (dyn (Fn -> I64 ! Value e)) -> I64 ! console Value e))))
-(define (with-value action)
+(define (with-value (action (dyn (Fn → I64 ! Value e)))) (→ I64) (! console Value e) (∀ e)
   (write-line "calling")
   (action))
 
-(: choose (impl (Fn -> I64 ! Value)))
-(define (choose) (value))
+(define (choose) (→ I64) (! Value) (value))
 
 (display (announce (lambda () 7)))
 (newline)

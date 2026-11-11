@@ -6,10 +6,10 @@
 ;; inner one, which is in scope where fetch is performed, and not to the
 ;; one outside Io's handler, where fetch's implementation was installed.
 (effect Async
-  ((ctl await (dyn (Fn I64 -> I64)))))
+  ((ctl await (dyn (Fn I64 → I64)))))
 
 (effect Io
-  ((fetch (dyn (Fn I64 -> I64 ! Async)))))
+  ((fetch (dyn (Fn I64 → I64 ! Async)))))
 
 (write-line
  (show

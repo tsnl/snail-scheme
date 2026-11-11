@@ -4,8 +4,7 @@
 ;; Replacing a linear field would discard what it held.
 (struct Job
   ((name String)
-   (work (dyn (FnOnce -> Unit)))))
+   (work (dyn (FnOnce → Unit)))))
 
-(: reschedule (impl (Fn Job -> Job)))
-(define (reschedule job)
+(define (reschedule (job Job)) (→ Job)
   (Job-work-set job (once (lambda () (unit)))))

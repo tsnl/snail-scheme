@@ -8,8 +8,7 @@
 ;; once rather than waiting, so what the work prints depends on the
 ;; program alone, as a test of it needs. Nothing here wakes a ticket, so
 ;; awaiting one abandons the work.
-(: logical (impl (Fn (dyn (Fn -> Unit ! console tasks)) -> Unit ! console mut)))
-(define (logical work)
+(define (logical (work (dyn (Fn → Unit ! console tasks)))) (→ Unit) (! console mut)
   (let ((clock (ref (ann 0 I64))))
     (handle tasks
         ((yield (lambda (resume) (resume (unit))))
@@ -23,8 +22,7 @@
          (ticket (lambda () 0)))
       (work))))
 
-(: countdown (impl (Fn String I64 -> Unit ! console tasks)))
-(define (countdown name count)
+(define (countdown (name String) (count I64)) (→ Unit) (! console tasks)
   (when (> count 0)
     (write-line (string-append name " " (show count)))
     (sleep 100)

@@ -2,8 +2,6 @@
  (snail core base)
  (snail core io))
 
-(: call (All (A e) (impl (Fn (dyn (Fn -> A ! e)) -> A ! e))))
-(define (call action) (action))
+(define (call (action (dyn (Fn → A ! e)))) (→ A) (! e) (∀ A e) (action))
 
-(: escape (impl (Fn -> Unit)))
-(define (escape) (call (lambda () (write-line "escaped"))))
+(define (escape) (→ Unit) (call (lambda () (write-line "escaped"))))

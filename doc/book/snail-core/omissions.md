@@ -29,8 +29,9 @@ each can return if a program needs it.
 
 - Local bodies are sequential: a local function may call itself but not a
   later local definition.
-- Only unannotated top-level functions are generalized; other definitions
-  are monomorphic unless they have a signature.
+- Named functions require an annotation on every parameter. Generic variables
+  and class obligations appear on the definition; unannotated values retain
+  the existing inference rules.
 - Effect labels take no type parameters, and operations are monomorphic.
   [Parameterized effects](effects.md#proposed-parameterized-effects) are
   proposed with one fixed application per handler; operation-local

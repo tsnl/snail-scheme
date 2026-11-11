@@ -17,22 +17,19 @@
   (Green)
   (Blue))
 
-(: area (impl (Fn Shape -> I64)))
-(define (area shape)
+(define (area (shape Shape)) (→ I64)
   (match shape
     ((Circle r) (* 3 (* r r)))
     ((Rectangle w h) (* w h))
     ((Dot) 0)))
 
-(: color-name (impl (Fn Color -> String)))
-(define (color-name color)
+(define (color-name (color Color)) (→ String)
   (match color
     ((Red) "red")
     ((Green) "green")
     ((Blue) "blue")))
 
-(: sum (impl (Fn (Vec3 I64) -> I64)))
-(define (sum v)
+(define (sum (v (Vec3 I64))) (→ I64)
   (+ (::x v) (+ (::y v) (::z v))))
 
 (display (area (Circle 2)))

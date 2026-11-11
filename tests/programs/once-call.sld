@@ -12,8 +12,7 @@
   (write-line (show (answer))))
 
 ;; A `FnOnce` may hold any procedure, not only a thunk; a resumption is one.
-(: apply-once (impl (Fn (dyn (FnOnce I64 -> I64)) I64 -> I64)))
-(define (apply-once procedure value)
+(define (apply-once (procedure (dyn (FnOnce I64 → I64))) (value I64)) (→ I64)
   (procedure value))
 
 (write-line "done")

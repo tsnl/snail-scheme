@@ -9,8 +9,7 @@
  (hearsay shell)
  (only (hearsay hud) guide-next guide-close))
 
-(: widget-text (impl (Fn Widget -> String)))
-(define (widget-text widget)
+(define (widget-text (widget Widget)) (→ String)
   (match widget
     ((Label face text) (string-append (tone-mark face) text))
     ((Button face text caption action argument control ring)
@@ -23,14 +22,12 @@
     ((Text face spans) (string-concatenate (map span-words spans)))
     ((Image face picture region scale) (string-append "<picture " (show picture) ">"))))
 
-(: span-words (impl (Fn Span -> String)))
-(define (span-words span)
+(define (span-words (span Span)) (→ String)
   (match span
     ((Normal words) words)
     ((Strong words) words)))
 
-(: tone-mark (impl (Fn Look -> String)))
-(define (tone-mark face)
+(define (tone-mark (face Look)) (→ String)
   (match face
     ((Look key icon help tone badge)
      (match tone
@@ -41,8 +38,7 @@
        ((Muted) "(muted) ")
        ((Suggested) "(suggested) ")))))
 
-(: place-name (impl (Fn Place -> String)))
-(define (place-name place)
+(define (place-name (place Place)) (→ String)
   (match place
     ((At corner column)
      (string-append (match corner
@@ -54,8 +50,7 @@
     ((Dialog dismiss) "dialog")
     ((Banner) "banner")))
 
-(: show-batches (impl (Fn Frame -> Unit ! console)))
-(define (show-batches frame)
+(define (show-batches (frame Frame)) (→ Unit) (! console)
   (match frame
     ((Frame camera light background motion batches pictures)
      (write-line (string-append "batches: "
@@ -66,22 +61,19 @@
                                                   batches)
                                              " "))))))
 
-(: show-panel (impl (Fn Panel -> Unit ! console)))
-(define (show-panel panel)
+(define (show-panel (panel Panel)) (→ Unit) (! console)
   (match panel
     ((Panel key place widgets)
      (write-line (string-append "-- " key ", " (place-name place)))
      (for-each (lambda (widget) (write-line (widget-text widget))) widgets))))
 
-(: click (impl (Fn Shell (List (Pair I32 I32)) -> Shell)))
-(define (click shell presses)
+(define (click (shell Shell) (presses (List (Pair I32 I32)))) (→ Shell)
   (fold-left
    (lambda (shell press) (update-shell shell (Press (::first press) (::second press))))
    shell
    presses))
 
-(: step (impl (Fn Shell String (List (Pair I32 I32)) -> Shell ! console)))
-(define (step shell title presses)
+(define (step (shell Shell) (title String) (presses (List (Pair I32 I32)))) (→ Shell) (! console)
   (let ((shell (click shell presses)))
     (write-line (string-append "==== " title))
     (show-batches (view-shell shell (lambda (path) (None))))

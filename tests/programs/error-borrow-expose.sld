@@ -5,8 +5,7 @@
   ((number I64))
   (deriving Move))
 
-(: inspect (impl (Fn (Borrow Token) -> I64)))
-(define (inspect borrowed)
+(define (inspect (borrowed (Borrow Token))) (→ I64)
   (::number borrowed))
 
 (expose inspect "inspect")

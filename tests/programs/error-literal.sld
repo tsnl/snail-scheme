@@ -1,6 +1,5 @@
 (import
  (snail core base))
 
-(: f (impl (Fn -> I32)))
-(define (f)
+(define (f) (→ I32)
   4000000000)

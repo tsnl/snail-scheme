@@ -10,19 +10,16 @@
 ;; a hint for the write inside would print first.
 (define root "build/tests/watch-hints")
 
-(: at (impl (Fn String -> String)))
-(define (at name)
+(define (at (name String)) (→ String)
   (string-append root "/" name))
 
-(: writer (impl (Fn -> Unit ! fs tasks console)))
-(define (writer)
+(define (writer) (→ Unit) (! fs tasks console)
   (write-file (at "build/output") "out")
   (sleep 200)
   (write-line "writing outside")
   (write-file (at "src/main.sld") "main"))
 
-(: waiter (impl (Fn Watch -> Unit ! fs tasks console hints)))
-(define (waiter watch)
+(define (waiter (watch Watch)) (→ Unit) (! fs tasks console hints)
   (write-line (if (next-hint watch) "hinted" "closed"))
   (close-watch watch)
   (write-line (if (next-hint watch) "hinted" "closed"))

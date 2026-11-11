@@ -4,28 +4,26 @@
  (owned work))
 
 (struct Job
-  ((work (dyn (FnOnce -> Unit ! console)))))
+  ((work (dyn (FnOnce → Unit ! console)))))
 (enum Bundle
   (Full ((job Job) (tag I64)))
   (Empty))
 (enum Chain
-  (Link ((work (dyn (FnOnce -> Unit ! console))) (rest Chain)))
+  (Link ((work (dyn (FnOnce → Unit ! console))) (rest Chain)))
   (End))
 
-(effect Probe ((ping (dyn (Fn -> Unit)))))
+(effect Probe ((ping (dyn (Fn → Unit)))))
 
-(effect Abort ((ctl abort (dyn (Fn String -> Never)))))
+(effect Abort ((ctl abort (dyn (Fn String → Never)))))
 
-(: drain (impl (Fn Chain -> Unit ! console)))
-(define (drain chain)
+(define (drain (chain Chain)) (→ Unit) (! console)
   (match chain
     ((Link work rest) (call-once work) (drain rest))
     ((End) (unit))))
 
 ;; Specializing an unrestricted parameter may retain a procedure whose
 ;; result is linear. Calling that procedure still produces one owned value.
-(: preserve (All (A) (impl (Fn A -> A))))
-(define (preserve value) value)
+(define (preserve (value A)) (→ A) (∀ A) value)
 
 (let ((work (message "moved"))) (run work))
 (let ((work (message "branch"))) (if #t (call-once work) (call-once work)))

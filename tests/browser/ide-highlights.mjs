@@ -10,7 +10,7 @@ import {openBrowser, until} from './chromium.mjs';
 
 const [root, screenshot] = process.argv.slice(2), project = await mkdtemp(join(tmpdir(), 'snail-ide-highlights-'));
 const source = join(project, 'main.sld');
-const prefix = '(import (snail core base))\n(: take-one (impl (Fn String -> String)))\n(define (take-one x) x)\n';
+const prefix = '(import (snail core base))\n(define (take-one (x String)) (→ String) x)\n';
 await writeFile(join(project, 'project.datum'), '((build-target main (program (entry "main.sld"))))');
 await writeFile(source, prefix);
 const service = await startDevelopment(root, project), browser = await openBrowser();

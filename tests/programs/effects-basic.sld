@@ -8,28 +8,25 @@
 
 ;; ANCHOR: rows
 ;; Total: no row, so a call can only compute its result.
-(: square (impl (Fn I64 -> I64)))
-(define (square n)
+(define (square (n I64)) (→ I64)
   (* n n))
 
 ;; Writes to the console, and its type says so.
-(: report (impl (Fn String I64 -> Unit ! console)))
-(define (report label n)
+(define (report (label String) (n I64)) (→ Unit) (! console)
   (write-line (string-append label " " (show n))))
 ;; ANCHOR_END: rows
 
 ;; ANCHOR: inferred
 ;; No signature: the row, console, is inferred from the body.
-(define (report-square n)
-  (report "squared" (square n)))
+(define report-square
+  (lambda (n) (report "squared" (square n))))
 
 (report-square 7)
 ;; ANCHOR_END: inferred
 
 ;; ANCHOR: polymorphic
 ;; Calls `action` on 1 to `count`, performing whatever `action` performs.
-(: repeat (All (e) (impl (Fn I64 (dyn (Fn I64 -> Unit ! e)) -> Unit ! e))))
-(define (repeat count action)
+(define (repeat (count I64) (action (dyn (Fn I64 → Unit ! e)))) (→ Unit) (! e) (∀ e)
   (let loop ((i 1))
     (when (<= i count)
       (action i)
@@ -40,8 +37,7 @@
 
 ;; ANCHOR: local
 ;; Mutates a cell it allocates, which nothing keeps once it returns.
-(: sum-of-squares (impl (Fn I64 -> I64)))
-(define (sum-of-squares count)
+(define (sum-of-squares (count I64)) (→ I64)
   (let ((total (ref 0)))
     (repeat count (lambda (i) (ref-set! total (+ (ref-get total) (square i)))))
     (ref-get total)))

@@ -148,7 +148,7 @@ async function throughTheService() {
     // Library-root changes recreate a target's Session. Public settings do not
     // participate in that decision; the compiler checks artifact bytes itself.
     const description = libraries => `((build-target server (program (entry "main.sld") (library-roots ("${libraries}")))))`;
-    const library = value => `(define-library (sample message) (export message) (import (snail core base)) (begin (: message String) (define message "${value}")))`;
+    const library = value => `(define-library (sample message) (export message) (import (snail core base)) (begin (define message (→ String) "${value}")))`;
     write('main.sld', '(import (snail core base) (snail core io) (sample message)) (write-line message)');
     write('one/sample/message.sld', library('one'));
     write('two/sample/message.sld', library('two'));
@@ -163,8 +163,9 @@ async function throughTheService() {
     write('two/sample/message.sld', `(generate-library (sample message)
       (import (snail core base) (snail core io) (snail shell syntax))
       (library-syntax (list "sample" "message") (list "message") (list (list "snail" "core" "base"))
-        (list (form ":" (list (SymbolSyntax "message") (SymbolSyntax "String")))
-          (form "define" (list (SymbolSyntax "message") (StringSyntax (read-file "${project}/message.txt")))))))`);
+        (list (form "define" (list (SymbolSyntax "message")
+          (form "→" (list (SymbolSyntax "String")))
+          (StringSyntax (read-file "${project}/message.txt")))))))`);
     assert.equal(execute(target(await service.rebuilt(), 'server').directory), 'generated first\n');
     write('message.txt', 'generated second');
     assert.equal(execute(target(await service.rebuilt(), 'server').directory), 'generated second\n');
@@ -172,7 +173,7 @@ async function throughTheService() {
     // The manifest owns library names; content filenames need not repeat them
     // and exceed the filesystem limit for an otherwise valid source filename.
     const longName = 'x'.repeat(200);
-    write(`two/${longName}.sld`, `(define-library (${longName}) (export message) (import (snail core base)) (begin (: message String) (define message "long name")))`);
+    write(`two/${longName}.sld`, `(define-library (${longName}) (export message) (import (snail core base)) (begin (define message (→ String) "long name")))`);
     write('main.sld', `(import (snail core base) (snail core io) (${longName})) (write-line message)`);
     assert.equal(execute(target(await service.rebuilt(), 'server').directory), 'long name\n');
 

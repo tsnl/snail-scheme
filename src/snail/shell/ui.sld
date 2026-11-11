@@ -60,21 +60,22 @@
       (On ((event String)
            (captures (List Capture))
            (prevent Prevent)
-           (message (dyn (Fn Event -> M)))))
+           (message (dyn (Fn Event → M)))))
       (Keyed ((key String))))
 
     ;; A component keeps its own message type. Only its event listeners need
     ;; wrapping when its tree is embedded in a larger application.
-    (: map-html (All (A B) (impl (Fn (dyn (Fn A -> B)) (Html A) -> (Html B)))))
-    (define (map-html wrap html)
+
+    (define (map-html (wrap (dyn (Fn A → B))) (html (Html A))) (→ (Html B)) (∀ A B)
       (match html
         ((Text text) (Text text))
         ((Element tag attributes children)
          (Element tag (map (lambda (attribute) (map-attribute wrap attribute)) attributes)
                   (map (lambda (child) (map-html wrap child)) children)))))
 
-    (: map-attribute (All (A B) (impl (Fn (dyn (Fn A -> B)) (Attribute A) -> (Attribute B)))))
-    (define (map-attribute wrap attribute)
+    (define (map-attribute (wrap (dyn (Fn A → B))) (attribute (Attribute A)))
+      (→ (Attribute B))
+      (∀ A B)
       (match attribute
         ((Attr name value) (Attr name value))
         ((StringProperty name value) (StringProperty name value))
@@ -96,19 +97,17 @@
                      (children (List (Shown M)))))
       (ShownText ((node Node) (text String))))
 
-    (: shown-node (All (M) (impl (Fn (Shown M) -> Node))))
-    (define (shown-node shown)
+    (define (shown-node (shown (Shown M))) (→ Node) (∀ M)
       (match shown
         ((ShownElement node _ _ _ _) node)
         ((ShownText node _) node)))
 
     ;; A shown node's handle as a table's key.
-    (: node-name (All (M) (impl (Fn (Shown M) -> String))))
-    (define (node-name shown)
+
+    (define (node-name (shown (Shown M))) (→ String) (∀ M)
       (show (::handle (shown-node shown))))
 
-    (: key-of (All (M) (impl (Fn (List (Attribute M)) -> String))))
-    (define (key-of attributes)
+    (define (key-of (attributes (List (Attribute M)))) (→ String) (∀ M)
       (match attributes
         ((Cons (Keyed key) _) key)
         ((Cons _ rest) (key-of rest))
@@ -116,8 +115,7 @@
 
     ;; ---- Creating ----
 
-    (: create (All (M) (impl (Fn (Html M) -> (Shown M) ! dom))))
-    (define (create html)
+    (define (create (html (Html M))) (→ (Shown M)) (! dom) (∀ M)
       (match html
         ((Text text) (ShownText (create-text text) text))
         ((Element tag attributes children)
@@ -127,8 +125,7 @@
              (for-each (lambda (child) (insert-node node (shown-node child) (None))) shown)
              (ShownElement node tag attributes (listen-all node attributes) shown))))))
 
-    (: apply-attribute (All (M) (impl (Fn Node (Attribute M) -> Unit ! dom))))
-    (define (apply-attribute node attribute)
+    (define (apply-attribute (node Node) (attribute (Attribute M))) (→ Unit) (! dom) (∀ M)
       (match attribute
         ((Attr name value) (set-attribute node name value))
         ((StringProperty name value) (set-string-property node name value))
@@ -136,9 +133,10 @@
         ((FlagProperty name value) (set-flag-property node name value))
         (_ (unit))))
 
-    (: listen-all
-       (All (M) (impl (Fn Node (List (Attribute M)) -> (List (Pair String Listener)) ! dom))))
-    (define (listen-all node attributes)
+    (define (listen-all (node Node) (attributes (List (Attribute M))))
+      (→ (List (Pair String Listener)))
+      (! dom)
+      (∀ M)
       (match attributes
         ((Cons (On event captures prevent _) rest)
          (Cons (Pair event (listen node event captures prevent)) (listen-all node rest)))
@@ -150,8 +148,8 @@
     ;; The shown tree changed to what `html` says, in place where the kinds
     ;; and tags and keys agree, and otherwise by a new subtree; the caller
     ;; places a new one and removes the old.
-    (: patch (All (M) (impl (Fn (Shown M) (Html M) -> (Shown M) ! dom))))
-    (define (patch shown html)
+
+    (define (patch (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! dom) (∀ M)
       (if (matches? shown html)
           (match (Pair shown html)
             ((Pair (ShownText node text) (Text new))
@@ -168,8 +166,7 @@
             (_ (panic "internal error: a match of different kinds")))
           (create html)))
 
-    (: matches? (All (M) (impl (Fn (Shown M) (Html M) -> Bool))))
-    (define (matches? shown html)
+    (define (matches? (shown (Shown M)) (html (Html M))) (→ Bool) (∀ M)
       (match (Pair shown html)
         ((Pair (ShownText _ _) (Text _)) #t)
         ((Pair (ShownElement _ tag attributes _ _) (Element new-tag new-attributes _))
@@ -178,9 +175,11 @@
 
     ;; Each attribute and property the view now gives a value other than
     ;; the one it gave is set, and each it no longer gives is cleared.
-    (: patch-attributes
-       (All (M) (impl (Fn Node (List (Attribute M)) (List (Attribute M)) -> Unit ! dom))))
-    (define (patch-attributes node old new)
+
+    (define (patch-attributes (node Node) (old (List (Attribute M))) (new (List (Attribute M))))
+      (→ Unit)
+      (! dom)
+      (∀ M)
       (for-each (lambda (attribute)
                   (unless (any? (lambda (before) (same-value? before attribute)) old)
                     (apply-attribute node attribute)))
@@ -190,8 +189,7 @@
                     (clear-attribute node attribute)))
                 old))
 
-    (: same-name? (All (M) (impl (Fn (Attribute M) (Attribute M) -> Bool))))
-    (define (same-name? a b)
+    (define (same-name? (a (Attribute M)) (b (Attribute M))) (→ Bool) (∀ M)
       (match (Pair a b)
         ((Pair (Attr x _) (Attr y _)) (string=? x y))
         ((Pair (StringProperty x _) (StringProperty y _)) (string=? x y))
@@ -199,8 +197,7 @@
         ((Pair (FlagProperty x _) (FlagProperty y _)) (string=? x y))
         (_ #f)))
 
-    (: same-value? (All (M) (impl (Fn (Attribute M) (Attribute M) -> Bool))))
-    (define (same-value? a b)
+    (define (same-value? (a (Attribute M)) (b (Attribute M))) (→ Bool) (∀ M)
       (and (same-name? a b)
            (match (Pair a b)
              ((Pair (Attr _ x) (Attr _ y)) (string=? x y))
@@ -209,8 +206,7 @@
              ((Pair (FlagProperty _ x) (FlagProperty _ y)) (= x y))
              (_ #f))))
 
-    (: clear-attribute (All (M) (impl (Fn Node (Attribute M) -> Unit ! dom))))
-    (define (clear-attribute node attribute)
+    (define (clear-attribute (node Node) (attribute (Attribute M))) (→ Unit) (! dom) (∀ M)
       (match attribute
         ((Attr name _) (set-attribute node name ""))
         ((StringProperty name _) (set-string-property node name ""))
@@ -220,15 +216,14 @@
 
     ;; A listener stays while the view keeps its event, captures and
     ;; prevention; its function may change, since only the table holds it.
-    (: patch-listeners
-       (All (M)
-            (impl (Fn Node
-                      (List (Attribute M))
-                      (List (Pair String Listener))
-                      (List (Attribute M))
-                      -> (List (Pair String Listener))
-                      ! dom))))
-    (define (patch-listeners node old listeners new)
+
+    (define (patch-listeners (node Node)
+                             (old (List (Attribute M)))
+                             (listeners (List (Pair String Listener)))
+                             (new (List (Attribute M))))
+      (→ (List (Pair String Listener)))
+      (! dom)
+      (∀ M)
       (for-each (lambda (pair)
                   (unless (kept-listener? (::first pair) old new) (unlisten (::second pair))))
                 listeners)
@@ -240,25 +235,25 @@
                                       (_ #f)))
                                   new))))
 
-    (: kept-listener?
-       (All (M) (impl (Fn String (List (Attribute M)) (List (Attribute M)) -> Bool))))
-    (define (kept-listener? event old new)
+    (define (kept-listener? (event String) (old (List (Attribute M))) (new (List (Attribute M))))
+      (→ Bool)
+      (∀ M)
       (match (Pair (listening event old) (listening event new))
         ((Pair (Some (On _ captures prevent _)) (Some (On _ new-captures new-prevent _)))
          (and (= (capture-bits captures) (capture-bits new-captures))
               (same-prevent? prevent new-prevent)))
         (_ #f)))
 
-    (: listening (All (M) (impl (Fn String (List (Attribute M)) -> (Option (Attribute M))))))
-    (define (listening event attributes)
+    (define (listening (event String) (attributes (List (Attribute M))))
+      (→ (Option (Attribute M)))
+      (∀ M)
       (find (lambda (attribute)
               (match attribute
                 ((On name _ _ _) (string=? name event))
                 (_ #f)))
             attributes))
 
-    (: same-prevent? (impl (Fn Prevent Prevent -> Bool)))
-    (define (same-prevent? a b)
+    (define (same-prevent? (a Prevent) (b Prevent)) (→ Bool)
       (match (Pair a b)
         ((Pair (Allow) (Allow)) #t)
         ((Pair (Always) (Always)) #t)
@@ -266,8 +261,7 @@
          (and (= (length x) (length y)) (every? same-chord? (zip x y))))
         (_ #f)))
 
-    (: same-chord? (impl (Fn (Pair Chord Chord) -> Bool)))
-    (define (same-chord? pair)
+    (define (same-chord? (pair (Pair Chord Chord))) (→ Bool)
       (match pair
         ((Pair a b)
          (and (string=? (::key a) (::key b)) (= (::modifiers a) (::modifiers b))))))
@@ -279,9 +273,11 @@
     ;; they match; any other is new. The old children not taken are
     ;; removed, which leaves the document holding the taken ones in their
     ;; old order, and then the children are put in their new order.
-    (: patch-children
-       (All (M) (impl (Fn Node (List (Shown M)) (List (Html M)) -> (List (Shown M)) ! dom))))
-    (define (patch-children parent old new)
+
+    (define (patch-children (parent Node) (old (List (Shown M))) (new (List (Html M))))
+      (→ (List (Shown M)))
+      (! dom)
+      (∀ M)
       (let* ((pairs (taking old new))
              (taken (taken-names pairs))
              (children (map (lambda (pair)
@@ -303,11 +299,10 @@
     ;; Each new child with the old child it takes: the one with its key,
     ;; or for a child without one, the next old child without one, when
     ;; it matches.
-    (: taking
-       (All (M)
-            (impl
-             (Fn (List (Shown M)) (List (Html M)) -> (List (Pair (Option (Shown M)) (Html M)))))))
-    (define (taking old new)
+
+    (define (taking (old (List (Shown M))) (new (List (Html M))))
+      (→ (List (Pair (Option (Shown M)) (Html M))))
+      (∀ M)
       (let ((keys (filter (lambda (key) (not (string=? key ""))) (map html-key new))))
         (unless (= (length keys) (length (delete-duplicates string=? keys)))
           (panic "two children have the same key"))
@@ -320,13 +315,9 @@
                      (filter (lambda (shown) (string=? (shown-key shown) "")) old)
                      new)))
 
-    (: taking-from
-       (All (M)
-            (impl (Fn (Table (Shown M))
-                      (List (Shown M))
-                      (List (Html M))
-                      -> (List (Pair (Option (Shown M)) (Html M)))))))
-    (define (taking-from keyed unkeyed new)
+    (define (taking-from (keyed (Table (Shown M))) (unkeyed (List (Shown M))) (new (List (Html M))))
+      (→ (List (Pair (Option (Shown M)) (Html M))))
+      (∀ M)
       (match new
         ((Cons html rest)
          (if (string=? (html-key html) "")
@@ -341,12 +332,10 @@
                    (taking-from keyed unkeyed rest))))
         ((Nil) (Nil))))
 
-    (: matching (All (M) (impl (Fn (Shown M) (Html M) -> (Option (Shown M))))))
-    (define (matching shown html)
+    (define (matching (shown (Shown M)) (html (Html M))) (→ (Option (Shown M))) (∀ M)
       (if (matches? shown html) (Some shown) (None)))
 
-    (: taken-names (All (M) (impl (Fn (List (Pair (Option (Shown M)) (Html M))) -> (Table Bool)))))
-    (define (taken-names pairs)
+    (define (taken-names (pairs (List (Pair (Option (Shown M)) (Html M))))) (→ (Table Bool)) (∀ M)
       (fold-left (lambda (taken pair)
                    (match (::first pair)
                      ((Some shown) (table-set taken (node-name shown) #t))
@@ -354,31 +343,32 @@
                  empty-table
                  pairs))
 
-    (: shown-key (All (M) (impl (Fn (Shown M) -> String))))
-    (define (shown-key shown)
+    (define (shown-key (shown (Shown M))) (→ String) (∀ M)
       (match shown
         ((ShownElement _ _ attributes _ _) (key-of attributes))
         ((ShownText _ _) "")))
 
-    (: html-key (All (M) (impl (Fn (Html M) -> String))))
-    (define (html-key html)
+    (define (html-key (html (Html M))) (→ String) (∀ M)
       (match html
         ((Element _ attributes _) (key-of attributes))
         ((Text _) "")))
 
-    (: same-node? (All (M) (impl (Fn (Shown M) (Shown M) -> Bool))))
-    (define (same-node? a b)
+    (define (same-node? (a (Shown M)) (b (Shown M))) (→ Bool) (∀ M)
       (= (::handle (shown-node a)) (::handle (shown-node b))))
 
     ;; From the last child to the first, each goes before the one after it
     ;; unless it already is there. The document holds the taken children
     ;; not yet placed, `unplaced`, in their old order, before those placed;
     ;; so a child already is where it goes when it is the last of them.
-    (: order
-       (All (M)
-            (impl
-             (Fn Node (List (Shown M)) (List (Shown M)) (Table Bool) (Option Node) -> Unit ! dom))))
-    (define (order parent children unplaced taken next)
+
+    (define (order (parent Node)
+                   (children (List (Shown M)))
+                   (unplaced (List (Shown M)))
+                   (taken (Table Bool))
+                   (next (Option Node)))
+      (→ Unit)
+      (! dom)
+      (∀ M)
       (match children
         ((Cons child rest)
          (order parent
@@ -390,33 +380,28 @@
 
     ;; `child` placed before `next`, and the taken children left unplaced,
     ;; last first. Only a taken child that moves leaves them out of turn.
-    (: placed
-       (All (M)
-            (impl (Fn Node
-                      (Shown M)
-                      (List (Shown M))
-                      (Table Bool)
-                      (Option Node)
-                      ->
-                      (List (Shown M))
-                      ! dom))))
-    (define (placed parent child unplaced taken next)
+
+    (define (placed (parent Node)
+                    (child (Shown M))
+                    (unplaced (List (Shown M)))
+                    (taken (Table Bool))
+                    (next (Option Node)))
+      (→ (List (Shown M)))
+      (! dom)
+      (∀ M)
       (match unplaced
         ((Cons last others)
          (if (same-node? last child) others (moved parent child unplaced taken next)))
         ((Nil) (moved parent child unplaced taken next))))
 
-    (: moved
-       (All (M)
-            (impl (Fn Node
-                      (Shown M)
-                      (List (Shown M))
-                      (Table Bool)
-                      (Option Node)
-                      ->
-                      (List (Shown M))
-                      ! dom))))
-    (define (moved parent child unplaced taken next)
+    (define (moved (parent Node)
+                   (child (Shown M))
+                   (unplaced (List (Shown M)))
+                   (taken (Table Bool))
+                   (next (Option Node)))
+      (→ (List (Shown M)))
+      (! dom)
+      (∀ M)
       (insert-node parent (shown-node child) next)
       (if (table-contains? taken (node-name child))
           (filter (lambda (shown) (not (same-node? shown child))) unplaced)
@@ -427,13 +412,15 @@
     ;; The window is shown as an element without attributes or children:
     ;; only the listeners given it are patched, so any other attribute is
     ;; ignored.
-    (: window-shown (All (M) (impl (Fn (List (Attribute M)) -> (Shown M) ! dom))))
-    (define (window-shown attributes)
+
+    (define (window-shown (attributes (List (Attribute M)))) (→ (Shown M)) (! dom) (∀ M)
       (let ((node (window-node)))
         (ShownElement node "#window" attributes (listen-all node attributes) (Nil))))
 
-    (: patch-window (All (M) (impl (Fn (Shown M) (List (Attribute M)) -> (Shown M) ! dom))))
-    (define (patch-window shown attributes)
+    (define (patch-window (shown (Shown M)) (attributes (List (Attribute M))))
+      (→ (Shown M))
+      (! dom)
+      (∀ M)
       (match shown
         ((ShownElement node tag old listeners _)
          (ShownElement node tag attributes (patch-listeners node old listeners attributes) (Nil)))
@@ -442,16 +429,16 @@
     ;; ---- Listeners ----
 
     ;; Each listener's function in the trees, by the listener's id.
-    (: listener-table (All (M) (impl (Fn (List (Shown M)) -> (Table (dyn (Fn Event -> M)))))))
-    (define (listener-table trees)
+
+    (define (listener-table (trees (List (Shown M)))) (→ (Table (dyn (Fn Event → M)))) (∀ M)
       (fold-left (lambda (table pair)
                    (table-set table (show (::id (::second pair))) (::first pair)))
                  empty-table
                  (concatenate (map listener-functions trees))))
 
-    (: listener-functions
-       (All (M) (impl (Fn (Shown M) -> (List (Pair (dyn (Fn Event -> M)) Listener))))))
-    (define (listener-functions shown)
+    (define (listener-functions (shown (Shown M)))
+      (→ (List (Pair (dyn (Fn Event → M)) Listener)))
+      (∀ M)
       (match shown
         ((ShownText _ _) (Nil))
         ((ShownElement _ _ attributes listeners children)
@@ -472,10 +459,11 @@
       ((model Model)
        (shown (Shown M))
        (window (Shown M))
-       (listeners (Table (dyn (Fn Event -> M))))))
+       (listeners (Table (dyn (Fn Event → M))))))
 
-    (: showing (All (Model M) (impl (Fn Model (Shown M) (Shown M) -> (Running Model M)))))
-    (define (showing model shown window)
+    (define (showing (model Model) (shown (Shown M)) (window (Shown M)))
+      (→ (Running Model M))
+      (∀ Model M)
       (Running model shown window (listener-table (list window shown))))
 
     ;; Shows the view of `model` in the document's root, with the listeners
@@ -487,18 +475,18 @@
     ;; command still running then never answers. Both `view` and `update`
     ;; take the model, and the loop keeps it for `checkpoint`, so a model
     ;; is shared rather than moved: it must be Copy.
-    (: run-ui
-       (All (Model M e) (requires (Copy Model))
-            (impl (Fn Model
-                      (List M)
-                      (dyn (Fn Model M -> (Pair Model (List (dyn (FnOnce -> M ! tasks e))))))
-                      (dyn (Fn Model -> (Html M)))
-                      (dyn (Fn Model -> (List (Attribute M))))
-                      (dyn (Fn Model -> Unit ! e))
-                      (dyn (Fn Model -> Unit ! tasks e))
-                      -> Model
-                      ! mut dom tasks e))))
-    (define (run-ui model start update view window commit checkpoint)
+
+    (define (run-ui (model Model)
+                    (start (List M))
+                    (update (dyn (Fn Model M → (Pair Model (List (dyn (FnOnce → M ! tasks e)))))))
+                    (view (dyn (Fn Model → (Html M))))
+                    (window (dyn (Fn Model → (List (Attribute M)))))
+                    (commit (dyn (Fn Model → Unit ! e)))
+                    (checkpoint (dyn (Fn Model → Unit ! tasks e))))
+      (→ Model)
+      (! mut dom tasks e)
+      (∀ Model M e)
+      (⊨ (Copy Model))
       (let ((box (make-mailbox)) (shown (create (view model))))
         (insert-node (document-root) (shown-node shown) (None))
         (serve box
@@ -511,18 +499,17 @@
                           (showing model shown (window-shown (window model)))
                           start))))
 
-    (: serve
-       (All (Model M e) (requires (Copy Model))
-            (impl (Fn (Mailbox M)
-                      (dyn (Fn Model M -> (Pair Model (List (dyn (FnOnce -> M ! tasks e))))))
-                      (dyn (Fn Model -> (Html M)))
-                      (dyn (Fn Model -> (List (Attribute M))))
-                      (dyn (Fn Model -> Unit ! e))
-                      (dyn (Fn Model -> Unit ! tasks e))
-                      (Running Model M)
-                      -> Model
-                      ! mut dom tasks e))))
-    (define (serve box update view window commit checkpoint running)
+    (define (serve (box (Mailbox M))
+                   (update (dyn (Fn Model M → (Pair Model (List (dyn (FnOnce → M ! tasks e)))))))
+                   (view (dyn (Fn Model → (Html M))))
+                   (window (dyn (Fn Model → (List (Attribute M)))))
+                   (commit (dyn (Fn Model → Unit ! e)))
+                   (checkpoint (dyn (Fn Model → Unit ! tasks e)))
+                   (running (Running Model M)))
+      (→ Model)
+      (! mut dom tasks e)
+      (∀ Model M e)
+      (⊨ (Copy Model))
       (commit (::model running))
       (match (next-event)
         ((Fired listener event)
@@ -553,17 +540,17 @@
          (::model running))))
 
     ;; The interface after every answer the mailbox holds.
-    (: answered
-       (All (Model M e) (requires (Copy Model))
-            (impl (Fn (Mailbox M)
-                      (dyn (Fn Model M -> (Pair Model (List (dyn (FnOnce -> M ! tasks e))))))
-                      (dyn (Fn Model -> (Html M)))
-                      (dyn (Fn Model -> (List (Attribute M))))
-                      (dyn (Fn Model -> Unit ! e))
-                      (Running Model M)
-                      -> (Running Model M)
-                      ! mut dom e))))
-    (define (answered box update view window commit running)
+
+    (define (answered (box (Mailbox M))
+                      (update (dyn (Fn Model M → (Pair Model (List (dyn (FnOnce → M ! tasks e)))))))
+                      (view (dyn (Fn Model → (Html M))))
+                      (window (dyn (Fn Model → (List (Attribute M)))))
+                      (commit (dyn (Fn Model → Unit ! e)))
+                      (running (Running Model M)))
+      (→ (Running Model M))
+      (! mut dom e)
+      (∀ Model M e)
+      (⊨ (Copy Model))
       (match (mailbox-try-receive box)
         ((Some message)
          (let ((next (updated box update view window running message)))
@@ -573,17 +560,17 @@
 
     ;; The update for one message, the commands it started dispatched, and
     ;; the view and window of the next model shown.
-    (: updated
-       (All (Model M e) (requires (Copy Model))
-            (impl (Fn (Mailbox M)
-                      (dyn (Fn Model M -> (Pair Model (List (dyn (FnOnce -> M ! tasks e))))))
-                      (dyn (Fn Model -> (Html M)))
-                      (dyn (Fn Model -> (List (Attribute M))))
-                      (Running Model M)
-                      M
-                      -> (Running Model M)
-                      ! mut dom e))))
-    (define (updated box update view window running message)
+
+    (define (updated (box (Mailbox M))
+                     (update (dyn (Fn Model M → (Pair Model (List (dyn (FnOnce → M ! tasks e)))))))
+                     (view (dyn (Fn Model → (Html M))))
+                     (window (dyn (Fn Model → (List (Attribute M)))))
+                     (running (Running Model M))
+                     (message M))
+      (→ (Running Model M))
+      (! mut dom e)
+      (∀ Model M e)
+      (⊨ (Copy Model))
       (match (update (::model running) message)
         ((Pair model commands)
          (start-commands box commands)
@@ -591,18 +578,20 @@
                   (patch-root (::shown running) (view model))
                   (patch-window (::window running) (window model))))))
 
-    (: start-commands
-       (All (M e) (impl (Fn (Mailbox M) (List (dyn (FnOnce -> M ! tasks e))) -> Unit ! mut dom e))))
-    (define (start-commands box commands)
+    (define (start-commands (box (Mailbox M)) (commands (List (dyn (FnOnce → M ! tasks e)))))
+      (→ Unit)
+      (! mut dom e)
+      (∀ M e)
       (match commands
         ((Cons command rest)
          (dispatch-local (once (lambda () (answer box command))))
          (start-commands box rest))
         ((Nil) (unit))))
 
-    (: answer
-       (All (M e) (impl (Fn (Mailbox M) (dyn (FnOnce -> M ! tasks e)) -> Unit ! mut dom tasks e))))
-    (define (answer box command)
+    (define (answer (box (Mailbox M)) (command (dyn (FnOnce → M ! tasks e))))
+      (→ Unit)
+      (! mut dom tasks e)
+      (∀ M e)
       (mailbox-post box (command))
       (wake))
 
@@ -613,33 +602,34 @@
     ;; View, window and snapshot run inside explicit lexical loans. The loop keeps
     ;; ownership across waits; commit and checkpoint receive only snapshots.
     ;; The compiler checks update's callback has no control effects.
-    (: run-reactor
-       (All (Model M S e) (requires (Drop (! mut e) Model))
-            (impl (Fn Model
-                      (List M)
-                      (dyn (Fn Model (Option M) -> Model ! mut completion e))
-                      (dyn (Fn (Borrow Model) -> (Html M)))
-                      (dyn (Fn (Borrow Model) -> (List (Attribute M))))
-                      (dyn (Fn (Borrow Model) -> S))
-                      (dyn (Fn S -> Unit ! mut e))
-                      (dyn (Fn S -> Unit ! mut tasks e))
-                      -> Model ! mut dom tasks e))))
-    (define (run-reactor model start update view window snapshot commit checkpoint)
+
+    (define (run-reactor (model Model)
+                         (start (List M))
+                         (update (dyn (Fn Model (Option M) → Model ! mut completion e)))
+                         (view (dyn (Fn (Borrow Model) → (Html M))))
+                         (window (dyn (Fn (Borrow Model) → (List (Attribute M)))))
+                         (snapshot (dyn (Fn (Borrow Model) → S)))
+                         (commit (dyn (Fn S → Unit ! mut e)))
+                         (checkpoint (dyn (Fn S → Unit ! mut tasks e))))
+      (→ Model)
+      (! mut dom tasks e)
+      (∀ Model M S e)
+      (⊨ (Drop (! mut e) Model))
       (handle completion ((completed wake))
         (mount-reactor model start update view window snapshot commit checkpoint)))
 
-    (: mount-reactor
-       (All (Model M S e) (requires (Drop (! mut e) Model))
-            (impl (Fn Model
-                      (List M)
-                      (dyn (Fn Model (Option M) -> Model ! mut completion e))
-                      (dyn (Fn (Borrow Model) -> (Html M)))
-                      (dyn (Fn (Borrow Model) -> (List (Attribute M))))
-                      (dyn (Fn (Borrow Model) -> S))
-                      (dyn (Fn S -> Unit ! mut e))
-                      (dyn (Fn S -> Unit ! mut tasks e))
-                      -> Model ! mut completion dom tasks e))))
-    (define (mount-reactor model start update view window snapshot commit checkpoint)
+    (define (mount-reactor (model Model)
+                           (start (List M))
+                           (update (dyn (Fn Model (Option M) → Model ! mut completion e)))
+                           (view (dyn (Fn (Borrow Model) → (Html M))))
+                           (window (dyn (Fn (Borrow Model) → (List (Attribute M)))))
+                           (snapshot (dyn (Fn (Borrow Model) → S)))
+                           (commit (dyn (Fn S → Unit ! mut e)))
+                           (checkpoint (dyn (Fn S → Unit ! mut tasks e))))
+      (→ Model)
+      (! mut completion dom tasks e)
+      (∀ Model M S e)
+      (⊨ (Drop (! mut e) Model))
       (let ((shown (create (with-borrow (read model) (view read))))
             (window-shown (window-shown (with-borrow (read model) (window read)))))
         (insert-node (document-root) (shown-node shown) (None))
@@ -649,17 +639,17 @@
                                   (showing model shown window-shown)
                                   start))))
 
-    (: serve-reactor
-       (All (Model M S e) (requires (Drop (! mut e) Model))
-            (impl (Fn (dyn (Fn Model (Option M) -> Model ! mut completion e))
-                      (dyn (Fn (Borrow Model) -> (Html M)))
-                      (dyn (Fn (Borrow Model) -> (List (Attribute M))))
-                      (dyn (Fn (Borrow Model) -> S))
-                      (dyn (Fn S -> Unit ! mut e))
-                      (dyn (Fn S -> Unit ! mut tasks e))
-                      (Running Model M)
-                      -> Model ! mut completion dom tasks e))))
-    (define (serve-reactor update view window snapshot commit checkpoint running)
+    (define (serve-reactor (update (dyn (Fn Model (Option M) → Model ! mut completion e)))
+                           (view (dyn (Fn (Borrow Model) → (Html M))))
+                           (window (dyn (Fn (Borrow Model) → (List (Attribute M)))))
+                           (snapshot (dyn (Fn (Borrow Model) → S)))
+                           (commit (dyn (Fn S → Unit ! mut e)))
+                           (checkpoint (dyn (Fn S → Unit ! mut tasks e)))
+                           (running (Running Model M)))
+      (→ Model)
+      (! mut completion dom tasks e)
+      (∀ Model M S e)
+      (⊨ (Drop (! mut e) Model))
       (match running
         ((Running model shown window-shown listeners)
          (commit (with-borrow (read model) (snapshot read)))
@@ -687,33 +677,36 @@
                                 (step-reactor update view window running (Some (message event))))
                                ((None) running)))))))))
 
-    (: step-reactor
-       (All (Model M e)
-            (impl (Fn (dyn (Fn Model (Option M) -> Model ! mut completion e))
-                      (dyn (Fn (Borrow Model) -> (Html M)))
-                      (dyn (Fn (Borrow Model) -> (List (Attribute M))))
-                      (Running Model M) (Option M)
-                      -> (Running Model M) ! mut completion dom e))))
-    (define (step-reactor update view window running message)
+    (define (step-reactor (update (dyn (Fn Model (Option M) → Model ! mut completion e)))
+                          (view (dyn (Fn (Borrow Model) → (Html M))))
+                          (window (dyn (Fn (Borrow Model) → (List (Attribute M)))))
+                          (running (Running Model M))
+                          (message (Option M)))
+      (→ (Running Model M))
+      (! mut completion dom e)
+      (∀ Model M e)
       (match running
         ((Running model shown window-shown _)
          (render-reactor view window (update model message) shown window-shown))))
 
     ;; Finish both reads before moving the owner into Running. Listeners
     ;; may capture copied display data, but never the borrowed model.
-    (: render-reactor
-       (All (Model M)
-            (impl (Fn (dyn (Fn (Borrow Model) -> (Html M)))
-                      (dyn (Fn (Borrow Model) -> (List (Attribute M))))
-                      Model (Shown M) (Shown M) -> (Running Model M) ! dom))))
-    (define (render-reactor view window model shown window-shown)
+
+    (define (render-reactor (view (dyn (Fn (Borrow Model) → (Html M))))
+                            (window (dyn (Fn (Borrow Model) → (List (Attribute M)))))
+                            (model Model)
+                            (shown (Shown M))
+                            (window-shown (Shown M)))
+      (→ (Running Model M))
+      (! dom)
+      (∀ Model M)
       (let ((shown (patch-root shown (with-borrow (read model) (view read))))
             (window-shown (patch-window window-shown (with-borrow (read model) (window read)))))
         (showing model shown window-shown)))
 
     ;; The root's one child, patched, or replaced by a new one.
-    (: patch-root (All (M) (impl (Fn (Shown M) (Html M) -> (Shown M) ! dom))))
-    (define (patch-root shown html)
+
+    (define (patch-root (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! dom) (∀ M)
       (let ((next (patch shown html)))
         (unless (same-node? next shown)
           (insert-node (document-root) (shown-node next) (None))
