@@ -66,16 +66,16 @@
         ((Added count) (Pair (Notes-added-set model count) (Nil)))
         ((Remove id)
          (Pair (Notes-notes-set model
-                                (filter (lambda (note) (not (= (::id note) id)))
-                                        (::notes model)))
+                                (filter (lambda (note) (not (= (● note id) id)))
+                                        (● model notes)))
                (Nil)))
         ((Load) (Pair model (list (once load))))
         ((Loaded text)
-         (Pair (Notes-server-set model (Server-greeting-set (::server model) text)) (Nil)))
+         (Pair (Notes-server-set model (Server-greeting-set (● model server) text)) (Nil)))
         ((Share)
-         (Pair model (list (once (lambda () (share (::notes model) (::next model)))))))
+         (Pair model (list (once (lambda () (share (● model notes) (● model next)))))))
         ((Shared text)
-         (Pair (Notes-server-set model (Server-shared-set (::server model) text)) (Nil)))
+         (Pair (Notes-server-set model (Server-shared-set (● model server) text)) (Nil)))
         ((Listen)
          (Pair model
                (list
@@ -96,9 +96,9 @@
       (if (confirm "Remove every note?") (Cleared) (Pressed "" 0)))
 
     (define (heard (model Notes) (text String)) (→ Notes)
-      (let ((server (::server model)))
+      (let ((server (● model server)))
         (Notes-server-set model
-                          (Server-heard-set server (append (::heard server) (list text))))))
+                          (Server-heard-set server (append (● server heard) (list text))))))
 
     ;; ---- The server ----
 
@@ -111,33 +111,34 @@
                                 "/api/notes"
                                 (list (Header "Content-Type" "text/plain")
                                       (Header "If-Match" (show next)))
-                                (string-join (map ::text notes) (make-string 1 #\newline))))))
+                                (string-join (map (lambda (record) (● record text)) notes)
+                                             (make-string 1 #\newline))))))
 
     (define (replied (result (Result Reply String))) (→ String)
       (match result
-        ((Ok reply) (string-append (show (::status reply)) " " (::body reply)))
+        ((Ok reply) (string-append (show (● reply status)) " " (● reply body)))
         ((Err why) (string-append "failed: " why))))
 
     ;; The next event, which the update that hears it waits past.
     (define (hear (stream Stream)) (→ Message) (! fetch tasks)
       (match (stream-next stream)
         ((Some event)
-         (Heard stream (string-append (::kind event) ":" (::data event))))
+         (Heard stream (string-append (● event kind) ":" (● event data))))
         ((None) (Ended))))
 
     ;; A note from the draft, unless it is empty, and the command that counts
     ;; it once it has yielded.
     (define (added (model Notes)) (→ (Pair Notes (List (Command Message))))
-      (if (string=? (::draft model) "")
+      (if (string=? (● model draft) "")
           (Pair model (Nil))
-          (let ((count (+ (::added model) 1)))
+          (let ((count (+ (● model added) 1)))
             (Pair
              (Notes
-              (append (::notes model) (list (Note (::next model) (::draft model))))
+              (append (● model notes) (list (Note (● model next) (● model draft))))
               ""
-              (+ (::next model) 1)
-              (::added model)
-              (::server model))
+              (+ (● model next) 1)
+              (● model added)
+              (● model server))
              (list (once (lambda ()
                            (yield)
                            (with-draft focus-node)
@@ -161,17 +162,17 @@
                (list (Element "input"
                               (list (Attr "id" "draft")
                                     (Attr "placeholder" "A note")
-                                    (StringProperty "value" (::draft model))
+                                    (StringProperty "value" (● model draft))
                                     (On "input"
                                         (list (Value))
                                         (Allow)
-                                        (lambda (event) (Typed (::value event))))
+                                        (lambda (event) (Typed (● event value))))
                                     (On "keydown"
                                         (list (Key) (Selection))
                                         (Chords (list (Chord "Enter" 0) (Chord "Tab" 0)))
                                         (lambda (event)
-                                          (Pressed (::key event)
-                                                   (::selection-start event)))))
+                                          (Pressed (● event key)
+                                                   (● event selection-start)))))
                               (Nil))
                      (Element "button"
                               (list (Attr "id" "add")
@@ -181,7 +182,7 @@
                               (list (Attr "id" "bullet")
                                     (On "click" (Nil) (Allow) (lambda (event) (Bullet))))
                               (list (Text "Bullet")))
-                     (Element "ul" (list (Attr "id" "notes")) (map note-view (::notes model)))
+                     (Element "ul" (list (Attr "id" "notes")) (map note-view (● model notes)))
                      (Element "div"
                               (Nil)
                               (list (button "share" "Share" (Share))
@@ -189,16 +190,16 @@
                                     (button "clear" "Clear" (Clear))))
                      (Element "p"
                               (list (Attr "id" "greeting"))
-                              (list (Text (::greeting (::server model)))))
+                              (list (Text (● (● model server) greeting))))
                      (Element "p"
                               (list (Attr "id" "shared"))
-                              (list (Text (::shared (::server model)))))
+                              (list (Text (● (● model server) shared))))
                      (Element "p"
                               (list (Attr "id" "heard"))
-                              (list (Text (string-join (::heard (::server model)) ","))))
+                              (list (Text (string-join (● (● model server) heard) ","))))
                      (Element "p"
                               (list (Attr "id" "added"))
-                              (list (Text (string-append (show (::added model)) " added")))))))
+                              (list (Text (string-append (show (● model added)) " added")))))))
 
     (define (button (id String) (label String) (message Message)) (→ (Html Message))
       (Element "button"
@@ -207,21 +208,21 @@
 
     (define (note-view (note Note)) (→ (Html Message))
       (Element "li"
-               (list (Keyed (show (::id note))))
-               (list (Text (::text note))
+               (list (Keyed (show (● note id))))
+               (list (Text (● note text))
                      (Element "button"
-                              (list (Attr "id" (string-append "remove-" (show (::id note))))
+                              (list (Attr "id" (string-append "remove-" (show (● note id))))
                                     (On "click"
                                         (Nil)
                                         (Allow)
-                                        (lambda (event) (Remove (::id note)))))
+                                        (lambda (event) (Remove (● note id)))))
                               (list (Text "Remove"))))))
 
     (define (save (model Notes)) (→ Save)
-      (Save (::notes model) (::next model)))
+      (Save (● model notes) (● model next)))
 
     (define (restore (saved Save)) (→ Notes)
-      (Notes (::notes saved) "" (::next saved) 0 no-server))
+      (Notes (● saved notes) "" (● saved next) 0 no-server))
 
     (define (window (model Notes)) (→ (List (Attribute Message)))
       (list (On "keydown"

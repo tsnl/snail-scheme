@@ -164,10 +164,10 @@
       (put! waiters pending))
 
     (define (add-live! (change I64)) (→ Unit) (! mut)
-      (set! (::live (ref-get scheduler)) (+ (::live (ref-get scheduler)) change)))
+      (set! (● (ref-get scheduler) live) (+ (● (ref-get scheduler) live) change)))
 
     (define (add-ready! (change I64)) (→ Unit) (! mut)
-      (set! (::ready-count (ref-get scheduler)) (+ (::ready-count (ref-get scheduler)) change)))
+      (set! (● (ref-get scheduler) ready-count) (+ (● (ref-get scheduler) ready-count) change)))
 
     (define (push-ready! (task Runnable)) (→ Unit) (! mut)
       (put-ready! (enqueue (take-ready!) task))
@@ -194,8 +194,8 @@
         (Finished)))
 
     (define (next-ticket!) (→ I64) (! mut)
-      (let ((ticket (+ (::last-ticket (ref-get scheduler)) 1)))
-        (set! (::last-ticket (ref-get scheduler)) ticket)
+      (let ((ticket (+ (● (ref-get scheduler) last-ticket) 1)))
+        (set! (● (ref-get scheduler) last-ticket) ticket)
         ticket))
 
     ;; Dispatching charges the work's effects to the dispatcher, so it
@@ -207,8 +207,8 @@
       (unit))
 
     (define (dispatch-task (work (dyn (FnOnce → Unit ! tasks e)))) (→ I64) (! mut e) (∀ e)
-      (let ((id (+ (::last-task (ref-get scheduler)) 1)))
-        (set! (::last-task (ref-get scheduler)) id)
+      (let ((id (+ (● (ref-get scheduler) last-task) 1)))
+        (set! (● (ref-get scheduler) last-task) id)
         (add-live! 1)
         (push-ready! (Runnable id (inherit-handlers (once (lambda () (start-task work))))))
         id))
@@ -222,10 +222,10 @@
     ;; ticket, and otherwise the milliseconds until the earliest deadline.
 
     (define (tasks-turn (now I64)) (→ I64) (! mut host)
-      (when (= (::last-ticket (ref-get scheduler)) 0)
-        (set! (::last-ticket (ref-get scheduler)) (* now 1000)))
-      (set! (::now (ref-get scheduler)) now)
-      (run-ready! (::ready-count (ref-get scheduler)))
+      (when (= (● (ref-get scheduler) last-ticket) 0)
+        (set! (● (ref-get scheduler) last-ticket) (* now 1000)))
+      (set! (● (ref-get scheduler) now) now)
+      (run-ready! (● (ref-get scheduler) ready-count))
       (put-timers! (wake-due! now (take-timers!)))
       (outlook now))
 
@@ -242,9 +242,9 @@
            (put-ready! rest)
            (add-ready! -1)
            (add-live! -1)
-           (set! (::running (ref-get scheduler)) id)
+           (set! (● (ref-get scheduler) running) id)
            (record! id (run))
-           (set! (::running (ref-get scheduler)) 0)
+           (set! (● (ref-get scheduler) running) 0)
            (run-ready! (- count 1))))))
 
     (define (record! (id I64) (step Step)) (→ Unit) (! mut)
@@ -256,7 +256,7 @@
         ((Sleeping delay next)
          (add-live! 1)
          (put-timers!
-          (insert-timer (Pending (+ (::now (ref-get scheduler)) delay) id next) (take-timers!))))
+          (insert-timer (Pending (+ (● (ref-get scheduler) now) delay) id next) (take-timers!))))
         ((Waiting ticket next)
          (add-live! 1)
          (put-waiters! (Cons (Pending ticket id next) (take-waiters!))))))
@@ -268,7 +268,7 @@
       (match timers
         ((Nil) (Cons timer (Nil)))
         ((Cons first rest)
-         (if (< (::key timer) (::key first))
+         (if (< (● timer key) (● first key))
              (Cons timer (Cons first rest))
              (Cons first (insert-timer timer rest))))))
 
@@ -276,7 +276,7 @@
       (match timers
         ((Nil) (Nil))
         ((Cons first rest)
-         (if (<= (::key first) now)
+         (if (<= (● first key) now)
              (match first
                ((Pending _ id next)
                 (push-ready! (Runnable id next))
@@ -285,15 +285,15 @@
 
     (define (outlook (now I64)) (→ I64) (! mut)
       (cond
-       ((> (::ready-count (ref-get scheduler)) 0) 0)
-       ((= (::live (ref-get scheduler)) 0) -1)
+       ((> (● (ref-get scheduler) ready-count) 0) 0)
+       ((= (● (ref-get scheduler) live) 0) -1)
        (else
         (match (take-timers!)
           ((Nil)
            (put-timers! (Nil))
            -2)
           ((Cons first rest)
-           (let ((deadline (::key first)))
+           (let ((deadline (● first key)))
              (put-timers! (Cons first rest))
              (- deadline now)))))))
 
@@ -318,7 +318,7 @@
       (match waiters
         ((Nil) (Pair (None) (Nil)))
         ((Cons first rest)
-         (if (= (::key first) ticket)
+         (if (= (● first key) ticket)
              (match first
                ((Pending _ id next) (Pair (Some (Runnable id next)) rest)))
              (match (without ticket rest)
@@ -336,18 +336,18 @@
         (put-ready! (empty-queue))
         (put-timers! (Nil))
         (put-waiters! (Nil))
-        (set! (::ready-count (ref-get scheduler)) 0)
-        (set! (::live (ref-get scheduler)) 0)
+        (set! (● (ref-get scheduler) ready-count) 0)
+        (set! (● (ref-get scheduler) live) 0)
         (drop queued)
         (drop sleeping)
         (drop waiting))
-      (when (> (::live (ref-get scheduler)) 0) (tasks-close!)))
+      (when (> (● (ref-get scheduler) live) 0) (tasks-close!)))
 
     (define (tasks-running) (→ I64) (! mut)
-      (::running (ref-get scheduler)))
+      (● (ref-get scheduler) running))
 
     (define (tasks-live) (→ I64) (! mut)
-      (::live (ref-get scheduler)))
+      (● (ref-get scheduler) live))
 
     ;; The program's body, its `main:body` export, which takes the evidence
     ;; and answers its status, run as the first task: the host, or the
@@ -416,16 +416,16 @@
     ;; the message goes with it, as one it had received would.
 
     (define (mailbox-post (mailbox (Mailbox T)) (message T)) (→ Unit) (! mut) (∀ T)
-      (let ((receivers (::receivers mailbox)))
+      (let ((receivers (● mailbox receivers)))
         (match (dequeue (take! receivers))
           ((None)
            (put! receivers (empty-queue))
-           (let ((messages (::messages mailbox)))
+           (let ((messages (● mailbox messages)))
              (put! messages (enqueue (take! messages) message))))
           ((Some (Pair receiver rest))
            (put! receivers rest)
-           (if (tasks-wake! (::ticket receiver))
-               (put! (::slot receiver) message)
+           (if (tasks-wake! (● receiver ticket))
+               (put! (● receiver slot) message)
                (mailbox-post mailbox message))))))
 
     ;; Receiving takes the oldest message. With none, the swap has already
@@ -434,7 +434,7 @@
     ;; began to wait.
 
     (define (mailbox-receive (mailbox (Mailbox T))) (→ T) (! mut tasks) (∀ T)
-      (let ((messages (::messages mailbox)))
+      (let ((messages (● mailbox messages)))
         (match (dequeue (take! messages))
           ((Some (Pair message rest))
            (put! messages rest)
@@ -446,7 +446,7 @@
     ;; Receiving without waiting: the oldest message, or none.
 
     (define (mailbox-try-receive (mailbox (Mailbox T))) (→ (Option T)) (! mut) (∀ T)
-      (let ((messages (::messages mailbox)))
+      (let ((messages (● mailbox messages)))
         (match (dequeue (take! messages))
           ((Some (Pair message rest))
            (put! messages rest)
@@ -459,8 +459,8 @@
     ;; slot is full when the receiver takes it; an empty one traps there.
 
     (define (wait-in-line (mailbox (Mailbox T))) (→ T) (! mut tasks) (∀ T)
-      (let ((receivers (::receivers mailbox))
+      (let ((receivers (● mailbox receivers))
             (receiver (Receiver (ticket) (empty-slot))))
         (put! receivers (enqueue (take! receivers) receiver))
-        (await (::ticket receiver))
-        (take! (::slot receiver))))))
+        (await (● receiver ticket))
+        (take! (● receiver slot))))))

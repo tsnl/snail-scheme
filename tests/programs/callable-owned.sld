@@ -21,7 +21,7 @@
     answer))
 
 (let* ((token (Token 10 "shared drop"))
-       (function (ann (lambda (value) (+ (::number token) value))
+       (function (ann (lambda (value) (+ (● token number) value))
                       (impl (Fn I64 → I64 ! console)))))
   (write-line (show (shared function))))
 
@@ -35,7 +35,7 @@
     answer))
 
 (let* ((token (Token 20 "exclusive drop"))
-       (function (ann (lambda (value) (+ (::number token) value))
+       (function (ann (lambda (value) (+ (● token number) value))
                       (impl (FnMut I64 → I64 ! console)))))
   (write-line (show (exclusive function))))
 
@@ -53,24 +53,24 @@
   (function 7))
 
 (let* ((token (Token 50 "consumed shared"))
-       (function (ann (lambda (value) (+ (::number token) value))
+       (function (ann (lambda (value) (+ (● token number) value))
                       (impl (Fn I64 → I64 ! console)))))
   (write-line (show (consume function))))
 
 (let* ((token (Token 60 "adapted shared"))
-       (function (ann (lambda (value) (+ (::number token) value))
+       (function (ann (lambda (value) (+ (● token number) value))
                       (impl (Fn I64 → I64 ! console))))
        (single (once function)))
   (write-line (show (single 8))))
 
 (let* ((token (Token 70 "abandoned shared"))
-       (function (ann (lambda (value) (+ (::number token) value))
+       (function (ann (lambda (value) (+ (● token number) value))
                       (impl (Fn I64 → I64 ! console))))
        (single (once function)))
   (drop single))
 
 (let* ((token (Token 80 "erased shared"))
-       (function (ann (lambda (value) (+ (::number token) value))
+       (function (ann (lambda (value) (+ (● token number) value))
                       (impl (Fn I64 → I64 ! console))))
        (single (ann function (dyn (FnOnce I64 → I64 ! console)))))
   (write-line (show (single 9))))

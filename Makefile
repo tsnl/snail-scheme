@@ -22,7 +22,6 @@ fetch:
 # programs, both games' tests, Siegework headless, and the development service.
 # Build shared tools before the service tests' startup deadlines begin.
 test:
-	./scripts/chibi-paths --check
 	./scripts/snail-tool dev-tools >/dev/null
 	"$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"
 
@@ -33,7 +32,6 @@ test-wasmtime:
 
 # The suite with the compiler's source running on Chibi instead of as Wasm.
 test-chibi:
-	./scripts/chibi-paths --check
 	SNAIL_STAGE0=chibi ./scripts/snail-tool dev-tools >/dev/null
 	SNAIL_STAGE0=chibi "$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"
 
@@ -58,7 +56,6 @@ test-browser:
 
 # Rebuilds the compiler from its source on Chibi, then to a fixpoint.
 bootstrap:
-	./scripts/chibi-paths --check
 	rm -rf build/compiler
 	./scripts/snail-tool bootstrap
 

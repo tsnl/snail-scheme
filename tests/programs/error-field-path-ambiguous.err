@@ -1,1 +1,1 @@
-ambiguous constraint (::x
+field x requires a known struct type; annotate the receiver

@@ -58,6 +58,6 @@
     ;; The file's bytes, as they were when the host first read them.
 
     (define (read-resource (linked Resource)) (→ Bytes) (! resource tasks)
-      (resource-bytes (::handle linked)))
+      (resource-bytes (● linked handle)))
 
     ))

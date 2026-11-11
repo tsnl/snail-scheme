@@ -58,20 +58,20 @@
     (define (write-program (output String) (generated String) (program WholeProgram))
       (→ Unit)
       (! fs)
-      (write-file output (::text program))
-      (write-links generated (::links program)))
+      (write-file output (● program text))
+      (write-links generated (● program links)))
 
     (define (write-modules (directory String) (generated String) (modules (List Built)))
       (→ Unit)
       (! fs)
       (for-each (lambda (module)
-                  (write-file (string-append directory "/" (::name module) ".wat")
-                              (::text module)))
+                  (write-file (string-append directory "/" (● module name) ".wat")
+                              (● module text)))
                 modules)
       (write-file (string-append directory "/modules")
                   (string-concatenate
-                   (map (lambda (module) (string-append (::name module) "\n")) modules)))
-      (write-links generated (concatenate (map ::links modules))))
+                   (map (lambda (module) (string-append (● module name) "\n")) modules)))
+      (write-links generated (concatenate (map (lambda (record) (● record links)) modules))))
 
     ;; ---- Linked files ----
 
@@ -85,12 +85,12 @@
                   (string-concatenate
                    (map (lambda (link)
                           (string-append "("
-                                         (datum->string (DString (::digest link)))
+                                         (datum->string (DString (● link digest)))
                                          " "
-                                         (datum->string (DString (::path link)))
+                                         (datum->string (DString (● link path)))
                                          ")\n"))
                         (delete-duplicates (lambda (a b)
-                                             (string=? (::digest a) (::digest b)))
+                                             (string=? (● a digest) (● b digest)))
                                            links)))))
 
     ))

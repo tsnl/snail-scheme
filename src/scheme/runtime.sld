@@ -103,7 +103,7 @@
     ;; ---- Calls ----
 
     (define (call (procedure Any) (arguments (List Any))) (→ Any) (! console mut dyn-cast)
-      ((::call (type-convert procedure Procedure)) arguments))
+      ((● (type-convert procedure Procedure) call) arguments))
 
     ;; Generated scripts fail at the current evaluation. A caller using call
     ;; directly can instead recover with its own dyn-cast handler.
@@ -178,7 +178,7 @@
     (define (integer-of (datum Any)) (→ Integer) (! dyn-cast)
       (match (number-of datum)
         ((Exact r)
-         (if (rational-integer? r) (::numerator r) (type-error "an integer" datum)))
+         (if (rational-integer? r) (● r numerator) (type-error "an integer" datum)))
         ((Inexact _) (type-error "an exact integer" datum))))
 
     (define (inverse-fold (op (dyn (Fn Any Any → Any ! dyn-cast)))
@@ -305,9 +305,9 @@
 
     (define %cons (→ (Ref Any)) (procedure2 (lambda (a b) (SchemePair a b))))
 
-    (define %car (→ (Ref Any)) (procedure1 (lambda (a) (::car (type-convert a SchemePair)))))
+    (define %car (→ (Ref Any)) (procedure1 (lambda (a) (● (type-convert a SchemePair) car))))
 
-    (define %cdr (→ (Ref Any)) (procedure1 (lambda (a) (::cdr (type-convert a SchemePair)))))
+    (define %cdr (→ (Ref Any)) (procedure1 (lambda (a) (● (type-convert a SchemePair) cdr))))
 
     (define %list (→ (Ref Any)) (variadic (lambda (arguments) (datum-list arguments))))
 
@@ -443,7 +443,7 @@
 
     (define %symbol->string
       (→ (Ref Any))
-      (procedure1 (lambda (a) (::name (type-convert a Symbol)))))
+      (procedure1 (lambda (a) (● (type-convert a Symbol) name))))
 
     (define %string->symbol (→ (Ref Any)) (procedure1 (lambda (a) (Symbol a))))
 

@@ -9,7 +9,7 @@
  (siegework terrain))
 
 (define (cell-text (cell Cell)) (→ String)
-  (string-append "(" (show (::x cell)) "," (show (::y cell)) ")"))
+  (string-append "(" (show (● cell x)) "," (show (● cell y)) ")"))
 
 (define (ground-char (ground Ground)) (→ Char)
   (match ground
@@ -22,17 +22,17 @@
   (vector-fold
    (lambda (total ground) (if (char=? (ground-char ground) (ground-char wanted)) (+ total 1) total))
    0
-   (::ground land)))
+   (● land ground)))
 
 (define (describe (seed I64)) (→ Unit) (! console)
   (let ((land (new-land seed)))
     (write-line (string-append "seed "
                                (show seed)
                                ", "
-                               (biome-name (::biome land))
+                               (biome-name (● land biome))
                                ": hub "
-                               (cell-text (::hub land))
-                               ", fronts " (string-join (map cell-text (::fronts land)) " ")
+                               (cell-text (● land hub))
+                               ", fronts " (string-join (map cell-text (● land fronts)) " ")
                                ", open "
                                (show (count-ground land (Open)))
                                ", rock "
@@ -43,10 +43,10 @@
                                (show (count-ground land (Ice)))))
     (write-line (string-append "  sites "
                                (string-join (map (lambda (site)
-                                                   (string-append (cell-text (::cell site))
+                                                   (string-append (cell-text (● site cell))
                                                                   "x"
-                                                                  (show (::rate site))))
-                                                 (::sites land))
+                                                                  (show (● site rate))))
+                                                 (● land sites))
                                             " ")))))
 
 ;; Each row of the map: . open, # rock, ~ water, = ice, H the hub, N a
@@ -55,13 +55,13 @@
   (list->string (map (lambda (x) (cell-char land (Cell x y))) (iota map-size))))
 
 (define (cell-char (land Land) (cell Cell)) (→ Char)
-  (cond ((cell=? cell (::hub land)) #\H)
-        ((any? (lambda (front) (cell=? front cell)) (::fronts land)) #\N)
-        ((any? (lambda (site) (cell=? (::cell site) cell)) (::sites land)) #\*)
+  (cond ((cell=? cell (● land hub)) #\H)
+        ((any? (lambda (front) (cell=? front cell)) (● land fronts)) #\N)
+        ((any? (lambda (site) (cell=? (● site cell) cell)) (● land sites)) #\*)
         (else (ground-char (ground-at land cell)))))
 
 (define (steps-from-hub (land Land) (crosses? (dyn (Fn Ground → Bool)))) (→ (Vector I64))
-  (distance-field (vector-map crosses? (::ground land)) (list (::hub land))))
+  (distance-field (vector-map crosses? (● land ground)) (list (● land hub))))
 
 (define (walkable? (ground Ground)) (→ Bool)
   (match ground ((Open) #t) ((Ice) #t) (_ #f)))
@@ -69,7 +69,7 @@
 (define (nest-distances (land Land)) (→ String)
   (let ((field (steps-from-hub land walkable?)))
     (string-join
-     (map (lambda (front) (show (vector-ref field (cell-index front)))) (::fronts land))
+     (map (lambda (front) (show (vector-ref field (cell-index front)))) (● land fronts))
      " ")))
 
 ;; Every nest can walk to the hub, and every crystal is on open ground the
@@ -77,28 +77,28 @@
 (define (playable? (land Land)) (→ Bool)
   (let ((walk (steps-from-hub land walkable?))
         (wire (steps-from-hub land (lambda (g) (match g ((Rock) #f) (_ #t))))))
-    (and (every? (lambda (front) (>= (vector-ref walk (cell-index front)) 0)) (::fronts land))
+    (and (every? (lambda (front) (>= (vector-ref walk (cell-index front)) 0)) (● land fronts))
          (every? (lambda (site)
-                   (and (char=? (ground-char (ground-at land (::cell site))) #\.)
-                        (>= (vector-ref wire (cell-index (::cell site))) 0)))
-                 (::sites land)))))
+                   (and (char=? (ground-char (ground-at land (● site cell))) #\.)
+                        (>= (vector-ref wire (cell-index (● site cell))) 0)))
+                 (● land sites)))))
 
 (define (biome-count (lands (List Land)) (biome Biome)) (→ String)
   (string-append (biome-name biome)
                  " "
                  (show (length (filter (lambda (land)
-                                         (string=? (biome-name (::biome land))
+                                         (string=? (biome-name (● land biome))
                                                    (biome-name biome)))
                                        lands)))))
 
 (define (show-map (land Land)) (→ Unit) (! console)
-  (write-line (string-append (biome-name (::biome land)) ", seed " (show (::seed land)) ":"))
+  (write-line (string-append (biome-name (● land biome)) ", seed " (show (● land seed)) ":"))
   (for-each (lambda (y) (write-line (map-row land y))) (iota map-size))
   (write-line (string-append "walking steps from the hub to each nest: " (nest-distances land))))
 
 (define (first-of (biome Biome) (seed I64)) (→ Land)
   (let ((land (new-land seed)))
-    (if (string=? (biome-name (::biome land)) (biome-name biome))
+    (if (string=? (biome-name (● land biome)) (biome-name biome))
         land
         (first-of biome (+ seed 1)))))
 
@@ -112,7 +112,7 @@
                              (let ((broken (filter (lambda (land) (not (playable? land))) lands)))
                                (if (null? broken)
                                    "none"
-                                   (string-join (map (lambda (land) (show (::seed land))) broken)
+                                   (string-join (map (lambda (land) (show (● land seed))) broken)
                                                 " "))))))
 (for-each (lambda (biome) (show-map (first-of biome 1)))
           (list (Meadow) (Desert) (Tundra) (Archipelago)))

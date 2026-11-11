@@ -51,7 +51,7 @@
 
     (define (number->datum (n Number)) (→ Any)
       (match n
-        ((Exact r) (if (rational-integer? r) (ann (::numerator r) Any) (ann r Any)))
+        ((Exact r) (if (rational-integer? r) (ann (● r numerator) Any) (ann r Any)))
         ((Inexact x) (ann x Any))))
 
     ;; A view for equality, comparison and formatting, never stored in Scheme

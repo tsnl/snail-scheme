@@ -6,4 +6,4 @@
 (struct Wrapped
   ((item (annotations I64) (annotations (doc "An ordinary applied type.")))))
 (define item (→ (annotations I64)) (annotations (doc "A value of that type.")) (annotations 9))
-(write-line (show (::value (::item (Wrapped item)))))
+(write-line (show (● (● (Wrapped item) item) value)))

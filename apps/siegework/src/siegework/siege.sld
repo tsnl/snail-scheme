@@ -101,7 +101,7 @@
     ;; nest takes back two tiers, after capping, so even a late clear helps.
     (define (threat-tick (world World)) (→ I64)
       (max 0
-           (- (min (::tick world) (* 40 difficulty-step))
+           (- (min (● world tick) (* 40 difficulty-step))
               (* (* 2 difficulty-step) (- 3 (length (living-nests world)))))))
 
     (define (difficulty-tier (tick I64)) (→ I64)
@@ -137,13 +137,13 @@
     ;; ---- Spawning ----
 
     (define (living-nests (world World)) (→ (List Nest))
-      (filter (lambda (nest) (> (::health nest) 0)) (::nests world)))
+      (filter (lambda (nest) (> (● nest health) 0)) (● world nests)))
 
     ;; Each attack deals its enemies to the fronts in turn, starting where
     ;; the last one left off. A cleared front's share is skipped, never given
     ;; to the others.
     (define (spawn (world World)) (→ World)
-      (let* ((tick (::tick world)) (size (attack-size tick)) (kind (attack-kind tick))
+      (let* ((tick (● world tick)) (size (attack-size tick)) (kind (attack-kind tick))
              (rank (min (match kind ((Heavy) 6) (_ 5)) (difficulty-tier (threat-tick world))))
              (shift (remainder (- (attack-number (- tick 1)) 1) 3)))
         (fold-left (lambda (world index) (spawn-one world kind size index rank shift))
@@ -159,10 +159,10 @@
                        (shift I64))
       (→ World)
       (let ((lane (+ 14 (* 2 (remainder (- size index) 3)))))
-        (match (find (lambda (nest) (= (::front nest) (remainder (+ index shift) 3)))
-                     (::nests world))
+        (match (find (lambda (nest) (= (● nest front) (remainder (+ index shift) 3)))
+                     (● world nests))
           ((Some nest)
-           (if (or (= (::health nest) 0) (>= (length (::enemies world)) maximum-enemies))
+           (if (or (= (● nest health) 0) (>= (length (● world enemies)) maximum-enemies))
                world
                (add-enemy world
                           nest
@@ -181,10 +181,10 @@
         ((Regular) (lane-behavior world nest lane))))
 
     (define (lane-behavior (world World) (nest Nest) (lane I64)) (→ Behavior)
-      (let ((sample (Cell (+ (::x (::cell nest)) (if (= (remainder lane 3) 0) -12 12))
-                          (+ (::y (::cell nest)) (- (remainder lane 5) 2)))))
+      (let ((sample (Cell (+ (● (● nest cell) x) (if (= (remainder lane 3) 0) -12 12))
+                          (+ (● (● nest cell) y) (- (remainder lane 5) 2)))))
         (if
-         (and (in-bounds? sample) (match (ground-at (::land world) sample) ((Rock) #t) (_ #f)))
+         (and (in-bounds? sample) (match (ground-at (● world land) sample) ((Rock) #t) (_ #f)))
          (Raider)
          (Minion))))
 
@@ -193,12 +193,12 @@
       (→ World)
       (match (fresh-id world)
         ((Pair id world)
-         (let* ((cell (Cell (+ (::x (::cell nest)) (- (remainder lane 3) 1))
-                            (+ (::y (::cell nest)) 2)))
+         (let* ((cell (Cell (+ (● (● nest cell) x) (- (remainder lane 3) 1))
+                            (+ (● (● nest cell) y) 2)))
                 (health (spawn-health world behavior rank))
                 (burrower
-                 (= (remainder (+ (remainder (::seed world) 10) (remainder id 10)) 10) 0)))
-           (World-enemies-set world (append (::enemies world)
+                 (= (remainder (+ (remainder (● world seed) 10) (remainder id 10)) 10) 0)))
+           (World-enemies-set world (append (● world enemies)
                                             (list (Enemy id
                                                          behavior
                                                          rank
@@ -217,22 +217,22 @@
     (define (raid-target (world World) (nest Nest) (behavior Behavior)) (→ (Option I64))
       (match behavior
         ((Raider)
-         (let* ((hub (::cell (::hub world)))
-                (front (::cell nest))
+         (let* ((hub (● (● world hub) cell))
+                (front (● nest cell))
                 (limit (manhattan front hub)))
            (match (nearest (filter (lambda (b)
                                      (and (exposed? b hub front limit)
-                                          (mainland? (::land world) (::cell b))))
-                                   (::buildings world))
-                           (lambda (b) (manhattan front (::cell b))))
-             ((Some b) (Some (::id b)))
+                                          (mainland? (● world land) (● b cell))))
+                                   (● world buildings))
+                           (lambda (b) (manhattan front (● b cell))))
+             ((Some b) (Some (● b id)))
              ((None) (None)))))
         (_ (None))))
 
     (define (exposed? (building Building) (hub Cell) (front Cell) (limit I64)) (→ Bool)
-      (and (built? building) (match (::kind building) ((Turret) #f) (_ #t))
-           (> (manhattan (::cell building) hub) 9)
-           (< (manhattan front (::cell building)) limit)))
+      (and (built? building) (match (● building kind) ((Turret) #f) (_ #t))
+           (> (manhattan (● building cell) hub) 9)
+           (< (manhattan front (● building cell)) limit)))
 
     ;; The first of the nearest, so ties go to the oldest.
     (define (nearest (items (List A)) (distance (dyn (Fn A → I64))))
@@ -252,15 +252,15 @@
     ;; distance field toward a goal, kept until the terrain changes.
     (define (route-field (world World) (goal Cell) (burrower Bool)) (→ (Pair (Vector I64) World))
       (match (find (lambda (route)
-                     (and (cell=? (::goal route) goal)
-                          (eq-bool? (::burrower route) burrower)))
-                   (::routes world))
-        ((Some route) (Pair (::field route) world))
+                     (and (cell=? (● route goal) goal)
+                          (eq-bool? (● route burrower) burrower)))
+                   (● world routes))
+        ((Some route) (Pair (● route field) world))
         ((None) (let ((field (distance-field (passable world burrower) (goal-cells world goal))))
                   (Pair field
                         (World-routes-set world
                                           (take
-                                           (Cons (Route goal burrower field) (::routes world))
+                                           (Cons (Route goal burrower field) (● world routes))
                                            8)))))))
 
     (define (eq-bool? (a Bool) (b Bool)) (→ Bool)
@@ -268,12 +268,12 @@
 
     ;; The hub's goal is its whole footprint.
     (define (goal-cells (world World) (goal Cell)) (→ (List Cell))
-      (let ((hub (::hub world)))
-        (if (cell=? goal (::cell hub))
+      (let ((hub (● world hub)))
+        (if (cell=? goal (● hub cell))
             (filter (lambda (cell) (hub-cell? hub cell))
                     (map (lambda (i)
-                           (Cell (+ (::x goal) (- (remainder i 3) 1))
-                                 (+ (::y goal) (- (quotient i 3) 1))))
+                           (Cell (+ (● goal x) (- (remainder i 3) 1))
+                                 (+ (● goal y) (- (quotient i 3) 1))))
                          (iota 9)))
             (list goal))))
 
@@ -281,7 +281,7 @@
       (vector-generate (* map-size map-size)
                        (lambda (index)
                          (let ((cell (index-cell index)))
-                           (match (ground-at (::land world) cell)
+                           (match (ground-at (● world land) cell)
                              ((Rock) (or burrower (opened? world cell)))
                              ((Water) #f)
                              (_ #t))))))
@@ -290,15 +290,15 @@
 
     (define (target-cell (world World) (enemy Enemy)) (→ Cell)
       (match (target-building world enemy)
-        ((Some b) (::cell b))
-        ((None) (::cell (::hub world)))))
+        ((Some b) (● b cell))
+        ((None) (● (● world hub) cell))))
 
     ;; The turret an enemy turned on while it stands, else the outpost it
     ;; raids while that stands; with neither it heads for the hub.
     (define (target-building (world World) (enemy Enemy)) (→ (Option Building))
-      (match (standing world (::aggro enemy))
+      (match (standing world (● enemy aggro))
         ((Some b) (Some b))
-        ((None) (standing world (::raid enemy)))))
+        ((None) (standing world (● enemy raid)))))
 
     (define (standing (world World) (id (Option I64))) (→ (Option Building))
       (match id
@@ -314,9 +314,9 @@
     ;; An enemy stops beside its target and strikes it. One heading for the
     ;; hub stops beside the hub, or beside any finished building it meets.
     (define (engagement (world World) (enemy Enemy)) (→ (Option Struck))
-      (let ((cell (::cell enemy)))
+      (let ((cell (● enemy cell)))
         (match (target-building world enemy)
-          ((Some b) (if (beside? cell (::cell b)) (Some (StruckBuilding b)) (None)))
+          ((Some b) (if (beside? cell (● b cell)) (Some (StruckBuilding b)) (None)))
           ((None) (cond ((beside-hub? world cell) (Some (StruckHub)))
                         (else (match (beside-buildings world cell)
                                 ((Cons b _) (Some (StruckBuilding b)))
@@ -331,12 +331,12 @@
       (<= (distance-squared a b) 1))
 
     (define (beside-hub? (world World) (cell Cell)) (→ Bool)
-      (any? (lambda (neighbor) (hub-cell? (::hub world) neighbor))
+      (any? (lambda (neighbor) (hub-cell? (● world hub) neighbor))
             (Cons cell (neighbors cell))))
 
     (define (beside-buildings (world World) (cell Cell)) (→ (List Building))
-      (filter (lambda (b) (and (built? b) (beside? cell (::cell b))))
-              (::buildings world)))
+      (filter (lambda (b) (and (built? b) (beside? cell (● b cell))))
+              (● world buildings)))
 
     ;; The neighbor one step closer to the goal with the fewest enemies on
     ;; it, so crowds spread across parallel lanes.
@@ -354,9 +354,9 @@
          (let ((counts (make-array (* map-size map-size) 0)))
            (for-each (lambda (e)
                        (array-set! counts
-                                   (cell-index (::cell e))
-                                   (+ 1 (array-ref counts (cell-index (::cell e))))))
-                     (::enemies world))
+                                   (cell-index (● e cell))
+                                   (+ 1 (array-ref counts (cell-index (● e cell))))))
+                     (● world enemies))
            (array->vector counts)))))
 
     ;; On its period an enemy that is not engaged steps toward its target,
@@ -365,10 +365,10 @@
       (let ((crowd (crowding world)))
         (fold-left (lambda (world enemy) (if (on-step? world enemy) (step world crowd enemy) world))
                    world
-                   (::enemies world))))
+                   (● world enemies))))
 
     (define (step (world World) (crowd (Vector I64)) (enemy Enemy)) (→ World)
-      (let ((enemy (Enemy-previous-set enemy (::cell enemy))))
+      (let ((enemy (Enemy-previous-set enemy (● enemy cell))))
         (match (heading world crowd enemy)
           ((Pair (Some cell) world)
            (put-enemy world (if (walkable? world cell) (Enemy-cell-set enemy cell) enemy)))
@@ -380,23 +380,23 @@
       (→ (Pair (Option Cell) World))
       (if (engaged? world enemy)
           (Pair (None) world)
-          (match (route-field world (target-cell world enemy) (::burrower enemy))
-            ((Pair field world) (Pair (next-cell world field crowd (::cell enemy)) world)))))
+          (match (route-field world (target-cell world enemy) (● enemy burrower))
+            ((Pair field world) (Pair (next-cell world field crowd (● enemy cell)) world)))))
 
     (define (walkable? (world World) (cell Cell)) (→ Bool)
-      (match (ground-at (::land world) cell)
+      (match (ground-at (● world land) cell)
         ((Rock) (opened? world cell))
         ((Water) #f)
         (_ #t)))
 
     (define (on-step? (world World) (enemy Enemy)) (→ Bool)
-      (= (remainder (+ (::tick world) (::id enemy)) (enemy-period (::behavior enemy)))
+      (= (remainder (+ (● world tick) (● enemy id)) (enemy-period (● enemy behavior)))
          0))
 
     (define (put-enemy (world World) (enemy Enemy)) (→ World)
       (World-enemies-set world
-                         (map (lambda (e) (if (= (::id e) (::id enemy)) enemy e))
-                              (::enemies world))))
+                         (map (lambda (e) (if (= (● e id) (● enemy id)) enemy e))
+                              (● world enemies))))
 
     ;; ---- Excavation ----
 
@@ -415,21 +415,22 @@
     (define (dig-faces (world World)) (→ (Pair (List Cell) World))
       (let ((crowd (crowding world)))
         (fold-left (lambda (found enemy)
-                     (match (heading (::second found) crowd enemy)
+                     (match (heading (● found second) crowd enemy)
                        ((Pair (Some cell) world)
                         (Pair (if (walkable? world cell)
-                                  (::first found)
-                                  (Cons cell (::first found)))
+                                  (● found first)
+                                  (Cons cell (● found first)))
                               world))
-                       ((Pair (None) world) (Pair (::first found) world))))
-                   (Pair (Nil) world) (filter ::burrower (::enemies world)))))
+                       ((Pair (None) world) (Pair (● found first) world))))
+                   (Pair (Nil) world)
+                   (filter (lambda (record) (● record burrower)) (● world enemies)))))
 
     (define (chip (world World) (cell Cell) (amount I64)) (→ World)
-      (let ((remaining (- (match (find (lambda (d) (cell=? (::cell d) cell)) (::digs world))
-                            ((Some d) (::remaining d))
+      (let ((remaining (- (match (find (lambda (d) (cell=? (● d cell) cell)) (● world digs))
+                            ((Some d) (● d remaining))
                             ((None) rock-health))
                           amount))
-            (others (filter (lambda (d) (not (cell=? (::cell d) cell))) (::digs world))))
+            (others (filter (lambda (d) (not (cell=? (● d cell) cell))) (● world digs))))
         (if (<= remaining 0)
             (open-rock (World-digs-set world others) cell)
             (World-digs-set world (Cons (Dig cell remaining) others)))))
@@ -443,143 +444,143 @@
     (define (fire (world World)) (→ World)
       (fold-left fire-one
                  world
-                 (filter (lambda (b) (and (turret? b) (built? b) (powered? world (::id b))
-                                          (= (remainder (+ (::tick world) (::id b)) 8)
+                 (filter (lambda (b) (and (turret? b) (built? b) (powered? world (● b id))
+                                          (= (remainder (+ (● world tick) (● b id)) 8)
                                              0)))
-                         (::buildings world))))
+                         (● world buildings))))
 
     (define (turret? (b Building)) (→ Bool)
-      (match (::kind b) ((Turret) #t) (_ #f)))
+      (match (● b kind) ((Turret) #t) (_ #f)))
 
     (define (fire-one (world World) (turret Building)) (→ World)
       (match (choose-enemy world turret)
         ((Some enemy) (hit-enemy world turret enemy))
         ((None)
-         (match (find (lambda (nest) (can-shoot? world turret (::cell nest)))
+         (match (find (lambda (nest) (can-shoot? world turret (● nest cell)))
                       (living-nests world))
            ((Some nest) (hit-nest world turret nest))
            ((None) world)))))
 
     (define (can-shoot? (world World) (turret Building) (cell Cell)) (→ Bool)
       (and (visible? world cell)
-           (within? cell (::cell turret) 6)
-           (clear-line? world (::cell turret) cell)))
+           (within? cell (● turret cell) 6)
+           (clear-line? world (● turret cell) cell)))
 
     ;; The nearest enemy the turret can shoot; ties go to the oldest.
     (define (choose-enemy (world World) (turret Building)) (→ (Option Enemy))
-      (nearest (filter (lambda (e) (can-shoot? world turret (::cell e))) (::enemies world))
-               (lambda (e) (distance-squared (::cell e) (::cell turret)))))
+      (nearest (filter (lambda (e) (can-shoot? world turret (● e cell))) (● world enemies))
+               (lambda (e) (distance-squared (● e cell) (● turret cell)))))
 
     ;; Damage falls from 24 at point blank to 6 at the six-cell range,
     ;; measured in fortieths of a cell, and grows with the turret's level:
     ;; one, one and a half, then two times.
     (define (damage (turret Building) (cell Cell)) (→ I64)
-      (let ((length (integer-sqrt (* 1600 (distance-squared cell (::cell turret))))))
-        (quotient (* (+ 6 (quotient (* 18 (- 240 length)) 240)) (+ (::level turret) 1)) 2)))
+      (let ((length (integer-sqrt (* 1600 (distance-squared cell (● turret cell))))))
+        (quotient (* (+ 6 (quotient (* 18 (- 240 length)) 240)) (+ (● turret level) 1)) 2)))
 
     (define (hit-enemy (world World) (turret Building) (enemy Enemy)) (→ World)
       (let ((wounded
-             (Enemy-health-set enemy (- (::health enemy) (damage turret (::cell enemy))))))
+             (Enemy-health-set enemy (- (● enemy health) (damage turret (● enemy cell))))))
         (shoot
-         (put-enemy world (if (> (::health wounded) 0) (provoke world wounded turret) wounded))
-         turret (::cell enemy))))
+         (put-enemy world (if (> (● wounded health) 0) (provoke world wounded turret) wounded))
+         turret (● enemy cell))))
 
     ;; A wounded enemy turns on the turret that hit it unless the one it
     ;; already turned on still stands, so turrets on both sides of it cannot
     ;; pull it back and forth. A turret across water is out of its reach,
     ;; and it keeps on its way.
     (define (provoke (world World) (enemy Enemy) (turret Building)) (→ Enemy)
-      (match (standing world (::aggro enemy))
+      (match (standing world (● enemy aggro))
         ((Some _) enemy)
         ((None)
-         (if (mainland? (::land world) (::cell turret))
-             (Enemy-aggro-set enemy (Some (::id turret)))
+         (if (mainland? (● world land) (● turret cell))
+             (Enemy-aggro-set enemy (Some (● turret id)))
              enemy))))
 
     ;; A destroyed nest changes the structures: its crystal shows instead.
     (define (hit-nest (world World) (turret Building) (nest Nest)) (→ World)
-      (let* ((health (max 0 (- (::health nest) (damage turret (::cell nest)))))
+      (let* ((health (max 0 (- (● nest health) (damage turret (● nest cell)))))
              (world (World-nests-set world
                                      (map (lambda (n)
-                                            (if (= (::front n) (::front nest))
+                                            (if (= (● n front) (● nest front))
                                                 (Nest-health-set n health)
                                                 n))
-                                          (::nests world)))))
-        (shoot (if (= health 0) (structures-changed world) world) turret (::cell nest))))
+                                          (● world nests)))))
+        (shoot (if (= health 0) (structures-changed world) world) turret (● nest cell))))
 
     ;; A shot leaves a tracer and turns the turret's guns to where it went.
     (define (shoot (world World) (turret Building) (cell Cell)) (→ World)
       (World-buildings-set (World-shots-set world
                                             (Cons
-                                             (Shot (::cell turret) cell (::tick world))
-                                             (::shots world)))
+                                             (Shot (● turret cell) cell (● world tick))
+                                             (● world shots)))
                            (map (lambda (b)
-                                  (if (= (::id b) (::id turret))
+                                  (if (= (● b id) (● turret id))
                                       (Building-aim-set b (Some cell))
                                       b))
-                                (::buildings world))))
+                                (● world buildings))))
 
     ;; ---- Strikes ----
 
     ;; Every ten ticks each engaged enemy strikes for its rank's damage.
     (define (strike (world World)) (→ World)
-      (if (= (remainder (::tick world) 10) 0)
-          (fold-left strike-one world (::enemies world))
+      (if (= (remainder (● world tick) 10) 0)
+          (fold-left strike-one world (● world enemies))
           world))
 
     (define (strike-one (world World) (enemy Enemy)) (→ World)
       (match (engagement world enemy)
-        ((Some (StruckHub)) (damage-hub world (rank-damage (::rank enemy))))
-        ((Some (StruckBuilding b)) (damage-building world b (rank-damage (::rank enemy))))
+        ((Some (StruckHub)) (damage-hub world (rank-damage (● enemy rank))))
+        ((Some (StruckBuilding b)) (damage-building world b (rank-damage (● enemy rank))))
         ((None) world)))
 
     (define (damage-building (world World) (b Building) (amount I64)) (→ World)
-      (alert (put-building world (Building-health-set b (max 0 (- (::health b) amount))))
-             (::cell b)))
+      (alert (put-building world (Building-health-set b (max 0 (- (● b health) amount))))
+             (● b cell)))
 
     (define (damage-hub (world World) (amount I64)) (→ World)
-      (let ((hub (::hub world)))
-        (alert (World-hub-set world (Hub-health-set hub (max 0 (- (::health hub) amount))))
-               (::cell hub))))
+      (let ((hub (● world hub)))
+        (alert (World-hub-set world (Hub-health-set hub (max 0 (- (● hub health) amount))))
+               (● hub cell))))
 
     ;; At most four alerts: a new one replaces any within four cells and any
     ;; older than eight seconds.
     (define (alert (world World) (cell Cell)) (→ World)
-      (let ((tick (::tick world)))
+      (let ((tick (● world tick)))
         (World-alerts-set world (Cons (Alert cell tick)
                                       (take (filter (lambda (a)
-                                                      (and (<= (- tick (::tick a)) 80)
-                                                           (not (within? (::cell a) cell 4))))
-                                                    (::alerts world))
+                                                      (and (<= (- tick (● a tick)) 80)
+                                                           (not (within? (● a cell) cell 4))))
+                                                    (● world alerts))
                                             3)))))
 
     ;; ---- Settling ----
 
     ;; Removes the dead and destroyed, counts them, and drops old shots.
     (define (settle (world World)) (→ World)
-      (let* ((alive (filter (lambda (e) (> (::health e) 0)) (::enemies world)))
-             (standing (filter (lambda (b) (> (::health b) 0)) (::buildings world)))
+      (let* ((alive (filter (lambda (e) (> (● e health) 0)) (● world enemies)))
+             (standing (filter (lambda (b) (> (● b health) 0)) (● world buildings)))
              (world (count-losses world
-                                  (- (length (::enemies world)) (length alive))
-                                  (- (length (::buildings world)) (length standing))))
+                                  (- (length (● world enemies)) (length alive))
+                                  (- (length (● world buildings)) (length standing))))
              (world (World-shots-set (World-enemies-set world alive)
-                                     (filter (lambda (s) (> (+ (::tick s) 4) (::tick world)))
-                                             (::shots world)))))
-        (if (= (length standing) (length (::buildings world)))
+                                     (filter (lambda (s) (> (+ (● s tick) 4) (● world tick)))
+                                             (● world shots)))))
+        (if (= (length standing) (length (● world buildings)))
             world
             (rewire (World-buildings-set world standing)))))
 
     (define (count-losses (world World) (kills I64) (lost I64)) (→ World)
-      (let ((ledger (::ledger world)))
+      (let ((ledger (● world ledger)))
         (World-ledger-set world
-                          (Ledger-lost-set (Ledger-kills-set ledger (+ (::kills ledger) kills))
-                                           (+ (::lost ledger) lost)))))
+                          (Ledger-lost-set (Ledger-kills-set ledger (+ (● ledger kills) kills))
+                                           (+ (● ledger lost) lost)))))
 
     ;; Destroying every nest wins, even on the tick the hub falls. Either way
     ;; the whole map is uncovered for inspection.
     (define (judge (world World)) (→ World)
       (cond ((null? (living-nests world)) (uncover (World-outcome-set world (Won))))
-            ((= (::health (::hub world)) 0) (uncover (World-outcome-set world (Lost))))
+            ((= (● (● world hub) health) 0) (uncover (World-outcome-set world (Lost))))
             (else world)))
 
     ))

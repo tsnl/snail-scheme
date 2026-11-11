@@ -9,7 +9,7 @@
   (deriving Move))
 
 (define (inspect (token (Borrow Token)) (ignored Unit)) (→ I64)
-  (::number token))
+  (● token number))
 
 (let ((token (Token 1)))
   (handle Pause

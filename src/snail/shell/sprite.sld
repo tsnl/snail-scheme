@@ -42,10 +42,10 @@
        (strip (dyn (Fn M I64 → Strip)))))
 
     (define (strip-texture (book (Spritebook M)) (strip Strip)) (→ Texture) (∀ M) (⊨ (Copy M))
-      (let ((width (::cell-width book)) (height (::cell-height book)))
-        (Texture (::picture book)
-                 (Rect (* width (::column strip)) (* height (::row strip)) width height)
-                 (::frames strip) (::period strip))))
+      (let ((width (● book cell-width)) (height (● book cell-height)))
+        (Texture (● book picture)
+                 (Rect (* width (● strip column)) (* height (● strip row)) width height)
+                 (● strip frames) (● strip period))))
 
     ;; ---- Headings ----
 
@@ -60,10 +60,10 @@
     ;; or steep camera would shrink.
 
     (define (heading (count I64) (facing Vec3) (camera Camera)) (→ I64)
-      (let* ((right (::first (screen-axes camera)))
-             (rx (f32->f64 (::x right)))
-             (rz (f32->f64 (::z right)))
-             (x (f32->f64 (::x facing))) (z (f32->f64 (::z facing)))
+      (let* ((right (● (screen-axes camera) first))
+             (rx (f32->f64 (● right x)))
+             (rz (f32->f64 (● right z)))
+             (x (f32->f64 (● facing x))) (z (f32->f64 (● facing z)))
              (step (/ (* 2.0 pi) (i64->f64 count))))
         (modulo (f64->i64 (round (/ (atan2 (+ (* x rx) (* z rz)) (- (* z rx) (* x rz))) step)))
                 count)))
@@ -110,14 +110,14 @@
       (∀ M)
       (⊨ (Copy M))
       (strip-texture book
-                     ((::strip book)
+                     ((● book strip)
                       motion
-                      (heading (::headings book) facing camera))))
+                      (heading (● book headings) facing camera))))
 
     ;; The width that keeps a cell's proportions at `height`.
 
     (define (cell-width-for (book (Spritebook M)) (height F32)) (→ F32) (∀ M) (⊨ (Copy M))
-      (/ (* height (i32->f32 (::cell-width book)))
-         (i32->f32 (::cell-height book))))
+      (/ (* height (i32->f32 (● book cell-width)))
+         (i32->f32 (● book cell-height))))
 
     ))

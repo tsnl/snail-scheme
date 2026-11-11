@@ -25,40 +25,40 @@
      (begin (write-line (string-append "rejected: " (rejection-text rejection))) world))))
 
 (define (visible-count (world World)) (→ I64)
-  (vector-fold (lambda (n seen) (if seen (+ n 1) n)) 0 (::visible world)))
+  (vector-fold (lambda (n seen) (if seen (+ n 1) n)) 0 (● world visible)))
 
 (define (wire-text (wire Wire)) (→ String)
-  (string-append (cell-text (::cell (::from wire)))
+  (string-append (cell-text (● (● wire from) cell))
                  "-"
-                 (cell-text (::cell (::to wire)))))
+                 (cell-text (● (● wire to) cell))))
 
 (define (cell-text (cell Cell)) (→ String)
-  (string-append (show (::x cell)) "," (show (::y cell))))
+  (string-append (show (● cell x)) "," (show (● cell y))))
 
 (define (report-wires (world World)) (→ Unit) (! console)
   (write-line (string-append "wires "
-                             (string-join (map wire-text (::wires (::network world)))
+                             (string-join (map wire-text (● (● world network) wires))
                                           " "))))
 
 (define (report (world World)) (→ Unit) (! console)
   (write-line (string-append "tick "
-                             (show (::tick world))
+                             (show (● world tick))
                              ", produced "
-                             (show (::produced (::ledger world)))
-                             ", wires " (show (length (::wires (::network world))))
+                             (show (● (● world ledger) produced))
+                             ", wires " (show (length (● (● world network) wires)))
                              ", visible " (show (visible-count world)) ": "
                              (string-join (map (lambda (b)
-                                                 (string-append (kind-name (::kind b))
+                                                 (string-append (kind-name (● b kind))
                                                                 " "
-                                                                (show (::x (::cell b)))
+                                                                (show (● (● b cell) x))
                                                                 ","
-                                                                (show (::y (::cell b)))
+                                                                (show (● (● b cell) y))
                                                                 (cond
                                                                  ((not (built? b)) " unfinished")
-                                                                 ((powered? world (::id b))
+                                                                 ((powered? world (● b id))
                                                                   " powered")
                                                                  (else " unpowered"))))
-                                               (::buildings world))
+                                               (● world buildings))
                                           "; "))))
 
 (let ()
@@ -66,7 +66,7 @@
   (define relay (Cell 30 39))
   (define world (new-world 3))
   (define world (order world (Build (Extractor) west #f)))
-  (define world (order world (Build (Extractor) (::starter (::land world)) #f)))
+  (define world (order world (Build (Extractor) (● (● world land) starter) #f)))
   (define world (order world (Build (Pylon) relay #f)))
   (define world (run world 250))
   (define world (order world (Build (Extractor) west #f)))

@@ -69,7 +69,7 @@ so is a second use.
   consume the record it is applied to; both would leave the other fields
   with no owner, and are refused. A replacement's other operand is checked
   first, so it may read the record in place, as `(Job-attempts-set job (+
-  (::attempts job) 1))` does.
+  (● job attempts) 1))` does.
 - **Cells.** Locals are immutable, and so is every struct: a struct is a
   value with no identity, and a program that changes one holds it in a
   cell. `Ref` is the one struct with a mutable field, declared in
@@ -87,15 +87,15 @@ so is a second use.
     swaps in a new value and hands back the old. A function whose type
     has no `mut` may still use them on a cell it allocates.
   - A *place* is a cell's content, `(ref-get r)`, or a chain of struct
-    fields read from one, `(::count (ref-get r))` or `(::last::x (ref-get
-    c))`. `(set! place v)` writes it and `(replace! place v)` swaps `v` in
+    fields read from one, `(● (ref-get r) count)` or `(● (ref-get c) last
+    x)`. `(set! place v)` writes it and `(replace! place v)` swaps `v` in
     and answers the old content. The content lies in the cell, so a place
     is one slot of the cell's object and a write stores there. Each link
     of a place is a struct's own field: an enum's case, a computed field
     and a field read through a requirement have no slot to write.
   - A chain of reads copies one value, the last field, out of its root:
-    the fields along the way are addressed, not read, so `(::x (::from
-    s))` reads one number out of a segment.
+    the fields along the way are addressed, not read, so `(● s from x)` reads
+    one number out of a segment.
   - A cell holds no linear value: `(Ref T)` requires an unrestricted `T`.
     A cell is shared, so nothing could finalize linear content it still
     held when it was lost. A linear value lives in a frame, which drops or
@@ -188,10 +188,10 @@ implicit conversion from an owner to a borrow.
 
 An immutable field read through a borrow returns an owned value when the
 field is Copy, or `Borrow<Field>` when the field is linear. Both named
-accessors and concrete field shorthand such as `(::title read)` follow
+Direct field reads such as `(● read title)` follow
 this rule where the record is already known to be a borrow when the read
 is checked. The parameter of an unannotated lambda or named `let` is not,
-so annotate the parameter or the read, `(::title (ann b (Borrow Model)))`;
+so annotate the parameter or the read, `(● (ann b (Borrow Model)) title)`;
 `tests/programs/borrow-loops.sld` shows both. A computed field or a field known only through a generic
 requirement cannot project a borrow: its implementation may consume the
 record. `borrow-copy` copies a whole referent when its type is Copy. A constructor
@@ -465,7 +465,7 @@ inner struct's, and no object of the inner type exists there. A
 ```
 
 Building one nested, `(Segment (Point 1 2) (Point 3 4) "d")`, writes five
-values into one allocation; `(::to::y s)` is one field read;
+values into one allocation; `(● s to y)` is one field read;
 and a nested pattern reads the fields where they lie. A `Point` is its
 own struct only where it is a value on its own: a local, an argument, a
 result, a closure's capture, an Any or an element of an array, and reading

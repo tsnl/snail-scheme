@@ -57,7 +57,7 @@
 ;; ---- Data ----
 
 ;; A struct has named fields; an enum has cases, each with its own fields.
-;; A type's name builds it, and `::x` reads a field.
+;; A type's name builds it, and `(● point x)` reads a stored field.
 (struct Point
   ((x I64)
    (y I64)))
@@ -100,7 +100,7 @@
 (instance (Describe Point)
   (define describe
     (lambda (point)
-      (string-append "(" (i64->string (::x point)) ", " (i64->string (::y point)) ")"))))
+      (string-append "(" (i64->string (● point x)) ", " (i64->string (● point y)) ")"))))
 
 (instance (Describe Bool)
   (define describe
@@ -125,12 +125,12 @@
   ((count I64)))
 
 (define (bump! (counter (Ref Counter))) (→ Unit) (! mut)
-  (set! (::count (ref-get counter)) (+ (::count (ref-get counter)) 1)))
+  (set! (● (ref-get counter) count) (+ (● (ref-get counter) count) 1)))
 
 (let ((clicks (ref (Counter 0))))
   (bump! clicks)
   (bump! clicks)
-  (display (::count (ref-get clicks)))
+  (display (● (ref-get clicks) count))
   (newline))
 
 ;; ---- Effects ----

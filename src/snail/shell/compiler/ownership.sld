@@ -95,11 +95,11 @@
                   (for-each (lambda (case)
                               (for-each (lambda (field)
                                           (check-type program
-                                                      (::params data)
-                                                      (::type field)
+                                                      (● data params)
+                                                      (● field type)
                                                       no-loc))
-                                        (::fields case)))
-                            (::cases data))) (table-values (::types program))))
+                                        (● case fields)))
+                            (● data cases))) (table-values (● program types))))
 
     ;; An item's types, with the variables its scheme declares ω.
 
@@ -108,9 +108,9 @@
       (! compile)
       (match item
         ((Define name value)
-         (check-type program (item-copy schemes item) (::type value) (::loc value))
-         (when (linear-type? program (scheme-vars schemes name) (::type value))
-           (compile-error (::loc value) "a linear value cannot be a global"))
+         (check-type program (item-copy schemes item) (● value type) (● value loc))
+         (when (linear-type? program (scheme-vars schemes name) (● value type))
+           (compile-error (● value loc) "a linear value cannot be a global"))
          (check-expression-types program (item-copy schemes item) value))
         ((Do value) (check-expression-types program (Nil) value))
         (_ (unit))))
@@ -120,7 +120,7 @@
 
     (define (scheme-vars (schemes (Table Scheme)) (name String)) (→ (List String))
       (match (table-ref schemes name)
-        ((Some scheme) (::vars scheme))
+        ((Some scheme) (● scheme vars))
         ((None) (Nil))))
 
     ;; The type variables an item's scheme declares ω.
@@ -128,7 +128,7 @@
     (define (item-copy (schemes (Table Scheme)) (item Item)) (→ (List String))
       (match item
         ((Define name _) (match (table-ref schemes name)
-                           ((Some scheme) (::copy scheme))
+                           ((Some scheme) (● scheme copy))
                            ((None) (Nil))))
         (_ (Nil))))
 
@@ -136,31 +136,31 @@
       (match item
         ((Define name _)
          (match (table-ref schemes name)
-           ((Some scheme) (::constraints scheme)) ((None) (Nil))))
+           ((Some scheme) (● scheme constraints)) ((None) (Nil))))
         (_ (Nil))))
 
     (define (check-expression-types (program Program) (copy (List String)) (expr Expr))
       (→ Unit)
       (! compile)
       (if (borrow-intrinsic? program expr)
-          (match (::type expr)
+          (match (● expr type)
             ((TFun params result _)
-             (for-each (lambda (type) (check-local-type program copy type (::loc expr)))
+             (for-each (lambda (type) (check-local-type program copy type (● expr loc)))
                        (Cons result params)))
             (_ (panic "internal error: a borrow intrinsic is not a function")))
-          (check-local-type program copy (::type expr) (::loc expr)))
+          (check-local-type program copy (● expr type) (● expr loc)))
       (for-each (lambda (child) (check-expression-types program copy child)) (expr-children expr)))
 
     ;; Only introduction and direct immutable projections may produce a
     ;; Borrow. They are compiler operations, never borrow-returning helpers.
 
     (define (borrow-intrinsic? (program Program) (expr Expr)) (→ Bool)
-      (match (::term expr)
+      (match (● expr term)
         ((Var name _ _)
          (or (string=? name "prim:borrow")
              (match (Pair
                      (field-operation (Path program (Nil) (Nil) (Nil) (Nil) (Nil) #t (None)) expr)
-                     (::type expr))
+                     (● expr type))
                ((Pair (Some (Accessor _ _ _)) (TFun (Cons type _) _ _)) (borrow-type? type))
                (_ #f))))
         (_ #f)))
@@ -191,97 +191,97 @@
        (type Type)))
 
     (define (linear? (path Path) (type Type)) (→ Bool)
-      (linear-type? (::program path) (::copy path) type))
+      (linear-type? (● path program) (● path copy) type))
 
     (define (live? (path Path) (name String)) (→ Bool)
-      (any? (lambda (owner) (string=? (::name owner) name)) (::live path)))
+      (any? (lambda (owner) (string=? (● owner name) name)) (● path live)))
 
     (define (borrowed? (path Path) (name String)) (→ Bool)
-      (any? (lambda (owner) (string=? (::name owner) name)) (::borrowed path)))
+      (any? (lambda (owner) (string=? (● owner name) name)) (● path borrowed)))
 
     ;; The same for a value on this path, under its definition's Copy.
 
     (define (explain (path Path) (type Type) (message String)) (→ String)
-      (explain-type (::program path) (::copy path) type message))
+      (explain-type (● path program) (● path copy) type message))
 
     ;; Borrow aliases are reusable within their lexical scope. They share
     ;; its capture restriction; linear owners retain their once-only use.
 
     (define (bind (path Path) (name String) (type Type)) (→ Path)
       (cond ((borrow-type? type)
-             (Path-borrowed-set path (Cons (Owner name type) (::borrowed path))))
-            ((linear? path type) (Path-live-set path (Cons (Owner name type) (::live path))))
+             (Path-borrowed-set path (Cons (Owner name type) (● path borrowed))))
+            ((linear? path type) (Path-live-set path (Cons (Owner name type) (● path live))))
             (else path)))
 
     (define (consume (path Path) (owner Owner) (loc Loc)) (→ Path) (! compile)
-      (when (borrowed? path (::name owner))
+      (when (borrowed? path (● owner name))
         (compile-error loc "an owner cannot be moved while it is borrowed"))
       (require-live path owner loc)
       (Path-live-set path
-                     (filter (lambda (live) (not (string=? (::name live) (::name owner))))
-                             (::live path))))
+                     (filter (lambda (live) (not (string=? (● live name) (● owner name))))
+                             (● path live))))
 
     (define (require-live (path Path) (owner Owner) (loc Loc)) (→ Unit) (! compile)
-      (unless (live? path (::name owner))
+      (unless (live? path (● owner name))
         (compile-error loc
                        (explain path
-                                (::type owner)
+                                (● owner type)
                                 (string-append "linear value used more than once: "
-                                               (local-name (::name owner)))))))
+                                               (local-name (● owner name)))))))
 
     ;; The end of a scope opened on `outer`: if the path returns, it has
     ;; consumed each linear name the scope bound.
 
     (define (close-scope (outer Path) (inner Path) (loc Loc)) (→ Path) (! compile)
-      (let ((outside? (lambda (owner) (live? outer (::name owner)))))
-        (match (filter (lambda (owner) (not (outside? owner))) (::live inner))
+      (let ((outside? (lambda (owner) (live? outer (● owner name)))))
+        (match (filter (lambda (owner) (not (outside? owner))) (● inner live))
           ((Cons owner _)
-           (when (::returns inner)
+           (when (● inner returns)
              (compile-error loc
                             (explain inner
-                                     (::type owner)
+                                     (● owner type)
                                      (string-append "linear value never consumed: "
-                                                    (local-name (::name owner))
+                                                    (local-name (● owner name))
                                                     "; use it once, or drop it")))))
           ((Nil) (unit)))
         (Path-exclusive-set
-         (Path-borrowed-set (Path-live-set inner (filter outside? (::live inner)))
-                            (::borrowed outer)) (::exclusive outer))))
+         (Path-borrowed-set (Path-live-set inner (filter outside? (● inner live)))
+                            (● outer borrowed)) (● outer exclusive))))
 
     ;; Alternatives start from one path. Those that return must leave the
     ;; same names live; if none returns, neither does the whole.
 
     (define (join (path Path) (branches (List Path)) (loc Loc)) (→ Path) (! compile)
-      (match (filter ::returns branches)
+      (match (filter (lambda (record) (● record returns)) branches)
         ((Cons first rest)
          (for-each (lambda (branch) (agree first branch loc)) rest)
-         (Path-live-set path (::live first)))
+         (Path-live-set path (● first live)))
         ((Nil) (Path-returns-set path #f))))
 
     (define (agree (one Path) (other Path) (loc Loc)) (→ Unit) (! compile)
       (for-each (lambda (owner)
-                  (let ((name (::name owner)))
+                  (let ((name (● owner name)))
                     (unless (and (live? one name) (live? other name))
                       (compile-error loc
                                      (explain one
-                                              (::type owner)
+                                              (● owner type)
                                               (string-append
                                                "alternatives must consume the same linear values: "
                                                (local-name name)))))))
-                (append (::live one) (::live other))))
+                (append (● one live) (● other live))))
 
     ;; ---- Expressions ----
 
     (define (check (path Path) (expr Expr)) (→ Path) (! compile)
       (let ((path (check-term path expr)))
-        (if (never-type? (::type expr)) (Path-returns-set path #f) path)))
+        (if (never-type? (● expr type)) (Path-returns-set path #f) path)))
 
     (define (check-all (path Path) (exprs (List Expr))) (→ Path) (! compile)
       (fold-left check path exprs))
 
     (define (check-term (path Path) (expr Expr)) (→ Path) (! compile)
-      (let ((loc (::loc expr)))
-        (match (::term expr)
+      (let ((loc (● expr loc)))
+        (match (● expr term)
           ((Lit _) path)
           ((Var name _ _) (check-reference path expr name))
           ((Lambda _ _ _) (check-lambda path expr))
@@ -297,18 +297,19 @@
            (let ((path (check path value)))
              (join path (map (lambda (clause) (check-clause path clause loc)) clauses) loc)))
           ((Handle effect implementations body)
-           (let* ((path (check-all path (map ::second implementations)))
-                  (inner (match (::row path)
+           (let* ((path (check-all path (map (lambda (record) (● record second)) implementations)))
+                  (inner (match (● path row)
                            ((Some row) (Path-row-set path (Some (TRow (list effect) (Some row)))))
                            ((None) path))))
              ;; Cleanup in the body can use its installed handlers. A
              ;; handled abort may return even when the body does not.
-             (Path-returns-set (Path-row-set (check inner body) (::row path))
-                               (::returns path))))
+             (Path-returns-set (Path-row-set (check inner body) (● path row))
+                               (● path returns))))
           ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
+          ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((Ann inner _)
-           (when (match (callable-kind (::type expr)) ((Some "FnOnce") #t) (_ #f))
-             (check-consuming-adaptation path (::type inner) (fn-arrow (::type expr)) loc))
+           (when (match (callable-kind (● expr type)) ((Some "FnOnce") #t) (_ #f))
+             (check-consuming-adaptation path (● inner type) (fn-arrow (● expr type)) loc))
            (check path inner))
           ((Convert inner target) (check-conversion path expr inner target))
           ((TryConvert _ _)
@@ -322,36 +323,36 @@
     (define (check-let (path Path) (name String) (value Expr) (body Expr) (loc Loc))
       (→ Path)
       (! compile)
-      (match (::term value)
+      (match (● value term)
         ((App (Expr (Var "prim:borrow" _ _) _ _) (Cons owner (Nil)))
-         (check-type (::program path) (::copy path) (::type body) (::loc body))
-         (close-scope path (check (bind (lend path owner) name (::type value)) body) loc))
+         (check-type (● path program) (● path copy) (● body type) (● body loc))
+         (close-scope path (check (bind (lend path owner) name (● value type)) body) loc))
         (_ (let ((path (check path value)))
-             (close-scope path (check (bind path name (::type value)) body) loc)))))
+             (close-scope path (check (bind path name (● value type)) body) loc)))))
 
     ;; A use of a linear local consumes it. A global is shared, as nothing
     ;; linear is one.
 
     (define (check-reference (path Path) (expr Expr) (name String)) (→ Path) (! compile)
-      (when (and (borrowed? path name) (linear? path (::type expr)))
-        (compile-error (::loc expr) "an owner cannot be moved while it is borrowed"))
+      (when (and (borrowed? path name) (linear? path (● expr type)))
+        (compile-error (● expr loc) "an owner cannot be moved while it is borrowed"))
       (match (field-operation path expr)
         ((Some operation) (check-field-value path operation expr) path)
         ((None)
-         (match (program-value (::program path) name)
+         (match (program-value (● path program) name)
            ((Some value) (check-instantiation path expr value) path)
            ((None)
-            (if (linear? path (::type expr))
-                (consume path (Owner name (::type expr)) (::loc expr))
+            (if (linear? path (● expr type))
+                (consume path (Owner name (● expr type)) (● expr loc))
                 path))))))
 
     ;; `once` may move a lambda's linear captures into it. A panic never
     ;; returns. A field operation acts on its record in place.
 
     (define (check-call (path Path) (callee Expr) (args (List Expr))) (→ Path) (! compile)
-      (match (Pair (::term callee) args)
+      (match (Pair (● callee term) args)
         ((Pair (Var "prim:borrow" _ _) _)
-         (compile-error (::loc callee) "a borrow must be introduced by with-borrow"))
+         (compile-error (● callee loc) "a borrow must be introduced by with-borrow"))
         ((Pair (Var "prim:panic" _ _) _) (Path-returns-set (check-all path args) #f))
         ((Pair (Var "prim:set!" _ _) (Cons place (Cons value (Nil))))
          (check (check-place-root path place) value))
@@ -360,7 +361,7 @@
         ((Pair (Var _ _ _) (Cons record rest))
          (match (field-operation path callee)
            ((Some operation)
-            (check-field-grades path operation (::type callee) (::loc callee))
+            (check-field-grades path operation (● callee type) (● callee loc))
             (match operation
               ;; A replacement answers its record with the field replaced, so
               ;; it consumes the record, after its other operand, which may
@@ -379,7 +380,7 @@
       (match (receiver-mode callee)
         ((Some mode)
          (if (or (string=? mode "FnMut")
-                 (and (string=? mode "Fn") (linear? path (::type callee))))
+                 (and (string=? mode "Fn") (linear? path (● callee type))))
              (check-receiver-call path callee args mode)
              (check-yield-holds (check-all path (Cons callee args)) callee)))
         ((None) (check-yield-holds (check-all path (Cons callee args)) callee))))
@@ -387,10 +388,10 @@
     (define (receiver-mode (callee Expr)) (→ (Option String))
       (match (invocation-mode callee)
         ((Some mode) (Some mode))
-        ((None) (callable-kind (::type callee)))))
+        ((None) (callable-kind (● callee type)))))
 
     (define (receiver-value (callee Expr)) (→ Expr)
-      (match (::term callee)
+      (match (● callee term)
         ((Ann inner (TCon "$invoke" _)) inner)
         (_ callee)))
 
@@ -403,39 +404,39 @@
       (→ Path)
       (! compile)
       (let* ((loan (lend path (receiver-value callee)))
-             (owner (list-ref (::borrowed loan) 0)))
+             (owner (list-ref (● loan borrowed) 0)))
         (when (and (string=? mode "FnMut")
-                   (or (and (borrowed? path (::name owner))
-                            (not (member? (::name owner) (::exclusive path))))
-                       (any? (lambda (arg) (member? (::name owner) (expr-references arg))) args)))
-          (compile-error (::loc callee) "an FnMut call requires exclusive access to its receiver"))
-        (Path-borrowed-set (check-yield-holds (check-all loan args) callee) (::borrowed path))))
+                   (or (and (borrowed? path (● owner name))
+                            (not (member? (● owner name) (● path exclusive))))
+                       (any? (lambda (arg) (member? (● owner name) (expr-references arg))) args)))
+          (compile-error (● callee loc) "an FnMut call requires exclusive access to its receiver"))
+        (Path-borrowed-set (check-yield-holds (check-all loan args) callee) (● path borrowed))))
 
     ;; Only a local or a path of immutable fields is a lendable place.
     ;; Mutable content can be replaced through an alias while later
     ;; arguments run, so it must first be read into an owned local.
 
     (define (lend (path Path) (value Expr)) (→ Path) (! compile)
-      (match (::term value)
+      (match (● value term)
         ((Var name _ _)
-         (when (borrow-type? (::type value))
-           (compile-error (::loc value)
+         (when (borrow-type? (● value type))
+           (compile-error (● value loc)
                           "alias a Borrow with let; with-borrow requires an owner"))
-         (when (and (linear? path (::type value)) (not (borrowed? path name)))
-           (require-live path (Owner name (::type value)) (::loc value)))
-         (Path-borrowed-set path (Cons (Owner name (::type value)) (::borrowed path))))
+         (when (and (linear? path (● value type)) (not (borrowed? path name)))
+           (require-live path (Owner name (● value type)) (● value loc)))
+         (Path-borrowed-set path (Cons (Owner name (● value type)) (● path borrowed))))
         ((Ann inner _) (lend path inner))
         ((App callee (Cons record (Nil))) (lend-field path value callee record))
-        (_ (compile-error (::loc value)
+        (_ (compile-error (● value loc)
                           "a borrow must name a local owner or an immutable field path"))))
 
     (define (lend-field (path Path) (value Expr) (callee Expr) (record Expr)) (→ Path) (! compile)
       (match (field-operation path callee)
         ((Some (Accessor case index _))
-         (when (::mutable? (list-ref (::fields case) index))
-           (compile-error (::loc value) "a borrow cannot refer to mutable field storage"))
+         (when (● (list-ref (● case fields) index) mutable?)
+           (compile-error (● value loc) "a borrow cannot refer to mutable field storage"))
          (lend path record))
-        (_ (compile-error (::loc value)
+        (_ (compile-error (● value loc)
                           "a borrow must name a local owner or an immutable field path"))))
 
     ;; The references that move ownership into an expression. Field reads
@@ -443,8 +444,11 @@
     ;; the same distinction when assigning owners to saved or aborted scopes.
 
     (define (consumed-references (program Program) (expr Expr)) (→ (List String))
-      (match (::term expr)
+      (match (● expr term)
         ((Var name _ _) (list name))
+        ;; Checking may inspect cleanup before deferred selections are resolved.
+        ;; Reading a field observes its receiver, just as a direct accessor does.
+        ((FieldRead _ _ _) (Nil))
         ((Lambda params body _)
          (filter (lambda (name) (not (member? name params))) (expr-references body)))
         ((App (Expr (Var "prim:set!" _ _) _ _) (Cons _ (Cons value (Nil))))
@@ -489,15 +493,15 @@
     (define (may-yield-row? (path Path) (row Type)) (→ Bool)
       (match row
         ((TRow labels tail)
-         (or (any? (lambda (label) (control-effect? (::program path) label)) labels)
+         (or (any? (lambda (label) (control-effect? (● path program) label)) labels)
              (match tail
                ((Some _) #t)
                ((None) #f))))
         (_ #f)))
 
     (define (control-effect? (program Program) (label String)) (→ Bool)
-      (match (table-ref (::effects program) label)
-        ((Some effect) (not (null? (::control effect))))
+      (match (table-ref (● program effects) label)
+        ((Some effect) (not (null? (● effect control))))
         ((None) #f)))
 
     (define (arrow-row (type Type)) (→ (Option Type))
@@ -552,7 +556,7 @@
       (match allowed
         ((Some row)
          (when (ground-type? type)
-           (match (lifecycle-rows (::program path) drop-class (::copy path) (Nil) type)
+           (match (lifecycle-rows (● path program) drop-class (● path copy) (Nil) type)
              ((Ok rows)
               (for-each (lambda (performed)
                           (unless (row-within? performed row)
@@ -574,17 +578,17 @@
 
     (define (check-yield-holds (path Path) (callee Expr)) (→ Path) (! compile)
       (when (callee-may-yield? path callee)
-        (unless (null? (::borrowed path))
-          (compile-error (::loc callee)
+        (unless (null? (● path borrowed))
+          (compile-error (● callee loc)
                          "a call cannot capture a continuation while a lexical borrow is active"))
         (for-each (lambda (owner)
                     (check-drop-rows path
-                                     (::type owner)
-                                     (::row path)
-                                     (string-append (local-label (::name owner))
+                                     (● owner type)
+                                     (● path row)
+                                     (string-append (local-label (● owner name))
                                                     " is live across a call that may yield, so a dropped resume may drop it")
-                                     (::loc callee)))
-                  (::live path)))
+                                     (● callee loc)))
+                  (● path live)))
       path)
 
     ;; Whether calling `callee` may yield. The checker opens each use of a
@@ -593,26 +597,26 @@
     ;; class instance supplies its own rows. A local's type says for itself.
 
     (define (callee-may-yield? (path Path) (callee Expr)) (→ Bool)
-      (match (::term callee)
+      (match (● callee term)
         ((Ann inner (TCon "$invoke" (Cons _ (Cons (TFun _ _ row) (Nil)))))
-         (match (::type inner)
+         (match (● inner type)
            ((TRigid _) (may-yield-row? path row))
            (_ (callee-may-yield? path inner))))
         ((Ann inner _) (callee-may-yield? path inner))
         ((Var name types evidence)
-         (match (program-value (::program path) name)
+         (match (program-value (● path program) name)
            ((Some (Method class scheme))
             (scheme-may-yield? path scheme
-                               (selected-method-arguments (::program path)
+                               (selected-method-arguments (● path program)
                                                           class
                                                           types
                                                           evidence)))
            ((Some value)
             (match (value-scheme value)
               ((Some scheme) (scheme-may-yield? path scheme types))
-              ((None) (type-may-yield? path (::type callee)))))
-           ((None) (type-may-yield? path (::type callee)))))
-        (_ (type-may-yield? path (::type callee)))))
+              ((None) (type-may-yield? path (● callee type)))))
+           ((None) (type-may-yield? path (● callee type)))))
+        (_ (type-may-yield? path (● callee type)))))
 
     (define (type-may-yield? (path Path) (type Type)) (→ Bool)
       (match (arrow-row type)
@@ -620,12 +624,12 @@
         ((None) #f)))
 
     (define (scheme-may-yield? (path Path) (scheme Scheme) (types (List Type))) (→ Bool)
-      (match (arrow-row (::type scheme))
+      (match (arrow-row (● scheme type))
         ((Some (TRow labels tail))
-         (or (any? (lambda (label) (control-effect? (::program path) label)) labels)
+         (or (any? (lambda (label) (control-effect? (● path program) label)) labels)
              (match tail
                ((Some (TRigid var))
-                (match (assoc-ref (zip (::vars scheme) types) var)
+                (match (assoc-ref (zip (● scheme vars) types) var)
                   ((Some row) (may-yield-row? path row))
                   ((None) #t)))
                ((Some _) #t)
@@ -644,15 +648,15 @@
 
     (define (check-instantiation (path Path) (expr Expr) (value Value)) (→ Unit) (! compile)
       (match value
-        ((Foreign _ _) (check-boundary-type (::type expr) (::loc expr)))
+        ((Foreign _ _) (check-boundary-type (● expr type) (● expr loc)))
         (_ (unit)))
-      (match (Pair (::term expr) (arrow-row (::type expr)))
+      (match (Pair (● expr term) (arrow-row (● expr type)))
         ((Pair (Var name types _) (Some row))
          (match (value-scheme value)
-           ((Some scheme) (check-consuming-requirements path scheme types (::loc expr)))
+           ((Some scheme) (check-consuming-requirements path scheme types (● expr loc)))
            ((None) (unit)))
          (for-each (lambda (type)
-                     (check-type (::program path) (::copy path) type (::loc expr))) types)
+                     (check-type (● path program) (● path copy) type (● expr loc))) types)
          (when (and (has-body? value) (callee-may-yield? path expr))
            (for-each (lambda (type)
                        (when (linear? path type)
@@ -663,7 +667,7 @@
                                                          " may hold a "
                                                          (type->string type)
                                                          " across a yield")
-                                          (::loc expr))))
+                                          (● expr loc))))
                      types)))
         (_ (unit))))
 
@@ -675,11 +679,11 @@
       (! compile)
       (for-each
        (lambda (requirement)
-         (match (substitute-constraint (zip (::vars scheme) types) requirement)
+         (match (substitute-constraint (zip (● scheme vars) types) requirement)
            ((Constraint "snail.core.base:FnOnce" (Cons receiver (Cons signature (Nil))))
             (check-consuming-adaptation path receiver signature loc))
            (_ (unit))))
-       (::constraints scheme)))
+       (● scheme constraints)))
 
     (define (check-consuming-adaptation (path Path) (receiver Type) (signature Type) (loc Loc))
       (→ Unit)
@@ -694,10 +698,10 @@
         ((Some kind) (member? kind (list "Fn" "FnMut")))
         ((None)
          (any? (lambda (requirement)
-                 (and (member? (::class requirement)
+                 (and (member? (● requirement class)
                                (list (callable-class "Fn") (callable-class "FnMut")))
-                      (type=? receiver (list-ref (::types requirement) 0))))
-               (::constraints path)))))
+                      (type=? receiver (list-ref (● requirement types) 0))))
+               (● path constraints)))))
 
     ;; Any and host code cannot enforce lexical scope. Check a foreign
     ;; reference, not just its calls, so aliasing cannot hide the boundary.
@@ -725,20 +729,20 @@
       (! compile)
       (match (arrow-row lambda-type)
         ((Some row)
-         (if (ground-type? (::type owner))
+         (if (ground-type? (● owner type))
              (check-drop-rows path
-                              (::type owner)
+                              (● owner type)
                               (Some row)
                               (string-append "a once lambda captures "
-                                             (local-label (::name owner))
+                                             (local-label (● owner name))
                                              ", which it drops if it is dropped unrun")
                               loc)
-             (match (::row path)
+             (match (● path row)
                ((Some enclosing)
                 (unless (row-within? enclosing row)
                   (compile-error loc
                                  (string-append "a once lambda captures "
-                                                (local-label (::name owner))
+                                                (local-label (● owner name))
                                                 ", a value of a type variable's type, whose drop this function's row "
                                                 (type->string enclosing)
                                                 " bounds, so the lambda's row must include it"))))
@@ -757,26 +761,18 @@
     ;; ---- Fields ----
 
     ;; The value a callee denotes when it is an accessor, a replacement, a
-    ;; setter or a swapper, or a field path read through a struct's own
-    ;; instance, which is that field's accessor. A path read through a
-    ;; requirement is an ordinary call: it consumes a linear record.
+    ;; setter or a swapper. Checking has resolved every ● selection to an
+    ;; accessor for the actual slot, including implicit pointer traversal.
 
     (define (field-operation (path Path) (callee Expr)) (→ (Option Value))
-      (match (::term callee)
+      (match (● callee term)
         ((Var name _ evidence)
-         (match (program-value (::program path) name)
-           ((Some (Method class _))
-            (if (field-class? class) (field-method-operation path class evidence) (None)))
+         (match (program-value (● path program) name)
            ((Some value) (if (field-value? value) (Some value) (None)))
            ((None) (None))))
         (_ (None))))
 
-    (define (field-method-operation (path Path) (class String) (evidence (List Evidence)))
-      (→ (Option Value))
-      (match evidence
-        ((Cons (EvInstance instance _ _) _)
-         (field-instance-accessor (::program path) class instance))
-        (_ (None))))
+
 
     (define (field-value? (value Value)) (→ Bool)
       (match value
@@ -816,16 +812,16 @@
         (_ (unit))))
 
     (define (linear-read-advice (case Case) (index I64)) (→ String)
-      (if (::mutable? (list-ref (::fields case) index))
+      (if (● (list-ref (● case fields) index) mutable?)
           (string-append
            "reading a mutable field would duplicate its linear content; swap it out with "
            (swapper-name case index))
           "destructure a linear record with match to move its linear field out"))
 
     (define (swapper-name (case Case) (index I64)) (→ String)
-      (string-append (short-name (::name case))
+      (string-append (short-name (● case name))
                      "-"
-                     (::name (list-ref (::fields case) index))
+                     (● (list-ref (● case fields) index) name)
                      "-replace!"))
 
     ;; A field operation used as a value is checked as a call to it is, and
@@ -834,18 +830,18 @@
     ;; replacement, which answers them.
 
     (define (check-field-value (path Path) (operation Value) (expr Expr)) (→ Unit) (! compile)
-      (check-field-grades path operation (::type expr) (::loc expr))
-      (match (Pair operation (::type expr))
+      (check-field-grades path operation (● expr type) (● expr loc))
+      (match (Pair operation (● expr type))
         ((Pair (Replacer _ _ _) _) (unit))
         ((Pair _ (TFun (Cons record _) _ _))
          (when (linear? path record)
-           (compile-error (::loc expr)
+           (compile-error (● expr loc)
                           (explain path
                                    record
                                    "apply a field operation to a linear record by name; as a value it would consume the record"))))
         (_ (unit))))
 
-    ;; A chain of field reads, `(::x (::from s))` or `(::live (ref-get r))`,
+    ;; A chain of field reads, `(● s from x)` or `(● r live)`,
     ;; copies one value, the last field, out of the record at its root:
     ;; the fields along the way are addressed, not read, so their grades
     ;; do not matter, and only the outermost read's result is checked. The
@@ -859,7 +855,7 @@
     ;; The record a field read reads from, when an expression is one.
 
     (define (chain-record (path Path) (expr Expr)) (→ (Option Expr))
-      (match (::term expr)
+      (match (● expr term)
         ((Ann inner _) (chain-record path inner))
         ((App callee (Cons record (Nil)))
          (match (field-operation path callee)
@@ -875,8 +871,8 @@
         ((Some inner) (check-place-root path inner))
         ((None)
          (check-write-loan path place)
-         (match (::term place)
-           ((Var name _ _) (if (member? name (::exclusive path)) path (check path place)))
+         (match (● place term)
+           ((Var name _ _) (if (member? name (● path exclusive)) path (check path place)))
            (_ (check path place))))))
 
     (define (check-field-write (path Path) (record Expr) (args (List Expr))) (→ Path) (! compile)
@@ -890,10 +886,10 @@
       (match (chain-record path record)
         ((Some inner) (check-write-loan path inner))
         ((None)
-         (match (::term record)
+         (match (● record term)
            ((Var name _ _)
-            (when (and (borrowed? path name) (not (member? name (::exclusive path))))
-              (compile-error (::loc record)
+            (when (and (borrowed? path name) (not (member? name (● path exclusive))))
+              (compile-error (● record loc)
                              "mutating an owned capture requires an FnMut receiver")))
            (_ (unit))))))
 
@@ -903,14 +899,14 @@
     ;; be left with no owner.
 
     (define (check-place (path Path) (record Expr)) (→ Path) (! compile)
-      (let ((type (::type record)))
+      (let ((type (● record type)))
         (if (linear? path type)
-            (match (::term record)
+            (match (● record term)
               ((Var name _ _)
                (unless (borrowed? path name)
-                 (require-live path (Owner name type) (::loc record)))
+                 (require-live path (Owner name type) (● record loc)))
                path)
-              (_ (compile-error (::loc record)
+              (_ (compile-error (● record loc)
                                 (explain path
                                          type
                                          "a field operation works on a linear record in place; bind the record to a name first"))))
@@ -923,25 +919,25 @@
     ;; live in the body either, so the body's use of it is a second use.
 
     (define (check-lambda (path Path) (expr Expr)) (→ Path) (! compile)
-      (when (any? (lambda (owner) (member? (::name owner) (expr-references expr)))
-                  (::borrowed path))
-        (compile-error (::loc expr)
+      (when (any? (lambda (owner) (member? (● owner name) (expr-references expr)))
+                  (● path borrowed))
+        (compile-error (● expr loc)
                        "a closure cannot capture a Borrow or a frozen owner"))
-      (let ((once? (match (callable-kind (::type expr))
+      (let ((once? (match (callable-kind (● expr type))
                      ((Some "FnOnce") #t) (_ #f)))
             (captured (let ((references (expr-references expr)))
-                        (filter (lambda (owner) (member? (::name owner) references))
-                                (::live path))))
-            (loc (::loc expr)))
+                        (filter (lambda (owner) (member? (● owner name) references))
+                                (● path live))))
+            (loc (● expr loc)))
         (match (Pair once? captured)
           ((Pair #f (Cons owner _))
-           (unless (concrete-callable? (::type expr))
+           (unless (concrete-callable? (● expr type))
              (compile-error loc
                             (explain path
-                                     (::type owner)
+                                     (● owner type)
                                      "an unrestricted procedure cannot capture a linear value"))))
           (_ (unit)))
-        (for-each (lambda (owner) (check-capture path owner (::type expr) loc)) captured)
+        (for-each (lambda (owner) (check-capture path owner (● expr type) loc)) captured)
         (check-closure-body path expr captured once?)
         (fold-left (lambda (path owner) (consume path owner loc)) path captured)))
 
@@ -951,11 +947,11 @@
     (define (check-closure-body (path Path) (expr Expr) (captured (List Owner)) (once? Bool))
       (→ Unit)
       (! compile)
-      (match (Pair (::term expr) (fn-arrow (::type expr)))
+      (match (Pair (● expr term) (fn-arrow (● expr type)))
         ((Pair (Lambda params body _) (TFun types _ row))
-         (let* ((empty (Path (::program path)
-                             (::copy path)
-                             (::constraints path)
+         (let* ((empty (Path (● path program)
+                             (● path copy)
+                             (● path constraints)
                              (Nil)
                              (Nil)
                              (Nil)
@@ -963,14 +959,15 @@
                              (Some row)))
                 (start
                  (fold-left
-                  (lambda (inner pair) (bind inner (::first pair) (::second pair)))
+                  (lambda (inner pair) (bind inner (● pair first) (● pair second)))
                   (if once? (Path-live-set empty captured)
                       (Path-exclusive-set
                        (Path-borrowed-set empty captured)
-                       (match (callable-kind (::type expr))
-                         ((Some "FnMut") (map ::name captured)) (_ (Nil)))))
+                       (match (callable-kind (● expr type))
+                         ((Some "FnMut") (map (lambda (record) (● record name)) captured))
+                         (_ (Nil)))))
                   (zip params types))))
-           (close-scope empty (check start body) (::loc expr))
+           (close-scope empty (check start body) (● expr loc))
            (unit)))
         (_ (panic "internal error: untyped closure"))))
 
@@ -978,10 +975,10 @@
     ;; discard a linear one.
 
     (define (check-clause (path Path) (clause Clause) (loc Loc)) (→ Path) (! compile)
-      (let ((body (::body clause)))
+      (let ((body (● clause body)))
         (close-scope path
-                     (check (bind-pattern path (::pattern clause) loc) body)
-                     (::loc body))))
+                     (check (bind-pattern path (● clause pattern) loc) body)
+                     (● body loc))))
 
     (define (bind-pattern (path Path) (pattern Pattern) (loc Loc)) (→ Path) (! compile)
       (match pattern
@@ -996,9 +993,9 @@
         ((PLit _ _) path)
         ((PCon constructor args _)
          (fold-left (lambda (path pair)
-                      (if (::mutable? (::first pair))
+                      (if (● (● pair first) mutable?)
                           path
-                          (bind-pattern path (::second pair) loc)))
+                          (bind-pattern path (● pair second) loc)))
                     path (zip (constructor-fields path constructor) args)))))
 
     ;; A mutable position holds only `_`, which the checker requires, and it
@@ -1007,23 +1004,23 @@
     ;; abandons what it holds.
 
     (define (constructor-fields (path Path) (constructor String)) (→ (List Field))
-      (match (program-value (::program path) constructor)
-        ((Some (Constructor case _)) (::fields case))
+      (match (program-value (● path program) constructor)
+        ((Some (Constructor case _)) (● case fields))
         (_ (panic "internal error: a pattern names a constructor"))))
 
     (define (check-conversion (path Path) (expr Expr) (inner Expr) (target Type))
       (→ Path)
       (! compile)
-      (when (or (linear? path (::type inner)) (linear? path target))
-        (compile-error (::loc expr) "a linear value cannot cross a dynamic type boundary"))
+      (when (or (linear? path (● inner type)) (linear? path target))
+        (compile-error (● expr loc) "a linear value cannot cross a dynamic type boundary"))
       (check path inner))
 
     ;; A statement's value is discarded, so it cannot be linear.
 
     (define (check-discardable (path Path) (statement Expr)) (→ Unit) (! compile)
-      (let ((type (::type statement)))
+      (let ((type (● statement type)))
         (when (linear? path type)
-          (compile-error (::loc statement)
+          (compile-error (● statement loc)
                          (explain path type "a linear value cannot be discarded; drop it")))))
 
     ;; ---- Items ----
@@ -1055,7 +1052,7 @@
       (match item
         ((Define name _)
          (match (table-ref schemes name)
-           ((Some scheme) (arrow-row (::type scheme)))
+           ((Some scheme) (arrow-row (● scheme type)))
            ((None) (None))))
         (_ (None))))
 

@@ -105,7 +105,7 @@
     ;; A shown node's handle as a table's key.
 
     (define (node-name (shown (Shown M))) (→ String) (∀ M)
-      (show (::handle (shown-node shown))))
+      (show (● (shown-node shown) handle)))
 
     (define (key-of (attributes (List (Attribute M)))) (→ String) (∀ M)
       (match attributes
@@ -225,9 +225,9 @@
       (! dom)
       (∀ M)
       (for-each (lambda (pair)
-                  (unless (kept-listener? (::first pair) old new) (unlisten (::second pair))))
+                  (unless (kept-listener? (● pair first) old new) (unlisten (● pair second))))
                 listeners)
-      (append (filter (lambda (pair) (kept-listener? (::first pair) old new)) listeners)
+      (append (filter (lambda (pair) (kept-listener? (● pair first) old new)) listeners)
               (listen-all node
                           (filter (lambda (attribute)
                                     (match attribute
@@ -264,7 +264,7 @@
     (define (same-chord? (pair (Pair Chord Chord))) (→ Bool)
       (match pair
         ((Pair a b)
-         (and (string=? (::key a) (::key b)) (= (::modifiers a) (::modifiers b))))))
+         (and (string=? (● a key) (● b key)) (= (● a modifiers) (● b modifiers))))))
 
     ;; ---- Children ----
 
@@ -281,9 +281,9 @@
       (let* ((pairs (taking old new))
              (taken (taken-names pairs))
              (children (map (lambda (pair)
-                              (match (::first pair)
-                                ((Some shown) (patch shown (::second pair)))
-                                ((None) (create (::second pair)))))
+                              (match (● pair first)
+                                ((Some shown) (patch shown (● pair second)))
+                                ((None) (create (● pair second)))))
                             pairs)))
         (for-each (lambda (shown)
                     (unless (table-contains? taken (node-name shown))
@@ -337,7 +337,7 @@
 
     (define (taken-names (pairs (List (Pair (Option (Shown M)) (Html M))))) (→ (Table Bool)) (∀ M)
       (fold-left (lambda (taken pair)
-                   (match (::first pair)
+                   (match (● pair first)
                      ((Some shown) (table-set taken (node-name shown) #t))
                      ((None) taken)))
                  empty-table
@@ -354,7 +354,7 @@
         ((Text _) "")))
 
     (define (same-node? (a (Shown M)) (b (Shown M))) (→ Bool) (∀ M)
-      (= (::handle (shown-node a)) (::handle (shown-node b))))
+      (= (● (shown-node a) handle) (● (shown-node b) handle)))
 
     ;; From the last child to the first, each goes before the one after it
     ;; unless it already is there. The document holds the taken children
@@ -432,7 +432,7 @@
 
     (define (listener-table (trees (List (Shown M)))) (→ (Table (dyn (Fn Event → M)))) (∀ M)
       (fold-left (lambda (table pair)
-                   (table-set table (show (::id (::second pair))) (::first pair)))
+                   (table-set table (show (● (● pair second) id)) (● pair first)))
                  empty-table
                  (concatenate (map listener-functions trees))))
 
@@ -444,8 +444,8 @@
         ((ShownElement _ _ attributes listeners children)
          (append (concatenate
                   (map (lambda (pair)
-                         (match (listening (::first pair) attributes)
-                           ((Some (On _ _ _ message)) (list (Pair message (::second pair))))
+                         (match (listening (● pair first) attributes)
+                           ((Some (On _ _ _ message)) (list (Pair message (● pair second))))
                            (_ (Nil))))
                        listeners))
                  (concatenate (map listener-functions children))))))
@@ -510,7 +510,7 @@
       (! mut dom tasks e)
       (∀ Model M e)
       (⊨ (Copy Model))
-      (commit (::model running))
+      (commit (● running model))
       (match (next-event)
         ((Fired listener event)
          (serve box
@@ -518,7 +518,7 @@
                 view
                 window
                 commit checkpoint
-                (match (table-ref (::listeners running) (show (::id listener)))
+                (match (table-ref (● running listeners) (show (● listener id)))
                   ((Some message) (updated box update view window running (message event)))
                   ((None) running))))
         ((Woken)
@@ -530,14 +530,14 @@
                 checkpoint
                 (answered box update view window commit running)))
         ((Hidden)
-         (checkpoint (::model running))
+         (checkpoint (● running model))
          (serve box update view window commit checkpoint running))
         ((SaveRequested)
-         (checkpoint (::model running))
+         (checkpoint (● running model))
          (serve box update view window commit checkpoint running))
         ((Closed)
-         (checkpoint (::model running))
-         (::model running))))
+         (checkpoint (● running model))
+         (● running model))))
 
     ;; The interface after every answer the mailbox holds.
 
@@ -554,7 +554,7 @@
       (match (mailbox-try-receive box)
         ((Some message)
          (let ((next (updated box update view window running message)))
-           (commit (::model next))
+           (commit (● next model))
            (answered box update view window commit next)))
         ((None) running)))
 
@@ -571,12 +571,12 @@
       (! mut dom e)
       (∀ Model M e)
       (⊨ (Copy Model))
-      (match (update (::model running) message)
+      (match (update (● running model) message)
         ((Pair model commands)
          (start-commands box commands)
          (showing model
-                  (patch-root (::shown running) (view model))
-                  (patch-window (::window running) (window model))))))
+                  (patch-root (● running shown) (view model))
+                  (patch-window (● running window) (window model))))))
 
     (define (start-commands (box (Mailbox M)) (commands (List (dyn (FnOnce → M ! tasks e)))))
       (→ Unit)
@@ -672,7 +672,7 @@
            ((Fired listener event)
             (let ((running (Running model shown window-shown listeners)))
               (serve-reactor update view window snapshot commit checkpoint
-                             (match (table-ref listeners (show (::id listener)))
+                             (match (table-ref listeners (show (● listener id)))
                                ((Some message)
                                 (step-reactor update view window running (Some (message event))))
                                ((None) running)))))))))

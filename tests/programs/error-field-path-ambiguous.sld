@@ -1,6 +1,6 @@
 (import
  (snail core base))
 
-;; Without a signature, nothing says which record `::x` reads.
+;; Without a signature, nothing says which record `(● record x)` reads.
 (define first-x
-  (lambda (record) (::x record)))
+  (lambda (record) (● record x)))

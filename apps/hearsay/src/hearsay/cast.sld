@@ -88,7 +88,7 @@
     (define (worn-in (build Build) (garment Garment) (dye Dye)) (→ Worn)
       (let ((drawn (garment-dyes build garment)))
         (Worn garment
-              (if (any? (lambda (other) (string=? (::name other) (::name dye))) drawn)
+              (if (any? (lambda (other) (string=? (● other name) (● dye name))) drawn)
                   dye
                   (match drawn
                     ((Cons first _) first)
@@ -108,15 +108,15 @@
     (define (dealt (seed I64) (palette (List Dye))) (→ Character)
       (let* ((r (make-random seed))
              (build (deal r (list (Male) (Female) (Teen))))
-             (head (deal (::second build) (build-heads (::first build))))
-             (skin (deal (::second head) human-skins)) (cut (deal (::second skin) cuts))
-             (shade (deal (::second cut) (hair-shades (::first head)))))
-        (outfitted (::first build)
-                   (::first head)
-                   (::first skin)
-                   (Hair (::first cut) (::first shade))
+             (head (deal (● build second) (build-heads (● build first))))
+             (skin (deal (● head second) human-skins)) (cut (deal (● skin second) cuts))
+             (shade (deal (● cut second) (hair-shades (● head first)))))
+        (outfitted (● build first)
+                   (● head first)
+                   (● skin first)
+                   (Hair (● cut first) (● shade first))
                    palette
-                   (::second shade))))
+                   (● shade second))))
 
     (define (outfitted (build Build)
                        (head Head)
@@ -125,15 +125,15 @@
                        (palette (List Dye))
                        (r Random))
       (→ Character)
-      (let* ((top (deal r (tops build))) (top-dye (deal (::second top) palette))
-             (bottom (deal (::second top-dye) (bottoms build)))
-             (bottom-dye (deal (::second bottom) palette))
-             (shoe (deal (::second bottom-dye) footwear))
-             (shoe-dye (deal (::second shoe) shoe-dyes)))
+      (let* ((top (deal r (tops build))) (top-dye (deal (● top second) palette))
+             (bottom (deal (● top-dye second) (bottoms build)))
+             (bottom-dye (deal (● bottom second) palette))
+             (shoe (deal (● bottom-dye second) footwear))
+             (shoe-dye (deal (● shoe second) shoe-dyes)))
         (dressed build head skin
-                 (Outfit (Some hair) (Some (worn-in build (::first top) (::first top-dye)))
-                         (Some (worn-in build (::first bottom) (::first bottom-dye)))
-                         (Some (worn-in build (::first shoe) (::first shoe-dye)))))))
+                 (Outfit (Some hair) (Some (worn-in build (● top first) (● top-dye first)))
+                         (Some (worn-in build (● bottom first) (● bottom-dye first)))
+                         (Some (worn-in build (● shoe first) (● shoe-dye first)))))))
 
     ;; Resident `person` of the rumor mill, dressed in their audience's
     ;; colors.

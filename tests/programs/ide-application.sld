@@ -37,7 +37,7 @@
         (Fire "command-query" "keydown" (Event-key-set no-event "Enter"))))
 
 (define (snapshot (session (Borrow Session))) (→ Ide)
-  (::ide session))
+  (● session ide))
 
 (define (finished (session Session)) (→ Ide) (! mut)
   (match session
@@ -99,42 +99,42 @@
 (define (report (model Ide)) (→ Unit) (! console)
   (match (buffer-at model "notes.txt")
     ((Some buffer)
-     (write-line (::text buffer))
-     (write-line (match (::baseline buffer)
-                   ((Some snapshot) (::text snapshot))
+     (write-line (● buffer text))
+     (write-line (match (● buffer baseline)
+                   ((Some snapshot) (● snapshot text))
                    ((None) "missing")))
      (write-line (show (dirty? buffer))))
     ((None) (panic "missing buffer"))))
 
 (define (panes-after (cues (List Cue))) (→ Unit) (! mut console tasks)
-  (let ((model (::first (run (NoDelay) cues))))
-    (write-line (show (length (::panes model))))))
+  (let ((model (● (run (NoDelay) cues) first)))
+    (write-line (show (length (● model panes))))))
 
 (define (files-after (cues (List Cue))) (→ Unit) (! mut console tasks)
-  (write-line (show (::files-shown (::first (run (NoDelay) cues))))))
+  (write-line (show (● (● (run (NoDelay) cues) first) files-shown))))
 
 (dispatch-local
  (once (lambda ()
          ;; A successful save changes the baseline, never subsequent typing.
-         (report (::first (run (SaveReply)
-                               (list (input "text-0" "submitted") (key "s" control-key)
-                                     (input "text-0" "later") (Hide)))))
+         (report (● (run (SaveReply)
+                         (list (input "text-0" "submitted") (key "s" control-key)
+                               (input "text-0" "later") (Hide))) first))
          ;; A newer watcher read can finish a confirmed dirty reload. Typing
          ;; after that read survives the original reload's delayed reply.
-         (report (::first (run (ReloadReply)
-                               (concatenate (list (list (input "text-0" "discard"))
-                                                  (invoke "reload-buffer")
-                                                  (list (FireWindow "online" no-event)
-                                                        (input "text-0" "later") (Hide)))))))
+         (report (● (run (ReloadReply)
+                         (concatenate (list (list (input "text-0" "discard"))
+                                            (invoke "reload-buffer")
+                                            (list (FireWindow "online" no-event)
+                                                  (input "text-0" "later") (Hide))))) first))
          ;; Save invalidates reads that began before it.
-         (report (::first (run (SecondRead)
-                               (append (invoke "reload-buffer")
-                                       (list (input "text-0" "submitted") (key "s" control-key)
-                                             (Hide))))))
+         (report (● (run (SecondRead)
+                         (append (invoke "reload-buffer")
+                                 (list (input "text-0" "submitted") (key "s" control-key)
+                                       (Hide)))) first))
          ;; Observe each transition: two broken operations must not cancel out.
          (panes-after (invoke "spri"))
          (panes-after (append (invoke "spri") (list (key "w" alt-key))))
          (files-after (invoke "toggle-files"))
          (files-after (append (invoke "toggle-files") (list (key "b" control-key))))
-         (let ((model (::first (run (NoDelay) (invoke "no-such-command")))))
-           (write-line (show (visible? (::palette model))))))))
+         (let ((model (● (run (NoDelay) (invoke "no-such-command")) first)))
+           (write-line (show (visible? (● model palette))))))))

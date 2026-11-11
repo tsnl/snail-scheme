@@ -93,7 +93,7 @@
         ((JsonObject members) (Cons "}" (separated member-pieces members (Cons "{" pieces))))))
 
     (define (member-pieces (member (Pair String Json)) (pieces (List String))) (→ (List String))
-      (value-pieces (::second member) (Cons ":" (string-pieces (::first member) pieces))))
+      (value-pieces (● member second) (Cons ":" (string-pieces (● member first) pieces))))
 
     ;; Items with a comma between each two, and no spaces anywhere.
 

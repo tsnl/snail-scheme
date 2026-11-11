@@ -93,22 +93,22 @@
     ;; The trace, a line per operation, oldest first.
 
     (define (document-trace (document Document)) (→ (List String))
-      (reverse (::lines document)))
+      (reverse (● document lines)))
 
     (define (entry (document Document) (handle I32)) (→ Entry)
-      (match (table-ref (::entries document) (show handle))
+      (match (table-ref (● document entries) (show handle))
         ((Some found)
-         (if (::live found)
+         (if (● found live)
              found
              (panic (string-append "the node " (show handle) " was removed"))))
         ((None) (panic (string-append "no node has the handle " (show handle))))))
 
     (define (put (document Document) (handle I32) (changed Entry)) (→ Document)
       (Document-entries-set document
-                            (table-set (::entries document) (show handle) changed)))
+                            (table-set (● document entries) (show handle) changed)))
 
     (define (traced (document Document) (words (List String))) (→ Document)
-      (Document-lines-set document (Cons (string-join words " ") (::lines document))))
+      (Document-lines-set document (Cons (string-join words " ") (● document lines))))
 
     (define (quoted (text String)) (→ String)
       (datum->string (ann text Any)))
@@ -117,24 +117,24 @@
 
     (define (created (document Document) (tag String) (text String)) (→ (Pair Node Document))
       (let ((made (made document tag text)))
-        (Pair (::first made)
-              (traced (::second made)
+        (Pair (● made first)
+              (traced (● made second)
                       (if (string=? tag "#text")
-                          (list "create-text" (show (::handle (::first made))) (quoted text))
-                          (list "create-element" (show (::handle (::first made))) tag))))))
+                          (list "create-text" (show (● (● made first) handle)) (quoted text))
+                          (list "create-element" (show (● (● made first) handle)) tag))))))
 
     (define (made (document Document) (tag String) (text String)) (→ (Pair Node Document))
-      (let ((handle (::next document)))
+      (let ((handle (● document next)))
         (Pair (Node handle)
               (Document-next-set (put document handle (new-entry tag text)) (+ handle 1)))))
 
     (define (attribute-set (document Document) (node Node) (name String) (value String))
       (→ Document)
-      (let* ((handle (::handle node)) (changed (entry document handle)))
+      (let* ((handle (● node handle)) (changed (entry document handle)))
         (traced (put document
                      handle
                      (Entry-attributes-set changed
-                                           (assigned (::attributes changed)
+                                           (assigned (● changed attributes)
                                                      name
                                                      (if (string=? value "") (None) (Some value)))))
                 (list "set-attribute" (show handle) name (quoted value)))))
@@ -146,12 +146,12 @@
       (→ (List (Pair String V)))
       (∀ V)
       (⊨ (Copy V))
-      (let ((others (filter (lambda (pair) (not (string=? (::first pair) name))) pairs)))
+      (let ((others (filter (lambda (pair) (not (string=? (● pair first) name))) pairs)))
         (match value
           ((None) others)
           ((Some value)
-           (if (any? (lambda (pair) (string=? (::first pair) name)) pairs)
-               (map (lambda (pair) (if (string=? (::first pair) name) (Pair name value) pair))
+           (if (any? (lambda (pair) (string=? (● pair first) name)) pairs)
+               (map (lambda (pair) (if (string=? (● pair first) name) (Pair name value) pair))
                     pairs)
                (append pairs (list (Pair name value))))))))
 
@@ -159,17 +159,17 @@
     ;; with one text node of its own.
 
     (define (text-set (document Document) (node Node) (text String)) (→ Document)
-      (let ((handle (::handle node)))
-        (traced (if (string=? (::tag (entry document handle)) "#text")
+      (let ((handle (● node handle)))
+        (traced (if (string=? (● (entry document handle) tag) "#text")
                     (put document handle (Entry-text-set (entry document handle) text))
                     (element-text-set document handle text))
                 (list "set-text" (show handle) (quoted text)))))
 
     (define (element-text-set (document Document) (handle I32) (text String)) (→ Document)
-      (let* ((cleared (fold-left freed document (::children (entry document handle))))
+      (let* ((cleared (fold-left freed document (● (entry document handle) children)))
              (child (made cleared "#text" text))
-             (text-handle (::handle (::first child)))
-             (document (::second child)))
+             (text-handle (● (● child first) handle))
+             (document (● child second)))
         (put (put document text-handle (Entry-parent-set (entry document text-handle) handle))
              handle
              (Entry-children-set (entry document handle) (list text-handle)))))
@@ -178,10 +178,10 @@
       (→ Document)
       (commanded document
                  node
-                 (list "set-property" (show (::handle node)) name (property->string value))
+                 (list "set-property" (show (● node handle)) name (property->string value))
                  (lambda (changed)
                    (Entry-properties-set changed
-                                         (assigned (::properties changed) name (Some value))))))
+                                         (assigned (● changed properties) name (Some value))))))
 
     (define (property->string (property Property)) (→ String)
       (match property
@@ -190,10 +190,10 @@
         ((Flag value) (if value "true" "false"))))
 
     (define (property-of (document Document) (node Node) (name String)) (→ (Option Property))
-      (match (live document (::handle node))
+      (match (live document (● node handle))
         ((Some found)
-         (match (find (lambda (pair) (string=? (::first pair) name)) (::properties found))
-           ((Some pair) (Some (::second pair)))
+         (match (find (lambda (pair) (string=? (● pair first) name)) (● found properties))
+           ((Some pair) (Some (● pair second)))
            ((None) (None))))
         ((None) (None))))
 
@@ -202,21 +202,21 @@
 
     (define (inserted (document Document) (parent Node) (child Node) (before (Option Node)))
       (→ Document)
-      (let ((into (::handle parent)) (moved (::handle child)))
+      (let ((into (● parent handle)) (moved (● child handle)))
         (when (or (= into moved) (under? document into moved))
           (panic (string-append "the node " (show moved) " cannot go inside itself")))
         (let* ((detached (detached document moved))
                (siblings (filter (lambda (sibling) (not (= sibling moved)))
-                                 (::children (entry detached into))))
+                                 (● (entry detached into) children)))
                (placed (match before
-                         ((Some node) (insert-before siblings (::handle node) moved))
+                         ((Some node) (insert-before siblings (● node handle) moved))
                          ((None) (append siblings (list moved))))))
           (traced (put (put detached into (Entry-children-set (entry detached into) placed))
                        moved
                        (Entry-parent-set (entry detached moved) into))
                   (append (list "insert" (show moved) "into" (show into))
                           (match before
-                            ((Some node) (list "before" (show (::handle node))))
+                            ((Some node) (list "before" (show (● node handle))))
                             ((None) (Nil))))))))
 
     (define (insert-before (siblings (List I32)) (before I32) (moved I32)) (→ (List I32))
@@ -230,18 +230,18 @@
     ;; Whether `handle` lies under `ancestor`.
 
     (define (under? (document Document) (handle I32) (ancestor I32)) (→ Bool)
-      (let ((parent (::parent (entry document handle))))
+      (let ((parent (● (entry document handle) parent)))
         (and (>= parent 0) (or (= parent ancestor) (under? document parent ancestor)))))
 
     (define (detached (document Document) (handle I32)) (→ Document)
-      (let ((parent (::parent (entry document handle))))
+      (let ((parent (● (entry document handle) parent)))
         (if (< parent 0)
             document
             (put (put document
                       parent
                       (Entry-children-set (entry document parent)
                                           (filter (lambda (child) (not (= child handle)))
-                                                  (::children (entry document parent)))))
+                                                  (● (entry document parent) children))))
                  handle
                  (Entry-parent-set (entry document handle) -1)))))
 
@@ -249,13 +249,13 @@
     ;; are freed.
 
     (define (removed (document Document) (node Node)) (→ Document)
-      (let ((handle (::handle node)))
+      (let ((handle (● node handle)))
         (traced (freed (detached document handle) handle) (list "remove" (show handle)))))
 
     (define (freed (document Document) (handle I32)) (→ Document)
       (let ((gone (entry document handle)))
         (put
-         (fold-left (lambda (document child) (freed document child)) document (::children gone))
+         (fold-left (lambda (document child) (freed document child)) document (● gone children))
          handle
          (Entry-live-set gone #f))))
 
@@ -265,8 +265,8 @@
                       (captures (List Capture))
                       (prevent Prevent))
       (→ (Pair Listener Document))
-      (let* ((handle (::handle node))
-             (id (::next-listener document))
+      (let* ((handle (● node handle))
+             (id (● document next-listener))
              (on (entry document handle)))
         (Pair (Listener id)
               (traced (Document-owners-set
@@ -274,10 +274,10 @@
                         (put document
                              handle
                              (Entry-listeners-set on
-                                                  (append (::listeners on)
+                                                  (append (● on listeners)
                                                           (list (Hearing id event prevent)))))
                         (+ id 1))
-                       (table-set (::owners document) (show id) handle))
+                       (table-set (● document owners) (show id) handle))
                       (list "listen"
                             (show handle)
                             event
@@ -294,16 +294,16 @@
                         (string-concatenate
                          (map (lambda (chord)
                                 (string-append " "
-                                               (show (::modifiers chord))
+                                               (show (● chord modifiers))
                                                "+"
-                                               (quoted (::key chord))))
+                                               (quoted (● chord key))))
                               chords))))))
 
     ;; A listener goes with its node, so its node must be there.
 
     (define (unlistened (document Document) (listener Listener)) (→ Document)
-      (let* ((id (::id listener))
-             (handle (match (table-ref (::owners document) (show id))
+      (let* ((id (● listener id))
+             (handle (match (table-ref (● document owners) (show id))
                        ((Some handle) handle)
                        ((None) (panic (string-append "no listener has the id " (show id))))))
              (on (entry document handle)))
@@ -311,8 +311,8 @@
                      handle
                      (Entry-listeners-set on
                                           (filter
-                                           (lambda (hearing) (not (= (::id hearing) id)))
-                                           (::listeners on))))
+                                           (lambda (hearing) (not (= (● hearing id) id)))
+                                           (● on listeners))))
                 (list "unlisten" (string-append "#" (show id))))))
 
     ;; ---- Events ----
@@ -341,22 +341,22 @@
 
     (define (fired (document Document) (target String) (on Entry) (event String) (data Event))
       (→ (Pair Delivery Document))
-      (match (find (lambda (hearing) (string=? (::event hearing) event)) (::listeners on))
+      (match (find (lambda (hearing) (string=? (● hearing event) event)) (● on listeners))
         ((Some hearing)
-         (unless (hears? (::prevent hearing) data)
+         (unless (hears? (● hearing prevent) data)
            (panic
-            (string-append "the " event " listener on " target " does not hear " (::key data))))
-         (Pair (Fired (Listener (::id hearing)) data)
+            (string-append "the " event " listener on " target " does not hear " (● data key))))
+         (Pair (Fired (Listener (● hearing id)) data)
                (traced document
-                       (list "fire" target event (string-append "#" (show (::id hearing)))))))
+                       (list "fire" target event (string-append "#" (show (● hearing id)))))))
         ((None) (panic (string-append "nothing listens for " event " on " target)))))
 
     (define (hears? (prevent Prevent) (data Event)) (→ Bool)
       (match prevent
         ((Chords chords)
          (any? (lambda (chord)
-                 (and (string=? (::key chord) (::key data))
-                      (= (::modifiers chord) (::modifiers data))))
+                 (and (string=? (● chord key) (● data key))
+                      (= (● chord modifiers) (● data modifiers))))
                chords))
         (_ #t)))
 
@@ -370,8 +370,8 @@
     ;; A node, unless it was removed.
 
     (define (live (document Document) (handle I32)) (→ (Option Entry))
-      (match (table-ref (::entries document) (show handle))
-        ((Some found) (if (::live found) (Some found) (None)))
+      (match (table-ref (● document entries) (show handle))
+        ((Some found) (if (● found live) (Some found) (None)))
         ((None) (panic (string-append "no node has the handle " (show handle))))))
 
     ;; A command's change to a node, traced by `words`, or the trace alone
@@ -382,7 +382,7 @@
                        (words (List String))
                        (change (dyn (Fn Entry → Entry))))
       (→ Document)
-      (let ((handle (::handle node)))
+      (let ((handle (● node handle)))
         (match (live document handle)
           ((Some found) (traced (put document handle (change found)) words))
           ((None) (traced document (append words (list "(removed)")))))))
@@ -390,13 +390,13 @@
     ;; The first node from `handle` on whose `id` is `target`.
 
     (define (element-handle (document Document) (target String) (handle I32)) (→ (Option I32))
-      (cond ((>= handle (::next document)) (None))
+      (cond ((>= handle (● document next)) (None))
             ((match (live document handle)
                ((Some found)
                 (any? (lambda (pair)
-                        (and (string=? (::first pair) "id")
-                             (string=? (::second pair) target)))
-                      (::attributes found)))
+                        (and (string=? (● pair first) "id")
+                             (string=? (● pair second) target)))
+                      (● found attributes)))
                ((None) #f))
              (Some handle))
             (else (element-handle document target (+ handle 1)))))
@@ -404,12 +404,12 @@
     (define (selected (document Document) (node Node) (start I32) (end I32)) (→ Document)
       (commanded document
                  node
-                 (list "select" (show (::handle node)) (show start) (show end))
+                 (list "select" (show (● node handle)) (show start) (show end))
                  (lambda (found) (selection-set found start end))))
 
     (define (selection-set (found Entry) (start I32) (end I32)) (→ Entry)
       (Entry-properties-set found
-                            (assigned (assigned (::properties found)
+                            (assigned (assigned (● found properties)
                                                 "selectionStart"
                                                 (Some (Number (i32->f64 start))))
                                       "selectionEnd"
@@ -428,13 +428,13 @@
       (commanded document
                  node
                  (list "insert-text"
-                       (show (::handle node))
+                       (show (● node handle))
                        (show start)
                        (show end)
                        (quoted text))
                  (lambda (found)
-                   (let* ((value (match (find (lambda (pair) (string=? (::first pair) "value"))
-                                              (::properties found))
+                   (let* ((value (match (find (lambda (pair) (string=? (● pair first) "value"))
+                                              (● found properties))
                                    ((Some (Pair _ (Text value))) value)
                                    (_ "")))
                           (changed (string-append (substring value 0 (i32->i64 start))
@@ -444,7 +444,7 @@
                                                              (string-length value))))
                           (caret (+ start (i64->i32 (string-length text)))))
                      (selection-set (Entry-properties-set found
-                                                          (assigned (::properties found)
+                                                          (assigned (● found properties)
                                                                     "value"
                                                                     (Some (Text changed))))
                                     caret
@@ -454,12 +454,12 @@
     ;; into it.
 
     (define (input-fired (document Document) (node Node)) (→ (Option Delivery))
-      (match (live document (::handle node))
+      (match (live document (● node handle))
         ((Some found)
-         (match (find (lambda (hearing) (string=? (::event hearing) "input"))
-                      (::listeners found))
+         (match (find (lambda (hearing) (string=? (● hearing event) "input"))
+                      (● found listeners))
            ((Some hearing)
-            (Some (Fired (Listener (::id hearing))
+            (Some (Fired (Listener (● hearing id))
                          (Event-value-set no-event
                                           (match (property-of document node "value")
                                             ((Some (Text value)) value)
@@ -473,7 +473,7 @@
       (Pair (Measure 0.0 0.0 0.0 0.0 0.0 0.0 0.0)
             (commanded document
                        node
-                       (list "measure" (show (::handle node)))
+                       (list "measure" (show (● node handle)))
                        (lambda (found) found))))
 
     ;; ---- Handling ----
@@ -486,8 +486,8 @@
       (∀ A)
       (⊨ (Copy A))
       (let ((result (operation (ref-get state))))
-        (ref-set! state (::second result))
-        (::first result)))
+        (ref-set! state (● result second))
+        (● result first)))
 
     (define (alter! (state (Ref Document)) (operation (dyn (Fn Document → Document))))
       (→ Unit)
@@ -555,7 +555,7 @@
                                (lambda (document)
                                  (commanded document
                                             node
-                                            (list "focus" (show (::handle node)))
+                                            (list "focus" (show (● node handle)))
                                             (lambda (found) found))))))
                     (element-by-id
                      (lambda (id)
@@ -584,7 +584,7 @@
                     (set-fullscreen (lambda (enter) #f))
                     (insert-text
                      (lambda (node start end text)
-                       (let ((taken (match (live (ref-get state) (::handle node))
+                       (let ((taken (match (live (ref-get state) (● node handle))
                                       ((Some _) #t)
                                       ((None) #f))))
                          (alter! state
@@ -629,35 +629,35 @@
 
     (define (document->html (document Document)) (→ String)
       (string-concatenate
-       (map (lambda (child) (node->html document child)) (::children (entry document 0)))))
+       (map (lambda (child) (node->html document child)) (● (entry document 0) children))))
 
     (define (node->html (document Document) (handle I32)) (→ String)
       (let ((node (entry document handle)))
-        (if (string=? (::tag node) "#text")
-            (escaped (::text node))
+        (if (string=? (● node tag) "#text")
+            (escaped (● node text))
             (string-append "<"
-                           (::tag node)
-                           (string-concatenate (map attribute->html (::attributes node)))
+                           (● node tag)
+                           (string-concatenate (map attribute->html (● node attributes)))
                            (string-concatenate
                             (map (lambda (pair)
                                    (string-append " ."
-                                                  (::first pair)
+                                                  (● pair first)
                                                   "="
-                                                  (property->string (::second pair))))
-                                 (::properties node)))
+                                                  (property->string (● pair second))))
+                                 (● node properties)))
                            (string-concatenate
-                            (map (lambda (hearing) (string-append " @" (::event hearing)))
-                                 (::listeners node)))
+                            (map (lambda (hearing) (string-append " @" (● hearing event)))
+                                 (● node listeners)))
                            ">"
                            (string-concatenate
                             (map (lambda (child) (node->html document child))
-                                 (::children node)))
+                                 (● node children)))
                            "</"
-                           (::tag node)
+                           (● node tag)
                            ">"))))
 
     (define (attribute->html (pair (Pair String String))) (→ String)
-      (string-append " " (::first pair) "=\"" (escaped (::second pair)) "\""))
+      (string-append " " (● pair first) "=\"" (escaped (● pair second)) "\""))
 
     (define (escaped (text String)) (→ String)
       (string-concatenate

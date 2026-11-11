@@ -29,14 +29,14 @@
                  "\""))
 
 (define (token-text (chars (Vector Char)) (token Token)) (→ String)
-  (vector->string (subvector chars (::start token) (::end token))))
+  (vector->string (subvector chars (● token start) (● token end))))
 
 (define (tiles? (tokens (List Token)) (index I64) (end I64)) (→ Bool)
   (match tokens
     ((Cons token rest)
-     (and (= (::start token) index)
-          (< index (::end token))
-          (tiles? rest (::end token) end)))
+     (and (= (● token start) index)
+          (< index (● token end))
+          (tiles? rest (● token end) end)))
     ((Nil) (= index end))))
 
 (define (show-tokens (text String)) (→ Unit) (! console)
@@ -49,7 +49,7 @@
     (write-line (quoted text))
     (write-line (string-append "  "
                                (string-join (map (lambda (token)
-                                                   (string-append (class-name (::class token))
+                                                   (string-append (class-name (● token class))
                                                                   ":"
                                                                   (quoted
                                                                    (token-text chars token))))

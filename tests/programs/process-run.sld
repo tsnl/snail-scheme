@@ -19,10 +19,10 @@
 (define (report (result (Result Captured ProcessError))) (→ Unit) (! console)
   (match result
     ((Ok captured)
-     (write-line (exit-text (::exit captured)))
-     (write-string (text (::stdout captured)))
-     (write-string (text (::stderr captured))))
-    ((Err error) (write-line (::code error)))))
+     (write-line (exit-text (● captured exit)))
+     (write-string (text (● captured stdout)))
+     (write-string (text (● captured stderr))))
+    ((Err error) (write-line (● error code)))))
 
 (report (run (Command "/bin/sh" (list "-c" "cat; echo err >&2; exit 3") ".")
              (string->utf8 "from input\n")))
@@ -40,5 +40,5 @@
 ;; More output than a pipe holds, which nothing reads until the child exits.
 (match (run (Command "/bin/sh" (list "-c" "head -c 200000 /dev/zero") ".") #u8())
   ((Ok captured)
-   (write-line (string-append (show (vector-length (::stdout captured))) " bytes")))
-  ((Err error) (write-line (::code error))))
+   (write-line (string-append (show (vector-length (● captured stdout))) " bytes")))
+  ((Err error) (write-line (● error code))))

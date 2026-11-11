@@ -8,14 +8,14 @@
     (lambda (token) (match token ((Token label) (write-line label))))))
 
 (let* ((token (Token "first-class cleanup"))
-       (function (ann (lambda (value) (string-append (::label token) value))
+       (function (ann (lambda (value) (string-append (● token label) value))
                       (impl (Fn String → String ! console))))
        (constructor once)
        (single (constructor function)))
   (write-line (single " called")))
 
 (let* ((token (Token "first-class abandoned"))
-       (function (ann (lambda () (::label token)) (impl (Fn → String ! console))))
+       (function (ann (lambda () (● token label)) (impl (Fn → String ! console))))
        (constructor once)
        (single (constructor function)))
   (drop single))

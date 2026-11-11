@@ -32,26 +32,26 @@
       (deriving Serialize Deserialize))
 
     (define (cell=? (a Cell) (b Cell)) (→ Bool)
-      (and (= (::x a) (::x b)) (= (::y a) (::y b))))
+      (and (= (● a x) (● b x)) (= (● a y) (● b y))))
 
     (define (cell-index (cell Cell)) (→ I64)
-      (+ (::x cell) (* map-size (::y cell))))
+      (+ (● cell x) (* map-size (● cell y))))
 
     (define (index-cell (index I64)) (→ Cell)
       (Cell (remainder index map-size) (quotient index map-size)))
 
     (define (in-bounds? (cell Cell)) (→ Bool)
-      (and (<= 0 (::x cell))
-           (< (::x cell) map-size)
-           (<= 0 (::y cell))
-           (< (::y cell) map-size)))
+      (and (<= 0 (● cell x))
+           (< (● cell x) map-size)
+           (<= 0 (● cell y))
+           (< (● cell y) map-size)))
 
     (define (distance-squared (a Cell) (b Cell)) (→ I64)
-      (let ((dx (- (::x a) (::x b))) (dy (- (::y a) (::y b))))
+      (let ((dx (- (● a x) (● b x))) (dy (- (● a y) (● b y))))
         (+ (* dx dx) (* dy dy))))
 
     (define (manhattan (a Cell) (b Cell)) (→ I64)
-      (+ (abs (- (::x a) (::x b))) (abs (- (::y a) (::y b)))))
+      (+ (abs (- (● a x) (● b x))) (abs (- (● a y) (● b y)))))
 
     ;; Within a circle of `radius` cells around `center`.
     (define (within? (cell Cell) (center Cell) (radius I64)) (→ Bool)
@@ -68,7 +68,7 @@
 
     ;; East, west, south, north: a fixed order, so ties break the same way.
     (define (neighbors (cell Cell)) (→ (List Cell))
-      (let ((x (::x cell)) (y (::y cell)))
+      (let ((x (● cell x)) (y (● cell y)))
         (filter in-bounds?
                 (list (Cell (+ x 1) y) (Cell (- x 1) y) (Cell x (+ y 1)) (Cell x (- y 1))))))
 
@@ -82,11 +82,11 @@
     ;; corner touches both side cells, so nothing is seen or wired diagonally
     ;; between two rocks.
     (define (line-cells (a Cell) (b Cell)) (→ (List Cell))
-      (let ((dx (abs (- (::x b) (::x a)))) (dy (abs (- (::y b) (::y a))))
-            (sx (if (< (::x a) (::x b)) 1 -1)) (sy (if (< (::y a) (::y b)) 1 -1)))
-        (let walk ((x (::x a)) (y (::y a)) (nx 1) (ny 1) (cells (Nil)))
+      (let ((dx (abs (- (● b x) (● a x)))) (dy (abs (- (● b y) (● a y))))
+            (sx (if (< (● a x) (● b x)) 1 -1)) (sy (if (< (● a y) (● b y)) 1 -1)))
+        (let walk ((x (● a x)) (y (● a y)) (nx 1) (ny 1) (cells (Nil)))
           (let ((cells (Cons (Cell x y) cells)) (order (- (* ny dx) (* nx dy))))
-            (cond ((and (= x (::x b)) (= y (::y b))) (reverse cells))
+            (cond ((and (= x (● b x)) (= y (● b y))) (reverse cells))
                   ((< order 0) (walk x (+ y sy) nx (+ ny 2) cells))
                   ((> order 0) (walk (+ x sx) y (+ nx 2) ny cells))
                   (else (walk (+ x sx)
