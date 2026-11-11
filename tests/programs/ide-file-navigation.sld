@@ -7,6 +7,7 @@
  (snail shell dom memory)
  (snail shell fetch)
  (snail shell ui)
+ (snail shell wire)
  (snail shell ide application))
 
 ;; Files are supplied by the service. Selection and fuzzy filtering run in
@@ -19,6 +20,14 @@
 (define (finished session)
   (match session
     ((Session ide pending) (drop pending) ide)))
+
+(: recovered (-> Bytes Unit ! console))
+(define (recovered bytes)
+  (let ((model (restored (read-recovery bytes))))
+    (write-line (string-join (::tabs (list-ref (::panes model) 0)) ","))
+    (match (buffer-at model "lib/notes.txt")
+      ((Some buffer) (write-line (::text buffer)))
+      ((None) (panic "draft lost during recovery")))))
 
 (dispatch-local
  (once (lambda ()
@@ -46,7 +55,8 @@
                      (list (FireWindow "keydown"
                                        (Event-modifiers-set (Event-key-set no-event "p") meta-key))
                            (Fire "command-query" "input" (Event-value-set no-event "lnote"))
-                           (Fire "command-query" "keydown" (Event-key-set no-event "Enter")))
+                           (Fire "command-query" "keydown" (Event-key-set no-event "Enter"))
+                           (Fire "text-0" "input" (Event-value-set no-event "draft notes")))
                      (lambda ()
                        (finished (run-reactor (begin-session initial)
                                               (list (Connect))
@@ -61,6 +71,10 @@
                                               (lambda (model) (unit))
                                               (lambda (model) (unit)))))))))
              (for-each write-line (ref-get requests))
+             ;; The new envelope retains tab order; the original wire record
+             ;; upgrades to one tab per pane and keeps the same unsaved draft.
+             (recovered (serialize (kept (::first result))))
+             (recovered (serialize (::previous (kept (::first result)))))
              (match (buffer-at (::first result) "lib/notes.txt")
                ((Some buffer) (write-line (::text buffer)))
                ((None) (panic "file navigation did not finish"))))))))

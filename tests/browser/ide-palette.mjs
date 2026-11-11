@@ -19,7 +19,7 @@ try {
   await browser.navigate(service.url + '/');
   await until(async () => (await title()) === 'main.sld', 'first file');
   assert.equal(await browser.evaluate('document.querySelector(".toolbar")'), null);
-  assert.equal(await browser.evaluate('document.querySelectorAll(".pane-header button").length'), 1);
+  assert.equal(await browser.evaluate('document.querySelectorAll(".pane-header .pane-button").length'), 1);
   // macOS may report the unshifted letter even while Command+Shift is held.
   for (const modifier of ['metaKey', 'ctrlKey']) {
     for (const letter of ['p', 'P']) {
@@ -76,8 +76,9 @@ try {
     fields[1].focus(); window.confirm = () => false;`);
   await until(async () => (await title()) === 'project.datum', 'focus second pane');
   await browser.evaluate('document.querySelector(".pane .pane-button").click()');
-  await until(() => browser.evaluate('document.activeElement === document.querySelector(".pane.active textarea")'), 'cancelled close restores focus');
-  assert.match(await title(), /main.sld.*●/);
+  await until(() => browser.evaluate('document.querySelectorAll(".pane").length === 1'), 'close keeps draft referenced by an inactive tab');
+  await browser.evaluate(`document.querySelector('.pane.active .pane-tab[data-path="main.sld"]').click()`);
+  await until(async () => /main.sld.*●/.test(await title()), 'inactive tab retains shared draft');
   console.log('ide-palette: registered commands, keys, focus, and safe editor closing');
 } finally {
   browser.close(); await service.stop(); await rm(project, {recursive: true, force: true});

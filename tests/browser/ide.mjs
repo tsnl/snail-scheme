@@ -185,7 +185,7 @@ try {
   await until(async () => (await text()) === 'plain text\n', 'plain text file');
   assert.equal(await title(), 'notes.txt', 'CRLF read does not mark an untouched file dirty');
   await unlink(join(project, 'notes.txt'));
-  await until(async () => (await title()) === 'Choose a file', 'clean deletion');
+  await until(async () => (await title()) === 'main.sld', 'clean deletion returns to retained tab');
   await select('main.sld');
   assert.ok(await type('"while disconnected"', '"deleted draft"'));
   await unlink(source);
