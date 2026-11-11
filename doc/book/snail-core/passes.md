@@ -131,7 +131,23 @@ src/snail/compiler/
     requirements.sld      rule: what a class requirement gives its class
     projections.sld       rule: the type a projection stands for
     callables.sld         rule: the rules callable types obey in a scheme, and executable code's type
+    kinds.sld             rule: which of a class's parameters are rows
+    operations.sld        rule: an operation's parameters, result and latent effects
+    members.sld           rule: which member of a class or an effect a label names
+    heads.sld             rule: what an instance's head and equations give its class
+    lifecycle.sld         rule: the type a Drop instance makes moved
+    identities.sld        rule: a case's TypeId
+    state.sld             the numbers it hands out and what is known, and declaring-let*
     types.sld             part: written types, schemes and requirements
+    values.sld            part: signatures, definitions, externs and primitives
+    data.sld              part: structs and enums
+    classes.sld           part: classes
+    effects.sld           part: effects and their defaults
+    instances.sld         part: instances and their methods
+    expressions.sld       part: bodies
+    top.sld               part: the scan, the signatures, each declaration, then every body
+    pass.sld              (snail compiler declare pass): the function `declare`
+    schemes.sld           query: the scheme of each value a declaration makes
   ...
   integrate/              the integrator: one library per job
     files.sld             (snail compiler integrate files): every read of the file system
@@ -139,7 +155,7 @@ src/snail/compiler/
     load.sld              (snail compiler integrate load): a program and the libraries it reaches
     sha256.sld            (snail compiler integrate sha256): the digest a linked file is named by
     bind.sld              (snail compiler integrate bind): one library's linked files read, then bound
-    compile.sld           (snail compiler integrate compile): each loaded library expanded, bound and derived, in order
+    compile.sld           (snail compiler integrate compile): each loaded library expanded, bound, derived and declared, in order
 ```
 
 Each pass is a folder. `language.sld` holds the language the pass writes:
@@ -681,8 +697,11 @@ reported, in order.
 
 ### Declared, written by `declare` (implemented)
 
-`declare` is in progress: its types part is written, and the rest of the
-pass, which makes each declaration its entity, is still to come.
+`declare` is in progress: every declaration becomes its entity and every
+body is declared, with the old compiler's checks of types, heads, members
+and case identities; the checks that a struct can be built, of host
+functions and operation types, and of an instance's head and lifecycle
+are still to come.
 
 Every written type is a `Type` and every signature a `Scheme`. A `Con` is a
 struct, an enum or a builtin of (snail core forms), at as many arguments as
@@ -914,12 +933,21 @@ the old expander too, and compares it with the old expansion: both
 succeed or both fail; failures by their first problem, message and
 place, and every problem when the old expander reports several;
 successes library by library, in order, by their exports, their written
-definitions and each one's value in a normal form, by each linked file's
-import and the files to place beside the program, by each derived
-instance beside the old instance of its class and types, its variables,
-requirements and method compared up to the renaming of locals, in the
-old order of each class, and, for the whole program, by the targets it
-asks for. It also compares the integrator's
+definitions and each one's value in a normal form, in which a `case-id`
+is the TypeId `declare` gives its case, by each linked file's import and
+the files to place beside the program, by each derived instance beside
+the old instance of its class and types, its variables, requirements and
+method compared up to the renaming of locals, in the old order of each
+class, and, for the whole program, by the targets it asks for. For
+`declare`, each library's entities are converted to the old compiler's,
+as milestone A will hand them over, and compared with the old program's
+tables: its data types, with whether each is owned; its classes, with
+their rows; its effects; every value it declares, by its kind and its
+scheme, but those the old compiler names afresh; and, class by class, its
+instances in the old order, written and implied by a struct's fields, by
+their heads, variables, requirements, sets, the members their methods
+implement and each implementation's scheme. A name a macro's template
+wrote is compared by the name written, and a row's effects as a set. It also compares the integrator's
 SHA-256 with the old one, compiled, as `make test-compiler` does on
 Chibi.
 
@@ -974,6 +1002,23 @@ one line each, with its reason:
   keyword or a macro, is refused as syntax used as a value; the old
   expander would expand the form it writes there, and `derive` writes
   nodes, not syntax.
+- In a program, `declare` reports the first problem among its statements,
+  where the old compiler reports one for each statement, and reports it
+  after the problems of the definitions written after them: Expanded
+  makes a program's statements its body, one expression, which is
+  declared after the library's other bodies.
+- A method definition names a declared class's method by the method's
+  whole name, so a method whose name holds a `:` is implemented under that
+  name, where the old compiler asks for the text after its last colon.
+  Names are data.
+- A Drop instance written before its type makes the type moved; the old
+  compiler fails with an internal error, since it marks the type as it
+  reaches the instance, and `declare` finds the Drop instances once every
+  declaration is reached.
+- The TypeId of a case a macro's template wrote is the hash of a schema
+  that spells the case's Global with its serial; the old compiler spells
+  the stamp of the macro's use, which no new pass has. None of the
+  programs `make compare-compiler` expands writes a `case-id` of one.
 - A requirement that does not give each of its class's parameters is
   refused with the class's name as written; the old compiler spells the
   text after the last colon of the class's unique name, which differs for

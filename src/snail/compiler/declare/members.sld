@@ -14,6 +14,7 @@
    class-members
    named-member
    missing-member
+   member-name
    named-operation)
   (import
    (snail core base)
@@ -80,6 +81,8 @@
         ((Pair (FieldReader label) (FieldReader other-label)) (string=? label other-label))
         (_ #f)))
 
+    ;; The name a member goes by, in messages and in the Global of its
+    ;; implementation: a method's own, or a field class's label.
     (: member-name (impl (Fn Member -> String)))
     (define (member-name member)
       (match member

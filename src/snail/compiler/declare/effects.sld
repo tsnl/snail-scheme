@@ -6,12 +6,17 @@
 ;; each default entry, in order, names an operation of the effect, and its
 ;; implementation is given a Global of its own, named for the operation.
 ;; The first problem stops the declaration. A default's value is a body,
-;; declared with the library's other bodies.
+;; declared with the library's other bodies, once every declaration is
+;; reached: a lambda, as written, or a function's name, which becomes the
+;; lambda that calls it with the operation's arguments, each a local of
+;; its own, as the old compiler's `eta-expand` writes it.
 (define-library (snail compiler declare effects)
   (export
    DeclaredEffect
    PendingDefault
-   declared-effect)
+   declared-effect
+   declared-default
+   effect-with-defaults)
   (import
    (snail core base)
    (snail compiler source)
@@ -24,7 +29,8 @@
    (snail compiler declare operations)
    (snail compiler declare members)
    (snail compiler declare types)
-   (snail compiler declare values))
+   (snail compiler declare values)
+   (snail compiler declare expressions))
   (begin
 
     ;; ---- Effects ----
@@ -117,6 +123,56 @@
                        state))))
           ((Err message) (fail (::loc label) message)))))
 
+    ;; ---- Default bodies ----
+
+    (: declared-default
+       (impl (Fn Declaring PendingDefault -> (Result (Pair Default Declaring) (List Feedback)))))
+    (define (declared-default state pending)
+      (let ((operation (::operation pending))
+            (loc (::loc pending)))
+        (declaring-let* ((value state
+                                (unchanged state (declared-expr (::known state) (::value pending))))
+                         (function state
+                                   (default-function state
+                                     value
+                                     (length (::parameters operation))
+                                     loc)))
+          (Ok
+           (Pair (Default (::global operation) (::implementation pending) function loc) state)))))
+
+    ;; `expand` leaves a default a Lambda, a ClosedLambda or a name.
+    (: default-function
+       (impl (Fn Declaring Expr I64 Loc -> (Result (Pair Expr Declaring) (List Feedback)))))
+    (define (default-function state value arity loc)
+      (match value
+        ((LocalRef _ _) (calling state value arity loc))
+        ((TopRef _ _) (calling state value arity loc))
+        (_ (Ok (Pair value state)))))
+
+    ;; `(lambda (argument ...) (function argument ...))`, at the entry.
+    (: calling (impl (Fn Declaring Expr I64 Loc -> (Result (Pair Expr Declaring) (List Feedback)))))
+    (define (calling state function arity loc)
+      (declaring-let* ((arguments state
+                                  (declaring-map state
+                                                 (lambda (state index)
+                                                   (fresh-local state "argument"))
+                                                 (iota arity))))
+        (Ok (Pair (Lambda arguments
+                          (Call function
+                                (map (lambda (argument) (LocalRef argument loc)) arguments)
+                                loc)
+                          loc)
+                  state))))
+
+    (: effect-with-defaults (impl (Fn Effect (List Default) -> Effect)))
+    (define (effect-with-defaults effect defaults)
+      (Effect (::global effect)
+              (::operations effect)
+              defaults
+              (::around-main? effect)
+              (::annotations effect)
+              (::loc effect)))
+
     )
 
   ;; ---- Tests ----
@@ -133,7 +189,8 @@
     (begin
       (define (test-effects)
         (test-operations)
-        (test-defaults))
+        (test-defaults)
+        (test-default-bodies))
 
       (define (at line)
         (Loc "t.sld" line 1))
@@ -272,5 +329,36 @@
                                  #f
                                  (list)
                                  loc)
-                (fail (at 9) "not an operation of this effect: write")))))
+                (fail (at 9) "not an operation of this effect: write")))
+
+      ;; A lambda stays as written; a name is called with a local of its
+      ;; own for each of the operation's parameters, numbered in turn.
+      (define (test-default-bodies)
+        (let ((lambda-value (bound-Lambda (list) (unit-at 7) (at 7)))
+              (name (bound-TopRef (expanded-TopGlobal (global "jump-twice")) (at 8))))
+          (expect (declared-default (state-from 6)
+                                    (PendingDefault declared-read
+                                                    (expanded-Global main "read" 4)
+                                                    lambda-value
+                                                    (at 7)))
+                  (Ok (Pair (Default (global "read")
+                              (expanded-Global main "read" 4)
+                              (Lambda (list) (Literal (expanded-UnitValue) (at 7)) (at 7))
+                              (at 7))
+                            (state-from 6))))
+          (expect (declared-default (state-from 6)
+                                    (PendingDefault declared-jump
+                                                    (expanded-Global main "jump" 5)
+                                                    name
+                                                    (at 9)))
+                  (Ok (Pair (Default (global "jump")
+                              (expanded-Global main "jump" 5)
+                              (Lambda (list (expanded-Local "argument" 6))
+                                      (Call
+                                       (TopRef (expanded-TopGlobal (global "jump-twice")) (at 8))
+                                       (list (LocalRef (expanded-Local "argument" 6) (at 9)))
+                                       (at 9))
+                                      (at 9))
+                              (at 9))
+                            (state-from 7))))))))
    (else)))

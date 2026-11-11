@@ -1,9 +1,9 @@
-;; Whole programs compiled by the new passes, expanded, bound and
-;; derived, beside the old expander, which tests/compare-compiler.sld runs,
-;; compiled, over the suites' programs that load completely. A program
-;; that asks for a target's files is supplied stand-in files for each
-;; target it asks for, the same to both. Both succeed or both fail. When
-;; both fail, the first problem each reports is compared, message and
+;; Whole programs compiled by the new passes, expanded, bound, derived
+;; and declared, beside the old expander, which tests/compare-compiler.sld
+;; runs, compiled, over the suites' programs that load completely. A
+;; program that asks for a target's files is supplied stand-in files for
+;; each target it asks for, the same to both. Both succeed or both fail.
+;; When both fail, the first problem each reports is compared, message and
 ;; place; the old expander reports several when several bodies fail, and
 ;; those programs are named apart, with whether every problem agrees. When
 ;; both succeed, each library the old expansion records is compared: the
@@ -11,26 +11,26 @@
 ;; order; and each one's value in a normal form, as is a program's body;
 ;; the files it links, each LinkImport beside the old value of its handle,
 ;; and the files the build must place beside the program, beside the old
-;; `library-links`; and each instance `derive` wrote, beside the old
-;; instance of its class and types, by its variables, its requirements and
-;; its method's value in the normal form, the derived instances of each
-;; class in the old order, and each type that derives Move owned in the
-;; old program. And the targets the program asks for, which the
-;; stand-in files were supplied for, are compared with those the old
-;; expansion records of its libraries. The integrator keeps no library's
-;; Expanded tree, so whether a library derives is compared through the
-;; instances and the order of the libraries, which places the implicit
-;; libraries where the first one derives.
+;; `library-links`; each instance `derive` wrote, beside the old instance
+;; of its class and types, by its variables, its requirements and its
+;; method's value in the normal form, and the derived instances of each
+;; class in the old order; and its entities, as (snail compiler adapter
+;; declaration) compares them. And the targets the program asks for,
+;; which the stand-in files were supplied for, are compared with those the
+;; old expansion records of its libraries. The integrator keeps no
+;; library's Expanded tree, so whether a library derives is compared
+;; through the instances and the order of the libraries, which places the
+;; implicit libraries where the first one derives.
 ;;
 ;; The normal form is a text in which each local is numbered in the order
 ;; it is bound, each macro-written global is its name marked as written
 ;; by an expansion, without the expansion's number, each field function is
 ;; its name, a linked file's handle is the old expander's name for it,
-;; `library:%link path`, and a `case-id` is the number the old program
-;; gives its constructor's case. It leaves out types, whether a function
-;; may capture, a local signature that annotates no definition, the
-;; methods of an instance a library writes and effect defaults, which the
-;; old expander names afresh, and statements of a library.
+;; `library:%link path`, and a `case-id` is the TypeId `declare` gives its
+;; case, beside the number the old expander writes. It leaves out types,
+;; whether a function may capture, the methods of an instance a library
+;; writes and effect defaults, which the old expander names afresh, and
+;; statements of a library.
 (define-library (snail compiler adapter expansion)
   (export
    expansion-comparison)
@@ -61,21 +61,12 @@
          ByteVector
          Boolean
          UnitValue
-         TypeExpr
-         Applied
-         Variable
-         Requirement
-         ClassRequirement
          ClassRef
          ClassGlobal
-         FieldClass
-         MethodName
-         MemberName
-         PathName)
-   (snail compiler expand offer)
-   (snail compiler bind language)
+         FieldClass)
+   (only (snail compiler expand offer) Offer Export)
    (snail compiler bind supply)
-   (prefix (snail compiler derive language) derived-)
+   (snail compiler declare language)
    (only (snail compiler bind placed) Placed)
    (snail compiler integrate walk)
    (snail compiler integrate load)
@@ -83,6 +74,7 @@
    (snail compiler integrate sha256)
    (only (snail compiler adapter outline) feedback-text)
    (only (snail compiler adapter load) old-expansion-with)
+   (only (snail compiler adapter declaration) declaration-differences)
    (prefix (only (snail shell compiler read)
                  Loc
                  Datum
@@ -333,7 +325,8 @@
                                             (link-differences file expanded)
                                             (instance-differences file
                                                                   program
-                                                                  (::second entry)))))
+                                                                  (::second entry))
+                                            (declaration-differences files file program))))
                                     ((None) (Nil))))
                                 files))))
         (match (concatenate (list (order-difference files old-libraries)
@@ -402,7 +395,7 @@
              (old (map (lambda (linked) (string-append (::digest linked) " at " (::path linked)))
                        (old:library-links expanded key))))
         (append (concatenate (map (lambda (top) (import-difference key (::program expanded) top))
-                                  (derived-tops (::derived file))))
+                                  (library-tops (::declared file))))
                 (if (same-texts? new old)
                     (Nil)
                     (list (string-append key ": the files to place differ: new "
@@ -414,10 +407,10 @@
     (define (placed-text placed)
       (string-append (::digest placed) " at " (::file placed)))
 
-    (: import-difference (impl (Fn String old:Program derived-Top -> (List String))))
+    (: import-difference (impl (Fn String old:Program Top -> (List String))))
     (define (import-difference key program top)
       (match top
-        ((derived-LinkImport _ path digest _ _)
+        ((LinkImport _ path digest _ _)
          (let ((name (handle-name key path)))
            (match (old:program-value program name)
              ((Some (old:Foreign import _))
@@ -429,11 +422,11 @@
              (_ (list (string-append name " is no linked file's import in the old"))))))
         (_ (Nil))))
 
-    (: derived-tops (impl (Fn derived-Derived -> (List derived-Top))))
-    (define (derived-tops library)
+    (: library-tops (impl (Fn Declared -> (List Top))))
+    (define (library-tops library)
       (match library
-        ((derived-Defined _ tops _ _) tops)
-        ((derived-Program tops _ _) tops)))
+        ((Defined _ tops _ _) tops)
+        ((Program tops _ _) tops)))
 
     ;; The old expander's name for the handle of a file a library links.
     (: handle-name (impl (Fn String (List String) -> String)))
@@ -441,55 +434,52 @@
       (string-append key ":%link " (string-join path "/")))
 
     ;; Each handle a library's LinkImports declare, with its old name.
-    (: handle-names (impl (Fn derived-Derived -> (List (Pair Global String)))))
+    (: handle-names (impl (Fn Declared -> (List (Pair Global String)))))
     (define (handle-names library)
       (concatenate (map (lambda (top)
                           (match top
-                            ((derived-LinkImport global path _ _ _)
+                            ((LinkImport global path _ _ _)
                              (list
                               (Pair global (handle-name (library-key (::library global)) path))))
                             (_ (Nil))))
-                        (derived-tops library))))
+                        (library-tops library))))
 
     ;; ---- Derived instances ----
 
     ;; Each instance `derive` wrote, beside the old instance of its class
     ;; and types, by its variables, its requirements, and its method's
-    ;; value in the normal form; the derived instances of a class in the
-    ;; old expansion's order; and whether each type that derives Move is
-    ;; owned in the old program too. The old instance's methods are
-    ;; named afresh, so its method is found by its label.
+    ;; value in the normal form; and the derived instances of a class in
+    ;; the old expansion's order. The old instance's methods are named
+    ;; afresh, so its method is found by its label.
     (: instance-differences
        (impl (Fn CompiledFile old:Program (List old:Item) -> (List String))))
     (define (instance-differences file program items)
       (let* ((key (file-key file))
-             (names (Context (handle-names (::derived file)) program))
-             (tops (derived-tops (::derived file)))
+             (names (Context (handle-names (::declared file))))
+             (tops (library-tops (::declared file)))
              (derived (derived-instances tops))
              (old (library-instances program key)))
         (concatenate
          (list (concatenate (map (lambda (instance)
                                    (derived-difference names items old instance))
                                  derived))
-               (instance-order key derived old)
-               (move-differences program tops)))))
+               (instance-order key derived old)))))
 
     ;; The instances `derive` placed: those that follow a struct or an
     ;; enum at its own place, inside an instance scope too.
-    (: derived-instances (impl (Fn (List derived-Top) -> (List Instance))))
+    (: derived-instances (impl (Fn (List Top) -> (List Instance))))
     (define (derived-instances tops)
       (match tops
         ((Nil) (Nil))
-        ((Cons (derived-InstanceScope _ inner _) rest)
+        ((Cons (InstanceScope _ inner _) rest)
          (append (derived-instances inner) (derived-instances rest)))
-        ((Cons (derived-Struct _ _ _ _ _ _ loc) rest) (following loc rest))
-        ((Cons (derived-Enum _ _ _ _ _ loc) rest) (following loc rest))
+        ((Cons (TopData data) rest) (following (::loc data) rest))
         ((Cons _ rest) (derived-instances rest))))
 
-    (: following (impl (Fn Loc (List derived-Top) -> (List Instance))))
+    (: following (impl (Fn Loc (List Top) -> (List Instance))))
     (define (following loc tops)
       (match tops
-        ((Cons (derived-TopInstance instance) rest)
+        ((Cons (TopInstance instance) rest)
          (if (same-loc? (::loc instance) loc)
              (Cons instance (following loc rest))
              (derived-instances tops)))
@@ -549,27 +539,6 @@
                                          "; old " (string-join old-heads ", "))))))
             (list "snail.shell.wire:Serialize" "snail.shell.wire:Deserialize"))))
 
-    ;; A type that derives Move is owned in the old program.
-    (: move-differences (impl (Fn old:Program (List derived-Top) -> (List String))))
-    (define (move-differences program tops)
-      (concatenate
-       (map (lambda (top)
-              (match top
-                ((derived-Struct global _ _ #t _ _ _) (owned-difference program global))
-                ((derived-Enum global _ _ #t _ _) (owned-difference program global))
-                ((derived-InstanceScope _ inner _) (move-differences program inner))
-                (_ (Nil))))
-            tops)))
-
-    (: owned-difference (impl (Fn old:Program Global -> (List String))))
-    (define (owned-difference program global)
-      (match (table-ref (::types program) (global-text global))
-        ((Some data)
-         (if (::owned? data)
-             (Nil)
-             (list (string-append (global-text global) " is not owned in the old"))))
-        ((None) (list (string-append (global-text global) " is no old type")))))
-
     ;; ---- Instance texts ----
 
     ;; An instance's class and types, which find the old one.
@@ -591,12 +560,12 @@
     (: instance-text (impl (Fn Context Instance -> String)))
     (define (instance-text names instance)
       (form-text "instance"
-                 (list (form-text "" (::variables instance))
+                 (list (form-text "" (map variable-text (::variables instance)))
                        (form-text "" (map requirement-text (::requirements instance)))
                        (form-text "" (match (::body instance)
                                        ((Methods methods)
                                         (map (lambda (method)
-                                               (form-text (written-name (::name method))
+                                               (form-text (member-text (::member method))
                                                           (list (::text (new-text names
                                                                                   (::value method)
                                                                                   (Naming (Nil)
@@ -604,12 +573,19 @@
                                              methods))
                                        ((Dispatch _ _) (list "dispatch")))))))
 
-    ;; A method definition's name as written.
-    (: written-name (impl (Fn MethodName -> String)))
-    (define (written-name name)
-      (match name
-        ((MemberName label) (::name label))
-        ((PathName _ label) (::name label))))
+    ;; The member a method implements, by its name within its class.
+    (: member-text (impl (Fn Member -> String)))
+    (define (member-text member)
+      (match member
+        ((ClassMethod global) (::name global))
+        ((FieldReader label) (string-append "::" label))))
+
+    ;; A variable a derived instance's head writes.
+    (: variable-text (impl (Fn TypeVariable -> String)))
+    (define (variable-text variable)
+      (match variable
+        ((Written name) name)
+        (_ "?")))
 
     (: old-instance-text (impl (Fn (List old:Item) old:Instance -> String)))
     (define (old-instance-text items instance)
@@ -635,7 +611,7 @@
     (: requirement-text (impl (Fn Requirement -> String)))
     (define (requirement-text requirement)
       (match requirement
-        ((ClassRequirement (ClassGlobal global) types _ _)
+        ((ClassRequirement (ClassGlobal global) types)
          (form-text (global-text global) (map type-text types)))
         (_ "?")))
 
@@ -645,13 +621,12 @@
 
     ;; A type's normal name: a builtin of (snail core forms) is its name
     ;; alone, as the old compiler names it, and a variable is marked.
-    (: type-text (impl (Fn TypeExpr -> String)))
+    (: type-text (impl (Fn Type -> String)))
     (define (type-text type)
       (match type
-        ((Applied global _ (Nil) _) (type-name-text global))
-        ((Applied global _ arguments _)
-         (form-text (type-name-text global) (map type-text arguments)))
-        ((Variable name _) (string-append "'" name))
+        ((Con global (Nil)) (type-name-text global))
+        ((Con global arguments) (form-text (type-name-text global) (map type-text arguments)))
+        ((Var (Written name)) (string-append "'" name))
         (_ "?")))
 
     (: type-name-text (impl (Fn Global -> String)))
@@ -675,7 +650,7 @@
     (define (library-differences file items old-exported program)
       (let* ((key (file-key file))
              (exported (map ::name (::exports (::offer file))))
-             (new (written-definitions (::derived file) program))
+             (new (written-definitions (::declared file)))
              (new-names (map ::first new))
              (old (filter (lambda (entry)
                             (or (member? (::first entry) new-names)
@@ -736,12 +711,12 @@
     ;; Each written definition, by its normal name, with its value's
     ;; normal form; a program's body is `main:%body`, a function of
     ;; nothing.
-    (: written-definitions (impl (Fn derived-Derived old:Program -> (List (Pair String String)))))
-    (define (written-definitions library program)
-      (let ((names (Context (handle-names library) program)))
+    (: written-definitions (impl (Fn Declared -> (List (Pair String String)))))
+    (define (written-definitions library)
+      (let ((names (Context (handle-names library))))
         (match library
-          ((derived-Defined _ tops _ _) (tops-definitions names tops (Nil)))
-          ((derived-Program tops body _)
+          ((Defined _ tops _ _) (tops-definitions names tops (Nil)))
+          ((Program tops body _)
            (append (tops-definitions names tops (Nil))
                    (match body
                      ((Some expr)
@@ -753,20 +728,20 @@
 
     (: tops-definitions
        (impl
-        (Fn Context (List derived-Top) (List Global) -> (List (Pair String String)))))
+        (Fn Context (List Top) (List Global) -> (List (Pair String String)))))
     (define (tops-definitions names tops sets)
       (concatenate (map (lambda (top) (top-definitions names top sets)) tops)))
 
     ;; A definition under a top-level `with-instances` has its sets twice,
     ;; as the old expander scopes them.
     (: top-definitions
-       (impl (Fn Context derived-Top (List Global) -> (List (Pair String String)))))
+       (impl (Fn Context Top (List Global) -> (List (Pair String String)))))
     (define (top-definitions names top sets)
       (match top
-        ((derived-Define global value _)
+        ((Define global value _ _ _)
          (list (Pair (global-text global)
                      (::text (new-text names (scoped (scoped value sets) sets) (Naming (Nil) 0))))))
-        ((derived-InstanceScope own tops _)
+        ((InstanceScope own tops _)
          (tops-definitions names tops (delete-duplicates same-global-text? (append own sets))))
         (_ (Nil))))
 
@@ -794,11 +769,9 @@
                      (if (= (::serial global) 0) "" "%")))
 
     ;; What the normal form of a new expression needs besides the
-    ;; expression: the old expander's name for each linked file's handle,
-    ;; and the old program, which numbers a constructor's case.
+    ;; expression: the old expander's name for each linked file's handle.
     (struct Context
-      ((handles (List (Pair Global String)))
-       (program old:Program)))
+      ((handles (List (Pair Global String)))))
 
     ;; A value's normal name: a linked file's handle is the old
     ;; expander's name for it.
@@ -934,7 +907,6 @@
                                         ((None) (::text value-text)))
                                       (::text body-text)))
                      (::naming body-text))))
-        ((LocalSignature _ body _) (new-text names body naming))
         ((Match scrutinee clauses _)
          (let* ((value (new-text names scrutinee naming))
                 (rendered (clauses-text names clauses (::naming value))))
@@ -949,7 +921,8 @@
                                                      (form-text (::first pair)
                                                                 (list (::second pair))))
                                                    (zip (map (lambda (implementation)
-                                                               (::name (::label implementation)))
+                                                               (::name
+                                                                (::operation implementation)))
                                                              implementations)
                                                         (::first values)))
                                               (list (::text body-text)))))
@@ -963,33 +936,8 @@
         ((Convert value _ _) (wrapped-text names "convert" value naming))
         ((TryConvert value _ _) (wrapped-text names "try-convert" value naming))
         ((TypeTest value _ _) (wrapped-text names "type-test" value naming))
-        ((CaseId constructor _ _) (Rendered (case-id-text names constructor) naming))))
-
-    ;; A `case-id` as the old expander writes it: the number the old
-    ;; program gives its constructor's case, an I32. A constructor the old
-    ;; program does not know keeps its name, and differs.
-    (: case-id-text (impl (Fn Context TopValue -> String)))
-    (define (case-id-text names constructor)
-      (match (old-value names constructor)
-        ((Some (old:Constructor case _))
-         (form-text "ann"
-                    (list (string-append "i:"
-                                         (i64->string (old:case-type-id (::program names) case))))))
-        (_ (form-text "case-id" (list (top-value-text names constructor))))))
-
-    ;; The old program's value of the same name: a name a macro's template
-    ;; wrote is found by its name without the expansion's number.
-    (: old-value (impl (Fn Context TopValue -> (Option old:Value))))
-    (define (old-value names value)
-      (let* ((program (::program names))
-             (text (top-value-text names value)))
-        (match (old:program-value program text)
-          ((Some found) (Some found))
-          ((None)
-           (match (find (lambda (name) (string=? (old-global-text name) text))
-                        (table-keys (::values program)))
-             ((Some name) (old:program-value program name))
-             ((None) (None)))))))
+        ((CaseId _ id _)
+         (Rendered (form-text "ann" (list (string-append "i:" (i64->string id)))) naming))))
 
     (: path-text (impl (Fn (List String) String -> String)))
     (define (path-text labels record)

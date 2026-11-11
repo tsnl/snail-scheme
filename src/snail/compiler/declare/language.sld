@@ -410,9 +410,11 @@
     ;; each output, in the class's order, the type its equation wrote. So
     ;; the types an instance is selected by are the head's types that are
     ;; no row. Whether it is in a named set is where it is: inside an
-    ;; InstanceSet. Its methods, when written, implement each method of
-    ;; the class once, in the order written, each a top-level definition of
-    ;; its own Global; a dispatch clause's types wait for `dispatch`.
+    ;; InstanceSet. Its methods, when written, implement every method of
+    ;; the class, in the order written, each a top-level definition of its
+    ;; own Global; a method defined twice keeps both definitions, in
+    ;; order, as the old compiler keeps them. A dispatch clause's types
+    ;; wait for `dispatch`.
     (struct Instance
       ((global Global)
        (class ClassRef)
