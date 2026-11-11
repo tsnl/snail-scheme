@@ -87,11 +87,13 @@
    ::deriving
    ::digest
    ::directories
+   ::directory
    ::discharged
    ::edges
    ::effects
    ::emission
    ::emitted
+   ::end
    ::entry
    ::enum?
    ::env
@@ -126,6 +128,7 @@
    ::handle
    ::helpers
    ::holder
+   ::identifier
    ::imports
    ::index
    ::initializers
@@ -147,6 +150,7 @@
    ::library
    ::line
    ::line-starts
+   ::lines
    ::links
    ::literals
    ::live
@@ -217,8 +221,10 @@
    ::signed
    ::solution
    ::source
+   ::specs
    ::stack
    ::stamp
+   ::starts
    ::state
    ::statements
    ::steps
@@ -234,6 +240,7 @@
    ::type-ids
    ::typed
    ::types
+   ::value
    ::values
    ::variable
    ::vars
@@ -244,7 +251,7 @@
   (import
    (rename (scheme base) (case scheme-case))
    (only (chibi) _ ...)
-   (scheme char)
+   (except (scheme char) char-whitespace? char-numeric? char-alphabetic?)
    (rename (srfi 1) (drop list-drop))
    (rename (only (srfi 132) list-stable-sort) (list-stable-sort list-sort))
    (srfi 151)
@@ -300,11 +307,13 @@
     (define (::deriving value) (field-of value (quote deriving)))
     (define (::digest value) (field-of value (quote digest)))
     (define (::directories value) (field-of value (quote directories)))
+    (define (::directory value) (field-of value (quote directory)))
     (define (::discharged value) (field-of value (quote discharged)))
     (define (::edges value) (field-of value (quote edges)))
     (define (::effects value) (field-of value (quote effects)))
     (define (::emission value) (field-of value (quote emission)))
     (define (::emitted value) (field-of value (quote emitted)))
+    (define (::end value) (field-of value (quote end)))
     (define (::entry value) (field-of value (quote entry)))
     (define (::enum? value) (field-of value (quote enum?)))
     (define (::env value) (field-of value (quote env)))
@@ -339,6 +348,7 @@
     (define (::handle value) (field-of value (quote handle)))
     (define (::helpers value) (field-of value (quote helpers)))
     (define (::holder value) (field-of value (quote holder)))
+    (define (::identifier value) (field-of value (quote identifier)))
     (define (::imports value) (field-of value (quote imports)))
     (define (::index value) (field-of value (quote index)))
     (define (::initializers value) (field-of value (quote initializers)))
@@ -360,6 +370,7 @@
     (define (::library value) (field-of value (quote library)))
     (define (::line value) (field-of value (quote line)))
     (define (::line-starts value) (field-of value (quote line-starts)))
+    (define (::lines value) (field-of value (quote lines)))
     (define (::links value) (field-of value (quote links)))
     (define (::literals value) (field-of value (quote literals)))
     (define (::live value) (field-of value (quote live)))
@@ -430,8 +441,10 @@
     (define (::signed value) (field-of value (quote signed)))
     (define (::solution value) (field-of value (quote solution)))
     (define (::source value) (field-of value (quote source)))
+    (define (::specs value) (field-of value (quote specs)))
     (define (::stack value) (field-of value (quote stack)))
     (define (::stamp value) (field-of value (quote stamp)))
+    (define (::starts value) (field-of value (quote starts)))
     (define (::state value) (field-of value (quote state)))
     (define (::statements value) (field-of value (quote statements)))
     (define (::steps value) (field-of value (quote steps)))
@@ -447,6 +460,7 @@
     (define (::type-ids value) (field-of value (quote type-ids)))
     (define (::typed value) (field-of value (quote typed)))
     (define (::types value) (field-of value (quote types)))
+    (define (::value value) (field-of value (quote value)))
     (define (::values value) (field-of value (quote values)))
     (define (::variable value) (field-of value (quote variable)))
     (define (::vars value) (field-of value (quote vars)))
@@ -495,10 +509,14 @@
     (define (i64->i32 n)
       (let ((low (modulo n 4294967296))) (if (>= low 2147483648) (- low 4294967296) low)))
 
-    ;; None unless the whole text is an optionally signed decimal integer.
+    ;; None unless the whole text is an optionally signed decimal integer
+    ;; that fits in 64 bits, as Snail-Core's says: Chibi's integers are
+    ;; unbounded, so the range is checked here.
     (define (string->i64 text)
       (let ((n (and (> (string-length text) 0) (string->number text 10))))
-        (if (exact-integer? n) (Some n) (None))))
+        (if (and (exact-integer? n) (<= -9223372036854775808 n 9223372036854775807))
+            (Some n)
+            (None))))
 
     (enum (Result T E)
       (Ok ((value T)))
@@ -582,6 +600,20 @@
         (cond ((null? items) (None))
               ((test (car items)) (Some index))
               (else (loop (cdr items) (+ index 1))))))
+
+    ;; ---- Characters ----
+
+    ;; Snail-Core's character classes are ASCII's, and these are its
+    ;; definitions. Chibi's own follow Unicode, under which a no-break space
+    ;; would end a token here and be part of one when compiled.
+    (define (char-whitespace? char)
+      (or (char=? char #\space) (char=? char #\tab) (char=? char #\newline) (char=? char #\return)))
+
+    (define (char-numeric? char)
+      (and (char<=? #\0 char) (char<=? char #\9)))
+
+    (define (char-alphabetic? char)
+      (or (and (char<=? #\a char) (char<=? char #\z)) (and (char<=? #\A char) (char<=? char #\Z))))
 
     ;; ---- Text ----
 
