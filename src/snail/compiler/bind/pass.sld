@@ -213,7 +213,7 @@
        (impl (Fn Numbering Site expanded-InstanceMethod -> (Pair InstanceMethod Numbering))))
     (define (bound-method state site method)
       (numbering-let* ((value state (bound-expr state site (::value method))))
-        (Pair (InstanceMethod (::label method) value) state)))
+        (Pair (InstanceMethod (::name method) value) state)))
 
     (: bound-member (impl (Fn Numbering Site expanded-SetMember -> (Pair SetMember Numbering))))
     (define (bound-member state site member)
@@ -497,7 +497,8 @@
       (define (test-declarations)
         (let* ((value (expanded-Literal (expanded-Integer 1) (at 9)))
                (scheme (expanded-Scheme (list) (list) (expanded-Variable "a" (at 4)) (at 4)))
-               (method (expanded-InstanceMethod (expanded-Label "show" (at 5)) value))
+               (method (expanded-InstanceMethod (expanded-MemberName (expanded-Label "show" (at 5)))
+                                                value))
                (instance (expanded-Instance (expanded-ClassGlobal (global "Show"))
                                             (list)
                                             (list)
@@ -540,7 +541,8 @@
                                                            (list)
                                                            (Methods
                                                             (list (InstanceMethod
-                                                                   (expanded-Label "show" (at 5))
+                                                                   (expanded-MemberName
+                                                                    (expanded-Label "show" (at 5)))
                                                                    (Literal (expanded-Integer 1)
                                                                             (at 9)))))
                                                            (at 3))))

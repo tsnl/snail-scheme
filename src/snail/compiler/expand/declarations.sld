@@ -123,7 +123,7 @@
 
     ;; A method definition of an instance, whose value is still syntax.
     (struct PendingMethod
-      ((label Label)
+      ((name MethodName)
        (value DefinedValue)
        (loc Loc)))
 
@@ -436,9 +436,22 @@
       (if (defines? scopes method)
           (match (definition-shape method)
             ((NamedDefinition name name-loc value)
-             (Ok (PendingMethod (Label (::name name) name-loc) value (marked-loc method))))
+             (Ok (PendingMethod (method-name (Label (::name name) name-loc))
+                                value
+                                (marked-loc method))))
             ((MalformedDefinition place message) (fail place message)))
           (fail (marked-loc method) "expected a method definition")))
+
+    ;; A method's name is a field path when the rule reads it as one. The
+    ;; old expander finds the method a name names by comparing text, and
+    ;; reads no path there, so a path with an empty label is refused by
+    ;; nothing here: it is a member's label, which names no member.
+    (: method-name (impl (Fn Label -> MethodName)))
+    (define (method-name label)
+      (match (field-path (::name label))
+        ((PathLabels labels) (PathName labels label))
+        ((EmptyLabel _) (MemberName label))
+        ((NotAPath) (MemberName label))))
 
     (: defines? (impl (Fn Scopes Marked -> Bool)))
     (define (defines? scopes form)
@@ -645,7 +658,7 @@
              ((Ok (Pair value state))
               (loop (Bodies (::tops bodies) (::statements bodies) (::feedback bodies) state)
                     rest
-                    (Cons (InstanceMethod (::label method) value) done)))
+                    (Cons (InstanceMethod (::name method) value) done)))
              ((Err feedback) (loop (with-feedback bodies feedback) rest done)))))))
 
     (: instance-with-methods (impl (Fn Instance (List InstanceMethod) -> Instance)))
@@ -887,11 +900,23 @@
         (match (expanded '((typeclass (C a) (: m (Array a))) (instance (C t) (define (m x) x))))
           ((Ok (Cons _ (Cons (TopInstance instance) (Nil))))
            (expect (::variables instance) (list "t"))
-           (expect (match (::body instance)
-                     ((Methods (Cons method (Nil))) (::name (::label method)))
-                     (_ ""))
-                   "m"))
+           (expect (method-names instance) (list (MemberName (Label "m" loc)))))
+          (other (expect other (Ok (list)))))
+        ;; A method named by a field path is its labels; one with an empty
+        ;; label is a member's label still, as the old expander reads it,
+        ;; for the pass that has the class to refuse.
+        (match (expanded '((struct Circle
+                             ((radius I64)))
+                           (instance (::x Circle I64) (define (::x c) c) (define (::x:: c) c))))
+          ((Ok (Cons _ (Cons (TopInstance instance) (Nil))))
+           (expect (method-names instance)
+                   (list (PathName (list "x") (Label "::x" loc)) (MemberName (Label "::x::" loc)))))
           (other (expect other (Ok (list))))))
+
+      (define (method-names instance)
+        (match (::body instance)
+          ((Methods methods) (map ::name methods))
+          ((Dispatch _ _) (list))))
 
       ;; Every body is expanded, and each failure reported in order.
       (define (test-bodies)

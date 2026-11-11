@@ -237,6 +237,7 @@
    ::pending-count
    ::performed
    ::phase
+   ::placed
    ::predecessor
    ::prefix
    ::prepend
@@ -523,6 +524,7 @@
     (define (::pending-count value) (field-of value (quote pending-count)))
     (define (::performed value) (field-of value (quote performed)))
     (define (::phase value) (field-of value (quote phase)))
+    (define (::placed value) (field-of value (quote placed)))
     (define (::predecessor value) (field-of value (quote predecessor)))
     (define (::prefix value) (field-of value (quote prefix)))
     (define (::prepend value) (field-of value (quote prepend)))

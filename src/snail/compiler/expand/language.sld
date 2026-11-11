@@ -29,7 +29,8 @@
 ;;                 | AssociatedOutput Label Annotation*              no Loc but its label's
 ;;   Instance    ::= Instance ClassRef variable* TypeExpr* Requirement* Equation* InstanceBody
 ;;   InstanceBody ::= Dispatch TypeExpr* | Methods InstanceMethod*   Methods: no Loc
-;;   InstanceMethod ::= InstanceMethod Label Expr                    no Loc but its label's
+;;   InstanceMethod ::= InstanceMethod MethodName Expr               no Loc but its name's
+;;   MethodName  ::= MemberName Label | PathName label* Label        no Loc but its label's
 ;;   SetMember   ::= SetInstance Instance                            no Loc but its instance's
 ;;                 | DynamicInstances ClassRef (TypeExpr*)*
 ;;   Operation   ::= Operation Global control? Scheme Annotation*
@@ -93,7 +94,10 @@
 ;; - A label is the one name not resolved here: a field's, a path's, and
 ;;   that of a member of a class or an effect, as a method definition, an
 ;;   associated output, a default or a handler's clause writes it. The
-;;   pass that has the declaration a label belongs to resolves it.
+;;   pass that has the declaration a label belongs to resolves it. A method
+;;   definition's name is a member's label unless it is written as a field
+;;   path, `(define (::x circle) ...)`, which is read into its labels, as a
+;;   path in an expression is; either keeps the name as written.
 ;; - Types are as written, with their names resolved, except that an alias
 ;;   is expanded where it is used, as a macro is, so no type names an
 ;;   alias.
@@ -140,6 +144,9 @@
    Dispatch
    Methods
    InstanceMethod
+   MethodName
+   MemberName
+   PathName
    SetMember
    SetInstance
    DynamicInstances
@@ -404,10 +411,23 @@
       (Methods
        ((methods (List InstanceMethod)))))
 
-    ;; A method definition: the method it names, as written, and its value.
+    ;; A method definition: the method it names, and its value.
     (struct InstanceMethod
-      ((label Label)
+      ((name MethodName)
        (value Expr)))
+
+    ;; The name a method definition writes, as written and where. A field
+    ;; path `::a::b` is its labels, in order: it can name only the method
+    ;; of a field class, `::x` that of the class of `x`. Any other name is
+    ;; the label of a member of the instance's class. A name that is a path
+    ;; but for an empty label, `::x::`, is no path: the old expander
+    ;; compares a method's name as text, where that one names no member.
+    (enum MethodName
+      (MemberName
+       ((label Label)))
+      (PathName
+       ((labels (List String))
+        (label Label))))
 
     ;; An instance set holds instances and `(dynamic-instances Class
     ;; (type ...) ...)` declarations, which are written nowhere else.

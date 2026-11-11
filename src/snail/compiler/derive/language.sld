@@ -1,6 +1,7 @@
 ;; Derived, the tree `derive` writes: a bound library whose `deriving`
 ;; clauses are what they ask for. A clause that names Serialize or
-;; Deserialize is an instance, and one that names Move marks the type.
+;; Deserialize is an instance, and one that names Move is said on the
+;; type.
 ;;
 ;;   Derived     ::= Defined library Top* first-unused-number
 ;;                 | Program Top* Expr? first-unused-number          no Loc
@@ -9,8 +10,8 @@
 ;;                 | Signature TopValue Scheme Annotation*
 ;;                 | Statement Expr                                  no Loc but its expression's
 ;;                 | Expose TopValue symbol dynamic?
-;;                 | Struct Global parameter* Field* linear? Annotation*
-;;                 | Enum Global parameter* Case* linear? Annotation*
+;;                 | Struct Global parameter* Field* move? Annotation*
+;;                 | Enum Global parameter* Case* move? Annotation*
 ;;                 | Alias Global parameter* Annotation*
 ;;                 | Class Global parameter* Member* Annotation*
 ;;                 | TopInstance Instance                            no Loc but its instance's
@@ -27,11 +28,11 @@
 ;;
 ;; Over the Bound library it comes from, Derived guarantees:
 ;;
-;; - No Derivation remains. A struct or enum is `linear?` when a deriving
-;;   clause of its declaration named Move: its values are moved, never
-;;   copied, by its declaration, as the old compiler's DataType says with
-;;   `owned?`. A Drop instance makes a type linear too, which is the
-;;   instance's to say.
+;; - No Derivation remains. A struct or an enum says `move?` when a
+;;   deriving clause of its declaration names Move, which makes its values
+;;   moved, never copied. That is not all of the old compiler's `owned?`:
+;;   a Drop instance makes a type's values moved too, which is the
+;;   instance's to say, and Derived does not.
 ;; - Each Serialize and each Deserialize a deriving clause names is an
 ;;   instance, a TopInstance among the tops its declaration is in, right
 ;;   after the declaration, in the order the clauses name them: where the
@@ -124,8 +125,8 @@
 
     ;; ---- Declarations ----
 
-    ;; As Bound's, but that a struct or an enum says whether it is linear
-    ;; in place of its deriving clauses.
+    ;; As Bound's, but that a struct or an enum says whether it derives
+    ;; Move in place of its deriving clauses.
     (enum Top
       (LinkImport
        ((global Global)
@@ -153,7 +154,7 @@
        ((global Global)
         (parameters (List String))
         (fields (List Field))
-        (linear? Bool)
+        (move? Bool)
         (annotations (List Annotation))
         (name-loc Loc)
         (loc Loc)))
@@ -161,7 +162,7 @@
        ((global Global)
         (parameters (List String))
         (cases (List Case))
-        (linear? Bool)
+        (move? Bool)
         (annotations (List Annotation))
         (loc Loc)))
       (Alias

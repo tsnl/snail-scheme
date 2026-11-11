@@ -14,8 +14,8 @@
 ;; `library-links`; and each instance `derive` wrote, beside the old
 ;; instance of its class and types, by its variables, its requirements and
 ;; its method's value in the normal form, the derived instances of each
-;; class in the old order, and each type linear by its declaration owned
-;; in the old program. And the targets the program asks for, which the
+;; class in the old order, and each type that derives Move owned in the
+;; old program. And the targets the program asks for, which the
 ;; stand-in files were supplied for, are compared with those the old
 ;; expansion records of its libraries. The integrator keeps no library's
 ;; Expanded tree, so whether a library derives is compared through the
@@ -68,12 +68,15 @@
          ClassRequirement
          ClassRef
          ClassGlobal
-         FieldClass)
+         FieldClass
+         MethodName
+         MemberName
+         PathName)
    (snail compiler expand offer)
    (snail compiler bind language)
    (snail compiler bind supply)
    (prefix (snail compiler derive language) derived-)
-   (snail compiler derive placed)
+   (only (snail compiler bind placed) Placed)
    (snail compiler integrate walk)
    (snail compiler integrate load)
    (snail compiler integrate compile)
@@ -395,7 +398,7 @@
     (: link-differences (impl (Fn CompiledFile old:ExpandedProgram -> (List String))))
     (define (link-differences file expanded)
       (let* ((key (file-key file))
-             (new (map placed-text (placed-files (::derived file))))
+             (new (map placed-text (::placed file)))
              (old (map (lambda (linked) (string-append (::digest linked) " at " (::path linked)))
                        (old:library-links expanded key))))
         (append (concatenate (map (lambda (top) (import-difference key (::program expanded) top))
@@ -454,7 +457,7 @@
     ;; and types, by its variables, its requirements, and its method's
     ;; value in the normal form; the derived instances of a class in the
     ;; old expansion's order; and whether each type that derives Move is
-    ;; linear in the old program too. The old instance's methods are
+    ;; owned in the old program too. The old instance's methods are
     ;; named afresh, so its method is found by its label.
     (: instance-differences
        (impl (Fn CompiledFile old:Program (List old:Item) -> (List String))))
@@ -469,7 +472,7 @@
                                    (derived-difference names items old instance))
                                  derived))
                (instance-order key derived old)
-               (linear-differences program tops)))))
+               (move-differences program tops)))))
 
     ;; The instances `derive` placed: those that follow a struct or an
     ;; enum at its own place, inside an instance scope too.
@@ -546,15 +549,15 @@
                                          "; old " (string-join old-heads ", "))))))
             (list "snail.shell.wire:Serialize" "snail.shell.wire:Deserialize"))))
 
-    ;; A type linear by its declaration is owned in the old program.
-    (: linear-differences (impl (Fn old:Program (List derived-Top) -> (List String))))
-    (define (linear-differences program tops)
+    ;; A type that derives Move is owned in the old program.
+    (: move-differences (impl (Fn old:Program (List derived-Top) -> (List String))))
+    (define (move-differences program tops)
       (concatenate
        (map (lambda (top)
               (match top
                 ((derived-Struct global _ _ #t _ _ _) (owned-difference program global))
                 ((derived-Enum global _ _ #t _ _) (owned-difference program global))
-                ((derived-InstanceScope _ inner _) (linear-differences program inner))
+                ((derived-InstanceScope _ inner _) (move-differences program inner))
                 (_ (Nil))))
             tops)))
 
@@ -593,13 +596,20 @@
                        (form-text "" (match (::body instance)
                                        ((Methods methods)
                                         (map (lambda (method)
-                                               (form-text (::name (::label method))
+                                               (form-text (written-name (::name method))
                                                           (list (::text (new-text names
                                                                                   (::value method)
                                                                                   (Naming (Nil)
                                                                                           0))))))
                                              methods))
                                        ((Dispatch _ _) (list "dispatch")))))))
+
+    ;; A method definition's name as written.
+    (: written-name (impl (Fn MethodName -> String)))
+    (define (written-name name)
+      (match name
+        ((MemberName label) (::name label))
+        ((PathName _ label) (::name label))))
 
     (: old-instance-text (impl (Fn (List old:Item) old:Instance -> String)))
     (define (old-instance-text items instance)
