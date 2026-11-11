@@ -515,10 +515,13 @@ read, Escape returns focus to the editor, and results are capped at 200 paths.
 The file picker runs in the browser over the service's file listing.
 
 Command/Ctrl+F opens `search-buffer` over the current file, including unsaved
-text. Command/Ctrl+Shift+F opens `search-project` over saved project files.
-Both are literal, case-insensitive searches using the palette’s arrows, Enter
-and Escape. Current-file search runs in the browser; project search runs on
-the service. Project search does not read drafts or replace them: selecting a hit
+text, in a compact find box at the active pane's top-right. It leaves the
+editor reachable. Enter and Shift+Enter (or the arrow buttons) select the next
+or previous whole match, wrapping at either end without closing find. Escape
+closes it and returns focus to the editor; repeating Command/Ctrl+F focuses the
+existing query. Command/Ctrl+Shift+F opens `search-project` over saved project
+files in the command palette. Both searches are literal and case-insensitive.
+Current-file search runs in the browser; project search runs on the service. Project search does not read drafts or replace them: selecting a hit
 opens the existing buffer, and moves its caret only when a fresh read still has
 the hit's revision and the buffer is clean. Otherwise it focuses the file.
 

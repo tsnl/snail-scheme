@@ -1850,14 +1850,17 @@
     (: run-command (-> Ide String Step))
     (define (run-command model name)
       (match (command-named commands name)
-        ((Some run) (invoked model run))
+        ((Some run) (if (and (string=? name "search-buffer") (palette-finding? (::palette model)))
+                        (run model) (invoked model run)))
         ((None) (stay model))))
 
     (: shortcut (-> Ide String I32 Step))
     (define (shortcut model key modifiers)
-      (match (shortcut-matching shortcuts (Chord key modifiers))
-        ((Some name) (update model (DispatchCommand name)))
-        ((None) (stay model))))
+      (if (and (palette-finding? (::palette model)) (string=? key "Escape") (= modifiers 0))
+          (palette-message model (palette-Dismiss))
+          (match (shortcut-matching shortcuts (Chord key modifiers))
+            ((Some name) (update model (DispatchCommand name)))
+            ((None) (stay model)))))
 
     (: invoked (-> Ide (-> Ide Step) Step))
     (define (invoked model run)
@@ -1945,7 +1948,7 @@
         ((palette-OpenPath path) (opening model path (Focus (::active model))))
         ((palette-OpenSavedHit hit)
          (opening model (::file (::point hit)) (SearchPoint (::active model) hit)))
-        ((palette-SelectDraftHit draft hit) (draft-followed model draft hit))
+        ((palette-SelectDraftHit draft hit size) (draft-followed model draft hit size))
         ((palette-CreatedPath path directory)
          (then (listing model)
                (lambda (next)
@@ -1965,17 +1968,35 @@
     (define (search-invalidated model)
       (Ide-palette-set model (palette-cancel (::palette model))))
 
-    (: draft-followed (-> Ide search-Draft Occurrence Step))
-    (define (draft-followed model draft hit)
+    (: draft-followed (-> Ide search-Draft Occurrence I64 Step))
+    (define (draft-followed model draft hit size)
       (match (current-draft model)
         ((Some current)
          (if (search-same-draft? current draft)
-             (Pair model (list (revealing model (::active model) (::path draft)
-                                          (::text draft)
-                                          (Point (::path draft) (::line hit)
-                                                 (::column hit)))))
+             (Pair model (list (finding model draft hit size)))
              (stay model)))
         ((None) (stay model))))
+
+    ;; Keep focus where the user left it: selecting another match must not
+    ;; take the find input away. The DOM boundary uses scalar offsets too.
+    (: finding (-> Ide search-Draft Occurrence I64 Command))
+    (define (finding model draft hit size)
+      (let ((pane (::active model)) (navigation (::generation (::palette model))))
+        (Command (once (lambda ()
+                         (match (element-by-id (field-id pane))
+                           ((Some field)
+                            (when (and (navigation-current? navigation)
+                                       (current-field? field (::path draft) (::text draft)))
+                              (let ((offset (source-offset (::text draft)
+                                                           (Point (::path draft)
+                                                                  (::line hit)
+                                                                  (::column hit)))))
+                                (select-range field (i64->i32 offset) (i64->i32 (+ offset size)))
+                                (scrolled-to pane
+                                             (* line-height
+                                                (i64->f64 (max 0 (- (::line hit) 5))))))))
+                           ((None) (unit)))
+                         (command-result stay))) stay)))
 
     (: search-followed (-> Ide I64 Hit (Option Snapshot) (List Command)))
     (define (search-followed model pane hit confirmed)
@@ -2187,6 +2208,24 @@
 
     ;; ---- The view ----
 
+    ;; The textarea's native selection is hidden while find owns focus.
+    ;; Draw the same range over the syntax layer without changing its text.
+    (: find-mark (-> Ide I64 String (Html Msg)))
+    (define (find-mark model pane text)
+      (Element "pre" (list (Attr "class" "marks") (Attr "aria-hidden" "true"))
+               (match (palette-current-match (::palette model))
+                 ((Some (palette-SelectDraftHit draft hit size))
+                  (if (and (= pane (::active model)) (string=? text (::text draft)))
+                      (let ((start (source-offset text
+                                                  (Point (::path draft)
+                                                         (::line hit)
+                                                         (::column hit)))))
+                        (list (Text (substring text 0 start))
+                              (Element "span" (list (Attr "class" "find-highlight"))
+                                       (list (Text (substring text start (+ start size)))))))
+                      (Nil)))
+                 (_ (Nil)))))
+
     ;; A compact button that leaves focus in the editor until its command runs.
     (: tool (-> String String String String Bool Msg (Html Msg)))
     (define (tool id class title label disabled message)
@@ -2237,9 +2276,16 @@
 
     (: palette-view (-> Ide (List (Html Msg))))
     (define (palette-view model)
-      (if (palette-visible? (::palette model))
+      (if (and (palette-visible? (::palette model)) (not (palette-finding? (::palette model))))
           (map (lambda (html) (map-html PaletteEvent html))
                (palette-view-component (::palette model) (palette-context model)))
+          (Nil)))
+
+    (: find-view (-> Ide I64 (List (Html Msg))))
+    (define (find-view model pane)
+      (if (and (= pane (::active model)) (palette-finding? (::palette model)))
+          (map (lambda (html) (map-html PaletteEvent html))
+               (palette-find-view (::palette model) (palette-context model)))
           (Nil)))
 
     (: command-keys (-> String String))
@@ -2473,19 +2519,19 @@
                  (list (Keyed (string-append "pane-" (show id)))
                        (Attr "class" (if (= id (::active model)) "pane active" "pane"))
                        (Attr "style" (placed area)))
-                 (list (Element "div"
-                                (list (Attr "class" "pane-header"))
-                                (list (Element "span"
-                                               (list (Attr "class" "pane-title"))
-                                               (list (Text (pane-title buffer))))
-                                      (tool ""
-                                            "pane-button"
-                                            "Close editor (Cmd/Ctrl+W or Alt+W)"
-                                            "×"
-                                            #f
-                                            (Close id))))
-                       (editor-view model pane buffer)
-                       (problem-view buffer)))))
+                 (append (list (Element "div"
+                                        (list (Attr "class" "pane-header"))
+                                        (list (Element "span"
+                                                       (list (Attr "class" "pane-title"))
+                                                       (list (Text (pane-title buffer))))
+                                              (tool ""
+                                                    "pane-button"
+                                                    "Close editor (Cmd/Ctrl+W or Alt+W)"
+                                                    "×"
+                                                    #f
+                                                    (Close id))))
+                               (editor-view model pane buffer)
+                               (problem-view buffer)) (find-view model id)))))
 
     (: pane-title (-> (Option Buffer) String))
     (define (pane-title buffer)
@@ -2542,6 +2588,7 @@
                                                   (match buffer
                                                     ((Some found) (marked model found))
                                                     ((None) (None))))
+                                      (find-mark model id text)
                                       (field-view id buffer text scheme lines)))))))
 
     (: field-view (-> I64 (Option Buffer) String Bool I64 (Html Msg)))
@@ -2761,7 +2808,10 @@
     (define (window model)
       (append (list (On "keydown"
                         (list (Key))
-                        (Chords (shortcut-chords shortcuts))
+                        (Chords (append (if (palette-finding? (::palette model))
+                                            (list (Chord "Escape" 0))
+                                            (Nil))
+                                        (shortcut-chords shortcuts)))
                         (lambda (event) (Shortcut (::key event) (::modifiers event))))
                     (On "online" (Nil) (Allow) (lambda (event) (Connect)))
                     (On "snail-refresh-failed" (Nil) (Allow) (lambda (event) (RefreshFailed))))
