@@ -44,11 +44,19 @@ button { font: inherit; color: inherit; }
 .divider:hover { background: var(--accent); }
 
 .pane { position: absolute; display: flex; flex-direction: column; box-sizing: border-box; min-width: 0; min-height: 0; }
-.pane-header { display: flex; align-items: center; gap: 2px; height: 28px; padding: 0 4px 0 10px; border-bottom: 1px solid var(--line);
+.pane-header { display: flex; flex: 0 0 28px; align-items: center; gap: 2px; height: 28px; padding: 0 4px; border-bottom: 1px solid var(--line);
   background: var(--surface); color: var(--muted); }
 .pane.active .pane-header { color: var(--text); box-shadow: inset 0 -2px var(--accent); }
 .pane-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pane-button { width: 24px; height: 22px; border: 0; border-radius: 4px; background: none; cursor: pointer; }
+.pane-tabs { position: relative; display: flex; flex: 1; min-width: 0; height: 100%; overflow-x: auto; scrollbar-width: thin; }
+.pane-tabs > .pane-title { padding: 4px 6px; }
+.pane-tab { display: flex; flex: 0 0 auto; align-items: center; max-width: 240px; padding: 0 10px;
+  border: 0; border-right: 1px solid var(--line); background: none; cursor: pointer; }
+.pane-tab:hover { background: var(--raised); }
+.pane-tab.active { background: var(--background); color: var(--text); box-shadow: inset 0 -2px var(--accent); }
+.tab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pane-tab:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
+.pane-button { flex: 0 0 24px; width: 24px; height: 22px; border: 0; border-radius: 4px; background: none; cursor: pointer; }
 .pane-button:hover { background: var(--raised); }
 .pane-problem { padding: 4px 10px; border-top: 1px solid var(--line); background: #3a2328; color: #f0b7bd; font: var(--code);
   white-space: pre-wrap; }

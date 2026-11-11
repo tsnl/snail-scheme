@@ -16,13 +16,13 @@
 (struct IdeApplication
   ())
 
-(type Save (Option Recovery))
+(type Save (Option TabbedRecovery))
 
 (define-page-state Save)
 
 (instance (Application (! mut events storage tasks) IdeApplication)
   (define (start entry)
-    (run-page (lambda () (None)) encode (lambda (bytes) (Some (deserialize bytes))) present)))
+    (run-page (lambda () (None)) encode (lambda (bytes) (Some (read-recovery bytes))) present)))
 
 ;; A replacement receives recovery data, never the old session's futures or
 ;; event connection. Reconnect and restore buffers under the new scheduler.
