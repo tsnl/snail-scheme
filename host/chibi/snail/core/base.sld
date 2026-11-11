@@ -51,6 +51,7 @@
    ::annotations
    ::arguments
    ::around-main
+   ::around-main?
    ::artifact-uses
    ::artifacts
    ::b
@@ -121,6 +122,7 @@
    ::files
    ::finished
    ::first
+   ::first-unused-number
    ::flags
    ::form
    ::forms
@@ -314,6 +316,7 @@
     (define (::annotations value) (field-of value (quote annotations)))
     (define (::arguments value) (field-of value (quote arguments)))
     (define (::around-main value) (field-of value (quote around-main)))
+    (define (::around-main? value) (field-of value (quote around-main?)))
     (define (::artifact-uses value) (field-of value (quote artifact-uses)))
     (define (::artifacts value) (field-of value (quote artifacts)))
     (define (::b value) (field-of value (quote b)))
@@ -384,6 +387,7 @@
     (define (::files value) (field-of value (quote files)))
     (define (::finished value) (field-of value (quote finished)))
     (define (::first value) (field-of value (quote first)))
+    (define (::first-unused-number value) (field-of value (quote first-unused-number)))
     (define (::flags value) (field-of value (quote flags)))
     (define (::form value) (field-of value (quote form)))
     (define (::forms value) (field-of value (quote forms)))

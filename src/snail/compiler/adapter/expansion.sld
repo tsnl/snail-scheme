@@ -336,8 +336,8 @@
     (: written-definitions (impl (Fn Expanded -> (List (Pair String String)))))
     (define (written-definitions expanded)
       (match expanded
-        ((Defined _ tops _) (tops-definitions tops (Nil)))
-        ((Program tops body)
+        ((Defined _ tops _ _) (tops-definitions tops (Nil)))
+        ((Program tops body _)
          (append (tops-definitions tops (Nil))
                  (match body
                    ((Some expr)

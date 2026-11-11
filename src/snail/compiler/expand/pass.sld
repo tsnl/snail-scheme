@@ -42,14 +42,10 @@
         (result-let* ((imported (imported-names (library-imports library) known)))
           (let ((scopes (Scopes name (TopScope empty-table imported) known))
                 (body (map written (library-body library))))
-            (if (same-library? name primitive-library)
-                (result-let* ((declared (primitives scopes body)))
-                  (expansion library (::second declared) (::first declared) (None)))
-                (result-let* ((expanded (top-level scopes body (program? library))))
-                  (expansion library
-                             (::scopes expanded)
-                             (::tops expanded)
-                             (::body expanded))))))))
+            (result-let* ((expanded (if (same-library? name primitive-library)
+                                        (primitives scopes body)
+                                        (top-level scopes body (program? library)))))
+              (expansion library expanded))))))
 
     (: library-name (impl (Fn outline-Library -> outline-LibraryName)))
     (define (library-name library)
@@ -78,15 +74,23 @@
     ;; The library expanded, and its offer: a program's body, a library's
     ;; exports.
     (: expansion
-       (impl
-        (Fn outline-Library Scopes (List Top) (Option Expr) -> (Result Expansion (List Feedback)))))
-    (define (expansion library scopes tops body)
-      (match library
-        ((outline-Defined name _ exports _ loc)
-         (result-let* ((exported (map-results (lambda (export) (exported scopes export)) exports)))
-           (Ok (Expansion (Defined name tops loc) (Offer exported (::top scopes))))))
-        ((outline-Program _ _ _ _)
-         (Ok (Expansion (Program tops body) (Offer (Nil) (::top scopes)))))))
+       (impl (Fn outline-Library TopExpansion -> (Result Expansion (List Feedback)))))
+    (define (expansion library expanded)
+      (let ((scopes (::scopes expanded)))
+        (match library
+          ((outline-Defined name _ exports _ loc)
+           (result-let* ((exported
+                          (map-results (lambda (export) (exported scopes export)) exports)))
+             (Ok (Expansion (Defined name
+                              (::tops expanded)
+                              (::first-unused-number expanded)
+                              loc)
+                            (Offer exported (::top scopes))))))
+          ((outline-Program _ _ _ _)
+           (Ok (Expansion (Program (::tops expanded)
+                                   (::body expanded)
+                                   (::first-unused-number expanded))
+                          (Offer (Nil) (::top scopes))))))))
 
     ;; An export means what its identifier means at the top level, defined
     ;; there or imported.
@@ -103,16 +107,25 @@
 
     ;; ---- The top level ----
 
+    ;; A top level's declarations, a program's body, the first number the
+    ;; expansion did not hand out, and the scopes with the names it bound.
     (struct TopExpansion
       ((tops (List Top))
        (body (Option Expr))
+       (first-unused-number I64)
        (scopes Scopes)))
+
+    ;; The numbers a library hands out start at 1: 0 is the serial of a
+    ;; name the source wrote.
+    (: first-numbers Expanding)
+    (define first-numbers
+      (Expanding 1))
 
     ;; The scan and the declarations stop at their first problem; the
     ;; bodies report every one.
     (: top-level (impl (Fn Scopes (List Marked) Bool -> (Result TopExpansion (List Feedback)))))
     (define (top-level scopes body program?)
-      (expanding-let* ((scan state (scan-forms (Expanding 1) scopes (Nil) body))
+      (expanding-let* ((scan state (scan-forms first-numbers scopes (Nil) body))
                        (signed state
                                (unchanged state
                                           (checked-signatures (::scopes scan) (::items scan))))
@@ -120,7 +133,10 @@
                                  (unchanged state (declared-items (::scopes scan) (::items scan)))))
         (let ((bodies (expanded-bodies state (::scopes scan) declared program?)))
           (if (null? (::feedback bodies))
-              (Ok (TopExpansion (::tops bodies) (sequenced (::statements bodies)) (::scopes scan)))
+              (Ok (TopExpansion (::tops bodies)
+                                (sequenced (::statements bodies))
+                                (::next (::state bodies))
+                                (::scopes scan)))
               (Err (::feedback bodies))))))
 
     ;; A program's statements, in order, as one expression.
@@ -141,15 +157,15 @@
 
     ;; Each form of (snail core primitive) is `(primitive name type)`,
     ;; which binds `name` to a Global of the library ("prim"); the first
-    ;; problem stops them. `once` alone may be typed `callable-once`.
-    (: primitives
-       (impl (Fn Scopes (List Marked) -> (Result (Pair (List Top) Scopes) (List Feedback)))))
+    ;; problem stops them. `once` alone may be typed `callable-once`. They
+    ;; number nothing.
+    (: primitives (impl (Fn Scopes (List Marked) -> (Result TopExpansion (List Feedback)))))
     (define (primitives scopes forms)
       (let loop ((scopes scopes)
                  (forms forms)
                  (tops (Nil)))
         (match forms
-          ((Nil) (Ok (Pair (reverse tops) scopes)))
+          ((Nil) (Ok (TopExpansion (reverse tops) (None) (::next first-numbers) scopes)))
           ((Cons form rest)
            (result-let* ((declared (primitive scopes form)))
              (loop (::second declared) rest (Cons (::first declared) tops)))))))
@@ -241,13 +257,27 @@
         (match (expand (library a (list "x" "I64") '((define x 1))) (list))
           ((Ok expansion)
            (expect (::expanded expansion)
-                   (Defined a (list (Define (Global a "x" 0) (Literal (Integer 1) loc) loc)) loc))
+                   (Defined a (list (Define (Global a "x" 0) (Literal (Integer 1) loc) loc)) 1 loc))
            (expect (map ::name (::exports (::offer expansion))) (list "x" "I64")))
           ((Err feedback) (expect feedback (list))))
+        (test-numbers)
         (expect (messages (expand (library a (list "y") '((define x 1))) (list)))
                 (list "exported name is not defined: y"))
         (expect (messages (expand (library a (list "y") '((define x z) (define w v))) (list)))
                 (list "unbound identifier z" "unbound identifier v")))
+
+      ;; The macro takes 1, the local 2 and the macro's use, its mark, 3.
+      (define (test-numbers)
+        (match (expand (library a
+                         (list)
+                         '((define-syntax one (syntax-rules () ((_) 1)))
+                           (define (f x) (one))))
+                       (list))
+          ((Ok expansion)
+           (match (::expanded expansion)
+             ((Defined _ _ first-unused _) (expect first-unused 4))
+             ((Program _ _ _) (expect "a library" "a program"))))
+          ((Err feedback) (expect feedback (list)))))
 
       ;; A program's statements are its body, in order.
       (define (test-programs)
@@ -260,7 +290,8 @@
                     (list (Define (Global (list "main") "x" 0) (Literal (Integer 2) loc) loc))
                     (Some (Seq (Literal (Integer 1) loc)
                                (TopRef (TopGlobal (Global (list "main") "x" 0)) loc)
-                               loc)))))
+                               loc))
+                    1)))
           ((Err feedback) (expect feedback (list)))))
 
       (define (test-primitives)
@@ -270,6 +301,7 @@
              (expect (::expanded expansion)
                      (Defined primitive
                        (list (Primitive (Global (list "prim") "once" 0) (CallableOnce) loc))
+                       1
                        loc)))
             ((Err feedback) (expect feedback (list))))
           (expect (messages (expand (library primitive (list) '((define x 1))) (list)))

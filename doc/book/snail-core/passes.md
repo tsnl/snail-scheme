@@ -101,7 +101,7 @@ src/snail/compiler/
     types.sld             part: types and schemes, with aliases expanded
     patterns.sld          part: match patterns
     expressions.sld       part: expressions and local bodies
-    scan.sld              part: the top level's names, bound in the order written
+    scan.sld              part: the top level's names, bound in order, and each form's item
     declarations.sld      part: signatures, declarations, then every body
     pass.sld              (snail compiler expand pass): the function `expand`
     subexpressions.sld    query: every expression of a library
@@ -271,10 +271,16 @@ declares; a type is its declaration, a builtin of (snail core forms), a type
 variable or a class's associated output; a class, an effect and an instance
 set are their declarations. A `Global` is the library that defines it and the
 name written there, with a serial of its own when a macro's template wrote
-the name, and a `Local`'s number is unique in its library. A `Label` is the
-one name not resolved: a field's, a path's, and that of a class's or an
-effect's member as a method definition, an associated output, a default or a
-handler writes it; the pass that has the declaration resolves it. Types are
+the name, and a `Local`'s number is unique in its library. The root's
+`first-unused-number` is the first number the library has not used for a
+local, a mark or a serial: every `Local`'s number, and the serial of every
+`Global` the library defines, is below it. A later pass that writes locals
+of its own, as `derive` and `dispatch` do, numbers them from it, never
+walking the tree to find a free one, and writes where it stopped in its own
+output's root. A `Label` is the one name not resolved: a field's, a path's,
+and that of a class's or an effect's member as a method definition, an
+associated output, a default or a handler writes it; the pass that has the
+declaration resolves it. Types are
 as written, with their names resolved, but an alias is expanded where it is
 used, as a macro is. An `if` has its alternative, the unit value when none is
 written, which no `Datum` writes, so Expanded's expressions have constants of
@@ -284,8 +290,8 @@ where it was written. A tree node is at the place the old expander's
 messages name.
 
 ```text
-Expanded    ::= Defined library Top*
-              | Program Top* Expr?                              no Loc
+Expanded    ::= Defined library Top* first-unused-number
+              | Program Top* Expr? first-unused-number          no Loc
 Top         ::= Define Global Expr
               | Signature TopValue Scheme Annotation*
               | Statement Expr                                  no Loc but its expression's

@@ -15,8 +15,8 @@
     (: library-expressions (impl (Fn Expanded -> (List Expr))))
     (define (library-expressions expanded)
       (match expanded
-        ((Defined _ tops _) (tops-expressions tops))
-        ((Program tops body)
+        ((Defined _ tops _ _) (tops-expressions tops))
+        ((Program tops body _)
          (append (tops-expressions tops)
                  (match body
                    ((Some expr) (expressions expr))
@@ -125,6 +125,7 @@
                                (list
                                 (Statement (Call (TopRef (TopGlobal (global "g")) loc) (list) loc)))
                                loc))
+          1
           loc))
       ))
    (else)))

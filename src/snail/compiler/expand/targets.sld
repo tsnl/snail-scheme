@@ -59,6 +59,7 @@
                                (list
                                 (Statement (Call (TopRef (TopGlobal (global "g")) loc) (list) loc)))
                                loc))
+          1
           loc))
       ))
    (else)))

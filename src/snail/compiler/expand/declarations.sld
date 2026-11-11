@@ -65,24 +65,24 @@
     (: item-signatures (impl (Fn Scopes Item -> (Result Bool (List Feedback)))))
     (define (item-signatures scopes item)
       (match item
-        ((Pending ":" form annotations)
-         (result-let* ((top (signature scopes form annotations)))
+        ((PendingSignature shape annotations loc)
+         (result-let* ((top (signature scopes shape annotations loc)))
            (Ok #t)))
-        ((Pending _ _ _) (Ok #t))
         ((PendingScope _ inner _) (checked-signatures scopes inner))
-        ((PendingSet _ inner _) (checked-signatures scopes inner))))
+        ((PendingSet _ inner _) (checked-signatures scopes inner))
+        (_ (Ok #t))))
 
     ;; `(: name type)` names a top-level value, whichever declaration
     ;; binds it, imported or not.
     (: signature
-       (impl (Fn Scopes Marked (List Annotation) -> (Result Top (List Feedback)))))
-    (define (signature scopes form annotations)
-      (match (signature-shape form)
+       (impl (Fn Scopes SignatureShape (List Annotation) Loc -> (Result Top (List Feedback)))))
+    (define (signature scopes shape annotations loc)
+      (match shape
         ((SignatureForm name name-loc type)
          (match (resolve scopes (top-env scopes) name)
            ((BoundAtTop (Value target))
             (result-let* ((scheme (expand-scheme scopes (top-env scopes) type)))
-              (Ok (Signature target scheme annotations (marked-loc form)))))
+              (Ok (Signature target scheme annotations loc))))
            (_
             (fail name-loc
                   (string-append "signature names an undefined top-level definition: "
@@ -105,7 +105,7 @@
       (Stating
        ((form Marked)))
       (Exposing
-       ((form Marked)))
+       ((shape (Result ExposeForm Malformed))))
       (Instancing
        ((instance Instance)
         (methods (List PendingMethod))))
@@ -136,7 +136,20 @@
     (: declared-item (impl (Fn Scopes Item -> (Result Declared (List Feedback)))))
     (define (declared-item scopes item)
       (match item
-        ((Pending keyword form annotations) (declared scopes keyword form annotations))
+        ((PendingDefinition global value loc) (Ok (Defining global value loc)))
+        ((PendingSignature shape annotations loc)
+         (done (signature scopes shape annotations loc)))
+        ((PendingStruct head fields derivations)
+         (done (declared-struct scopes head fields derivations)))
+        ((PendingEnum head cases derivations) (done (declared-enum scopes head cases derivations)))
+        ((PendingAlias head) (done (declared-alias scopes head)))
+        ((PendingClass head members) (done (declared-class scopes head members)))
+        ((PendingInstance shape) (declared-instance scopes shape))
+        ((PendingDynamic shape) (declared-dynamic scopes shape))
+        ((PendingExtern head shape) (done (declared-extern scopes head shape)))
+        ((PendingEffect head operations clauses) (declared-effect scopes head operations clauses))
+        ((PendingExpose shape) (Ok (Exposing shape)))
+        ((PendingStatement form) (Ok (Stating form)))
         ((PendingScope sets items loc)
          (result-let* ((inner (declared-items scopes items)))
            (Ok (Scoping sets inner loc))))
@@ -144,51 +157,14 @@
          (result-let* ((inner (declared-items scopes items)))
            (Ok (Setting global inner loc))))))
 
-    (: declared
-       (impl (Fn Scopes String Marked (List Annotation) -> (Result Declared (List Feedback)))))
-    (define (declared scopes keyword form annotations)
-      (cond ((string=? keyword ":")
-             (result-let* ((top (signature scopes form annotations)))
-               (Ok (Done top))))
-            ((string=? keyword "struct") (done (declared-struct scopes form annotations)))
-            ((string=? keyword "enum") (done (declared-enum scopes form annotations)))
-            ((string=? keyword "type") (done (declared-alias scopes form annotations)))
-            ((string=? keyword "typeclass") (done (declared-class scopes form annotations)))
-            ((string=? keyword "instance") (declared-instance scopes form))
-            ((string=? keyword "dynamic-instances") (declared-dynamic scopes form))
-            ((string=? keyword "extern") (done (declared-extern scopes form annotations)))
-            ((string=? keyword "effect") (declared-effect scopes form annotations))
-            ((string=? keyword "define") (declared-define scopes form))
-            ((string=? keyword "expose") (Ok (Exposing form)))
-            (else (Ok (Stating form)))))
-
     (: done (impl (Fn (Result Top (List Feedback)) -> (Result Declared (List Feedback)))))
     (define (done top)
       (result-let* ((node top))
         (Ok (Done node))))
 
-    (: declared-define (impl (Fn Scopes Marked -> (Result Declared (List Feedback)))))
-    (define (declared-define scopes form)
-      (match (definition-shape form)
-        ((NamedDefinition name _ value)
-         (Ok (Defining (top-global scopes name) value (marked-loc form))))
-        ((MalformedDefinition place message) (fail place message))))
+    ;; ---- Heads ----
 
-    ;; ---- Structs and enums ----
-
-    ;; A declaration's name and parameters, which its types are written
-    ;; over.
-    (struct Head
-      ((name Named)
-       (params (List Named))))
-
-    (: declared-head (impl (Fn Marked -> (Result Head (List Feedback)))))
-    (define (declared-head form)
-      (result-let* ((head (refused (declaration-head form)))
-                    (params (refused (declared-params head)))
-                    (name (refused (declared-name head))))
-        (Ok (Head name params))))
-
+    ;; A declaration's types are written over its parameters.
     (: head-env (impl (Fn Scopes Head -> Env)))
     (define (head-env scopes head)
       (with-variables (top-env scopes) (map ::identifier (::params head))))
@@ -197,69 +173,64 @@
     (define (head-params head)
       (map (lambda (param) (::name (::identifier param))) (::params head)))
 
+    (: head-global (impl (Fn Scopes Head -> Global)))
+    (define (head-global scopes head)
+      (top-global scopes (::identifier (::name head))))
+
+    ;; ---- Structs and enums ----
+
     (: declared-struct
-       (impl (Fn Scopes Marked (List Annotation) -> (Result Top (List Feedback)))))
-    (define (declared-struct scopes form annotations)
-      (result-let* ((head (declared-head form))
-                    (written (refused (struct-fields form)))
-                    (fields (map-results (lambda (field)
-                                           (field-node scopes (head-env scopes head) field))
-                                         written))
-                    (derivations (form-derivations form)))
-        (Ok (Struct (top-global scopes (::identifier (::name head)))
+       (impl
+        (Fn Scopes Head (List ScannedField) (List Derivation) -> (Result Top (List Feedback)))))
+    (define (declared-struct scopes head fields derivations)
+      (result-let* ((nodes (map-results (lambda (field)
+                                          (field-node scopes (head-env scopes head) field))
+                                        fields)))
+        (Ok (Struct (head-global scopes head)
                     (head-params head)
-                    fields
+                    nodes
                     derivations
-                    annotations
+                    (::annotations head)
                     (::loc (::name head))
-                    (marked-loc form)))))
+                    (::loc head)))))
 
     (: declared-enum
-       (impl (Fn Scopes Marked (List Annotation) -> (Result Top (List Feedback)))))
-    (define (declared-enum scopes form annotations)
-      (result-let* ((head (declared-head form))
-                    (cases
+       (impl (Fn Scopes Head (List ScannedCase) (List Derivation) -> (Result Top (List Feedback)))))
+    (define (declared-enum scopes head cases derivations)
+      (result-let* ((nodes
                      (map-results (lambda (case) (case-node scopes (head-env scopes head) case))
-                                  (enum-cases form)))
-                    (derivations (form-derivations form)))
-        (Ok (Enum (top-global scopes (::identifier (::name head)))
+                                  cases)))
+        (Ok (Enum (head-global scopes head)
                   (head-params head)
-                  cases
+                  nodes
                   derivations
-                  annotations
-                  (marked-loc form)))))
+                  (::annotations head)
+                  (::loc head)))))
 
-    (: form-derivations (impl (Fn Marked -> (Result (List Derivation) (List Feedback)))))
-    (define (form-derivations form)
-      (map-results (lambda (class) (refused (derivation class))) (derived-classes form)))
-
-    (: case-node (impl (Fn Scopes Env Marked -> (Result Case (List Feedback)))))
+    (: case-node (impl (Fn Scopes Env ScannedCase -> (Result Case (List Feedback)))))
     (define (case-node scopes env case)
-      (result-let* ((parts (refused (case-form case)))
-                    (fields
-                     (map-results (lambda (field) (field-node scopes env field)) (::fields parts))))
-        (Ok (Case (top-global scopes (::identifier (::name parts)))
+      (result-let* ((fields
+                     (map-results (lambda (field) (field-node scopes env field)) (::fields case))))
+        (Ok (Case (top-global scopes (::identifier (::name case)))
                   (map (lambda (field)
                          (CaseField (::label field)
                                     (::type field)
                                     (::annotations field)
                                     (::loc field)))
                        fields)
-                  (::annotations parts)
-                  (::loc (::name parts))))))
+                  (::annotations case)
+                  (::loc (::name case))))))
 
     ;; A field's type is stored, so no callable in it is `impl`.
-    (: field-node (impl (Fn Scopes Env Marked -> (Result Field (List Feedback)))))
+    (: field-node (impl (Fn Scopes Env ScannedField -> (Result Field (List Feedback)))))
     (define (field-node scopes env field)
-      (result-let* ((parts (refused (field-form field)))
-                    (label (refused (named (::name parts) "a field name")))
-                    (type (expand-type scopes env (::type parts)))
-                    (stored (stored-type type (marked-loc (::type parts)))))
-        (Ok (Field (::name (::identifier label))
-                   (::mutable? parts)
+      (result-let* ((type (expand-type scopes env (::type field)))
+                    (stored (stored-type type (marked-loc (::type field)))))
+        (Ok (Field (::name (::identifier (::label field)))
+                   (::mutable? field)
                    type
-                   (::annotations parts)
-                   (::loc label)))))
+                   (::annotations field)
+                   (::loc (::label field))))))
 
     (: stored-type (impl (Fn TypeExpr Loc -> (Result TypeExpr (List Feedback)))))
     (define (stored-type type loc)
@@ -286,55 +257,46 @@
 
     ;; ---- Aliases and classes ----
 
-    (: declared-alias
-       (impl (Fn Scopes Marked (List Annotation) -> (Result Top (List Feedback)))))
-    (define (declared-alias scopes form annotations)
-      (result-let* ((head (declared-head form)))
-        (Ok (Alias (top-global scopes (::identifier (::name head)))
-                   (head-params head)
-                   annotations
-                   (marked-loc form)))))
+    (: declared-alias (impl (Fn Scopes Head -> (Result Top (List Feedback)))))
+    (define (declared-alias scopes head)
+      (Ok (Alias (head-global scopes head) (head-params head) (::annotations head) (::loc head))))
 
     ;; A class's methods are written over its parameters and its
     ;; associated outputs.
     (: declared-class
-       (impl (Fn Scopes Marked (List Annotation) -> (Result Top (List Feedback)))))
-    (define (declared-class scopes form annotations)
-      (result-let* ((head (declared-head form))
-                    (members (Ok (list-drop (form-tail form) 1)))
-                    (outputs (map-results (lambda (member) (refused (associated-name member)))
-                                          (filter associated-form? members)))
-                    (nodes (map-results
-                            (lambda (member)
-                              (member-node scopes
-                                           (with-variables (top-env scopes)
-                                                           (map ::identifier
-                                                                (append (::params head) outputs)))
-                                           member))
-                            members)))
-        (Ok (Class (top-global scopes (::identifier (::name head)))
-                   (head-params head)
-                   nodes
-                   annotations
-                   (marked-loc form)))))
+       (impl (Fn Scopes Head (List ScannedMember) -> (Result Top (List Feedback)))))
+    (define (declared-class scopes head members)
+      (let ((env (with-variables (top-env scopes)
+                                 (map ::identifier
+                                      (append (::params head) (output-names members))))))
+        (result-let* ((nodes
+                       (map-results (lambda (member) (member-node scopes env member)) members)))
+          (Ok (Class (head-global scopes head)
+                     (head-params head)
+                     nodes
+                     (::annotations head)
+                     (::loc head))))))
 
-    (: member-node (impl (Fn Scopes Env Marked -> (Result Member (List Feedback)))))
+    (: output-names (impl (Fn (List ScannedMember) -> (List Named))))
+    (define (output-names members)
+      (match members
+        ((Nil) (Nil))
+        ((Cons (ScannedOutput output) rest) (Cons (::name output) (output-names rest)))
+        ((Cons (ScannedMethod _) rest) (output-names rest))))
+
+    (: member-node (impl (Fn Scopes Env ScannedMember -> (Result Member (List Feedback)))))
     (define (member-node scopes env member)
-      (if (associated-form? member)
-          (result-let* ((split (refused (split-annotations member 2)))
-                        (output (refused (associated-name member))))
-            (Ok (AssociatedOutput (Label (::name (::identifier output)) (::loc output))
-                                  (::annotations split))))
-          (result-let* ((split (refused (split-annotations member 3))))
-            (match (method-form (::form split))
-              ((Some (Pair method type))
-               (result-let* ((name (refused (named method "a name")))
-                             (scheme (expand-scheme scopes env type)))
-                 (Ok (MethodSignature (top-global scopes (::identifier name))
-                                      scheme
-                                      (::annotations split)
-                                      (marked-loc member)))))
-              ((None) (fail (marked-loc member) "expected (: method type)"))))))
+      (match member
+        ((ScannedOutput output)
+         (Ok
+          (AssociatedOutput (Label (::name (::identifier (::name output))) (::loc (::name output)))
+                            (::annotations output))))
+        ((ScannedMethod method)
+         (result-let* ((scheme (expand-scheme scopes env (::type method))))
+           (Ok (MethodSignature (top-global scopes (::identifier (::name method)))
+                                scheme
+                                (::annotations method)
+                                (::loc method)))))))
 
     ;; ---- Instances ----
 
@@ -342,9 +304,10 @@
     ;; unbound, in the order first written; its requirements, types and
     ;; equations are expanded over them, in that order. Its methods'
     ;; values wait for the bodies.
-    (: declared-instance (impl (Fn Scopes Marked -> (Result Declared (List Feedback)))))
-    (define (declared-instance scopes form)
-      (result-let* ((parts (refused (instance-form form)))
+    (: declared-instance
+       (impl (Fn Scopes (Result InstanceForm Malformed) -> (Result Declared (List Feedback)))))
+    (define (declared-instance scopes shape)
+      (result-let* ((parts (refused shape))
                     (class (instance-class scopes (::class parts)))
                     (instance (instance-head scopes class parts))
                     (body (instance-body scopes (::methods (instance-members (::members parts))))))
@@ -485,9 +448,10 @@
 
     ;; `(dynamic-instances Class (type ...) ...)`: its class, then each
     ;; pair's types.
-    (: declared-dynamic (impl (Fn Scopes Marked -> (Result Declared (List Feedback)))))
-    (define (declared-dynamic scopes form)
-      (result-let* ((parts (refused (dynamic-instances-form form)))
+    (: declared-dynamic
+       (impl (Fn Scopes (Result DynamicForm Malformed) -> (Result Declared (List Feedback)))))
+    (define (declared-dynamic scopes shape)
+      (result-let* ((parts (refused shape))
                     (class (instance-class scopes (::class parts)))
                     (pairs (map-results (lambda (pair)
                                           (result-let* ((types (refused (pair-types pair))))
@@ -502,52 +466,43 @@
     ;; ---- Externs and effects ----
 
     (: declared-extern
-       (impl (Fn Scopes Marked (List Annotation) -> (Result Top (List Feedback)))))
-    (define (declared-extern scopes form annotations)
-      (result-let* ((parts (refused (extern-form form)))
-                    (type (expand-type scopes (top-env scopes) (::type parts)))
-                    (name (refused (named (::name parts) "a name"))))
-        (Ok (Extern (top-global scopes (::identifier name))
+       (impl (Fn Scopes Head (Result ExternForm Malformed) -> (Result Top (List Feedback)))))
+    (define (declared-extern scopes head shape)
+      (result-let* ((parts (refused shape))
+                    (type (expand-type scopes (head-env scopes head) (::type parts))))
+        (Ok (Extern (head-global scopes head)
                     (::module parts)
                     (::symbol parts)
                     type
-                    annotations
-                    (marked-loc form)))))
+                    (::annotations head)
+                    (::loc head)))))
 
     ;; An effect's operations, then its clauses: each must be `default`
     ;; or `(around-main)`, and each default's entries are taken apart; the
     ;; values wait for the bodies.
     (: declared-effect
-       (impl (Fn Scopes Marked (List Annotation) -> (Result Declared (List Feedback)))))
-    (define (declared-effect scopes form annotations)
-      (result-let* ((parts (refused (effect-form form)))
-                    (name (refused (named (::name parts) "an effect name")))
-                    (written (refused (items-of (::operations parts) "a list of operations")))
-                    (operations (map-results (lambda (operation) (operation-node scopes operation))
-                                             written))
-                    (clauses (refused (default-clauses (::clauses parts))))
-                    (entries
-                     (map-results (lambda (clause) (refused (default-entries clause))) clauses))
-                    (defaults (map-results (lambda (entry) (refused (default-entry entry)))
-                                           (concatenate entries))))
-        (Ok (Effecting (Effect (top-global scopes (::identifier name))
-                               operations
+       (impl (Fn Scopes Head (List OperationForm) (Result EffectClauses Malformed)
+                 -> (Result Declared (List Feedback)))))
+    (define (declared-effect scopes head operations clauses)
+      (result-let* ((nodes (map-results (lambda (operation) (operation-node scopes head operation))
+                                        operations))
+                    (said (refused clauses)))
+        (Ok (Effecting (Effect (head-global scopes head)
+                               nodes
                                (Nil)
-                               (around-main? (::clauses parts))
-                               annotations
-                               (marked-loc form))
-                       defaults))))
+                               (::around-main? said)
+                               (::annotations head)
+                               (::loc head))
+                       (::defaults said)))))
 
-    (: operation-node (impl (Fn Scopes Marked -> (Result Operation (List Feedback)))))
-    (define (operation-node scopes operation)
-      (result-let* ((parts (refused (operation-form operation)))
-                    (scheme (expand-scheme scopes (top-env scopes) (::type parts)))
-                    (name (refused (named (::name parts) "a name"))))
-        (Ok (Operation (top-global scopes (::identifier name))
-                       (::control? parts)
+    (: operation-node (impl (Fn Scopes Head OperationForm -> (Result Operation (List Feedback)))))
+    (define (operation-node scopes head operation)
+      (result-let* ((scheme (expand-scheme scopes (head-env scopes head) (::type operation))))
+        (Ok (Operation (top-global scopes (::identifier (::name operation)))
+                       (::control? operation)
                        scheme
-                       (::annotations parts)
-                       (marked-loc operation)))))
+                       (::annotations operation)
+                       (::loc operation)))))
 
     ;; ---- Bodies ----
 
@@ -609,7 +564,7 @@
         ((Defining global value loc)
          (attempted bodies (definition-body (::state bodies) place global value loc)))
         ((Stating form) (statement-body bodies place form))
-        ((Exposing form) (attempted bodies (unchanged (::state bodies) (exposed place form))))
+        ((Exposing shape) (attempted bodies (unchanged (::state bodies) (exposed place shape))))
         ((Instancing instance methods)
          (let ((done (methods-bodies bodies place methods)))
            (with-top (::second done)
@@ -660,11 +615,10 @@
         ((Err feedback) (with-feedback bodies feedback))))
 
     ;; `(expose name "symbol")`, whose name is a top-level value.
-    (: exposed (impl (Fn Place Marked -> (Result Top (List Feedback)))))
-    (define (exposed place form)
-      (result-let* ((parts (refused (expose-form form)))
-                    (name (refused (named (::name parts) "a function name")))
-                    (target (exposed-value place name))
+    (: exposed (impl (Fn Place (Result ExposeForm Malformed) -> (Result Top (List Feedback)))))
+    (define (exposed place shape)
+      (result-let* ((parts (refused shape))
+                    (target (exposed-value place (::name parts)))
                     (dynamic? (refused (dynamic-flag parts))))
         (Ok (Expose target (::symbol parts) dynamic? (::loc parts)))))
 
