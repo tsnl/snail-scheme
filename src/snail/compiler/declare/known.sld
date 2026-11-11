@@ -17,7 +17,15 @@
    ClassShape
    type-arity
    arity-problem
-   class-shape)
+   class-shape
+   known-with-data
+   known-with-class
+   known-with-effect
+   known-class
+   known-data
+   constructor-case
+   effect-operations
+   by-name)
   (import
    (snail core base)
    (snail core table)
@@ -115,6 +123,120 @@
                   (map (lambda (name) (TypeParameter name)) (::parameters class))
                   (::outputs class)))
 
+    ;; A declared class as an instance sees it: its entity, once its
+    ;; declaration is reached or when it is imported. A class of the
+    ;; library's own whose declaration is not yet reached is known by its
+    ;; shape alone, so it has no method an instance can implement, as in
+    ;; the old compiler, where the scan registers a class without methods.
+    (: known-class (impl (Fn Known Global -> (Option Class))))
+    (define (known-class known global)
+      (if (own? known global)
+          (declared-class (::declared known) global)
+          (Some (offered-class known global))))
+
+    ;; ---- Declarations reached ----
+
+    ;; What is known once a declaration is reached: its entity, among the
+    ;; library's own.
+    (: known-with-data (impl (Fn Known Data -> Known)))
+    (define (known-with-data known data)
+      (let ((declared (::declared known)))
+        (with-declared known
+                       (Declarations (::library declared)
+                                     (by-name (::data declared) (::name (::global data)) data)
+                                     (::classes declared)
+                                     (::effects declared)))))
+
+    (: known-with-class (impl (Fn Known Class -> Known)))
+    (define (known-with-class known class)
+      (let ((declared (::declared known)))
+        (with-declared known
+                       (Declarations (::library declared)
+                                     (::data declared)
+                                     (by-name (::classes declared) (::name (::global class)) class)
+                                     (::effects declared)))))
+
+    (: known-with-effect (impl (Fn Known OfferedEffect -> Known)))
+    (define (known-with-effect known effect)
+      (let ((declared (::declared known)))
+        (with-declared known
+                       (Declarations (::library declared)
+                                     (::data declared)
+                                     (::classes declared)
+                                     (by-name (::effects declared)
+                                              (::name (::global effect))
+                                              effect)))))
+
+    (: with-declared (impl (Fn Known Declarations -> Known)))
+    (define (with-declared known declared)
+      (Known (::library known) (::scanned known) declared (::imported known)))
+
+    ;; `table` with `entry` after those already kept under `name`, as an
+    ;; offer keeps the Globals that share a name.
+    (: by-name
+       (All (T) (requires (Copy T)) (impl (Fn (Table (List T)) String T -> (Table (List T))))))
+    (define (by-name table name entry)
+      (table-set table
+                 name
+                 (append (match (table-ref table name)
+                           ((Some entries) entries)
+                           ((None) (Nil)))
+                         (list entry))))
+
+    ;; ---- Data and effects ----
+
+    ;; The data type a type's Global names, declared by the library or one
+    ;; in its import closure; a builtin of (snail core forms) is none. A
+    ;; type of the library's own is known once its declaration is reached.
+    (: known-data (impl (Fn Known Global -> (Option Data))))
+    (define (known-data known global)
+      (match (builtin-arity global)
+        ((Some _) (None))
+        ((None)
+         (if (own? known global)
+             (named global (::data (::declared known)) ::global)
+             (Some (offered-data known global))))))
+
+    ;; The case a constructor makes, with its data type, when `global` is
+    ;; one: a struct, whose one case is its own Global, or an enum's case.
+    ;; Any other top-level value is none, a primitive's among them, whose
+    ;; library ("prim") offers nothing.
+    (: constructor-case (impl (Fn Known Global -> (Option (Pair Data DataCase)))))
+    (define (constructor-case known global)
+      (match (library-declarations known (::library global))
+        ((Some declarations)
+         (first-case global (concatenate (table-values (::data declarations)))))
+        ((None) (None))))
+
+    (: first-case (impl (Fn Global (List Data) -> (Option (Pair Data DataCase)))))
+    (define (first-case global types)
+      (match types
+        ((Nil) (None))
+        ((Cons data rest)
+         (match (find (lambda (case) (same-global? (::global case) global)) (::cases data))
+           ((Some case) (Some (Pair data case)))
+           ((None) (first-case global rest))))))
+
+    ;; The operations of an effect a handler names. `expand` resolves a
+    ;; handler's effect to an effect of the library or of its import
+    ;; closure, never a builtin one, and every body is declared once every
+    ;; declaration is reached, so the effect is known.
+    (: effect-operations (impl (Fn Known Global -> (List Operation))))
+    (define (effect-operations known global)
+      (match (match (library-declarations known (::library global))
+               ((Some declarations) (named global (::effects declarations) ::global))
+               ((None) (None)))
+        ((Some effect) (::operations effect))
+        ((None) (panic (string-append "declare: no effect " (::name global))))))
+
+    ;; What is known of the library named `library`: the library's own
+    ;; declarations so far, or what an imported library offers.
+    (: library-declarations (impl (Fn Known LibraryName -> (Option Declarations))))
+    (define (library-declarations known library)
+      (if (same-library? library (::library known))
+          (Some (::declared known))
+          (find (lambda (offer) (same-library? (::library offer) library)) (::imported known))))
+
     ;; ---- Lookups ----
 
     ;; `expand` resolves a type's name to a struct, an enum or a builtin,
@@ -189,7 +311,9 @@
     (begin
       (define (test-known)
         (test-arities)
-        (test-classes))
+        (test-classes)
+        (test-reached)
+        (test-constructors))
 
       (define loc (Loc "t.sld" 1 1))
       (define main (list "main"))
@@ -197,14 +321,6 @@
 
       (define (global library name)
         (Global library name 0))
-
-      (define (by-name table name entry)
-        (table-set table
-                   name
-                   (append (match (table-ref table name)
-                             ((Some entries) entries)
-                             ((None) (Nil)))
-                           (list entry))))
 
       ;; (main) scans the types Box a and Box at serial 3, and the class
       ;; (Show a) with output Out; (lib) offers the type (Pair a b) and the
@@ -281,5 +397,71 @@
                                                     empty-table)
                                       (list lib-offer))
                                (ClassGlobal (global main "Show")))
-                  (ClassShape "Show" (list (RowParameter "a")) (list "Out")))))))
+                  (ClassShape "Show" (list (RowParameter "a")) (list "Out")))))
+
+      (define show-class
+        (Class (global main "Show")
+               (list (TypeParameter "a"))
+               (list (Output (Label "Out" loc) (list)))
+               (list (Method (global main "show")
+                             (Scheme (list) (list) (list) (Var (Written "a")))
+                             (list)
+                             loc))
+               (list)
+               loc))
+
+      (define io-read
+        (Operation (global main "read")
+                   #f
+                   (list)
+                   (Con (Global forms-library "I64" 0) (list))
+                   (list)
+                   (list)
+                   loc))
+
+      ;; A class of the library's own has no entity until its declaration
+      ;; is reached; then it has, as an imported one has. An effect's
+      ;; operations, and a data type, are known once reached.
+      (define (test-reached)
+        (expect (known-class known (global main "Show")) (None))
+        (expect (known-class known (global lib "Store")) (Some store))
+        (let ((reached (known-with-effect (known-with-class known show-class)
+                                          (OfferedEffect (global main "io") (list io-read)))))
+          (expect (known-class reached (global main "Show")) (Some show-class))
+          (expect (effect-operations reached (global main "io")) (list io-read))
+          (expect (::library (::declared reached)) main))
+        (expect (known-data known (Global forms-library "I64" 0)) (None))
+        (expect (map ::parameters (option-list (known-data known (global lib "Pair"))))
+                (list (list "a" "b"))))
+
+      (define (option-list option)
+        (match option
+          ((Some value) (list value))
+          ((None) (list))))
+
+      (define (data-of global cases)
+        (Data global (list) cases (EnumData) #f #f (list) loc))
+
+      (define (case-of global tag)
+        (DataCase global tag (list) (list) loc))
+
+      ;; A struct's constructor is its own Global; an enum's is a case's,
+      ;; found among the library's types once reached; any other value,
+      ;; and a library that offers nothing, has none.
+      (define (test-constructors)
+        (let* ((point (data-of (global main "Point") (list (case-of (global main "Point") 0))))
+               (shape (data-of (global main "Shape")
+                               (list (case-of (global main "Circle") 0)
+                                     (case-of (global main "Square") 1))))
+               (reached (known-with-data (known-with-data known point) shape)))
+          (expect (constructor-case known (global main "Point")) (None))
+          (expect (constructor-case reached (global main "Point"))
+                  (Some (Pair point (case-of (global main "Point") 0))))
+          (expect (constructor-case reached (global main "Square"))
+                  (Some (Pair shape (case-of (global main "Square") 1))))
+          (expect (constructor-case reached (global main "show")) (None))
+          (expect (constructor-case reached (Global (list "prim") "once" 0)) (None))
+          (expect
+           (map ::name (map ::global (option-list (known-data reached (global main "Shape")))))
+           (list "Shape"))))))
    (else)))

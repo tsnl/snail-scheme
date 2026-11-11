@@ -177,6 +177,7 @@
    ::label
    ::labels
    ::last
+   ::latent
    ::lets
    ::libraries
    ::library
@@ -282,6 +283,7 @@
    ::set
    ::sets
    ::setup
+   ::show
    ::signed
    ::site
    ::solution
@@ -319,6 +321,7 @@
    ::waiting
    ::written
    ::x
+   ::y
    ;; ---- End field path exports ----
    )
   (import
@@ -470,6 +473,7 @@
     (define (::label value) (field-of value (quote label)))
     (define (::labels value) (field-of value (quote labels)))
     (define (::last value) (field-of value (quote last)))
+    (define (::latent value) (field-of value (quote latent)))
     (define (::lets value) (field-of value (quote lets)))
     (define (::libraries value) (field-of value (quote libraries)))
     (define (::library value) (field-of value (quote library)))
@@ -575,6 +579,7 @@
     (define (::set value) (field-of value (quote set)))
     (define (::sets value) (field-of value (quote sets)))
     (define (::setup value) (field-of value (quote setup)))
+    (define (::show value) (field-of value (quote show)))
     (define (::signed value) (field-of value (quote signed)))
     (define (::site value) (field-of value (quote site)))
     (define (::solution value) (field-of value (quote solution)))
@@ -612,6 +617,7 @@
     (define (::waiting value) (field-of value (quote waiting)))
     (define (::written value) (field-of value (quote written)))
     (define (::x value) (field-of value (quote x)))
+    (define (::y value) (field-of value (quote y)))
     ;; ---- End field paths ----
 
     ;; ---- Forms ----
