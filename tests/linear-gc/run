@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/../.."
+runtime=crates/linear-gc-prototype/runtime
+runner=crates/linear-gc-prototype/runner
+output=build/linear-gc
+mkdir -p "$output"
+cargo build --manifest-path "$runtime/Cargo.toml" --locked --offline --release --target wasm32-wasip1
+# Experimental target: pinned Rust + rust-src, build core rather than assuming
+# that wasm64 standard-library artifacts or a WASI64 libc are distributed.
+RUSTC_BOOTSTRAP=1 cargo build --manifest-path "$runtime/Cargo.toml" --locked --offline --release \
+  --target wasm64-unknown-unknown -Z build-std=core
+cargo build --manifest-path "$runner/Cargo.toml" --locked --offline --release
+cp "$runtime/target/wasm32-wasip1/release/linear_gc_prototype.wasm" "$output/runtime32.wasm"
+cp "$runtime/target/wasm64-unknown-unknown/release/linear_gc_prototype.wasm" "$output/runtime64.wasm"
+"$runner/target/release/linear-gc-runner" emit "$output"
+"$runner/target/release/linear-gc-runner" "${1:-check}" "$output" > "$output/wasmtime.json"
+if [ "${1:-check}" = bench ]; then
+  node --no-liftoff tests/linear-gc/run.mjs "$output" --bench > "$output/v8.json"
+else
+  node tests/linear-gc/run.mjs "$output" > "$output/v8.json"
+fi
+cat "$output/wasmtime.json" "$output/v8.json"

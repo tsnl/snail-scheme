@@ -1,0 +1,163 @@
+;; Address-polymorphic fixture; runner/modules.rs substitutes @P@ and @W@.
+;; Runtime and workload share memory and call one another as Wasm functions.
+(module
+  (import "gc" "memory" (memory @MEM@ 1))
+  (import "gc" "roots" (func $roots (result @P@)))
+  (import "gc" "alloc" (func $alloc (param @P@ @P@) (result @P@)))
+  (import "gc" "collect" (func $collect (param @P@)))
+  (import "gc" "reset" (func $reset))
+  (import "gc" "contains" (func $contains (param @P@) (result i32)))
+  (import "gc" "live" (func $live (result i32)))
+  (import "gc" "safepoint" (func $poll (param @P@)))
+  (import "gc" "stress" (func $stress (param i32)))
+  (global $sp (mut @P@) (@P@.const 0))
+
+  ;; ---- Root protocol ----
+
+  (func (export "reset")
+    (call $reset) (global.set $sp (call $roots)))
+  (export "stress" (func $stress))
+  (func $push (param $p @P@)
+    (call $check (@P@.lt_u (global.get $sp)
+      (@P@.add (call $roots) (@P@.const @ROOT_BYTES@))))
+    (@P@.store (global.get $sp) (local.get $p))
+    (global.set $sp (@P@.add (global.get $sp) (@P@.const @W@))))
+  (func $pop
+    (global.set $sp (@P@.sub (global.get $sp) (@P@.const @W@))))
+  (func $gc (call $collect (global.get $sp)))
+  (func $safepoint
+    (call $poll (global.get $sp)))
+  (func $check (param $ok i32)
+    (if (i32.eqz (local.get $ok)) (then unreachable)))
+  (func $object (result @P@) (local $p @P@)
+    (local.set $p (call $alloc (@P@.const 32) (global.get $sp)))
+    (i32.store (local.get $p) (i32.const 1234567)) (local.get $p))
+
+  ;; ---- Parameter and loop regressions ----
+
+  ;; The caller deliberately publishes nothing. The callee owns the handoff.
+  (func $parameter (param $p @P@) (result i32)
+    (call $push (local.get $p)) (call $gc)
+    (call $check (call $contains (local.get $p)))
+    (call $check (i32.eq (i32.load (local.get $p)) (i32.const 1234567)))
+    (call $pop) (call $gc)
+    (i32.eqz (call $contains (local.get $p))))
+  (func (export "test_parameter") (result i32)
+    (call $parameter (call $object)))
+  (func $missing_parameter (param $p @P@) (result i32) (local $q @P@)
+    (call $gc)
+    (call $check (i32.eqz (call $contains (local.get $p))))
+    (local.set $q (call $object))
+    (i32.store (local.get $q) (i32.const 99))
+    (i32.and (@P@.eq (local.get $p) (local.get $q))
+      (i32.eq (i32.load (local.get $p)) (i32.const 99))))
+  (func (export "negative_parameter") (result i32)
+    (call $missing_parameter (call $object)))
+
+  (func (export "test_loop") (result i32) (local $p @P@) (local $n i32)
+    (local.set $p (call $object)) (call $push (local.get $p))
+    (call $push (@P@.const 0)) (local.set $n (i32.const 100))
+    (loop $next
+      (@P@.store (@P@.sub (global.get $sp) (@P@.const @W@)) (call $object))
+      (call $gc)
+      (call $check (call $contains (local.get $p)))
+      (call $check (i32.eq (i32.load (local.get $p)) (i32.const 1234567)))
+      (local.set $n (i32.sub (local.get $n) (i32.const 1)))
+      (br_if $next (local.get $n)))
+    (call $pop) (call $pop) (call $gc) (i32.eqz (call $live)))
+  (func (export "negative_loop") (result i32) (local $p @P@)
+    (local.set $p (call $object)) (call $push (local.get $p))
+    (@P@.store (call $roots) (call $object)) (call $gc)
+    (i32.eqz (call $contains (local.get $p))))
+
+  (func $nested (param $p @P@) (param $depth i32)
+    (call $push (local.get $p))
+    (call $gc)
+    (if (local.get $depth) (then
+      (call $nested (call $object) (i32.sub (local.get $depth) (i32.const 1)))))
+    (call $check (call $contains (local.get $p)))
+    (call $check (i32.eq (i32.load (local.get $p)) (i32.const 1234567)))
+    (call $pop))
+  (func (export "test_nested") (result i32)
+    (call $nested (call $object) (i32.const 20))
+    (call $gc) (i32.eqz (call $live)))
+  (func $collecting_argument (result @P@)
+    (call $gc) (call $object))
+  (func $pair (param $left @P@) (param $right @P@) (result i32)
+    (call $push (local.get $right)) (call $gc)
+    (call $check (call $contains (local.get $left)))
+    (call $check (call $contains (local.get $right)))
+    (call $pop) (i32.const 1))
+  (func (export "test_argument_temporary") (result i32) (local $p @P@)
+    (local.set $p (call $object)) (call $push (local.get $p))
+    (drop (call $pair (local.get $p) (call $collecting_argument)))
+    (call $pop) (call $gc) (i32.eqz (call $live)))
+  (func $tail (param $p @P@) (param $depth i32) (result i32)
+    (call $push (local.get $p)) (call $gc) (call $pop)
+    (if (result i32) (local.get $depth)
+      (then (return_call $tail (local.get $p) (i32.sub (local.get $depth) (i32.const 1))))
+      (else (return_call $parameter (local.get $p)))))
+  (func (export "test_tail") (result i32)
+    (call $tail (call $object) (i32.const 20)))
+
+  ;; ---- Interior pointers, contiguous records, and conservative retention ----
+
+  (func (export "test_interior_aos") (result i32) (local $a @P@) (local $b @P@)
+    ;; Three inline records, each { i64 x; i64 y; pointer next; padding }.
+    (local.set $a (call $alloc (@P@.const 96) (global.get $sp)))
+    (call $push (@P@.add (local.get $a) (@P@.const 67)))
+    (local.set $b (call $object))
+    (@P@.store offset=48 (local.get $a) (@P@.add (local.get $b) (@P@.const 3)))
+    (@P@.store offset=16 (local.get $b) (local.get $a))
+    (call $gc)
+    (call $check (i32.eq (call $live) (i32.const 2)))
+    (call $check (i32.eq (i32.load (local.get $b)) (i32.const 1234567)))
+    (call $pop) (call $gc) (i32.eqz (call $live)))
+  (func (export "test_extents") (result i32) (local $p @P@)
+    (local.set $p (call $alloc (@P@.const 19) (global.get $sp)))
+    (call $check (call $contains (@P@.add (local.get $p) (@P@.const 18))))
+    (call $check (i32.eqz (call $contains (@P@.add (local.get $p) (@P@.const 19)))))
+    (call $check (i32.eqz (call $contains (@P@.sub (local.get $p) (@P@.const 1)))))
+    (call $push (@P@.add (local.get $p) (@P@.const 19)))
+    (call $gc) (i32.eqz (call $live)))
+  (func (export "test_false_positive") (result i32) (local $p @P@)
+    (local.set $p (call $object))
+    ;; An integer with this bit pattern is indistinguishable from an address.
+    (call $push (@P@.add (local.get $p) (@P@.const 7))) (call $gc)
+    (call $check (call $contains (local.get $p)))
+    (call $pop) (call $gc) (i32.eqz (call $live)))
+  (func (export "trap_root_bounds") (result i32)
+    (call $collect (@P@.add (call $roots) (@P@.const @ROOT_OVERFLOW@))) (i32.const 0))
+  (func (export "trap_allocation_size") (result i32)
+    (drop (call $alloc (@P@.const -1) (global.get $sp))) (i32.const 0))
+  (func (export "trap_exhaustion") (result i32) (local $n i32)
+    (loop $fill
+      (call $push (call $alloc (@P@.const 32768) (global.get $sp)))
+      (local.set $n (i32.add (local.get $n) (i32.const 1)))
+      (br_if $fill (i32.lt_u (local.get $n) (i32.const 129)))) (i32.const 0))
+
+  ;; A single root retains a chain; used to time collection independently.
+  (func (export "prepare_live") (param $n i32) (local $p @P@)
+    (call $push (@P@.const 0))
+    (loop $next
+      (local.set $p (call $alloc (@P@.const 32) (global.get $sp)))
+      (@P@.store (local.get $p) (@P@.load (call $roots)))
+      (@P@.store (call $roots) (local.get $p))
+      (local.set $n (i32.sub (local.get $n) (i32.const 1)))
+      (br_if $next (local.get $n))))
+  (func (export "collect_live") (call $gc))
+
+  ;; ---- Collecting allocation workload ----
+
+  (func (export "churn") (param $n i32) (param $unused i32) (result i32)
+    (local $keeper @P@) (local $p @P@)
+    (local.set $keeper (call $object)) (call $push (local.get $keeper))
+    (loop $next
+      (local.set $p (call $alloc (@P@.const 32) (global.get $sp)))
+      (i32.store (local.get $p) (local.get $n))
+      (local.set $n (i32.sub (local.get $n) (i32.const 1)))
+      (br_if $next (local.get $n)))
+    (call $check (call $contains (local.get $keeper)))
+    (call $pop) (i32.load (local.get $keeper)))
+
+  ;; Generated call kernels follow. The generator supplies the closing paren.
