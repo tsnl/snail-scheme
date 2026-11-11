@@ -3,18 +3,23 @@
 ;; the old compiler's, src/snail/shell/compiler/core.sld's
 ;; `builtin-types`, in its order, but for `fn`, which (snail core forms)
 ;; offers as a keyword: `(fn ...)` is Code, never a type's name. The
-;; adapter compares the two.
+;; adapter compares the two. And the one class of another library the
+;; compiler knows by its Global: Drop, of (snail core base), whose
+;; instance makes its type's values moved.
 (define-library (snail compiler declare forms)
   (export
    forms-library
    builtin-types
-   builtin-arity)
+   builtin-arity
+   drop-class)
   (import
    (snail core base)
    (only (snail compiler outline language) LibraryName)
    (only (snail compiler outline names) same-library?)
    (only (snail compiler expand language) Global))
   (begin
+
+    ;; ---- Builtin types ----
 
     (: forms-library LibraryName)
     (define forms-library
@@ -49,6 +54,12 @@
             ((None) (None)))
           (None)))
 
+    ;; ---- Known classes ----
+
+    (: drop-class Global)
+    (define drop-class
+      (Global (list "snail" "core" "base") "Drop" 0))
+
     )
 
   ;; ---- Tests ----
@@ -67,5 +78,6 @@
         (expect (builtin-arity (Global forms-library "fn" 0)) (None))
         (expect (builtin-arity (Global forms-library "mut" 0)) (None))
         (expect (builtin-arity (Global (list "snail" "core" "base") "I64" 0)) (None))
-        (expect (length builtin-types) 16))))
+        (expect (length builtin-types) 16)
+        (expect (::name drop-class) "Drop"))))
    (else)))

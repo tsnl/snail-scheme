@@ -96,7 +96,6 @@
    ::definitions
    ::delta
    ::denotation
-   ::derived
    ::derives
    ::deriving
    ::deserialize
@@ -105,7 +104,9 @@
    ::directories
    ::directory
    ::discharged
+   ::drop?
    ::edges
+   ::effect
    ::effects
    ::emission
    ::emitted
@@ -157,6 +158,7 @@
    ::home
    ::id
    ::identifier
+   ::implementation
    ::imported
    ::imports
    ::index
@@ -173,6 +175,7 @@
    ::key
    ::keys
    ::keyword
+   ::kind
    ::known
    ::label
    ::labels
@@ -198,6 +201,7 @@
    ::marks
    ::matches
    ::meaning
+   ::member
    ::members
    ::memo
    ::message
@@ -207,6 +211,7 @@
    ::missing
    ::module
    ::more
+   ::move?
    ::mutable?
    ::name
    ::name-loc
@@ -392,7 +397,6 @@
     (define (::definitions value) (field-of value (quote definitions)))
     (define (::delta value) (field-of value (quote delta)))
     (define (::denotation value) (field-of value (quote denotation)))
-    (define (::derived value) (field-of value (quote derived)))
     (define (::derives value) (field-of value (quote derives)))
     (define (::deriving value) (field-of value (quote deriving)))
     (define (::deserialize value) (field-of value (quote deserialize)))
@@ -401,7 +405,9 @@
     (define (::directories value) (field-of value (quote directories)))
     (define (::directory value) (field-of value (quote directory)))
     (define (::discharged value) (field-of value (quote discharged)))
+    (define (::drop? value) (field-of value (quote drop?)))
     (define (::edges value) (field-of value (quote edges)))
+    (define (::effect value) (field-of value (quote effect)))
     (define (::effects value) (field-of value (quote effects)))
     (define (::emission value) (field-of value (quote emission)))
     (define (::emitted value) (field-of value (quote emitted)))
@@ -453,6 +459,7 @@
     (define (::home value) (field-of value (quote home)))
     (define (::id value) (field-of value (quote id)))
     (define (::identifier value) (field-of value (quote identifier)))
+    (define (::implementation value) (field-of value (quote implementation)))
     (define (::imported value) (field-of value (quote imported)))
     (define (::imports value) (field-of value (quote imports)))
     (define (::index value) (field-of value (quote index)))
@@ -469,6 +476,7 @@
     (define (::key value) (field-of value (quote key)))
     (define (::keys value) (field-of value (quote keys)))
     (define (::keyword value) (field-of value (quote keyword)))
+    (define (::kind value) (field-of value (quote kind)))
     (define (::known value) (field-of value (quote known)))
     (define (::label value) (field-of value (quote label)))
     (define (::labels value) (field-of value (quote labels)))
@@ -494,6 +502,7 @@
     (define (::marks value) (field-of value (quote marks)))
     (define (::matches value) (field-of value (quote matches)))
     (define (::meaning value) (field-of value (quote meaning)))
+    (define (::member value) (field-of value (quote member)))
     (define (::members value) (field-of value (quote members)))
     (define (::memo value) (field-of value (quote memo)))
     (define (::message value) (field-of value (quote message)))
@@ -503,6 +512,7 @@
     (define (::missing value) (field-of value (quote missing)))
     (define (::module value) (field-of value (quote module)))
     (define (::more value) (field-of value (quote more)))
+    (define (::move? value) (field-of value (quote move?)))
     (define (::mutable? value) (field-of value (quote mutable?)))
     (define (::name value) (field-of value (quote name)))
     (define (::name-loc value) (field-of value (quote name-loc)))

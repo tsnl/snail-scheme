@@ -374,7 +374,9 @@
         ((Ok form) (Ok form))
         ((Err message) (fail (marked-loc syntax) message))))
 
-    ;; The names in a type that nothing binds at the top level.
+    ;; The names in a type that nothing binds at the top level. A row's
+    ;; `!` names nothing, as the old expander's `free-type-names` reads
+    ;; `(! label ...)`: only its labels can be variables.
     (: free-names (impl (Fn Scopes Marked -> (List String))))
     (define (free-names scopes syntax)
       (match syntax
@@ -382,6 +384,8 @@
          (match (resolve scopes (top-env scopes) identifier)
            ((Unbound) (list (::name identifier)))
            (_ (Nil))))
+        ((Form (Cons (Ident (Identifier "!" _) _) labels) _)
+         (concatenate (map (lambda (item) (free-names scopes item)) labels)))
         ((Form items _) (concatenate (map (lambda (item) (free-names scopes item)) items)))
         (_ (Nil))))
 
@@ -925,6 +929,12 @@
           ((Ok (Cons _ (Cons (TopInstance instance) (Nil))))
            (expect (::variables instance) (list "t"))
            (expect (method-names instance) (list (MemberName (Label "m" loc)))))
+          (other (expect other (Ok (list)))))
+        ;; A row's `!` is no variable; its labels may be.
+        (match (expanded '((typeclass (S e a) (: s (impl (Fn a -> a ! e))))
+                           (instance (S (! r) t) (define (s x) x))))
+          ((Ok (Cons _ (Cons (TopInstance instance) (Nil))))
+           (expect (::variables instance) (list "r" "t")))
           (other (expect other (Ok (list)))))
         ;; A method named by a field path is its labels; one with an empty
         ;; label is a member's label still, as the old expander reads it,
