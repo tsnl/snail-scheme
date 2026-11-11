@@ -82,6 +82,7 @@
    ::constructors
    ::control
    ::control?
+   ::copied
    ::copy
    ::count
    ::counter
@@ -156,6 +157,7 @@
    ::home
    ::id
    ::identifier
+   ::imported
    ::imports
    ::index
    ::initializers
@@ -171,7 +173,9 @@
    ::key
    ::keys
    ::keyword
+   ::known
    ::label
+   ::labels
    ::last
    ::lets
    ::libraries
@@ -264,6 +268,7 @@
    ::rows
    ::rules
    ::runs
+   ::scanned
    ::scheme
    ::schemes
    ::scope
@@ -290,6 +295,7 @@
    ::steps
    ::symbol
    ::tag
+   ::tail
    ::target
    ::targets
    ::template
@@ -369,6 +375,7 @@
     (define (::constructors value) (field-of value (quote constructors)))
     (define (::control value) (field-of value (quote control)))
     (define (::control? value) (field-of value (quote control?)))
+    (define (::copied value) (field-of value (quote copied)))
     (define (::copy value) (field-of value (quote copy)))
     (define (::count value) (field-of value (quote count)))
     (define (::counter value) (field-of value (quote counter)))
@@ -443,6 +450,7 @@
     (define (::home value) (field-of value (quote home)))
     (define (::id value) (field-of value (quote id)))
     (define (::identifier value) (field-of value (quote identifier)))
+    (define (::imported value) (field-of value (quote imported)))
     (define (::imports value) (field-of value (quote imports)))
     (define (::index value) (field-of value (quote index)))
     (define (::initializers value) (field-of value (quote initializers)))
@@ -458,7 +466,9 @@
     (define (::key value) (field-of value (quote key)))
     (define (::keys value) (field-of value (quote keys)))
     (define (::keyword value) (field-of value (quote keyword)))
+    (define (::known value) (field-of value (quote known)))
     (define (::label value) (field-of value (quote label)))
+    (define (::labels value) (field-of value (quote labels)))
     (define (::last value) (field-of value (quote last)))
     (define (::lets value) (field-of value (quote lets)))
     (define (::libraries value) (field-of value (quote libraries)))
@@ -551,6 +561,7 @@
     (define (::rows value) (field-of value (quote rows)))
     (define (::rules value) (field-of value (quote rules)))
     (define (::runs value) (field-of value (quote runs)))
+    (define (::scanned value) (field-of value (quote scanned)))
     (define (::scheme value) (field-of value (quote scheme)))
     (define (::schemes value) (field-of value (quote schemes)))
     (define (::scope value) (field-of value (quote scope)))
@@ -577,6 +588,7 @@
     (define (::steps value) (field-of value (quote steps)))
     (define (::symbol value) (field-of value (quote symbol)))
     (define (::tag value) (field-of value (quote tag)))
+    (define (::tail value) (field-of value (quote tail)))
     (define (::target value) (field-of value (quote target)))
     (define (::targets value) (field-of value (quote targets)))
     (define (::template value) (field-of value (quote template)))

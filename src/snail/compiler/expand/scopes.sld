@@ -509,7 +509,7 @@
                                     (BoundLocally (LocalValue (Local "x" 2)) (list)))
                   #f)
           (expect (same-resolution? (BoundLocally (TypeVariable "a") (list))
-                                    (BoundLocally (TypeArgument (Variable "b" (Loc "t" 1 1)))
+                                    (BoundLocally (TypeArgument 0)
                                                   (list)))
                   #t)
           (expect (same-resolution? (BoundLocally (TypeVariable "a") (list))

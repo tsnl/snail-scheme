@@ -52,6 +52,7 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
     derive
     declare
     dispatch
+    cohere
     infer
     solve
     settle
@@ -80,10 +81,11 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 ;; part of their libraries' names: `expand` writes its tree in
 ;; language.sld, what a library offers the libraries that import it in
 ;; offer.sld, and works in the marked syntax of marked.sld; `bind` reads
-;; what the build found for a library in supply.sld. These may read the
-;; pass's other languages.
+;; what the build found for a library in supply.sld; `declare` writes what
+;; a library offers the declaration of its importers in offer.sld. These
+;; may read the pass's other languages.
 (define more-languages
-  '((expand marked) (expand offer) (bind supply)))
+  '((expand marked) (expand offer) (bind supply) (declare offer)))
 
 (define (more-language? pass part)
   (member (list pass part) more-languages))
