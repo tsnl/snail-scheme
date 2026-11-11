@@ -235,7 +235,7 @@
     (: library-difference (impl (Fn Outline old:LibraryFile -> (Option String) ! fs)))
     (define (library-difference outline file)
       (match (Pair outline file)
-        ((Pair (Defined _ imports exports body _) (old:DefinedLibrary sections))
+        ((Pair (Written (Defined _ imports exports body _)) (old:DefinedLibrary sections))
          (let ((specs (section-items sections "import")))
            (first-difference-of
             (list (sets-difference imports specs)
@@ -305,7 +305,7 @@
        (impl (Fn Outline (Pair (List String) (List old:Syntax)) -> (Option String) ! fs)))
     (define (program-difference outline program)
       (match outline
-        ((Program loading _ imports _)
+        ((Written (Program loading _ imports _))
          (first-difference-of
           (list (if (string=? (string-join loading " ") (string-join (::first program) " "))
                     (None)
@@ -551,7 +551,7 @@
     (: unimported-stop (impl (Fn String Outline -> (Option (List Feedback)))))
     (define (unimported-stop directory outline)
       (match outline
-        ((Defined _ _ (Cons first-export _) (Nil) _)
+        ((Written (Defined _ _ (Cons first-export _) (Nil) _))
          (Some (list (undefined-export (::identifier first-export)))))
         ((Generated _ _ _ _)
          (Some (list (Feedback (Loc directory 0 0) "the comparison runs no producer"))))

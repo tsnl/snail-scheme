@@ -1,8 +1,9 @@
 ;; Outline, the language `outline` writes: a file's header parsed, and its
 ;; body still Syntax.
 ;;
-;;   Outline    ::= Defined library Import* Export* Syntax*
+;;   Outline    ::= Written Library                    no Loc
 ;;                | Generated library Syntax* Syntax    the recipe's imports and expression
+;;   Library    ::= Defined library Import* Export* Syntax*
 ;;                | Program key* recipe? Import* Syntax*  no Loc
 ;;   Import     ::= Whole library | Only Import Identifier* | Except Import Identifier*
 ;;                | Prefix Import prefix | Rename Import Renaming*
@@ -15,8 +16,11 @@
 ;; declarations are joined into imports, exports and body, each in the
 ;; order written, with every `cond-expand` decided; and that every import
 ;; set and export is well formed. A library name is its parts in order,
-;; with an integer part as its decimal text. A program has no form of its
-;; own, so it carries no Loc. Its keys are the libraries loading when a
+;; with an integer part as its decimal text. A Library is what `expand`
+;; takes: a file with a body, written by hand or printed by a producer. A
+;; generated library is not one, since its body is what its producer will
+;; print; the integrator outlines that output as a Library before anything
+;; expands it. A program has no form of its own, so it carries no Loc. Its keys are the libraries loading when a
 ;; producer program was printed, as its `generating` form wrote them, and
 ;; its recipe the file a producer's `recipe` form names. Nothing in a body
 ;; is read, nor a generated library's imports or expression, which become
@@ -25,8 +29,10 @@
   (export
    LibraryName
    Outline
-   Defined
+   Written
    Generated
+   Library
+   Defined
    Program
    Import
    Whole
@@ -48,19 +54,25 @@
     ;; `(snail core base)` is ("snail" "core" "base").
     (type LibraryName (List String))
 
-    ;; A library is at its `define-library` or `generate-library` form.
+    ;; A file outlined: a library or program with a body to expand, or a
+    ;; generated library, at its `generate-library` form.
     (enum Outline
+      (Written
+       ((library Library)))
+      (Generated
+       ((name LibraryName)
+        (imports (List Syntax))
+        (expression Syntax)
+        (loc Loc))))
+
+    ;; A library is at its `define-library` form.
+    (enum Library
       (Defined
         ((name LibraryName)
          (imports (List Import))
          (exports (List Export))
          (body (List Syntax))
          (loc Loc)))
-      (Generated
-       ((name LibraryName)
-        (imports (List Syntax))
-        (expression Syntax)
-        (loc Loc)))
       (Program
        ((loading (List String))
         (recipe (Option String))

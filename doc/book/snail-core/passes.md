@@ -4,7 +4,8 @@
 `src/snail/compiler/`. Until its last pass lands, programs are still compiled
 by the passes in [Compiler architecture](compilers.md). The Status column
 says which passes exist. A grammar marked *sketch* is a plan; one marked
-*implemented* is what the code declares.
+*implemented* is what the code declares, even while the pass that writes
+it is still in progress.
 
 The compiler is a sequence of small passes. Each does one thing and writes
 its result in a language of its own, so the table below is the compiler's
@@ -15,7 +16,7 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 | `read` | file | text | Syntax | Text becomes located forms. | implemented |
 | `include` | file | Syntax | Syntax | Each `include-bytes` form becomes the bytes of its file. | implemented |
 | `outline` | file | Syntax | Outline | The header is parsed: name, imports, exports. The body stays Syntax. | implemented |
-| `expand` | library | Outline | Expanded | Macros run, every name is resolved, every core form is parsed. | planned |
+| `expand` | library | Outline, Offer | Expanded, Offer | Macros run, every name is resolved, every core form is parsed. | in progress |
 | `bind` | library | Expanded | Bound | Linked files and requests for other targets become what the build supplied. | planned |
 | `derive` | library | Bound | Derived | `deriving` clauses become instance declarations. | planned |
 | `declare` | library | Derived | Declared | Written types become types; declarations become entities. | planned |
@@ -54,8 +55,9 @@ module: a whole program, or one library in a development build.
   about it, such as the imports of an outline or the files an expanded
   library links. It writes no tree.
 - A **rule** is a pure function that makes one decision from the facts it is
-  handed and returns the decision as data. It does not visit children, does
-  not thread a pass's state and does not report failure.
+  handed and returns the decision as data. It may loop over its own
+  arguments, as matching a pattern against a form does, but it does not walk
+  the program, does not thread a pass's state and does not report failure.
 - The **integrator** is the one place that calls passes. It finds and reads
   files, orders libraries, and runs the loops. Its libraries live in
   `integrate/`, and they are the only libraries of the compiler whose
@@ -82,6 +84,22 @@ src/snail/compiler/
   outline/
     language.sld
     pass.sld
+  expand/
+    language.sld          Expanded, the tree it writes
+    offer.sld             Offer, what a library offers its importers' expansion
+    marked.sld            Marked, the syntax it works on
+    state.sld             the numbers it hands out, and expanding-let*
+    forms.sld             rule: what (snail core forms) offers
+    scopes.sld            rule: what an identifier means where it is used
+    syntax-rules.sld      rule: which of a macro's rules matches a use
+    paths.sld             rule: a field path's labels and a linked file's names
+    type-shapes.sld       rule: the shape of type syntax
+    form-shapes.sld       rule: the shape of each core form and local definition
+    imports.sld           part: import sets
+    macros.sld            part: macro definitions and uses
+    types.sld             part: types and schemes, with aliases expanded
+    patterns.sld          part: match patterns
+    expressions.sld       part: expressions and local bodies
   ...
   integrate/              the integrator: one library per job
     files.sld             (snail compiler integrate files): every read of the file system
@@ -93,6 +111,16 @@ Each pass is a folder. `language.sld` holds the language the pass writes:
 data definitions under their grammar, and no logic. `pass.sld` exports the
 pass as one function named for it. A rule or query library sits beside them
 under a name that says what it decides or answers.
+
+A pass too large for one library divides its walk into parts: libraries of
+its own folder, one for each kind of thing it walks, named for that thing.
+A part recurses and reports as `pass.sld` does, and `pass.sld` remains the
+entry point. `expand` is such a pass: import sets, macro uses, types,
+expressions, patterns and the top level are each a part. It also writes two
+languages, the tree in
+`language.sld` and, in `offer.sld`, what a library offers the expansion of
+the libraries that import it, and works in a third, `marked.sld`'s, which
+macros read and write.
 
 The import rule keeps the folders apart, and `scripts/compiler-imports
 --check` enforces it:
@@ -108,7 +136,8 @@ The import rule keeps the folders apart, and `scripts/compiler-imports
 - The adapter is outside these rules; see the last section.
 
 A query library says so on its first line, which starts `;; Query:`. Any
-other library beside `language.sld` and `pass.sld` is a rule library.
+other library beside `language.sld` and `pass.sld` is a rule library or a
+part, and the same imports are open to both.
 
 ## Conventions
 
@@ -207,9 +236,15 @@ it is a producer a build printed, it also names the libraries loading as
 it starts and its recipe's file. Nothing in a body is read, nor a generated
 library's recipe, whose imports and expression become a producer program.
 
+A `Library` is what `expand` takes: a defined library or a program, each
+with a body. A generated library is not one, since its body is what its
+producer will print; the integrator outlines that output as a `Library`
+before anything expands it.
+
 ```text
-Outline    ::= Defined library Import* Export* Syntax*
+Outline    ::= Written Library                    no Loc
              | Generated library Syntax* Syntax    the recipe's imports and expression
+Library    ::= Defined library Import* Export* Syntax*
              | Program key* recipe? Import* Syntax*  no Loc
 Import     ::= Whole library | Only Import Identifier* | Except Import Identifier*
              | Prefix Import prefix | Rename Import Renaming*
@@ -218,30 +253,160 @@ Export     ::= Export Identifier name              no Loc but its identifier's
 Identifier ::= Identifier name
 ```
 
-### Expanded, written by `expand` (sketch)
+### Expanded, written by `expand` (implemented; the pass is in progress)
 
-No macro use or definition remains, every identifier is resolved, and every
-form is a core form. Types are still as written.
+No macro use or definition remains, nor a top-level `begin` or an
+`include-bytes` form, and every form is a core form. Every identifier is
+resolved: a value is a `Local`, a `Global` or one of the functions a field
+declares; a type is its declaration, a builtin of (snail core forms), a type
+variable or a class's associated output; a class, an effect and an instance
+set are their declarations. A `Global` is the library that defines it and the
+name written there, with a serial of its own when a macro's template wrote
+the name, and a `Local`'s number is unique in its library. A `Label` is the
+one name not resolved: a field's, a path's, and that of a class's or an
+effect's member as a method definition, an associated output, a default or a
+handler writes it; the pass that has the declaration resolves it. Types are
+as written, with their names resolved, but an alias is expanded where it is
+used, as a macro is. An `if` has its alternative, the unit value when none is
+written, which no `Datum` writes, so Expanded's expressions have constants of
+their own; a pattern's literal stays the `Datum` written. A
+program's statements are its body, each under the instance sets in scope
+where it was written. A tree node is at the place the old expander's
+messages name.
 
 ```text
-Name     ::= Local name number | Global library name
-Top      ::= Define Global Expr | Signature Global TypeExpr | Statement Expr
-           | Expose Global symbol
-           | Struct | Enum | Alias | Class | Instance | InstanceSet | Effect | Extern
-Expr     ::= Literal Datum | Ref Name | Lambda Local* Expr | Fn Local* Expr
-           | Call Expr Expr* | If Expr Expr Expr | Let Local Expr Expr | Seq Expr Expr
-           | Match Expr (Pattern Expr)* | Handle Effect (Operation Expr)* Expr
-           | Ann Expr TypeExpr | Convert Expr TypeExpr | TryConvert Expr TypeExpr
-           | TypeTest Expr TypeExpr | WithInstances InstanceSet* Expr
-           | Path label+ | LinkedFile path | ArtifactFiles request
-Pattern  ::= Wild | Bind Local | Literal Datum | Case Global Pattern*
-TypeExpr ::= Named Name TypeExpr* | Callable ... | Variable name
-           | All name* Requirement* TypeExpr | Projection Name member TypeExpr*
+Expanded    ::= Defined library Top*
+              | Program Top* Expr?                              no Loc
+Top         ::= Define Global Expr
+              | Signature TopValue Scheme Annotation*
+              | Statement Expr                                  no Loc but its expression's
+              | Expose TopValue symbol dynamic?
+              | Struct Global parameter* Field* Derivation* Annotation*
+              | Enum Global parameter* Case* Derivation* Annotation*
+              | Alias Global parameter* Annotation*
+              | Class Global parameter* Member* Annotation*
+              | TopInstance Instance                            no Loc but its instance's
+              | InstanceSet Global SetMember*
+              | InstanceScope Global* Top*
+              | Extern Global module symbol TypeExpr Annotation*
+              | Effect Global Operation* Default* around-main? Annotation*
+              | Primitive Global PrimitiveType
+Field       ::= Field label mutable? TypeExpr Annotation*
+Case        ::= Case Global CaseField* Annotation*
+CaseField   ::= CaseField label TypeExpr Annotation*
+Derivation  ::= DeriveMove | DeriveSerialize | DeriveDeserialize
+Member      ::= MethodSignature Global Scheme Annotation*
+              | AssociatedOutput Label Annotation*              no Loc but its label's
+Instance    ::= Instance ClassRef variable* TypeExpr* Requirement* Equation* InstanceBody
+InstanceBody ::= Dispatch TypeExpr* | Methods InstanceMethod*   Methods: no Loc
+InstanceMethod ::= InstanceMethod Label Expr                    no Loc but its label's
+SetMember   ::= SetInstance Instance                            no Loc but its instance's
+              | DynamicInstances ClassRef (TypeExpr*)*
+Operation   ::= Operation Global control? Scheme Annotation*
+Default     ::= Default Label Expr
+PrimitiveType ::= PrimitiveScheme Scheme | CallableOnce         no Loc
+Annotation  ::= Documentation text
+
+Expr        ::= Literal Constant | LocalRef Local | TopRef TopValue
+              | Path label* | PathApply label* Expr
+              | Lambda Local* Expr | ClosedLambda Local* Expr | Call Expr Expr*
+              | If Expr Expr Expr | Seq Expr Expr
+              | Let Local Scheme? Expr Expr | LocalSignature Scheme Expr
+              | Match Expr Clause* | Handle Global Implementation* Expr
+              | WithInstances Global* Expr
+              | Ann Expr TypeExpr | Convert Expr TypeExpr | TryConvert Expr TypeExpr
+              | TypeTest Expr TypeExpr | CaseId TopValue
+              | LinkedFile name* | ArtifactFiles target Expr Expr Expr
+Clause      ::= Clause Pattern Expr
+Implementation ::= Implementation Label Expr
+Pattern     ::= Wild | Bind Local | Equals Datum | Destructure TopValue Pattern*
+Constant    ::= Integer integer | Float text | Text text | Character character
+              | ByteVector bytes | Boolean boolean | UnitValue    no Loc
+
+TypeExpr    ::= Applied Global written TypeExpr* | Variable name
+              | Projection Global member TypeExpr*
+              | Callable Former Contract Arrow | Code Arrow | Row Effects
+Arrow       ::= Arrow TypeExpr* TypeExpr Effects                no Loc
+Effects     ::= Effects Global* TypeExpr?                       no Loc
+Former      ::= Impl | Dyn                                      no Loc
+Contract    ::= FnContract | FnMutContract | FnOnceContract     no Loc
+Scheme      ::= Scheme variable* Requirement* TypeExpr
+Requirement ::= CopyRequirement variable
+              | ClassRequirement ClassRef TypeExpr* Equation*
+              | CallableRequirement Contract TypeExpr Arrow
+ClassRef    ::= ClassGlobal Global | FieldClass label           no Loc
+Equation    ::= Equation Label TypeExpr                         no Loc but its label's
+
+Local       ::= Local name number                               no Loc
+Global      ::= Global library name serial                      no Loc
+TopValue    ::= TopGlobal Global | FieldFunction Global label FieldRole   no Loc
+FieldRole   ::= Accessor | Replacer | Setter | Swapper          no Loc
+Label       ::= Label name
 ```
 
 `LinkedFile` and `ArtifactFiles` stay in the tree. Queries over Expanded
 gather them for the integrator, which reads the files and builds the other
 targets, and `bind` then replaces each with what the integrator supplied.
+
+### Offer, written by `expand` (implemented; the pass is in progress)
+
+What a library offers the expansion of each library that imports it: its
+exports, and its top level, where the names its macros and aliases introduce
+resolve. The integrator keeps each library's offer and hands `expand` the
+offers of the libraries an outline's imports reach; `expand` knows the offer
+of (snail core forms) itself. Only expansion and `derive` read an offer; the
+later passes read Expanded.
+
+The syntax an offer holds, a macro's rules and an alias's body, is
+`Marked`. Each scope a mark in an offer names is the top level of a library
+in the importer's import closure, since a library reaches an importer only
+through the exports of the libraries it imports. No mark in an offer names a
+local scope: a mark is made by a use, and a local macro is used only in the
+body that defines it, which defines no top-level name, so nothing a local
+macro writes reaches a top level.
+
+```text
+Offered     ::= Offered library Offer                           no Loc
+Expansion   ::= Expansion Expanded Offer                        no Loc
+
+Offer       ::= Offer Export* TopScope                          no Loc
+Export      ::= Export name Meaning                             no Loc
+TopScope    ::= TopScope Binding* Binding*                      no Loc
+Binding     ::= Binding Identifier Meaning                      no Loc
+Meaning     ::= Value TopValue | TypeName Global constructs?
+              | TypeAlias Global Identifier* Marked library
+              | ClassName Global | InstanceSetName Global | Associated Global member
+              | EffectName Global | Keyword name | MacroRules Macro
+              | ReservedAccessor                                no Loc
+```
+
+### Marked, the syntax `expand` works on (implemented; the pass is in progress)
+
+`expand` reads a library's body into marked syntax, macros write it, and an
+offer holds it; no later pass sees it. Each identifier carries the marks of
+the macro uses that introduced it, latest first. An identifier is looked up
+in the local frames around it, then at the top level they sit over, where a
+definition hides an import; one that nothing binds there is looked up again
+without its latest mark, in that mark's scope. A mark names the library
+whose expansion made it and the scope the macro was defined in: a library's
+top level, or, for a macro a body defines, the frames from the macro's own
+frame outward, which hold the macro, so its template may use it. A local
+macro's scope is found where its name is resolved, so nothing about a body
+is kept anywhere else, and the numbers of marks, locals and macros need only
+be unique in a library. A type variable, and an alias's parameter standing
+for its argument, are frames too.
+
+```text
+Marked      ::= Atom Datum | Ident Identifier | Form Marked*
+Identifier  ::= Identifier name Mark*                           no Loc
+Mark        ::= Mark library number Scope                       no Loc
+Scope       ::= TopLevel library | LocalScope Frame*            no Loc
+Frame       ::= Frame Identifier Denotation                     no Loc
+Denotation  ::= LocalValue Local | LocalMacro Macro
+              | TypeVariable name | TypeArgument TypeExpr       no Loc
+Macro       ::= Macro MacroId Marked* Marked*                   no Loc
+MacroId     ::= MacroId library number                          no Loc
+```
 
 ### Typed, written by `settle` (sketch)
 

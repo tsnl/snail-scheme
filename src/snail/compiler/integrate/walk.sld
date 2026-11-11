@@ -87,7 +87,7 @@
     (: program-keys (impl (Fn Outline -> (List String))))
     (define (program-keys outline)
       (match outline
-        ((Program loading _ _ _) loading)
+        ((Written (Program loading _ _ _)) loading)
         (_ (Nil))))
 
     ;; The walk once the library it asked for is read: that library's
@@ -150,9 +150,9 @@
     (: names? (impl (Fn Outlined LibraryName -> Bool)))
     (define (names? outlined name)
       (match (::outline outlined)
-        ((Defined declared _ _ _ _) (same-library? declared name))
-        ((Generated declared _ _ _) (same-library? declared name))
-        ((Program _ _ _ _) #f)))
+        ((Written (Defined declared _ _ _ _)) (same-library? declared name))
+        ((Written (Program _ _ _ _)) #f)
+        ((Generated declared _ _ _) (same-library? declared name))))
 
     (: cycle-feedback (impl (Fn Imported -> Feedback)))
     (define (cycle-feedback imported)
@@ -189,11 +189,11 @@
 
       (define (defined name imports)
         (Outlined (file-of name)
-                  (Defined name
-                    (map (lambda (imported) (Whole imported (at (file-of name)))) imports)
-                    (list)
-                    (list)
-                    (at (file-of name)))))
+                  (Written (Defined name
+                             (map (lambda (imported) (Whole imported (at (file-of name)))) imports)
+                             (list)
+                             (list)
+                             (at (file-of name))))))
 
       ;; A generated library, whose expression the walk never reads.
       (define (generated name)
@@ -201,10 +201,11 @@
 
       (define (program loading imports)
         (Outlined "main.sld"
-                  (Program loading
-                           (None)
-                           (map (lambda (imported) (Whole imported (at "main.sld"))) imports)
-                           (list))))
+                  (Written (Program loading
+                                    (None)
+                                    (map (lambda (imported) (Whole imported (at "main.sld")))
+                                         imports)
+                                    (list)))))
 
       ;; The walk from `main` run to its end, reading each library from
       ;; `files`. A library not there stops it, as a missing file would.
