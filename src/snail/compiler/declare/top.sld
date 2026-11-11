@@ -77,7 +77,7 @@
         (result-let* ((signatures (declared-signatures known tops))
                       (reached (reached-tops start signatures tops))
                       (buildable (buildable-items (::known (::second reached)) (::first reached))))
-          (let* ((items (with-dropped buildable (dropped-types library buildable)))
+          (let* ((items (with-dropped buildable (dropped-types buildable)))
                  (state (with-known (::second reached) (fold-left known-with-item known items))))
             (walked-bodies (items-bodies (Bodies (Nil) (Nil) state) signatures items) body)))))
 
@@ -211,7 +211,7 @@
                                           annotations
                                           loc)))
           ((derived-TopInstance instance)
-           (declaring-let* ((declared state (declared-instance state instance)))
+           (declaring-let* ((declared state (declared-instance state instance #f)))
              (Ok (Pair (list (Instancing declared)) state))))
           ((derived-InstanceSet global members loc)
            (declaring-let* ((reached state (declaring-map state reached-member members)))
@@ -298,7 +298,7 @@
     (define (reached-member state member)
       (match member
         ((bound-SetInstance instance)
-         (declaring-let* ((declared state (declared-instance state instance)))
+         (declaring-let* ((declared state (declared-instance state instance #t)))
            (Ok (Pair (MemberInstancing declared) state))))
         ((bound-DynamicInstances class pairs loc)
          (declaring-let* ((dynamic state
@@ -344,16 +344,17 @@
     ;; reaches the type's Drop instance, and every read of that fact comes
     ;; once the library is expanded: the checker's lifecycle plans
     ;; (`linear-fields` and `data-plan`, src/snail/shell/compiler/
-    ;; capabilities.sld) and the passes after it. No declaration and no
-    ;; body reads it, there or here, so saying it once every declaration
-    ;; is reached gives each read the old answer. A Drop instance written
-    ;; before its type, where the old compiler fails, is accepted. The mark
-    ;; is made once, on the items, and the bodies and the offer read it
-    ;; there.
-    (: dropped-types (impl (Fn LibraryName (List Reached) -> (List expanded-Global))))
-    (define (dropped-types library items)
+    ;; capabilities.sld) and the passes after it. No declaration reads it,
+    ;; there or here; a body asks only whether a type of another library
+    ;; has a Drop instance (`owned`), which that library's offer says in
+    ;; full. So saying it once every declaration is reached gives each read
+    ;; the old answer. A Drop instance written before its type, where the
+    ;; old compiler fails, is accepted. The mark is made once, on the
+    ;; items, and the bodies and the offer read it there.
+    (: dropped-types (impl (Fn (List Reached) -> (List expanded-Global))))
+    (define (dropped-types items)
       (concatenate (map (lambda (instance)
-                          (match (drop-type library instance)
+                          (match (drop-type instance)
                             ((Some type) (list type))
                             ((None) (Nil))))
                         (reached-instances items))))

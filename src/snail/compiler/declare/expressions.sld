@@ -12,8 +12,14 @@
 ;;   definition is then dropped;
 ;; - a handler's clause names an operation of the handler's effect before
 ;;   its value is converted;
+;; - a match clause's pattern comes before its body, a constructor before
+;;   the patterns it is given;
 ;; - a `case-id` names a constructor, refused where the constructor is
 ;;   written, and is then its case and the case's TypeId.
+;;
+;; A reference to a replacer, a pattern's constructor and a `case-id`'s
+;; are refused where they are written when their type has a Drop instance
+;; and another library (`owned`).
 (define-library (snail compiler declare expressions)
   (export
    declared-expr)
@@ -24,6 +30,8 @@
    (prefix (snail compiler bind language) bound-)
    (snail compiler declare language)
    (snail compiler declare known)
+   (only (snail compiler declare state) checked)
+   (snail compiler declare owned)
    (snail compiler declare members)
    (snail compiler declare identities)
    (snail compiler declare types))
@@ -36,7 +44,9 @@
       (match expr
         ((bound-Literal constant loc) (Ok (Literal constant loc)))
         ((bound-LocalRef local loc) (Ok (LocalRef local loc)))
-        ((bound-TopRef value loc) (Ok (TopRef value loc)))
+        ((bound-TopRef value loc)
+         (result-let* ((owned (checked (reference-problem known value) loc)))
+           (Ok (TopRef value loc))))
         ((bound-Path labels loc) (Ok (Path labels loc)))
         ((bound-PathApply labels record loc)
          (result-let* ((declared (declared-expr known record)))
@@ -125,18 +135,23 @@
 
     (: declared-clause (impl (Fn Known bound-Clause -> (Result Clause (List Feedback)))))
     (define (declared-clause known clause)
-      (result-let* ((body (declared-expr known (::body clause))))
-        (Ok (Clause (declared-pattern (::pattern clause)) body (::loc clause)))))
+      (result-let* ((pattern (declared-pattern known (::pattern clause)))
+                    (body (declared-expr known (::body clause))))
+        (Ok (Clause pattern body (::loc clause)))))
 
-    ;; A pattern holds no type, so it is as written.
-    (: declared-pattern (impl (Fn bound-Pattern -> Pattern)))
-    (define (declared-pattern pattern)
+    ;; A pattern holds no type, so it is as written, once each constructor
+    ;; may take its value apart here.
+    (: declared-pattern (impl (Fn Known bound-Pattern -> (Result Pattern (List Feedback)))))
+    (define (declared-pattern known pattern)
       (match pattern
-        ((bound-Wild loc) (Wild loc))
-        ((bound-Bind local loc) (Bind local loc))
-        ((bound-Equals datum loc) (Equals datum loc))
+        ((bound-Wild loc) (Ok (Wild loc)))
+        ((bound-Bind local loc) (Ok (Bind local loc)))
+        ((bound-Equals datum loc) (Ok (Equals datum loc)))
         ((bound-Destructure constructor arguments loc)
-         (Destructure constructor (map declared-pattern arguments) loc))))
+         (result-let* ((owned (checked (destructure-problem known constructor) loc))
+                       (parts (map-results (lambda (argument) (declared-pattern known argument))
+                                           arguments)))
+           (Ok (Destructure constructor parts loc))))))
 
     ;; A clause's operation, refused at its label, then its value.
     (: declared-implementation
@@ -161,9 +176,10 @@
     (define (case-id known constructor constructor-loc loc)
       (match (constructed-case known constructor)
         ((Some found)
-         (Ok (CaseId (::global (::second found))
-                     (case-type-id known (::first found) (::second found))
-                     loc)))
+         (result-let* ((owned (checked (destructure-problem known constructor) constructor-loc)))
+           (Ok (CaseId (::global (::second found))
+                       (case-type-id known (::first found) (::second found))
+                       loc))))
         ((None) (fail constructor-loc "not a constructor"))))
 
     (: constructed-case (impl (Fn Known expanded-TopValue -> (Option (Pair Data DataCase)))))
@@ -191,7 +207,8 @@
         (test-order)
         (test-signatures)
         (test-handlers)
-        (test-case-ids))
+        (test-case-ids)
+        (test-owned-uses))
 
       (define (at line)
         (Loc "t.sld" line 1))
@@ -217,7 +234,8 @@
         (expanded-Local name number))
 
       ;; (main) declares (Point) with the field x and the effect io with
-      ;; the operation read.
+      ;; the operation read; (owned handle) offers Handle, with a Drop
+      ;; instance.
       (define point
         (Data (global "Point")
               (list)
@@ -231,6 +249,18 @@
 
       (define read-op (Operation (global "read") #f (list) i64 (list) (list) loc))
 
+      (define handle (expanded-Global (list "owned" "handle") "Handle" 0))
+
+      (define handle-data
+        (Data handle
+              (list)
+              (list (DataCase handle 0 (list (DataField "name" #f i64 (list) loc)) (list) loc))
+              (StructData)
+              #t
+              #t
+              (list)
+              loc))
+
       (define known
         (Known main
                (Scanned empty-table empty-table)
@@ -240,7 +270,10 @@
                              (by-name empty-table
                                       "io"
                                       (OfferedEffect (global "io") (list read-op))))
-               (list)))
+               (list (Declarations (list "owned" "handle")
+                                   (by-name empty-table "Handle" handle-data)
+                                   empty-table
+                                   empty-table))))
 
       (define (declared expr)
         (declared-expr known expr))
@@ -338,5 +371,60 @@
          (declared (bound-CaseId (expanded-FieldFunction (global "Point") "x" (expanded-Accessor))
                                  (at 3)
                                  loc))
-         (fail (at 3) "not a constructor")))))
+         (fail (at 3) "not a constructor"))
+        (expect (declared (bound-CaseId (expanded-TopGlobal handle) (at 2) loc))
+                (fail (at 2) take-apart)))
+
+      (define take-apart
+        "Handle has a Drop instance, so only its own library can take it apart; drop it instead")
+
+      (define (handle-pattern line arguments)
+        (bound-Destructure (expanded-TopGlobal handle) arguments (at line)))
+
+      (define (clause pattern body)
+        (bound-Clause pattern body loc))
+
+      ;; A Handle taken apart, or its field replaced, outside its library
+      ;; (error-drop-match.sld and error-replace-owned.sld): a clause's
+      ;; pattern before its body, but after the clauses before it; a
+      ;; constructor before the patterns it is given; a callee before its
+      ;; arguments.
+      (define (test-owned-uses)
+        (let ((bad-body (bound-Ann (unit-at 4) (arity-wrong 4) (at 4))))
+          (expect (declared (bound-Match (unit-at 2)
+                                         (list (clause (handle-pattern 3 (list (bound-Wild loc)))
+                                                       bad-body))
+                                         loc))
+                  (fail (at 3) take-apart))
+          (expect (declared (bound-Match (unit-at 2)
+                                         (list (clause (bound-Wild loc) bad-body)
+                                               (clause (handle-pattern 5 (list)) (unit-at 6)))
+                                         loc))
+                  (fail (at 4) "wrong number of type arguments: Array"))
+          (expect (declared (bound-Match (unit-at 2)
+                                         (list (clause (bound-Destructure
+                                                        (expanded-TopGlobal (global "Point"))
+                                                        (list (handle-pattern 5 (list)))
+                                                        (at 3))
+                                                       (unit-at 6)))
+                                         loc))
+                  (fail (at 5) take-apart))
+          (expect (declared (bound-Match (unit-at 2)
+                                         (list (clause
+                                                (handle-pattern 3 (list (handle-pattern 5 (list))))
+                                                (unit-at 6)))
+                                         loc))
+                  (fail (at 3) take-apart))
+          (expect (declared (bound-Call (bound-TopRef (expanded-FieldFunction handle
+                                                                              "name"
+                                                                              (expanded-Replacer))
+                                                      (at 2))
+                                        (list bad-body)
+                                        loc))
+                  (fail (at 2)
+                        "Handle has a Drop instance, so only its own library can replace its fields"))
+          (expect (declared (bound-TopRef (expanded-FieldFunction handle "name" (expanded-Accessor))
+                                          (at 2)))
+                  (Ok
+                   (TopRef (expanded-FieldFunction handle "name" (expanded-Accessor)) (at 2))))))))
    (else)))

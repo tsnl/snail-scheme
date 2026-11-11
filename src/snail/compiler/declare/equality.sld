@@ -11,7 +11,8 @@
    effect-set
    same-type?
    same-types?
-   same-variable?)
+   same-variable?
+   variable-among?)
   (import
    (snail core base)
    (only (snail compiler outline language) LibraryName)
@@ -120,6 +121,10 @@
         ((Pair (Own inner) (Own other-inner)) (same-variable? inner other-inner))
         (_ #f)))
 
+    (: variable-among? (impl (Fn TypeVariable (List TypeVariable) -> Bool)))
+    (define (variable-among? variable variables)
+      (any? (lambda (other) (same-variable? other variable)) variables))
+
     (: same-former? (impl (Fn Former Former -> Bool)))
     (define (same-former? former other)
       (match (Pair former other)
@@ -201,5 +206,7 @@
            #f)
           (expect (same-type? (Code (Arrow (list) a (Effects (list io) (None))))
                               (Code (Arrow (list) a (Effects (list io) (None)))))
-                  #t)))))
+                  #t)
+          (expect (variable-among? (Written "a") (list (Associated 0 "a") (Written "a"))) #t)
+          (expect (variable-among? (Written "a") (list (Own (Written "a")))) #f)))))
    (else)))

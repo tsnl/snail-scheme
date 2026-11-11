@@ -19,7 +19,7 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 | `expand` | library | Outline, Offer | Expanded, Offer | Macros run, every name is resolved, every core form is parsed. | implemented |
 | `bind` | library | Expanded, Supply | Bound | Linked files and requests for other targets become what the build supplied. | implemented |
 | `derive` | library | Bound, Offer | Derived | `deriving` clauses become instance declarations. | implemented |
-| `declare` | library | Derived | Declared | Written types become types; declarations become entities. | in progress |
+| `declare` | library | Derived | Declared | Written types become types; declarations become entities. | implemented |
 | `dispatch` | library | Declared | Dispatched | `dispatch` clauses become method definitions. | planned |
 | `cohere` | library | Dispatched | nothing | No two instances that can be in scope together overlap on their input types. | planned |
 | `infer` | library | Dispatched | Inferred | Every node gets a type, with unknowns; constraints are recorded. | planned |
@@ -136,8 +136,10 @@ src/snail/compiler/
     host.sld              rule: what a host function may take
     buildable.sld         rule: whether a struct can be built
     members.sld           rule: which member of a class or an effect a label names
-    heads.sld             rule: what an instance's head and equations give its class
-    lifecycle.sld         rule: the type a Drop instance makes moved
+    heads.sld             rule: what an instance's head and equations give its class, its rows among them
+    determination.sld     rule: whether an instance's outputs are determined by its inputs and earlier requirements
+    lifecycle.sld         rule: what a Drop or a Clone instance may be, and the type a Drop instance makes moved
+    owned.sld             rule: who may take apart a value of a type with a Drop instance, or replace its fields
     identities.sld        rule: a case's TypeId
     state.sld             the numbers it hands out and what is known, declaring-let* and checked
     types.sld             part: written types, schemes and requirements
@@ -699,12 +701,10 @@ reported, in order.
 
 ### Declared, written by `declare` (implemented)
 
-`declare` is in progress: every declaration becomes its entity and every
-body is declared, with the old compiler's checks of types, kinds, heads,
-members, operations and their defaults, host functions, case identities
-and whether a struct can be built; the checks of an instance's head and
-lifecycle, and the Drop rules on taking apart and replacing, are still to
-come.
+Every declaration becomes its entity and every body is declared, with
+each of the old compiler's checks of them but an instance's overlap with
+another, which is `cohere`'s, and what a dispatch clause or a
+`dynamic-instances` may name, which is `dispatch`'s.
 
 Every written type is a `Type` and every signature a `Scheme`. A `Con` is a
 struct, an enum or a builtin of (snail core forms), at as many arguments as
@@ -741,7 +741,19 @@ method's own scheme. An operation's type quantifies nothing and never
 names its own effect, and a control operation's is total and has no
 default; no operation has two. A host function takes a String or Bytes
 only last. An instance has a Global of its own and gives each of its
-class's parameters, its outputs in place of its equations. Each label of a
+class's parameters, its outputs in place of its equations: a row, closed
+or ending with a variable its requirements give a row class, for each
+parameter known to be a row where it is written, and a type for every
+other. An instance of a class with outputs has them determined by the
+variables its head gives the other parameters and by its requirements in
+order. A Drop or a Clone instance, a lifecycle instance, is in no named
+instance set; its row performs no control effect known where it is
+written; beside Copy, either its row is closed and it requires nothing, or
+its row ends with a variable and it requires its own class, at that
+variable and one of its variables, once at least and nothing else; and it
+is for a declared type of its own library at distinct variables. A pattern's
+constructor, a `case-id`'s and a reference to a replacer, `Name-field-set`,
+of a type with a Drop instance are in that type's library. Each label of a
 method definition, a default and a handler clause is the member it names.
 A `case-id` is its case and that case's TypeId. Each definition carries
 the last signature written for it.
@@ -880,6 +892,24 @@ reached, each struct, in the order written, is one a program can build,
 whose every value does not hold another through struct fields, refused at
 its name, and the first such struct stops the library before any body.
 
+An instance's head is checked once its methods are declared, each refusal
+at the instance, in the old compiler's order: that its head and outputs
+give each of its class's parameters; that a lifecycle instance is in no
+named instance set; for a class with outputs, that each requirement's
+selecting arguments are determined by those before it, and then that the
+outputs and the variables the head's rows end with are determined, no
+output being such a variable; then each of its class's parameters in
+order, outputs last, a row or a type as its kind asks, a lifecycle
+instance's row label by label; then a lifecycle instance's requirements,
+each in order, or another instance's rows against its requirements of row
+classes; and last a lifecycle instance's type. The class is as known where
+the instance is, and an effect a lifecycle row names is checked only when
+it is known there, so one declared after the instance goes unchecked, as
+in the old compiler. A body refuses a value of another library's type with
+a Drop instance where it is taken apart or has a field replaced: a match
+clause's pattern before its body, a constructor before the patterns it is
+given, and a `case-id`'s constructor before its case is found.
+
 ### Typed, written by `settle` (sketch)
 
 Every node has a type and every use of a global its instantiation.
@@ -994,7 +1024,9 @@ one line each, with its reason:
   first. `(List Missing Missing)` is "not a type: Missing", where the old
   expander says the number of type arguments is wrong, since arity is
   `declare`'s to check; a handler clause's value is expanded before
-  `declare` asks whether its label is an operation of the effect.
+  `declare` asks whether its label is an operation of the effect; an
+  instance that overlaps another and has a head `declare` refuses is
+  refused for its head, where the old compiler reports the overlap first.
 - The field functions and the `Class.Output` names of a declaration that
   a macro's template writes are visible to that expansion, as the old
   expander's comment intends; its code leaves them unreachable. No macro
@@ -1052,12 +1084,19 @@ one line each, with its reason:
   that spells the case's Global with its serial; the old compiler spells
   the stamp of the macro's use, which no new pass has. None of the
   programs `make compare-compiler` expands writes a `case-id` of one.
-- A requirement that does not give each of its class's parameters is
-  refused with the class's name as written; the old compiler spells the
-  text after the last colon of the class's unique name, which differs for
-  a name that holds a colon, and for a name a macro's template wrote,
-  whose unique name holds its mark's stamp. Names are data, so `declare`
-  reads no name's text.
+- A requirement that does not give each of its class's parameters, and
+  an instance whose head `declare` refuses, are refused with the class's
+  name as written, as are a lifecycle row's control effect and a type
+  with a Drop instance with their names; the old compiler spells the
+  text after the last colon of the unique name, which differs for a name
+  that holds a colon, and for a name a macro's template wrote, whose
+  unique name holds its mark's stamp. Names are data, so `declare` reads
+  no name's text.
+- When a lifecycle instance's row names two effects with control
+  operations, the first in the order of their Globals is refused; the old
+  compiler refuses the first by its unique name's text, which can differ
+  where one library's name begins another's, as `(a)` and `(a b)` do. No
+  program in the repository names two.
 
 The integrator compiles everything on each build. Reuse between builds, which
 the old session provided, returns with the incremental work that follows the

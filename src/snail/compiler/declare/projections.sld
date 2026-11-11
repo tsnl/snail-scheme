@@ -47,17 +47,6 @@
         ((ClassRequirement (FieldClass _) _) (Nil))
         ((CallableRequirement _ _ _) (Nil))))
 
-    ;; The types given the written parameters that are not rows; `types`
-    ;; may give the outputs after them, which are left out.
-    (: selecting (impl (Fn ClassShape (List Type) -> (List Type))))
-    (define (selecting shape types)
-      (map ::second
-           (filter (lambda (pair)
-                     (match (::first pair)
-                       ((TypeParameter _) #t)
-                       ((RowParameter _) #f)))
-                   (zip (::parameters shape) types))))
-
     ;; What a requirement's `types` give `output`: the type after the
     ;; written parameters, at the output's position among the class's
     ;; outputs. `expand` resolves `Class.Output` only to an output of the

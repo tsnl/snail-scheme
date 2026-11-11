@@ -4,9 +4,11 @@
 ;; `builtin-types`, in its order, but for `fn`, which (snail core forms)
 ;; offers as a keyword: `(fn ...)` is Code, never a type's name. The
 ;; adapter compares the two. The builtin types a rule names by their
-;; Globals: String, and Vector and U8, which make Bytes. And the one class
-;; of another library the compiler knows by its Global: Drop, of (snail core
-;; base), whose instance makes its type's values moved.
+;; Globals: String, and Vector and U8, which make Bytes. And the classes of
+;; another library the compiler knows by their Globals: Drop and Clone, of
+;; (snail core base), the lifecycle classes, whose instances say how a
+;; value of their type is dropped and cloned; a Drop instance makes its
+;; type's values moved.
 (define-library (snail compiler declare forms)
   (export
    forms-library
@@ -15,7 +17,8 @@
    string-type
    vector-type
    u8-type
-   drop-class)
+   drop-class
+   clone-class)
   (import
    (snail core base)
    (only (snail compiler outline language) LibraryName)
@@ -78,6 +81,10 @@
     (define drop-class
       (Global (list "snail" "core" "base") "Drop" 0))
 
+    (: clone-class Global)
+    (define clone-class
+      (Global (list "snail" "core" "base") "Clone" 0))
+
     )
 
   ;; ---- Tests ----
@@ -100,5 +107,5 @@
         (expect
          (map (lambda (global) (builtin-arity global)) (list string-type vector-type u8-type))
          (list (Some 0) (Some 1) (Some 0)))
-        (expect (::name drop-class) "Drop"))))
+        (expect (map ::name (list drop-class clone-class)) (list "Drop" "Clone")))))
    (else)))
