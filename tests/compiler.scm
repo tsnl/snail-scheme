@@ -2,8 +2,10 @@
 ;; that has logic tests itself, with inputs built by hand. Given the
 ;; repository's root, it then compares the new passes with the old compiler
 ;; over every tracked library and the adapters' texts: the readers, the
-;; outlines, then loading's problems, then the offer of (snail core forms). `make test-compiler` runs it all;
-;; the comparisons that expand whole programs are tests/compare-compiler.sld.
+;; outlines, then loading's problems, then the offer of (snail core forms),
+;; then the SHA-256 the integrator names linked files by. `make
+;; test-compiler` runs it all; the comparisons that expand whole programs
+;; are tests/compare-compiler.sld.
 ;;
 ;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/compiler.scm [ROOT]
 (import
@@ -48,9 +50,14 @@
  (only (snail compiler expand links) test-links)
  (only (snail compiler expand targets) test-targets)
  (only (snail compiler expand derives) test-derives)
+ (rename (only (snail compiler bind state) test-state) (test-state test-bind-state))
+ (only (snail compiler bind pass) test-bind)
+ (only (snail compiler bind placed) test-placed)
  (only (snail compiler integrate files) test-files)
+ (only (snail compiler integrate sha256) test-sha256)
  (only (snail compiler integrate walk) test-walk)
  (only (snail compiler integrate load) test-load)
+ (only (snail compiler integrate bind) test-bind-expanded)
  (only (snail compiler integrate expand) test-expand-loaded)
  (only (snail compiler adapter read)
        read-difference
@@ -70,7 +77,8 @@
  (only (snail compiler adapter load)
        load-cases
        load-case-comparison)
- (only (snail compiler adapter expand) forms-difference))
+ (only (snail compiler adapter expand) forms-difference)
+ (only (snail compiler adapter sha256) digest-difference))
 
 ;; ---- Unit tests ----
 
@@ -109,9 +117,14 @@
   (test-links)
   (test-targets)
   (test-derives)
+  (test-bind-state)
+  (test-bind)
+  (test-placed)
   (test-files (string-append root "/build/test-compiler/files"))
+  (test-sha256)
   (test-walk)
   (test-load (string-append root "/build/test-compiler/load"))
+  (test-bind-expanded (string-append root "/build/test-compiler/bind"))
   (test-expand-loaded (string-append root "/build/test-compiler/expand"))
   (report "the new compiler's unit tests passed"))
 
@@ -247,6 +260,15 @@
      (report (string-append "the offer of (snail core forms) differs: " difference))
      #f)))
 
+(define (compare-digests)
+  (match (digest-difference)
+    ((None)
+     (report "compared the new SHA-256 with the old: no differences")
+     #t)
+    ((Some difference)
+     (report (string-append "the SHA-256 differs: " difference))
+     #f)))
+
 ;; ---- Main ----
 
 (define (report line)
@@ -261,6 +283,7 @@
            (readers (compare-readers root files))
            (outlines (compare-outlines root files))
            (loads (compare-loads root))
-           (forms (compare-forms)))
-      (unless (and readers outlines loads forms)
+           (forms (compare-forms))
+           (digests (compare-digests)))
+      (unless (and readers outlines loads forms digests)
         (exit 1)))))

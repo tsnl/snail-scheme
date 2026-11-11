@@ -4,8 +4,10 @@
 ;; suite's programs load with the directories tests/run.scm gives that
 ;; suite: how far each loads is counted, and the libraries of each that
 ;; loads completely are compared, in order, with the old expansion's;
-;; then each such program is expanded, and compared with the old
-;; expansion as (snail compiler adapter expansion) says.
+;; then each such program is expanded and bound, and compared with the old
+;; expansion as (snail compiler adapter expansion) says. Last, the
+;; SHA-256 the integrator names linked files by is compared with the old
+;; one compiled, as tests/compiler.scm compares them on Chibi.
 (import
  (snail core base)
  (snail core io)
@@ -15,7 +17,8 @@
  (snail compiler integrate load)
  (snail compiler adapter outline)
  (snail compiler adapter load)
- (snail compiler adapter expansion))
+ (snail compiler adapter expansion)
+ (snail compiler adapter sha256))
 
 ;; ---- Suites ----
 
@@ -184,4 +187,7 @@
   (if (any? (lambda (finding) (string=? (order-kind (::order finding)) "other differences"))
             findings)
       (panic "the orders differ")
-      (unit)))
+      (unit))
+  (match (digest-difference)
+    ((None) (write-line "compared the new SHA-256 with the old: no differences"))
+    ((Some difference) (panic (string-append "the SHA-256 differs: " difference)))))

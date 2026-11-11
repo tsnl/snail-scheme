@@ -17,7 +17,7 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 | `include` | file | Syntax | Syntax | Each `include-bytes` form becomes the bytes of its file. | implemented |
 | `outline` | file | Syntax | Outline | The header is parsed: name, imports, exports. The body stays Syntax. | implemented |
 | `expand` | library | Outline, Offer | Expanded, Offer | Macros run, every name is resolved, every core form is parsed. | implemented |
-| `bind` | library | Expanded | Bound | Linked files and requests for other targets become what the build supplied. | planned |
+| `bind` | library | Expanded, Supply | Bound | Linked files and requests for other targets become what the build supplied. | implemented |
 | `derive` | library | Bound | Derived | `deriving` clauses become instance declarations. | planned |
 | `declare` | library | Derived | Declared | Written types become types; declarations become entities. | planned |
 | `dispatch` | library | Declared | Dispatched | `dispatch` clauses become method definitions. | planned |
@@ -73,7 +73,7 @@ only checks, as `confine` does, writes nothing.
 
 ```text
 src/snail/compiler/
-  source.sld              (snail compiler source): Loc, Feedback, result-let*, map-results
+  source.sld              (snail compiler source): Loc, beside, Feedback, result-let*, map-results
   read/
     language.sld          (snail compiler read language): the Syntax language
     pass.sld              (snail compiler read pass): the function `read`
@@ -105,15 +105,23 @@ src/snail/compiler/
     declarations.sld      part: signatures, declarations, then every body
     pass.sld              (snail compiler expand pass): the function `expand`
     subexpressions.sld    query: every expression of a library
-    links.sld             query: the files a library links
-    targets.sld           query: the targets a library asks for
+    links.sld             query: the files a library links, and when two are one
+    targets.sld           query: the targets a library asks for, and where first
     derives.sld           query: whether, and where first, a library derives
+  bind/
+    language.sld          Bound, the tree it writes
+    supply.sld            Supply, what the integrator found for a library
+    state.sld             the numbers it hands out, a copy's renaming, and numbering-let*
+    pass.sld              (snail compiler bind pass): the function `bind`
+    placed.sld            query: the files the build places beside the program
   ...
   integrate/              the integrator: one library per job
     files.sld             (snail compiler integrate files): every read of the file system
     walk.sld              (snail compiler integrate walk): what to load next, and in what order
     load.sld              (snail compiler integrate load): a program and the libraries it reaches
-    expand.sld            (snail compiler integrate expand): each loaded library expanded, in order
+    sha256.sld            (snail compiler integrate sha256): the digest a linked file is named by
+    bind.sld              (snail compiler integrate bind): one library's files found, then bound
+    expand.sld            (snail compiler integrate expand): each loaded library expanded and bound, in order
 ```
 
 Each pass is a folder. `language.sld` holds the language the pass writes:
@@ -360,8 +368,9 @@ Label       ::= Label name
 ```
 
 `LinkedFile` and `ArtifactFiles` stay in the tree. Queries over Expanded
-gather them for the integrator, which reads the files and builds the other
-targets, and `bind` then replaces each with what the integrator supplied.
+gather them for the integrator, which reads the files and finds the other
+targets' files among those its caller supplied, and `bind` then replaces
+each with what the integrator found.
 A third query says whether a library derives an instance: the integrator
 then loads and expands the libraries `derive` writes instances with,
 (snail core primitive) and (snail shell wire), before that library, where
@@ -432,6 +441,102 @@ Denotation  ::= LocalValue Local | LocalMacro Macro
 Macro       ::= Macro MacroId Marked* Marked*                   no Loc
 MacroId     ::= MacroId library number                          no Loc
 ```
+
+### Bound, written by `bind` (implemented)
+
+No `LinkedFile` and no `ArtifactFiles` remains. Each file a library links
+is declared once, by a `LinkImport` among the library's first tops, in
+the order the library first names its files and at the place it first
+names this one: its Global, named `link-handle` with a serial of its own,
+is bound to the import from `snail.runtime.link` named for the SHA-256
+of the file's bytes in lowercase hex, a function of no arguments that
+answers the file's handle as an `I32`. It holds the path as the library
+wrote it, as canonical names, and the file where the build found it. Each
+`(link-handle "path")` is a call of that Global with no arguments, at the
+form. A request for a target's files is the list of them: for each file,
+in the order the build supplied them, `(prepend (file path bytes) rest)`,
+ending in `(empty)`, each call at the request. The first file's `prepend`
+and `file` are the expressions `expand` wrote, and each later file's are
+copies with locals of their own, as the old expander expands the form
+again for each file, so every `Local`'s number is still unique in its
+library. The root's `first-unused-number` counts the handles' serials and
+the copies' locals.
+
+Bound declares afresh the rules `bind` looks inside, which are those that
+hold an expression or a pattern, and reuses Expanded's for the rest:
+`Field`, `Case`, `Derivation`, `Member`, `Operation`, `PrimitiveType`,
+`Annotation`, `Constant`, the types, `Scheme`, `Requirement`, `ClassRef`,
+`Equation`, `Local`, `Global`, `TopValue` and `Label`.
+
+```text
+Bound       ::= Defined library Top* first-unused-number
+              | Program Top* Expr? first-unused-number          no Loc
+Top         ::= LinkImport Global name* digest file
+              | Define Global Expr
+              | Signature TopValue Scheme Annotation*
+              | Statement Expr                                  no Loc but its expression's
+              | Expose TopValue symbol dynamic?
+              | Struct Global parameter* Field* Derivation* Annotation*
+              | Enum Global parameter* Case* Derivation* Annotation*
+              | Alias Global parameter* Annotation*
+              | Class Global parameter* Member* Annotation*
+              | TopInstance Instance                            no Loc but its instance's
+              | InstanceSet Global SetMember*
+              | InstanceScope Global* Top*
+              | Extern Global module symbol TypeExpr Annotation*
+              | Effect Global Operation* Default* around-main? Annotation*
+              | Primitive Global PrimitiveType
+Instance    ::= Instance ClassRef variable* TypeExpr* Requirement* Equation* InstanceBody
+InstanceBody ::= Dispatch TypeExpr* | Methods InstanceMethod*   Methods: no Loc
+InstanceMethod ::= InstanceMethod Label Expr                    no Loc but its label's
+SetMember   ::= SetInstance Instance                            no Loc but its instance's
+              | DynamicInstances ClassRef (TypeExpr*)*
+Default     ::= Default Label Expr
+
+Expr        ::= Literal Constant | LocalRef Local | TopRef TopValue
+              | Path label* | PathApply label* Expr
+              | Lambda Local* Expr | ClosedLambda Local* Expr | Call Expr Expr*
+              | If Expr Expr Expr | Seq Expr Expr
+              | Let Local Scheme? Expr Expr | LocalSignature Scheme Expr
+              | Match Expr Clause* | Handle Global Implementation* Expr
+              | WithInstances Global* Expr
+              | Ann Expr TypeExpr | Convert Expr TypeExpr | TryConvert Expr TypeExpr
+              | TypeTest Expr TypeExpr | CaseId TopValue
+Clause      ::= Clause Pattern Expr
+Implementation ::= Implementation Label Expr
+Pattern     ::= Wild | Bind Local | Equals Datum | Destructure TopValue Pattern*
+```
+
+A query over Bound, `placed-files`, answers what the build must place
+beside the program for a library, as the old `library-links` does: each
+`LinkImport`'s digest and file, once for each digest, in order.
+
+### Supply, what the integrator hands `bind` (implemented)
+
+For one expanded library: a `FoundLink` for each path its links write,
+once for each path, in the order first written and at that place, with
+the file it names beside the file that writes it and the SHA-256 of that
+file's bytes; and the files of each target it asks for, as the caller
+supplied them, relative paths with their bytes in path order. Two links
+of one path that name different files, and a linked file that is not
+there, are the integrator's problems, with the old messages at the old
+places, so `bind` cannot fail. A target the caller did not supply is no
+failure of the program: the integrator stops at the first library that
+asks for one and answers the targets it waits for, as the old compiler
+asks its caller for an input, and binds nothing.
+
+```text
+Supply      ::= Supply FoundLink* TargetFiles*                  no Loc
+FoundLink   ::= FoundLink name* digest file
+TargetFiles ::= TargetFiles target TargetFile*                  no Loc
+TargetFile  ::= TargetFile path bytes                           no Loc
+```
+
+The integrator binds each library as soon as it expands, before it
+expands the next, so a library's problems with its links come before a
+later library's, as the old expander finds them. The implicit libraries
+a deriving clause needs are expanded and bound after the library that
+derives expands and before it is bound.
 
 ### Typed, written by `settle` (sketch)
 
@@ -510,13 +615,17 @@ which read and write files as the old functions they call do.
 At each milestone the new passes become the default path, and `make test`,
 `make test-chibi`, `make bootstrap` and `make check` pass before the next
 begins. Between milestones a pass is judged by its own tests and by a
-comparison with the old pass that does its job. For `expand`, `make
-compare-compiler` expands every suite program that loads completely and
-compares it with the old expansion: both succeed or both fail; failures
-by their first problem, message and place, and every problem when the old
-expander reports several; successes library by library, in order, by
-their exports, their written definitions and each one's value in a
-normal form, and by what the queries answer.
+comparison with the old pass that does its job. For `expand` and `bind`,
+`make compare-compiler` expands and binds every suite program that loads
+completely, with stand-in files for each target it asks for, handed to
+the old expander too, and compares it with the old expansion: both
+succeed or both fail; failures by their first problem, message and
+place, and every problem when the old expander reports several;
+successes library by library, in order, by their exports, their written
+definitions and each one's value in a normal form, by each linked file's
+import and the files to place beside the program, and by what the
+queries answer. It also compares the integrator's SHA-256 with the old
+one, compiled, as `make test-compiler` does on Chibi.
 
 The language the compiler accepts does not change during the replacement,
 so every existing program stays an oracle.

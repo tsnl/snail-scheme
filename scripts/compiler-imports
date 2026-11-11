@@ -17,6 +17,7 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 ;;   (snail compiler PASS language)   a pass's language
 ;;   (snail compiler expand marked)   expand's working syntax, a language
 ;;   (snail compiler expand offer)    what expand offers, a language
+;;   (snail compiler bind supply)     what the build supplies bind, a language
 ;;   (snail compiler PASS pass)       a pass
 ;;   (snail compiler PASS ...)        a query, if its file's first line
 ;;                                    starts ";; Query:", and else a rule
@@ -78,10 +79,11 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 ;; A pass with languages beyond language.sld names them here, by the last
 ;; part of their libraries' names: `expand` writes its tree in
 ;; language.sld, what a library offers the libraries that import it in
-;; offer.sld, and works in the marked syntax of marked.sld. These may read
+;; offer.sld, and works in the marked syntax of marked.sld; `bind` reads
+;; what the integrator found for a library in supply.sld. These may read
 ;; the pass's other languages.
 (define more-languages
-  '((expand marked) (expand offer)))
+  '((expand marked) (expand offer) (bind supply)))
 
 (define (more-language? pass part)
   (member (list pass part) more-languages))

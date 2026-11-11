@@ -1,20 +1,29 @@
 ;; Query: the targets a library asks for, each the target an
-;; `artifact-files` form names, in the order written, once each.
+;; `artifact-files` form names, in the order written, once each, at the
+;; first form that names it.
 (define-library (snail compiler expand targets)
   (export
+   TargetRequest
    requested-targets)
   (import
    (snail core base)
+   (snail compiler source)
    (snail compiler expand language)
    (snail compiler expand subexpressions))
   (begin
 
-    (: requested-targets (impl (Fn Expanded -> (List String))))
+    ;; A target a library asks for the files of, where it first asks.
+    (struct TargetRequest
+      ((target String)
+       (loc Loc)))
+
+    (: requested-targets (impl (Fn Expanded -> (List TargetRequest))))
     (define (requested-targets expanded)
-      (delete-duplicates string=?
+      (delete-duplicates (lambda (request other) (string=? (::target request) (::target other)))
                          (concatenate (map (lambda (expr)
                                              (match expr
-                                               ((ArtifactFiles target _ _ _ _) (list target))
+                                               ((ArtifactFiles target _ _ _ loc)
+                                                (list (TargetRequest target loc)))
                                                (_ (Nil))))
                                            (library-expressions expanded)))))
 
@@ -27,11 +36,12 @@
     (export
      test-targets)
     (import
-     (snail compiler source)
      (snail stage0 testing))
     (begin
       (define (test-targets)
-        (expect (requested-targets library) (list "site")))
+        (expect (requested-targets library)
+                (list (TargetRequest "site" (Loc "t.sld" 2 1))
+                      (TargetRequest "docs" (Loc "t.sld" 4 1)))))
 
       (define loc (Loc "t.sld" 1 1))
 
@@ -40,26 +50,29 @@
       (define (global name)
         (Global a name 0))
 
-
       (define link (LinkedFile (list "data" "x.bin") (Loc "a/t.sld" 2 3) loc))
 
-      (define files
-        (ArtifactFiles "site"
+      (define (files target at)
+        (ArtifactFiles target
                        (TopRef (TopGlobal (global "f")) loc)
                        link
                        (Literal (UnitValue) loc)
-                       loc))
+                       at))
 
-      ;; A library whose definition links a file inside a request for the
-      ;; files of "site", twice, and whose program body asks again.
+      ;; A library whose definition asks for the files of "site" twice,
+      ;; then for those of "docs", and whose statement asks for "site"
+      ;; again.
       (define library
         (Defined a
-          (list (Define (global "x") (Lambda (list) (Call files (list files) loc) loc) loc)
-                (InstanceScope (list)
-                               (list
-                                (Statement (Call (TopRef (TopGlobal (global "g")) loc) (list) loc)))
-                               loc))
+          (list (Define (global "x")
+                  (Lambda (list)
+                          (Call (files "site" (Loc "t.sld" 2 1))
+                                (list (files "site" (Loc "t.sld" 3 1))
+                                      (files "docs" (Loc "t.sld" 4 1)))
+                                loc)
+                          loc)
+                  loc)
+                (InstanceScope (list) (list (Statement (files "site" (Loc "t.sld" 5 1)))) loc))
           1
-          loc))
-      ))
+          loc))))
    (else)))
