@@ -22,6 +22,7 @@
    build-engine
    build-editor-tools
    build-book-tools
+   build-format-tools
    bootstrap!
    standard-directories
    with-private-directory
@@ -730,6 +731,13 @@
       (list (build-tool root
                         (path-join root "bootstrap/highlight-book.sld")
                         (path-join root "build/book-tools/highlight-book.wasm")
+                        (standard-directories root))))
+
+    ;; The command-line formatter uses the same library as the browser editor.
+    (define (build-format-tools root)
+      (list (build-tool root
+                        (path-join root "bootstrap/format.sld")
+                        (path-join root "build/format-tools/format.wasm")
                         (standard-directories root))))
 
     ;; A program the tools run, built from `source` with the libraries in

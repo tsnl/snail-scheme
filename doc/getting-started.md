@@ -17,13 +17,14 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | Chibi Scheme, with its libraries | 0.12 | Running the compiler's source for the first bootstrap, and the build scripts. |
 | Rustup | Rust 1.95.0 | The runtime services linked into every program, and the assembler/linker. `rust-toolchain.toml` names the version and the `wasm32-wasip1` target, which rustup installs on first use. |
 | Node.js | 26 | Running programs under WASI, and `snail dev`. |
-| Emacs | 31 | The Scheme formatter, which `make check` runs and `make test` tests. |
 | nixfmt | 1.4 | `make check`'s formatting of `shell.nix`. |
 | mdBook | 0.5.4 | `make pages`, the book. |
 | Chromium | | `make test-browser` and `tests/browser/page.mjs`. Set `CHROMIUM` to its path when it isn't `chromium`. |
 
-The first four compile and run programs; the rest run the checks and build
-the site. An older Chibi may lack libraries the compiler uses. The [source recipes](#source-recipes) build the versions CI uses.
+The first four compile and run programs, including the Scheme formatter used
+by `make check`; the rest format Nix and build or test the site. An older Chibi
+may lack libraries the compiler uses. The [source recipes](#source-recipes)
+build the versions CI uses.
 
 ## With Nix
 
@@ -62,7 +63,7 @@ haven't been run on that system.
 
 ```sh
 sudo apt update
-sudo apt install git curl ca-certificates build-essential emacs-nox
+sudo apt install git curl ca-certificates build-essential
 ```
 
 Ubuntu's Chibi package is older than CI's: build it from
@@ -76,7 +77,7 @@ the [source recipes](#source-recipes). Install Node 26 from
 <summary>Fedora — dnf</summary>
 
 ```sh
-sudo dnf install git curl ca-certificates gcc make emacs-nox rustup
+sudo dnf install git curl ca-certificates gcc make rustup
 rustup-init
 ```
 
@@ -90,7 +91,7 @@ doesn't package it yet. Unverified.
 <summary>Arch Linux — pacman</summary>
 
 ```sh
-sudo pacman -Syu --needed base-devel git curl emacs-nox rustup nodejs
+sudo pacman -Syu --needed base-devel git curl rustup nodejs
 ```
 
 Arch's `nodejs` follows upstream releases. Build Chibi from
@@ -103,7 +104,7 @@ the [source recipe](#source-recipes). Unverified.
 
 ```sh
 xcode-select --install
-brew install git make chibi-scheme node rustup emacs
+brew install git make chibi-scheme node rustup
 export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
 ```
 
