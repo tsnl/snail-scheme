@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-wasmtime test-chibi test-browser bootstrap ide site siegework hearsay pages
+.PHONY: format check fetch test test-compiler test-wasmtime test-chibi test-browser bootstrap ide site siegework hearsay pages
 
 CHIBI ?= chibi-scheme
 # Chibi collects the whole heap whenever it grows, so start it large.
@@ -23,8 +23,16 @@ fetch:
 # Build shared tools before the service tests' startup deadlines begin.
 test:
 	./scripts/chibi-paths --check
+	CHIBI="$(CHIBI)" ./scripts/compiler-imports --check
 	./scripts/snail-tool dev-tools >/dev/null
 	"$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"
+
+# The new compiler's unit tests on Chibi, then its comparisons with the old
+# compiler over every tracked library.
+test-compiler:
+	./scripts/chibi-paths --check
+	CHIBI="$(CHIBI)" ./scripts/compiler-imports --check
+	"$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/compiler.scm "$(CURDIR)"
 
 # The suite with every compile on the native executable's wasmtime instead of
 # Node, plus the check that both engines emit the same text.
@@ -34,6 +42,7 @@ test-wasmtime:
 # The suite with the compiler's source running on Chibi instead of as Wasm.
 test-chibi:
 	./scripts/chibi-paths --check
+	CHIBI="$(CHIBI)" ./scripts/compiler-imports --check
 	SNAIL_STAGE0=chibi ./scripts/snail-tool dev-tools >/dev/null
 	SNAIL_STAGE0=chibi "$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"
 
@@ -59,6 +68,7 @@ test-browser:
 # Rebuilds the compiler from its source on Chibi, then to a fixpoint.
 bootstrap:
 	./scripts/chibi-paths --check
+	CHIBI="$(CHIBI)" ./scripts/compiler-imports --check
 	rm -rf build/compiler
 	./scripts/snail-tool bootstrap
 

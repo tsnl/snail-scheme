@@ -10,28 +10,29 @@ The compiler is a sequence of small passes. Each does one thing and writes
 its result in a language of its own, so the table below is the compiler's
 outline: read it top to bottom to follow a program from text to WebAssembly.
 
-| # | Pass | Unit | Reads | Writes | The one thing it does | Status |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | `read` | file | text | Syntax | Text becomes located forms. | planned |
-| 2 | `outline` | file | Syntax | Outline | The header is parsed: name, imports, exports. The body stays Syntax. | planned |
-| 3 | `expand` | library | Outline | Expanded | Macros run, every name is resolved, every core form is parsed. | planned |
-| 4 | `derive` | library | Expanded | Derived | `deriving` clauses become instance declarations. | planned |
-| 5 | `declare` | library | Derived | Declared | Written types become types; declarations become entities. | planned |
-| 6 | `dispatch` | library | Declared | Dispatched | `dispatch` clauses become method definitions. | planned |
-| 7 | `infer` | library | Dispatched | Inferred | Every node gets a type, with unknowns; constraints are recorded. | planned |
-| 8 | `solve` | library | Inferred | Solved | Every recorded constraint is decided. | planned |
-| 9 | `settle` | library | Solved | Typed | Every unknown is replaced. | planned |
-| 10 | `convert` | library | Typed | Converted | Conversions become tests, boxes and unboxes. | planned |
-| 11 | `close` | library | Converted | Closed | Each closure gets its captures, or is proved to have none. | planned |
-| 12 | `place` | library | Closed | Placed | `set!` and `replace!` targets become places. | planned |
-| 13 | `borrow-check` | library | Placed | Owned | Each use of a local is a use or a loan; linear rules are checked. | planned |
-| 14 | `confine` | library | Owned | nothing | Functions that forbid `mut` mutate only what they allocate. | planned |
-| 15 | `specialize` | module | Owned | Concrete | Every type is ground; every call says what it calls. | planned |
-| 16 | `glue` | module | Concrete | Concrete | Drop, clone and share glue is written for requested types. | planned |
-| 17 | `restrict` | module | Concrete | nothing | A yield is refused where nothing can carry it. | planned |
-| 18 | `sequence` | module | Concrete | Sequenced | Each call that may yield is bound by a let. | planned |
-| 19 | `clean` | module | Sequenced | Prepared | Those lets and one-shot closures get their droppers. | planned |
-| 20 | backend | module | Prepared | Wasm | Still to be divided into passes. | planned |
+| Pass | Unit | Reads | Writes | The one thing it does | Status |
+| --- | --- | --- | --- | --- | --- |
+| `read` | file | text | Syntax | Text becomes located forms. | implemented |
+| `include` | file | Syntax | Syntax | Each `include-bytes` form becomes the bytes of its file. | planned |
+| `outline` | file | Syntax | Outline | The header is parsed: name, imports, exports. The body stays Syntax. | planned |
+| `expand` | library | Outline | Expanded | Macros run, every name is resolved, every core form is parsed. | planned |
+| `derive` | library | Expanded | Derived | `deriving` clauses become instance declarations. | planned |
+| `declare` | library | Derived | Declared | Written types become types; declarations become entities. | planned |
+| `dispatch` | library | Declared | Dispatched | `dispatch` clauses become method definitions. | planned |
+| `infer` | library | Dispatched | Inferred | Every node gets a type, with unknowns; constraints are recorded. | planned |
+| `solve` | library | Inferred | Solved | Every recorded constraint is decided. | planned |
+| `settle` | library | Solved | Typed | Every unknown is replaced. | planned |
+| `convert` | library | Typed | Converted | Conversions become tests, boxes and unboxes. | planned |
+| `close` | library | Converted | Closed | Each closure gets its captures, or is proved to have none. | planned |
+| `place` | library | Closed | Placed | `set!` and `replace!` targets become places. | planned |
+| `borrow-check` | library | Placed | Owned | Each use of a local is a use or a loan; linear rules are checked. | planned |
+| `confine` | library | Owned | nothing | Functions that forbid `mut` mutate only what they allocate. | planned |
+| `specialize` | module | Owned | Concrete | Every type is ground; every call says what it calls. | planned |
+| `glue` | module | Concrete | Concrete | Drop, clone and share glue is written for requested types. | planned |
+| `restrict` | module | Concrete | nothing | A yield is refused where nothing can carry it. | planned |
+| `sequence` | module | Concrete | Sequenced | Each call that may yield is bound by a let. | planned |
+| `clean` | module | Sequenced | Prepared | Those lets and one-shot closures get their droppers. | planned |
+| backend | module | Prepared | Wasm | Still to be divided into passes. | planned |
 
 A *file* is one source file. A *library* is one `define-library`, or a
 program's body, which is the library `main`. A *module* is one WebAssembly
@@ -87,10 +88,13 @@ The import rule keeps the folders apart, and `scripts/compiler-imports
 - A `language.sld` imports `(snail core base)`, `(snail core table)`,
   `(snail compiler source)` and the languages of earlier passes.
 - Any other library of a pass imports those, the libraries of its own
-  folder, and the languages and queries of other passes. It never imports
+  folder, and the languages and queries of earlier passes. It never imports
   another pass's `pass.sld` or rules.
 - Only the integrator imports a `pass.sld`, and only the integrator imports
   `(snail core io)`.
+
+A query library says so on its first line, which starts `;; Query:`. Any
+other library beside `language.sld` and `pass.sld` is a rule library.
 
 ## Conventions
 
@@ -113,7 +117,8 @@ language, and the language it writes without one:
 **The grammar comes first.** A `language.sld` opens with its grammar in the
 notation of this chapter, then one data definition per rule, in the
 grammar's order. The grammar says what the language guarantees that its
-predecessor did not.
+predecessor did not. A constructor cannot take the name of a type in scope,
+so a string literal's case is `Text`, not `String`.
 
 **Failure is a value.** A pass returns `(Result Output (List Feedback))`. A
 `Feedback` is a location and a message, and a failure holds at least one. A
@@ -143,13 +148,15 @@ with literal arguments.
 with a `Tests` section under the `snail-tests` feature, exporting one
 `test-<name>` entry point. A test constructs values of the input language
 directly and compares the output with `expect`. It reads no file and calls no
-other pass.
+other pass. `make test-compiler` runs these tests alone and, while the old
+compiler exists, the comparisons with it.
 
 **Stage 0 runs it.** The new tree is reached by Chibi through
 `bootstrap/chibi-include/`, so it uses only what both hosts agree on:
 `(snail core base)`, `(snail core table)`, no reliance on integer overflow or
 on the order of table keys. A constructor is never named `Cons` or `Nil`,
-which stage 0's `match` reserves for lists.
+which stage 0's `match` reserves for lists, and a step of `result-let*` is
+always named, since stage 0 cannot bind `_` there.
 
 ## Languages
 
@@ -158,11 +165,16 @@ Grammars use `::=` for a rule, `|` between alternatives, `*` for a list and
 constructor; a lower-case word is a field of the type its name suggests.
 Every node of a tree carries a `Loc` unless its grammar says otherwise.
 
-### Syntax, written by `read` (sketch)
+### Syntax, written by `read` (implemented)
+
+Every bracket is matched, `'d` is the form `(quote d)`, and each literal's
+value is decoded, with an integer that fits in `I64`. A float keeps its
+text, and a `Text` holds the characters a string literal stands for.
 
 ```text
 Syntax ::= Atom Datum | Ident name | Form Syntax*
-Datum  ::= Int | Float text | String | Char | Bytes | Bool | Unit
+Datum  ::= Integer integer | Float text | Text text | Character character
+         | ByteVector bytes | Boolean boolean
 ```
 
 ### Outline, written by `outline` (sketch)
@@ -263,7 +275,9 @@ This section goes when the last pass lands.
 The new tree is built beside the old one, front to back. `adapter/` in the
 new tree is the only code that knows both: it converts the newest finished
 language into the old compiler's data, so the old passes that remain run
-behind the new ones and the whole test suite keeps judging the result.
+behind the new ones and the whole test suite keeps judging the result. It
+may import any library of either compiler, and it also holds the
+comparisons between a new pass and the old code that does its job.
 
 | Milestone | New passes | The adapter hands the old compiler |
 | --- | --- | --- |
