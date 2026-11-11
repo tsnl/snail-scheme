@@ -1,0 +1,45 @@
+1. A variable
+  type: A
+  normal: x
+2. A call with an unknown function
+  type: A
+  normal: (app f x)
+3. An annotated identity
+  type: (Pi A A)
+  normal: (lambda #0)
+4. Beta reduction
+  type: A
+  normal: x
+5. A dependent identity
+  type: (Pi * (Pi #0 #1))
+  normal: (lambda (lambda #0))
+6. Instantiate the dependent identity
+  type: Nat
+  normal: (succ (succ zero))
+7. A type that computes
+  type: Nat
+  normal: zero
+8. Normalization beneath a binder
+  type: (Pi Nat Nat)
+  normal: (lambda #0)
+9. Natural-number elimination: 2 + 3
+  type: Nat
+  normal: (succ (succ (succ (succ (succ zero)))))
+10. A length-indexed vector
+  type: (Vec Nat (succ zero))
+  normal: (cons Nat zero (succ (succ zero)) (nil Nat))
+11. An index supplied by an earlier argument
+  type: (Vec Nat (succ zero))
+  normal: (cons Nat zero (succ (succ zero)) (nil Nat))
+12. Dependent vector elimination
+  type: (Vec Nat (succ zero))
+  normal: (cons Nat zero (succ (succ zero)) (nil Nat))
+13. Same length, zero head: result type Nat
+  type: Nat
+  normal: zero
+14. Same length, successor head: result type Nat -> Nat
+  type: (Pi Nat Nat)
+  normal: (lambda #0)
+15. Same length, unknown head: computation stays open
+  type: (nat-elim (lambda *) Nat (lambda (lambda (Pi Nat Nat))) h)
+  normal: (nat-elim (lambda (nat-elim (lambda *) Nat (lambda (lambda (Pi Nat Nat))) #0)) zero (lambda (lambda (lambda #0))) h)

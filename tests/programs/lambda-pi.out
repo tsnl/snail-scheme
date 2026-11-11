@@ -1,0 +1,5 @@
+binding, closures, beta conversion and no eta: ok
+checked declarations and immutable context snapshots: ok
+natural elimination, blocked neutrals and branch rejection: ok
+vectors, dependent induction, readback and index rejection: ok
+invalid terms rejected before evaluation: ok
