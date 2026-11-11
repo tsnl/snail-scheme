@@ -42,7 +42,8 @@
    (snail compiler declare language)
    (snail compiler declare offer)
    (snail compiler declare forms)
-   (snail compiler declare equality))
+   (snail compiler declare equality)
+   (only (snail compiler declare schemes) field-class-parameters))
   (begin
 
     ;; ---- What is known ----
@@ -110,7 +111,7 @@
     (: class-shape (impl (Fn Known ClassRef -> ClassShape)))
     (define (class-shape known class)
       (match class
-        ((FieldClass label) (ClassShape label (list (TypeParameter "R") (TypeParameter "T")) (Nil)))
+        ((FieldClass label) (ClassShape label field-class-parameters (Nil)))
         ((ClassGlobal global)
          (if (own? known global)
              (match (declared-class (::declared known) global)
