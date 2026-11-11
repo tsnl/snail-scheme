@@ -157,18 +157,18 @@
       (map (lambda (target)
              (match target
                ((ProgramTarget program)
-                (Target (::name program)
+                (Target (● program name)
                         #f
-                        (entry-source builder #f (::entry program))
-                        (library-directories builder (::libraries program))
-                        (::loc program)))
+                        (entry-source builder #f (● program entry))
+                        (library-directories builder (● program libraries))
+                        (● program loc)))
                ((BrowserTarget browser)
-                (Target (::name browser)
+                (Target (● browser name)
                         #t
-                        (entry-source builder #t (::entry browser))
-                        (library-directories builder (::libraries browser))
-                        (::loc browser)))))
-           (::builds (::description builder))))
+                        (entry-source builder #t (● browser entry))
+                        (library-directories builder (● browser libraries))
+                        (● browser loc)))))
+           (● (● builder description) builds)))
 
     ;; Entry selection emits ordinary source, so normal import resolution,
     ;; type checking and instance selection establish its contract. A digest
@@ -182,14 +182,14 @@
         ((SourceEntry path) (in-project builder path))
         ((ApplicationEntry library name)
          (let* ((text (application-source browser? library name))
-                (directory (string-append (::project builder) "/build/.snail-entry"))
+                (directory (string-append (● builder project) "/build/.snail-entry"))
                 (file
                  (string-append directory "/" (bytes->hex (sha256 (string->utf8 text))) ".sld")))
            (expect-done (make-directories directory) (string-append "cannot make " directory))
            (unless (file-exists? file)
              (let ((writing (string-append file ".writing."
                                            (bytes->hex
-                                            (sha256 (string->utf8 (::scratch builder)))))))
+                                            (sha256 (string->utf8 (● builder scratch)))))))
                (write-file writing text)
                (expect-done (rename-file writing file) (string-append "cannot place " file))))
            file))))
@@ -204,18 +204,18 @@
                      name (if browser? ")\n" ")))\n")))
 
     (define (in-project (builder Builder) (path ProjectPath)) (→ String)
-      (if (string=? (::text path) ".")
-          (::project builder)
-          (string-append (::project builder) "/" (::text path))))
+      (if (string=? (● path text) ".")
+          (● builder project)
+          (string-append (● builder project) "/" (● path text))))
 
     (define (library-directories (builder Builder) (roots (List ProjectPath))) (→ (List String))
       (append (map (lambda (root) (in-project builder root)) roots)
-              (list (string-append (::root (::tools builder)) "/src"))))
+              (list (string-append (● (● builder tools) root) "/src"))))
 
     (define (root-target (targets (List Target)) (file String) (name String))
       (→ Target)
       (! building)
-      (match (find (lambda (target) (string=? (::name target) name)) targets)
+      (match (find (lambda (target) (string=? (● target name) name)) targets)
         ((Some target) target)
         ((None) (fail-build (string-append "unknown project build target " name " in " file)))))
 
@@ -315,7 +315,7 @@
 
     (define (still-built (project Project) (retained (List Retained))) (→ (List Retained))
       (filter (lambda (entry)
-                (match (find-target (::builds project) (::name entry))
+                (match (find-target (● project builds) (● entry name))
                   ((Some _) #t)
                   ((None) #f)))
               retained))
@@ -327,11 +327,11 @@
         ((Err failure) (Pair (Err failure) retained))
         ((Ok plan)
          (let ((progress (run-waves builder plan (Progress no-inputs (Nil) (Nil) retained (None)))))
-           (Pair (outcome builder progress) (::retained progress))))))
+           (Pair (outcome builder progress) (● progress retained))))))
 
     (define (plan-roots (builder Builder) (names (List String))) (→ Plan) (! fs building)
       (let* ((targets (plan-targets builder))
-             (file (project-file (::project builder)))
+             (file (project-file (● builder project)))
              (roots (map (lambda (name) (root-target targets file name)) names))
              (printed (in-scratch builder "plan")))
         (expect-done (make-directories printed) (string-append "cannot make " printed))
@@ -340,13 +340,14 @@
     ;; A build that failed discards every generation it made.
 
     (define (outcome (builder Builder) (progress Progress)) (→ (Result Candidate Failure)) (! fs)
-      (match (::failure progress)
+      (match (● progress failure)
         ((Some failure)
-         (discard (map ::output (::generations progress)))
+         (discard (map (lambda (record) (● record output)) (● progress generations)))
          (Err failure))
         ((None)
-         (Ok (Candidate (::project builder)
-                        (map ::output (by-node (::generations progress))))))))
+         (Ok (Candidate (● builder project)
+                        (map (lambda (record) (● record output))
+                             (by-node (● progress generations))))))))
 
     ;; Runs each wave's phases in order. A wave that leaves phases waiting
     ;; has run the producers whose outputs they need, and the plan refined
@@ -356,19 +357,19 @@
       (→ Progress)
       (! mut fs clock process)
       (let* ((wave (next-phases plan))
-             (plan (::second wave))
+             (plan (● wave second))
              (progress (fold-left (lambda (progress entry) (run-phase builder plan entry progress))
                                   progress
-                                  (::first wave))))
+                                  (● wave first))))
         (if (and (phases-left? plan) (not (failed? progress)))
             (match (attempt (lambda ()
-                              (compiled (lambda () (refine-plan plan (::inputs progress))))))
+                              (compiled (lambda () (refine-plan plan (● progress inputs))))))
               ((Ok refined) (run-waves builder refined progress))
               ((Err failure) (Progress-failure-set progress (Some failure))))
             progress)))
 
     (define (failed? (progress Progress)) (→ Bool)
-      (match (::failure progress)
+      (match (● progress failure)
         ((Some _) #t)
         ((None) #f)))
 
@@ -386,26 +387,26 @@
     (define (phase-work (builder Builder) (plan Plan) (entry (Pair I64 Phase)) (progress Progress))
       (→ Progress)
       (! mut fs clock process building)
-      (let ((progress (supply-embedded builder (embedded-names plan (::first entry)) progress)))
-        (match (::second entry)
+      (let ((progress (supply-embedded builder (embedded-names plan (● entry first)) progress)))
+        (match (● entry second)
           ((ProducePhase producer)
            (Progress-inputs-set progress
                                 (produce builder
-                                         (::first entry)
+                                         (● entry first)
                                          producer
-                                         (::inputs progress))))
-          ((BuildPhase target) (build-target builder (::first entry) target progress)))))
+                                         (● progress inputs))))
+          ((BuildPhase target) (build-target builder (● entry first) target progress)))))
 
     ;; The targets whose files the phase at `node` embeds: the builds among
     ;; its needs, each built in an earlier wave, or earlier in this one.
 
     (define (embedded-names (plan Plan) (node I64)) (→ (List String))
-      (let ((steps (::steps plan)))
-        (match (::needs (vector-ref steps node))
+      (let ((steps (● plan steps)))
+        (match (● (vector-ref steps node) needs)
           ((Known nodes)
            (concatenate (map (lambda (need)
-                               (match (::phase (vector-ref steps need))
-                                 ((BuildPhase target) (list (::name target)))
+                               (match (● (vector-ref steps need) phase)
+                                 ((BuildPhase target) (list (● target name)))
                                  (_ (Nil))))
                              nodes)))
           ((Waiting _ _) (panic "internal error: a wave handed out a waiting phase")))))
@@ -417,22 +418,22 @@
       (→ Progress)
       (! fs building)
       (fold-left (lambda (progress name)
-                   (if (member? name (::supplied progress))
+                   (if (member? name (● progress supplied))
                        progress
                        (Progress-supplied-set
                         (Progress-inputs-set progress
-                                             (supply-artifact (::inputs progress)
+                                             (supply-artifact (● progress inputs)
                                                               name
                                                               (snapshot (generation-named progress
                                                                                           name))))
-                        (Cons name (::supplied progress)))))
+                        (Cons name (● progress supplied)))))
                  progress
                  names))
 
     (define (generation-named (progress Progress) (name String)) (→ Generation)
       (match (find
-              (lambda (generation) (string=? (::name (::output generation)) name))
-              (::generations progress))
+              (lambda (generation) (string=? (● (● generation output) name) name))
+              (● progress generations))
         ((Some generation) generation)
         ((None) (panic (string-append "internal error: the build plan embeds " name
                                       " before building it")))))
@@ -443,11 +444,11 @@
     ;; an embedded page is complete wherever it is served from.
 
     (define (snapshot (generation Generation)) (→ ArtifactFiles) (! fs building)
-      (let ((files (map (lambda (file) (Pair (::first file) (read-bytes (::second file))))
-                        (::files generation))))
+      (let ((files (map (lambda (file) (Pair (● file first) (read-bytes (● file second))))
+                        (● generation files))))
         (match (assoc-ref files "modules.json")
           ((Some bytes)
-           (with-objects (::directory (::output generation)) files bytes))
+           (with-objects (● (● generation output) directory) files bytes))
           ((None) files))))
 
     (define (with-objects (directory String) (files ArtifactFiles) (bytes Bytes))
@@ -456,9 +457,9 @@
       (match (manifest-json bytes)
         ((Some json)
          (let ((store (string-append directory "/" (json-text json "store"))))
-           (list-sort (lambda (a b) (string<? (::first a) (::first b)))
+           (list-sort (lambda (a b) (string<? (● a first) (● b first)))
                       (append (map (lambda (file)
-                                     (if (string=? (::first file) "modules.json")
+                                     (if (string=? (● file first) "modules.json")
                                          (Pair "modules.json"
                                                (string->utf8 (json->string (store-set json))))
                                          file))
@@ -491,7 +492,7 @@
       (match json
         ((JsonObject members)
          (JsonObject (map (lambda (member)
-                            (if (string=? (::first member) "store")
+                            (if (string=? (● member first) "store")
                                 (Pair "store" (JsonString "store/"))
                                 member))
                           members)))
@@ -508,7 +509,7 @@
         (_ (Nil))))
 
     (define (by-node (generations (List Generation))) (→ (List Generation))
-      (list-sort (lambda (a b) (< (::node a) (::node b))) generations))
+      (list-sort (lambda (a b) (< (● a node) (● b node))) generations))
 
     ;; ---- Targets ----
 
@@ -519,18 +520,18 @@
     (define (build-target (builder Builder) (node I64) (target Target) (progress Progress))
       (→ Progress)
       (! mut fs clock building)
-      (let* ((name (::name target))
+      (let* ((name (● target name))
              (directory (prepare-generation builder name))
              (program (removing directory
                                 (lambda () (build-program builder node target directory progress))))
-             (progress (Progress-retained-set progress (::retained program))))
+             (progress (Progress-retained-set progress (● program retained))))
         (match (attempt (lambda () (package builder target directory)))
           ((Ok files)
            (Progress-generations-set progress
                                      (Cons (Generation node
                                                        (program-output program name directory files)
                                                        files)
-                                           (::generations progress))))
+                                           (● progress generations))))
           ((Err failure)
            (remove-tree directory)
            (Progress-failure-set progress (Some failure))))))
@@ -567,10 +568,10 @@
         (Output name
                 directory
                 (generation-digest files digests)
-                (::compiled program)
-                (::modules program)
+                (● program compiled)
+                (● program modules)
                 digests
-                (::linked program))))
+                (● program linked))))
 
     ;; The target's program in its generation, with the files it links: one
     ;; module for a debug or release build, a module per library for a
@@ -586,13 +587,13 @@
       (in-working builder
                   node
                   (lambda (working)
-                    (match (::mode builder)
+                    (match (● builder mode)
                       ((Development) (develop-program builder target directory working progress))
                       (_
                        (let ((links (link-program builder
-                                                  (::entry target)
-                                                  (::directories target)
-                                                  (::inputs progress)
+                                                  (● target entry)
+                                                  (● target directories)
+                                                  (● progress inputs)
                                                   working
                                                   (string-append directory "/program.wasm"))))
                          (place-links (string-append directory "/store")
@@ -600,8 +601,8 @@
                                       links)
                          (Program 1
                                   1
-                                  (map ::path links)
-                                  (::retained progress))))))))
+                                  (map (lambda (record) (● record path)) links)
+                                  (● progress retained))))))))
 
     ;; A browser target's host files and public tree; then the files the
     ;; generation holds.
@@ -609,8 +610,8 @@
     (define (package (builder Builder) (target Target) (directory String))
       (→ (List (Pair String String)))
       (! fs building)
-      (when (::browser? target)
-        (package-browser builder (::name target) directory))
+      (when (● target browser?)
+        (package-browser builder (● target name) directory))
       (generation-files directory))
 
     ;; `work` in a directory of its own in the build's scratch, removed after.
@@ -626,7 +627,7 @@
           result)))
 
     (define (in-scratch (builder Builder) (name String)) (→ String)
-      (string-append (::scratch builder) "/" name))
+      (string-append (● builder scratch) "/" name))
 
     ;; ---- Programs ----
 
@@ -651,11 +652,11 @@
                                                                   loading
                                                                   forms))
                                               inputs)))))
-        (match (link (::text program)
-                     (read-bytes (::runtime (::tools builder))))
+        (match (link (● program text)
+                     (read-bytes (● (● builder tools) runtime)))
           ((Ok bytes) (write-bytes output bytes))
           ((Err message) (fail-build (string-append "cannot link program: " message))))
-        (::links program)))
+        (● program links)))
 
     ;; ---- Objects ----
 
@@ -673,7 +674,7 @@
       (→ (List (Pair String I64)))
       (! fs building)
       (map (lambda (link) (place-link store token link))
-           (delete-duplicates (lambda (a b) (string=? (::digest a) (::digest b)))
+           (delete-duplicates (lambda (a b) (string=? (● a digest) (● b digest)))
                               links)))
 
     ;; A file is named for the digest of the bytes its compile read, so the
@@ -683,7 +684,7 @@
     (define (place-link (store String) (token String) (link LinkedFile))
       (→ (Pair String I64))
       (! fs building)
-      (let ((from (::path link)) (digest (::digest link)))
+      (let ((from (● link path)) (digest (● link digest)))
         (unless (kind-is? from (RegularFile))
           (fail-build
            (string-append "cannot place the linked file " from ": there is no file there")))
@@ -715,7 +716,7 @@
     ;; The store a project's development builds share.
 
     (define (project-store (builder Builder)) (→ String)
-      (string-append (::project builder) "/build/.snail-store"))
+      (string-append (● builder project) "/build/.snail-store"))
 
     ;; What a manifest says of its store: the path, relative to the
     ;; manifest, with a trailing slash.
@@ -737,46 +738,46 @@
                              (progress Progress))
       (→ Program)
       (! mut fs building)
-      (let* ((previous (retained-for (::retained progress) target))
+      (let* ((previous (retained-for (● progress retained) target))
              (built (compiled (lambda ()
-                                (build-session (::session previous)
-                                               (::entry target)
+                                (build-session (● previous session)
+                                               (● target entry)
                                                (lambda (loading forms)
                                                  (generated-syntax working
-                                                                   (::directories target)
+                                                                   (● target directories)
                                                                    loading
                                                                    forms))
-                                               (::inputs progress)))))
-             (modules (assemble-modules (::first built) (::modules previous)))
-             (links (concatenate (map ::links (::first built)))))
+                                               (● progress inputs)))))
+             (modules (assemble-modules (● built first) (● previous modules)))
+             (links (concatenate (map (lambda (record) (● record links)) (● built first)))))
         (write-modules builder
                        directory
                        modules
                        (place-links (project-store builder) (base-name directory) links))
-        (Program (length (filter ::compiled? (::first built)))
+        (Program (length (filter (lambda (record) (● record compiled?)) (● built first)))
                  (length modules)
-                 (map ::path links)
-                 (Cons (Retained (::name target)
-                                 (::entry target)
-                                 (::directories target)
-                                 (::second built)
+                 (map (lambda (record) (● record path)) links)
+                 (Cons (Retained (● target name)
+                                 (● target entry)
+                                 (● target directories)
+                                 (● built second)
                                  modules)
                        (filter
-                        (lambda (entry) (not (string=? (::name entry) (::name target))))
-                        (::retained progress))))))
+                        (lambda (entry) (not (string=? (● entry name) (● target name))))
+                        (● progress retained))))))
 
     (define (retained-for (retained (List Retained)) (target Target)) (→ Retained)
       (match (find (lambda (entry)
-                     (and (string=? (::name entry) (::name target))
-                          (string=? (::entry entry) (::entry target))
-                          (same-strings? (::directories entry) (::directories target))))
+                     (and (string=? (● entry name) (● target name))
+                          (string=? (● entry entry) (● target entry))
+                          (same-strings? (● entry directories) (● target directories))))
                    retained)
         ((Some entry) entry)
         ((None)
-         (Retained (::name target)
-                   (::entry target)
-                   (::directories target)
-                   (make-session (::directories target))
+         (Retained (● target name)
+                   (● target entry)
+                   (● target directories)
+                   (make-session (● target directories))
                    (Nil)))))
 
     (define (same-strings? (a (List String)) (b (List String))) (→ Bool)
@@ -792,22 +793,22 @@
       (→ (List Assembled))
       (! building)
       (map (lambda (module)
-             (match (if (::compiled? module)
+             (match (if (● module compiled?)
                         (None)
                         (find (lambda (assembled)
-                                (string=? (::library assembled) (::name module)))
+                                (string=? (● assembled library) (● module name)))
                               previous))
                ((Some assembled) assembled)
                ((None) (assemble-module module))))
            built))
 
     (define (assemble-module (module Built)) (→ Assembled) (! building)
-      (let ((text (::text module)))
+      (let ((text (● module text)))
         (match (assemble text)
-          ((Ok bytes) (Assembled (::name module) (bytes->hex (sha256 bytes)) bytes))
+          ((Ok bytes) (Assembled (● module name) (bytes->hex (sha256 bytes)) bytes))
           ((Err message)
            (fail-build (string-append "internal error: cannot assemble the module of "
-                                      (::name module)
+                                      (● module name)
                                       ": "
                                       message))))))
 
@@ -823,9 +824,9 @@
       (! fs building)
       (let ((store (project-store builder))
             (token (base-name directory))
-            (runtime (read-bytes (::runtime (::tools builder)))))
+            (runtime (read-bytes (● (● builder tools) runtime))))
         (for-each (lambda (module)
-                    (place-object store token (::digest module) (::bytes module)))
+                    (place-object store token (● module digest) (● module bytes)))
                   modules)
         (let ((runtime-digest (bytes->hex (sha256 runtime))))
           (place-object store token runtime-digest runtime)
@@ -848,10 +849,10 @@
              (Pair "modules"
                    (JsonArray (map (lambda (module)
                                      (JsonObject
-                                      (Cons (Pair "name" (JsonString (::library module)))
-                                            (object-members (Pair (::digest module)
+                                      (Cons (Pair "name" (JsonString (● module library)))
+                                            (object-members (Pair (● module digest)
                                                                   (vector-length
-                                                                   (::bytes module)))))))
+                                                                   (● module bytes)))))))
                                    modules)))
              (Pair "files" (JsonArray (map object-json files))))))
 
@@ -861,17 +862,17 @@
       (JsonObject (object-members object)))
 
     (define (object-members (object (Pair String I64))) (→ (List (Pair String Json)))
-      (list (Pair "digest" (JsonString (::first object)))
-            (Pair "size" (JsonInteger (::second object)))))
+      (list (Pair "digest" (JsonString (● object first)))
+            (Pair "size" (JsonInteger (● object second)))))
 
     ;; Runs a command to its end, and stops the build with what it wrote to
     ;; stderr unless it exits with status 0.
 
     (define (run-command (command Command) (name String)) (→ Unit) (! process building)
       (match (run command #u8())
-        ((Err error) (fail-build (string-append "cannot run " name ": " (::code error))))
+        ((Err error) (fail-build (string-append "cannot run " name ": " (● error code))))
         ((Ok captured)
-         (match (::exit captured)
+         (match (● captured exit)
            ((Exited 0) (unit))
            (exit (fail-build (string-append name " failed: " (failure-text captured exit))))))))
 
@@ -879,7 +880,7 @@
     ;; that reads as text.
 
     (define (failure-text (captured Captured) (exit Exit)) (→ String)
-      (match (utf8->string (::stderr captured))
+      (match (utf8->string (● captured stderr))
         ((Ok stderr) (if (string=? stderr "") (how-it-ended exit) stderr))
         ((Err _) (how-it-ended exit))))
 
@@ -905,8 +906,8 @@
                       (place-links (string-append working "/store")
                                    "producer"
                                    (link-program builder
-                                                 (::source producer)
-                                                 (::directories producer)
+                                                 (● producer source)
+                                                 (● producer directories)
                                                  inputs
                                                  working
                                                  program))
@@ -916,10 +917,10 @@
     (define (run-producer (builder Builder) (program String) (output String))
       (→ Unit)
       (! fs process building)
-      (let ((tools (::tools builder)))
-        (run-command (Command (::node tools)
+      (let ((tools (● builder tools)))
+        (run-command (Command (● tools node)
                               (list "--no-warnings"
-                                    (string-append (::root tools) "/host/native/run-snail.mjs")
+                                    (string-append (● tools root) "/host/native/run-snail.mjs")
                                     program
                                     output)
                               ".")
@@ -934,9 +935,9 @@
       (→ Inputs)
       (! fs building)
       (let ((text (compiled (lambda ()
-                              (printed-producer-text (::directories producer)
-                                                     (::source producer))))))
-        (unless (string=? (producer-key text) (::key producer))
+                              (printed-producer-text (● producer directories)
+                                                     (● producer source))))))
+        (unless (string=? (producer-key text) (● producer key))
           (panic "internal error: a producer's printed text does not have its key"))
         (supply-generated inputs text (read-bytes output))))
 
@@ -972,7 +973,7 @@
       (→ Unit)
       (! fs building)
       (copy-browser-assets builder name directory)
-      (ensure-web-manifest (string-append (base-name (::project builder)) " / " name)
+      (ensure-web-manifest (string-append (base-name (● builder project)) " / " name)
                            directory)
       (prepare-browser-page directory (development? builder)))
 
@@ -992,7 +993,7 @@
             ((Ok text) (write-file path (with-web-app text development)))))))
 
     (define (development? (builder Builder)) (→ Bool)
-      (match (::mode builder)
+      (match (● builder mode)
         ((Development) #t)
         (_ #f)))
 
@@ -1001,13 +1002,13 @@
       (! fs building)
       (for-each (lambda (file)
                   (copy-into
-                   (string-append (::root (::tools builder)) "/host/browser/" file)
+                   (string-append (● (● builder tools) root) "/host/browser/" file)
                    (string-append directory "/" file)
                    (string-append "cannot copy the browser host's " file)))
                 browser-files)
-      (match (find-target (::builds (::description builder)) name)
+      (match (find-target (● (● builder description) builds) name)
         ((Some (BrowserTarget browser))
-         (match (::public browser)
+         (match (● browser public)
            ((Some path) (copy-public (public-directory builder path) directory #t))
            ((None) (unit))))
         (_ (unit))))
@@ -1017,7 +1018,7 @@
     ;; link.
 
     (define (public-directory (builder Builder) (path ProjectPath)) (→ String) (! fs building)
-      (let ((text (::text path)))
+      (let ((text (● path text)))
         (when (or (string=? text ".") (string=? (first-component text) "build"))
           (fail-build (string-append "public directory overlaps project build output: " text)))
         (fold-left (lambda (directory part)
@@ -1027,7 +1028,7 @@
                                       "public path must contain only directories, not links: "
                                       next)))
                        next))
-                   (::project builder)
+                   (● builder project)
                    (split-path text))))
 
     ;; Copies a public tree into the generation. Nothing in it may replace
@@ -1061,12 +1062,12 @@
     ;; if any, must be one a build published.
 
     (define (prepare-generation (builder Builder) (name String)) (→ String) (! fs clock building)
-      (let ((build (string-append (::project builder) "/build")))
+      (let ((build (string-append (● builder project) "/build")))
         (when (kind-is? build (SymbolicLink))
           (fail-build (string-append "project build directory cannot be a symbolic link: " build)))
         (expect-done (make-directories build) (string-append "cannot make " build))
         (check-output (string-append build "/" name) name)
-        (let ((directory (fresh-directory (string-append build "/" (::prefix builder))
+        (let ((directory (fresh-directory (string-append build "/" (● builder prefix))
                                           (string-append "-" name)
                                           (monotonic-nanoseconds))))
           (write-file (string-append directory "/.snail-target") name)
@@ -1108,7 +1109,7 @@
     ;; path, in name order, without the root's ownership marker.
 
     (define (generation-files (directory String)) (→ (List (Pair String String))) (! fs building)
-      (list-sort (lambda (a b) (string<? (::first a) (::first b)))
+      (list-sort (lambda (a b) (string<? (● a first) (● b first)))
                  (files-under directory "")))
 
     ;; The digest of each file of a generation but its objects, which are
@@ -1118,8 +1119,8 @@
       (→ (List (Pair String String)))
       (! fs)
       (map (lambda (file)
-             (Pair (::first file) (bytes->hex (sha256 (read-bytes (::second file))))))
-           (filter (lambda (file) (not (content-named? (::first file)))) files)))
+             (Pair (● file first) (bytes->hex (sha256 (read-bytes (● file second))))))
+           (filter (lambda (file) (not (content-named? (● file first)))) files)))
 
     (define (content-named? (name String)) (→ Bool)
       (starts-with? name "store/"))
@@ -1136,8 +1137,8 @@
         (string->utf8
          (json->string
           (JsonArray (map (lambda (file)
-                            (JsonArray (Cons (JsonString (::first file))
-                                             (match (assoc-ref digests (::first file))
+                            (JsonArray (Cons (JsonString (● file first))
+                                             (match (assoc-ref digests (● file first))
                                                ((Some digest) (list (JsonString digest)))
                                                ((None) (Nil))))))
                           files)))))))
@@ -1170,7 +1171,7 @@
     ;; the outputs published before it and removes only the rest.
 
     (define (publish-project (candidate Candidate)) (→ (Result Unit String)) (! fs)
-      (let ((outputs (::outputs candidate)) (project (::project candidate)))
+      (let ((outputs (● candidate outputs)) (project (● candidate project)))
         (match (attempt
                 (lambda () (for-each (lambda (output) (prepare-link project output)) outputs)))
           ((Err failure) (discard outputs) (Err (failure->string failure)))
@@ -1179,11 +1180,11 @@
     ;; Removes a candidate's generations, publishing none of them.
 
     (define (discard-candidate (candidate Candidate)) (→ Unit) (! fs)
-      (discard (::outputs candidate)))
+      (discard (● candidate outputs)))
 
     (define (prepare-link (project String) (output Output)) (→ Unit) (! fs building)
-      (let ((directory (::directory output)))
-        (check-output (output-link project output) (::name output))
+      (let ((directory (● output directory)))
+        (check-output (output-link project output) (● output name))
         (expect-done (make-symbolic-link (base-name directory)
                                          (string-append directory "/.snail-publish"))
                      (string-append "cannot link " directory))))
@@ -1192,22 +1193,22 @@
       (match outputs
         ((Nil) (Ok (unit)))
         ((Cons output rest)
-         (match (rename-file (string-append (::directory output) "/.snail-publish")
+         (match (rename-file (string-append (● output directory) "/.snail-publish")
                              (output-link project output))
            ((Ok _) (rename-links project rest))
            ((Err error)
             (discard outputs)
-            (Err (string-append "cannot publish " (::name output) ": " (show error))))))))
+            (Err (string-append "cannot publish " (● output name) ": " (show error))))))))
 
     (define (output-link (project String) (output Output)) (→ String)
-      (string-append project "/build/" (::name output)))
+      (string-append project "/build/" (● output name)))
 
     ;; A removal that fails leaves that generation; the failure the build
     ;; met is the one it reports.
 
     (define (discard (outputs (List Output))) (→ Unit) (! fs)
       (for-each (lambda (output)
-                  (remove-tree (::directory output))
+                  (remove-tree (● output directory))
                   (unit))
                 outputs))
 
@@ -1218,7 +1219,7 @@
 
     (define (status-kind (path String)) (→ (Option FileKind)) (! fs)
       (match (file-status path)
-        ((Ok status) (Some (::kind status)))
+        ((Ok status) (Some (● status kind)))
         ((Err _) (None))))
 
     (define (kind-is? (path String) (kind FileKind)) (→ Bool) (! fs)

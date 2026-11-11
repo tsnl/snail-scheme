@@ -16,12 +16,12 @@
 (handle dyn-cast
     ((conversion-failed (lambda (error)
                           (write-line (string-append "caught: expected "
-                                                     (string-join (::expected error)
+                                                     (string-join (● error expected)
                                                                   ", "))))))
   (display (+ 1 (type-convert (list-ref values 0) I64)))
   (newline)
   (write-line (type-convert (list-ref values 1) String))
-  (display (::y (type-convert (list-ref values 2) Point)))
+  (display (● (type-convert (list-ref values 2) Point) y))
   (newline)
   ;; Converting to the type a value already has does nothing, and a
   ;; round trip through Any is removed.

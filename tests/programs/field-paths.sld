@@ -2,11 +2,8 @@
  (snail core base)
  (snail core io))
 
-;; `::label` reads the field `label` of whatever struct it is given. Each
-;; label is a typeclass over the record and the field's type, with an
-;; instance per struct declaring the field, and the record's type decides
-;; the field's; `::a::b` chains two reads. The book's types chapter includes
-;; the text between ANCHOR and ANCHOR_END.
+;; Nominal projections select stored slots. The book's types chapter
+;; includes the text between ANCHOR and ANCHOR_END.
 ;; ANCHOR: paths
 (struct Point
   ((x I64)
@@ -22,39 +19,37 @@
    (weight I64)))
 
 (define (describe (segment Segment)) (→ String)
-  (string-append (::label segment)
+  (string-append (● segment label)
                  ": "
-                 (show (::from::x segment))
+                 (show (● segment from x))
                  " to "
-                 (show (::to::x segment))))
+                 (show (● segment to x))))
 ;; ANCHOR_END: paths
 
 (write-line (describe (Segment (Point 1 2) (Point 3 4) "diagonal")))
-(write-line (::label (Tag "heavy" 9)))
-(write-line (show (::weight (Tag "heavy" 9))))
+(write-line (● (Tag "heavy" 9) label))
+(write-line (show (● (Tag "heavy" 9) weight)))
 
-;; A generic function reads a field of any record that has it.
-(define (labelled (record R)) (→ String) (∀ R) (⊨ (::label R String))
-  (string-append "[" (::label record) "]"))
+;; A generic nominal record still identifies the slot being read.
+(define (labelled (record (Pair T String))) (→ String) (∀ T) (⊨ (Copy T))
+  (string-append "[" (● record second) "]"))
 
-(write-line (labelled (Tag "t" 1)))
-(write-line (labelled (Segment (Point 0 0) (Point 1 1) "s")))
+(write-line (labelled (Pair 1 "t")))
+(write-line (labelled (Pair #t "s")))
 
-;; A path is a function.
-(write-line (string-join (map show (map ::x (list (Point 5 0) (Point 6 0)))) " "))
-(write-line (string-join (map ::label (list (Tag "a" 1) (Tag "b" 2))) " "))
+;; A lambda can use a projection as a higher-order selector.
+(write-line
+ (string-join (map show (map (lambda (record) (● record x)) (list (Point 5 0) (Point 6 0)))) " "))
+(write-line
+ (string-join (map (lambda (record) (● record label)) (list (Tag "a" 1) (Tag "b" 2))) " "))
 
-;; A type without the field may declare the instance itself: a computed
-;; field.
+;; Computation uses an ordinary function; projection always means storage.
 (struct Circle
   ((radius I64)))
+(define (diameter (circle Circle)) (→ I64)
+  (* 2 (● circle radius)))
+(write-line (show (diameter (Circle 21))))
 
-(instance (::x Circle I64)
-  (define ::x
-    (lambda (circle) (* 2 (::radius circle)))))
-
-(write-line (show (::x (Circle 21))))
-
-;; A generic struct's instance is generic too.
-(write-line (show (::first (Pair 7 "seven"))))
-(write-line (::second (Pair 7 "seven")))
+;; Instantiating a nominal record substitutes its field types.
+(write-line (show (● (Pair 7 "seven") first)))
+(write-line (● (Pair 7 "seven") second))

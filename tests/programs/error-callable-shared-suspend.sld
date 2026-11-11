@@ -11,6 +11,6 @@
     (lambda (token) (match token ((Token _) (unit))))))
 
 (let* ((token (Token 10))
-       (function (ann (lambda () (::number token) (pause))
+       (function (ann (lambda () (● token number) (pause))
                       (impl (Fn → Unit ! Pause)))))
   (drop function))

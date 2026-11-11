@@ -18,7 +18,7 @@
   ((Ok registry)
    (write-line (show (invoke (command-named registry "add") 4)))
    (write-line (show (invoke (command-named registry "double") 4)))
-   (match (shortcut-register (vector-map ::name entries)
+   (match (shortcut-register (vector-map (lambda (record) (● record name)) entries)
                              (list->vector (list (shortcut-Binding (Chord "a" control-key) "add"))))
      ((Ok shortcuts)
       (write-line (show (match (shortcut-matching shortcuts (Chord "a" control-key))

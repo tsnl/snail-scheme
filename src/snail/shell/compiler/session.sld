@@ -70,18 +70,18 @@
                            (inputs Inputs))
       (→ (Pair (List Built) Session))
       (! mut fs compile)
-      (let* ((expansion (expand-program (::directories session)
+      (let* ((expansion (expand-program (● session directories)
                                         generate
                                         inputs
                                         source
-                                        (::expansion session)))
-             (program (::program expansion))
+                                        (● session expansion)))
+             (program (● expansion program))
              (libraries (library-items program (program-items program)))
-             (checked (check-libraries (::compiled session) expansion libraries))
+             (checked (check-libraries (● session compiled) expansion libraries))
              (built
-              (emit-libraries expansion (::second checked) (::first checked) libraries)))
-        (Pair (append (control-modules session program) (::first built))
-              (Session (::directories session) expansion (::second built)))))
+              (emit-libraries expansion (● checked second) (● checked first) libraries)))
+        (Pair (append (control-modules session program) (● built first))
+              (Session (● session directories) expansion (● built second)))))
 
     ;; A program with control effects links the control module first: it
     ;; holds the yield record that the program's modules share. Its text is
@@ -93,7 +93,7 @@
           (Nil)
           (list (Built "snail.core.control" (wat->string (emit-control-module program))
                        (null?
-                        (control-effects (::program (::expansion session))))
+                        (control-effects (● (● session expansion) program)))
                        (Nil)))))
 
     ;; Checks each library whose expansion changed, after the schemes of the
@@ -110,10 +110,10 @@
           ((Cons library rest)
            (let ((checked (checked-library compiled expansion schemes library)))
              (loop rest
-                   (table-set compiled (::first library) checked)
-                   (append items (::items checked))
-                   (table-union schemes (::schemes checked)))))
-          ((Nil) (Pair (Typed (::program expansion) items schemes) compiled)))))
+                   (table-set compiled (● library first) checked)
+                   (append items (● checked items))
+                   (table-union schemes (● checked schemes)))))
+          ((Nil) (Pair (Typed (● expansion program) items schemes) compiled)))))
 
     ;; A library as compiled before, if made from its current expansion, or
     ;; checked again.
@@ -124,10 +124,10 @@
                              (library (Pair String (List Item))))
       (→ Compiled)
       (! compile)
-      (let ((key (library-key expansion (::first library))))
-        (match (table-ref compiled (::first library))
+      (let ((key (library-key expansion (● library first))))
+        (match (table-ref compiled (● library first))
           ((Some before)
-           (if (string=? (::key before) key)
+           (if (string=? (● before key) key)
                before
                (check-anew expansion schemes library key)))
           ((None) (check-anew expansion schemes library key)))))
@@ -139,10 +139,10 @@
       (→ Compiled)
       (! compile)
       (let ((typed
-             (check-library (::program expansion) schemes (::second library))))
+             (check-library (● expansion program) schemes (● library second))))
         (Compiled key
-                  (::items typed)
-                  (own-schemes (::schemes typed) (::items typed))
+                  (● typed items)
+                  (own-schemes (● typed schemes) (● typed items))
                   (None))))
 
     ;; Each library's module: the one emitted before, or, for a library just
@@ -163,7 +163,7 @@
             ((Cons (Pair _ (Nil)) rest) (loop rest compiled built))
             ((Cons (Pair name _) rest)
              (let ((before (compiled-of compiled name)))
-               (match (::emission before)
+               (match (● before emission)
                  ((Some emission)
                   (loop rest
                         compiled
@@ -172,7 +172,7 @@
                          built)))
                  ((None)
                   (let ((text (wat->string
-                               (emit-module (prepare-library input name (::items before))))))
+                               (emit-module (prepare-library input name (● before items))))))
                     (loop rest
                           (table-set compiled name (Compiled-emission-set before (Some text)))
                           (Cons (Built name text #t (library-links expansion name)) built)))))))
@@ -229,13 +229,13 @@
                                                              main
                                                              no-generation
                                                              no-inputs))
-                                             (unchanged (build-session (::second first)
+                                             (unchanged (build-session (● first second)
                                                                        main
                                                                        no-generation
                                                                        no-inputs))
                                              (body (begin
                                                      (write-sample-a directory "(i64-mul x 2)" "")
-                                                     (build-session (::second unchanged)
+                                                     (build-session (● unchanged second)
                                                                     main
                                                                     no-generation
                                                                     no-inputs)))
@@ -243,7 +243,7 @@
                                                           (write-sample-a directory
                                                                           "(i64-mul x 2)"
                                                                           "(define zero 0)")
-                                                          (build-session (::second body)
+                                                          (build-session (● body second)
                                                                          main
                                                                          no-generation
                                                                          no-inputs))))
@@ -284,7 +284,7 @@
                                                             main no-generation no-inputs)))
                                         (write-file file (source "(i64-add x 2)"))
                                         (expect
-                                         (compiled-names (build-session (::second first)
+                                         (compiled-names (build-session (● first second)
                                                                         main
                                                                         no-generation
                                                                         no-inputs))
@@ -309,7 +309,7 @@
                                                             main no-generation no-inputs)))
                                         (write-file main
                                                     (string-append source "(identity (ann 2 I32))"))
-                                        (let ((warm (build-session (::second first)
+                                        (let ((warm (build-session (● first second)
                                                                    main
                                                                    no-generation
                                                                    no-inputs))
@@ -317,8 +317,10 @@
                                                      (make-session (list directory library))
                                                      main no-generation no-inputs)))
                                           (expect (compiled-names warm) (list "main"))
-                                          (expect (map ::text (::first warm))
-                                                  (map ::text (::first cold))))))))
+                                          (expect
+                                           (map (lambda (record) (● record text)) (● warm first))
+                                           (map (lambda (record) (● record text))
+                                                (● cold first))))))))
 
       ;; Quantification can be written inside a value's type, or introduced
       ;; by an impl argument. Both bodies are specialized in their importers.
@@ -350,12 +352,12 @@
             (let ((first (build-session (make-session (list directory library))
                                         main no-generation no-inputs)))
               (write-file module (source after))
-              (let ((warm (build-session (::second first) main no-generation no-inputs)))
+              (let ((warm (build-session (● first second) main no-generation no-inputs)))
                 (expect (compiled-names warm) (list "sample.headers" "main"))
                 (expect (any? (lambda (module)
-                                (and (string=? (::name module) "main")
-                                     (string-contains (::text module) "(i64.const 2)") #t))
-                              (::first warm)) #t))))))
+                                (and (string=? (● module name) "main")
+                                     (string-contains (● module text) "(i64.const 2)") #t))
+                              (● warm first)) #t))))))
 
       ;; Unchanged bytes preserve emission. Missing inputs invalidate even
       ;; a replay, but removing the invocation must not demand its old input.
@@ -373,13 +375,13 @@
                                                              main
                                                              no-generation
                                                              inputs))
-                                             (unchanged (build-session (::second first)
+                                             (unchanged (build-session (● first second)
                                                                        main
                                                                        no-generation
                                                                        (supply-artifact no-inputs
                                                                                         "client"
                                                                                         files)))
-                                             (empty (build-session (::second first)
+                                             (empty (build-session (● first second)
                                                                    main
                                                                    no-generation
                                                                    (supply-artifact no-inputs
@@ -388,10 +390,10 @@
                                         (expect (compiled-names unchanged) (Nil))
                                         (expect (compiled-names empty)
                                                 (list "sample.assets" "main"))
-                                        (expect (artifact-replay-error (::second empty) main) #t)
+                                        (expect (artifact-replay-error (● empty second) main) #t)
                                         (write-artifact-source directory "(ArtifactBundle (Nil))")
                                         (expect
-                                         (compiled-names (build-session (::second empty)
+                                         (compiled-names (build-session (● empty second)
                                                                         main
                                                                         no-generation
                                                                         no-inputs))
@@ -417,13 +419,13 @@
                                                              main
                                                              no-generation
                                                              no-inputs))
-                                             (unchanged (build-session (::second first)
+                                             (unchanged (build-session (● first second)
                                                                        main
                                                                        no-generation
                                                                        no-inputs))
                                              (edited (begin
                                                        (write-file data "second")
-                                                       (build-session (::second unchanged)
+                                                       (build-session (● unchanged second)
                                                                       main
                                                                       no-generation
                                                                       no-inputs))))
@@ -431,16 +433,19 @@
                                         (expect (compiled-names edited)
                                                 (list "sample.linked" "main"))
                                         (expect
-                                         (map (lambda (built) (map ::digest (::links built)))
-                                              (::first edited))
+                                         (map (lambda (built)
+                                                (map (lambda (record) (● record digest))
+                                                     (● built links)))
+                                              (● edited first))
                                          (list
                                           (list
                                            "16367aacb67a4a017c8da8ab95682ccb390863780f7114dda0a0e0c55644c7c4")
                                           (Nil)))
-                                        (expect (map ::path (::links (list-ref (::first edited) 0)))
+                                        (expect (map (lambda (record) (● record path))
+                                                     (● (list-ref (● edited first) 0) links))
                                                 (list (string-append directory "/sample/data.bin")))
                                         (delete-file data)
-                                        (expect (link-missing? (::second edited) main) #t)))))
+                                        (expect (link-missing? (● edited second) main) #t)))))
 
       ;; A library of externs alone emits no module; its importer calls the
       ;; host's import.
@@ -452,13 +457,14 @@
                                                    "(begin (extern now \"sample.host\" \"now\" (impl (Fn → I64)))))"))
                                       (write-file main
                                                   "(import (snail core forms) (snail core primitive) (sample host)) (now)")
-                                      (let ((built (::first (build-session
-                                                             (make-session (list directory library))
-                                                             main
-                                                             no-generation
-                                                             no-inputs))))
-                                        (expect (map ::name built) (list "main"))
-                                        (expect (and (string-contains (::text (list-ref built 0))
+                                      (let ((built (● (build-session
+                                                       (make-session (list directory library))
+                                                       main
+                                                       no-generation
+                                                       no-inputs) first)))
+                                        (expect (map (lambda (record) (● record name)) built)
+                                                (list "main"))
+                                        (expect (and (string-contains (● (list-ref built 0) text)
                                                                       "(import \"sample.host\" \"now\"")
                                                      #t)
                                                 #t)))))
@@ -503,5 +509,7 @@
         "(define-library (sample b) (export four) (import (snail core forms) (snail core primitive) (sample a)) (begin (define (four) (→ I64) (twice 2))))")
 
       (define compiled-names
-        (lambda (build) (map ::name (filter ::compiled? (::first build)))))))
+        (lambda (build)
+          (map (lambda (record) (● record name))
+               (filter (lambda (record) (● record compiled?)) (● build first)))))))
    (else)))

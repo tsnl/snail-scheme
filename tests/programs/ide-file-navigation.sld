@@ -13,7 +13,7 @@
 ;; Files are supplied by the service. Selection and fuzzy filtering run in
 ;; the IDE, and the selected path is read through the ordinary buffer flow.
 (define (snapshot (session (Borrow Session))) (→ Ide)
-  (::ide session))
+  (● session ide))
 
 (define (finished (session Session)) (→ Ide) (! mut)
   (match session
@@ -21,9 +21,9 @@
 
 (define (recovered (bytes Bytes)) (→ Unit) (! console)
   (let ((model (restored (read-recovery bytes))))
-    (write-line (string-join (::tabs (list-ref (::panes model) 0)) ","))
+    (write-line (string-join (● (list-ref (● model panes) 0) tabs) ","))
     (match (buffer-at model "lib/notes.txt")
-      ((Some buffer) (write-line (::text buffer)))
+      ((Some buffer) (write-line (● buffer text)))
       ((None) (panic "draft lost during recovery")))))
 
 (dispatch-local
@@ -70,8 +70,8 @@
              (for-each write-line (ref-get requests))
              ;; The new envelope retains tab order; the original wire record
              ;; upgrades to one tab per pane and keeps the same unsaved draft.
-             (recovered (serialize (kept (::first result))))
-             (recovered (serialize (::previous (kept (::first result)))))
-             (match (buffer-at (::first result) "lib/notes.txt")
-               ((Some buffer) (write-line (::text buffer)))
+             (recovered (serialize (kept (● result first))))
+             (recovered (serialize (● (kept (● result first)) previous)))
+             (match (buffer-at (● result first) "lib/notes.txt")
+               ((Some buffer) (write-line (● buffer text)))
                ((None) (panic "file navigation did not finish"))))))))

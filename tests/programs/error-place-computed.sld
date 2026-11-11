@@ -1,13 +1,7 @@
 (import
  (snail core base))
-
-;; A declared instance computes its field, so there is nothing to write.
 (struct Circle
   ((radius I64)))
-
-(instance (::x Circle I64)
-  (define ::x
-    (lambda (circle) (* 2 (::radius circle)))))
-
+;; No stored x slot exists to write.
 (let ((cell (ref (Circle 1))))
-  (set! (::x (ref-get cell)) 4))
+  (set! (● cell x) 4))

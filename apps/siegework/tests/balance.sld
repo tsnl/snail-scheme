@@ -30,16 +30,16 @@
     ((Err _) world)))
 
 (define (offset (world World) (dx I64) (dy I64)) (→ Cell)
-  (let ((hub (::cell (::hub world))))
-    (Cell (+ (::x hub) dx) (+ (::y hub) dy))))
+  (let ((hub (● (● world hub) cell)))
+    (Cell (+ (● hub x) dx) (+ (● hub y) dy))))
 
 (define (started (seed I64)) (→ World)
   (let ((world (new-world seed)))
-    (try world (Build (Extractor) (::starter (::land world)) #f))))
+    (try world (Build (Extractor) (● (● world land) starter) #f))))
 
 (define (reinforce (world World)) (→ World)
   (try (fold-left (lambda (world d)
-                    (try world (Build (Turret) (offset world (::first d) (::second d)) #f)))
+                    (try world (Build (Turret) (offset world (● d first) (● d second)) #f)))
                   world
                   (list (Pair -2 0)
                         (Pair 0 2)
@@ -57,7 +57,7 @@
       (defend (run (reinforce world) 100) (- ticks 100))))
 
 (define (built-count (world World)) (→ I64)
-  (length (filter built? (::buildings world))))
+  (length (filter built? (● world buildings))))
 
 (define (ready-for-first-attack? (seed I64)) (→ Bool)
   (let ((world (started seed)))
@@ -66,13 +66,13 @@
        2)))
 
 (define (undefended-falls? (seed I64)) (→ Bool)
-  (match (::outcome (run (started seed) 1000))
+  (match (● (run (started seed) 1000) outcome)
     ((Lost) #t)
     (_ #f)))
 
 (define (defended-holds? (seed I64)) (→ Bool)
   (let ((world (defend (started seed) 3000)))
-    (and (playing? world) (= (::tick world) 3000))))
+    (and (playing? world) (= (● world tick) 3000))))
 
 (define (check (claim String) (holds? (dyn (Fn I64 → Bool)))) (→ Unit) (! console)
   (let ((broken (filter (lambda (seed) (not (holds? seed))) seeds)))

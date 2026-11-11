@@ -31,7 +31,7 @@
   ((value I64)))
 (typeclass (Read T) (: read-number (impl (Fn T → I64 ! mut))))
 (define reading (ref (ann 4 I64)))
-(instance (Read Number) (define read-number (lambda (value) (+ (::value value) (ref-get reading)))))
+(instance (Read Number) (define read-number (lambda (value) (+ (● value value) (ref-get reading)))))
 (display (handle Counter ((tick (lambda () (read-number (Number 1))))) (tick)))
 (newline)
 

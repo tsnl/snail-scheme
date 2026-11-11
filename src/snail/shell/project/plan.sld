@@ -109,8 +109,8 @@
 
     (define (phase-key (phase Phase)) (→ String)
       (match phase
-        ((BuildPhase target) (string-append "build " (::name target)))
-        ((ProducePhase producer) (string-append "produce " (::key producer)))))
+        ((BuildPhase target) (string-append "build " (● target name)))
+        ((ProducePhase producer) (string-append "produce " (● producer key)))))
 
     ;; ---- Planning ----
 
@@ -133,11 +133,11 @@
 
     (define (refine-plan (plan Plan) (inputs Inputs)) (→ Plan) (! fs compile)
       (let* ((growth
-              (fold-left (lambda (growth root) (::second (visit growth (BuildPhase root))))
+              (fold-left (lambda (growth root) (● (visit growth (BuildPhase root)) second))
                          (plan-growth plan inputs)
-                         (::roots plan)))
-             (steps (::steps growth)))
-        (Plan-order-set (Plan-steps-set plan steps) (checked-order (::targets plan) steps))))
+                         (● plan roots)))
+             (steps (● growth steps)))
+        (Plan-order-set (Plan-steps-set plan steps) (checked-order (● plan targets) steps))))
 
     ;; ---- Waves ----
 
@@ -147,8 +147,8 @@
     ;; once their outputs refine the plan, the next wave is not empty.
 
     (define (next-phases (plan Plan)) (→ (Pair (List (Pair I64 Phase)) Plan))
-      (let* ((steps (::steps plan)) (ready (ready-nodes steps (::order plan))))
-        (Pair (map (lambda (node) (Pair node (::phase (vector-ref steps node)))) ready)
+      (let* ((steps (● plan steps)) (ready (ready-nodes steps (● plan order))))
+        (Pair (map (lambda (node) (Pair node (● (vector-ref steps node) phase))) ready)
               (Plan-steps-set plan
                               (fold-left (lambda (steps node)
                                            (vector-set steps
@@ -161,15 +161,15 @@
     ;; one ran have refined the plan.
 
     (define (phases-left? (plan Plan)) (→ Bool)
-      (any? (lambda (step) (not (::emitted step))) (vector->list (::steps plan))))
+      (any? (lambda (step) (not (● step emitted))) (vector->list (● plan steps))))
 
     (define (ready-nodes (steps (Vector Step)) (order (List I64))) (→ (List I64))
       (match order
         ((Nil) (Nil))
         ((Cons node rest)
          (let ((step (vector-ref steps node)))
-           (cond ((::emitted step) (ready-nodes steps rest))
-                 ((known? (::needs step)) (Cons node (ready-nodes steps rest)))
+           (cond ((● step emitted) (ready-nodes steps rest))
+                 ((known? (● step needs)) (Cons node (ready-nodes steps rest)))
                  (else (Nil)))))))
 
     (define (known? (needs Needs)) (→ Bool)
@@ -196,11 +196,11 @@
        (visited (Table Bool))))
 
     (define (plan-growth (plan Plan) (inputs Inputs)) (→ Growth)
-      (let ((steps (::steps plan)))
-        (Growth (::targets plan) inputs (::scratch plan)
+      (let ((steps (● plan steps)))
+        (Growth (● plan targets) inputs (● plan scratch)
                 (fold-left (lambda (nodes node)
                              (table-set nodes
-                                        (phase-key (::phase (vector-ref steps node)))
+                                        (phase-key (● (vector-ref steps node) phase))
                                         node))
                            empty-table (iota (vector-length steps)))
                 steps empty-table)))
@@ -212,37 +212,37 @@
 
     (define (visit (growth Growth) (phase Phase)) (→ (Pair I64 Growth)) (! fs compile)
       (let ((key (phase-key phase)))
-        (match (table-ref (::nodes growth) key)
+        (match (table-ref (● growth nodes) key)
           ((Some node)
-           (if (table-contains? (::visited growth) key)
+           (if (table-contains? (● growth visited) key)
                (Pair node growth)
                (revisit (mark-visited growth key) node)))
           ((None)
            (learn (add-phase (mark-visited growth key) key phase)
-                  (vector-length (::steps growth)))))))
+                  (vector-length (● growth steps)))))))
 
     (define (revisit (growth Growth) (node I64)) (→ (Pair I64 Growth)) (! fs compile)
-      (match (::needs (step-at growth node))
+      (match (● (step-at growth node) needs)
         ((Known nodes)
          (Pair node
-               (::second
-                (visit-all growth (map (lambda (need) (::phase (step-at growth need))) nodes)))))
+               (● (visit-all growth (map (lambda (need) (● (step-at growth need) phase)) nodes))
+                  second)))
         ((Waiting _ _) (learn growth node))))
 
     ;; Finds what the phase at `node` needs, visits those phases, and
     ;; records their nodes as its needs.
 
     (define (learn (growth Growth) (node I64)) (→ (Pair I64 Growth)) (! fs compile)
-      (let* ((demand (phase-demand growth (::phase (step-at growth node))))
-             (visited (visit-all growth (::needs demand)))
-             (growth (::second visited))
-             (missing (map (lambda (phase) (node-of growth phase)) (::missing demand))))
+      (let* ((demand (phase-demand growth (● (step-at growth node) phase)))
+             (visited (visit-all growth (● demand needs)))
+             (growth (● visited second))
+             (missing (map (lambda (phase) (node-of growth phase)) (● demand missing))))
         (Pair node
               (with-needs growth
                           node
                           (if (null? missing)
-                              (Known (::first visited))
-                              (Waiting (::first visited) missing))))))
+                              (Known (● visited first))
+                              (Waiting (● visited first) missing))))))
 
     ;; Visits each phase in turn, and returns their nodes in the same order.
 
@@ -250,11 +250,11 @@
       (→ (Pair (List I64) Growth))
       (! fs compile)
       (let ((visited (fold-left (lambda (visited phase)
-                                  (let ((result (visit (::second visited) phase)))
-                                    (Pair (Cons (::first result) (::first visited))
-                                          (::second result))))
+                                  (let ((result (visit (● visited second) phase)))
+                                    (Pair (Cons (● result first) (● visited first))
+                                          (● result second))))
                                 (Pair (Nil) growth) phases)))
-        (Pair (reverse (::first visited)) (::second visited))))
+        (Pair (reverse (● visited first)) (● visited second))))
 
     ;; Adds a step for a phase new to the graph, at the next node. A
     ;; producer is printed where it will be compiled from.
@@ -262,31 +262,31 @@
     (define (add-phase (growth Growth) (key String) (phase Phase)) (→ Growth) (! fs)
       (match phase
         ((ProducePhase producer)
-         (print-producer (::source producer)
-                         (::loading producer)
-                         (::forms producer)))
+         (print-producer (● producer source)
+                         (● producer loading)
+                         (● producer forms)))
         (_ (unit)))
       (Growth-steps-set (Growth-nodes-set growth
-                                          (table-set (::nodes growth)
+                                          (table-set (● growth nodes)
                                                      key
-                                                     (vector-length (::steps growth))))
-                        (vector-append (::steps growth)
+                                                     (vector-length (● growth steps))))
+                        (vector-append (● growth steps)
                                        (list->vector (list (Step phase (Known (Nil)) #f))))))
 
     (define (mark-visited (growth Growth) (key String)) (→ Growth)
-      (Growth-visited-set growth (table-set (::visited growth) key #t)))
+      (Growth-visited-set growth (table-set (● growth visited) key #t)))
 
     (define (step-at (growth Growth) (node I64)) (→ Step)
-      (vector-ref (::steps growth) node))
+      (vector-ref (● growth steps) node))
 
     (define (with-needs (growth Growth) (node I64) (needs Needs)) (→ Growth)
       (Growth-steps-set growth
-                        (vector-set (::steps growth)
+                        (vector-set (● growth steps)
                                     node
                                     (Step-needs-set (step-at growth node) needs))))
 
     (define (node-of (growth Growth) (phase Phase)) (→ I64)
-      (match (table-ref (::nodes growth) (phase-key phase))
+      (match (table-ref (● growth nodes) (phase-key phase))
         ((Some node) node)
         ((None) (panic "internal error: a needed phase was not visited"))))
 
@@ -304,7 +304,7 @@
 
     (define (phase-demand (growth Growth) (phase Phase)) (→ Demand) (! fs compile)
       (let* ((program (phase-program phase)) (producers (reached-producers growth program))
-             (missing (filter (lambda (producer) (not (supplied? (::inputs growth) producer)))
+             (missing (filter (lambda (producer) (not (supplied? (● growth inputs) producer)))
                               producers)))
         (if (null? missing)
             (Demand (append (produce-phases producers) (embedded-targets growth program)) (Nil))
@@ -326,20 +326,20 @@
       (match phase
         ((BuildPhase target) (entry-program target))
         ((ProducePhase producer)
-         (PhaseProgram (::source producer)
-                       (::directories producer)
-                       (::loading producer)
-                       (program-imports (::forms producer))))))
+         (PhaseProgram (● producer source)
+                       (● producer directories)
+                       (● producer loading)
+                       (program-imports (● producer forms))))))
 
     ;; A target's entry, read as `expand-program` reads it.
 
     (define (entry-program (target Target)) (→ PhaseProgram) (! fs compile)
-      (let* ((entry (::entry target))
+      (let* ((entry (● target entry))
              (source (generating-stack (read-source-file entry))))
         (PhaseProgram entry
-                      (::directories target)
-                      (::first source)
-                      (program-imports (::second source)))))
+                      (● target directories)
+                      (● source first)
+                      (program-imports (● source second)))))
 
     ;; The producers a program's closure reaches, once each, keyed as the
     ;; build's inputs key their outputs.
@@ -347,30 +347,30 @@
     (define (reached-producers (growth Growth) (program PhaseProgram))
       (→ (List Producer))
       (! fs compile)
-      (let* ((directories (::directories program))
+      (let* ((directories (● program directories))
              (reached (library-closure directories
-                                       (::inputs growth)
-                                       (::loading program)
-                                       (::imports program))))
-        (delete-duplicates (lambda (a b) (string=? (::key a) (::key b)))
+                                       (● growth inputs)
+                                       (● program loading)
+                                       (● program imports))))
+        (delete-duplicates (lambda (a b) (string=? (● a key) (● b key)))
                            (map (lambda (reached)
-                                  (reached-producer (::scratch growth) directories reached))
+                                  (reached-producer (● growth scratch) directories reached))
                                 reached))))
 
     (define (reached-producer (scratch String) (directories (List String)) (reached Reached))
       (→ Producer)
-      (let ((key (producer-key (producer-text directories (::forms reached)))))
+      (let ((key (producer-key (producer-text directories (● reached forms)))))
         (Producer key
-                  (::library reached)
-                  (::forms reached)
+                  (● reached library)
+                  (● reached forms)
                   (string-append scratch "/" key ".sld")
                   directories
-                  (::loading reached) (::loc reached))))
+                  (● reached loading) (● reached loc))))
 
     (define (supplied? (inputs Inputs) (producer Producer)) (→ Bool)
       (match (generated-output inputs
-                               (producer-text (::directories producer)
-                                              (::forms producer)))
+                               (producer-text (● producer directories)
+                                              (● producer forms)))
         ((Some _) #t)
         ((None) #f)))
 
@@ -381,26 +381,26 @@
     (define (embedded-targets (growth Growth) (program PhaseProgram))
       (→ (List Phase))
       (! fs compile)
-      (let ((uses (discover-artifacts (::directories program)
-                                      (::inputs growth)
-                                      (::path program))))
-        (map (lambda (use) (BuildPhase (used-target (::targets growth) use)))
+      (let ((uses (discover-artifacts (● program directories)
+                                      (● growth inputs)
+                                      (● program path))))
+        (map (lambda (use) (BuildPhase (used-target (● growth targets) use)))
              (delete-duplicates
-              (lambda (a b) (string=? (::name a) (::name b)))
+              (lambda (a b) (string=? (● a name) (● b name)))
               uses))))
 
     ;; A use names a declared browser build.
 
     (define (used-target (targets (List Target)) (use ArtifactUse)) (→ Target) (! compile)
-      (let ((name (::name use)))
-        (match (find (lambda (target) (string=? (::name target) name)) targets)
+      (let ((name (● use name)))
+        (match (find (lambda (target) (string=? (● target name) name)) targets)
           ((Some target)
-           (if (::browser? target)
+           (if (● target browser?)
                target
-               (compile-error (::loc use)
+               (compile-error (● use loc)
                               (string-append "artifact target must be a browser build: " name))))
           ((None)
-           (compile-error (::loc use)
+           (compile-error (● use loc)
                           (string-append "unknown project build target " name))))))
 
     ;; ---- Order and cycles ----
@@ -422,7 +422,7 @@
     ;; procedure must be.
 
     (define (step-edges (steps (Vector Step))) (→ (Vector (List I64)))
-      (vector-map (lambda (step) (needs-nodes (::needs step))) steps))
+      (vector-map (lambda (step) (needs-nodes (● step needs))) steps))
 
     (define (cyclic? (edges (Vector (List I64))) (component (List I64))) (→ Bool)
       (match component
@@ -444,16 +444,16 @@
       (match (first-declared targets steps component)
         ((Some start)
          (let ((path (cycle-path edges component start)))
-           (compile-error (::loc (step-built (vector-ref steps start)))
+           (compile-error (● (step-built (vector-ref steps start)) loc)
                           (string-append "artifact dependency cycle: "
                                          (string-join (path-targets steps path) " -> ")
                                          (path-producers steps path)))))
         ((None)
          (let ((producer
                 (step-producer (vector-ref steps (fold-left min (vector-length steps) component)))))
-           (compile-error (::loc producer)
+           (compile-error (● producer loc)
                           (string-append "library import cycle through "
-                                         (string-join (::library producer) ".")))))))
+                                         (string-join (● producer library) ".")))))))
 
     ;; The member of `component` that builds the target declared first, if
     ;; any member builds one.
@@ -468,21 +468,21 @@
 
     (define (builds? (step Step) (target Target)) (→ Bool)
       (match (step-target step)
-        ((Some built) (string=? (::name built) (::name target)))
+        ((Some built) (string=? (● built name) (● target name)))
         ((None) #f)))
 
     (define (step-target (step Step)) (→ (Option Target))
-      (match (::phase step)
+      (match (● step phase)
         ((BuildPhase target) (Some target))
         ((ProducePhase _) (None))))
 
     (define (step-built (step Step)) (→ Target)
-      (match (::phase step)
+      (match (● step phase)
         ((BuildPhase target) target)
         (_ (panic "internal error: not a build"))))
 
     (define (step-producer (step Step)) (→ Producer)
-      (match (::phase step)
+      (match (● step phase)
         ((ProducePhase producer) producer)
         (_ (panic "internal error: not a producer"))))
 
@@ -519,7 +519,7 @@
     (define (path-targets (steps (Vector Step)) (path (List I64))) (→ (List String))
       (concatenate (map (lambda (node)
                           (match (step-target (vector-ref steps node))
-                            ((Some target) (list (::name target)))
+                            ((Some target) (list (● target name)))
                             ((None) (Nil))))
                         path)))
 
@@ -528,11 +528,11 @@
 
     (define (path-producers (steps (Vector Step)) (path (List I64))) (→ String)
       (let ((producers (concatenate (map (lambda (node)
-                                           (match (::phase (vector-ref steps node))
+                                           (match (● (vector-ref steps node) phase)
                                              ((ProducePhase producer)
                                               (list (string-append "the producer of ("
                                                                    (string-join
-                                                                    (::library producer)
+                                                                    (● producer library)
                                                                     " ")
                                                                    ")")))
                                              (_ (Nil))))
@@ -574,47 +574,47 @@
         (lambda (targets scratch) (let* ((server (list-ref targets 2))
                                          (cold (plan-build targets (list server) no-inputs scratch))
                                          (wave (next-phases cold))
-                                         (producer (wave-producer (::first wave)))
+                                         (producer (wave-producer (● wave first)))
                                          (output (generated-library-bytes assets-output))
-                                         (warm (refine-plan (::second wave)
+                                         (warm (refine-plan (● wave second)
                                                             (supply-generated no-inputs
                                                                               (printed-producer-text
-                                                                               (::directories
-                                                                                server)
-                                                                               (::source producer))
+                                                                               (● server
+                                                                                  directories)
+                                                                               (● producer source))
                                                                               output)))
                                          (next (next-phases warm)))
                                     (expect (step-names cold)
                                             (list "build server"
                                                   "produce generated.assets"
                                                   "build client"))
-                                    (expect (::needs (vector-ref (::steps cold) 0))
+                                    (expect (● (vector-ref (● cold steps) 0) needs)
                                             (Waiting (list 1) (list 1)))
-                                    (expect (::order cold) (list 2 1 0))
-                                    (expect (wave-names (::first wave))
+                                    (expect (● cold order) (list 2 1 0))
+                                    (expect (wave-names (● wave first))
                                             (list "build client" "produce generated.assets"))
-                                    (expect (phases-left? (::second wave)) #t)
-                                    (expect (first-line (read-file (::source producer)))
+                                    (expect (phases-left? (● wave second)) #t)
+                                    (expect (first-line (read-file (● producer source)))
                                             "(generating \"generated.assets\")")
                                     (expect (step-names warm)
                                             (list "build server"
                                                   "produce generated.assets"
                                                   "build client"
                                                   "build admin"))
-                                    (expect (::needs (vector-ref (::steps warm) 0))
+                                    (expect (● (vector-ref (● warm steps) 0) needs)
                                             (Known (list 1 3 2)))
-                                    (expect (::order warm) (list 2 1 3 0))
-                                    (expect (wave-names (::first next))
+                                    (expect (● warm order) (list 2 1 3 0))
+                                    (expect (wave-names (● next first))
                                             (list "build admin" "build server"))
-                                    (expect (phases-left? (::second next)) #f)
-                                    (expect (::first (next-phases (::second next))) (list)))))
+                                    (expect (phases-left? (● next second)) #f)
+                                    (expect (● (next-phases (● next second)) first) (list)))))
 
       (define test-roots
         (lambda (targets scratch)
           (let ((plan (plan-build targets (take targets 3) no-inputs scratch)))
             (expect (step-names plan)
                     (list "build client" "build admin" "build server" "produce generated.assets"))
-            (expect (wave-names (::first (next-phases plan)))
+            (expect (wave-names (● (next-phases plan) first))
                     (list "build client" "build admin" "produce generated.assets")))))
 
       (define test-cycles
@@ -663,20 +663,20 @@
 
       (define step-names
         (lambda (plan)
-          (map (lambda (step) (phase-name (::phase step))) (vector->list (::steps plan)))))
+          (map (lambda (step) (phase-name (● step phase))) (vector->list (● plan steps)))))
 
       (define wave-names
-        (lambda (wave) (map (lambda (entry) (phase-name (::second entry))) wave)))
+        (lambda (wave) (map (lambda (entry) (phase-name (● entry second))) wave)))
 
       (define phase-name
         (lambda (phase) (match phase
-                          ((BuildPhase target) (string-append "build " (::name target)))
+                          ((BuildPhase target) (string-append "build " (● target name)))
                           ((ProducePhase producer)
-                           (string-append "produce " (string-join (::library producer) "."))))))
+                           (string-append "produce " (string-join (● producer library) "."))))))
 
       (define wave-producer
         (lambda (wave)
-          (match (find (lambda (entry) (match (::second entry) ((ProducePhase _) #t) (_ #f))) wave)
+          (match (find (lambda (entry) (match (● entry second) ((ProducePhase _) #t) (_ #f))) wave)
             ((Some (Pair _ (ProducePhase producer))) producer)
             (_ (error "no producer in the wave")))))
 
@@ -684,9 +684,9 @@
         (lambda (directory library)
           (let ((directories (list (string-append directory "/lib") library)))
             (map-indexed (lambda (index entry)
-                           (Target (::first entry)
-                                   (::second entry)
-                                   (string-append directory "/" (::first entry) ".sld")
+                           (Target (● entry first)
+                                   (● entry second)
+                                   (string-append directory "/" (● entry first) ".sld")
                                    directories
                                    (Loc "project.datum" (+ index 2) 2)))
                          (list (Pair "client" #t)
@@ -703,8 +703,8 @@
         (lambda (directory) (create-directory* (string-append directory "/lib/generated"))
                 (create-directory* (string-append directory "/lib/sample"))
                 (for-each (lambda (source)
-                            (write-file (string-append directory "/" (::first source))
-                                        (::second source)))
+                            (write-file (string-append directory "/" (● source first))
+                                        (● source second)))
                           (list (Pair "client.sld" "(import (snail core base)) (unit)")
                                 (Pair "admin.sld" "(import (snail core base)) (unit)")
                                 (Pair "server.sld" server-source)

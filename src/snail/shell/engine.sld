@@ -129,7 +129,7 @@
     ;; digest under sha256/.
 
     (define (object-file (manifest Manifest) (digest String)) (→ String)
-      (string-append (::directory manifest) (::store manifest) "sha256/" digest))
+      (string-append (● manifest directory) (● manifest store) "sha256/" digest))
 
     ;; ---- The store ----
 
@@ -147,13 +147,13 @@
     (define (object-bytes (manifest Manifest) (name String) (object Object))
       (→ Bytes)
       (! tasks linked-content-store)
-      (match (read-object (object-file manifest (::digest object)))
+      (match (read-object (object-file manifest (● object digest)))
         ((Some bytes) bytes)
         ((None)
          (panic (string-append "cannot read "
                                name
                                ", the object "
-                               (::digest object)
+                               (● object digest)
                                " of its store")))))
 
     ;; ---- Linking ----
@@ -184,16 +184,16 @@
       (! mut wasm tasks linked-content-store)
       (let* ((manifest (parse-manifest path text))
              (runtime
-              (link-object manifest "the runtime" (::runtime manifest) (None) (Nil))))
+              (link-object manifest "the runtime" (● manifest runtime) (None) (Nil))))
         (unless (name-instance runtime "snail.core.support")
           (panic "the host has a runtime for this program already"))
-        (let ((libraries (link-libraries manifest runtime (::modules manifest) (Nil))))
+        (let ((libraries (link-libraries manifest runtime (● manifest modules) (Nil))))
           (ref-set! linked
                     (Some (Linked runtime libraries (assoc-ref libraries "snail.shell.task"))))
           (ref-set! files
                     (list->vector
-                     (map (lambda (object) (object-file manifest (::digest object)))
-                          (::files manifest))))
+                     (map (lambda (object) (object-file manifest (● object digest)))
+                          (● manifest files))))
           (run-mains libraries (assoc-ref libraries "snail.shell.task"))
           (ref-get status))))
 
@@ -275,7 +275,7 @@
                       (libraries (List (Pair String Module)))
                       (import Import))
       (→ Provider)
-      (let ((from (::from import)) (name (::name import)))
+      (let ((from (● import from)) (name (● import name)))
         (cond ((string=? from "snail.core.support")
                (match runtime
                  ((Some runtime) (ExportOf runtime name))
@@ -294,10 +294,10 @@
     ;; A linked file's handle: its position among the manifest's files.
 
     (define (file-handle (manifest Manifest) (digest String) (index I32)) (→ (Option I32))
-      (match (list-tail (::files manifest) (i32->i64 index))
+      (match (list-tail (● manifest files) (i32->i64 index))
         ((Nil) (None))
         ((Cons object _)
-         (if (string=? (::digest object) digest)
+         (if (string=? (● object digest) digest)
              (Some index)
              (file-handle manifest digest (+ index 1))))))
 
@@ -386,7 +386,7 @@
 
     (define (scheduler) (→ (Option Module)) (! mut)
       (match (ref-get linked)
-        ((Some linked) (::scheduler linked))
+        ((Some linked) (● linked scheduler))
         ((None) (None))))
 
     ;; Calls an export the program's modules are known to have; one they
@@ -402,7 +402,7 @@
 
     (define (close-program) (→ I32) (! mut wasm)
       (match (ref-get linked)
-        ((Some linked) (i64->i32 (call (::runtime linked) "snail:io/close-all" 0)))
+        ((Some linked) (i64->i32 (call (● linked runtime) "snail:io/close-all" 0)))
         ((None) 0)))
 
     ;; ---- Linked files ----
@@ -446,7 +446,7 @@
     (define (resource-finish (ticket I64)) (→ I32) (! mut)
       (let ((answer (assoc-ref (ref-get answers) ticket)))
         (ref-set! answers
-                  (filter (lambda (answer) (not (= (::first answer) ticket))) (ref-get answers)))
+                  (filter (lambda (answer) (not (= (● answer first) ticket))) (ref-get answers)))
         (match answer
           ((Some (Some bytes))
            (ref-set! held bytes)

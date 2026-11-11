@@ -34,7 +34,7 @@
 (instance (ToHex (Vec3 I64))
   (define to-hex
     (lambda (v)
-      (string-append "#" (channel-hex (::x v)) (channel-hex (::y v)) (channel-hex (::z v))))))
+      (string-append "#" (channel-hex (● v x)) (channel-hex (● v y)) (channel-hex (● v z))))))
 
 (instance (ToHex Color)
   (define to-hex

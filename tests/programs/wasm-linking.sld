@@ -46,8 +46,8 @@
     ((GlobalImport) "global")))
 
 (define (show-import (import Import)) (→ Unit) (! console)
-  (write-line (string-append (::from import) " " (::name import) " "
-                             (kind-name (::kind import)))))
+  (write-line (string-append (● import from) " " (● import name) " "
+                             (kind-name (● import kind)))))
 
 (define (show-run (instance Module) (name String)) (→ Unit) (! wasm console)
   (match (run-export instance name 0)

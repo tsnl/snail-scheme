@@ -8,6 +8,6 @@
   ((x I64)))
 
 (define (Point-x (point Point)) (→ I64)
-  (::x point))
+  (● point x))
 
 (write-line (show (Point-x (Point 1))))

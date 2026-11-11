@@ -8,6 +8,6 @@
    (run (dyn (Fn I64 → I64)))))
 
 (define (job-name (job Job)) (→ String)
-  (::name job))
+  (● job name))
 
 (expose job-name "job-name" dynamic)

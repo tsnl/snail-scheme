@@ -89,7 +89,7 @@
        ((Ok _) "reconciled")
        ((Err message) (string-append "reconcile failed: " message))))
     ((BuildReplied epoch reply)
-     (string-append "built " (show epoch) (match (::candidate reply)
+     (string-append "built " (show epoch) (match (● reply candidate)
                                             ((Some _) " a candidate")
                                             ((None) " nothing"))))
     ((PublishReplied epoch error)
@@ -116,8 +116,8 @@
     ((Launch name request)
      (match request
        ((Some request)
-        (string-append "launch " name " from build " (show (::build request)) " at "
-                       (::entry request)))
+        (string-append "launch " name " from build " (show (● request build)) " at "
+                       (● request entry)))
        ((None) (string-append "launch " name " nothing"))))
     ((Refuse refusal)
      (match refusal
@@ -130,25 +130,25 @@
 
 (define (snapshot->string (snapshot Snapshot)) (→ String)
   (string-append "notify "
-                 (phase->string (::phase snapshot))
+                 (phase->string (● snapshot phase))
                  " "
-                 (show (::id snapshot))
+                 (show (● snapshot id))
                  (string-concatenate (map (lambda (diagnostic)
                                             (string-append " ["
-                                                           (::message diagnostic)
+                                                           (● diagnostic message)
                                                            "]"))
-                                          (::diagnostics snapshot)))
-                 (match (::publications snapshot)
+                                          (● snapshot diagnostics)))
+                 (match (● snapshot publications)
                    ((Cons published _)
-                    (string-append " published " (show (::id published))))
+                    (string-append " published " (show (● published id))))
                    ((Nil) ""))
-                 (string-concatenate (map run->string (::runs snapshot)))))
+                 (string-concatenate (map run->string (● snapshot runs)))))
 
 (define (run->string (run RunStatus)) (→ String)
   (string-append " run "
-                 (::name run)
-                 (if (::wanted run) " wanted" "")
-                 (if (::available run) " available" "")))
+                 (● run name)
+                 (if (● run wanted) " wanted" "")
+                 (if (● run available) " available" "")))
 
 (define (phase->string (phase Phase)) (→ String)
   (match phase
@@ -167,11 +167,11 @@
                  (write-line (string-append "  "
                                             (event->string event)
                                             " -> "
-                                            (match (::second stepped)
+                                            (match (● stepped second)
                                               ((Nil) "nothing")
                                               (commands
                                                (string-join (map command->string commands) "; ")))))
-                 (::first stepped)))
+                 (● stepped first)))
              service
              events))
 

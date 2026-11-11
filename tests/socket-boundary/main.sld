@@ -56,7 +56,7 @@
 (define (require (result (Result T SocketError))) (→ T) (∀ T)
   (match result
     ((Ok value) value)
-    ((Err error) (panic (::code error)))))
+    ((Err error) (panic (● error code)))))
 
 (define (open) (→ (Result Listener SocketError)) (! tcp tasks)
   (listen (require (endpoint "127.0.0.1" 0))))
@@ -64,7 +64,7 @@
 (define (listener (answer Any)) (→ Listener)
   (require (fixture-convert answer (Result Listener SocketError))))
 
-(define (port (listener Listener)) (→ I32) (::port listener))
+(define (port (listener Listener)) (→ I32) (● listener port))
 
 (define (dial (port I32)) (→ (Result Connection SocketError)) (! tcp tasks)
   (connect (require (endpoint "127.0.0.1" port))))
@@ -94,7 +94,7 @@
 
 (define (bad-read? (answer Any)) (→ Bool)
   (match (fixture-convert answer (Result (Option Bytes) SocketError))
-    ((Err error) (string=? (::code error) "EBADF"))
+    ((Err error) (string=? (● error code) "EBADF"))
     ((Ok _) #f)))
 
 (define (send (connection Connection))
@@ -107,7 +107,7 @@
 
 (define (overwrite) (→ Bool) (! tcp tasks)
   (match (write (Connection (type-convert (ann 1 I32) Any)) #u8(9 8 7))
-    ((Err error) (string=? (::code error) "EBADF"))
+    ((Err error) (string=? (● error code) "EBADF"))
     ((Ok _) #f)))
 
 (define (stop-listener (listener Listener)) (→ Unit) (! tcp) (require (close-listener listener)))
@@ -129,7 +129,7 @@
 
 (define (timed-out? (answer Any)) (→ Bool)
   (match (fixture-convert answer (Result Unit SocketError))
-    ((Err error) (string=? (::code error) "ETIMEDOUT"))
+    ((Err error) (string=? (● error code) "ETIMEDOUT"))
     ((Ok _) #f)))
 
 (define (begin-open) (→ I64) (! mut tcp udp)
@@ -177,7 +177,7 @@
 (define (udp-socket (answer Any)) (→ UdpSocket)
   (fixture-convert answer UdpSocket))
 
-(define (udp-port (socket UdpSocket)) (→ I32) (::port socket))
+(define (udp-port (socket UdpSocket)) (→ I32) (● socket port))
 
 (define (send-udp (socket UdpSocket) (port I32)) (→ (Result I32 SocketError)) (! udp tasks)
   (udp-send socket (require (endpoint "127.0.0.1" port)) #u8(0 255 128 1)))
@@ -190,12 +190,12 @@
 (define (datagram (answer Any)) (→ Datagram)
   (require (fixture-convert answer (Result Datagram SocketError))))
 
-(define (packet-port (answer Any)) (→ I32) (Endpoint-port (::peer (datagram answer))))
+(define (packet-port (answer Any)) (→ I32) (Endpoint-port (● (datagram answer) peer)))
 
-(define (packet-size (answer Any)) (→ I32) (i64->i32 (vector-length (::bytes (datagram answer)))))
+(define (packet-size (answer Any)) (→ I32) (i64->i32 (vector-length (● (datagram answer) bytes))))
 
 (define (packet-byte (answer Any) (index I32)) (→ I32)
-  (u8->i32 (vector-ref (::bytes (datagram answer)) (i32->i64 index))))
+  (u8->i32 (vector-ref (● (datagram answer) bytes) (i32->i64 index))))
 
 (define (stop-udp (socket UdpSocket)) (→ Unit) (! udp) (require (close-udp socket)))
 

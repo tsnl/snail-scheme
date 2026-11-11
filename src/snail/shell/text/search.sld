@@ -30,7 +30,7 @@
     ;; cross a line; CRLF counts as one newline and snippets omit the CR.
 
     (define (scan (query Query) (text String) (end I64) (room I64)) (→ (List Occurrence)) (! tasks)
-      (let ((needle (::text query)))
+      (let ((needle (● query text)))
         (let loop ((at 0) (line 1) (start 0) (hits (ann (Nil) (List Occurrence))) (room room)
                    (next-yield 0))
           (cond ((or (>= at end) (= room 0)) (reverse hits))

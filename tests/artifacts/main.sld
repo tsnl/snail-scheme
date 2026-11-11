@@ -18,12 +18,12 @@
 
 (define (print-bundle (bundle ArtifactBundle)) (→ Unit) (! console)
   (for-each (lambda (file)
-              (display (::path file))
+              (display (● file path))
               (display ":")
               (vector-for-each (lambda (byte) (display (u8->i32 byte)) (display ","))
-                               (::bytes file))
+                               (● file bytes))
               (newline))
-            (::files bundle)))
+            (● bundle files)))
 
 ;; These local values must not capture the imported macro's constructors.
 (let ((ArtifactBundle "shadow") (ArtifactFile "shadow") (Cons "shadow") (Nil "shadow"))

@@ -34,13 +34,13 @@
        ((Ready (Abandoned)) (Model "canceled" (None)))))))
 
 (define (view (model (Borrow Model))) (→ (Html Msg))
-  (Element "p" (Nil) (list (Text (::text model)))))
+  (Element "p" (Nil) (list (Text (● model text)))))
 
 (define (window (model (Borrow Model))) (→ (List (Attribute Msg)))
   (Nil))
 
 (define (snapshot (model (Borrow Model))) (→ String)
-  (::text model))
+  (● model text))
 
 ;; A storage-like wait owns the live model while a producer completes.
 (define (checkpoint (saved String)) (→ Unit) (! tasks)
@@ -55,6 +55,6 @@
                                                 (lambda (saved) (unit))
                                                 checkpoint)))
   ((Pair model document)
-   (write-line (::text model))
+   (write-line (● model text))
    (write-line (document->html document))
    (drop model)))

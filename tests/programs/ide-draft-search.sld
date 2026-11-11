@@ -11,8 +11,8 @@
     ((Ok (search-DraftResults draft hits limited))
      (for-each (lambda (hit)
                  (write-line
-                  (string-append (show (::line hit)) ":" (show (::column hit))
-                                 " " (::snippet hit)))) hits)
+                  (string-append (show (● hit line)) ":" (show (● hit column))
+                                 " " (● hit snippet)))) hits)
      (write-line (string-append (show (length hits)) " " (show limited))))
     (_ (panic "draft search failed"))))
 

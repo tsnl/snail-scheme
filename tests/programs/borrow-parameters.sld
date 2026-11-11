@@ -7,7 +7,7 @@
    (work (dyn (FnOnce → Unit ! console)))))
 
 (define (title (model (Borrow Model))) (→ String)
-  (::title model))
+  (● model title))
 
 (define (forward (model (Borrow M)) (read (dyn (Fn (Borrow M) → String)))) (→ String) (∀ M)
   (read model))
@@ -20,14 +20,14 @@
 
 ;; The callback owns the copied text; it does not retain the borrowed model.
 (define (callback (model (Borrow Model))) (→ (dyn (Fn → String)))
-  (let ((text (::title model)))
+  (let ((text (● model title)))
     (lambda () text)))
 
 (let ((model (Model "ready" (once (lambda () (write-line "finished"))))))
   (let ((read (with-borrow (borrowed model)
                            (let ((alias borrowed))
                              (write-line (title alias))
-                             (write-line (forward borrowed (::read (identity (Reader title)))))
+                             (write-line (forward borrowed (● (identity (Reader title)) read)))
                              (callback alias)))))
     (match model
       ((Model _ work) (work)))

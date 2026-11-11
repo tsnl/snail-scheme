@@ -282,7 +282,7 @@
 
     ;; `set!` writes a place and `replace!` swaps a value into one and
     ;; answers the old: a cell's content, `(ref-get r)`, or a chain of struct
-    ;; fields read from one, `(::count (ref-get r))`, which the checker
+    ;; fields read from one, `(● r count)`, which the checker
     ;; verifies (check.sld, "Places"). Setting discards the old content, so
     ;; it must be unrestricted; a swap moves it out.
     (primitive set! (∀ (A) (⊨ (Copy A)) (impl (Fn A A → Unit ! mut))))

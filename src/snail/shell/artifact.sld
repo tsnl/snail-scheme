@@ -26,9 +26,9 @@
         ((_ name) (ArtifactBundle (artifact-files name ArtifactFile Cons Nil)))))
 
     (define (artifact-ref (bundle ArtifactBundle) (path String)) (→ (Option Bytes))
-      (match (find (lambda (file) (string=? (::path file) path))
-                   (::files bundle))
-        ((Some file) (Some (::bytes file)))
+      (match (find (lambda (file) (string=? (● file path) path))
+                   (● bundle files))
+        ((Some file) (Some (● file bytes)))
         ((None) (None))))
 
     ))

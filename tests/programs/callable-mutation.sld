@@ -12,8 +12,8 @@
 
 (let* ((counter (Counter (ref 0)))
        (advance (ann (lambda (amount)
-                       (set! (ref-get (::value counter)) (+ (ref-get (::value counter)) amount))
-                       (ref-get (::value counter)))
+                       (set! (ref-get (● counter value)) (+ (ref-get (● counter value)) amount))
+                       (ref-get (● counter value)))
                      (impl (FnMut I64 → I64 ! mut console)))))
   (write-line (show (advance 3)))
   (write-line (show (advance 4)))
@@ -22,8 +22,8 @@
 ;; An exclusive callable can reborrow its owned exclusive callback.
 (let* ((counter (Counter (ref 0)))
        (inner (ann (lambda (amount)
-                     (set! (ref-get (::value counter)) (+ (ref-get (::value counter)) amount))
-                     (ref-get (::value counter)))
+                     (set! (ref-get (● counter value)) (+ (ref-get (● counter value)) amount))
+                     (ref-get (● counter value)))
                    (impl (FnMut I64 → I64 ! mut console))))
        (outer (ann (lambda (amount) (inner amount))
                    (impl (FnMut I64 → I64 ! mut console)))))
@@ -40,8 +40,8 @@
 ;; Consuming an exclusive implementation runs its capture cleanup once.
 (let* ((counter (Counter (ref 0)))
        (advance (ann (lambda (amount)
-                       (set! (ref-get (::value counter)) amount)
-                       (ref-get (::value counter)))
+                       (set! (ref-get (● counter value)) amount)
+                       (ref-get (● counter value)))
                      (impl (FnMut I64 → I64 ! mut console)))))
   (write-line (show (consume advance 9))))
 
@@ -51,7 +51,7 @@
 ;; An erased exclusive receiver can be called through its owner's field.
 (let* ((counter (Counter (ref 0)))
        (work (Work (lambda (amount)
-                     (set! (ref-get (::value counter)) amount)
-                     (ref-get (::value counter))))))
-  (write-line (show ((::run work) 12)))
+                     (set! (ref-get (● counter value)) amount)
+                     (ref-get (● counter value))))))
+  (write-line (show ((● work run) 12)))
   (drop work))

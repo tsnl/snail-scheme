@@ -14,9 +14,9 @@
   (if (null? beliefs)
       "-"
       (string-join (map (lambda (belief)
-                          (string-append (trait-name (::first belief))
+                          (string-append (trait-name (● belief first))
                                          " "
-                                         (show (::second belief))))
+                                         (show (● belief second))))
                         beliefs)
                    ", ")))
 
@@ -45,14 +45,14 @@
 ;; The shift and coins, what each audience and its people believe, the
 ;; liabilities and the goal, then the forecast or the verdict.
 (define (show-board (mill Mill)) (→ Unit) (! console)
-  (write-line (string-append (::name (scenario-rules (::scenario mill))) ": "
+  (write-line (string-append (● (scenario-rules (● mill scenario)) name) ": "
                              (if (mill-over? mill)
                                  (string-append "after shift " (show (last-shift mill)))
                                  (string-append "shift "
-                                                (show (::shift mill))
+                                                (show (● mill shift))
                                                 " of "
                                                 (show (last-shift mill))))
-                             ", " (show (::coins mill)) " coins."))
+                             ", " (show (● mill coins)) " coins."))
   (for-each (lambda (audience)
               (write-line (string-append (audience-name audience)
                                          ": "
@@ -70,9 +70,9 @@
   (for-each (lambda (text) (write-line (string-append "Liability: " text))) (liabilities mill))
   (for-each (lambda (goal)
               (write-line (string-append "Goal: "
-                                         (::text goal)
+                                         (● goal text)
                                          " ("
-                                         (progress-text (::progress goal))
+                                         (progress-text (● goal progress))
                                          ")")))
             (mill-goals mill))
   (match (mill-result mill)
@@ -94,7 +94,7 @@
     ((Act text action)
      (write-line (string-append "> " text))
      (match (take-shift mill action)
-       ((Ok result) (for-each write-line (::second result)) (::first result))
+       ((Ok result) (for-each write-line (● result second)) (● result first))
        ((Err message) (write-line message) mill)))
     ((Look text person)
      (write-line (string-append "> " text))
@@ -102,7 +102,7 @@
      mill)))
 
 (define (game (scenario Scenario) (steps (List Step))) (→ Unit) (! console)
-  (write-line (string-append "==== " (::name (scenario-rules scenario))))
+  (write-line (string-append "==== " (● (scenario-rules scenario) name)))
   (show-board (fold-left run-step (new-mill scenario) steps))
   (write-line ""))
 
