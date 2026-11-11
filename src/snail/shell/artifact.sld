@@ -25,7 +25,7 @@
       (syntax-rules ()
         ((_ name) (ArtifactBundle (artifact-files name ArtifactFile Cons Nil)))))
 
-    (: artifact-ref (-> ArtifactBundle String (Option Bytes)))
+    (: artifact-ref (impl (Fn ArtifactBundle String -> (Option Bytes))))
     (define (artifact-ref bundle path)
       (match (find (lambda (file) (string=? (::path file) path))
                    (::files bundle))

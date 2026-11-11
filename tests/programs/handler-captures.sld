@@ -3,9 +3,9 @@
  (snail core io)
  (handler helper))
 
-(effect Counter ((tick (-> I64))))
+(effect Counter ((tick (dyn (Fn -> I64)))))
 
-(: recursive (-> I64 I64))
+(: recursive (impl (Fn I64 -> I64)))
 (define (recursive n) (if (= n 0) 4 (recursive (- n 1))))
 
 ;; Local mutation belongs to each invocation, not to its reusable environment.

@@ -55,7 +55,7 @@
        (compiled? Bool)
        (links (List LinkedFile))))
 
-    (: make-session (-> (List String) Session))
+    (: make-session (impl (Fn (List String) -> Session)))
     (define (make-session directories)
       (Session directories empty-expansion empty-table))
 
@@ -65,12 +65,12 @@
     ;; session after the build. Artifact snapshots and producer outputs
     ;; belong to this invocation, never to the retained session.
     (: build-session
-       (-> Session
-           String
-           (-> (List String) (List Syntax) Bytes ! fs compile)
-           Inputs
-           (Pair (List Built) Session)
-           ! mut fs compile))
+       (impl (Fn Session
+                 String
+                 (dyn (Fn (List String) (List Syntax) -> Bytes ! fs compile))
+                 Inputs
+                 -> (Pair (List Built) Session)
+                 ! mut fs compile)))
     (define (build-session session source generate inputs)
       (let* ((expansion (expand-program (::directories session)
                                         generate
@@ -89,7 +89,7 @@
     ;; holds the yield record that the program's modules share. Its text is
     ;; fixed, so a build compiles it only when the build before had none. It
     ;; links no files.
-    (: control-modules (-> Session Program (List Built) ! mut))
+    (: control-modules (impl (Fn Session Program -> (List Built) ! mut)))
     (define (control-modules session program)
       (if (null? (control-effects program))
           (Nil)
@@ -102,10 +102,10 @@
     ;; libraries before it, and returns the whole program checked, with each
     ;; library as compiled now.
     (: check-libraries
-       (-> (Table Compiled)
-           ExpandedProgram
-           (List (Pair String (List Item)))
-           (Pair Typed (Table Compiled)) ! compile))
+       (impl (Fn (Table Compiled)
+                 ExpandedProgram
+                 (List (Pair String (List Item)))
+                 -> (Pair Typed (Table Compiled)) ! compile)))
     (define (check-libraries compiled expansion libraries)
       (let loop ((libraries libraries) (compiled compiled) (items (Nil)) (schemes empty-table))
         (match libraries
@@ -120,12 +120,12 @@
     ;; A library as compiled before, if made from its current expansion, or
     ;; checked again.
     (: checked-library
-       (-> (Table Compiled)
-           ExpandedProgram
-           (Table Scheme)
-           (Pair String (List Item))
-           Compiled
-           ! compile))
+       (impl (Fn (Table Compiled)
+                 ExpandedProgram
+                 (Table Scheme)
+                 (Pair String (List Item))
+                 -> Compiled
+                 ! compile)))
     (define (checked-library compiled expansion schemes library)
       (let ((key (library-key expansion (::first library))))
         (match (table-ref compiled (::first library))
@@ -136,7 +136,8 @@
           ((None) (check-anew expansion schemes library key)))))
 
     (: check-anew
-       (-> ExpandedProgram (Table Scheme) (Pair String (List Item)) String Compiled ! compile))
+       (impl
+        (Fn ExpandedProgram (Table Scheme) (Pair String (List Item)) String -> Compiled ! compile)))
     (define (check-anew expansion schemes library key)
       (let ((typed
              (check-library (::program expansion) schemes (::second library))))
@@ -151,12 +152,12 @@
     ;; module: its importers call the host's imports themselves, and a module
     ;; of its name would stand where the host's module of that name belongs.
     (: emit-libraries
-       (-> ExpandedProgram
-           (Table Compiled)
-           Typed
-           (List (Pair String (List Item)))
-           (Pair (List Built) (Table Compiled))
-           ! mut compile))
+       (impl (Fn ExpandedProgram
+                 (Table Compiled)
+                 Typed
+                 (List (Pair String (List Item)))
+                 -> (Pair (List Built) (Table Compiled))
+                 ! mut compile)))
     (define (emit-libraries expansion compiled typed libraries)
       (let ((input (prepare-specialization typed)))
         (let loop ((libraries libraries) (compiled compiled) (built (Nil)))
@@ -181,14 +182,14 @@
 
     ;; ---- Records ----
 
-    (: compiled-of (-> (Table Compiled) String Compiled))
+    (: compiled-of (impl (Fn (Table Compiled) String -> Compiled)))
     (define (compiled-of compiled name)
       (match (table-ref compiled name)
         ((Some found) found)
         ((None) (panic (string-append "internal error: nothing compiled for " name)))))
 
     ;; The schemes of the definitions among `items`.
-    (: own-schemes (-> (Table Scheme) (List Item) (Table Scheme)))
+    (: own-schemes (impl (Fn (Table Scheme) (List Item) -> (Table Scheme))))
     (define (own-schemes schemes items)
       (fold-left (lambda (own item)
                    (match item
@@ -256,9 +257,9 @@
             (string-append
              "(define-library (sample policy) (export Value value) "
              "(import (snail core forms) (snail core primitive)) (begin "
-             "(typeclass (Value A) (: value (-> A I64))) "
+             "(typeclass (Value A) (: value (impl (Fn A -> I64)))) "
              "(instance (Value I64) (define (value x) (helper x))) "
-             "(: helper (-> I64 I64)) (define (helper x) " body ")))"))
+             "(: helper (impl (Fn I64 -> I64))) (define (helper x) " body ")))"))
           (write-file file (source "(i64-add x 1)"))
           (write-file main
                       "(import (snail core forms) (snail core primitive) (sample policy)) (value (ann 2 I64))")
@@ -279,7 +280,7 @@
                       (string-append
                        "(define-library (sample generic) (export identity) "
                        "(import (snail core forms) (snail core primitive)) "
-                       "(begin (: identity (All (A) (-> A A))) (define (identity x) x)))"))
+                       "(begin (: identity (All (A) (impl (Fn A -> A)))) (define (identity x) x)))"))
           (write-file main (string-append source "(identity (ann 1 I64))"))
           (let ((first (build-session (make-session (list directory library))
                                       main no-generation no-inputs)))
@@ -356,7 +357,7 @@
           (write-file (string-append directory "/sample/host.sld")
                       (string-append
                        "(define-library (sample host) (export now) (import (snail core forms) (snail core primitive)) "
-                       "(begin (extern now \"sample.host\" \"now\" (-> I64))))"))
+                       "(begin (extern now \"sample.host\" \"now\" (impl (Fn -> I64)))))"))
           (write-file main "(import (snail core forms) (snail core primitive) (sample host)) (now)")
           (let ((built (::first (build-session (make-session (list directory library))
                                                main
@@ -385,16 +386,18 @@
         (write-file (string-append directory "/sample/assets.sld")
                     (string-append
                      "(define-library (sample assets) (export bundle) (import (snail core base) (snail shell artifact)) "
-                     "(begin (: bundle (-> ArtifactBundle)) (define (bundle) " body ")))")))
+                     "(begin (: bundle (impl (Fn -> ArtifactBundle))) (define (bundle) "
+                     body
+                     ")))")))
 
       (define (write-sample-a directory body more)
         (write-file (string-append directory "/sample/a.sld")
                     (string-append
                      "(define-library (sample a) (export twice) (import (snail core forms) (snail core primitive)) (begin "
-                     "(: twice (-> I64 I64)) (define (twice x) " body ") " more "))")))
+                     "(: twice (impl (Fn I64 -> I64))) (define (twice x) " body ") " more "))")))
 
       (define sample-b
-        "(define-library (sample b) (export four) (import (snail core forms) (snail core primitive) (sample a)) (begin (: four (-> I64)) (define (four) (twice 2))))")
+        "(define-library (sample b) (export four) (import (snail core forms) (snail core primitive) (sample a)) (begin (: four (impl (Fn -> I64))) (define (four) (twice 2))))")
 
       (define (compiled-names build)
         (map ::name (filter ::compiled? (::first build))))))

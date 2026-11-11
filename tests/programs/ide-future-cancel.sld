@@ -8,17 +8,17 @@
  (snail shell fetch)
  (snail shell ide application))
 
-(: check (-> Bool String Unit ! console))
+(: check (impl (Fn Bool String -> Unit ! console)))
 (define (check ok label)
   (if ok (write-line label) (panic label)))
 
-(: buffer (-> (Borrow Session) Buffer))
+(: buffer (impl (Fn (Borrow Session) -> Buffer)))
 (define (buffer session)
   (match (buffer-at (::ide session) "notes.txt")
     ((Some buffer) buffer)
     ((None) (panic "missing buffer"))))
 
-(: send (-> Session Msg Session ! mut completion dom fetch))
+(: send (impl (Fn Session Msg -> Session ! mut completion dom fetch)))
 (define (send session message)
   (update-session session (Some message)))
 

@@ -5,7 +5,7 @@
   (begin
     ;; A handle says its name when it is released.
     (effect log
-      ((say (-> String Unit))))
+      ((say (dyn (Fn String -> Unit)))))
 
     (struct Handle
       ((name String)))

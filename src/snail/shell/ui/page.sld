@@ -29,17 +29,17 @@
 
     ;; ---- Interfaces ----
 
-    (type (Command M) (FnOnce M ! tasks dom fetch))
+    (type (Command M) (dyn (FnOnce -> M ! tasks dom fetch)))
 
     (typeclass (Interface Model)
       (type Message)
-      (: interface-initialize (-> I32 Model))
-      (: interface-update (-> Model Message (Pair Model (List (Command Message)))))
-      (: interface-view (-> Model (Html Message)))
-      (: interface-window (-> Model (List (Attribute Message))))
-      (: interface-messages (-> Model (List Message)))
-      (: interface-save (-> Model Bytes))
-      (: interface-restore (-> Bytes Model)))
+      (: interface-initialize (impl (Fn I32 -> Model)))
+      (: interface-update (impl (Fn Model Message -> (Pair Model (List (Command Message))))))
+      (: interface-view (impl (Fn Model -> (Html Message))))
+      (: interface-window (impl (Fn Model -> (List (Attribute Message)))))
+      (: interface-messages (impl (Fn Model -> (List Message))))
+      (: interface-save (impl (Fn Model -> Bytes)))
+      (: interface-restore (impl (Fn Bytes -> Model))))
 
     (struct (InterfaceApplication Model)
       ())
@@ -52,29 +52,33 @@
 
     (: initial-interface
        (All (Model) (requires (Interface Model))
-            (-> (Entry (InterfaceApplication Model)) Model ! events)))
+            (impl (Fn (Entry (InterfaceApplication Model)) -> Model ! events))))
     (define (initial-interface entry)
       (interface-initialize (random-seed)))
 
     ;; The loop's row includes publishing and saving its model. Commands
     ;; retain their narrower public contract and run under the same handlers.
     (: widen-commands
-       (All (M) (-> (List (Command M))
-                    (List (FnOnce M ! mut events storage tasks dom fetch)))))
+       (All (M) (impl (Fn (List (Command M))
+                          -> (List (dyn (FnOnce -> M ! mut events storage tasks dom fetch)))))))
     (define (widen-commands commands)
       (match commands
         ((Cons command rest) (Cons (once (lambda () (command))) (widen-commands rest)))
         ((Nil) (Nil))))
 
     (: interface-save-callback
-       (All (S) (-> (-> S Unit ! events storage tasks)
-                    (-> S Unit ! mut events storage tasks dom fetch))))
+       (All (S) (impl (Fn (dyn (Fn S -> Unit ! events storage tasks))
+                          -> (dyn (Fn S -> Unit ! mut events storage tasks dom fetch))))))
     (define (interface-save-callback save)
       (lambda (model) (save model)))
 
     (: present-interface
        (All (Model) (requires (Interface Model) (PageState Model) (Copy Model))
-            (-> Model (-> Model Unit ! events storage tasks) Unit ! mut events storage tasks)))
+            (impl (Fn Model
+                      (dyn (Fn Model -> Unit ! events storage tasks))
+                      ->
+                      Unit
+                      ! mut events storage tasks))))
     (define (present-interface model save)
       (with-page-dom
        (lambda ()

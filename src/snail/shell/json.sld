@@ -34,7 +34,7 @@
 
     ;; ---- Strings ----
 
-    (: hex4 (-> I32 String))
+    (: hex4 (impl (Fn I32 -> String)))
     (define (hex4 code)
       (string-generate 4
                        (lambda (index)
@@ -51,7 +51,7 @@
     ;; String holds scalars, so a surrogate Char, which only `i32->char`
     ;; makes, is always alone, and JavaScript escapes a lone surrogate.
     ;; Everything else, DEL, U+2028 and U+2029 among it, is written as it is.
-    (: escape (-> Char (Option String)))
+    (: escape (impl (Fn Char -> (Option String))))
     (define (escape char)
       (let ((code (char->i32 char)))
         (cond ((= code 34) (Some "\\\""))
@@ -67,7 +67,7 @@
 
     ;; Each run of characters between escapes is copied as one substring,
     ;; so a long text with few escapes, a file's contents, is a few pieces.
-    (: string-pieces (-> String (List String) (List String)))
+    (: string-pieces (impl (Fn String (List String) -> (List String))))
     (define (string-pieces text pieces)
       (let loop ((start 0) (index 0) (pieces (Cons "\"" pieces)))
         (if (= index (string-length text))
@@ -83,7 +83,7 @@
 
     ;; The pieces of a value's text, prepended in reverse to `pieces`, so
     ;; that writing is one pass and one final concatenation.
-    (: value-pieces (-> Json (List String) (List String)))
+    (: value-pieces (impl (Fn Json (List String) -> (List String))))
     (define (value-pieces value pieces)
       (match value
         ((JsonNull) (Cons "null" pieces))
@@ -93,13 +93,18 @@
         ((JsonArray items) (Cons "]" (separated value-pieces items (Cons "[" pieces))))
         ((JsonObject members) (Cons "}" (separated member-pieces members (Cons "{" pieces))))))
 
-    (: member-pieces (-> (Pair String Json) (List String) (List String)))
+    (: member-pieces (impl (Fn (Pair String Json) (List String) -> (List String))))
     (define (member-pieces member pieces)
       (value-pieces (::second member) (Cons ":" (string-pieces (::first member) pieces))))
 
     ;; Items with a comma between each two, and no spaces anywhere.
     (: separated
-       (All (T) (-> (-> T (List String) (List String)) (List T) (List String) (List String))))
+       (All (T)
+            (impl (Fn (dyn (Fn T (List String) -> (List String)))
+                      (List T)
+                      (List String)
+                      ->
+                      (List String)))))
     (define (separated write items pieces)
       (match items
         ((Nil) pieces)
@@ -108,7 +113,7 @@
                     (write first pieces)
                     rest))))
 
-    (: json->string (-> Json String))
+    (: json->string (impl (Fn Json -> String)))
     (define (json->string value)
       (string-concatenate (reverse (value-pieces value (Nil)))))
 

@@ -130,9 +130,9 @@ Import `(snail shell http exchange)` and call `serve-one` with an exclusively us
 ```scheme
 (: serve-one
    (All (E e)
-     (-> Connection I32
-         (-> Request (Result Response E) ! e)
-         (Result Unit (ExchangeError E)) ! tcp e)))
+     (impl (Fn Connection I32
+         (dyn (Fn Request -> (Result Response E) ! e))
+         -> (Result Unit (ExchangeError E)) ! tcp e))))
 ```
 
 `Request` contains `head : RequestHead` and `body : Bytes`. The callback returns

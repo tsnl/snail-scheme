@@ -33,30 +33,34 @@
     ;; is one, and an Any's nothing of what it holds. The search returns the
     ;; declarations it has entered, each once, as the search for linear
     ;; fields below does, or None once it finds something that is not data.
-    (: first-order-type? (-> Program Type Bool))
+    (: first-order-type? (impl (Fn Program Type -> Bool)))
     (define (first-order-type? program type)
       (match (first-order-search program type (Some (Nil)))
         ((Some _) #t)
         ((None) #f)))
 
     ;; Arguments are searched before a recursive declaration is cut by name.
-    (: first-order-search (-> Program Type (Option (List String)) (Option (List String))))
+    (: first-order-search (impl (Fn Program Type (Option (List String)) -> (Option (List String)))))
     (define (first-order-search program type entered)
       (match (Pair type entered)
         ((Pair _ (None)) (None))
         ((Pair (TCon name args) _)
-         (match (fold-left (lambda (found arg) (first-order-search program arg found)) entered args)
-           ((Some names)
-            (cond ((member? name (list "Any" "Funcref")) (None))
-                  ((or (member? name names)
-                       (any? (lambda (entry) (string=? name (::first entry))) builtin-types))
-                   (Some names))
-                  (else (first-order-fields program name args (Cons name names)))))
-           ((None) (None))))
+         (if (concrete-callable? type) (None)
+             (match (fold-left (lambda (found arg) (first-order-search program arg found))
+                               entered
+                               args)
+               ((Some names)
+                (cond ((member? name (list "Any" "Funcref")) (None))
+                      ((or (member? name names)
+                           (any? (lambda (entry) (string=? name (::first entry))) builtin-types))
+                       (Some names))
+                      (else (first-order-fields program name args (Cons name names)))))
+               ((None) (None)))))
         ((Pair (TRow _ _) _) entered)
         (_ (None))))
 
-    (: first-order-fields (-> Program String (List Type) (List String) (Option (List String))))
+    (: first-order-fields
+       (impl (Fn Program String (List Type) (List String) -> (Option (List String)))))
     (define (first-order-fields program name args entered)
       (let* ((data (program-type program name)) (bindings (zip (::params data) args)))
         (fold-left (lambda (found field)
@@ -88,16 +92,22 @@
     ;; describe owned captures. A cell, like any struct with a mutable
     ;; field, is a shared handle whatever it holds, so a declaration that
     ;; holds a parameter only in a `Ref` is unrestricted.
-    (: linear-type? (-> Program (List String) Type Bool))
+    (: linear-type? (impl (Fn Program (List String) Type -> Bool)))
     (define (linear-type? program copy type)
       (::found? (linear-search program copy type (Linearity #f (Nil) (Nil)))))
 
-    (: linear-search (-> Program (List String) Type Linearity Linearity))
+    (: linear-search (impl (Fn Program (List String) Type Linearity -> Linearity)))
     (define (linear-search program copy type progress)
       (match type
         ((TCon "Borrow" _) progress)
         ((TCon "FnOnce" _) (Linearity-found?-set progress #t))
-        ((TCon name args) (linear-instance program copy name args progress))
+        ((TCon "FnMut" _) (Linearity-found?-set progress #t))
+        ((TCon name args)
+         (if (concrete-callable? type)
+             (match (callable-kind type)
+               ((Some "FnOnce") (Linearity-found?-set progress #t))
+               (_ (linear-any program copy (callable-captures type) progress)))
+             (linear-instance program copy name args progress)))
         ((TRigid name) (if (member? name copy) progress (Linearity-found?-set progress #t)))
         (_ progress)))
 
@@ -105,7 +115,7 @@
     ;; a declaration met again on the path at other arguments. Any other
     ;; declaration is searched through its fields, with its parameters bound
     ;; to `args`.
-    (: linear-instance (-> Program (List String) String (List Type) Linearity Linearity))
+    (: linear-instance (impl (Fn Program (List String) String (List Type) Linearity -> Linearity)))
     (define (linear-instance program copy name args progress)
       (let ((key (type-key (TCon name args))))
         (cond ((member? key (::keys progress)) progress)
@@ -118,11 +128,11 @@
                        (Linearity #f (Cons key (::keys progress)) (Cons name names))))
                  (Linearity-names-set (linear-fields program copy name args entered) names))))))
 
-    (: linear-any (-> Program (List String) (List Type) Linearity Linearity))
+    (: linear-any (impl (Fn Program (List String) (List Type) Linearity -> Linearity)))
     (define (linear-any program copy types progress)
       (fold-left (lambda (found type) (linear-next program copy type found)) progress types))
 
-    (: linear-next (-> Program (List String) Type Linearity Linearity))
+    (: linear-next (impl (Fn Program (List String) Type Linearity -> Linearity)))
     (define (linear-next program copy type found)
       (if (::found? found)
           found
@@ -130,7 +140,7 @@
 
     ;; A declaration's parameters are bound to `args`, so its fields hold
     ;; only the variables of the type being searched.
-    (: linear-fields (-> Program (List String) String (List Type) Linearity Linearity))
+    (: linear-fields (impl (Fn Program (List String) String (List Type) Linearity -> Linearity)))
     (define (linear-fields program copy name args progress)
       (let* ((data (program-type program name)) (bindings (zip (::params data) args)))
         (if (::owned? data)
@@ -140,7 +150,7 @@
 
     ;; A mutable field never makes its holder linear: its content leaves
     ;; only by being swapped out, so sharing the holder never duplicates it.
-    (: linear-case (-> Program (List String) Substitution Case Linearity Linearity))
+    (: linear-case (impl (Fn Program (List String) Substitution Case Linearity -> Linearity)))
     (define (linear-case program copy bindings case found)
       (fold-left (lambda (found field)
                    (if (::mutable? field)
@@ -152,12 +162,12 @@
     ;; unrestricted, or none when a concrete part of it is linear, which
     ;; no declaration changes. A variable reached through data makes its
     ;; type linear; one inside an arrow does not.
-    (: missing-copy (-> Program (List String) Type (List String)))
+    (: missing-copy (impl (Fn Program (List String) Type -> (List String))))
     (define (missing-copy program copy type)
       (let ((free (filter (lambda (name) (not (member? name copy))) (data-variables type))))
         (if (linear-type? program (append free copy) type) (Nil) free)))
 
-    (: data-variables (-> Type (List String)))
+    (: data-variables (impl (Fn Type -> (List String))))
     (define (data-variables type)
       (match type
         ((TRigid name) (list name))
@@ -165,7 +175,7 @@
         (_ (Nil))))
 
     ;; The requirements naming `names`, as a diagnostic quotes them.
-    (: copy-declaration (-> (List String) String))
+    (: copy-declaration (impl (Fn (List String) -> String)))
     (define (copy-declaration names)
       (string-join (map (lambda (name) (string-append "(Copy " name ")")) names) " "))
 
@@ -174,7 +184,7 @@
     ;; concrete linear part is never unrestricted, and a variable of the
     ;; definition is only when the definition requires it to be. `required`
     ;; says what requires the variable to be Copy.
-    (: copy-refusal (-> Program (List String) Type String (Option String)))
+    (: copy-refusal (impl (Fn Program (List String) Type String -> (Option String))))
     (define (copy-refusal program copy type required)
       (if (linear-type? program copy type)
           (Some (match (missing-copy program copy type)
@@ -190,7 +200,8 @@
     ;; A))` does, is bound to a linear type. The instance's body was
     ;; checked with that variable unrestricted, so it may duplicate or
     ;; discard one, and a linear type there would be duplicated or lost.
-    (: instance-copy-refusal (-> Program (List String) Instance Substitution (Option String)))
+    (: instance-copy-refusal
+       (impl (Fn Program (List String) Instance Substitution -> (Option String))))
     (define (instance-copy-refusal program copy instance bindings)
       (fold-left (lambda (refusal var)
                    (match (Pair refusal (assoc-ref bindings var))
@@ -230,7 +241,7 @@
     ;;   with a mutable field, whose content a clone could only share.
     ;;
     ;; `Plan` is declared in core.sld, since a drop's evidence records it.
-    (: lifecycle-plan (-> Program String (List String) Type Plan))
+    (: lifecycle-plan (impl (Fn Program String (List String) Type -> Plan)))
     (define (lifecycle-plan program class copy type)
       (match type
         ((TCon "FnOnce" _)
@@ -238,16 +249,20 @@
              (Trivial)
              (Refused "a FnOnce runs once, so it has no clone")))
         ((TCon name _)
-         (if (any? (lambda (entry) (string=? name (::first entry))) builtin-types)
-             (Trivial)
-             (match (lifecycle-instance program class name)
-               ((Some instance) (Implemented instance))
-               ((None) (data-plan program class copy type)))))
+         (if (or (concrete-callable? type) (string=? name "FnMut"))
+             (if (or (string=? class drop-class) (not (linear-type? program copy type)))
+                 (Trivial)
+                 (Refused "a callable with owned captures has no clone"))
+             (if (any? (lambda (entry) (string=? name (::first entry))) builtin-types)
+                 (Trivial)
+                 (match (lifecycle-instance program class name)
+                   ((Some instance) (Implemented instance))
+                   ((None) (data-plan program class copy type))))))
         (_ (Trivial))))
 
     ;; The plan the checker records for a drop or a clone of `type`, or None
     ;; for a type variable, whose plan its instantiation decides.
-    (: checked-plan (-> Program String (List String) Type (Option Plan)))
+    (: checked-plan (impl (Fn Program String (List String) Type -> (Option Plan))))
     (define (checked-plan program class copy type)
       (match type
         ((TRigid _) (None))
@@ -260,7 +275,7 @@
     ;; unrestricted type, at a signature's use and an instance's alike, so
     ;; glue may become trivial and nothing else changes; an instance is
     ;; found by its type's name in both.
-    (: plan-covers? (-> (Option Plan) Plan Bool))
+    (: plan-covers? (impl (Fn (Option Plan) Plan -> Bool)))
     (define (plan-covers? checked ground)
       (match (Pair checked ground)
         ((Pair (None) _) #t)
@@ -271,7 +286,7 @@
         (_ #f)))
 
     ;; Declared data without an instance of the class.
-    (: data-plan (-> Program String (List String) Type Plan))
+    (: data-plan (impl (Fn Program String (List String) Type -> Plan)))
     (define (data-plan program class copy type)
       (let* ((name (type-name type)) (data (program-type program name)))
         (cond ((not (linear-type? program copy type)) (Trivial))
@@ -285,7 +300,7 @@
                                        " has a mutable field, which a clone could only share; give it a Clone instance")))
               (else (Glue)))))
 
-    (: type-name (-> Type String))
+    (: type-name (impl (Fn Type -> String)))
     (define (type-name type)
       (match type
         ((TCon name _) name)
@@ -297,7 +312,7 @@
     ;; one met again at other arguments is taken to run something, so that
     ;; glue refuses it (`glue-search`). `keys` and `names` are those met on
     ;; the way here.
-    (: drop-runs? (-> Program (List String) Type (List String) (List String) Bool))
+    (: drop-runs? (impl (Fn Program (List String) Type (List String) (List String) -> Bool)))
     (define (drop-runs? program copy type keys names)
       (match type
         ((TRigid name) (not (member? name copy)))
@@ -305,7 +320,9 @@
         ;; (control.sld, "Droppers"), so data holding one runs glue.
         ((TCon "FnOnce" _) #t)
         ((TCon name _)
-         (cond ((member? (type-key type) keys) #f)
+         (cond ((or (concrete-callable? type) (string=? name "FnMut"))
+                (linear-type? program copy type))
+               ((member? (type-key type) keys) #f)
                ((member? name names) #t)
                ((any? (lambda (entry) (string=? name (::first entry))) builtin-types) #f)
                (else (match (lifecycle-instance program drop-class name)
@@ -313,7 +330,7 @@
                        ((None) (fields-drop-run? program copy type keys names))))))
         (_ #f)))
 
-    (: fields-drop-run? (-> Program (List String) Type (List String) (List String) Bool))
+    (: fields-drop-run? (impl (Fn Program (List String) Type (List String) (List String) -> Bool)))
     (define (fields-drop-run? program copy type keys names)
       (match type
         ((TCon name _)
@@ -330,7 +347,7 @@
 
     ;; The fields of `case` that glue drops or clones, by index, at the type
     ;; `type` gives its declaration's parameters: the immutable linear ones.
-    (: glue-fields (-> Program (List String) Type Case (List (Pair I64 Type))))
+    (: glue-fields (impl (Fn Program (List String) Type Case -> (List (Pair I64 Type)))))
     (define (glue-fields program copy type case)
       (filter (lambda (field) (linear-type? program copy (::second field)))
               (concatenate
@@ -342,7 +359,7 @@
 
     ;; Each field of `case` at the type `type` gives its declaration's
     ;; parameters.
-    (: field-types (-> Program Type Case (List Type)))
+    (: field-types (impl (Fn Program Type Case -> (List Type))))
     (define (field-types program type case)
       (let ((bindings (match type
                         ((TCon name args) (zip (::params (program-type program name)) args))
@@ -352,7 +369,7 @@
     ;; An instance of a lifecycle class is declared in its type's library
     ;; for the type at distinct variables, so a type has at most one of
     ;; each, found by its name.
-    (: lifecycle-instance (-> Program String String (Option Instance)))
+    (: lifecycle-instance (impl (Fn Program String String -> (Option Instance))))
     (define (lifecycle-instance program class name)
       (find (lambda (instance)
               (match (::types instance)
@@ -377,20 +394,21 @@
        (names (List String))))
 
     (: lifecycle-rows
-       (-> Program String (List String) (List Constraint) Type (Result (List Type) String)))
+       (impl
+        (Fn Program String (List String) (List Constraint) Type -> (Result (List Type) String))))
     (define (lifecycle-rows program class copy givens type)
       (match (lifecycle-search program class copy givens type (Ok (RowSearch (Nil) (Nil) (Nil))))
         ((Ok found) (Ok (reverse (::rows found))))
         ((Err message) (Err message))))
 
     (: lifecycle-search
-       (-> Program
-           String
-           (List String)
-           (List Constraint)
-           Type
-           (Result RowSearch String)
-           (Result RowSearch String)))
+       (impl (Fn Program
+                 String
+                 (List String)
+                 (List Constraint)
+                 Type
+                 (Result RowSearch String)
+                 -> (Result RowSearch String))))
     (define (lifecycle-search program class copy givens type progress)
       (match (Pair type progress)
         ((Pair _ (Err message)) (Err message))
@@ -402,7 +420,7 @@
                        ((None) (Err (missing-requirement class name)))))))
         ((Pair _ (Ok found))
          (match (lifecycle-plan program class copy type)
-           ((Trivial) (trivial-rows program class type found))
+           ((Trivial) (trivial-rows program class copy type found))
            ((Implemented instance) (instance-search program class copy givens type instance found))
            ((Glue) (glue-search program class copy givens type found))
            ((Refused reason) (Err reason))))))
@@ -410,19 +428,20 @@
     ;; A drop that runs nothing performs nothing, except a FnOnce's:
     ;; dropping one unrun drops what it captured, whose drops its own row
     ;; allows (ownership.sld, "Drops that may run"), so dropping a
-    ;; `(FnOnce A B ! e)` performs `e`, less its control effects, which no
+    ;; `(dyn (FnOnce A -> B ! e))` performs `e`, less its control effects, which no
     ;; drop performs.
-    (: trivial-rows (-> Program String Type RowSearch (Result RowSearch String)))
-    (define (trivial-rows program class type found)
-      (match (Pair class type)
-        ((Pair _ (TCon "FnOnce" (Cons (TFun _ _ row) (Nil))))
-         (if (string=? class drop-class)
+    (: trivial-rows
+       (impl (Fn Program String (List String) Type RowSearch -> (Result RowSearch String))))
+    (define (trivial-rows program class copy type found)
+      (match (callable-arrow type)
+        ((Some (TFun _ _ row))
+         (if (and (string=? class drop-class) (linear-type? program copy type))
              (Ok (RowSearch-rows-set found
                                      (Cons (without-control program row) (::rows found))))
              (Ok found)))
         (_ (Ok found))))
 
-    (: without-control (-> Program Type Type))
+    (: without-control (impl (Fn Program Type -> Type)))
     (define (without-control program row)
       (match row
         ((TRow labels tail)
@@ -436,7 +455,7 @@
                  ((None) (None)))))
         (_ row)))
 
-    (: missing-requirement (-> String String String))
+    (: missing-requirement (impl (Fn String String -> String)))
     (define (missing-requirement class name)
       (string-append (if (string=? class drop-class) "dropping" "cloning")
                      " a value of type "
@@ -453,14 +472,14 @@
     ;; type is part of `type`, so the search ends. It cannot run where a
     ;; variable it requires Copy is given a linear type.
     (: instance-search
-       (-> Program
-           String
-           (List String)
-           (List Constraint)
-           Type
-           Instance
-           RowSearch
-           (Result RowSearch String)))
+       (impl (Fn Program
+                 String
+                 (List String)
+                 (List Constraint)
+                 Type
+                 Instance
+                 RowSearch
+                 -> (Result RowSearch String))))
     (define (instance-search program class copy givens type instance found)
       (let ((bindings (instance-bindings instance type)))
         (match (instance-copy-refusal program copy instance bindings)
@@ -479,7 +498,7 @@
                       (::requires instance))))))
 
     ;; The labels a lifecycle instance's head names, as a closed row.
-    (: head-row (-> Instance Type))
+    (: head-row (impl (Fn Instance -> Type)))
     (define (head-row instance)
       (match (::types instance)
         ((Cons (TRow labels _) _) (TRow labels (None)))
@@ -487,7 +506,7 @@
 
     ;; The types `type` gives a lifecycle instance's variables, matched
     ;; against its head, which names its type at distinct variables.
-    (: instance-bindings (-> Instance Type Substitution))
+    (: instance-bindings (impl (Fn Instance Type -> Substitution)))
     (define (instance-bindings instance type)
       (match (Pair (::types instance) type)
         ((Pair (Cons _ (Cons (TCon _ params) (Nil))) (TCon _ args))
@@ -500,7 +519,14 @@
         (_ (panic "internal error: a lifecycle instance names a row and a declared type"))))
 
     (: glue-search
-       (-> Program String (List String) (List Constraint) Type RowSearch (Result RowSearch String)))
+       (impl (Fn Program
+                 String
+                 (List String)
+                 (List Constraint)
+                 Type
+                 RowSearch
+                 ->
+                 (Result RowSearch String))))
     (define (glue-search program class copy givens type found)
       (let ((name (type-name type)) (key (type-key type)))
         (cond ((member? key (::keys found)) (Ok found))
@@ -519,7 +545,14 @@
 
     ;; Glue performs what dropping or cloning each field it reaches does.
     (: glue-fields-search
-       (-> Program String (List String) (List Constraint) Type RowSearch (Result RowSearch String)))
+       (impl (Fn Program
+                 String
+                 (List String)
+                 (List Constraint)
+                 Type
+                 RowSearch
+                 ->
+                 (Result RowSearch String))))
     (define (glue-fields-search program class copy givens type found)
       (fold-left (lambda (progress field)
                    (lifecycle-search program class copy givens (::second field) progress))
@@ -529,7 +562,7 @@
 
     ;; A declaration met again at other arguments would need glue for every
     ;; depth, so it needs an instance instead.
-    (: nonregular-glue (-> String Type String))
+    (: nonregular-glue (impl (Fn String Type -> String)))
     (define (nonregular-glue class type)
       (string-append "glue cannot "
                      (if (string=? class drop-class) "drop " "clone ")
@@ -542,7 +575,7 @@
 
     ;; The row of the enclosing definition's requirement of the class for
     ;; `A`, as `(Drop e A)`'s.
-    (: given-row (-> (List Constraint) String String (Option Type)))
+    (: given-row (impl (Fn (List Constraint) String String -> (Option Type))))
     (define (given-row givens class name)
       (match (find (lambda (given)
                      (and (string=? (::class given) class)
@@ -553,7 +586,7 @@
         ((Some given) (Some (first-type (::types given))))
         ((None) (None))))
 
-    (: first-type (-> (List Type) Type))
+    (: first-type (impl (Fn (List Type) -> Type)))
     (define (first-type types)
       (match types
         ((Cons type _) type)
@@ -568,12 +601,12 @@
     ;; declaration is entered once per path: one that reached its own name
     ;; would itself contain itself, and the expander refuses it where it is
     ;; declared.
-    (: contains-itself? (-> Program DataType Bool))
+    (: contains-itself? (impl (Fn Program DataType -> Bool)))
     (define (contains-itself? program data)
       (any? (lambda (field) (reaches? program (::name data) field (Nil)))
             (struct-field-types data (map TRigid (::params data)))))
 
-    (: reaches? (-> Program String Type (List String) Bool))
+    (: reaches? (impl (Fn Program String Type (List String) -> Bool)))
     (define (reaches? program target type entered)
       (match type
         ((TCon name args)
@@ -590,7 +623,7 @@
 
     ;; The field types of a struct's one case, with its parameters bound to
     ;; `args`.
-    (: struct-field-types (-> DataType (List Type) (List Type)))
+    (: struct-field-types (impl (Fn DataType (List Type) -> (List Type))))
     (define (struct-field-types data args)
       (let ((bindings (zip (::params data) args)))
         (match (::cases data)

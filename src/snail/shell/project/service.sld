@@ -63,7 +63,7 @@
        (project String)
        (port I32)))
 
-    (: runner (-> Setup String))
+    (: runner (impl (Fn Setup -> String)))
     (define (runner setup)
       (string-append (::root setup) "/host/native/run-snail.mjs"))
 
@@ -206,13 +206,13 @@
     ;; Dispatches the task that starts the service; the scheduler runs it
     ;; once the program's main returns. The service ends when the owner has
     ;; shut everything down, and fails the program if the step went fatal.
-    (: develop (-> Setup Unit ! mut tcp process fs modes hints console signals clock))
+    (: develop (impl (Fn Setup -> Unit ! mut tcp process fs modes hints console signals clock)))
     (define (develop setup)
       (dispatch-local (once (lambda () (start setup)))))
 
     ;; Listens, starts the resident, announces the editor's URL and the
     ;; applications', and dispatches every other task.
-    (: start (-> Setup Unit ! mut tasks tcp process fs modes hints console signals clock))
+    (: start (impl (Fn Setup -> Unit ! mut tasks tcp process fs modes hints console signals clock)))
     (define (start setup)
       (let* ((listener (listening setup))
              (applications (applications-listening (::port setup)))
@@ -236,12 +236,12 @@
                                    "/NAME/"))
         (own (new-host setup owner disk requests resident listener applications))))
 
-    (: wait-for-signal (-> Event ! tasks signals))
+    (: wait-for-signal (impl (Fn -> Event ! tasks signals)))
     (define (wait-for-signal)
       (termination)
       (Close))
 
-    (: listening (-> Setup Listener ! tasks tcp))
+    (: listening (impl (Fn Setup -> Listener ! tasks tcp)))
     (define (listening setup)
       (match (listen-locally (::port setup))
         ((Ok listener) listener)
@@ -251,7 +251,7 @@
                                ": "
                                (::code error))))))
 
-    (: origin (-> Setup String))
+    (: origin (impl (Fn Setup -> String)))
     (define (origin setup)
       (string-append "http://127.0.0.1:" (show (::port setup))))
 
@@ -259,7 +259,7 @@
     ;; the project can reach the editor's API. It takes the port after the
     ;; editor's when the editor's was asked for, or any port when that one
     ;; is taken or none was.
-    (: applications-listening (-> I32 Listener ! tasks tcp))
+    (: applications-listening (impl (Fn I32 -> Listener ! tasks tcp)))
     (define (applications-listening port)
       (match (if (= port 0)
                  (Err (SocketError "unasked"))
@@ -273,23 +273,23 @@
                                   (::code error))))))))
 
     ;; The service listens on the loopback address alone.
-    (: listen-locally (-> I32 (Result Listener SocketError) ! tasks tcp))
+    (: listen-locally (impl (Fn I32 -> (Result Listener SocketError) ! tasks tcp)))
     (define (listen-locally port)
       (match (endpoint "127.0.0.1" port)
         ((Ok local) (listen local))
         ((Err error) (Err error))))
 
-    (: listener-host (-> Listener String))
+    (: listener-host (impl (Fn Listener -> String)))
     (define (listener-host listener)
       (string-append "127.0.0.1:" (show (::port listener))))
 
-    (: listener-origin (-> Listener String))
+    (: listener-origin (impl (Fn Listener -> String)))
     (define (listener-origin listener)
       (string-append "http://" (listener-host listener)))
 
     (: new-host
-       (-> Setup (Mailbox Message) (Mailbox Scan) (Mailbox (Option String)) Process Listener
-           Listener Host ! clock fs))
+       (impl (Fn Setup (Mailbox Message) (Mailbox Scan) (Mailbox (Option String)) Process Listener
+                 Listener -> Host ! clock fs)))
     (define (new-host setup owner disk requests resident listener applications)
       (Host setup
             owner
@@ -323,25 +323,25 @@
 
     ;; ---- The owner ----
 
-    (: own (-> Host Unit ! mut tasks tcp process fs))
+    (: own (impl (Fn Host -> Unit ! mut tasks tcp process fs)))
     (define (own host)
       (let ((host (receive host (mailbox-receive (::owner host)))))
         (if (::done host) (finish host) (own host))))
 
     ;; A fatal service fails the program, with the diagnostic that ended it.
-    (: finish (-> Host Unit))
+    (: finish (impl (Fn Host -> Unit)))
     (define (finish host)
       (match (::phase (::snapshot host))
         ((Fatal) (panic (first-message (::snapshot host))))
         (_ (unit))))
 
-    (: first-message (-> Snapshot String))
+    (: first-message (impl (Fn Snapshot -> String)))
     (define (first-message snapshot)
       (match (::diagnostics snapshot)
         ((Cons diagnostic _) (::message diagnostic))
         ((Nil) "the service failed")))
 
-    (: receive (-> Host Message Host ! mut tasks tcp process fs))
+    (: receive (impl (Fn Host Message -> Host ! mut tasks tcp process fs)))
     (define (receive host message)
       (match message
         ((Step event) (stepped (touched-editor (touched-files host event) event) event))
@@ -363,14 +363,14 @@
         ((Connected id connection) (connected host id connection))
         ((Disconnected id) (disconnected host id))))
 
-    (: stepped (-> Host Event Host ! mut tasks tcp process fs))
+    (: stepped (impl (Fn Host Event -> Host ! mut tasks tcp process fs)))
     (define (stepped host event)
       (let ((result (step (::service host) event)))
         (perform-all (Host-service-set host (::first result)) (::second result))))
 
     ;; A handler's event, answered once its commands ran: the step's
     ;; refusal, or what the request asked for.
-    (: asked (-> Host Event (Mailbox Answer) Host ! mut tasks tcp process fs))
+    (: asked (impl (Fn Host Event (Mailbox Answer) -> Host ! mut tasks tcp process fs)))
     (define (asked host event reply)
       (let* ((result (step (::service host) event))
              (host
@@ -378,14 +378,14 @@
         (mailbox-post reply (answer-for host event (refusal-of (::second result))))
         host))
 
-    (: refusal-of (-> (List Command) (Option Refusal)))
+    (: refusal-of (impl (Fn (List Command) -> (Option Refusal))))
     (define (refusal-of commands)
       (match commands
         ((Nil) (None))
         ((Cons (Refuse refusal) _) (Some refusal))
         ((Cons _ rest) (refusal-of rest))))
 
-    (: answer-for (-> Host Event (Option Refusal) Answer))
+    (: answer-for (impl (Fn Host Event (Option Refusal) -> Answer)))
     (define (answer-for host event refusal)
       (match refusal
         ((Some (UnknownRunTarget name))
@@ -401,14 +401,14 @@
 
     ;; Each command in order. The commands after Shutdown wait until the
     ;; resident and every run's process have stopped.
-    (: perform-all (-> Host (List Command) Host ! mut tasks tcp process fs))
+    (: perform-all (impl (Fn Host (List Command) -> Host ! mut tasks tcp process fs)))
     (define (perform-all host commands)
       (match commands
         ((Nil) host)
         ((Cons (Shutdown) rest) (shut-down host rest))
         ((Cons command rest) (perform-all (perform host command) rest))))
 
-    (: perform (-> Host Command Host ! mut tcp process fs))
+    (: perform (impl (Fn Host Command -> Host ! mut tcp process fs)))
     (define (perform host command)
       (match command
         ((Build epoch) (build host epoch))
@@ -430,12 +430,12 @@
         ((Shutdown) host)
         ((Closed) (Host-done-set host #t))))
 
-    (: request (-> Host String Host ! mut))
+    (: request (impl (Fn Host String -> Host ! mut)))
     (define (request host line)
       (mailbox-post (::requests host) (Some line))
       host)
 
-    (: epoch-request (-> String I64 (List (Pair String Json)) String))
+    (: epoch-request (impl (Fn String I64 (List (Pair String Json)) -> String)))
     (define (epoch-request kind epoch rest)
       (json->string (JsonObject (append (list (Pair "kind" (JsonString kind))
                                               (Pair "epoch" (JsonInteger epoch)))
@@ -443,7 +443,7 @@
 
     ;; An attempt's build directory, reserved under build/ before the
     ;; resident makes generations beside it, named for it.
-    (: build (-> Host I64 Host ! mut fs))
+    (: build (impl (Fn Host I64 -> Host ! mut fs)))
     (define (build host epoch)
       (match (reserve (string-append (::project (::setup host)) "/build") 0)
         ((Ok directory)
@@ -460,7 +460,7 @@
     ;; A name no entry of build/ has, nor begins, so the generations the
     ;; resident names with it are this attempt's alone, even beside what an
     ;; earlier service left there.
-    (: reserve (-> String I64 (Result String String) ! fs))
+    (: reserve (impl (Fn String I64 -> (Result String String) ! fs)))
     (define (reserve build number)
       (match (make-directories build)
         ((Err error) (Err (string-append "cannot make " build ": " (show error))))
@@ -469,7 +469,7 @@
            ((Err error) (Err (string-append "cannot list " build ": " (show error))))
            ((Ok names) (reserve-unused build names number))))))
 
-    (: reserve-unused (-> String (List String) I64 (Result String String) ! fs))
+    (: reserve-unused (impl (Fn String (List String) I64 -> (Result String String) ! fs)))
     (define (reserve-unused build names number)
       (let* ((name (string-append ".snail-attempt-" (show number)))
              (taken? (any? (lambda (entry)
@@ -483,7 +483,7 @@
               ((Err (AlreadyExists)) (reserve-unused build names (+ number 1)))
               ((Err error) (Err (string-append "cannot reserve " name ": " (show error))))))))
 
-    (: base-name (-> String String))
+    (: base-name (impl (Fn String -> String)))
     (define (base-name path)
       (let loop ((index (string-length path)))
         (cond ((= index 0) path)
@@ -493,7 +493,7 @@
 
     ;; Gives up an attempt's directory, and when the attempt still owns
     ;; them, the generations the resident named for it.
-    (: give-up (-> Host I64 Bool Host ! fs))
+    (: give-up (impl (Fn Host I64 Bool -> Host ! fs)))
     (define (give-up host epoch generations?)
       (match (::reservation host)
         ((Some (Pair reserved directory))
@@ -505,7 +505,7 @@
              host))
         ((None) host)))
 
-    (: remove-generations (-> String Unit ! fs))
+    (: remove-generations (impl (Fn String -> Unit ! fs)))
     (define (remove-generations directory)
       (let ((build (substring directory 0 (- (string-length directory)
                                              (+ (string-length (base-name directory)) 1))))
@@ -519,14 +519,14 @@
                      names))
           ((Err _) (unit)))))
 
-    (: starts-with? (-> String String Bool))
+    (: starts-with? (impl (Fn String String -> Bool)))
     (define (starts-with? text prefix)
       (and (>= (string-length text) (string-length prefix))
            (string=? (substring text 0 (string-length prefix)) prefix)))
 
     ;; Arming replaces the timer armed before: the owner ignores a firing
     ;; whose serial is not the latest.
-    (: arm (-> Host Host ! mut))
+    (: arm (impl (Fn Host -> Host ! mut)))
     (define (arm host)
       (let ((serial (+ (::serial host) 1)) (owner (::owner host)))
         (dispatch-local (once (lambda ()
@@ -538,7 +538,7 @@
 
     ;; A launch goes to the target's supervisor, started the first time
     ;; the target is launched.
-    (: launch (-> Host String (Option RunRequest) Host ! mut process))
+    (: launch (impl (Fn Host String (Option RunRequest) -> Host ! mut process)))
     (define (launch host name wanted)
       (match (find (lambda (run) (string=? (::name run) name)) (::runs host))
         ((Some run) (mailbox-post (::inbox run) (Want wanted)) host)
@@ -550,7 +550,7 @@
                           (append (::runs host)
                                   (list (Supervised name inbox (idle-run name)))))))))
 
-    (: run-changed (-> Host String protocol-Run Host))
+    (: run-changed (impl (Fn Host String protocol-Run -> Host)))
     (define (run-changed host name status)
       (Host-runs-set host
                      (map (lambda (run)
@@ -563,7 +563,7 @@
 
     ;; A snapshot to every event stream, as the frames that changed. A
     ;; fatal one closes the service.
-    (: notify (-> Host Snapshot Host ! mut tcp fs))
+    (: notify (impl (Fn Host Snapshot -> Host ! mut tcp fs)))
     (define (notify host snapshot)
       (let ((host (told-pages
                    (broadcast-changes (Host-snapshot-set (published host snapshot) snapshot)))))
@@ -574,7 +574,7 @@
     ;; The published targets, once the snapshot names the build whose
     ;; candidate the owner kept; a browser target's has the URL it is
     ;; served at.
-    (: published (-> Host Snapshot Host))
+    (: published (impl (Fn Host Snapshot -> Host)))
     (define (published host snapshot)
       (match (Pair (::publications snapshot) (::targets host))
         ((Pair (Cons build _) (Some (Pair epoch targets)))
@@ -586,7 +586,7 @@
              host))
         (_ host)))
 
-    (: with-urls (-> Host Published Json Json))
+    (: with-urls (impl (Fn Host Published Json -> Json)))
     (define (with-urls host build targets)
       (let ((browsers (::browsers (::description (::candidate build)))))
         (match targets
@@ -594,7 +594,7 @@
            (JsonArray (map (lambda (target) (with-url host browsers target)) items)))
           (other other))))
 
-    (: with-url (-> Host (List String) Json Json))
+    (: with-url (impl (Fn Host (List String) Json -> Json)))
     (define (with-url host browsers target)
       (let ((name (json-text target "name")))
         (match target
@@ -605,14 +605,14 @@
                target))
           (other other))))
 
-    (: application-url (-> Host String String))
+    (: application-url (impl (Fn Host String -> String)))
     (define (application-url host name)
       (string-append (listener-origin (::applications host)) "/" name "/"))
 
     ;; The browser targets of the publication, each with its builds the
     ;; service retains, newest first. A target the latest description no
     ;; longer has is not served.
-    (: served-applications (-> Host (List Application)))
+    (: served-applications (impl (Fn Host -> (List Application))))
     (define (served-applications host)
       (let ((publications (::publications (::snapshot host))))
         (match publications
@@ -621,7 +621,7 @@
                 (::browsers (::description (::candidate latest)))))
           ((Nil) (Nil)))))
 
-    (: builds-of (-> (List Published) String (List BuildDirectory)))
+    (: builds-of (impl (Fn (List Published) String -> (List BuildDirectory))))
     (define (builds-of publications name)
       (concatenate (map (lambda (published)
                           (map (lambda (generation)
@@ -635,12 +635,12 @@
                                 (::generations (::candidate published)))))
                         publications)))
 
-    (: editor-status (-> Snapshot protocol-Build))
+    (: editor-status (impl (Fn Snapshot -> protocol-Build)))
     (define (editor-status snapshot)
       (protocol-Build (phase-name (::phase snapshot)) (::id snapshot)
                       (map diagnostic-report (::diagnostics snapshot))))
 
-    (: editor-state (-> Host protocol-ServerState))
+    (: editor-state (impl (Fn Host -> protocol-ServerState)))
     (define (editor-state host)
       (protocol-ServerState (::instance host) (::files host)
                             (editor-status (::snapshot host)) (run-states host)
@@ -649,7 +649,7 @@
 
     ;; All a client can observe in one snapshot: the attempt, the published
     ;; targets, the resident's process and the run targets.
-    (: status->json (-> Host Json))
+    (: status->json (impl (Fn Host -> Json)))
     (define (status->json host)
       (match (protocol-build->json (editor-status (::snapshot host)))
         ((JsonObject members)
@@ -666,7 +666,7 @@
                                    (Pair "runs" (runs->json host))))))
         (other other)))
 
-    (: phase-name (-> Phase String))
+    (: phase-name (impl (Fn Phase -> String)))
     (define (phase-name phase)
       (match phase
         ((Starting) "starting")
@@ -676,7 +676,7 @@
         ((Superseded) "superseded")
         ((Fatal) "fatal")))
 
-    (: diagnostic-report (-> Diagnostic protocol-Report))
+    (: diagnostic-report (impl (Fn Diagnostic -> protocol-Report)))
     (define (diagnostic-report diagnostic)
       (protocol-Report "error" (::message diagnostic)
                        (match (::source diagnostic)
@@ -685,13 +685,13 @@
                                                              (::column point))))
                          ((None) (None)))))
 
-    (: runs->json (-> Host Json))
+    (: runs->json (impl (Fn Host -> Json)))
     (define (runs->json host)
       (JsonArray (map protocol-run->json (run-states host))))
 
     ;; One typed snapshot combines the step's intention and each supervisor's
     ;; latest observation. Neither task constructs fragments of wire JSON.
-    (: run-states (-> Host (List protocol-Run)))
+    (: run-states (impl (Fn Host -> (List protocol-Run))))
     (define (run-states host)
       (map (lambda (run)
              (protocol-Run-available-set
@@ -700,13 +700,13 @@
               (::available run)))
            (::runs (::snapshot host))))
 
-    (: run-status (-> Host String protocol-Run))
+    (: run-status (impl (Fn Host String -> protocol-Run)))
     (define (run-status host name)
       (match (find (lambda (run) (string=? (::name run) name)) (::runs host))
         ((Some run) (::status run))
         ((None) (idle-run name))))
 
-    (: idle-run (-> String protocol-Run))
+    (: idle-run (impl (Fn String -> protocol-Run)))
     (define (idle-run name)
       (protocol-Run name (None) (None) #f #f))
 
@@ -714,14 +714,14 @@
 
     ;; A complete snapshot replaces the separate build, process and file
     ;; events. Suppress duplicates; a new connection always gets current state.
-    (: broadcast-changes (-> Host Host ! mut tcp))
+    (: broadcast-changes (impl (Fn Host -> Host ! mut tcp)))
     (define (broadcast-changes host)
       (let ((text (protocol-state->event (editor-state host))))
         (if (string=? text (::frames host)) host
             (broadcast (Host-frames-set host text) text))))
 
     ;; A change under the project tells each editor to list its files again.
-    (: touched-files (-> Host Event Host ! mut tcp))
+    (: touched-files (impl (Fn Host Event -> Host ! mut tcp)))
     (define (touched-files host event)
       (match event
         ((Touched paths)
@@ -736,7 +736,7 @@
     ;; Each client gets the frame, unless 16 KiB it was sent before are
     ;; still unwritten, as Node's stream refuses more: then it is dropped,
     ;; and reconnecting gets it the current status.
-    (: broadcast (-> Host String Host ! mut tcp))
+    (: broadcast (impl (Fn Host String -> Host ! mut tcp)))
     (define (broadcast host text)
       (Host-clients-set host
                         (sent-to (::clients host)
@@ -745,7 +745,7 @@
 
     ;; Each client `chosen` picks gets the frame; the rest are left as they
     ;; are.
-    (: sent-to (-> (List Client) (-> Client Bool) Bytes (List Client) ! mut tcp))
+    (: sent-to (impl (Fn (List Client) (dyn (Fn Client -> Bool)) Bytes -> (List Client) ! mut tcp)))
     (define (sent-to clients chosen bytes)
       (match clients
         ((Nil) (Nil))
@@ -763,8 +763,9 @@
     ;; A new event stream gets the status, the runs and a prompt to list
     ;; files, unless there are 64 already or the service is closing.
     (: joined
-       (-> Host I64 (Option String) Connection (Mailbox (Option Bytes)) (Mailbox Answer) Host
-           ! mut tcp fs))
+       (impl
+        (Fn Host I64 (Option String) Connection (Mailbox (Option Bytes)) (Mailbox Answer) -> Host
+            ! mut tcp fs)))
     (define (joined host id watching connection frames reply)
       (cond ((option-some? (::stopping host))
              (mailbox-post reply
@@ -789,7 +790,7 @@
     ;; What a browser target's pages hear of the latest attempt, with the
     ;; target's latest build: the reload client relinks a page when one is
     ;; published, and shows when one is under way or why one failed.
-    (: page-event (-> Snapshot Application String ! fs))
+    (: page-event (impl (Fn Snapshot Application -> String ! fs)))
     (define (page-event snapshot application)
       (bundle-event (string-append "/" (::name application) "/")
                     (match (::phase snapshot)
@@ -803,7 +804,7 @@
 
     ;; Each diagnostic as a compiler prints it, after its place when it has
     ;; one.
-    (: diagnostic-text (-> Snapshot String))
+    (: diagnostic-text (impl (Fn Snapshot -> String)))
     (define (diagnostic-text snapshot)
       (string-join (map (lambda (diagnostic)
                           (match (::source diagnostic)
@@ -821,13 +822,13 @@
 
     ;; An event as the browser's EventSource reads it. It is one line, as
     ;; the strings in it are written with their newlines escaped.
-    (: page-frame (-> String String))
+    (: page-frame (impl (Fn String -> String)))
     (define (page-frame text)
       (string-append "data: " text "\n\n"))
 
     ;; A page's stream starts with its target's current event, so a page
     ;; that reconnects hears of the build it missed.
-    (: page-first-frames (-> Host String String ! fs))
+    (: page-first-frames (impl (Fn Host String -> String ! fs)))
     (define (page-first-frames host name)
       (let ((snapshot (::snapshot host)))
         (string-append "retry: 1000\n\n"
@@ -838,7 +839,7 @@
                                                              name)))))))
 
     ;; Each browser target's pages hear its event when it changes.
-    (: told-pages (-> Host Host ! mut tcp fs))
+    (: told-pages (impl (Fn Host -> Host ! mut tcp fs)))
     (define (told-pages host)
       (fold-left (lambda (host application)
                    (let ((name (::name application))
@@ -850,7 +851,7 @@
                  (served-applications host)))
 
     ;; `event` to the pages of target `name`, kept as the last they heard.
-    (: told-page (-> Host String String Host ! mut tcp))
+    (: told-page (impl (Fn Host String String -> Host ! mut tcp)))
     (define (told-page host name event)
       (Host-clients-set
        (Host-told-set host
@@ -864,17 +865,17 @@
                     ((None) #f)))
                 (string->utf8 (page-frame event)))))
 
-    (: first-frames (-> Host String))
+    (: first-frames (impl (Fn Host -> String)))
     (define (first-frames host)
       (string-append "retry: 1000\n\n" (protocol-state->event (editor-state host))))
 
-    (: option-some? (All (T) (requires (Copy T)) (-> (Option T) Bool)))
+    (: option-some? (All (T) (requires (Copy T)) (impl (Fn (Option T) -> Bool))))
     (define (option-some? option)
       (match option
         ((Some _) #t)
         ((None) #f)))
 
-    (: written (-> Host I64 I64 Host))
+    (: written (impl (Fn Host I64 I64 -> Host)))
     (define (written host id count)
       (Host-clients-set host
                         (map (lambda (client)
@@ -889,7 +890,7 @@
     ;; No new work: the listeners and every stream close, each supervisor
     ;; stops its process, and the resident's input ends, so it finishes the
     ;; request it is answering and exits, or is killed after 2 s.
-    (: shut-down (-> Host (List Command) Host ! mut tasks tcp process fs))
+    (: shut-down (impl (Fn Host (List Command) -> Host ! mut tasks tcp process fs)))
     (define (shut-down host rest)
       (close-listener (::listener host))
       (close-listener (::applications host))
@@ -914,7 +915,7 @@
 
     ;; A connection accepted while stopping is closed at once; its handler
     ;; still reports that it finished.
-    (: connected (-> Host I64 Connection Host ! tcp))
+    (: connected (impl (Fn Host I64 Connection -> Host ! tcp)))
     (define (connected host id connection)
       (match (::stopping host)
         ((Some _)
@@ -923,7 +924,7 @@
         ((None) (Host-connections-set host (Cons (Pair id connection) (::connections host))))))
 
     ;; A finished handler's connection, and its event stream if it had one.
-    (: disconnected (-> Host I64 Host ! mut tasks tcp process fs))
+    (: disconnected (impl (Fn Host I64 -> Host ! mut tasks tcp process fs)))
     (define (disconnected host id)
       (match (::stopping host)
         ((Some _) (stopped-one host))
@@ -936,7 +937,7 @@
                                    (::clients host))))))
 
     ;; Once nothing is still stopping, the commands after Shutdown.
-    (: resumed (-> Host Host ! mut tasks tcp process fs))
+    (: resumed (impl (Fn Host -> Host ! mut tasks tcp process fs)))
     (define (resumed host)
       (match (::stopping host)
         ((Some rest)
@@ -945,18 +946,18 @@
              host))
         ((None) host)))
 
-    (: stopped-one (-> Host Host ! mut tasks tcp process fs))
+    (: stopped-one (impl (Fn Host -> Host ! mut tasks tcp process fs)))
     (define (stopped-one host)
       (resumed (Host-waiting-set host (- (::waiting host) 1))))
 
-    (: resident-gone (-> Host String Host ! mut tasks tcp process fs))
+    (: resident-gone (impl (Fn Host String -> Host ! mut tasks tcp process fs)))
     (define (resident-gone host message)
       (let ((host (Host-resident-alive-set host #f)))
         (match (::stopping host)
           ((Some _) (stopped-one host))
           ((None) (stepped host (ResidentExited message))))))
 
-    (: overdue (-> Host Host ! process))
+    (: overdue (impl (Fn Host -> Host ! process)))
     (define (overdue host)
       (when (::resident-alive host)
         (send-signal (::resident host) (Kill))
@@ -967,7 +968,7 @@
 
     ;; The project, the libraries and the browser host, leaving out build
     ;; output and Git's directory.
-    (: watched (-> Setup (Pair (List String) (List String))))
+    (: watched (impl (Fn Setup -> (Pair (List String) (List String)))))
     (define (watched setup)
       (let ((root (::root setup)) (project (::project setup)))
         (Pair (list project (string-append root "/src") (string-append root "/host/browser")
@@ -976,7 +977,7 @@
                     (string-append project "/.git")
                     (string-append root "/build") (string-append root "/host/ide/build")))))
 
-    (: take-inventory (-> Setup (Result Inventory String) ! fs))
+    (: take-inventory (impl (Fn Setup -> (Result Inventory String) ! fs)))
     (define (take-inventory setup)
       (let ((roots (watched setup)))
         (inventory (::first roots) (::second roots))))
@@ -991,7 +992,7 @@
     ;; each root ask for one at once; the timer asks each second, as a
     ;; watch can miss a change. After Stopping it closes the watches,
     ;; answers the timer that it is done, and ends.
-    (: scan-disk (-> Setup (Mailbox Message) (Mailbox Scan) Unit ! mut tasks fs hints))
+    (: scan-disk (impl (Fn Setup (Mailbox Message) (Mailbox Scan) -> Unit ! mut tasks fs hints)))
     (define (scan-disk setup owner requests)
       (let* ((roots (watched setup))
              (watches (watch-roots (::first roots) (::second roots) requests)))
@@ -1014,7 +1015,7 @@
                (loop next stopping)))))))
 
     ;; What the latest inventory found, unless it failed.
-    (: disk-result (All (T) (requires (Copy T)) (-> Disk T (Result T String))))
+    (: disk-result (All (T) (requires (Copy T)) (impl (Fn Disk T -> (Result T String)))))
     (define (disk-result disk value)
       (match (::failure disk)
         ((Some message) (Err message))
@@ -1022,7 +1023,8 @@
 
     ;; A watch of each root that can be watched, each with a task that
     ;; turns its hints into scans until it closes.
-    (: watch-roots (-> (List String) (List String) (Mailbox Scan) (List Watch) ! mut hints))
+    (: watch-roots
+       (impl (Fn (List String) (List String) (Mailbox Scan) -> (List Watch) ! mut hints)))
     (define (watch-roots roots excluded disk)
       (match roots
         ((Nil) (Nil))
@@ -1033,7 +1035,7 @@
             (Cons watch (watch-roots rest excluded disk)))
            ((None) (watch-roots rest excluded disk))))))
 
-    (: relay-hints (-> Watch (Mailbox Scan) Unit ! mut tasks hints))
+    (: relay-hints (impl (Fn Watch (Mailbox Scan) -> Unit ! mut tasks hints)))
     (define (relay-hints watch disk)
       (when (next-hint watch)
         (mailbox-post disk (Prompted))
@@ -1043,7 +1045,7 @@
     ;; one when `report?`, as it is but for the first. A failure keeps the
     ;; last, and is reported once, when it begins; the next inventory that
     ;; succeeds reports the recovery, after what changed meanwhile.
-    (: rescan (-> Setup (Mailbox Message) Disk Bool Disk ! mut fs))
+    (: rescan (impl (Fn Setup (Mailbox Message) Disk Bool -> Disk ! mut fs)))
     (define (rescan setup owner disk report?)
       (match (take-inventory setup)
         ((Ok next)
@@ -1059,7 +1061,7 @@
          (Disk-failure-set disk (Some message)))))
 
     ;; A scan each second, until the disk task stops.
-    (: tick (-> (Mailbox Scan) Unit ! mut tasks))
+    (: tick (impl (Fn (Mailbox Scan) -> Unit ! mut tasks)))
     (define (tick disk)
       (sleep 1000)
       (let ((reply (make-mailbox)))
@@ -1069,7 +1071,7 @@
 
     ;; ---- The resident ----
 
-    (: resident-process (-> Setup Process ! tasks process))
+    (: resident-process (impl (Fn Setup -> Process ! tasks process)))
     (define (resident-process setup)
       (match (spawn (ProcessCommand (::node setup)
                                     (list "--no-warnings"
@@ -1086,7 +1088,7 @@
                                (::code error))))))
 
     ;; One request a line, until the input ends.
-    (: write-requests (-> Process (Mailbox (Option String)) Unit ! mut tasks process))
+    (: write-requests (impl (Fn Process (Mailbox (Option String)) -> Unit ! mut tasks process)))
     (define (write-requests resident requests)
       (match (mailbox-receive requests)
         ((Some line)
@@ -1097,7 +1099,7 @@
          (close-input resident)
          (unit))))
 
-    (: write-all (-> Process Bytes (Result Unit ProcessError) ! tasks process))
+    (: write-all (impl (Fn Process Bytes -> (Result Unit ProcessError) ! tasks process)))
     (define (write-all child bytes)
       (if (= (vector-length bytes) 0)
           (Ok (unit))
@@ -1108,14 +1110,14 @@
 
     ;; Each reply line, as the message it is. `pending` holds the bytes of a
     ;; line not yet ended, newest chunk first.
-    (: read-replies (-> Process (Mailbox Message) (List Bytes) Unit ! mut tasks process))
+    (: read-replies (impl (Fn Process (Mailbox Message) (List Bytes) -> Unit ! mut tasks process)))
     (define (read-replies resident owner pending)
       (match (read-output resident (Stdout) 65536)
         ((Ok (Some bytes)) (read-replies resident owner (post-lines owner (Cons bytes pending))))
         (_ (unit))))
 
     ;; Posts each whole line in the chunks, and keeps what follows the last.
-    (: post-lines (-> (Mailbox Message) (List Bytes) (List Bytes) ! mut))
+    (: post-lines (impl (Fn (Mailbox Message) (List Bytes) -> (List Bytes) ! mut)))
     (define (post-lines owner pending)
       (let* ((bytes (vector-concatenate (reverse pending))) (end (vector-index-of bytes 10)))
         (match end
@@ -1124,7 +1126,7 @@
            (post-lines owner (list (subvector bytes (+ at 1) (vector-length bytes)))))
           ((None) (list bytes)))))
 
-    (: vector-index-of (-> Bytes I32 (Option I64)))
+    (: vector-index-of (impl (Fn Bytes I32 -> (Option I64))))
     (define (vector-index-of bytes code)
       (let loop ((index 0))
         (cond ((= index (vector-length bytes)) (None))
@@ -1134,7 +1136,7 @@
     ;; A reply, by the members it has: a build's diagnostics, a
     ;; publication's error, or a discard's epoch alone. One that is not
     ;; JSON is the resident failing.
-    (: reply-message (-> Bytes Message))
+    (: reply-message (impl (Fn Bytes -> Message)))
     (define (reply-message line)
       (match (match (utf8->string line)
                ((Ok text) (string->json text))
@@ -1146,7 +1148,7 @@
         ((None)
          (Step (ResidentExited "the resident builder replied with something other than JSON")))))
 
-    (: epoch-reply (-> Json I64 Message))
+    (: epoch-reply (impl (Fn Json I64 -> Message)))
     (define (epoch-reply json epoch)
       (cond ((option-some? (json-member json "diagnostics"))
              (Built epoch (json->reply json) (candidate-targets json)))
@@ -1158,7 +1160,8 @@
 
     ;; Reads what the resident writes to stderr, a panic's message, then
     ;; waits for it to exit, which the end of stderr means is near.
-    (: await-resident (-> Process (Mailbox Message) (List Bytes) Unit ! mut tasks process))
+    (: await-resident
+       (impl (Fn Process (Mailbox Message) (List Bytes) -> Unit ! mut tasks process)))
     (define (await-resident resident owner tail)
       (match (read-output resident (Stderr) 65536)
         ((Ok (Some bytes)) (await-resident resident owner (Cons bytes tail)))
@@ -1168,7 +1171,7 @@
                                                     (exit-text (wait-exit resident))
                                                     (stderr-text tail)))))))
 
-    (: exit-text (-> (Result Exit ProcessError) String))
+    (: exit-text (impl (Fn (Result Exit ProcessError) -> String)))
     (define (exit-text exit)
       (match exit
         ((Ok (Exited code)) (string-append "status " (show code)))
@@ -1176,7 +1179,7 @@
         ((Err error) (::code error))))
 
     ;; The last 4096 bytes written, trimmed, after a colon.
-    (: stderr-text (-> (List Bytes) String))
+    (: stderr-text (impl (Fn (List Bytes) -> String)))
     (define (stderr-text tail)
       (let* ((bytes (vector-concatenate (reverse tail)))
              (start (max 0 (- (vector-length bytes) 4096)))
@@ -1185,7 +1188,7 @@
                      ((Err _) ""))))
         (if (string=? text "") "" (string-append ": " text))))
 
-    (: trimmed (-> String String))
+    (: trimmed (impl (Fn String -> String)))
     (define (trimmed text)
       (let loop ((start 0) (end (string-length text)))
         (cond
@@ -1196,7 +1199,7 @@
 
     ;; ---- The resident's replies ----
 
-    (: json->reply (-> Json Reply))
+    (: json->reply (impl (Fn Json -> Reply)))
     (define (json->reply json)
       (Reply (match (json-object json "description")
                ((Some description) (Some (json->description description)))
@@ -1206,7 +1209,7 @@
                ((None) (None)))
              (map json->diagnostic (json-items json "diagnostics"))))
 
-    (: json->description (-> Json Description))
+    (: json->description (impl (Fn Json -> Description)))
     (define (json->description json)
       (let ((builds (json-items json "builds")))
         (Description (map (lambda (build) (json-text build "entry")) builds)
@@ -1225,7 +1228,7 @@
                                            (map json-string-value (json-items run "args"))))
                           (json-items json "runs")))))
 
-    (: json->candidate (-> Json Candidate))
+    (: json->candidate (impl (Fn Json -> Candidate)))
     (define (json->candidate json)
       (Candidate (match (json-member json "description")
                    ((Some description) (json->description description))
@@ -1246,7 +1249,7 @@
                  (json-integer json "milliseconds")))
 
     ;; The candidate's targets as the status shows them.
-    (: candidate-targets (-> Json Json))
+    (: candidate-targets (impl (Fn Json -> Json)))
     (define (candidate-targets json)
       (match (json-member json "candidate")
         ((Some candidate)
@@ -1264,7 +1267,7 @@
                          (json-items candidate "targets"))))
         ((None) (JsonArray (Nil)))))
 
-    (: json->diagnostic (-> Json Diagnostic))
+    (: json->diagnostic (impl (Fn Json -> Diagnostic)))
     (define (json->diagnostic json)
       (Diagnostic (json-text json "message")
                   (match (json-object json "source")
@@ -1275,31 +1278,31 @@
                     ((None) (None)))))
 
     ;; A member that is an object, as a null one is not.
-    (: json-object (-> Json String (Option Json)))
+    (: json-object (impl (Fn Json String -> (Option Json))))
     (define (json-object json name)
       (match (json-member json name)
         ((Some (JsonObject members)) (Some (JsonObject members)))
         (_ (None))))
 
-    (: json-items (-> Json String (List Json)))
+    (: json-items (impl (Fn Json String -> (List Json))))
     (define (json-items json name)
       (match (json-member json name)
         ((Some (JsonArray items)) items)
         (_ (Nil))))
 
-    (: json-text (-> Json String String))
+    (: json-text (impl (Fn Json String -> String)))
     (define (json-text json name)
       (match (json-member json name)
         ((Some value) (json-string-value value))
         ((None) "")))
 
-    (: json-string-value (-> Json String))
+    (: json-string-value (impl (Fn Json -> String)))
     (define (json-string-value json)
       (match json
         ((JsonString text) text)
         (_ "")))
 
-    (: json-integer (-> Json String I64))
+    (: json-integer (impl (Fn Json String -> I64)))
     (define (json-integer json name)
       (match (json-member json name)
         ((Some (JsonInteger value)) value)
@@ -1329,13 +1332,14 @@
        (child (Option Child))
        (finishing Bool)))
 
-    (: new-supervisor (-> Setup (Mailbox Message) (Mailbox Supervision) String Supervisor))
+    (: new-supervisor
+       (impl (Fn Setup (Mailbox Message) (Mailbox Supervision) String -> Supervisor)))
     (define (new-supervisor setup owner inbox name)
       (Supervisor setup owner inbox name (None) 0 (None) #f))
 
     ;; Receives, runs what is wanted, and reports. A finishing supervisor
     ;; ends once its process has.
-    (: supervise (-> Supervisor Unit ! mut tasks process))
+    (: supervise (impl (Fn Supervisor -> Unit ! mut tasks process)))
     (define (supervise supervisor)
       (let ((supervisor (reconcile-run (supervised supervisor
                                                    (mailbox-receive
@@ -1346,7 +1350,7 @@
             (mailbox-post (::owner supervisor) (RunStopped))
             (supervise supervisor))))
 
-    (: supervised (-> Supervisor Supervision Supervisor ! process))
+    (: supervised (impl (Fn Supervisor Supervision -> Supervisor ! process)))
     (define (supervised supervisor message)
       (match message
         ((Want wanted)
@@ -1362,7 +1366,7 @@
         ((Late serial) (late supervisor serial))
         ((Finish) (Supervisor-finishing-set (Supervisor-desired-set supervisor (None)) #t))))
 
-    (: running? (-> Supervisor Bool))
+    (: running? (impl (Fn Supervisor -> Bool)))
     (define (running? supervisor)
       (match (::child supervisor)
         ((Some child) (not (option-some? (::exit child))))
@@ -1370,7 +1374,7 @@
 
     ;; A process that is not the one wanted is stopped; once none runs,
     ;; the one wanted is launched, unless it already ran and ended.
-    (: reconcile-run (-> Supervisor Supervisor ! mut tasks process))
+    (: reconcile-run (impl (Fn Supervisor -> Supervisor ! mut tasks process)))
     (define (reconcile-run supervisor)
       (match (Pair (::child supervisor) (::desired supervisor))
         ((Pair (Some child) wanted)
@@ -1387,14 +1391,14 @@
         ((Pair (None) (Some (Pair serial request))) (start-child supervisor serial request))
         ((Pair (None) (None)) supervisor)))
 
-    (: wants? (-> (Option (Pair I64 RunRequest)) I64 Bool))
+    (: wants? (impl (Fn (Option (Pair I64 RunRequest)) I64 -> Bool)))
     (define (wants? wanted serial)
       (match wanted
         ((Some (Pair wanted-serial _)) (= wanted-serial serial))
         ((None) #f)))
 
     ;; SIGTERM, and SIGKILL if the process has not ended 2 s later.
-    (: stop-child (-> Supervisor Child Supervisor ! mut process))
+    (: stop-child (impl (Fn Supervisor Child -> Supervisor ! mut process)))
     (define (stop-child supervisor child)
       (match (::process child)
         ((Some process) (send-signal process (Terminate)) (unit))
@@ -1403,7 +1407,7 @@
         (dispatch-local (once (lambda () (sleep 2000) (mailbox-post inbox (Late serial))))))
       (Supervisor-child-set supervisor (Some (Child-stopping-set child #t))))
 
-    (: late (-> Supervisor I64 Supervisor ! process))
+    (: late (impl (Fn Supervisor I64 -> Supervisor ! process)))
     (define (late supervisor serial)
       (match (::child supervisor)
         ((Some child)
@@ -1416,7 +1420,7 @@
 
     ;; The run's program on Node, with its standard input closed, and a
     ;; task for each of its outputs and its exit.
-    (: start-child (-> Supervisor I64 RunRequest Supervisor ! mut tasks process))
+    (: start-child (impl (Fn Supervisor I64 RunRequest -> Supervisor ! mut tasks process)))
     (define (start-child supervisor serial request)
       (let ((setup (::setup supervisor)) (inbox (::inbox supervisor)))
         (match (spawn (ProcessCommand (::node setup)
@@ -1450,11 +1454,12 @@
                                               (empty-bytes)
                                               (empty-bytes))))))))
 
-    (: empty-bytes (-> Bytes))
+    (: empty-bytes (impl (Fn -> Bytes)))
     (define (empty-bytes)
       (make-vector 0 (i32->u8 0)))
 
-    (: forward-output (-> Process (Mailbox Supervision) I64 Stream Unit ! mut tasks process))
+    (: forward-output
+       (impl (Fn Process (Mailbox Supervision) I64 Stream -> Unit ! mut tasks process)))
     (define (forward-output process inbox serial stream)
       (match (read-output process stream 65536)
         ((Ok (Some bytes))
@@ -1463,7 +1468,7 @@
         (_ (unit))))
 
     ;; Each output keeps its last 64 KiB.
-    (: child-output (-> Supervisor I64 Stream Bytes Supervisor))
+    (: child-output (impl (Fn Supervisor I64 Stream Bytes -> Supervisor)))
     (define (child-output supervisor serial stream bytes)
       (match (::child supervisor)
         ((Some child)
@@ -1481,12 +1486,12 @@
              supervisor))
         ((None) supervisor)))
 
-    (: output-tail (-> Bytes Bytes Bytes))
+    (: output-tail (impl (Fn Bytes Bytes -> Bytes)))
     (define (output-tail kept bytes)
       (let* ((joined (vector-concatenate (list kept bytes))) (length (vector-length joined)))
         (subvector joined (max 0 (- length 65536)) length)))
 
-    (: child-ended (-> Supervisor I64 (Result Exit ProcessError) Supervisor ! process))
+    (: child-ended (impl (Fn Supervisor I64 (Result Exit ProcessError) -> Supervisor ! process)))
     (define (child-ended supervisor serial exit)
       (match (::child supervisor)
         ((Some child)
@@ -1500,7 +1505,7 @@
         ((None) supervisor)))
 
     ;; The target's status: what is wanted, and the process it owns.
-    (: supervisor-state (-> Supervisor protocol-Run))
+    (: supervisor-state (impl (Fn Supervisor -> protocol-Run)))
     (define (supervisor-state supervisor)
       (protocol-Run (::name supervisor)
                     (match (::desired supervisor)
@@ -1511,7 +1516,7 @@
                       ((None) (None)))
                     #f #f))
 
-    (: child-state (-> Child protocol-Attempt))
+    (: child-state (impl (Fn Child -> protocol-Attempt)))
     (define (child-state child)
       (protocol-Attempt
        (::build (::request child))
@@ -1524,7 +1529,7 @@
        (match (::exit child) ((Some (Err error)) (::code error)) (_ ""))
        (lossy-text (::stdout child)) (lossy-text (::stderr child))))
 
-    (: child-phase (-> Child String))
+    (: child-phase (impl (Fn Child -> String)))
     (define (child-phase child)
       (match (::exit child)
         ((Some (Err _)) "failed")
@@ -1535,7 +1540,7 @@
                (else "starting")))))
 
     ;; Output as text, each byte that is not UTF-8 as U+FFFD.
-    (: lossy-text (-> Bytes String))
+    (: lossy-text (impl (Fn Bytes -> String)))
     (define (lossy-text bytes)
       (match (utf8->string bytes)
         ((Ok text) text)
@@ -1550,7 +1555,13 @@
 
     ;; One handler task for each connection.
     (: accept-connections
-       (-> Setup Listener (Mailbox Message) (Mailbox Scan) Unit ! mut tasks tcp fs modes process))
+       (impl (Fn Setup
+                 Listener
+                 (Mailbox Message)
+                 (Mailbox Scan)
+                 ->
+                 Unit
+                 ! mut tasks tcp fs modes process)))
     (define (accept-connections setup listener owner disk)
       (let loop ((id 0))
         (match (accept listener)
@@ -1568,25 +1579,25 @@
             (Header "X-Content-Type-Options" "nosniff")
             (Header "X-Frame-Options" "DENY")))
 
-    (: json-response (-> I32 Json Response))
+    (: json-response (impl (Fn I32 Json -> Response)))
     (define (json-response status body)
       (Response status
                 (Cons (Header "Content-Type" "application/json") security-headers)
                 (if (= status 204) (empty-bytes) (string->utf8 (json->string body)))))
 
-    (: refused (-> I32 String Response))
+    (: refused (impl (Fn I32 String -> Response)))
     (define (refused status message)
       (json-response status (protocol-message->json message)))
 
     ;; A connection's one request, by the connection's number.
     (: serve-connection
-       (-> Setup
-           (Mailbox Message)
-           (Mailbox Scan)
-           I64
-           Connection
-           Unit
-           ! mut tasks tcp fs modes process))
+       (impl (Fn Setup
+                 (Mailbox Message)
+                 (Mailbox Scan)
+                 I64
+                 Connection
+                 -> Unit
+                 ! mut tasks tcp fs modes process)))
     (define (serve-connection setup owner disk id connection)
       (match (read-request connection)
         ((Ok request)
@@ -1596,13 +1607,13 @@
              ((None) (unit)))))
         ((Err error) (finish-exchange connection (None) (exchange-refusal error)))))
 
-    (: finish-exchange (-> Connection (Option String) Response Unit ! tcp tasks))
+    (: finish-exchange (impl (Fn Connection (Option String) Response -> Unit ! tcp tasks)))
     (define (finish-exchange connection method response)
       (match (ann (respond connection 2000 method response) (Result Unit (ExchangeError Unit)))
         ((Ok _) (unit))
         ((Err _) (close-connection connection) (unit))))
 
-    (: exchange-refusal (-> (ExchangeError Unit) Response))
+    (: exchange-refusal (impl (Fn (ExchangeError Unit) -> Response)))
     (define (exchange-refusal error)
       (match error
         ((ProtocolFailure (Unsupported "Transfer-Encoding"))
@@ -1614,14 +1625,14 @@
     ;; The response to a request, or None for an event stream, which this
     ;; task then writes until it ends.
     (: route
-       (-> Setup
-           (Mailbox Message)
-           (Mailbox Scan)
-           I64
-           Connection
-           Request
-           (Option Response)
-           ! mut tasks tcp fs modes process))
+       (impl (Fn Setup
+                 (Mailbox Message)
+                 (Mailbox Scan)
+                 I64
+                 Connection
+                 Request
+                 -> (Option Response)
+                 ! mut tasks tcp fs modes process)))
     (define (route setup owner disk id connection request)
       (let ((head (::head request)))
         (match (parse-target (::target head))
@@ -1633,15 +1644,15 @@
 
     ;; A GET of an editor asset, the event stream, or the API.
     (: serve-target
-       (-> Setup
-           (Mailbox Message)
-           (Mailbox Scan)
-           I64
-           Connection
-           Request
-           Target
-           (Option Response)
-           ! mut tasks tcp fs modes process))
+       (impl (Fn Setup
+                 (Mailbox Message)
+                 (Mailbox Scan)
+                 I64
+                 Connection
+                 Request
+                 Target
+                 -> (Option Response)
+                 ! mut tasks tcp fs modes process)))
     (define (serve-target setup owner disk id connection request target)
       (let ((method (::method (::head request))) (path (::path target)))
         (cond ((not (string=? method "GET"))
@@ -1656,15 +1667,15 @@
                          (editor-asset setup owner path)))))))
 
     (: api
-       (-> Setup
-           (Mailbox Message)
-           (Mailbox Scan)
-           Request
-           String
-           (List String)
-           (List (Pair String String))
-           Response
-           ! mut tasks fs modes process))
+       (impl (Fn Setup
+                 (Mailbox Message)
+                 (Mailbox Scan)
+                 Request
+                 String
+                 (List String)
+                 (List (Pair String String))
+                 -> Response
+                 ! mut tasks fs modes process)))
     (define (api setup owner disk request method path query)
       (match (Pair method path)
         ((Pair "GET" (Cons "api" (Cons "project" (Nil)))) (project-listing setup disk))
@@ -1688,27 +1699,28 @@
          (save setup disk request (query-value query "path")))
         (_ (refused 404 "unknown project endpoint"))))
 
-    (: run-control (-> String String (Option Event)))
+    (: run-control (impl (Fn String String -> (Option Event))))
     (define (run-control action target)
       (cond ((string=? action "start") (Some (StartRun target)))
             ((string=? action "stop") (Some (StopRun target)))
             ((string=? action "restart") (Some (RestartRun target)))
             (else (None))))
 
-    (: query-value (-> (List (Pair String String)) String String))
+    (: query-value (impl (Fn (List (Pair String String)) String -> String)))
     (define (query-value query name)
       (match (find (lambda (pair) (string=? (::first pair) name)) query)
         ((Some pair) (::second pair))
         ((None) "")))
 
     ;; A command takes no body; the owner answers it once the step has.
-    (: commanding (-> Request (Mailbox Message) Event Response ! mut tasks))
+    (: commanding (impl (Fn Request (Mailbox Message) Event -> Response ! mut tasks)))
     (define (commanding request owner event)
       (if (> (vector-length (::body request)) 0)
           (refused 400 "command takes no request body")
           (asking owner (lambda (reply) (Ask event reply)))))
 
-    (: asking (-> (Mailbox Message) (-> (Mailbox Answer) Message) Response ! mut tasks))
+    (: asking
+       (impl (Fn (Mailbox Message) (dyn (Fn (Mailbox Answer) -> Message)) -> Response ! mut tasks)))
     (define (asking owner message)
       (let ((reply (make-mailbox)))
         (mailbox-post owner (message reply))
@@ -1723,7 +1735,7 @@
     ;; same served-path boundary as file reads, then Git's visibility rules.
     ;; Ignore filtering never changes compiler inputs or explicit file access.
     (: project-files
-       (-> Setup (Mailbox Scan) (Result ProjectEntries Response) ! mut tasks fs process))
+       (impl (Fn Setup (Mailbox Scan) -> (Result ProjectEntries Response) ! mut tasks fs process)))
     (define (project-files setup disk)
       (let ((reply (make-mailbox)))
         (mailbox-post disk (Listing reply))
@@ -1739,7 +1751,7 @@
              ((Err refusal) (Err (file-refusal refusal))))))))
 
     (: visible-entries
-       (-> String ProjectEntries (Result ProjectEntries Response) ! mut tasks process))
+       (impl (Fn String ProjectEntries -> (Result ProjectEntries Response) ! mut tasks process)))
     (define (visible-entries directory entries)
       (match (ignore-read-gitignore directory)
         ((Err message) (Err (refused 500 message)))
@@ -1749,7 +1761,7 @@
            (Ok (ProjectEntries (filter visible? (::files entries))
                                (filter visible? (::directories entries))))))))
 
-    (: project-listing (-> Setup (Mailbox Scan) Response ! mut tasks fs process))
+    (: project-listing (impl (Fn Setup (Mailbox Scan) -> Response ! mut tasks fs process)))
     (define (project-listing setup disk)
       (match (project-files setup disk)
         ((Err response) response)
@@ -1761,7 +1773,7 @@
                                              (::files files)
                                              (::directories files))))))))
 
-    (: project-search (-> Setup (Mailbox Scan) String Response ! mut tasks fs process))
+    (: project-search (impl (Fn Setup (Mailbox Scan) String -> Response ! mut tasks fs process)))
     (define (project-search setup disk text)
       (match (search-parse-query text)
         ((Err message) (refused 400 message))
@@ -1775,7 +1787,7 @@
                                                    (::files paths)
                                                    query))))))))
 
-    (: search-json (-> search-Results Json))
+    (: search-json (impl (Fn search-Results -> Json)))
     (define (search-json results)
       (protocol-search->json
        (protocol-SearchResults
@@ -1786,7 +1798,7 @@
              (::hits results))
         (::skipped results) (::limited results))))
 
-    (: file-response (-> (Result ProjectText FileRefusal) Response))
+    (: file-response (impl (Fn (Result ProjectText FileRefusal) -> Response)))
     (define (file-response result)
       (match result
         ((Ok text)
@@ -1794,7 +1806,7 @@
                                                                     (::revision text)))))
         ((Err refusal) (file-refusal refusal))))
 
-    (: file-refusal (-> FileRefusal Response))
+    (: file-refusal (impl (Fn FileRefusal -> Response)))
     (define (file-refusal refusal)
       (match refusal
         ((ChangedOnDisk) (refused 409 "the file changed on disk; reload it before saving"))
@@ -1805,7 +1817,8 @@
         ((DiskFailed (PermissionDenied)) (refused 403 "permission denied"))
         ((DiskFailed error) (refused 500 (show error)))))
 
-    (: create-entry-response (-> Setup (Mailbox Scan) Request String Bool Response ! mut fs))
+    (: create-entry-response
+       (impl (Fn Setup (Mailbox Scan) Request String Bool -> Response ! mut fs)))
     (define (create-entry-response setup disk request path directory)
       (if (> (vector-length (::body request)) 0)
           (refused 400 "creation takes no request body")
@@ -1819,7 +1832,7 @@
     ;; A save names one quoted revision and sends UTF-8 text/plain. Once it
     ;; is on disk, the disk task scans, so the build sees it within the
     ;; debounce rather than the next second.
-    (: save (-> Setup (Mailbox Scan) Request String Response ! mut fs modes))
+    (: save (impl (Fn Setup (Mailbox Scan) Request String -> Response ! mut fs modes)))
     (define (save setup disk request path)
       (let ((head (::head request)))
         (match (expected-revision head)
@@ -1836,7 +1849,7 @@
                     response))))))))
 
     ;; One strong opaque tag: lists, wildcards and weak tags are not this API.
-    (: expected-revision (-> RequestHead (Option String)))
+    (: expected-revision (impl (Fn RequestHead -> (Option String))))
     (define (expected-revision head)
       (match (header-values (::headers head) "if-match")
         ((Cons value (Nil))
@@ -1849,12 +1862,12 @@
                (None))))
         (_ (None))))
 
-    (: tag-char? (-> Char Bool))
+    (: tag-char? (impl (Fn Char -> Bool)))
     (define (tag-char? char)
       (let ((code (char->i32 char)))
         (or (= code 33) (and (>= code 35) (<= code 91)) (and (>= code 93) (<= code 126)))))
 
-    (: plain-text? (-> RequestHead Bool))
+    (: plain-text? (impl (Fn RequestHead -> Bool)))
     (define (plain-text? head)
       (match (header-values (::headers head) "content-type")
         ((Cons value (Nil))
@@ -1867,7 +1880,7 @@
     ;; reach it; a fetch from another site is refused, except a navigation
     ;; to the editor itself; and a change must come from the project's own
     ;; page.
-    (: authorization (-> Setup RequestHead Target (Option String)))
+    (: authorization (impl (Fn Setup RequestHead Target -> (Option String))))
     (define (authorization setup head target)
       (let ((headers (::headers head)) (origin (origin setup)))
         (cond ((not (same-strings? (header-values headers "host")
@@ -1884,14 +1897,14 @@
               (else (None)))))
 
     ;; The target `/`, which parses as no segment or one empty one.
-    (: root-path? (-> (List String) Bool))
+    (: root-path? (impl (Fn (List String) -> Bool)))
     (define (root-path? path)
       (match path
         ((Nil) #t)
         ((Cons "" (Nil)) #t)
         (_ #f)))
 
-    (: navigation? (-> RequestHead Target Bool))
+    (: navigation? (impl (Fn RequestHead Target -> Bool)))
     (define (navigation? head target)
       (let ((headers (::headers head)))
         (and (string=? (::method head) "GET")
@@ -1899,13 +1912,13 @@
              (same-strings? (header-values headers "sec-fetch-mode") (list "navigate"))
              (same-strings? (header-values headers "sec-fetch-dest") (list "document")))))
 
-    (: cross-site? (-> (List Header) Bool))
+    (: cross-site? (impl (Fn (List Header) -> Bool)))
     (define (cross-site? headers)
       (match (header-values headers "sec-fetch-site")
         ((Cons site _) (not (or (string=? site "same-origin") (string=? site "none"))))
         ((Nil) #f)))
 
-    (: same-strings? (-> (List String) (List String) Bool))
+    (: same-strings? (impl (Fn (List String) (List String) -> Bool)))
     (define (same-strings? left right)
       (and (= (length left) (length right))
            (every? (lambda (pair) (string=? (::first pair) (::second pair)))
@@ -1915,7 +1928,7 @@
 
     ;; One handler task for each connection, numbered apart from the
     ;; editor's, so the owner tracks both alike and shutdown waits for both.
-    (: accept-applications (-> Setup Listener (Mailbox Message) Unit ! mut tasks tcp fs))
+    (: accept-applications (impl (Fn Setup Listener (Mailbox Message) -> Unit ! mut tasks tcp fs)))
     (define (accept-applications setup listener owner)
       (let loop ((id 1099511627776))
         (match (accept listener)
@@ -1928,7 +1941,7 @@
           ((Err _) (unit)))))
 
     (: serve-application
-       (-> Setup Listener (Mailbox Message) I64 Connection Unit ! mut tasks tcp fs))
+       (impl (Fn Setup Listener (Mailbox Message) I64 Connection -> Unit ! mut tasks tcp fs)))
     (define (serve-application setup listener owner id connection)
       (match (read-request connection)
         ((Ok request)
@@ -1943,8 +1956,8 @@
     ;; site that rebinds a name to this address reads nothing. None for a
     ;; page's event stream, which this task then writes until it ends.
     (: application-response
-       (-> Setup Listener (Mailbox Message) I64 Connection RequestHead (Option Response)
-           ! mut tasks tcp fs))
+       (impl (Fn Setup Listener (Mailbox Message) I64 Connection RequestHead -> (Option Response)
+                 ! mut tasks tcp fs)))
     (define (application-response setup listener owner id connection head)
       (let ((method (::method head)))
         (cond ((not (same-strings? (header-values (::headers head) "host")
@@ -1963,7 +1976,8 @@
                  ((Err _) (Some (refused 400 "malformed request target"))))))))
 
     ;; `/` lists the browser targets, and /NAME/ serves one's builds.
-    (: application-file (-> Setup (Mailbox Message) (List String) Response ! mut tasks fs))
+    (: application-file
+       (impl (Fn Setup (Mailbox Message) (List String) -> Response ! mut tasks fs)))
     (define (application-file setup owner path)
       (let ((reply (make-mailbox)))
         (mailbox-post owner (Applications reply))
@@ -1981,7 +1995,7 @@
                                  rest))
                ((None) (refused 404 (string-append "no browser target " name)))))))))
 
-    (: application-index (-> (List Application) Response))
+    (: application-index (impl (Fn (List Application) -> Response)))
     (define (application-index applications)
       (Response 200
                 (Cons (Header "Content-Type" "text/html; charset=utf-8") security-headers)
@@ -1996,7 +2010,7 @@
                                 (string-append "<p><a href=\"/" name "/\">" name "</a></p>\n")))
                             applications)))))))
 
-    (: html-text (-> String String))
+    (: html-text (impl (Fn String -> String)))
     (define (html-text text)
       (string-concatenate
        (map (lambda (char)
@@ -2015,24 +2029,24 @@
       ((id String)
        (directory String)))
 
-    (: editor-bundle (-> Setup (Result EditorBundle String) ! fs))
+    (: editor-bundle (impl (Fn Setup -> (Result EditorBundle String) ! fs)))
     (define (editor-bundle setup)
       (match (read-symbolic-link (::editor setup))
         ((Ok name)
          (Ok (EditorBundle name (string-append (::root setup) "/host/ide/build/" name))))
         ((Err error) (Err (string-append "cannot locate IDE build: " (show error))))))
 
-    (: editor-base (-> EditorBundle String))
+    (: editor-base (impl (Fn EditorBundle -> String)))
     (define (editor-base bundle)
       (string-append "/.snail/ide/" (::id bundle) "/"))
 
-    (: touched-editor (-> Host Event Host ! mut tasks process fs tcp))
+    (: touched-editor (impl (Fn Host Event -> Host ! mut tasks process fs tcp)))
     (define (touched-editor host event)
       (match (::stopping host)
         ((Some _) host)
         ((None) (editor-change host event))))
 
-    (: editor-change (-> Host Event Host ! mut tasks process fs tcp))
+    (: editor-change (impl (Fn Host Event -> Host ! mut tasks process fs tcp)))
     (define (editor-change host event)
       (match event
         ((Touched paths)
@@ -2047,7 +2061,7 @@
              host))
         (_ host)))
 
-    (: start-editor (-> Host Host ! mut tasks process fs tcp))
+    (: start-editor (impl (Fn Host -> Host ! mut tasks process fs tcp)))
     (define (start-editor host)
       (let ((setup (::setup host)))
         (match (spawn (ProcessCommand (::node setup)
@@ -2065,7 +2079,7 @@
 
     ;; Drain both pipes while the compiler runs, so neither can block it.
     ;; The owner remains responsive and closes the child during shutdown.
-    (: await-editor (-> Setup (Mailbox Message) Process Unit ! mut tasks process fs))
+    (: await-editor (impl (Fn Setup (Mailbox Message) Process -> Unit ! mut tasks process fs)))
     (define (await-editor setup owner child)
       (let ((errors (make-mailbox)))
         (dispatch-local (once (lambda () (mailbox-post errors (editor-output child (Stderr) "")))))
@@ -2078,7 +2092,7 @@
                                        (_ (Err
                                            (if (string=? error "") "IDE build failed" error)))))))))
 
-    (: editor-output (-> Process Stream String String ! tasks process))
+    (: editor-output (impl (Fn Process Stream String -> String ! tasks process)))
     (define (editor-output child stream kept)
       (match (read-output child stream 65536)
         ((Ok (Some bytes))
@@ -2086,7 +2100,8 @@
            (editor-output child stream (substring text (max 0 (- size 4096)) size))))
         (_ kept)))
 
-    (: editor-built (-> Host (Result EditorBundle String) Host ! mut tasks process fs tcp))
+    (: editor-built
+       (impl (Fn Host (Result EditorBundle String) -> Host ! mut tasks process fs tcp)))
     (define (editor-built host result)
       (match (::stopping host)
         ((Some _) (stopped-one host))
@@ -2105,13 +2120,13 @@
 
     ;; Page-relative references are pinned to one complete generation. The
     ;; manifest remains at the stable root, and recovery is keyed by project.
-    (: editor-manifest (-> Response))
+    (: editor-manifest (impl (Fn -> Response)))
     (define (editor-manifest)
       (Response 200
                 (Cons (Header "Content-Type" "application/manifest+json") security-headers)
                 (string->utf8 (json->string (web-app-manifest "Snail IDE")))))
 
-    (: editor-asset (-> Setup (Mailbox Message) (List String) Response ! mut tasks fs))
+    (: editor-asset (impl (Fn Setup (Mailbox Message) (List String) -> Response ! mut tasks fs)))
     (define (editor-asset setup owner path)
       (let ((reply (make-mailbox)))
         (mailbox-post owner (EditorAssets reply))
@@ -2131,7 +2146,7 @@
                         (editor-file latest path) (refused 404 "no such editor asset")))
                    (_ (refused 404 "no such editor asset"))))))))
 
-    (: editor-page (-> Setup EditorBundle Response ! fs))
+    (: editor-page (impl (Fn Setup EditorBundle -> Response ! fs)))
     (define (editor-page setup bundle)
       (let ((text (stable-web-app
                    (read-file (string-append (::directory bundle) "/index.html")) "/")))
@@ -2141,7 +2156,7 @@
                                                (PageMeta "snail-workspace"
                                                          (::project setup))))))))
 
-    (: editor-file (-> EditorBundle (List String) Response ! fs))
+    (: editor-file (impl (Fn EditorBundle (List String) -> Response ! fs)))
     (define (editor-file bundle path)
       (let ((response (bundle-file (::directory bundle) path)))
         (Response (::status response)
@@ -2158,7 +2173,8 @@
     ;; Joins the owner's streams, then writes each frame it sends until it
     ;; sends none, or a write fails. The handler's end tells the owner the
     ;; stream has gone.
-    (: stream-events (-> (Mailbox Message) I64 Connection (Option String) Unit ! mut tasks tcp))
+    (: stream-events
+       (impl (Fn (Mailbox Message) I64 Connection (Option String) -> Unit ! mut tasks tcp)))
     (define (stream-events owner id connection watching)
       (let ((frames (make-mailbox)) (reply (make-mailbox)))
         (mailbox-post owner (Joined id watching connection frames reply))
@@ -2174,7 +2190,8 @@
                                (json-response (::status answer) (::body answer)))))))
 
     (: write-frames
-       (-> (Mailbox Message) I64 Connection (Mailbox (Option Bytes)) Unit ! mut tasks tcp))
+       (impl
+        (Fn (Mailbox Message) I64 Connection (Mailbox (Option Bytes)) -> Unit ! mut tasks tcp)))
     (define (write-frames owner id connection frames)
       (match (mailbox-receive frames)
         ((Some bytes)
@@ -2187,7 +2204,7 @@
                (unit))))
         ((None) (close-connection connection) (unit))))
 
-    (: sent? (-> Connection Bytes Bool ! tasks tcp))
+    (: sent? (impl (Fn Connection Bytes -> Bool ! tasks tcp)))
     (define (sent? connection bytes)
       (if (= (vector-length bytes) 0)
           #t

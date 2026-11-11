@@ -20,11 +20,11 @@
     (: add-action I32)
     (define add-action 1)
 
-    (: start (-> I32 I32 I32 Counter))
+    (: start (impl (Fn I32 I32 I32 -> Counter)))
     (define (start seed width height)
       (Counter 0 width height))
 
-    (: step (-> Counter Input Counter))
+    (: step (impl (Fn Counter Input -> Counter)))
     (define (step counter input)
       (match input
         ((Press 1 _) (Counter-count-set counter (+ (::count counter) 1)))
@@ -32,7 +32,7 @@
         (_ counter)))
 
     ;; One box, its batch versioned by the count, under a fixed camera.
-    (: draw (-> Counter Frame))
+    (: draw (impl (Fn Counter -> Frame)))
     (define (draw counter)
       (Frame (Camera (Vec3 4.0 4.0 4.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8))
              (Light (Vec3 0.3 1.0 0.5) 0.8 0.3)
@@ -47,18 +47,18 @@
                                         (rgb 143 209 143))))))
              (Nil)))
 
-    (: panels (-> Counter (List Panel)))
+    (: panels (impl (Fn Counter -> (List Panel))))
     (define (panels counter)
       (list (Panel "counter" (At (TopLeft) 0)
                    (list (label "greeting" greeting)
                          (label "count" (i64->string (::count counter)))
                          (button "add" "Add" add-action)))))
 
-    (: save (-> Counter Save))
+    (: save (impl (Fn Counter -> Save)))
     (define (save counter)
       (Save (::count counter)))
 
-    (: restore (-> Save Counter))
+    (: restore (impl (Fn Save -> Counter)))
     (define (restore saved)
       (Counter (::count saved) 0 0))
 

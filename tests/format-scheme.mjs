@@ -113,14 +113,15 @@ example(`(foo alpha beta gamma delta epsilon) ; fits: the comment does not count
 (define message
   "a string much longer than forty columns cannot break")
 `, 40);
-example(`(: run (-> Config (List String) Status ! fs console))
+example(`(: run (impl (Fn Config (List String) -> Status ! fs console)))
 (bytes #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))
 (display "one") (display "two") (display "three")
 `, `(: run
-   (-> Config
-       (List String)
-       Status
-       ! fs console))
+   (impl (Fn Config
+             (List String)
+             ->
+             Status
+             ! fs console)))
 (bytes
  #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))
 (display "one")

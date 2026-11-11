@@ -16,11 +16,11 @@
 ;; body, or an event.
 (define root "build/tests/project-bundle")
 
-(: at (-> String String))
+(: at (impl (Fn String -> String)))
 (define (at name)
   (string-append root "/" name))
 
-(: put (-> String String Unit ! fs))
+(: put (impl (Fn String String -> Unit ! fs)))
 (define (put name text)
   (write-file (at name) text))
 
@@ -65,7 +65,7 @@
 (define reloading
   (Reloading (at "host") (at "reload.wasm")))
 
-(: show-response (-> String Response Unit ! console))
+(: show-response (impl (Fn String Response -> Unit ! console)))
 (define (show-response label response)
   (write-line (string-append label
                              " -> "
@@ -81,7 +81,7 @@
                                ((Ok text) text)
                                ((Err _) "not text")))))
 
-(: request (-> String (List String) Unit ! fs console))
+(: request (impl (Fn String (List String) -> Unit ! fs console)))
 (define (request label path)
   (show-response label (bundle-response "/site/" reloading builds path)))
 

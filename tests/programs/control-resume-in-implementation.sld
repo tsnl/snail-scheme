@@ -9,19 +9,19 @@
 ;; there too, so both the body and the implementation log to the handler
 ;; outside the runner.
 (effect Gen
-  ((ctl yield (-> I64 Unit))))
+  ((ctl yield (dyn (Fn I64 -> Unit)))))
 
 (effect Log
-  ((log (-> String Unit))))
+  ((log (dyn (Fn String -> Unit)))))
 
 (enum Step
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce Unit Step ! Log)))))
+    (next (dyn (FnOnce Unit -> Step ! Log))))))
 
 ;; The generator hands back each value, and its implementation logs.
-(: start (-> (-> Unit ! Gen Log) Step ! Log))
+(: start (impl (Fn (dyn (Fn -> Unit ! Gen Log)) -> Step ! Log)))
 (define (start body)
   (handle Gen ((yield (lambda (value resume)
                         (log (string-append "the handler yields " (show value)))
@@ -29,7 +29,7 @@
     (body)
     (Done)))
 
-(: count-from (-> I64 I64 Unit ! Gen Log))
+(: count-from (impl (Fn I64 I64 -> Unit ! Gen Log)))
 (define (count-from first count)
   (when (> count 0)
     (log (string-append "the body produces " (show first)))
@@ -39,9 +39,9 @@
 ;; An operation that takes the rest of a generator, which its implementation
 ;; runs.
 (effect Runner
-  ((run-step (-> (FnOnce Unit Step ! Log) Step))))
+  ((run-step (dyn (Fn (dyn (FnOnce Unit -> Step ! Log)) -> Step)))))
 
-(: show-step (-> Step Unit ! console))
+(: show-step (impl (Fn Step -> Unit ! console)))
 (define (show-step step)
   (match step
     ((Done) (write-line "done"))

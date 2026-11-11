@@ -7,7 +7,7 @@
    (hearsay shell)
    (hearsay art))
   (begin
-    (: view (-> Shell Frame))
+    (: view (impl (Fn Shell -> Frame)))
     (define (view shell)
       (view-shell shell art))
 

@@ -5,7 +5,7 @@
 ;; A requirement that gives a closed row bounds what its type's instance
 ;; may perform: `peek` takes only stores whose reads are total.
 (typeclass (Store e S)
-  (: fetch-object (-> S String String ! e)))
+  (: fetch-object (impl (Fn S String -> String ! e))))
 
 (struct Directory
   ((root String)))
@@ -15,7 +15,7 @@
     (write-line name)
     name))
 
-(: peek (All (S) (requires (Store (!) S)) (-> S String String)))
+(: peek (All (S) (requires (Store (!) S)) (impl (Fn S String -> String))))
 (define (peek store name)
   (fetch-object store name))
 

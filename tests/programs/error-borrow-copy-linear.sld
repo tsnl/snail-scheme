@@ -5,6 +5,6 @@
   ((number I64))
   (deriving Move))
 
-(: steal (-> (Borrow Token) Token))
+(: steal (impl (Fn (Borrow Token) -> Token)))
 (define (steal borrowed)
   (borrow-copy borrowed))

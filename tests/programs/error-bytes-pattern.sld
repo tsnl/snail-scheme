@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(: magic? (-> Bytes Bool))
+(: magic? (impl (Fn Bytes -> Bool)))
 (define (magic? bytes)
   (match bytes
     (#u8(137 80) #t)

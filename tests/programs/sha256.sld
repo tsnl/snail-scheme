@@ -11,7 +11,7 @@
  (snail shell json)
  (snail shell compiler sha256))
 
-(: digest (-> Bytes Unit ! console))
+(: digest (impl (Fn Bytes -> Unit ! console)))
 (define (digest bytes)
   (write-line (string-append (show (vector-length bytes)) " " (bytes->hex (sha256 bytes)))))
 

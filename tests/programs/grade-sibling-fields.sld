@@ -9,11 +9,11 @@
   ((count (Ref I64))
    (current (Ref (Option T)))))
 
-(: share (All (T) (-> (Shared T) (Pair (Shared T) (Shared T)))))
+(: share (All (T) (impl (Fn (Shared T) -> (Pair (Shared T) (Shared T))))))
 (define (share shared)
   (Pair shared shared))
 
-(: run-current (-> (Shared String) Unit ! console mut))
+(: run-current (impl (Fn (Shared String) -> Unit ! console mut)))
 (define (run-current shared)
   (ref-set! (::count shared) (+ (ref-get (::count shared)) 1))
   (match (ref-replace! (::current shared) (None))

@@ -2,6 +2,6 @@
  (snail core base))
 
 (effect Ask
-  ((ask (-> I64))))
+  ((ask (dyn (Fn -> I64)))))
 
 (ask)

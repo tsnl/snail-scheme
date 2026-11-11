@@ -59,7 +59,7 @@
    (snail core forms))
   (begin
 
-    (primitive any-type-id (-> Any I64))
+    (primitive any-type-id (impl (Fn Any -> I64)))
 
     ;; ---- Control ----
 
@@ -68,47 +68,53 @@
     ;; mutation stays in storage the function allocates. `unsafe-cast` makes
     ;; a function of whatever type is expected from a Funcref, a function
     ;; another module exports (`(snail shell wasm)`), checking only its Wasm
-    ;; type: a closure that calls it, or, at an Fn, the code itself. `dynamic-cast` is its checked counterpart, for a function exposed
+    ;; type: a closure that calls it, or, at a fn, the code itself. `dynamic-cast` is its checked counterpart, for a function exposed
     ;; with `dynamic`: it calls the importer's policy with the signature the
     ;; expected type has, and makes the function only if the policy accepts
     ;; it, as a vector of one; otherwise the vector is empty, since Option is
     ;; declared later, in (snail core base). The function checks the TypeId
     ;; of each value it receives.
-    (primitive unit (-> Unit))
-    (primitive panic (All (A) (-> String A)))
-    (primitive unsafe-total (All (A e) (-> (-> A ! e) A)))
-    (primitive unsafe-cast (All (A) (-> Funcref A)))
+    (primitive unit (impl (Fn -> Unit)))
+    (primitive panic (All (A) (impl (Fn String -> A))))
+    (primitive unsafe-total (All (A e) (impl (Fn (dyn (Fn -> A ! e)) -> A))))
+    (primitive unsafe-cast (All (A) (impl (Fn Funcref -> A))))
     (primitive dynamic-cast
-               (All (A) (requires (Copy A)) (-> Funcref (-> (Vector I64) Bool) (Vector A))))
+               (All (A)
+                    (requires (Copy A))
+                    (impl (Fn Funcref (dyn (Fn (Vector I64) -> Bool)) -> (Vector A)))))
 
     ;; ---- Lexical borrows ----
 
     ;; A loan starts only as a let's initializer. That let is its lexical
     ;; region: ownership checks the whole body and forbids a borrowed result.
     ;; The prelude exposes with-borrow instead of this raw operation.
-    (primitive borrow (All (T) (-> T (Borrow T))))
-    (primitive borrow-copy (All (T) (requires (Copy T)) (-> (Borrow T) T)))
+    (primitive borrow (All (T) (impl (Fn T -> (Borrow T)))))
+    (primitive borrow-copy (All (T) (requires (Copy T)) (impl (Fn (Borrow T) -> T))))
 
     ;; ---- One-shot procedures ----
 
     ;; A FnOnce owns a procedure that runs once: it is linear, so each one is
-    ;; called or dropped exactly once. `once` makes one from a thunk, and a
+    ;; called or dropped exactly once. `once` preserves any procedure signature, and a
     ;; control handler is handed `resume` as another. `discard` releases a
     ;; value and runs nothing: it is what (snail core base)'s `drop` becomes
     ;; for a value whose release runs nothing. Mono names it `prim:discard`,
     ;; so it is not exported: called anywhere else, it would lose a value
     ;; whose release runs something.
-    (primitive once (All (A e) (-> (-> A ! e) (FnOnce A ! e))))
-    (primitive call-once (All (e) (-> (FnOnce Unit ! e) Unit ! e)))
-    (primitive discard (All (A) (-> A Unit)))
+    ;; A signature family: F: FnOnce<Signature> becomes dyn FnOnce<Signature>.
+    ;; The expander binds this intrinsic with ordinary callable evidence.
+    (primitive once callable-once)
+    (primitive call-once (All (e) (impl (Fn (dyn (FnOnce -> Unit ! e)) -> Unit ! e))))
+    (primitive discard (All (A) (impl (Fn A -> Unit))))
     ;; Droppers, which the control pass inserts (control.sld, "Droppers"):
     ;; `with-dropper` marks a let's value that may yield with the dropper
     ;; of the frame saved there, `once-dropping` builds a FnOnce carrying
     ;; the dropper of what it captured, and `drop-once` drops a FnOnce
     ;; unrun, running its dropper. None is written by a program.
-    (primitive with-dropper (All (A) (-> A (-> Unit) A)))
-    (primitive once-dropping (All (A e) (-> (-> A ! e) (-> Unit) (FnOnce A ! e))))
-    (primitive drop-once (All (A e) (-> (FnOnce A ! e) Unit ! e)))
+    (primitive with-dropper (All (A) (impl (Fn A (dyn (Fn -> Unit)) -> A))))
+    (primitive once-dropping
+               (All (A e)
+                    (impl (Fn (dyn (Fn -> A ! e)) (dyn (Fn -> Unit)) -> (dyn (FnOnce -> A ! e))))))
+    (primitive drop-once (All (A e) (impl (Fn (dyn (FnOnce -> A ! e)) -> Unit ! e))))
 
     ;; `inherit-handlers` closes a one-shot thunk over the handlers in scope
     ;; where it is called, and `inherit-handlers-1` a procedure of one
@@ -120,153 +126,164 @@
     ;; which only code that may run anything the host implements, such as
     ;; a scheduler, can perform. The procedure may not yield to a control
     ;; effect, since the handles it would yield to may have returned by then.
-    (primitive inherit-handlers (All (A e) (-> (FnOnce A ! e) (FnOnce A ! host) ! e)))
+    (primitive inherit-handlers
+               (All (A e) (impl (Fn (dyn (FnOnce -> A ! e)) -> (dyn (FnOnce -> A ! host)) ! e))))
     (primitive inherit-handlers-1
-               (All (A B e) (-> (FnOnce A B ! e) (FnOnce A B ! host) ! e)))
+               (All (A B e)
+                    (impl (Fn (dyn (FnOnce A -> B ! e)) -> (dyn (FnOnce A -> B ! host)) ! e))))
 
     ;; ---- Integers ----
 
-    (primitive i32-add (-> I32 I32 I32))
-    (primitive i32-sub (-> I32 I32 I32))
-    (primitive i32-mul (-> I32 I32 I32))
-    (primitive i32-quotient (-> I32 I32 I32))
-    (primitive i32-remainder (-> I32 I32 I32))
-    (primitive i32-and (-> I32 I32 I32))
-    (primitive i32-or (-> I32 I32 I32))
-    (primitive i32-xor (-> I32 I32 I32))
-    (primitive i32-shift-left (-> I32 I32 I32))
-    (primitive i32-shift-right (-> I32 I32 I32))
-    (primitive i32-shift-right/logical (-> I32 I32 I32))
-    (primitive i32-eq (-> I32 I32 Bool))
-    (primitive i32-lt (-> I32 I32 Bool))
-    (primitive i32-le (-> I32 I32 Bool))
-    (primitive i32-gt (-> I32 I32 Bool))
-    (primitive i32-ge (-> I32 I32 Bool))
-    (primitive i64-add (-> I64 I64 I64))
-    (primitive i64-sub (-> I64 I64 I64))
-    (primitive i64-mul (-> I64 I64 I64))
-    (primitive i64-quotient (-> I64 I64 I64))
-    (primitive i64-remainder (-> I64 I64 I64))
-    (primitive i64-and (-> I64 I64 I64))
-    (primitive i64-or (-> I64 I64 I64))
-    (primitive i64-xor (-> I64 I64 I64))
-    (primitive i64-shift-left (-> I64 I64 I64))
-    (primitive i64-shift-right (-> I64 I64 I64))
-    (primitive i64-shift-right/logical (-> I64 I64 I64))
-    (primitive i64-eq (-> I64 I64 Bool))
-    (primitive i64-lt (-> I64 I64 Bool))
-    (primitive i64-le (-> I64 I64 Bool))
-    (primitive i64-gt (-> I64 I64 Bool))
-    (primitive i64-ge (-> I64 I64 Bool))
+    (primitive i32-add (impl (Fn I32 I32 -> I32)))
+    (primitive i32-sub (impl (Fn I32 I32 -> I32)))
+    (primitive i32-mul (impl (Fn I32 I32 -> I32)))
+    (primitive i32-quotient (impl (Fn I32 I32 -> I32)))
+    (primitive i32-remainder (impl (Fn I32 I32 -> I32)))
+    (primitive i32-and (impl (Fn I32 I32 -> I32)))
+    (primitive i32-or (impl (Fn I32 I32 -> I32)))
+    (primitive i32-xor (impl (Fn I32 I32 -> I32)))
+    (primitive i32-shift-left (impl (Fn I32 I32 -> I32)))
+    (primitive i32-shift-right (impl (Fn I32 I32 -> I32)))
+    (primitive i32-shift-right/logical (impl (Fn I32 I32 -> I32)))
+    (primitive i32-eq (impl (Fn I32 I32 -> Bool)))
+    (primitive i32-lt (impl (Fn I32 I32 -> Bool)))
+    (primitive i32-le (impl (Fn I32 I32 -> Bool)))
+    (primitive i32-gt (impl (Fn I32 I32 -> Bool)))
+    (primitive i32-ge (impl (Fn I32 I32 -> Bool)))
+    (primitive i64-add (impl (Fn I64 I64 -> I64)))
+    (primitive i64-sub (impl (Fn I64 I64 -> I64)))
+    (primitive i64-mul (impl (Fn I64 I64 -> I64)))
+    (primitive i64-quotient (impl (Fn I64 I64 -> I64)))
+    (primitive i64-remainder (impl (Fn I64 I64 -> I64)))
+    (primitive i64-and (impl (Fn I64 I64 -> I64)))
+    (primitive i64-or (impl (Fn I64 I64 -> I64)))
+    (primitive i64-xor (impl (Fn I64 I64 -> I64)))
+    (primitive i64-shift-left (impl (Fn I64 I64 -> I64)))
+    (primitive i64-shift-right (impl (Fn I64 I64 -> I64)))
+    (primitive i64-shift-right/logical (impl (Fn I64 I64 -> I64)))
+    (primitive i64-eq (impl (Fn I64 I64 -> Bool)))
+    (primitive i64-lt (impl (Fn I64 I64 -> Bool)))
+    (primitive i64-le (impl (Fn I64 I64 -> Bool)))
+    (primitive i64-gt (impl (Fn I64 I64 -> Bool)))
+    (primitive i64-ge (impl (Fn I64 I64 -> Bool)))
 
     ;; ---- Floats ----
 
-    (primitive f32-add (-> F32 F32 F32))
-    (primitive f32-sub (-> F32 F32 F32))
-    (primitive f32-mul (-> F32 F32 F32))
-    (primitive f32-div (-> F32 F32 F32))
-    (primitive f32-min (-> F32 F32 F32))
-    (primitive f32-max (-> F32 F32 F32))
-    (primitive f32-eq (-> F32 F32 Bool))
-    (primitive f32-lt (-> F32 F32 Bool))
-    (primitive f32-le (-> F32 F32 Bool))
-    (primitive f32-gt (-> F32 F32 Bool))
-    (primitive f32-ge (-> F32 F32 Bool))
-    (primitive f32-sqrt (-> F32 F32))
-    (primitive f32-abs (-> F32 F32))
-    (primitive f32-negate (-> F32 F32))
-    (primitive f32-floor (-> F32 F32))
-    (primitive f32-ceiling (-> F32 F32))
-    (primitive f32-truncate (-> F32 F32))
-    (primitive f32-round (-> F32 F32))
-    (primitive f64-add (-> F64 F64 F64))
-    (primitive f64-sub (-> F64 F64 F64))
-    (primitive f64-mul (-> F64 F64 F64))
-    (primitive f64-div (-> F64 F64 F64))
-    (primitive f64-min (-> F64 F64 F64))
-    (primitive f64-max (-> F64 F64 F64))
-    (primitive f64-eq (-> F64 F64 Bool))
-    (primitive f64-lt (-> F64 F64 Bool))
-    (primitive f64-le (-> F64 F64 Bool))
-    (primitive f64-gt (-> F64 F64 Bool))
-    (primitive f64-ge (-> F64 F64 Bool))
-    (primitive f64-sqrt (-> F64 F64))
-    (primitive f64-abs (-> F64 F64))
-    (primitive f64-negate (-> F64 F64))
-    (primitive f64-floor (-> F64 F64))
-    (primitive f64-ceiling (-> F64 F64))
-    (primitive f64-truncate (-> F64 F64))
-    (primitive f64-round (-> F64 F64))
+    (primitive f32-add (impl (Fn F32 F32 -> F32)))
+    (primitive f32-sub (impl (Fn F32 F32 -> F32)))
+    (primitive f32-mul (impl (Fn F32 F32 -> F32)))
+    (primitive f32-div (impl (Fn F32 F32 -> F32)))
+    (primitive f32-min (impl (Fn F32 F32 -> F32)))
+    (primitive f32-max (impl (Fn F32 F32 -> F32)))
+    (primitive f32-eq (impl (Fn F32 F32 -> Bool)))
+    (primitive f32-lt (impl (Fn F32 F32 -> Bool)))
+    (primitive f32-le (impl (Fn F32 F32 -> Bool)))
+    (primitive f32-gt (impl (Fn F32 F32 -> Bool)))
+    (primitive f32-ge (impl (Fn F32 F32 -> Bool)))
+    (primitive f32-sqrt (impl (Fn F32 -> F32)))
+    (primitive f32-abs (impl (Fn F32 -> F32)))
+    (primitive f32-negate (impl (Fn F32 -> F32)))
+    (primitive f32-floor (impl (Fn F32 -> F32)))
+    (primitive f32-ceiling (impl (Fn F32 -> F32)))
+    (primitive f32-truncate (impl (Fn F32 -> F32)))
+    (primitive f32-round (impl (Fn F32 -> F32)))
+    (primitive f64-add (impl (Fn F64 F64 -> F64)))
+    (primitive f64-sub (impl (Fn F64 F64 -> F64)))
+    (primitive f64-mul (impl (Fn F64 F64 -> F64)))
+    (primitive f64-div (impl (Fn F64 F64 -> F64)))
+    (primitive f64-min (impl (Fn F64 F64 -> F64)))
+    (primitive f64-max (impl (Fn F64 F64 -> F64)))
+    (primitive f64-eq (impl (Fn F64 F64 -> Bool)))
+    (primitive f64-lt (impl (Fn F64 F64 -> Bool)))
+    (primitive f64-le (impl (Fn F64 F64 -> Bool)))
+    (primitive f64-gt (impl (Fn F64 F64 -> Bool)))
+    (primitive f64-ge (impl (Fn F64 F64 -> Bool)))
+    (primitive f64-sqrt (impl (Fn F64 -> F64)))
+    (primitive f64-abs (impl (Fn F64 -> F64)))
+    (primitive f64-negate (impl (Fn F64 -> F64)))
+    (primitive f64-floor (impl (Fn F64 -> F64)))
+    (primitive f64-ceiling (impl (Fn F64 -> F64)))
+    (primitive f64-truncate (impl (Fn F64 -> F64)))
+    (primitive f64-round (impl (Fn F64 -> F64)))
 
     ;; ---- Conversions ----
 
-    (primitive i32->i64 (-> I32 I64))
-    (primitive i64->i32 (-> I64 I32))
-    (primitive i64->f64 (-> I64 F64))
-    (primitive f64->i64 (-> F64 I64))
-    (primitive i32->f64 (-> I32 F64))
-    (primitive f64->i32 (-> F64 I32))
-    (primitive i32->f32 (-> I32 F32))
-    (primitive f32->i32 (-> F32 I32))
-    (primitive i64->f32 (-> I64 F32))
-    (primitive f32->i64 (-> F32 I64))
-    (primitive f32->f64 (-> F32 F64))
-    (primitive f64->f32 (-> F64 F32))
-    (primitive f32->bits (-> F32 I32))
-    (primitive bits->f32 (-> I32 F32))
-    (primitive f64->bits (-> F64 I64))
-    (primitive bits->f64 (-> I64 F64))
-    (primitive bool->i32 (-> Bool I32))
-    (primitive i32->bool (-> I32 Bool))
-    (primitive u8->i32 (-> U8 I32))
-    (primitive i32->u8 (-> I32 U8))
-    (primitive char->i32 (-> Char I32))
-    (primitive i32->char (-> I32 Char))
+    (primitive i32->i64 (impl (Fn I32 -> I64)))
+    (primitive i64->i32 (impl (Fn I64 -> I32)))
+    (primitive i64->f64 (impl (Fn I64 -> F64)))
+    (primitive f64->i64 (impl (Fn F64 -> I64)))
+    (primitive i32->f64 (impl (Fn I32 -> F64)))
+    (primitive f64->i32 (impl (Fn F64 -> I32)))
+    (primitive i32->f32 (impl (Fn I32 -> F32)))
+    (primitive f32->i32 (impl (Fn F32 -> I32)))
+    (primitive i64->f32 (impl (Fn I64 -> F32)))
+    (primitive f32->i64 (impl (Fn F32 -> I64)))
+    (primitive f32->f64 (impl (Fn F32 -> F64)))
+    (primitive f64->f32 (impl (Fn F64 -> F32)))
+    (primitive f32->bits (impl (Fn F32 -> I32)))
+    (primitive bits->f32 (impl (Fn I32 -> F32)))
+    (primitive f64->bits (impl (Fn F64 -> I64)))
+    (primitive bits->f64 (impl (Fn I64 -> F64)))
+    (primitive bool->i32 (impl (Fn Bool -> I32)))
+    (primitive i32->bool (impl (Fn I32 -> Bool)))
+    (primitive u8->i32 (impl (Fn U8 -> I32)))
+    (primitive i32->u8 (impl (Fn I32 -> U8)))
+    (primitive char->i32 (impl (Fn Char -> I32)))
+    (primitive i32->char (impl (Fn I32 -> Char)))
 
     ;; ---- Text ----
 
-    (primitive string-length (-> String I64))
-    (primitive string-ref (-> String I64 Char))
-    (primitive string-append (-> String String String))
-    (primitive substring (-> String I64 I64 String))
-    (primitive string=? (-> String String Bool))
-    (primitive string-compare (-> String String I32))
-    (primitive make-string (-> I64 Char String))
-    (primitive string-generate (All (e) (-> I64 (-> I64 Char ! e) String ! e)))
-    (primitive string->vector (-> String (Vector Char)))
-    (primitive vector->string (-> (Vector Char) String))
+    (primitive string-length (impl (Fn String -> I64)))
+    (primitive string-ref (impl (Fn String I64 -> Char)))
+    (primitive string-append (impl (Fn String String -> String)))
+    (primitive substring (impl (Fn String I64 I64 -> String)))
+    (primitive string=? (impl (Fn String String -> Bool)))
+    (primitive string-compare (impl (Fn String String -> I32)))
+    (primitive make-string (impl (Fn I64 Char -> String)))
+    (primitive string-generate (All (e) (impl (Fn I64 (dyn (Fn I64 -> Char ! e)) -> String ! e))))
+    (primitive string->vector (impl (Fn String -> (Vector Char))))
+    (primitive vector->string (impl (Fn (Vector Char) -> String)))
 
     ;; ---- Vectors ----
 
     ;; Vectors and arrays will be linear, and may then hold linear values
     ;; (#550); until then they hold only ω values, so each operation
     ;; requires (Copy A).
-    (primitive vector-length (All (A) (requires (Copy A)) (-> (Vector A) I64)))
-    (primitive vector-ref (All (A) (requires (Copy A)) (-> (Vector A) I64 A)))
-    (primitive vector-append (All (A) (requires (Copy A)) (-> (Vector A) (Vector A) (Vector A))))
-    (primitive subvector (All (A) (requires (Copy A)) (-> (Vector A) I64 I64 (Vector A))))
-    (primitive make-vector (All (A) (requires (Copy A)) (-> I64 A (Vector A))))
-    (primitive vector-set (All (A) (requires (Copy A)) (-> (Vector A) I64 A (Vector A))))
+    (primitive vector-length (All (A) (requires (Copy A)) (impl (Fn (Vector A) -> I64))))
+    (primitive vector-ref (All (A) (requires (Copy A)) (impl (Fn (Vector A) I64 -> A))))
+    (primitive vector-append
+               (All (A) (requires (Copy A)) (impl (Fn (Vector A) (Vector A) -> (Vector A)))))
+    (primitive subvector (All (A) (requires (Copy A)) (impl (Fn (Vector A) I64 I64 -> (Vector A)))))
+    (primitive make-vector (All (A) (requires (Copy A)) (impl (Fn I64 A -> (Vector A)))))
+    (primitive vector-set (All (A) (requires (Copy A)) (impl (Fn (Vector A) I64 A -> (Vector A)))))
     (primitive vector-generate
-               (All (A e) (requires (Copy A)) (-> I64 (-> I64 A ! e) (Vector A) ! e)))
+               (All (A e)
+                    (requires (Copy A))
+                    (impl (Fn I64 (dyn (Fn I64 -> A ! e)) -> (Vector A) ! e))))
 
     ;; ---- Mutable storage ----
 
-    (primitive make-array (All (A) (requires (Copy A)) (-> I64 A (Array A) ! mut)))
-    (primitive array-length (All (A) (requires (Copy A)) (-> (Array A) I64)))
-    (primitive array-ref (All (A) (requires (Copy A)) (-> (Array A) I64 A ! mut)))
-    (primitive array-set! (All (A) (requires (Copy A)) (-> (Array A) I64 A Unit ! mut)))
-    (primitive array->vector (All (A) (requires (Copy A)) (-> (Array A) (Vector A) ! mut)))
-    (primitive vector->array (All (A) (requires (Copy A)) (-> (Vector A) (Array A) ! mut)))
+    (primitive make-array (All (A) (requires (Copy A)) (impl (Fn I64 A -> (Array A) ! mut))))
+    (primitive array-length (All (A) (requires (Copy A)) (impl (Fn (Array A) -> I64))))
+    (primitive array-ref (All (A) (requires (Copy A)) (impl (Fn (Array A) I64 -> A ! mut))))
+    (primitive array-set! (All (A) (requires (Copy A)) (impl (Fn (Array A) I64 A -> Unit ! mut))))
+    (primitive array->vector
+               (All (A) (requires (Copy A)) (impl (Fn (Array A) -> (Vector A) ! mut))))
+    (primitive vector->array
+               (All (A) (requires (Copy A)) (impl (Fn (Vector A) -> (Array A) ! mut))))
     (primitive array-copy!
-               (All (A) (requires (Copy A)) (-> (Array A) I64 (Array A) I64 I64 Unit ! mut)))
+               (All (A)
+                    (requires (Copy A))
+                    (impl (Fn (Array A) I64 (Array A) I64 I64 -> Unit ! mut))))
     (primitive vector-copy!
-               (All (A) (requires (Copy A)) (-> (Array A) I64 (Vector A) I64 I64 Unit ! mut)))
+               (All (A)
+                    (requires (Copy A))
+                    (impl (Fn (Array A) I64 (Vector A) I64 I64 -> Unit ! mut))))
 
     ;; `set!` writes a place and `replace!` swaps a value into one and
     ;; answers the old: a cell's content, `(ref-get r)`, or a chain of struct
     ;; fields read from one, `(::count (ref-get r))`, which the checker
     ;; verifies (check.sld, "Places"). Setting discards the old content, so
     ;; it must be unrestricted; a swap moves it out.
-    (primitive set! (All (A) (requires (Copy A)) (-> A A Unit ! mut)))
-    (primitive replace! (All (A) (-> A A A ! mut)))))
+    (primitive set! (All (A) (requires (Copy A)) (impl (Fn A A -> Unit ! mut))))
+    (primitive replace! (All (A) (impl (Fn A A -> A ! mut))))))

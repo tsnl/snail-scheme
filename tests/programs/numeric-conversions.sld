@@ -3,7 +3,7 @@
  (snail core io)
  (snail shell number))
 
-(: real (-> String F64))
+(: real (impl (Fn String -> F64)))
 (define (real text)
   (match (string->number text)
     ((Some (Inexact value)) value)

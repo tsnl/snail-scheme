@@ -9,20 +9,20 @@
 
 ;; ---- Printing ----
 
-(: show-lines (-> String (List String) Unit ! console))
+(: show-lines (impl (Fn String (List String) -> Unit ! console)))
 (define (show-lines title lines)
   (write-line title)
   (for-each (lambda (line) (write-line (string-append "  " line)))
             (if (null? lines) (list "none") lines)))
 
-(: choice-lines (-> (List Choice) (List String)))
+(: choice-lines (impl (Fn (List Choice) -> (List String))))
 (define (choice-lines choices)
   (map (lambda (choice) (string-append (::text choice) ", " (::caption choice))) choices))
 
 ;; Each fixer's standing and holdings; while the game is on, every choice
 ;; and the promises owed you, and once it is over, the result; then what
 ;; the last end of round did.
-(: show-board (-> Ledger Unit ! console))
+(: show-board (impl (Fn Ledger -> Unit ! console)))
 (define (show-board ledger)
   (write-line (ledger-header ledger))
   (for-each (lambda (who)
@@ -47,7 +47,7 @@
   (Run ((text String) (command Command)))
   (Board))
 
-(: run-step (-> Ledger Step Ledger ! console))
+(: run-step (impl (Fn Ledger Step -> Ledger ! console)))
 (define (run-step ledger step)
   (match step
     ((Run text command)

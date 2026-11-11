@@ -6,14 +6,14 @@
 (struct Point
   ((x I64)))
 
-(: integer (-> Any I64 ! dyn-cast))
+(: integer (impl (Fn Any -> I64 ! dyn-cast)))
 (define (integer value) value)
 
 ;; Inference propagates the conversion effect; explicit syntax obeys the
 ;; same rule. Calling this function is checked at each enclosing boundary.
 (define (inferred value) (type-convert (ann value Any) I64))
 
-(: fallback (-> Any I64))
+(: fallback (impl (Fn Any -> I64)))
 (define (fallback value)
   (handle dyn-cast ((conversion-failed (lambda (_) -1))) (integer value)))
 
@@ -23,8 +23,9 @@
 (write-line (show (match (try-convert (ann "bad" Any) I64) ((Ok _) #f) ((Err _) #t))))
 (write-line (show (match (try-convert (ann (Point 9) Any) Point)
                     ((Ok point) (::x point)) ((Err _) -1))))
-(write-line (show (match (try-convert (ann (lambda (x) (+ x 1)) (-> I64 I64)) (-> I64 I64))
-                    ((Ok function) (function 9)) ((Err _) -1))))
+(write-line
+ (show (match (try-convert (ann (lambda (x) (+ x 1)) (dyn (Fn I64 -> I64))) (dyn (Fn I64 -> I64)))
+         ((Ok function) (function 9)) ((Err _) -1))))
 (write-line (show (match (try-dynamic (lambda () (inferred "bad")))
                     ((Ok _) #f) ((Err _) #t))))
 
@@ -59,6 +60,6 @@
 (write-line (show (match (run-dynamic (lambda () (integer 43)))
                     ((Ok value) value) ((Err _) -1))))
 
-(: same (-> Any Any))
+(: same (impl (Fn Any -> Any)))
 (define (same value) (type-convert value Any))
 (write-line (show (type-test (same 7) I64)))

@@ -10,12 +10,12 @@
 (: greeting String)
 (define greeting "hello")
 
-(: shout (-> String Unit ! console))
+(: shout (impl (Fn String -> Unit ! console)))
 (define (shout name)
   (let ((say (fn (text) (write-line (string-append greeting ", " text)))))
     (say name)))
 
-(: count-down (-> I64 Unit ! console))
+(: count-down (impl (Fn I64 -> Unit ! console)))
 (define (count-down from)
   (define step
     (fn (n)

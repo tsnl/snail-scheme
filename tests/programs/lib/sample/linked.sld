@@ -13,7 +13,7 @@
     (: greeting Resource)
     (define greeting (link-file "data/greeting.txt"))
 
-    (: greeting-text (-> String ! resource tasks))
+    (: greeting-text (impl (Fn -> String ! resource tasks)))
     (define (greeting-text)
       (list->string
        (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource greeting)))))

@@ -35,13 +35,13 @@
         110 103 0 0 3 3 2 0 0 7 15 2 4 109 97 105 110 0 3 4 102 97 105 108 0 4 10 17 2 10 0 16 0
         35 0 65 34 106 106 11 4 0 16 2 11))
 
-(: compiled (-> String Bytes Compiled ! wasm))
+(: compiled (impl (Fn String Bytes -> Compiled ! wasm)))
 (define (compiled name bytes)
   (match (compile-bytes bytes)
     ((Some module) module)
     ((None) (panic (string-append name " is not a module")))))
 
-(: kind-name (-> ImportKind String))
+(: kind-name (impl (Fn ImportKind -> String)))
 (define (kind-name kind)
   (match kind
     ((FunctionImport) "function")
@@ -49,18 +49,18 @@
     ((MemoryImport) "memory")
     ((GlobalImport) "global")))
 
-(: show-import (-> Import Unit ! console))
+(: show-import (impl (Fn Import -> Unit ! console)))
 (define (show-import import)
   (write-line (string-append (::from import) " " (::name import) " "
                              (kind-name (::kind import)))))
 
-(: show-run (-> Module String Unit ! wasm console))
+(: show-run (impl (Fn Module String -> Unit ! wasm console)))
 (define (show-run instance name)
   (match (run-export instance name 0)
     ((Ok answer) (write-line (string-append name " answers " (show answer))))
     ((Err error) (write-line (load-error-message error)))))
 
-(: providers (-> Module String Provider (List Provider)))
+(: providers (impl (Fn Module String Provider -> (List Provider))))
 (define (providers one export missing)
   (list (ExportOf one "limit") (ExportOf one export) (HostProvided) missing))
 

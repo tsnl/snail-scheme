@@ -31,12 +31,12 @@
     ;; the libraries loading when it was reached, and returns the bytes of
     ;; the syntax it writes.
     (: source->expanded
-       (-> (List String)
-           String
-           (-> (List String) (List Syntax) Bytes ! fs compile)
-           Inputs
-           ExpandedProgram
-           ! fs compile))
+       (impl (Fn (List String)
+                 String
+                 (dyn (Fn (List String) (List Syntax) -> Bytes ! fs compile))
+                 Inputs
+                 -> ExpandedProgram
+                 ! fs compile)))
     (define (source->expanded directories source generate inputs)
       (expand-program directories generate inputs source empty-expansion))
 
@@ -47,12 +47,12 @@
        (links (List LinkedFile))))
 
     (: source->wat
-       (-> (List String)
-           String
-           (-> (List String) (List Syntax) Bytes ! fs compile)
-           Inputs
-           WholeProgram
-           ! mut fs compile))
+       (impl (Fn (List String)
+                 String
+                 (dyn (Fn (List String) (List Syntax) -> Bytes ! fs compile))
+                 Inputs
+                 -> WholeProgram
+                 ! mut fs compile)))
     (define (source->wat directories source generate inputs)
       (let* ((expanded (source->expanded directories source generate inputs))
              (typed (check-program (::program expanded)))
@@ -64,22 +64,22 @@
     ;; its library links. This is a session's build with nothing kept from
     ;; before.
     (: source->modules
-       (-> (List String)
-           String
-           (-> (List String) (List Syntax) Bytes ! fs compile)
-           Inputs
-           (List Built)
-           ! mut fs compile))
+       (impl (Fn (List String)
+                 String
+                 (dyn (Fn (List String) (List Syntax) -> Bytes ! fs compile))
+                 Inputs
+                 -> (List Built)
+                 ! mut fs compile)))
     (define (source->modules directories source generate inputs)
       (::first (build-session (make-session directories) source generate inputs)))
 
     (: source->schemas
-       (-> (List String)
-           String
-           (-> (List String) (List Syntax) Bytes ! fs compile)
-           Inputs
-           String
-           ! fs compile))
+       (impl (Fn (List String)
+                 String
+                 (dyn (Fn (List String) (List Syntax) -> Bytes ! fs compile))
+                 Inputs
+                 -> String
+                 ! fs compile)))
     (define (source->schemas directories source generate inputs)
       (let ((typed (check-program (::program
                                    (source->expanded directories source generate inputs)))))

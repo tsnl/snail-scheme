@@ -3,7 +3,7 @@
 
 ;; A drop runs to completion, so it cannot yield.
 (effect Gen
-  ((ctl next (-> Unit))))
+  ((ctl next (dyn (Fn -> Unit)))))
 
 (struct Handle
   ((id I64)))

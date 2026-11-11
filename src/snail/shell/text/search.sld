@@ -10,7 +10,7 @@
     (struct Query
       ((text String)))
 
-    (: parse-query (-> String (Result Query String)))
+    (: parse-query (impl (Fn String -> (Result Query String))))
     (define (parse-query text)
       (if (and (> (string-length text) 0) (<= (string-length text) 128)
                (not (any? (lambda (char) (or (char=? char #\newline) (char=? char #\return)
@@ -29,7 +29,7 @@
     ;; Offsets and columns count Unicode scalars, matching the editor and
     ;; compiler. Simple case mapping preserves that count. A query cannot
     ;; cross a line; CRLF counts as one newline and snippets omit the CR.
-    (: scan (-> Query String I64 I64 (List Occurrence) ! tasks))
+    (: scan (impl (Fn Query String I64 I64 -> (List Occurrence) ! tasks)))
     (define (scan query text end room)
       (let ((needle (::text query)))
         (let loop ((at 0) (line 1) (start 0) (hits (ann (Nil) (List Occurrence))) (room room)
@@ -49,7 +49,7 @@
                          next (if found (- room 1) room)
                          (if (>= at next-yield) (+ at 4096) next-yield))))))))
 
-    (: matches-at? (-> String String I64 I64 Bool))
+    (: matches-at? (impl (Fn String String I64 I64 -> Bool)))
     (define (matches-at? text needle at end)
       (and (<= (+ at (string-length needle)) end)
            (let loop ((index 0))
@@ -58,7 +58,7 @@
                               (string-ref needle index))
                       (loop (+ index 1)))))))
 
-    (: snippet (-> String I64 I64 String))
+    (: snippet (impl (Fn String I64 I64 -> String)))
     (define (snippet text line-start at)
       (let ((start (max line-start (- at 40))))
         (let loop ((end start))

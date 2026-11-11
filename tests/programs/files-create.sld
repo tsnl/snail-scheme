@@ -6,7 +6,7 @@
 (remove-tree root)
 (make-directories root)
 
-(: report (-> (Result Unit FileError) Unit ! console))
+(: report (impl (Fn (Result Unit FileError) -> Unit ! console)))
 (define (report result)
   (write-line (match result ((Ok _) "created") ((Err (AlreadyExists)) "exists") (_ "failed"))))
 

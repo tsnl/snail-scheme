@@ -10,7 +10,7 @@
 ;; ---- Printing ----
 
 ;; "reliable 3, dangerous 1", or "-".
-(: beliefs-text (-> (List (Pair Trait I64)) String))
+(: beliefs-text (impl (Fn (List (Pair Trait I64)) -> String)))
 (define (beliefs-text beliefs)
   (if (null? beliefs)
       "-"
@@ -23,7 +23,7 @@
 
 ;; Who a person is, what they believe and the stories they hold, as the
 ;; person panel shows them.
-(: show-person (-> Mill I64 Unit ! console))
+(: show-person (impl (Fn Mill I64 -> Unit ! console)))
 (define (show-person mill person)
   (write-line
    (string-append (show person) " " (person-name person) ", " (audience-name (audience-of person))
@@ -36,7 +36,7 @@
     ((Nil) (write-line "Holds no stories about you."))
     (stories (for-each (lambda (story) (write-line (string-append "  " story))) stories))))
 
-(: progress-text (-> Progress String))
+(: progress-text (impl (Fn Progress -> String)))
 (define (progress-text progress)
   (match progress
     ((Met) "met")
@@ -47,7 +47,7 @@
 
 ;; The shift and coins, what each audience and its people believe, the
 ;; liabilities and the goal, then the forecast or the verdict.
-(: show-board (-> Mill Unit ! console))
+(: show-board (impl (Fn Mill -> Unit ! console)))
 (define (show-board mill)
   (write-line (string-append (::name (scenario-rules (::scenario mill))) ": "
                              (if (mill-over? mill)
@@ -93,7 +93,7 @@
   (Act ((text String) (action Action)))
   (Look ((text String) (person I64))))
 
-(: run-step (-> Mill Step Mill ! console))
+(: run-step (impl (Fn Mill Step -> Mill ! console)))
 (define (run-step mill step)
   (match step
     ((Act text action)
@@ -106,7 +106,7 @@
      (show-person mill person)
      mill)))
 
-(: game (-> Scenario (List Step) Unit ! console))
+(: game (impl (Fn Scenario (List Step) -> Unit ! console)))
 (define (game scenario steps)
   (write-line (string-append "==== " (::name (scenario-rules scenario))))
   (show-board (fold-left run-step (new-mill scenario) steps))

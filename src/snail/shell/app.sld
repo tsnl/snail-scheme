@@ -207,7 +207,7 @@
     (define key-space 32)
 
     ;; The kinds match the input encoding in host/browser/host.mjs.
-    (: decode-input (-> I32 I32 I32 I32 I32 Input))
+    (: decode-input (impl (Fn I32 I32 I32 I32 I32 -> Input)))
     (define (decode-input kind a b c d)
       (case kind
         ((1) (KeyDown a (= b 1)))
@@ -262,7 +262,7 @@
 
     ;; Reads one input, returning the pointers still pressed and what the
     ;; input meant. Inputs other than pointers mean nothing here.
-    (: recognize (-> Gestures Input (Pair Gestures (List Gesture))))
+    (: recognize (impl (Fn Gestures Input -> (Pair Gestures (List Gesture)))))
     (define (recognize gestures input)
       (let ((contacts (::contacts gestures)))
         (match input
@@ -276,26 +276,26 @@
 
     ;; A pointer that goes down again replaces its old press, which also
     ;; recovers from a release that never arrived.
-    (: press-contact (-> (List Contact) Contact (List Contact)))
+    (: press-contact (impl (Fn (List Contact) Contact -> (List Contact))))
     (define (press-contact contacts contact)
       (let ((pressed (append (without-contact contacts (::pointer contact)) (list contact))))
         (if (null? (cdr-list pressed))
             pressed
             (map (lambda (c) (Contact-mode-set c (Pinched))) pressed))))
 
-    (: cdr-list (All (T) (requires (Copy T)) (-> (List T) (List T))))
+    (: cdr-list (All (T) (requires (Copy T)) (impl (Fn (List T) -> (List T)))))
     (define (cdr-list items)
       (match items
         ((Cons _ rest) rest)
         ((Nil) (Nil))))
 
-    (: without-contact (-> (List Contact) I32 (List Contact)))
+    (: without-contact (impl (Fn (List Contact) I32 -> (List Contact))))
     (define (without-contact contacts pointer)
       (filter (lambda (c) (not (= (::pointer c) pointer))) contacts))
 
     ;; A pointer pressed alone may drag; among others, moves pinch. A moving
     ;; pointer that is not pressed points.
-    (: move-contact (-> (List Contact) I32 I32 I32 (Pair Gestures (List Gesture))))
+    (: move-contact (impl (Fn (List Contact) I32 I32 I32 -> (Pair Gestures (List Gesture)))))
     (define (move-contact contacts pointer x y)
       (match (find (lambda (c) (= (::pointer c) pointer)) contacts)
         ((Some contact) (if (null? (cdr-list contacts))
@@ -310,7 +310,7 @@
 
     ;; A held pointer drags once it is eight pixels from where it went down,
     ;; and its first drag covers the whole way from there.
-    (: lone-move (-> Contact I32 I32 (Pair Gestures (List Gesture))))
+    (: lone-move (impl (Fn Contact I32 I32 -> (Pair Gestures (List Gesture)))))
     (define (lone-move contact x y)
       (let ((moved (Contact-y-set (Contact-x-set contact x) y)))
         (match (::mode contact)
@@ -324,18 +324,18 @@
                          (Pair (Gestures (list moved)) (Nil))))
           ((Pinched) (Pair (Gestures (list moved)) (Nil))))))
 
-    (: far? (-> Contact I32 I32 Bool))
+    (: far? (impl (Fn Contact I32 I32 -> Bool)))
     (define (far? contact x y)
       (let ((dx (- x (::start-x contact))) (dy (- y (::start-y contact))))
         (> (+ (* dx dx) (* dy dy)) 64)))
 
-    (: pinch (-> (List Contact) (List Contact) (List Gesture)))
+    (: pinch (impl (Fn (List Contact) (List Contact) -> (List Gesture))))
     (define (pinch before after)
       (let ((old (spread before)) (new (spread after)))
         (if (and (> old 0.0) (> new 0.0) (not (= old new))) (list (Pinch (/ old new))) (Nil))))
 
     ;; The distance between the first two pointers.
-    (: spread (-> (List Contact) F32))
+    (: spread (impl (Fn (List Contact) -> F32)))
     (define (spread contacts)
       (match contacts
         ((Cons a (Cons b _))
@@ -345,7 +345,7 @@
         (_ 0.0)))
 
     ;; Only a pointer still held, near where it went down, taps.
-    (: release-contact (-> (List Contact) I32 I32 I32 (Pair Gestures (List Gesture))))
+    (: release-contact (impl (Fn (List Contact) I32 I32 I32 -> (Pair Gestures (List Gesture)))))
     (define (release-contact contacts pointer x y)
       (match (find (lambda (c) (= (::pointer c) pointer)) contacts)
         ((Some contact) (Pair (Gestures (without-contact contacts pointer))
@@ -424,7 +424,7 @@
     ;; host decodes each key once, so `bytes` runs only when it has not.
     (struct Source
       ((key I32)
-       (bytes (-> Bytes))))
+       (bytes (dyn (Fn -> Bytes)))))
 
     ;; The pixels of `source` within `from`, drawn with their top left at
     ;; (x, y) of the picture. Each swap replaces the 0xRRGGBB color first in
@@ -445,7 +445,7 @@
        (version I32)
        (width I32)
        (height I32)
-       (layers (-> (List Layer)))))
+       (layers (dyn (Fn -> (List Layer))))))
 
     ;; A region of a picture. With more than one frame it is a strip: the
     ;; host shows `frames` regions side by side, starting at `region` and
@@ -456,7 +456,7 @@
        (frames I32)
        (period I32)))
 
-    (: still (-> I32 Rect Texture))
+    (: still (impl (Fn I32 Rect -> Texture)))
     (define (still picture region)
       (Texture picture region 1 1))
 
@@ -495,19 +495,19 @@
        (facing Facing)))
 
     ;; A 0xRRGGBB color.
-    (: rgb (-> I32 I32 I32 I32))
+    (: rgb (impl (Fn I32 I32 I32 -> I32)))
     (define (rgb red green blue)
       (+ (* red 65536) (+ (* green 256) blue)))
 
     ;; An unlit, plain item standing still.
-    (: item (-> Mesh Vec3 Vec3 F32 I32 Item))
+    (: item (impl (Fn Mesh Vec3 Vec3 F32 I32 -> Item)))
     (define (item mesh position scale yaw color)
       (Item mesh position scale yaw color 0.0 position plain (Fixed)))
 
     ;; A texture on a quad `width` by `height` world units, its bottom center
     ;; at `position`, standing upright toward the camera: a sprite in a 2.5D
     ;; scene.
-    (: sprite (-> Texture Vec3 F32 F32 Item))
+    (: sprite (impl (Fn Texture Vec3 F32 F32 -> Item)))
     (define (sprite texture position width height)
       (Item (Quad)
             position
@@ -523,7 +523,7 @@
     ;; top toward -z and the middle of its bottom edge at `position`: a sprite
     ;; in a 2D scene seen straight down, where -z is the top of the screen.
     ;; It shows the texture's own colors, unlit.
-    (: flat-sprite (-> Texture Vec3 F32 F32 Item))
+    (: flat-sprite (impl (Fn Texture Vec3 F32 F32 -> Item)))
     (define (flat-sprite texture position width height)
       (let ((center
              (Vec3 (::x position) (::y position) (- (::z position) (/ height 2.0)))))
@@ -551,7 +551,7 @@
       ((key I32)
        (version I32)
        (style Style)
-       (items (-> (List Item)))))
+       (items (dyn (Fn -> (List Item))))))
 
     ;; ---- HUD ----
 
@@ -580,7 +580,7 @@
        (tone Tone)
        (badge String)))
 
-    (: look (-> String Look))
+    (: look (impl (Fn String -> Look)))
     (define (look key)
       (Look key "" "" (Plain) ""))
 
@@ -611,11 +611,11 @@
     ;; The widgets most panels are made of: a plain label, and an enabled
     ;; button without caption or ring that presses `action` with argument
     ;; 0.
-    (: label (-> String String Widget))
+    (: label (impl (Fn String String -> Widget)))
     (define (label key text)
       (Label (look key) text))
 
-    (: button (-> String String I32 Widget))
+    (: button (impl (Fn String String I32 -> Widget)))
     (define (button key text action)
       (Button (look key) text "" action 0 (Enabled) -1.0))
 
@@ -643,26 +643,26 @@
     ;; ---- Drawing ----
 
     (effect screen
-      ((frame-begin (-> I32 F32 Unit))
-       (camera (-> F32 F32 F32 F32 F32 F32 I32 F32 Unit))
-       (light (-> F32 F32 F32 F32 F32 Unit))
-       (picture-begin (-> I32 I32 I32 I32 Bool))
-       (layer (-> I32 I32 I32 I32 I32 I32 I32 Bool))
-       (source-begin (-> I32 I32 Unit))
-       (source-word (-> I32 Unit))
-       (swap (-> I32 I32 Unit))
-       (picture-end (-> Unit))
-       (batch-begin (-> I32 I32 I32 F32 F32 F32 F32 Bool))
-       (instance (-> I32 F32 F32 F32 F32 F32 F32 F32 I32 F32 F32 F32 F32 Unit))
-       (surface (-> F32 F32 I32 I32 I32 I32 I32 I32 I32 I32 Unit))
-       (frame-end (-> Unit))
-       (hud-begin (-> Unit))
-       (panel-begin (-> I32 I32 I32 I32 Unit))
-       (widget-begin (-> I32 I32 I32 I32 I32 F32 Unit))
-       (widget-image (-> I32 I32 I32 I32 I32 I32 Unit))
-       (field (-> I32 Unit))
-       (text-character (-> Char Unit))
-       (hud-end (-> Unit)))
+      ((frame-begin (dyn (Fn I32 F32 -> Unit)))
+       (camera (dyn (Fn F32 F32 F32 F32 F32 F32 I32 F32 -> Unit)))
+       (light (dyn (Fn F32 F32 F32 F32 F32 -> Unit)))
+       (picture-begin (dyn (Fn I32 I32 I32 I32 -> Bool)))
+       (layer (dyn (Fn I32 I32 I32 I32 I32 I32 I32 -> Bool)))
+       (source-begin (dyn (Fn I32 I32 -> Unit)))
+       (source-word (dyn (Fn I32 -> Unit)))
+       (swap (dyn (Fn I32 I32 -> Unit)))
+       (picture-end (dyn (Fn -> Unit)))
+       (batch-begin (dyn (Fn I32 I32 I32 F32 F32 F32 F32 -> Bool)))
+       (instance (dyn (Fn I32 F32 F32 F32 F32 F32 F32 F32 I32 F32 F32 F32 F32 -> Unit)))
+       (surface (dyn (Fn F32 F32 I32 I32 I32 I32 I32 I32 I32 I32 -> Unit)))
+       (frame-end (dyn (Fn -> Unit)))
+       (hud-begin (dyn (Fn -> Unit)))
+       (panel-begin (dyn (Fn I32 I32 I32 I32 -> Unit)))
+       (widget-begin (dyn (Fn I32 I32 I32 I32 I32 F32 -> Unit)))
+       (widget-image (dyn (Fn I32 I32 I32 I32 I32 I32 -> Unit)))
+       (field (dyn (Fn I32 -> Unit)))
+       (text-character (dyn (Fn Char -> Unit)))
+       (hud-end (dyn (Fn -> Unit))))
       (default ((frame-begin host-frame-begin)
                 (camera host-camera)
                 (light host-light)
@@ -684,7 +684,7 @@
                 (text-character host-text-character)
                 (hud-end host-hud-end))))
 
-    (: render (-> Frame Unit ! screen))
+    (: render (impl (Fn Frame -> Unit ! screen)))
     (define (render frame)
       (frame-begin (::background frame) (::motion frame))
       (render-camera (::camera frame))
@@ -694,7 +694,7 @@
       (frame-end))
 
     ;; Kind 0 is perspective and 1 orthographic, as in host/browser/renderer.mjs.
-    (: render-camera (-> Camera Unit ! screen))
+    (: render-camera (impl (Fn Camera -> Unit ! screen)))
     (define (render-camera view)
       (let ((eye (::eye view)) (target (::target view)))
         (match (::projection view)
@@ -717,7 +717,7 @@
                    1
                    height)))))
 
-    (: render-light (-> Light Unit ! screen))
+    (: render-light (impl (Fn Light -> Unit ! screen)))
     (define (render-light sunlight)
       (let ((direction (::direction sunlight)))
         (light (::x direction)
@@ -728,7 +728,7 @@
 
     ;; A picture's layers travel only when the host lacks this version, and a
     ;; source's bytes only when the host has never decoded it.
-    (: render-picture (-> Picture Unit ! screen))
+    (: render-picture (impl (Fn Picture -> Unit ! screen)))
     (define (render-picture picture)
       (unless (picture-begin (::key picture)
                              (::version picture)
@@ -737,7 +737,7 @@
         (for-each render-layer ((::layers picture)))
         (picture-end)))
 
-    (: render-layer (-> Layer Unit ! screen))
+    (: render-layer (impl (Fn Layer -> Unit ! screen)))
     (define (render-layer piece)
       (let ((from (::from piece)) (source (::source piece)))
         (unless (layer (::key source)
@@ -751,7 +751,7 @@
         (for-each (lambda (pair) (swap (::first pair) (::second pair))) (::swaps piece))))
 
     ;; Bytes go four at a time, little-endian, the last word padded.
-    (: send-source (-> Source Unit ! screen))
+    (: send-source (impl (Fn Source -> Unit ! screen)))
     (define (send-source source)
       (let* ((bytes ((::bytes source))) (count (vector-length bytes))
              (byte (lambda (index) (if (< index count) (u8->i32 (vector-ref bytes index)) 0))))
@@ -766,7 +766,7 @@
 
     ;; The style travels with every frame; the items only when the host lacks
     ;; this version. Styles 0 to 2 match the `styles` of host/browser/host.mjs.
-    (: render-batch (-> Batch Unit ! screen))
+    (: render-batch (impl (Fn Batch -> Unit ! screen)))
     (define (render-batch batch)
       (unless (match (::style batch)
                 ((Solid) (batch-begin (::key batch) (::version batch) 0 1.0 0.0 0.0 0.0))
@@ -782,7 +782,7 @@
                               radius)))
         (for-each render-item ((::items batch)))))
 
-    (: render-item (-> Item Unit ! screen))
+    (: render-item (impl (Fn Item -> Unit ! screen)))
     (define (render-item item)
       (let ((position (::position item)) (scale (::scale item)) (from (::from item)))
         (instance (mesh-index (::mesh item))
@@ -800,7 +800,7 @@
 
     ;; A material and facing follow each instance: an untextured one names
     ;; picture -1.
-    (: render-surface (-> Material Facing Unit ! screen))
+    (: render-surface (impl (Fn Material Facing -> Unit ! screen)))
     (define (render-surface material facing)
       (let ((turn (match facing ((Fixed) 0) ((Upright) 1))))
         (match (::texture material)
@@ -829,7 +829,7 @@
                     1)))))
 
     ;; The order matches the meshes in host/browser/renderer.mjs.
-    (: mesh-index (-> Mesh I32))
+    (: mesh-index (impl (Fn Mesh -> I32)))
     (define (mesh-index mesh)
       (match mesh
         ((Box) 0)
@@ -842,14 +842,14 @@
         ((Quad) 7)))
 
     ;; The HUD is sent apart from frames, only when it may have changed.
-    (: render-hud (-> (List Panel) Unit ! screen))
+    (: render-hud (impl (Fn (List Panel) -> Unit ! screen)))
     (define (render-hud panels)
       (hud-begin)
       (for-each render-panel panels)
       (hud-end))
 
     ;; Places and corners match host/browser/hud.mjs.
-    (: render-panel (-> Panel Unit ! screen))
+    (: render-panel (impl (Fn Panel -> Unit ! screen)))
     (define (render-panel panel)
       (match (::place panel)
         ((At corner column) (panel-begin 0 (corner-index corner) column 0))
@@ -858,7 +858,7 @@
       (render-field 0 (::key panel))
       (for-each render-widget (::widgets panel)))
 
-    (: corner-index (-> Corner I32))
+    (: corner-index (impl (Fn Corner -> I32)))
     (define (corner-index corner)
       (match corner
         ((TopLeft) 0)
@@ -870,7 +870,7 @@
     ;; 0 key, 1 icon, 2 help, 3 badge, 4 text, 5 caption, 6 url, then each
     ;; span of a text, 7 normal or 8 strong. Kinds, tones and controls match
     ;; host/browser/hud.mjs, and fields host/browser/host.mjs.
-    (: render-widget (-> Widget Unit ! screen))
+    (: render-widget (impl (Fn Widget -> Unit ! screen)))
     (define (render-widget widget)
       (match widget
         ((Label face text)
@@ -903,20 +903,20 @@
                        scale)
          (render-look face))))
 
-    (: render-span (-> Span Unit ! screen))
+    (: render-span (impl (Fn Span -> Unit ! screen)))
     (define (render-span span)
       (match span
         ((Normal words) (render-field 7 words))
         ((Strong words) (render-field 8 words))))
 
-    (: render-look (-> Look Unit ! screen))
+    (: render-look (impl (Fn Look -> Unit ! screen)))
     (define (render-look face)
       (render-field 0 (::key face))
       (render-field 1 (::icon face))
       (render-field 2 (::help face))
       (render-field 3 (::badge face)))
 
-    (: tone-index (-> Tone I32))
+    (: tone-index (impl (Fn Tone -> I32)))
     (define (tone-index tone)
       (match tone
         ((Plain) 0)
@@ -926,7 +926,7 @@
         ((Muted) 4)
         ((Suggested) 5)))
 
-    (: control-index (-> Control I32))
+    (: control-index (impl (Fn Control -> I32)))
     (define (control-index control)
       (match control
         ((Enabled) 0)
@@ -934,7 +934,7 @@
         ((Selected) 2)))
 
     ;; Empty strings are not sent.
-    (: render-field (-> I32 String Unit ! screen))
+    (: render-field (impl (Fn I32 String -> Unit ! screen)))
     (define (render-field which text)
       (when (> (string-length text) 0)
         (field which)
@@ -953,7 +953,7 @@
     ;; The ray through the center of pixel (x, y), using the same projection
     ;; as the host. A perspective ray leaves the eye; an orthographic one
     ;; leaves the pixel's point on the plane through the eye.
-    (: pointer-ray (-> Camera I32 I32 I32 I32 Ray))
+    (: pointer-ray (impl (Fn Camera I32 I32 I32 I32 -> Ray)))
     (define (pointer-ray view x y width height)
       (let* ((eye (::eye view)) (forward (normalize (subtract (::target view) eye)))
              (axes (screen-axes view)) (right (::first axes)) (up (::second axes))
@@ -976,7 +976,7 @@
     ;; looking straight down has up toward -z, so it shows the ground as a
     ;; map with the far side at the top, as a camera tilted down from +z
     ;; would; the renderer uses the same rule.
-    (: screen-axes (-> Camera (Pair Vec3 Vec3)))
+    (: screen-axes (impl (Fn Camera -> (Pair Vec3 Vec3))))
     (define (screen-axes view)
       (let* ((forward (normalize (subtract (::target view) (::eye view))))
              (sky (if (> (abs (::y forward)) 0.999) (Vec3 0.0 0.0 -1.0) (Vec3 0.0 1.0 0.0)))
@@ -984,7 +984,7 @@
         (Pair right (cross right forward))))
 
     ;; Where the ray through pixel (x, y) meets the ground plane y = 0.
-    (: ground-point (-> Camera I32 I32 I32 I32 (Option Vec3)))
+    (: ground-point (impl (Fn Camera I32 I32 I32 I32 -> (Option Vec3))))
     (define (ground-point view x y width height)
       (let* ((ray (pointer-ray view x y width height))
              (origin (::origin ray))
@@ -993,25 +993,25 @@
             (None)
             (Some (add origin (scale direction (/ (negate (::y origin)) (::y direction))))))))
 
-    (: add (-> Vec3 Vec3 Vec3))
+    (: add (impl (Fn Vec3 Vec3 -> Vec3)))
     (define (add a b)
       (Vec3 (+ (::x a) (::x b)) (+ (::y a) (::y b)) (+ (::z a) (::z b))))
 
-    (: subtract (-> Vec3 Vec3 Vec3))
+    (: subtract (impl (Fn Vec3 Vec3 -> Vec3)))
     (define (subtract a b)
       (Vec3 (- (::x a) (::x b)) (- (::y a) (::y b)) (- (::z a) (::z b))))
 
-    (: scale (-> Vec3 F32 Vec3))
+    (: scale (impl (Fn Vec3 F32 -> Vec3)))
     (define (scale v k)
       (Vec3 (* (::x v) k) (* (::y v) k) (* (::z v) k)))
 
-    (: cross (-> Vec3 Vec3 Vec3))
+    (: cross (impl (Fn Vec3 Vec3 -> Vec3)))
     (define (cross a b)
       (Vec3 (- (* (::y a) (::z b)) (* (::z a) (::y b)))
             (- (* (::z a) (::x b)) (* (::x a) (::z b)))
             (- (* (::x a) (::y b)) (* (::y a) (::x b)))))
 
-    (: normalize (-> Vec3 Vec3))
+    (: normalize (impl (Fn Vec3 -> Vec3)))
     (define (normalize v)
       (scale v
              (/ 1.0
@@ -1028,7 +1028,7 @@
       (SaveRequested)
       (Reload))
 
-    (: next-event (-> Event ! events tasks))
+    (: next-event (impl (Fn -> Event ! events tasks)))
     (define (next-event)
       (match (poll-event)
         (0 (wait-event) (next-event))
@@ -1045,12 +1045,12 @@
     ;; ---- Scene applications ----
 
     (typeclass (Scene S)
-      (: scene-initialize (-> I32 I32 I32 S))
-      (: scene-update (-> S Input S))
-      (: scene-view (-> S Frame))
-      (: scene-hud (-> S (List Panel)))
-      (: scene-save (-> S Bytes))
-      (: scene-restore (-> Bytes S)))
+      (: scene-initialize (impl (Fn I32 I32 I32 -> S)))
+      (: scene-update (impl (Fn S Input -> S)))
+      (: scene-view (impl (Fn S -> Frame)))
+      (: scene-hud (impl (Fn S -> (List Panel))))
+      (: scene-save (impl (Fn S -> Bytes)))
+      (: scene-restore (impl (Fn Bytes -> S))))
 
     ;; This adapter supplies Application through ordinary instance evidence.
     ;; A project's selected type may be an alias for (SceneApplication Game).
@@ -1066,7 +1066,7 @@
     ;; The witness selects the state type before initialization; subsequent
     ;; calls select their Scene evidence from the state itself.
     (: initial-scene
-       (All (S) (requires (Scene S)) (-> (Entry (SceneApplication S)) S ! events)))
+       (All (S) (requires (Scene S)) (impl (Fn (Entry (SceneApplication S)) -> S ! events))))
     (define (initial-scene entry)
       (scene-initialize (random-seed) (canvas-width) (canvas-height)))
 
@@ -1075,8 +1075,8 @@
     ;; the same queue, independently of display frames.
     (: scene-loop
        (All (S) (requires (Scene S) (PageState S) (Copy S))
-            (-> (-> S Unit ! events storage tasks) S I32
-                Unit ! mut screen events storage tasks)))
+            (impl (Fn (dyn (Fn S -> Unit ! events storage tasks)) S I32
+                      -> Unit ! mut screen events storage tasks))))
     (define (scene-loop save state since-hud)
       (match (next-event)
         ((FrameEvent elapsed)

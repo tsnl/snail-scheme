@@ -4,12 +4,12 @@
 
 ;; A type variable is linear unless its definition requires (Copy A), so a
 ;; generic function that moves its arguments takes linear ones.
-(: swap (All (A B) (-> (Pair A B) (Pair B A))))
+(: swap (All (A B) (impl (Fn (Pair A B) -> (Pair B A)))))
 (define (swap pair)
   (match pair
     ((Pair a b) (Pair b a))))
 
-(: say (-> String (FnOnce Unit ! console)))
+(: say (impl (Fn String -> (dyn (FnOnce -> Unit ! console)))))
 (define (say text)
   (once (lambda () (write-line text))))
 
@@ -21,7 +21,7 @@
 (for-each (lambda (work) (call-once work)) (map say (list "one" "two")))
 
 ;; A function that duplicates requires Copy, and is used at copyable types.
-(: twice (All (A) (requires (Copy A)) (-> A (Pair A A))))
+(: twice (All (A) (requires (Copy A)) (impl (Fn A -> (Pair A A)))))
 (define (twice value)
   (Pair value value))
 

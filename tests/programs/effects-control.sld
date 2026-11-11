@@ -8,17 +8,17 @@
 
 ;; ANCHOR: collect
 (effect Gen
-  ((ctl yield (-> I64 Unit))))
+  ((ctl yield (dyn (Fn I64 -> Unit)))))
 
 ;; Yields the numbers from `low` to `high`.
-(: range (-> I64 I64 Unit ! Gen))
+(: range (impl (Fn I64 I64 -> Unit ! Gen)))
 (define (range low high)
   (when (<= low high)
     (yield low)
     (range (+ low 1) high)))
 
 ;; Every value `body` yields, in order.
-(: collect (-> (-> Unit ! Gen) (List I64)))
+(: collect (impl (Fn (dyn (Fn -> Unit ! Gen)) -> (List I64))))
 (define (collect body)
   (handle Gen
       ((yield (lambda (value resume) (Cons value (resume (unit))))))
@@ -26,7 +26,7 @@
     (Nil)))
 ;; ANCHOR_END: collect
 
-(: show-all (-> (List I64) Unit ! console))
+(: show-all (impl (Fn (List I64) -> Unit ! console)))
 (define (show-all values)
   (write-line (string-join (map show values) " ")))
 
@@ -36,7 +36,7 @@
 
 ;; ANCHOR: first-above
 ;; The first value above `limit` that `body` yields, or -1.
-(: first-above (-> I64 (-> Unit ! Gen) I64))
+(: first-above (impl (Fn I64 (dyn (Fn -> Unit ! Gen)) -> I64)))
 (define (first-above limit body)
   (handle Gen
       ((yield (lambda (value resume)
@@ -58,11 +58,11 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce Unit Step)))))
+    (next (dyn (FnOnce Unit -> Step))))))
 
 ;; Runs `body` to its first yield, and hands back the rest rather than
 ;; resuming it.
-(: start (-> (-> Unit ! Gen) Step))
+(: start (impl (Fn (dyn (Fn -> Unit ! Gen)) -> Step)))
 (define (start body)
   (handle Gen
       ((yield (lambda (value resume) (Yielded value resume))))
@@ -70,7 +70,7 @@
     (Done)))
 
 ;; Takes turns between two generators until both are done.
-(: interleave (-> Step Step (List I64)))
+(: interleave (impl (Fn Step Step -> (List I64))))
 (define (interleave this other)
   (match this
     ((Done)

@@ -129,13 +129,13 @@
        (view View))
       (deriving Serialize Deserialize))
 
-    (: new-game (-> I32 I32 I32 Game))
+    (: new-game (impl (Fn I32 I32 I32 -> Game)))
     (define (new-game seed width height)
       (game-around (new-world (i32->i64 seed)) (Nil) 0 (Closed) #f width height))
 
     ;; A game opens looking at its starter crystal, the first place to
     ;; build, four cells from the hub.
-    (: game-around (-> World (List Entry) I64 Menu Bool I32 I32 Game))
+    (: game-around (impl (Fn World (List Entry) I64 Menu Bool I32 I32 -> Game)))
     (define (game-around world orders epoch menu left-handed width height)
       (let ((start (::starter (::land world))))
         (Game world
@@ -169,17 +169,17 @@
     (define turn-milliseconds 300)
 
     ;; The world is still while a dialog pauses it or once it is decided.
-    (: still? (-> Game Bool))
+    (: still? (impl (Fn Game -> Bool)))
     (define (still? game)
       (or (paused? game) (not (playing? (::world game)))))
 
     ;; How far the world's things have moved through the current tick; a
     ;; still world holds the frame it stopped at.
-    (: world-motion (-> Game F32))
+    (: world-motion (impl (Fn Game -> F32)))
     (define (world-motion game)
       (min 1.0 (/ (i64->f32 (::phase game)) (i64->f32 tick-milliseconds))))
 
-    (: paused? (-> Game Bool))
+    (: paused? (impl (Fn Game -> Bool)))
     (define (paused? game)
       (match (::menu game)
         ((Paused) #t)
@@ -189,7 +189,7 @@
 
     ;; The clock restarts with the restored game, so a turn in progress is
     ;; saved as finished.
-    (: game-save (-> Game Save))
+    (: game-save (impl (Fn Game -> Save)))
     (define (game-save game)
       (let ((world (::world game)) (view (::view game)))
         (Save (::seed world)
@@ -201,7 +201,7 @@
                                   (negate turn-milliseconds)))))
 
     ;; The host reports the screen's size after restoring.
-    (: game-restore (-> Save Game))
+    (: game-restore (impl (Fn Save -> Game)))
     (define (game-restore save)
       (match (replay (::seed save) (::orders save) (::tick save))
         ((Pair world orders)
@@ -217,7 +217,7 @@
     ;; ---- Camera ----
 
     ;; The heading in quarter turns, eased between the last two.
-    (: heading-angle (-> Game F32))
+    (: heading-angle (impl (Fn Game -> F32)))
     (define (heading-angle game)
       (let* ((view (::view game))
              (from (i64->f32 (::turned-from view)))
@@ -230,7 +230,7 @@
 
     ;; Equal horizontal offsets give a 2:1 diamond for each resting quarter
     ;; turn; the height, sqrt((18^2 + 18^2) / 3), gives 30 degrees.
-    (: game-camera (-> Game Camera))
+    (: game-camera (impl (Fn Game -> Camera)))
     (define (game-camera game)
       (let* ((view (::view game)) (angle (f32->f64 (heading-angle game)))
              (c (f64->f32 (cos angle)))
@@ -242,13 +242,13 @@
                       (+ (::z target) (* 18.0 (* k (- c s)))))
                 target (Orthographic (* 18.0 k)))))
 
-    (: clamp (-> F32 F32 F32 F32))
+    (: clamp (impl (Fn F32 F32 F32 -> F32)))
     (define (clamp value low high)
       (max low (min high value)))
 
     ;; Moves the camera's target by `right` along the screen's right on the
     ;; ground and `up` away from the viewer, within the map.
-    (: shifted (-> Game F32 F32 View))
+    (: shifted (impl (Fn Game F32 F32 -> View)))
     (define (shifted game right up)
       (let* ((view (::view game)) (angle (f32->f64 (heading-angle game)))
              (c (f64->f32 (cos angle))) (s (f64->f32 (sin angle))) (limit (i64->f32 map-size)))
@@ -262,11 +262,11 @@
                      0.0
                      limit))))
 
-    (: held? (-> Game I32 Bool))
+    (: held? (impl (Fn Game I32 -> Bool)))
     (define (held? game key)
       (member? key (::held game)))
 
-    (: held-axis (-> Game I32 I32 I32 I32 F32))
+    (: held-axis (impl (Fn Game I32 I32 I32 I32 -> F32)))
     (define (held-axis game more more-key less less-key)
       (- (if (or (held? game more) (held? game more-key)) 1.0 0.0)
          (if (or (held? game less) (held? game less-key)) 1.0 0.0)))
@@ -275,7 +275,7 @@
     ;; second at the starting zoom, faster farther out, so the map moves at
     ;; a steady rate on screen. Up the screen covers twice the ground, seen
     ;; at 30 degrees, as dragging does.
-    (: move-camera (-> Game I64 Game))
+    (: move-camera (impl (Fn Game I64 -> Game)))
     (define (move-camera game milliseconds)
       (let ((speed (* (* 0.009 (::scale (::view game))) (i64->f32 milliseconds))))
         (Game-view-set game
@@ -286,7 +286,7 @@
     ;; Dragging moves the ground with the pointer: a pixel is 18 times the
     ;; zoom over the screen's height across, and twice that up the screen,
     ;; where the ground is seen at 30 degrees.
-    (: pan (-> Game I32 I32 Game))
+    (: pan (impl (Fn Game I32 I32 -> Game)))
     (define (pan game dx dy)
       (let ((unit (/ (* 18.0 (::scale (::view game))) (i32->f32 (max 1 (::height game))))))
         (Game-view-set game
@@ -295,7 +295,7 @@
                                 (* (* 2.0 unit) (i32->f32 dy))))))
 
     ;; Starts a quarter turn from wherever the current one has eased to.
-    (: turn (-> Game I64 Game))
+    (: turn (impl (Fn Game I64 -> Game)))
     (define (turn game quarters)
       (let ((view (::view game)))
         (Game-view-set game
@@ -304,12 +304,12 @@
                                             (::heading view))
                                            (::clock game)))))
 
-    (: zoom (-> Game F32 Game))
+    (: zoom (impl (Fn Game F32 -> Game)))
     (define (zoom game factor)
       (let ((view (::view game)))
         (Game-view-set game (View-scale-set view (clamp (* (::scale view) factor) 0.4 6.0)))))
 
-    (: look-at (-> Game Cell Game))
+    (: look-at (impl (Fn Game Cell -> Game)))
     (define (look-at game cell)
       (let ((view (::view game)))
         (Game-view-set game
@@ -317,7 +317,7 @@
                                    (i64->f32 (::y cell))))))
 
     ;; The cell under a pixel, if the pointer is over the map.
-    (: pick (-> Game I32 I32 (Option Cell)))
+    (: pick (impl (Fn Game I32 I32 -> (Option Cell))))
     (define (pick game x y)
       (match (ground-point (game-camera game) x y (::width game) (::height game))
         ((Some point)
@@ -353,7 +353,7 @@
 
     ;; A command as a button's action and argument: a cell travels as its
     ;; index.
-    (: press-code (-> Command (Pair I32 I32)))
+    (: press-code (impl (Fn Command -> (Pair I32 I32))))
     (define (press-code command)
       (let ((at (lambda (action cell) (Pair action (i64->i32 (cell-index cell))))))
         (match command
@@ -369,7 +369,7 @@
           ((Hand left) (Pair 11 (if left 1 0)))
           (_ (Pair (+ 20 (plain-code command)) 0)))))
 
-    (: plain-code (-> Command I32))
+    (: plain-code (impl (Fn Command -> I32)))
     (define (plain-code command)
       (match command
         ((RepairHub) 0)
@@ -388,17 +388,17 @@
 
     ;; The command a button reported, if it names one. A cell must lie on
     ;; the map, so numbers from the host cannot name another place.
-    (: parse-press (-> I32 I32 (Option Command)))
+    (: parse-press (impl (Fn I32 I32 -> (Option Command))))
     (define (parse-press action argument)
       (if (and (< 0 action) (< action 10) (not (on-map? argument)))
           (None)
           (parse-code action argument)))
 
-    (: on-map? (-> I32 Bool))
+    (: on-map? (impl (Fn I32 -> Bool)))
     (define (on-map? index)
       (and (<= 0 index) (< (i32->i64 index) (* map-size map-size))))
 
-    (: parse-code (-> I32 I32 (Option Command)))
+    (: parse-code (impl (Fn I32 I32 -> (Option Command))))
     (define (parse-code action argument)
       (let ((cell (index-cell (i32->i64 argument))))
         (case action
@@ -428,7 +428,7 @@
 
     ;; Gives an order to the world and journals it; a rejection is shown
     ;; instead.
-    (: order (-> Game Action Game))
+    (: order (impl (Fn Game Action -> Game)))
     (define (order game action)
       (match (command (::world game) action)
         ((Ok (Pair world entry))
@@ -437,7 +437,7 @@
           ""))
         ((Err rejection) (Game-message-set game (rejection-text rejection)))))
 
-    (: perform (-> Game Command Game))
+    (: perform (impl (Fn Game Command -> Game)))
     (define (perform game command)
       (match command
         ((BuildAt kind cell) (order game (Build kind cell (::rush game))))
@@ -453,7 +453,7 @@
         ((Turn quarters) (turn game quarters))
         (_ (perform-menu game command))))
 
-    (: perform-menu (-> Game Command Game))
+    (: perform-menu (impl (Fn Game Command -> Game)))
     (define (perform-menu game command)
       (match command
         ((OpenMenu) (Game-menu-set game (if (playing? (::world game)) (Paused) (Results))))
@@ -468,7 +468,7 @@
         (_ game)))
 
     ;; A new map from a seed derived from this one, for the same hand.
-    (: restart (-> Game Game))
+    (: restart (impl (Fn Game -> Game)))
     (define (restart game)
       (game-around (new-world (+ (remainder (* (::seed (::world game)) 48271) 65521) 1))
                    (Nil)
@@ -481,7 +481,7 @@
     ;; On a selected cell, 1, 2 and 3 build a pylon, a turret and an
     ;; extractor, 4 rushes (the selected work, or else new buildings) and 5
     ;; closes; letters act on the selection too.
-    (: key-command (-> Game I32 (Option Command)))
+    (: key-command (impl (Fn Game I32 -> (Option Command))))
     (define (key-command game key)
       (match (::selected game)
         ((Some cell)
@@ -499,11 +499,11 @@
         ((None) (view-command key))))
 
     ;; Rushing acts on the selected work, or else makes new buildings rushed.
-    (: rush-key (-> Game Cell Command))
+    (: rush-key (impl (Fn Game Cell -> Command)))
     (define (rush-key game cell)
       (if (working? (::world game) cell) (RushAt cell) (ToggleRush)))
 
-    (: view-command (-> I32 (Option Command)))
+    (: view-command (impl (Fn I32 -> (Option Command))))
     (define (view-command key)
       (case key
         ((102) (Some (RepairHub)))
@@ -513,7 +513,7 @@
         ((112) (Some (OpenMenu)))
         (else (None))))
 
-    (: working? (-> World Cell Bool))
+    (: working? (impl (Fn World Cell -> Bool)))
     (define (working? world cell)
       (if (hub-cell? (::hub world) cell)
           (match (::work (::hub world)) ((Some _) #t) ((None) #f))
@@ -523,7 +523,7 @@
 
     ;; Escape backs out one step: a confirmation to the menu, the menu or
     ;; the results to the map, then the selection.
-    (: escape (-> Game Game))
+    (: escape (impl (Fn Game -> Game)))
     (define (escape game)
       (match (::menu game)
         ((Closed) (perform game (CloseCard)))
@@ -535,7 +535,7 @@
     ;; Shift is only held: Shift with WASD or the arrows pans as the key
     ;; alone does, and Shift with any other key does nothing. While a
     ;; dialog is open only it and the pause key answer.
-    (: key-press (-> Game I32 Bool Game))
+    (: key-press (impl (Fn Game I32 Bool -> Game)))
     (define (key-press game key shift)
       (let ((game (Game-held-set game
                                  (if (held? game key)
@@ -557,7 +557,7 @@
     ;; what is shown of it. Once the world has started, its phase grows too,
     ;; and each whole tick of it advances the world, at most a few at once
     ;; after a long frame. The results open once when the game is decided.
-    (: pass (-> Game I64 Game))
+    (: pass (impl (Fn Game I64 -> Game)))
     (define (pass game milliseconds)
       (let ((game
              (move-camera (Game-clock-set game (+ (::clock game) milliseconds)) milliseconds)))
@@ -568,7 +568,7 @@
                          3))
               (else (Game-shown-set game (+ (::shown game) milliseconds))))))
 
-    (: catch-up (-> Game I64 Game))
+    (: catch-up (impl (Fn Game I64 -> Game)))
     (define (catch-up game allowed)
       (cond ((< (::phase game) tick-milliseconds) game)
             ((or (= allowed 0) (still? game))
@@ -577,7 +577,7 @@
              (catch-up (advance-world (Game-phase-set game (- (::phase game) tick-milliseconds)))
                        (- allowed 1)))))
 
-    (: advance-world (-> Game Game))
+    (: advance-world (impl (Fn Game -> Game)))
     (define (advance-world game)
       (let ((world (advance (::world game))))
         (Game-world-set (if (and (playing? (::world game)) (not (playing? world)))
@@ -586,14 +586,14 @@
                         world)))
 
     ;; Hovering over a building's button previews it on the selected cell.
-    (: hover (-> Game I32 I32 Game))
+    (: hover (impl (Fn Game I32 I32 -> Game)))
     (define (hover game action argument)
       (Game-preview-set game
                         (match (parse-press action argument)
                           ((Some (BuildAt kind _)) (Some kind))
                           (_ (None)))))
 
-    (: update-game (-> Game Input Game))
+    (: update-game (impl (Fn Game Input -> Game)))
     (define (update-game game input)
       (match input
         ((Elapsed milliseconds) (pass game (i32->i64 milliseconds)))
@@ -612,7 +612,7 @@
 
     ;; Pointing hovers, a tap selects the cell beneath it, dragging pans and
     ;; pinching zooms. A tap with another button clears the selection.
-    (: gesture (-> Game Gesture Game))
+    (: gesture (impl (Fn Game Gesture -> Game)))
     (define (gesture game meaning)
       (match meaning
         ((Point x y) (Game-hover-set game (pick game x y)))

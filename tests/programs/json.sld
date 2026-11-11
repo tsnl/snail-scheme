@@ -8,7 +8,7 @@
  (snail core io)
  (snail shell json))
 
-(: chars (-> (List I64) String))
+(: chars (impl (Fn (List I64) -> String)))
 (define (chars codes)
   (list->string (map integer->char codes)))
 

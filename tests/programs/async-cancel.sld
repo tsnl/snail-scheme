@@ -25,7 +25,7 @@
 ;; A future kept outside the canceled producer sees abandonment. A
 ;; completion observer attempting to dispatch during cleanup cannot leave
 ;; a new runnable task behind shutdown.
-(: notified (-> Unit ! mut console))
+(: notified (impl (Fn -> Unit ! mut console)))
 (define (notified)
   (let ((held (Resource "during close")))
     (dispatch-local (once (lambda () (drop held))))))

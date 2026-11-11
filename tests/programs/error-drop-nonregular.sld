@@ -9,6 +9,6 @@
   (Deeper
    ((inner (Nest (Pair A A))))))
 
-(: release (-> (Nest (FnOnce Unit)) Unit))
+(: release (impl (Fn (Nest (dyn (FnOnce -> Unit))) -> Unit)))
 (define (release nest)
   (drop nest))

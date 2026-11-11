@@ -106,7 +106,7 @@
 
     ;; A phase's identity: a target is built once, and a producer runs
     ;; once for its key.
-    (: phase-key (-> Phase String))
+    (: phase-key (impl (Fn Phase -> String)))
     (define (phase-key phase)
       (match phase
         ((BuildPhase target) (string-append "build " (::name target)))
@@ -117,7 +117,7 @@
     ;; The plan for building `roots`, its nodes numbered in depth-first
     ;; pre-order from the roots in order. Each producer is printed into
     ;; `scratch` when it is planned, and compiled from there.
-    (: plan-build (-> (List Target) (List Target) Inputs String Plan ! fs compile))
+    (: plan-build (impl (Fn (List Target) (List Target) Inputs String -> Plan ! fs compile)))
     (define (plan-build targets roots inputs scratch)
       (refine-plan (Plan targets roots scratch (list->vector (Nil)) (Nil)) inputs))
 
@@ -125,7 +125,7 @@
     ;; step that waited learns what it needs now, which may add steps at the
     ;; next nodes, and the order and its cycles are found anew. A step whose
     ;; needs were known keeps them, since its closure waited for nothing.
-    (: refine-plan (-> Plan Inputs Plan ! fs compile))
+    (: refine-plan (impl (Fn Plan Inputs -> Plan ! fs compile)))
     (define (refine-plan plan inputs)
       (let* ((growth
               (fold-left (lambda (growth root) (::second (visit growth (BuildPhase root))))
@@ -140,7 +140,7 @@
     ;; order not yet emitted, up to the first that waits. The plan returned
     ;; counts them emitted. A waiting step's producers come before it, so
     ;; once their outputs refine the plan, the next wave is not empty.
-    (: next-phases (-> Plan (Pair (List (Pair I64 Phase)) Plan)))
+    (: next-phases (impl (Fn Plan -> (Pair (List (Pair I64 Phase)) Plan))))
     (define (next-phases plan)
       (let* ((steps (::steps plan)) (ready (ready-nodes steps (::order plan))))
         (Pair (map (lambda (node) (Pair node (::phase (vector-ref steps node)))) ready)
@@ -154,11 +154,11 @@
 
     ;; Whether a later wave has phases to hand out, once the producers this
     ;; one ran have refined the plan.
-    (: phases-left? (-> Plan Bool))
+    (: phases-left? (impl (Fn Plan -> Bool)))
     (define (phases-left? plan)
       (any? (lambda (step) (not (::emitted step))) (vector->list (::steps plan))))
 
-    (: ready-nodes (-> (Vector Step) (List I64) (List I64)))
+    (: ready-nodes (impl (Fn (Vector Step) (List I64) -> (List I64))))
     (define (ready-nodes steps order)
       (match order
         ((Nil) (Nil))
@@ -168,13 +168,13 @@
                  ((known? (::needs step)) (Cons node (ready-nodes steps rest)))
                  (else (Nil)))))))
 
-    (: known? (-> Needs Bool))
+    (: known? (impl (Fn Needs -> Bool)))
     (define (known? needs)
       (match needs
         ((Known _) #t)
         ((Waiting _ _) #f)))
 
-    (: needs-nodes (-> Needs (List I64)))
+    (: needs-nodes (impl (Fn Needs -> (List I64))))
     (define (needs-nodes needs)
       (match needs
         ((Known nodes) nodes)
@@ -193,7 +193,7 @@
        (steps (Vector Step))
        (visited (Table Bool))))
 
-    (: plan-growth (-> Plan Inputs Growth))
+    (: plan-growth (impl (Fn Plan Inputs -> Growth)))
     (define (plan-growth plan inputs)
       (let ((steps (::steps plan)))
         (Growth (::targets plan) inputs (::scratch plan)
@@ -208,7 +208,7 @@
     ;; graph takes the next node, so nodes number in pre-order. A new phase,
     ;; or one that waited, learns what it needs now; one whose needs were
     ;; known keeps them, but they are visited, since one of them may wait.
-    (: visit (-> Growth Phase (Pair I64 Growth) ! fs compile))
+    (: visit (impl (Fn Growth Phase -> (Pair I64 Growth) ! fs compile)))
     (define (visit growth phase)
       (let ((key (phase-key phase)))
         (match (table-ref (::nodes growth) key)
@@ -220,7 +220,7 @@
            (learn (add-phase (mark-visited growth key) key phase)
                   (vector-length (::steps growth)))))))
 
-    (: revisit (-> Growth I64 (Pair I64 Growth) ! fs compile))
+    (: revisit (impl (Fn Growth I64 -> (Pair I64 Growth) ! fs compile)))
     (define (revisit growth node)
       (match (::needs (step-at growth node))
         ((Known nodes)
@@ -231,7 +231,7 @@
 
     ;; Finds what the phase at `node` needs, visits those phases, and
     ;; records their nodes as its needs.
-    (: learn (-> Growth I64 (Pair I64 Growth) ! fs compile))
+    (: learn (impl (Fn Growth I64 -> (Pair I64 Growth) ! fs compile)))
     (define (learn growth node)
       (let* ((demand (phase-demand growth (::phase (step-at growth node))))
              (visited (visit-all growth (::needs demand)))
@@ -245,7 +245,7 @@
                               (Waiting (::first visited) missing))))))
 
     ;; Visits each phase in turn, and returns their nodes in the same order.
-    (: visit-all (-> Growth (List Phase) (Pair (List I64) Growth) ! fs compile))
+    (: visit-all (impl (Fn Growth (List Phase) -> (Pair (List I64) Growth) ! fs compile)))
     (define (visit-all growth phases)
       (let ((visited (fold-left (lambda (visited phase)
                                   (let ((result (visit (::second visited) phase)))
@@ -256,7 +256,7 @@
 
     ;; Adds a step for a phase new to the graph, at the next node. A
     ;; producer is printed where it will be compiled from.
-    (: add-phase (-> Growth String Phase Growth ! fs))
+    (: add-phase (impl (Fn Growth String Phase -> Growth ! fs)))
     (define (add-phase growth key phase)
       (match phase
         ((ProducePhase producer)
@@ -271,22 +271,22 @@
                         (vector-append (::steps growth)
                                        (list->vector (list (Step phase (Known (Nil)) #f))))))
 
-    (: mark-visited (-> Growth String Growth))
+    (: mark-visited (impl (Fn Growth String -> Growth)))
     (define (mark-visited growth key)
       (Growth-visited-set growth (table-set (::visited growth) key #t)))
 
-    (: step-at (-> Growth I64 Step))
+    (: step-at (impl (Fn Growth I64 -> Step)))
     (define (step-at growth node)
       (vector-ref (::steps growth) node))
 
-    (: with-needs (-> Growth I64 Needs Growth))
+    (: with-needs (impl (Fn Growth I64 Needs -> Growth)))
     (define (with-needs growth node needs)
       (Growth-steps-set growth
                         (vector-set (::steps growth)
                                     node
                                     (Step-needs-set (step-at growth node) needs))))
 
-    (: node-of (-> Growth Phase I64))
+    (: node-of (impl (Fn Growth Phase -> I64)))
     (define (node-of growth phase)
       (match (table-ref (::nodes growth) (phase-key phase))
         ((Some node) node)
@@ -303,7 +303,7 @@
     ;; The producers its program's closure reaches come first. Once they
     ;; have all run, a discovery expansion adds the targets whose files the
     ;; program embeds; until then, those are unknown.
-    (: phase-demand (-> Growth Phase Demand ! fs compile))
+    (: phase-demand (impl (Fn Growth Phase -> Demand ! fs compile)))
     (define (phase-demand growth phase)
       (let* ((program (phase-program phase)) (producers (reached-producers growth program))
              (missing (filter (lambda (producer) (not (supplied? (::inputs growth) producer)))
@@ -312,7 +312,7 @@
             (Demand (append (produce-phases producers) (embedded-targets growth program)) (Nil))
             (Demand (produce-phases producers) (produce-phases missing)))))
 
-    (: produce-phases (-> (List Producer) (List Phase)))
+    (: produce-phases (impl (Fn (List Producer) -> (List Phase))))
     (define (produce-phases producers)
       (map (lambda (producer) (ProducePhase producer)) producers))
 
@@ -325,7 +325,7 @@
        (loading (List String))
        (imports (List Syntax))))
 
-    (: phase-program (-> Phase PhaseProgram ! fs compile))
+    (: phase-program (impl (Fn Phase -> PhaseProgram ! fs compile)))
     (define (phase-program phase)
       (match phase
         ((BuildPhase target) (entry-program target))
@@ -336,7 +336,7 @@
                        (program-imports (::forms producer))))))
 
     ;; A target's entry, read as `expand-program` reads it.
-    (: entry-program (-> Target PhaseProgram ! fs compile))
+    (: entry-program (impl (Fn Target -> PhaseProgram ! fs compile)))
     (define (entry-program target)
       (let* ((entry (::entry target))
              (source (generating-stack (read-source-file entry))))
@@ -347,7 +347,7 @@
 
     ;; The producers a program's closure reaches, once each, keyed as the
     ;; build's inputs key their outputs.
-    (: reached-producers (-> Growth PhaseProgram (List Producer) ! fs compile))
+    (: reached-producers (impl (Fn Growth PhaseProgram -> (List Producer) ! fs compile)))
     (define (reached-producers growth program)
       (let* ((directories (::directories program))
              (reached (library-closure directories
@@ -359,7 +359,7 @@
                                   (reached-producer (::scratch growth) directories reached))
                                 reached))))
 
-    (: reached-producer (-> String (List String) Reached Producer))
+    (: reached-producer (impl (Fn String (List String) Reached -> Producer)))
     (define (reached-producer scratch directories reached)
       (let ((key (producer-key (producer-text directories (::forms reached)))))
         (Producer key
@@ -369,7 +369,7 @@
                   directories
                   (::loading reached) (::loc reached))))
 
-    (: supplied? (-> Inputs Producer Bool))
+    (: supplied? (impl (Fn Inputs Producer -> Bool)))
     (define (supplied? inputs producer)
       (match (generated-output inputs
                                (producer-text (::directories producer)
@@ -380,7 +380,7 @@
     ;; The targets whose files a program embeds, once each, in the order
     ;; discovery first meets them. The project builder resolves each root
     ;; against its declared targets before planning the build.
-    (: embedded-targets (-> Growth PhaseProgram (List Phase) ! fs compile))
+    (: embedded-targets (impl (Fn Growth PhaseProgram -> (List Phase) ! fs compile)))
     (define (embedded-targets growth program)
       (let ((uses (discover-artifacts (::directories program)
                                       (::inputs growth)
@@ -391,7 +391,7 @@
               uses))))
 
     ;; A use names a declared browser build.
-    (: used-target (-> (List Target) ArtifactUse Target ! compile))
+    (: used-target (impl (Fn (List Target) ArtifactUse -> Target ! compile)))
     (define (used-target targets use)
       (let ((name (::name use)))
         (match (find (lambda (target) (string=? (::name target) name)) targets)
@@ -410,7 +410,7 @@
     ;; strongly connected components, each after those it leads to. A
     ;; component of more than one node, or a node that needs itself, is a
     ;; cycle, which no order runs.
-    (: checked-order (-> (List Target) (Vector Step) (List I64) ! compile))
+    (: checked-order (impl (Fn (List Target) (Vector Step) -> (List I64) ! compile)))
     (define (checked-order targets steps)
       (let* ((edges (step-edges steps))
              (components (strong-components edges)))
@@ -421,11 +421,11 @@
 
     ;; Each step's edges, the nodes it needs. A pure helper, as `vector-map`'s
     ;; procedure must be.
-    (: step-edges (-> (Vector Step) (Vector (List I64))))
+    (: step-edges (impl (Fn (Vector Step) -> (Vector (List I64)))))
     (define (step-edges steps)
       (vector-map (lambda (step) (needs-nodes (::needs step))) steps))
 
-    (: cyclic? (-> (Vector (List I64)) (List I64) Bool))
+    (: cyclic? (impl (Fn (Vector (List I64)) (List I64) -> Bool)))
     (define (cyclic? edges component)
       (match component
         ((Cons node (Nil)) (member? node (vector-ref edges node)))
@@ -436,7 +436,8 @@
     ;; cycle of producers alone is an import cycle, reported as the expander
     ;; reports one, at the producer planned first.
     (: cycle-error
-       (All (A) (-> (List Target) (Vector Step) (Vector (List I64)) (List I64) A ! compile)))
+       (All (A)
+            (impl (Fn (List Target) (Vector Step) (Vector (List I64)) (List I64) -> A ! compile))))
     (define (cycle-error targets steps edges component)
       (match (first-declared targets steps component)
         ((Some start)
@@ -454,7 +455,7 @@
 
     ;; The member of `component` that builds the target declared first, if
     ;; any member builds one.
-    (: first-declared (-> (List Target) (Vector Step) (List I64) (Option I64)))
+    (: first-declared (impl (Fn (List Target) (Vector Step) (List I64) -> (Option I64))))
     (define (first-declared targets steps component)
       (match (find (lambda (target)
                      (any? (lambda (node) (builds? (vector-ref steps node) target)) component))
@@ -462,25 +463,25 @@
         ((Some target) (find (lambda (node) (builds? (vector-ref steps node) target)) component))
         ((None) (None))))
 
-    (: builds? (-> Step Target Bool))
+    (: builds? (impl (Fn Step Target -> Bool)))
     (define (builds? step target)
       (match (step-target step)
         ((Some built) (string=? (::name built) (::name target)))
         ((None) #f)))
 
-    (: step-target (-> Step (Option Target)))
+    (: step-target (impl (Fn Step -> (Option Target))))
     (define (step-target step)
       (match (::phase step)
         ((BuildPhase target) (Some target))
         ((ProducePhase _) (None))))
 
-    (: step-built (-> Step Target))
+    (: step-built (impl (Fn Step -> Target)))
     (define (step-built step)
       (match (::phase step)
         ((BuildPhase target) target)
         (_ (panic "internal error: not a build"))))
 
-    (: step-producer (-> Step Producer))
+    (: step-producer (impl (Fn Step -> Producer)))
     (define (step-producer step)
       (match (::phase step)
         ((ProducePhase producer) producer)
@@ -488,14 +489,14 @@
 
     ;; The way around the cycle from `start` back to it, through members of
     ;; `component`, following each node's needs in order.
-    (: cycle-path (-> (Vector (List I64)) (List I64) I64 (List I64)))
+    (: cycle-path (impl (Fn (Vector (List I64)) (List I64) I64 -> (List I64))))
     (define (cycle-path edges component start)
       (match (path-back edges component start (list start))
         ((Some path) path)
         ((None) (panic "internal error: a cycle with no way back"))))
 
     ;; `path` holds the nodes so far, latest first.
-    (: path-back (-> (Vector (List I64)) (List I64) I64 (List I64) (Option (List I64))))
+    (: path-back (impl (Fn (Vector (List I64)) (List I64) I64 (List I64) -> (Option (List I64)))))
     (define (path-back edges component start path)
       (let ((needs (match path
                      ((Cons node _) (vector-ref edges node))
@@ -511,7 +512,7 @@
                                 (None)))))
                        (None) needs))))
 
-    (: path-targets (-> (Vector Step) (List I64) (List String)))
+    (: path-targets (impl (Fn (Vector Step) (List I64) -> (List String))))
     (define (path-targets steps path)
       (concatenate (map (lambda (node)
                           (match (step-target (vector-ref steps node))
@@ -521,7 +522,7 @@
 
     ;; " through the producer of (generated assets)", naming each producer
     ;; on the path, or nothing.
-    (: path-producers (-> (Vector Step) (List I64) String))
+    (: path-producers (impl (Fn (Vector Step) (List I64) -> String)))
     (define (path-producers steps path)
       (let ((producers (concatenate (map (lambda (node)
                                            (match (::phase (vector-ref steps node))

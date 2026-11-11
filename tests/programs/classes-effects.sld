@@ -9,11 +9,11 @@
 ;; requires the class at a row of its own, and performs that row; a
 ;; caller then performs whatever its store's instance does.
 (effect log
-  ((say (-> String Unit))))
+  ((say (dyn (Fn String -> Unit)))))
 
 ;; ANCHOR: store
 (typeclass (Store e S)
-  (: fetch-object (-> S String String ! e)))
+  (: fetch-object (impl (Fn S String -> String ! e))))
 
 (struct Directory
   ((root String)))
@@ -32,19 +32,19 @@
       ((Some text) text)
       ((None) "missing"))))
 
-(: fetch-twice (All (e S) (requires (Store e S) (Copy S)) (-> S String String ! e)))
+(: fetch-twice (All (e S) (requires (Store e S) (Copy S)) (impl (Fn S String -> String ! e))))
 (define (fetch-twice store name)
   (string-append (fetch-object store name) " / " (fetch-object store name)))
 ;; ANCHOR_END: store
 
 ;; A table's reads are total, so a total function may make them.
-(: from-table (-> Table String String))
+(: from-table (impl (Fn Table String -> String)))
 (define (from-table table name)
   (fetch-twice table name))
 
 ;; A requirement may bound the row instead: `peek` is total, and takes any
 ;; store whose reads are.
-(: peek (All (S) (requires (Store (!) S)) (-> S String String)))
+(: peek (All (S) (requires (Store (!) S)) (impl (Fn S String -> String))))
 (define (peek store name)
   (fetch-object store name))
 
@@ -52,14 +52,17 @@
 ;; too, a control effect among them: `ask` suspends the fetch between its
 ;; reads, whichever store it reads.
 (effect Ask
-  ((ctl ask (-> String String))))
+  ((ctl ask (dyn (Fn String -> String)))))
 
-(: fetch-asked (All (e S) (requires (Store e S) (Copy S)) (-> S (-> String String ! e) String ! e)))
+(: fetch-asked
+   (All (e S)
+        (requires (Store e S) (Copy S))
+        (impl (Fn S (dyn (Fn String -> String ! e)) -> String ! e))))
 (define (fetch-asked store choose)
   (let ((name (choose "which?")))
     (string-append (fetch-object store name) " then " (fetch-object store (choose "again?")))))
 
-(: answering (All (e) (-> (-> String ! Ask e) String ! e)))
+(: answering (All (e) (impl (Fn (dyn (Fn -> String ! Ask e)) -> String ! e))))
 (define (answering body)
   (handle Ask ((ask (lambda (question resume) (resume (if (string=? question "which?") "a" "b")))))
     (body)))
@@ -77,7 +80,7 @@
 ;; ANCHOR_END: logged
 
 ;; The log is printed here; what the inner store performs passes through.
-(: logging (All (e) (-> (-> String ! log e) String ! console e)))
+(: logging (All (e) (impl (Fn (dyn (Fn -> String ! log e)) -> String ! console e))))
 (define (logging body)
   (handle log
       ((say (lambda (line) (write-line (string-append "log: " line)))))

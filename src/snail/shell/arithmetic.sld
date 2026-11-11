@@ -26,19 +26,19 @@
 
     (typeclass (Add e A B)
       (type Output)
-      (: add (-> A B Output ! e)))
+      (: add (impl (Fn A B -> Output ! e))))
 
     (typeclass (Sub e A B)
       (type Output)
-      (: subtract (-> A B Output ! e)))
+      (: subtract (impl (Fn A B -> Output ! e))))
 
     (typeclass (Mul e A B)
       (type Output)
-      (: multiply (-> A B Output ! e)))
+      (: multiply (impl (Fn A B -> Output ! e))))
 
     (typeclass (Div e A B)
       (type Output)
-      (: divide (-> A B Output ! e)))
+      (: divide (impl (Fn A B -> Output ! e))))
 
     ;; ---- Exact arithmetic and equal inexact operands ----
 

@@ -3,17 +3,17 @@
  (snail core io))
 
 (effect audit
-  ((note (-> String Unit))))
+  ((note (dyn (Fn String -> Unit)))))
 (struct Resource
   ((name String)))
 (instance (Drop (! audit) Resource)
   (define (drop resource)
     (match resource ((Resource name) (note (string-append "drop " name))))))
-(: integer (-> Any I64 ! dyn-cast))
+(: integer (impl (Fn Any -> I64 ! dyn-cast)))
 (define (integer value) value)
 
 ;; Cleanup alone justifies audit; there is no textual drop in this body.
-(: aborting (-> Unit ! dyn-cast audit))
+(: aborting (impl (Fn -> Unit ! dyn-cast audit)))
 (define (aborting)
   (let ((first (Resource "first")))
     (let ((second (Resource "second")))
@@ -33,10 +33,10 @@
       (integer "bad")
       (panic "unreachable"))))
 
-(: consume (-> Resource I64 I64 Unit ! audit))
+(: consume (impl (Fn Resource I64 I64 -> Unit ! audit)))
 (define (consume resource a b)
   (drop resource))
-(: later (-> I64 ! console))
+(: later (impl (Fn -> I64 ! console)))
 (define (later) (write-line "unreachable argument") 0)
 
 (handle audit ((note (lambda (text) (write-line text))))
@@ -63,7 +63,7 @@
           (drop conditional)))))
 
 ;; Local handlers discharge cleanup effects too; the exported function is pure.
-(: pure-cleanup (-> I64))
+(: pure-cleanup (impl (Fn -> I64)))
 (define (pure-cleanup)
   (let ((count (ref 0)))
     (handle audit ((note (lambda (_) (ref-set! count (+ 1 (ref-get count))))))

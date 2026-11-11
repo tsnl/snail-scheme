@@ -3,7 +3,7 @@
  (snail core io)
  (snail shell project web-app))
 
-(: check (-> String String String Unit ! console))
+(: check (impl (Fn String String String -> Unit ! console)))
 (define (check name actual expected)
   (unless (string=? actual expected) (panic (string-append name ": " actual)))
   (write-line name))

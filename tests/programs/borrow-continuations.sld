@@ -4,7 +4,7 @@
  (snail shell task))
 
 (effect Pause
-  ((ctl pause (-> Unit))))
+  ((ctl pause (dyn (Fn -> Unit)))))
 
 (struct Model
   ((title String))
@@ -12,13 +12,13 @@
 
 ;; Its delimiter is inside this helper, so its continuation cannot capture
 ;; the caller's borrowed frame.
-(: local-control (-> Unit))
+(: local-control (impl (Fn -> Unit)))
 (define (local-control)
   (handle Pause
       ((pause (lambda (resume) (resume (unit)))))
     (pause)))
 
-(: work (-> (Borrow Model) (FnOnce Unit ! tasks console)))
+(: work (impl (Fn (Borrow Model) -> (dyn (FnOnce -> Unit ! tasks console)))))
 (define (work model)
   (local-control)
   (let ((text (::title model)))

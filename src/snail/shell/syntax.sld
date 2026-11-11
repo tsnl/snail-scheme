@@ -41,13 +41,14 @@
       (BytesSyntax ((value Bytes))))
 
     ;; `(head item ...)`.
-    (: form (-> String (List Syntax) Syntax))
+    (: form (impl (Fn String (List Syntax) -> Syntax)))
     (define (form head items)
       (ListSyntax (Cons (SymbolSyntax head) items)))
 
     ;; The form a recipe returns: `(define-library (name ...) (export ...)
     ;; (import (library ...) ...) (begin definition ...))`.
-    (: library-syntax (-> (List String) (List String) (List (List String)) (List Syntax) Syntax))
+    (: library-syntax
+       (impl (Fn (List String) (List String) (List (List String)) (List Syntax) -> Syntax)))
     (define (library-syntax name exports imports definitions)
       (let ((library-name (lambda (parts) (ListSyntax (map SymbolSyntax parts)))))
         (form "define-library"
@@ -72,13 +73,13 @@
     ;; first, and the high bit set on every byte but the last. A text is a
     ;; count of scalars, then each scalar's code. src/snail/shell/compiler/read.sld
     ;; decodes this.
-    (: syntax->bytes (-> Syntax Bytes))
+    (: syntax->bytes (impl (Fn Syntax -> Bytes)))
     (define (syntax->bytes syntax)
       (vector-concatenate (reverse (encode syntax (Nil)))))
 
     ;; The pieces of `syntax` before `pieces`, last first. A byte vector is
     ;; its own piece, so its bytes are copied only when the pieces join.
-    (: encode (-> Syntax (List Bytes) (List Bytes)))
+    (: encode (impl (Fn Syntax (List Bytes) -> (List Bytes))))
     (define (encode syntax pieces)
       (match syntax
         ((ListSyntax items)
@@ -94,19 +95,19 @@
         ((BytesSyntax bytes) (Cons bytes (Cons (counted 7 (vector-length bytes)) pieces)))))
 
     ;; A tag and one count.
-    (: counted (-> I32 I64 Bytes))
+    (: counted (impl (Fn I32 I64 -> Bytes)))
     (define (counted tag count)
       (list->vector (Cons (i32->u8 tag) (count-bytes count))))
 
     ;; A tag and a text.
-    (: text-piece (-> I32 String Bytes))
+    (: text-piece (impl (Fn I32 String -> Bytes)))
     (define (text-piece tag text)
       (list->vector (Cons (i32->u8 tag) (append (count-bytes (string-length text))
                                                 (concatenate
                                                  (map (lambda (c) (count-bytes (char->integer c)))
                                                       (string->list text)))))))
 
-    (: count-bytes (-> I64 (List U8)))
+    (: count-bytes (impl (Fn I64 -> (List U8))))
     (define (count-bytes count)
       (if (< count 128)
           (list (i32->u8 (i64->i32 count)))
@@ -118,7 +119,8 @@
     ;; Writes the syntax a recipe's expression returns to the file the
     ;; driver names as the producer's argument. The expression runs in a
     ;; task, so it may read the files its recipe links with `read-resource`.
-    (: write-generated-library (-> (-> Syntax ! fs resource tasks) Unit ! mut fs resource))
+    (: write-generated-library
+       (impl (Fn (dyn (Fn -> Syntax ! fs resource tasks)) -> Unit ! mut fs resource)))
     (define (write-generated-library library)
       (match (command-line)
         ((Cons _ (Cons path _))

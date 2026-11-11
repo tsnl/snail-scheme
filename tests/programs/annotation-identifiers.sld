@@ -1,7 +1,7 @@
 (import
  (snail core base)
  (snail core io))
-(: annotations (-> I64 I64))
+(: annotations (impl (Fn I64 -> I64)))
 (define (annotations value) (+ value 1))
 (define result (annotations 3))
 (write-line (show result))

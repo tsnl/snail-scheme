@@ -29,24 +29,24 @@
 
     ;; ---- Characters and atmosphere ----
 
-    (: char-at (-> String I64 (Option Char)))
+    (: char-at (impl (Fn String I64 -> (Option Char))))
     (define (char-at text index)
       (if (< index (string-length text)) (Some (string-ref text index)) (None)))
 
-    (: next-is? (-> String I64 Char Bool))
+    (: next-is? (impl (Fn String I64 Char -> Bool)))
     (define (next-is? text index char)
       (match (char-at text index)
         ((Some c) (= c char))
         ((None) #f)))
 
-    (: delimiter? (-> String I64 Bool))
+    (: delimiter? (impl (Fn String I64 -> Bool)))
     (define (delimiter? text index)
       (match (char-at text index)
         ((Some c) (or (char-whitespace? c) (member? c (list #\( #\) #\" #\;))))
         ((None) #t)))
 
     ;; Skips whitespace, line comments and nested block comments.
-    (: skip (-> String I64 I64))
+    (: skip (impl (Fn String I64 -> I64)))
     (define (skip text index)
       (match (char-at text index)
         ((Some c)
@@ -57,13 +57,13 @@
                (else index)))
         ((None) index)))
 
-    (: line-end (-> String I64 I64))
+    (: line-end (impl (Fn String I64 -> I64)))
     (define (line-end text index)
       (if (or (>= index (string-length text)) (= (string-ref text index) #\newline))
           index
           (line-end text (+ index 1))))
 
-    (: block-end (-> String I64 I64 I64))
+    (: block-end (impl (Fn String I64 I64 -> I64)))
     (define (block-end text index depth)
       (cond ((or (= depth 0) (>= index (string-length text))) index)
             ((and (next-is? text index #\|) (next-is? text (+ index 1) #\#))
@@ -74,7 +74,7 @@
 
     ;; ---- Data ----
 
-    (: read-at (-> String I64 Step))
+    (: read-at (impl (Fn String I64 -> Step)))
     (define (read-at text start)
       (let ((index (skip text start)))
         (match (char-at text index)
@@ -91,13 +91,13 @@
                  ((= c #\#) (read-hash text index))
                  (else (read-atom text index)))))))
 
-    (: read-abbreviation (-> String I64 String Step))
+    (: read-abbreviation (impl (Fn String I64 String -> Step)))
     (define (read-abbreviation text index name)
       (after ((datum next) (read-at text index))
              (Parsed (datum-list (list (ann (Symbol name) Any) datum)) next)))
 
     ;; A list, with an optional dotted tail before its closing parenthesis.
-    (: read-list (-> String I64 (List Any) Step))
+    (: read-list (impl (Fn String I64 (List Any) -> Step)))
     (define (read-list text start items)
       (let ((index (skip text start)))
         (cond ((next-is? text index #\))
@@ -119,7 +119,7 @@
               (else (after ((item next) (read-at text index))
                            (read-list text next (Cons item items)))))))
 
-    (: read-string-literal (-> String I64 (List Char) Step))
+    (: read-string-literal (impl (Fn String I64 (List Char) -> Step)))
     (define (read-string-literal text index chars)
       (match (char-at text index)
         ((None) (Failed "unterminated string"))
@@ -135,7 +135,7 @@
 
     ;; `#t`, `#f`, `#\char`, `#(vector)` and `#u8(bytes)`; numbers with
     ;; prefixes such as `#x` are atoms.
-    (: read-hash (-> String I64 Step))
+    (: read-hash (impl (Fn String I64 -> Step)))
     (define (read-hash text index)
       (cond
        ((next-is? text (+ index 1) #\() (after ((items next) (read-list text (+ index 2) (Nil)))
@@ -152,7 +152,7 @@
        (else (read-atom text index))))
 
     ;; Parse each byte once, preserving the exact-integer requirement.
-    (: bytes-datum (-> Any I64 Step))
+    (: bytes-datum (impl (Fn Any I64 -> Step)))
     (define (bytes-datum items next)
       (match (datum->list items)
         ((Some items)
@@ -167,7 +167,7 @@
 
     ;; The reader already stores integral exact literals as Integer. Check
     ;; their bounds before narrowing, so large values cannot wrap into bytes.
-    (: byte-value (-> Any (Option U8)))
+    (: byte-value (impl (Fn Any -> (Option U8))))
     (define (byte-value datum)
       (match-any datum
                  ((Integer n)
@@ -176,7 +176,7 @@
                       (None)))
                  (else (None))))
 
-    (: read-character (-> String I64 Step))
+    (: read-character (impl (Fn String I64 -> Step)))
     (define (read-character text index)
       (let* ((end (token-end text (+ index 1))) (name (substring text index end)))
         (cond ((= (string-length name) 1) (Parsed (string-ref name 0) end))
@@ -185,11 +185,11 @@
               ((string=? name "tab") (Parsed #\tab end))
               (else (Failed (string-append "unknown character name " name))))))
 
-    (: token-end (-> String I64 I64))
+    (: token-end (impl (Fn String I64 -> I64)))
     (define (token-end text index)
       (if (delimiter? text index) index (token-end text (+ index 1))))
 
-    (: read-atom (-> String I64 Step))
+    (: read-atom (impl (Fn String I64 -> Step)))
     (define (read-atom text index)
       (let* ((end (token-end text index)) (token (substring text index end)))
         (cond ((or (string=? token "#t") (string=? token "#true")) (Parsed #t end))
@@ -202,7 +202,7 @@
 
     ;; ---- Entry points ----
 
-    (: read-datum (-> String (Result Any String)))
+    (: read-datum (impl (Fn String -> (Result Any String))))
     (define (read-datum text)
       (match (read-at text 0)
         ((Parsed datum next)
@@ -210,7 +210,7 @@
         ((Failed message) (Err message))))
 
     ;; Every datum in the text, in order.
-    (: read-datums (-> String (Result (List Any) String)))
+    (: read-datums (impl (Fn String -> (Result (List Any) String))))
     (define (read-datums text)
       (let loop ((index (skip text 0)) (items (Nil)))
         (if (= index (string-length text))

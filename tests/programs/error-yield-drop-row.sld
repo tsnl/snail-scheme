@@ -5,10 +5,10 @@
 ;; dropped resumption would drop it, performing `audit`, which this
 ;; function's row does not allow.
 (effect audit
-  ((note (-> String Unit))))
+  ((note (dyn (Fn String -> Unit)))))
 
 (effect Ask
-  ((ctl ask (-> I64))))
+  ((ctl ask (dyn (Fn -> I64)))))
 
 (struct Handle
   ((name String)))
@@ -18,7 +18,7 @@
     (match handle
       ((Handle name) (note name)))))
 
-(: keep (-> Handle ! Ask))
+(: keep (impl (Fn -> Handle ! Ask)))
 (define (keep)
   (let ((handle (Handle "h")))
     (let ((answer (ask)))

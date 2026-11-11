@@ -5,7 +5,7 @@
 ;; Rows are found from an instance's types, not matched, so two instances
 ;; for one type overlap whatever rows they write.
 (typeclass (Store e S)
-  (: fetch-object (-> S String String ! e)))
+  (: fetch-object (impl (Fn S String -> String ! e))))
 
 (struct Loud
   ((name String)))

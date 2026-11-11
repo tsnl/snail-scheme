@@ -14,7 +14,7 @@
   ((name String)
    (count I64)))
 
-(: bump! (-> (Ref Counter) Unit ! mut))
+(: bump! (impl (Fn (Ref Counter) -> Unit ! mut)))
 (define (bump! counter)
   (set! (::count (ref-get counter)) (+ (::count (ref-get counter)) 1)))
 ;; ANCHOR_END: counter

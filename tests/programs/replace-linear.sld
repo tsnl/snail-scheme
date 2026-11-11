@@ -11,14 +11,14 @@
 (struct Job
   ((name String)
    (attempts I64)
-   (work (FnOnce Unit ! console))))
+   (work (dyn (FnOnce -> Unit ! console)))))
 
-(: retry (-> Job Job))
+(: retry (impl (Fn Job -> Job)))
 (define (retry job)
   (Job-attempts-set job (+ (::attempts job) 1)))
 ;; ANCHOR_END: retry
 
-(: run (-> Job Unit ! console))
+(: run (impl (Fn Job -> Unit ! console)))
 (define (run job)
   (match job
     ((Job name attempts work)
@@ -31,12 +31,12 @@
   ((item A)
    (label String)))
 
-(: relabel (All (A) (-> (Labelled A) (Labelled A))))
+(: relabel (All (A) (impl (Fn (Labelled A) -> (Labelled A)))))
 (define (relabel labelled)
   (Labelled-label-set labelled "relabelled"))
 
 ;; A replacement is a function too, and consumes the record it is given.
-(: bump (-> (-> Job I64 Job) Job Job))
+(: bump (impl (Fn (dyn (Fn Job I64 -> Job)) Job -> Job)))
 (define (bump replace job)
   (replace job 5))
 

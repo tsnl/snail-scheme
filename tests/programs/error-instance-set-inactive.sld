@@ -4,7 +4,7 @@
 
 (typeclass (Op e A B)
   (type Output)
-  (: op (-> A B Output ! e)))
+  (: op (impl (Fn A B -> Output ! e))))
 (define-instance-set first-policy
   (instance (Op (!) I64 I64)
     (type Output I64)

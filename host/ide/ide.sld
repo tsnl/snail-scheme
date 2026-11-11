@@ -26,7 +26,9 @@
 
 ;; A replacement receives recovery data, never the old session's futures or
 ;; event connection. Reconnect and restore buffers under the new scheduler.
-(: present (-> Save (-> Save Unit ! events storage tasks) Unit ! mut events storage tasks))
+(: present
+   (impl
+    (Fn Save (dyn (Fn Save -> Unit ! events storage tasks)) -> Unit ! mut events storage tasks)))
 (define (present saved checkpoint)
   (with-page-dom
    (lambda ()
@@ -36,23 +38,23 @@
          (run-reactor (begin-session (match saved ((Some saved) (restored saved)) ((None) initial)))
                       (list (Boot) (Connect))
                       (ann update-session
-                           (-> Session
-                               (Option Msg)
-                               Session
-                               ! mut completion events storage dom fetch))
+                           (dyn (Fn Session
+                                    (Option Msg)
+                                    -> Session
+                                    ! mut completion events storage dom fetch)))
                       session-view session-window snapshot
-                      (ann commit (-> Save Unit ! mut events storage dom fetch))
+                      (ann commit (dyn (Fn Save -> Unit ! mut events storage dom fetch)))
                       (lambda (saved) (checkpoint saved)))))))))
 
-(: snapshot (-> (Borrow Session) Save))
+(: snapshot (impl (Fn (Borrow Session) -> Save)))
 (define (snapshot session)
   (Some (session-snapshot session)))
 
-(: encode (-> Save Bytes))
+(: encode (impl (Fn Save -> Bytes)))
 (define (encode saved)
   (serialize (match saved ((Some saved) saved) ((None) (kept initial)))))
 
-(: commit (-> Save Unit ! mut events))
+(: commit (impl (Fn Save -> Unit ! mut events)))
 (define (commit saved)
   (commit-page saved)
   (report-ready))

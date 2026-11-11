@@ -35,9 +35,9 @@
   (Done ((what String))))
 
 (type (Command M)
-      (FnOnce M ! dom tasks))
+      (dyn (FnOnce -> M ! dom tasks)))
 
-(: update (-> Model Msg (Pair Model (List (Command Msg)))))
+(: update (impl (Fn Model Msg -> (Pair Model (List (Command Msg))))))
 (define (update model message)
   (match message
     ((Begin) (Pair model (list (once began))))
@@ -50,11 +50,11 @@
     ((Online) (Pair (logged model "online") (Nil)))
     ((Done what) (Pair (logged model what) (Nil)))))
 
-(: logged (-> Model String Model))
+(: logged (impl (Fn Model String -> Model)))
 (define (logged model what)
   (Model-log-set model (append (::log model) (list what))))
 
-(: indent (-> Msg ! dom))
+(: indent (impl (Fn -> Msg ! dom)))
 (define (indent)
   (match (element-by-id "text")
     ((Some node)
@@ -71,7 +71,7 @@
                             (show (::line-height (measure node)))))))
     ((None) (Done "no field"))))
 
-(: late (-> Msg ! dom tasks))
+(: late (impl (Fn -> Msg ! dom tasks)))
 (define (late)
   (match (element-by-id "text")
     ((Some node)
@@ -84,17 +84,17 @@
                             (show (string-length (string-property node "value")))))))
     ((None) (Done "no field"))))
 
-(: ask (-> Msg ! dom))
+(: ask (impl (Fn -> Msg ! dom)))
 (define (ask)
   (if (confirm "Hide the field?") (Hide) (Done "kept")))
 
-(: missing (-> Msg ! dom))
+(: missing (impl (Fn -> Msg ! dom)))
 (define (missing)
   (match (element-by-id "text")
     ((Some node) (Done "still there"))
     ((None) (Done "field gone"))))
 
-(: view (-> Model (Html Msg)))
+(: view (impl (Fn Model -> (Html Msg))))
 (define (view model)
   (Element "div"
            (Nil)
@@ -122,7 +122,7 @@
                                         (On "click" (Nil) (Allow) (lambda (event) (Ask))))
                                   (Nil))))))
 
-(: window (-> Model (List (Attribute Msg))))
+(: window (impl (Fn Model -> (List (Attribute Msg)))))
 (define (window model)
   (list (On "online" (Nil) (Allow) (lambda (event) (Online)))
         (On "keydown"
@@ -130,16 +130,16 @@
             (Chords (list (Chord "s" control-key)))
             (lambda (event) (Save)))))
 
-(: began (-> Msg))
+(: began (impl (Fn -> Msg)))
 (define (began)
   (Done "began"))
 
-(: starts-with? (-> String String Bool))
+(: starts-with? (impl (Fn String String -> Bool)))
 (define (starts-with? prefix line)
   (and (>= (string-length line) (string-length prefix))
        (string=? (substring line 0 (string-length prefix)) prefix)))
 
-(: clicked (-> String Cue))
+(: clicked (impl (Fn String -> Cue)))
 (define (clicked target)
   (Fire target "click" no-event))
 

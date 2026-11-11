@@ -5,18 +5,18 @@
  (snail shell utf8)
  (snail shell process))
 
-(: require (All (T) (-> (Result T ProcessError) T)))
+(: require (All (T) (impl (Fn (Result T ProcessError) -> T))))
 (define (require result)
   (match result
     ((Ok value) value)
     ((Err error) (panic (::code error)))))
 
-(: shell (-> String Process ! process tasks))
+(: shell (impl (Fn String -> Process ! process tasks)))
 (define (shell script)
   (require (spawn (Command "/bin/sh" (list "-c" script) "."))))
 
 ;; A stream's bytes up to its end, as text.
-(: read-all (-> Process Stream String ! process tasks))
+(: read-all (impl (Fn Process Stream -> String ! process tasks)))
 (define (read-all child stream)
   (let loop ((bytes #u8()))
     (match (require (read-output child stream 4096))
@@ -25,13 +25,13 @@
                 ((Ok text) text)
                 ((Err _) (panic "the output is not UTF-8")))))))
 
-(: exit-text (-> Exit String))
+(: exit-text (impl (Fn Exit -> String)))
 (define (exit-text exit)
   (match exit
     ((Exited code) (string-append "exited " (show code)))
     ((Signaled name) (string-append "signaled " name))))
 
-(: report-error (All (T) (requires (Copy T)) (-> (Result T ProcessError) Unit ! console)))
+(: report-error (All (T) (requires (Copy T)) (impl (Fn (Result T ProcessError) -> Unit ! console))))
 (define (report-error result)
   (match result
     ((Err error) (write-line (::code error)))

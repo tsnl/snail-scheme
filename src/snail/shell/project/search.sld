@@ -29,7 +29,7 @@
     ;; At most 200 hits and four million scalars per request. A 201st hit
     ;; proves truncation. Unreadable, binary and oversized files count as
     ;; skipped. The existing reader bounds each file to eight MiB.
-    (: search-project (-> String (List String) Query Results ! fs tasks))
+    (: search-project (impl (Fn String (List String) Query -> Results ! fs tasks)))
     (define (search-project root paths query)
       (let loop ((paths paths) (hits (ann (Nil) (List Hit))) (skipped 0) (budget 4000000))
         (cond ((> (length hits) 200) (Results (take hits 200) skipped #t))

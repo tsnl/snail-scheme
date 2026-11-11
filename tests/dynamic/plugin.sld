@@ -12,7 +12,7 @@
 (: label String)
 (define label (string-append "summary of " "the project"))
 
-(: summarize (-> Project Report))
+(: summarize (impl (Fn Project -> Report)))
 (define (summarize project)
   (Report (string-append label " " (::name project))
           (length (::estimates project))

@@ -9,7 +9,7 @@
 ;; properties read back, listeners made and dropped, and removing a
 ;; subtree. The trace has a line per operation; the tree prints as HTML.
 
-(: build (-> String ! dom))
+(: build (impl (Fn -> String ! dom)))
 (define (build)
   (let* ((root (document-root))
          (list-node (create-element "ul"))

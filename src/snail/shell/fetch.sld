@@ -53,7 +53,7 @@
     ;; one command waiting on it, and issues the next from the update that
     ;; handles the event.
     (effect fetch
-      ((request (-> String String (List Header) String (Result Reply String) ! tasks))
-       (stream-open (-> String (List String) Stream))
-       (stream-next (-> Stream (Option StreamEvent) ! tasks))
-       (stream-close (-> Stream Unit))))))
+      ((request (dyn (Fn String String (List Header) String -> (Result Reply String) ! tasks)))
+       (stream-open (dyn (Fn String (List String) -> Stream)))
+       (stream-next (dyn (Fn Stream -> (Option StreamEvent) ! tasks)))
+       (stream-close (dyn (Fn Stream -> Unit)))))))

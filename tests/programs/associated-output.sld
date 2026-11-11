@@ -4,7 +4,7 @@
 
 (typeclass (Add e A B)
   (type Output)
-  (: add (-> A B Output ! e)))
+  (: add (impl (Fn A B -> Output ! e))))
 
 (instance (Add (!) I64 F64)
   (type Output F64)
@@ -17,13 +17,13 @@
 (: sum
    (All (A B e)
         (requires (Add e A B))
-        (-> A B (Add.Output e A B) ! e)))
+        (impl (Fn A B -> (Add.Output e A B) ! e))))
 (define (sum a b) (add a b))
 
 (: twice
    (All (A e)
         (requires (Copy A) (Add e A A (type Output A)))
-        (-> A A ! e)))
+        (impl (Fn A -> A ! e))))
 (define (twice a) (add a a))
 
 (display (sum (ann 1 I64) 2.5))
@@ -36,7 +36,7 @@
   ((value A)))
 (typeclass (Extract T)
   (type Output)
-  (: extract (-> T Output)))
+  (: extract (impl (Fn T -> Output))))
 (instance (Extract (Box A))
   (type Output A)
   (define (extract value) (match value ((Box value) value))))
@@ -51,7 +51,7 @@
 ;; Recursion that makes its input smaller is permitted.
 (typeclass (Flatten A)
   (type Output)
-  (: flatten (-> A Output)))
+  (: flatten (impl (Fn A -> Output))))
 (instance (Flatten I64)
   (type Output I64)
   (define (flatten value) value))
@@ -68,7 +68,7 @@
     ((_ class method)
      (typeclass (class A)
        (type Output)
-       (: method (-> A Output))))))
+       (: method (impl (Fn A -> Output)))))))
 (define-identity-class Identity identity)
 (instance (Identity I64)
   (type Output I64)

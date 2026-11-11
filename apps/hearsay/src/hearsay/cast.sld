@@ -22,30 +22,30 @@
     ;; ---- Dealing ----
 
     ;; One item of a list, and the generator after the draw.
-    (: deal (All (T) (requires (Copy T)) (-> Random (List T) (Pair T Random))))
+    (: deal (All (T) (requires (Copy T)) (impl (Fn Random (List T) -> (Pair T Random)))))
     (define (deal random items)
       (Pair (list-ref items (random-below random (length items))) (random-next random)))
 
-    (: names->dyes (-> (List String) (List Dye)))
+    (: names->dyes (impl (Fn (List String) -> (List Dye))))
     (define (names->dyes names)
       (map Dye names))
 
     ;; ---- Wardrobe ----
 
-    (: audience-dyes (-> I64 (List Dye)))
+    (: audience-dyes (impl (Fn I64 -> (List Dye))))
     (define (audience-dyes audience)
       (names->dyes (list-ref (list (list "maroon" "orange" "teal" "rose")
                                    (list "forest" "brown" "slate" "tan")
                                    (list "charcoal" "navy" "black" "white"))
                              audience)))
 
-    (: build-heads (-> Build (List Head)))
+    (: build-heads (impl (Fn Build -> (List Head))))
     (define (build-heads build)
       (match build
         ((Female) (list (HumanFemale) (HumanFemale) (HumanFemale) (HumanFemaleElderly)))
         (_ (list (HumanMale) (HumanMale) (HumanMale) (HumanMaleElderly)))))
 
-    (: elderly? (-> Head Bool))
+    (: elderly? (impl (Fn Head -> Bool)))
     (define (elderly? head)
       (match head
         ((HumanMaleElderly) #t)
@@ -65,21 +65,21 @@
                  "cowlick"
                  "bangs_bun")))
 
-    (: hair-shades (-> Head (List HairColor)))
+    (: hair-shades (impl (Fn Head -> (List HairColor))))
     (define (hair-shades head)
       (map HairColor
            (if (elderly? head)
                (list "gray" "white")
                (list "black" "dark_brown" "chestnut" "blonde" "ginger"))))
 
-    (: tops (-> Build (List Garment)))
+    (: tops (impl (Fn Build -> (List Garment))))
     (define (tops build)
       (match build
         ((Male) (list (Longsleeve) (Shortsleeve) (Overalls) (Tabard)))
         ((Female) (list (Longsleeve) (Blouse) (Tunic) (Tanktop)))
         (_ (list (Longsleeve)))))
 
-    (: bottoms (-> Build (List Garment)))
+    (: bottoms (impl (Fn Build -> (List Garment))))
     (define (bottoms build)
       (match build
         ((Female) (list (Pants) (Skirt) (Leggings)))
@@ -93,7 +93,7 @@
     ;; A garment in the dye dealt, if the catalog draws it in that for the
     ;; build, and otherwise in the first dye it does: male pants come only
     ;; in green.
-    (: worn-in (-> Build Garment Dye Worn))
+    (: worn-in (impl (Fn Build Garment Dye -> Worn)))
     (define (worn-in build garment dye)
       (let ((drawn (garment-dyes build garment)))
         (Worn garment
@@ -106,7 +106,7 @@
     ;; Every look dealt here is one the catalog draws, so dressing never
     ;; fails. Were the tables to drift from the catalog, building (hearsay
     ;; art), which dresses everyone, would stop here.
-    (: dressed (-> Build Head Skin Outfit Character))
+    (: dressed (impl (Fn Build Head Skin Outfit -> Character)))
     (define (dressed build head skin outfit)
       (match (dress build head skin outfit)
         ((Some character) character)
@@ -115,7 +115,7 @@
     ;; ---- People ----
 
     ;; A character dealt from `seed`, dressed in `palette`.
-    (: dealt (-> I64 (List Dye) Character))
+    (: dealt (impl (Fn I64 (List Dye) -> Character)))
     (define (dealt seed palette)
       (let* ((r (make-random seed))
              (build (deal r (list (Male) (Female) (Teen))))
@@ -129,7 +129,7 @@
                    palette
                    (::second shade))))
 
-    (: outfitted (-> Build Head Skin Hair (List Dye) Random Character))
+    (: outfitted (impl (Fn Build Head Skin Hair (List Dye) Random -> Character)))
     (define (outfitted build head skin hair palette r)
       (let* ((top (deal r (tops build))) (top-dye (deal (::second top) palette))
              (bottom (deal (::second top-dye) (bottoms build)))
@@ -143,12 +143,12 @@
 
     ;; Resident `person` of the rumor mill, dressed in their audience's
     ;; colors.
-    (: resident (-> I64 Character))
+    (: resident (impl (Fn I64 -> Character)))
     (define (resident person)
       (dealt (+ 1000 (* 7919 person)) (audience-dyes (audience-of person))))
 
     ;; The favor ledger's rivals, by fixer: Vee, and otherwise Kit.
-    (: rival (-> I64 Character))
+    (: rival (impl (Fn I64 -> Character)))
     (define (rival who)
       (if (= who vee)
           (dressed (Female) (HumanFemale) (Skin "bronze")
@@ -171,11 +171,11 @@
 
     ;; The screens key the pictures they compose of the cast: 100 + p for
     ;; resident p, and 200 + f for the rival who is fixer f.
-    (: person-picture (-> I64 I32))
+    (: person-picture (impl (Fn I64 -> I32)))
     (define (person-picture person)
       (i64->i32 (+ 100 person)))
 
-    (: rival-picture (-> I64 I32))
+    (: rival-picture (impl (Fn I64 -> I32)))
     (define (rival-picture who)
       (i64->i32 (+ 200 who)))
 

@@ -7,11 +7,11 @@
  (snail shell json read)
  (snail shell project protocol))
 
-(: accepted? (All (T) (requires (Copy T)) (-> (Option T) Bool)))
+(: accepted? (All (T) (requires (Copy T)) (impl (Fn (Option T) -> Bool))))
 (define (accepted? value)
   (match value ((Some _) #t) ((None) #f)))
 
-(: parse (-> String Json))
+(: parse (impl (Fn String -> Json)))
 (define (parse text)
   (match (string->json text) ((Some json) json) ((None) (panic "invalid test JSON"))))
 

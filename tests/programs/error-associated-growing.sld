@@ -3,7 +3,7 @@
 
 (typeclass (Grow A)
   (type Output)
-  (: grow (-> A Output)))
+  (: grow (impl (Fn A -> Output))))
 (instance (Grow A)
   (requires (Grow (List A)))
   (type Output (Grow.Output (List A)))

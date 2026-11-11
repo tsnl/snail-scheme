@@ -33,42 +33,42 @@
       (Exact ((value Rational)))
       (Inexact ((value F64))))
 
-    (: number-from-i64 (-> I64 Number))
+    (: number-from-i64 (impl (Fn I64 -> Number)))
     (define (number-from-i64 value)
       (Exact (rational-from-integer (integer-from-i64 value))))
 
-    (: number-from-integer (-> Integer Number))
+    (: number-from-integer (impl (Fn Integer -> Number)))
     (define (number-from-integer value)
       (Exact (rational-from-integer value)))
 
-    (: number-from-f64 (-> F64 Number))
+    (: number-from-f64 (impl (Fn F64 -> Number)))
     (define (number-from-f64 value)
       (Inexact value))
 
-    (: number-exact? (-> Number Bool))
+    (: number-exact? (impl (Fn Number -> Bool)))
     (define (number-exact? n)
       (match n
         ((Exact _) #t)
         ((Inexact _) #f)))
 
-    (: number-integer? (-> Number Bool))
+    (: number-integer? (impl (Fn Number -> Bool)))
     (define (number-integer? n)
       (match n
         ((Exact r) (rational-integer? r))
         ((Inexact x) (= x (floor x)))))
 
-    (: number->f64 (-> Number F64))
+    (: number->f64 (impl (Fn Number -> F64)))
     (define (number->f64 n)
       (match n
         ((Exact r) (rational->f64 r))
         ((Inexact x) x)))
 
-    (: number-inexact (-> Number Number))
+    (: number-inexact (impl (Fn Number -> Number)))
     (define (number-inexact n)
       (Inexact (number->f64 n)))
 
     ;; Exact only for integral reals; the conversion truncates otherwise.
-    (: number-exact (-> Number Number))
+    (: number-exact (impl (Fn Number -> Number)))
     (define (number-exact n)
       (match n
         ((Exact _) n)
@@ -78,7 +78,13 @@
 
     ;; Applies the exact operation when both operands are exact, and the
     ;; inexact one otherwise.
-    (: combine (-> (-> Rational Rational Rational) (-> F64 F64 F64) Number Number Number))
+    (: combine
+       (impl (Fn (dyn (Fn Rational Rational -> Rational))
+                 (dyn (Fn F64 F64 -> F64))
+                 Number
+                 Number
+                 ->
+                 Number)))
     (define (combine exact inexact a b)
       (match a
         ((Exact x) (match b
@@ -86,23 +92,23 @@
                      ((Inexact y) (Inexact (inexact (rational->f64 x) y)))))
         ((Inexact x) (Inexact (inexact x (number->f64 b))))))
 
-    (: number-add (-> Number Number Number))
+    (: number-add (impl (Fn Number Number -> Number)))
     (define (number-add a b)
       (combine rational-add + a b))
 
-    (: number-subtract (-> Number Number Number))
+    (: number-subtract (impl (Fn Number Number -> Number)))
     (define (number-subtract a b)
       (combine rational-subtract - a b))
 
-    (: number-multiply (-> Number Number Number))
+    (: number-multiply (impl (Fn Number Number -> Number)))
     (define (number-multiply a b)
       (combine rational-multiply * a b))
 
-    (: number-divide (-> Number Number Number))
+    (: number-divide (impl (Fn Number Number -> Number)))
     (define (number-divide a b)
       (combine rational-divide / a b))
 
-    (: number-compare (-> Number Number I64))
+    (: number-compare (impl (Fn Number Number -> I64)))
     (define (number-compare a b)
       (match a
         ((Exact x) (match b
@@ -110,7 +116,7 @@
                      ((Inexact y) (compare-reals (rational->f64 x) y))))
         ((Inexact x) (compare-reals x (number->f64 b)))))
 
-    (: compare-reals (-> F64 F64 I64))
+    (: compare-reals (impl (Fn F64 F64 -> I64)))
     (define (compare-reals x y)
       (cond ((< x y) -1)
             ((> x y) 1)
@@ -131,7 +137,7 @@
 
     ;; ---- Text ----
 
-    (: number->string (-> Number String))
+    (: number->string (impl (Fn Number -> String)))
     (define (number->string n)
       (match n
         ((Exact r) (rational->string r))
@@ -142,7 +148,7 @@
 
     ;; Exact integers and ratios are parsed here; the runtime parses reals,
     ;; such as decimals, exponents and infinities, with correct rounding.
-    (: string->number (-> String (Option Number)))
+    (: string->number (impl (Fn String -> (Option Number))))
     (define (string->number text)
       (match (string-index text #\/)
         ((Some slash)
@@ -160,11 +166,11 @@
            ((Some n) (Some (number-from-integer n)))
            ((None) (runtime-real text))))))
 
-    (extern parse-real "snail.core.support" "snail:datum/parse-real" (-> String I32))
-    (extern parsed-real "snail.core.support" "snail:datum/parsed-real" (-> F64))
+    (extern parse-real "snail.core.support" "snail:datum/parse-real" (impl (Fn String -> I32)))
+    (extern parsed-real "snail.core.support" "snail:datum/parsed-real" (impl (Fn -> F64)))
 
     ;; Read the scratch result only on success, before returning to user code.
-    (: runtime-real (-> String (Option Number)))
+    (: runtime-real (impl (Fn String -> (Option Number))))
     (define (runtime-real text)
       (if (= (parse-real text) 1) (Some (Inexact (parsed-real))) (None)))
 

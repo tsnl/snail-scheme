@@ -5,8 +5,11 @@
   (import
    (snail core base))
   (begin
-    (extern path-character "snail.runtime.native.async-files" "path-character" (-> Char Unit))
-    (extern start-read "snail.runtime.native.async-files" "start-read" (-> I64 I32 I64))
-    (extern finish "snail.runtime.native.async-files" "finish" (-> I64 I32))
-    (extern cancel "snail.runtime.native.async-files" "cancel" (-> I64 Unit))
-    (extern byte "snail.runtime.native.async-files" "byte" (-> I32 I32))))
+    (extern path-character
+            "snail.runtime.native.async-files"
+            "path-character"
+            (impl (Fn Char -> Unit)))
+    (extern start-read "snail.runtime.native.async-files" "start-read" (impl (Fn I64 I32 -> I64)))
+    (extern finish "snail.runtime.native.async-files" "finish" (impl (Fn I64 -> I32)))
+    (extern cancel "snail.runtime.native.async-files" "cancel" (impl (Fn I64 -> Unit)))
+    (extern byte "snail.runtime.native.async-files" "byte" (impl (Fn I32 -> I32)))))

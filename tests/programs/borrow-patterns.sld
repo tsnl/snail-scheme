@@ -10,25 +10,25 @@
   ((title String)
    (count I64)
    (pending (Option Child))
-   (work (FnOnce Unit))))
+   (work (dyn (FnOnce -> Unit)))))
 
 ;; A constructor pattern on a borrow binds a Copy field as an owned value
 ;; and a linear field as a borrow; a wildcard skips a linear field without
 ;; consuming anything.
-(: describe (-> (Borrow Model) String))
+(: describe (impl (Fn (Borrow Model) -> String)))
 (define (describe model)
   (match model
     ((Model title count pending _)
      (string-append title " " (show count) " " (pending-name pending)))))
 
 ;; An enum is matched through its borrow the same way.
-(: pending-name (-> (Borrow (Option Child)) String))
+(: pending-name (impl (Fn (Borrow (Option Child)) -> String)))
 (define (pending-name pending)
   (match pending
     ((Some child) (child-name child))
     ((None) "none")))
 
-(: child-name (-> (Borrow Child) String))
+(: child-name (impl (Fn (Borrow Child) -> String)))
 (define (child-name child)
   (match child
     ((Child name) name)))

@@ -16,7 +16,7 @@
 (define answer 42)
 
 ;; A function's type is an arrow from its arguments to its result.
-(: square (-> I64 I64))
+(: square (impl (Fn I64 -> I64)))
 (define (square n)
   (* n n))
 
@@ -29,7 +29,7 @@
 
 ;; `if` always has both branches. `cond`, `case`, `when` and `unless` are
 ;; Scheme's.
-(: sign (-> I64 String))
+(: sign (impl (Fn I64 -> String)))
 (define (sign n)
   (cond ((< n 0) "negative")
         ((= n 0) "zero")
@@ -38,7 +38,7 @@
 (write-line (sign -3))
 
 ;; A named `let` is a loop. A call in tail position never grows the stack.
-(: sum-to (-> I64 I64))
+(: sum-to (impl (Fn I64 -> I64)))
 (define (sum-to n)
   (let loop ((i 1)
              (total 0))
@@ -77,7 +77,7 @@
     (height I64))))
 
 ;; `match` takes data apart. A match that misses a case does not compile.
-(: area (-> Shape I64))
+(: area (impl (Fn Shape -> I64)))
 (define (area shape)
   (match shape
     ((Circle _ radius) (* 3 (square radius)))
@@ -88,7 +88,7 @@
 
 ;; There is no null and no exception: absence is an Option, and failure a
 ;; Result, both ordinary enums.
-(: divide (-> I64 I64 (Result I64 String)))
+(: divide (impl (Fn I64 I64 -> (Result I64 String))))
 (define (divide n d)
   (if (= d 0) (Err "division by zero") (Ok (quotient n d))))
 
@@ -102,7 +102,7 @@
 
 ;; A typeclass names operations, and an instance gives them for one type.
 (typeclass (Describe T)
-  (: describe (-> T String)))
+  (: describe (impl (Fn T -> String))))
 
 (instance (Describe Point)
   (define (describe point)
@@ -115,7 +115,7 @@
 ;; `All` makes a definition generic, and `requires` asks for instances.
 ;; Each use is compiled for its own types, so generic code costs what a
 ;; hand-written copy would.
-(: describe-all (All (T) (requires (Describe T)) (-> (List T) String)))
+(: describe-all (All (T) (requires (Describe T)) (impl (Fn (List T) -> String))))
 (define (describe-all items)
   (string-join (map describe items) " "))
 
@@ -131,7 +131,7 @@
 (struct Counter
   ((count I64)))
 
-(: bump! (-> (Ref Counter) Unit ! mut))
+(: bump! (impl (Fn (Ref Counter) -> Unit ! mut)))
 (define (bump! counter)
   (set! (::count (ref-get counter)) (+ (::count (ref-get counter)) 1)))
 
@@ -147,9 +147,9 @@
 ;; code it runs. A function's row, after `!`, lists what it may perform:
 ;; `greet` asks, and whoever calls it decides what asking means.
 (effect Ask
-  ((ask (-> String))))
+  ((ask (dyn (Fn -> String)))))
 
-(: greet (-> String ! Ask))
+(: greet (impl (Fn -> String ! Ask)))
 (define (greet)
   (string-append "hello, " (ask)))
 
@@ -161,9 +161,9 @@
 ;; `resume`, the rest of the handled code, and calls it at most once:
 ;; here it collects each value emitted and carries on.
 (effect Emit
-  ((ctl emit (-> I64 Unit))))
+  ((ctl emit (dyn (Fn I64 -> Unit)))))
 
-(: count-down (-> I64 Unit ! Emit))
+(: count-down (impl (Fn I64 -> Unit ! Emit)))
 (define (count-down n)
   (when (> n 0)
     (emit n)

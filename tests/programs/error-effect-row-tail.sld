@@ -2,5 +2,5 @@
  (snail core base))
 
 ;; Unrelated quantified tails cannot be treated as interchangeable.
-(: escape (All (A e f) (-> (-> A ! e) A ! f)))
+(: escape (All (A e f) (impl (Fn (dyn (Fn -> A ! e)) -> A ! f))))
 (define (escape action) (action))

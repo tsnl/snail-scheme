@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(: read-number (-> (Borrow I64) I64))
+(: read-number (impl (Fn (Borrow I64) -> I64)))
 (define (read-number value)
   (borrow-copy value))
 

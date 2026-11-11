@@ -2,7 +2,7 @@
  (snail core base))
 
 (typeclass (ReadValue T)
-  (: read-value (-> (List T) String)))
+  (: read-value (impl (Fn (List T) -> String))))
 
 (instance (ReadValue Any)
   (dispatch String))

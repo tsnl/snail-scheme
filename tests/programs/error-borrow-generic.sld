@@ -5,7 +5,7 @@
   ((number I64))
   (deriving Move))
 
-(: conceal (All (T) (requires (Copy T)) (-> T (-> Unit))))
+(: conceal (All (T) (requires (Copy T)) (impl (Fn T -> (dyn (Fn -> Unit))))))
 (define (conceal value)
   (lambda () (drop value)))
 

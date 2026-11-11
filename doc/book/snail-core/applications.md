@@ -6,7 +6,7 @@ contract:
 ```scheme
 (struct (Entry A) ())
 (typeclass (Application e A)
-  (: start (-> (Entry A) Unit ! e)))
+  (: start (impl (Fn (Entry A) -> Unit ! e))))
 ```
 
 `Entry` is an empty type witness. Selecting an application does not require
@@ -129,7 +129,7 @@ canvas, in the shape Elm gave them:
 | Function | Meaning |
 | --- | --- |
 | `view : Model -> (Html M)` | A tree of elements and texts. An element's attributes, typed properties (`StringProperty`, `NumberProperty`, `FlagProperty`) and listeners (`On`) are plain data; a listener holds a function from what its event carried to a message `M`. |
-| `update : Model M -> (Pair Model (List (FnOnce M ! tasks e)))` | The next model, and the commands the message starts: one-shot work, run as tasks, each answering a message. |
+| `update : Model M -> (Pair Model (List (dyn (FnOnce -> M ! tasks e))))` | The next model, and the commands the message starts: one-shot work, run as tasks, each answering a message. |
 
 `run-ui model start update view window commit checkpoint` shows the view in the
 document's root through the `dom` effect of `(snail shell dom)`, updates

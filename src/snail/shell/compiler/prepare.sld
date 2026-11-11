@@ -49,15 +49,15 @@
        (statements (List Item))
        (exported (List String))))
 
-    (: prepare-program (-> Typed Prepared ! compile))
+    (: prepare-program (impl (Fn Typed -> Prepared ! compile)))
     (define (prepare-program typed)
       (prepare (prepare-specialization typed) (None) (::items typed)))
 
-    (: prepare-library (-> Specialization String (List Item) Prepared ! compile))
+    (: prepare-library (impl (Fn Specialization String (List Item) -> Prepared ! compile)))
     (define (prepare-library input owner items)
       (prepare input (Some owner) items))
 
-    (: prepare (-> Specialization (Option String) (List Item) Prepared ! compile))
+    (: prepare (impl (Fn Specialization (Option String) (List Item) -> Prepared ! compile)))
     (define (prepare input owner items)
       (match (start-specialization (new-state input owner) items)
         ((Pair exported state)
@@ -70,7 +70,7 @@
     ;; Cleanup adds new definitions without changing an old body or contract,
     ;; so old checks remain valid. A new check may still inspect an old body
     ;; under a different context; only construction, never that answer, is cached.
-    (: prepare-batches (-> State I64 (List Item) (List Item) Lowered ! compile))
+    (: prepare-batches (impl (Fn State I64 (List Item) (List Item) -> Lowered ! compile)))
     (define (prepare-batches state count roots done)
       (match (complete-specializations state)
         ((Pair definitions state)
@@ -81,7 +81,7 @@
                  (prepare-batches (::state lowered) (::count lowered) (Nil)
                                   (append (reverse (::items lowered)) done))))))))
 
-    (: prepare-batch (-> State I64 (List Item) Lowered ! compile))
+    (: prepare-batch (impl (Fn State I64 (List Item) -> Lowered ! compile)))
     (define (prepare-batch state count items)
       (let ((callees (specialization-callees state)))
         (for-each (lambda (item) (check-item callees item)) items)
@@ -91,7 +91,7 @@
                                       (Lowered (Nil) count state) items)))
               (Lowered-items-set lowered (reverse (::items lowered)))))))
 
-    (: prepared (-> State (List Item) (List String) Prepared))
+    (: prepared (impl (Fn State (List Item) (List String) -> Prepared)))
     (define (prepared state items exported)
       (Prepared (specialization-declarations state)
                 (filter (lambda (item)
@@ -111,33 +111,31 @@
        (resumes (List (Pair String String)))
        (reading (Option (List String)))))
 
-    (: specialization-callees (-> State Callees))
+    (: specialization-callees (impl (Fn State -> Callees)))
     (define (specialization-callees state)
       (Callees (specialization-declarations state)
                (if (null? (::control state)) empty-table (specialization-definitions state))
                (Nil) (None)))
 
-    (: declaration-callees (-> Declarations Callees))
+    (: declaration-callees (impl (Fn Declarations -> Callees)))
     (define (declaration-callees declarations)
       (Callees declarations empty-table (Nil) (None)))
 
-    (: callees-program (-> Callees Program))
+    (: callees-program (impl (Fn Callees -> Program)))
     (define (callees-program callees)
       (::program (::declarations callees)))
 
-    (: callees-control (-> Callees (List String)))
+    (: callees-control (impl (Fn Callees -> (List String))))
     (define (callees-control callees)
       (::control (::declarations callees)))
 
     ;; The control effects a value of a procedure type may yield to when
     ;; called: those its row names. Calling a `FnOnce` calls the procedure it
-    ;; holds, and calling an `Fn` the code it is.
-    (: call-row (-> Type (List String)))
+    ;; holds, and calling a `fn` the code it is.
+    (: call-row (impl (Fn Type -> (List String))))
     (define (call-row type)
-      (match type
+      (match (fn-arrow type)
         ((TFun _ _ (TRow labels _)) labels)
-        ((TCon "FnOnce" (Cons procedure (Nil))) (call-row procedure))
-        ((TCon "Fn" (Cons procedure (Nil))) (call-row procedure))
         (_ (Nil))))
 
     ;; What calling `callee` may yield to. The checker opens the row of each
@@ -148,9 +146,10 @@
     ;; yield to, and a primitive yields only through a row variable, as
     ;; call-once does through its procedure's. Closing a procedure over its
     ;; handlers charges its row without calling it, so it yields nothing.
-    (: callee-row (-> Callees Expr (List String)))
+    (: callee-row (impl (Fn Callees Expr -> (List String))))
     (define (callee-row callees callee)
       (match (::term callee)
+        ((Ann inner _) (callee-row callees inner))
         ((Var name _ _)
          (match (table-ref (::bindings (::declarations callees)) name)
            ((Some binding)
@@ -161,7 +160,7 @@
 
     ;; A contextual check reads the cached source body. Generated glue,
     ;; imported definitions and recursive inspection use the declared row.
-    (: definition-row (-> Callees String Binding (List String)))
+    (: definition-row (impl (Fn Callees String Binding -> (List String))))
     (define (definition-row callees name binding)
       (let ((row (call-row (::type binding))))
         (match (::reading callees)
@@ -174,7 +173,7 @@
                  (_ row))))
           ((None) row))))
 
-    (: declared-row (-> Callees String Type (List String)))
+    (: declared-row (impl (Fn Callees String Type -> (List String))))
     (define (declared-row callees name type)
       (match (program-value (callees-program callees) name)
         ((Some (Operation effect scheme)) (operation-row callees effect scheme))
@@ -194,20 +193,20 @@
 
     ;; A `resume` of a handle of X runs the rest of its body under the same
     ;; handle again, which catches every yield to X there.
-    (: resume-row (-> Callees String Type (List String)))
+    (: resume-row (impl (Fn Callees String Type -> (List String))))
     (define (resume-row callees name type)
       (match (assoc-ref (::resumes callees) name)
         ((Some effect) (label-difference (call-row type) (list effect)))
         ((None) (call-row type))))
 
-    (: operation-row (-> Callees String Scheme (List String)))
+    (: operation-row (impl (Fn Callees String Scheme -> (List String))))
     (define (operation-row callees effect scheme)
       (filter (lambda (label) (member? label (callees-control callees)))
               (Cons effect (operation-latent effect scheme))))
 
-    (: closed-row? (-> Type Bool))
+    (: closed-row? (impl (Fn Type -> Bool)))
     (define (closed-row? type)
-      (match type
+      (match (fn-arrow type)
         ((TFun _ _ (TRow _ (None))) #t)
         (_ #f)))
 
@@ -215,7 +214,7 @@
     ;; yields nothing; its body yields when it is called. A handle catches
     ;; what its body yields to its own effect, and runs its control
     ;; implementations itself, once the body has unwound to it.
-    (: yields (-> Callees Expr (List String)))
+    (: yields (impl (Fn Callees Expr -> (List String))))
     (define (yields callees expr)
       (let ((all (lambda (exprs)
                    (fold-left (lambda (labels expr) (label-union labels (yields callees expr)))
@@ -232,7 +231,8 @@
                                                                     implementations))))
           (_ (all (expr-children expr))))))
 
-    (: control-implementation-yields (-> Callees String (List (Pair String Expr)) (List String)))
+    (: control-implementation-yields
+       (impl (Fn Callees String (List (Pair String Expr)) -> (List String))))
     (define (control-implementation-yields callees effect implementations)
       (let ((control (::control (program-effect (callees-program callees) effect))))
         (fold-left (lambda (labels entry)
@@ -244,15 +244,16 @@
     ;; What calling a procedure may yield to: what a lambda's body may, and
     ;; otherwise what calling the procedure may. `(once procedure)` holds
     ;; the procedure it is given.
-    (: procedure-yields (-> Callees Expr (List String)))
+    (: procedure-yields (impl (Fn Callees Expr -> (List String))))
     (define (procedure-yields callees procedure)
       (match (::term procedure)
         ((Lambda _ body _) (yields callees body))
+        ((Ann inner _) (procedure-yields callees inner))
         ((App (Expr (Var "prim:once" _ _) _ _) (Cons held (Nil))) (procedure-yields callees held))
         (_ (callee-row callees procedure))))
 
     ;; Whether no call anywhere in `expr`, lambda bodies included, may yield.
-    (: yield-free? (-> Callees Expr Bool))
+    (: yield-free? (impl (Fn Callees Expr -> Bool)))
     (define (yield-free? callees expr)
       (and (match (::term expr)
              ((App callee _) (null? (callee-row callees callee)))
@@ -262,7 +263,7 @@
     ;; Whether a let inside `expr`, outside its lambdas, has a value that
     ;; may yield. The backend tests for a yield after such a let and leaves
     ;; while one is set, so a value that holds one is a block it can leave.
-    (: holds-yield-point? (-> Callees Expr Bool))
+    (: holds-yield-point? (impl (Fn Callees Expr -> Bool)))
     (define (holds-yield-point? callees expr)
       (match (::term expr)
         ((Lambda _ _ _) #f)
@@ -305,15 +306,16 @@
             (Pair "snail.shell.ui:run-reactor"
                   (Restriction 2 "a reactor update" (Nil)))))
 
-    (: restriction (-> Expr (Option Restriction)))
+    (: restriction (impl (Fn Expr -> (Option Restriction))))
     (define (restriction callee)
       (match (::term callee)
+        ((Ann inner _) (restriction inner))
         ((Var name _ _) (assoc-ref restrictions (generic-name name)))
         (_ (None))))
 
     ;; Specialization names a concrete implementation by its definition and the types it is
     ;; at, `name<types>`; a restriction names the definition.
-    (: generic-name (-> String String))
+    (: generic-name (impl (Fn String -> String)))
     (define (generic-name name)
       (let ((chars (string->vector name)))
         (let loop ((index 0))
@@ -327,7 +329,7 @@
     ;; handled body, which tests for a yield after the operation only when
     ;; the operation's type names a control effect: the implementation may
     ;; yield to those its latent row names, and to no other.
-    (: check-restrictions (-> Callees Expr Unit ! compile))
+    (: check-restrictions (impl (Fn Callees Expr -> Unit ! compile)))
     (define (check-restrictions callees expr)
       (match (::term expr)
         ((App callee args)
@@ -357,7 +359,7 @@
         (_ (for-each (lambda (child) (check-restrictions callees child)) (expr-children expr)))))
 
     ;; A restriction check reads the bodies of the definitions it reaches.
-    (: reading (-> Callees Callees))
+    (: reading (impl (Fn Callees -> Callees)))
     (define (reading callees)
       (match (::reading callees)
         ((Some _) callees)
@@ -368,7 +370,7 @@
     ;; resumption over its handlers when its continuation would yield to
     ;; the scheduler's own effect. Whether one does is asked assuming they
     ;; do not; if one does even so, the assumption is dropped.
-    (: resuming (-> Callees String (List (Pair String Expr)) Callees))
+    (: resuming (impl (Fn Callees String (List (Pair String Expr)) -> Callees)))
     (define (resuming callees effect implementations)
       (let ((assumed (Callees-resumes-set callees
                                           (append (resume-names callees effect implementations)
@@ -380,7 +382,7 @@
     ;; Each control implementation written as a lambda takes its `resume`
     ;; last.
     (: resume-names
-       (-> Callees String (List (Pair String Expr)) (List (Pair String String))))
+       (impl (Fn Callees String (List (Pair String Expr)) -> (List (Pair String String)))))
     (define (resume-names callees effect implementations)
       (let ((control (::control (program-effect (callees-program callees) effect))))
         (concatenate (map (lambda (entry)
@@ -394,7 +396,7 @@
                                 (Nil)))
                           implementations))))
 
-    (: check-implementations (-> Callees String (List (Pair String Expr)) Unit ! compile))
+    (: check-implementations (impl (Fn Callees String (List (Pair String Expr)) -> Unit ! compile)))
     (define (check-implementations callees effect implementations)
       (let ((control (::control (program-effect (callees-program callees) effect))))
         (for-each (lambda (entry)
@@ -402,7 +404,7 @@
                       (check-implementation callees (::first entry) (::second entry))))
                   implementations)))
 
-    (: check-implementation (-> Callees String Expr Unit ! compile))
+    (: check-implementation (impl (Fn Callees String Expr -> Unit ! compile)))
     (define (check-implementation callees operation implementation)
       (match (program-value (callees-program callees) operation)
         ((Some (Operation effect scheme))
@@ -415,7 +417,7 @@
                                            (labels->string labels))))))
         (_ (panic "internal error: not an operation"))))
 
-    (: refuse-labels (-> (List String) String Loc Unit ! compile))
+    (: refuse-labels (impl (Fn (List String) String Loc -> Unit ! compile)))
     (define (refuse-labels labels what loc)
       (unless (null? labels)
         (compile-error loc
@@ -423,9 +425,9 @@
                                       " cannot reach a control operation; it may yield to"
                                       (labels->string labels)))))
 
-    (: function-params (-> Type (List Type)))
+    (: function-params (impl (Fn Type -> (List Type))))
     (define (function-params type)
-      (match type
+      (match (fn-arrow type)
         ((TFun params _ _) params)
         (_ (panic "internal error: a primitive is a function"))))
 
@@ -443,15 +445,15 @@
 
     ;; Source locals end in `.digits` and globals contain a colon, so these
     ;; names are the pass's own.
-    (: temporary-name (-> I64 String))
+    (: temporary-name (impl (Fn I64 -> String)))
     (define (temporary-name count)
       (string-append "%control." (i64->string count) "%"))
 
-    (: temporary (-> String Expr Expr))
+    (: temporary (impl (Fn String Expr -> Expr)))
     (define (temporary name value)
       (Expr (Var name (Nil) (Nil)) (::type value) (::loc value)))
 
-    (: bind (-> String Expr Expr Expr))
+    (: bind (impl (Fn String Expr Expr -> Expr)))
     (define (bind name value body)
       (Expr (Let name value body) (::type body) (::loc value)))
 
@@ -460,7 +462,7 @@
     ;; `expr`: through a branch, a let's body, the rest of a sequence, a
     ;; clause body or an annotation. A let's value, a handle's body and a
     ;; lambda's body are each a place values flow out of as well.
-    (: normal (-> I64 Callees Expr (Pair Expr I64)))
+    (: normal (impl (Fn I64 Callees Expr -> (Pair Expr I64))))
     (define (normal count callees expr)
       (let ((rebuild (lambda (term) (Expr term (::type expr) (::loc expr)))))
         (match (::term expr)
@@ -501,7 +503,7 @@
            (normal-handle count callees expr effect implementations body))
           (_ (Pair expr count)))))
 
-    (: normal-all (-> I64 Callees (List Expr) (Pair (List Expr) I64)))
+    (: normal-all (impl (Fn I64 Callees (List Expr) -> (Pair (List Expr) I64))))
     (define (normal-all count callees exprs)
       (match exprs
         ((Cons expr rest)
@@ -510,7 +512,7 @@
                  (Pair (Cons expr rest) count)))
         ((Nil) (Pair (Nil) count))))
 
-    (: normal-clauses (-> I64 Callees (List Clause) (Pair (List Clause) I64)))
+    (: normal-clauses (impl (Fn I64 Callees (List Clause) -> (Pair (List Clause) I64))))
     (define (normal-clauses count callees clauses)
       (match clauses
         ((Cons clause rest)
@@ -521,7 +523,7 @@
 
     ;; `make` applied to `operand`, or, when the operand may yield, to a
     ;; temporary that a let binds to it first.
-    (: named (-> I64 Callees Expr (-> Expr Expr) (Pair Expr I64)))
+    (: named (impl (Fn I64 Callees Expr (dyn (Fn Expr -> Expr)) -> (Pair Expr I64))))
     (define (named count callees operand make)
       (if (null? (yields callees operand))
           (Pair (make operand) count)
@@ -529,13 +531,13 @@
             (Pair (bind name operand (make (temporary name operand))) (+ count 1)))))
 
     ;; A sequence whose first part may yield binds it, so the let tests it.
-    (: sequence (-> I64 Callees Expr Expr Expr (Pair Expr I64)))
+    (: sequence (impl (Fn I64 Callees Expr Expr Expr -> (Pair Expr I64))))
     (define (sequence count callees expr first rest)
       (if (null? (yields callees first))
           (Pair (Expr (Seq first rest) (::type expr) (::loc expr)) count)
           (Pair (bind (temporary-name count) first rest) (+ count 1))))
 
-    (: normal-call (-> I64 Callees Expr Expr (List Expr) (Pair Expr I64)))
+    (: normal-call (impl (Fn I64 Callees Expr Expr (List Expr) -> (Pair Expr I64))))
     (define (normal-call count callees expr callee args)
       (naming count ((operands (normal-all callees (Cons callee args)))
                      (bound (bind-operands callees operands)))
@@ -547,7 +549,8 @@
 
     ;; A handle evaluates its implementations in its effect's operation
     ;; order, before its body runs.
-    (: normal-handle (-> I64 Callees Expr String (List (Pair String Expr)) Expr (Pair Expr I64)))
+    (: normal-handle
+       (impl (Fn I64 Callees Expr String (List (Pair String Expr)) Expr -> (Pair Expr I64))))
     (define (normal-handle count callees expr effect implementations body)
       (let* ((operations (::operations (program-effect (callees-program callees) effect)))
              (values
@@ -561,7 +564,7 @@
                                        (::loc expr)))
                       count))))
 
-    (: implementation-of (-> (List (Pair String Expr)) String Expr))
+    (: implementation-of (impl (Fn (List (Pair String Expr)) String -> Expr)))
     (define (implementation-of implementations operation)
       (match (assoc-ref implementations operation)
         ((Some implementation) implementation)
@@ -577,13 +580,13 @@
       ((lets (List (Pair String Expr)))
        (operands (List Expr))))
 
-    (: wrap-lets (-> Bound Expr Expr))
+    (: wrap-lets (impl (Fn Bound Expr -> Expr)))
     (define (wrap-lets bound body)
       (fold-right (lambda (entry body) (bind (::first entry) (::second entry) body))
                   body
                   (::lets bound)))
 
-    (: bind-operands (-> I64 Callees (List Expr) (Pair Bound I64)))
+    (: bind-operands (impl (Fn I64 Callees (List Expr) -> (Pair Bound I64))))
     (define (bind-operands count callees operands)
       (let ((final (fold-left (lambda (final entry)
                                 (if (null? (yields callees (::second entry)))
@@ -592,7 +595,7 @@
                               -1 (zip (iota (length operands)) operands))))
         (bind-from count final 0 operands)))
 
-    (: bind-from (-> I64 I64 I64 (List Expr) (Pair Bound I64)))
+    (: bind-from (impl (Fn I64 I64 I64 (List Expr) -> (Pair Bound I64))))
     (define (bind-from count final index operands)
       (match operands
         ((Cons operand rest)
@@ -609,7 +612,7 @@
 
     ;; Evaluating a literal, a variable or a lambda has no effect a yield
     ;; could reorder.
-    (: inert? (-> Expr Bool))
+    (: inert? (impl (Fn Expr -> Bool)))
     (define (inert? expr)
       (match (::term expr)
         ((Lit _) #t)
@@ -627,7 +630,7 @@
        (count I64)
        (state State)))
 
-    (: lower-item (-> Lowered Callees Item Lowered))
+    (: lower-item (impl (Fn Lowered Callees Item -> Lowered)))
     (define (lower-item lowered callees item)
       (match (control-item (::count lowered) callees item)
         ((Pair item count)
@@ -635,7 +638,7 @@
            ((Pair item state)
             (Lowered (Cons item (::items lowered)) count state))))))
 
-    (: check-exposure (-> Callees Item Unit ! compile))
+    (: check-exposure (impl (Fn Callees Item -> Unit ! compile)))
     (define (check-exposure callees item)
       (match item
         ((Expose name _ _ loc)
@@ -664,13 +667,13 @@
     (define unit-type (TCon "Unit" (Nil)))
 
     ;; The unit value, as a dropper ends.
-    (: unit-expr (-> Loc Expr))
+    (: unit-expr (impl (Fn Loc -> Expr)))
     (define (unit-expr loc)
       (Expr (App (Expr (Var "prim:unit" (Nil) (Nil)) (TFun (Nil) unit-type empty-row) loc) (Nil))
             unit-type
             loc))
 
-    (: lower-droppers (-> State Callees Item (Pair Item State)))
+    (: lower-droppers (impl (Fn State Callees Item -> (Pair Item State))))
     (define (lower-droppers state callees item)
       (match (dropper-item callees empty-table item)
         ((Pair _ (Nil)) (Pair item state))
@@ -679,7 +682,7 @@
            ((Pair drops state)
             (Pair (::first (dropper-item callees drops item)) state))))))
 
-    (: add-type (-> (List Type) Type (List Type)))
+    (: add-type (impl (Fn (List Type) Type -> (List Type))))
     (define (add-type types type)
       (if (any? (lambda (known) (string=? (type-key known) (type-key type))) types)
           types
@@ -688,18 +691,19 @@
     ;; Most definitions own no continuation or one-shot closure. Avoid
     ;; building ownership scopes for them; the base library declares dyn-cast
     ;; even in programs that never use it.
-    (: needs-droppers? (-> Callees Expr Bool))
+    (: needs-droppers? (impl (Fn Callees Expr -> Bool)))
     (define (needs-droppers? callees expr)
       (or (not (yield-free? callees expr)) (holds-once? expr)))
 
-    (: holds-once? (-> Expr Bool))
+    (: holds-once? (impl (Fn Expr -> Bool)))
     (define (holds-once? expr)
       (or (match (::term expr)
             ((App (Expr (Var "prim:once" _ _) _ _) _) #t)
+            ((Lambda _ _ _) (concrete-callable? (::type expr)))
             (_ #f))
           (any? holds-once? (expr-children expr))))
 
-    (: dropper-item (-> Callees (Table Expr) Item (Pair Item (List Type))))
+    (: dropper-item (impl (Fn Callees (Table Expr) Item -> (Pair Item (List Type)))))
     (define (dropper-item callees drops item)
       (match item
         ((Define name value)
@@ -717,7 +721,8 @@
     ;; Owners assigned to this expression, newest binding first. Splitting
     ;; the scope keeps each owner in exactly one continuation; the list
     ;; fixes cleanup order without depending on table iteration order.
-    (: droppers (-> Callees (Table Expr) (List (Pair String Type)) Expr (Pair Expr (List Type))))
+    (: droppers
+       (impl (Fn Callees (Table Expr) (List (Pair String Type)) Expr -> (Pair Expr (List Type)))))
     (define (droppers callees drops scope expr)
       (let ((rebuild (lambda (term) (Expr term (::type expr) (::loc expr)))))
         (match (::term expr)
@@ -726,7 +731,11 @@
                             drops
                             (bind-params (taken-scope callees scope expr) params (::type expr))
                             body)
-             ((Pair body types) (Pair (rebuild (Lambda params body captures?)) types))))
+             ((Pair body types)
+              (let ((value (rebuild (Lambda params body captures?))))
+                (if (concrete-callable? (::type expr))
+                    (dropper-lambda callees drops scope value types)
+                    (Pair value types))))))
           ((App callee args) (dropper-call callees drops scope expr callee args))
           ((If test then otherwise)
            (let ((after (remaining-scope callees scope test)))
@@ -773,11 +782,11 @@
           (_ (Pair expr (Nil))))))
 
     (: droppers-all
-       (-> Callees
-           (Table Expr)
-           (List (Pair String Type))
-           (List Expr)
-           (Pair (List Expr) (List Type))))
+       (impl (Fn Callees
+                 (Table Expr)
+                 (List (Pair String Type))
+                 (List Expr)
+                 -> (Pair (List Expr) (List Type)))))
     (define (droppers-all callees drops scope exprs)
       (match exprs
         ((Cons expr rest)
@@ -788,11 +797,11 @@
         ((Nil) (Pair (Nil) (Nil)))))
 
     (: dropper-clauses
-       (-> Callees
-           (Table Expr)
-           (List (Pair String Type))
-           (List Clause)
-           (Pair (List Clause) (List Type))))
+       (impl (Fn Callees
+                 (Table Expr)
+                 (List (Pair String Type))
+                 (List Clause)
+                 -> (Pair (List Clause) (List Type)))))
     (define (dropper-clauses callees drops scope clauses)
       (fold-right (lambda (clause result)
                     (match (droppers callees
@@ -805,17 +814,18 @@
                   (Pair (Nil) (Nil))
                   clauses))
 
-    (: bind-params (-> (List (Pair String Type)) (List String) Type (List (Pair String Type))))
+    (: bind-params
+       (impl (Fn (List (Pair String Type)) (List String) Type -> (List (Pair String Type)))))
     (define (bind-params scope params type)
-      (match type
+      (match (fn-arrow type)
         ((TFun types _ _)
          (fold-left (lambda (scope pair) (Cons pair scope))
                     scope
                     (zip params types)))
-        ((TCon "FnOnce" (Cons inner (Nil))) (bind-params scope params inner))
         (_ scope)))
 
-    (: bind-pattern-types (-> (List (Pair String Type)) Pattern (List (Pair String Type))))
+    (: bind-pattern-types
+       (impl (Fn (List (Pair String Type)) Pattern -> (List (Pair String Type)))))
     (define (bind-pattern-types scope pattern)
       (match pattern
         ((PVar name type) (Cons (Pair name type) scope))
@@ -826,14 +836,14 @@
     ;; owners retained by its caller, even when an aborting body never
     ;; reads them: the let's value is marked with their dropper.
     (: dropper-let
-       (-> Callees
-           (Table Expr)
-           (List (Pair String Type))
-           Expr
-           String
-           Expr
-           Expr
-           (Pair Expr (List Type))))
+       (impl (Fn Callees
+                 (Table Expr)
+                 (List (Pair String Type))
+                 Expr
+                 String
+                 Expr
+                 Expr
+                 -> (Pair Expr (List Type)))))
     (define (dropper-let callees drops scope expr name value body)
       (let ((after (remaining-scope callees scope value)))
         (match (droppers callees drops (taken-scope callees scope value) value)
@@ -848,13 +858,13 @@
 
     ;; `once` of a lambda with linear captures marks it with their dropper.
     (: dropper-call
-       (-> Callees
-           (Table Expr)
-           (List (Pair String Type))
-           Expr
-           Expr
-           (List Expr)
-           (Pair Expr (List Type))))
+       (impl (Fn Callees
+                 (Table Expr)
+                 (List (Pair String Type))
+                 Expr
+                 Expr
+                 (List Expr)
+                 -> (Pair Expr (List Type)))))
     (define (dropper-call callees drops scope expr callee args)
       (match (droppers-all callees drops scope (Cons callee args))
         ((Pair (Cons callee args) types)
@@ -871,28 +881,30 @@
     ;; used by a subexpression stay in its caller's continuation. This also
     ;; retains owners a Never branch never mentions, which liveness from
     ;; the normal continuation alone cannot discover.
-    (: selected-scope (-> (List (Pair String Type)) (List String) Bool (List (Pair String Type))))
+    (: selected-scope
+       (impl (Fn (List (Pair String Type)) (List String) Bool -> (List (Pair String Type)))))
     (define (selected-scope scope names selected?)
       (filter (lambda (entry)
                 (if selected? (member? (::first entry) names)
                     (not (member? (::first entry) names)))) scope))
 
-    (: taken-scope (-> Callees (List (Pair String Type)) Expr (List (Pair String Type))))
+    (: taken-scope (impl (Fn Callees (List (Pair String Type)) Expr -> (List (Pair String Type)))))
     (define (taken-scope callees scope expr)
       (selected-scope scope (consumed-references (callees-program callees) expr) #t))
 
-    (: remaining-scope (-> Callees (List (Pair String Type)) Expr (List (Pair String Type))))
+    (: remaining-scope
+       (impl (Fn Callees (List (Pair String Type)) Expr -> (List (Pair String Type)))))
     (define (remaining-scope callees scope expr)
       (selected-scope scope (consumed-references (callees-program callees) expr) #f))
 
     (: hold-abandoned
-       (-> Callees
-           (Table Expr)
-           (List (Pair String Type))
-           Expr
-           Expr
-           (List Type)
-           (Pair Expr (List Type))))
+       (impl (Fn Callees
+                 (Table Expr)
+                 (List (Pair String Type))
+                 Expr
+                 Expr
+                 (List Type)
+                 -> (Pair Expr (List Type)))))
     (define (hold-abandoned callees drops scope original value types)
       (let* ((after (remaining-scope callees scope original))
              (live (if (null? (yields callees value)) (Nil)
@@ -904,21 +916,41 @@
               (Pair (bind name (with-dropper drops value live) result)
                     (append (map ::second live) types))))))
 
-    (: lambda-captures (-> Callees (List (Pair String Type)) Expr (List (Pair String Type))))
+    (: lambda-captures
+       (impl (Fn Callees (List (Pair String Type)) Expr -> (List (Pair String Type)))))
     (define (lambda-captures callees scope procedure)
       (match (::term procedure)
         ((Lambda _ _ _) (linear-locals callees (taken-scope callees scope procedure)))
         (_ (Nil))))
 
+    ;; A concrete reusable callable owns its environment until it is dropped;
+    ;; a consuming callable owns it until its one call or drop. Both keep the
+    ;; same capture dropper beside their code. Invocation access is static.
+    (: dropper-lambda
+       (impl (Fn Callees
+                 (Table Expr)
+                 (List (Pair String Type))
+                 Expr
+                 (List Type)
+                 ->
+                 (Pair Expr (List Type)))))
+    (define (dropper-lambda callees drops scope value types)
+      (let ((captured (lambda-captures callees scope value)) (loc (::loc value)))
+        (if (null? captured) (Pair value types)
+            (let ((identity (Expr (Var "prim:once" (Nil) (Nil))
+                                  (TFun (list (::type value)) (::type value) empty-row) loc)))
+              (Pair (once-dropping drops value identity value captured)
+                    (append (map ::second captured) types))))))
+
     ;; The owners in this scope, in cleanup order.
-    (: linear-locals (-> Callees (List (Pair String Type)) (List (Pair String Type))))
+    (: linear-locals (impl (Fn Callees (List (Pair String Type)) -> (List (Pair String Type)))))
     (define (linear-locals callees scope)
       (filter (lambda (entry)
                 (linear-type? (callees-program callees) (Nil) (::second entry)))
               scope))
 
     ;; The value marked with the dropper of `live`, once every drop is known.
-    (: with-dropper (-> (Table Expr) Expr (List (Pair String Type)) Expr))
+    (: with-dropper (impl (Fn (Table Expr) Expr (List (Pair String Type)) -> Expr)))
     (define (with-dropper drops value live)
       (match (dropper drops live (::loc value))
         ((Some thunk)
@@ -931,7 +963,7 @@
                  loc)))
         ((None) value)))
 
-    (: once-dropping (-> (Table Expr) Expr Expr Expr (List (Pair String Type)) Expr))
+    (: once-dropping (impl (Fn (Table Expr) Expr Expr Expr (List (Pair String Type)) -> Expr)))
     (define (once-dropping drops expr callee procedure captured)
       (let ((loc (::loc expr)))
         (match (dropper drops captured loc)
@@ -948,7 +980,7 @@
 
     ;; A thunk that drops each of `live` in order, closed over them; None
     ;; while a drop is not yet known, or when there is nothing to drop.
-    (: dropper (-> (Table Expr) (List (Pair String Type)) Loc (Option Expr)))
+    (: dropper (impl (Fn (Table Expr) (List (Pair String Type)) Loc -> (Option Expr))))
     (define (dropper drops live loc)
       (let ((calls (concatenate (map (lambda (local)
                                        (match (table-ref drops (type-key (::second local)))
@@ -977,7 +1009,7 @@
     ;; Temporaries are numbered within the Wasm function they land in: a
     ;; function's definition counts from zero, while the statements and the
     ;; other definitions' values all run in `main`, and share one count.
-    (: control-item (-> I64 Callees Item (Pair Item I64)))
+    (: control-item (impl (Fn I64 Callees Item -> (Pair Item I64))))
     (define (control-item count callees item)
       (match item
         ((Define name value)
@@ -988,11 +1020,11 @@
         ((Do expr) (naming count ((expr (control-expr callees expr))) (Pair (Do expr) count)))
         (_ (Pair item count))))
 
-    (: control-expr (-> I64 Callees Expr (Pair Expr I64)))
+    (: control-expr (impl (Fn I64 Callees Expr -> (Pair Expr I64))))
     (define (control-expr count callees expr)
       (if (yield-free? callees expr) (Pair expr count) (normal count callees expr)))
 
-    (: check-item (-> Callees Item Unit ! compile))
+    (: check-item (impl (Fn Callees Item -> Unit ! compile)))
     (define (check-item callees item)
       (check-exposure callees item)
       (unless (null? (callees-control callees))

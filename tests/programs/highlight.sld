@@ -18,7 +18,7 @@
 
 ;; ---- Printing ----
 
-(: quoted (-> String String))
+(: quoted (impl (Fn String -> String)))
 (define (quoted text)
   (string-append "\""
                  (string-concatenate (map (lambda (c)
@@ -29,11 +29,11 @@
                                           (string->list text)))
                  "\""))
 
-(: token-text (-> (Vector Char) Token String))
+(: token-text (impl (Fn (Vector Char) Token -> String)))
 (define (token-text chars token)
   (vector->string (subvector chars (::start token) (::end token))))
 
-(: tiles? (-> (List Token) I64 I64 Bool))
+(: tiles? (impl (Fn (List Token) I64 I64 -> Bool)))
 (define (tiles? tokens index end)
   (match tokens
     ((Cons token rest)
@@ -42,7 +42,7 @@
           (tiles? rest (::end token) end)))
     ((Nil) (= index end))))
 
-(: show-tokens (-> String Unit ! console))
+(: show-tokens (impl (Fn String -> Unit ! console)))
 (define (show-tokens text)
   (let* ((chars (string->vector text)) (tokens (highlight-tokens text)))
     (unless (and (tiles? tokens 0 (vector-length chars))
@@ -60,13 +60,13 @@
                                                  tokens)
                                             " ")))))
 
-(: show-reading (-> String Unit ! console))
+(: show-reading (impl (Fn String -> Unit ! console)))
 (define (show-reading text)
   (show-tokens text)
   (write-line (string-append "  read: " (reading text))))
 
 ;; The forms the reader makes of `text`, or the error it stops with.
-(: reading (-> String String))
+(: reading (impl (Fn String -> String)))
 (define (reading text)
   (match (compiling (lambda () (read-text text "sample.sld")))
     ((Ok forms) (string-join (map syntax->string forms) " "))
@@ -77,10 +77,11 @@
 
 ;; A definition's name, a comment, a number and the core forms.
 (show-reading "(define (twice x) ; doubles\n  (* 2 x))")
-(show-reading "(: label (-> I64 String))")
+(show-reading "(: label (impl (Fn I64 -> String)))")
 (show-reading "(define ((adder n) x) (+ n x))")
 (show-reading "(struct Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
-(show-reading "(effect ask (ctl ask (-> Unit I64))) (handle ask ((ask (lambda (resume) 1))) body)")
+(show-reading
+ "(effect ask (ctl ask (dyn (Fn Unit -> I64)))) (handle ask ((ask (lambda (resume) 1))) body)")
 
 ;; Block comments nest.
 (show-reading "#| outer #| inner |# still outer |#x")

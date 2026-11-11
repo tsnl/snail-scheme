@@ -34,7 +34,7 @@
 
     ;; The Endpoint for dotted IPv4 text and a port, or EINVAL, the code a
     ;; host gives an address it cannot use.
-    (: endpoint (-> String I32 (Result Endpoint SocketError)))
+    (: endpoint (impl (Fn String I32 -> (Result Endpoint SocketError))))
     (define (endpoint address port)
       (match (ipv4-address address)
         ((Some octets)
@@ -45,7 +45,7 @@
 
     ;; Four decimal octets from 0 to 255 between dots, none with a leading
     ;; zero, as Node's isIPv4 reads an address.
-    (: ipv4-address (-> String (Option I64)))
+    (: ipv4-address (impl (Fn String -> (Option I64))))
     (define (ipv4-address text)
       (let loop ((index 0) (dots 0) (digits 0) (octet 0) (address 0))
         (if (= index (string-length text))
@@ -58,14 +58,14 @@
                     (else (None)))))))
 
     ;; The address as dotted text.
-    (: Endpoint-address (-> Endpoint String))
+    (: Endpoint-address (impl (Fn Endpoint -> String)))
     (define (Endpoint-address endpoint)
       (let ((address (::address endpoint)))
         (string-join (map (lambda (place) (i64->string (remainder (quotient address place) 256)))
                           (list 16777216 65536 256 1))
                      ".")))
 
-    (: Endpoint-port (-> Endpoint I32))
+    (: Endpoint-port (impl (Fn Endpoint -> I32)))
     (define (Endpoint-port endpoint)
       (::port endpoint))
 
@@ -113,14 +113,14 @@
       ((code String)))
 
     (effect tcp
-      ((listen (-> Endpoint (Result Listener SocketError) ! tasks))
-       (connect (-> Endpoint (Result Connection SocketError) ! tasks))
-       (accept (-> Listener (Result Connection SocketError) ! tasks))
-       (read (-> Connection I32 (Result (Option Bytes) SocketError) ! tasks))
-       (write (-> Connection Bytes (Result I32 SocketError) ! tasks))
-       (finish-connection (-> Connection I32 (Result Unit SocketError) ! tasks))
-       (close-listener (-> Listener (Result Unit SocketError)))
-       (close-connection (-> Connection (Result Unit SocketError))))
+      ((listen (dyn (Fn Endpoint -> (Result Listener SocketError) ! tasks)))
+       (connect (dyn (Fn Endpoint -> (Result Connection SocketError) ! tasks)))
+       (accept (dyn (Fn Listener -> (Result Connection SocketError) ! tasks)))
+       (read (dyn (Fn Connection I32 -> (Result (Option Bytes) SocketError) ! tasks)))
+       (write (dyn (Fn Connection Bytes -> (Result I32 SocketError) ! tasks)))
+       (finish-connection (dyn (Fn Connection I32 -> (Result Unit SocketError) ! tasks)))
+       (close-listener (dyn (Fn Listener -> (Result Unit SocketError))))
+       (close-connection (dyn (Fn Connection -> (Result Unit SocketError)))))
       (default
         ((listen (lambda (endpoint)
                    (native (lambda (ticket)
@@ -163,10 +163,10 @@
                              (answered (host-close-tcp (connection-handle connection)) done))))))
 
     (effect udp
-      ((bind (-> Endpoint (Result UdpSocket SocketError) ! tasks))
-       (send (-> UdpSocket Endpoint Bytes (Result I32 SocketError) ! tasks))
-       (receive (-> UdpSocket I32 (Result Datagram SocketError) ! tasks))
-       (close-udp (-> UdpSocket (Result Unit SocketError))))
+      ((bind (dyn (Fn Endpoint -> (Result UdpSocket SocketError) ! tasks)))
+       (send (dyn (Fn UdpSocket Endpoint Bytes -> (Result I32 SocketError) ! tasks)))
+       (receive (dyn (Fn UdpSocket I32 -> (Result Datagram SocketError) ! tasks)))
+       (close-udp (dyn (Fn UdpSocket -> (Result Unit SocketError)))))
       (default
         ((bind (lambda (endpoint)
                  (native (lambda (ticket)
@@ -211,21 +211,21 @@
     (struct NativeUdpSocket
       ((handle I32)))
 
-    (: listener-handle (-> Listener I32))
+    (: listener-handle (impl (Fn Listener -> I32)))
     (define (listener-handle listener)
       (let ((token (::token listener)))
         (match (try-convert token NativeListener)
           ((Ok native) (::handle native))
           ((Err _) 0))))
 
-    (: connection-handle (-> Connection I32))
+    (: connection-handle (impl (Fn Connection -> I32)))
     (define (connection-handle connection)
       (let ((token (::token connection)))
         (match (try-convert token NativeConnection)
           ((Ok native) (::handle native))
           ((Err _) 0))))
 
-    (: udp-handle (-> UdpSocket I32))
+    (: udp-handle (impl (Fn UdpSocket -> I32)))
     (define (udp-handle socket)
       (let ((token (::token socket)))
         (match (try-convert token NativeUdpSocket)
@@ -234,7 +234,7 @@
 
     ;; An endpoint crosses to the host as two I32s, its port and its
     ;; address, whose octets the host reads as the I32's unsigned bits.
-    (: address-number (-> Endpoint I32))
+    (: address-number (impl (Fn Endpoint -> I32)))
     (define (address-number endpoint)
       (i64->i32 (::address endpoint)))
 
@@ -242,56 +242,59 @@
 
     ;; An operation that waits on the host: `start` starts it under its
     ;; ticket, and `success` reads its answer when it did not fail.
-    (: native (All (T) (-> (-> I64 Unit) (-> I32 T) (Result T SocketError) ! tasks)))
+    (: native
+       (All (T)
+            (impl
+             (Fn (dyn (Fn I64 -> Unit)) (dyn (Fn I32 -> T)) -> (Result T SocketError) ! tasks))))
     (define (native start success)
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 
     ;; What the host holds for an answer is read before the next host call
     ;; ((snail runtime native socket) has the table); a failure holds its
     ;; code. A handle in an answer is the shell's from then on.
-    (: answered (All (T) (-> I32 (-> I32 T) (Result T SocketError))))
+    (: answered (All (T) (impl (Fn I32 (dyn (Fn I32 -> T)) -> (Result T SocketError)))))
     (define (answered answer success)
       (if (< answer 0)
           (Err (SocketError (held-text 0)))
           (Ok (success answer))))
 
-    (: held-bytes (-> I32 Bytes))
+    (: held-bytes (impl (Fn I32 -> Bytes)))
     (define (held-bytes position)
       (vector-generate (i32->i64 (host-held-length position))
                        (lambda (index) (i32->u8 (host-held-byte position (i64->i32 index))))))
 
     ;; Error codes and addresses are ASCII.
-    (: held-text (-> I32 String))
+    (: held-text (impl (Fn I32 -> String)))
     (define (held-text position)
       (string-generate (i32->i64 (host-held-length position))
                        (lambda (index) (i32->char (host-held-byte position (i64->i32 index))))))
 
-    (: listening (-> I32 Listener))
+    (: listening (impl (Fn I32 -> Listener)))
     (define (listening handle)
       (Listener (type-convert (NativeListener handle) Any) (host-held-number)))
 
-    (: connected (-> I32 Connection))
+    (: connected (impl (Fn I32 -> Connection)))
     (define (connected handle)
       (Connection (type-convert (NativeConnection handle) Any)))
 
-    (: bound (-> I32 UdpSocket))
+    (: bound (impl (Fn I32 -> UdpSocket)))
     (define (bound handle)
       (UdpSocket (type-convert (NativeUdpSocket handle) Any) (host-held-number)))
 
-    (: held-read (-> I32 (Option Bytes)))
+    (: held-read (impl (Fn I32 -> (Option Bytes))))
     (define (held-read answer)
       (if (= answer 0) (None) (Some (held-bytes 0))))
 
     ;; Node names a datagram's sender by its dotted text, which `endpoint`
     ;; parses as it would any other.
-    (: held-datagram (-> I32 (Result Datagram SocketError)))
+    (: held-datagram (impl (Fn I32 -> (Result Datagram SocketError))))
     (define (held-datagram _)
       (match (endpoint (held-text 0) (host-held-number))
         ((Ok peer) (Ok (Datagram peer (held-bytes 1))))
         ((Err error) (Err error))))
 
-    (: count (-> I32 I32))
+    (: count (impl (Fn I32 -> I32)))
     (define (count written) written)
 
-    (: done (-> I32 Unit))
+    (: done (impl (Fn I32 -> Unit)))
     (define (done _) (unit))))

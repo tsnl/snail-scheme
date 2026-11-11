@@ -102,19 +102,19 @@
 
     ;; ---- Calls ----
 
-    (: call (-> Any (List Any) Any ! console mut dyn-cast))
+    (: call (impl (Fn Any (List Any) -> Any ! console mut dyn-cast)))
     (define (call procedure arguments)
       ((::call (type-convert procedure Procedure)) arguments))
 
     ;; Generated scripts fail at the current evaluation. A caller using call
     ;; directly can instead recover with its own dyn-cast handler.
-    (: scheme-evaluate (-> (-> Any ! console mut dyn-cast) Any ! console mut))
+    (: scheme-evaluate (impl (Fn (dyn (Fn -> Any ! console mut dyn-cast)) -> Any ! console mut)))
     (define (scheme-evaluate work)
       (handle dyn-cast
           ((conversion-failed (lambda (error) (panic (cast-error->string error)))))
         (work)))
 
-    (: arity! (-> (List Any) I64 Bool Unit))
+    (: arity! (impl (Fn (List Any) I64 Bool -> Unit)))
     (define (arity! arguments count rest?)
       (let ((given (length arguments)))
         (unless (if rest? (>= given count) (= given count))
@@ -124,11 +124,11 @@
                                 " arguments, got "
                                 (i64->string given))))))
 
-    (: rest-arguments (-> (List Any) I64 Any))
+    (: rest-arguments (impl (Fn (List Any) I64 -> Any)))
     (define (rest-arguments arguments count)
       (datum-list (list-tail arguments count)))
 
-    (: scheme-number (-> String Any))
+    (: scheme-number (impl (Fn String -> Any)))
     (define (scheme-number text)
       (match (string->number text)
         ((Some n) (number->datum n))
@@ -138,7 +138,7 @@
     (: unspecified Any)
     (define unspecified (ann #f Any))
 
-    (: member-datum? (-> Any Any Bool))
+    (: member-datum? (impl (Fn Any Any -> Bool)))
     (define (member-datum? item items)
       (match-any items
                  ((SchemePair (SchemePair head tail))
@@ -170,7 +170,7 @@
                                 (ann (begin body ...) Any))) Any)))))
 
     ;; A domain check shares the failure path of concrete type conversions.
-    (: type-error (All (A) (-> String Any A ! dyn-cast)))
+    (: type-error (All (A) (impl (Fn String Any -> A ! dyn-cast))))
     (define (type-error expected datum)
       (absurd (conversion-failed
                (CastError (TypeMismatch) (list expected) (any-type-id datum)
@@ -178,27 +178,28 @@
 
     ;; ---- Numbers ----
 
-    (: number-of (-> Any Number ! dyn-cast))
+    (: number-of (impl (Fn Any -> Number ! dyn-cast)))
     (define (number-of datum)
       (match (datum-number datum)
         ((Some n) n)
         ((None) (type-error "Integer, Rational or F64" datum))))
 
-    (: integer-of (-> Any Integer ! dyn-cast))
+    (: integer-of (impl (Fn Any -> Integer ! dyn-cast)))
     (define (integer-of datum)
       (match (number-of datum)
         ((Exact r)
          (if (rational-integer? r) (::numerator r) (type-error "an integer" datum)))
         ((Inexact _) (type-error "an exact integer" datum))))
 
-    (: inverse-fold (-> (-> Any Any Any ! dyn-cast) Any (List Any) Any ! dyn-cast))
+    (: inverse-fold
+       (impl (Fn (dyn (Fn Any Any -> Any ! dyn-cast)) Any (List Any) -> Any ! dyn-cast)))
     (define (inverse-fold op identity arguments)
       (match arguments
         ((Cons first (Nil)) (op identity first))
         ((Cons first rest) (fold-left op first rest))
         ((Nil) (panic "expected at least one argument"))))
 
-    (: chain (-> (-> I64 Bool) (List Any) Any ! dyn-cast))
+    (: chain (impl (Fn (dyn (Fn I64 -> Bool)) (List Any) -> Any ! dyn-cast)))
     (define (chain test arguments)
       (let loop ((items arguments))
         (match items
@@ -270,7 +271,7 @@
     (: %min (Ref Any))
     (define %min (variadic (lambda (arguments) (extreme (lambda (order) (< order 0)) arguments))))
 
-    (: extreme (-> (-> I64 Bool) (List Any) Any ! dyn-cast))
+    (: extreme (impl (Fn (dyn (Fn I64 -> Bool)) (List Any) -> Any ! dyn-cast)))
     (define (extreme better? arguments)
       (match arguments
         ((Cons first rest)
@@ -289,7 +290,7 @@
       (procedure1
        (lambda (a) (match (datum-number a) ((Some n) (number-integer? n)) ((None) #f)))))
 
-    (: sign (-> Any I64 ! dyn-cast))
+    (: sign (impl (Fn Any -> I64 ! dyn-cast)))
     (define (sign a)
       (number-compare (number-of a) (number-from-i64 0)))
 
@@ -330,7 +331,7 @@
     (: %list (Ref Any))
     (define %list (variadic (lambda (arguments) (datum-list arguments))))
 
-    (: items-of (-> Any (List Any) ! dyn-cast))
+    (: items-of (impl (Fn Any -> (List Any) ! dyn-cast)))
     (define (items-of datum)
       (match (datum->list datum)
         ((Some items) items)
@@ -402,7 +403,7 @@
 
     ;; ---- Strings and symbols ----
 
-    (: text-of (-> Any String ! dyn-cast))
+    (: text-of (impl (Fn Any -> String ! dyn-cast)))
     (define (text-of value) value)
 
     (: %string-append (Ref Any))
@@ -424,7 +425,7 @@
     (: %string=? (Ref Any))
     (define %string=? (procedure2 (lambda (a b) (string=? a b))))
 
-    (: text (-> (-> String String) (Ref Any)))
+    (: text (impl (Fn (dyn (Fn String -> String)) -> (Ref Any))))
     (define (text f)
       (procedure1 (lambda (a) (f a))))
 
@@ -450,11 +451,11 @@
     ;; `string-foldcase` may expand a scalar, as "ß" into "ss", so
     ;; `string-ci=?` compares folded text rather than scalar by scalar.
 
-    (: character (-> (-> Char Char) (Ref Any)))
+    (: character (impl (Fn (dyn (Fn Char -> Char)) -> (Ref Any))))
     (define (character f)
       (procedure1 (lambda (a) (f a))))
 
-    (: character-property (-> (-> Char Bool) (Ref Any)))
+    (: character-property (impl (Fn (dyn (Fn Char -> Bool)) -> (Ref Any))))
     (define (character-property holds?)
       (procedure1 (lambda (a) (holds? a))))
 

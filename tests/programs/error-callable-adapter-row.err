@@ -1,0 +1,1 @@
+an owned shared or exclusive receiver cannot adapt to a suspending FnOnce call

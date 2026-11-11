@@ -3,8 +3,8 @@
 
 (struct Model
   ((title String)
-   (work (FnOnce Unit))))
+   (work (dyn (FnOnce -> Unit)))))
 
-(: escaped (-> (Borrow Model) (-> String)))
+(: escaped (impl (Fn (Borrow Model) -> (dyn (Fn -> String)))))
 (define (escaped model)
   (lambda () (::title model)))

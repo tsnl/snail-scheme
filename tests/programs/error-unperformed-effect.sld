@@ -3,7 +3,7 @@
  (snail core io))
 
 ;; A signature may not name an effect its body never performs.
-(: double (-> I64 I64 ! mut))
+(: double (impl (Fn I64 -> I64 ! mut)))
 (define (double x)
   (* x 2))
 

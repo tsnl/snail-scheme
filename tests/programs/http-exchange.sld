@@ -16,15 +16,15 @@
        ((Err _) (panic "fixture payload has the wrong type"))))))
 
 
-(: assert (-> Bool Unit))
+(: assert (impl (Fn Bool -> Unit)))
 (define (assert condition) (unless condition (panic "HTTP exchange assertion failed")))
 
-(: ascii (-> String Bytes))
+(: ascii (impl (Fn String -> Bytes)))
 (define (ascii text)
   (vector-generate (string-length text)
                    (lambda (index) (i32->u8 (char->i32 (string-ref text index))))))
 
-(: text (-> Bytes String))
+(: text (impl (Fn Bytes -> String)))
 (define (text bytes)
   (string-generate (vector-length bytes)
                    (lambda (index) (i32->char (u8->i32 (vector-ref bytes index))))))
@@ -39,14 +39,14 @@
    (write-size I64)
    (fault String)))
 
-(: stream (-> Bytes I64 I64 String Stream))
+(: stream (impl (Fn Bytes I64 I64 String -> Stream)))
 (define (stream input read-size write-size fault)
   (Stream input (ref 0) (ref (ann (Nil) (List Bytes))) (ref 0) (ref 0) read-size write-size fault))
 
-(: token (-> Connection Stream))
+(: token (impl (Fn Connection -> Stream)))
 (define (token connection) (fixture-convert (::token connection) Stream))
 
-(: read-stream (-> Connection I32 (Result (Option Bytes) SocketError) ! mut))
+(: read-stream (impl (Fn Connection I32 -> (Result (Option Bytes) SocketError) ! mut)))
 (define (read-stream connection maximum)
   (let* ((state (token connection)) (start (ref-get (::cursor state)))
          (end (min (vector-length (::input state))
@@ -58,7 +58,7 @@
           (else (ref-set! (::cursor state) end)
                 (Ok (Some (subvector (::input state) start end)))))))
 
-(: write-stream (-> Connection Bytes (Result I32 SocketError) ! mut))
+(: write-stream (impl (Fn Connection Bytes -> (Result I32 SocketError) ! mut)))
 (define (write-stream connection bytes)
   (let* ((state (token connection)) (count (min (vector-length bytes) (::write-size state))))
     (cond ((string=? (::fault state) "write") (Err (SocketError "TEST_WRITE")))
@@ -72,7 +72,7 @@
                      (Cons (subvector bytes 0 count) (ref-get (::output state))))
            (Ok (i64->i32 count))))))
 
-(: finish-stream (-> Connection I32 (Result Unit SocketError) ! mut))
+(: finish-stream (impl (Fn Connection I32 -> (Result Unit SocketError) ! mut)))
 (define (finish-stream connection grace)
   (let ((state (token connection)))
     (assert (= grace 250))
@@ -80,25 +80,25 @@
         (Err (SocketError "TEST_FINISH"))
         (begin (ref-set! (::ended state) 1) (Ok (unit))))))
 
-(: close-stream (-> Connection (Result Unit SocketError) ! mut))
+(: close-stream (impl (Fn Connection -> (Result Unit SocketError) ! mut)))
 (define (close-stream connection)
   (ref-set! (::ended (token connection)) 2)
   (Err (SocketError "TEST_CLOSE")))
 
-(: run (All (e) (-> Stream (-> Request (Result Response String) ! e)
-                    (Result Unit (ExchangeError String)) ! tcp tasks e)))
+(: run (All (e) (impl (Fn Stream (dyn (Fn Request -> (Result Response String) ! e))
+                          -> (Result Unit (ExchangeError String)) ! tcp tasks e))))
 (define (run state handler)
   (serve-one (Connection (type-convert state Any)) 250 handler))
 
-(: echo (-> Request (Result Response String) ! tasks))
+(: echo (impl (Fn Request -> (Result Response String) ! tasks)))
 (define (echo request)
   (sleep 1)
   (Ok (Response 200 (Nil) (::body request))))
 
-(: output (-> Stream String ! mut))
+(: output (impl (Fn Stream -> String ! mut)))
 (define (output state) (text (vector-concatenate (reverse (ref-get (::output state))))))
 
-(: success? (-> (Result Unit (ExchangeError String)) Bool))
+(: success? (impl (Fn (Result Unit (ExchangeError String)) -> Bool)))
 (define (success? result) (match result ((Ok _) #t) ((Err _) #f)))
 
 (: request Bytes)

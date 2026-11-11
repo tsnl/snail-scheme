@@ -3,7 +3,7 @@
  (snail core io)
  (snail shell wasm))
 
-(: count (-> Funcref I64))
+(: count (impl (Fn Funcref -> I64)))
 (define (count function)
   (unsafe-cast function))
 

@@ -38,7 +38,7 @@
     ;; The row within a motion's four for a spritebook heading: heading 0
     ;; faces the viewer (the sheet's third row), 1 their right (the fourth),
     ;; 2 away (the first) and 3 their left (the second).
-    (: heading-row (-> I64 I32))
+    (: heading-row (impl (Fn I64 -> I32)))
     (define (heading-row heading)
       (list-ref (list 2 3 0 1) (modulo heading 4)))
 
@@ -54,7 +54,7 @@
 
     ;; A motion's first row, frame count and milliseconds per frame. Hurt has
     ;; one row, seen from every heading.
-    (: motion-strip (-> Motion I64 Strip))
+    (: motion-strip (impl (Fn Motion I64 -> Strip)))
     (define (motion-strip motion heading)
       (match motion
         ((Cast) (Strip 0 (heading-row heading) 7 100))
@@ -65,7 +65,7 @@
         ((Hurt) (Strip 0 20 6 100))))
 
     ;; A picture holding a whole universal sheet.
-    (: universal-book (-> I32 (Spritebook Motion)))
+    (: universal-book (impl (Fn I32 -> (Spritebook Motion))))
     (define (universal-book picture)
       (Spritebook picture cell cell 4 motion-strip))
 
@@ -76,14 +76,14 @@
       (Stand)
       (Stroll))
 
-    (: gait-strip (-> Gait I64 Strip))
+    (: gait-strip (impl (Fn Gait I64 -> Strip)))
     (define (gait-strip gait heading)
       (match gait
         ((Stand) (Strip 0 (heading-row heading) 1 1))
         ((Stroll) (Strip 1 (heading-row heading) 8 90))))
 
     ;; A picture holding `walk-region` of a sheet, at its top left.
-    (: walk-book (-> I32 (Spritebook Gait)))
+    (: walk-book (impl (Fn I32 -> (Spritebook Gait))))
     (define (walk-book picture)
       (Spritebook picture cell cell 4 gait-strip))
 

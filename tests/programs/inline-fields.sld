@@ -18,12 +18,12 @@
    (label String)))
 ;; ANCHOR_END: segment
 
-(: show-point (-> Point String))
+(: show-point (impl (Fn Point -> String)))
 (define (show-point point)
   (match point
     ((Point x y) (string-append "(" (show x) ", " (show y) ")"))))
 
-(: show-segment (-> Segment String))
+(: show-segment (impl (Fn Segment -> String)))
 (define (show-segment segment)
   (string-append (::label segment)
                  ": "
@@ -51,9 +51,9 @@
 ;; written.
 (struct Job
   ((at Point)
-   (work (FnOnce Unit ! console))))
+   (work (dyn (FnOnce -> Unit ! console)))))
 
-(: flip (-> Job Job))
+(: flip (impl (Fn Job -> Job)))
 (define (flip job)
   (Job-at-set job (Point (::y (::at job)) (::x (::at job)))))
 
@@ -66,7 +66,7 @@
 (let ((pair (Pair (Point 7 8) "seven-eight")))
   (write-line (string-append (::second pair) " " (show-point (::first pair)))))
 
-(: nearest (-> (List Point) Point))
+(: nearest (impl (Fn (List Point) -> Point)))
 (define (nearest points)
   (fold-left (lambda (best point) (if (< (::x point) (::x best)) point best))
              (Point 100 100)
@@ -82,7 +82,7 @@
    ((segment Segment)))
   (Empty))
 
-(: describe (-> Shape String))
+(: describe (impl (Fn Shape -> String)))
 (define (describe shape)
   (match shape
     ((Dot (Point x y)) (string-append "dot at " (show x) "," (show y)))
@@ -121,9 +121,9 @@
 ;; A call that may yield leaves with a placeholder of its type, here a
 ;; Segment, before the frames resume.
 (effect Ask
-  ((ctl ask (-> I64))))
+  ((ctl ask (dyn (Fn -> I64)))))
 
-(: build (-> Segment ! Ask))
+(: build (impl (Fn -> Segment ! Ask)))
 (define (build)
   (Segment (Point (ask) 0) (Point 0 (ask)) "asked"))
 

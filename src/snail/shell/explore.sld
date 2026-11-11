@@ -26,12 +26,12 @@
     ;; `moves` lists what may happen in a state, `step` applies one, and
     ;; `invariant` explains why a state is wrong, if it is.
     (: explore (All (S M) (requires (Serialize S) (Copy S) (Copy M))
-                    (-> S
-                        (-> S (List M))
-                        (-> S M S)
-                        (-> S (Option String))
-                        I64
-                        (Option (Violation S M)))))
+                    (impl (Fn S
+                              (dyn (Fn S -> (List M)))
+                              (dyn (Fn S M -> S))
+                              (dyn (Fn S -> (Option String)))
+                              I64
+                              -> (Option (Violation S M))))))
     (define (explore initial moves step invariant depth)
       (search (list (Visit initial (Nil)))
               moves
@@ -43,13 +43,13 @@
     ;; Checks one frontier, then the states its moves reach for the first
     ;; time. `seen` holds every state reached so far.
     (: search (All (S M) (requires (Serialize S) (Copy M) (Copy S))
-                   (-> (List (Visit S M))
-                       (-> S (List M))
-                       (-> S M S)
-                       (-> S (Option String))
-                       I64
-                       (Table Bool)
-                       (Option (Violation S M)))))
+                   (impl (Fn (List (Visit S M))
+                             (dyn (Fn S -> (List M)))
+                             (dyn (Fn S M -> S))
+                             (dyn (Fn S -> (Option String)))
+                             I64
+                             (Table Bool)
+                             -> (Option (Violation S M))))))
     (define (search frontier moves step invariant depth seen)
       (match (first-violation frontier invariant)
         ((Some violation) (Some violation))
@@ -62,7 +62,8 @@
     (: first-violation
        (All (S M)
             (requires (Copy M) (Copy S))
-            (-> (List (Visit S M)) (-> S (Option String)) (Option (Violation S M)))))
+            (impl
+             (Fn (List (Visit S M)) (dyn (Fn S -> (Option String))) -> (Option (Violation S M))))))
     (define (first-violation frontier invariant)
       (match frontier
         ((Nil) (None))
@@ -75,11 +76,11 @@
     ;; The states the frontier reaches for the first time, with `seen`
     ;; grown by them.
     (: successors (All (S M) (requires (Serialize S) (Copy M) (Copy S))
-                       (-> (List (Visit S M))
-                           (-> S (List M))
-                           (-> S M S)
-                           (Table Bool)
-                           (Pair (List (Visit S M)) (Table Bool)))))
+                       (impl (Fn (List (Visit S M))
+                                 (dyn (Fn S -> (List M)))
+                                 (dyn (Fn S M -> S))
+                                 (Table Bool)
+                                 -> (Pair (List (Visit S M)) (Table Bool))))))
     (define (successors frontier moves step seen)
       (match (fold-left (lambda (found visit)
                           (fold-left (lambda (found move)
@@ -98,7 +99,7 @@
         ((Pair next seen) (Pair (reverse next) seen))))
 
     ;; The encoding as text, one character per byte, to key the table.
-    (: state-key (All (S) (requires (Serialize S) (Copy S)) (-> S String)))
+    (: state-key (All (S) (requires (Serialize S) (Copy S)) (impl (Fn S -> String))))
     (define (state-key state)
       (let ((bytes (serialize state)))
         (string-generate (vector-length bytes)

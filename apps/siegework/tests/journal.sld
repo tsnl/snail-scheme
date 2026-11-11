@@ -18,24 +18,24 @@
   ((world World)
    (journal (List Entry))))
 
-(: give (-> Played Action Played))
+(: give (impl (Fn Played Action -> Played)))
 (define (give played action)
   (match (command (::world played) action)
     ((Ok (Pair world entry)) (Played world (Cons entry (::journal played))))
     ((Err _) played)))
 
-(: run (-> Played I64 Played))
+(: run (impl (Fn Played I64 -> Played)))
 (define (run played ticks)
   (if (= ticks 0)
       played
       (run (Played-world-set played (advance (::world played))) (- ticks 1))))
 
-(: offset (-> World I64 I64 Cell))
+(: offset (impl (Fn World I64 I64 -> Cell)))
 (define (offset world dx dy)
   (let ((hub (::cell (::hub world))))
     (Cell (+ (::x hub) dx) (+ (::y hub) dy))))
 
-(: reinforce (-> Played Played))
+(: reinforce (impl (Fn Played -> Played)))
 (define (reinforce played)
   (let ((world (::world played)))
     (give (fold-left (lambda (played d)
@@ -45,12 +45,12 @@
                      (list (Pair -2 0) (Pair 0 2) (Pair 2 0) (Pair 0 -2) (Pair -2 2) (Pair 2 -2)))
           (Upgrade (offset world 0 0)))))
 
-(: play (-> Played I64 Played))
+(: play (impl (Fn Played I64 -> Played)))
 (define (play played rounds)
   (if (= rounds 0) played (play (run (reinforce played) 100) (- rounds 1))))
 
 ;; Everything the rules decide, as text.
-(: fingerprint (-> World String))
+(: fingerprint (impl (Fn World -> String)))
 (define (fingerprint world)
   (string-join (list (show (::tick world))
                      (show (::energy world))
@@ -74,7 +74,7 @@
                       ","))
                " "))
 
-(: building-text (-> Building String))
+(: building-text (impl (Fn Building -> String)))
 (define (building-text b)
   (string-append (show (::id b))
                  (kind-name (::kind b))
@@ -87,7 +87,7 @@
                    ((Some work) (string-append "W" (show (::progress work))))
                    ((None) ""))))
 
-(: cell-text (-> Cell String))
+(: cell-text (impl (Fn Cell -> String)))
 (define (cell-text cell)
   (string-append (show (::x cell)) "." (show (::y cell))))
 

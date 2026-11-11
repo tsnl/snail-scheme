@@ -17,13 +17,13 @@
     (: word-mask I64)
     (define word-mask 4294967295)
 
-    (: wrap (-> I64 I64))
+    (: wrap (impl (Fn I64 -> I64)))
     (define (wrap value)
       (i64-and value word-mask))
 
     ;; Words written as the standard prints them: eight lowercase hex
     ;; digits each, one space after every word.
-    (: hex-words (-> String (Vector I64)))
+    (: hex-words (impl (Fn String -> (Vector I64))))
     (define (hex-words text)
       (vector-generate (quotient (string-length text) 9)
                        (lambda (word)
@@ -32,7 +32,7 @@
                                          (hex-value (string-ref text (+ (* word 9) digit)))))
                                     0 (iota 8)))))
 
-    (: hex-value (-> Char I64))
+    (: hex-value (impl (Fn Char -> I64)))
     (define (hex-value char)
       (let ((code (char->integer char)))
         (if (<= code 57) (- code 48) (- code 87))))
@@ -63,33 +63,33 @@
 
     ;; §4.1.2. `rotate` is ROTR; the sigmas mix a word's bits with
     ;; rotations and, for the schedule's small ones, a shift.
-    (: rotate (-> I64 I64 I64))
+    (: rotate (impl (Fn I64 I64 -> I64)))
     (define (rotate word count)
       (i64-or (i64-shift-right/logical word count) (wrap (i64-shift-left word (- 32 count)))))
 
-    (: big-sigma0 (-> I64 I64))
+    (: big-sigma0 (impl (Fn I64 -> I64)))
     (define (big-sigma0 word)
       (i64-xor (i64-xor (rotate word 2) (rotate word 13)) (rotate word 22)))
 
-    (: big-sigma1 (-> I64 I64))
+    (: big-sigma1 (impl (Fn I64 -> I64)))
     (define (big-sigma1 word)
       (i64-xor (i64-xor (rotate word 6) (rotate word 11)) (rotate word 25)))
 
-    (: small-sigma0 (-> I64 I64))
+    (: small-sigma0 (impl (Fn I64 -> I64)))
     (define (small-sigma0 word)
       (i64-xor (i64-xor (rotate word 7) (rotate word 18)) (i64-shift-right/logical word 3)))
 
-    (: small-sigma1 (-> I64 I64))
+    (: small-sigma1 (impl (Fn I64 -> I64)))
     (define (small-sigma1 word)
       (i64-xor (i64-xor (rotate word 17) (rotate word 19)) (i64-shift-right/logical word 10)))
 
     ;; Each bit of `x` chooses between the bits of `y` and `z`.
-    (: choose (-> I64 I64 I64 I64))
+    (: choose (impl (Fn I64 I64 I64 -> I64)))
     (define (choose x y z)
       (i64-xor (i64-and x y) (i64-and (i64-xor x word-mask) z)))
 
     ;; Each bit is the majority of three.
-    (: majority (-> I64 I64 I64 I64))
+    (: majority (impl (Fn I64 I64 I64 -> I64)))
     (define (majority x y z)
       (i64-xor (i64-xor (i64-and x y) (i64-and x z)) (i64-and y z)))
 
@@ -99,7 +99,7 @@
     ;; in bits as a 64-bit big-endian integer, filling whole 64-byte
     ;; blocks. The blocks the message fills are read from it in place;
     ;; only the last one or two, which the padding reaches, are made.
-    (: tail-blocks (-> Bytes Bytes))
+    (: tail-blocks (impl (Fn Bytes -> Bytes)))
     (define (tail-blocks message)
       (let* ((length (vector-length message))
              (start (* 64 (quotient length 64)))
@@ -113,14 +113,14 @@
 
     ;; Byte `place` of the message's length in bits, counting from the
     ;; least significant.
-    (: length-byte (-> I64 I64 U8))
+    (: length-byte (impl (Fn I64 I64 -> U8)))
     (define (length-byte length place)
       (i32->u8 (i64->i32 (i64-and (i64-shift-right/logical (* 8 length) (* 8 place)) 255))))
 
     ;; ---- Compression ----
 
     ;; Word `word` of the block that starts at byte `start`, big-endian.
-    (: block-word (-> Bytes I64 I64 I64))
+    (: block-word (impl (Fn Bytes I64 I64 -> I64)))
     (define (block-word bytes start word)
       (fold-left (lambda (value index)
                    (+ (* value 256)
@@ -129,7 +129,7 @@
 
     ;; §6.2.2 step 1: the block's sixteen words, then 48 more, each from
     ;; four earlier ones. The array is local to this call.
-    (: schedule (-> Bytes I64 (Vector I64)))
+    (: schedule (impl (Fn Bytes I64 -> (Vector I64))))
     (define (schedule bytes start)
       (let ((words (make-array 64 (ann 0 I64))))
         (do ((t 0 (+ t 1))) ((= t 64) (array->vector words))
@@ -142,7 +142,7 @@
 
     ;; §6.2.2 steps 2 to 4: 64 rounds over eight working words, which are
     ;; then added to the state.
-    (: compress (-> (Vector I64) (Vector I64) (Vector I64)))
+    (: compress (impl (Fn (Vector I64) (Vector I64) -> (Vector I64))))
     (define (compress state words)
       (let rounds ((t 0)
                    (a (vector-ref state 0))
@@ -164,7 +164,7 @@
               (rounds (+ t 1) (wrap (+ t1 t2)) a b c (wrap (+ d t1)) e f g)))))
 
     ;; The state after each 64-byte block of `bytes`, from `state`.
-    (: compress-blocks (-> (Vector I64) Bytes I64 (Vector I64)))
+    (: compress-blocks (impl (Fn (Vector I64) Bytes I64 -> (Vector I64))))
     (define (compress-blocks state bytes blocks)
       (fold-left (lambda (state block) (compress state (schedule bytes (* 64 block))))
                  state (iota blocks)))
@@ -172,7 +172,7 @@
     ;; ---- Digests ----
 
     ;; The final state's eight words, big-endian.
-    (: sha256 (-> Bytes Bytes))
+    (: sha256 (impl (Fn Bytes -> Bytes)))
     (define (sha256 message)
       (let* ((tail (tail-blocks message))
              (state (compress-blocks (compress-blocks initial-state
@@ -187,7 +187,7 @@
                                                         (* 8 (- 3 (remainder index 4))))
                                                        255)))))))
 
-    (: bytes->hex (-> Bytes String))
+    (: bytes->hex (impl (Fn Bytes -> String)))
     (define (bytes->hex bytes)
       (string-generate (* 2 (vector-length bytes))
                        (lambda (index)

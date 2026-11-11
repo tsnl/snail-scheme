@@ -13,8 +13,11 @@
   (import
    (snail core base))
   (begin
-    (extern start-hint "snail.runtime.native.files" "start-hint" (-> I64 I32 Unit))
-    (extern finish-hint "snail.runtime.native.files" "finish-hint" (-> I64 I32))
-    (extern argument-character "snail.runtime.native.files" "argument-character" (-> Char Unit))
-    (extern argument-end "snail.runtime.native.files" "argument-end" (-> Unit))
-    (extern command "snail.runtime.native.files" "command" (-> I32 I32))))
+    (extern start-hint "snail.runtime.native.files" "start-hint" (impl (Fn I64 I32 -> Unit)))
+    (extern finish-hint "snail.runtime.native.files" "finish-hint" (impl (Fn I64 -> I32)))
+    (extern argument-character
+            "snail.runtime.native.files"
+            "argument-character"
+            (impl (Fn Char -> Unit)))
+    (extern argument-end "snail.runtime.native.files" "argument-end" (impl (Fn -> Unit)))
+    (extern command "snail.runtime.native.files" "command" (impl (Fn I32 -> I32)))))

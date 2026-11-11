@@ -11,11 +11,11 @@
  (lpc catalog)
  (lpc wardrobe))
 
-(: missing (-> (List String) (List String) ! fs))
+(: missing (impl (Fn (List String) -> (List String) ! fs)))
 (define (missing paths)
   (filter (lambda (path) (not (file-exists? path))) paths))
 
-(: report (-> String (List String) Unit ! console fs))
+(: report (impl (Fn String (List String) -> Unit ! console fs)))
 (define (report title paths)
   (write-line (string-append title
                              ": "
@@ -52,7 +52,7 @@
           (Some (Worn (Pants) (Dye "navy")))
           (Some (Worn (Shoes) (Dye "brown")))))
 
-(: describe (-> (Option Character) String))
+(: describe (impl (Fn (Option Character) -> String)))
 (define (describe who)
   (match who
     ((Some character)
@@ -79,7 +79,7 @@
                                                     (None)
                                                     (None))))))
 
-(: same-fingerprint? (-> (Option Character) (Option Character) Bool))
+(: same-fingerprint? (impl (Fn (Option Character) (Option Character) -> Bool)))
 (define (same-fingerprint? a b)
   (match (Pair a b)
     ((Pair (Some one) (Some other)) (= (fingerprint one) (fingerprint other)))
@@ -122,7 +122,7 @@
                                                    (Vec3 0.7 0.0 0.8)))
                                         " ")))
 
-(: texture-text (-> Item String))
+(: texture-text (impl (Fn Item -> String)))
 (define (texture-text item)
   (match (::texture (::material item))
     ((Some (Texture picture region frames period))

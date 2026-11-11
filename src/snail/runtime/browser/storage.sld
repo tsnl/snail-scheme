@@ -12,8 +12,8 @@
   (import
    (snail core base))
   (begin
-    (extern start-load "snail.runtime.browser.storage" "start-load" (-> I64 Unit))
-    (extern finish-load "snail.runtime.browser.storage" "finish-load" (-> I64 I32))
-    (extern start-store "snail.runtime.browser.storage" "start-store" (-> I64 Bytes Unit))
-    (extern finish-store "snail.runtime.browser.storage" "finish-store" (-> I64 Unit))
-    (extern byte "snail.runtime.browser.storage" "byte" (-> I32 U8))))
+    (extern start-load "snail.runtime.browser.storage" "start-load" (impl (Fn I64 -> Unit)))
+    (extern finish-load "snail.runtime.browser.storage" "finish-load" (impl (Fn I64 -> I32)))
+    (extern start-store "snail.runtime.browser.storage" "start-store" (impl (Fn I64 Bytes -> Unit)))
+    (extern finish-store "snail.runtime.browser.storage" "finish-store" (impl (Fn I64 -> Unit)))
+    (extern byte "snail.runtime.browser.storage" "byte" (impl (Fn I32 -> U8)))))

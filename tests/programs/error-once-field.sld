@@ -1,5 +1,5 @@
 (import
  (snail core base))
 (struct Bad
-  ((work (Array (FnOnce Unit)))))
+  ((work (Array (dyn (FnOnce -> Unit))))))
 (unit)

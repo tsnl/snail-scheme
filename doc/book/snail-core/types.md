@@ -20,17 +20,20 @@ in. It is replaced when the source is read, so a macro cannot compute the
 path, and nothing else may be named `include-bytes`. A large file is better
 linked than included: see [linked files](#linked-files).
 
-A function type is `(-> Param ... Result)`, optionally followed by an
-[effect row](effects.md): `(-> String Unit ! console)`. Two other arrows
-are written the same way: `(FnOnce Param ... Result)` is called at most
-once, and `(Fn Param ... Result)` has no environment, a reference to code
-alone ([ownership](ownership.md#closures-without-an-environment)). A
-polymorphic signature quantifies type and row variables and lists its
+A callable contract is `(impl (Fn Param ... -> Result))`, with an optional
+[effect row](effects.md) after `!`. `FnMut` selects exclusive access and
+`FnOnce` selects a consuming call. `dyn` names callable storage, while
+`(fn Param ... -> Result)` names noncapturing code. The
+[callable classes](#callable-classes) section describes these distinctions.
+A polymorphic signature quantifies type and row variables and lists its
 class requirements:
 
 ```scheme
-(: map (All (A B e) (-> (-> A B ! e) (List A) (List B) ! e)))
-(: sum (All (T e) (requires (Num e T)) (-> (List T) T T ! e)))
+(: map
+   (All (A B e F)
+        (requires (Copy F) (Fn F A -> B ! e))
+        (impl (Fn F (List A) -> (List B) ! e))))
+(: sum (All (T e) (requires (Num e T)) (impl (Fn (List T) T -> T ! e))))
 ```
 
 A type variable is linear unless the signature requires `(Copy T)`, which
@@ -142,7 +145,7 @@ and may require other instances:
 
 ```scheme
 (typeclass (Describe T)
-  (: describe (-> T String)))
+  (: describe (impl (Fn T -> String))))
 
 (instance (Describe (List T))
   (requires (Describe T))
@@ -153,8 +156,9 @@ and may require other instances:
 The checker chooses each instance when it checks a use and records that
 choice; monomorphization copies the chosen method for each type, so no
 dictionary exists at run time. Active instance heads must not overlap on their
-input parameters. Classes have
-no superclasses: a signature lists every class it needs. Unbound names in an
+input parameters. User-defined classes have
+no superclasses: a signature lists every class it needs. The compiler-derived
+callable classes have the implications described below. Unbound names in an
 instance head are its type variables.
 
 ### Rows as parameters
@@ -207,7 +211,7 @@ A class can declare ordinary associated types. Each instance defines them:
 ```scheme
 (typeclass (Add e A B)
   (type Output)
-  (: add (-> A B Output ! e)))
+  (: add (impl (Fn A B -> Output ! e))))
 
 (instance (Add (!) I64 F64)
   (type Output F64)
@@ -216,7 +220,7 @@ A class can declare ordinary associated types. Each instance defines them:
 (: sum
    (All (A B e)
      (requires (Add e A B))
-     (-> A B (Add.Output e A B) ! e)))
+     (impl (Fn A B -> (Add.Output e A B) ! e))))
 (define (sum a b) (add a b))
 ```
 
@@ -239,7 +243,7 @@ A requirement can constrain an output with an equality:
 (: twice
    (All (A e)
      (requires (Copy A) (Add e A A (type Output A)))
-     (-> A A ! e)))
+     (impl (Fn A -> A ! e))))
 (define (twice a) (add a a))
 ```
 
@@ -319,104 +323,134 @@ covers rows, their inference and polymorphism, local mutation, declaring
 and handling effects, control operations with a one-shot `resume`, latent
 rows and defaults.
 
-## Proposed callable typeclass
+## Callable classes
 
-**Design for review, not implemented.** Replace function arrows with
-`impl Fun` contracts, and use `fun` for named function definitions:
+`Fn`, `FnMut`, and `FnOnce` describe how a value can be called. They are
+compiler-derived typeclasses, independent of `Copy` and of effects. Each
+signature puts `->` before its one result and `!` before its effect row:
 
 ```scheme
-(: square (impl (Fun I64 I64)))
-(fun (square n)
+(: square (impl (Fn I64 -> I64)))
+(define (square n)
   (* n n))
 ```
 
-`Fun` is a typeclass describing callability. It is not a concrete function
-type or a universal closure representation. The definition determines an
-anonymous concrete implementation type, associated with that definition,
-which must satisfy the stated `Fun` contract. A caller does not choose
-`square`'s implementation type. For a generic definition, that type is
-instantiated with the definition's type parameters.
+A definition's `impl` contract keeps its concrete implementation type.
+Anonymous lambdas also have distinct concrete types, including the types
+of their captures. Specialization retains that identity. Captured runtime
+values do not create different specializations of the same closure type.
+`define`, `lambda`, and the existing definition macros keep their meanings.
 
-An `impl (Fun ...)` annotation on a class method similarly constrains an
-anonymous associated implementation type supplied by each instance's
-method definition. For example, the `ask` method of `(Ask T)` has contract
-`impl (Fun T)`, while each provider supplies its own concrete callable.
-Do not require every provider's closure to have the same representation.
-
-Argument-position `impl` has a different quantifier: the caller chooses a
-concrete callable type satisfying the constraint, and the consumer is
-generic over it. The distinction parallels `impl Ref` arguments
-([places](#proposed-places-and-locators)). Stored and returned opaque
-implementations need explicit quantification rules; neither position
-silently erases a family of implementation types into one runtime object.
-`define` continues to bind ordinary values.
-
-Saved resumptions have compiler-generated concrete family types, with
-[finite frame chains](compilers.md#saved-frame-representation). Their dynamic
-length does not change their type. The explicit queue package is a closed
-sum at a declared storage boundary; it does not settle the general
-quantification rules for arbitrary stored or returned `impl Fun` values.
-
-The callable contract preserves the following evidence:
-
-| Contract | What the checker must establish |
+| Contract | Receiver access |
 | --- | --- |
-| Argument types | Each call supplies the required arguments. |
-| Result type | Continuing the call produces a value of this type. |
-| Entry provider requirements | The caller supplies the outstanding providers for this invocation; ambient handlers are not automatically captured. |
-| Resumption requirements | Each suspension accepts the remaining computation's requirements, and its eventual caller supplies the outstanding providers. |
-| Invocation effects | The call context permits the effects of execution under the selected providers; deferred obligations remain visible. |
-| Call multiplicity | The consumer calls or releases the value as its ownership permits. |
+| `Fn` | Shared access; the owner can call it again. |
+| `FnMut` | Exclusive access for the invocation; the owner can call it again. |
+| `FnOnce` | Ownership passes to the invocation; call or drop it once. |
 
-A generic `map` needs a concrete callable from `A` to `B` that permits
-repeated calls. A consumer that invokes its argument once can accept a
-one-shot callable under the appropriate ownership rule. `Copy` alone does
-not establish callability. A one-shot continuation cannot satisfy a
-repeated-call requirement. The current `FnOnce` ownership rule remains the
-baseline: consume it by calling or dropping it exactly once, including
-any effects of dropping its captures ([ownership](ownership.md)). The
-precise multiplicity notation and internal `Fun` class parameterization
-remain open; the examples omit these details rather than define a new
-multiplicity default.
+An `Fn` satisfies `FnMut` and `FnOnce`; an `FnMut` satisfies `FnOnce`.
+The reverse implications do not hold. No callable class implies `Copy`.
+A pure callable can be one-shot, and a repeatable callable can perform
+console, mutation, or control effects. A consuming call of a shared owned
+closure releases its environment when the call finishes; abandoning it
+releases the captures without calling its body.
 
-Both ordinary and control-capable implementations satisfy this calling
-interface. `ctl` is not a subclass of ordinary functions. It identifies
-an implementation that needs continuation access; typed core metadata records
-that source contract. The proposed compiler specializes checked definitions
-directly into Wasm, using the concrete providers and control contracts to
-select ordinary calls or explicit suspension handling. It constructs
-continuation code where needed, without first converting every function to
-CPS. The instantiated checked contract fixes this interface before its body
-is emitted. It also establishes whether normal return is possible and which
-providers each continuation route needs. A repeatable callable may suspend
-and a one-shot callable may return directly; neither multiplicity nor purity
-determines that interface.
+Argument-position `impl` introduces a fresh caller-chosen type with a
+callability requirement. The consumer is generic over that type:
 
-The compiler supplies callable evidence for functions, closures and
-capability methods. Whether arbitrary user data may implement `Fun` is a
-separate extension. Monomorphization keys on concrete callable types and
-provider implementation types, including their statically selected method
-code and control behavior. An instance may capture ordinary runtime data:
-two instances of the same implementation with different captured strings
-share code. An effectful closure or resumption keeps its outstanding
-providers as invocation parameters; its code must remain generic over those
-parameters until the relevant invocation sites are specialized.
+```scheme
+(: run-once (impl (Fn (impl (FnOnce I64 -> I64)) I64 -> I64)))
+(define (run-once function value)
+  (function value))
+```
 
-Capabilities following `!` become explicit provider arguments in the
-[proposed compiler](compilers.md#proposed-specialization-directly-to-wasmgc).
-Instances in scope at the call site supply them. The proposed
-[effect transitions](effects.md#resumption-effects-and-effect-transitions)
-distinguish entry requirements from resumption requirements; the latter
-remain part of the control operation's contract instead of becoming an
-implicit capture of the entry provider environment. Both invocation and
-cleanup effects remain checked. Control operations still need delimiters,
-and resumption restores internally established handler scopes.
+An explicit type variable is useful when other requirements concern the
+same owner. The receiver type comes before the signature in a constraint:
 
-Migration must cover signatures, function definitions, bootstrap forms,
-macros, formatting, highlighting and diagnostics together. Examples of
-the proposed surface use `(impl (Fun ...))`, never a bare `(fun ...)` as
-a concrete type. The spelling of `Fn` and `FnOnce`, old-form compatibility
-and anonymous-function syntax remain review questions.
+```scheme
+(: twice
+   (All (F)
+        (requires (Fn F I64 -> I64) (Drop (!) F))
+        (impl (Fn F I64 -> I64))))
+(define (twice function value)
+  (let ((answer (function (function value))))
+    (drop function)
+    answer))
+```
+
+This function borrows its argument for each call, then releases it. Add
+`(Copy F)` explicitly when a consumer must duplicate or freely retain `F`.
+The standard list and vector combinators use these callable constraints,
+with an explicit `Copy` requirement on their callback. This preserves their
+existing ability to suspend under an arbitrary effect row. The compiler
+derives callable evidence for functions, lambdas, erased closures and code
+pointers. User-defined instances of these three classes
+are not supported.
+
+### Explicit callable storage
+
+Use `dyn` for fields, collections and returned values that can hold
+different implementations of the same calling contract:
+
+```scheme
+(struct Job
+  ((run (dyn (FnOnce I64 -> Unit ! console)))))
+
+(: greeting (impl (Fn String -> (dyn (FnOnce -> Unit ! console)))))
+(define (greeting text)
+  (once (lambda () (write-line text))))
+```
+
+`(dyn (Fn Args ... -> Result))` preserves the existing unrestricted closure representation
+and requires `Copy` captures. `(dyn (FnMut Args ... -> Result))` and
+`(dyn (FnOnce Args ... -> Result))`
+are owned storage. Their capture droppers run when they are released.
+This explicit storage keeps heterogeneous jobs, future reducers, task
+queues and saved resumptions possible. The checker inserts erasure at the
+stated boundary; it does not erase every callable argument.
+
+The current `impl` forms cover definitions, lambda annotations and direct
+argument contracts. General opaque return types, nested quantified `impl`
+contracts and generic associated implementation families are not
+implemented. Use explicit `dyn` for those storage boundaries.
+
+`once` accepts any argument count and preserves the complete signature.
+An `impl FnOnce` lambda can move its captures into its body. A concrete
+`Fn` or `FnMut` lambda can own non-`Copy` captures, but its repeatable body
+may borrow them only; moving one requires a consuming contract. Ordinary
+mutable storage and its `! mut` effect remain separate from receiver access.
+
+### Receiver lifetimes and suspension
+
+A call of a non-`Copy` `Fn` borrows a named local owner or immutable field
+path. `FnMut` additionally requires exclusive receiver access through
+argument evaluation and the call. The owner remains available afterward
+and must eventually be consumed or dropped.
+
+These loans use the existing lexical lifetime rules. A borrowed receiver
+or its borrowed captures cannot remain live across a control operation;
+an unknown effect-row tail also requires that conservative check. Moving
+or capturing a borrowed owner is rejected. Mutable and lifetime-polymorphic
+borrow types are not implemented. Consuming adaptation from an owned
+shared or exclusive callable obeys this same limit; owning the adapter
+does not extend its receiver loan's lifetime.
+
+Existing `Copy` closures can still suspend, and consuming `FnOnce` values
+can still own captures across suspension. Saved resumptions remain one-shot
+and may be stored in `dyn FnOnce` values. Callability does not imply purity,
+`Copy`, or the ability to keep a receiver loan across suspension.
+
+### Code pointers
+
+`(fn A -> B ! e)` is the noncapturing code-pointer representation. A `fn`
+expression or a top-level function can provide it; a capturing lambda
+cannot. Code pointers satisfy the callable contracts, but retain their
+separate representation at storage and foreign boundaries. Wrap a code
+pointer in a lambda when an unrestricted `dyn Fn` closure is required.
+
+The older prefix arrow and code-pointer `Fn` spellings are rejected with
+migration diagnostics. Provider specialization, scoped capability changes
+and effect-transition types remain proposals in their own chapters; this
+migration preserves the current evidence-passing effect runtime.
 
 ## Proposed places and locators
 
@@ -461,8 +495,8 @@ construction and projection. User instances cannot assert arbitrary
 storage layouts. Using the proposed parenthesized signature spelling:
 
 ```scheme
-(: zero! (impl (Fun (impl (Ref I64)) Unit ! mut)))
-(fun (zero! target)
+(: zero! (impl (Fn (impl (Ref I64)) -> Unit ! mut)))
+(define (zero! target)
   (ref-set! target 0))
 ```
 
@@ -472,7 +506,7 @@ This elaborates to a universally quantified argument type, schematically:
 (: zero!
    (All (P)
      (requires (Ref P I64))
-     (impl (Fun P Unit ! mut))))
+     (impl (Fn P -> Unit ! mut))))
 ```
 
 The caller chooses `P`. Calling `zero!` on two different field paths
@@ -498,7 +532,7 @@ returned from different branches merely because they select the same `T`.
 Such code must keep its alternatives explicit or invoke the generic
 consumer within each branch. Returned or stored opaque `impl` types need
 a separate language rule; this proposal introduces no automatic erasure.
-The same principle applies to the [callable class](#proposed-callable-typeclass).
+The same principle applies to the [callable class](#callable-classes).
 
 ### GC-heap storage for local variables
 
@@ -670,7 +704,7 @@ package's data, and the library reads it when it needs it:
 (: hero Resource)
 (define hero (link-file "art/hero.png"))
 
-(: hero-bytes (-> Bytes ! resource tasks))
+(: hero-bytes (impl (Fn -> Bytes ! resource tasks)))
 (define (hero-bytes)
   (read-resource hero))
 ```
@@ -761,7 +795,7 @@ An explicit finite dispatcher supplies one:
 
 ```scheme
 (typeclass (Describe e T)
-  (: describe (-> T String ! e)))
+  (: describe (impl (Fn T -> String ! e))))
 
 ;; Declare pure instances (Describe (!) I64) and (Describe (!) String) first.
 (instance (Describe (! dyn-cast) Any)
@@ -851,7 +885,7 @@ row contains `dyn-cast` plus the union of its eligible source rows; handlers
 or signatures must account for that whole row.
 
 The initial generator supports binary classes with one row, one associated
-output, and methods of type `(-> A B Output ! e)`. Independently polymorphic
+output, and methods of type `(dyn (Fn A B -> Output ! e))`. Independently polymorphic
 methods, extra method requirements, and source-instance prerequisites are
 rejected. Both listed inputs must be ground, non-`Any` types that can cross
 the existing erasure boundary. Heterogeneous results must also support
@@ -871,7 +905,7 @@ Linear values cannot cross this boundary. Nor can a function that performs
 effects, wherever it sits in the value's type, or a rigid type variable
 that might stand for one: type identities do not record effect rows.
 This restriction applies to `type-convert`, `try-convert` and `type-test`.
-It also excludes a bare `Fn` code reference; a pure closure can be packaged.
+It also excludes a bare `fn` code reference; a pure closure can be packaged.
 
 `(type-convert e Any)` packages a value. Conversion to the same type,
 including `Any` to `Any`, preserves it. Neither operation needs `dyn-cast`.
@@ -895,7 +929,7 @@ compile error. A handler for some other effect, including a user-defined
 `dyn-cast` to another effect.
 
 ```scheme
-(: integer (-> Any I64 ! dyn-cast))
+(: integer (impl (Fn Any -> I64 ! dyn-cast)))
 (define (integer value) value)
 
 (handle dyn-cast ((conversion-failed (lambda (_) -1)))

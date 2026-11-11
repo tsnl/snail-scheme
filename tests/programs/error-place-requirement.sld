@@ -7,6 +7,6 @@
   ((x I64)
    (y I64)))
 
-(: zero-x! (All (R) (requires (::x R I64)) (-> (Ref R) Unit ! mut)))
+(: zero-x! (All (R) (requires (::x R I64)) (impl (Fn (Ref R) -> Unit ! mut))))
 (define (zero-x! cell)
   (set! (::x (ref-get cell)) 0))

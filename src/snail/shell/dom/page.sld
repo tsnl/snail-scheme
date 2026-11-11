@@ -20,7 +20,7 @@
 
     ;; ---- Handling ----
 
-    (: with-page-dom (All (T e) (-> (-> T ! dom e) T ! events e)))
+    (: with-page-dom (All (T e) (impl (Fn (dyn (Fn -> T ! dom e)) -> T ! events e))))
     (define (with-page-dom work)
       (handle dom
           ((document-root (lambda () (Node (host-root))))
@@ -83,12 +83,12 @@
 
     ;; ---- Window applications ----
 
-    (: page-installation-status (-> InstallationStatus))
+    (: page-installation-status (impl (Fn -> InstallationStatus)))
     (define (page-installation-status)
       (case (host-installation-status)
         ((1) (InstallAvailable)) ((2) (AppInstalled)) (else (InstallUnavailable))))
 
-    (: page-install (-> InstallResult ! tasks))
+    (: page-install (impl (Fn -> InstallResult ! tasks)))
     (define (page-install)
       (case (through-host host-start-install host-finish-install)
         ((0) (InstallAccepted)) ((1) (InstallDismissed)) ((2) (InstallNotAvailable))
@@ -110,7 +110,7 @@
 
     ;; The next delivery, skipping the display frames and resizes an
     ;; interface has no use for.
-    (: page-delivery (-> Delivery ! events tasks))
+    (: page-delivery (impl (Fn -> Delivery ! events tasks)))
     (define (page-delivery)
       (let ((kind (poll-event)))
         (cond ((= kind 0) (wait-event) (page-delivery))
@@ -121,7 +121,7 @@
               ((= kind reload-kind) (Closed))
               (else (page-delivery)))))
 
-    (: fired-event (-> Event ! events))
+    (: fired-event (impl (Fn -> Event ! events)))
     (define (fired-event)
       (Event (host-reply (host-event-text 0))
              (host-reply (host-event-text 1))
@@ -138,7 +138,7 @@
     ;; ---- The browser host ----
 
     ;; A measure crosses a number at a time, in the order of its fields.
-    (: measure-node (-> I32 Measure))
+    (: measure-node (impl (Fn I32 -> Measure)))
     (define (measure-node handle)
       (host-measure handle)
       (Measure (host-measured 0)
@@ -149,11 +149,11 @@
                (host-measured 5)
                (host-measured 6)))
 
-    (: named (-> String String Bytes))
+    (: named (impl (Fn String String -> Bytes)))
     (define (named name value)
       (string->utf8 (string-append name (make-string 1 #\null) value)))
 
-    (: host-reply (-> I32 String))
+    (: host-reply (impl (Fn I32 -> String)))
     (define (host-reply count)
       (string-generate (i32->i64 count)
                        (lambda (index)
@@ -161,7 +161,7 @@
 
     ;; A listener prevents by kind: 0 never, 1 always, 2 for its chords,
     ;; which follow it.
-    (: listen-node (-> Node String (List Capture) Prevent Listener))
+    (: listen-node (impl (Fn Node String (List Capture) Prevent -> Listener)))
     (define (listen-node node event captures prevent)
       (let ((id (host-listen (::handle node)
                              (capture-bits captures)

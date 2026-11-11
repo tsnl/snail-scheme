@@ -22,7 +22,7 @@
     ((None) (write-line "none"))))
 
 ;; A generic function over arrays requires Unboxed of its element.
-(: fill-twice (All (A) (requires (Copy A) (Unboxed A)) (-> A (Array A) ! mut)))
+(: fill-twice (All (A) (requires (Copy A) (Unboxed A)) (impl (Fn A -> (Array A) ! mut))))
 (define (fill-twice item)
   (make-array 2 item))
 

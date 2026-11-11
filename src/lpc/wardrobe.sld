@@ -50,7 +50,7 @@
     ;; A character wearing `outfit`, if every garment in it is worn in its
     ;; own slot and drawn for `build`. Its layers are the body, the feet,
     ;; the legs, the torso, the head, and the hair over the head.
-    (: dress (-> Build Head Skin Outfit (Option Character)))
+    (: dress (impl (Fn Build Head Skin Outfit -> (Option Character))))
     (define (dress build head skin outfit)
       (match (list (worn-sheets build (Feet) (::feet outfit))
                    (worn-sheets build (Legs) (::legs outfit))
@@ -69,7 +69,7 @@
 
     ;; The sheet a slot's garment is drawn on, none for an empty slot, or
     ;; None for a garment worn in another slot or not drawn for `build`.
-    (: worn-sheets (-> Build Slot (Option Worn) (Option (List Sheet))))
+    (: worn-sheets (impl (Fn Build Slot (Option Worn) -> (Option (List Sheet)))))
     (define (worn-sheets build slot worn)
       (match worn
         ((Some (Worn garment dye))
@@ -80,7 +80,7 @@
              (None)))
         ((None) (Some (Nil)))))
 
-    (: same-slot? (-> Slot Slot Bool))
+    (: same-slot? (impl (Fn Slot Slot -> Bool)))
     (define (same-slot? a b)
       (match (Pair a b)
         ((Pair (Torso) (Torso)) #t)
@@ -89,7 +89,7 @@
         (_ #f)))
 
     ;; The files the character's layers come from, to embed.
-    (: character-paths (-> Character (List String)))
+    (: character-paths (impl (Fn Character -> (List String))))
     (define (character-paths who)
       (map ::path (::sheets who)))
 
@@ -98,13 +98,13 @@
     ;; A 32-bit FNV-1a hash, a word at a time, of each layer's path and
     ;; swaps: equal characters agree, and a changed one almost surely
     ;; differs.
-    (: fingerprint (-> Character I32))
+    (: fingerprint (impl (Fn Character -> I32)))
     (define (fingerprint who)
       (fold-left (lambda (hash word) (* (i32-xor hash word) 16777619))
                  -2128831035
                  (concatenate (map sheet-words (::sheets who)))))
 
-    (: sheet-words (-> Sheet (List I32)))
+    (: sheet-words (impl (Fn Sheet -> (List I32))))
     (define (sheet-words sheet)
       (append (map char->i32 (string->list (::path sheet)))
               (concatenate (map (lambda (swap) (list (::first swap) (::second swap)))
@@ -114,7 +114,7 @@
     ;; finds for each sheet. Its version is the character's fingerprint, so
     ;; the host composes it again only when the character changes. A sheet
     ;; whose file `art` lacks is left out.
-    (: walk-picture (-> (-> String (Option Source)) I32 Character Picture))
+    (: walk-picture (impl (Fn (dyn (Fn String -> (Option Source))) I32 Character -> Picture)))
     (define (walk-picture art key who)
       (Picture key (fingerprint who) (::width walk-region) (::height walk-region)
                (lambda ()
@@ -128,7 +128,7 @@
 
     ;; The character in picture `key`, shoulders up, each texel `scale`
     ;; pixels wide.
-    (: portrait (-> String I32 I32 Widget))
+    (: portrait (impl (Fn String I32 I32 -> Widget)))
     (define (portrait look-key key scale)
       (Image (look look-key) key face-region scale))
 

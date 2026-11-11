@@ -116,7 +116,7 @@
        (original Syntax)
        (scope I64)))
 
-    (: syntax-loc (-> Syntax Loc))
+    (: syntax-loc (impl (Fn Syntax -> Loc)))
     (define (syntax-loc syntax)
       (match syntax
         ((Atom _ loc) loc)
@@ -124,14 +124,14 @@
         ((Form _ loc) loc)))
 
     ;; Syntax as source text, for diagnostics and tests.
-    (: syntax->string (-> Syntax String))
+    (: syntax->string (impl (Fn Syntax -> String)))
     (define (syntax->string syntax)
       (match syntax
         ((Atom value _) (datum->string value))
         ((Ident name _ _) name)
         ((Form items _) (string-append "(" (string-join (map syntax->string items) " ") ")"))))
 
-    (: datum->string (-> Datum String))
+    (: datum->string (impl (Fn Datum -> String)))
     (define (datum->string datum)
       (match datum
         ((DInt value) (i64->string value))
@@ -148,7 +148,7 @@
         ((DUnit) "(unit)")))
 
     ;; A string as a literal the reader reads back.
-    (: string-literal (-> String String))
+    (: string-literal (impl (Fn String -> String)))
     (define (string-literal text)
       (string-append
        "\""
@@ -161,7 +161,7 @@
              (string->list text)))
        "\""))
 
-    (: datum=? (-> Datum Datum Bool))
+    (: datum=? (impl (Fn Datum Datum -> Bool)))
     (define (datum=? a b)
       (match a
         ((DInt x) (match b ((DInt y) (= x y)) (_ #f)))
@@ -172,7 +172,7 @@
         ((DBool x) (match b ((DBool y) (eq-bool? x y)) (_ #f)))
         ((DUnit) (match b ((DUnit) #t) (_ #f)))))
 
-    (: bytes=? (-> Bytes Bytes Bool))
+    (: bytes=? (impl (Fn Bytes Bytes -> Bool)))
     (define (bytes=? a b)
       (and (= (vector-length a) (vector-length b))
            (let loop ((index 0))
@@ -180,11 +180,11 @@
                  (and (= (u8->i32 (vector-ref a index)) (u8->i32 (vector-ref b index)))
                       (loop (+ index 1)))))))
 
-    (: eq-bool? (-> Bool Bool Bool))
+    (: eq-bool? (impl (Fn Bool Bool -> Bool)))
     (define (eq-bool? a b)
       (if a b (not b)))
 
-    (: loc->string (-> Loc String))
+    (: loc->string (impl (Fn Loc -> String)))
     ;; A location in line 0 is the file as a whole.
     (define (loc->string loc)
       (if (= (::line loc) 0)
@@ -202,7 +202,7 @@
        (message String)))
 
     ;; A diagnostic as a person reads it: where, then what.
-    (: diagnostic->string (-> SourceDiagnostic String))
+    (: diagnostic->string (impl (Fn SourceDiagnostic -> String)))
     (define (diagnostic->string diagnostic)
       (string-append (loc->string (::loc diagnostic))
                      ": "
@@ -214,12 +214,12 @@
       ((first SourceDiagnostic)
        (more (List SourceDiagnostic))))
 
-    (: diagnostics->list (-> Diagnostics (List SourceDiagnostic)))
+    (: diagnostics->list (impl (Fn Diagnostics -> (List SourceDiagnostic))))
     (define (diagnostics->list diagnostics)
       (Cons (::first diagnostics) (::more diagnostics)))
 
     ;; The diagnostics a line each.
-    (: diagnostics->string (-> Diagnostics String))
+    (: diagnostics->string (impl (Fn Diagnostics -> String)))
     (define (diagnostics->string diagnostics)
       (string-join (map diagnostic->string (diagnostics->list diagnostics)) "\n"))
 
@@ -227,7 +227,7 @@
     ;; `fail`. Nothing after the call runs: the nearest handler takes the
     ;; diagnostic, and either hands it to its caller or goes on to the
     ;; pass's next item (`recovering`).
-    (: compile-error (All (A) (-> Loc String A ! compile)))
+    (: compile-error (All (A) (impl (Fn Loc String -> A ! compile))))
     (define (compile-error loc message)
       (absurd (fail (Diagnostics (SourceDiagnostic loc message) (Nil)))))
 
@@ -248,14 +248,14 @@
     ;; `compile-error`, or every one a pass collected from its items before
     ;; it stopped.
     (effect compile
-      ((ctl fail (-> Diagnostics Never))
-       (ctl need (-> CompilerRequest Never))))
+      ((ctl fail (dyn (Fn Diagnostics -> Never)))
+       (ctl need (dyn (Fn CompilerRequest -> Never)))))
 
     (enum Stop
       (Failed ((diagnostics Diagnostics)))
       (Requested ((request CompilerRequest))))
 
-    (: compiling (All (T e) (-> (-> T ! compile e) (Result T Stop) ! e)))
+    (: compiling (All (T e) (impl (Fn (dyn (Fn -> T ! compile e)) -> (Result T Stop) ! e))))
     (define (compiling work)
       (handle compile
           ((fail (lambda (diagnostics) (Err (Failed diagnostics))))
@@ -267,7 +267,7 @@
     ;; an input is no failure of the item: the request goes on to the
     ;; compile's handler, since an implementation runs outside its handle.
     (: recovering
-       (All (T e) (-> (-> T ! compile e) (Result T Diagnostics) ! compile e)))
+       (All (T e) (impl (Fn (dyn (Fn -> T ! compile e)) -> (Result T Diagnostics) ! compile e))))
     (define (recovering work)
       (handle compile
           ((fail (lambda (diagnostics) (Err diagnostics)))
@@ -278,7 +278,11 @@
     ;; that fails, in the items' order.
     (: failures-of
        (All (A e) (requires (Copy A))
-            (-> (-> A Unit ! compile e) (List A) (List SourceDiagnostic) ! compile e)))
+            (impl (Fn (dyn (Fn A -> Unit ! compile e))
+                      (List A)
+                      ->
+                      (List SourceDiagnostic)
+                      ! compile e))))
     (define (failures-of check items)
       (concatenate (map (lambda (item)
                           (match (recovering (lambda () (check item)))
@@ -287,7 +291,7 @@
                         items)))
 
     ;; Fails the compile with `found`, unless it is empty.
-    (: fail-if-found (-> (List SourceDiagnostic) Unit ! compile))
+    (: fail-if-found (impl (Fn (List SourceDiagnostic) -> Unit ! compile)))
     (define (fail-if-found found)
       (match found
         ((Nil) (unit))
@@ -295,13 +299,14 @@
 
     ;; The diagnostics by file, then line, then column, the order a reader
     ;; meets them; ones at the same place keep their order.
-    (: in-source-order (-> (List SourceDiagnostic) (List SourceDiagnostic)))
+    (: in-source-order (impl (Fn (List SourceDiagnostic) -> (List SourceDiagnostic))))
     (define (in-source-order diagnostics)
       (fold-left (lambda (sorted diagnostic) (insert-in-order diagnostic sorted))
                  (Nil)
                  diagnostics))
 
-    (: insert-in-order (-> SourceDiagnostic (List SourceDiagnostic) (List SourceDiagnostic)))
+    (: insert-in-order
+       (impl (Fn SourceDiagnostic (List SourceDiagnostic) -> (List SourceDiagnostic))))
     (define (insert-in-order diagnostic sorted)
       (match sorted
         ((Cons first rest)
@@ -310,7 +315,7 @@
              (Cons first (insert-in-order diagnostic rest))))
         ((Nil) (list diagnostic))))
 
-    (: loc<? (-> Loc Loc Bool))
+    (: loc<? (impl (Fn Loc Loc -> Bool)))
     (define (loc<? a b)
       (cond ((not (string=? (::file a) (::file b))) (string<? (::file a) (::file b)))
             ((= (::line a) (::line b)) (< (::column a) (::column b)))
@@ -323,7 +328,7 @@
        (chars (Vector Char))
        (line-starts (Vector I64))))
 
-    (: make-source (-> String String Source))
+    (: make-source (impl (Fn String String -> Source)))
     (define (make-source file text)
       (let ((chars (string->vector text)))
         (let loop ((index 0) (starts (list 0)))
@@ -333,12 +338,12 @@
             (loop (+ index 1) (Cons (+ index 1) starts)))
            (else (loop (+ index 1) starts))))))
 
-    (: source-text (-> Source I64 I64 String))
+    (: source-text (impl (Fn Source I64 I64 -> String)))
     (define (source-text source start end)
       (vector->string (subvector (::chars source) start end)))
 
     ;; Binary search for the last line that starts at or before `index`.
-    (: source-loc (-> Source I64 Loc))
+    (: source-loc (impl (Fn Source I64 -> Loc)))
     (define (source-loc source index)
       (let ((starts (::line-starts source)))
         (let search ((low 0) (high (- (vector-length starts) 1)))
@@ -353,20 +358,20 @@
 
     ;; The character at `index`, or NUL past the end; scans test `at-end?`
     ;; before they act on a NUL.
-    (: peek (-> Source I64 Char))
+    (: peek (impl (Fn Source I64 -> Char)))
     (define (peek source index)
       (let ((chars (::chars source)))
         (if (< index (vector-length chars)) (vector-ref chars index) (integer->char 0))))
 
-    (: char-is? (-> Source I64 Char Bool))
+    (: char-is? (impl (Fn Source I64 Char -> Bool)))
     (define (char-is? source index char)
       (and (not (at-end? source index)) (char=? (peek source index) char)))
 
-    (: at-end? (-> Source I64 Bool))
+    (: at-end? (impl (Fn Source I64 -> Bool)))
     (define (at-end? source index)
       (>= index (vector-length (::chars source))))
 
-    (: delimiter? (-> Source I64 Bool))
+    (: delimiter? (impl (Fn Source I64 -> Bool)))
     (define (delimiter? source index)
       (let ((c (peek source index)))
         (or (at-end? source index)
@@ -408,7 +413,7 @@
       (EndOfText))
 
     ;; The atmosphere at `index` and the index after it, if any starts there.
-    (: atmosphere-at (-> Source I64 (Option (Pair Atmosphere I64))))
+    (: atmosphere-at (impl (Fn Source I64 -> (Option (Pair Atmosphere I64)))))
     (define (atmosphere-at source index)
       (let ((c (peek source index)))
         (cond ((at-end? source index) (None))
@@ -420,21 +425,21 @@
                (Some (Pair (DatumComment) (+ index 2))))
               (else (None)))))
 
-    (: whitespace-end (-> Source I64 I64))
+    (: whitespace-end (impl (Fn Source I64 -> I64)))
     (define (whitespace-end source index)
       (if (and (not (at-end? source index)) (char-whitespace? (peek source index)))
           (whitespace-end source (+ index 1))
           index))
 
     ;; A line comment stops before its newline.
-    (: line-end (-> Source I64 I64))
+    (: line-end (impl (Fn Source I64 -> I64)))
     (define (line-end source index)
       (if (or (at-end? source index) (char-is? source index #\newline))
           index
           (line-end source (+ index 1))))
 
     ;; Block comments nest.
-    (: block-comment (-> Source I64 I64 (Pair Atmosphere I64)))
+    (: block-comment (impl (Fn Source I64 I64 -> (Pair Atmosphere I64))))
     (define (block-comment source index depth)
       (cond ((= depth 0) (Pair (BlockComment #t) index))
             ((at-end? source index) (Pair (BlockComment #f) index))
@@ -446,7 +451,7 @@
 
     ;; The lexeme at `index`, where no atmosphere starts, and the index after
     ;; it.
-    (: lexeme-at (-> Source I64 (Pair Lexeme I64)))
+    (: lexeme-at (impl (Fn Source I64 -> (Pair Lexeme I64))))
     (define (lexeme-at source index)
       (let ((c (peek source index)) (next (+ index 1)))
         (cond ((at-end? source index) (Pair (EndOfText) index))
@@ -461,7 +466,7 @@
               (else (Pair (TokenLexeme) (token-end source index))))))
 
     ;; A string runs to the first quote that a backslash does not escape.
-    (: string-lexeme (-> Source I64 (Pair Lexeme I64)))
+    (: string-lexeme (impl (Fn Source I64 -> (Pair Lexeme I64))))
     (define (string-lexeme source index)
       (cond ((at-end? source index) (Pair (StringLexeme #f) index))
             ((char-is? source index #\") (Pair (StringLexeme #t) (+ index 1)))
@@ -471,26 +476,26 @@
 
     ;; `#\` takes the character after it, whatever it is, so `#\(` and `#\ `
     ;; are characters; a name runs on to a delimiter, as in `#\space`.
-    (: character-end (-> Source I64 I64))
+    (: character-end (impl (Fn Source I64 -> I64)))
     (define (character-end source index)
       (if (at-end? source index) index (token-end source (+ index 1))))
 
     ;; `#u8(` opens a byte vector, as in R7RS.
-    (: bytes-opening? (-> Source I64 Bool))
+    (: bytes-opening? (impl (Fn Source I64 -> Bool)))
     (define (bytes-opening? source index)
       (and (char-is? source index #\#)
            (char-is? source (+ index 1) #\u)
            (char-is? source (+ index 2) #\8)
            (char-is? source (+ index 3) #\()))
 
-    (: token-end (-> Source I64 I64))
+    (: token-end (impl (Fn Source I64 -> I64)))
     (define (token-end source index)
       (if (delimiter? source index) index (token-end source (+ index 1))))
 
     ;; ---- Data ----
 
     ;; Skips whitespace, comments, and the data that `#;` comments out.
-    (: skip-atmosphere (-> Source I64 I64 ! compile))
+    (: skip-atmosphere (impl (Fn Source I64 -> I64 ! compile)))
     (define (skip-atmosphere source index)
       (match (atmosphere-at source index)
         ((Some (Pair (BlockComment #f) end))
@@ -501,13 +506,13 @@
         ((None) index)))
 
     ;; The datum starting at `index`, and the index after it.
-    (: read-datum (-> Source I64 (Pair Syntax I64) ! compile))
+    (: read-datum (impl (Fn Source I64 -> (Pair Syntax I64) ! compile)))
     (define (read-datum source index)
       (let ((start (skip-atmosphere source index)))
         (read-lexeme source start (lexeme-at source start))))
 
     ;; The datum that the lexeme at `start` begins, and the index after it.
-    (: read-lexeme (-> Source I64 (Pair Lexeme I64) (Pair Syntax I64) ! compile))
+    (: read-lexeme (impl (Fn Source I64 (Pair Lexeme I64) -> (Pair Syntax I64) ! compile)))
     (define (read-lexeme source start lexeme)
       (let ((loc (source-loc source start)) (end (::second lexeme)))
         (match (::first lexeme)
@@ -527,7 +532,7 @@
     ;; The bytes of `#u8(...)`, each an integer from 0 to 255. Images make
     ;; literals of millions of bytes, so they gather a chunk at a time into
     ;; packed vectors, which are joined at the closing parenthesis.
-    (: read-bytes (-> Source I64 Loc (List Bytes) (Pair Syntax I64) ! compile))
+    (: read-bytes (impl (Fn Source I64 Loc (List Bytes) -> (Pair Syntax I64) ! compile)))
     (define (read-bytes source index loc chunks)
       (let* ((chunk (read-byte-chunk source index loc))
              (bytes (::first chunk))
@@ -540,7 +545,7 @@
 
     ;; Up to `byte-chunk` bytes, and the index after them: past the closing
     ;; parenthesis when fewer remain.
-    (: read-byte-chunk (-> Source I64 Loc (Pair Bytes I64) ! compile))
+    (: read-byte-chunk (impl (Fn Source I64 Loc -> (Pair Bytes I64) ! compile)))
     (define (read-byte-chunk source index loc)
       (let loop ((index index) (bytes (Nil)) (count 0))
         (let ((start (skip-atmosphere source index)))
@@ -550,7 +555,7 @@
                 (else (let ((end (token-end source start)))
                         (loop end (Cons (byte-token source start end) bytes) (+ count 1))))))))
 
-    (: byte-token (-> Source I64 I64 U8 ! compile))
+    (: byte-token (impl (Fn Source I64 I64 -> U8 ! compile)))
     (define (byte-token source start end)
       (let loop ((index start) (value 0))
         (cond ((and (= index end) (< start end) (<= value 255)) (i32->u8 (i64->i32 value)))
@@ -562,13 +567,13 @@
                           (+ (* value 10)
                              (digit-value (vector-ref (::chars source) index))))))))
 
-    (: read-quote (-> Source I64 Loc (Pair Syntax I64) ! compile))
+    (: read-quote (impl (Fn Source I64 Loc -> (Pair Syntax I64) ! compile)))
     (define (read-quote source index loc)
       (let ((quoted (read-datum source index)))
         (Pair (Form (list (Ident "quote" (None) loc) (::first quoted)) loc)
               (::second quoted))))
 
-    (: read-list (-> Source I64 Char Loc (List Syntax) (Pair Syntax I64) ! compile))
+    (: read-list (impl (Fn Source I64 Char Loc (List Syntax) -> (Pair Syntax I64) ! compile)))
     (define (read-list source index close loc items)
       (let* ((start (skip-atmosphere source index)) (lexeme (lexeme-at source start)))
         (match (::first lexeme)
@@ -585,7 +590,7 @@
     ;; The text of a string whose characters run from `start` to its closing
     ;; quote at `close`. A backslash there always has a character after it,
     ;; which the string's lexeme skipped.
-    (: string-value (-> Source I64 I64 Loc String ! compile))
+    (: string-value (impl (Fn Source I64 I64 Loc -> String ! compile)))
     (define (string-value source start close loc)
       (let loop ((index start) (chars (Nil)))
         (cond ((= index close) (list->string (reverse chars)))
@@ -594,7 +599,7 @@
                  (loop (::second escaped) (Cons (::first escaped) chars))))
               (else (loop (+ index 1) (Cons (peek source index) chars))))))
 
-    (: read-escape (-> Source I64 I64 Loc (Pair Char I64) ! compile))
+    (: read-escape (impl (Fn Source I64 I64 Loc -> (Pair Char I64) ! compile)))
     (define (read-escape source index close loc)
       (let ((c (peek source index)))
         (cond ((char=? c #\n) (Pair #\newline (+ index 1)))
@@ -606,20 +611,20 @@
               (else (compile-error loc "unknown string escape")))))
 
     ;; `\x41;`: hexadecimal digits and a semicolon, inside the string.
-    (: hex-escape (-> Source I64 I64 Loc (Pair Char I64) ! compile))
+    (: hex-escape (impl (Fn Source I64 I64 Loc -> (Pair Char I64) ! compile)))
     (define (hex-escape source index close loc)
       (let ((end (scan-until source index close #\;)))
         (if (= end close)
             (compile-error loc "invalid hexadecimal escape")
             (Pair (hex-char source index end loc) (+ end 1)))))
 
-    (: scan-until (-> Source I64 I64 Char I64))
+    (: scan-until (impl (Fn Source I64 I64 Char -> I64)))
     (define (scan-until source index end stop)
       (if (or (= index end) (char-is? source index stop))
           index
           (scan-until source (+ index 1) end stop)))
 
-    (: hex-char (-> Source I64 I64 Loc Char ! compile))
+    (: hex-char (impl (Fn Source I64 I64 Loc -> Char ! compile)))
     (define (hex-char source start end loc)
       (let loop ((index start) (value 0))
         (cond ((and (= index end) (= start end)) (compile-error loc "invalid hexadecimal escape"))
@@ -628,7 +633,7 @@
                       ((Some digit) (loop (+ index 1) (+ (* value 16) digit)))
                       ((None) (compile-error loc "invalid hexadecimal escape")))))))
 
-    (: hex-digit (-> Char (Option I64)))
+    (: hex-digit (impl (Fn Char -> (Option I64))))
     (define (hex-digit c)
       (let ((code (char->integer c)))
         (cond ((and (<= 48 code) (<= code 57)) (Some (- code 48)))
@@ -651,7 +656,7 @@
 
     ;; The character `#\` names from `start` to `end`: one character, `x` and
     ;; hexadecimal digits, or a name.
-    (: character-value (-> Source I64 I64 Loc Char ! compile))
+    (: character-value (impl (Fn Source I64 I64 Loc -> Char ! compile)))
     (define (character-value source start end loc)
       (let ((name (source-text source start end)))
         (cond ((= (string-length name) 0) (compile-error loc "expected a character after #\\"))
@@ -672,7 +677,7 @@
       (NameToken)
       (InvalidToken ((problem String))))
 
-    (: token-kind (-> String TokenKind))
+    (: token-kind (impl (Fn String -> TokenKind)))
     (define (token-kind text)
       (cond ((or (string=? text "#t") (string=? text "#true")) (BooleanToken #t))
             ((or (string=? text "#f") (string=? text "#false")) (BooleanToken #f))
@@ -681,7 +686,7 @@
              (InvalidToken (string-append "unsupported syntax " text)))
             (else (number-kind text))))
 
-    (: token-syntax (-> String Loc Syntax ! compile))
+    (: token-syntax (impl (Fn String Loc -> Syntax ! compile)))
     (define (token-syntax text loc)
       (match (token-kind text)
         ((BooleanToken value) (Atom (DBool value) loc))
@@ -694,7 +699,7 @@
 
     ;; An optionally signed decimal integer, or a decimal float with a point
     ;; or an exponent. Any other text is a name.
-    (: number-kind (-> String TokenKind))
+    (: number-kind (impl (Fn String -> TokenKind)))
     (define (number-kind text)
       (let* ((signed (or (char=? (string-ref text 0) #\-) (char=? (string-ref text 0) #\+)))
              (digits (if signed (substring text 1 (string-length text)) text)))
@@ -706,13 +711,13 @@
               (else (NameToken)))))
 
     ;; An integer must fit in 64 bits.
-    (: integer-datum (-> String Loc Datum ! compile))
+    (: integer-datum (impl (Fn String Loc -> Datum ! compile)))
     (define (integer-datum text loc)
       (match (string->i64 text)
         ((Some value) (DInt value))
         ((None) (compile-error loc (string-append "the literal " text " does not fit I64")))))
 
-    (: float-text? (-> String Bool))
+    (: float-text? (impl (Fn String -> Bool)))
     (define (float-text? text)
       (let ((parts (split-exponent text)))
         (and (mantissa? (::first parts))
@@ -720,7 +725,7 @@
                ((Some exponent) (exponent? exponent))
                ((None) (match (string-index (::first parts) #\.) ((Some _) #t) ((None) #f)))))))
 
-    (: split-exponent (-> String (Pair String (Option String))))
+    (: split-exponent (impl (Fn String -> (Pair String (Option String)))))
     (define (split-exponent text)
       (match (list-index (lambda (c) (or (char=? c #\e) (char=? c #\E))) (string->list text))
         ((Some index)
@@ -728,14 +733,14 @@
         ((None) (Pair text (None)))))
 
     ;; Digits with at most one point, and at least one digit.
-    (: mantissa? (-> String Bool))
+    (: mantissa? (impl (Fn String -> Bool)))
     (define (mantissa? text)
       (let ((chars (string->list text)))
         (and (any? char-numeric? chars)
              (every? (lambda (c) (or (char-numeric? c) (char=? c #\.))) chars)
              (<= (length (filter (lambda (c) (char=? c #\.)) chars)) 1))))
 
-    (: exponent? (-> String Bool))
+    (: exponent? (impl (Fn String -> Bool)))
     (define (exponent? text)
       (let ((digits (if (and (> (string-length text) 0)
                              (or (char=? (string-ref text 0) #\-) (char=? (string-ref text 0) #\+)))
@@ -745,7 +750,7 @@
 
     ;; ---- Files ----
 
-    (: read-all (-> Source I64 (List Syntax) (List Syntax) ! compile))
+    (: read-all (impl (Fn Source I64 (List Syntax) -> (List Syntax) ! compile)))
     (define (read-all source index items)
       (let ((start (skip-atmosphere source index)))
         (if (at-end? source start)
@@ -753,7 +758,7 @@
             (let ((item (read-datum source start)))
               (read-all source (::second item) (Cons (::first item) items))))))
 
-    (: read-text (-> String String (List Syntax) ! compile))
+    (: read-text (impl (Fn String String -> (List Syntax) ! compile)))
     (define (read-text text file)
       (read-all (make-source file text) 0 (Nil)))
 
@@ -763,14 +768,14 @@
     ;; placed at `loc`, the recipe that produced it. A byte vector is cut
     ;; from the bytes as they are, and a number must read as it would in
     ;; text.
-    (: decode-syntax (-> Bytes Loc Syntax ! compile))
+    (: decode-syntax (impl (Fn Bytes Loc -> Syntax ! compile)))
     (define (decode-syntax bytes loc)
       (let ((decoded (decode-form bytes 0 loc)))
         (if (= (::second decoded) (vector-length bytes))
             (::first decoded)
             (malformed loc "bytes follow the library"))))
 
-    (: decode-form (-> Bytes I64 Loc (Pair Syntax I64) ! compile))
+    (: decode-form (impl (Fn Bytes I64 Loc -> (Pair Syntax I64) ! compile)))
     (define (decode-form bytes index loc)
       (let ((tag (byte-at bytes index loc)) (next (+ index 1)))
         (case tag
@@ -786,7 +791,7 @@
           ((7) (decode-bytes bytes next loc))
           (else (malformed loc "an unknown tag")))))
 
-    (: decode-list (-> Bytes I64 Loc (Pair Syntax I64) ! compile))
+    (: decode-list (impl (Fn Bytes I64 Loc -> (Pair Syntax I64) ! compile)))
     (define (decode-list bytes index loc)
       (let ((count (decode-count bytes index loc)))
         (let loop ((left (::first count)) (index (::second count)) (items (Nil)))
@@ -796,7 +801,7 @@
                 (loop (- left 1) (::second item) (Cons (::first item) items)))))))
 
     ;; A text and the index after it.
-    (: decode-text (-> Bytes I64 Loc (Pair String I64) ! compile))
+    (: decode-text (impl (Fn Bytes I64 Loc -> (Pair String I64) ! compile)))
     (define (decode-text bytes index loc)
       (let ((count (decode-count bytes index loc)))
         (let loop ((left (::first count)) (index (::second count)) (chars (Nil)))
@@ -808,14 +813,14 @@
                       (Cons (scalar (::first code) loc) chars)))))))
 
     ;; A symbol, a number or a string, as tags 1, 2 and 3 mark them.
-    (: text-syntax (-> I64 String Loc Syntax ! compile))
+    (: text-syntax (impl (Fn I64 String Loc -> Syntax ! compile)))
     (define (text-syntax tag text loc)
       (case tag
         ((1) (Ident text (None) loc))
         ((2) (Atom (generated-number text loc) loc))
         (else (Atom (DString text) loc))))
 
-    (: decode-bytes (-> Bytes I64 Loc (Pair Syntax I64) ! compile))
+    (: decode-bytes (impl (Fn Bytes I64 Loc -> (Pair Syntax I64) ! compile)))
     (define (decode-bytes bytes index loc)
       (let* ((count (decode-count bytes index loc))
              (start (::second count))
@@ -826,7 +831,7 @@
 
     ;; Seven bits to a byte, low bits first. Five bytes bound a count well
     ;; inside I64 on every host.
-    (: decode-count (-> Bytes I64 Loc (Pair I64 I64) ! compile))
+    (: decode-count (impl (Fn Bytes I64 Loc -> (Pair I64 I64) ! compile)))
     (define (decode-count bytes index loc)
       (let loop ((index index) (value 0) (scale 1))
         (let ((byte (byte-at bytes index loc)))
@@ -834,26 +839,26 @@
                 ((= scale 268435456) (malformed loc "a count is too large"))
                 (else (loop (+ index 1) (+ value (* (- byte 128) scale)) (* scale 128)))))))
 
-    (: byte-at (-> Bytes I64 Loc I64 ! compile))
+    (: byte-at (impl (Fn Bytes I64 Loc -> I64 ! compile)))
     (define (byte-at bytes index loc)
       (if (< index (vector-length bytes))
           (i32->i64 (u8->i32 (vector-ref bytes index)))
           (malformed loc "it ends early")))
 
-    (: scalar (-> I64 Loc Char ! compile))
+    (: scalar (impl (Fn I64 Loc -> Char ! compile)))
     (define (scalar code loc)
       (if (or (< code 55296) (and (> code 57343) (< code 1114112)))
           (integer->char code)
           (malformed loc "a code is not a Unicode scalar")))
 
-    (: generated-number (-> String Loc Datum ! compile))
+    (: generated-number (impl (Fn String Loc -> Datum ! compile)))
     (define (generated-number text loc)
       (match (if (= (string-length text) 0) (NameToken) (number-kind text))
         ((IntegerToken) (integer-datum text loc))
         ((FloatToken) (DFloat text))
         (_ (malformed loc (string-append "the number " text " does not read as one")))))
 
-    (: malformed (All (A) (-> Loc String A ! compile)))
+    (: malformed (All (A) (impl (Fn Loc String -> A ! compile))))
     (define (malformed loc problem)
       (compile-error loc (string-append "malformed generated syntax: " problem)))
 

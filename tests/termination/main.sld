@@ -9,14 +9,14 @@
 ;; "ready": a signal after that is the waiter's to observe. Run without it,
 ;; no task waits, and a signal ends the program as it always has; with
 ;; `busy`, it does so while the task after "ready" computes without end.
-(: observe (-> Unit ! console signals tasks))
+(: observe (impl (Fn -> Unit ! console signals tasks)))
 (define (observe)
   (match (termination)
     ((Terminate) (write-line "observed Terminate"))
     ((Interrupt) (write-line "observed Interrupt"))
     ((Kill) (panic "SIGKILL cannot be observed"))))
 
-(: spin (-> Unit))
+(: spin (impl (Fn -> Unit)))
 (define (spin)
   (spin))
 

@@ -7,20 +7,20 @@
 ;; answer for the whole handled computation instead.
 ;; ANCHOR: parse-or
 (effect Raise
-  ((ctl raise (-> String I64))))
+  ((ctl raise (dyn (Fn String -> I64)))))
 
-(: digit (-> Char I64 ! Raise))
+(: digit (impl (Fn Char -> I64 ! Raise)))
 (define (digit c)
   (if (char-numeric? c)
       (- (char->integer c) 48)
       (raise (string-append "not a digit: " (list->string (list c))))))
 
-(: number (-> String I64 ! Raise))
+(: number (impl (Fn String -> I64 ! Raise)))
 (define (number text)
   (fold-left (lambda (total c) (+ (* total 10) (digit c))) 0 (string->list text)))
 
 ;; The handler's answer is a default, after reporting the message.
-(: parse-or (-> String I64 I64 ! console))
+(: parse-or (impl (Fn String I64 -> I64 ! console)))
 (define (parse-or text default)
   (handle Raise ((raise (lambda (message resume) (drop resume) (write-line message) default)))
     (number text)))

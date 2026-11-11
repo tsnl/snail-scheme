@@ -43,26 +43,35 @@
   (import
    (snail core base))
   (begin
-    (extern argument-character "snail.runtime.native.process" "argument-character" (-> Char Unit))
-    (extern argument-end "snail.runtime.native.process" "argument-end" (-> Unit))
-    (extern executable "snail.runtime.native.process" "executable" (-> I32))
-    (extern start-spawn "snail.runtime.native.process" "start-spawn" (-> I64 Unit))
+    (extern argument-character
+            "snail.runtime.native.process"
+            "argument-character"
+            (impl (Fn Char -> Unit)))
+    (extern argument-end "snail.runtime.native.process" "argument-end" (impl (Fn -> Unit)))
+    (extern executable "snail.runtime.native.process" "executable" (impl (Fn -> I32)))
+    (extern start-spawn "snail.runtime.native.process" "start-spawn" (impl (Fn I64 -> Unit)))
     (extern start-read-output
             "snail.runtime.native.process"
             "start-read-output"
-            (-> I64 I32 I32 I32 Unit))
+            (impl (Fn I64 I32 I32 I32 -> Unit)))
     (extern start-write-input
             "snail.runtime.native.process"
             "start-write-input"
-            (-> I64 I32 Bytes Unit))
-    (extern start-wait-exit "snail.runtime.native.process" "start-wait-exit" (-> I64 I32 Unit))
-    (extern start-termination "snail.runtime.native.process" "start-termination" (-> I64 Unit))
-    (extern finish "snail.runtime.native.process" "finish" (-> I64 I32))
-    (extern close-input "snail.runtime.native.process" "close-input" (-> I32 I32))
-    (extern send-signal "snail.runtime.native.process" "send-signal" (-> I32 I32 I32))
-    (extern close-process "snail.runtime.native.process" "close-process" (-> I32 I32))
-    (extern run "snail.runtime.native.process" "run" (-> Bytes I32))
-    (extern exec "snail.runtime.native.process" "exec" (-> I32))
-    (extern held-number "snail.runtime.native.process" "held-number" (-> I32))
-    (extern held-length "snail.runtime.native.process" "held-length" (-> I32 I32))
-    (extern held-byte "snail.runtime.native.process" "held-byte" (-> I32 I32 I32))))
+            (impl (Fn I64 I32 Bytes -> Unit)))
+    (extern start-wait-exit
+            "snail.runtime.native.process"
+            "start-wait-exit"
+            (impl (Fn I64 I32 -> Unit)))
+    (extern start-termination
+            "snail.runtime.native.process"
+            "start-termination"
+            (impl (Fn I64 -> Unit)))
+    (extern finish "snail.runtime.native.process" "finish" (impl (Fn I64 -> I32)))
+    (extern close-input "snail.runtime.native.process" "close-input" (impl (Fn I32 -> I32)))
+    (extern send-signal "snail.runtime.native.process" "send-signal" (impl (Fn I32 I32 -> I32)))
+    (extern close-process "snail.runtime.native.process" "close-process" (impl (Fn I32 -> I32)))
+    (extern run "snail.runtime.native.process" "run" (impl (Fn Bytes -> I32)))
+    (extern exec "snail.runtime.native.process" "exec" (impl (Fn -> I32)))
+    (extern held-number "snail.runtime.native.process" "held-number" (impl (Fn -> I32)))
+    (extern held-length "snail.runtime.native.process" "held-length" (impl (Fn I32 -> I32)))
+    (extern held-byte "snail.runtime.native.process" "held-byte" (impl (Fn I32 I32 -> I32)))))

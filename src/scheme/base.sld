@@ -18,23 +18,23 @@
 
     ;; ---- Pairs ----
 
-    (: cons (All (T) (-> T (List T) (List T))))
+    (: cons (All (T) (impl (Fn T (List T) -> (List T)))))
     (define (cons head tail)
       (Cons head tail))
 
-    (: car (All (T) (requires (Copy T)) (-> (List T) T)))
+    (: car (All (T) (requires (Copy T)) (impl (Fn (List T) -> T))))
     (define (car items)
       (match items
         ((Cons head _) head)
         ((Nil) (panic "car of an empty list"))))
 
-    (: cdr (All (T) (requires (Copy T)) (-> (List T) (List T))))
+    (: cdr (All (T) (requires (Copy T)) (impl (Fn (List T) -> (List T)))))
     (define (cdr items)
       (match items
         ((Cons _ tail) tail)
         ((Nil) (panic "cdr of an empty list"))))
 
-    (: pair? (All (T) (requires (Copy T)) (-> (List T) Bool)))
+    (: pair? (All (T) (requires (Copy T)) (impl (Fn (List T) -> Bool))))
     (define (pair? items)
       (not (null? items)))
 
@@ -44,11 +44,11 @@
       (syntax-rules ()
         ((_ item ...) (list->vector (list item ...)))))
 
-    (: char=? (-> Char Char Bool))
+    (: char=? (impl (Fn Char Char -> Bool)))
     (define (char=? a b)
       (= a b))
 
-    (: char<? (-> Char Char Bool))
+    (: char<? (impl (Fn Char Char -> Bool)))
     (define (char<? a b)
       (< a b))
 

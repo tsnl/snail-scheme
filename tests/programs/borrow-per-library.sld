@@ -3,7 +3,7 @@
  (snail core io)
  (borrow model))
 
-(: inspect (-> (Borrow Model) String))
+(: inspect (impl (Fn (Borrow Model) -> String)))
 (define (inspect model)
   (title model))
 
