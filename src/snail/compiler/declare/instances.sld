@@ -12,7 +12,14 @@
 ;; - its methods: a dispatch clause's types, where nothing is in scope; or
 ;;   each method definition, which names a member of the class and is
 ;;   given a Global for its implementation, named for the member; and then
-;;   every member of the class implemented.
+;;   every member of the class implemented;
+;; - its head, as the old compiler's `instance-program` checks it once its
+;;   methods are declared: each of the class's parameters given; a
+;;   lifecycle instance in no named instance set; the outputs of a class
+;;   with outputs determined (`determination`); the rows (`heads`); and a
+;;   lifecycle instance's type (`lifecycle`). Each is refused at the
+;;   instance. The old compiler checks an instance's overlap with the
+;;   others before its head; `cohere` does, after `declare`.
 ;;
 ;; The class is as known where the instance is: a class of the library's
 ;; own whose declaration comes later has its scanned shape, every
@@ -39,6 +46,8 @@
    (snail compiler declare state)
    (snail compiler declare requirements)
    (snail compiler declare heads)
+   (snail compiler declare determination)
+   (snail compiler declare lifecycle)
    (snail compiler declare members)
    (snail compiler declare types)
    (snail compiler declare expressions))
@@ -59,12 +68,15 @@
        (value bound-Expr)
        (loc Loc)))
 
+    ;; `in-set?` says that the instance is written in a named instance
+    ;; set, `(define-instance-set ...)`; one in an instance scope is not.
     (: declared-instance
        (impl (Fn Declaring
                  bound-Instance
+                 Bool
                  ->
                  (Result (Pair DeclaredInstance Declaring) (List Feedback)))))
-    (define (declared-instance state instance)
+    (define (declared-instance state instance in-set?)
       (let* ((known (::known state))
              (shape (class-shape known (::class instance)))
              (loc (::loc instance)))
@@ -86,17 +98,18 @@
                                (unchanged state (checked (head-problem shape (length types)) loc)))
                          (global state (fresh-global state (class-name (::class instance))))
                          (body state (declared-body state instance)))
-          (Ok (Pair (DeclaredInstance (Instance global
-                                                (::class instance)
-                                                (::variables required)
-                                                types
-                                                outputs
-                                                (::requirements required)
-                                                (::copied required)
-                                                (::first body)
-                                                loc)
-                                      (::second body))
-                    state)))))
+          (let ((declared (Instance global
+                                    (::class instance)
+                                    (::variables required)
+                                    types
+                                    outputs
+                                    (::requirements required)
+                                    (::copied required)
+                                    (::first body)
+                                    loc)))
+            (declaring-let* ((head state
+                                   (unchanged state (checked-head known shape in-set? declared))))
+              (Ok (Pair (DeclaredInstance declared (::second body)) state)))))))
 
     ;; An instance is named for its class: a declared class's name, or a
     ;; field class's label.
@@ -118,6 +131,34 @@
                          ((Some written) (declared-type scope (::type written)))
                          ((None) (panic "declare: each output has its equation"))))
                      (given-outputs shape equations))))
+
+    ;; ---- Heads ----
+
+    ;; The head's checks once the methods are declared, in the old
+    ;; compiler's order; `shape` is the class as known where the instance
+    ;; is.
+    (: checked-head (impl (Fn Known ClassShape Bool Instance -> (Result Unit (List Feedback)))))
+    (define (checked-head known shape in-set? instance)
+      (let ((lifecycle (instance-lifecycle (::class instance)))
+            (head (append (::types instance) (::outputs instance)))
+            (requirements (::requirements instance))
+            (loc (::loc instance)))
+        (result-let* ((given (checked (parameters-problem shape (length head)) loc))
+                      (outside (checked (set-problem lifecycle in-set?) loc))
+                      (determined (checked (determination-problem known
+                                                                  shape
+                                                                  (::types instance)
+                                                                  (::outputs instance)
+                                                                  requirements)
+                                           loc))
+                      (rows (checked (head-rows-problem known
+                                                        lifecycle
+                                                        shape
+                                                        head
+                                                        (::variables instance)
+                                                        requirements)
+                                     loc)))
+          (checked (lifecycle-head-problem lifecycle (::library known) shape head) loc))))
 
     ;; ---- Methods ----
 
@@ -244,7 +285,8 @@
         (test-heads)
         (test-methods)
         (test-order)
-        (test-dynamic))
+        (test-dynamic)
+        (test-head-order))
 
       (define (at line)
         (Loc "t.sld" line 1))
@@ -315,8 +357,12 @@
                         (bound-Methods methods)
                         (at 9)))
 
+      ;; An instance written at the top level, in no named instance set.
+      (define (declared-top state written)
+        (declared-instance state written #f))
+
       (define (declared state written)
-        (match (declared-instance state written)
+        (match (declared-top state written)
           ((Ok (Pair found next)) (Pair found (::next next)))
           ((Err feedback) (Err feedback))))
 
@@ -342,29 +388,29 @@
                                           (unit-at 4)
                                           (at 4)))))
             (other (expect other "an instance")))
-          (expect (declared-instance state
-                                     (instance op
-                                       (list (expanded-Variable "t" loc) (i64-at 2))
-                                       (list (equation "Output" (i64-at 3))
-                                             (equation "Output" (i64-at 3)))
-                                       (list (definition "op" 4))))
+          (expect (declared-top state
+                                (instance op
+                                  (list (expanded-Variable "t" loc) (i64-at 2))
+                                  (list (equation "Output" (i64-at 3))
+                                        (equation "Output" (i64-at 3)))
+                                  (list (definition "op" 4))))
                   (fail (at 9) "an instance defines each associated type exactly once"))
-          (expect (declared-instance state
-                                     (instance op
-                                       (list (expanded-Variable "t" loc))
-                                       (list (equation "Output"
-                                                       (expanded-Applied
-                                                        (expanded-Global forms-library "Array" 0)
-                                                        "Array"
-                                                        (list)
-                                                        (at 5))))
-                                       (list)))
+          (expect (declared-top state
+                                (instance op
+                                  (list (expanded-Variable "t" loc))
+                                  (list (equation "Output"
+                                                  (expanded-Applied
+                                                   (expanded-Global forms-library "Array" 0)
+                                                   "Array"
+                                                   (list)
+                                                   (at 5))))
+                                  (list)))
                   (fail (at 5) "wrong number of type arguments: Array"))
-          (expect (declared-instance state
-                                     (instance op
-                                       (list (expanded-Variable "t" loc))
-                                       (list (equation "Output" (i64-at 3)))
-                                       (list (definition "op" 4))))
+          (expect (declared-top state
+                                (instance op
+                                  (list (expanded-Variable "t" loc))
+                                  (list (equation "Output" (i64-at 3)))
+                                  (list (definition "op" 4))))
                   (fail (at 9)
                         "instance head gives each declared class parameter; associated types belong in its body"))))
 
@@ -372,17 +418,17 @@
       ;; definitions of one method are kept; every method is implemented.
       (define (test-methods)
         (let ((state (Declaring 1 known)))
-          (expect (declared-instance state
-                                     (instance show
-                                       (list (expanded-Variable "t" loc))
-                                       (list)
-                                       (list (definition "show" 2) (definition "size" 3))))
+          (expect (declared-top state
+                                (instance show
+                                  (list (expanded-Variable "t" loc))
+                                  (list)
+                                  (list (definition "show" 2) (definition "size" 3))))
                   (fail (at 3) "not a method of this class: size"))
-          (expect (declared-instance state
-                                     (instance show
-                                       (list (expanded-Variable "t" loc))
-                                       (list)
-                                       (list (definition "width" 2))))
+          (expect (declared-top state
+                                (instance show
+                                  (list (expanded-Variable "t" loc))
+                                  (list)
+                                  (list (definition "width" 2))))
                   (fail (at 9) "instance is missing a method: show"))
           (match (declared state
                            (instance show
@@ -404,11 +450,11 @@
       ;; class's one method is its label's path.
       (define (test-order)
         (let ((state (Declaring 1 known)))
-          (expect (declared-instance state
-                                     (instance later
-                                       (list (expanded-Variable "t" loc))
-                                       (list)
-                                       (list (definition "m" 2))))
+          (expect (declared-top state
+                                (instance later
+                                  (list (expanded-Variable "t" loc))
+                                  (list)
+                                  (list (definition "m" 2))))
                   (fail (at 2) "not a method of this class: m"))
           (expect (::second (declared state
                                       (instance later
@@ -457,5 +503,109 @@
                                   (expanded-ClassGlobal show)
                                   (list (list (i64-at 1) (i64-at 1)))
                                   loc)
-                (Ok (DynamicInstances (expanded-ClassGlobal show) (list (list i64 i64)) loc))))))
+                (Ok (DynamicInstances (expanded-ClassGlobal show) (list (list i64 i64)) loc))))
+
+      ;; (snail core base) offers Drop and Pair; (main) scans Handle and
+      ;; declares (Store e S), e a row, with the output Out and the method
+      ;; fetch.
+      (define base (list "snail" "core" "base"))
+      (define handle (global main "Handle"))
+      (define pair-type (global base "Pair"))
+      (define store (global main "Store"))
+
+      (define head-known
+        (Known main
+               (Scanned (by-name empty-table "Handle" (ScannedType handle (list))) empty-table)
+               (Declarations main
+                             empty-table
+                             (by-name empty-table
+                                      "Store"
+                                      (Class store
+                                             (list (RowParameter "e") (TypeParameter "S"))
+                                             (list (Output (Label "Out" loc) (list)))
+                                             (list (method main "fetch"))
+                                             (list)
+                                             loc))
+                             empty-table)
+               (list (Declarations base
+                                   (by-name empty-table
+                                            "Pair"
+                                            (Data pair-type
+                                                  (list "A" "B")
+                                                  (list)
+                                                  (StructData)
+                                                  #f
+                                                  #f
+                                                  (list)
+                                                  loc))
+                                   (by-name empty-table
+                                            "Drop"
+                                            (Class drop-class
+                                                   (list (RowParameter "e") (TypeParameter "T"))
+                                                   (list)
+                                                   (list (method base "drop"))
+                                                   (list)
+                                                   loc))
+                                   empty-table))))
+
+      (define (row-at line tail)
+        (expanded-Row (expanded-Effects (list) tail) (at line)))
+
+      (define (handle-at line)
+        (expanded-Applied handle "Handle" (list) (at line)))
+
+      (define (pair-at line)
+        (expanded-Applied pair-type
+                          "Pair"
+                          (list (expanded-Variable "A" (at line)) (expanded-Variable "B" (at line)))
+                          (at line)))
+
+      (define (drop-instance types methods)
+        (bound-Instance (expanded-ClassGlobal drop-class)
+                        (list "A" "B" "e")
+                        types
+                        (list)
+                        (list)
+                        (bound-Methods methods)
+                        (at 9)))
+
+      (define (lifecycle-declared types methods in-set?)
+        (declared-instance (Declaring 1 head-known) (drop-instance types methods) in-set?))
+
+      (define dropping (list (definition "drop" 2)))
+
+      ;; When two of the head's refusals apply, the old compiler's order
+      ;; decides, as the probes order-count-set.sld, order-set-foreign.sld,
+      ;; determination-input.sld, order-rows-foreign.sld and
+      ;; order-methods-head.sld show: the methods first, then the count,
+      ;; the set, the outputs, the rows, and the type last. Each is refused
+      ;; at the instance.
+      (define (test-head-order)
+        (expect (::second (declared (Declaring 1 head-known)
+                                    (drop-instance (list (row-at 1 (None)) (handle-at 1))
+                                                   dropping)))
+                3)
+        (expect (lifecycle-declared (list (row-at 1 (None)) (pair-at 1)) (list) #t)
+                (fail (at 9) "instance is missing a method: drop"))
+        (expect (lifecycle-declared (list (handle-at 1)) dropping #t)
+                (fail (at 9)
+                      "a Drop instance gives each of the class's parameters, as in (Drop e T)"))
+        (expect (lifecycle-declared (list (row-at 1 (None)) (pair-at 1)) dropping #t)
+                (fail (at 9) "lifecycle instances cannot belong to a named instance set"))
+        (expect (declared-top (Declaring 1 head-known)
+                              (bound-Instance (expanded-ClassGlobal store)
+                                              (list "e")
+                                              (list (row-at 1 (Some (expanded-Variable "e" (at 1))))
+                                                    (i64-at 1))
+                                              (list)
+                                              (list (equation "Out" (i64-at 2)))
+                                              (bound-Methods (list (definition "fetch" 3)))
+                                              (at 9)))
+                (fail (at 9)
+                      "instance outputs must be determined by its inputs and earlier requirements"))
+        (expect (lifecycle-declared (list (expanded-Variable "e" (at 1)) (pair-at 1)) dropping #f)
+                (fail (at 9)
+                      "a Drop instance's row is closed, (! label ...), or ends with the row e of its requirements (Drop e A), as (! label ... e)"))
+        (expect (lifecycle-declared (list (row-at 1 (None)) (pair-at 1)) dropping #f)
+                (fail (at 9) "a Drop instance is declared in the library of its type")))))
    (else)))

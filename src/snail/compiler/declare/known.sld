@@ -18,12 +18,19 @@
    type-arity
    arity-problem
    class-shape
+   selecting
+   row-arguments
+   output-arguments
+   instance-noun
+   written-class
+   parameter-name
    known-with-data
    known-with-class
    known-with-effect
    known-class
    known-data
    constructor-case
+   known-operations
    effect-operations
    by-name)
   (import
@@ -123,6 +130,62 @@
                   (map (lambda (name) (TypeParameter name)) (::parameters class))
                   (::outputs class)))
 
+    ;; ---- What a class's arguments give it ----
+
+    ;; `types` give a class of `shape` each of its written parameters, in
+    ;; order, and may give its outputs after them, as a requirement and an
+    ;; instance's head and outputs do. The selecting ones are the types of
+    ;; the written parameters not known to be rows, which choose an
+    ;; instance; the rows and the outputs are what the instance chosen
+    ;; gives, as the old compiler's `type-arguments`, `row-arguments` and
+    ;; `output-arguments` divide them.
+    (: selecting (impl (Fn ClassShape (List Type) -> (List Type))))
+    (define (selecting shape types)
+      (map ::second
+           (filter (lambda (pair)
+                     (match (::first pair)
+                       ((TypeParameter _) #t)
+                       ((RowParameter _) #f)))
+                   (zip (::parameters shape) types))))
+
+    (: row-arguments (impl (Fn ClassShape (List Type) -> (List Type))))
+    (define (row-arguments shape types)
+      (map ::second
+           (filter (lambda (pair)
+                     (match (::first pair)
+                       ((TypeParameter _) #f)
+                       ((RowParameter _) #t)))
+                   (zip (::parameters shape) types))))
+
+    (: output-arguments (impl (Fn ClassShape (List Type) -> (List Type))))
+    (define (output-arguments shape types)
+      (list-drop types (length (::parameters shape))))
+
+    ;; ---- The class in messages ----
+
+    ;; The name a message gives an instance of the class: `a NAME
+    ;; instance`.
+    (: instance-noun (impl (Fn ClassShape -> String)))
+    (define (instance-noun shape)
+      (string-append "a " (::name shape) " instance"))
+
+    ;; The class applied to its parameters, its outputs last, as messages
+    ;; spell it: `(Op e A B Output)`.
+    (: written-class (impl (Fn ClassShape -> String)))
+    (define (written-class shape)
+      (string-append "("
+                     (string-join (Cons (::name shape)
+                                        (append (map parameter-name (::parameters shape))
+                                                (::outputs shape)))
+                                  " ")
+                     ")"))
+
+    (: parameter-name (impl (Fn ClassParameter -> String)))
+    (define (parameter-name parameter)
+      (match parameter
+        ((TypeParameter name) name)
+        ((RowParameter name) name)))
+
     ;; A declared class as an instance sees it: its entity, once its
     ;; declaration is reached or when it is imported. A class of the
     ;; library's own whose declaration is not yet reached is known by its
@@ -217,16 +280,25 @@
            ((Some case) (Some (Pair data case)))
            ((None) (first-case global rest))))))
 
+    ;; The operations of the effect `global`, when it is known here: one of
+    ;; the import closure's, or of the library's own once its declaration
+    ;; is reached. A builtin effect of (snail core forms) is none here.
+    (: known-operations (impl (Fn Known Global -> (Option (List Operation)))))
+    (define (known-operations known global)
+      (match (match (library-declarations known (::library global))
+               ((Some declarations) (named global (::effects declarations) ::global))
+               ((None) (None)))
+        ((Some effect) (Some (::operations effect)))
+        ((None) (None))))
+
     ;; The operations of an effect a handler names. `expand` resolves a
     ;; handler's effect to an effect of the library or of its import
     ;; closure, never a builtin one, and every body is declared once every
     ;; declaration is reached, so the effect is known.
     (: effect-operations (impl (Fn Known Global -> (List Operation))))
     (define (effect-operations known global)
-      (match (match (library-declarations known (::library global))
-               ((Some declarations) (named global (::effects declarations) ::global))
-               ((None) (None)))
-        ((Some effect) (::operations effect))
+      (match (known-operations known global)
+        ((Some operations) operations)
         ((None) (panic (string-append "declare: no effect " (::name global))))))
 
     ;; What is known of the library named `library`: the library's own

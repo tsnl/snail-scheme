@@ -52,12 +52,8 @@
     (define (requirement-problem shape types)
       (if (= (length types) (+ (length (::parameters shape)) (length (::outputs shape))))
           (row-problem shape types)
-          (Some (string-append "a constraint gives each of the class's parameters, as in ("
-                               (string-join (Cons (::name shape)
-                                                  (append (map parameter-name (::parameters shape))
-                                                          (::outputs shape)))
-                                            " ")
-                               ")"))))
+          (Some (string-append "a constraint gives each of the class's parameters, as in "
+                               (written-class shape)))))
 
     (: row-problem (impl (Fn ClassShape (List Type) -> (Option String))))
     (define (row-problem shape types)
@@ -80,12 +76,6 @@
            ((Row _) #t)
            ((Var _) #t)
            (_ #f)))))
-
-    (: parameter-name (impl (Fn ClassParameter -> String)))
-    (define (parameter-name parameter)
-      (match parameter
-        ((TypeParameter name) name)
-        ((RowParameter name) name)))
 
     ;; ---- Converted requirements ----
 

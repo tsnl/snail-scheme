@@ -10,13 +10,20 @@
 ;; always a type, may not end a row. The old compiler finds the rows among
 ;; the written parameters and the outputs alike, refuses the first row
 ;; written as a type, in that order, and then an output that is a row.
+;;
+;; What a type writes as types, and the variable a row ends with, are read
+;; here, as the old compiler reads them for kinds and for what an
+;; instance's head determines.
 (define-library (snail compiler declare kinds)
   (export
    class-parameters
-   row-names)
+   type-variables
+   arrow-variables
+   row-variable)
   (import
    (snail core base)
-   (snail compiler declare language))
+   (snail compiler declare language)
+   (snail compiler declare equality))
   (begin
 
     ;; ---- Parameters ----
@@ -29,8 +36,8 @@
     (define (class-parameters parameters outputs types)
       (let* ((used (concatenate (map row-names types)))
              (rows (filter (lambda (name) (member? name used)) (append parameters outputs)))
-             (written (concatenate (map type-names types))))
-        (match (find (lambda (row) (member? row written)) rows)
+             (written (concatenate (map type-variables types))))
+        (match (find (lambda (row) (variable-among? (Written row) written)) rows)
           ((Some row)
            (Err
             (string-append "the class parameter " row " is written both as a row and as a type")))
@@ -72,19 +79,28 @@
     ;; The variables a type writes as types: itself, when it is one, and
     ;; those of a Con's arguments and of an arrow's parameters and result,
     ;; but none a row holds, as the old compiler's `type-names` reads them.
-    (: type-names (impl (Fn Type -> (List String))))
-    (define (type-names type)
+    (: type-variables (impl (Fn Type -> (List TypeVariable))))
+    (define (type-variables type)
       (match type
-        ((Var (Written name)) (list name))
-        ((Var _) (Nil))
-        ((Callable _ _ arrow) (arrow-type-names arrow))
-        ((Code arrow) (arrow-type-names arrow))
-        ((Con _ arguments) (concatenate (map type-names arguments)))
+        ((Var variable) (list variable))
+        ((Callable _ _ arrow) (arrow-variables arrow))
+        ((Code arrow) (arrow-variables arrow))
+        ((Con _ arguments) (concatenate (map type-variables arguments)))
         ((Row _) (Nil))))
 
-    (: arrow-type-names (impl (Fn Arrow -> (List String))))
-    (define (arrow-type-names arrow)
-      (append (concatenate (map type-names (::parameters arrow))) (type-names (::result arrow))))
+    (: arrow-variables (impl (Fn Arrow -> (List TypeVariable))))
+    (define (arrow-variables arrow)
+      (append (concatenate (map type-variables (::parameters arrow)))
+              (type-variables (::result arrow))))
+
+    ;; The variable a row given as an argument ends with, when it ends with
+    ;; one, as the old compiler's `row-variable` reads it; not one a row it
+    ;; ends with holds.
+    (: row-variable (impl (Fn Type -> (List TypeVariable))))
+    (define (row-variable type)
+      (match type
+        ((Row (Effects _ (Some (Var variable)))) (list variable))
+        (_ (Nil))))
 
     )
 
@@ -100,8 +116,23 @@
     (begin
       (define (test-kinds)
         (test-rows)
+        (test-variables)
         (test-parameters)
         (test-problems))
+
+      ;; Every variable written as a type, the compiler's among them, but
+      ;; none in a row; and a row argument's own tail, when a variable.
+      (define (test-variables)
+        (expect (type-variables (Con io
+                                     (list (var "a")
+                                           (Row (ending (Some (var "e"))))
+                                           (Var (Associated 0 "Out")))))
+                (list (Written "a") (Associated 0 "Out")))
+        (expect (type-variables (fetch (var "S") (ending (Some (var "e"))))) (list (Written "S")))
+        (expect (row-variable (Row (ending (Some (var "e"))))) (list (Written "e")))
+        (expect (row-variable (Row (ending (Some (Row (ending (Some (var "e")))))))) (list))
+        (expect (row-variable (Row (ending (None)))) (list))
+        (expect (row-variable (var "e")) (list)))
 
       (define text-type (Con (Global (list "snail" "core" "forms") "String" 0) (list)))
       (define io (Global (list "main") "io" 0))

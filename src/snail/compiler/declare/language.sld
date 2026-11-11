@@ -411,16 +411,19 @@
     ;; An instance, named by a Global `declare` numbers. Its variables are
     ;; the names its head leaves unbound, in the order first written, then
     ;; each output its requirements leave unwritten. `types` gives each of
-    ;; the class's written parameters, in order, a row for each row
-    ;; parameter and a type that is no row for each other; `outputs` gives
-    ;; each output, in the class's order, the type its equation wrote. So
-    ;; the types an instance is selected by are the head's types that are
-    ;; no row. Whether it is in a named set is where it is: inside an
-    ;; InstanceSet. Its methods, when written, implement every method of
-    ;; the class, in the order written, each a top-level definition of its
-    ;; own Global; a method defined twice keeps both definitions, in
-    ;; order, as the old compiler keeps them. A dispatch clause's types
-    ;; wait for `dispatch`.
+    ;; the class's written parameters, in order, a row for each parameter
+    ;; known to be a row where the instance is written and a type that is
+    ;; no row for each other; `outputs` gives each output, in the class's
+    ;; order, the type its equation wrote, determined by the head's other
+    ;; types and the requirements. So the types an instance is selected by
+    ;; are the head's types that are no row. Whether it is in a named set
+    ;; is where it is: inside an InstanceSet, where no Drop or Clone
+    ;; instance is; one of those is for a row and a declared type of its
+    ;; library at distinct variables. Its methods, when written, implement
+    ;; every method of the class, in the order written, each a top-level
+    ;; definition of its own Global; a method defined twice keeps both
+    ;; definitions, in order, as the old compiler keeps them. A dispatch
+    ;; clause's types wait for `dispatch`.
     (struct Instance
       ((global Global)
        (class ClassRef)
