@@ -12,6 +12,7 @@
   - [Libraries](snail-core/libraries.md)
   - [HTTP protocol](snail-core/http.md)
   - [Projects and targets](snail-core/projects.md)
+  - [Compiler passes](snail-core/passes.md)
   - [Compiler architecture](snail-core/compilers.md)
   - [Application model](snail-core/applications.md)
   - [Development toolchain](snail-core/toolchain.md)
