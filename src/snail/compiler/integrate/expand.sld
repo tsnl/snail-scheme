@@ -12,12 +12,14 @@
 ;; reaches a generated library is not expanded, since its producer has
 ;; not yet printed the library's body, and one stops at the first library
 ;; that asks for a target the caller did not supply, which it waits for.
+;; The integrator keeps, of each library, its offer, which expanding the
+;; libraries that import it reads, and its latest tree, the library bound.
 (define-library (snail compiler integrate expand)
   (export
    ExpandedFile
    ProgramExpansion
    ExpandedAll
-   WaitingFor
+   WaitingForLibraries
    WaitingForTargets
    expand-loaded)
   (import
@@ -29,12 +31,13 @@
    (snail compiler outline imports)
    (snail compiler outline names)
    (only (snail compiler expand language) Expanded)
-   (only (snail compiler expand offer) Offered Expansion)
+   (only (snail compiler expand offer) Offered Expansion Offer)
    (snail compiler expand pass)
    (snail compiler expand derives)
    (only (snail compiler expand targets) TargetRequest)
    (only (snail compiler bind language) Bound)
    (only (snail compiler bind supply) TargetFile)
+   (snail compiler bind pass)
    (snail compiler integrate walk)
    (snail compiler integrate load)
    (snail compiler integrate bind))
@@ -42,13 +45,13 @@
 
     ;; ---- Expansions ----
 
-    ;; One library's file, its name, the libraries it imports, its
-    ;; expansion, and the library bound.
+    ;; One library's file, its name, the libraries it imports, what it
+    ;; offers, and the library bound.
     (struct ExpandedFile
       ((file String)
        (library LibraryName)
        (imports (List LibraryName))
-       (expansion Expansion)
+       (offer Offer)
        (bound Bound)))
 
     ;; Every library expanded and bound, in order; or the generated
@@ -58,7 +61,7 @@
     (enum ProgramExpansion
       (ExpandedAll
        ((files (List ExpandedFile))))
-      (WaitingFor
+      (WaitingForLibraries
        ((libraries (List LibraryName))))
       (WaitingForTargets
        ((requests (List TargetRequest)))))
@@ -72,7 +75,7 @@
                  fs)))
     (define (expand-loaded directories targets loaded)
       (match (::waiting loaded)
-        ((Cons _ _) (Ok (WaitingFor (::waiting loaded))))
+        ((Cons _ _) (Ok (WaitingForLibraries (::waiting loaded))))
         ((Nil)
          (result-let* ((run
                         (expanded-files directories targets (::files loaded) (Running (Nil) #f))))
@@ -134,14 +137,17 @@
             !
             fs)))
     (define (bound-run targets outlined imports expansion earlier implicit?)
-      (let ((name (outlined-name outlined)))
-        (result-let* ((outcome (bind-expanded outlined name (::expanded expansion) targets)))
-          (Ok (match outcome
-                ((BoundLibrary bound)
-                 (Running
-                  (Cons (ExpandedFile (::file outlined) name imports expansion bound) earlier)
-                  implicit?))
-                ((WantsTargets requests) (Waiting requests)))))))
+      (result-let* ((outcome (bind-expanded outlined (::expanded expansion) targets)))
+        (Ok (match outcome
+              ((BoundLibrary bound)
+               (Running (Cons (ExpandedFile (::file outlined)
+                                            (outlined-name outlined)
+                                            imports
+                                            (::offer expansion)
+                                            bound)
+                              earlier)
+                        implicit?))
+              ((WantsTargets requests) (Waiting requests))))))
 
     ;; `done` with the implicit libraries, when the library `expansion`
     ;; holds is the first to derive.
@@ -196,7 +202,7 @@
     ;; library after those it imports; (snail core forms) has no file.
     (: closure-offers (impl (Fn (List ExpandedFile) (List LibraryName) -> (List Offered))))
     (define (closure-offers done imports)
-      (map (lambda (file) (Offered (::library file) (::offer (::expansion file))))
+      (map (lambda (file) (Offered (::library file) (::offer file)))
            (reached done imports (Nil))))
 
     (: reached
@@ -251,21 +257,20 @@
           ((Ok (ExpandedAll files))
            (expect (map ::library files)
                    (list (list "sample" "lib") (list "sample" "user") (list "main")))
-           (expect (::expanded (::expansion (list-ref files 2)))
-                   (expanded-Program (list)
-                                     (Some (expanded-TopRef (expanded-TopGlobal
-                                                             (expanded-Global (list "sample" "user")
-                                                                              "y"
-                                                                              0))
-                                                            (Loc
-                                                             (string-append directory "/main.sld")
-                                                             2
-                                                             1)))
-                                     1)))
+           (expect (::bound (list-ref files 2))
+                   (bound-Program (list)
+                                  (Some (bound-TopRef (expanded-TopGlobal
+                                                       (expanded-Global (list "sample" "user")
+                                                                        "y"
+                                                                        0))
+                                                      (Loc (string-append directory "/main.sld")
+                                                           2
+                                                           1)))
+                                  1)))
           (other (expect other "an expanded program")))
         (test-bound directory)
         (match (expanded-at directory "waiting.sld")
-          ((Ok (WaitingFor libraries)) (expect libraries (list (list "sample" "made"))))
+          ((Ok (WaitingForLibraries libraries)) (expect libraries (list (list "sample" "made"))))
           (other (expect other "a program waiting for (sample made)")))
         (match (expanded-at directory "asking.sld")
           ((Ok (WaitingForTargets requests))

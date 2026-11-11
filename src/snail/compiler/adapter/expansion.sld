@@ -10,9 +10,12 @@
 ;; in order; its written top-level definitions, in order; and each one's
 ;; value in a normal form, as is a program's body; the files it links,
 ;; each LinkImport beside the old value of its handle, and the files the
-;; build must place beside the program, beside the old `library-links`;
-;; and what the queries over Expanded answer, the targets it asks for and
-;; whether it derives, beside what the old expansion records of the same.
+;; build must place beside the program, beside the old `library-links`.
+;; And the targets the program asks for, which the stand-in files were
+;; supplied for, are compared with those the old expansion records of its
+;; libraries. The integrator keeps no library's Expanded tree, so whether
+;; a library derives is compared only through the order of the libraries,
+;; which places the implicit libraries where the first one derives.
 ;;
 ;; The normal form is a text in which each local is numbered in the order
 ;; it is bound, each macro-written global is its name marked as written
@@ -54,8 +57,6 @@
          Boolean
          UnitValue)
    (snail compiler expand offer)
-   (snail compiler expand targets)
-   (snail compiler expand derives)
    (snail compiler bind language)
    (snail compiler bind supply)
    (snail compiler bind placed)
@@ -128,12 +129,13 @@
         ((Ok loaded)
          (let ((supplied (supplied-expansion directories loaded (Nil))))
            (match (::first supplied)
-             ((Ok (WaitingFor _)) (Pair "not compared" "it reaches a generated library"))
+             ((Ok (WaitingForLibraries _)) (Pair "not compared" "it reaches a generated library"))
              (new
               (outcomes new
                         (old-expansion-with directories
                                             (old-inputs (::second supplied))
-                                            path))))))))
+                                            path)
+                        (map ::target (::second supplied)))))))))
 
     ;; ---- Targets ----
 
@@ -193,12 +195,14 @@
 
     ;; ---- Outcomes ----
 
+    ;; `targets` names each target the new expansion was supplied.
     (: outcomes
        (impl (Fn (Result ProgramExpansion (List Feedback))
                  (Result old:ExpandedProgram old:Stop)
+                 (List String)
                  ->
                  (Pair String String))))
-    (define (outcomes new old)
+    (define (outcomes new old targets)
       (match (Pair new old)
         ((Pair (Err feedback) (Err (old:Failed diagnostics)))
          (failures feedback (old:diagnostics->list diagnostics)))
@@ -211,8 +215,10 @@
                (old-problem-text (first-old (old:diagnostics->list diagnostics)))))
         ((Pair (Ok _) (Err (old:Requested _)))
          (Pair "not compared" "the old compiler asks for an input"))
-        ((Pair (Ok (ExpandedAll files)) (Ok expanded)) (expansions-comparison files expanded))
-        ((Pair (Ok (WaitingFor _)) _) (Pair "not compared" "it reaches a generated library"))
+        ((Pair (Ok (ExpandedAll files)) (Ok expanded))
+         (expansions-comparison files expanded targets))
+        ((Pair (Ok (WaitingForLibraries _)) _)
+         (Pair "not compared" "it reaches a generated library"))
         ((Pair (Ok (WaitingForTargets _)) _) (Pair "not compared" "it waits for a target"))))
 
     ;; ---- Problems ----
@@ -282,8 +288,8 @@
     ;; Each library the old expansion records, beside the new one of the
     ;; same name; the primitive library, which records nothing, is not.
     (: expansions-comparison
-       (impl (Fn (List ExpandedFile) old:ExpandedProgram -> (Pair String String))))
-    (define (expansions-comparison files expanded)
+       (impl (Fn (List ExpandedFile) old:ExpandedProgram (List String) -> (Pair String String))))
+    (define (expansions-comparison files expanded targets)
       (let* ((program (::program expanded))
              (old-libraries (old:library-items program (old:program-items program)))
              (differences (concatenate
@@ -297,11 +303,12 @@
                                                                  (::second entry)
                                                                  (old-exports expanded
                                                                               (::first entry)))
-                                            (link-differences file expanded)
-                                            (query-differences file expanded))))
+                                            (link-differences file expanded))))
                                     ((None) (Nil))))
                                 files))))
-        (match (append (order-difference files old-libraries) differences)
+        (match (concatenate (list (order-difference files old-libraries)
+                                  (targets-difference files expanded targets)
+                                  differences))
           ((Nil) (Pair "expand alike" ""))
           (found (Pair "expansions differ" (string-join found "; "))))))
 
@@ -329,26 +336,22 @@
         ((Some entry) (map ::first (::exports entry)))
         ((None) (Nil))))
 
-    ;; The targets asked for, each once, in name order, and whether the
-    ;; library derives.
-    (: query-differences (impl (Fn ExpandedFile old:ExpandedProgram -> (List String))))
-    (define (query-differences file expanded)
-      (match (table-ref (::libraries expanded) (file-key file))
-        ((Some entry)
-         (let* ((library (::expanded (::expansion file)))
-                (new (list (names-text (map ::target (requested-targets library)))
-                           (match (first-derivation library)
-                             ((Some _) "derives")
-                             ((None) "derives nothing"))))
-                (old (list (names-text (map ::name (::artifacts entry)))
-                           (match (::derives entry)
-                             ((Some _) "derives")
-                             ((None) "derives nothing")))))
-           (if (same-texts? new old)
-               (Nil)
-               (list (string-append (file-key file) ": queries differ: new " (string-join new ", ")
-                                    "; old " (string-join old ", "))))))
-        ((None) (Nil))))
+    ;; The targets the program asks for, each once, in name order: those
+    ;; the new expansion was supplied, beside those the old expansion
+    ;; records of the same libraries.
+    (: targets-difference
+       (impl (Fn (List ExpandedFile) old:ExpandedProgram (List String) -> (List String))))
+    (define (targets-difference files expanded targets)
+      (let ((new (names-text targets))
+            (old (names-text (concatenate (map (lambda (file)
+                                                 (match (table-ref (::libraries expanded)
+                                                                   (file-key file))
+                                                   ((Some entry) (map ::name (::artifacts entry)))
+                                                   ((None) (Nil))))
+                                               files)))))
+        (if (string=? new old)
+            (Nil)
+            (list (string-append "the targets asked for differ: new " new "; old " old)))))
 
     (: names-text (impl (Fn (List String) -> String)))
     (define (names-text names)
@@ -424,7 +427,7 @@
        (impl (Fn ExpandedFile (List old:Item) (List String) -> (List String))))
     (define (library-differences file items old-exported)
       (let* ((key (file-key file))
-             (exported (map ::name (::exports (::offer (::expansion file)))))
+             (exported (map ::name (::exports (::offer file))))
              (new (written-definitions (::bound file)))
              (new-names (map ::first new))
              (old (filter (lambda (entry)
