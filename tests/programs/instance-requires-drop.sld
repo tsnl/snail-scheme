@@ -7,33 +7,31 @@
 ;; gives A as any drop does: through its instance, its glue, or for
 ;; nothing, and charges what that performs to the requirement's row.
 (effect log
-  ((say (dyn (Fn String -> Unit)))))
+  ((say (dyn (Fn String → Unit)))))
 
 (struct Handle
   ((name String)))
 
 (instance (Drop (! log) Handle)
-  (define (drop handle)
-    (match handle
-      ((Handle name) (say (string-append "released " name))))))
+  (define drop
+    (lambda (handle) (match handle
+                       ((Handle name) (say (string-append "released " name)))))))
 
 (typeclass (Release T)
-  (: release (impl (Fn T -> Unit ! log))))
+  (: release (impl (Fn T → Unit ! log))))
 
 (instance (Release (Option A))
-  (requires (Drop (! log) A))
-  (define (release option)
-    (match option
-      ((Some item) (drop item))
-      ((None) (say "nothing to release")))))
+  (⊨ (Drop (! log) A))
+  (define release
+    (lambda (option) (match option
+                       ((Some item) (drop item))
+                       ((None) (say "nothing to release"))))))
 
 ;; A definition that requires (Copy A) releases an A for nothing.
-(: release-copy (All (A) (requires (Copy A)) (impl (Fn A -> Unit ! log))))
-(define (release-copy value)
+(define (release-copy (value A)) (→ Unit) (! log) (∀ A) (⊨ (Copy A))
   (release (Some value)))
 
-(: demo (impl (Fn -> Unit ! log)))
-(define (demo)
+(define (demo) (→ Unit) (! log)
   (release (Some (Handle "h")))
   (release (Some (Pair (Handle "p") (Handle "q"))))
   (release (Some 3))

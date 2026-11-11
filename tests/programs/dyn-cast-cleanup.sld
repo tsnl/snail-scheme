@@ -3,41 +3,37 @@
  (snail core io))
 
 (effect audit
-  ((note (dyn (Fn String -> Unit)))))
+  ((note (dyn (Fn String → Unit)))))
 (struct Resource
   ((name String)))
 (instance (Drop (! audit) Resource)
-  (define (drop resource)
-    (match resource ((Resource name) (note (string-append "drop " name))))))
-(: integer (impl (Fn Any -> I64 ! dyn-cast)))
-(define (integer value) value)
+  (define drop
+    (lambda (resource) (match resource ((Resource name) (note (string-append "drop " name)))))))
+(define (integer (value Any)) (→ I64) (! dyn-cast) value)
 
 ;; Cleanup alone justifies audit; there is no textual drop in this body.
-(: aborting (impl (Fn -> Unit ! dyn-cast audit)))
-(define (aborting)
+(define (aborting) (→ Unit) (! dyn-cast audit)
   (let ((first (Resource "first")))
     (let ((second (Resource "second")))
       (integer "bad")
       (panic "unreachable"))))
 
 ;; The same cleanup row is inferred without an annotation.
-(define (inferred-cleanup)
-  (let ((resource (Resource "inferred")))
-    (integer "bad")
-    (panic "unreachable")))
+(define inferred-cleanup
+  (lambda () (let ((resource (Resource "inferred")))
+               (integer "bad")
+               (panic "unreachable"))))
 
 ;; Catching the conversion still leaves the resource's audit effect to infer.
-(define (inferred-caught-cleanup)
-  (handle dyn-cast ((conversion-failed (lambda (_) (unit))))
-    (let ((resource (Resource "inferred caught")))
-      (integer "bad")
-      (panic "unreachable"))))
+(define inferred-caught-cleanup
+  (lambda () (handle dyn-cast ((conversion-failed (lambda (_) (unit))))
+               (let ((resource (Resource "inferred caught")))
+                 (integer "bad")
+                 (panic "unreachable")))))
 
-(: consume (impl (Fn Resource I64 I64 -> Unit ! audit)))
-(define (consume resource a b)
+(define (consume (resource Resource) (a I64) (b I64)) (→ Unit) (! audit)
   (drop resource))
-(: later (impl (Fn -> I64 ! console)))
-(define (later) (write-line "unreachable argument") 0)
+(define (later) (→ I64) (! console) (write-line "unreachable argument") 0)
 
 (handle audit ((note (lambda (text) (write-line text))))
   (handle dyn-cast ((conversion-failed (lambda (_) (write-line "caught"))))
@@ -63,8 +59,7 @@
           (drop conditional)))))
 
 ;; Local handlers discharge cleanup effects too; the exported function is pure.
-(: pure-cleanup (impl (Fn -> I64)))
-(define (pure-cleanup)
+(define (pure-cleanup) (→ I64)
   (let ((count (ref 0)))
     (handle audit ((note (lambda (_) (ref-set! count (+ 1 (ref-get count))))))
       (handle dyn-cast ((conversion-failed (lambda (_) (unit))))

@@ -8,17 +8,16 @@
 ;; scheduler, and `now` is pure.
 ;; ANCHOR: clock
 (effect Async
-  ((ctl await (dyn (Fn I64 -> I64)))))
+  ((ctl await (dyn (Fn I64 → I64)))))
 
 (effect Clock
-  ((now (dyn (Fn -> I64)))
-   (sleep-until (dyn (Fn I64 -> I64 ! Async))))
+  ((now (dyn (Fn → I64)))
+   (sleep-until (dyn (Fn I64 → I64 ! Async))))
   (default
     ((now (lambda () 1000))
      (sleep-until wait-for))))
 
-(: wait-for (impl (Fn I64 -> I64 ! Async)))
-(define (wait-for deadline)
+(define (wait-for (deadline I64)) (→ I64) (! Async)
   (await deadline))
 ;; ANCHOR_END: clock
 
@@ -27,22 +26,19 @@
    ((value I64)))
   (Waiting
    ((deadline I64)
-    (next (dyn (FnOnce I64 -> Task ! Clock console))))))
+    (next (dyn (FnOnce I64 → Task ! Clock console))))))
 
-(: start (impl (Fn (dyn (Fn -> I64 ! Clock Async console)) -> Task ! Clock console)))
-(define (start body)
+(define (start (body (dyn (Fn → I64 ! Clock Async console)))) (→ Task) (! Clock console)
   (handle Async ((await (lambda (deadline resume) (Waiting deadline resume))))
     (Done (body))))
 
-(: job (impl (Fn -> I64 ! Clock Async console)))
-(define (job)
+(define (job) (→ I64) (! Clock Async console)
   (let ((woke (sleep-until (+ (now) 5))))
     (write-line (string-append "woke at " (show woke)))
     (sleep-until (+ woke 1))))
 
 ;; Wakes each sleeper at its deadline, after its handler has returned.
-(: drive (impl (Fn Task -> Unit ! Clock console)))
-(define (drive task)
+(define (drive (task Task)) (→ Unit) (! Clock console)
   (match task
     ((Done value) (write-line (string-append "done at " (show value))))
     ((Waiting deadline next)

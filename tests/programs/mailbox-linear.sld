@@ -8,20 +8,17 @@
 ;; receiver that takes it, so it runs exactly once. The consumer starts
 ;; first and parks, so the first item reaches it by waking it, and the
 ;; second is posted after the producer yields.
-(type Work (dyn (FnOnce -> Unit ! console)))
+(type Work (dyn (FnOnce → Unit ! console)))
 
-(: say (impl (Fn String -> Work)))
-(define (say text)
+(define (say (text String)) (→ Work)
   (once (lambda () (write-line text))))
 
-(: produce (impl (Fn (Mailbox Work) -> Unit ! mut tasks)))
-(define (produce mailbox)
+(define (produce (mailbox (Mailbox Work))) (→ Unit) (! mut tasks)
   (mailbox-post mailbox (say "one"))
   (yield)
   (mailbox-post mailbox (say "two")))
 
-(: consume (impl (Fn (Mailbox Work) I64 -> Unit ! console mut tasks)))
-(define (consume mailbox count)
+(define (consume (mailbox (Mailbox Work)) (count I64)) (→ Unit) (! console mut tasks)
   (when (> count 0)
     (call-once (mailbox-receive mailbox))
     (consume mailbox (- count 1))))

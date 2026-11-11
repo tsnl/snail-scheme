@@ -4,31 +4,30 @@
 
 ;; Two class parameters, chosen together.
 (typeclass (Convert A B)
-  (: convert (impl (Fn A -> B))))
+  (: convert (impl (Fn A → B))))
 
 (instance (Convert I64 String)
-  (define (convert n) (string-append "#" (show n))))
+  (define convert (lambda (n) (string-append "#" (show n)))))
 
 (instance (Convert I64 F64)
-  (define (convert n) (i64->f64 n)))
+  (define convert (lambda (n) (i64->f64 n))))
 
 ;; A method with a type variable of its own.
 (typeclass (Collection C)
-  (: collect (All (A) (impl (Fn C (dyn (Fn I64 -> A)) -> (List A))))))
+  (: collect (∀ (A) (impl (Fn C (dyn (Fn I64 → A)) → (List A))))))
 
 (struct Range
   ((start I64)
    (end I64)))
 
 (instance (Collection Range)
-  (define (collect range f)
-    (map f
-         (map (lambda (i) (+ i (::start range)))
-              (iota (- (::end range) (::start range)))))))
+  (define collect
+    (lambda (range f) (map f
+                           (map (lambda (i) (+ i (::start range)))
+                                (iota (- (::end range) (::start range))))))))
 
 ;; A generic function whose requirements pass evidence on.
-(: describe-all (All (C) (requires (Collection C)) (impl (Fn C -> (List String)))))
-(define (describe-all collection)
+(define (describe-all (collection C)) (→ (List String)) (∀ C) (⊨ (Collection C))
   (collect collection (lambda (n) (ann (convert n) String))))
 
 (write-line (ann (convert 5) String))

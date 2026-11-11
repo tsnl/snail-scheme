@@ -1,6 +1,5 @@
 (import
  (snail core base))
 
-(: stolen (All (T) (impl (Fn (Borrow T) -> T))))
-(define (stolen value)
+(define (stolen (value (Borrow T))) (→ T) (∀ T)
   value)

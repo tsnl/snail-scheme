@@ -5,15 +5,16 @@
 (struct Counter
   ((value (Ref I64))))
 (instance (Drop (! mut console) Counter)
-  (define (drop counter)
-    (match counter
-      ((Counter value) (write-line (string-append "released " (show (ref-get value))))))))
+  (define drop
+    (lambda (counter) (match counter
+                        ((Counter value)
+                         (write-line (string-append "released " (show (ref-get value)))))))))
 
 (let* ((counter (Counter (ref 0)))
        (advance (ann (lambda (amount)
                        (set! (ref-get (::value counter)) (+ (ref-get (::value counter)) amount))
                        (ref-get (::value counter)))
-                     (impl (FnMut I64 -> I64 ! mut console)))))
+                     (impl (FnMut I64 → I64 ! mut console)))))
   (write-line (show (advance 3)))
   (write-line (show (advance 4)))
   (drop advance))
@@ -23,17 +24,17 @@
        (inner (ann (lambda (amount)
                      (set! (ref-get (::value counter)) (+ (ref-get (::value counter)) amount))
                      (ref-get (::value counter)))
-                   (impl (FnMut I64 -> I64 ! mut console))))
+                   (impl (FnMut I64 → I64 ! mut console))))
        (outer (ann (lambda (amount) (inner amount))
-                   (impl (FnMut I64 -> I64 ! mut console)))))
+                   (impl (FnMut I64 → I64 ! mut console)))))
   (write-line (show (outer 2)))
   (drop outer))
 
-(: consume
-   (All (F)
-        (requires (FnOnce F I64 -> I64 ! mut console))
-        (impl (Fn F I64 -> I64 ! mut console))))
-(define (consume function value)
+(define (consume (function F) (value I64))
+  (→ I64)
+  (! mut console)
+  (∀ F)
+  (⊨ (FnOnce F I64 → I64 ! mut console))
   (function value))
 
 ;; Consuming an exclusive implementation runs its capture cleanup once.
@@ -41,11 +42,11 @@
        (advance (ann (lambda (amount)
                        (set! (ref-get (::value counter)) amount)
                        (ref-get (::value counter)))
-                     (impl (FnMut I64 -> I64 ! mut console)))))
+                     (impl (FnMut I64 → I64 ! mut console)))))
   (write-line (show (consume advance 9))))
 
 (struct Work
-  ((run (dyn (FnMut I64 -> I64 ! mut console)))))
+  ((run (dyn (FnMut I64 → I64 ! mut console)))))
 
 ;; An erased exclusive receiver can be called through its owner's field.
 (let* ((counter (Counter (ref 0)))

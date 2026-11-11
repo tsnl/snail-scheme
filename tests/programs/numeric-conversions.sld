@@ -3,8 +3,7 @@
  (snail core io)
  (snail shell number))
 
-(: real (impl (Fn String -> F64)))
-(define (real text)
+(define (real (text String)) (→ F64)
   (match (string->number text)
     ((Some (Inexact value)) value)
     (_ (panic "expected a real"))))
@@ -19,8 +18,7 @@
 (write-line (show (f64->bits (real "1.00000000000000011102230246251565404236316680908203125"))))
 
 ;; Returned strings own their characters after the next conversion.
-(: first String)
-(define first (f64->string 1.25))
+(define first (→ String) (f64->string 1.25))
 (write-line (f64->string -0.0))
 (write-line (f64->string (real "+inf.0")))
 (write-line (f64->string (real "-inf.0")))

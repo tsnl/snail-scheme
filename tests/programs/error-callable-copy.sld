@@ -1,9 +1,5 @@
 (import
  (snail core base))
 
-(: duplicate
-   (All (F)
-        (requires (Fn F I64 -> I64))
-        (impl (Fn F -> (Pair F F)))))
-(define (duplicate function)
+(define (duplicate (function F)) (→ (Pair F F)) (∀ F) (⊨ (Fn F I64 → I64))
   (Pair function function))

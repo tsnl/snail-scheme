@@ -22,22 +22,18 @@
     (struct (UnsafeSlot A)
       ((content mut (Option A))))
 
-    (: unsafe-slot (All (A) (impl (Fn A -> (UnsafeSlot A)))))
-    (define (unsafe-slot value)
+    (define (unsafe-slot (value A)) (→ (UnsafeSlot A)) (∀ A)
       (UnsafeSlot (Some value)))
 
-    (: empty-slot (All (A) (impl (Fn -> (UnsafeSlot A)))))
-    (define (empty-slot)
+    (define (empty-slot) (→ (UnsafeSlot A)) (∀ A)
       (UnsafeSlot (None)))
 
-    (: take! (All (A) (impl (Fn (UnsafeSlot A) -> A ! mut))))
-    (define (take! slot)
+    (define (take! (slot (UnsafeSlot A))) (→ A) (! mut) (∀ A)
       (match (UnsafeSlot-content-replace! slot (None))
         ((Some value) value)
         ((None) (panic "a slot was taken while its content was out"))))
 
-    (: put! (All (A) (impl (Fn (UnsafeSlot A) A -> Unit ! mut))))
-    (define (put! slot value)
+    (define (put! (slot (UnsafeSlot A)) (value A)) (→ Unit) (! mut) (∀ A)
       (match (UnsafeSlot-content-replace! slot (Some value))
         ((None) (unit))
         ((Some held) (panic "a slot changed while its content was out"))))))

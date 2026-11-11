@@ -8,16 +8,13 @@
       ((number I32)
        (bytes Bytes)))
 
-    (: buffer (impl (Fn I32 -> (Array U8) ! mut)))
-    (define (buffer count)
+    (define (buffer (count I32)) (→ (Array U8)) (! mut)
       (make-array (i32->i64 count) (i32->u8 0)))
 
-    (: put! (impl (Fn (Array U8) I32 I32 -> Unit ! mut)))
-    (define (put! target index byte)
+    (define (put! (target (Array U8)) (index I32) (byte I32)) (→ Unit) (! mut)
       (array-set! target (i32->i64 index) (i32->u8 byte)))
 
-    (: finish (impl (Fn I32 (Array U8) -> (Result Payload String) ! mut)))
-    (define (finish number bytes)
+    (define (finish (number I32) (bytes (Array U8))) (→ (Result Payload String)) (! mut)
       (if (< number 0)
           (Err "rejected")
           (Ok (Payload number (array->vector bytes)))))

@@ -5,10 +5,8 @@
 (instance (Num (! dyn-cast) Any)
   (dispatch I64 F64))
 
-(: left Any)
-(define left 1)
-(: right Any)
-(define right 2.0)
+(define left (→ Any) 1)
+(define right (→ Any) 2.0)
 (handle dyn-cast
     ((conversion-failed (lambda (error)
                           (write-line (match (::reason error)

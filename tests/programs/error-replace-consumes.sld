@@ -4,8 +4,7 @@
 ;; A replacement consumes the linear record it is given.
 (struct Job
   ((attempts I64)
-   (work (dyn (FnOnce -> Unit)))))
+   (work (dyn (FnOnce → Unit)))))
 
-(: twice (impl (Fn Job -> (Pair Job Job))))
-(define (twice job)
+(define (twice (job Job)) (→ (Pair Job Job))
   (Pair (Job-attempts-set job 1) (Job-attempts-set job 2)))

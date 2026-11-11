@@ -7,8 +7,9 @@
  (snail shell datum)
  (snail shell syntax))
 
-(define (bytes-text bytes)
-  (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list bytes)) " "))
+(define bytes-text
+  (lambda (bytes)
+    (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list bytes)) " ")))
 
 ;; (f "λ" -7 1.5 #\a #t #u8(0 200)): λ's code takes two bytes.
 (define example

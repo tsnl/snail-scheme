@@ -57,7 +57,7 @@ the runtime interfaces.
 | `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource`, which a task waits on, through the `resource` effect ([linked files](types.md#linked-files)). |
 | `(snail shell watch)` | `inventory`, each path under some directories with a fingerprint of its kind, size and modification time, and `inventory-changes`, the paths two inventories disagree on: what a watcher reconciles when a native watch may have missed an edit. `watch-tree` and `next-hint` are Node's recursive watch of a tree, as hints that something under it changed, which only say when to take the next inventory (the `hints` effect, on Node only). |
 | `(snail shell wasm)` | Loading WebAssembly modules and plugins while a program runs ([below](#loading-webassembly)). |
-| `(snail shell engine)` | The engine: `run-manifest` links a program compiled one library at a time from its `modules.json`, through `(snail shell wasm)`, and runs it, reading each object through the `linked-content-store` effect, `read-object : (dyn (Fn String -> (Option Bytes) ! tasks))`, which each entry program handles once. Linking and each read of a linked file are tasks of the engine's own scheduler, which `engine-turn` and its siblings drive together with the program's. The native entry, `bootstrap/engine.sld`, reads files; stage 0 builds it, and Node and wasmtime start it for a manifest ([the native executable](bootstrap.md#the-native-executable)). |
+| `(snail shell engine)` | The engine: `run-manifest` links a program compiled one library at a time from its `modules.json`, through `(snail shell wasm)`, and runs it, reading each object through the `linked-content-store` effect, `read-object : (dyn (Fn String → (Option Bytes) ! tasks))`, which each entry program handles once. Linking and each read of a linked file are tasks of the engine's own scheduler, which `engine-turn` and its siblings drive together with the program's. The native entry, `bootstrap/engine.sld`, reads files; stage 0 builds it, and Node and wasmtime start it for a manifest ([the native executable](bootstrap.md#the-native-executable)). |
 
 ### Shell: applications
 
@@ -208,7 +208,9 @@ has no watcher or mutable cache.
 `(snail shell wasm)` loads modules while a program runs, on the Node runner,
 into a program compiled one library at a time ([loading modules at run
 time](compilers.md#loading-modules-at-run-time)). Every failure is a
-`LoadError`, and `load-error-message` describes one.
+`LoadError`, and `load-error-message` describes one. The contracts below
+summarize exported functions; they are comment notation, not separate `(:)`
+declarations.
 
 ```scheme
 (enum LoadError
@@ -221,18 +223,18 @@ time](compilers.md#loading-modules-at-run-time)). Every failure is a
   (NotDynamic ((name String)))         ; exported, but not with `dynamic`
   (SignatureMismatch ((name String)))) ; compiled with other types
 
-(: load-module (impl (Fn String String -> (Result Module LoadError) ! wasm fs)))
-(: module-export (impl (Fn Module String -> (Result Funcref LoadError) ! wasm)))
-(: unsafe-cast (All (A) (impl (Fn Funcref -> A))))
-(: load-plugin (impl (Fn String -> (Result Plugin LoadError) ! wasm fs)))
-(: plugin-function (All (A) (impl (Fn Plugin String -> (Result A LoadError) ! wasm))))
-
-(: compile-bytes (impl (Fn Bytes -> (Option Compiled) ! wasm)))
-(: module-imports (impl (Fn Compiled -> (List Import) ! wasm)))      ; (Import from name kind)
-(: link-module (impl (Fn String Compiled (List Provider) -> (Result Module LoadError) ! wasm)))
-(: name-instance (impl (Fn Module String -> Bool ! wasm)))
-(: replace-instances (impl (Fn (List (Pair String Module)) -> Bool ! wasm)))
-(: run-export (impl (Fn Module String I64 -> (Result I64 LoadError) ! wasm)))
+;; Exported function contracts (summary notation, not declarations):
+;; load-module: (impl (Fn String String → (Result Module LoadError) ! wasm fs))
+;; module-export: (impl (Fn Module String → (Result Funcref LoadError) ! wasm))
+;; unsafe-cast: (∀ (A) (impl (Fn Funcref → A)))
+;; load-plugin: (impl (Fn String → (Result Plugin LoadError) ! wasm fs))
+;; plugin-function: (∀ (A) (impl (Fn Plugin String → (Result A LoadError) ! wasm)))
+;; compile-bytes: (impl (Fn Bytes → (Option Compiled) ! wasm))
+;; module-imports: (impl (Fn Compiled → (List Import) ! wasm)) ; (Import from name kind)
+;; link-module: (impl (Fn String Compiled (List Provider) → (Result Module LoadError) ! wasm))
+;; name-instance: (impl (Fn Module String → Bool ! wasm))
+;; replace-instances: (impl (Fn (List (Pair String Module)) → Bool ! wasm))
+;; run-export: (impl (Fn Module String I64 → (Result I64 LoadError) ! wasm))
 ```
 
 `(load-module name file)` links the module in `file` into the program's

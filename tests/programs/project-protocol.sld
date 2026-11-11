@@ -7,16 +7,13 @@
  (snail shell json read)
  (snail shell project protocol))
 
-(: accepted? (All (T) (requires (Copy T)) (impl (Fn (Option T) -> Bool))))
-(define (accepted? value)
+(define (accepted? (value (Option T))) (→ Bool) (∀ T) (⊨ (Copy T))
   (match value ((Some _) #t) ((None) #f)))
 
-(: parse (impl (Fn String -> Json)))
-(define (parse text)
+(define (parse (text String)) (→ Json)
   (match (string->json text) ((Some json) json) ((None) (panic "invalid test JSON"))))
 
-(: state ServerState)
-(define state
+(define state (→ ServerState)
   (ServerState "server-λ" 9
                (Build "failed" 3 (list (Report "error" "unknown λ" (Some (Point "/p/a.sld" 2 4)))))
                (list (Run "main" (Some 2)

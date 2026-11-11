@@ -3,8 +3,7 @@
  (snail core io)
  (borrow model))
 
-(: inspect (impl (Fn (Borrow Model) -> String)))
-(define (inspect model)
+(define (inspect (model (Borrow Model))) (→ String)
   (title model))
 
 (let ((model (make-model "across libraries")))

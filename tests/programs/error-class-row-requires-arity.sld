@@ -3,8 +3,7 @@
 
 ;; A requirement gives each of its class's parameters, its row among them.
 (typeclass (Store e S)
-  (: fetch-object (impl (Fn S String -> String ! e))))
+  (: fetch-object (impl (Fn S String → String ! e))))
 
-(: fetch-twice (All (S) (requires (Store S)) (impl (Fn S String -> String))))
-(define (fetch-twice store name)
+(define (fetch-twice (store S) (name String)) (→ String) (∀ S) (⊨ (Store S))
   (fetch-object store name))

@@ -8,38 +8,34 @@
 ;; second log reaches the handler in scope there, the outer one, since
 ;; `logged` has returned.
 (effect Gen
-  ((ctl yield (dyn (Fn I64 -> I64)))))
+  ((ctl yield (dyn (Fn I64 → I64)))))
 
 (effect Log
-  ((ctl log (dyn (Fn String -> Unit)))))
+  ((ctl log (dyn (Fn String → Unit)))))
 
 (enum Step
   (Done)
   (Yielded
    ((value I64)
-    (next (dyn (FnOnce I64 -> Step ! Log))))))
+    (next (dyn (FnOnce I64 → Step ! Log))))))
 
-(: start (impl (Fn (dyn (Fn -> Unit ! Gen)) -> Step ! Log)))
-(define (start body)
+(define (start (body (dyn (Fn → Unit ! Gen)))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (v resume)
                         (log (string-append "handler saw " (show v)))
                         (Yielded v resume))))
     (body)
     (Done)))
 
-(: counter (impl (Fn -> Unit ! Gen)))
-(define (counter)
+(define (counter) (→ Unit) (! Gen)
   (yield 1)
   (yield 2)
   (unit))
 
-(: logged (impl (Fn (dyn (Fn -> Step ! Log)) -> Step ! console)))
-(define (logged body)
+(define (logged (body (dyn (Fn → Step ! Log)))) (→ Step) (! console)
   (handle Log ((log (lambda (line resume) (write-line line) (resume (unit)))))
     (body)))
 
-(: run (impl (Fn -> Unit ! console)))
-(define (run)
+(define (run) (→ Unit) (! console)
   (handle Log ((log
                 (lambda (line resume) (write-line (string-append "outer: " line)) (resume (unit)))))
     (match (logged (lambda () (start counter)))

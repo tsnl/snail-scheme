@@ -4,17 +4,15 @@
 
 (struct Model
   ((title String)
-   (work (dyn (FnOnce -> Unit)))))
+   (work (dyn (FnOnce → Unit)))))
 
 ;; A named let's parameters are inferred, so a read through one annotates
 ;; the borrow; a lambda checked against a signature has typed parameters.
-(: count-to (impl (Fn (Borrow Model) I64 -> I64)))
-(define (count-to model limit)
+(define (count-to (model (Borrow Model)) (limit I64)) (→ I64)
   (let loop ((n 0) (b model))
     (if (< n limit) (loop (+ n 1) b) (string-length (::title (ann b (Borrow Model)))))))
 
-(: read (impl (Fn (Borrow Model) -> String)))
-(define read (lambda (r) (::title r)))
+(define read (→ (impl (Fn (Borrow Model) → String))) (lambda (r) (::title r)))
 
 (let ((model (Model "abcd" (once (lambda () (unit))))))
   (write-line (show (with-borrow (b model) (count-to b 3))))

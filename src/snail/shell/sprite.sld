@@ -39,10 +39,9 @@
        (cell-width I32)
        (cell-height I32)
        (headings I64)
-       (strip (dyn (Fn M I64 -> Strip)))))
+       (strip (dyn (Fn M I64 → Strip)))))
 
-    (: strip-texture (All (M) (requires (Copy M)) (impl (Fn (Spritebook M) Strip -> Texture))))
-    (define (strip-texture book strip)
+    (define (strip-texture (book (Spritebook M)) (strip Strip)) (→ Texture) (∀ M) (⊨ (Copy M))
       (let ((width (::cell-width book)) (height (::cell-height book)))
         (Texture (::picture book)
                  (Rect (* width (::column strip)) (* height (::row strip)) width height)
@@ -59,8 +58,8 @@
     ;; any camera without roll, and down the screen is a quarter turn from
     ;; it: (-rz, rx) on the ground, which needs no projection that a level
     ;; or steep camera would shrink.
-    (: heading (impl (Fn I64 Vec3 Camera -> I64)))
-    (define (heading count facing camera)
+
+    (define (heading (count I64) (facing Vec3) (camera Camera)) (→ I64)
       (let* ((right (::first (screen-axes camera)))
              (rx (f32->f64 (::x right)))
              (rz (f32->f64 (::z right)))
@@ -74,8 +73,16 @@
     ;; The book's motion seen from the heading `camera` gives a figure facing
     ;; `facing`, as a sprite `height` world units tall with its bottom center
     ;; at `position`. Its width keeps the cells' proportions.
-    (: pose (All (M) (requires (Copy M)) (impl (Fn (Spritebook M) M Vec3 Vec3 F32 Camera -> Item))))
-    (define (pose book motion position facing height camera)
+
+    (define (pose (book (Spritebook M))
+                  (motion M)
+                  (position Vec3)
+                  (facing Vec3)
+                  (height F32)
+                  (camera Camera))
+      (→ Item)
+      (∀ M)
+      (⊨ (Copy M))
       (sprite (posed-texture book motion facing camera)
               position
               (cell-width-for book height)
@@ -83,25 +90,33 @@
 
     ;; The same, lying flat on the ground for a camera looking straight
     ;; down: a figure on a 2D map.
-    (: pose-flat
-       (All (M) (requires (Copy M)) (impl (Fn (Spritebook M) M Vec3 Vec3 F32 Camera -> Item))))
-    (define (pose-flat book motion position facing height camera)
+
+    (define (pose-flat (book (Spritebook M))
+                       (motion M)
+                       (position Vec3)
+                       (facing Vec3)
+                       (height F32)
+                       (camera Camera))
+      (→ Item)
+      (∀ M)
+      (⊨ (Copy M))
       (flat-sprite (posed-texture book motion facing camera)
                    position
                    (cell-width-for book height)
                    height))
 
-    (: posed-texture
-       (All (M) (requires (Copy M)) (impl (Fn (Spritebook M) M Vec3 Camera -> Texture))))
-    (define (posed-texture book motion facing camera)
+    (define (posed-texture (book (Spritebook M)) (motion M) (facing Vec3) (camera Camera))
+      (→ Texture)
+      (∀ M)
+      (⊨ (Copy M))
       (strip-texture book
                      ((::strip book)
                       motion
                       (heading (::headings book) facing camera))))
 
     ;; The width that keeps a cell's proportions at `height`.
-    (: cell-width-for (All (M) (requires (Copy M)) (impl (Fn (Spritebook M) F32 -> F32))))
-    (define (cell-width-for book height)
+
+    (define (cell-width-for (book (Spritebook M)) (height F32)) (→ F32) (∀ M) (⊨ (Copy M))
       (/ (* height (i32->f32 (::cell-width book)))
          (i32->f32 (::cell-height book))))
 

@@ -1,6 +1,5 @@
 (import
  (snail core base))
 
-(: f (impl (Fn I64 -> I64)))
-(define (f x)
+(define (f (x I64)) (→ I64)
   (string-append x "a"))

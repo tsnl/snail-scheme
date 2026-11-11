@@ -21,14 +21,15 @@
 
     ;; The service's JSON answer, or why there is none. A reply without
     ;; content answers null.
-    (: api (impl (Fn String String (List Header) String -> (Result Json Failure) ! fetch tasks)))
-    (define (api method url headers body)
+
+    (define (api (method String) (url String) (headers (List Header)) (body String))
+      (→ (Result Json Failure))
+      (! fetch tasks)
       (match (request method url headers body)
         ((Ok reply) (reply-json reply))
         ((Err why) (Err (Failure -1 why)))))
 
-    (: reply-json (impl (Fn Reply -> (Result Json Failure))))
-    (define (reply-json reply)
+    (define (reply-json (reply Reply)) (→ (Result Json Failure))
       (let ((status (::status reply)))
         (match (if (= status 204) (Some (JsonNull)) (string->json (::body reply)))
           ((Some json)
@@ -44,13 +45,12 @@
 
     ;; `text` as one component of a URL, as `encodeURIComponent` writes it:
     ;; its UTF-8 bytes, each but the unreserved characters escaped.
-    (: url-component (impl (Fn String -> String)))
-    (define (url-component text)
+
+    (define (url-component (text String)) (→ String)
       (string-concatenate
        (map (lambda (byte) (url-byte (u8->i32 byte))) (vector->list (string->utf8 text)))))
 
-    (: url-byte (impl (Fn I32 -> String)))
-    (define (url-byte byte)
+    (define (url-byte (byte I32)) (→ String)
       (if (or (and (>= byte 65) (<= byte 90))
               (and (>= byte 97) (<= byte 122))
               (and (>= byte 48) (<= byte 57))
@@ -60,24 +60,20 @@
                          (hex-digit (i32-shift-right/logical byte 4))
                          (hex-digit (i32-and byte 15)))))
 
-    (: hex-digit (impl (Fn I32 -> String)))
-    (define (hex-digit value)
+    (define (hex-digit (value I32)) (→ String)
       (make-string 1 (string-ref "0123456789ABCDEF" (i32->i64 value))))
 
-    (: file-url (impl (Fn String -> String)))
-    (define (file-url path)
+    (define (file-url (path String)) (→ String)
       (string-append "/api/file?path=" (url-component path)))
 
     ;; ---- Typed replies ----
 
-    (: decoded-reply
-       (All (T) (requires (Copy T))
-            (impl (Fn (dyn (Fn Json -> (Option T)))
-                      String
-                      (Result Json Failure)
-                      ->
-                      (Result T Failure)))))
-    (define (decoded-reply decode subject reply)
+    (define (decoded-reply (decode (dyn (Fn Json → (Option T))))
+                           (subject String)
+                           (reply (Result Json Failure)))
+      (→ (Result T Failure))
+      (∀ T)
+      (⊨ (Copy T))
       (match reply
         ((Err failure) (Err failure))
         ((Ok json)
@@ -85,14 +81,11 @@
            ((Some value) (Ok value))
            ((None) (Err (Failure 200 (string-append "invalid " subject " response"))))))))
 
-    (: file-reply (impl (Fn (Result Json Failure) -> (Result Snapshot Failure))))
-    (define (file-reply reply)
+    (define (file-reply (reply (Result Json Failure))) (→ (Result Snapshot Failure))
       (decoded-reply json->file "file" reply))
 
-    (: project-reply (impl (Fn (Result Json Failure) -> (Result Project Failure))))
-    (define (project-reply reply)
+    (define (project-reply (reply (Result Json Failure))) (→ (Result Project Failure))
       (decoded-reply json->project "project" reply))
 
-    (: search-reply (impl (Fn (Result Json Failure) -> (Result SearchResults Failure))))
-    (define (search-reply reply)
+    (define (search-reply (reply (Result Json Failure))) (→ (Result SearchResults Failure))
       (decoded-reply json->search "search" reply))))

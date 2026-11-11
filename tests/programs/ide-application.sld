@@ -21,36 +21,29 @@
   (ReloadReply)
   (SecondRead))
 
-(: reply (impl (Fn String String -> (Result Reply String))))
-(define (reply text revision)
+(define (reply (text String) (revision String)) (→ (Result Reply String))
   (Ok (Reply 200
              (json->string (JsonObject (list (Pair "text" (JsonString text))
                                              (Pair "revision" (JsonString revision))))))))
 
-(: key (impl (Fn String I32 -> Cue)))
-(define (key name modifiers)
+(define (key (name String) (modifiers I32)) (→ Cue)
   (FireWindow "keydown" (Event-modifiers-set (Event-key-set no-event name) modifiers)))
 
-(: input (impl (Fn String String -> Cue)))
-(define (input id text)
+(define (input (id String) (text String)) (→ Cue)
   (Fire id "input" (Event-value-set no-event text)))
 
-(: invoke (impl (Fn String -> (List Cue))))
-(define (invoke name)
+(define (invoke (name String)) (→ (List Cue))
   (list (key "F1" 0) (input "command-query" name)
         (Fire "command-query" "keydown" (Event-key-set no-event "Enter"))))
 
-(: snapshot (impl (Fn (Borrow Session) -> Ide)))
-(define (snapshot session)
+(define (snapshot (session (Borrow Session))) (→ Ide)
   (::ide session))
 
-(: finished (impl (Fn Session -> Ide ! mut)))
-(define (finished session)
+(define (finished (session Session)) (→ Ide) (! mut)
   (match session
     ((Session ide pending) (drop pending) ide)))
 
-(: run (impl (Fn Delay (List Cue) -> (Pair Ide Document) ! mut console tasks)))
-(define (run delay cues)
+(define (run (delay Delay) (cues (List Cue))) (→ (Pair Ide Document)) (! mut console tasks)
   (let ((disk (ref "disk")) (revision (ref "initial")) (reads (ref 0))
         (writes (ref 0)) (completed (ref 0)) (streamed (ref #f)) (gate (make-mailbox)))
     (let ((result
@@ -90,7 +83,7 @@
                                                        (ann update-session
                                                             (dyn (Fn Session
                                                                      (Option Msg)
-                                                                     -> Session
+                                                                     → Session
                                                                      ! mut completion console dom fetch)))
                                                        session-view
                                                        session-window
@@ -103,8 +96,7 @@
       (write-line (string-append "requests " (show (ref-get reads)) "/" (show (ref-get writes))))
       result)))
 
-(: report (impl (Fn Ide -> Unit ! console)))
-(define (report model)
+(define (report (model Ide)) (→ Unit) (! console)
   (match (buffer-at model "notes.txt")
     ((Some buffer)
      (write-line (::text buffer))
@@ -114,13 +106,11 @@
      (write-line (show (dirty? buffer))))
     ((None) (panic "missing buffer"))))
 
-(: panes-after (impl (Fn (List Cue) -> Unit ! mut console tasks)))
-(define (panes-after cues)
+(define (panes-after (cues (List Cue))) (→ Unit) (! mut console tasks)
   (let ((model (::first (run (NoDelay) cues))))
     (write-line (show (length (::panes model))))))
 
-(: files-after (impl (Fn (List Cue) -> Unit ! mut console tasks)))
-(define (files-after cues)
+(define (files-after (cues (List Cue))) (→ Unit) (! mut console tasks)
   (write-line (show (::files-shown (::first (run (NoDelay) cues))))))
 
 (dispatch-local

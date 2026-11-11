@@ -30,24 +30,21 @@
         (zero (Table V))
         (one (Table V)))))
 
-    (: empty-table (All (V) (Table V)))
-    (define empty-table (Empty))
+    (define empty-table (→ (Table V)) (∀ V) (Empty))
 
     ;; FNV-1a over the code points, wrapping in 64 bits.
-    (: string-hash (impl (Fn String -> I64)))
-    (define (string-hash key)
+
+    (define (string-hash (key String)) (→ I64)
       (let loop ((index 0) (hash -3750763034362895579))
         (if (= index (string-length key))
             hash
             (loop (+ index 1)
                   (* (i64-xor hash (char->integer (string-ref key index))) 1099511628211)))))
 
-    (: below (impl (Fn I64 I64 -> I64)))
-    (define (below hash bit)
+    (define (below (hash I64) (bit I64)) (→ I64)
       (i64-and hash (- bit 1)))
 
-    (: table-ref (All (V) (requires (Copy V)) (impl (Fn (Table V) String -> (Option V)))))
-    (define (table-ref table key)
+    (define (table-ref (table (Table V)) (key String)) (→ (Option V)) (∀ V) (⊨ (Copy V))
       (let ((hash (string-hash key)))
         (let loop ((table table))
           (match table
@@ -55,14 +52,12 @@
             ((Leaf leaf-hash entries) (if (= leaf-hash hash) (assoc-ref entries key) (None)))
             ((Branch _ bit zero one) (loop (if (= (i64-and hash bit) 0) zero one)))))))
 
-    (: table-contains? (All (V) (requires (Copy V)) (impl (Fn (Table V) String -> Bool))))
-    (define (table-contains? table key)
+    (define (table-contains? (table (Table V)) (key String)) (→ Bool) (∀ V) (⊨ (Copy V))
       (match (table-ref table key)
         ((Some _) #t)
         ((None) #f)))
 
-    (: table-set (All (V) (requires (Copy V)) (impl (Fn (Table V) String V -> (Table V)))))
-    (define (table-set table key value)
+    (define (table-set (table (Table V)) (key String) (value V)) (→ (Table V)) (∀ V) (⊨ (Copy V))
       (let ((hash (string-hash key)))
         (let insert ((table table))
           (match table
@@ -82,31 +77,30 @@
 
     ;; A branch over two tries whose hashes, `a` and `b`, differ. It splits
     ;; on their lowest differing bit.
-    (: join (All (V) (impl (Fn I64 (Table V) I64 (Table V) -> (Table V)))))
-    (define (join a a-table b b-table)
+
+    (define (join (a I64) (a-table (Table V)) (b I64) (b-table (Table V))) (→ (Table V)) (∀ V)
       (let* ((difference (i64-xor a b)) (bit (i64-and difference (negate difference))))
         (if (= (i64-and a bit) 0)
             (Branch (below a bit) bit a-table b-table)
             (Branch (below a bit) bit b-table a-table))))
 
     ;; Entries in trie order, which depends only on the keys.
-    (: table-fold (All (V A) (impl (Fn (dyn (Fn A (Pair String V) -> A)) A (Table V) -> A))))
-    (define (table-fold f initial table)
+
+    (define (table-fold (f (dyn (Fn A (Pair String V) → A))) (initial A) (table (Table V)))
+      (→ A)
+      (∀ V A)
       (match table
         ((Empty) initial)
         ((Leaf _ entries) (fold-left f initial entries))
         ((Branch _ _ zero one) (table-fold f (table-fold f initial zero) one))))
 
-    (: table-count (All (V) (requires (Copy V)) (impl (Fn (Table V) -> I64))))
-    (define (table-count table)
+    (define (table-count (table (Table V))) (→ I64) (∀ V) (⊨ (Copy V))
       (table-fold (lambda (count entry) (+ count 1)) 0 table))
 
-    (: table-keys (All (V) (requires (Copy V)) (impl (Fn (Table V) -> (List String)))))
-    (define (table-keys table)
+    (define (table-keys (table (Table V))) (→ (List String)) (∀ V) (⊨ (Copy V))
       (reverse (table-fold (lambda (keys entry) (Cons (::first entry) keys)) (Nil) table)))
 
-    (: table-values (All (V) (requires (Copy V)) (impl (Fn (Table V) -> (List V)))))
-    (define (table-values table)
+    (define (table-values (table (Table V))) (→ (List V)) (∀ V) (⊨ (Copy V))
       (reverse (table-fold (lambda (values entry) (Cons (::second entry) values)) (Nil) table)))
 
     ))

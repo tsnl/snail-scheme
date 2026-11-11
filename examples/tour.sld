@@ -12,12 +12,10 @@
 ;; A top-level `define` names a value, and `:` declares its type. The
 ;; scalars are I32, I64, F32, F64, Bool, Char, String and Unit; an integer
 ;; literal is an I64 unless something says otherwise.
-(: answer I64)
-(define answer 42)
+(define answer (→ I64) 42)
 
 ;; A function's type is an arrow from its arguments to its result.
-(: square (impl (Fn I64 -> I64)))
-(define (square n)
+(define (square (n I64)) (→ I64)
   (* n n))
 
 (write-line (string-append "seven squared is " (i64->string (square 7))))
@@ -29,8 +27,7 @@
 
 ;; `if` always has both branches. `cond`, `case`, `when` and `unless` are
 ;; Scheme's.
-(: sign (impl (Fn I64 -> String)))
-(define (sign n)
+(define (sign (n I64)) (→ String)
   (cond ((< n 0) "negative")
         ((= n 0) "zero")
         (else "positive")))
@@ -38,8 +35,7 @@
 (write-line (sign -3))
 
 ;; A named `let` is a loop. A call in tail position never grows the stack.
-(: sum-to (impl (Fn I64 -> I64)))
-(define (sum-to n)
+(define (sum-to (n I64)) (→ I64)
   (let loop ((i 1)
              (total 0))
     (if (> i n) total (loop (+ i 1) (+ total i)))))
@@ -51,8 +47,7 @@
 
 ;; A list holds values of one type and never changes. Functions are values,
 ;; and `lambda` makes one.
-(: numbers (List I64))
-(define numbers (list 1 2 3 4 5))
+(define numbers (→ (List I64)) (list 1 2 3 4 5))
 
 (display (map square (filter (lambda (n) (= (remainder n 2) 1)) numbers)))
 (newline)
@@ -77,8 +72,7 @@
     (height I64))))
 
 ;; `match` takes data apart. A match that misses a case does not compile.
-(: area (impl (Fn Shape -> I64)))
-(define (area shape)
+(define (area (shape Shape)) (→ I64)
   (match shape
     ((Circle _ radius) (* 3 (square radius)))
     ((Rectangle _ width height) (* width height))))
@@ -88,8 +82,7 @@
 
 ;; There is no null and no exception: absence is an Option, and failure a
 ;; Result, both ordinary enums.
-(: divide (impl (Fn I64 I64 -> (Result I64 String))))
-(define (divide n d)
+(define (divide (n I64) (d I64)) (→ (Result I64 String))
   (if (= d 0) (Err "division by zero") (Ok (quotient n d))))
 
 (for-each (lambda (d)
@@ -102,21 +95,21 @@
 
 ;; A typeclass names operations, and an instance gives them for one type.
 (typeclass (Describe T)
-  (: describe (impl (Fn T -> String))))
+  (: describe (impl (Fn T → String))))
 
 (instance (Describe Point)
-  (define (describe point)
-    (string-append "(" (i64->string (::x point)) ", " (i64->string (::y point)) ")")))
+  (define describe
+    (lambda (point)
+      (string-append "(" (i64->string (::x point)) ", " (i64->string (::y point)) ")"))))
 
 (instance (Describe Bool)
-  (define (describe b)
-    (if b "yes" "no")))
+  (define describe
+    (lambda (b) (if b "yes" "no"))))
 
 ;; `All` makes a definition generic, and `requires` asks for instances.
 ;; Each use is compiled for its own types, so generic code costs what a
 ;; hand-written copy would.
-(: describe-all (All (T) (requires (Describe T)) (impl (Fn (List T) -> String))))
-(define (describe-all items)
+(define (describe-all (items (List T))) (→ String) (∀ T) (⊨ (Describe T))
   (string-join (map describe items) " "))
 
 (write-line (describe-all (list (Point 1 2) (Point 3 4))))
@@ -131,8 +124,7 @@
 (struct Counter
   ((count I64)))
 
-(: bump! (impl (Fn (Ref Counter) -> Unit ! mut)))
-(define (bump! counter)
+(define (bump! (counter (Ref Counter))) (→ Unit) (! mut)
   (set! (::count (ref-get counter)) (+ (::count (ref-get counter)) 1)))
 
 (let ((clicks (ref (Counter 0))))
@@ -147,10 +139,9 @@
 ;; code it runs. A function's row, after `!`, lists what it may perform:
 ;; `greet` asks, and whoever calls it decides what asking means.
 (effect Ask
-  ((ask (dyn (Fn -> String)))))
+  ((ask (dyn (Fn → String)))))
 
-(: greet (impl (Fn -> String ! Ask)))
-(define (greet)
+(define (greet) (→ String) (! Ask)
   (string-append "hello, " (ask)))
 
 (write-line (handle Ask
@@ -161,10 +152,9 @@
 ;; `resume`, the rest of the handled code, and calls it at most once:
 ;; here it collects each value emitted and carries on.
 (effect Emit
-  ((ctl emit (dyn (Fn I64 -> Unit)))))
+  ((ctl emit (dyn (Fn I64 → Unit)))))
 
-(: count-down (impl (Fn I64 -> Unit ! Emit)))
-(define (count-down n)
+(define (count-down (n I64)) (→ Unit) (! Emit)
   (when (> n 0)
     (emit n)
     (count-down (- n 1))))

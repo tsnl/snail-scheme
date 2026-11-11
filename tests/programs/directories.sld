@@ -7,42 +7,35 @@
 ;; is an operation and what it answered, failures included.
 (define root "build/tests/directories-λ")
 
-(: at (impl (Fn String -> String)))
-(define (at name)
+(define (at (name String)) (→ String)
   (string-append root "/" name))
 
-(: answer (All (T) (impl (Fn (dyn (Fn T -> String)) (Result T FileError) -> String))))
-(define (answer describe result)
+(define (answer (describe (dyn (Fn T → String))) (result (Result T FileError))) (→ String) (∀ T)
   (match result
     ((Ok value)
      (let ((text (describe value))) (if (string=? text "") "ok" (string-append "ok " text))))
     ((Err error) (string-append "error: " (show error)))))
 
-(: done (impl (Fn Unit -> String)))
-(define (done value)
+(define (done (value Unit)) (→ String)
   "")
 
-(: report (impl (Fn String String -> Unit ! console)))
-(define (report label text)
+(define (report (label String) (text String)) (→ Unit) (! console)
   (write-line (string-append label " -> " text)))
 
-(: kind-name (impl (Fn FileKind -> String)))
-(define (kind-name kind)
+(define (kind-name (kind FileKind)) (→ String)
   (match kind
     ((RegularFile) "file")
     ((Directory) "directory")
     ((SymbolicLink) "link")
     ((OtherKind) "other")))
 
-(: status-text (impl (Fn FileStatus -> String)))
-(define (status-text status)
+(define (status-text (status FileStatus)) (→ String)
   (match (::kind status)
     ((Directory) "directory")
     (kind (string-append (kind-name kind) " of " (show (::size status)) " bytes, modified "
                          (if (> (::modified status) 0) "after" "before") " 1970"))))
 
-(: names (impl (Fn (List String) -> String)))
-(define (names entries)
+(define (names (entries (List String))) (→ String)
   (string-append "(" (string-join entries " ") ")"))
 
 ;; A run removes what an earlier one may have left.

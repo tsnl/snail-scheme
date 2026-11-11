@@ -8,18 +8,15 @@
  (snail shell fetch)
  (snail shell ide application))
 
-(: check (impl (Fn Bool String -> Unit ! console)))
-(define (check ok label)
+(define (check (ok Bool) (label String)) (→ Unit) (! console)
   (if ok (write-line label) (panic label)))
 
-(: buffer (impl (Fn (Borrow Session) -> Buffer)))
-(define (buffer session)
+(define (buffer (session (Borrow Session))) (→ Buffer)
   (match (buffer-at (::ide session) "notes.txt")
     ((Some buffer) buffer)
     ((None) (panic "missing buffer"))))
 
-(: send (impl (Fn Session Msg -> Session ! mut completion dom fetch)))
-(define (send session message)
+(define (send (session Session) (message Msg)) (→ Session) (! mut completion dom fetch)
   (update-session session (Some message)))
 
 ;; Cancel a save before it starts. The abandoned future must clear saving,

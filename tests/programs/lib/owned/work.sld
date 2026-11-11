@@ -4,8 +4,8 @@
    (snail core base)
    (snail core io))
   (begin
-    (: message (impl (Fn String -> (dyn (FnOnce -> Unit ! console)))))
-    (define (message text) (once (lambda () (write-line text))))
+    (define (message (text String))
+      (→ (dyn (FnOnce → Unit ! console)))
+      (once (lambda () (write-line text))))
 
-    (: run (impl (Fn (dyn (FnOnce -> Unit ! console)) -> Unit ! console)))
-    (define (run work) (call-once work))))
+    (define (run (work (dyn (FnOnce → Unit ! console)))) (→ Unit) (! console) (call-once work))))

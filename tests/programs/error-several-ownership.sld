@@ -3,16 +3,13 @@
 
 ;; Ownership is checked an item at a time, so each item that misuses a
 ;; linear value is reported, though the first stops its own item.
-(: duplicate (All (T) (impl (Fn T -> (Pair T T)))))
-(define (duplicate value)
+(define (duplicate (value T)) (→ (Pair T T)) (∀ T)
   (Pair value value))
 
-(: fine (impl (Fn I64 -> I64)))
-(define (fine n)
+(define (fine (n I64)) (→ I64)
   (+ n 1))
 
-(: forget (All (T) (impl (Fn T -> Unit))))
-(define (forget value)
+(define (forget (value T)) (→ Unit) (∀ T)
   (unit))
 
 (duplicate (fine 1))

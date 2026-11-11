@@ -70,8 +70,7 @@
       (MaximumLevel)
       (FullHealth))
 
-    (: rejection-text (impl (Fn Rejection -> String)))
-    (define (rejection-text rejection)
+    (define (rejection-text (rejection Rejection)) (→ String)
       (match rejection
         ((Finished) "The game is over.")
         ((NotStarted) "Start with an extractor on a crystal.")
@@ -95,8 +94,7 @@
     ;; Whether an order refused for this reason may still succeed on the same
     ;; cell once energy, work in progress or the network catch up, rather
     ;; than never applying there.
-    (: later? (impl (Fn Rejection -> Bool)))
-    (define (later? rejection)
+    (define (later? (rejection Rejection)) (→ Bool)
       (match rejection
         ((NotStarted) #t)
         ((Unseen) #t)
@@ -110,8 +108,7 @@
     ;; Until the first extractor is ordered, an order that would otherwise
     ;; be accepted waits, so its rejection still tells whether it could
     ;; apply here at all.
-    (: act (impl (Fn World Action -> (Result World Rejection))))
-    (define (act world action)
+    (define (act (world World) (action Action)) (→ (Result World Rejection))
       (if (playing? world)
           (match (apply-order world action)
             ((Ok next)
@@ -119,8 +116,7 @@
             ((Err rejection) (Err rejection)))
           (Err (Finished))))
 
-    (: apply-order (impl (Fn World Action -> (Result World Rejection))))
-    (define (apply-order world action)
+    (define (apply-order (world World) (action Action)) (→ (Result World Rejection))
       (match action
         ((Build kind cell rush) (build world kind cell rush))
         ((Upgrade cell) (with-owner world cell upgrade))
@@ -130,30 +126,27 @@
         ((Repair) (repair world))
         ((Resign) (Ok (uncover (World-outcome-set world (Resigned)))))))
 
-    (: opening-order? (impl (Fn Action -> Bool)))
-    (define (opening-order? action)
+    (define (opening-order? (action Action)) (→ Bool)
       (match action
         ((Build (Extractor) _ _) #t)
         ((Resign) #t)
         (_ #f)))
 
     ;; Why an order would be rejected, if it would.
-    (: check (impl (Fn World Action -> (Option Rejection))))
-    (define (check world action)
+    (define (check (world World) (action Action)) (→ (Option Rejection))
       (match (act world action)
         ((Ok _) (None))
         ((Err rejection) (Some rejection))))
 
-    (: pay (impl (Fn World I64 (dyn (Fn World -> World)) -> (Result World Rejection))))
-    (define (pay world price apply)
+    (define (pay (world World) (price I64) (apply (dyn (Fn World → World))))
+      (→ (Result World Rejection))
       (if (< (::energy world) price) (Err (CannotAfford)) (Ok (apply (spend world price)))))
 
     ;; ---- Building ----
 
     ;; A site needs visible open ground that nothing occupies, a crystal exactly
     ;; when it is an extractor, and a powered building that can wire to it.
-    (: build (impl (Fn World Kind Cell Bool -> (Result World Rejection))))
-    (define (build world kind cell rush)
+    (define (build (world World) (kind Kind) (cell Cell) (rush Bool)) (→ (Result World Rejection))
       (let ((extractor? (match kind ((Extractor) #t) (_ #f))) (crystal (crystal-at world cell)))
         (cond ((not (in-bounds? cell)) (Err (OutsideMap)))
               ((not (visible? world cell)) (Err (Unseen)))
@@ -168,48 +161,41 @@
     ;; The colony's first extractor is ready at once, so a new game starts
     ;; producing; a rushed order is ready at once for five times its cost;
     ;; any other joins the queue.
-    (: place (impl (Fn World Kind Cell Bool -> (Result World Rejection))))
-    (define (place world kind cell rush)
+    (define (place (world World) (kind Kind) (cell Cell) (rush Bool)) (→ (Result World Rejection))
       (let* ((work (new-work world (raise-cost kind 0) (raise-duration kind 0)))
              (ready (or rush (not (::started world)))))
         (pay world
              (+ (::cost work) (if rush (rush-price work) 0))
              (lambda (world) (place-site world kind cell work ready)))))
 
-    (: occupied? (impl (Fn World Cell -> Bool)))
-    (define (occupied? world cell)
+    (define (occupied? (world World) (cell Cell)) (→ Bool)
       (or (hub-cell? (::hub world) cell)
           (not (null-option? (building-at world cell)))
           (match (nest-at world cell)
             ((Some nest) (> (::health nest) 0))
             ((None) #f))))
 
-    (: null-option? (All (T) (requires (Copy T)) (impl (Fn (Option T) -> Bool))))
-    (define (null-option? option)
+    (define (null-option? (option (Option T))) (→ Bool) (∀ T) (⊨ (Copy T))
       (match option
         ((Some _) #f)
         ((None) #t)))
 
-    (: exhausted? (impl (Fn (Option Crystal) -> Bool)))
-    (define (exhausted? crystal)
+    (define (exhausted? (crystal (Option Crystal))) (→ Bool)
       (match crystal
         ((Some crystal) (= (::reserve crystal) 0))
         ((None) #t)))
 
     ;; Whether a powered building could wire to a new `kind` at `cell`.
-    (: in-reach? (impl (Fn World Kind Cell -> Bool)))
-    (define (in-reach? world kind cell)
+    (define (in-reach? (world World) (kind Kind) (cell Cell)) (→ Bool)
       (any? (lambda (node)
               (wire-reaches? world (::cell node) (::reach node) cell (kind-reach kind 1)))
             (::powered (::network world))))
 
     ;; New work joins the end of the queue.
-    (: new-work (impl (Fn World I64 I64 -> Work)))
-    (define (new-work world cost duration)
+    (define (new-work (world World) (cost I64) (duration I64)) (→ Work)
       (Work (::next-order world) cost duration 0))
 
-    (: place-site (impl (Fn World Kind Cell Work Bool -> World)))
-    (define (place-site world kind cell work ready)
+    (define (place-site (world World) (kind Kind) (cell Cell) (work Work) (ready Bool)) (→ World)
       (match (fresh-id world)
         ((Pair id world)
          (if ready
@@ -232,8 +218,7 @@
                                                                                (None)))
                                                        (+ (::next-order world) 1)))))))
 
-    (: add-building (impl (Fn World Building -> World)))
-    (define (add-building world building)
+    (define (add-building (world World) (building Building)) (→ World)
       (World-buildings-set world (append (::buildings world) (list building))))
 
     ;; ---- Owners ----
@@ -245,26 +230,21 @@
       (OfHub)
       (OfBuilding ((building Building))))
 
-    (: with-owner
-       (impl (Fn World
-                 Cell
-                 (dyn (Fn World Owner -> (Result World Rejection)))
-                 ->
-                 (Result World Rejection))))
-    (define (with-owner world cell order)
+    (define (with-owner (world World)
+                        (cell Cell)
+                        (order (dyn (Fn World Owner → (Result World Rejection)))))
+      (→ (Result World Rejection))
       (cond ((hub-cell? (::hub world) cell) (order world (OfHub)))
             (else (match (building-at world cell)
                     ((Some b) (order world (OfBuilding b)))
                     ((None) (Err (NothingThere)))))))
 
-    (: owner-work (impl (Fn World Owner -> (Option Work))))
-    (define (owner-work world owner)
+    (define (owner-work (world World) (owner Owner)) (→ (Option Work))
       (match owner
         ((OfHub) (::work (::hub world)))
         ((OfBuilding b) (::work b))))
 
-    (: set-owner-work (impl (Fn World Owner (Option Work) -> World)))
-    (define (set-owner-work world owner work)
+    (define (set-owner-work (world World) (owner Owner) (work (Option Work))) (→ World)
       (match owner
         ((OfHub) (World-hub-set world (Hub-work-set (::hub world) work)))
         ((OfBuilding b) (put-building world (Building-work-set b work)))))
@@ -272,8 +252,7 @@
     ;; ---- Upgrades ----
 
     ;; The hub's upgrade adds a build slot; a building's adds a level.
-    (: upgrade (impl (Fn World Owner -> (Result World Rejection))))
-    (define (upgrade world owner)
+    (define (upgrade (world World) (owner Owner)) (→ (Result World Rejection))
       (match (upgrade-work world owner)
         ((Ok work)
          (pay world
@@ -281,8 +260,7 @@
               (lambda (world) (structures-changed (set-owner-work world owner (Some work))))))
         ((Err rejection) (Err rejection))))
 
-    (: upgrade-work (impl (Fn World Owner -> (Result Work Rejection))))
-    (define (upgrade-work world owner)
+    (define (upgrade-work (world World) (owner Owner)) (→ (Result Work Rejection))
       (match owner
         ((OfHub) (let ((slots (::slots (::hub world))))
                    (cond ((not (null-option? (::work (::hub world)))) (Err (Busy)))
@@ -298,23 +276,20 @@
 
     ;; ---- Rushing and cancelling ----
 
-    (: rush (impl (Fn World Owner -> (Result World Rejection))))
-    (define (rush world owner)
+    (define (rush (world World) (owner Owner)) (→ (Result World Rejection))
       (match (owner-work world owner)
         ((Some work) (pay world (rush-price work) (lambda (world) (finish world owner))))
         ((None) (Err (Idle)))))
 
     ;; Cancelling a site removes it; cancelling an upgrade leaves the building
     ;; at its level.
-    (: cancel (impl (Fn World Owner -> (Result World Rejection))))
-    (define (cancel world owner)
+    (define (cancel (world World) (owner Owner)) (→ (Result World Rejection))
       (match (owner-work world owner)
         ((Some work)
          (Ok (structures-changed (drop-work (spend world (- 0 (work-refund work))) owner))))
         ((None) (Err (Idle)))))
 
-    (: drop-work (impl (Fn World Owner -> World)))
-    (define (drop-work world owner)
+    (define (drop-work (world World) (owner Owner)) (→ World)
       (match owner
         ((OfBuilding b)
          (if (built? b)
@@ -326,8 +301,7 @@
 
     ;; Scavenging removes an idle building and returns a fifth of everything
     ;; paid for its levels.
-    (: scavenge (impl (Fn World Owner -> (Result World Rejection))))
-    (define (scavenge world owner)
+    (define (scavenge (world World) (owner Owner)) (→ (Result World Rejection))
       (match owner
         ((OfHub) (Err (HubOnly)))
         ((OfBuilding b) (cond ((not (built? b)) (Err (Unfinished)))
@@ -338,8 +312,7 @@
 
     ;; Repair restores the hub to full health, at one energy for each two
     ;; health it lacks.
-    (: repair (impl (Fn World -> (Result World Rejection))))
-    (define (repair world)
+    (define (repair (world World)) (→ (Result World Rejection))
       (let* ((hub (::hub world)) (missing (- hub-health (::health hub))))
         (if (= missing 0)
             (Err (FullHealth))
@@ -347,8 +320,7 @@
                  (repair-price hub)
                  (lambda (world) (World-hub-set world (Hub-health-set hub hub-health)))))))
 
-    (: repair-price (impl (Fn Hub -> I64)))
-    (define (repair-price hub)
+    (define (repair-price (hub Hub)) (→ I64)
       (quotient (+ (- hub-health (::health hub)) 1) 2))
 
     ;; ---- Work ----
@@ -366,8 +338,7 @@
     ;; building can wire to it. An unpowered work keeps its progress and
     ;; leaves its slot to the next. A work changes only its own owner, so
     ;; the owners found here stay current while the works progress.
-    (: tasks (impl (Fn World -> (List Task))))
-    (define (tasks world)
+    (define (tasks (world World)) (→ (List Task))
       (let loop ((pending (queued world)) (free (::slots (::hub world))) (listed (Nil)))
         (match pending
           ((Nil) (reverse listed))
@@ -377,8 +348,7 @@
                    (if active (- free 1) free)
                    (Cons (Task owner work supplied active) listed)))))))
 
-    (: queued (impl (Fn World -> (List (Pair Owner Work)))))
-    (define (queued world)
+    (define (queued (world World)) (→ (List (Pair Owner Work)))
       (insertion-sort (lambda (a b) (< (::order (::second a)) (::order (::second b))))
                       (append (match (::work (::hub world))
                                 ((Some work) (list (Pair (OfHub) work)))
@@ -389,8 +359,7 @@
                                               ((None) (None))))
                                           (::buildings world)))))
 
-    (: supplied? (impl (Fn World Owner -> Bool)))
-    (define (supplied? world owner)
+    (define (supplied? (world World) (owner Owner)) (→ Bool)
       (match owner
         ((OfHub) #t)
         ((OfBuilding b)
@@ -399,14 +368,12 @@
              (in-reach? world (::kind b) (::cell b))))))
 
     ;; Active works progress, and finished ones raise their owner.
-    (: work (impl (Fn World -> World)))
-    (define (work world)
+    (define (work (world World)) (→ World)
       (fold-left (lambda (world task) (if (::active task) (progress world task) world))
                  world
                  (tasks world)))
 
-    (: progress (impl (Fn World Task -> World)))
-    (define (progress world task)
+    (define (progress (world World) (task Task)) (→ World)
       (let ((work (Work-progress-set (::work task) (+ (::progress (::work task)) 1))))
         (if (> (remaining-work work) 0)
             (set-owner-work world (::owner task) (Some work))
@@ -414,8 +381,7 @@
 
     ;; Finished work raises its owner: the hub gains a build slot, and a
     ;; building a level and its full health.
-    (: finish (impl (Fn World Owner -> World)))
-    (define (finish world owner)
+    (define (finish (world World) (owner Owner)) (→ World)
       (match owner
         ((OfHub)
          (let ((hub (::hub world)))
@@ -431,8 +397,7 @@
 
     ;; Every second each powered extractor draws its crystal's rate for each
     ;; of its levels, until the reserve runs out.
-    (: produce (impl (Fn World -> World)))
-    (define (produce world)
+    (define (produce (world World)) (→ World)
       (if (= (remainder (::tick world) 10) 0)
           (fold-left extract
                      world
@@ -441,14 +406,12 @@
                       (::buildings world)))
           world))
 
-    (: extractor? (impl (Fn Building -> Bool)))
-    (define (extractor? building)
+    (define (extractor? (building Building)) (→ Bool)
       (match (::kind building)
         ((Extractor) #t)
         (_ #f)))
 
-    (: extract (impl (Fn World Building -> World)))
-    (define (extract world extractor)
+    (define (extract (world World) (extractor Building)) (→ World)
       (match (crystal-at world (::cell extractor))
         ((Some crystal)
          (let ((amount (min (::reserve crystal)
@@ -460,22 +423,23 @@
 
     ;; ---- Lists ----
 
-    (: filter-map (All (A B) (impl (Fn (dyn (Fn A -> (Option B))) (List A) -> (List B)))))
-    (define (filter-map f items)
+    (define (filter-map (f (dyn (Fn A → (Option B)))) (items (List A))) (→ (List B)) (∀ A B)
       (fold-right
        (lambda (item kept) (match (f item) ((Some value) (Cons value kept)) ((None) kept)))
        (Nil)
        items))
 
     ;; Stable, for the handful of queued works.
-    (: insertion-sort
-       (All (T) (requires (Copy T)) (impl (Fn (dyn (Fn T T -> Bool)) (List T) -> (List T)))))
-    (define (insertion-sort before? items)
+    (define (insertion-sort (before? (dyn (Fn T T → Bool))) (items (List T)))
+      (→ (List T))
+      (∀ T)
+      (⊨ (Copy T))
       (fold-left (lambda (sorted item) (insert before? item sorted)) (Nil) items))
 
-    (: insert
-       (All (T) (requires (Copy T)) (impl (Fn (dyn (Fn T T -> Bool)) T (List T) -> (List T)))))
-    (define (insert before? item sorted)
+    (define (insert (before? (dyn (Fn T T → Bool))) (item T) (sorted (List T)))
+      (→ (List T))
+      (∀ T)
+      (⊨ (Copy T))
       (match sorted
         ((Nil) (list item))
         ((Cons first rest)

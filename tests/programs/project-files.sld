@@ -12,30 +12,25 @@
 (define root "build/tests/project-files")
 
 ;; A byte order mark, a CRLF and no final newline, which a save keeps.
-(: exact-text String)
-(define exact-text
+(define exact-text (→ String)
   (string-append (make-string 1 (i32->char 65279))
                  "(hello)"
                  (list->string (list #\return #\newline))
                  "no final newline"))
 
-(: at (impl (Fn String -> String)))
-(define (at name)
+(define (at (name String)) (→ String)
   (string-append root "/" name))
 
-(: report (impl (Fn String String -> Unit ! console)))
-(define (report label text)
+(define (report (label String) (text String)) (→ Unit) (! console)
   (write-line (string-append label " -> " text)))
 
-(: refusal->string (impl (Fn FileRefusal -> String)))
-(define (refusal->string refusal)
+(define (refusal->string (refusal FileRefusal)) (→ String)
   (match refusal
     ((ChangedOnDisk) "changed on disk")
     ((NotServed message) (string-append "not served: " message))
     ((DiskFailed error) (string-append "disk failed: " (show error)))))
 
-(: text-report (impl (Fn String (Result ProjectText FileRefusal) -> Unit ! console)))
-(define (text-report label result)
+(define (text-report (label String) (result (Result ProjectText FileRefusal))) (→ Unit) (! console)
   (report label (match result
                   ((Ok text)
                    (string-append (::text text)
@@ -43,25 +38,21 @@
                                   (substring (::revision text) 0 12)))
                   ((Err refusal) (refusal->string refusal)))))
 
-(: read-report (impl (Fn String -> Unit ! console fs)))
-(define (read-report path)
+(define (read-report (path String)) (→ Unit) (! console fs)
   (text-report (string-append "read " path) (read-project-text root path)))
 
 ;; The revision of the file at `path` now, which a save names.
-(: revision-of (impl (Fn String -> String ! fs)))
-(define (revision-of path)
+(define (revision-of (path String)) (→ String) (! fs)
   (match (read-project-text root path)
     ((Ok text) (::revision text))
     ((Err _) "")))
 
-(: mode-report (impl (Fn String -> Unit ! console modes)))
-(define (mode-report path)
+(define (mode-report (path String)) (→ Unit) (! console modes)
   (report (string-append "mode of " path) (match (file-mode (at path))
                                             ((Some mode) (number->octal mode))
                                             ((None) "none"))))
 
-(: number->octal (impl (Fn I32 -> String)))
-(define (number->octal number)
+(define (number->octal (number I32)) (→ String)
   (if (< number 8)
       (show number)
       (string-append (number->octal (quotient number 8)) (show (remainder number 8)))))

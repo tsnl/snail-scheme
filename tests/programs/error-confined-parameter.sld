@@ -2,6 +2,5 @@
  (snail core base))
 
 ;; The cell is the caller's.
-(: poke (impl (Fn (Ref I64) -> Unit)))
-(define (poke cell)
+(define (poke (cell (Ref I64))) (→ Unit)
   (ref-set! cell 1))

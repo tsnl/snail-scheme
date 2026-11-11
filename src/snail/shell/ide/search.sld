@@ -28,15 +28,13 @@
                      (hits (List Occurrence))
                      (limited Bool))))
 
-    (: same-draft? (impl (Fn Draft Draft -> Bool)))
-    (define (same-draft? first second)
+    (define (same-draft? (first Draft) (second Draft)) (→ Bool)
       (and (string=? (::path first) (::path second))
            (string=? (::text first) (::text second))))
 
     ;; ---- Searching ----
 
-    (: run (impl (Fn Source String -> (Result Results Failure) ! tasks fetch)))
-    (define (run source text)
+    (define (run (source Source) (text String)) (→ (Result Results Failure)) (! tasks fetch)
       (match (parse-query text)
         ((Err message) (Err (Failure 400 message)))
         ((Ok query)
@@ -48,8 +46,7 @@
               ((Err failure) (Err failure))))
            ((CurrentDraft draft) (Ok (search-draft draft query)))))))
 
-    (: search-draft (impl (Fn Draft Query -> Results ! tasks)))
-    (define (search-draft draft query)
+    (define (search-draft (draft Draft) (query Query)) (→ Results) (! tasks)
       (let* ((text (::text draft))
              (end (min 4000000 (string-length text)))
              (hits (scan query text end 201)))

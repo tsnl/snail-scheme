@@ -4,12 +4,10 @@
 
 ;; Each body that fails is reported, and the bodies after it are still
 ;; expanded: one compile names both unbound identifiers, in order.
-(: twice (impl (Fn I64 -> I64)))
-(define (twice n)
+(define (twice (n I64)) (→ I64)
   (+ n missing))
 
-(: fine (impl (Fn I64 -> I64)))
-(define (fine n)
+(define (fine (n I64)) (→ I64)
   (* n 2))
 
 (write-line (show (fine (also-missing 1))))

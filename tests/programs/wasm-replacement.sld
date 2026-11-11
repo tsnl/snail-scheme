@@ -15,8 +15,7 @@
 ;;   (func (export "tick") (result i32)
 ;;     (global.set $counter (i32.add (global.get $counter) (i32.const 1)))
 ;;     (global.get $counter)))
-(: provider-bytes Bytes)
-(define provider-bytes
+(define provider-bytes (→ Bytes)
   #u8(0 97 115 109 1 0 0 0 1 8 2 96 0 0 96 0 1 127 3 4 3 0 1 1 6 6 1 127 1 65 0 11 7 40 4 7 99
         111 117 110 116 101 114 3 0 11 95 105 110 105 116 105 97 108 105 122 101 0 0 5 118 97
         108 117 101 0 1 4 116 105 99 107 0 2 10 28 3 9 0 35 0 65 1 106 36 0 11 4 0 35 0 11 11 0
@@ -26,71 +25,61 @@
 ;; (module
 ;;   (import "a" "counter" (global $value (mut i32)))
 ;;   (func (export "value") (result i32) (global.get $value)))
-(: a-bytes Bytes)
-(define a-bytes
+(define a-bytes (→ Bytes)
   #u8(0 97 115 109 1 0 0 0 1 5 1 96 0 1 127 2 14 1 1 97 7 99 111 117 110 116 101 114 3 127 1 3
         2 1 0 7 9 1 5 118 97 108 117 101 0 0 10 6 1 4 0 35 0 11 0 15 4 110 97 109 101 7 8 1 0 5
         118 97 108 117 101))
 
-(: kept-bytes Bytes)
-(define kept-bytes
+(define kept-bytes (→ Bytes)
   #u8(0 97 115 109 1 0 0 0 1 5 1 96 0 1 127 2 17 1 4 107 101 112 116 7 99 111 117 110 116 101
         114 3 127 1 3 2 1 0 7 9 1 5 118 97 108 117 101 0 0 10 6 1 4 0 35 0 11 0 15 4 110 97 109
         101 7 8 1 0 5 118 97 108 117 101))
 
-(: added-bytes Bytes)
-(define added-bytes
+(define added-bytes (→ Bytes)
   #u8(0 97 115 109 1 0 0 0 1 5 1 96 0 1 127 2 18 1 5 97 100 100 101 100 7 99 111 117 110 116
         101 114 3 127 1 3 2 1 0 7 9 1 5 118 97 108 117 101 0 0 10 6 1 4 0 35 0 11 0 15 4 110 97
         109 101 7 8 1 0 5 118 97 108 117 101))
 
-(: gone-bytes Bytes)
-(define gone-bytes
+(define gone-bytes (→ Bytes)
   #u8(0 97 115 109 1 0 0 0 1 5 1 96 0 1 127 2 17 1 4 103 111 110 101 7 99 111 117 110 116 101
         114 3 127 1 3 2 1 0 7 9 1 5 118 97 108 117 101 0 0 10 6 1 4 0 35 0 11 0 15 4 110 97 109
         101 7 8 1 0 5 118 97 108 117 101))
 
-(: compiled (impl (Fn Bytes -> Compiled ! wasm)))
-(define (compiled bytes)
+(define (compiled (bytes Bytes)) (→ Compiled) (! wasm)
   (match (compile-bytes bytes)
     ((Some module) module)
     ((None) (panic "invalid fixture bytes"))))
 
-(: provider (impl (Fn Compiled -> Module ! wasm)))
-(define (provider compiled)
+(define (provider (compiled Compiled)) (→ Module) (! wasm)
   (match (link-module "provider" compiled (Nil))
     ((Ok instance) instance)
     ((Err _) (panic "provider did not link"))))
 
-(: send-name (impl (Fn String -> Unit)))
-(define (send-name name)
+(define (send-name (name String)) (→ Unit)
   (for-each host-argument-character (string->list name))
   (host-argument-end))
 
-(: consumer (impl (Fn String Compiled -> (Option Module))))
-(define (consumer name compiled)
+(define (consumer (name String) (compiled Compiled)) (→ (Option Module))
   (send-name name)
   (let ((handle (host-instantiate 0 (::handle compiled))))
     (if (< handle 0) (None) (Some (Module handle)))))
 
-(: answer (impl (Fn Module String -> I64 ! wasm)))
-(define (answer instance name)
+(define (answer (instance Module) (name String)) (→ I64) (! wasm)
   (match (run-export instance name 0)
     ((Ok value) value)
     ((Err _) (panic "missing fixture export"))))
 
-(: lookup (impl (Fn String Compiled -> I64 ! wasm)))
-(define (lookup name compiled)
+(define (lookup (name String) (compiled Compiled)) (→ I64) (! wasm)
   (match (consumer name compiled)
     ((Some instance) (answer instance "value"))
     ((None) -1)))
 
-(: expect (impl (Fn String Bool -> Unit ! console)))
-(define (expect label condition)
+(define (expect (label String) (condition Bool)) (→ Unit) (! console)
   (if condition (write-line label) (panic label)))
 
-(: rejected (impl (Fn String (List (Pair String Module)) Compiled -> Unit ! wasm console)))
-(define (rejected label names a)
+(define (rejected (label String) (names (List (Pair String Module))) (a Compiled))
+  (→ Unit)
+  (! wasm console)
   (expect label (not (replace-instances names)))
   (expect (string-append label ": old map kept") (= (lookup label a) 1)))
 

@@ -46,12 +46,10 @@
    (target String)
    (arguments (List String))))
 
-(: usage String)
-(define usage
+(define usage (→ String)
   "usage: snail build [--release] PROJECT BUILD-TARGET | snail run PROJECT RUN-TARGET [ARGUMENT ...]")
 
-(: request (impl (Fn (List String) -> Job)))
-(define (request arguments)
+(define (request (arguments (List String))) (→ Job)
   (match arguments
     ((Cons _ (Cons root (Cons runtime (Cons action rest))))
      (let ((tools (Tools root runtime (match (environment-variable "NODE")
@@ -63,30 +61,27 @@
              (else (panic usage)))))
     (_ (panic usage))))
 
-(: build-request (impl (Fn Tools (List String) -> Job)))
-(define (build-request tools arguments)
+(define (build-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
     ((Cons "--release" (Cons project (Cons target (Nil))))
      (Job tools #f (Release) (resolved project) target (Nil)))
     ((Cons project (Cons target (Nil))) (Job tools #f (Debug) (resolved project) target (Nil)))
     (_ (panic usage))))
 
-(: run-request (impl (Fn Tools (List String) -> Job)))
-(define (run-request tools arguments)
+(define (run-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
     ((Cons project (Cons target rest)) (Job tools #t (Debug) (resolved project) target rest))
     (_ (panic usage))))
 
-(: resident-request (impl (Fn Tools (List String) -> Job)))
-(define (resident-request tools arguments)
+(define (resident-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
     ((Cons project (Nil)) (Job tools #f (Development) (resolved project) "" (Nil)))
     (_ (panic "usage: snail resident PROJECT"))))
 
 ;; A path made absolute against the working directory, without empty or
 ;; "." components, and with each ".." taking the component before it.
-(: resolved (impl (Fn String -> String)))
-(define (resolved path)
+
+(define (resolved (path String)) (→ String)
   (let* ((absolute (if (and (> (string-length path) 0) (char=? (string-ref path 0) #\/))
                        path
                        (string-append (match (working-directory)
@@ -104,8 +99,7 @@
                            (path-parts absolute))))
     (string-append "/" (string-join (reverse parts) "/"))))
 
-(: path-parts (impl (Fn String -> (List String))))
-(define (path-parts path)
+(define (path-parts (path String)) (→ (List String))
   (match (string-index path #\/)
     ((Some index)
      (Cons (substring path 0 index) (path-parts (substring path (+ index 1) (string-length path)))))
@@ -115,8 +109,10 @@
 
 ;; Builds `target`, with the root's build/snail-run/ for scratch, and
 ;; publishes it; answers the target's generation.
-(: build-and-publish (impl (Fn Job Project String -> String ! mut fs clock process)))
-(define (build-and-publish job description target)
+
+(define (build-and-publish (job Job) (description Project) (target String))
+  (→ String)
+  (! mut fs clock process)
   (match (::first (build-project (::tools job)
                                  (::project job)
                                  description
@@ -131,12 +127,10 @@
        ((Err message) (panic message))
        ((Ok _) (generation-of candidate target))))))
 
-(: scratch (impl (Fn Job -> String)))
-(define (scratch job)
+(define (scratch (job Job)) (→ String)
   (string-append (::root (::tools job)) "/build/snail-run"))
 
-(: generation-of (impl (Fn Candidate String -> String)))
-(define (generation-of candidate target)
+(define (generation-of (candidate Candidate) (target String)) (→ String)
   (match (find (lambda (output) (string=? (::name output) target))
                (::outputs candidate))
     ((Some output) (::directory output))
@@ -146,8 +140,8 @@
 
 ;; The run target's program, built, then this process, replaced by Node
 ;; running it.
-(: run-target (impl (Fn Job Project -> Unit ! mut fs clock process)))
-(define (run-target job description)
+
+(define (run-target (job Job) (description Project)) (→ Unit) (! mut fs clock process)
   (match (find (lambda (run) (string=? (::name run) (::target job)))
                (::runs description))
     ((None) (panic (string-append "unknown project run target " (::target job))))
@@ -198,14 +192,12 @@
   (PublishRequest ((epoch I64)))
   (DiscardRequest ((epoch I64))))
 
-(: serve (impl (Fn Resident -> Unit ! mut fs clock process console)))
-(define (serve resident)
+(define (serve (resident Resident)) (→ Unit) (! mut fs clock process console)
   (match (read-line)
     ((None) (unit))
     ((Some line) (serve (answer resident (parse-request line))))))
 
-(: answer (impl (Fn Resident Request -> Resident ! mut fs clock process console)))
-(define (answer resident request)
+(define (answer (resident Resident) (request Request)) (→ Resident) (! mut fs clock process console)
   (match request
     ((BuildRequest epoch prefix) (build-for resident epoch prefix))
     ((PublishRequest epoch)
@@ -220,8 +212,9 @@
      (reply (list (Pair "epoch" (JsonInteger epoch))))
      (Resident-held-set resident (None)))))
 
-(: build-for (impl (Fn Resident I64 String -> Resident ! mut fs clock process console)))
-(define (build-for resident epoch prefix)
+(define (build-for (resident Resident) (epoch I64) (prefix String))
+  (→ Resident)
+  (! mut fs clock process console)
   (let ((job (::job resident)))
     (match (::held resident)
       ((Some _) (panic "internal error: a build was asked for before the last was decided"))
@@ -252,15 +245,14 @@
             (reply (build-reply epoch (description->json description) (JsonNull) failure))
             (Resident job (::second built) (None)))))))))
 
-(: build-reply (impl (Fn I64 Json Json Failure -> (List (Pair String Json)))))
-(define (build-reply epoch description candidate failure)
+(define (build-reply (epoch I64) (description Json) (candidate Json) (failure Failure))
+  (→ (List (Pair String Json)))
   (list (Pair "epoch" (JsonInteger epoch))
         (Pair "description" description)
         (Pair "candidate" candidate)
         (Pair "diagnostics" (JsonArray (failure-diagnostics failure)))))
 
-(: held (impl (Fn Resident I64 -> Candidate)))
-(define (held resident epoch)
+(define (held (resident Resident) (epoch I64)) (→ Candidate)
   (match (::held resident)
     ((Some (Pair held-epoch candidate))
      (if (= held-epoch epoch)
@@ -268,8 +260,7 @@
          (panic (string-append "internal error: no candidate for epoch " (show epoch)))))
     ((None) (panic (string-append "internal error: no candidate for epoch " (show epoch))))))
 
-(: reply (impl (Fn (List (Pair String Json)) -> Unit ! console)))
-(define (reply members)
+(define (reply (members (List (Pair String Json)))) (→ Unit) (! console)
   (write-line (json->string (JsonObject members))))
 
 ;; ---- Requests and replies as JSON ----
@@ -277,8 +268,8 @@
 ;; A request the service wrote. The service is trusted, so a line that is
 ;; not one is an internal error. A generation prefix names a directory
 ;; beside the published outputs, as the builder's own do.
-(: parse-request (impl (Fn String -> Request)))
-(define (parse-request line)
+
+(define (parse-request (line String)) (→ Request)
   (let* ((json (match (string->json line)
                  ((Some json) json)
                  ((None) (panic (string-append "internal error: a request is not JSON: " line)))))
@@ -291,8 +282,7 @@
       ((Some (JsonString "discard")) (DiscardRequest epoch))
       (_ (panic (string-append "internal error: an unknown request: " line))))))
 
-(: generation-prefix (impl (Fn Json String -> String)))
-(define (generation-prefix json line)
+(define (generation-prefix (json Json) (line String)) (→ String)
   (match (json-member json "prefix")
     ((Some (JsonString prefix))
      (if (and (> (string-length prefix) 7)
@@ -306,29 +296,26 @@
                  line))))
     (_ (panic (string-append "internal error: a build request has no prefix: " line)))))
 
-(: build-name (impl (Fn BuildTarget -> String)))
-(define (build-name target)
+(define (build-name (target BuildTarget)) (→ String)
   (match target
     ((ProgramTarget program) (::name program))
     ((BrowserTarget browser) (::name browser))))
 
 ;; The project as the service reads it: its build and run targets, each
 ;; with its source point.
-(: description->json (impl (Fn Project -> Json)))
-(define (description->json description)
+
+(define (description->json (description Project)) (→ Json)
   (JsonObject (list (Pair "builds" (JsonArray (map build->json (::builds description))))
                     (Pair "runs" (JsonArray (map run->json (::runs description)))))))
 
-(: entry->json (impl (Fn ProjectEntry -> Json)))
-(define (entry->json entry)
+(define (entry->json (entry ProjectEntry)) (→ Json)
   (match entry
     ((SourceEntry path) (JsonString (::text path)))
     ((ApplicationEntry library name)
      (JsonObject (list (Pair "library" (JsonArray (map JsonString library)))
                        (Pair "type" (JsonString name)))))))
 
-(: build->json (impl (Fn BuildTarget -> Json)))
-(define (build->json target)
+(define (build->json (target BuildTarget)) (→ Json)
   (match target
     ((ProgramTarget program)
      (JsonObject (list (Pair "kind" (JsonString "program"))
@@ -346,12 +333,10 @@
                                         ((Some path) (JsonString (::text path)))
                                         ((None) (JsonNull)))))))))
 
-(: paths->json (impl (Fn (List ProjectPath) -> Json)))
-(define (paths->json paths)
+(define (paths->json (paths (List ProjectPath))) (→ Json)
   (JsonArray (map (lambda (path) (JsonString (::text path))) paths)))
 
-(: run->json (impl (Fn RunTarget -> Json)))
-(define (run->json run)
+(define (run->json (run RunTarget)) (→ Json)
   (JsonObject (list (Pair "kind" (JsonString "run"))
                     (Pair "name" (JsonString (::name run)))
                     (Pair "build" (JsonString (::name (::program run))))
@@ -360,16 +345,15 @@
 
 ;; How long the build took, and each target's generation, with its
 ;; digests and how many of its modules the build compiled.
-(: candidate->json (impl (Fn Candidate Project I64 -> Json)))
-(define (candidate->json candidate description milliseconds)
+
+(define (candidate->json (candidate Candidate) (description Project) (milliseconds I64)) (→ Json)
   (JsonObject
    (list (Pair "project" (JsonString (::project candidate)))
          (Pair "milliseconds" (JsonInteger milliseconds))
          (Pair "description" (description->json description))
          (Pair "targets" (JsonArray (map output->json (::outputs candidate)))))))
 
-(: output->json (impl (Fn Output -> Json)))
-(define (output->json output)
+(define (output->json (output Output)) (→ Json)
   (JsonObject (list (Pair "name" (JsonString (::name output)))
                     (Pair "directory" (JsonString (::directory output)))
                     (Pair "digest" (JsonString (::digest output)))
@@ -384,16 +368,16 @@
 
 ;; A failure's diagnostics as the editor shows them: a compile's, each
 ;; naming its source point when it has one, or the build's one.
-(: failure-diagnostics (impl (Fn Failure -> (List Json))))
-(define (failure-diagnostics failure)
+
+(define (failure-diagnostics (failure Failure)) (→ (List Json))
   (match failure
     ((CompileFailure diagnostics) (map source-diagnostic->json (diagnostics->list diagnostics)))
     ((BuildFailure message) (list (diagnostic->json message (JsonNull))))))
 
 ;; A location in line 0 is not a point: one about a file as a whole, such
 ;; as a missing source, names the file in its message.
-(: source-diagnostic->json (impl (Fn SourceDiagnostic -> Json)))
-(define (source-diagnostic->json diagnostic)
+
+(define (source-diagnostic->json (diagnostic SourceDiagnostic)) (→ Json)
   (let ((loc (::loc diagnostic)))
     (cond ((= (string-length (::file loc)) 0)
            (diagnostic->json (::message diagnostic) (JsonNull)))
@@ -401,14 +385,12 @@
            (diagnostic->json (::message diagnostic) (source->json loc)))
           (else (diagnostic->json (diagnostic->string diagnostic) (JsonNull))))))
 
-(: source->json (impl (Fn Loc -> Json)))
-(define (source->json loc)
+(define (source->json (loc Loc)) (→ Json)
   (JsonObject (list (Pair "file" (JsonString (::file loc)))
                     (Pair "line" (JsonInteger (::line loc)))
                     (Pair "column" (JsonInteger (::column loc))))))
 
-(: diagnostic->json (impl (Fn String Json -> Json)))
-(define (diagnostic->json message source)
+(define (diagnostic->json (message String) (source Json)) (→ Json)
   (JsonObject (list (Pair "severity" (JsonString "error"))
                     (Pair "message" (JsonString message))
                     (Pair "source" source))))
@@ -417,8 +399,8 @@
 
 ;; The service's setup, from `dev`'s arguments after the command line's
 ;; own: its path, the root and the runtime.
-(: dev-setup (impl (Fn String String String (List String) -> Setup)))
-(define (dev-setup cli root runtime arguments)
+
+(define (dev-setup (cli String) (root String) (runtime String) (arguments (List String))) (→ Setup)
   (let ((node (match (environment-variable "NODE")
                 ((Some node) node)
                 ((None) "node"))))
@@ -429,8 +411,7 @@
        (Setup root cli runtime node editor client (resolved project) 8000))
       (_ (panic "usage: snail dev [--port PORT] PROJECT")))))
 
-(: port-number (impl (Fn String -> I32)))
-(define (port-number text)
+(define (port-number (text String)) (→ I32)
   (let ((digits (string->list text)))
     (if (and (not (null? digits))
              (<= (length digits) 5)
@@ -445,8 +426,8 @@
 ;; ---- The invocation ----
 
 ;; A build, a run, or the resident builder.
-(: invoke (impl (Fn Job -> Unit ! mut fs clock process console)))
-(define (invoke job)
+
+(define (invoke (job Job)) (→ Unit) (! mut fs clock process console)
   (match (::mode job)
     ((Development) (serve (Resident job (Nil) (None))))
     (_

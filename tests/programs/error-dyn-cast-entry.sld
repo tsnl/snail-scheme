@@ -1,5 +1,4 @@
 (import
  (snail core base))
-(: value Any)
-(define value "bad")
+(define value (→ Any) "bad")
 (ann value I64)

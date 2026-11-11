@@ -5,9 +5,9 @@
 ;; the body has unwound to it, so its type cannot name effects to perform
 ;; where it was performed.
 (effect Abort
-  ((ctl abort (dyn (Fn I64 -> I64)))))
+  ((ctl abort (dyn (Fn I64 → I64)))))
 
 (effect Gen
-  ((ctl yield (dyn (Fn I64 -> Unit ! Abort)))))
+  ((ctl yield (dyn (Fn I64 → Unit ! Abort)))))
 
 (unit)

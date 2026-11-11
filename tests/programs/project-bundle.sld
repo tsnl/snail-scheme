@@ -16,12 +16,10 @@
 ;; body, or an event.
 (define root "build/tests/project-bundle")
 
-(: at (impl (Fn String -> String)))
-(define (at name)
+(define (at (name String)) (→ String)
   (string-append root "/" name))
 
-(: put (impl (Fn String String -> Unit ! fs)))
-(define (put name text)
+(define (put (name String) (text String)) (→ Unit) (! fs)
   (write-file (at name) text))
 
 (remove-tree root)
@@ -45,8 +43,7 @@
 (put "reload.wasm" "the client's program")
 (make-symbolic-link "../outside.txt" (at "g4/linked.txt"))
 
-(: builds (List BuildDirectory))
-(define builds
+(define builds (→ (List BuildDirectory))
   (list (BuildDirectory 4
                         (at "g4")
                         (list (Pair "index.html" "i4")
@@ -55,18 +52,15 @@
                         120)
         (BuildDirectory 3 (at "g3") (list (Pair "index.html" "i3")) 90)))
 
-(: latest BuildDirectory)
-(define latest
+(define latest (→ BuildDirectory)
   (match builds
     ((Cons build _) build)
     ((Nil) (panic "no build"))))
 
-(: reloading Reloading)
-(define reloading
+(define reloading (→ Reloading)
   (Reloading (at "host") (at "reload.wasm")))
 
-(: show-response (impl (Fn String Response -> Unit ! console)))
-(define (show-response label response)
+(define (show-response (label String) (response Response)) (→ Unit) (! console)
   (write-line (string-append label
                              " -> "
                              (show (::status response))
@@ -81,8 +75,7 @@
                                ((Ok text) text)
                                ((Err _) "not text")))))
 
-(: request (impl (Fn String (List String) -> Unit ! fs console)))
-(define (request label path)
+(define (request (label String) (path (List String))) (→ Unit) (! fs console)
   (show-response label (bundle-response "/site/" reloading builds path)))
 
 (request "/" (Nil))

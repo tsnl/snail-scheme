@@ -3,32 +3,31 @@
  (snail core io))
 
 (typeclass (Describe T)
-  (: describe (impl (Fn T -> String))))
+  (: describe (impl (Fn T → String))))
 
 (instance (Describe I64)
-  (define (describe n) (string-append "int " (show n))))
+  (define describe (lambda (n) (string-append "int " (show n)))))
 
 (instance (Describe Bool)
-  (define (describe b) (if b "true" "false")))
+  (define describe (lambda (b) (if b "true" "false"))))
 
 (instance (Describe (List T))
-  (requires (Describe T))
-  (define (describe items)
-    (string-append "[" (string-append (string-join (map describe items) ", ") "]"))))
+  (⊨ (Describe T))
+  (define describe
+    (lambda (items)
+      (string-append "[" (string-append (string-join (map describe items) ", ") "]")))))
 
 (instance (Describe (Option T))
-  (requires (Describe T))
-  (define (describe value)
-    (match value
-      ((None) "nothing")
-      ((Some x) (string-append "just " (describe x))))))
+  (⊨ (Describe T))
+  (define describe
+    (lambda (value) (match value
+                      ((None) "nothing")
+                      ((Some x) (string-append "just " (describe x)))))))
 
-(: describe-twice (All (T) (requires (Describe T) (Copy T)) (impl (Fn T -> String))))
-(define (describe-twice value)
+(define (describe-twice (value T)) (→ String) (∀ T) (⊨ (Describe T) (Copy T))
   (string-append (describe value) (string-append " / " (describe value))))
 
-(: sum (All (T) (requires (Num (!) T)) (impl (Fn (List T) T -> T))))
-(define (sum items zero)
+(define (sum (items (List T)) (zero T)) (→ T) (∀ T) (⊨ (Num (!) T))
   (fold-left + zero items))
 
 (write-line (describe (list 1 2 3)))

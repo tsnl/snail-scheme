@@ -81,8 +81,7 @@
       (Invalid))
 
     ;; The name a page styles a class by.
-    (: class-name (impl (Fn Class -> String)))
-    (define (class-name class)
+    (define (class-name (class Class)) (→ String)
       (match class
         ((Blank) "whitespace")
         ((Comment) "comment")
@@ -103,8 +102,7 @@
     ;; once: (snail core base)'s derived syntax, then the words the expander
     ;; matches by name in libraries, effects and signatures, then forms of
     ;; libraries that ship with the language.
-    (: keywords (List String))
-    (define keywords
+    (define keywords (→ (List String))
       (append core-keywords
               (list "let*" "letrec" "cond" "case" "when" "unless" "and" "or" "do" "else"
                     "define-library"
@@ -115,12 +113,11 @@
                     "prefix"
                     "rename"
                     "cond-expand"
-                    "ctl" "All" "requires" "deriving" "host" "impl" "dyn" "->" "!"
+                    "ctl" "∀" "⊨" "deriving" "host" "impl" "dyn" "→" "!"
                     "define-page-state" "define-record-type" "guard")))
 
     ;; A definition names what follows `(define`, `(define-syntax` or `(:`.
-    (: defining-forms (List String))
-    (define defining-forms
+    (define defining-forms (→ (List String))
       (list "define" "define-syntax" ":"))
 
     ;; ---- Tokens ----
@@ -134,7 +131,7 @@
     ;; What the next name means: after an opening bracket, `define`,
     ;; `define-syntax` or `:` starts a definition, and then the next name is
     ;; the one it defines, also when a list comes first, as in
-    ;; `(define (twice x) ...)`. A quote mark and atmosphere leave this as it
+    ;; `(define twice (lambda (x) ...))`. A quote mark and atmosphere leave this as it
     ;; is; any other lexeme ends it.
     (enum Naming
       (Plain)
@@ -144,8 +141,7 @@
     ;; ---- Classifying ----
 
     ;; The tokens of `text`, in order.
-    (: highlight-tokens (impl (Fn String -> (List Token))))
-    (define (highlight-tokens text)
+    (define (highlight-tokens (text String)) (→ (List Token))
       (let ((source (make-source "" text)))
         (let loop ((index 0) (naming (Plain)) (tokens (Nil)))
           (match (next-token source index naming)
@@ -155,8 +151,8 @@
     ;; The token at `index` and the naming after it, or nothing at the end of
     ;; the text. Atmosphere comes first, as it does for the reader, and what
     ;; `#;` comments out is one comment with it.
-    (: next-token (impl (Fn Source I64 Naming -> (Option (Pair Token Naming)))))
-    (define (next-token source index naming)
+    (define (next-token (source Source) (index I64) (naming Naming))
+      (→ (Option (Pair Token Naming)))
       (match (atmosphere-at source index)
         ((Some (Pair (DatumComment) end))
          (Some (Pair (Token index (datum-end source end) (Comment)) naming)))
@@ -169,15 +165,14 @@
             (let ((classified (lexeme-class source index end lexeme naming)))
               (Some (Pair (Token index end (::first classified)) (::second classified)))))))))
 
-    (: atmosphere-class (impl (Fn Atmosphere -> Class)))
-    (define (atmosphere-class atmosphere)
+    (define (atmosphere-class (atmosphere Atmosphere)) (→ Class)
       (match atmosphere
         ((Whitespace) (Blank))
         (_ (Comment))))
 
     ;; A lexeme's class, and the naming after it.
-    (: lexeme-class (impl (Fn Source I64 I64 Lexeme Naming -> (Pair Class Naming))))
-    (define (lexeme-class source start end lexeme naming)
+    (define (lexeme-class (source Source) (start I64) (end I64) (lexeme Lexeme) (naming Naming))
+      (→ (Pair Class Naming))
       (match lexeme
         ((ListOpen _) (Pair (Punctuation) (match naming ((Defining) (Defining)) (_ (Opened)))))
         ((ListClose _) (Pair (Punctuation) (Plain)))
@@ -189,8 +184,7 @@
         ;; `next-token` stops at the end of the text.
         ((EndOfText) (Pair (Blank) naming))))
 
-    (: token-class (impl (Fn String Naming -> (Pair Class Naming))))
-    (define (token-class text naming)
+    (define (token-class (text String) (naming Naming)) (→ (Pair Class Naming))
       (match (token-kind text)
         ((BooleanToken _) (Pair (BooleanLiteral) (Plain)))
         ((IntegerToken) (Pair (NumberLiteral) (Plain)))
@@ -198,8 +192,7 @@
         ((InvalidToken _) (Pair (Invalid) (Plain)))
         ((NameToken) (name-class text naming))))
 
-    (: name-class (impl (Fn String Naming -> (Pair Class Naming))))
-    (define (name-class name naming)
+    (define (name-class (name String) (naming Naming)) (→ (Pair Class Naming))
       (match naming
         ((Defining) (Pair (DefinedName) (Plain)))
         ((Opened)
@@ -209,8 +202,7 @@
         ((Plain) (Pair (plain-name-class name) (Plain)))))
 
     ;; A type's name starts with a capital letter.
-    (: plain-name-class (impl (Fn String -> Class)))
-    (define (plain-name-class name)
+    (define (plain-name-class (name String)) (→ Class)
       (let ((first (string-ref name 0)))
         (cond ((member? name keywords) (Keyword))
               ((and (not (char<? first #\A)) (not (char<? #\Z first))) (TypeName))
@@ -223,8 +215,7 @@
     ;; offsets are a half-open lexical range, not a compiler source span.
     ;; Whitespace keeps one cell, and EOF has an empty range for the view to
     ;; mark without borrowing the preceding token.
-    (: highlight-range (impl (Fn String I64 -> (Pair I64 I64))))
-    (define (highlight-range text offset)
+    (define (highlight-range (text String) (offset I64)) (→ (Pair I64 I64))
       (let ((source (make-source "" text)) (point (min (string-length text) (max 0 offset))))
         (let loop ((index 0))
           (match (next-token source index (Plain))
@@ -234,8 +225,7 @@
                  (loop (::end token))
                  (token-range source token point)))))))
 
-    (: token-range (impl (Fn Source Token I64 -> (Pair I64 I64))))
-    (define (token-range source token point)
+    (define (token-range (source Source) (token Token) (point I64)) (→ (Pair I64 I64))
       (match (::class token)
         ((Blank) (Pair point (+ point 1)))
         ((Punctuation)
@@ -251,8 +241,7 @@
     ;; else is one lexeme. Text the reader rejects still ends somewhere: a
     ;; closing bracket with no datum before it ends the comment, and so does
     ;; the end of the text.
-    (: datum-end (impl (Fn Source I64 -> I64)))
-    (define (datum-end source index)
+    (define (datum-end (source Source) (index I64)) (→ I64)
       (let* ((start (atmosphere-end source index))
              (lexeme (lexeme-at source start))
              (end (::second lexeme)))
@@ -266,8 +255,7 @@
 
     ;; The index after the closing bracket of a list whose items start at
     ;; `index`.
-    (: items-end (impl (Fn Source I64 -> I64)))
-    (define (items-end source index)
+    (define (items-end (source Source) (index I64)) (→ I64)
       (let* ((start (atmosphere-end source index)) (lexeme (lexeme-at source start)))
         (match (::first lexeme)
           ((EndOfText) start)
@@ -275,8 +263,7 @@
           (_ (items-end source (datum-end source start))))))
 
     ;; Skips atmosphere as the reader does, with the data `#;` comments out.
-    (: atmosphere-end (impl (Fn Source I64 -> I64)))
-    (define (atmosphere-end source index)
+    (define (atmosphere-end (source Source) (index I64)) (→ I64)
       (match (atmosphere-at source index)
         ((Some (Pair (DatumComment) end)) (atmosphere-end source (datum-end source end)))
         ((Some (Pair _ end)) (atmosphere-end source end))

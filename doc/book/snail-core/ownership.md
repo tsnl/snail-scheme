@@ -7,7 +7,7 @@ the compiler enforces, then what
 
 ## Implemented: linear one-shot work
 
-`(dyn (FnOnce A -> B ! e))` is **linear**: a value of that type is used
+`(dyn (FnOnce A → B ! e))` is **linear**: a value of that type is used
 exactly once on every path that returns. An unrestricted `dyn Fn` closure
 can be reused or ignored. Concrete `impl Fn` and `impl FnMut` closures own
 their captures and are linear when a capture is linear; repeatable calls
@@ -19,8 +19,8 @@ borrow that owner. Callability and `Copy` are independent
  (snail core base)
  (snail core io))
 
-(: greeting (impl (Fn String -> (dyn (FnOnce -> Unit ! console)))))
-(define (greeting name)
+
+(define (greeting (name String)) (→ (dyn (FnOnce → Unit ! console)))
   (once (lambda () (write-line name))))
 
 (let ((work (greeting "hello")))
@@ -33,7 +33,7 @@ borrow that owner. Callability and `Copy` are independent
 `call-once` consumes the work item before entering its body, and so does
 calling it directly, as `(work)`. `drop` releases one without calling it,
 and releases any other value too ([releasing](#releasing)). A `FnOnce`
-may take any number of arguments, as `(dyn (FnOnce I64 -> I64))` takes one; `once`
+may take any number of arguments, as `(dyn (FnOnce I64 → I64))` takes one; `once`
 preserves the supplied function's full argument list, and a
 control handler's `resume` is another one-shot callable
 ([effects and handlers](effects.md#control-handlers)).
@@ -53,9 +53,9 @@ so is a second use.
   `(absurd (fail diagnostic))` ends a path. Its abandoned owners are
   released before its handler recovers; a fatal panic has no such promise.
 - **Linear data.** A struct or enum with a linear field, once its
-  parameters are bound, is itself linear: `(List (dyn (FnOnce -> Unit)))` is. A
+  parameters are bound, is itself linear: `(List (dyn (FnOnce → Unit)))` is. A
   field holding a linear value only inside a `Ref` does not count, so a
-  `(Mailbox (dyn (FnOnce -> Unit)))` is unrestricted. Destructure linear data
+  `(Mailbox (dyn (FnOnce → Unit)))` is unrestricted. Destructure linear data
   with `match`, which moves the fields out; a wildcard cannot discard a
   linear field. A pure replacement, `(Job-attempts-set job 2)`, consumes a
   linear record and answers it with the other fields moved along, so it
@@ -120,10 +120,10 @@ so is a second use.
   that requires `(Copy A)` may duplicate and discard, and is used only at
   unrestricted types, so a generic `duplicate` cannot be instantiated with
   a work item. No class implies `Copy`: `max` requires `(Ord e T)` and
-  `(Copy T)`. An instance requires `Copy` the same way, in its `requires`,
+  `(Copy T)`. An instance requires `Copy` the same way, in its `⊨` clause,
   and is used only where its head gives that variable an unrestricted
   type: an instance of `(Twice (Option A))` that pairs a value with
-  itself cannot be used at `(Option (dyn (FnOnce -> Unit)))`.
+  itself cannot be used at `(Option (dyn (FnOnce → Unit)))`.
 - **What cannot hold one.** Linear values cannot be globals, elements of
   `Array` or `Vector`, payloads erased into `Any`, or exports, and a
   statement cannot discard one. A vector is a reference that may be
@@ -136,13 +136,13 @@ so is a second use.
   handed no `resume` at all.
 
 ```scheme
-(: swap (All (A B) (impl (Fn (Pair A B) -> (Pair B A)))))
-(define (swap pair)
+
+(define (swap (pair (Pair A B))) (→ (Pair B A)) (∀ A B)
   (match pair
     ((Pair a b) (Pair b a))))
 
-(: twice (All (A) (requires (Copy A)) (impl (Fn A -> (Pair A A)))))
-(define (twice value)
+
+(define (twice (value A)) (→ (Pair A A)) (∀ A) (⊨ (Copy A))
   (Pair value value))
 ```
 
@@ -167,8 +167,8 @@ scope, keeping the owner in place until that scope ends. For example, a
 view can inspect a model that owns linear work:
 
 ```scheme
-(: title (impl (Fn (Borrow Model) -> String)))
-(define (title model)
+
+(define (title (model (Borrow Model))) (→ String)
   (Model-title model))
 
 (let ((model (Model "ready" work)))
@@ -245,7 +245,7 @@ storage and continuation capture.
 
 ```scheme
 (typeclass (Drop e T)
-  (: drop (impl (Fn T -> Unit ! e))))
+  (: drop (impl (Fn T → Unit ! e))))
 ```
 
 What a drop runs, and so the row it performs, is found from `T` rather
@@ -258,7 +258,7 @@ than matched (`lifecycle-plan` and `lifecycle-rows` in
   it captured: a `once` lambda's linear captures, or the linear locals a
   `resume`'s frames hold. Its type does not say what those are, so the
   drop is charged with the `FnOnce`'s own row, less its control effects,
-  which no drop performs: dropping a `(dyn (FnOnce A -> B ! e))` performs `e`.
+  which no drop performs: dropping a `(dyn (FnOnce A → B ! e))` performs `e`.
   Data holding a `FnOnce`, such as a queue of tasks, runs glue that drops
   each one.
 - A type with an instance runs the instance's method, and performs the
@@ -280,7 +280,7 @@ than matched (`lifecycle-plan` and `lifecycle-rows` in
   refused, as it is for a type that holds itself at other type arguments,
   whose glue would need a function for every depth. An instance of any
   class may require one too, with a row its method allows, as
-  `(requires (Drop (! log) A))`, and each use is charged the same way.
+  `(⊨ (Drop (! log) A))`, and each use is charged the same way.
 
 A drop's effects are charged where it is written: once a call is checked,
 the drops raised in it whose types are known are solved in its scope, so a
@@ -380,7 +380,7 @@ class over a row:
 
 ```scheme
 (typeclass (Clone e T)
-  (: clone (impl (Fn T -> (Pair T T) ! e))))
+  (: clone (impl (Fn T → (Pair T T) ! e))))
 ```
 
 It takes the value and hands it back with a copy, since a linear value
@@ -427,7 +427,7 @@ is reading one from a lambda inside it. A top-level function has no locals
 around it, so the expander marks every one as a `fn`.
 
 A `fn` expression has a concrete callable type when inferred. At a
-`(fn A -> B ! e)` boundary, it provides a code pointer without an environment.
+`(fn A → B ! e)` boundary, it provides a code pointer without an environment.
 A top-level function can also provide that representation:
 
 ```scheme

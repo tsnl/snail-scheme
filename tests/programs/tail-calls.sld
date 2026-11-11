@@ -2,16 +2,13 @@
  (snail core base)
  (snail core io))
 
-(: even? (impl (Fn I64 -> Bool)))
-(define (even? n)
+(define (even? (n I64)) (→ Bool)
   (if (= n 0) #t (odd? (- n 1))))
 
-(: odd? (impl (Fn I64 -> Bool)))
-(define (odd? n)
+(define (odd? (n I64)) (→ Bool)
   (if (= n 0) #f (even? (- n 1))))
 
-(: apply-n (impl (Fn (dyn (Fn I64 -> I64)) I64 I64 -> I64)))
-(define (apply-n f n x)
+(define (apply-n (f (dyn (Fn I64 → I64))) (n I64) (x I64)) (→ I64)
   (if (= n 0) x (apply-n f (- n 1) (f x))))
 
 (display (even? 10000001))

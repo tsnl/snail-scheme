@@ -26,7 +26,7 @@
    "(foo alpha beta gamma delta epsilon) ; fits: the comment does not count\n"
    "(foo alpha beta gamma delta epsilon zeta) ; stays on the last line\n"
    "(define message \"a string much longer than forty columns cannot break\")\n"
-   "(: run (impl (Fn Config (List String) -> Status ! fs console)))\n"
+   "(define (run (config Config) (args (List String))) (→ Status) (! fs console) (status config args))\n"
    "(bytes #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))\n"
    "(display \"one\") (display \"two\") (display \"three\")\n"))
 

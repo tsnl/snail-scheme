@@ -21,15 +21,15 @@
 (define-page-state Save)
 
 (instance (Application (! mut events storage tasks) IdeApplication)
-  (define (start entry)
-    (run-page (lambda () (None)) encode (lambda (bytes) (Some (read-recovery bytes))) present)))
+  (define start
+    (lambda (entry)
+      (run-page (lambda () (None)) encode (lambda (bytes) (Some (read-recovery bytes))) present))))
 
 ;; A replacement receives recovery data, never the old session's futures or
 ;; event connection. Reconnect and restore buffers under the new scheduler.
-(: present
-   (impl
-    (Fn Save (dyn (Fn Save -> Unit ! events storage tasks)) -> Unit ! mut events storage tasks)))
-(define (present saved checkpoint)
+(define (present (saved Save) (checkpoint (dyn (Fn Save → Unit ! events storage tasks))))
+  (→ Unit)
+  (! mut events storage tasks)
   (with-page-dom
    (lambda ()
      (with-page-fetch
@@ -40,22 +40,19 @@
                       (ann update-session
                            (dyn (Fn Session
                                     (Option Msg)
-                                    -> Session
+                                    → Session
                                     ! mut completion events storage dom fetch)))
                       session-view session-window snapshot
-                      (ann commit (dyn (Fn Save -> Unit ! mut events storage dom fetch)))
+                      (ann commit (dyn (Fn Save → Unit ! mut events storage dom fetch)))
                       (lambda (saved) (checkpoint saved)))))))))
 
-(: snapshot (impl (Fn (Borrow Session) -> Save)))
-(define (snapshot session)
+(define (snapshot (session (Borrow Session))) (→ Save)
   (Some (session-snapshot session)))
 
-(: encode (impl (Fn Save -> Bytes)))
-(define (encode saved)
+(define (encode (saved Save)) (→ Bytes)
   (serialize (match saved ((Some saved) saved) ((None) (kept initial)))))
 
-(: commit (impl (Fn Save -> Unit ! mut events)))
-(define (commit saved)
+(define (commit (saved Save)) (→ Unit) (! mut events)
   (commit-page saved)
   (report-ready))
 

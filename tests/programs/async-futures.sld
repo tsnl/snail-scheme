@@ -9,9 +9,9 @@
   ((name String)))
 
 (instance (Drop (! console) Resource)
-  (define (drop resource)
-    (match resource
-      ((Resource name) (write-line (string-append "released " name))))))
+  (define drop
+    (lambda (resource) (match resource
+                         ((Resource name) (write-line (string-append "released " name)))))))
 
 ;; Dispatch returns before the work starts. Await yields the task, not
 ;; the host stack, and transfers a linear result to this continuation.

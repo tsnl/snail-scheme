@@ -1,6 +1,5 @@
 (import
  (snail core base))
 
-(: integer (impl (Fn I64 -> I64)))
-(define (integer value) value)
+(define (integer (value I64)) (→ I64) value)
 (integer "wrong")

@@ -19,14 +19,15 @@ const text = '```text\n```scheme\n(define x 1)\n```\n';
 const listed = '- An item:\n\n  ```scheme\n  #t\n  ```\n';
 const chapter = (content, sub_items = []) =>
   ({Chapter: {name: 'Sample', content, number: [1], sub_items, path: 'sample.md', source_path: 'sample.md', parent_names: []}});
-const book = {items: [chapter(`# Sample\n\n\`\`\`scheme\n(define (f x) "a<b") ; c\n\`\`\`\n\n${text}`, [chapter(listed)]), 'Separator']};
+const book = {items: [chapter(`# Sample\n\n\`\`\`scheme\n(define f (lambda (x) "a<b")) ; c\n\`\`\`\n\n${text}`, [chapter(listed)]), 'Separator']};
 const result = run([], JSON.stringify([{root, config: {}, renderer: 'html', mdbook_version: '0.5.4'}, book]));
 assert.equal(result.status, 0, result.stderr);
 
 const span = (name, text) => `<span class="tok-${name}">${text}</span>`;
 const [item, separator] = JSON.parse(result.stdout).items;
-const code = [span('punctuation', '('), span('keyword', 'define'), ' ', span('punctuation', '('), span('definition', 'f'), ' ',
-              span('identifier', 'x'), span('punctuation', ')'), ' ', span('string', '"a&lt;b"'), span('punctuation', ')'), ' ',
+const code = [span('punctuation', '('), span('keyword', 'define'), ' ', span('definition', 'f'), ' ',
+              span('punctuation', '('), span('keyword', 'lambda'), ' ', span('punctuation', '('), span('identifier', 'x'),
+              span('punctuation', ')'), ' ', span('string', '"a&lt;b"'), span('punctuation', ')'), span('punctuation', ')'), ' ',
               span('comment', '; c'), '&#10;'].join('');
 assert.equal(item.Chapter.content, `# Sample\n\n<pre><code class="nohighlight">${code}</code></pre>\n\n${text}`);
 assert.equal(item.Chapter.sub_items[0].Chapter.content,

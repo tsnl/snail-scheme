@@ -1,6 +1,5 @@
 (import
  (snail core base))
 
-(: f (impl (Fn Bool -> Bool)))
-(define (f x)
+(define (f (x Bool)) (→ Bool)
   (+ x x))

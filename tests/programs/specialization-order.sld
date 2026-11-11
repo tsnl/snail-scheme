@@ -7,8 +7,7 @@
 ;; library builds, even when a statement precedes the definition in source.
 (write-line (show (advance)))
 
-(: third I64)
-(define third (+ second (advance)))
+(define third (→ I64) (+ second (advance)))
 
 (write-line (show first))
 (write-line (show second))

@@ -22,31 +22,26 @@
     ;; ---- Dealing ----
 
     ;; One item of a list, and the generator after the draw.
-    (: deal (All (T) (requires (Copy T)) (impl (Fn Random (List T) -> (Pair T Random)))))
-    (define (deal random items)
+    (define (deal (random Random) (items (List T))) (→ (Pair T Random)) (∀ T) (⊨ (Copy T))
       (Pair (list-ref items (random-below random (length items))) (random-next random)))
 
-    (: names->dyes (impl (Fn (List String) -> (List Dye))))
-    (define (names->dyes names)
+    (define (names->dyes (names (List String))) (→ (List Dye))
       (map Dye names))
 
     ;; ---- Wardrobe ----
 
-    (: audience-dyes (impl (Fn I64 -> (List Dye))))
-    (define (audience-dyes audience)
+    (define (audience-dyes (audience I64)) (→ (List Dye))
       (names->dyes (list-ref (list (list "maroon" "orange" "teal" "rose")
                                    (list "forest" "brown" "slate" "tan")
                                    (list "charcoal" "navy" "black" "white"))
                              audience)))
 
-    (: build-heads (impl (Fn Build -> (List Head))))
-    (define (build-heads build)
+    (define (build-heads (build Build)) (→ (List Head))
       (match build
         ((Female) (list (HumanFemale) (HumanFemale) (HumanFemale) (HumanFemaleElderly)))
         (_ (list (HumanMale) (HumanMale) (HumanMale) (HumanMaleElderly)))))
 
-    (: elderly? (impl (Fn Head -> Bool)))
-    (define (elderly? head)
+    (define (elderly? (head Head)) (→ Bool)
       (match head
         ((HumanMaleElderly) #t)
         ((HumanFemaleElderly) #t)
@@ -65,22 +60,19 @@
                  "cowlick"
                  "bangs_bun")))
 
-    (: hair-shades (impl (Fn Head -> (List HairColor))))
-    (define (hair-shades head)
+    (define (hair-shades (head Head)) (→ (List HairColor))
       (map HairColor
            (if (elderly? head)
                (list "gray" "white")
                (list "black" "dark_brown" "chestnut" "blonde" "ginger"))))
 
-    (: tops (impl (Fn Build -> (List Garment))))
-    (define (tops build)
+    (define (tops (build Build)) (→ (List Garment))
       (match build
         ((Male) (list (Longsleeve) (Shortsleeve) (Overalls) (Tabard)))
         ((Female) (list (Longsleeve) (Blouse) (Tunic) (Tanktop)))
         (_ (list (Longsleeve)))))
 
-    (: bottoms (impl (Fn Build -> (List Garment))))
-    (define (bottoms build)
+    (define (bottoms (build Build)) (→ (List Garment))
       (match build
         ((Female) (list (Pants) (Skirt) (Leggings)))
         (_ (list (Pants)))))
@@ -93,8 +85,7 @@
     ;; A garment in the dye dealt, if the catalog draws it in that for the
     ;; build, and otherwise in the first dye it does: male pants come only
     ;; in green.
-    (: worn-in (impl (Fn Build Garment Dye -> Worn)))
-    (define (worn-in build garment dye)
+    (define (worn-in (build Build) (garment Garment) (dye Dye)) (→ Worn)
       (let ((drawn (garment-dyes build garment)))
         (Worn garment
               (if (any? (lambda (other) (string=? (::name other) (::name dye))) drawn)
@@ -106,8 +97,7 @@
     ;; Every look dealt here is one the catalog draws, so dressing never
     ;; fails. Were the tables to drift from the catalog, building (hearsay
     ;; art), which dresses everyone, would stop here.
-    (: dressed (impl (Fn Build Head Skin Outfit -> Character)))
-    (define (dressed build head skin outfit)
+    (define (dressed (build Build) (head Head) (skin Skin) (outfit Outfit)) (→ Character)
       (match (dress build head skin outfit)
         ((Some character) character)
         ((None) (panic "the cast wears something the catalog does not draw"))))
@@ -115,8 +105,7 @@
     ;; ---- People ----
 
     ;; A character dealt from `seed`, dressed in `palette`.
-    (: dealt (impl (Fn I64 (List Dye) -> Character)))
-    (define (dealt seed palette)
+    (define (dealt (seed I64) (palette (List Dye))) (→ Character)
       (let* ((r (make-random seed))
              (build (deal r (list (Male) (Female) (Teen))))
              (head (deal (::second build) (build-heads (::first build))))
@@ -129,8 +118,13 @@
                    palette
                    (::second shade))))
 
-    (: outfitted (impl (Fn Build Head Skin Hair (List Dye) Random -> Character)))
-    (define (outfitted build head skin hair palette r)
+    (define (outfitted (build Build)
+                       (head Head)
+                       (skin Skin)
+                       (hair Hair)
+                       (palette (List Dye))
+                       (r Random))
+      (→ Character)
       (let* ((top (deal r (tops build))) (top-dye (deal (::second top) palette))
              (bottom (deal (::second top-dye) (bottoms build)))
              (bottom-dye (deal (::second bottom) palette))
@@ -143,13 +137,11 @@
 
     ;; Resident `person` of the rumor mill, dressed in their audience's
     ;; colors.
-    (: resident (impl (Fn I64 -> Character)))
-    (define (resident person)
+    (define (resident (person I64)) (→ Character)
       (dealt (+ 1000 (* 7919 person)) (audience-dyes (audience-of person))))
 
     ;; The favor ledger's rivals, by fixer: Vee, and otherwise Kit.
-    (: rival (impl (Fn I64 -> Character)))
-    (define (rival who)
+    (define (rival (who I64)) (→ Character)
       (if (= who vee)
           (dressed (Female) (HumanFemale) (Skin "bronze")
                    (Outfit (Some (Hair (HairStyle "high_ponytail") (HairColor "raven")))
@@ -163,20 +155,17 @@
                            (Some (Worn (Shoes) (Dye "black")))))))
 
     ;; Everyone drawn, for embedding their art.
-    (: everyone (List Character))
-    (define everyone
+    (define everyone (→ (List Character))
       (append (map resident (iota person-count)) (list (rival vee) (rival kit))))
 
     ;; ---- Pictures ----
 
     ;; The screens key the pictures they compose of the cast: 100 + p for
     ;; resident p, and 200 + f for the rival who is fixer f.
-    (: person-picture (impl (Fn I64 -> I32)))
-    (define (person-picture person)
+    (define (person-picture (person I64)) (→ I32)
       (i64->i32 (+ 100 person)))
 
-    (: rival-picture (impl (Fn I64 -> I32)))
-    (define (rival-picture who)
+    (define (rival-picture (who I64)) (→ I32)
       (i64->i32 (+ 200 who)))
 
     ))

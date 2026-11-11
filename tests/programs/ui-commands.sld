@@ -35,10 +35,9 @@
   (Done ((what String))))
 
 (type (Command M)
-      (dyn (FnOnce -> M ! dom tasks)))
+      (dyn (FnOnce → M ! dom tasks)))
 
-(: update (impl (Fn Model Msg -> (Pair Model (List (Command Msg))))))
-(define (update model message)
+(define (update (model Model) (message Msg)) (→ (Pair Model (List (Command Msg))))
   (match message
     ((Begin) (Pair model (list (once began))))
     ((Typed text) (Pair (Model-text-set model text) (Nil)))
@@ -50,12 +49,10 @@
     ((Online) (Pair (logged model "online") (Nil)))
     ((Done what) (Pair (logged model what) (Nil)))))
 
-(: logged (impl (Fn Model String -> Model)))
-(define (logged model what)
+(define (logged (model Model) (what String)) (→ Model)
   (Model-log-set model (append (::log model) (list what))))
 
-(: indent (impl (Fn -> Msg ! dom)))
-(define (indent)
+(define (indent) (→ Msg) (! dom)
   (match (element-by-id "text")
     ((Some node)
      (let ((took (insert-text node 0 0 "  ")))
@@ -71,8 +68,7 @@
                             (show (::line-height (measure node)))))))
     ((None) (Done "no field"))))
 
-(: late (impl (Fn -> Msg ! dom tasks)))
-(define (late)
+(define (late) (→ Msg) (! dom tasks)
   (match (element-by-id "text")
     ((Some node)
      (yield)
@@ -84,18 +80,15 @@
                             (show (string-length (string-property node "value")))))))
     ((None) (Done "no field"))))
 
-(: ask (impl (Fn -> Msg ! dom)))
-(define (ask)
+(define (ask) (→ Msg) (! dom)
   (if (confirm "Hide the field?") (Hide) (Done "kept")))
 
-(: missing (impl (Fn -> Msg ! dom)))
-(define (missing)
+(define (missing) (→ Msg) (! dom)
   (match (element-by-id "text")
     ((Some node) (Done "still there"))
     ((None) (Done "field gone"))))
 
-(: view (impl (Fn Model -> (Html Msg))))
-(define (view model)
+(define (view (model Model)) (→ (Html Msg))
   (Element "div"
            (Nil)
            (append (if (::shown model)
@@ -122,25 +115,21 @@
                                         (On "click" (Nil) (Allow) (lambda (event) (Ask))))
                                   (Nil))))))
 
-(: window (impl (Fn Model -> (List (Attribute Msg)))))
-(define (window model)
+(define (window (model Model)) (→ (List (Attribute Msg)))
   (list (On "online" (Nil) (Allow) (lambda (event) (Online)))
         (On "keydown"
             (list (Key))
             (Chords (list (Chord "s" control-key)))
             (lambda (event) (Save)))))
 
-(: began (impl (Fn -> Msg)))
-(define (began)
+(define (began) (→ Msg)
   (Done "began"))
 
-(: starts-with? (impl (Fn String String -> Bool)))
-(define (starts-with? prefix line)
+(define (starts-with? (prefix String) (line String)) (→ Bool)
   (and (>= (string-length line) (string-length prefix))
        (string=? (substring line 0 (string-length prefix)) prefix)))
 
-(: clicked (impl (Fn String -> Cue)))
-(define (clicked target)
+(define (clicked (target String)) (→ Cue)
   (Fire target "click" no-event))
 
 (dispatch-local

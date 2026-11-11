@@ -6,7 +6,7 @@
 ;; state: through an alias, a global, a local cell, a method that reads a
 ;; global, or a callback passed in. A handler must still be reusable, which
 ;; ordinary closures are, since they cannot capture a one-shot value.
-(effect Counter ((tick (dyn (Fn -> I64)))))
+(effect Counter ((tick (dyn (Fn → I64)))))
 
 (let* ((state (ref (ann 1 I64)))
        (callback (lambda () (ref-get state)))
@@ -16,9 +16,9 @@
 
 ;; ANCHOR: counter
 (define counter (ref (ann 10 I64)))
-(define (count-up)
-  (ref-set! counter (+ (ref-get counter) 1))
-  (ref-get counter))
+(define count-up
+  (lambda () (ref-set! counter (+ (ref-get counter) 1))
+          (ref-get counter)))
 (display (handle Counter ((tick count-up)) (+ (tick) (tick))))
 ;; ANCHOR_END: counter
 (newline)
@@ -29,14 +29,13 @@
 
 (struct Number
   ((value I64)))
-(typeclass (Read T) (: read-number (impl (Fn T -> I64 ! mut))))
+(typeclass (Read T) (: read-number (impl (Fn T → I64 ! mut))))
 (define reading (ref (ann 4 I64)))
-(instance (Read Number) (define (read-number value) (+ (::value value) (ref-get reading))))
+(instance (Read Number) (define read-number (lambda (value) (+ (::value value) (ref-get reading)))))
 (display (handle Counter ((tick (lambda () (read-number (Number 1))))) (tick)))
 (newline)
 
-(: apply-handler (impl (Fn (dyn (Fn -> I64 ! mut)) -> I64 ! mut)))
-(define (apply-handler callback)
+(define (apply-handler (callback (dyn (Fn → I64 ! mut)))) (→ I64) (! mut)
   (handle Counter ((tick callback)) (tick)))
 (display (apply-handler (lambda () (ref-get reading))))
 (newline)

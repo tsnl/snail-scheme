@@ -57,7 +57,7 @@ try {
 
   await edit(source, '"hello again"', '5');
   assert.match(await until(async () => (await notice()).match(/application\.sld:\d+:\d+: .*/)?.[0], 'the failure'), /application\.sld/);
-  await edit(source, '(define greeting 5)', '(define greeting "fixed")');
+  await edit(source, '(define greeting (→ String) 5)', '(define greeting (→ String) "fixed")');
   await until(async () => await text('greeting') === 'fixed', 'the fix');
   assert.equal(await text('count'), '2');
 
@@ -82,7 +82,7 @@ try {
   await until(async () => await text('greeting') === 'recovered' && await text('count') === '2', 'the checkpoint and unread actions');
 
   // A cold first-frame failure still registers its owner for a source fix.
-  await edit(source, '(define (draw counter)\n', '(define (draw counter)\n  (panic "cold first view trap")\n');
+  await edit(source, '(define (draw (counter Counter)) (→ Frame)\n', '(define (draw (counter Counter)) (→ Frame)\n  (panic "cold first view trap")\n');
   await until(async () => (await notice()).includes('cold first view trap'), 'the view before a page reload');
   await browser.navigate(base);
   await until(() => browser.evaluate('document.body.dataset.ready'), 'the stopped cold application');
@@ -135,7 +135,7 @@ try {
   await writeFile(banner, 'linked');
   await writeFile(join(app, 'src/sample/banner.sld'), `(define-library (sample banner) (export banner)
     (import (snail core base) (snail core io) (only (snail shell task) tasks dispatch-local) (snail shell resource))
-    (begin (: banner Resource) (define banner (link-file "banner.txt"))
+    (begin (define banner (→ Resource) (link-file "banner.txt"))
       (dispatch-local (once (lambda () (write-line (list->string (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource banner))))))))))`);
   await edit(source, '(snail shell wire))', '(snail shell wire)\n   (sample banner))');
   await until(() => printed('linked'), 'the linked file read when its module started');

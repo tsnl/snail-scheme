@@ -6,15 +6,13 @@
 ;; that cannot: each use is its own specialization, and only the first
 ;; tests for a yield after each call.
 (effect Stop
-  ((ctl stop (dyn (Fn I64 -> I64)))))
+  ((ctl stop (dyn (Fn I64 → I64)))))
 
-(: sum-until-negative (impl (Fn (List I64) -> I64)))
-(define (sum-until-negative items)
+(define (sum-until-negative (items (List I64))) (→ I64)
   (handle Stop ((stop (lambda (total resume) (drop resume) total)))
     (fold-left (lambda (total item) (if (< item 0) (stop total) (+ total item))) 0 items)))
 
-(: sum (impl (Fn (List I64) -> I64)))
-(define (sum items)
+(define (sum (items (List I64))) (→ I64)
   (fold-left (lambda (total item) (+ total item)) 0 items))
 
 (display (sum-until-negative (list 1 2 3 -4 5)))

@@ -5,8 +5,7 @@
   ((number I64))
   (deriving Move))
 
-(: consume (impl (Fn Token -> Unit)))
-(define (consume token)
+(define (consume (token Token)) (→ Unit)
   (match token ((Token _) (unit))))
 
 (let ((token (Token 1)) (other (Token 2)))

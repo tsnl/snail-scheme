@@ -18,13 +18,11 @@
    (label String)))
 ;; ANCHOR_END: segment
 
-(: show-point (impl (Fn Point -> String)))
-(define (show-point point)
+(define (show-point (point Point)) (→ String)
   (match point
     ((Point x y) (string-append "(" (show x) ", " (show y) ")"))))
 
-(: show-segment (impl (Fn Segment -> String)))
-(define (show-segment segment)
+(define (show-segment (segment Segment)) (→ String)
   (string-append (::label segment)
                  ": "
                  (show-point (::from segment))
@@ -51,10 +49,9 @@
 ;; written.
 (struct Job
   ((at Point)
-   (work (dyn (FnOnce -> Unit ! console)))))
+   (work (dyn (FnOnce → Unit ! console)))))
 
-(: flip (impl (Fn Job -> Job)))
-(define (flip job)
+(define (flip (job Job)) (→ Job)
   (Job-at-set job (Point (::y (::at job)) (::x (::at job)))))
 
 (match (flip (Job (Point 1 2) (once (lambda () (write-line "worked")))))
@@ -66,8 +63,7 @@
 (let ((pair (Pair (Point 7 8) "seven-eight")))
   (write-line (string-append (::second pair) " " (show-point (::first pair)))))
 
-(: nearest (impl (Fn (List Point) -> Point)))
-(define (nearest points)
+(define (nearest (points (List Point))) (→ Point)
   (fold-left (lambda (best point) (if (< (::x point) (::x best)) point best))
              (Point 100 100)
              points))
@@ -82,8 +78,7 @@
    ((segment Segment)))
   (Empty))
 
-(: describe (impl (Fn Shape -> String)))
-(define (describe shape)
+(define (describe (shape Shape)) (→ String)
   (match shape
     ((Dot (Point x y)) (string-append "dot at " (show x) "," (show y)))
     ((Line segment) (string-append "line " (show-segment segment)))
@@ -121,10 +116,9 @@
 ;; A call that may yield leaves with a placeholder of its type, here a
 ;; Segment, before the frames resume.
 (effect Ask
-  ((ctl ask (dyn (Fn -> I64)))))
+  ((ctl ask (dyn (Fn → I64)))))
 
-(: build (impl (Fn -> Segment ! Ask)))
-(define (build)
+(define (build) (→ Segment) (! Ask)
   (Segment (Point (ask) 0) (Point 0 (ask)) "asked"))
 
 (write-line (show-segment (handle Ask

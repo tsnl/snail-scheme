@@ -29,7 +29,7 @@
       (Failed))
 
     (effect files
-      ((read-file (dyn (Fn String I32 -> (Result Bytes FileError) ! mut tasks))))
+      ((read-file (dyn (Fn String I32 → (Result Bytes FileError) ! mut tasks))))
       (default ((read-file native-read))))
 
     ;; ---- Pending request ownership ----
@@ -40,11 +40,10 @@
       ((id I64)))
 
     (instance (Drop (! mut) Request)
-      (define (drop request)
-        (match request ((Request id) (host-cancel id)))))
+      (define drop
+        (lambda (request) (match request ((Request id) (host-cancel id))))))
 
-    (: native-read (impl (Fn String I32 -> (Result Bytes FileError) ! mut tasks)))
-    (define (native-read path maximum)
+    (define (native-read (path String) (maximum I32)) (→ (Result Bytes FileError)) (! mut tasks)
       (let ((ticket (ticket)))
         (for-each host-path-character (string->list path))
         (let ((request (Request (host-start-read ticket maximum))))
@@ -53,8 +52,8 @@
 
     ;; The host holds bytes only until the next finish; copying does not
     ;; suspend. Completion consumes the token, so Drop cannot cancel it again.
-    (: finish (impl (Fn Request -> (Result Bytes FileError))))
-    (define (finish request)
+
+    (define (finish (request Request)) (→ (Result Bytes FileError))
       (match request
         ((Request id)
          (let ((answer (host-finish id)))
@@ -63,8 +62,7 @@
                (Ok (vector-generate (i32->i64 answer)
                                     (lambda (index) (i32->u8 (host-byte (i64->i32 index)))))))))))
 
-    (: failure (impl (Fn I32 -> FileError)))
-    (define (failure code)
+    (define (failure (code I32)) (→ FileError)
       (cond ((= code -1) (Unavailable))
             ((= code -2) (InvalidInput))
             ((= code -3) (TooLarge))

@@ -1,5 +1,4 @@
 (import
  (snail core base))
-(: same (All (A) (requires (Copy B)) (impl (Fn A -> A))))
-(define (same value) value)
+(define (same (value A)) (→ A) (∀ A) (⊨ (Copy B)) value)
 (same 1)

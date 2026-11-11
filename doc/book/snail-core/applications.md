@@ -6,7 +6,7 @@ contract:
 ```scheme
 (struct (Entry A) ())
 (typeclass (Application e A)
-  (: start (impl (Fn (Entry A) -> Unit ! e))))
+  (: start (impl (Fn (Entry A) → Unit ! e))))
 ```
 
 `Entry` is an empty type witness. Selecting an application does not require
@@ -61,12 +61,12 @@ An application library exports an alias and implements the engine's class:
 (type GameApplication (SceneApplication Game))
 (define-page-state Game)
 (instance (Scene Game)
-  (define (scene-initialize seed width height) (new-game seed width height))
-  (define (scene-update game input) (step game input))
-  (define (scene-view game) (draw game))
-  (define (scene-hud game) (panels game))
-  (define (scene-save game) (serialize (save-game game)))
-  (define (scene-restore bytes) (restore-game (deserialize bytes))))
+  (define scene-initialize (lambda (seed width height) (new-game seed width height)))
+  (define scene-update (lambda (game input) (step game input)))
+  (define scene-view (lambda (game) (draw game)))
+  (define scene-hud (lambda (game) (panels game)))
+  (define scene-save (lambda (game) (serialize (save-game game))))
+  (define scene-restore (lambda (bytes) (restore-game (deserialize bytes)))))
 ```
 
 `define-page-state` supplies ordinary `PageState` evidence for packing and
@@ -129,7 +129,7 @@ canvas, in the shape Elm gave them:
 | Function | Meaning |
 | --- | --- |
 | `view : Model -> (Html M)` | A tree of elements and texts. An element's attributes, typed properties (`StringProperty`, `NumberProperty`, `FlagProperty`) and listeners (`On`) are plain data; a listener holds a function from what its event carried to a message `M`. |
-| `update : Model M -> (Pair Model (List (dyn (FnOnce -> M ! tasks e))))` | The next model, and the commands the message starts: one-shot work, run as tasks, each answering a message. |
+| `update : Model M -> (Pair Model (List (dyn (FnOnce → M ! tasks e))))` | The next model, and the commands the message starts: one-shot work, run as tasks, each answering a message. |
 
 `run-ui model start update view window commit checkpoint` shows the view in the
 document's root through the `dom` effect of `(snail shell dom)`, updates
@@ -214,13 +214,13 @@ ordinary `Application` implementation:
 (define-page-state Notes)
 (instance (Interface Notes)
   (type Message NoteMessage)
-  (define (interface-initialize seed) (new-notes seed))
-  (define (interface-update model message) (update model message))
-  (define (interface-view model) (view model))
-  (define (interface-window model) (window model))
-  (define (interface-messages model) (list (Load)))
-  (define (interface-save model) (serialize (save model)))
-  (define (interface-restore bytes) (restore (deserialize bytes))))
+  (define interface-initialize (lambda (seed) (new-notes seed)))
+  (define interface-update (lambda (model message) (update model message)))
+  (define interface-view (lambda (model) (view model)))
+  (define interface-window (lambda (model) (window model)))
+  (define interface-messages (lambda (model) (list (Load))))
+  (define interface-save (lambda (model) (serialize (save model))))
+  (define interface-restore (lambda (bytes) (restore (deserialize bytes)))))
 ```
 
 `Message` is an associated type of the model's instance. An interface without
@@ -319,8 +319,8 @@ shared `run-page` lifecycle. Its `PageState` is Save, not Model:
 (struct FuturesApplication ())
 (define-page-state Save)
 (instance (Application (! mut events storage tasks) FuturesApplication)
-  (define (start entry)
-    (run-page (lambda () (Save (Showing "idle") 0)) serialize deserialize present)))
+  (define start
+    (lambda (entry) (run-page (lambda () (Save (Showing "idle") 0)) serialize deserialize present))))
 ```
 
 `present` installs the page's DOM and fetch handlers, restores an owned Model

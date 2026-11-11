@@ -13,15 +13,12 @@
 
     ;; ---- Recovery ----
 
-    (: try-dynamic
-       (All (A e) (impl (Fn (dyn (Fn -> A ! dyn-cast e)) -> (Result A CastError) ! e))))
-    (define (try-dynamic work)
+    (define (try-dynamic (work (dyn (Fn → A ! dyn-cast e)))) (→ (Result A CastError)) (! e) (∀ A e)
       (handle dyn-cast
           ((conversion-failed (lambda (error) (Err error))))
         (Ok (work))))
 
-    (: cast-error->string (impl (Fn CastError -> String)))
-    (define (cast-error->string error)
+    (define (cast-error->string (error CastError)) (→ String)
       (string-append (::origin error) ": dyn-cast: "
                      (match (::reason error)
                        ((TypeMismatch) "type mismatch")
@@ -36,9 +33,11 @@
     ;; The abort has already unwound and dropped its owners when reporting
     ;; starts. Returning the failure lets a script choose failure status,
     ;; or an interactive caller continue with its next evaluation.
-    (: run-dynamic
-       (All (A e) (impl (Fn (dyn (Fn -> A ! dyn-cast e)) -> (Result A CastError) ! console e))))
-    (define (run-dynamic work)
+
+    (define (run-dynamic (work (dyn (Fn → A ! dyn-cast e))))
+      (→ (Result A CastError))
+      (! console e)
+      (∀ A e)
       (match (try-dynamic work)
         ((Ok value) (Ok value))
         ((Err error) (write-line (cast-error->string error)) (Err error))))))

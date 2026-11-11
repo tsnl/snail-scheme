@@ -11,44 +11,35 @@
        ((Ok checked) checked)
        ((Err _) (panic "fixture payload has the wrong type"))))))
 
+(extern note-text "snail.test" "text" (impl (Fn String → I32)))
+(extern note-bytes "snail.test" "bytes" (impl (Fn I32 Bytes → I32)))
+(extern receive-managed "snail.test" "managed" (impl (Fn → (Result Payload String))))
 
-(extern note-text "snail.test" "text" (impl (Fn String -> I32)))
-(extern note-bytes "snail.test" "bytes" (impl (Fn I32 Bytes -> I32)))
-(extern receive-managed "snail.test" "managed" (impl (Fn -> (Result Payload String))))
+(define checkpoint (→ (Ref Any)) (ref (type-convert (ann 42 I64) Any)))
 
-(: checkpoint (Ref Any))
-(define checkpoint (ref (type-convert (ann 42 I64) Any)))
-
-(: state (impl (Fn -> Any ! mut)))
-(define (state)
+(define (state) (→ Any) (! mut)
   (ref-get checkpoint))
 
-(: echo (impl (Fn (Option Any) -> (Option Any))))
-(define (echo handover)
+(define (echo (handover (Option Any))) (→ (Option Any))
   (match handover
     ((Some state) (Some state))
     ((None) (None))))
 
-(: value (impl (Fn (Option Any) -> I64)))
-(define (value handover)
+(define (value (handover (Option Any))) (→ I64)
   (match handover
     ((Some state) (fixture-convert state I64))
     ((None) -1)))
 
-(: binary (impl (Fn -> I32)))
-(define (binary)
+(define (binary) (→ I32)
   (note-bytes (note-text "λ") #u8(0 255 128 1)))
 
-(: empty (impl (Fn -> I32)))
-(define (empty)
+(define (empty) (→ I32)
   (note-bytes 0 #u8()))
 
-(: discard (impl (Fn (Option Any) -> Unit)))
-(define (discard handover)
+(define (discard (handover (Option Any))) (→ Unit)
   (unit))
 
-(: fail (impl (Fn -> Unit)))
-(define (fail)
+(define (fail) (→ Unit)
   (panic "a deliberate boundary trap"))
 
 (expose state "state")
@@ -59,24 +50,20 @@
 (expose discard "discard")
 (expose fail "fail")
 
-(: managed (impl (Fn -> (Result Payload String))))
-(define (managed)
+(define (managed) (→ (Result Payload String))
   (receive-managed))
 
-(: result-number (impl (Fn (Result Payload String) -> I32)))
-(define (result-number value)
+(define (result-number (value (Result Payload String))) (→ I32)
   (match value
     ((Ok payload) (::number payload))
     ((Err _) -1)))
 
-(: result-bytes (impl (Fn (Result Payload String) -> Bytes)))
-(define (result-bytes value)
+(define (result-bytes (value (Result Payload String))) (→ Bytes)
   (match value
     ((Ok payload) (::bytes payload))
     ((Err _) #u8())))
 
-(: inspect-bytes (impl (Fn Bytes -> I32)))
-(define (inspect-bytes bytes)
+(define (inspect-bytes (bytes Bytes)) (→ I32)
   (u8->i32 (vector-ref bytes 2)))
 
 (expose managed "managed")
@@ -86,7 +73,7 @@
 
 ;; A concrete inferred entry closes its effect row without a handwritten
 ;; export signature. Application scaffolding relies on the same ordinary rule.
-(define (inferred-entry value)
-  (ref-set! checkpoint (type-convert (ann value I64) Any))
-  (ref-get checkpoint))
+(define inferred-entry
+  (lambda (value) (ref-set! checkpoint (type-convert (ann value I64) Any))
+          (ref-get checkpoint)))
 (expose inferred-entry "inferred")

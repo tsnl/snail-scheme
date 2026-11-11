@@ -3,23 +3,20 @@
  (snail core io))
 
 ;; The counter is allocated inside and never leaves, so `sum` may be total.
-(: sum (impl (Fn (List I64) -> I64)))
-(define (sum items)
+(define (sum (items (List I64))) (→ I64)
   (let ((total (ref 0)))
     (for-each (lambda (item) (ref-set! total (+ (ref-get total) item))) items)
     (ref-get total)))
 
 ;; Other effects still need declaring.
-(: noisy-sum (impl (Fn (List I64) -> I64 ! console)))
-(define (noisy-sum items)
+(define (noisy-sum (items (List I64))) (→ I64) (! console)
   (let ((total (ref 0)))
     (for-each (lambda (item) (write-line (show item)) (ref-set! total (+ (ref-get total) item)))
               items)
     (ref-get total)))
 
 ;; Passing a cell around without mutating it needs no check.
-(: first-cell (impl (Fn (List (Ref I64)) -> (Option (Ref I64)))))
-(define (first-cell cells)
+(define (first-cell (cells (List (Ref I64)))) (→ (Option (Ref I64)))
   (match cells
     ((Cons cell _) (Some cell))
     ((Nil) (None))))

@@ -6,10 +6,10 @@
 ;; fetch's Async is resolved where fetch is performed. Performing it where
 ;; no Async handler is in scope is the error, as for any unhandled effect.
 (effect Async
-  ((ctl await (dyn (Fn I64 -> I64)))))
+  ((ctl await (dyn (Fn I64 → I64)))))
 
 (effect Io
-  ((fetch (dyn (Fn I64 -> I64 ! Async)))))
+  ((fetch (dyn (Fn I64 → I64 ! Async)))))
 
 (handle Io
     ((fetch (lambda (ticket) (await ticket))))

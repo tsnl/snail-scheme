@@ -7,10 +7,9 @@
   ((id I64)))
 
 (instance (Drop (!) Handle)
-  (define (drop handle)
-    (match handle
-      ((Handle _) (unit)))))
+  (define drop
+    (lambda (handle) (match handle
+                       ((Handle _) (unit))))))
 
-(: copies (Pair Handle Handle))
-(define copies
+(define copies (→ (Pair Handle Handle))
   (clone (Handle 1)))

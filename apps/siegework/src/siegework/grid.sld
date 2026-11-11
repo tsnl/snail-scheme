@@ -24,51 +24,42 @@
 
     ;; ---- Cells ----
 
-    (: map-size I64)
-    (define map-size 80)
+    (define map-size (→ I64) 80)
 
     (struct Cell
       ((x I64)
        (y I64))
       (deriving Serialize Deserialize))
 
-    (: cell=? (impl (Fn Cell Cell -> Bool)))
-    (define (cell=? a b)
+    (define (cell=? (a Cell) (b Cell)) (→ Bool)
       (and (= (::x a) (::x b)) (= (::y a) (::y b))))
 
-    (: cell-index (impl (Fn Cell -> I64)))
-    (define (cell-index cell)
+    (define (cell-index (cell Cell)) (→ I64)
       (+ (::x cell) (* map-size (::y cell))))
 
-    (: index-cell (impl (Fn I64 -> Cell)))
-    (define (index-cell index)
+    (define (index-cell (index I64)) (→ Cell)
       (Cell (remainder index map-size) (quotient index map-size)))
 
-    (: in-bounds? (impl (Fn Cell -> Bool)))
-    (define (in-bounds? cell)
+    (define (in-bounds? (cell Cell)) (→ Bool)
       (and (<= 0 (::x cell))
            (< (::x cell) map-size)
            (<= 0 (::y cell))
            (< (::y cell) map-size)))
 
-    (: distance-squared (impl (Fn Cell Cell -> I64)))
-    (define (distance-squared a b)
+    (define (distance-squared (a Cell) (b Cell)) (→ I64)
       (let ((dx (- (::x a) (::x b))) (dy (- (::y a) (::y b))))
         (+ (* dx dx) (* dy dy))))
 
-    (: manhattan (impl (Fn Cell Cell -> I64)))
-    (define (manhattan a b)
+    (define (manhattan (a Cell) (b Cell)) (→ I64)
       (+ (abs (- (::x a) (::x b))) (abs (- (::y a) (::y b)))))
 
     ;; Within a circle of `radius` cells around `center`.
-    (: within? (impl (Fn Cell Cell I64 -> Bool)))
-    (define (within? cell center radius)
+    (define (within? (cell Cell) (center Cell) (radius I64)) (→ Bool)
       (<= (distance-squared cell center) (* radius radius)))
 
     ;; The largest integer whose square is at most `square`, by Newton's
     ;; iteration from above.
-    (: integer-sqrt (impl (Fn I64 -> I64)))
-    (define (integer-sqrt square)
+    (define (integer-sqrt (square I64)) (→ I64)
       (if (= square 0)
           0
           (let loop ((guess square))
@@ -76,8 +67,7 @@
               (if (>= next guess) guess (loop next))))))
 
     ;; East, west, south, north: a fixed order, so ties break the same way.
-    (: neighbors (impl (Fn Cell -> (List Cell))))
-    (define (neighbors cell)
+    (define (neighbors (cell Cell)) (→ (List Cell))
       (let ((x (::x cell)) (y (::y cell)))
         (filter in-bounds?
                 (list (Cell (+ x 1) y) (Cell (- x 1) y) (Cell x (+ y 1)) (Cell x (- y 1))))))
@@ -91,8 +81,7 @@
     ;; along an axis never meets the other kind of line, and one through a
     ;; corner touches both side cells, so nothing is seen or wired diagonally
     ;; between two rocks.
-    (: line-cells (impl (Fn Cell Cell -> (List Cell))))
-    (define (line-cells a b)
+    (define (line-cells (a Cell) (b Cell)) (→ (List Cell))
       (let ((dx (abs (- (::x b) (::x a)))) (dy (abs (- (::y b) (::y a))))
             (sx (if (< (::x a) (::x b)) 1 -1)) (sy (if (< (::y a) (::y b)) 1 -1)))
         (let walk ((x (::x a)) (y (::y a)) (nx 1) (ny 1) (cells (Nil)))
@@ -115,8 +104,7 @@
     ;; within the round and into closed ones for the next. Each cell keeps
     ;; the neighbor it was reached from, so the way is read back from
     ;; `start`. The array is local to the search, so it is total.
-    (: crossing-path (impl (Fn (Vector Bool) (List Cell) Cell -> (List Cell))))
-    (define (crossing-path open goals start)
+    (define (crossing-path (open (Vector Bool)) (goals (List Cell)) (start Cell)) (→ (List Cell))
       (unsafe-total
        (lambda ()
          (let ((from (make-array (* map-size map-size) -1)))
@@ -147,8 +135,7 @@
     ;; open cells, or -1 where no goal can be reached. A walker heads for a
     ;; goal by stepping to any neighbor one step closer. The array is local
     ;; to the search, so it is total.
-    (: distance-field (impl (Fn (Vector Bool) (List Cell) -> (Vector I64))))
-    (define (distance-field open goals)
+    (define (distance-field (open (Vector Bool)) (goals (List Cell))) (→ (Vector I64))
       (unsafe-total
        (lambda ()
          (let ((distance (make-array (* map-size map-size) -1)))

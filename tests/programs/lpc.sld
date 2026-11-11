@@ -11,12 +11,10 @@
  (lpc catalog)
  (lpc wardrobe))
 
-(: missing (impl (Fn (List String) -> (List String) ! fs)))
-(define (missing paths)
+(define (missing (paths (List String))) (→ (List String)) (! fs)
   (filter (lambda (path) (not (file-exists? path))) paths))
 
-(: report (impl (Fn String (List String) -> Unit ! console fs)))
-(define (report title paths)
+(define (report (title String) (paths (List String))) (→ Unit) (! console fs)
   (write-line (string-append title
                              ": "
                              (show (length paths))
@@ -52,8 +50,7 @@
           (Some (Worn (Pants) (Dye "navy")))
           (Some (Worn (Shoes) (Dye "brown")))))
 
-(: describe (impl (Fn (Option Character) -> String)))
-(define (describe who)
+(define (describe (who (Option Character))) (→ String)
   (match who
     ((Some character)
      (string-append "dressed in " (show (length (::sheets character))) " layers"))
@@ -79,8 +76,7 @@
                                                     (None)
                                                     (None))))))
 
-(: same-fingerprint? (impl (Fn (Option Character) (Option Character) -> Bool)))
-(define (same-fingerprint? a b)
+(define (same-fingerprint? (a (Option Character)) (b (Option Character))) (→ Bool)
   (match (Pair a b)
     ((Pair (Some one) (Some other)) (= (fingerprint one) (fingerprint other)))
     (_ #f)))
@@ -122,8 +118,7 @@
                                                    (Vec3 0.7 0.0 0.8)))
                                         " ")))
 
-(: texture-text (impl (Fn Item -> String)))
-(define (texture-text item)
+(define (texture-text (item Item)) (→ String)
   (match (::texture (::material item))
     ((Some (Texture picture region frames period))
      (string-append "picture "

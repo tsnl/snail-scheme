@@ -1,7 +1,6 @@
 (import
  (snail core base))
 
-(: f (impl (Fn (Option I64) -> I64)))
-(define (f x)
+(define (f (x (Option I64))) (→ I64)
   (match x
     ((Some n) n)))

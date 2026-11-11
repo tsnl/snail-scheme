@@ -18,26 +18,24 @@
 ;; A command is a name with string arguments, sent a character at a time,
 ;; and a number.
 (effect page
-  ((argument-character (dyn (Fn Char -> Unit)))
-   (argument-end (dyn (Fn -> Unit)))
-   (command (dyn (Fn I32 -> I32))))
+  ((argument-character (dyn (Fn Char → Unit)))
+   (argument-end (dyn (Fn → Unit)))
+   (command (dyn (Fn I32 → I32))))
   (default
     ((argument-character host-argument-character)
      (argument-end host-argument-end)
      (command host-command))))
 
-(extern host-argument-character "snail.page" "argument-character" (impl (Fn Char -> Unit)))
-(extern host-argument-end "snail.page" "argument-end" (impl (Fn -> Unit)))
-(extern host-command "snail.page" "command" (impl (Fn I32 -> I32)))
+(extern host-argument-character "snail.page" "argument-character" (impl (Fn Char → Unit)))
+(extern host-argument-end "snail.page" "argument-end" (impl (Fn → Unit)))
+(extern host-command "snail.page" "command" (impl (Fn I32 → I32)))
 
-(: page-command (impl (Fn String (List String) I32 -> Unit ! page)))
-(define (page-command name arguments number)
+(define (page-command (name String) (arguments (List String)) (number I32)) (→ Unit) (! page)
   (for-each send-argument (Cons name arguments))
   (command number)
   (unit))
 
-(: send-argument (impl (Fn String -> Unit ! page)))
-(define (send-argument text)
+(define (send-argument (text String)) (→ Unit) (! page)
   (let loop ((index 0))
     (when (< index (string-length text))
       (argument-character (string-ref text index))
@@ -46,43 +44,34 @@
 
 ;; The commands, as host/browser/reload-client.mjs names them. A notice is
 ;; lasting, a failure, or brief.
-(: lasting I32)
-(define lasting 0)
+(define lasting (→ I32) 0)
 
-(: failure I32)
-(define failure 1)
+(define failure (→ I32) 1)
 
-(: brief I32)
-(define brief 2)
+(define brief (→ I32) 2)
 
-(: notice! (impl (Fn String I32 -> Unit ! page)))
-(define (notice! text kind)
+(define (notice! (text String) (kind I32)) (→ Unit) (! page)
   (page-command "notice" (list text) kind))
 
-(: hide! (impl (Fn -> Unit ! page)))
-(define (hide!)
+(define (hide!) (→ Unit) (! page)
   (page-command "hide" (Nil) 0))
 
 ;; Fetches a style sheet again, with its digest, from `base`, the build it
 ;; now belongs to.
-(: restyle! (impl (Fn String String String -> Unit ! page)))
-(define (restyle! file digest base)
+(define (restyle! (file String) (digest String) (base String)) (→ Unit) (! page)
   (page-command "restyle" (list file digest base) 0))
 
 ;; Relinks the program from `module`, by the modules.json under `base`,
 ;; with a fresh state when `fresh`; the page reports how it went.
-(: relink! (impl (Fn String String Bool -> Unit ! page)))
-(define (relink! module base fresh)
+(define (relink! (module String) (base String) (fresh Bool)) (→ Unit) (! page)
   (page-command "relink" (list module (string-append base "modules.json")) (if fresh 1 0)))
 
 ;; Stores every application's save, then reloads the page.
-(: reload-page! (impl (Fn -> Unit ! page)))
-(define (reload-page!)
+(define (reload-page!) (→ Unit) (! page)
   (page-command "reload" (Nil) 0))
 
 ;; Shows a failure with a button that calls `reload_start_over`.
-(: offer-fresh-start! (impl (Fn String -> Unit ! page)))
-(define (offer-fresh-start! text)
+(define (offer-fresh-start! (text String)) (→ Unit) (! page)
   (page-command "offer-fresh-start" (list text) 0))
 
 ;; ---- Manifests ----
@@ -101,15 +90,13 @@
   (Failed ((message String) (manifest Manifest))))
 
 ;; `(base BASE) (files (NAME DIGEST) ...) (modules (NAME DIGEST) ...)`.
-(: parse-manifest (impl (Fn (List Any) -> Manifest)))
-(define (parse-manifest data)
+(define (parse-manifest (data (List Any))) (→ Manifest)
   (match data
     ((Cons base (Cons files (Cons modules (Nil))))
      (Manifest (base-of base) (string-pairs files) (string-pairs modules)))
     (_ (panic "reload: a manifest is (base ...) (files ...) (modules ...)"))))
 
-(: base-of (impl (Fn Any -> String)))
-(define (base-of datum)
+(define (base-of (datum Any)) (→ String)
   (match (datum->list datum)
     ((Some (Cons tag (Cons base (Nil))))
      (match (Pair (try-convert tag Symbol) (try-convert base String))
@@ -117,14 +104,12 @@
        (_ (panic "reload: expected (base BASE)"))))
     (_ (panic (string-append "reload: expected (base BASE), got " (datum->string datum))))))
 
-(: string-pairs (impl (Fn Any -> (List (Pair String String)))))
-(define (string-pairs datum)
+(define (string-pairs (datum Any)) (→ (List (Pair String String)))
   (match (datum->list datum)
     ((Some (Cons _ entries)) (map string-pair entries))
     (_ (panic "reload: expected a list of pairs"))))
 
-(: string-pair (impl (Fn Any -> (Pair String String))))
-(define (string-pair datum)
+(define (string-pair (datum Any)) (→ (Pair String String))
   (match (datum->list datum)
     ((Some (Cons name (Cons value (Nil))))
      (match (Pair (try-convert name String) (try-convert value String))
@@ -135,8 +120,7 @@
 ;; `(building MANIFEST)`, `(built MILLISECONDS MANIFEST)` or
 ;; `(failed MESSAGE MANIFEST)`.
 
-(: parse-event (impl (Fn String -> Event)))
-(define (parse-event text)
+(define (parse-event (text String)) (→ Event)
   (match (read-datums text)
     ((Ok (Cons event (Nil)))
      (match (datum->list event)
@@ -147,8 +131,7 @@
        (_ (panic (string-append "reload: an unknown event " text)))))
     (_ (panic (string-append "reload: an unreadable event " text)))))
 
-(: event-body (impl (Fn String (List Any) -> Event)))
-(define (event-body name rest)
+(define (event-body (name String) (rest (List Any))) (→ Event)
   (if (string=? name "building") (Building (parse-manifest rest))
       (match rest
         ((Cons value manifest)
@@ -161,27 +144,23 @@
                (else (panic (string-append "reload: unknown event " name)))))
         (_ (panic "reload: expected event payload")))))
 
-(: parse-page-manifest (impl (Fn String -> Manifest)))
-(define (parse-page-manifest text)
+(define (parse-page-manifest (text String)) (→ Manifest)
   (match (read-datums text)
     ((Ok data) (parse-manifest data))
     ((Err message) (panic (string-append "reload: " message)))))
 
-(: same-manifest? (impl (Fn Manifest Manifest -> Bool)))
-(define (same-manifest? a b)
+(define (same-manifest? (a Manifest) (b Manifest)) (→ Bool)
   (and (same-pairs? (::files a) (::files b))
        (same-pairs? (::modules a) (::modules b))))
 
-(: same-pairs? (impl (Fn (List (Pair String String)) (List (Pair String String)) -> Bool)))
-(define (same-pairs? a b)
+(define (same-pairs? (a (List (Pair String String))) (b (List (Pair String String)))) (→ Bool)
   (and (= (length a) (length b))
        (every? (lambda (pair)
                  (and (string=? (::first (::first pair)) (::first (::second pair)))
                       (string=? (::second (::first pair)) (::second (::second pair)))))
                (zip a b))))
 
-(: event-manifest (impl (Fn Event -> Manifest)))
-(define (event-manifest event)
+(define (event-manifest (event Event)) (→ Manifest)
   (match event
     ((Building manifest) manifest)
     ((Built _ manifest) manifest)
@@ -190,14 +169,13 @@
 ;; ---- Changes ----
 
 ;; The files whose digests differ, including files only one side has.
-(: changed-files (impl (Fn Manifest Manifest -> (List String))))
-(define (changed-files old new)
+(define (changed-files (old Manifest) (new Manifest)) (→ (List String))
   (delete-duplicates string=?
                      (append (differing (::files old) (::files new))
                              (differing (::files new) (::files old)))))
 
-(: differing (impl (Fn (List (Pair String String)) (List (Pair String String)) -> (List String))))
-(define (differing these those)
+(define (differing (these (List (Pair String String))) (those (List (Pair String String))))
+  (→ (List String))
   (map ::first (filter (lambda (entry) (match (assoc-ref those (::first entry))
                                          ((Some digest)
                                           (not (string=? digest (::second entry))))
@@ -208,8 +186,7 @@
 ;; before it cannot import from it, so they stay linked. A module's bytes
 ;; name the digest of each file it links, so editing a linked file changes
 ;; the module that links it.
-(: first-changed-module (impl (Fn Manifest Manifest -> (Option String))))
-(define (first-changed-module old new)
+(define (first-changed-module (old Manifest) (new Manifest)) (→ (Option String))
   (let loop ((old (::modules old)) (new (::modules new)))
     (match new
       ((Cons (Pair name digest) rest)
@@ -224,8 +201,7 @@
 ;; A style sheet is fetched again in place; any other file changes the
 ;; page, which must load again. Modules and linked files are named for
 ;; their contents, so the build reports neither.
-(: style-sheet? (impl (Fn String -> Bool)))
-(define (style-sheet? file)
+(define (style-sheet? (file String)) (→ Bool)
   (let ((length (string-length file)))
     (and (> length 4) (string=? (substring file (- length 4) length) ".css"))))
 
@@ -236,30 +212,23 @@
 ;; `pending` the latest event since, which waits for it. `refused` is a
 ;; target whose program could not take over the state, so it is not tried
 ;; again until the developer starts over.
-(: loaded (Ref Manifest))
-(define loaded (ref (Manifest "" (Nil) (Nil))))
+(define loaded (→ (Ref Manifest)) (ref (Manifest "" (Nil) (Nil))))
 
-(: relinking (Ref (Option Manifest)))
-(define relinking (ref (None)))
+(define relinking (→ (Ref (Option Manifest))) (ref (None)))
 
-(: pending (Ref (Option Event)))
-(define pending (ref (None)))
+(define pending (→ (Ref (Option Event))) (ref (None)))
 
-(: refused (Ref (Option Manifest)))
-(define refused (ref (None)))
+(define refused (→ (Ref (Option Manifest))) (ref (None)))
 
-(: last-time (Ref String))
-(define last-time (ref ""))
+(define last-time (→ (Ref String)) (ref ""))
 
-(: receive! (impl (Fn Event -> Unit ! mut page)))
-(define (receive! event)
+(define (receive! (event Event)) (→ Unit) (! mut page)
   (remember-time! event)
   (match (ref-get relinking)
     ((Some _) (ref-set! pending (Some event)))
     ((None) (apply-event! event))))
 
-(: apply-event! (impl (Fn Event -> Unit ! mut page)))
-(define (apply-event! event)
+(define (apply-event! (event Event)) (→ Unit) (! mut page)
   (let* ((manifest (event-manifest event)) (files (changed-files (ref-get loaded) manifest)))
     (cond ((refused? manifest) (unit))
           ((any? (lambda (file) (not (style-sheet? file))) files) (reload-page!))
@@ -272,40 +241,34 @@
                    (relink! module (::base manifest) #f))
                   ((None) (ref-set! loaded manifest) (show! event (not (null? files)))))))))
 
-(: refused? (impl (Fn Manifest -> Bool ! mut)))
-(define (refused? manifest)
+(define (refused? (manifest Manifest)) (→ Bool) (! mut)
   (match (ref-get refused)
     ((Some target) (same-manifest? target manifest))
     ((None) #f)))
 
-(: digest-of (impl (Fn Manifest String -> String)))
-(define (digest-of manifest file)
+(define (digest-of (manifest Manifest) (file String)) (→ String)
   (match (assoc-ref (::files manifest) file)
     ((Some digest) digest)
     ((None) "")))
 
-(: remember-time! (impl (Fn Event -> Unit ! mut)))
-(define (remember-time! event)
+(define (remember-time! (event Event)) (→ Unit) (! mut)
   (match event
     ((Built milliseconds _) (ref-set! last-time milliseconds))
     (_ (unit))))
 
-(: show! (impl (Fn Event Bool -> Unit ! mut page)))
-(define (show! event changed)
+(define (show! (event Event) (changed Bool)) (→ Unit) (! mut page)
   (match event
     ((Building _) (notice! "Building..." lasting))
     ((Built _ _) (if changed (notice! (reloaded) brief) (hide!)))
     ((Failed message _) (notice! message failure))))
 
-(: reloaded (impl (Fn -> String ! mut)))
-(define (reloaded)
+(define (reloaded) (→ String) (! mut)
   (string-append "Reloaded, built in " (ref-get last-time) " ms"))
 
 ;; A relink that failed leaves the old program running; starting over with
 ;; the new one is the developer's choice. Either way, the event that waited
 ;; is applied next.
-(: relinked! (impl (Fn Bool String -> Unit ! mut page)))
-(define (relinked! ok message)
+(define (relinked! (ok Bool) (message String)) (→ Unit) (! mut page)
   (match (ref-get relinking)
     ((Some target)
      (ref-set! relinking (None))
@@ -319,15 +282,13 @@
     ((None) (unit)))
   (apply-pending!))
 
-(: apply-pending! (impl (Fn -> Unit ! mut page)))
-(define (apply-pending!)
+(define (apply-pending!) (→ Unit) (! mut page)
   (match (ref-get pending)
     ((Some event) (ref-set! pending (None)) (receive! event))
     ((None) (unit))))
 
 ;; Relinks the refused program from its first module with a fresh state.
-(: start-over! (impl (Fn -> Unit ! mut page)))
-(define (start-over!)
+(define (start-over!) (→ Unit) (! mut page)
   (match (Pair (ref-get refused) (ref-get relinking))
     ((Pair (Some target) (None))
      (match (::modules target)
@@ -341,8 +302,7 @@
 ;; program last wrote to standard error. A trap during a display frame
 ;; stops the clock with the state from before it; the next build that
 ;; relinks the program resumes it.
-(: page-error! (impl (Fn String Bool -> Unit ! page)))
-(define (page-error! message stopped)
+(define (page-error! (message String) (stopped Bool)) (→ Unit) (! page)
   (notice! (if stopped
                (string-append message
                               "\n\nThe application stopped. Fix it and save: the next build resumes from the state before the trap.")
@@ -351,40 +311,32 @@
 
 ;; ---- Entry points ----
 
-(: input (Ref (List Char)))
-(define input (ref (Nil)))
+(define input (→ (Ref (List Char))) (ref (Nil)))
 
-(: take-input (impl (Fn -> String ! mut)))
-(define (take-input)
+(define (take-input) (→ String) (! mut)
   (let ((text (list->string (reverse (ref-get input)))))
     (ref-set! input (Nil))
     text))
 
-(: reload-character (impl (Fn I32 -> Unit ! mut)))
-(define (reload-character code)
+(define (reload-character (code I32)) (→ Unit) (! mut)
   (ref-set! input (Cons (i32->char code) (ref-get input))))
 
 ;; The page's own manifest first, then each event; the page reports each
 ;; relink, with its error, each uncaught error, with whether the clock
 ;; stopped, and the developer's choice to start over.
-(: reload-start (impl (Fn -> Unit ! mut)))
-(define (reload-start)
+(define (reload-start) (→ Unit) (! mut)
   (ref-set! loaded (parse-page-manifest (take-input))))
 
-(: reload-event (impl (Fn -> Unit ! mut page)))
-(define (reload-event)
+(define (reload-event) (→ Unit) (! mut page)
   (receive! (parse-event (take-input))))
 
-(: reload-relinked (impl (Fn I32 -> Unit ! mut page)))
-(define (reload-relinked status)
+(define (reload-relinked (status I32)) (→ Unit) (! mut page)
   (relinked! (= status 0) (take-input)))
 
-(: reload-page-error (impl (Fn I32 -> Unit ! mut page)))
-(define (reload-page-error stopped)
+(define (reload-page-error (stopped I32)) (→ Unit) (! mut page)
   (page-error! (take-input) (not (= stopped 0))))
 
-(: reload-start-over (impl (Fn -> Unit ! mut page)))
-(define (reload-start-over)
+(define (reload-start-over) (→ Unit) (! mut page)
   (start-over!))
 
 (expose reload-character "reload_character")

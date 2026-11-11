@@ -28,7 +28,7 @@
       (Ready ((result (Completion T)))))
 
     (enum (State T)
-      (Unresolved ((waker (Option (dyn (Fn -> Unit ! mut))))))
+      (Unresolved ((waker (Option (dyn (Fn → Unit ! mut))))))
       (Resolved ((result (Completion T))))
       (Unobserved))
 
@@ -43,11 +43,10 @@
     ;; A reactor may request another update after any completion. This is
     ;; a notification, never an application-specific completion message.
     (effect completion
-      ((completed (dyn (Fn -> Unit))))
+      ((completed (dyn (Fn → Unit))))
       (default ((completed (lambda () (unit))))))
 
-    (: make-promise (All (T) (impl (Fn -> (Pair (Promise T) (Future T))))))
-    (define (make-promise)
+    (define (make-promise) (→ (Pair (Promise T) (Future T))) (∀ T)
       (let ((slot (unsafe-slot (Unresolved (None)))))
         (Pair (Sender slot) (Receiver slot))))
 
@@ -56,8 +55,8 @@
     ;; A canceled receiver returns the unsent value to its producer.
     ;; Synchronization and one-shot ownership do not make publication pure:
     ;; it changes what another endpoint's next poll observes.
-    (: fulfill (All (T) (impl (Fn (Promise T) T -> (Result Unit T) ! mut completion))))
-    (define (fulfill promise value)
+
+    (define (fulfill (promise (Promise T)) (value T)) (→ (Result Unit T)) (! mut completion) (∀ T)
       (match promise
         ((Sender slot)
          (match (take! slot)
@@ -70,8 +69,7 @@
             (Err value))
            ((Resolved result) (panic "a promise was fulfilled twice"))))))
 
-    (: notify (impl (Fn (Option (dyn (Fn -> Unit ! mut))) -> Unit ! mut completion)))
-    (define (notify waker)
+    (define (notify (waker (Option (dyn (Fn → Unit ! mut))))) (→ Unit) (! mut completion)
       (match waker
         ((Some wake) (wake))
         ((None) (unit)))
@@ -80,22 +78,22 @@
     ;; Dropping a promise closes the sender, including when a suspended
     ;; task is canceled. An already canceled receiver needs no notification.
     (instance (Drop (! mut completion) (Promise T))
-      (define (drop promise)
-        (match promise
-          ((Sender slot)
-           (match (take! slot)
-             ((Unresolved waker)
-              (put! slot (Resolved (Abandoned)))
-              (notify waker))
-             ((Unobserved) (put! slot (Unobserved)))
-             ((Resolved result) (panic "a consumed promise was dropped")))))))
+      (define drop
+        (lambda (promise) (match promise
+                            ((Sender slot)
+                             (match (take! slot)
+                               ((Unresolved waker)
+                                (put! slot (Resolved (Abandoned)))
+                                (notify waker))
+                               ((Unobserved) (put! slot (Unobserved)))
+                               ((Resolved result) (panic "a consumed promise was dropped"))))))))
 
     ;; ---- Receiving ----
 
     ;; Pending returns ownership of the endpoint. Ready transfers the
     ;; result exactly once and consumes the endpoint. Neither runs work.
-    (: poll (All (T) (impl (Fn (Future T) -> (Poll T) ! mut))))
-    (define (poll future)
+
+    (define (poll (future (Future T))) (→ (Poll T)) (! mut) (∀ T)
       (match future
         ((Receiver slot)
          (match (take! slot)
@@ -110,8 +108,11 @@
     ;; Replace the one waiting observer. A scheduler uses this to register
     ;; its ticket before suspending; registration and suspension must have
     ;; no intervening yield. A ready result calls the observer immediately.
-    (: on-ready (All (T) (impl (Fn (Future T) (dyn (Fn -> Unit ! mut)) -> (Future T) ! mut))))
-    (define (on-ready future wake)
+
+    (define (on-ready (future (Future T)) (wake (dyn (Fn → Unit ! mut))))
+      (→ (Future T))
+      (! mut)
+      (∀ T)
       (match future
         ((Receiver slot)
          (match (take! slot)
@@ -126,13 +127,13 @@
     ;; The receiver owns cleanup of a buffered result. Publish cancellation
     ;; before dropping it: its drop may call arbitrary ordinary handlers.
     (instance (Drop (! mut e) (Future T))
-      (requires (Drop e T))
-      (define (drop future)
-        (match future
-          ((Receiver slot)
-           (let ((state (take! slot)))
-             (put! slot (Unobserved))
-             (match state
-               ((Resolved result) (drop result))
-               ((Unresolved _) (unit))
-               ((Unobserved) (panic "a consumed future was dropped"))))))))))
+      (⊨ (Drop e T))
+      (define drop
+        (lambda (future) (match future
+                           ((Receiver slot)
+                            (let ((state (take! slot)))
+                              (put! slot (Unobserved))
+                              (match state
+                                ((Resolved result) (drop result))
+                                ((Unresolved _) (unit))
+                                ((Unobserved) (panic "a consumed future was dropped")))))))))))

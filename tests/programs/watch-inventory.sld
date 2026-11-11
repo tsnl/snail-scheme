@@ -10,48 +10,40 @@
 ;; system's clock carry the same time.
 (define root "build/tests/watch-inventory")
 
-(: at (impl (Fn String -> String)))
-(define (at name)
+(define (at (name String)) (→ String)
   (string-append root "/" name))
 
-(: excluded (List String))
-(define excluded (list (at "build")))
+(define excluded (→ (List String)) (list (at "build")))
 
-(: take (impl (Fn Unit -> Inventory ! fs)))
-(define (take ignored)
+(define (take (ignored Unit)) (→ Inventory) (! fs)
   (match (inventory (list (at "src") (at "build") (at "missing")) excluded)
     ((Ok taken) taken)
     ((Err message) (panic message))))
 
 ;; Saves as an atomic save does: writes beside the file, then renames over
 ;; it.
-(: save (impl (Fn String String -> Unit ! fs)))
-(define (save name text)
+(define (save (name String) (text String)) (→ Unit) (! fs)
   (write-file (at (string-append name ".next")) text)
   (match (rename-file (at (string-append name ".next")) (at name))
     ((Ok _) (unit))
     ((Err error) (panic (show error)))))
 
 ;; The changes as names under the root, in order.
-(: changes (impl (Fn Inventory Inventory -> String)))
-(define (changes before after)
+(define (changes (before Inventory) (after Inventory)) (→ String)
   (let ((names (map (lambda (path) (substring path (+ (string-length root) 1) (string-length path)))
                     (inventory-changes before after))))
     (string-append "(" (string-join (sorted names) " ") ")")))
 
-(: sorted (impl (Fn (List String) -> (List String))))
-(define (sorted names)
+(define (sorted (names (List String))) (→ (List String))
   (fold-left insert (Nil) names))
 
-(: insert (impl (Fn (List String) String -> (List String))))
-(define (insert names name)
+(define (insert (names (List String)) (name String)) (→ (List String))
   (match names
     ((Nil) (list name))
     ((Cons first rest)
      (if (string<? name first) (Cons name names) (Cons first (insert rest name))))))
 
-(: report (impl (Fn String Inventory Inventory -> Inventory ! console)))
-(define (report label before after)
+(define (report (label String) (before Inventory) (after Inventory)) (→ Inventory) (! console)
   (write-line (string-append label " -> " (changes before after)))
   after)
 

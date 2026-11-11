@@ -186,7 +186,7 @@ try {
   assert.equal((await service.get('/api/file?path=slow.sld')).status, 400);
   const during = await read();
   assert.equal((await save(during.revision, program('edited during compilation'))).status, 200);
-  fs.writeFileSync(writer, '(define-library (slow) (export message) (import (snail core base)) (begin (: message String) (define message "blocked")))');
+  fs.writeFileSync(writer, '(define-library (slow) (export message) (import (snail core base)) (begin (define message (→ String) "blocked")))');
   fs.closeSync(writer); writer = null;
   const [unblocked] = (await service.settled(blocked.id)).published.targets;
   assert.equal(unblocked.directory, fs.realpathSync(join(project, 'build/main')));

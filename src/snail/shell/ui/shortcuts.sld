@@ -20,13 +20,12 @@
     (struct Shortcuts
       ((bindings (Vector Binding))))
 
-    (: same-chord? (impl (Fn Chord Chord -> Bool)))
-    (define (same-chord? first second)
+    (define (same-chord? (first Chord) (second Chord)) (→ Bool)
       (and (string=? (::key first) (::key second))
            (= (::modifiers first) (::modifiers second))))
 
-    (: register (impl (Fn (Vector String) (Vector Binding) -> (Result Shortcuts String))))
-    (define (register names bindings)
+    (define (register (names (Vector String)) (bindings (Vector Binding)))
+      (→ (Result Shortcuts String))
       (let loop ((index 0))
         (if (= index (vector-length bindings)) (Ok (Shortcuts bindings))
             (let ((binding (vector-ref bindings index)))
@@ -40,15 +39,13 @@
                      (Err (string-append "duplicate shortcut: " (::name binding))))
                     (else (loop (+ index 1))))))))
 
-    (: bound-before? (impl (Fn (Vector Binding) I64 Chord -> Bool)))
-    (define (bound-before? bindings end chord)
+    (define (bound-before? (bindings (Vector Binding)) (end I64) (chord Chord)) (→ Bool)
       (let loop ((index 0))
         (and (< index end)
              (or (same-chord? (::chord (vector-ref bindings index)) chord)
                  (loop (+ index 1))))))
 
-    (: matching (impl (Fn Shortcuts Chord -> (Option String))))
-    (define (matching shortcuts chord)
+    (define (matching (shortcuts Shortcuts) (chord Chord)) (→ (Option String))
       (let ((bindings (::bindings shortcuts)))
         (let loop ((index 0))
           (cond ((= index (vector-length bindings)) (None))
@@ -56,6 +53,5 @@
                  (Some (::name (vector-ref bindings index))))
                 (else (loop (+ index 1)))))))
 
-    (: chords (impl (Fn Shortcuts -> (List Chord))))
-    (define (chords shortcuts)
+    (define (chords (shortcuts Shortcuts)) (→ (List Chord))
       (vector->list (vector-map ::chord (::bindings shortcuts))))))

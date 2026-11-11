@@ -10,17 +10,15 @@
    (snail shell datum))
   (begin
 
-    (: datum->string (impl (Fn Any -> String)))
-    (define (datum->string datum)
+    (define (datum->string (datum Any)) (→ String)
       (string-concatenate (datum-text datum #t)))
 
-    (: datum->display-string (impl (Fn Any -> String)))
-    (define (datum->display-string datum)
+    (define (datum->display-string (datum Any)) (→ String)
       (string-concatenate (datum-text datum #f)))
 
     ;; The pieces of a datum's text, concatenated once at the end.
-    (: datum-text (impl (Fn Any Bool -> (List String))))
-    (define (datum-text datum write?)
+
+    (define (datum-text (datum Any) (write? Bool)) (→ (List String))
       (match-any datum
                  ((Null _) (list "()"))
                  ((Bool value) (list (if value "#t" "#f")))
@@ -41,35 +39,30 @@
                          ((Some n) (list (number->string n)))
                          ((None) (list "#<opaque>"))))))
 
-    (: list-tail-text (impl (Fn Any Bool -> (List String))))
-    (define (list-tail-text tail write?)
+    (define (list-tail-text (tail Any) (write? Bool)) (→ (List String))
       (match-any tail
                  ((Null _) (list ")"))
                  ((SchemePair (SchemePair head rest))
                   (Cons " " (append (datum-text head write?) (list-tail-text rest write?))))
                  (else (Cons " . " (append (datum-text tail write?) (list ")"))))))
 
-    (: sequence-text (impl (Fn String (List (List String)) -> (List String))))
-    (define (sequence-text open items)
+    (define (sequence-text (open String) (items (List (List String)))) (→ (List String))
       (Cons open
             (append
              (concatenate (map-indexed (lambda (index item) (if (= index 0) item (Cons " " item)))
                                        items))
              (list ")"))))
 
-    (: character-name (impl (Fn Char -> String)))
-    (define (character-name char)
+    (define (character-name (char Char)) (→ String)
       (cond ((= char #\space) "#\\space")
             ((= char #\newline) "#\\newline")
             ((= char #\tab) "#\\tab")
             (else (string-append "#\\" (make-string 1 char)))))
 
-    (: quoted (impl (Fn String -> String)))
-    (define (quoted text)
+    (define (quoted (text String)) (→ String)
       (string-append "\"" (string-concatenate (map escaped (string->list text))) "\""))
 
-    (: escaped (impl (Fn Char -> String)))
-    (define (escaped char)
+    (define (escaped (char Char)) (→ String)
       (cond ((= char #\") "\\\"")
             ((= char #\\) "\\\\")
             ((= char #\newline) "\\n")

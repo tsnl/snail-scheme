@@ -31,8 +31,8 @@
   (Remove ((id I64)))
   (Saved ((count I64))))
 
-(: update (impl (Fn Model Msg -> (Pair Model (List (dyn (FnOnce -> Msg ! console tasks)))))))
-(define (update model message)
+(define (update (model Model) (message Msg))
+  (→ (Pair Model (List (dyn (FnOnce → Msg ! console tasks)))))
   (match message
     ((Typed text) (Pair (Model-draft-set model text) (Nil)))
     ((Add)
@@ -50,8 +50,7 @@
            (Nil)))
     ((Saved count) (Pair (Model-saved-set model count) (Nil)))))
 
-(: view (impl (Fn Model -> (Html Msg))))
-(define (view model)
+(define (view (model Model)) (→ (Html Msg))
   (Element "main"
            (Nil)
            (list (Element "input"
@@ -73,8 +72,7 @@
                  (Element "ul" (Nil) (map item-view (::items model)))
                  (Text (string-append "saved " (show (::saved model)))))))
 
-(: item-view (impl (Fn Item -> (Html Msg))))
-(define (item-view item)
+(define (item-view (item Item)) (→ (Html Msg))
   (Element "li"
            (list (Keyed (show (::id item))))
            (list (Text (::text item))
@@ -83,23 +81,19 @@
                                 (On "click" (Nil) (Allow) (lambda (event) (Remove (::id item)))))
                           (list (Text "x"))))))
 
-(: checkpoint (impl (Fn Model -> Unit ! console)))
-(define (checkpoint model)
+(define (checkpoint (model Model)) (→ Unit) (! console)
   (write-line (string-append "checkpoint: "
                              (string-join (map ::text (::items model)) ", ")
                              "; saved "
                              (show (::saved model)))))
 
-(: typed (impl (Fn String -> Cue)))
-(define (typed text)
+(define (typed (text String)) (→ Cue)
   (Fire "draft" "input" (Event-value-set no-event text)))
 
-(: clicked (impl (Fn String -> Cue)))
-(define (clicked target)
+(define (clicked (target String)) (→ Cue)
   (Fire target "click" no-event))
 
-(: script (List Cue))
-(define script
+(define script (→ (List Cue))
   (list (typed "milk")
         (clicked "add")
         (typed "eggs")

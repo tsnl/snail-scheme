@@ -46,8 +46,8 @@
       (deriving Serialize Deserialize))
 
     ;; `version` must differ from any town the host has drawn before.
-    (: new-mill-screen (impl (Fn Scenario I64 I32 I32 -> MillScreen)))
-    (define (new-mill-screen scenario version width height)
+    (define (new-mill-screen (scenario Scenario) (version I64) (width I32) (height I32))
+      (→ MillScreen)
       (let ((mill (new-mill scenario)))
         (MillScreen mill (forecast mill) (None) (None) (Nil) (Nil) version (None) width height)))
 
@@ -65,12 +65,10 @@
     ;; The pixels each HUD column takes from a side of the screen: a panel's
     ;; 300 and its margin, or a fifth of a narrow screen, where they overlap
     ;; the map rather than shrink it to nothing.
-    (: hud-column (impl (Fn F32 -> F32)))
-    (define (hud-column width)
+    (define (hud-column (width F32)) (→ F32)
       (if (< width 800.0) (* 0.2 width) 318.0))
 
-    (: camera-of (impl (Fn MillScreen -> Camera)))
-    (define (camera-of screen)
+    (define (camera-of (screen MillScreen)) (→ Camera)
       (let* ((width (max 1.0 (i32->f32 (::width screen))))
              (height (max 1.0 (i32->f32 (::height screen))))
              (across (max 120.0 (- width (* 2.0 (hud-column width)))))
@@ -83,8 +81,7 @@
     (define sunlight (Light (Vec3 0.0 1.0 0.0) 0.0 1.0))
 
     ;; Audiences sit on a triangle, each person on a ring of radius 2.8.
-    (: person-point (impl (Fn I64 -> Vec3)))
-    (define (person-point person)
+    (define (person-point (person I64)) (→ Vec3)
       (let* ((audience (audience-of person))
              (cx (list-ref (list -6.3 6.3 0.0) audience))
              (cz (list-ref (list 2.4 2.4 -6.2) audience))
@@ -102,8 +99,7 @@
 
     ;; The person whose figure or base is under the pointer, the one nearest
     ;; the bottom of the map when figures overlap.
-    (: pick (impl (Fn MillScreen I32 I32 -> (Option I64))))
-    (define (pick screen x y)
+    (define (pick (screen MillScreen) (x I32) (y I32)) (→ (Option I64))
       (match (ground-point (camera-of screen)
                            x
                            y
@@ -122,8 +118,7 @@
                     (iota person-count)))
         ((None) (None))))
 
-    (: over? (impl (Fn Vec3 I64 -> Bool)))
-    (define (over? point person)
+    (define (over? (point Vec3) (person I64)) (→ Bool)
       (let* ((at (person-point person))
              (across (abs (- (::x point) (::x at))))
              (down (- (::z point) (::z at))))
@@ -141,32 +136,29 @@
     (define action-restart 10)
     (define action-choose 100)
 
-    (: person-action (impl (Fn I32 I64 -> Action)))
-    (define (person-action action person)
+    (define (person-action (action I32) (person I64)) (→ Action)
       (cond ((< action action-pay) (Do (list-ref deeds (i32->i64 (- action action-deed))) person))
             ((= action action-pay) (Pay person))
             ((= action action-lie-reliable) (Mislead (Reliable) person))
             (else (Mislead (Harmless) person))))
 
     ;; Takes the shift, or shows why it cannot be taken.
-    (: act (impl (Fn MillScreen Action -> MillScreen)))
-    (define (act screen action)
+    (define (act (screen MillScreen) (action Action)) (→ MillScreen)
       (let ((before (::mill screen)))
         (match (take-shift before action)
           ((Ok result) (record-shift screen before (::first result) (::second result)))
           ((Err message) (MillScreen-message-set screen (list message))))))
 
     ;; Remembers the new state, what it said, and who heard something new.
-    (: record-shift (impl (Fn MillScreen Mill Mill (List String) -> MillScreen)))
-    (define (record-shift screen before after message)
+    (define (record-shift (screen MillScreen) (before Mill) (after Mill) (message (List String)))
+      (→ MillScreen)
       (let* ((screen (MillScreen-mill-set screen after))
              (screen (MillScreen-forecast-set screen (forecast after)))
              (screen (MillScreen-message-set screen message))
              (screen (MillScreen-fresh-set screen (newly-heard before after))))
         (MillScreen-version-set screen (+ (::version screen) 1))))
 
-    (: press (impl (Fn MillScreen I32 -> MillScreen)))
-    (define (press screen action)
+    (define (press (screen MillScreen) (action I32)) (→ MillScreen)
       (cond ((guide-action? action)
              (MillScreen-guide-set screen
                                    (turn-guide (::guide screen) guide-pages action)))
@@ -182,8 +174,7 @@
                     ((Some person) (act screen (person-action action person)))
                     ((None) (MillScreen-message-set screen (list "Click a person first.")))))))
 
-    (: update-mill-screen (impl (Fn MillScreen Input -> MillScreen)))
-    (define (update-mill-screen screen input)
+    (define (update-mill-screen (screen MillScreen) (input Input)) (→ MillScreen)
       (match input
         ((Resize width height) (MillScreen-height-set (MillScreen-width-set screen width) height))
         ((PointerMove pointer x y) (MillScreen-hover-set screen (pick screen x y)))
@@ -200,16 +191,14 @@
     ;; lies higher hides what lies below: ties, then markers and rings, then
     ;; bases, then figures, nearer the bottom of the map over farther, and
     ;; pips over all.
-    (: flat (impl (Fn Item -> Item)))
-    (define (flat thing)
+    (define (flat (thing Item)) (→ Item)
       (Item-glow-set thing 1.0))
 
     (define dark (rgb 70 78 92))
 
     ;; A thin box from a to b on the ground. A box's length runs along x, and
     ;; the renderer turns x toward (cos yaw, -sin yaw).
-    (: segment (impl (Fn Vec3 Vec3 -> Item)))
-    (define (segment a b)
+    (define (segment (a Vec3) (b Vec3)) (→ Item)
       (let* ((dx (- (::x b) (::x a))) (dz (- (::z b) (::z a))))
         (flat
          (item (Box) (Vec3 (* 0.5 (+ (::x a) (::x b))) 0.0 (* 0.5 (+ (::z a) (::z b))))
@@ -217,31 +206,33 @@
                (f64->f32 (atan2 (f32->f64 (negate dz)) (f32->f64 dx)))
                dark))))
 
-    (: tie-items (impl (Fn -> (List Item))))
-    (define (tie-items)
+    (define (tie-items) (→ (List Item))
       (map (lambda (tie) (segment (person-point (::first tie)) (person-point (::second tie))))
            ties))
 
-    (: audience-color (impl (Fn I64 -> I32)))
-    (define (audience-color audience)
+    (define (audience-color (audience I64)) (→ I32)
       (list-ref (list (rgb 220 160 60) (rgb 60 170 180) (rgb 160 120 220)) audience))
 
     ;; A hub's base is larger.
-    (: base-size (impl (Fn I64 -> F32)))
-    (define (base-size person)
+    (define (base-size (person I64)) (→ F32)
       (if (hub? person) 1.7 1.3))
 
     ;; A flat hexagon around a person's feet, `size` across, its top at
     ;; `height`.
-    (: hexagon (impl (Fn I64 F32 F32 I32 -> Item)))
-    (define (hexagon person size height color)
+    (define (hexagon (person I64) (size F32) (height F32) (color I32)) (→ Item)
       (flat (item (Prism) (person-point person) (Vec3 size height size) 0.0 color)))
 
     ;; Pips over a person's head for what they believe on one pair of
     ;; traits, one pip per point of intensity, colored by trait: the danger
     ;; pair grows leftward from the middle, the word pair rightward.
-    (: pips (impl (Fn Mill I64 Trait Trait I32 I32 F32 -> (List Item))))
-    (define (pips mill person first second first-color second-color direction)
+    (define (pips (mill Mill)
+                  (person I64)
+                  (first Trait)
+                  (second Trait)
+                  (first-color I32)
+                  (second-color I32)
+                  (direction F32))
+      (→ (List Item))
       (let* ((a (belief mill person first))
              (b (belief mill person second))
              (at (person-point person))
@@ -259,8 +250,7 @@
     ;; dark one, which wins for a quiet person who heard something, as
     ;; keeping quiet lasts while the news is one shift's, and the stroll
     ;; still shows it.
-    (: person-items (impl (Fn MillScreen I64 -> (List Item))))
-    (define (person-items screen person)
+    (define (person-items (screen MillScreen) (person I64)) (→ (List Item))
       (let* ((mill (::mill screen)) (at (person-point person)) (size (base-size person))
              (fresh? (member? person (::fresh screen)))
              (layer (+ 0.1 (* 0.01 (- (::z at) town-top)))))
@@ -280,8 +270,7 @@
 
     ;; The chosen person's base has a pale border, the one under the pointer
     ;; a grey one.
-    (: marker-items (impl (Fn MillScreen -> (List Item))))
-    (define (marker-items screen)
+    (define (marker-items (screen MillScreen)) (→ (List Item))
       (append (match (::selected screen)
                 ((Some person)
                  (list (hexagon person (+ (base-size person) 0.8) 0.015 (rgb 190 200 215))))
@@ -291,14 +280,13 @@
                  (list (hexagon person (+ (base-size person) 0.65) 0.016 (rgb 110 118 132))))
                 ((None) (Nil)))))
 
-    (: marker-version (impl (Fn MillScreen -> I32)))
-    (define (marker-version screen)
+    (define (marker-version (screen MillScreen)) (→ I32)
       (let ((code (lambda (choice) (match choice ((Some person) (+ person 1)) ((None) 0)))))
         (i64->i32 (+ (* 32 (code (::selected screen))) (code (::hover screen))))))
 
     ;; `art` gives the bytes of each sheet the cast wears.
-    (: view-mill-screen (impl (Fn MillScreen (dyn (Fn String -> (Option Source))) -> Frame)))
-    (define (view-mill-screen screen art)
+    (define (view-mill-screen (screen MillScreen) (art (dyn (Fn String → (Option Source)))))
+      (→ Frame)
       (Frame (camera-of screen) sunlight backdrop 1.0
              (list (Batch 0 0 (Solid) tie-items)
                    (Batch 1 (i64->i32 (::version screen)) (Solid)
@@ -312,8 +300,7 @@
     ;; ---- Status ----
 
     ;; The scenario, with the shift and coins as dials.
-    (: status-panel (impl (Fn MillScreen -> Panel)))
-    (define (status-panel screen)
+    (define (status-panel (screen MillScreen)) (→ Panel)
       (let* ((mill (::mill screen)) (shift (::shift mill)) (last (last-shift mill)))
         (Panel "status" (At (TopLeft) 0)
                (list (label "title" (::name (scenario-rules (::scenario mill))))
@@ -325,8 +312,7 @@
                            (/ (i64->f32 (::coins mill)) 10.0))))))
 
     ;; The goal as a checklist, and when it is judged.
-    (: goal-panel (impl (Fn Mill -> Panel)))
-    (define (goal-panel mill)
+    (define (goal-panel (mill Mill)) (→ Panel)
       (Panel "goal" (At (TopLeft) 0)
              (Cons (section-heading "goal" "Goal")
                    (append (map-indexed goal-label (mill-goals mill))
@@ -334,8 +320,7 @@
                                         (Muted)
                                         (::deadline (scenario-rules (::scenario mill)))))))))
 
-    (: goal-label (impl (Fn I64 Goal -> Widget)))
-    (define (goal-label index goal)
+    (define (goal-label (index I64) (goal Goal)) (→ Widget)
       (let ((key (string-append "goal-" (show index))) (text (::text goal)))
         (match (::progress goal)
           ((Met) (toned key (Good) (string-append "✓ " text)))
@@ -346,8 +331,7 @@
 
     ;; What to do now: the result once the game is over, the duty of a
     ;; forced shift, or the next step of a move.
-    (: hint (impl (Fn MillScreen -> Widget)))
-    (define (hint screen)
+    (define (hint (screen MillScreen)) (→ Widget)
       (let ((mill (::mill screen)) (chosen (::selected screen)))
         (match (mill-result mill)
           ((Some (Pair won? text))
@@ -361,8 +345,7 @@
 
     ;; The forced shift's duty, toward the chosen person if they are in the
     ;; Docks.
-    (: duty-text (impl (Fn (Option I64) -> String)))
-    (define (duty-text chosen)
+    (define (duty-text (chosen (Option I64))) (→ String)
       (match chosen
         ((Some person) (if (= (audience-of person) docks)
                            (string-append "Rough up or threaten "
@@ -372,8 +355,7 @@
         ((None)
          "This shift you must rough someone up or make a threat in the Docks: choose someone on a teal base.")))
 
-    (: step-text (impl (Fn (Option I64) -> String)))
-    (define (step-text chosen)
+    (define (step-text (chosen (Option I64))) (→ String)
       (match chosen
         ((Some person)
          (string-append "Choose what to do toward "
@@ -382,8 +364,7 @@
         ((None) "Choose a person on the map: they will witness what you do. Or lie low.")))
 
     ;; What the last shift did, under the moves that made it.
-    (: last-panel (impl (Fn MillScreen -> Panel)))
-    (define (last-panel screen)
+    (define (last-panel (screen MillScreen)) (→ Panel)
       (Panel "last" (At (TopLeft) 0)
              (match (::message screen)
                ((Nil) (list (toned "last-none" (Muted) "Nothing has happened yet.")))
@@ -393,8 +374,7 @@
 
     ;; The move button `number` makes toward the chosen person, if anyone
     ;; is chosen.
-    (: toward-chosen (impl (Fn MillScreen I32 -> (Option Action))))
-    (define (toward-chosen screen number)
+    (define (toward-chosen (screen MillScreen) (number I32)) (→ (Option Action))
       (match (::selected screen)
         ((Some person) (Some (person-action number person)))
         ((None) (None))))
@@ -402,8 +382,13 @@
     ;; A move's button is greyed out with the reason when it cannot be made
     ;; now, and otherwise says what it will do. `move` is None for a move
     ;; that needs a person while no one is chosen.
-    (: move-button (impl (Fn MillScreen String String String I32 (Option Action) -> Widget)))
-    (define (move-button screen key text caption number move)
+    (define (move-button (screen MillScreen)
+                         (key String)
+                         (text String)
+                         (caption String)
+                         (number I32)
+                         (move (Option Action)))
+      (→ Widget)
       (match move
         ((Some action)
          (choice-button key
@@ -416,8 +401,7 @@
         ((None)
          (choice-button key text caption number 0 (Some "Choose a person on the map first.") ""))))
 
-    (: move-help (impl (Fn Action -> String)))
-    (define (move-help action)
+    (define (move-help (action Action)) (→ String)
       (match action
         ((Do deed person)
          (string-append (first-name person)
@@ -430,8 +414,7 @@
                         " hears a story you did not earn. It is exposed if they hear the truth."))
         ((Wait) "Do nothing this shift; stories still spread.")))
 
-    (: move-buttons (impl (Fn MillScreen -> (List Widget))))
-    (define (move-buttons screen)
+    (define (move-buttons (screen MillScreen)) (→ (List Widget))
       (append (map-indexed (lambda (index deed)
                              (let ((number (+ action-deed (i64->i32 index))))
                                (move-button screen
@@ -461,8 +444,7 @@
                                  (toward-chosen screen action-lie-harmless))
                     (move-button screen "wait" "Lie low" "do nothing" action-wait (Some (Wait))))))
 
-    (: action-panel (impl (Fn MillScreen -> Panel)))
-    (define (action-panel screen)
+    (define (action-panel (screen MillScreen)) (→ Panel)
       (Panel "actions" (At (TopLeft) 0)
              (append (Cons (section-heading "moves" "Your move: one per shift")
                            (if (mill-over? (::mill screen)) (Nil) (move-buttons screen)))
@@ -472,8 +454,7 @@
 
     ;; The person under the pointer, or else the chosen one: portrait, name,
     ;; audience, beliefs as chips, the stories they hold, and their ties.
-    (: person-panel (impl (Fn MillScreen -> Panel)))
-    (define (person-panel screen)
+    (define (person-panel (screen MillScreen)) (→ Panel)
       (Panel "person" (At (TopRight) 0)
              (match (match (::hover screen)
                       ((Some person) (Some person))
@@ -484,8 +465,7 @@
                              (Muted)
                              "Point at a person to see who they are, what they believe and where they heard it."))))))
 
-    (: person-widgets (impl (Fn Mill I64 -> (List Widget))))
-    (define (person-widgets mill person)
+    (define (person-widgets (mill Mill) (person I64)) (→ (List Widget))
       (concatenate
        (list (list (portrait "portrait" (person-picture person) 2)
                    (label (string-append "audience-" (show (audience-of person)))
@@ -514,13 +494,11 @@
     ;; ---- Beliefs and outlook ----
 
     ;; "reliable 2".
-    (: belief-text (impl (Fn (Pair Trait I64) -> String)))
-    (define (belief-text belief)
+    (define (belief-text (belief (Pair Trait I64))) (→ String)
       (string-append (trait-name (::first belief)) " " (show (::second belief))))
 
     ;; What each audience believes, beside its color.
-    (: audience-panel (impl (Fn MillScreen -> Panel)))
-    (define (audience-panel screen)
+    (define (audience-panel (screen MillScreen)) (→ Panel)
       (Panel "audiences" (At (TopRight) 0)
              (Cons (section-heading "audiences" "What each audience believes")
                    (map (lambda (audience)
@@ -534,8 +512,7 @@
                         audiences))))
 
     ;; What would change if you lay low, and what could come back to bite.
-    (: outlook-panel (impl (Fn MillScreen -> Panel)))
-    (define (outlook-panel screen)
+    (define (outlook-panel (screen MillScreen)) (→ Panel)
       (let ((mill (::mill screen)))
         (Panel "outlook" (At (TopRight) 0)
                (append (if (mill-over? mill)
@@ -561,8 +538,7 @@
 
     ;; ---- Guide ----
 
-    (: guide-pages (List Page))
-    (define guide-pages
+    (define guide-pages (→ (List Page))
       (list (Page "What this experiment tests"
                   (list
                    "The rumor mill asks one question: is steering what people believe fun, and can you predict it? If it is not, nothing else in Hearsay will save it."
@@ -594,8 +570,7 @@
                   (Nil))))
 
     ;; `first` are panels to show before the screen's own.
-    (: mill-screen-hud (impl (Fn MillScreen (List Panel) -> (List Panel))))
-    (define (mill-screen-hud screen first)
+    (define (mill-screen-hud (screen MillScreen) (first (List Panel))) (→ (List Panel))
       (concatenate
        (list first
              (list (status-panel screen)

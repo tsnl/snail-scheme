@@ -7,16 +7,13 @@
 ;; when a definition binds it, and it may perform effects. The book's
 ;; ownership chapter includes the text between ANCHOR and ANCHOR_END.
 ;; ANCHOR: fn
-(: greeting String)
-(define greeting "hello")
+(define greeting (→ String) "hello")
 
-(: shout (impl (Fn String -> Unit ! console)))
-(define (shout name)
+(define (shout (name String)) (→ Unit) (! console)
   (let ((say (fn (text) (write-line (string-append greeting ", " text)))))
     (say name)))
 
-(: count-down (impl (Fn I64 -> Unit ! console)))
-(define (count-down from)
+(define (count-down (from I64)) (→ Unit) (! console)
   (define step
     (fn (n)
       (when (> n 0)

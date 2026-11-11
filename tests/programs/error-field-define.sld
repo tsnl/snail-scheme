@@ -7,8 +7,7 @@
 (struct Point
   ((x I64)))
 
-(: Point-x (impl (Fn Point -> I64)))
-(define (Point-x point)
+(define (Point-x (point Point)) (→ I64)
   (::x point))
 
 (write-line (show (Point-x (Point 1))))

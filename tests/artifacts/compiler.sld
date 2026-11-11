@@ -13,13 +13,11 @@
  (prefix (snail shell compiler read) reader:)
  (prefix (snail shell syntax) generated:))
 
-(: inputs (impl (Fn Bytes -> Inputs)))
-(define (inputs client)
+(define (inputs (client Bytes)) (→ Inputs)
   (supply-artifact (supply-artifact no-inputs "client" (list (Pair "client.dat" client)))
                    "admin" (list (Pair "admin.dat" #u8(99)))))
 
-(: generate (impl (Fn (List String) (List reader:Syntax) -> Bytes)))
-(define (generate loading forms)
+(define (generate (loading (List String)) (forms (List reader:Syntax))) (→ Bytes)
   (generated:syntax->bytes
    (generated:library-syntax
     (list "generated" "assets")
@@ -33,14 +31,12 @@
                                                          (list
                                                           (generated:StringSyntax "client")))))))))
 
-(: write-module (impl (Fn String String -> Unit ! fs)))
-(define (write-module path text)
+(define (write-module (path String) (text String)) (→ Unit) (! fs)
   (match (assemble text)
     ((Ok bytes) (write-bytes path bytes))
     ((Err message) (panic (string-append "could not assemble " path ": " message)))))
 
-(: write-build (impl (Fn String (List Built) -> Unit ! fs)))
-(define (write-build output built)
+(define (write-build (output String) (built (List Built))) (→ Unit) (! fs)
   (for-each (lambda (module)
               (write-module (string-append output "/" (::name module) ".wasm")
                             (::text module)))
@@ -51,8 +47,9 @@
 
 ;; Every input is supplied, so the compiles ask for none, and the source
 ;; has no errors.
-(: compile-all (impl (Fn String String (List String) -> Unit ! mut fs reader:compile)))
-(define (compile-all source output directories)
+(define (compile-all (source String) (output String) (directories (List String)))
+  (→ Unit)
+  (! mut fs reader:compile)
   (write-module (string-append output "/program.wasm")
                 (::text
                  (source->wat directories source generate (inputs #u8(65 0 255)))))

@@ -1,1 +1,1 @@
-type-convert cannot take (fn I64 -> I64): an Any holds no function reference
+type-convert cannot take (fn I64 → I64): an Any holds no function reference

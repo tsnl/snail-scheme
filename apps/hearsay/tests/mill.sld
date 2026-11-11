@@ -10,8 +10,7 @@
 ;; ---- Printing ----
 
 ;; "reliable 3, dangerous 1", or "-".
-(: beliefs-text (impl (Fn (List (Pair Trait I64)) -> String)))
-(define (beliefs-text beliefs)
+(define (beliefs-text (beliefs (List (Pair Trait I64)))) (→ String)
   (if (null? beliefs)
       "-"
       (string-join (map (lambda (belief)
@@ -23,8 +22,7 @@
 
 ;; Who a person is, what they believe and the stories they hold, as the
 ;; person panel shows them.
-(: show-person (impl (Fn Mill I64 -> Unit ! console)))
-(define (show-person mill person)
+(define (show-person (mill Mill) (person I64)) (→ Unit) (! console)
   (write-line
    (string-append (show person) " " (person-name person) ", " (audience-name (audience-of person))
                   (if (hub? person) ", hub" "")
@@ -36,8 +34,7 @@
     ((Nil) (write-line "Holds no stories about you."))
     (stories (for-each (lambda (story) (write-line (string-append "  " story))) stories))))
 
-(: progress-text (impl (Fn Progress -> String)))
-(define (progress-text progress)
+(define (progress-text (progress Progress)) (→ String)
   (match progress
     ((Met) "met")
     ((Unmet) "unmet")
@@ -47,8 +44,7 @@
 
 ;; The shift and coins, what each audience and its people believe, the
 ;; liabilities and the goal, then the forecast or the verdict.
-(: show-board (impl (Fn Mill -> Unit ! console)))
-(define (show-board mill)
+(define (show-board (mill Mill)) (→ Unit) (! console)
   (write-line (string-append (::name (scenario-rules (::scenario mill))) ": "
                              (if (mill-over? mill)
                                  (string-append "after shift " (show (last-shift mill)))
@@ -93,8 +89,7 @@
   (Act ((text String) (action Action)))
   (Look ((text String) (person I64))))
 
-(: run-step (impl (Fn Mill Step -> Mill ! console)))
-(define (run-step mill step)
+(define (run-step (mill Mill) (step Step)) (→ Mill) (! console)
   (match step
     ((Act text action)
      (write-line (string-append "> " text))
@@ -106,8 +101,7 @@
      (show-person mill person)
      mill)))
 
-(: game (impl (Fn Scenario (List Step) -> Unit ! console)))
-(define (game scenario steps)
+(define (game (scenario Scenario) (steps (List Step))) (→ Unit) (! console)
   (write-line (string-append "==== " (::name (scenario-rules scenario))))
   (show-board (fold-left run-step (new-mill scenario) steps))
   (write-line ""))

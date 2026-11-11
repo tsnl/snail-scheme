@@ -51,15 +51,12 @@
       ((artifacts (Table ArtifactFiles))
        (generated (Table Generated))))
 
-    (: no-inputs Inputs)
-    (define no-inputs (Inputs empty-table empty-table))
+    (define no-inputs (→ Inputs) (Inputs empty-table empty-table))
 
-    (: supply-artifact (impl (Fn Inputs String ArtifactFiles -> Inputs)))
-    (define (supply-artifact inputs name files)
+    (define (supply-artifact (inputs Inputs) (name String) (files ArtifactFiles)) (→ Inputs)
       (Inputs-artifacts-set inputs (table-set (::artifacts inputs) name files)))
 
-    (: supply-generated (impl (Fn Inputs String Bytes -> Inputs)))
-    (define (supply-generated inputs text bytes)
+    (define (supply-generated (inputs Inputs) (text String) (bytes Bytes)) (→ Inputs)
       (Inputs-generated-set inputs
                             (table-set (::generated inputs)
                                        (producer-key text)
@@ -69,21 +66,19 @@
     ;; imports resolve in, then its program. One table serves every target
     ;; of a build, and two targets with different directories may resolve
     ;; the same recipe's imports to different libraries.
-    (: producer-text (impl (Fn (List String) (List Syntax) -> String)))
-    (define (producer-text directories forms)
+
+    (define (producer-text (directories (List String)) (forms (List Syntax))) (→ String)
       (string-append (string-join (map quoted directories) " ") "\n" (program-text forms)))
 
-    (: producer-key (impl (Fn String -> String)))
-    (define (producer-key text)
+    (define (producer-key (text String)) (→ String)
       (i64->string (fnv-1a text)))
 
-    (: program-text (impl (Fn (List Syntax) -> String)))
-    (define (program-text forms)
+    (define (program-text (forms (List Syntax))) (→ String)
       (string-join (map syntax->string forms) "\n"))
 
     ;; The output supplied for the producer with this text, if any.
-    (: generated-output (impl (Fn Inputs String -> (Option Bytes))))
-    (define (generated-output inputs text)
+
+    (define (generated-output (inputs Inputs) (text String)) (→ (Option Bytes))
       (match (table-ref (::generated inputs) (producer-key text))
         ((Some generated)
          (if (string=? (::text generated) text) (Some (::bytes generated)) (None)))
@@ -95,18 +90,17 @@
     ;; at an `artifact-files` use, asks for it by performing `need`. Nothing
     ;; after the call runs: the entry point's handler takes the request and
     ;; hands it to its caller.
-    (: request-input (All (A) (impl (Fn CompilerRequest -> A ! compile))))
-    (define (request-input request)
+
+    (define (request-input (request CompilerRequest)) (→ A) (! compile) (∀ A)
       (absurd (need request)))
 
     ;; A process caller finds a request as a datum in the compile's
     ;; generated directory once the compiler has exited with status 1.
-    (: publish-request (impl (Fn String CompilerRequest -> Unit ! fs)))
-    (define (publish-request directory request)
+
+    (define (publish-request (directory String) (request CompilerRequest)) (→ Unit) (! fs)
       (write-file (string-append directory "/request.datum") (request->string request)))
 
-    (: request->string (impl (Fn CompilerRequest -> String)))
-    (define (request->string request)
+    (define (request->string (request CompilerRequest)) (→ String)
       (match request
         ((GenerateInput key) (string-append "(generate " (quoted key) ")\n"))
         ((ArtifactInput name source)
@@ -116,8 +110,7 @@
                         (i64->string (::column source))
                         ")\n"))))
 
-    (: parse-request (impl (Fn String String -> CompilerRequest ! compile)))
-    (define (parse-request text filename)
+    (define (parse-request (text String) (filename String)) (→ CompilerRequest) (! compile)
       (match (read-text text filename)
         ((Cons (Form (Cons (Ident "generate" _ _) (Cons (Atom (DString key) _) (Nil))) loc) (Nil))
          (unless (generated-key? key)
@@ -136,14 +129,12 @@
         (_ (compile-error (Loc filename 1 1)
                           "expected exactly one generate or artifact compiler request"))))
 
-    (: generated-key? (impl (Fn String -> Bool)))
-    (define (generated-key? key)
+    (define (generated-key? (key String)) (→ Bool)
       (and (> (string-length key) 0)
            (every? (lambda (c) (let ((value (char->integer c))) (and (>= value 48) (<= value 57))))
                    (string->list key))))
 
-    (: quoted (impl (Fn String -> String)))
-    (define (quoted text)
+    (define (quoted (text String)) (→ String)
       (datum->string (DString text)))
 
     ;; ---- Producer programs ----
@@ -158,9 +149,13 @@
     ;; library it generates an import cycle. The key is the one the build's
     ;; inputs use, which leaves that line out, since what the producer writes
     ;; does not depend on the chain that reached it.
-    (: generated-syntax
-       (impl (Fn String (List String) (List String) (List Syntax) -> Bytes ! fs compile)))
-    (define (generated-syntax directory directories loading forms)
+
+    (define (generated-syntax (directory String)
+                              (directories (List String))
+                              (loading (List String))
+                              (forms (List Syntax)))
+      (→ Bytes)
+      (! fs compile)
       (let* ((key (producer-key (producer-text directories forms)))
              (output (string-append directory "/" key ".syntax")))
         (if (file-exists? output)
@@ -170,18 +165,21 @@
 
     ;; Prints the producer `forms` as the program at `path`, beginning with
     ;; the libraries `loading` when it was reached.
-    (: print-producer (impl (Fn String (List String) (List Syntax) -> Unit ! fs)))
-    (define (print-producer path loading forms)
+
+    (define (print-producer (path String) (loading (List String)) (forms (List Syntax)))
+      (→ Unit)
+      (! fs)
       (write-file path (string-append (generating-line loading) "\n" (program-text forms))))
 
     ;; The text of the producer printed at `path`, as `producer-text` gave
     ;; it for the forms it was printed from.
-    (: printed-producer-text (impl (Fn (List String) String -> String ! fs compile)))
-    (define (printed-producer-text directories path)
+
+    (define (printed-producer-text (directories (List String)) (path String))
+      (→ String)
+      (! fs compile)
       (producer-text directories (::second (generating-stack (read-source-file path)))))
 
-    (: generating-line (impl (Fn (List String) -> String)))
-    (define (generating-line loading)
+    (define (generating-line (loading (List String))) (→ String)
       (string-append "(generating"
                      (string-concatenate
                       (map (lambda (key) (string-append " " (quoted key))) loading))
@@ -193,8 +191,8 @@
     ;; build's entry an editor has just deleted, fails the compile with a
     ;; diagnostic about the file as a whole, so a resident caller reports
     ;; it and builds again once the file is back.
-    (: read-source-file (impl (Fn String -> (List Syntax) ! fs compile)))
-    (define (read-source-file path)
+
+    (define (read-source-file (path String)) (→ (List Syntax)) (! fs compile)
       (if (file-exists? path)
           (read-text (read-file path) path)
           (compile-error (Loc path 0 0) "no such file or directory")))
@@ -202,15 +200,16 @@
     ;; The libraries a program's first form says were loading when it was
     ;; printed, and the forms after it. A program that does not begin with
     ;; `generating` starts with nothing loading.
-    (: generating-stack (impl (Fn (List Syntax) -> (Pair (List String) (List Syntax)) ! compile)))
-    (define (generating-stack forms)
+
+    (define (generating-stack (forms (List Syntax)))
+      (→ (Pair (List String) (List Syntax)))
+      (! compile)
       (match forms
         ((Cons (Form (Cons (Ident "generating" _ _) keys) _) rest)
          (Pair (map loading-key keys) rest))
         (_ (Pair (Nil) forms))))
 
-    (: loading-key (impl (Fn Syntax -> String ! compile)))
-    (define (loading-key key)
+    (define (loading-key (key Syntax)) (→ String) (! compile)
       (match key
         ((Atom (DString text) _) text)
         (_ (compile-error (syntax-loc key) "expected a library key string"))))
@@ -227,65 +226,79 @@
      (only (chibi string) string-contains)
      (snail stage0 testing))
     (begin
-      (define (input-error text)
-        (or (compile-failure (lambda () (parse-request text "input.datum"))) "accepted"))
+      (define input-error
+        (lambda (text)
+          (or (compile-failure (lambda () (parse-request text "input.datum"))) "accepted")))
 
-      (define (test-inputs)
-        (let ((request (ArtifactInput "client\"\n" (Loc "source\\name.sld" 12 7))))
-          (expect (parse-request (request->string request) "request.datum") request)
-          (expect (parse-request "(generate \"123456\")" "request.datum") (GenerateInput "123456")))
-        (for-each (lambda (text)
-                    (expect
-                     (if (string-contains (input-error text) "input.datum:") "rejected" "accepted")
-                     "rejected"))
-                  '("" "(generate \"\")" "(generate \"../x\")" "(generate \"-1\")" "(generate 123)"
-                    "(generate \"123\") ()" "(generate \"123\" extra)" "(artifact \"x\")"
-                    "(artifact \"x\" \"file\" 0 1)" "(artifact \"x\" \"file\" 1 -1)"))
-        (test-generating-stack)
-        (test-generated-inputs)
-        (test-missing-source))
+      (define test-inputs
+        (lambda () (let ((request (ArtifactInput "client\"\n" (Loc "source\\name.sld" 12 7))))
+                     (expect (parse-request (request->string request) "request.datum") request)
+                     (expect (parse-request "(generate \"123456\")" "request.datum")
+                             (GenerateInput "123456")))
+                (for-each (lambda (text)
+                            (expect
+                             (if (string-contains (input-error text) "input.datum:")
+                                 "rejected"
+                                 "accepted")
+                             "rejected"))
+                          '(""
+                            "(generate \"\")"
+                            "(generate \"../x\")"
+                            "(generate \"-1\")"
+                            "(generate 123)"
+                            "(generate \"123\") ()" "(generate \"123\" extra)" "(artifact \"x\")"
+                            "(artifact \"x\" \"file\" 0 1)" "(artifact \"x\" \"file\" 1 -1)"))
+                (test-generating-stack)
+                (test-generated-inputs)
+                (test-missing-source)))
 
       ;; The printed stack reads back as the same keys, ahead of the
       ;; producer's own forms; a program without one has nothing loading.
-      (define (test-generating-stack)
-        (let ((printed (generating-stack
-                        (read-text (string-append (generating-line (list "sample.knot" "odd\"key"))
-                                                  "\n(unit)")
-                                   "producer.sld")))
-              (plain (generating-stack (read-text "(unit)" "program.sld"))))
-          (expect (::first printed) (list "sample.knot" "odd\"key"))
-          (expect (length (::second printed)) 1)
-          (expect (::first plain) (list))
-          (expect (length (::second plain)) 1)))
+      (define test-generating-stack
+        (lambda () (let ((printed (generating-stack
+                                   (read-text
+                                    (string-append (generating-line (list "sample.knot" "odd\"key"))
+                                                   "\n(unit)")
+                                    "producer.sld")))
+                         (plain (generating-stack (read-text "(unit)" "program.sld"))))
+                     (expect (::first printed) (list "sample.knot" "odd\"key"))
+                     (expect (length (::second printed)) 1)
+                     (expect (::first plain) (list))
+                     (expect (length (::second plain)) 1))))
 
       ;; A source that is not there is a diagnostic naming the file.
-      (define (test-missing-source)
-        (expect (compile-failure (lambda () (read-source-file "build/tests/missing/main.sld")))
-                "build/tests/missing/main.sld: no such file or directory"))
+      (define test-missing-source
+        (lambda ()
+          (expect (compile-failure (lambda () (read-source-file "build/tests/missing/main.sld")))
+                  "build/tests/missing/main.sld: no such file or directory")))
 
       ;; A supplied output is found by its producer's text, which reads back
       ;; from the printed producer unchanged. The same program under other
       ;; directories is another producer, and an entry whose text differs
       ;; is never taken for it, even under its key.
-      (define (test-generated-inputs)
-        (let* ((forms
-                (read-text
-                 "(import (snail core base) (srfi 1)) (write \"a\\\"b\\nc\" #u8(1 2) 1.50 #\\x)"
-                 "producer.sld"))
-               (printed
-                (string-append (generating-line (list "sample.knot")) "\n" (program-text forms)))
-               (text (producer-text (list "/project/src" "/root/src") forms))
-               (output (list->vector (list (i32->u8 1) (i32->u8 2))))
-               (inputs (supply-generated no-inputs text output)))
-          (expect (producer-text (list "/project/src" "/root/src")
-                                 (::second (generating-stack (read-text printed "printed.sld"))))
-                  text)
-          (expect (generated-output inputs text) (Some output))
-          (expect (generated-output inputs (producer-text (list "/root/src") forms)) (None))
-          (expect (generated-output (Inputs empty-table
-                                            (table-set empty-table
-                                                       (producer-key text)
-                                                       (Generated "other" output)))
-                                    text)
-                  (None))))))
+      (define test-generated-inputs
+        (lambda () (let* ((forms
+                           (read-text
+                            "(import (snail core base) (srfi 1)) (write \"a\\\"b\\nc\" #u8(1 2) 1.50 #\\x)"
+                            "producer.sld"))
+                          (printed
+                           (string-append (generating-line (list "sample.knot"))
+                                          "\n"
+                                          (program-text forms)))
+                          (text (producer-text (list "/project/src" "/root/src") forms))
+                          (output (list->vector (list (i32->u8 1) (i32->u8 2))))
+                          (inputs (supply-generated no-inputs text output)))
+                     (expect (producer-text (list "/project/src" "/root/src")
+                                            (::second
+                                             (generating-stack (read-text printed "printed.sld"))))
+                             text)
+                     (expect (generated-output inputs text) (Some output))
+                     (expect (generated-output inputs (producer-text (list "/root/src") forms))
+                             (None))
+                     (expect (generated-output (Inputs empty-table
+                                                       (table-set empty-table
+                                                                  (producer-key text)
+                                                                  (Generated "other" output)))
+                                               text)
+                             (None)))))))
    (else)))

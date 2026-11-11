@@ -15,25 +15,23 @@
        ((Ok checked) checked)
        ((Err _) (panic "fixture payload has the wrong type"))))))
 
-
 ;; Each task retains the private handler across its waits on storage and
 ;; events. Its default, the host's, lets the runner detect a leaked handler
 ;; between turns.
 (effect Marker
-  ((marker (dyn (Fn -> I32))))
+  ((marker (dyn (Fn → I32))))
   (default
     ((marker host-marker))))
 
-(extern host-marker "snail.test" "marker" (impl (Fn -> I32)))
+(extern host-marker "snail.test" "marker" (impl (Fn → I32)))
 
 ;; The runtime drains children after a normal root return. Explicit reload
 ;; closes that scope after the root has handed over, including this case.
 ;; Each root is a task, as the shared page loop is.
-(extern background-boot "snail.runtime.browser.events" "boot" (impl (Fn I32 -> Unit ! events)))
-(extern background-ready "snail.runtime.browser.events" "ready" (impl (Fn -> Unit ! events)))
-(extern background-poll "snail.runtime.browser.events" "poll" (impl (Fn -> I32 ! events)))
-(: background-main (impl (Fn (Option Any) -> I64 ! mut events)))
-(define (background-main handover)
+(extern background-boot "snail.runtime.browser.events" "boot" (impl (Fn I32 → Unit ! events)))
+(extern background-ready "snail.runtime.browser.events" "ready" (impl (Fn → Unit ! events)))
+(extern background-poll "snail.runtime.browser.events" "poll" (impl (Fn → I32 ! events)))
+(define (background-main (handover (Option Any))) (→ I64) (! mut events)
   (start-page handover (once (lambda ()
                                (background-boot 2)
                                (background-poll) ; Resize.
@@ -43,8 +41,7 @@
                                (unit)))))
 (expose background-main "background_main")
 
-(: unpresented-main (impl (Fn (Option Any) -> I64 ! mut events)))
-(define (unpresented-main handover)
+(define (unpresented-main (handover (Option Any))) (→ I64) (! mut events)
   (start-page handover (once (lambda ()
                                (background-boot 2)
                                (dispatch-local (once (lambda () (sleep 100000))))
@@ -52,27 +49,21 @@
 (expose unpresented-main "unpresented_main")
 
 ;; Tasks beside the loop cannot enter its protocol: each of these traps.
-(: child-load (impl (Fn -> Unit ! storage tasks)))
-(define (child-load)
+(define (child-load) (→ Unit) (! storage tasks)
   (load-save)
   (unit))
-(: child-store (impl (Fn -> Unit ! storage tasks)))
-(define (child-store)
+(define (child-store) (→ Unit) (! storage tasks)
   (store-save #u8(20)))
-(: child-event (impl (Fn -> Unit ! events tasks)))
-(define (child-event)
+(define (child-event) (→ Unit) (! events tasks)
   (next-event)
   (unit))
-(: child-boot (impl (Fn -> Unit ! events)))
-(define (child-boot)
+(define (child-boot) (→ Unit) (! events)
   (background-boot 99))
 
-(: child-commit (impl (Fn -> Unit ! mut events)))
-(define (child-commit)
+(define (child-commit) (→ Unit) (! mut events)
   (commit-page (Counter 999 0)))
 
-(: spawn-child (impl (Fn I32 -> Unit ! mut storage events)))
-(define (spawn-child which)
+(define (spawn-child (which I32)) (→ Unit) (! mut storage events)
   (dispatch-local (once (lambda ()
                           (match which
                             (0 (child-load))
@@ -91,12 +82,10 @@
   ((count I64))
   (deriving Serialize Deserialize))
 
-(: initial (impl (Fn I32 I32 I32 -> Counter)))
-(define (initial seed width height)
+(define (initial (seed I32) (width I32) (height I32)) (→ Counter)
   (Counter 0 0))
 
-(: step (impl (Fn Counter Input -> Counter)))
-(define (step counter input)
+(define (step (counter Counter) (input Input)) (→ Counter)
   (match input
     ((Press 1 _) (Counter-count-set counter (+ (::count counter) 1)))
     ((Press 2 _) (panic "a deliberate update trap"))
@@ -104,8 +93,7 @@
     ((Resize _ _) (Counter-resizes-set counter (+ (::resizes counter) 1)))
     (_ counter)))
 
-(: draw (impl (Fn Counter -> Frame)))
-(define (draw counter)
+(define (draw (counter Counter)) (→ Frame)
   (Frame (Camera (Vec3 4.0 4.0 4.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8))
          (Light (Vec3 0.3 1.0 0.5) 0.8 0.3)
          (rgb 16 20 28)
@@ -113,33 +101,26 @@
          (Nil)
          (Nil)))
 
-(: panels (impl (Fn Counter -> (List Panel))))
-(define (panels counter)
+(define (panels (counter Counter)) (→ (List Panel))
   (list (Panel "counter" (At (TopLeft) 0)
                (list (label "count" (i64->string (::count counter)))))))
 
-(: save-counter (impl (Fn Counter -> Save)))
-(define (save-counter counter)
+(define (save-counter (counter Counter)) (→ Save)
   (Save (::count counter)))
 
-(: restore-counter (impl (Fn Save -> Counter)))
-(define (restore-counter saved)
+(define (restore-counter (saved Save)) (→ Counter)
   (Counter (::count saved) 0))
 
-(: inspect-count (impl (Fn Any -> I64)))
-(define (inspect-count state)
+(define (inspect-count (state Any)) (→ I64)
   (::count (fixture-convert state Counter)))
 
-(: inspect-resizes (impl (Fn Any -> I32)))
-(define (inspect-resizes state)
+(define (inspect-resizes (state Any)) (→ I32)
   (::resizes (fixture-convert state Counter)))
 
-(: other-state (impl (Fn -> Any)))
-(define (other-state)
+(define (other-state) (→ Any)
   (type-convert (ann 5 I64) Any))
 
-(: read-marker (impl (Fn -> I32 ! Marker)))
-(define (read-marker)
+(define (read-marker) (→ I32) (! Marker)
   (marker))
 
 (expose read-marker "marker")
@@ -150,24 +131,25 @@
 (define-page-state Counter)
 
 (instance (Scene Counter)
-  (define (scene-initialize seed width height) (initial seed width height))
-  (define (scene-update state input) (step state input))
-  (define (scene-view state) (draw state))
-  (define (scene-hud state) (panels state))
-  (define (scene-save state) (serialize (save-counter state)))
-  (define (scene-restore bytes) (restore-counter (deserialize bytes))))
+  (define scene-initialize (lambda (seed width height) (initial seed width height)))
+  (define scene-update (lambda (state input) (step state input)))
+  (define scene-view (lambda (state) (draw state)))
+  (define scene-hud (lambda (state) (panels state)))
+  (define scene-save (lambda (state) (serialize (save-counter state))))
+  (define scene-restore (lambda (bytes) (restore-counter (deserialize bytes)))))
 
 (struct TestApplication
   ())
 
 (instance (Application (! mut screen events storage tasks) TestApplication)
-  (define (start entry)
-    (handle Marker
-        ((marker (lambda () 17)))
-      (dispatch-local (once (lambda ()
-                              (yield)
-                              (unless (= (marker) 17) (panic "a child lost its inherited handler"))
-                              (sleep 100000))))
-      (start (ann (Entry) (Entry (SceneApplication Counter)))))))
+  (define start
+    (lambda (entry) (handle Marker
+                        ((marker (lambda () 17)))
+                      (dispatch-local (once (lambda ()
+                                              (yield)
+                                              (unless (= (marker) 17)
+                                                (panic "a child lost its inherited handler"))
+                                              (sleep 100000))))
+                      (start (ann (Entry) (Entry (SceneApplication Counter))))))))
 
 (define-page-entry TestApplication)

@@ -8,4 +8,4 @@
     ;; A control operation declared in one library, handled in a second
     ;; and performed in a third.
     (effect Signal
-      ((ctl signal (dyn (Fn I64 -> Unit)))))))
+      ((ctl signal (dyn (Fn I64 → Unit)))))))

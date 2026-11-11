@@ -26,8 +26,7 @@
 
     ;; ---- Programs ----
 
-    (: scheme->snail-core-library (impl (Fn (List String) String -> Syntax)))
-    (define (scheme->snail-core-library name source)
+    (define (scheme->snail-core-library (name (List String)) (source String)) (→ Syntax)
       (match (read-datums source)
         ((Ok forms)
          (library-syntax name
@@ -39,8 +38,7 @@
         ((Err message) (panic (string-append "scheme: " message)))))
 
     ;; A top-level definition is a cell; any other form runs at startup.
-    (: translate-top (impl (Fn Any -> Syntax)))
-    (define (translate-top top)
+    (define (translate-top (top Any)) (→ Syntax)
       (match (definition top)
         ((Some (Pair name value))
          (form "define" (list (variable name) (form "ref" (list (evaluation (translate value)))))))
@@ -48,19 +46,16 @@
 
     ;; A generated script installs its failure boundary explicitly. Runtime
     ;; calls themselves retain dyn-cast so a typed caller may catch failures.
-    (: evaluation (impl (Fn Syntax -> Syntax)))
-    (define (evaluation expression)
+    (define (evaluation (expression Syntax)) (→ Syntax)
       (form "scheme-evaluate" (list (form "lambda" (list (ListSyntax (Nil)) expression)))))
 
-    (: definition (impl (Fn Any -> (Option (Pair String Any)))))
-    (define (definition top)
+    (define (definition (top Any)) (→ (Option (Pair String Any)))
       (match (datum->list top)
         ((Some (Cons keyword (Cons target body)))
          (if (symbol-is? keyword "define") (Some (definition-parts target body)) (None)))
         (_ (None))))
 
-    (: definition-parts (impl (Fn Any (List Any) -> (Pair String Any))))
-    (define (definition-parts target body)
+    (define (definition-parts (target Any) (body (List Any))) (→ (Pair String Any))
       (match-any target
                  ((Symbol (Symbol name))
                   (match body
@@ -71,21 +66,18 @@
                         (datum-list (Cons (ann (Symbol "lambda") Any) (Cons params body)))))
                  (else (panic "scheme: expected a definition name"))))
 
-    (: variable (impl (Fn String -> Syntax)))
-    (define (variable name)
+    (define (variable (name String)) (→ Syntax)
       (SymbolSyntax (string-append "%" name)))
 
     (define unspecified (SymbolSyntax "unspecified"))
 
     ;; `(if test yes no)` where Scheme's truth decides: anything but #f.
-    (: scheme-if (impl (Fn Syntax Syntax Syntax -> Syntax)))
-    (define (scheme-if test yes no)
+    (define (scheme-if (test Syntax) (yes Syntax) (no Syntax)) (→ Syntax)
       (form "if" (list (form "datum-truthy?" (list test)) yes no)))
 
     ;; ---- Expressions ----
 
-    (: translate (impl (Fn Any -> Syntax)))
-    (define (translate datum)
+    (define (translate (datum Any)) (→ Syntax)
       (match-any datum
                  ((Symbol (Symbol name)) (form "ref-get" (list (variable name))))
                  ((SchemePair (SchemePair head rest))
@@ -97,8 +89,7 @@
                              (else (translate-call datum))))
                  (else (quoted datum))))
 
-    (: special-forms (List String))
-    (define special-forms
+    (define special-forms (→ (List String))
       (list "quote"
             "lambda"
             "if"
@@ -115,15 +106,13 @@
             "when"
             "unless"))
 
-    (: translate-call (impl (Fn Any -> Syntax)))
-    (define (translate-call datum)
+    (define (translate-call (datum Any)) (→ Syntax)
       (match (items datum)
         ((Cons f arguments)
          (form "call" (list (translate f) (form "list" (map translate arguments)))))
         ((Nil) (panic "scheme: empty application"))))
 
-    (: translate-special (impl (Fn String (List Any) -> Syntax)))
-    (define (translate-special keyword args)
+    (define (translate-special (keyword String) (args (List Any))) (→ Syntax)
       (case keyword
         (("quote") (quoted (first args)))
         (("lambda") (translate-lambda (first args) (list-tail args 1)))
@@ -147,8 +136,7 @@
          (scheme-if (translate (first args)) unspecified (translate-body (list-tail args 1))))
         (else (panic (string-append "scheme: unsupported form " keyword)))))
 
-    (: translate-if (impl (Fn (List Any) -> Syntax)))
-    (define (translate-if args)
+    (define (translate-if (args (List Any))) (→ Syntax)
       (match args
         ((Cons test (Cons then (Nil))) (scheme-if (translate test) (translate then) unspecified))
         ((Cons test (Cons then (Cons otherwise (Nil))))
@@ -163,8 +151,7 @@
       ((fixed (List String))
        (rest (Option String))))
 
-    (: parse-parameters (impl (Fn Any -> Parameters)))
-    (define (parse-parameters datum)
+    (define (parse-parameters (datum Any)) (→ Parameters)
       (let loop ((tail datum) (fixed (ann (Nil) (List String))))
         (match-any tail
                    ((Null _) (Parameters (reverse fixed) (None)))
@@ -175,13 +162,11 @@
                                (else (panic "scheme: expected parameter names"))))
                    (else (panic "scheme: expected parameter names")))))
 
-    (: fresh (impl (Fn String (List String) -> String)))
-    (define (fresh name bound)
+    (define (fresh (name String) (bound (List String))) (→ String)
       (if (member? name bound) (panic "scheme: duplicate parameter") name))
 
     ;; A procedure takes its arguments as one list and checks their count.
-    (: translate-lambda (impl (Fn Any (List Any) -> Syntax)))
-    (define (translate-lambda datum body)
+    (define (translate-lambda (datum Any) (body (List Any))) (→ Syntax)
       (let ((params (parse-parameters datum)) (arguments (SymbolSyntax "arguments")))
         (boxed (form "Procedure"
                      (list (form "lambda"
@@ -199,8 +184,7 @@
 
     ;; Fixed parameters take the arguments' first items, and a rest
     ;; parameter the remainder.
-    (: parameter-cells (impl (Fn Parameters Syntax -> (List Syntax))))
-    (define (parameter-cells params arguments)
+    (define (parameter-cells (params Parameters) (arguments Syntax)) (→ (List Syntax))
       (let ((fixed (::fixed params)))
         (append (map-indexed (lambda (index name)
                                (cell name (form "list-ref" (list arguments (IntegerSyntax index)))))
@@ -213,18 +197,15 @@
                   ((None) (Nil))))))
 
     ;; `(%name (ref value))`, a binding of a variable's cell.
-    (: cell (impl (Fn String Syntax -> Syntax)))
-    (define (cell name value)
+    (define (cell (name String) (value Syntax)) (→ Syntax)
       (ListSyntax (list (variable name) (form "ref" (list value)))))
 
-    (: empty-cells (impl (Fn (List String) -> (List Syntax))))
-    (define (empty-cells names)
+    (define (empty-cells (names (List String))) (→ (List Syntax))
       (map (lambda (name) (cell name unspecified)) names))
 
     ;; Internal definitions become cells that all exist before any is set,
     ;; so they may refer to each other, as with letrec*.
-    (: translate-body (impl (Fn (List Any) -> Syntax)))
-    (define (translate-body body)
+    (define (translate-body (body (List Any))) (→ Syntax)
       (let ((names (concatenate (map (lambda (item)
                                        (match (definition item)
                                          ((Some (Pair name _)) (list name))
@@ -240,8 +221,7 @@
 
     ;; ---- Binding forms ----
 
-    (: translate-let (impl (Fn (List Any) -> Syntax)))
-    (define (translate-let args)
+    (define (translate-let (args (List Any))) (→ Syntax)
       (match args
         ((Cons first rest)
          (match-any first
@@ -259,8 +239,8 @@
                                       (translate-body rest))))))
         (_ (panic "scheme: expected (let ((name value) ...) body ...)"))))
 
-    (: translate-named-let (impl (Fn String (List (Pair String Any)) (List Any) -> Syntax)))
-    (define (translate-named-let name pairs body)
+    (define (translate-named-let (name String) (pairs (List (Pair String Any))) (body (List Any)))
+      (→ Syntax)
       (let ((procedure (translate-lambda
                         (datum-list
                          (map (lambda (pair) (ann (Symbol (::first pair)) Any)) pairs))
@@ -271,8 +251,7 @@
                                 (list (form "ref-get" (list (variable name)))
                                       (form "list" (map translate (map ::second pairs)))))))))
 
-    (: translate-let* (impl (Fn (List Any) (List Any) -> Syntax)))
-    (define (translate-let* bindings body)
+    (define (translate-let* (bindings (List Any)) (body (List Any))) (→ Syntax)
       (match bindings
         ((Nil) (translate-body body))
         ((Cons first rest)
@@ -281,8 +260,7 @@
                  (list (ListSyntax (list (cell (::first pair) (translate (::second pair)))))
                        (translate-let* rest body)))))))
 
-    (: translate-letrec (impl (Fn (List Any) (List Any) -> Syntax)))
-    (define (translate-letrec bindings body)
+    (define (translate-letrec (bindings (List Any)) (body (List Any))) (→ Syntax)
       (let ((pairs (map binding bindings)))
         (form "let" (Cons (ListSyntax (empty-cells (map ::first pairs)))
                           (append (map (lambda (pair)
@@ -292,19 +270,16 @@
                                        pairs)
                                   (list (translate-body body)))))))
 
-    (: binding (impl (Fn Any -> (Pair String Any))))
-    (define (binding datum)
+    (define (binding (datum Any)) (→ (Pair String Any))
       (match (datum->list datum)
         ((Some (Cons name (Cons value (Nil)))) (Pair (symbol-name name) value))
         (_ (panic (string-append "scheme: expected (name value), got " (datum->string datum))))))
 
-    (: holding (impl (Fn String Syntax (dyn (Fn Syntax -> Syntax)) -> Syntax)))
-    (define (holding name value body)
+    (define (holding (name String) (value Syntax) (body (dyn (Fn Syntax → Syntax)))) (→ Syntax)
       (let ((held (SymbolSyntax name)))
         (form "let" (list (ListSyntax (list (ListSyntax (list held value)))) (body held)))))
 
-    (: translate-and (impl (Fn (List Any) -> Syntax)))
-    (define (translate-and args)
+    (define (translate-and (args (List Any))) (→ Syntax)
       (match args
         ((Nil) (boxed (BooleanSyntax #t)))
         ((Cons last (Nil)) (translate last))
@@ -313,8 +288,7 @@
                   (translate first)
                   (lambda (value) (scheme-if value (translate-and rest) value))))))
 
-    (: translate-or (impl (Fn (List Any) -> Syntax)))
-    (define (translate-or args)
+    (define (translate-or (args (List Any))) (→ Syntax)
       (match args
         ((Nil) (boxed (BooleanSyntax #f)))
         ((Cons last (Nil)) (translate last))
@@ -323,15 +297,13 @@
                   (translate first)
                   (lambda (value) (scheme-if value value (translate-or rest)))))))
 
-    (: translate-cond (impl (Fn (List Any) -> Syntax)))
-    (define (translate-cond clauses)
+    (define (translate-cond (clauses (List Any))) (→ Syntax)
       (match clauses
         ((Nil) unspecified)
         ((Cons clause rest) (translate-clause (items clause) (translate-cond rest)))))
 
     ;; One clause of a `cond`, given what the clauses after it do.
-    (: translate-clause (impl (Fn (List Any) Syntax -> Syntax)))
-    (define (translate-clause clause otherwise)
+    (define (translate-clause (clause (List Any)) (otherwise Syntax)) (→ Syntax)
       (match clause
         ((Cons test body)
          (if (symbol-is? test "else") (translate-body body)
@@ -339,8 +311,7 @@
                       (lambda (value) (scheme-if value (cond-value value body) otherwise)))))
         ((Nil) (panic "scheme: empty cond clause"))))
 
-    (: cond-value (impl (Fn Syntax (List Any) -> Syntax)))
-    (define (cond-value value body)
+    (define (cond-value (value Syntax) (body (List Any))) (→ Syntax)
       (match body
         ((Nil) value)
         ((Cons arrow (Cons receiver (Nil)))
@@ -349,12 +320,10 @@
              (translate-body body)))
         (_ (translate-body body))))
 
-    (: translate-case (impl (Fn Any (List Any) -> Syntax)))
-    (define (translate-case key clauses)
+    (define (translate-case (key Any) (clauses (List Any))) (→ Syntax)
       (holding "case.key" (translate key) (lambda (held) (case-clauses held clauses))))
 
-    (: case-clauses (impl (Fn Syntax (List Any) -> Syntax)))
-    (define (case-clauses key clauses)
+    (define (case-clauses (key Syntax) (clauses (List Any))) (→ Syntax)
       (match clauses
         ((Nil) unspecified)
         ((Cons clause rest)
@@ -369,12 +338,10 @@
 
     ;; Only the outer boundary is erased; native literal types survive until
     ;; they enter a Scheme value, pair field, vector element or mutable cell.
-    (: boxed (impl (Fn Syntax -> Syntax)))
-    (define (boxed expression)
+    (define (boxed (expression Syntax)) (→ Syntax)
       (form "ann" (list expression (SymbolSyntax "Any"))))
 
-    (: quoted (impl (Fn Any -> Syntax)))
-    (define (quoted datum)
+    (define (quoted (datum Any)) (→ Syntax)
       (boxed
        (match-any datum
                   ((Null _) (form "Null" (Nil)))
@@ -395,31 +362,26 @@
 
     ;; ---- Lists of syntax ----
 
-    (: items (impl (Fn Any -> (List Any))))
-    (define (items datum)
+    (define (items (datum Any)) (→ (List Any))
       (match (datum->list datum)
         ((Some elements) elements)
         ((None) (panic (string-append "scheme: expected a list, got " (datum->string datum))))))
 
-    (: first (impl (Fn (List Any) -> Any)))
-    (define (first data)
+    (define (first (data (List Any))) (→ Any)
       (match data
         ((Cons datum _) datum)
         ((Nil) (panic "scheme: a form is missing a part"))))
 
-    (: second (impl (Fn (List Any) -> Any)))
-    (define (second data)
+    (define (second (data (List Any))) (→ Any)
       (first (list-tail data 1)))
 
-    (: symbol-name (impl (Fn Any -> String)))
-    (define (symbol-name datum)
+    (define (symbol-name (datum Any)) (→ String)
       (match-any datum
                  ((Symbol (Symbol name)) name)
                  (else
                   (panic (string-append "scheme: expected a symbol, got " (datum->string datum))))))
 
-    (: symbol-is? (impl (Fn Any String -> Bool)))
-    (define (symbol-is? datum name)
+    (define (symbol-is? (datum Any) (name String)) (→ Bool)
       (match-any datum ((Symbol (Symbol actual)) (string=? name actual)) (else #f)))
 
     ))

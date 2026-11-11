@@ -92,9 +92,9 @@
       (Dismiss)
       (Reconnected))
 
-    (type CommandResult (dyn (Fn State -> Step)))
+    (type CommandResult (dyn (Fn State → Step)))
     (struct Command
-      ((work (dyn (FnOnce -> CommandResult ! tasks dom fetch)))
+      ((work (dyn (FnOnce → CommandResult ! tasks dom fetch)))
        (interrupted CommandResult)))
 
     (struct Step
@@ -102,36 +102,28 @@
        (outcome (Option Outcome))
        (commands (List Command))))
 
-    (: initial State)
-    (define initial (State 0 (None)))
+    (define initial (→ State) (State 0 (None)))
 
-    (: visible? (impl (Fn State -> Bool)))
-    (define (visible? state)
+    (define (visible? (state State)) (→ Bool)
       (match (::panel state) ((Some _) #t) ((None) #f)))
 
-    (: finding? (impl (Fn State -> Bool)))
-    (define (finding? state)
+    (define (finding? (state State)) (→ Bool)
       (match (::panel state)
         ((Some panel) (find-mode? (::mode panel)))
         ((None) #f)))
 
-    (: find-mode? (impl (Fn Mode -> Bool)))
-    (define (find-mode? mode)
+    (define (find-mode? (mode Mode)) (→ Bool)
       (match mode ((Searching (Search (search-CurrentDraft _) _)) #t) (_ #f)))
 
-    (: cancel (impl (Fn State -> State)))
-    (define (cancel state)
+    (define (cancel (state State)) (→ State)
       (State (+ 1 (::generation state)) (None)))
 
-    (: stay (impl (Fn State -> Step)))
-    (define (stay state) (Step state (None) (Nil)))
+    (define (stay (state State)) (→ Step) (Step state (None) (Nil)))
 
-    (: selected (impl (Fn State Outcome -> Step)))
-    (define (selected state outcome)
+    (define (selected (state State) (outcome Outcome)) (→ Step)
       (Step (cancel state) (Some outcome) (Nil)))
 
-    (: open (impl (Fn State Mode -> Step)))
-    (define (open state mode)
+    (define (open (state State) (mode Mode)) (→ Step)
       (Step (if (and (finding? state) (find-mode? mode)) state
                 (State (+ 1 (::generation state)) (Some (Panel mode "" 0)))) (None)
                 (list (Command (once (lambda ()
@@ -142,8 +134,7 @@
 
     ;; ---- Updates ----
 
-    (: update (impl (Fn State Context Message -> Step)))
-    (define (update state context message)
+    (define (update (state State) (context Context) (message Message)) (→ Step)
       (match message
         ((Idle) (stay state))
         ((Query text) (queried state text))
@@ -164,8 +155,8 @@
 
     ;; A draft can change through a read, reload or format as well as typing.
     ;; Reconcile after every parent update, so results retain exact provenance.
-    (: reconcile (impl (Fn State (Option search-Draft) -> Step)))
-    (define (reconcile state draft)
+
+    (define (reconcile (state State) (draft (Option search-Draft))) (→ Step)
       (match (::panel state)
         ((Some panel)
          (match (::mode panel)
@@ -184,8 +175,7 @@
            (_ (stay state))))
         ((None) (stay state))))
 
-    (: queried (impl (Fn State String -> Step)))
-    (define (queried state text)
+    (define (queried (state State) (text String)) (→ Step)
       (match (::panel state)
         ((Some panel)
          (if (creation-pending? panel) (stay state)
@@ -201,29 +191,24 @@
                          (Nil))))))
         ((None) (stay state))))
 
-    (: reset-mode (impl (Fn Mode -> Mode)))
-    (define (reset-mode mode)
+    (define (reset-mode (mode Mode)) (→ Mode)
       (match mode
         ((Searching search) (Searching (Search-phase-set search (Debouncing))))
         ((Creating (Creation directory _ _)) (Creating (Creation directory #f "")))
         (_ mode)))
 
-    (: searching? (impl (Fn Mode -> Bool)))
-    (define (searching? mode)
+    (define (searching? (mode Mode)) (→ Bool)
       (match mode ((Searching _) #t) (_ #f)))
 
-    (: creation-pending? (impl (Fn Panel -> Bool)))
-    (define (creation-pending? panel)
+    (define (creation-pending? (panel Panel)) (→ Bool)
       (match (::mode panel) ((Creating (Creation _ pending _)) pending) (_ #f)))
 
-    (: mode-set (impl (Fn State Mode -> State)))
-    (define (mode-set state mode)
+    (define (mode-set (state State) (mode Mode)) (→ State)
       (match (::panel state)
         ((Some panel) (State-panel-set state (Some (Panel-mode-set panel mode))))
         ((None) state)))
 
-    (: pressed (impl (Fn State Context String I32 -> Step)))
-    (define (pressed state context key modifiers)
+    (define (pressed (state State) (context Context) (key String) (modifiers I32)) (→ Step)
       (match (::panel state)
         ((None) (stay state))
         ((Some panel)
@@ -245,8 +230,8 @@
                     (stay (State-panel-set state (Some (Panel-selected-set panel at)))))))))))
 
     ;; Local find keeps its input and results while navigation reveals a match.
-    (: find-next (impl (Fn State Context Bool -> Step)))
-    (define (find-next state context backwards)
+
+    (define (find-next (state State) (context Context) (backwards Bool)) (→ Step)
       (match (::panel state)
         ((Some panel)
          (let* ((options (choices context panel)) (count (length options))
@@ -260,8 +245,7 @@
                  (_ (stay state))))))
         ((None) (stay state))))
 
-    (: current-match (impl (Fn State -> (Option Outcome))))
-    (define (current-match state)
+    (define (current-match (state State)) (→ (Option Outcome))
       (match (::panel state)
         ((Some panel)
          (let ((options (choices (Context (Nil) (Nil)) panel)) (at (::selected panel)))
@@ -272,8 +256,7 @@
 
     ;; ---- Search and creation tasks ----
 
-    (: search-due (impl (Fn State I64 -> Step)))
-    (define (search-due state generation)
+    (define (search-due (state State) (generation I64)) (→ Step)
       (match (::panel state)
         ((Some (Panel (Searching (Search source (Debouncing))) query _))
          (if (and (= generation (::generation state)) (not (string=? query "")))
@@ -286,12 +269,10 @@
              (stay state)))
         (_ (stay state))))
 
-    (: interrupted-request Failure)
-    (define interrupted-request
+    (define interrupted-request (→ Failure)
       (Failure 0 "Request interrupted; its server-side outcome may be unknown."))
 
-    (: search-interrupted (impl (Fn State I64 -> Step)))
-    (define (search-interrupted state generation)
+    (define (search-interrupted (state State) (generation I64)) (→ Step)
       (match (::panel state)
         ((Some (Panel (Searching (Search source _)) _ _))
          (if (= generation (::generation state))
@@ -300,8 +281,8 @@
              (stay state)))
         (_ (stay state))))
 
-    (: searched (impl (Fn State I64 (Result search-Results Failure) -> Step)))
-    (define (searched state generation result)
+    (define (searched (state State) (generation I64) (result (Result search-Results Failure)))
+      (→ Step)
       (match (::panel state)
         ((Some (Panel (Searching (Search source (Fetching))) _ _))
          (if (= generation (::generation state))
@@ -309,8 +290,7 @@
              (stay state)))
         (_ (stay state))))
 
-    (: creating (impl (Fn State -> Step)))
-    (define (creating state)
+    (define (creating (state State)) (→ Step)
       (match (::panel state)
         ((Some (Panel (Creating (Creation directory #f _)) path _))
          (if (string=? path "") (stay state)
@@ -332,8 +312,8 @@
 
     ;; Closing does not undo a write. Its watcher event still updates the file
     ;; tree, but only the interaction that submitted it may navigate on success.
-    (: created (impl (Fn State I64 (Result Json Failure) -> Step)))
-    (define (created state generation result)
+
+    (define (created (state State) (generation I64) (result (Result Json Failure))) (→ Step)
       (match (::panel state)
         ((Some (Panel (Creating (Creation directory #t _)) path _))
          (if (= generation (::generation state))
@@ -353,8 +333,8 @@
        (action Action)))
 
     ;; Ordered characters are sufficient for paths and symbolic command names.
-    (: matches? (impl (Fn String String -> Bool)))
-    (define (matches? query text)
+
+    (define (matches? (query String) (text String)) (→ Bool)
       (let loop ((wanted (string->list (string-downcase query)))
                  (text (string->list (string-downcase text))))
         (match wanted
@@ -365,8 +345,7 @@
                  ((Nil) #f)
                  ((Cons next more) (loop (if (char=? char next) rest wanted) more))))))))
 
-    (: choices (impl (Fn Context Panel -> (List Choice))))
-    (define (choices context panel)
+    (define (choices (context Context) (panel Panel)) (→ (List Choice))
       (let ((query (::query panel)))
         (match (::mode panel)
           ((Commands)
@@ -386,12 +365,10 @@
            (search-choices results (string-length query)))
           ((Searching _) (Nil)))))
 
-    (: location (impl (Fn String I64 I64 -> String)))
-    (define (location path line column)
+    (define (location (path String) (line I64) (column I64)) (→ String)
       (string-append path ":" (show line) ":" (show column)))
 
-    (: search-choices (impl (Fn search-Results I64 -> (List Choice))))
-    (define (search-choices results size)
+    (define (search-choices (results search-Results) (size I64)) (→ (List Choice))
       (match results
         ((search-SavedResults results)
          (map (lambda (hit)
@@ -407,8 +384,7 @@
 
     ;; ---- View ----
 
-    (: find-view (impl (Fn State Context -> (List (Html Message)))))
-    (define (find-view state context)
+    (define (find-view (state State) (context Context)) (→ (List (Html Message)))
       (match (::panel state)
         ((Some panel)
          (let ((count (length (choices context panel))))
@@ -430,8 +406,7 @@
                                 (find-button "Close find (Escape)" "×" #f (Dismiss)))))))
         ((None) (Nil))))
 
-    (: find-input (impl (Fn Panel -> (Html Message))))
-    (define (find-input panel)
+    (define (find-input (panel Panel)) (→ (Html Message))
       (Element "input"
                (list (Attr "id" "command-query") (Attr "placeholder" "Find")
                      (Attr "aria-label" "Find in current file")
@@ -441,8 +416,8 @@
                      (On "input" (list (Value)) (Allow) (lambda (event) (Query (::value event)))))
                (Nil)))
 
-    (: find-button (impl (Fn String String Bool Message -> (Html Message))))
-    (define (find-button title label disabled message)
+    (define (find-button (title String) (label String) (disabled Bool) (message Message))
+      (→ (Html Message))
       (Element "button"
                (list (Attr "title" title) (Attr "aria-label" title)
                      (FlagProperty "disabled" disabled)
@@ -450,8 +425,7 @@
                      (On "click" (Nil) (Allow) (lambda (event) message)))
                (list (Text label))))
 
-    (: find-status (impl (Fn Panel I64 -> String)))
-    (define (find-status panel count)
+    (define (find-status (panel Panel) (count I64)) (→ String)
       (if (string=? (::query panel) "") ""
           (match (::mode panel)
             ((Searching (Search _ (Finished (Ok results))))
@@ -464,13 +438,11 @@
             ((Searching (Search _ (Finished (Err failure)))) (::message failure))
             (_ "Searching…"))))
 
-    (: find-chords (List Chord))
-    (define find-chords
+    (define find-chords (→ (List Chord))
       (list (Chord "Enter" 0) (Chord "Enter" shift-key) (Chord "Escape" 0)
             (Chord "ArrowUp" 0) (Chord "ArrowDown" 0)))
 
-    (: view (impl (Fn State Context -> (List (Html Message)))))
-    (define (view state context)
+    (define (view (state State) (context Context)) (→ (List (Html Message)))
       (match (::panel state)
         ((None) (Nil))
         ((Some panel)
@@ -500,8 +472,7 @@
                                                         (list
                                                          (Text (panel-help panel)))))))))))))
 
-    (: panel-title (impl (Fn Panel -> String)))
-    (define (panel-title panel)
+    (define (panel-title (panel Panel)) (→ String)
       (match (::mode panel)
         ((Commands) "Run a command…")
         ((Files) "Go to file…")
@@ -512,8 +483,7 @@
         ((Creating (Creation directory _ _))
          (if directory "New directory path…" "New file path…"))))
 
-    (: panel-input (impl (Fn Panel I64 -> (Html Message))))
-    (define (panel-input panel selected)
+    (define (panel-input (panel Panel) (selected I64)) (→ (Html Message))
       (Element "input"
                (list (Attr "id" "command-query")
                      (Attr "placeholder" (panel-title panel))
@@ -532,8 +502,8 @@
                          (lambda (event) (KeyPressed (::key event) (::modifiers event)))))
                (Nil)))
 
-    (: panel-results (impl (Fn Panel (List Choice) I64 I64 -> (Html Message))))
-    (define (panel-results panel choices selected generation)
+    (define (panel-results (panel Panel) (choices (List Choice)) (selected I64) (generation I64))
+      (→ (Html Message))
       (Element "div"
                (list (Attr "id" "command-results") (Attr "role" "listbox")
                      (NumberProperty "scrollTop" (i64->f64 (max 0 (- (* selected 30) 180)))))
@@ -545,8 +515,7 @@
                       (panel-option choice index (= index selected) generation))
                     choices))))
 
-    (: panel-empty (impl (Fn Panel -> String)))
-    (define (panel-empty panel)
+    (define (panel-empty (panel Panel)) (→ String)
       (match (::mode panel)
         ((Searching (Search _ phase))
          (if (string=? (::query panel) "") "Type text to search"
@@ -558,8 +527,7 @@
          (if pending "Creating…" "Enter a path relative to the project"))
         (_ "No matches")))
 
-    (: panel-help (impl (Fn Panel -> String)))
-    (define (panel-help panel)
+    (define (panel-help (panel Panel)) (→ String)
       (match (::mode panel)
         ((Searching (Search source phase))
          (string-append
@@ -575,8 +543,8 @@
         ((Files) "↑ ↓ choose · Enter open · Escape close · Up to 200 paths; type to narrow")
         ((Commands) "↑ ↓ choose · Enter run · Escape close")))
 
-    (: panel-option (impl (Fn Choice I64 Bool I64 -> (Html Message))))
-    (define (panel-option choice index selected generation)
+    (define (panel-option (choice Choice) (index I64) (selected Bool) (generation I64))
+      (→ (Html Message))
       (Element "button"
                (list (Attr "id" (string-append "command-result-" (show index)))
                      (Attr "class" (if selected "palette-option selected" "palette-option"))
@@ -597,8 +565,7 @@
                          (list (Attr "class" "command-keys"))
                          (list (Text (::detail choice)))))))
 
-    (: search-summary (impl (Fn search-Results -> String)))
-    (define (search-summary results)
+    (define (search-summary (results search-Results)) (→ String)
       (match results
         ((search-SavedResults results)
          (string-append (limit-notice (::limited results))
@@ -609,12 +576,10 @@
                             "")))
         ((search-DraftResults _ _ limited) (limit-notice limited))))
 
-    (: limit-notice (impl (Fn Bool -> String)))
-    (define (limit-notice limited)
+    (define (limit-notice (limited Bool)) (→ String)
       (if limited " · Results limited; narrow your query" ""))
 
-    (: panel-chords (List Chord))
-    (define panel-chords
+    (define panel-chords (→ (List Chord))
       (Cons (Chord "Tab" shift-key)
             (map (lambda (key) (Chord key 0)) (list "ArrowUp" "ArrowDown" "Enter" "Escape" "Tab"))))
     ))

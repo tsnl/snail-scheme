@@ -59,9 +59,9 @@ the same handlers.
 ```scheme
 (enum Step
   (Finished)
-  (Yielded ((next (dyn (FnOnce -> Step ! host)))))
-  (Sleeping ((delay I64) (next (dyn (FnOnce -> Step ! host)))))
-  (Waiting ((ticket I64) (next (dyn (FnOnce -> Step ! host))))))
+  (Yielded ((next (dyn (FnOnce → Step ! host)))))
+  (Sleeping ((delay I64) (next (dyn (FnOnce → Step ! host)))))
+  (Waiting ((ticket I64) (next (dyn (FnOnce → Step ! host))))))
 ```
 
 The scheduler keeps every task that is not running in exactly one place:
@@ -316,11 +316,11 @@ which reads its arguments and returns at once, awaits the ticket, and
 finishes by taking the result the host built for it:
 
 ```scheme
-(define (through-host start finish)
-  (let ((id (ticket)))
+(define through-host
+  (lambda (start finish) (let ((id (ticket)))
     (start id)
     (await id)
-    (finish id)))
+    (finish id))))
 ```
 
 `(snail shell socket)`, `(snail shell process)` and the application's

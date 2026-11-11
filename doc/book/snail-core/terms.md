@@ -13,8 +13,8 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
  (snail core base)
  (snail core io))
 
-(: fibonacci (impl (Fn I64 -> I64)))
-(define (fibonacci n)
+
+(define (fibonacci (n I64)) (→ I64)
   (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
 
 (display (fibonacci 30))
@@ -57,14 +57,14 @@ a library directory finds its data from any working directory.
 
 | Form | Meaning |
 | --- | --- |
-| `(define name value)`, `(define (name param ...) body ...)` | Definition. |
+| `(define name [header ...] value)`, `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Value or typed function definition. Every named function parameter has a type and every named function declares its result; optional effect, generic, constraint and annotation clauses precede the body. |
 | `(lambda (param ...) body ...)` | Function with a fixed number of parameters. |
 | `(fn (param ...) body ...)` | Function without an environment: it reads no local of the code around it ([ownership](ownership.md#closures-without-an-environment)). |
 | `(if test then [else])` | `test` is `Bool`; without `else` the result is `Unit`. |
 | `(begin form ...)` | A body: definitions and expressions in order. |
 | `(let ((name value) ...) body ...)`, `(let loop ((name value) ...) body ...)` | Local bindings and loops. |
 | `(match value (pattern body ...) ...)` | Pattern matching, checked for exhaustiveness and unreachable clauses. |
-| `(: name type)` | Signature for the following definition. |
+| `(: name type)` | Separate signature for a class or effect method, or a foreign declaration. Implementation signatures belong on their definitions. |
 | `(ann expression type)` | Static type annotation. |
 | `(type-convert expression type)` | Converts to or from `Any`; a downcast is checked at run time. |
 | `(type-test expression type)` | Whether an `Any` holds a value of `type`, without trapping. |
@@ -72,7 +72,7 @@ a library directory finds its data from any working directory.
 | `(enum (Name param ...) (Case [((field type) ...)]) ...)` | Tagged sum. |
 | `(type (Name param ...) type)` | Transparent alias. |
 | `(typeclass (Class param ...) (: method type) ...)` | Class of types with methods. |
-| `(instance (Class type ...) [(requires constraint ...)] (define ...) ...)` | Instance. |
+| `(instance (Class type ...) [(⊨ constraint ...)] (define ...) ...)` | Instance. |
 | `(effect Name ((operation type) ...) [(default ((operation implementation) ...))])` | Effect with operations and optional Snail-Core defaults, each a lambda or a function's or extern's name. `(ctl operation type)` declares a control operation, which has no default ([effects and handlers](effects.md)). |
 | `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`; a control operation's implementation also takes `resume`. |
 | `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
@@ -104,8 +104,11 @@ Familiar projection syntax such as `a.b.c` should be considered on its
 own merits, alongside bindings, calls, signatures and callback bodies.
 
 The implemented [callable signatures](types.md#callable-classes) use
-`impl` and `dyn` around `Fn`, `FnMut`, or `FnOnce`, with `->` separating
-the result and `!` introducing effects. Definitions continue to use `define`.
+`impl` and `dyn` around `Fn`, `FnMut`, or `FnOnce`, with `→` separating
+the result and `!` introducing effects. Named function definitions require
+typed parameter pairs and may carry result, effect, generic and constraint
+clauses inline. Value definitions retain their initializer form. Definitions
+continue to use `define`.
 Direct-style suspension remains available: the compiler turns the remaining
 computation into a one-shot callable. Callable contracts expose continuation
 boundaries, including through wrapper calls. A separate checked call-site
@@ -163,8 +166,7 @@ With the existing definition form, the same callable could be written as:
 
 ```text
 #lang snail/sweet
-: square impl(Fn(I64 -> I64))
-define square(n)
+define square(n(I64)) (→ I64)
   {n * n}
 ```
 

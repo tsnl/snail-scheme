@@ -32,7 +32,7 @@
       ((car Any)
        (cdr Any)))
     (struct Procedure
-      ((call (dyn (Fn (List Any) -> Any ! console mut dyn-cast)))))
+      ((call (dyn (Fn (List Any) → Any ! console mut dyn-cast)))))
 
     ;; Each branch names a concrete type and an ordinary pattern for it.
     ;; Probing is pure; a failed type or pattern proceeds to the next branch.
@@ -48,16 +48,16 @@
 
     ;; The typed parser still serves Number clients; Scheme stores only its
     ;; native payload. Integral exact literals start as arbitrary integers.
-    (: number->datum (impl (Fn Number -> Any)))
-    (define (number->datum n)
+
+    (define (number->datum (n Number)) (→ Any)
       (match n
         ((Exact r) (if (rational-integer? r) (ann (::numerator r) Any) (ann r Any)))
         ((Inexact x) (ann x Any))))
 
     ;; A view for equality, comparison and formatting, never stored in Scheme
     ;; cells. Arithmetic instead selects instances on the original payloads.
-    (: datum-number (impl (Fn Any -> (Option Number))))
-    (define (datum-number value)
+
+    (define (datum-number (value Any)) (→ (Option Number))
       (match-any value
                  ((Integer n) (Some (number-from-integer n)))
                  ((Rational r) (Some (Exact r)))
@@ -66,8 +66,8 @@
 
     ;; Structural equality for Scheme's immutable data. Foreign Core values
     ;; and procedures have no Scheme equality contract and compare false.
-    (: datum=? (impl (Fn Any Any -> Bool)))
-    (define (datum=? a b)
+
+    (define (datum=? (a Any) (b Any)) (→ Bool)
       (match-any a
                  ((Null _) (type-test b Null))
                  ((Bool x) (match-any b ((Bool y) (= x y)) (else #f)))
@@ -89,35 +89,30 @@
                           (and (= (number-exact? x) (number-exact? y)) (= x y)))
                          (_ #f)))))
 
-    (: vectors=? (impl (Fn (Vector Any) (Vector Any) -> Bool)))
-    (define (vectors=? a b)
+    (define (vectors=? (a (Vector Any)) (b (Vector Any))) (→ Bool)
       (and (= (vector-length a) (vector-length b))
            (let loop ((index 0))
              (or (= index (vector-length a))
                  (and (datum=? (vector-ref a index) (vector-ref b index))
                       (loop (+ index 1)))))))
 
-    (: bytes=? (impl (Fn Bytes Bytes -> Bool)))
-    (define (bytes=? a b)
+    (define (bytes=? (a Bytes) (b Bytes)) (→ Bool)
       (and (= (vector-length a) (vector-length b))
            (let loop ((index 0))
              (or (= index (vector-length a))
                  (and (= (vector-ref a index) (vector-ref b index)) (loop (+ index 1)))))))
 
-    (: datum-list (impl (Fn (List Any) -> Any)))
-    (define (datum-list items)
+    (define (datum-list (items (List Any))) (→ Any)
       (fold-right (lambda (head tail) (ann (SchemePair head tail) Any)) (ann (Null) Any) items))
 
-    (: datum->list (impl (Fn Any -> (Option (List Any)))))
-    (define (datum->list datum)
+    (define (datum->list (datum Any)) (→ (Option (List Any)))
       (let loop ((datum datum) (items (ann (Nil) (List Any))))
         (match-any datum
                    ((Null _) (Some (reverse items)))
                    ((SchemePair (SchemePair head tail)) (loop tail (Cons head items)))
                    (else (None)))))
 
-    (: datum-truthy? (impl (Fn Any -> Bool)))
-    (define (datum-truthy? datum)
+    (define (datum-truthy? (datum Any)) (→ Bool)
       (match-any datum ((Bool value) value) (else #t)))
 
     ;; ---- Syntax ----
@@ -125,8 +120,8 @@
     ;; A proper list is a form; only values with a Core literal can appear
     ;; in generated syntax. An arbitrary Core value can still pass through
     ;; Scheme, without acquiring an external representation or syntax.
-    (: datum->syntax (impl (Fn Any -> Syntax)))
-    (define (datum->syntax datum)
+
+    (define (datum->syntax (datum Any)) (→ Syntax)
       (match-any datum
                  ((Null _) (ListSyntax (Nil)))
                  ((SchemePair _)
@@ -143,8 +138,8 @@
                          ((None) (panic "datum->syntax: this value has no Snail-Core syntax"))))))
 
     ;; A float written without a point gains one, so it reads as a float.
-    (: number-syntax (impl (Fn Number -> Syntax)))
-    (define (number-syntax n)
+
+    (define (number-syntax (n Number)) (→ Syntax)
       (let ((text (number->string n)))
         (match (string->i64 text)
           ((Some value)

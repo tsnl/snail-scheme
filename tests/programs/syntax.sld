@@ -27,9 +27,9 @@
 (newline)
 (display (let* ((x 1) (y (+ x 1))) (* x y)))
 (newline)
-(define (f x)
-  (define y (* x 2))
-  (define (g z) (+ y z))
-  (g 1))
+(define f
+  (lambda (x) (define y (* x 2))
+          (define g (lambda (z) (+ y z)))
+          (g 1)))
 (display (f 10))
 (newline)

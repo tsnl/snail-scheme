@@ -16,34 +16,32 @@
 
     ;; ---- Runtime contract ----
 
-    (: dyn-cast-label String)
-    (define dyn-cast-label "snail.core.base:dyn-cast")
+    (define dyn-cast-label (→ String) "snail.core.base:dyn-cast")
 
-    (: error-type Type)
-    (define error-type (TCon "snail.core.base:CastError" (Nil)))
+    (define error-type (→ Type) (TCon "snail.core.base:CastError" (Nil)))
 
-    (: any-type Type)
-    (define any-type (TCon "Any" (Nil)))
+    (define any-type (→ Type) (TCon "Any" (Nil)))
 
-    (: cast-result-type (impl (Fn Type -> Type)))
-    (define (cast-result-type target)
+    (define (cast-result-type (target Type)) (→ Type)
       (TCon "snail.core.base:Result" (list target error-type)))
 
-    (: call (impl (Fn String (List Type) Type Type (List Expr) Loc -> Expr)))
-    (define (call name types result row args loc)
+    (define (call (name String)
+                  (types (List Type))
+                  (result Type)
+                  (row Type)
+                  (args (List Expr))
+                  (loc Loc))
+      (→ Expr)
       (Expr (App (Expr (Var name types (Nil)) (TFun (map ::type args) result row) loc) args)
             result loc))
 
-    (: text-value (impl (Fn String Loc -> Expr)))
-    (define (text-value value loc)
+    (define (text-value (value String) (loc Loc)) (→ Expr)
       (Expr (Lit (DString value)) (TCon "String" (Nil)) loc))
 
-    (: integer-value (impl (Fn I64 Loc -> Expr)))
-    (define (integer-value value loc)
+    (define (integer-value (value I64) (loc Loc)) (→ Expr)
       (Expr (Lit (DInt value)) (TCon "I64" (Nil)) loc))
 
-    (: string-list (impl (Fn (List String) Loc -> Expr)))
-    (define (string-list values loc)
+    (define (string-list (values (List String)) (loc Loc)) (→ Expr)
       (let ((string (TCon "String" (Nil)))
             (list-type (TCon "snail.core.base:List" (list (TCon "String" (Nil))))))
         (fold-right (lambda (value rest)
@@ -52,8 +50,13 @@
                     (call "snail.core.base:Nil" (list string) list-type empty-row (Nil) loc)
                     values)))
 
-    (: conversion-error (impl (Fn String (List Type) Expr String I64 Loc -> Expr)))
-    (define (conversion-error reason expected value method argument loc)
+    (define (conversion-error (reason String)
+                              (expected (List Type))
+                              (value Expr)
+                              (method String)
+                              (argument I64)
+                              (loc Loc))
+      (→ Expr)
       (call "snail.core.base:CastError" (Nil) error-type empty-row
             (list (call (string-append "snail.core.base:" reason) (Nil)
                         (TCon "snail.core.base:CastReason" (Nil)) empty-row (Nil) loc)
@@ -64,8 +67,7 @@
                   (integer-value argument loc))
             loc))
 
-    (: conversion-failure (impl (Fn Expr Type Loc -> Expr)))
-    (define (conversion-failure error target loc)
+    (define (conversion-failure (error Expr) (target Type) (loc Loc)) (→ Expr)
       (Expr (Match (call "snail.core.base:conversion-failed" (Nil)
                          (TCon "snail.core.base:Never" (Nil))
                          (TRow (list dyn-cast-label) (None)) (list error) loc)
@@ -73,24 +75,23 @@
 
     ;; Only the success branch constructs a raw projection. Its type test
     ;; established both the identity and the representation of that value.
-    (: checked-branch (impl (Fn Bool Expr Type Loc -> Expr)))
-    (define (checked-branch attempt? value target loc)
+
+    (define (checked-branch (attempt? Bool) (value Expr) (target Type) (loc Loc)) (→ Expr)
       (let ((checked (if (any-type? target) value (Expr (Convert value target) target loc))))
         (if attempt?
             (call "snail.core.base:Ok" (list target error-type) (cast-result-type target)
                   empty-row (list checked) loc)
             checked)))
 
-    (: failed-branch (impl (Fn Bool Expr Type Loc -> Expr)))
-    (define (failed-branch attempt? value target loc)
+    (define (failed-branch (attempt? Bool) (value Expr) (target Type) (loc Loc)) (→ Expr)
       (let ((error (conversion-error "TypeMismatch" (list target) value "" -1 loc)))
         (if attempt?
             (call "snail.core.base:Err" (list target error-type) (cast-result-type target)
                   empty-row (list error) loc)
             (conversion-failure error target loc))))
 
-    (: projection (impl (Fn I64 Bool Expr Type Loc -> (Pair Expr I64))))
-    (define (projection count attempt? inner target loc)
+    (define (projection (count I64) (attempt? Bool) (inner Expr) (target Type) (loc Loc))
+      (→ (Pair Expr I64))
       (let* ((name (string-append "%dyn-cast." (i64->string count) "%"))
              (value (Expr (Var name (Nil) (Nil)) any-type loc))
              (body (if (any-type? target)
@@ -113,16 +114,14 @@
        (name String)
        (loc Loc)))
 
-    (: probe (impl (Fn Expr Pattern -> (Option Probe))))
-    (define (probe value pattern)
+    (define (probe (value Expr) (pattern Pattern)) (→ (Option Probe))
       (match (Pair (::term value) pattern)
         ((Pair (TryConvert input target)
                (PCon "snail.core.base:Ok" (Cons (PVar name _) (Nil)) _))
          (Some (Probe input target name (::loc value))))
         (_ (None))))
 
-    (: probes (impl (Fn Expr Pattern -> (Option (List Probe)))))
-    (define (probes value pattern)
+    (define (probes (value Expr) (pattern Pattern)) (→ (Option (List Probe)))
       (match (Pair (::term value) pattern)
         ((Pair (App (Expr (Var "snail.core.base:Pair" _ _) _ _)
                     (Cons left (Cons right (Nil))))
@@ -138,8 +137,8 @@
     ;; their payload; it neither creates a resource nor needs cleanup when
     ;; another probe fails. Type tests and projections still reach ownership
     ;; checking, which rejects ineligible payload types as before.
-    (: probe-test (impl (Fn (List (Pair Probe Expr)) Loc -> Expr)))
-    (define (probe-test held loc)
+
+    (define (probe-test (held (List (Pair Probe Expr))) (loc Loc)) (→ Expr)
       (let ((bool (TCon "Bool" (Nil))))
         (fold-right (lambda (entry rest)
                       (let* ((probe (::first entry)) (target (::target probe)))
@@ -149,8 +148,7 @@
                                  rest (Expr (Lit (DBool #f)) bool loc)) bool loc))))
                     (Expr (Lit (DBool #t)) bool loc) held)))
 
-    (: probe-values (impl (Fn (List (Pair Probe Expr)) Expr Loc -> Expr)))
-    (define (probe-values held body loc)
+    (define (probe-values (held (List (Pair Probe Expr))) (body Expr) (loc Loc)) (→ Expr)
       (fold-right (lambda (entry body)
                     (let ((probe (::first entry)))
                       (Expr (Let (::name probe)
@@ -162,8 +160,14 @@
     ;; Evaluate every input before selecting a branch: Pair is strict even
     ;; when its left probe fails. The fallback appears once, preserving the
     ;; unique names of its local bindings and control continuations.
-    (: probe-body (impl (Fn I64 (List Probe) (List Expr) Expr Expr Expr -> Expr)))
-    (define (probe-body count probes inputs success failure matched)
+
+    (define (probe-body (count I64)
+                        (probes (List Probe))
+                        (inputs (List Expr))
+                        (success Expr)
+                        (failure Expr)
+                        (matched Expr))
+      (→ Expr)
       (let* ((loc (::loc matched))
              (names (map (lambda (i) (string-append "%dyn-cast." (i64->string (+ count i)) "%"))
                          (iota (length probes))))
@@ -187,16 +191,19 @@
          (match (step count argument ...)
            ((Pair name count) (lowering count (rest ...) body ...))))))
 
-    (: lower-probes (impl (Fn I64 (List Probe) Expr Expr Expr -> (Pair Expr I64))))
-    (define (lower-probes count probes success failure matched)
+    (define (lower-probes (count I64)
+                          (probes (List Probe))
+                          (success Expr)
+                          (failure Expr)
+                          (matched Expr))
+      (→ (Pair Expr I64))
       (lowering count ((inputs (lower-exprs (map ::input probes)))
                        (success (lower-expr success))
                        (failure (lower-expr failure)))
                 (Pair (probe-body count probes inputs success failure matched)
                       (+ count (length probes)))))
 
-    (: lower-expr (impl (Fn I64 Expr -> (Pair Expr I64))))
-    (define (lower-expr count expr)
+    (define (lower-expr (count I64) (expr Expr)) (→ (Pair Expr I64))
       (let ((rebuild (lambda (term) (Expr term (::type expr) (::loc expr)))))
         (match (::term expr)
           ((Convert inner target)
@@ -240,8 +247,8 @@
                       count)))
           (_ (Pair expr count)))))
 
-    (: lower-match (impl (Fn I64 Expr Expr (List Clause) -> (Pair Expr I64))))
-    (define (lower-match count expr value clauses)
+    (define (lower-match (count I64) (expr Expr) (value Expr) (clauses (List Clause)))
+      (→ (Pair Expr I64))
       (match clauses
         ((Cons (Clause pattern success) (Cons (Clause (PWild _) failure) (Nil)))
          (match (probes value pattern)
@@ -249,29 +256,26 @@
            ((None) (lower-ordinary-match count expr value clauses))))
         (_ (lower-ordinary-match count expr value clauses))))
 
-    (: lower-ordinary-match (impl (Fn I64 Expr Expr (List Clause) -> (Pair Expr I64))))
-    (define (lower-ordinary-match count expr value clauses)
+    (define (lower-ordinary-match (count I64) (expr Expr) (value Expr) (clauses (List Clause)))
+      (→ (Pair Expr I64))
       (lowering count ((value (lower-expr value)) (clauses (lower-clauses clauses)))
                 (Pair (Expr (Match value clauses) (::type expr) (::loc expr)) count)))
 
-    (: lower-exprs (impl (Fn I64 (List Expr) -> (Pair (List Expr) I64))))
-    (define (lower-exprs count exprs)
+    (define (lower-exprs (count I64) (exprs (List Expr))) (→ (Pair (List Expr) I64))
       (match exprs
         ((Cons first rest)
          (lowering count ((first (lower-expr first)) (rest (lower-exprs rest)))
                    (Pair (Cons first rest) count)))
         ((Nil) (Pair (Nil) count))))
 
-    (: lower-clauses (impl (Fn I64 (List Clause) -> (Pair (List Clause) I64))))
-    (define (lower-clauses count clauses)
+    (define (lower-clauses (count I64) (clauses (List Clause))) (→ (Pair (List Clause) I64))
       (match clauses
         ((Cons clause rest)
          (lowering count ((body (lower-expr (::body clause))) (rest (lower-clauses rest)))
                    (Pair (Cons (Clause (::pattern clause) body) rest) count)))
         ((Nil) (Pair (Nil) count))))
 
-    (: lower-item (impl (Fn I64 Item -> (Pair Item I64))))
-    (define (lower-item count item)
+    (define (lower-item (count I64) (item Item)) (→ (Pair Item I64))
       (match item
         ((Define name value)
          (lowering count ((value (lower-expr value))) (Pair (Define name value) count)))
@@ -279,8 +283,7 @@
          (lowering count ((value (lower-expr value))) (Pair (Do value) count)))
         (_ (Pair item count))))
 
-    (: lower-conversions (impl (Fn (List Item) -> (List Item))))
-    (define (lower-conversions items)
+    (define (lower-conversions (items (List Item))) (→ (List Item))
       (reverse
        (::first
         (fold-left (lambda (result item)
@@ -299,74 +302,88 @@
       (define i64 (TCon "I64" (Nil)))
       (define string (TCon "String" (Nil)))
       (define loc (Loc "conversions" 1 1))
-      (define (local name type) (Expr (Var name (Nil) (Nil)) type loc))
-      (define (attempt value type) (Expr (TryConvert value type) (cast-result-type type) loc))
-      (define (ok-pattern name type)
-        (PCon "snail.core.base:Ok" (list (PVar name type)) (cast-result-type type)))
-      (define (matched value pattern fallback)
-        (Expr (Match value (list (Clause pattern (integer-value 1 loc)) fallback)) i64 loc))
-      (define (lower value) (::first (lower-expr 0 value)))
+      (define local (lambda (name type) (Expr (Var name (Nil) (Nil)) type loc)))
+      (define attempt
+        (lambda (value type) (Expr (TryConvert value type) (cast-result-type type) loc)))
+      (define ok-pattern
+        (lambda (name type)
+          (PCon "snail.core.base:Ok" (list (PVar name type)) (cast-result-type type))))
+      (define matched
+        (lambda (value pattern fallback)
+          (Expr (Match value (list (Clause pattern (integer-value 1 loc)) fallback)) i64 loc)))
+      (define lower (lambda (value) (::first (lower-expr 0 value))))
 
-      (define (count-terms predicate value)
-        (+ (if (predicate (::term value)) 1 0)
-           (fold-left (lambda (total child) (+ total (count-terms predicate child)))
-                      0 (expr-children value))))
-      (define (references name value)
-        (count-terms (lambda (term)
-                       (match term ((Var actual _ _) (string=? name actual)) (_ #f))) value))
-      (define (tests value)
-        (count-terms (lambda (term) (match term ((TypeTest _ _) #t) (_ #f))) value))
-      (define (projections value)
-        (count-terms (lambda (term) (match term ((Convert _ _) #t) (_ #f))) value))
-      (define (expect-no-packaging value)
-        (for-each (lambda (name) (expect (references name value) 0))
-                  (list "snail.core.base:Pair" "snail.core.base:Ok" "snail.core.base:Err"
-                        "snail.core.base:CastError")))
+      (define count-terms
+        (lambda (predicate value) (+ (if (predicate (::term value)) 1 0)
+                                     (fold-left
+                                      (lambda (total child) (+ total (count-terms predicate child)))
+                                      0 (expr-children value)))))
+      (define references
+        (lambda (name value) (count-terms (lambda (term)
+                                            (match term
+                                              ((Var actual _ _) (string=? name actual))
+                                              (_ #f)))
+                                          value)))
+      (define tests
+        (lambda (value)
+          (count-terms (lambda (term) (match term ((TypeTest _ _) #t) (_ #f))) value)))
+      (define projections
+        (lambda (value) (count-terms (lambda (term) (match term ((Convert _ _) #t) (_ #f))) value)))
+      (define expect-no-packaging
+        (lambda (value) (for-each (lambda (name) (expect (references name value) 0))
+                                  (list "snail.core.base:Pair"
+                                        "snail.core.base:Ok"
+                                        "snail.core.base:Err"
+                                        "snail.core.base:CastError"))))
 
-      (define (test-conversions)
-        (test-single-probe)
-        (test-paired-probes)
-        (test-observed-results))
+      (define test-conversions
+        (lambda () (test-single-probe)
+                (test-paired-probes)
+                (test-observed-results)))
 
-      (define (test-single-probe)
-        (for-each
-         (lambda (target)
-           (let ((body (lower (matched (attempt (call "input" (Nil) any-type empty-row (Nil) loc)
-                                                target)
-                                       (ok-pattern "typed" target)
-                                       (Clause (PWild (cast-result-type target))
-                                               (integer-value 0 loc))))))
-             (expect (references "input" body) 1)
-             (expect (tests body) (if (any-type? target) 0 1))
-             (expect (projections body) (if (any-type? target) 0 1))
-             (expect-no-packaging body)))
-         (list i64 string any-type)))
+      (define test-single-probe
+        (lambda () (for-each
+                    (lambda (target)
+                      (let ((body (lower (matched
+                                          (attempt (call "input" (Nil) any-type empty-row (Nil) loc)
+                                                   target)
+                                          (ok-pattern "typed" target)
+                                          (Clause (PWild (cast-result-type target))
+                                                  (integer-value 0 loc))))))
+                        (expect (references "input" body) 1)
+                        (expect (tests body) (if (any-type? target) 0 1))
+                        (expect (projections body) (if (any-type? target) 0 1))
+                        (expect-no-packaging body)))
+                    (list i64 string any-type))))
 
-      (define (test-paired-probes)
-        (let* ((left (attempt (call "left" (Nil) any-type empty-row (Nil) loc) i64))
-               (right (attempt (call "right" (Nil) any-type empty-row (Nil) loc) string))
-               (types (list (::type left) (::type right)))
-               (pair (TCon "snail.core.base:Pair" types))
-               (value (call "snail.core.base:Pair" types pair empty-row (list left right) loc))
-               (pattern (PCon "snail.core.base:Pair"
-                              (list (ok-pattern "a" i64) (ok-pattern "b" string)) pair))
-               (fallback (Clause (PWild pair) (call "fallback" (Nil) i64 empty-row (Nil) loc)))
-               (body (lower (matched value pattern fallback))))
-          (for-each (lambda (name) (expect (references name body) 1))
-                    (list "left" "right" "fallback"))
-          (expect (tests body) 2)
-          (expect (projections body) 2)
-          (expect-no-packaging body)))
+      (define test-paired-probes
+        (lambda () (let* ((left (attempt (call "left" (Nil) any-type empty-row (Nil) loc) i64))
+                          (right (attempt (call "right" (Nil) any-type empty-row (Nil) loc) string))
+                          (types (list (::type left) (::type right)))
+                          (pair (TCon "snail.core.base:Pair" types))
+                          (value
+                           (call "snail.core.base:Pair" types pair empty-row (list left right) loc))
+                          (pattern (PCon "snail.core.base:Pair"
+                                         (list (ok-pattern "a" i64) (ok-pattern "b" string)) pair))
+                          (fallback
+                           (Clause (PWild pair) (call "fallback" (Nil) i64 empty-row (Nil) loc)))
+                          (body (lower (matched value pattern fallback))))
+                     (for-each (lambda (name) (expect (references name body) 1))
+                               (list "left" "right" "fallback"))
+                     (expect (tests body) 2)
+                     (expect (projections body) 2)
+                     (expect-no-packaging body))))
 
       ;; An escaping result or a fallback binding can observe the error.
-      (define (test-observed-results)
-        (let* ((value (attempt (local "input" any-type) i64))
-               (fallback (Clause (PVar "result" (::type value))
-                                 (call "observe" (Nil) i64 empty-row
-                                       (list (local "result" (::type value))) loc))))
-          (for-each (lambda (body)
-                      (expect (references "snail.core.base:Ok" body) 1)
-                      (expect (references "snail.core.base:Err" body) 1)
-                      (expect (references "snail.core.base:CastError" body) 1))
-                    (list (lower value)
-                          (lower (matched value (ok-pattern "typed" i64) fallback))))))))))
+      (define test-observed-results
+        (lambda () (let* ((value (attempt (local "input" any-type) i64))
+                          (fallback (Clause (PVar "result" (::type value))
+                                            (call "observe" (Nil) i64 empty-row
+                                                  (list (local "result" (::type value))) loc))))
+                     (for-each (lambda (body)
+                                 (expect (references "snail.core.base:Ok" body) 1)
+                                 (expect (references "snail.core.base:Err" body) 1)
+                                 (expect (references "snail.core.base:CastError" body) 1))
+                               (list (lower value)
+                                     (lower
+                                      (matched value (ok-pattern "typed" i64) fallback)))))))))))

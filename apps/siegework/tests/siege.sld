@@ -12,26 +12,22 @@
  (siegework siege)
  (siegework simulation))
 
-(: run (impl (Fn World I64 -> World)))
-(define (run world ticks)
+(define (run (world World) (ticks I64)) (→ World)
   (if (or (= ticks 0) (not (playing? world))) world (run (advance world) (- ticks 1))))
 
-(: try (impl (Fn World Action -> World)))
-(define (try world action)
+(define (try (world World) (action Action)) (→ World)
   (match (act world action)
     ((Ok world) world)
     ((Err _) world)))
 
-(: outcome-text (impl (Fn Outcome -> String)))
-(define (outcome-text outcome)
+(define (outcome-text (outcome Outcome)) (→ String)
   (match outcome
     ((Playing) "playing")
     ((Won) "won")
     ((Lost) "lost")
     ((Resigned) "resigned")))
 
-(: report (impl (Fn String World -> Unit ! console)))
-(define (report name world)
+(define (report (name String) (world World)) (→ Unit) (! console)
   (write-line (string-append name
                              ": tick "
                              (show (::tick world))
@@ -51,25 +47,21 @@
                                                 (::opened world)))
                              ", " (outcome-text (::outcome world)))))
 
-(: attack-text (impl (Fn I64 -> String)))
-(define (attack-text tick)
+(define (attack-text (tick I64)) (→ String)
   (string-append (show tick)
                  " "
                  (match (attack-kind tick) ((Regular) "wave") ((Raid) "raid") ((Heavy) "boss"))
                  " of "
                  (show (attack-size tick))))
 
-(: offset (impl (Fn World I64 I64 -> Cell)))
-(define (offset world dx dy)
+(define (offset (world World) (dx I64) (dy I64)) (→ Cell)
   (let ((hub (::cell (::hub world))))
     (Cell (+ (::x hub) dx) (+ (::y hub) dy))))
 
-(: started (impl (Fn World -> World)))
-(define (started world)
+(define (started (world World)) (→ World)
   (try world (Build (Extractor) (::starter (::land world)) #f)))
 
-(: reinforce (impl (Fn World -> World)))
-(define (reinforce world)
+(define (reinforce (world World)) (→ World)
   (try (fold-left (lambda (world d)
                     (try world (Build (Turret) (offset world (::first d) (::second d)) #f)))
                   world
@@ -83,8 +75,7 @@
                         (Pair -2 -2)))
        (Upgrade (offset world 0 0))))
 
-(: defend (impl (Fn World I64 -> World)))
-(define (defend world ticks)
+(define (defend (world World) (ticks I64)) (→ World)
   (if (or (<= ticks 0) (not (playing? world)))
       world
       (defend (run (reinforce world) 100) (- ticks 100))))
@@ -111,8 +102,7 @@
 ;; Turrets three cells west and east of the hub flank a sturdy enemy to
 ;; the north. Both hit it, but it turns only on the first and keeps after
 ;; that one.
-(: flanked (impl (Fn World -> World)))
-(define (flanked world)
+(define (flanked (world World)) (→ World)
   (let ((world (run (try (try world (Build (Turret) (offset world -3 0) #f))
                          (Build (Turret) (offset world 3 0) #f))
                     100)))
@@ -128,8 +118,7 @@
                                     (None)
                                     (None))))))
 
-(: aggro-text (impl (Fn World -> String)))
-(define (aggro-text world)
+(define (aggro-text (world World)) (→ String)
   (match (find (lambda (e) (= (::id e) 999)) (::enemies world))
     ((Some enemy)
      (match (::aggro enemy)
@@ -137,8 +126,7 @@
        ((None) "nothing")))
     ((None) "gone")))
 
-(: watch (impl (Fn World I64 -> Unit ! console)))
-(define (watch world ticks)
+(define (watch (world World) (ticks I64)) (→ Unit) (! console)
   (if (> ticks 0)
       (let ((next (advance world)))
         (for-each (lambda (shot)
@@ -159,8 +147,7 @@
         (write-line (string-append "the guns stay on each turret's last shot: "
                                    (string-join (map aim-text (::buildings world)) ", "))))))
 
-(: aim-text (impl (Fn Building -> String)))
-(define (aim-text b)
+(define (aim-text (b Building)) (→ String)
   (string-append (kind-name (::kind b)) " at x " (show (::x (::cell b))) " "
                  (match (::aim b)
                    ((Some cell)

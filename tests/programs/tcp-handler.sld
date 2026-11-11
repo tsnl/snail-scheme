@@ -13,9 +13,7 @@
        ((Ok checked) checked)
        ((Err _) (panic "fixture payload has the wrong type"))))))
 
-
-(: require (All (T) (impl (Fn (Result T SocketError) -> T))))
-(define (require result)
+(define (require (result (Result T SocketError))) (→ T) (∀ T)
   (match result
     ((Ok value) value)
     ((Err error) (panic (::code error)))))

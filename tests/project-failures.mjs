@@ -44,8 +44,8 @@ async function throughTheCommandLine() {
   write('generated/flag.sld', `(generate-library (generated flag)
     (import (snail core base) (snail core io) (snail shell syntax))
     (library-syntax (list "generated" "flag") (list "value") (list (list "snail" "core" "base"))
-      (list (form ":" (list (SymbolSyntax "value") (SymbolSyntax "String")))
-        (form "define" (list (SymbolSyntax "value")
+      (list (form "define" (list (SymbolSyntax "value")
+        (form "→" (list (SymbolSyntax "String")))
           (if (string=? (read-file "${project}/flag.txt") "valid")
             (StringSyntax "ok") (SymbolSyntax "unknown-generated-name")))))))`);
   await build('main');

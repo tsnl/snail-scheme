@@ -8,8 +8,7 @@
 
 ;; Build an independent worktree so this repository's own excludes and index
 ;; cannot decide the answers. No commits or user identity are needed.
-(: git (impl (Fn String (List String) -> String ! process)))
-(define (git directory arguments)
+(define (git (directory String) (arguments (List String))) (→ String) (! process)
   (match (run (Command "git" arguments directory) #u8())
     ((Ok result)
      (match (::exit result)
@@ -20,23 +19,18 @@
        (_ (panic "Git fixture setup failed"))))
     ((Err error) (panic (::code error)))))
 
-(: repository String)
-(define repository (git "." (list "rev-parse" "--show-toplevel")))
-(: root String)
-(define root (string-append (substring repository 0 (- (string-length repository) 1))
-                            "/build/tests/gitignore"))
-(: at (impl (Fn String -> String)))
-(define (at path) (string-append root "/" path))
+(define repository (→ String) (git "." (list "rev-parse" "--show-toplevel")))
+(define root (→ String) (string-append (substring repository 0 (- (string-length repository) 1))
+                                       "/build/tests/gitignore"))
+(define (at (path String)) (→ String) (string-append root "/" path))
 
-(: snapshot (impl (Fn String -> IgnoreSnapshot ! mut tasks process)))
-(define (snapshot directory)
+(define (snapshot (directory String)) (→ IgnoreSnapshot) (! mut tasks process)
   (match (read-gitignore directory)
     ((Ok (Some value)) value)
     ((Ok (None)) (panic "Git fixture unavailable"))
     ((Err message) (panic message))))
 
-(: report (impl (Fn IgnoreSnapshot String -> Unit ! console)))
-(define (report rules path)
+(define (report (rules IgnoreSnapshot) (path String)) (→ Unit) (! console)
   (write-line (string-append path ": " (if (ignored? rules path) "ignored" "visible"))))
 
 (remove-tree root)

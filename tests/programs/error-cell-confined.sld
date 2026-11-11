@@ -3,8 +3,7 @@
 
 ;; Writing a parameter's cell mutates storage from outside, which a
 ;; function whose type forbids mut may not do.
-(: reset (impl (Fn (Ref I64) -> Unit)))
-(define (reset cell)
+(define (reset (cell (Ref I64))) (→ Unit)
   (set! (ref-get cell) 0))
 
 (reset (ref 3))

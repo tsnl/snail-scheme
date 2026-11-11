@@ -8,31 +8,27 @@
 ;; operation and what it answered.
 (define root "build/tests/text-files")
 
-(: at (impl (Fn String -> String)))
-(define (at name)
+(define (at (name String)) (→ String)
   (string-append root "/" name))
 
-(: report (impl (Fn String String -> Unit ! console)))
-(define (report label text)
+(define (report (label String) (text String)) (→ Unit) (! console)
   (write-line (string-append label " -> " text)))
 
 ;; What a read answered, the text described by `describe`.
-(: read-report (impl (Fn String String I64 (dyn (Fn String -> String)) -> Unit ! console fs)))
-(define (read-report label name limit describe)
+(define (read-report (label String) (name String) (limit I64) (describe (dyn (Fn String → String))))
+  (→ Unit)
+  (! console fs)
   (report label (match (read-text-file (at name) limit)
                   ((Ok text) (string-append "ok " (describe text)))
                   ((Err error) (string-append "error: " (show error))))))
 
-(: as-is (impl (Fn String -> String)))
-(define (as-is text)
+(define (as-is (text String)) (→ String)
   text)
 
-(: characters (impl (Fn String -> String)))
-(define (characters text)
+(define (characters (text String)) (→ String)
   (string-append (show (string-length text)) " characters"))
 
-(: write-report (impl (Fn String String String -> Unit ! console fs)))
-(define (write-report label name text)
+(define (write-report (label String) (name String) (text String)) (→ Unit) (! console fs)
   (report label (match (write-text-file (at name) text (CreateOrReplace))
                   ((Ok _) "ok")
                   ((Err error) (string-append "error: " (show error))))))

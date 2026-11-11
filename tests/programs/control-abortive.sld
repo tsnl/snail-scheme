@@ -7,14 +7,12 @@
 ;; type. Nothing after it runs, so its yields save no frames.
 ;; ANCHOR: fail
 (effect Fail
-  ((ctl fail (dyn (Fn String -> Never)))))
+  ((ctl fail (dyn (Fn String → Never)))))
 
-(: checked (impl (Fn I64 -> I64 ! Fail)))
-(define (checked n)
+(define (checked (n I64)) (→ I64) (! Fail)
   (if (< n 0) (absurd (fail (string-append "negative: " (show n)))) n))
 
-(: total (impl (Fn (List I64) -> I64 ! Fail console)))
-(define (total items)
+(define (total (items (List I64))) (→ I64) (! Fail console)
   (fold-left (lambda (sum item)
                (let ((value (checked item)))
                  (write-line (string-append "added " (show value)))
@@ -22,8 +20,7 @@
              0
              items))
 
-(: run (impl (Fn (List I64) -> String ! console)))
-(define (run items)
+(define (run (items (List I64))) (→ String) (! console)
   (handle Fail ((fail (lambda (message) (string-append "failed: " message))))
     (show (total items))))
 ;; ANCHOR_END: fail
@@ -34,22 +31,19 @@
 ;; A failure inside a resumed computation: the generator's rest runs from
 ;; its frames after each `emit`, and fails there, past the Emit handler.
 (effect Emit
-  ((ctl emit (dyn (Fn I64 -> Unit)))))
+  ((ctl emit (dyn (Fn I64 → Unit)))))
 
-(: emit-all (impl (Fn (List I64) -> Unit ! Emit Fail)))
-(define (emit-all items)
+(define (emit-all (items (List I64))) (→ Unit) (! Emit Fail)
   (for-each (lambda (item) (emit (checked item))) items))
 
-(: sum-emitted (impl (Fn (List I64) -> I64 ! Fail console)))
-(define (sum-emitted items)
+(define (sum-emitted (items (List I64))) (→ I64) (! Fail console)
   (handle Emit ((emit (lambda (value resume)
                         (write-line (string-append "emitted " (show value)))
                         (+ value (resume (unit))))))
     (emit-all items)
     0))
 
-(: run-emitted (impl (Fn (List I64) -> String ! console)))
-(define (run-emitted items)
+(define (run-emitted (items (List I64))) (→ String) (! console)
   (handle Fail ((fail (lambda (message) (string-append "failed: " message))))
     (show (sum-emitted items))))
 

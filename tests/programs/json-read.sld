@@ -9,14 +9,12 @@
  (snail shell json)
  (snail shell json read))
 
-(: read-back (impl (Fn String -> String)))
-(define (read-back text)
+(define (read-back (text String)) (→ String)
   (match (string->json text)
     ((Some value) (json->string value))
     ((None) "nothing")))
 
-(: written (List Json))
-(define written
+(define written (→ (List Json))
   (list (JsonNull)
         (JsonInteger -9223372036854775808)
         (JsonString "quote \" backslash \\ tab\tend λ 😀")

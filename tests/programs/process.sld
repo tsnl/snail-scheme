@@ -5,19 +5,16 @@
  (snail shell utf8)
  (snail shell process))
 
-(: require (All (T) (impl (Fn (Result T ProcessError) -> T))))
-(define (require result)
+(define (require (result (Result T ProcessError))) (→ T) (∀ T)
   (match result
     ((Ok value) value)
     ((Err error) (panic (::code error)))))
 
-(: shell (impl (Fn String -> Process ! process tasks)))
-(define (shell script)
+(define (shell (script String)) (→ Process) (! process tasks)
   (require (spawn (Command "/bin/sh" (list "-c" script) "."))))
 
 ;; A stream's bytes up to its end, as text.
-(: read-all (impl (Fn Process Stream -> String ! process tasks)))
-(define (read-all child stream)
+(define (read-all (child Process) (stream Stream)) (→ String) (! process tasks)
   (let loop ((bytes #u8()))
     (match (require (read-output child stream 4096))
       ((Some chunk) (loop (vector-append bytes chunk)))
@@ -25,14 +22,12 @@
                 ((Ok text) text)
                 ((Err _) (panic "the output is not UTF-8")))))))
 
-(: exit-text (impl (Fn Exit -> String)))
-(define (exit-text exit)
+(define (exit-text (exit Exit)) (→ String)
   (match exit
     ((Exited code) (string-append "exited " (show code)))
     ((Signaled name) (string-append "signaled " name))))
 
-(: report-error (All (T) (requires (Copy T)) (impl (Fn (Result T ProcessError) -> Unit ! console))))
-(define (report-error result)
+(define (report-error (result (Result T ProcessError))) (→ Unit) (! console) (∀ T) (⊨ (Copy T))
   (match result
     ((Err error) (write-line (::code error)))
     ((Ok _) (panic "the operation succeeded"))))

@@ -6,7 +6,7 @@
 ;; performs what copying it does. The book's ownership chapter includes
 ;; the text between ANCHOR and ANCHOR_END.
 (effect log
-  ((say (dyn (Fn String -> Unit)))))
+  ((say (dyn (Fn String → Unit)))))
 
 ;; ANCHOR: ticket
 ;; A ticket is linear by its Drop instance, so only its Clone instance
@@ -15,16 +15,16 @@
   ((seat I64)))
 
 (instance (Drop (! log) Ticket)
-  (define (drop ticket)
-    (match ticket
-      ((Ticket seat) (say (string-append "returned seat " (i64->string seat)))))))
+  (define drop
+    (lambda (ticket) (match ticket
+                       ((Ticket seat) (say (string-append "returned seat " (i64->string seat))))))))
 
 (instance (Clone (! log) Ticket)
-  (define (clone ticket)
-    (match ticket
-      ((Ticket seat)
-       (say (string-append "copied seat " (i64->string seat)))
-       (Pair (Ticket seat) (Ticket (+ seat 100)))))))
+  (define clone
+    (lambda (ticket) (match ticket
+                       ((Ticket seat)
+                        (say (string-append "copied seat " (i64->string seat)))
+                        (Pair (Ticket seat) (Ticket (+ seat 100))))))))
 ;; ANCHOR_END: ticket
 
 ;; A generic wrapper's instance copies what it holds in the row `e` of its
@@ -34,21 +34,20 @@
    (item A)))
 
 (instance (Clone (! log e) (Tagged A))
-  (requires (Clone e A))
-  (define (clone tagged)
-    (match tagged
-      ((Tagged tag item)
-       (say (string-append "copying " tag))
-       (match (clone item)
-         ((Pair a b) (Pair (Tagged tag a) (Tagged (string-append tag "'") b))))))))
+  (⊨ (Clone e A))
+  (define clone
+    (lambda (tagged) (match tagged
+                       ((Tagged tag item)
+                        (say (string-append "copying " tag))
+                        (match (clone item)
+                          ((Pair a b)
+                           (Pair (Tagged tag a) (Tagged (string-append tag "'") b)))))))))
 
 ;; A generic definition requires (Clone e A).
-(: twin (All (A e) (requires (Clone e A)) (impl (Fn A -> (Pair A A) ! e))))
-(define (twin value)
+(define (twin (value A)) (→ (Pair A A)) (! e) (∀ A e) (⊨ (Clone e A))
   (clone value))
 
-(: demo (impl (Fn -> Unit ! log console)))
-(define (demo)
+(define (demo) (→ Unit) (! log console)
   (match (clone (Ticket 1))
     ((Pair a b) (drop a) (drop b)))
   ;; Glue clones the linear fields and shares the others.

@@ -10,7 +10,6 @@
    (child Child)))
 
 ;; A linear field bound by a pattern on a borrow is itself a borrow.
-(: steal (impl (Fn (Borrow Model) -> Unit)))
-(define (steal model)
+(define (steal (model (Borrow Model))) (→ Unit)
   (match model
     ((Model _ child) (drop child))))

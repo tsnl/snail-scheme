@@ -29,57 +29,55 @@
 
     ;; ---- Interfaces ----
 
-    (type (Command M) (dyn (FnOnce -> M ! tasks dom fetch)))
+    (type (Command M) (dyn (FnOnce → M ! tasks dom fetch)))
 
     (typeclass (Interface Model)
       (type Message)
-      (: interface-initialize (impl (Fn I32 -> Model)))
-      (: interface-update (impl (Fn Model Message -> (Pair Model (List (Command Message))))))
-      (: interface-view (impl (Fn Model -> (Html Message))))
-      (: interface-window (impl (Fn Model -> (List (Attribute Message)))))
-      (: interface-messages (impl (Fn Model -> (List Message))))
-      (: interface-save (impl (Fn Model -> Bytes)))
-      (: interface-restore (impl (Fn Bytes -> Model))))
+      (: interface-initialize (impl (Fn I32 → Model)))
+      (: interface-update (impl (Fn Model Message → (Pair Model (List (Command Message))))))
+      (: interface-view (impl (Fn Model → (Html Message))))
+      (: interface-window (impl (Fn Model → (List (Attribute Message)))))
+      (: interface-messages (impl (Fn Model → (List Message))))
+      (: interface-save (impl (Fn Model → Bytes)))
+      (: interface-restore (impl (Fn Bytes → Model))))
 
     (struct (InterfaceApplication Model)
       ())
 
     (instance (Application (! mut events storage tasks) (InterfaceApplication Model))
-      (requires (Interface Model) (PageState Model) (Copy Model))
-      (define (start entry)
-        (run-page (lambda () (initial-interface entry)) interface-save interface-restore
-                  present-interface)))
+      (⊨ (Interface Model) (PageState Model) (Copy Model))
+      (define start
+        (lambda (entry)
+          (run-page (lambda () (initial-interface entry)) interface-save interface-restore
+                    present-interface))))
 
-    (: initial-interface
-       (All (Model) (requires (Interface Model))
-            (impl (Fn (Entry (InterfaceApplication Model)) -> Model ! events))))
-    (define (initial-interface entry)
+    (define (initial-interface (entry (Entry (InterfaceApplication Model))))
+      (→ Model)
+      (! events)
+      (∀ Model)
+      (⊨ (Interface Model))
       (interface-initialize (random-seed)))
 
     ;; The loop's row includes publishing and saving its model. Commands
     ;; retain their narrower public contract and run under the same handlers.
-    (: widen-commands
-       (All (M) (impl (Fn (List (Command M))
-                          -> (List (dyn (FnOnce -> M ! mut events storage tasks dom fetch)))))))
-    (define (widen-commands commands)
+
+    (define (widen-commands (commands (List (Command M))))
+      (→ (List (dyn (FnOnce → M ! mut events storage tasks dom fetch))))
+      (∀ M)
       (match commands
         ((Cons command rest) (Cons (once (lambda () (command))) (widen-commands rest)))
         ((Nil) (Nil))))
 
-    (: interface-save-callback
-       (All (S) (impl (Fn (dyn (Fn S -> Unit ! events storage tasks))
-                          -> (dyn (Fn S -> Unit ! mut events storage tasks dom fetch))))))
-    (define (interface-save-callback save)
+    (define (interface-save-callback (save (dyn (Fn S → Unit ! events storage tasks))))
+      (→ (dyn (Fn S → Unit ! mut events storage tasks dom fetch)))
+      (∀ S)
       (lambda (model) (save model)))
 
-    (: present-interface
-       (All (Model) (requires (Interface Model) (PageState Model) (Copy Model))
-            (impl (Fn Model
-                      (dyn (Fn Model -> Unit ! events storage tasks))
-                      ->
-                      Unit
-                      ! mut events storage tasks))))
-    (define (present-interface model save)
+    (define (present-interface (model Model) (save (dyn (Fn Model → Unit ! events storage tasks))))
+      (→ Unit)
+      (! mut events storage tasks)
+      (∀ Model)
+      (⊨ (Interface Model) (PageState Model) (Copy Model))
       (with-page-dom
        (lambda ()
          (with-page-fetch

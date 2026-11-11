@@ -1,7 +1,6 @@
 (import
  (snail core base))
-(: first (All (A B) (impl (Fn (Pair A B) -> A))))
-(define (first pair)
+(define (first (pair (Pair A B))) (→ A) (∀ A B)
   (match pair
     ((Pair a _) a)))
 (first (Pair 1 2))

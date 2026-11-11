@@ -4,5 +4,4 @@
 (type Ping Pong)
 (type Pong Ping)
 
-(: f (impl (Fn Ping -> I64)))
-(define (f x) 0)
+(define (f (x Ping)) (→ I64) 0)

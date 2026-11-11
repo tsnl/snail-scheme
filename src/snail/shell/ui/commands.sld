@@ -17,9 +17,10 @@
     (struct (Registry A)
       ((commands (Vector (Command A)))))
 
-    (: register (All (A) (requires (Copy A))
-                     (impl (Fn (Vector (Command A)) -> (Result (Registry A) String)))))
-    (define (register commands)
+    (define (register (commands (Vector (Command A))))
+      (→ (Result (Registry A) String))
+      (∀ A)
+      (⊨ (Copy A))
       (let loop ((index 0) (names (ann empty-table (Table Bool))))
         (if (= index (vector-length commands)) (Ok (Registry commands))
             (let ((name (::name (vector-ref commands index))))
@@ -29,8 +30,7 @@
 
     ;; ---- Lookup ----
 
-    (: named (All (A) (requires (Copy A)) (impl (Fn (Registry A) String -> (Option A)))))
-    (define (named registry name)
+    (define (named (registry (Registry A)) (name String)) (→ (Option A)) (∀ A) (⊨ (Copy A))
       (let ((commands (::commands registry)))
         (let loop ((index 0))
           (cond ((= index (vector-length commands)) (None))

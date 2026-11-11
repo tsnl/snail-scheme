@@ -12,17 +12,14 @@
 
 ;; Files are supplied by the service. Selection and fuzzy filtering run in
 ;; the IDE, and the selected path is read through the ordinary buffer flow.
-(: snapshot (impl (Fn (Borrow Session) -> Ide)))
-(define (snapshot session)
+(define (snapshot (session (Borrow Session))) (→ Ide)
   (::ide session))
 
-(: finished (impl (Fn Session -> Ide ! mut)))
-(define (finished session)
+(define (finished (session Session)) (→ Ide) (! mut)
   (match session
     ((Session ide pending) (drop pending) ide)))
 
-(: recovered (impl (Fn Bytes -> Unit ! console)))
-(define (recovered bytes)
+(define (recovered (bytes Bytes)) (→ Unit) (! console)
   (let ((model (restored (read-recovery bytes))))
     (write-line (string-join (::tabs (list-ref (::panes model) 0)) ","))
     (match (buffer-at model "lib/notes.txt")
@@ -63,7 +60,7 @@
                                               (ann update-session
                                                    (dyn (Fn Session
                                                             (Option Msg)
-                                                            -> Session
+                                                            → Session
                                                             ! mut completion console dom fetch)))
                                               session-view
                                               session-window

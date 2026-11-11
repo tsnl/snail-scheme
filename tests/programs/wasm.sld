@@ -12,8 +12,7 @@
 ;;     (type $evidence (struct (field i32) (field (ref null any)) (field (mut (ref null $evidence)))))
 ;;     (func (export "add") (param (ref $evidence) i64 i64) (result i64)
 ;;       (i64.add (local.get 1) (local.get 2))))
-(: adder (List I32))
-(define adder
+(define adder (→ (List I32))
   (list 0 97 115 109 1 0 0 0
         1 19 2 95 3 127 0 99 110 0 99 0 1 96 3 100 0 126 126 1 126
         3 2 1 1
@@ -23,12 +22,11 @@
 (define path "build/tests/adder.wasm")
 (write-file path (list->string (map i32->char adder)))
 
-(: use-adder (impl (Fn Module -> Unit ! wasm console)))
-(define (use-adder module)
+(define (use-adder (module Module)) (→ Unit) (! wasm console)
   (match (module-export module "add")
     ((Ok function)
-     (let ((add (ann (unsafe-cast function) (dyn (Fn I64 I64 -> I64))))
-           (code (ann (unsafe-cast function) (fn I64 I64 -> I64))))
+     (let ((add (ann (unsafe-cast function) (dyn (Fn I64 I64 → I64))))
+           (code (ann (unsafe-cast function) (fn I64 I64 → I64))))
        (display (add 40 2))
        (newline)
        (display (fold-left (lambda (total n) (add total n)) 0 (list 1 2 3)))
@@ -49,8 +47,7 @@
 ;; that is not a module, and a module that imports the runtime's memory as
 ;; a function.
 ;;   (module (import "snail.core.support" "memory" (func)))
-(: mislinked (List I32))
-(define mislinked
+(define mislinked (→ (List I32))
   (list 0 97 115 109 1 0 0 0
         1 4 1 96 0 0
         2 29 1 18 115 110 97 105 108 46 99 111 114 101 46 115 117 112 112 111 114 116

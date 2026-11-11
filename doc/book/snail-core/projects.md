@@ -145,8 +145,8 @@ the builder still does not invent a page.
  (snail core base)
  (snail shell artifact))
 
-(: frontend ArtifactBundle)
-(define frontend (artifact-bundle "client"))
+
+(define frontend (→ ArtifactBundle) (artifact-bundle "client"))
 
 ;; A lookup in embedded data, without file IO or a runtime build.
 (artifact-ref frontend "index.html")

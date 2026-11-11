@@ -43,21 +43,21 @@
     ;; for it, and the task waits until it has; a handler can serve it
     ;; otherwise.
     (effect resource
-      ((resource-bytes (dyn (Fn I32 -> Bytes ! tasks))))
+      ((resource-bytes (dyn (Fn I32 → Bytes ! tasks))))
       (default ((resource-bytes host-bytes))))
 
     ;; The host holds the bytes from `finish` until its next `finish`, and
     ;; nothing between the two calls lets another task run.
-    (: host-bytes (impl (Fn I32 -> Bytes ! tasks)))
-    (define (host-bytes handle)
+
+    (define (host-bytes (handle I32)) (→ Bytes) (! tasks)
       (through-host (lambda (ticket) (host-read ticket handle))
                     (lambda (ticket)
                       (vector-generate (i32->i64 (host-finish ticket))
                                        (lambda (index) (host-byte (i64->i32 index)))))))
 
     ;; The file's bytes, as they were when the host first read them.
-    (: read-resource (impl (Fn Resource -> Bytes ! resource tasks)))
-    (define (read-resource linked)
+
+    (define (read-resource (linked Resource)) (→ Bytes) (! resource tasks)
       (resource-bytes (::handle linked)))
 
     ))

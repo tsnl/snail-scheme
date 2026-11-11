@@ -2,31 +2,27 @@
  (snail core base)
  (snail core io))
 
-(: describe (impl (Fn (Option (Option I64)) -> String)))
-(define (describe value)
+(define (describe (value (Option (Option I64)))) (→ String)
   (match value
     ((None) "none")
     ((Some (None)) "some none")
     ((Some (Some 0)) "zero")
     ((Some (Some n)) (show n))))
 
-(: classify (impl (Fn (List I64) -> String)))
-(define (classify items)
+(define (classify (items (List I64))) (→ String)
   (match items
     ((Nil) "empty")
     ((Cons x (Nil)) (string-append "one " (show x)))
     ((Cons 1 (Cons _ _)) "starts with one")
     ((Cons _ (Cons y _)) (string-append "second " (show y)))))
 
-(: char-kind (impl (Fn Char -> String)))
-(define (char-kind c)
+(define (char-kind (c Char)) (→ String)
   (match c
     (#\a "a")
     (#\b "b")
     (_ "other")))
 
-(: bool-name (impl (Fn Bool -> String)))
-(define (bool-name b)
+(define (bool-name (b Bool)) (→ String)
   (match b
     (#t "yes")
     (#f "no")))

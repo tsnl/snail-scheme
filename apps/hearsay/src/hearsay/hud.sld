@@ -27,32 +27,35 @@
 
     ;; ---- Widgets ----
 
-    (: toned (impl (Fn String Tone String -> Widget)))
-    (define (toned key tone text)
+    (define (toned (key String) (tone Tone) (text String)) (→ Widget)
       (Label (Look-tone-set (look key) tone) text))
 
     ;; A section's title.
-    (: section-heading (impl (Fn String String -> Widget)))
-    (define (section-heading key text)
+    (define (section-heading (key String) (text String)) (→ Widget)
       (label (string-append "heading-" key) text))
 
     ;; A heading over its widgets, or over a muted line saying there are none.
-    (: section (impl (Fn String String String (List Widget) -> (List Widget))))
-    (define (section key title none widgets)
+    (define (section (key String) (title String) (none String) (widgets (List Widget)))
+      (→ (List Widget))
       (Cons (section-heading key title)
             (if (null? widgets) (list (toned (string-append "none-" key) (Muted) none)) widgets)))
 
     ;; Each line as its own label.
-    (: line-labels (impl (Fn String (List String) -> (List Widget))))
-    (define (line-labels prefix texts)
+    (define (line-labels (prefix String) (texts (List String))) (→ (List Widget))
       (map-indexed (lambda (index text) (label (string-append prefix "-" (show index)) text))
                    texts))
 
     ;; A button showing its terms as its caption: disabled with the reason
     ;; as its help when `refusal` says why it would fail now, and otherwise
     ;; enabled with `help`.
-    (: choice-button (impl (Fn String String String I32 I32 (Option String) String -> Widget)))
-    (define (choice-button key text caption action argument refusal help)
+    (define (choice-button (key String)
+                           (text String)
+                           (caption String)
+                           (action I32)
+                           (argument I32)
+                           (refusal (Option String))
+                           (help String))
+      (→ Widget)
       (match refusal
         ((Some why)
          (Button (Look-help-set (look key) why) text caption action argument (Disabled) -1.0))
@@ -73,26 +76,20 @@
     ;; The guide's buttons, actions 50 to 53, which no screen uses for its
     ;; own. A screen keeps its guide's open page, or None, and passes these
     ;; actions here.
-    (: guide-open I32)
-    (define guide-open 50)
+    (define guide-open (→ I32) 50)
 
-    (: guide-next I32)
-    (define guide-next 51)
+    (define guide-next (→ I32) 51)
 
-    (: guide-back I32)
-    (define guide-back 52)
+    (define guide-back (→ I32) 52)
 
-    (: guide-close I32)
-    (define guide-close 53)
+    (define guide-close (→ I32) 53)
 
-    (: guide-action? (impl (Fn I32 -> Bool)))
-    (define (guide-action? action)
+    (define (guide-action? (action I32)) (→ Bool)
       (and (>= action guide-open) (<= action guide-close)))
 
     ;; The page open after pressing `action` in a guide of `pages`: Next
     ;; past the last page closes it, Back stops at the first.
-    (: turn-guide (impl (Fn (Option I64) (List Page) I32 -> (Option I64))))
-    (define (turn-guide page pages action)
+    (define (turn-guide (page (Option I64)) (pages (List Page)) (action I32)) (→ (Option I64))
       (cond ((= action guide-open) (Some 0))
             ((= action guide-close) (None))
             (else (match page
@@ -106,14 +103,12 @@
 
     ;; The open page of the guide to the prototype called `name`, as a
     ;; dialog that closes when touched outside; nothing while it is closed.
-    (: guide-panels (impl (Fn String (List Page) (Option I64) -> (List Panel))))
-    (define (guide-panels name pages page)
+    (define (guide-panels (name String) (pages (List Page)) (page (Option I64))) (→ (List Panel))
       (match page
         ((Some index) (list (guide-panel name pages index)))
         ((None) (Nil))))
 
-    (: guide-panel (impl (Fn String (List Page) I64 -> Panel)))
-    (define (guide-panel name pages index)
+    (define (guide-panel (name String) (pages (List Page)) (index I64)) (→ Panel)
       (let ((page (list-ref pages index)) (last? (= (+ index 1) (length pages))))
         (Panel "guide" (Dialog guide-close)
                (concatenate
@@ -139,12 +134,10 @@
     ;; ---- Scene ----
 
     ;; The color behind every screen.
-    (: backdrop I32)
-    (define backdrop (rgb 16 20 28))
+    (define backdrop (→ I32) (rgb 16 20 28))
 
     ;; A scene with nothing in it, carrying `pictures` for the HUD's images.
-    (: empty-frame (impl (Fn (List Picture) -> Frame)))
-    (define (empty-frame pictures)
+    (define (empty-frame (pictures (List Picture))) (→ Frame)
       (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8))
              (Light (Vec3 0.0 1.0 0.0) 0.0 1.0)
              backdrop

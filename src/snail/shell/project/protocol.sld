@@ -118,107 +118,89 @@
            ((Some name) (reading (rest ...) value))
            ((None) (None))))))
 
-    (: field
-       (All (T)
-            (requires (Copy T))
-            (impl (Fn Json String (dyn (Fn Json -> (Option T))) -> (Option T)))))
-    (define (field json name read)
+    (define (field (json Json) (name String) (read (dyn (Fn Json → (Option T)))))
+      (→ (Option T))
+      (∀ T)
+      (⊨ (Copy T))
       (match (json-member json name)
         ((Some value) (read value))
         ((None) (None))))
 
-    (: optional
-       (All (T)
-            (requires (Copy T))
-            (impl (Fn (dyn (Fn Json -> (Option T))) Json -> (Option (Option T))))))
-    (define (optional read json)
+    (define (optional (read (dyn (Fn Json → (Option T)))) (json Json))
+      (→ (Option (Option T)))
+      (∀ T)
+      (⊨ (Copy T))
       (match json
         ((JsonNull) (Some (None)))
         (_ (reading ((value (read json))) (Some value)))))
 
-    (: items
-       (All (T)
-            (requires (Copy T))
-            (impl (Fn (dyn (Fn Json -> (Option T))) Json -> (Option (List T))))))
-    (define (items read json)
+    (define (items (read (dyn (Fn Json → (Option T)))) (json Json))
+      (→ (Option (List T)))
+      (∀ T)
+      (⊨ (Copy T))
       (match json
         ((JsonArray values) (read-items read values))
         (_ (None))))
 
-    (: read-items
-       (All (T)
-            (requires (Copy T))
-            (impl (Fn (dyn (Fn Json -> (Option T))) (List Json) -> (Option (List T))))))
-    (define (read-items read values)
+    (define (read-items (read (dyn (Fn Json → (Option T)))) (values (List Json)))
+      (→ (Option (List T)))
+      (∀ T)
+      (⊨ (Copy T))
       (match values
         ((Nil) (Some (Nil)))
         ((Cons first rest)
          (reading ((value (read first)) (tail (read-items read rest))) (Cons value tail)))))
 
-    (: read-string (impl (Fn Json -> (Option String))))
-    (define (read-string json)
+    (define (read-string (json Json)) (→ (Option String))
       (match json ((JsonString text) (Some text)) (_ (None))))
 
-    (: read-nonempty (impl (Fn Json -> (Option String))))
-    (define (read-nonempty json)
+    (define (read-nonempty (json Json)) (→ (Option String))
       (match json ((JsonString text) (if (string=? text "") (None) (Some text))) (_ (None))))
 
-    (: read-integer (impl (Fn Json -> (Option I64))))
-    (define (read-integer json)
+    (define (read-integer (json Json)) (→ (Option I64))
       (match json ((JsonInteger value) (Some value)) (_ (None))))
 
-    (: read-natural (impl (Fn Json -> (Option I64))))
-    (define (read-natural json)
+    (define (read-natural (json Json)) (→ (Option I64))
       (match json ((JsonInteger value) (if (>= value 0) (Some value) (None))) (_ (None))))
 
-    (: read-positive (impl (Fn Json -> (Option I64))))
-    (define (read-positive json)
+    (define (read-positive (json Json)) (→ (Option I64))
       (match json ((JsonInteger value) (if (> value 0) (Some value) (None))) (_ (None))))
 
-    (: read-bool (impl (Fn Json -> (Option Bool))))
-    (define (read-bool json)
+    (define (read-bool (json Json)) (→ (Option Bool))
       (match json ((JsonBool value) (Some value)) (_ (None))))
 
-    (: read-nullable-string (impl (Fn Json -> (Option String))))
-    (define (read-nullable-string json)
+    (define (read-nullable-string (json Json)) (→ (Option String))
       (match json ((JsonNull) (Some "")) (_ (read-string json))))
 
-    (: nullable-string (impl (Fn String -> Json)))
-    (define (nullable-string text)
+    (define (nullable-string (text String)) (→ Json)
       (if (string=? text "") (JsonNull) (JsonString text)))
 
-    (: maybe-json (All (T) (requires (Copy T)) (impl (Fn (dyn (Fn T -> Json)) (Option T) -> Json))))
-    (define (maybe-json write value)
+    (define (maybe-json (write (dyn (Fn T → Json))) (value (Option T))) (→ Json) (∀ T) (⊨ (Copy T))
       (match value ((Some item) (write item)) ((None) (JsonNull))))
 
-    (: read-build-phase (impl (Fn Json -> (Option String))))
-    (define (read-build-phase json)
+    (define (read-build-phase (json Json)) (→ (Option String))
       (match json
         ((JsonString text)
          (if (member? text (list "starting" "building" "succeeded" "failed" "superseded" "fatal"))
              (Some text) (None)))
         (_ (None))))
 
-    (: read-run-phase (impl (Fn Json -> (Option String))))
-    (define (read-run-phase json)
+    (define (read-run-phase (json Json)) (→ (Option String))
       (match json
         ((JsonString text)
          (if (member? text (list "starting" "running" "stopping" "exited" "failed"))
              (Some text) (None)))
         (_ (None))))
 
-    (: read-desired (impl (Fn Json -> (Option (Option I64)))))
-    (define (read-desired json)
+    (define (read-desired (json Json)) (→ (Option (Option I64)))
       (optional (lambda (value) (field value "build" read-natural)) json))
 
-    (: desired->json (impl (Fn (Option I64) -> Json)))
-    (define (desired->json desired)
+    (define (desired->json (desired (Option I64))) (→ Json)
       (maybe-json (lambda (build) (JsonObject (list (Pair "build" (JsonInteger build))))) desired))
 
     ;; ---- Codecs ----
 
-    (: project->json (impl (Fn Project -> Json)))
-    (define (project->json value)
+    (define (project->json (value Project)) (→ Json)
       (JsonObject
        (list
         (Pair "name" (JsonString (::name value)))
@@ -226,74 +208,64 @@
         (Pair "files" (JsonArray (map JsonString (::files value))))
         (Pair "directories" (JsonArray (map JsonString (::directories value)))))))
 
-    (: json->project (impl (Fn Json -> (Option Project))))
-    (define (json->project json)
+    (define (json->project (json Json)) (→ (Option Project))
       (reading ((name (field json "name" read-string))
                 (directory (field json "directory" read-nonempty))
                 (files (field json "files" (lambda (json) (items read-string json))))
                 (directories (field json "directories" (lambda (json) (items read-string json)))))
                (Project name directory files directories)))
 
-    (: file->json (impl (Fn Snapshot -> Json)))
-    (define (file->json value)
+    (define (file->json (value Snapshot)) (→ Json)
       (JsonObject
        (list
         (Pair "text" (JsonString (::text value)))
         (Pair "revision" (JsonString (::revision value))))))
 
-    (: json->file (impl (Fn Json -> (Option Snapshot))))
-    (define (json->file json)
+    (define (json->file (json Json)) (→ (Option Snapshot))
       (reading ((text (field json "text" read-string))
                 (revision (field json "revision" read-nonempty)))
                (Snapshot text revision)))
 
-    (: point->json (impl (Fn Point -> Json)))
-    (define (point->json value)
+    (define (point->json (value Point)) (→ Json)
       (JsonObject
        (list
         (Pair "file" (JsonString (::file value)))
         (Pair "line" (JsonInteger (::line value)))
         (Pair "column" (JsonInteger (::column value))))))
 
-    (: json->point (impl (Fn Json -> (Option Point))))
-    (define (json->point json)
+    (define (json->point (json Json)) (→ (Option Point))
       (reading ((file (field json "file" read-nonempty))
                 (line (field json "line" read-positive))
                 (column (field json "column" read-positive)))
                (Point file line column)))
 
-    (: report->json (impl (Fn Report -> Json)))
-    (define (report->json value)
+    (define (report->json (value Report)) (→ Json)
       (JsonObject
        (list
         (Pair "severity" (JsonString (::severity value)))
         (Pair "message" (JsonString (::message value)))
         (Pair "source" (maybe-json point->json (::source value))))))
 
-    (: json->report (impl (Fn Json -> (Option Report))))
-    (define (json->report json)
+    (define (json->report (json Json)) (→ (Option Report))
       (reading ((severity (field json "severity" read-string))
                 (message (field json "message" read-string))
                 (source (field json "source" (lambda (json) (optional json->point json)))))
                (Report severity message source)))
 
-    (: build->json (impl (Fn Build -> Json)))
-    (define (build->json value)
+    (define (build->json (value Build)) (→ Json)
       (JsonObject
        (list
         (Pair "phase" (JsonString (::phase value)))
         (Pair "id" (JsonInteger (::id value)))
         (Pair "diagnostics" (JsonArray (map report->json (::diagnostics value)))))))
 
-    (: json->build (impl (Fn Json -> (Option Build))))
-    (define (json->build json)
+    (define (json->build (json Json)) (→ (Option Build))
       (reading ((phase (field json "phase" read-build-phase))
                 (id (field json "id" read-natural))
                 (diagnostics (field json "diagnostics" (lambda (json) (items json->report json)))))
                (Build phase id diagnostics)))
 
-    (: attempt->json (impl (Fn Attempt -> Json)))
-    (define (attempt->json value)
+    (define (attempt->json (value Attempt)) (→ Json)
       (JsonObject
        (list
         (Pair "build" (JsonInteger (::build value)))
@@ -305,8 +277,7 @@
         (Pair "stdout" (JsonString (::stdout value)))
         (Pair "stderr" (JsonString (::stderr value))))))
 
-    (: json->attempt (impl (Fn Json -> (Option Attempt))))
-    (define (json->attempt json)
+    (define (json->attempt (json Json)) (→ (Option Attempt))
       (reading ((build (field json "build" read-natural))
                 (pid (field json "pid" (lambda (json) (optional read-natural json))))
                 (phase (field json "phase" read-run-phase))
@@ -317,8 +288,7 @@
                 (stderr (field json "stderr" read-string)))
                (Attempt build pid phase code signal error stdout stderr)))
 
-    (: run->json (impl (Fn Run -> Json)))
-    (define (run->json value)
+    (define (run->json (value Run)) (→ Json)
       (JsonObject
        (list
         (Pair "target" (JsonString (::target value)))
@@ -327,8 +297,7 @@
         (Pair "wanted" (JsonBool (::wanted value)))
         (Pair "available" (JsonBool (::available value))))))
 
-    (: json->run (impl (Fn Json -> (Option Run))))
-    (define (json->run json)
+    (define (json->run (json Json)) (→ (Option Run))
       (reading ((target (field json "target" read-nonempty))
                 (desired (field json "desired" read-desired))
                 (attempt (field json "attempt" (lambda (json) (optional json->attempt json))))
@@ -336,8 +305,7 @@
                 (available (field json "available" read-bool)))
                (Run target desired attempt wanted available)))
 
-    (: state->json (impl (Fn ServerState -> Json)))
-    (define (state->json value)
+    (define (state->json (value ServerState)) (→ Json)
       (JsonObject
        (list
         (Pair "instance" (JsonString (::instance value)))
@@ -347,8 +315,7 @@
         (Pair "editor" (JsonString (::editor value)))
         (Pair "editor-problem" (JsonString (::editor-problem value))))))
 
-    (: json->state (impl (Fn Json -> (Option ServerState))))
-    (define (json->state json)
+    (define (json->state (json Json)) (→ (Option ServerState))
       (reading ((instance (field json "instance" read-nonempty))
                 (files (field json "files" read-natural))
                 (build (field json "build" json->build))
@@ -357,31 +324,27 @@
                 (editor-problem (field json "editor-problem" read-string)))
                (ServerState instance files build runs editor editor-problem)))
 
-    (: search->json (impl (Fn SearchResults -> Json)))
-    (define (search->json value)
+    (define (search->json (value SearchResults)) (→ Json)
       (JsonObject
        (list
         (Pair "hits" (JsonArray (map hit->json (::hits value))))
         (Pair "skipped" (JsonInteger (::skipped value)))
         (Pair "limited" (JsonBool (::limited value))))))
 
-    (: json->search (impl (Fn Json -> (Option SearchResults))))
-    (define (json->search json)
+    (define (json->search (json Json)) (→ (Option SearchResults))
       (reading ((hits (field json "hits" (lambda (json) (items json->hit json))))
                 (skipped (field json "skipped" read-natural))
                 (limited (field json "limited" read-bool)))
                (SearchResults hits skipped limited)))
 
-    (: hit->json (impl (Fn Hit -> Json)))
-    (define (hit->json hit)
+    (define (hit->json (hit Hit)) (→ Json)
       (JsonObject (list (Pair "path" (JsonString (::file (::point hit))))
                         (Pair "line" (JsonInteger (::line (::point hit))))
                         (Pair "column" (JsonInteger (::column (::point hit))))
                         (Pair "revision" (JsonString (::revision hit)))
                         (Pair "snippet" (JsonString (::snippet hit))))))
 
-    (: json->hit (impl (Fn Json -> (Option Hit))))
-    (define (json->hit json)
+    (define (json->hit (json Json)) (→ (Option Hit))
       (reading ((path (field json "path" read-nonempty))
                 (line (field json "line" read-positive))
                 (column (field json "column" read-positive))
@@ -389,12 +352,10 @@
                 (snippet (field json "snippet" read-string)))
                (Hit (Point path line column) revision snippet)))
 
-    (: message->json (impl (Fn String -> Json)))
-    (define (message->json message)
+    (define (message->json (message String)) (→ Json)
       (JsonObject (list (Pair "message" (JsonString message)))))
 
-    (: json->message (impl (Fn Json -> (Option String))))
-    (define (json->message json)
+    (define (json->message (json Json)) (→ (Option String))
       (field json "message" read-string))
 
     ;; ---- Events ----
@@ -403,15 +364,13 @@
     ;; The instance distinguishes server lifetimes. Files is an invalidation
     ;; counter: clients list paths on change, not after every process-output byte.
     ;; No replay cursor is needed: reconnection starts from current state.
-    (: event-kind String)
-    (define event-kind "snapshot")
 
-    (: state->event (impl (Fn ServerState -> String)))
-    (define (state->event state)
+    (define event-kind (→ String) "snapshot")
+
+    (define (state->event (state ServerState)) (→ String)
       (string-append "event: " event-kind "\ndata: " (json->string (state->json state)) "\n\n"))
 
-    (: read-event (impl (Fn String -> (Option ServerState))))
-    (define (read-event text)
+    (define (read-event (text String)) (→ (Option ServerState))
       (match (string->json text)
         ((Some json) (json->state json))
         ((None) (None))))))

@@ -10,10 +10,9 @@
 ;; next yield returns again.
 ;; ANCHOR: count-down
 (effect Tick
-  ((ctl tick (dyn (Fn I64 -> I64)))))
+  ((ctl tick (dyn (Fn I64 → I64)))))
 
-(: count-down (impl (Fn I64 I64 -> I64 ! Tick)))
-(define (count-down n total)
+(define (count-down (n I64) (total I64)) (→ I64) (! Tick)
   (if (= n 0)
       total
       (count-down (- n 1) (+ total (tick n)))))
@@ -25,8 +24,7 @@
 
 ;; The same loop with a yield only every thousandth step, which runs as an
 ;; ordinary loop in between.
-(: sparse (impl (Fn I64 I64 -> I64 ! Tick)))
-(define (sparse n total)
+(define (sparse (n I64) (total I64)) (→ I64) (! Tick)
   (cond ((= n 0) total)
         ((= (remainder n 1000) 0) (sparse (- n 1) (+ total (tick n))))
         (else (sparse (- n 1) (+ total 1)))))

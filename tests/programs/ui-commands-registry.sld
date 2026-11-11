@@ -5,16 +5,13 @@
  (prefix (snail shell ui commands) command-)
  (prefix (snail shell ui shortcuts) shortcut-))
 
-(: add (impl (Fn I64 -> I64)))
-(define (add value) (+ value 1))
+(define (add (value I64)) (→ I64) (+ value 1))
 
-(: entries (Vector (command-Command (dyn (Fn I64 -> I64)))))
-(define entries
+(define entries (→ (Vector (command-Command (dyn (Fn I64 → I64)))))
   (list->vector (list (command-Command "add" add)
                       (command-Command "double" (lambda (value) (* value 2))))))
 
-(: invoke (impl (Fn (Option (dyn (Fn I64 -> I64))) I64 -> I64)))
-(define (invoke command value)
+(define (invoke (command (Option (dyn (Fn I64 → I64)))) (value I64)) (→ I64)
   (match command ((Some run) (run value)) ((None) -1)))
 
 (match (command-register entries)

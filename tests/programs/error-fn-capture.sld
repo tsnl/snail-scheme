@@ -3,7 +3,6 @@
  (snail core io))
 
 ;; A `fn` cannot read a local of the code around it.
-(: greet (impl (Fn String -> Unit ! console)))
-(define (greet name)
+(define (greet (name String)) (→ Unit) (! console)
   (let ((say (fn () (write-line name))))
     (say)))

@@ -11,18 +11,15 @@
  (siegework colony)
  (siegework simulation))
 
-(: run (impl (Fn World I64 -> World)))
-(define (run world ticks)
+(define (run (world World) (ticks I64)) (→ World)
   (if (= ticks 0) world (run (advance world) (- ticks 1))))
 
-(: order (impl (Fn World Action -> World)))
-(define (order world action)
+(define (order (world World) (action Action)) (→ World)
   (match (act world action)
     ((Ok world) world)
     ((Err rejection) (panic (rejection-text rejection)))))
 
-(: report (impl (Fn World -> Unit ! console)))
-(define (report world)
+(define (report (world World)) (→ Unit) (! console)
   (let ((ledger (::ledger world)))
     (write-line (string-join (list (string-append "tick " (show (::tick world)))
                                    (string-append "energy " (show (::energy world)))
@@ -35,8 +32,7 @@
                                                               (::spent ledger))))))
                              ", "))))
 
-(: reserve (impl (Fn World Cell -> I64)))
-(define (reserve world cell)
+(define (reserve (world World) (cell Cell)) (→ I64)
   (match (crystal-at world cell)
     ((Some crystal) (::reserve crystal))
     ((None) 0)))

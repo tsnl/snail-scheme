@@ -4,6 +4,5 @@
 
 ;; Calling work closed over its handlers performs whatever its handlers
 ;; and the host do, which a total function may not.
-(: run (impl (Fn (dyn (FnOnce -> Unit ! host)) -> Unit)))
-(define (run work)
+(define (run (work (dyn (FnOnce → Unit ! host)))) (→ Unit)
   (work))

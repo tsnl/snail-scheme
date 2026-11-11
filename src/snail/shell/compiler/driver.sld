@@ -22,8 +22,7 @@
 
     ;; ---- Compilation ----
 
-    (: compile-command-line (impl (Fn -> Unit ! mut fs)))
-    (define (compile-command-line)
+    (define (compile-command-line) (→ Unit) (! mut fs)
       (match (command-line)
         ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
          (match (compiling (lambda () (compile-mode mode source output generated directories)))
@@ -36,8 +35,14 @@
 
     ;; Writes what `mode` asks for: the program's schemas, a module for each
     ;; library, or the whole program.
-    (: compile-mode (impl (Fn String String String String (List String) -> Unit ! mut fs compile)))
-    (define (compile-mode mode source output generated directories)
+
+    (define (compile-mode (mode String)
+                          (source String)
+                          (output String)
+                          (generated String)
+                          (directories (List String)))
+      (→ Unit)
+      (! mut fs compile)
       (let ((generate
              (lambda (loading forms) (generated-syntax generated directories loading forms))))
         (cond ((string=? mode "schema")
@@ -50,13 +55,15 @@
                                    generated
                                    (source->wat directories source generate no-inputs))))))
 
-    (: write-program (impl (Fn String String WholeProgram -> Unit ! fs)))
-    (define (write-program output generated program)
+    (define (write-program (output String) (generated String) (program WholeProgram))
+      (→ Unit)
+      (! fs)
       (write-file output (::text program))
       (write-links generated (::links program)))
 
-    (: write-modules (impl (Fn String String (List Built) -> Unit ! fs)))
-    (define (write-modules directory generated modules)
+    (define (write-modules (directory String) (generated String) (modules (List Built)))
+      (→ Unit)
+      (! fs)
       (for-each (lambda (module)
                   (write-file (string-append directory "/" (::name module) ".wat")
                               (::text module)))
@@ -72,8 +79,8 @@
     ;; payload under their digests, as `("DIGEST" "PATH")` lines in
     ;; links.datum in the compile's own directory, beside the libraries its
     ;; producers generate; libraries that link the same bytes share a line.
-    (: write-links (impl (Fn String (List LinkedFile) -> Unit ! fs)))
-    (define (write-links directory links)
+
+    (define (write-links (directory String) (links (List LinkedFile))) (→ Unit) (! fs)
       (write-file (string-append directory "/links.datum")
                   (string-concatenate
                    (map (lambda (link)

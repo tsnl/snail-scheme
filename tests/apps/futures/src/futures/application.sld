@@ -38,8 +38,7 @@
       (Cancel)
       (Click))
 
-    (: update (impl (Fn Model (Option Msg) -> Model ! mut completion fetch)))
-    (define (update model message)
+    (define (update (model Model) (message (Option Msg))) (→ Model) (! mut completion fetch)
       (match model
         ((Model display clicks pending)
          (match message
@@ -52,14 +51,16 @@
            ((Some (Click)) (collect display (+ clicks 1) pending))
            ((None) (collect display clicks pending))))))
 
-    (: load-text (impl (Fn -> (Result String String) ! fetch tasks)))
-    (define (load-text)
+    (define (load-text) (→ (Result String String)) (! fetch tasks)
       (match (request "GET" "/api/text" (Nil) "")
         ((Ok reply) (Ok (::body reply)))
         ((Err why) (Err why))))
 
-    (: collect (impl (Fn Display I64 (Option (Future (Result String String))) -> Model ! mut)))
-    (define (collect display clicks pending)
+    (define (collect (display Display)
+                     (clicks I64)
+                     (pending (Option (Future (Result String String)))))
+      (→ Model)
+      (! mut)
       (match pending
         ((None) (Model display clicks (None)))
         ((Some future)
@@ -69,14 +70,12 @@
            ((Ready (Completed (Err why))) (Model (Showing why) clicks (None)))
            ((Ready (Abandoned)) (Model (Showing "abandoned") clicks (None)))))))
 
-    (: button (impl (Fn String String Msg -> (Html Msg))))
-    (define (button id label message)
+    (define (button (id String) (label String) (message Msg)) (→ (Html Msg))
       (Element "button"
                (list (Attr "id" id) (On "click" (Nil) (Allow) (lambda (event) message)))
                (list (Text label))))
 
-    (: view (impl (Fn (Borrow Model) -> (Html Msg))))
-    (define (view model)
+    (define (view (model (Borrow Model))) (→ (Html Msg))
       (Element "main"
                (list (Attr "aria-busy" (match (::display model)
                                          ((Waiting) "true")
@@ -92,22 +91,18 @@
                      (button "cancel" "Cancel" (Cancel))
                      (button "click" "Count" (Click)))))
 
-    (: display-text (impl (Fn Display -> String)))
-    (define (display-text display)
+    (define (display-text (display Display)) (→ String)
       (match display
         ((Showing text) text)
         ((Waiting) "loading")))
 
-    (: window (impl (Fn (Borrow Model) -> (List (Attribute Msg)))))
-    (define (window model)
+    (define (window (model (Borrow Model))) (→ (List (Attribute Msg)))
       (Nil))
 
-    (: save (impl (Fn (Borrow Model) -> Save)))
-    (define (save model)
+    (define (save (model (Borrow Model))) (→ Save)
       (Save (::display model) (::clicks model)))
 
-    (: restore (impl (Fn Save -> Model)))
-    (define (restore saved)
+    (define (restore (saved Save)) (→ Model)
       (Model (match (::display saved)
                ((Waiting) (Showing "interrupted"))
                (display display))
@@ -119,18 +114,15 @@
     (define-page-state Save)
 
     (instance (Application (! mut events storage tasks) FuturesApplication)
-      (define (start entry)
-        (run-page (lambda () (Save (Showing "idle") 0)) serialize deserialize present)))
+      (define start
+        (lambda (entry)
+          (run-page (lambda () (Save (Showing "idle") 0)) serialize deserialize present))))
 
     ;; Only Save enters the shared lifecycle. Construct the linear model inside
     ;; the repeatable host binders, then keep it owned by the reactor's loop.
-    (: present
-       (impl (Fn Save
-                 (dyn (Fn Save -> Unit ! events storage tasks))
-                 ->
-                 Unit
-                 ! mut events storage tasks)))
-    (define (present saved checkpoint)
+    (define (present (saved Save) (checkpoint (dyn (Fn Save → Unit ! events storage tasks))))
+      (→ Unit)
+      (! mut events storage tasks)
       (with-page-dom
        (lambda ()
          (with-page-fetch
@@ -139,14 +131,13 @@
                                (ann update
                                     (dyn (Fn Model
                                              (Option Msg)
-                                             -> Model
+                                             → Model
                                              ! mut completion events storage dom fetch)))
                                view window save
-                               (ann commit (dyn (Fn Save -> Unit ! mut events storage dom fetch)))
+                               (ann commit (dyn (Fn Save → Unit ! mut events storage dom fetch)))
                                (lambda (saved) (checkpoint saved)))))))))
 
-    (: commit (impl (Fn Save -> Unit ! mut events)))
-    (define (commit saved)
+    (define (commit (saved Save)) (→ Unit) (! mut events)
       (commit-page saved)
       (report-ready))
     ))

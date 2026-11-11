@@ -6,8 +6,7 @@
 ;; another, `console`, with the rest of its row polymorphic (#456). The
 ;; body may perform anything in `e` besides the clock: here it writes too,
 ;; so `e` is `console`.
-(: logged-clock (All (e) (impl (Fn (dyn (Fn -> I64 ! clock e)) -> I64 ! console e))))
-(define (logged-clock body)
+(define (logged-clock (body (dyn (Fn → I64 ! clock e)))) (→ I64) (! console e) (∀ e)
   (handle clock
       ((monotonic-nanoseconds (lambda () (write-line "the clock was read") 21)))
     (body)))

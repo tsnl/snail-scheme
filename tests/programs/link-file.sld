@@ -10,8 +10,7 @@
  (snail shell resource)
  (sample linked))
 
-(: image Resource)
-(define image (link-file "data/./pixel.png"))
+(define image (→ Resource) (link-file "data/./pixel.png"))
 
 (dispatch-local
  (once (lambda ()

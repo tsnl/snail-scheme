@@ -6,17 +6,14 @@
  (snail shell dom)
  (snail shell dom memory))
 
-(: update (impl (Fn I64 (Option I64) -> I64 ! tasks)))
-(define (update model message)
+(define (update (model I64) (message (Option I64))) (→ I64) (! tasks)
   (yield)
   model)
 
-(: view (impl (Fn (Borrow I64) -> (Html I64))))
-(define (view model)
+(define (view (model (Borrow I64))) (→ (Html I64))
   (Text (show (borrow-copy model))))
 
-(: window (impl (Fn (Borrow I64) -> (List (Attribute I64)))))
-(define (window model)
+(define (window (model (Borrow I64))) (→ (List (Attribute I64)))
   (Nil))
 
 (drop (with-memory-dom (Nil)

@@ -4,8 +4,7 @@
  (snail core base)
  (snail core io))
 
-(: checksum (impl (Fn Bytes -> I64)))
-(define (checksum bytes)
+(define (checksum (bytes Bytes)) (→ I64)
   (vector-fold (lambda (total byte) (+ total (i32->i64 (u8->i32 byte)))) 0 bytes))
 
 (define every-byte
@@ -235,8 +234,7 @@
         254
         255))
 
-(: signature (impl (Fn -> Bytes)))
-(define (signature)
+(define (signature) (→ Bytes)
   #u8(137 80 78 71 13 10 26 10))
 
 (display (vector-length every-byte))

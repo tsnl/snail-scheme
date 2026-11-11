@@ -6,15 +6,14 @@
 ;; only where A is unrestricted: used at a FnOnce, it would run the work
 ;; twice.
 (typeclass (Twice T)
-  (: twice (impl (Fn T -> (Pair T T)))))
+  (: twice (impl (Fn T → (Pair T T)))))
 
 (instance (Twice (Option A))
-  (requires (Copy A))
-  (define (twice value)
-    (Pair value value)))
+  (⊨ (Copy A))
+  (define twice
+    (lambda (value) (Pair value value))))
 
-(: run (impl (Fn (Option (dyn (FnOnce -> Unit ! console))) -> Unit ! console)))
-(define (run option)
+(define (run (option (Option (dyn (FnOnce → Unit ! console))))) (→ Unit) (! console)
   (match option
     ((Some work) (call-once work))
     ((None) (unit))))
