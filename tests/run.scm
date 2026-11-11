@@ -271,31 +271,27 @@
         ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
         (else (text-index text pattern (+ from 1)))))
 
-;; (snail shell format) as a program, tests/format-check.sld, leaves every
-;; Scheme file in the repository as the Emacs formatter that `make check`
-;; runs left it.
+;; The production formatter's CLI contracts, including the repository's
+;; formatting gate, run on the same engine as the rest of this suite.
 (define (compile-formatter root)
   (guard (failure (#t (report "formatter" "compile failed" (error-text failure))))
     (let ((text
            (program->wat root
                          (standard-directories root)
-                         (path-join root "tests/format-check.sld"))))
+                         (path-join root "bootstrap/format.sld"))))
       (lambda () (check-formatter root text)))))
 
 (define (check-formatter root text)
   (guard (failure (#t (report "formatter" "check failed" (error-text failure))))
-    (let ((program (path-join root "build/tests/formatter/format.wasm"))
-          (files (capture-process (list "git" "-C" root "ls-files" "*.scm" "*.sld"))))
+    (let ((program (path-join root "build/tests/formatter/format.wasm")))
       (create-directory* (path-join root "build/tests/formatter"))
       (link-wat root text program)
       (let ((result (capture-process
-                     (append (program-command root program)
-                             (list "--check")
-                             (map (lambda (file) (path-join root file))
-                                  (delete "" (string-split (car files) #\newline)))))))
-        (or (and (zero? (caddr result)) (string=? (car result) ""))
+                     (append (list "node" (path-join root "tests/format-scheme.mjs") root)
+                             (program-command root program)))))
+        (or (zero? (caddr result))
             (report "formatter"
-                    "formats differently from Emacs"
+                    "CLI regression"
                     (string-append (car result) (cadr result))))))))
 
 ;; The book's preprocessor, bootstrap/highlight-book.sld, run on a small

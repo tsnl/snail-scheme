@@ -135,9 +135,9 @@ compiler's source changes; compiler changes must also pass `make test-chibi`,
 which runs the source on Chibi, and `make bootstrap`, which rebuilds from
 Chibi alone.
 Backend changes should execute linked Wasm; compilation alone does not test
-target behavior. `(snail shell format)` reproduces `scripts/format-scheme` for
-the IDE, and `make test` checks it on every tracked Scheme file; when Emacs's
-rules change, change it to match. Browser changes should be seen running:
+target behavior. `(snail shell format)` is the formatter shared by the IDE
+and `scripts/format-scheme`; `make test` checks its CLI and every tracked
+Scheme file. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
 
 ## Live reload
