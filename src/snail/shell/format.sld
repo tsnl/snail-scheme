@@ -1,11 +1,10 @@
-;; Indentation, formatting and highlighting of Lisp source, matching this
-;; repository's formatter: Emacs's scheme-mode with the rules in
-;; scripts/format-scheme.el.
+;; The repository's Lisp formatter, shared by scripts/format-scheme and the
+;; IDE. Formatting is a pure operation on text, including unfinished source.
 ;; Formatting first puts each import specification, struct field and record
-;; field on its own line, then indents every line. A line's indentation
-;; follows Emacs's `calculate-lisp-indent`: it goes under the first argument
-;; of a call, under the first expression of the line its list's last element
-;; starts on, or in by two columns for the body of a special form, as the
+;; field on its own line, then indents every line. A line's indentation goes
+;; under the first argument of a call, under the first expression of the
+;; line its list's last element starts on, or in by two columns for the body
+;; of a special form, as the
 ;; rule for the form's name says. A line whose code runs past the width,
 ;; `format-width` unless the caller says otherwise, is broken before the
 ;; next is indented: a call before its arguments, a binding form before
@@ -35,12 +34,14 @@
       (Atom ((offset I64) (text String)))
       (Text ((offset I64))))
 
-    ;; A line starts in code, inside a string, or inside a block comment;
-    ;; lines that start inside either keep their indentation.
+    ;; Lines starting inside quoted text or a comment keep their indentation.
+    ;; A datum comment owns its own lexer mode and list depth, so nested #;
+    ;; comments do not consume the datum the outer comment is waiting for.
     (enum Mode
       (Code)
-      (InString)
-      (InComment ((depth I64))))
+      (InQuoted ((delimiter Char)))
+      (InComment ((depth I64)))
+      (InDatum ((depth I64) (mode Mode))))
 
     ;; A line, the mode it starts in, its tokens, and the offset just past
     ;; its last token, where its code ends before any comment.
@@ -97,8 +98,9 @@
     (define (lex-step line offset mode)
       (match mode
         ((Code) (lex-code line offset))
-        ((InString) (lex-string line offset))
-        ((InComment depth) (lex-comment line offset depth))))
+        ((InQuoted delimiter) (lex-quoted line offset delimiter))
+        ((InComment depth) (lex-comment line offset depth))
+        ((InDatum depth mode) (lex-datum line offset depth mode))))
 
     (: lex-code (-> String I64 Step))
     (define (lex-code line offset)
@@ -107,7 +109,8 @@
               ((= c #\;) (Step (string-length line) (Code) (None)))
               ((or (= c #\() (= c #\[)) (code-token after (Open offset (spaced? line after))))
               ((or (= c #\)) (= c #\])) (code-token after (Close offset)))
-              ((= c #\") (Step-token-set (lex-string line after) (Some (Text offset))))
+              ((or (= c #\") (= c #\|))
+               (Step-token-set (lex-quoted line after c) (Some (Text offset))))
               ((or (= c #\') (= c #\`)) (code-token after (Prefix offset)))
               ((= c #\,) (code-token (if (at? line after "@") (+ after 1) after) (Prefix offset)))
               ((= c #\#) (lex-hash line offset))
@@ -118,14 +121,15 @@
       (Step next (Code) (Some token)))
 
     ;; `#(` opens a vector, `#|` a block comment, and `#;` comments out the
-    ;; next datum, which counts here as a prefix; `#\` starts a character,
+    ;; next datum; `#\` starts a character,
     ;; whatever character follows it.
     (: lex-hash (-> String I64 Step))
     (define (lex-hash line offset)
       (let ((after (+ offset 1)))
         (cond ((at? line after "(") (code-token after (Prefix offset)))
+              ((at? line after "u8(") (code-token (+ after 2) (Prefix offset)))
               ((at? line after "|") (lex-comment line (+ after 1) 1))
-              ((at? line after ";") (code-token (+ after 1) (Prefix offset)))
+              ((at? line after ";") (Step (+ after 1) (InDatum 0 (Code)) (None)))
               ((at? line after "\\") (lex-atom line offset (min (+ after 2) (string-length line))))
               (else (lex-atom line offset after)))))
 
@@ -142,17 +146,36 @@
 
     (: delimiter? (-> Char Bool))
     (define (delimiter? c)
-      (or (char-whitespace? c) (member? c (list #\( #\) #\[ #\] #\" #\; #\' #\` #\,))))
+      (or (char-whitespace? c) (member? c (list #\( #\) #\[ #\] #\" #\| #\; #\' #\` #\,))))
 
-    ;; Inside a string, past its closing quote, or to the end of the line,
-    ;; which the string continues beyond.
-    (: lex-string (-> String I64 Step))
-    (define (lex-string line offset)
-      (cond ((>= offset (string-length line)) (Step offset (InString) (None)))
+    ;; Strings and |quoted identifiers| preserve their contents, including
+    ;; escapes and newlines. Only their opening delimiter makes a token.
+    (: lex-quoted (-> String I64 Char Step))
+    (define (lex-quoted line offset delimiter)
+      (cond ((>= offset (string-length line)) (Step offset (InQuoted delimiter) (None)))
             ((= (string-ref line offset) #\\)
-             (lex-string line (min (+ offset 2) (string-length line))))
-            ((= (string-ref line offset) #\") (Step (+ offset 1) (Code) (None)))
-            (else (lex-string line (+ offset 1)))))
+             (lex-quoted line (min (+ offset 2) (string-length line)) delimiter))
+            ((= (string-ref line offset) delimiter) (Step (+ offset 1) (Code) (None)))
+            (else (lex-quoted line (+ offset 1) delimiter))))
+
+    ;; Discard one datum's tokens. Depth zero waits for its expression; -1
+    ;; waits only for quoted text to close. Positive depths count open lists.
+    ;; Prefixes wait for their datum, while nested comments stay in `mode`.
+    (: lex-datum (-> String I64 I64 Mode Step))
+    (define (lex-datum line offset depth mode)
+      (let* ((step (lex-step line offset mode))
+             (next-depth (match (::token step)
+                           ((Some (Open _ _)) (+ depth 1))
+                           ((Some (Close _)) (- depth 1))
+                           ((Some (Prefix _)) depth)
+                           ((Some _) (if (= depth 0) -1 depth))
+                           ((None) depth)))
+             (closed (match (::token step) ((Some (Close _)) (<= depth 1)) (_ #f))))
+        (Step (::next step)
+              (if (or closed (and (< next-depth 0) (code-mode? (::mode step))))
+                  (Code)
+                  (InDatum next-depth (::mode step)))
+              (None))))
 
     ;; Inside a block comment, which nests.
     (: lex-comment (-> String I64 I64 Step))
@@ -222,9 +245,8 @@
       (Special ((distinguished I64)))
       (LetRule))
 
-    ;; The rules of Emacs 29's scheme-mode, as scheme.el gives them, then
-    ;; those scripts/format-scheme.el adds for Snail-Core's forms, with `guard` as
-    ;; Emacs 31 indents it.
+    ;; Conventional Scheme indentation and Snail-Core's forms. Binding names
+    ;; follow the let/-let and let*/-let* convention below, without a table entry.
     (: rules (List (Pair String Rule)))
     (define rules
       (concatenate
@@ -238,7 +260,6 @@
                         "with-output-to-string"))
              (map (lambda (name) (Pair name (Special 1)))
                   (list "access-components"
-                        "and-let*"
                         "assignment-components"
                         "call-with-input-file"
                         "call-with-output-file"
@@ -257,14 +278,12 @@
                         "disjunction-components"
                         "element"
                         "eval-when"
-                        "fluid-let"
                         "in-package"
                         "in-package-components"
                         "lambda"
                         "lambda-components"
                         "lambda-components*"
                         "lambda-components**"
-                        "let*"
                         "letrec"
                         "letrec*"
                         "letrec-syntax"
@@ -279,7 +298,6 @@
                         "local-declare"
                         "macro"
                         "make"
-                        "match-let*"
                         "match-letrec"
                         "mode"
                         "named-lambda"
@@ -305,21 +323,29 @@
              (map (lambda (name) (Pair name (Special 2)))
                   (list "do" "receive" "syntax-case" "syntax-table-define"))
              (list (Pair "dynamic-wind" (Special 3))
-                   (Pair "let" (LetRule))
-                   (Pair "match-let" (LetRule))
                    (Pair "syntax-rules" (Definition)))
              (map (lambda (name) (Pair name (Special 1)))
                   (list "fn" "struct" "enum" "typeclass" "instance" "effect" "match" "guard"))
              (list (Pair "handle" (Special 2))))))
 
-    ;; A name without a rule that starts with `def` and is longer than
-    ;; three characters is a definition. Emacs ignores case here, so
-    ;; `Defined` is one too.
+    ;; A binding macro advertises its layout in its name. A name without a
+    ;; rule that starts with `def` (case insensitive) is a definition.
     (: indent-rule (-> String Rule))
     (define (indent-rule name)
-      (match (assoc-ref rules name)
-        ((Some rule) rule)
-        ((None) (if (and (> (string-length name) 3) (def-prefix? name)) (Definition) (Call)))))
+      (cond ((binding-name? name "let") (LetRule))
+            ((binding-name? name "let*") (Special 1))
+            (else
+             (match (assoc-ref rules name)
+               ((Some rule) rule)
+               ((None)
+                (if (and (> (string-length name) 3) (def-prefix? name)) (Definition) (Call)))))))
+
+    (: binding-name? (-> String String Bool))
+    (define (binding-name? name base)
+      (let* ((suffix (string-append "-" base))
+             (start (- (string-length name) (string-length suffix))))
+        (or (string=? name base)
+            (and (>= start 0) (string=? (substring name start (string-length name)) suffix)))))
 
     (: def-prefix? (-> String Bool))
     (define (def-prefix? name)
@@ -370,8 +396,8 @@
         ((LetRule)
          (special-indent frame (if (names-loop? elements) 2 1) (::count elements) normal))))
 
-    ;; Emacs's `lisp-indent-specform`. A distinguished argument goes in by
-    ;; four columns when it is one of the first two; the first body form goes
+    ;; A distinguished argument goes in by four columns when it is one of
+    ;; the first two; the first body form goes
     ;; in by two, unless the line above sits further left.
     (: special-indent (-> Frame I64 I64 I64 I64))
     (define (special-indent frame distinguished arguments normal)
@@ -517,16 +543,20 @@
 
     ;; ---- Declarations ----
 
-    ;; A token with the line it is on.
+    ;; A token with its line and that line's leading whitespace. A token
+    ;; after a comment is not at the start of its line, even if no earlier
+    ;; token was emitted on that line.
     (struct Placed
       ((line I64)
-       (token Token)))
+       (token Token)
+       (indent I64)))
 
     (: placed-tokens (-> (List Line) (Vector Placed)))
     (define (placed-tokens lines)
       (list->vector (concatenate (map-indexed (lambda (index line)
-                                                (map (lambda (token) (Placed index token))
-                                                     (::tokens line)))
+                                                (let ((indent (indentation (::text line))))
+                                                  (map (lambda (token) (Placed index token indent))
+                                                       (::tokens line))))
                                               lines))))
 
     (: token-offset (-> Token I64))
@@ -579,7 +609,7 @@
     (define (form-name tokens index)
       (if (and (open-at? tokens index) (< (+ index 1) (vector-length tokens)))
           (match (Pair (vector-ref tokens index) (vector-ref tokens (+ index 1)))
-            ((Pair (Placed line (Open offset _)) (Placed next-line (Atom next-offset name)))
+            ((Pair (Placed line (Open offset _) _) (Placed next-line (Atom next-offset name) _))
              (if (and (= line next-line) (= next-offset (+ offset 1))) (Some name) (None)))
             (_ (None)))
           (None)))
@@ -602,11 +632,10 @@
 
     (: break-before (-> (Vector Placed) I64 (List Placed) (List Placed)))
     (define (break-before tokens index breaks)
-      (if (or (= index 0)
-              (not (= (::line (vector-ref tokens (- index 1)))
-                      (::line (vector-ref tokens index)))))
-          breaks
-          (Cons (vector-ref tokens index) breaks)))
+      (let ((placed (vector-ref tokens index)))
+        (if (<= (token-offset (::token placed)) (::indent placed))
+            breaks
+            (Cons placed breaks))))
 
     ;; A struct's field list starts its own line, and so does each field
     ;; after the first.
@@ -633,7 +662,7 @@
         ((Some fields) (::breaks (break-entries tokens fields breaks)))
         ((None) breaks)))
 
-    ;; Where Emacs's formatter breaks lines, in order: before each import
+    ;; Declaration breaks, in order: before each import
     ;; specification, a struct's field list and its fields after the first,
     ;; and a record type's fields. An import that does not end stops the
     ;; search, since everything after it is part of it.
@@ -693,9 +722,9 @@
     ;; ---- Long lines ----
 
     ;; A line whose code runs past the width, a comment after it not
-    ;; counting, breaks before the next line is indented, as in
-    ;; scripts/format-scheme.el. Each list with an element after the line's
-    ;; first token can break the line before some of its elements, as its
+    ;; counting, breaks before the next line is indented. Each list with an
+    ;; element after the line's first token can break the line before some
+    ;; of its elements, as its
     ;; shape says, and the outermost that can, does. The pieces are indented
     ;; as the lines they now are and broken in turn, so a line is final once
     ;; it fits or nothing on it can break.
@@ -714,12 +743,11 @@
       (Body ((from I64)))
       (Binding ((bindings I64))))
 
-    ;; Binding forms besides `let`, with the element each keeps its bindings
-    ;; in. The body follows the bindings.
+    ;; Binding forms outside the naming convention, with the element each
+    ;; keeps its bindings in. The body follows the bindings.
     (: binding-forms (List (Pair String I64)))
     (define binding-forms
-      (list (Pair "let*" 1)
-            (Pair "letrec" 1)
+      (list (Pair "letrec" 1)
             (Pair "letrec*" 1)
             (Pair "let-values" 1)
             (Pair "let*-values" 1)
@@ -738,7 +766,7 @@
     (define (shape elements)
       (match (::head (::head elements))
         ((Named name)
-         (match (assoc-ref binding-forms name)
+         (match (if (binding-name? name "let*") (Some 1) (assoc-ref binding-forms name))
            ((Some bindings) (Binding bindings))
            ((None)
             (match (indent-rule name)

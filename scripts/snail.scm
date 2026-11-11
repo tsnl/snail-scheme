@@ -99,4 +99,6 @@
                  (print-paths (build-editor-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("book-tools"))
                  (print-paths (build-book-tools (cadr arguments))))
+                ((equal? (cddr arguments) '("format-tools"))
+                 (print-paths (build-format-tools (cadr arguments))))
                 (else (perform (cadr arguments) (request (cddr arguments))))))))

@@ -14,7 +14,6 @@ pkgs.mkShell {
     gnumake
     nixfmt
     npins
-    emacs-nox
     rustup
     nodejs_26
     mdbook

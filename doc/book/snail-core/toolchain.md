@@ -418,8 +418,24 @@ opened in turn. Listing updates preserve the folders opened during the session.
 `(snail shell
 format)` runs in the same program for Tab/Enter indentation and
 format-on-save of Scheme files (`.sld`, `.scm` and `.datum`), and `(snail
-shell highlight)` colors them as the [book does](#code-highlighting). Each
-pane is one scroller holding its line numbers, its highlighting and its text
+shell highlight)` colors them as the [book does](#code-highlighting).
+
+The command-line formatter, `scripts/format-scheme`, runs this same library.
+Stage 0 builds and caches its small Snail program on first use and rebuilds it
+when its sources change. With no arguments it formats stdin to stdout; optional
+`--width COLUMNS` selects a positive width instead of 100. `--check FILE ...`
+reports every file needing formatting on stderr and exits with status 1;
+`--write FILE ...` updates only changed files. `make check`, `make format`,
+Zed's format-on-save, and the browser editor all use this implementation.
+
+Binding forms are recognized by name: `let`, `let*`, and any name ending in
+`-let` or `-let*`. A user-defined `result-let*` or `retry-let` needs no formatter
+registration. Bindings align with each other, and the body is indented two
+spaces from the form's opening parenthesis. Forms ending in `-let` also use
+named-let layout when a loop name precedes the bindings. This is a formatting
+convention; the formatter does not expand macros or inspect their definitions.
+
+Each pane is one scroller holding its line numbers, its highlighting and its text
 field, which is as big as its text, so they scroll together. Other supported files use ordinary text
 editing. Browser textareas use LF in edited text; the native file API
 preserves exact bytes until saved.
