@@ -43,7 +43,9 @@ module: a whole program, or one library in a development build.
   one file, under a grammar that states it.
 - A **pass** is a pure function from its input languages to its output
   language. A pass over a library also receives what the libraries it imports
-  offer, and nothing else of them.
+  offer, and nothing else of them. Instances are the one exception: they are
+  global, so the passes that choose an instance receive every instance in the
+  program, whichever library declares it.
 - A **query** is a pure function that reads a language and answers a fact
   about it, such as the imports of an outline or the files an expanded
   library links. It writes no tree.
@@ -275,12 +277,8 @@ At each milestone the new passes become the default path, and `make test`,
 begins. Between milestones a pass is judged by its own tests and by a
 comparison with the old pass that does its job.
 
-One language change comes first, on the old compiler: instances get names,
-are imported and exported like any other name, and are usable only where
-their name is in scope. The new passes are designed around that rule, so it
-lands before `expand` is written, with every source migrated. After it the
-accepted language stays fixed until the replacement is done, so every
-existing program remains an oracle.
+The language the compiler accepts does not change during the replacement,
+so every existing program stays an oracle.
 
 The integrator compiles everything on each build. Reuse between builds, which
 the old session provided, returns with the incremental work that follows the
