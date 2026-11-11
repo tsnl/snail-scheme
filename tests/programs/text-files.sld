@@ -8,30 +8,30 @@
 ;; operation and what it answered.
 (define root "build/tests/text-files")
 
-(: at (-> String String))
+(: at (impl (Fn String -> String)))
 (define (at name)
   (string-append root "/" name))
 
-(: report (-> String String Unit ! console))
+(: report (impl (Fn String String -> Unit ! console)))
 (define (report label text)
   (write-line (string-append label " -> " text)))
 
 ;; What a read answered, the text described by `describe`.
-(: read-report (-> String String I64 (-> String String) Unit ! console fs))
+(: read-report (impl (Fn String String I64 (dyn (Fn String -> String)) -> Unit ! console fs)))
 (define (read-report label name limit describe)
   (report label (match (read-text-file (at name) limit)
                   ((Ok text) (string-append "ok " (describe text)))
                   ((Err error) (string-append "error: " (show error))))))
 
-(: as-is (-> String String))
+(: as-is (impl (Fn String -> String)))
 (define (as-is text)
   text)
 
-(: characters (-> String String))
+(: characters (impl (Fn String -> String)))
 (define (characters text)
   (string-append (show (string-length text)) " characters"))
 
-(: write-report (-> String String String Unit ! console fs))
+(: write-report (impl (Fn String String String -> Unit ! console fs)))
 (define (write-report label name text)
   (report label (match (write-text-file (at name) text (CreateOrReplace))
                   ((Ok _) "ok")

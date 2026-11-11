@@ -6,7 +6,7 @@
 ;; performs what copying it does. The book's ownership chapter includes
 ;; the text between ANCHOR and ANCHOR_END.
 (effect log
-  ((say (-> String Unit))))
+  ((say (dyn (Fn String -> Unit)))))
 
 ;; ANCHOR: ticket
 ;; A ticket is linear by its Drop instance, so only its Clone instance
@@ -43,11 +43,11 @@
          ((Pair a b) (Pair (Tagged tag a) (Tagged (string-append tag "'") b))))))))
 
 ;; A generic definition requires (Clone e A).
-(: twin (All (A e) (requires (Clone e A)) (-> A (Pair A A) ! e)))
+(: twin (All (A e) (requires (Clone e A)) (impl (Fn A -> (Pair A A) ! e))))
 (define (twin value)
   (clone value))
 
-(: demo (-> Unit ! log console))
+(: demo (impl (Fn -> Unit ! log console)))
 (define (demo)
   (match (clone (Ticket 1))
     ((Pair a b) (drop a) (drop b)))

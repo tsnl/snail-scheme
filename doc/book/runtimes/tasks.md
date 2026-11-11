@@ -59,9 +59,9 @@ the same handlers.
 ```scheme
 (enum Step
   (Finished)
-  (Yielded ((next (FnOnce Step ! host))))
-  (Sleeping ((delay I64) (next (FnOnce Step ! host))))
-  (Waiting ((ticket I64) (next (FnOnce Step ! host)))))
+  (Yielded ((next (dyn (FnOnce -> Step ! host)))))
+  (Sleeping ((delay I64) (next (dyn (FnOnce -> Step ! host)))))
+  (Waiting ((ticket I64) (next (dyn (FnOnce -> Step ! host))))))
 ```
 
 The scheduler keeps every task that is not running in exactly one place:

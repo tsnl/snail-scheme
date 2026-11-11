@@ -268,13 +268,11 @@
                 arguments
                 `(,(rename 'append) ,arguments (,(rename 'list) ,(rename 'cannot-resume))))))))
 
-    ;; Whether an operation's type, `(-> argument ... answer)` with perhaps
-    ;; `! effect ...` after it, answers `Never`.
+    ;; The operation contract carries one answer immediately after `->`.
+    ;; Stage 0 erases receiver and storage distinctions with the signature.
     (define (never-answer? type)
-      (let loop ((parts (cdr type)) (answer #f))
-        (if (or (null? parts) (eq? (car parts) '!))
-            (eq? answer 'Never)
-            (loop (cdr parts) (car parts)))))
+      (let ((result (memq '-> (cadr type))))
+        (and result (pair? (cdr result)) (eq? (cadr result) 'Never))))
 
     ;; The innermost handler of `effect` runs the implementation of
     ;; `operation` back at its `handle`, so under the handlers outside it.
@@ -312,8 +310,8 @@
     (begin
       (define annotations 1)
       (effect Stop
-        ((ctl stop (-> I64 Never) (annotations (doc "Stop now.")))
-         (ctl ask (-> I64 I64)))
+        ((ctl stop (dyn (Fn I64 -> Never)) (annotations (doc "Stop now.")))
+         (ctl ask (dyn (Fn I64 -> I64))))
         (annotations (doc "A documented control effect.")))
 
       (define (failure-message thunk)

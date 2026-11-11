@@ -11,13 +11,13 @@
 ;; which a program's top level may. The book's chapter on effects includes
 ;; the text between each ANCHOR and ANCHOR_END.
 (effect Log
-  ((log (-> String Unit))))
+  ((log (dyn (Fn String -> Unit)))))
 
-(: first-log (-> String Unit ! console))
+(: first-log (impl (Fn String -> Unit ! console)))
 (define (first-log line)
   (write-line (string-append "first log: " line)))
 
-(: second-log (-> String Unit ! console))
+(: second-log (impl (Fn String -> Unit ! console)))
 (define (second-log line)
   (write-line (string-append "second log: " line)))
 
@@ -36,30 +36,30 @@
 ;; closed over its handlers first, it logs to the one in scope where the
 ;; generator yielded, as a task scheduler's steps must.
 (effect Gen
-  ((ctl yield (-> I64 Unit))))
+  ((ctl yield (dyn (Fn I64 -> Unit)))))
 
 ;; ANCHOR: resume
 (enum Step
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce Unit Step ! host)))))
+    (next (dyn (FnOnce Unit -> Step ! host))))))
 
-(: start (-> (-> Unit ! Gen Log) Step ! Log))
+(: start (impl (Fn (dyn (Fn -> Unit ! Gen Log)) -> Step ! Log)))
 (define (start body)
   (handle Gen ((yield (lambda (value resume) (Yielded value (inherit-handlers-1 resume)))))
     (body)
     (Done)))
 ;; ANCHOR_END: resume
 
-(: count-to (-> I64 I64 Unit ! Gen Log))
+(: count-to (impl (Fn I64 I64 -> Unit ! Gen Log)))
 (define (count-to value last)
   (when (<= value last)
     (log (string-append "produces " (show value)))
     (yield value)
     (count-to (+ value 1) last)))
 
-(: drain (-> Step Unit ! console host))
+(: drain (impl (Fn Step -> Unit ! console host)))
 (define (drain step)
   (match step
     ((Done) (write-line "done"))

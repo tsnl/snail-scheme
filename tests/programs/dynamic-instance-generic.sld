@@ -14,7 +14,7 @@
   (define (describe wrapper)
     (match wrapper ((Wrapper value) (describe value)))))
 
-(: twice (All (T e) (requires (Describe e T) (Copy T)) (-> T String ! e)))
+(: twice (All (T e) (requires (Describe e T) (Copy T)) (impl (Fn T -> String ! e))))
 (define (twice value) (string-append (describe value) (describe value)))
 
 (write-line (twice (Wrapper 7)))

@@ -27,7 +27,7 @@
 
     ;; Only declaration parsers call this, after identifying their required
     ;; operands. Never consume a required type or expression as metadata.
-    (: split-annotations (-> Syntax I64 (Pair Syntax (List Annotation)) ! compile))
+    (: split-annotations (impl (Fn Syntax I64 -> (Pair Syntax (List Annotation)) ! compile)))
     (define (split-annotations form required)
       (match form
         ((Form items loc)
@@ -41,7 +41,7 @@
              (Pair form (Nil))))
         (_ (Pair form (Nil)))))
 
-    (: annotation-list? (-> Syntax Bool))
+    (: annotation-list? (impl (Fn Syntax -> Bool)))
     (define (annotation-list? form)
       (match form
         ((Form (Cons (Ident "annotations" _ _) _) _) #t)
@@ -51,7 +51,7 @@
     ;; into inert metadata. Arguments are never evaluated. `doc` applies to
     ;; supported declarations, enum cases and fields; expansion establishes
     ;; the owner. Outside those slots, `annotations` is an ordinary name.
-    (: parse-annotation (-> Syntax Annotation ! compile))
+    (: parse-annotation (impl (Fn Syntax -> Annotation ! compile)))
     (define (parse-annotation form)
       (match form
         ((Form (Cons (Ident "doc" _ _) (Cons (Atom (DString text) _) (Nil))) loc)
@@ -65,7 +65,7 @@
 
     ;; ---- Documentation ----
 
-    (: annotation-documentation (-> (List Annotation) (Option String)))
+    (: annotation-documentation (impl (Fn (List Annotation) -> (Option String))))
     (define (annotation-documentation annotations)
       (match annotations
         ((Nil) (None))

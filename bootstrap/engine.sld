@@ -13,7 +13,7 @@
 
 ;; The store is files: an object is read at once, and one that is not
 ;; there is none.
-(: with-files (All (A e) (-> (-> A ! linked-content-store e) A ! fs e)))
+(: with-files (All (A e) (impl (Fn (dyn (Fn -> A ! linked-content-store e)) -> A ! fs e))))
 (define (with-files body)
   (handle linked-content-store
       ((read-object (lambda (path)
@@ -22,7 +22,7 @@
                           (None)))))
     (body)))
 
-(: read-file-resource (-> I64 I32 Unit ! mut fs wasm))
+(: read-file-resource (impl (Fn I64 I32 -> Unit ! mut fs wasm)))
 (define (read-file-resource ticket handle)
   (with-files (lambda () (resource-read ticket handle))))
 

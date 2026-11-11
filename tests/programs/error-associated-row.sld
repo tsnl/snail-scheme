@@ -4,4 +4,4 @@
 
 (typeclass (Bad A)
   (type Output)
-  (: bad (-> A A ! Output)))
+  (: bad (impl (Fn A -> A ! Output))))

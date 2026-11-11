@@ -28,7 +28,7 @@
       (Ready ((result (Completion T)))))
 
     (enum (State T)
-      (Unresolved ((waker (Option (-> Unit ! mut)))))
+      (Unresolved ((waker (Option (dyn (Fn -> Unit ! mut))))))
       (Resolved ((result (Completion T))))
       (Unobserved))
 
@@ -43,10 +43,10 @@
     ;; A reactor may request another update after any completion. This is
     ;; a notification, never an application-specific completion message.
     (effect completion
-      ((completed (-> Unit)))
+      ((completed (dyn (Fn -> Unit))))
       (default ((completed (lambda () (unit))))))
 
-    (: make-promise (All (T) (-> (Pair (Promise T) (Future T)))))
+    (: make-promise (All (T) (impl (Fn -> (Pair (Promise T) (Future T))))))
     (define (make-promise)
       (let ((slot (unsafe-slot (Unresolved (None)))))
         (Pair (Sender slot) (Receiver slot))))
@@ -56,7 +56,7 @@
     ;; A canceled receiver returns the unsent value to its producer.
     ;; Synchronization and one-shot ownership do not make publication pure:
     ;; it changes what another endpoint's next poll observes.
-    (: fulfill (All (T) (-> (Promise T) T (Result Unit T) ! mut completion)))
+    (: fulfill (All (T) (impl (Fn (Promise T) T -> (Result Unit T) ! mut completion))))
     (define (fulfill promise value)
       (match promise
         ((Sender slot)
@@ -70,7 +70,7 @@
             (Err value))
            ((Resolved result) (panic "a promise was fulfilled twice"))))))
 
-    (: notify (-> (Option (-> Unit ! mut)) Unit ! mut completion))
+    (: notify (impl (Fn (Option (dyn (Fn -> Unit ! mut))) -> Unit ! mut completion)))
     (define (notify waker)
       (match waker
         ((Some wake) (wake))
@@ -94,7 +94,7 @@
 
     ;; Pending returns ownership of the endpoint. Ready transfers the
     ;; result exactly once and consumes the endpoint. Neither runs work.
-    (: poll (All (T) (-> (Future T) (Poll T) ! mut)))
+    (: poll (All (T) (impl (Fn (Future T) -> (Poll T) ! mut))))
     (define (poll future)
       (match future
         ((Receiver slot)
@@ -110,7 +110,7 @@
     ;; Replace the one waiting observer. A scheduler uses this to register
     ;; its ticket before suspending; registration and suspension must have
     ;; no intervening yield. A ready result calls the observer immediately.
-    (: on-ready (All (T) (-> (Future T) (-> Unit ! mut) (Future T) ! mut)))
+    (: on-ready (All (T) (impl (Fn (Future T) (dyn (Fn -> Unit ! mut)) -> (Future T) ! mut))))
     (define (on-ready future wake)
       (match future
         ((Receiver slot)

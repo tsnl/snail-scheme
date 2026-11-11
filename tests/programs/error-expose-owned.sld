@@ -2,9 +2,9 @@
  (snail core base))
 
 (struct Work
-  ((run (FnOnce Unit))))
+  ((run (dyn (FnOnce -> Unit)))))
 
-(: make (-> Work))
+(: make (impl (Fn -> Work)))
 (define (make)
   (Work (once (lambda () (unit)))))
 

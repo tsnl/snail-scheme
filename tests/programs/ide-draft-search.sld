@@ -6,7 +6,7 @@
  (snail shell text search)
  (prefix (snail shell ide search) search-))
 
-(: run (-> String String Unit ! tasks fetch console))
+(: run (impl (Fn String String -> Unit ! tasks fetch console)))
 (define (run text query)
   (match (search-run (search-CurrentDraft (search-Draft "draft.sld" text)) query)
     ((Ok (search-DraftResults draft hits limited))

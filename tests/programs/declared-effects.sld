@@ -5,7 +5,7 @@
 ;; An instance method has its class method's row, even when this instance
 ;; performs less of it.
 (typeclass (Announce T)
-  (: announce (-> T Unit ! console)))
+  (: announce (impl (Fn T -> Unit ! console))))
 
 (instance (Announce I64)
   (define (announce n) (write-line (i64->string n))))
@@ -17,7 +17,7 @@
 (define (next n) (+ n 1))
 
 ;; A quantified tail is performed by calling the function that carries it.
-(: twice (All (e) (-> (-> Unit ! e) Unit ! e)))
+(: twice (All (e) (impl (Fn (dyn (Fn -> Unit ! e)) -> Unit ! e))))
 (define (twice action)
   (action)
   (action))

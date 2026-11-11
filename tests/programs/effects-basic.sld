@@ -8,12 +8,12 @@
 
 ;; ANCHOR: rows
 ;; Total: no row, so a call can only compute its result.
-(: square (-> I64 I64))
+(: square (impl (Fn I64 -> I64)))
 (define (square n)
   (* n n))
 
 ;; Writes to the console, and its type says so.
-(: report (-> String I64 Unit ! console))
+(: report (impl (Fn String I64 -> Unit ! console)))
 (define (report label n)
   (write-line (string-append label " " (show n))))
 ;; ANCHOR_END: rows
@@ -28,7 +28,7 @@
 
 ;; ANCHOR: polymorphic
 ;; Calls `action` on 1 to `count`, performing whatever `action` performs.
-(: repeat (All (e) (-> I64 (-> I64 Unit ! e) Unit ! e)))
+(: repeat (All (e) (impl (Fn I64 (dyn (Fn I64 -> Unit ! e)) -> Unit ! e))))
 (define (repeat count action)
   (let loop ((i 1))
     (when (<= i count)
@@ -40,7 +40,7 @@
 
 ;; ANCHOR: local
 ;; Mutates a cell it allocates, which nothing keeps once it returns.
-(: sum-of-squares (-> I64 I64))
+(: sum-of-squares (impl (Fn I64 -> I64)))
 (define (sum-of-squares count)
   (let ((total (ref 0)))
     (repeat count (lambda (i) (ref-set! total (+ (ref-get total) (square i)))))

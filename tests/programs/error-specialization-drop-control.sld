@@ -3,10 +3,10 @@
  (snail core io))
 
 (effect Pause
-  ((ctl pause (-> Unit))))
+  ((ctl pause (dyn (Fn -> Unit)))))
 
 (effect Stop
-  ((ctl stop (-> Unit))))
+  ((ctl stop (dyn (Fn -> Unit)))))
 
 (struct Resource
   ((name String)))
@@ -19,7 +19,7 @@
     (match resource
       ((Resource name) (write-line name)))))
 
-(: work (-> Unit ! Pause console))
+(: work (impl (Fn -> Unit ! Pause console)))
 (define (work)
   (let ((resource (Resource "resource")))
     (pause)

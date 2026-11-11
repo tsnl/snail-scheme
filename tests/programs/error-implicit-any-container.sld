@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(: integer (-> (Ref I64) I64 ! mut))
+(: integer (impl (Fn (Ref I64) -> I64 ! mut)))
 (define (integer value) (ref-get value))
 
 (: dynamic (Ref Any))

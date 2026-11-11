@@ -32,42 +32,42 @@
        (y I64))
       (deriving Serialize Deserialize))
 
-    (: cell=? (-> Cell Cell Bool))
+    (: cell=? (impl (Fn Cell Cell -> Bool)))
     (define (cell=? a b)
       (and (= (::x a) (::x b)) (= (::y a) (::y b))))
 
-    (: cell-index (-> Cell I64))
+    (: cell-index (impl (Fn Cell -> I64)))
     (define (cell-index cell)
       (+ (::x cell) (* map-size (::y cell))))
 
-    (: index-cell (-> I64 Cell))
+    (: index-cell (impl (Fn I64 -> Cell)))
     (define (index-cell index)
       (Cell (remainder index map-size) (quotient index map-size)))
 
-    (: in-bounds? (-> Cell Bool))
+    (: in-bounds? (impl (Fn Cell -> Bool)))
     (define (in-bounds? cell)
       (and (<= 0 (::x cell))
            (< (::x cell) map-size)
            (<= 0 (::y cell))
            (< (::y cell) map-size)))
 
-    (: distance-squared (-> Cell Cell I64))
+    (: distance-squared (impl (Fn Cell Cell -> I64)))
     (define (distance-squared a b)
       (let ((dx (- (::x a) (::x b))) (dy (- (::y a) (::y b))))
         (+ (* dx dx) (* dy dy))))
 
-    (: manhattan (-> Cell Cell I64))
+    (: manhattan (impl (Fn Cell Cell -> I64)))
     (define (manhattan a b)
       (+ (abs (- (::x a) (::x b))) (abs (- (::y a) (::y b)))))
 
     ;; Within a circle of `radius` cells around `center`.
-    (: within? (-> Cell Cell I64 Bool))
+    (: within? (impl (Fn Cell Cell I64 -> Bool)))
     (define (within? cell center radius)
       (<= (distance-squared cell center) (* radius radius)))
 
     ;; The largest integer whose square is at most `square`, by Newton's
     ;; iteration from above.
-    (: integer-sqrt (-> I64 I64))
+    (: integer-sqrt (impl (Fn I64 -> I64)))
     (define (integer-sqrt square)
       (if (= square 0)
           0
@@ -76,7 +76,7 @@
               (if (>= next guess) guess (loop next))))))
 
     ;; East, west, south, north: a fixed order, so ties break the same way.
-    (: neighbors (-> Cell (List Cell)))
+    (: neighbors (impl (Fn Cell -> (List Cell))))
     (define (neighbors cell)
       (let ((x (::x cell)) (y (::y cell)))
         (filter in-bounds?
@@ -91,7 +91,7 @@
     ;; along an axis never meets the other kind of line, and one through a
     ;; corner touches both side cells, so nothing is seen or wired diagonally
     ;; between two rocks.
-    (: line-cells (-> Cell Cell (List Cell)))
+    (: line-cells (impl (Fn Cell Cell -> (List Cell))))
     (define (line-cells a b)
       (let ((dx (abs (- (::x b) (::x a)))) (dy (abs (- (::y b) (::y a))))
             (sx (if (< (::x a) (::x b)) 1 -1)) (sy (if (< (::y a) (::y b)) 1 -1)))
@@ -115,7 +115,7 @@
     ;; within the round and into closed ones for the next. Each cell keeps
     ;; the neighbor it was reached from, so the way is read back from
     ;; `start`. The array is local to the search, so it is total.
-    (: crossing-path (-> (Vector Bool) (List Cell) Cell (List Cell)))
+    (: crossing-path (impl (Fn (Vector Bool) (List Cell) Cell -> (List Cell))))
     (define (crossing-path open goals start)
       (unsafe-total
        (lambda ()
@@ -147,7 +147,7 @@
     ;; open cells, or -1 where no goal can be reached. A walker heads for a
     ;; goal by stepping to any neighbor one step closer. The array is local
     ;; to the search, so it is total.
-    (: distance-field (-> (Vector Bool) (List Cell) (Vector I64)))
+    (: distance-field (impl (Fn (Vector Bool) (List Cell) -> (Vector I64))))
     (define (distance-field open goals)
       (unsafe-total
        (lambda ()

@@ -4,7 +4,7 @@
  (only (snail shell task) dispatch-local)
  (snail shell socket))
 
-(: require (All (T) (-> (Result T SocketError) T)))
+(: require (All (T) (impl (Fn (Result T SocketError) -> T))))
 (define (require result)
   (match result
     ((Ok value) value)

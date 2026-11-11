@@ -8,18 +8,18 @@
 ;; not be a yield point, and the resumer would run on with a placeholder
 ;; Step while the yield went on to the Log handler around it.
 (effect Gen
-  ((ctl yield (-> I64 I64))))
+  ((ctl yield (dyn (Fn I64 -> I64)))))
 
 (effect Log
-  ((ctl log (-> String Unit))))
+  ((ctl log (dyn (Fn String -> Unit)))))
 
 (enum Step
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce I64 Step)))))
+    (next (dyn (FnOnce I64 -> Step))))))
 
-(: start (-> (-> Unit ! Gen) Step ! Log))
+(: start (impl (Fn (dyn (Fn -> Unit ! Gen)) -> Step ! Log)))
 (define (start body)
   (handle Gen ((yield (lambda (v resume)
                         (log (string-append "handler saw " (show v)))
@@ -27,18 +27,18 @@
     (body)
     (Done)))
 
-(: counter (-> Unit ! Gen))
+(: counter (impl (Fn -> Unit ! Gen)))
 (define (counter)
   (yield 1)
   (yield 2)
   (unit))
 
-(: logged (-> (-> Step ! Log) Step ! console))
+(: logged (impl (Fn (dyn (Fn -> Step ! Log)) -> Step ! console)))
 (define (logged body)
   (handle Log ((log (lambda (line resume) (write-line line) (resume (unit)))))
     (body)))
 
-(: run (-> Unit ! console))
+(: run (impl (Fn -> Unit ! console)))
 (define (run)
   (handle Log ((log
                 (lambda (line resume) (write-line (string-append "outer: " line)) (resume (unit)))))

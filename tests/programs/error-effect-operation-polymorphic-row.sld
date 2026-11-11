@@ -6,12 +6,12 @@
 ;; implementation could call the thunk it is given, whose effects no
 ;; caller of run is charged: Gen would yield to no handler at all.
 (effect Gen
-  ((ctl yield (-> I64 I64))))
+  ((ctl yield (dyn (Fn I64 -> I64)))))
 
 (effect Run
-  ((run (All (e) (-> (-> Unit ! e) Unit)))))
+  ((run (All (e) (dyn (Fn (dyn (Fn -> Unit ! e)) -> Unit))))))
 
-(: go (-> I64))
+(: go (impl (Fn -> I64)))
 (define (go)
   (handle Run ((run (lambda (thunk) (thunk))))
     (run (lambda () (write-line (string-append "got " (show (yield 1))))))

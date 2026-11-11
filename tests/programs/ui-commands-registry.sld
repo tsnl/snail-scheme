@@ -5,15 +5,15 @@
  (prefix (snail shell ui commands) command-)
  (prefix (snail shell ui shortcuts) shortcut-))
 
-(: add (-> I64 I64))
+(: add (impl (Fn I64 -> I64)))
 (define (add value) (+ value 1))
 
-(: entries (Vector (command-Command (-> I64 I64))))
+(: entries (Vector (command-Command (dyn (Fn I64 -> I64)))))
 (define entries
   (list->vector (list (command-Command "add" add)
                       (command-Command "double" (lambda (value) (* value 2))))))
 
-(: invoke (-> (Option (-> I64 I64)) I64 I64))
+(: invoke (impl (Fn (Option (dyn (Fn I64 -> I64))) I64 -> I64)))
 (define (invoke command value)
   (match command ((Some run) (run value)) ((None) -1)))
 

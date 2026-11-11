@@ -22,7 +22,7 @@
 
     ;; ---- Compilation ----
 
-    (: compile-command-line (-> Unit ! mut fs))
+    (: compile-command-line (impl (Fn -> Unit ! mut fs)))
     (define (compile-command-line)
       (match (command-line)
         ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
@@ -36,7 +36,7 @@
 
     ;; Writes what `mode` asks for: the program's schemas, a module for each
     ;; library, or the whole program.
-    (: compile-mode (-> String String String String (List String) Unit ! mut fs compile))
+    (: compile-mode (impl (Fn String String String String (List String) -> Unit ! mut fs compile)))
     (define (compile-mode mode source output generated directories)
       (let ((generate
              (lambda (loading forms) (generated-syntax generated directories loading forms))))
@@ -50,12 +50,12 @@
                                    generated
                                    (source->wat directories source generate no-inputs))))))
 
-    (: write-program (-> String String WholeProgram Unit ! fs))
+    (: write-program (impl (Fn String String WholeProgram -> Unit ! fs)))
     (define (write-program output generated program)
       (write-file output (::text program))
       (write-links generated (::links program)))
 
-    (: write-modules (-> String String (List Built) Unit ! fs))
+    (: write-modules (impl (Fn String String (List Built) -> Unit ! fs)))
     (define (write-modules directory generated modules)
       (for-each (lambda (module)
                   (write-file (string-append directory "/" (::name module) ".wat")
@@ -72,7 +72,7 @@
     ;; payload under their digests, as `("DIGEST" "PATH")` lines in
     ;; links.datum in the compile's own directory, beside the libraries its
     ;; producers generate; libraries that link the same bytes share a line.
-    (: write-links (-> String (List LinkedFile) Unit ! fs))
+    (: write-links (impl (Fn String (List LinkedFile) -> Unit ! fs)))
     (define (write-links directory links)
       (write-file (string-append directory "/links.datum")
                   (string-concatenate

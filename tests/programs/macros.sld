@@ -26,7 +26,7 @@
 (define-square square)
 
 ;; A core keyword may be shadowed.
-(: twice (-> (-> I64 I64) I64 I64))
+(: twice (impl (Fn (dyn (Fn I64 -> I64)) I64 -> I64)))
 (define (twice if x)
   (if (if x)))
 

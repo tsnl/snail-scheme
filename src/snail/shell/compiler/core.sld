@@ -15,6 +15,16 @@
    TVar-id
    empty-row
    fn-arrow
+   callable-class?
+   callable-class
+   callable-implies?
+   callable-kind
+   callable-arrow
+   concrete-callable?
+   concrete-callable
+   impl-callable?
+   callable-captures
+   invocation-mode
    mut-row
    unchecked
    Constraint
@@ -194,25 +204,103 @@
     ;; Borrow is a scoped, non-owning value type. It remains visible in
     ;; locals and signatures through checking; only representation lowering
     ;; uses its target. Lexical ownership checking proves where it may live.
-    (: borrow-type? (-> Type Bool))
+    (: borrow-type? (impl (Fn Type -> Bool)))
     (define (borrow-type? type)
       (match type
         ((TCon "Borrow" (Cons _ (Nil))) #t)
         (_ #f)))
 
-    (: borrow-target (-> Type Type))
+    (: borrow-target (impl (Fn Type -> Type)))
     (define (borrow-target type)
       (match type
         ((TCon "Borrow" (Cons value (Nil))) value)
         (_ type)))
 
-    ;; The function type an `(Fn A B ! e)` holds, which its code has; any
+    ;; The signature a callable holds, including `(fn A -> B ! e)` code; any
     ;; other type is its own.
-    (: fn-arrow (-> Type Type))
+    (: fn-arrow (impl (Fn Type -> Type)))
     (define (fn-arrow type)
+      (match (callable-arrow type)
+        ((Some arrow) arrow)
+        ((None) type)))
+
+    ;; ---- Callable contracts ----
+
+    ;; A concrete closure keeps its construction identity and capture types.
+    ;; Its first argument is its calling signature; the remaining arguments
+    ;; are the owned environment. Generic instantiation substitutes both.
+    ;; These compiler names cannot be written as source type constructors.
+    (: concrete-callable (impl (Fn String String Type (List Type) -> Type)))
+    (define (concrete-callable kind identity arrow captures)
+      (TCon (string-append "$callable." kind ":" identity) (Cons arrow captures)))
+
+    (: concrete-callable? (impl (Fn Type -> Bool)))
+    (define (concrete-callable? type)
       (match type
-        ((TCon "Fn" (Cons arrow (Nil))) arrow)
-        (_ type)))
+        ((TCon name _)
+         (and (>= (string-length name) 10) (string=? (substring name 0 10) "$callable.")))
+        (_ #f)))
+
+    (: impl-callable? (impl (Fn Type -> Bool)))
+    (define (impl-callable? type)
+      (match type
+        ((TCon name _) (member? name (list "$impl.Fn" "$impl.FnMut" "$impl.FnOnce")))
+        (_ #f)))
+
+    (: callable-captures (impl (Fn Type -> (List Type))))
+    (define (callable-captures type)
+      (match type
+        ((TCon _ (Cons _ captures)) (if (concrete-callable? type) captures (Nil)))
+        (_ (Nil))))
+
+    (: callable-class (impl (Fn String -> String)))
+    (define (callable-class kind)
+      (string-append "snail.core.base:" kind))
+
+    (: callable-class? (impl (Fn String -> Bool)))
+    (define (callable-class? name)
+      (member? name (map callable-class (list "Fn" "FnMut" "FnOnce"))))
+
+    ;; This implication is about receiver access, never Copy or purity.
+    (: callable-implies? (impl (Fn String String -> Bool)))
+    (define (callable-implies? actual required)
+      (or (string=? actual required)
+          (string=? actual "Fn")
+          (and (string=? actual "FnMut") (string=? required "FnOnce"))))
+
+    (: callable-kind (impl (Fn Type -> (Option String))))
+    (define (callable-kind type)
+      (match type
+        ((TFun _ _ _) (Some "Fn"))
+        ((TCon name _)
+         (cond ((string=? name "fn") (Some "Fn"))
+               ((member? name (list "FnMut" "FnOnce")) (Some name))
+               ((impl-callable? type)
+                (Some (substring name 6 (string-length name))))
+               ((concrete-callable? type)
+                (let ((tail (substring name 10 (string-length name))))
+                  (match (string-index tail #\:)
+                    ((Some end) (Some (substring tail 0 end)))
+                    ((None) (None)))))
+               (else (None))))
+        (_ (None))))
+
+    (: callable-arrow (impl (Fn Type -> (Option Type))))
+    (define (callable-arrow type)
+      (match type
+        ((TFun _ _ _) (Some type))
+        ((TCon _ (Cons arrow _))
+         (match (callable-kind type) ((Some _) (Some arrow)) ((None) (None))))
+        (_ (None))))
+
+    ;; An invocation records the receiver operation the checker selected.
+    ;; It remains attached through specialization: a FnOnce requirement
+    ;; consumes its receiver even when the concrete value also implements Fn.
+    (: invocation-mode (impl (Fn Expr -> (Option String))))
+    (define (invocation-mode callee)
+      (match (::term callee)
+        ((Ann _ (TCon "$invoke" (Cons (TCon mode (Nil)) _))) (Some mode))
+        (_ (None))))
 
     ;; The row of an operation on a mutable field, which reads or writes
     ;; storage and nothing else.
@@ -240,7 +328,7 @@
        (copy (List String))
        (type Type)))
 
-    (: mono-scheme (-> Type Scheme))
+    (: mono-scheme (impl (Fn Type -> Scheme)))
     (define (mono-scheme type)
       (Scheme (Nil) (Nil) (Nil) type))
 
@@ -295,12 +383,13 @@
             (Pair "Array" 1)
             (Pair "Vector" 1)
             (Pair "FnOnce" 1)
-            (Pair "Fn" 1)))
+            (Pair "FnMut" 1)
+            (Pair "fn" 1)))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source
     ;; name. Text is scanned as a vector of characters, which both hosts index
     ;; in constant time.
-    (: short-name (-> String String))
+    (: short-name (impl (Fn String -> String)))
     (define (short-name name)
       (let ((chars (string->vector name)))
         (let loop ((index (- (vector-length chars) 1)))
@@ -310,13 +399,13 @@
                 (else (loop (- index 1)))))))
 
     ;; A local's source name: its unique name without the `.N` suffix.
-    (: local-name (-> String String))
+    (: local-name (impl (Fn String -> String)))
     (define (local-name name)
       (match (last-dot name)
         ((Some index) (substring name 0 index))
         ((None) name)))
 
-    (: last-dot (-> String (Option I64)))
+    (: last-dot (impl (Fn String -> (Option I64))))
     (define (last-dot name)
       (let loop ((index (- (string-length name) 1)))
         (cond ((< index 0) (None))
@@ -324,7 +413,7 @@
               (else (loop (- index 1))))))
 
     ;; The library that defines a global: its name up to the first colon.
-    (: name-owner (-> String String))
+    (: name-owner (impl (Fn String -> String)))
     (define (name-owner name)
       (let ((chars (string->vector name)))
         (let loop ((index 0))
@@ -334,48 +423,57 @@
 
     ;; The host can hold an opaque Any or null, without constructing a GC
     ;; enum. This is a boundary convention, not Option's internal layout.
-    (: optional-any-type? (-> Type Bool))
+    (: optional-any-type? (impl (Fn Type -> Bool)))
     (define (optional-any-type? type)
       (match type
         ((TCon "snail.core.base:Option" (Cons (TCon "Any" (Nil)) (Nil))) #t)
         (_ #f)))
 
-    (: type->string (-> Type String))
+    (: type->string (impl (Fn Type -> String)))
     (define (type->string type)
-      (match type
-        ((TCon "FnOnce" (Cons (TFun params result row) (Nil)))
-         (arrow->string "(FnOnce" params result row))
-        ((TCon "Fn" (Cons (TFun params result row) (Nil))) (arrow->string "(Fn" params result row))
-        ((TCon name (Nil)) (short-name name))
-        ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
-        ((TFun params result row) (arrow->string "(->" params result row))
-        ((TRow _ _) (string-append "{" (row->string type) " }"))
-        ((TVar id) (string-append "?" (i64->string id)))
-        ((TRigid name) name)))
+      (if (or (concrete-callable? type) (impl-callable? type))
+          (callable->string "impl" type)
+          (match type
+            ((TCon "FnOnce" _) (callable->string "dyn" type))
+            ((TCon "FnMut" _) (callable->string "dyn" type))
+            ((TCon "fn" (Cons (TFun params result row) (Nil)))
+             (arrow->string "fn" params result row))
+            ((TCon name (Nil)) (short-name name))
+            ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
+            ((TFun _ _ _) (callable->string "dyn" type))
+            ((TRow _ _) (string-append "{" (row->string type) " }"))
+            ((TVar id) (string-append "?" (i64->string id)))
+            ((TRigid name) name))))
 
-    ;; `(-> A B ! e)`, the one-shot `(FnOnce A B ! e)`, and `(Fn A B ! e)`,
-    ;; which has no environment; the last two hold the function type.
-    (: arrow->string (-> String (List Type) Type Type String))
-    (define (arrow->string head params result row)
-      (string-append head (types->string params) " " (type->string result) (row->string row) ")"))
+    (: callable->string (impl (Fn String Type -> String)))
+    (define (callable->string former type)
+      (match (Pair (callable-kind type) (callable-arrow type))
+        ((Pair (Some kind) (Some (TFun params result row)))
+         (string-append "(" former " " (arrow->string kind params result row) ")"))
+        (_ (panic "internal error: printing a callable without its signature"))))
 
-    (: types->string (-> (List Type) String))
+    (: arrow->string (impl (Fn String (List Type) Type Type -> String)))
+    (define (arrow->string kind params result row)
+      (string-append "(" kind (types->string params) " -> " (type->string result)
+                     (row->string row) ")"))
+
+    (: types->string (impl (Fn (List Type) -> String)))
     (define (types->string types)
       (string-concatenate (map (lambda (type) (string-append " " (type->string type))) types)))
 
-    (: row->string (-> Type String))
+    (: row->string (impl (Fn Type -> String)))
     (define (row->string row)
       (let* ((parts (row-parts row (Nil))) (labels (::first parts)) (tail (::second parts)))
         (match tail
           ((None) (if (null? labels) "" (string-append " !" (labels->string labels))))
           ((Some tail) (string-append " !" (labels->string labels) " " (type->string tail))))))
 
-    (: labels->string (-> (List String) String))
+    (: labels->string (impl (Fn (List String) -> String)))
     (define (labels->string labels)
       (string-concatenate (map (lambda (label) (string-append " " (short-name label))) labels)))
 
     ;; The labels of a row, following bound tails, and its final tail.
-    (: row-parts (-> Type (List String) (Pair (List String) (Option Type))))
+    (: row-parts (impl (Fn Type (List String) -> (Pair (List String) (Option Type)))))
     (define (row-parts row labels)
       (match row
         ((TRow more (Some tail)) (row-parts tail (label-union labels more)))
@@ -385,7 +483,7 @@
     ;; Types the backend gives a representation of their own: Any boxes a
     ;; TypeId with its value, and a String or Bytes argument to a host
     ;; function is staged into the runtime's buffer, so it can come only last.
-    (: any-type? (-> Type Bool))
+    (: any-type? (impl (Fn Type -> Bool)))
     (define (any-type? type)
       (match type
         ((TCon "Any" (Nil)) #t)
@@ -393,7 +491,7 @@
 
     ;; (snail core base)'s type with no values. A control operation that
     ;; answers it never resumes, so its yield saves nothing.
-    (: never-type? (-> Type Bool))
+    (: never-type? (impl (Fn Type -> Bool)))
     (define (never-type? type)
       (match type
         ((TCon "snail.core.base:Never" (Nil)) #t)
@@ -410,7 +508,7 @@
     (: clone-class String)
     (define clone-class "snail.core.base:Clone")
 
-    (: lifecycle-class? (-> String Bool))
+    (: lifecycle-class? (impl (Fn String -> Bool)))
     (define (lifecycle-class? class)
       (or (string=? class drop-class) (string=? class clone-class)))
 
@@ -425,16 +523,16 @@
     ;; decides the field's: the one instance whose record type matches
     ;; gives it (`improve-types` in check.sld). The class is global, with
     ;; no library prefix: `count` is the same label in every library.
-    (: field-class? (-> String Bool))
+    (: field-class? (impl (Fn String -> Bool)))
     (define (field-class? class)
       (and (>= (string-length class) 2) (string=? (substring class 0 2) "::")))
 
-    (: field-class-name (-> String String))
+    (: field-class-name (impl (Fn String -> String)))
     (define (field-class-name label)
       (string-append "::" label))
 
     ;; The program with a label's class and method declared.
-    (: program-with-field-class (-> Program String Program))
+    (: program-with-field-class (impl (Fn Program String -> Program)))
     (define (program-with-field-class program label)
       (let ((class (field-class-name label)))
         (if (table-contains? (::classes program) class)
@@ -451,7 +549,7 @@
     ;; A struct's instance for one of its fields: the record type and the
     ;; field's type, read by the field's accessor. The instance is named in
     ;; the struct's library, so a replay of that library carries it.
-    (: program-with-field-instance (-> Program DataType String Type String Program))
+    (: program-with-field-instance (impl (Fn Program DataType String Type String -> Program)))
     (define (program-with-field-instance program data label type accessor)
       (let ((class (field-class-name label)) (params (::params data)))
         (program-with-instance (program-with-field-class program label)
@@ -470,7 +568,7 @@
 
     ;; The accessor a struct's own field instance reads with, when the
     ;; instance is one; a declared instance computes its field instead.
-    (: field-instance-accessor (-> Program String String (Option Value)))
+    (: field-instance-accessor (impl (Fn Program String String -> (Option Value))))
     (define (field-instance-accessor program class instance)
       (match (find (lambda (candidate) (string=? (::name candidate) instance))
                    (class-instances program class))
@@ -483,26 +581,26 @@
            ((None) (None))))
         ((None) (None))))
 
-    (: string-type? (-> Type Bool))
+    (: string-type? (impl (Fn Type -> Bool)))
     (define (string-type? type)
       (match type
         ((TCon "String" (Nil)) #t)
         (_ #f)))
 
-    (: bytes-type? (-> Type Bool))
+    (: bytes-type? (impl (Fn Type -> Bool)))
     (define (bytes-type? type)
       (match type
         ((TCon "Vector" (Cons (TCon "U8" (Nil)) (Nil))) #t)
         (_ #f)))
 
-    (: buffer-type? (-> Type Bool))
+    (: buffer-type? (impl (Fn Type -> Bool)))
     (define (buffer-type? type)
       (or (string-type? type) (bytes-type? type)))
 
     ;; A unique text for a ground type, with full names; it names
     ;; specializations and Wasm types. A row argument, as in (Task e), does
     ;; not affect representation.
-    (: type-key (-> Type String))
+    (: type-key (impl (Fn Type -> String)))
     (define (type-key type)
       (match type
         ((TCon name (Nil)) name)
@@ -518,7 +616,7 @@
     ;; perform something, or a type variable, which may stand for either. A
     ;; data type's fields keep the rows they were declared with, so only the
     ;; type's own structure is searched.
-    (: hidden-effects (-> Type (Option Type)))
+    (: hidden-effects (impl (Fn Type -> (Option Type))))
     (define (hidden-effects type)
       (match type
         ((TFun params result row)
@@ -528,7 +626,7 @@
         ((TRigid _) (Some type))
         ((TVar _) (panic "internal error: an unsolved type in a conversion"))))
 
-    (: first-hidden-effects (-> (List Type) (Option Type)))
+    (: first-hidden-effects (impl (Fn (List Type) -> (Option Type))))
     (define (first-hidden-effects types)
       (match types
         ((Cons type rest)
@@ -537,14 +635,14 @@
            ((None) (first-hidden-effects rest))))
         ((Nil) (None))))
 
-    (: empty-row? (-> Type Bool))
+    (: empty-row? (impl (Fn Type -> Bool)))
     (define (empty-row? row)
       (match (row-parts row (Nil))
         ((Pair (Nil) (None)) #t)
         (_ #f)))
 
     ;; Structural equality of types without bound metavariables.
-    (: type=? (-> Type Type Bool))
+    (: type=? (impl (Fn Type Type -> Bool)))
     (define (type=? a b)
       (match a
         ((TCon name args)
@@ -574,7 +672,7 @@
            ((TRigid other) (string=? name other))
            (_ #f)))))
 
-    (: types=? (-> (List Type) (List Type) Bool))
+    (: types=? (impl (Fn (List Type) (List Type) -> Bool)))
     (define (types=? as bs)
       (and (= (length as) (length bs))
            (every? (lambda (pair) (type=? (::first pair) (::second pair))) (zip as bs))))
@@ -583,7 +681,7 @@
 
     ;; Row labels are sorted lists without duplicates, so equal sets print
     ;; alike.
-    (: label-insert (-> String (List String) (List String)))
+    (: label-insert (impl (Fn String (List String) -> (List String))))
     (define (label-insert label labels)
       (match labels
         ((Nil) (list label))
@@ -592,11 +690,11 @@
                ((string<? label first) (Cons label labels))
                (else (Cons first (label-insert label rest)))))))
 
-    (: label-union (-> (List String) (List String) (List String)))
+    (: label-union (impl (Fn (List String) (List String) -> (List String))))
     (define (label-union a b)
       (fold-left (lambda (labels label) (label-insert label labels)) a b))
 
-    (: label-difference (-> (List String) (List String) (List String)))
+    (: label-difference (impl (Fn (List String) (List String) -> (List String))))
     (define (label-difference a b)
       (filter (lambda (label) (not (member? label b))) a))
 
@@ -605,7 +703,7 @@
     (type Substitution (List (Pair String Type)))
 
     ;; Replaces rigid variables by the types a substitution gives them.
-    (: substitute (-> Substitution Type Type))
+    (: substitute (impl (Fn Substitution Type -> Type)))
     (define (substitute substitution type)
       (match type
         ((TRigid name)
@@ -623,7 +721,7 @@
            (other (TRow labels (Some other)))))
         (_ type)))
 
-    (: substitute-constraint (-> Substitution Constraint Constraint))
+    (: substitute-constraint (impl (Fn Substitution Constraint -> Constraint)))
     (define (substitute-constraint substitution constraint)
       (Constraint (::class constraint)
                   (map (lambda (type) (substitute substitution type))
@@ -743,7 +841,7 @@
         (args (List Pattern))
         (type Type))))
 
-    (: lambda-expr? (-> Expr Bool))
+    (: lambda-expr? (impl (Fn Expr -> Bool)))
     (define (lambda-expr? expr)
       (match (::term expr)
         ((Lambda _ _ _) #t)
@@ -751,7 +849,7 @@
 
     ;; Immediate structural children, in source order, including lambda
     ;; bodies. This describes the IR shape, not when an expression runs.
-    (: expr-children (-> Expr (List Expr)))
+    (: expr-children (impl (Fn Expr -> (List Expr))))
     (define (expr-children expr)
       (match (::term expr)
         ((Lit _) (Nil))
@@ -771,14 +869,14 @@
 
     ;; Every name an expression refers to, once each, in order of first
     ;; occurrence. Locals are included, since names are unique.
-    (: expr-references (-> Expr (List String)))
+    (: expr-references (impl (Fn Expr -> (List String))))
     (define (expr-references expr)
       (reverse (::second (collect-references (Pair empty-table (Nil)) expr))))
 
     ;; Adds the names not yet seen to the found list, newest first, and to
     ;; the seen table.
     (: collect-references
-       (-> (Pair (Table Bool) (List String)) Expr (Pair (Table Bool) (List String))))
+       (impl (Fn (Pair (Table Bool) (List String)) Expr -> (Pair (Table Bool) (List String)))))
     (define (collect-references found expr)
       (match (::term expr)
         ((Var name _ _)
@@ -829,13 +927,13 @@
 
     ;; The arguments a class's constraint or instance head gives its row
     ;; parameters, and those it gives its types, each in order.
-    (: row-arguments (-> Class (List Type) (List Type)))
+    (: row-arguments (impl (Fn Class (List Type) -> (List Type))))
     (define (row-arguments class types)
       (map ::second
            (filter (lambda (pair) (member? (::first pair) (::rows class)))
                    (zip (::params class) types))))
 
-    (: type-arguments (-> Class (List Type) (List Type)))
+    (: type-arguments (impl (Fn Class (List Type) -> (List Type))))
     (define (type-arguments class types)
       (map ::second
            (filter (lambda (pair)
@@ -845,12 +943,13 @@
 
     ;; Associated members are hidden trailing arguments. Like rows they
     ;; are established by the selected evidence, never used to select it.
-    (: output-arguments (-> Class (List Type) (List Type)))
+    (: output-arguments (impl (Fn Class (List Type) -> (List Type))))
     (define (output-arguments class types)
       (list-drop types (- (length (::params class)) (length (::outputs class)))))
 
     ;; One-way matching of an instance head; only its own variables bind.
-    (: match-types (-> (List String) (List Type) (List Type) Substitution (Option Substitution)))
+    (: match-types
+       (impl (Fn (List String) (List Type) (List Type) Substitution -> (Option Substitution))))
     (define (match-types vars patterns types bindings)
       (if (= (length patterns) (length types))
           (fold-left (lambda (result pair)
@@ -861,7 +960,7 @@
                      (Some bindings) (zip patterns types))
           (None)))
 
-    (: match-type (-> (List String) Type Type Substitution (Option Substitution)))
+    (: match-type (impl (Fn (List String) Type Type Substitution -> (Option Substitution))))
     (define (match-type vars pattern type bindings)
       (match pattern
         ((TRigid name)
@@ -883,7 +982,7 @@
         (_ (None))))
 
     ;; The variable a row ends with, as `e` in `(! log e)`, if any.
-    (: row-variable (-> Type (List String)))
+    (: row-variable (impl (Fn Type -> (List String))))
     (define (row-variable row)
       (match row
         ((TRow _ (Some (TRigid name))) (list name))
@@ -929,7 +1028,7 @@
     ;; signature's, or none until it is inferred, and `signature` is where
     ;; that `(: name type)` was written; `function?` says its value is a
     ;; lambda, which a top-level definition's has no environment around, so
-    ;; its name has type Fn where one is expected. An instance method has
+    ;; its name has type fn where one is expected. An instance method has
     ;; its class method's scheme and no signature of its own, and like a
     ;; default no program names it. A field has four
     ;; operations: an Accessor reads it, `::field`; a Replacer copies an
@@ -974,7 +1073,7 @@
 
     ;; The declared scheme of a value; a definition without a signature has
     ;; none until it is inferred.
-    (: value-scheme (-> Value (Option Scheme)))
+    (: value-scheme (impl (Fn Value -> (Option Scheme))))
     (define (value-scheme value)
       (match value
         ((Defined scheme _ _) scheme)
@@ -991,7 +1090,7 @@
     ;; The effects an operation's type names besides its own: its latent
     ;; row, which its callers are charged and its implementations may
     ;; perform, under the handlers in scope where it is performed.
-    (: operation-latent (-> String Scheme (List String)))
+    (: operation-latent (impl (Fn String Scheme -> (List String))))
     (define (operation-latent effect scheme)
       (match (::type scheme)
         ((TFun _ _ (TRow labels _)) (filter (lambda (label) (not (string=? label effect))) labels))
@@ -1014,7 +1113,7 @@
         (loc Loc))))
 
     ;; The value of each definition among `items`, by name.
-    (: item-definitions (-> (List Item) (Table Expr)))
+    (: item-definitions (impl (Fn (List Item) -> (Table Expr))))
     (define (item-definitions items)
       (fold-left (lambda (table item)
                    (match item
@@ -1053,23 +1152,23 @@
     (define empty-program
       (Program empty-table empty-table empty-table empty-table empty-table empty-table (Nil) (Nil)))
 
-    (: metadata-of (-> Program String Metadata))
+    (: metadata-of (impl (Fn Program String -> Metadata)))
     (define (metadata-of program name)
       (match (table-ref (::metadata program) name)
         ((Some metadata) metadata)
         ((None) (Metadata (Nil) empty-table))))
 
-    (: program-annotations (-> Program String (List Annotation)))
+    (: program-annotations (impl (Fn Program String -> (List Annotation))))
     (define (program-annotations program name)
       (::annotations (metadata-of program name)))
 
-    (: program-field-annotations (-> Program String String (List Annotation)))
+    (: program-field-annotations (impl (Fn Program String String -> (List Annotation))))
     (define (program-field-annotations program constructor field)
       (match (table-ref (::fields (metadata-of program constructor)) field)
         ((Some annotations) annotations)
         ((None) (Nil))))
 
-    (: program-with-annotations (-> Program String (List Annotation) Program))
+    (: program-with-annotations (impl (Fn Program String (List Annotation) -> Program)))
     (define (program-with-annotations program name annotations)
       (let ((before (metadata-of program name)))
         (if (null? annotations)
@@ -1080,7 +1179,8 @@
                                               (append (::annotations before) annotations)
                                               (::fields before)))))))
 
-    (: program-with-field-annotations (-> Program String String (List Annotation) Program))
+    (: program-with-field-annotations
+       (impl (Fn Program String String (List Annotation) -> Program)))
     (define (program-with-field-annotations program constructor field annotations)
       (let ((before (metadata-of program constructor)))
         (if (null? annotations)
@@ -1092,31 +1192,31 @@
                                                                   field
                                                                   annotations)))))))
 
-    (: program-value (-> Program String (Option Value)))
+    (: program-value (impl (Fn Program String -> (Option Value))))
     (define (program-value program name)
       (table-ref (::values program) name))
 
     ;; Types, classes and effects are looked up by names the expander
     ;; resolved, so each lookup succeeds.
-    (: program-type (-> Program String DataType))
+    (: program-type (impl (Fn Program String -> DataType)))
     (define (program-type program name)
       (match (table-ref (::types program) name)
         ((Some data) data)
         ((None) (panic (string-append "internal error: no type " name)))))
 
-    (: program-class (-> Program String Class))
+    (: program-class (impl (Fn Program String -> Class)))
     (define (program-class program name)
       (match (table-ref (::classes program) name)
         ((Some class) class)
         ((None) (panic (string-append "internal error: no class " name)))))
 
-    (: program-effect (-> Program String Effect))
+    (: program-effect (impl (Fn Program String -> Effect)))
     (define (program-effect program name)
       (match (table-ref (::effects program) name)
         ((Some effect) effect)
         ((None) (panic (string-append "internal error: no effect " name)))))
 
-    (: class-instances (-> Program String (List Instance)))
+    (: class-instances (impl (Fn Program String -> (List Instance))))
     (define (class-instances program class)
       (match (table-ref (::instances program) class)
         ((Some instances) instances)
@@ -1125,7 +1225,7 @@
     ;; Named instances are available only inside an explicit lexical scope.
     ;; All instances remain in the program: selected evidence names them
     ;; even when a later caller has a different active policy.
-    (: visible-instances (-> Program String (List String) (List Instance)))
+    (: visible-instances (impl (Fn Program String (List String) -> (List Instance))))
     (define (visible-instances program class sets)
       (filter (lambda (instance)
                 (match (::set instance)
@@ -1133,7 +1233,7 @@
                   ((Some name) (member? name sets))))
               (class-instances program class)))
 
-    (: check-active-instances (-> Program (List String) Loc Unit ! compile))
+    (: check-active-instances (impl (Fn Program (List String) Loc -> Unit ! compile)))
     (define (check-active-instances program sets loc)
       (for-each (lambda (class)
                   (let ((visible (visible-instances program (::name class) sets)))
@@ -1141,7 +1241,7 @@
                                 (check-instance-overlap program instance visible loc)) visible)))
                 (table-values (::classes program))))
 
-    (: check-instance-overlap (-> Program Instance (List Instance) Loc Unit ! compile))
+    (: check-instance-overlap (impl (Fn Program Instance (List Instance) Loc -> Unit ! compile)))
     (define (check-instance-overlap program instance others loc)
       (let ((class (program-class program (::class instance))))
         (for-each (lambda (other)
@@ -1152,13 +1252,13 @@
                                      "this instance overlaps another instance of the class on its input types")))
                   others)))
 
-    (: heads-overlap? (-> (List Type) (List Type) Bool))
+    (: heads-overlap? (impl (Fn (List Type) (List Type) -> Bool)))
     (define (heads-overlap? as bs)
       (and (= (length as) (length bs))
            (every? (lambda (pair) (head-overlaps? (::first pair) (::second pair)))
                    (zip as bs))))
 
-    (: head-overlaps? (-> Type Type Bool))
+    (: head-overlaps? (impl (Fn Type Type -> Bool)))
     (define (head-overlaps? a b)
       (match a
         ((TCon name args)
@@ -1172,7 +1272,7 @@
     ;; supplies the rows it actually performs. Class parameters come first;
     ;; method-local type arguments follow them and retain their use's types.
     (: selected-method-arguments
-       (-> Program String (List Type) (List Evidence) (List Type)))
+       (impl (Fn Program String (List Type) (List Evidence) -> (List Type))))
     (define (selected-method-arguments program class types evidence)
       (match evidence
         ((Cons (EvInstance id arguments _) _)
@@ -1187,31 +1287,31 @@
 
     ;; Each addition is a larger program, sharing everything else with the
     ;; one it was given.
-    (: program-with-value (-> Program String Value Program))
+    (: program-with-value (impl (Fn Program String Value -> Program)))
     (define (program-with-value program name value)
       (Program-values-set program (table-set (::values program) name value)))
 
-    (: program-with-type (-> Program DataType Program))
+    (: program-with-type (impl (Fn Program DataType -> Program)))
     (define (program-with-type program data)
       (Program-types-set program (table-set (::types program) (::name data) data)))
 
-    (: program-with-class (-> Program Class Program))
+    (: program-with-class (impl (Fn Program Class -> Program)))
     (define (program-with-class program class)
       (Program-classes-set program (table-set (::classes program) (::name class) class)))
 
-    (: program-with-instance (-> Program Instance Program))
+    (: program-with-instance (impl (Fn Program Instance -> Program)))
     (define (program-with-instance program instance)
       (let ((class (::class instance)))
         (Program-instances-set program (table-set (::instances program) class
                                                   (append (class-instances program class)
                                                           (list instance))))))
 
-    (: program-with-effect (-> Program Effect Program))
+    (: program-with-effect (impl (Fn Program Effect -> Program)))
     (define (program-with-effect program effect)
       (Program-effects-set program
                            (table-set (::effects program) (::name effect) effect)))
 
-    (: program-items (-> Program (List Item)))
+    (: program-items (impl (Fn Program -> (List Item))))
     (define (program-items program)
       (reverse (::items program)))
 
@@ -1219,7 +1319,7 @@
     ;; become the program's newest, and the count it records is theirs. A
     ;; library loaded while another expands joins first, so it can never be
     ;; counted in the other's run.
-    (: program-with-library (-> Program String (List Item) Program))
+    (: program-with-library (impl (Fn Program String (List Item) -> Program)))
     (define (program-with-library program name items)
       (Program-libraries-set (Program-items-set program (append items (::items program)))
                              (Cons (Pair name (length items)) (::libraries program))))
@@ -1227,7 +1327,7 @@
     ;; What the newest library added: the globals named for it, and its run
     ;; of items, which are the newest. A later build replays it with
     ;; `program-with` instead of expanding the library again.
-    (: program-delta (-> Program String Program))
+    (: program-delta (impl (Fn Program String -> Program)))
     (define (program-delta program owner)
       (let ((count (match (::libraries program)
                      ((Cons (Pair _ count) _) count)
@@ -1242,7 +1342,7 @@
 
     ;; A field class and its method belong to no library, so every delta
     ;; carries the ones known when it was made; a replay unions them back.
-    (: owned (All (V) (requires (Copy V)) (-> (Table V) String (Table V))))
+    (: owned (All (V) (requires (Copy V)) (impl (Fn (Table V) String -> (Table V)))))
     (define (owned table owner)
       (fold-left (lambda (result key)
                    (match (table-ref table key)
@@ -1253,7 +1353,7 @@
                      ((None) result)))
                  empty-table (table-keys table)))
 
-    (: owned-instances (-> (Table (List Instance)) String (Table (List Instance))))
+    (: owned-instances (impl (Fn (Table (List Instance)) String -> (Table (List Instance)))))
     (define (owned-instances table owner)
       (fold-left (lambda (result class)
                    (match (filter (lambda (instance)
@@ -1263,7 +1363,7 @@
                      (instances (table-set result class instances))))
                  empty-table (table-keys table)))
 
-    (: class-list (-> (Table (List Instance)) String (List Instance)))
+    (: class-list (impl (Fn (Table (List Instance)) String -> (List Instance))))
     (define (class-list table class)
       (match (table-ref table class)
         ((Some instances) instances)
@@ -1272,7 +1372,7 @@
     ;; The program with a library's additions from an earlier build. Its
     ;; globals are its own, so it replaces nothing; the order of instances
     ;; within a class does not matter, since no two of them overlap.
-    (: program-with (-> Program Program Program))
+    (: program-with (impl (Fn Program Program -> Program)))
     (define (program-with program delta)
       (Program (table-union (::values program) (::values delta))
                (table-union (::types program) (::types delta))
@@ -1290,7 +1390,7 @@
 
     ;; `table` with every entry of `additions`, which win where both have a
     ;; key.
-    (: table-union (All (V) (requires (Copy V)) (-> (Table V) (Table V) (Table V))))
+    (: table-union (All (V) (requires (Copy V)) (impl (Fn (Table V) (Table V) -> (Table V)))))
     (define (table-union table additions)
       (fold-left (lambda (result key)
                    (match (table-ref additions key)
@@ -1300,7 +1400,7 @@
 
     ;; Divides items in program order, such as the program's own or their
     ;; checked copies, into each library's run.
-    (: library-items (-> Program (List Item) (List (Pair String (List Item)))))
+    (: library-items (impl (Fn Program (List Item) -> (List (Pair String (List Item))))))
     (define (library-items program items)
       (let loop ((libraries (reverse (::libraries program))) (items items) (out (Nil)))
         (match libraries
@@ -1316,19 +1416,19 @@
     (: fnv-offset I64)
     (define fnv-offset 2166136261)
 
-    (: fnv-step (-> I64 I64 I64))
+    (: fnv-step (impl (Fn I64 I64 -> I64)))
     (define (fnv-step hash code)
       (i64-and (* (i64-xor hash code) 16777619) 4294967295))
 
     ;; FNV-1a over the code points.
-    (: fnv-1a (-> String I64))
+    (: fnv-1a (impl (Fn String -> I64)))
     (define (fnv-1a text)
       (vector-fold (lambda (hash c) (fnv-step hash (char->integer c)))
                    fnv-offset
                    (string->vector text)))
 
     ;; A TypeId is a hash as a signed 32-bit value, which Wasm's i32 holds.
-    (: type-id (-> String I64))
+    (: type-id (impl (Fn String -> I64)))
     (define (type-id text)
       (let ((hash (fnv-1a text)))
         (if (>= hash 2147483648) (- hash 4294967296) hash)))
@@ -1337,7 +1437,7 @@
     ;; Field types contribute their own schemas, cut at recursive
     ;; references, so the identity changes exactly when the encoded shape
     ;; can change.
-    (: case-type-id (-> Program Case I64))
+    (: case-type-id (impl (Fn Program Case -> I64)))
     (define (case-type-id program case)
       (type-id (case-schema program case (Nil))))
 
@@ -1345,18 +1445,18 @@
     ;; writes it: fields and cases, recursively. A type whose fields or cases
     ;; change gets a new one even when its name stays, so a program relinked
     ;; with such a change cannot take an old value for a new one.
-    (: any-type-id (-> Program Type I64))
+    (: any-type-id (impl (Fn Program Type -> I64)))
     (define (any-type-id program type)
       (type-id (type-identity program type)))
 
     ;; The same identity in 64 bits, for a dynamic export's signature: it is
     ;; compared once, when a program looks the function up, rather than
     ;; carried by every value.
-    (: wide-type-id (-> Program Type I64))
+    (: wide-type-id (impl (Fn Program Type -> I64)))
     (define (wide-type-id program type)
       (wide-hash (type-identity program type)))
 
-    (: type-identity (-> Program Type String))
+    (: type-identity (impl (Fn Program Type -> String)))
     (define (type-identity program type)
       (string-append (type-key type) "\n" (type-schema program type (Nil) (Nil))))
 
@@ -1364,7 +1464,7 @@
     ;; two unsigned 32-bit halves, high and low, so that every product stays
     ;; below 2^42 and both hosts compute the same value; the prime is
     ;; 2^40 + 435, whose 2^40 shifts the low half eight bits into the high.
-    (: wide-hash (-> String I64))
+    (: wide-hash (impl (Fn String -> I64)))
     (define (wide-hash text)
       (let ((state (vector-fold (lambda (state c) (wide-step state (char->integer c)))
                                 (Pair 3421674724 2216829733)
@@ -1375,7 +1475,7 @@
               4294967296)
            (::second state))))
 
-    (: wide-step (-> (Pair I64 I64) I64 (Pair I64 I64)))
+    (: wide-step (impl (Fn (Pair I64 I64) I64 -> (Pair I64 I64))))
     (define (wide-step state code)
       (let* ((low (i64-xor (::second state) code)) (product (* low 435)))
         (Pair (i64-and (+ (+ (* (::first state) 435) (quotient product 4294967296))
@@ -1383,7 +1483,7 @@
                        4294967295)
               (i64-and product 4294967295))))
 
-    (: case-schema (-> Program Case (List String) String))
+    (: case-schema (impl (Fn Program Case (List String) -> String)))
     (define (case-schema program case visiting)
       (let* ((data (program-type program (::type case)))
              (visiting (Cons (::name data) visiting)))
@@ -1402,7 +1502,7 @@
 
     ;; A type parameter is written by its position, so renaming it keeps the
     ;; identity.
-    (: type-schema (-> Program Type (List String) (List String) String))
+    (: type-schema (impl (Fn Program Type (List String) (List String) -> String)))
     (define (type-schema program type params visiting)
       (match type
         ((TRigid name)
@@ -1430,7 +1530,7 @@
     ;; Every data type with a Serialize instance, as text: `(Type (Case
     ;; type-id (field type) ...) ...)` with full names. Programs that agree on
     ;; a case's line agree on its encoding.
-    (: wire-schemas (-> Program String))
+    (: wire-schemas (impl (Fn Program -> String)))
     (define (wire-schemas program)
       (string-concatenate
        (map (lambda (instance)
@@ -1442,7 +1542,7 @@
                 (_ "")))
             (class-instances program "snail.shell.wire:Serialize"))))
 
-    (: data-schema (-> Program DataType String))
+    (: data-schema (impl (Fn Program DataType -> String)))
     (define (data-schema program data)
       (string-append
        "(" (::name data)
@@ -1486,7 +1586,7 @@
        (count I64)
        (components (List (List I64)))))
 
-    (: strong-components (-> (Vector (List I64)) (List (List I64))))
+    (: strong-components (impl (Fn (Vector (List I64)) -> (List (List I64)))))
     (define (strong-components edges)
       (let ((search (fold-left
                      (lambda (search node) (if (reached? search node) search (visit search node)))
@@ -1494,29 +1594,29 @@
                      (iota (vector-length edges)))))
         (reverse (::components search))))
 
-    (: node-key (-> I64 String))
+    (: node-key (impl (Fn I64 -> String)))
     (define (node-key node)
       (i64->string node))
 
-    (: reached? (-> Search I64 Bool))
+    (: reached? (impl (Fn Search I64 -> Bool)))
     (define (reached? search node)
       (match (table-ref (::index search) (node-key node))
         ((Some _) #t)
         ((None) #f)))
 
-    (: node-index (-> Search I64 I64))
+    (: node-index (impl (Fn Search I64 -> I64)))
     (define (node-index search node)
       (match (table-ref (::index search) (node-key node))
         ((Some number) number)
         ((None) (panic "internal error: the search has not reached this node"))))
 
-    (: node-low (-> Search I64 I64))
+    (: node-low (impl (Fn Search I64 -> I64)))
     (define (node-low search node)
       (match (table-ref (::low search) (node-key node))
         ((Some number) number)
         ((None) (panic "internal error: the search has not reached this node"))))
 
-    (: open? (-> Search I64 Bool))
+    (: open? (impl (Fn Search I64 -> Bool)))
     (define (open? search node)
       (match (table-ref (::open search) (node-key node))
         ((Some flag) flag)
@@ -1524,7 +1624,7 @@
 
     ;; Numbers `node`, pushes it, follows its edges, and closes a component
     ;; when nothing it reached leads back past it.
-    (: visit (-> Search I64 Search))
+    (: visit (impl (Fn Search I64 -> Search)))
     (define (visit search node)
       (let* ((number (::count search))
              (entered (Search (::edges search)
@@ -1540,7 +1640,7 @@
 
     ;; Lowers `node`'s link through its edge to `next`, visiting `next`
     ;; first if the search has not reached it.
-    (: follow (-> Search I64 I64 Search))
+    (: follow (impl (Fn Search I64 I64 -> Search)))
     (define (follow search node next)
       (cond ((not (reached? search next))
              (let ((search (visit search next)))
@@ -1548,7 +1648,7 @@
             ((open? search next) (lower search node (node-index search next)))
             (else search)))
 
-    (: lower (-> Search I64 I64 Search))
+    (: lower (impl (Fn Search I64 I64 -> Search)))
     (define (lower search node number)
       (Search-low-set search
                       (table-set (::low search)
@@ -1556,7 +1656,7 @@
                                  (min (node-low search node) number))))
 
     ;; Pops the stack down to `node`; those nodes are one component.
-    (: pop-component (-> Search I64 Search))
+    (: pop-component (impl (Fn Search I64 -> Search)))
     (define (pop-component search node)
       (let loop ((search search) (component (Nil)))
         (match (::stack search)
@@ -1576,14 +1676,14 @@
     ;; `prim:NAME`, the name the checker, mono and the backend know it by.
     ;; Its owner is `prim`, which no library may be named, rather than the
     ;; library that declares it.
-    (: primitive-global (-> String String))
+    (: primitive-global (impl (Fn String -> String)))
     (define (primitive-global name)
       (string-append "prim:" name))
 
     ;; What the primitive library adds to a program, for a later build to
     ;; replay: its values alone. It has no module, since the backend
     ;; implements everything it declares, so it records no run of items.
-    (: primitive-delta (-> Program Program))
+    (: primitive-delta (impl (Fn Program -> Program)))
     (define (primitive-delta program)
       (Program-values-set empty-program (owned (::values program) "prim")))
 

@@ -9,9 +9,9 @@
 ;; ANCHOR: fn-type
 (struct Button
   ((label String)
-   (on-press (Fn I64 String))))
+   (on-press (fn I64 -> String))))
 
-(: shout (-> I64 String))
+(: shout (impl (Fn I64 -> String)))
 (define (shout count)
   (string-append "pressed " (i64->string count) " times"))
 
@@ -21,17 +21,17 @@
         (Button "fn" (fn (count) (string-append "a fn saw " (i64->string count))))))
 
 ;; Calling an Fn calls its code.
-(: press (-> Button I64 String))
+(: press (impl (Fn Button I64 -> String)))
 (define (press button count)
   ((::on-press button) count))
 ;; ANCHOR_END: fn-type
 
 ;; A signature or an annotation also gives a function the type Fn.
-(: twice (Fn I64 I64))
+(: twice (fn I64 -> I64))
 (define (twice x)
   (* 2 x))
 
-(: apply-all (-> (List (Fn I64 I64)) I64 (List I64)))
+(: apply-all (impl (Fn (List (fn I64 -> I64)) I64 -> (List I64))))
 (define (apply-all functions x)
   (match functions
     ((Nil) (Nil))
@@ -39,20 +39,20 @@
 
 ;; An imported function is code too, and an Fn performs what its row says
 ;; under the handlers where it is called.
-(: log-with (-> (Fn String Unit ! console) Unit ! console))
+(: log-with (impl (Fn (fn String -> Unit ! console) -> Unit ! console)))
 (define (log-with logger)
   (logger "logged through an Fn"))
 
 ;; A call through an Fn may yield to a control handler.
 (effect Stop
-  ((ctl stop (-> I64 Unit))))
+  ((ctl stop (dyn (Fn I64 -> Unit)))))
 
-(: stop-at-two (-> I64 Unit ! Stop console))
+(: stop-at-two (impl (Fn I64 -> Unit ! Stop console)))
 (define (stop-at-two n)
   (write-line (string-append "checked " (i64->string n)))
   (when (= n 2) (stop n)))
 
-(: until-stop (-> (Fn I64 Unit ! Stop console) I64 ! console))
+(: until-stop (impl (Fn (fn I64 -> Unit ! Stop console) -> I64 ! console)))
 (define (until-stop check)
   (handle Stop ((stop (lambda (value resume) (drop resume) value)))
     (check 1)
@@ -62,6 +62,6 @@
 
 (for-each (lambda (button) (write-line (press button 3))) buttons)
 (for-each (lambda (n) (write-line (i64->string n)))
-          (apply-all (list twice (ann (fn (x) (+ x 1)) (Fn I64 I64))) 10))
+          (apply-all (list twice (ann (fn (x) (+ x 1)) (fn I64 -> I64))) 10))
 (log-with write-line)
 (write-line (string-append "stopped at " (i64->string (until-stop stop-at-two))))

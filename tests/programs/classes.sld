@@ -3,7 +3,7 @@
  (snail core io))
 
 (typeclass (Describe T)
-  (: describe (-> T String)))
+  (: describe (impl (Fn T -> String))))
 
 (instance (Describe I64)
   (define (describe n) (string-append "int " (show n))))
@@ -23,11 +23,11 @@
       ((None) "nothing")
       ((Some x) (string-append "just " (describe x))))))
 
-(: describe-twice (All (T) (requires (Describe T) (Copy T)) (-> T String)))
+(: describe-twice (All (T) (requires (Describe T) (Copy T)) (impl (Fn T -> String))))
 (define (describe-twice value)
   (string-append (describe value) (string-append " / " (describe value))))
 
-(: sum (All (T) (requires (Num (!) T)) (-> (List T) T T)))
+(: sum (All (T) (requires (Num (!) T)) (impl (Fn (List T) T -> T))))
 (define (sum items zero)
   (fold-left + zero items))
 

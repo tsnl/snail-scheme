@@ -7,6 +7,6 @@
    (snail core base))
   (begin
 
-    (: run (-> I64 I64))
+    (: run (impl (Fn I64 -> I64)))
     (define (run n)
       (+ n 1))))

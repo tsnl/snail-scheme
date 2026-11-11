@@ -8,10 +8,10 @@
 
 ;; ANCHOR: declare
 (effect Log
-  ((log (-> String Unit))))
+  ((log (dyn (Fn String -> Unit)))))
 
 ;; Adds up prices, logging each one.
-(: total (-> (List I64) I64 ! Log))
+(: total (impl (Fn (List I64) -> I64 ! Log)))
 (define (total prices)
   (fold-left (lambda (sum price)
                (log (string-append "adding " (show price)))
@@ -27,14 +27,14 @@
 
 ;; ANCHOR: quietly
 ;; Runs `action`, discarding what it logs.
-(: quietly (All (A e) (-> (-> A ! Log e) A ! e)))
+(: quietly (All (A e) (impl (Fn (dyn (Fn -> A ! Log e)) -> A ! e))))
 (define (quietly action)
   (handle Log
       ((log (lambda (message) (unit))))
     (action)))
 
 ;; Total: the handler has removed Log.
-(: quiet-total (-> (List I64) I64))
+(: quiet-total (impl (Fn (List I64) -> I64)))
 (define (quiet-total prices)
   (quietly (lambda () (total prices))))
 ;; ANCHOR_END: quietly
@@ -44,7 +44,7 @@
 ;; ANCHOR: indented
 ;; Indents what `action` logs: each implementation passes the line on to
 ;; the Log handler outside this one.
-(: indented (All (A e) (-> (-> A ! Log e) A ! Log e)))
+(: indented (All (A e) (impl (Fn (dyn (Fn -> A ! Log e)) -> A ! Log e))))
 (define (indented action)
   (handle Log
       ((log (lambda (message) (log (string-append "  " message)))))
@@ -59,22 +59,22 @@
 
 ;; ANCHOR: files
 (effect Files
-  ((load (-> String String))))
+  ((load (dyn (Fn String -> String)))))
 
-(: greeting (-> String String ! Files))
+(: greeting (impl (Fn String -> String ! Files)))
 (define (greeting name)
   (string-append (load "greeting.txt") ", " name))
 
 ;; Files from the disk, under `build/`. `read-file` performs fs, which
 ;; goes to the handlers outside this one: here, the host.
-(: from-disk (All (A e) (-> (-> A ! Files e) A ! fs e)))
+(: from-disk (All (A e) (impl (Fn (dyn (Fn -> A ! Files e)) -> A ! fs e))))
 (define (from-disk action)
   (handle Files
       ((load (lambda (name) (read-file (string-append "build/" name)))))
     (action)))
 
 ;; A test double: files from memory, with no file system at all.
-(: from-memory (All (A e) (-> (-> A ! Files e) A ! e)))
+(: from-memory (All (A e) (impl (Fn (dyn (Fn -> A ! Files e)) -> A ! e))))
 (define (from-memory action)
   (handle Files
       ((load (lambda (name) (if (string=? name "greeting.txt") "hello" ""))))
@@ -90,11 +90,11 @@
 ;; ANCHOR: default
 ;; How much to report: 1 unless a handler says otherwise.
 (effect Verbosity
-  ((verbosity (-> I64)))
+  ((verbosity (dyn (Fn -> I64))))
   (default
     ((verbosity (lambda () 1)))))
 
-(: note (-> I64 String Unit ! Verbosity console))
+(: note (impl (Fn I64 String -> Unit ! Verbosity console)))
 (define (note level message)
   (when (<= level (verbosity))
     (write-line message)))

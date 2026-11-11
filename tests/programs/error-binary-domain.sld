@@ -4,6 +4,6 @@
 
 (typeclass (Op e A B)
   (type Output)
-  (: op (-> A B Output ! e)))
+  (: op (impl (Fn A B -> Output ! e))))
 (define-instance-set dynamic
   (dynamic-instances Op (Any I64)))

@@ -3,10 +3,10 @@
  (snail core io))
 
 (effect log
-  ((message (-> String Unit))))
+  ((message (dyn (Fn String -> Unit)))))
 
 (typeclass (ReadValue e T R)
-  (: read-value (-> T R R ! e)))
+  (: read-value (impl (Fn T R -> R ! e))))
 
 (instance (ReadValue (!) I64 String)
   (define (read-value value fallback) (i64->string value)))
@@ -19,7 +19,7 @@
 (instance (ReadValue (! log dyn-cast) Any String)
   (dispatch I64 String))
 
-(: describe (-> Any String ! log dyn-cast))
+(: describe (impl (Fn Any -> String ! log dyn-cast)))
 (define (describe value) (read-value value "fallback"))
 
 (handle dyn-cast

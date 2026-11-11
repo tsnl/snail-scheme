@@ -6,7 +6,7 @@
 (: forward
    (All (A B)
         (requires (p:Combine A B))
-        (-> A B (p:Combine.Output A B))))
+        (impl (Fn A B -> (p:Combine.Output A B)))))
 (define (forward a b) (p:generic a b))
 
 (with-instances (p:description)

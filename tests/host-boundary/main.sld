@@ -12,42 +12,42 @@
        ((Err _) (panic "fixture payload has the wrong type"))))))
 
 
-(extern note-text "snail.test" "text" (-> String I32))
-(extern note-bytes "snail.test" "bytes" (-> I32 Bytes I32))
-(extern receive-managed "snail.test" "managed" (-> (Result Payload String)))
+(extern note-text "snail.test" "text" (impl (Fn String -> I32)))
+(extern note-bytes "snail.test" "bytes" (impl (Fn I32 Bytes -> I32)))
+(extern receive-managed "snail.test" "managed" (impl (Fn -> (Result Payload String))))
 
 (: checkpoint (Ref Any))
 (define checkpoint (ref (type-convert (ann 42 I64) Any)))
 
-(: state (-> Any ! mut))
+(: state (impl (Fn -> Any ! mut)))
 (define (state)
   (ref-get checkpoint))
 
-(: echo (-> (Option Any) (Option Any)))
+(: echo (impl (Fn (Option Any) -> (Option Any))))
 (define (echo handover)
   (match handover
     ((Some state) (Some state))
     ((None) (None))))
 
-(: value (-> (Option Any) I64))
+(: value (impl (Fn (Option Any) -> I64)))
 (define (value handover)
   (match handover
     ((Some state) (fixture-convert state I64))
     ((None) -1)))
 
-(: binary (-> I32))
+(: binary (impl (Fn -> I32)))
 (define (binary)
   (note-bytes (note-text "λ") #u8(0 255 128 1)))
 
-(: empty (-> I32))
+(: empty (impl (Fn -> I32)))
 (define (empty)
   (note-bytes 0 #u8()))
 
-(: discard (-> (Option Any) Unit))
+(: discard (impl (Fn (Option Any) -> Unit)))
 (define (discard handover)
   (unit))
 
-(: fail (-> Unit))
+(: fail (impl (Fn -> Unit)))
 (define (fail)
   (panic "a deliberate boundary trap"))
 
@@ -59,23 +59,23 @@
 (expose discard "discard")
 (expose fail "fail")
 
-(: managed (-> (Result Payload String)))
+(: managed (impl (Fn -> (Result Payload String))))
 (define (managed)
   (receive-managed))
 
-(: result-number (-> (Result Payload String) I32))
+(: result-number (impl (Fn (Result Payload String) -> I32)))
 (define (result-number value)
   (match value
     ((Ok payload) (::number payload))
     ((Err _) -1)))
 
-(: result-bytes (-> (Result Payload String) Bytes))
+(: result-bytes (impl (Fn (Result Payload String) -> Bytes)))
 (define (result-bytes value)
   (match value
     ((Ok payload) (::bytes payload))
     ((Err _) #u8())))
 
-(: inspect-bytes (-> Bytes I32))
+(: inspect-bytes (impl (Fn Bytes -> I32)))
 (define (inspect-bytes bytes)
   (u8->i32 (vector-ref bytes 2)))
 

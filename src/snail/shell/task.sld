@@ -44,10 +44,10 @@
     ;; an ordinary operation. A program's body runs as its first task,
     ;; under this handler, so it may perform these (`around-main`).
     (effect tasks
-      ((ctl yield (-> Unit))
-       (ctl sleep (-> I64 Unit))
-       (ctl await (-> I64 Unit))
-       (ticket (-> I64)))
+      ((ctl yield (dyn (Fn -> Unit)))
+       (ctl sleep (dyn (Fn I64 -> Unit)))
+       (ctl await (dyn (Fn I64 -> Unit)))
+       (ticket (dyn (Fn -> I64))))
       (around-main))
 
     ;; ---- Queues ----
@@ -60,16 +60,16 @@
       ((front (List T))
        (back (List T))))
 
-    (: empty-queue (All (T) (-> (Queue T))))
+    (: empty-queue (All (T) (impl (Fn -> (Queue T)))))
     (define (empty-queue)
       (Queue (Nil) (Nil)))
 
-    (: enqueue (All (T) (-> (Queue T) T (Queue T))))
+    (: enqueue (All (T) (impl (Fn (Queue T) T -> (Queue T)))))
     (define (enqueue queue item)
       (match queue
         ((Queue front back) (Queue front (Cons item back)))))
 
-    (: dequeue (All (T) (-> (Queue T) (Option (Pair T (Queue T))))))
+    (: dequeue (All (T) (impl (Fn (Queue T) -> (Option (Pair T (Queue T)))))))
     (define (dequeue queue)
       (match queue
         ((Queue (Cons item rest) back) (Some (Pair item (Queue rest back))))
@@ -86,15 +86,15 @@
     (enum Step
       (Finished)
       (Yielded
-       ((next (FnOnce Step ! host))))
+       ((next (dyn (FnOnce -> Step ! host)))))
       (Sleeping
        ((delay I64)
-        (next (FnOnce Step ! host))))
+        (next (dyn (FnOnce -> Step ! host)))))
       (Waiting
        ((ticket I64)
-        (next (FnOnce Step ! host)))))
+        (next (dyn (FnOnce -> Step ! host))))))
 
-    (type Run (FnOnce Step ! host))
+    (type Run (dyn (FnOnce -> Step ! host)))
 
     ;; A task that is ready, under its id.
     (struct Runnable
@@ -150,39 +150,39 @@
     (: waiters (UnsafeSlot (List Pending)))
     (define waiters (unsafe-slot (Nil)))
 
-    (: take-ready! (-> (Queue Runnable) ! mut))
+    (: take-ready! (impl (Fn -> (Queue Runnable) ! mut)))
     (define (take-ready!)
       (take! ready))
 
-    (: put-ready! (-> (Queue Runnable) Unit ! mut))
+    (: put-ready! (impl (Fn (Queue Runnable) -> Unit ! mut)))
     (define (put-ready! queue)
       (put! ready queue))
 
-    (: take-timers! (-> (List Pending) ! mut))
+    (: take-timers! (impl (Fn -> (List Pending) ! mut)))
     (define (take-timers!)
       (take! timers))
 
-    (: put-timers! (-> (List Pending) Unit ! mut))
+    (: put-timers! (impl (Fn (List Pending) -> Unit ! mut)))
     (define (put-timers! pending)
       (put! timers pending))
 
-    (: take-waiters! (-> (List Pending) ! mut))
+    (: take-waiters! (impl (Fn -> (List Pending) ! mut)))
     (define (take-waiters!)
       (take! waiters))
 
-    (: put-waiters! (-> (List Pending) Unit ! mut))
+    (: put-waiters! (impl (Fn (List Pending) -> Unit ! mut)))
     (define (put-waiters! pending)
       (put! waiters pending))
 
-    (: add-live! (-> I64 Unit ! mut))
+    (: add-live! (impl (Fn I64 -> Unit ! mut)))
     (define (add-live! change)
       (set! (::live (ref-get scheduler)) (+ (::live (ref-get scheduler)) change)))
 
-    (: add-ready! (-> I64 Unit ! mut))
+    (: add-ready! (impl (Fn I64 -> Unit ! mut)))
     (define (add-ready! change)
       (set! (::ready-count (ref-get scheduler)) (+ (::ready-count (ref-get scheduler)) change)))
 
-    (: push-ready! (-> Runnable Unit ! mut))
+    (: push-ready! (impl (Fn Runnable -> Unit ! mut)))
     (define (push-ready! task)
       (put-ready! (enqueue (take-ready!) task))
       (add-ready! 1))
@@ -194,7 +194,7 @@
     ;; context, which holds the dispatcher's handlers, and close the rest of
     ;; the task over them. A `resume` runs the rest of the work under this
     ;; handle again, so closing it cannot let a yield to `tasks` escape.
-    (: start-task (All (e) (-> (FnOnce Unit ! tasks e) Step ! mut e)))
+    (: start-task (All (e) (impl (Fn (dyn (FnOnce -> Unit ! tasks e)) -> Step ! mut e))))
     (define (start-task work)
       (handle tasks
           ((yield (lambda (resume)
@@ -207,7 +207,7 @@
         (work)
         (Finished)))
 
-    (: next-ticket! (-> I64 ! mut))
+    (: next-ticket! (impl (Fn -> I64 ! mut)))
     (define (next-ticket!)
       (let ((ticket (+ (::last-ticket (ref-get scheduler)) 1)))
         (set! (::last-ticket (ref-get scheduler)) ticket)
@@ -216,12 +216,12 @@
     ;; Dispatching charges the work's effects to the dispatcher, so it
     ;; cannot hide an unhandled operation. The work runs on a later turn,
     ;; as a task whose id `dispatch-task` answers.
-    (: dispatch-local (All (e) (-> (FnOnce Unit ! tasks e) Unit ! mut e)))
+    (: dispatch-local (All (e) (impl (Fn (dyn (FnOnce -> Unit ! tasks e)) -> Unit ! mut e))))
     (define (dispatch-local work)
       (dispatch-task work)
       (unit))
 
-    (: dispatch-task (All (e) (-> (FnOnce Unit ! tasks e) I64 ! mut e)))
+    (: dispatch-task (All (e) (impl (Fn (dyn (FnOnce -> Unit ! tasks e)) -> I64 ! mut e))))
     (define (dispatch-task work)
       (let ((id (+ (::last-task (ref-get scheduler)) 1)))
         (set! (::last-task (ref-get scheduler)) id)
@@ -236,7 +236,7 @@
     ;; readies the sleepers whose deadline has passed. It answers 0 when a
     ;; task is ready, -1 when no task is live, -2 when every task waits on a
     ;; ticket, and otherwise the milliseconds until the earliest deadline.
-    (: tasks-turn (-> I64 I64 ! mut host))
+    (: tasks-turn (impl (Fn I64 -> I64 ! mut host)))
     (define (tasks-turn now)
       (when (= (::last-ticket (ref-get scheduler)) 0)
         (set! (::last-ticket (ref-get scheduler)) (* now 1000)))
@@ -249,7 +249,7 @@
     ;; field, before the task runs, so a trap in it loses that task alone,
     ;; which `running` still names: the host reports the trap and calls
     ;; `turn` again.
-    (: run-ready! (-> I64 Unit ! mut host))
+    (: run-ready! (impl (Fn I64 -> Unit ! mut host)))
     (define (run-ready! count)
       (when (> count 0)
         (match (dequeue (take-ready!))
@@ -263,7 +263,7 @@
            (set! (::running (ref-get scheduler)) 0)
            (run-ready! (- count 1))))))
 
-    (: record! (-> I64 Step Unit ! mut))
+    (: record! (impl (Fn I64 Step -> Unit ! mut)))
     (define (record! id step)
       (match step
         ((Finished) (unit))
@@ -280,7 +280,7 @@
 
     ;; A timer goes after every timer due no later, so sleepers with one
     ;; deadline wake in the order they slept.
-    (: insert-timer (-> Pending (List Pending) (List Pending)))
+    (: insert-timer (impl (Fn Pending (List Pending) -> (List Pending))))
     (define (insert-timer timer timers)
       (match timers
         ((Nil) (Cons timer (Nil)))
@@ -289,7 +289,7 @@
              (Cons timer (Cons first rest))
              (Cons first (insert-timer timer rest))))))
 
-    (: wake-due! (-> I64 (List Pending) (List Pending) ! mut))
+    (: wake-due! (impl (Fn I64 (List Pending) -> (List Pending) ! mut)))
     (define (wake-due! now timers)
       (match timers
         ((Nil) (Nil))
@@ -301,7 +301,7 @@
                 (wake-due! now rest)))
              (Cons first rest)))))
 
-    (: outlook (-> I64 I64 ! mut))
+    (: outlook (impl (Fn I64 -> I64 ! mut)))
     (define (outlook now)
       (cond
        ((> (::ready-count (ref-get scheduler)) 0) 0)
@@ -321,7 +321,7 @@
     ;; Wakes the task waiting on a ticket, answering whether one was: a
     ;; stale ticket, such as one whose task trapped, or whose scheduler
     ;; closed, wakes nothing.
-    (: tasks-wake! (-> I64 Bool ! mut))
+    (: tasks-wake! (impl (Fn I64 -> Bool ! mut)))
     (define (tasks-wake! ticket)
       (match (without ticket (take-waiters!))
         ((Pair found rest)
@@ -332,7 +332,7 @@
             #t)
            ((None) #f)))))
 
-    (: without (-> I64 (List Pending) (Pair (Option Runnable) (List Pending))))
+    (: without (impl (Fn I64 (List Pending) -> (Pair (Option Runnable) (List Pending)))))
     (define (without ticket waiters)
       (match waiters
         ((Nil) (Pair (None) (Nil)))
@@ -349,7 +349,7 @@
     ;; performs what their drops perform, within the task's row, `host`.
     ;; Detach every queue before any drop runs: a promise's drop may wake
     ;; another task. Drain again if cleanup dispatched more work.
-    (: tasks-close! (-> Unit ! mut host))
+    (: tasks-close! (impl (Fn -> Unit ! mut host)))
     (define (tasks-close!)
       (let ((queued (take-ready!)) (sleeping (take-timers!)) (waiting (take-waiters!)))
         (put-ready! (empty-queue))
@@ -362,11 +362,11 @@
         (drop waiting))
       (when (> (::live (ref-get scheduler)) 0) (tasks-close!)))
 
-    (: tasks-running (-> I64 ! mut))
+    (: tasks-running (impl (Fn -> I64 ! mut)))
     (define (tasks-running)
       (::running (ref-get scheduler)))
 
-    (: tasks-live (-> I64 ! mut))
+    (: tasks-live (impl (Fn -> I64 ! mut)))
     (define (tasks-live)
       (::live (ref-get scheduler)))
 
@@ -375,10 +375,10 @@
     ;; engine, calls this in place of the body, once the program's
     ;; definitions are initialized, so the statements run under this
     ;; scheduler's handler of `tasks` and may yield.
-    (: start-main (-> Funcref Unit ! mut host))
+    (: start-main (impl (Fn Funcref -> Unit ! mut host)))
     (define (start-main body)
       (dispatch-local (once (lambda ()
-                              ((ann (unsafe-cast body) (-> I32 ! tasks host)))
+                              ((ann (unsafe-cast body) (dyn (Fn -> I32 ! tasks host))))
                               (unit)))))
 
     (expose start-main "tasks:start-main")
@@ -395,7 +395,7 @@
     ;; wakes the ticket, and `finish` takes the outcome the host kept for
     ;; it. Only the task's own Wasm runs between taking the ticket and
     ;; awaiting it, so the completion cannot come first.
-    (: through-host (All (A) (-> (-> I64 Unit) (-> I64 A) A ! tasks)))
+    (: through-host (All (A) (impl (Fn (dyn (Fn I64 -> Unit)) (dyn (Fn I64 -> A)) -> A ! tasks))))
     (define (through-host start finish)
       (let ((id (ticket)))
         (start id)
@@ -421,7 +421,7 @@
       ((ticket I64)
        (slot (UnsafeSlot T))))
 
-    (: make-mailbox (All (T) (-> (Mailbox T))))
+    (: make-mailbox (All (T) (impl (Fn -> (Mailbox T)))))
     (define (make-mailbox)
       (Mailbox (unsafe-slot (empty-queue)) (unsafe-slot (empty-queue))))
 
@@ -433,7 +433,7 @@
     ;; With no receiver, the message joins the queue. A message handed to a
     ;; receiver is its: should the scheduler close before that task runs,
     ;; the message goes with it, as one it had received would.
-    (: mailbox-post (All (T) (-> (Mailbox T) T Unit ! mut)))
+    (: mailbox-post (All (T) (impl (Fn (Mailbox T) T -> Unit ! mut))))
     (define (mailbox-post mailbox message)
       (let ((receivers (::receivers mailbox)))
         (match (dequeue (take! receivers))
@@ -451,7 +451,7 @@
     ;; left the cell empty, and the task waits in line on a ticket until a
     ;; post hands it a message, so receivers are served in the order they
     ;; began to wait.
-    (: mailbox-receive (All (T) (-> (Mailbox T) T ! mut tasks)))
+    (: mailbox-receive (All (T) (impl (Fn (Mailbox T) -> T ! mut tasks))))
     (define (mailbox-receive mailbox)
       (let ((messages (::messages mailbox)))
         (match (dequeue (take! messages))
@@ -463,7 +463,7 @@
            (wait-in-line mailbox)))))
 
     ;; Receiving without waiting: the oldest message, or none.
-    (: mailbox-try-receive (All (T) (-> (Mailbox T) (Option T) ! mut)))
+    (: mailbox-try-receive (All (T) (impl (Fn (Mailbox T) -> (Option T) ! mut))))
     (define (mailbox-try-receive mailbox)
       (let ((messages (::messages mailbox)))
         (match (dequeue (take! messages))
@@ -476,7 +476,7 @@
 
     ;; Only a post wakes the ticket, and it hands the message first, so the
     ;; slot is full when the receiver takes it; an empty one traps there.
-    (: wait-in-line (All (T) (-> (Mailbox T) T ! mut tasks)))
+    (: wait-in-line (All (T) (impl (Fn (Mailbox T) -> T ! mut tasks))))
     (define (wait-in-line mailbox)
       (let ((receivers (::receivers mailbox))
             (receiver (Receiver (ticket) (empty-slot))))

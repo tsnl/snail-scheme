@@ -64,7 +64,7 @@
     ;; after the mount, an absolute path ending in a slash, given the builds
     ;; retained, newest first. The server answers .snail/events itself.
     (: bundle-response
-       (-> String Reloading (List BuildDirectory) (List String) Response ! fs))
+       (impl (Fn String Reloading (List BuildDirectory) (List String) -> Response ! fs)))
     (define (bundle-response mount reloading builds path)
       (match (Pair builds path)
         ((Pair _ (Cons ".snail" (Cons file (Nil)))) (client-file reloading file))
@@ -81,7 +81,7 @@
     ;; An object of the store beside the builds' generations, which every
     ;; retained build's manifest names as ../.snail-store/, so its URL never
     ;; changes with the build.
-    (: store-object (-> BuildDirectory (List String) Response ! fs))
+    (: store-object (impl (Fn BuildDirectory (List String) -> Response ! fs)))
     (define (store-object build path)
       (match path
         ((Cons "sha256" (Cons digest (Nil)))
@@ -93,14 +93,14 @@
                (refusal 404 "no such object in the store"))))
         (_ (refusal 404 "no such object in the store"))))
 
-    (: parent-directory (-> String String))
+    (: parent-directory (impl (Fn String -> String)))
     (define (parent-directory path)
       (let loop ((end (string-length path)))
         (cond ((= end 0) path)
               ((char=? (string-ref path (- end 1)) #\/) (substring path 0 (- end 1)))
               (else (loop (- end 1))))))
 
-    (: pinned (-> (List BuildDirectory) String (List String) Response ! fs))
+    (: pinned (impl (Fn (List BuildDirectory) String (List String) -> Response ! fs)))
     (define (pinned builds epoch path)
       (match (find (lambda (build) (string=? (show (::epoch build)) epoch)) builds)
         ((Some build) (bundle-file (::directory build) path))
@@ -111,7 +111,7 @@
     ;; The latest build's page, based in its build's directory, with its
     ;; manifest and the reload client. A page that is not UTF-8 is served as
     ;; it is.
-    (: page (-> String BuildDirectory Response ! fs))
+    (: page (impl (Fn String BuildDirectory -> Response ! fs)))
     (define (page mount build)
       (let ((path (string-append (::directory build) "/index.html")))
         (if (regular-file? path)
@@ -125,14 +125,14 @@
     ;; Typed metadata goes first inside the page's head: a generation base,
     ;; the escaped reload manifest and the reload client. The supplied page
     ;; and its installation identity stay independent of that generation.
-    (: based (-> String String BuildDirectory String ! fs))
+    (: based (impl (Fn String String BuildDirectory -> String ! fs)))
     (define (based raw mount build)
       (insert-metadata (stable-web-app raw mount)
                        (list (PageBase (build-base mount build))
                              (ReloadData (manifest-text mount (Some build)))
                              (ModuleScript (string-append mount ".snail/reload.mjs")))))
 
-    (: build-base (-> String BuildDirectory String))
+    (: build-base (impl (Fn String BuildDirectory -> String)))
     (define (build-base mount build)
       (string-append mount ".snail/builds/" (show (::epoch build)) "/"))
 
@@ -140,7 +140,7 @@
 
     ;; reload.mjs and what it imports come from the browser host, beside
     ;; the client's program, so they stay the same across builds.
-    (: client-file (-> Reloading String Response ! fs))
+    (: client-file (impl (Fn Reloading String -> Response ! fs)))
     (define (client-file reloading file)
       (cond ((member? file (list "reload.mjs" "reload-client.mjs" "load.mjs"))
              (bundle-file (::host reloading) (list file)))
@@ -154,7 +154,7 @@
     ;; files are served under, each file with its digest, and each module,
     ;; in program order, with the digest of its bytes. modules.json is left
     ;; out, as the modules stand for it.
-    (: manifest-text (-> String (Option BuildDirectory) String ! fs))
+    (: manifest-text (impl (Fn String (Option BuildDirectory) -> String ! fs)))
     (define (manifest-text mount found)
       (match found
         ((Some build)
@@ -169,18 +169,18 @@
                         (pairs-text "modules" (build-modules build))))
         ((None) "(files) (modules)")))
 
-    (: pairs-text (-> String (List (Pair String String)) String))
+    (: pairs-text (impl (Fn String (List (Pair String String)) -> String)))
     (define (pairs-text head pairs)
       (datum->string
        (datum-list (Cons (ann (Symbol head) Any)
                          (map string-pair-datum pairs)))))
 
-    (: string-pair-datum (-> (Pair String String) Any))
+    (: string-pair-datum (impl (Fn (Pair String String) -> Any)))
     (define (string-pair-datum pair)
       (datum-list (list (ann (::first pair) Any) (ann (::second pair) Any))))
 
     ;; Each module's library and digest, from the build's modules.json.
-    (: build-modules (-> BuildDirectory (List (Pair String String)) ! fs))
+    (: build-modules (impl (Fn BuildDirectory -> (List (Pair String String)) ! fs)))
     (define (build-modules build)
       (let ((path (string-append (::directory build) "/modules.json")))
         (match (if (regular-file? path) (string->json (read-file path)) (None))
@@ -192,7 +192,7 @@
              (_ (Nil))))
           ((None) (Nil)))))
 
-    (: json-text (-> Json String String))
+    (: json-text (impl (Fn Json String -> String)))
     (define (json-text json name)
       (match (json-member json name)
         ((Some (JsonString text)) text)
@@ -206,7 +206,7 @@
       (BuildPublished)
       (BuildFailed ((message String))))
 
-    (: bundle-event (-> String BundleEvent (Option BuildDirectory) String ! fs))
+    (: bundle-event (impl (Fn String BundleEvent (Option BuildDirectory) -> String ! fs)))
     (define (bundle-event mount event build)
       (let ((manifest (manifest-text mount build)))
         (match event
@@ -227,7 +227,7 @@
     ;; A regular file of a build, by the segments of its path under the
     ;; build's directory; a last empty segment names a directory's
     ;; index.html, which is served as it is.
-    (: bundle-file (-> String (List String) Response ! fs))
+    (: bundle-file (impl (Fn String (List String) -> Response ! fs)))
     (define (bundle-file directory path)
       (match (relative-path path)
         ((Some relative)
@@ -237,7 +237,7 @@
                (refusal 404 "no such file in the build"))))
         ((None) (refusal 404 "no such file in the build"))))
 
-    (: relative-path (-> (List String) (Option String)))
+    (: relative-path (impl (Fn (List String) -> (Option String))))
     (define (relative-path path)
       (let ((names (match (reverse path)
                      ((Cons "" rest) (reverse (Cons "index.html" rest)))
@@ -248,7 +248,7 @@
 
     ;; A name a directory can hold: a target's segments are decoded, so one
     ;; may hold a slash or NUL, and `.` and `..` are already resolved.
-    (: plain-name? (-> String Bool))
+    (: plain-name? (impl (Fn String -> Bool)))
     (define (plain-name? name)
       (and (> (string-length name) 0)
            (not (string=? name "."))
@@ -258,7 +258,7 @@
 
     ;; A generation holds only regular files and directories, so a link is
     ;; never followed out of it.
-    (: regular-file? (-> String Bool ! fs))
+    (: regular-file? (impl (Fn String -> Bool ! fs)))
     (define (regular-file? path)
       (match (file-status path)
         ((Ok status)
@@ -272,24 +272,24 @@
     ;; The store's objects are named for their contents, so a browser may
     ;; keep them for good. Nothing else is cached: `/` changes with each
     ;; build.
-    (: found (-> String Bytes Response))
+    (: found (impl (Fn String Bytes -> Response)))
     (define (found name bytes)
       (response 200
                 (content-type name)
                 (if (content-named? name) "public, max-age=31536000, immutable" "no-store")
                 bytes))
 
-    (: content-named? (-> String Bool))
+    (: content-named? (impl (Fn String -> Bool)))
     (define (content-named? name)
       (match (string-index name #\/)
         ((Some end) (member? (substring name 0 end) (list "store" "sha256")))
         ((None) #f)))
 
-    (: refusal (-> I32 String Response))
+    (: refusal (impl (Fn I32 String -> Response)))
     (define (refusal status message)
       (response status "text/plain; charset=utf-8" "no-store" (string->utf8 message)))
 
-    (: response (-> I32 String String Bytes Response))
+    (: response (impl (Fn I32 String String Bytes -> Response)))
     (define (response status type caching body)
       (Response status
                 (list (Header "Content-Type" type)
@@ -297,7 +297,7 @@
                       (Header "X-Content-Type-Options" "nosniff"))
                 body))
 
-    (: content-type (-> String String))
+    (: content-type (impl (Fn String -> String)))
     (define (content-type name)
       (match (find (lambda (type) (ends-with? (string-downcase name) (::first type)))
                    content-types)
@@ -320,7 +320,7 @@
             (Pair ".ico" "image/x-icon")
             (Pair ".txt" "text/plain; charset=utf-8")))
 
-    (: ends-with? (-> String String Bool))
+    (: ends-with? (impl (Fn String String -> Bool)))
     (define (ends-with? text suffix)
       (let ((length (string-length text)) (size (string-length suffix)))
         (and (>= length size) (string=? (substring text (- length size) length) suffix))))))

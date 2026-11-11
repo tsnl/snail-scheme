@@ -20,7 +20,7 @@
 
     ;; ---- Manifest ----
 
-    (: web-app-manifest (-> String Json))
+    (: web-app-manifest (impl (Fn String -> Json)))
     (define (web-app-manifest name)
       (JsonObject
        (append (map (lambda (field) (Pair (::first field) (JsonString (::second field))))
@@ -29,7 +29,7 @@
                           (Pair "background_color" "#24282f") (Pair "theme_color" "#24282f")))
                (list (Pair "icons" (JsonArray (map icon (list 192 512))))))))
 
-    (: icon (-> I64 Json))
+    (: icon (impl (Fn I64 -> Json)))
     (define (icon size)
       (JsonObject
        (list (Pair "src" (JsonString (string-append "./snail-icon-" (show size) ".png")))
@@ -50,7 +50,7 @@
       (ReloadData ((text String)))
       (ModuleScript ((url String))))
 
-    (: attribute-text (-> String String))
+    (: attribute-text (impl (Fn String -> String)))
     (define (attribute-text text)
       (string-concatenate
        (map (lambda (char)
@@ -58,7 +58,7 @@
                     (else (make-string 1 char))))
             (string->list text))))
 
-    (: element-start (-> String (List (Pair String String)) String))
+    (: element-start (impl (Fn String (List (Pair String String)) -> String)))
     (define (element-start name attributes)
       (string-append "<" name
                      (string-concatenate
@@ -68,7 +68,7 @@
                            attributes))
                      ">"))
 
-    (: metadata-text (-> PageMetadata String))
+    (: metadata-text (impl (Fn PageMetadata -> String)))
     (define (metadata-text item)
       (match item
         ((PageBase url) (element-start "base" (list (Pair "href" url))))
@@ -91,7 +91,7 @@
     ;; Existing head attributes stay on their element. Missing heads are
     ;; opened explicitly, and close where the original HTML closes them.
     ;; A doctype/preamble stays before the generated head.
-    (: insert-metadata (-> String (List PageMetadata) String))
+    (: insert-metadata (impl (Fn String (List PageMetadata) -> String)))
     (define (insert-metadata text items)
       (let* ((head (head-boundary text)) (at (::first head))
              (added (string-concatenate (map metadata-text items))))
@@ -99,14 +99,14 @@
                        (if (::second head) added (string-append "<head>" added))
                        (substring text at (string-length text)))))
 
-    (: with-web-app (-> String Bool String))
+    (: with-web-app (impl (Fn String Bool -> String)))
     (define (with-web-app text development)
       (insert-metadata text (Cons (WebManifest "./manifest.webmanifest")
                                   (if development (list (ModuleMap "./modules.json")) (Nil)))))
 
     ;; Only the builder-owned first link is replaced. A pinned executable
     ;; base must never pin the app's installation identity to one generation.
-    (: stable-web-app (-> String String String))
+    (: stable-web-app (impl (Fn String String -> String)))
     (define (stable-web-app text mount)
       (let ((start (::first (head-boundary text))))
         (if (text-at? text start default-link)
@@ -122,7 +122,7 @@
 
     ;; The offset is after an existing <head>, or where one should be
     ;; inserted. The Bool proves which representation the offset describes.
-    (: head-boundary (-> String (Pair I64 Bool)))
+    (: head-boundary (impl (Fn String -> (Pair I64 Bool))))
     (define (head-boundary text)
       (let* ((before (preamble-end text (doctype-end text)))
              (html (tag-after text before "html"))
@@ -131,7 +131,7 @@
           ((Some end) (Pair end #t))
           ((None) (Pair at #f)))))
 
-    (: tag-after (-> String I64 String (Option I64)))
+    (: tag-after (impl (Fn String I64 String -> (Option I64))))
     (define (tag-after text at name)
       (let ((end (+ (+ at 1) (string-length name))))
         (if (and (< end (string-length text))
@@ -143,7 +143,7 @@
     ;; A page may begin with a BOM, whitespace and comments before its
     ;; doctype. Keep that prefix before injected metadata, preserving standards
     ;; mode. A quoted public/system identifier may itself contain `>`.
-    (: doctype-end (-> String I64))
+    (: doctype-end (impl (Fn String -> I64)))
     (define (doctype-end text)
       (let ((start (preamble-end text 0)))
         (if (and (<= (+ start 9) (string-length text))
@@ -151,12 +151,12 @@
             (declaration-end text (+ start 9) (None))
             start)))
 
-    (: text-at? (-> String I64 String Bool))
+    (: text-at? (impl (Fn String I64 String -> Bool)))
     (define (text-at? text at wanted)
       (and (<= (+ at (string-length wanted)) (string-length text))
            (string=? (substring text at (+ at (string-length wanted))) wanted)))
 
-    (: preamble-end (-> String I64 I64))
+    (: preamble-end (impl (Fn String I64 -> I64)))
     (define (preamble-end text at)
       (cond ((>= at (string-length text)) at)
             ((or (char-whitespace? (string-ref text at))
@@ -168,13 +168,13 @@
                ((None) at)))
             (else at)))
 
-    (: comment-end (-> String I64 (Option I64)))
+    (: comment-end (impl (Fn String I64 -> (Option I64))))
     (define (comment-end text at)
       (cond ((> (+ at 3) (string-length text)) (None))
             ((text-at? text at "-->") (Some (+ at 3)))
             (else (comment-end text (+ at 1)))))
 
-    (: declaration-end (-> String I64 (Option Char) I64))
+    (: declaration-end (impl (Fn String I64 (Option Char) -> I64)))
     (define (declaration-end text at quote)
       (if (>= at (string-length text)) at
           (let ((char (string-ref text at)))

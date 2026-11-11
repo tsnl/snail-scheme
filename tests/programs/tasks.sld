@@ -3,9 +3,9 @@
  (snail core io)
  (snail shell task))
 
-(effect Label ((label (-> String))))
+(effect Label ((label (dyn (Fn -> String)))))
 
-(: child (-> Unit ! console tasks Label))
+(: child (impl (Fn -> Unit ! console tasks Label)))
 (define (child)
   (write-line (string-append (label) " starts"))
   (yield)

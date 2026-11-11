@@ -5,16 +5,16 @@
 (: boxed Any)
 (define boxed 41)
 
-(: integer (-> Any I64 ! dyn-cast))
+(: integer (impl (Fn Any -> I64 ! dyn-cast)))
 (define (integer value) value)
 
-(: package (-> I64 Any))
+(: package (impl (Fn I64 -> Any)))
 (define (package value) value)
 
-(: increment (-> I64 I64))
+(: increment (impl (Fn I64 -> I64)))
 (define (increment value) (+ value 1))
 
-(: first (All (T) (requires (Copy T)) (-> T T T)))
+(: first (All (T) (requires (Copy T)) (impl (Fn T T -> T))))
 (define (first a b) a)
 
 (struct Holder
@@ -39,10 +39,10 @@
   (newline))
 
 (: function Any)
-(define function (ann (lambda (x) (+ x 1)) (-> I64 I64)))
+(define function (ann (lambda (x) (+ x 1)) (dyn (Fn I64 -> I64))))
 (handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
-  (display ((ann function (-> I64 I64)) 9))
+  (display ((ann function (dyn (Fn I64 -> I64))) 9))
   (newline))
 
 (: condition Any)
@@ -55,7 +55,7 @@
   (newline))
 
 (effect ask
-  ((ctl answer (-> Never))))
+  ((ctl answer (dyn (Fn -> Never)))))
 (handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
   (display (ann (handle ask

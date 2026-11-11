@@ -19,7 +19,7 @@
   (SmallToLarge)
   (LargeToSmall))
 
-(: pour (-> Jugs Pour Jugs))
+(: pour (impl (Fn Jugs Pour -> Jugs)))
 (define (pour jugs move)
   (let ((small (::small jugs)) (large (::large jugs)))
     (match move
@@ -32,7 +32,7 @@
       ((LargeToSmall)
        (let ((amount (min large (- 3 small)))) (Jugs (+ small amount) (- large amount)))))))
 
-(: describe (-> Pour String))
+(: describe (impl (Fn Pour -> String)))
 (define (describe move)
   (match move
     ((FillSmall) "fill the small jug")

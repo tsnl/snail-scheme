@@ -7,26 +7,26 @@
 ;; is an operation and what it answered, failures included.
 (define root "build/tests/directories-λ")
 
-(: at (-> String String))
+(: at (impl (Fn String -> String)))
 (define (at name)
   (string-append root "/" name))
 
-(: answer (All (T) (-> (-> T String) (Result T FileError) String)))
+(: answer (All (T) (impl (Fn (dyn (Fn T -> String)) (Result T FileError) -> String))))
 (define (answer describe result)
   (match result
     ((Ok value)
      (let ((text (describe value))) (if (string=? text "") "ok" (string-append "ok " text))))
     ((Err error) (string-append "error: " (show error)))))
 
-(: done (-> Unit String))
+(: done (impl (Fn Unit -> String)))
 (define (done value)
   "")
 
-(: report (-> String String Unit ! console))
+(: report (impl (Fn String String -> Unit ! console)))
 (define (report label text)
   (write-line (string-append label " -> " text)))
 
-(: kind-name (-> FileKind String))
+(: kind-name (impl (Fn FileKind -> String)))
 (define (kind-name kind)
   (match kind
     ((RegularFile) "file")
@@ -34,14 +34,14 @@
     ((SymbolicLink) "link")
     ((OtherKind) "other")))
 
-(: status-text (-> FileStatus String))
+(: status-text (impl (Fn FileStatus -> String)))
 (define (status-text status)
   (match (::kind status)
     ((Directory) "directory")
     (kind (string-append (kind-name kind) " of " (show (::size status)) " bytes, modified "
                          (if (> (::modified status) 0) "after" "before") " 1970"))))
 
-(: names (-> (List String) String))
+(: names (impl (Fn (List String) -> String)))
 (define (names entries)
   (string-append "(" (string-join entries " ") ")"))
 

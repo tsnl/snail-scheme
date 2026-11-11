@@ -12,17 +12,17 @@
  (siegework siege)
  (siegework simulation))
 
-(: run (-> World I64 World))
+(: run (impl (Fn World I64 -> World)))
 (define (run world ticks)
   (if (or (= ticks 0) (not (playing? world))) world (run (advance world) (- ticks 1))))
 
-(: try (-> World Action World))
+(: try (impl (Fn World Action -> World)))
 (define (try world action)
   (match (act world action)
     ((Ok world) world)
     ((Err _) world)))
 
-(: outcome-text (-> Outcome String))
+(: outcome-text (impl (Fn Outcome -> String)))
 (define (outcome-text outcome)
   (match outcome
     ((Playing) "playing")
@@ -30,7 +30,7 @@
     ((Lost) "lost")
     ((Resigned) "resigned")))
 
-(: report (-> String World Unit ! console))
+(: report (impl (Fn String World -> Unit ! console)))
 (define (report name world)
   (write-line (string-append name
                              ": tick "
@@ -51,7 +51,7 @@
                                                 (::opened world)))
                              ", " (outcome-text (::outcome world)))))
 
-(: attack-text (-> I64 String))
+(: attack-text (impl (Fn I64 -> String)))
 (define (attack-text tick)
   (string-append (show tick)
                  " "
@@ -59,16 +59,16 @@
                  " of "
                  (show (attack-size tick))))
 
-(: offset (-> World I64 I64 Cell))
+(: offset (impl (Fn World I64 I64 -> Cell)))
 (define (offset world dx dy)
   (let ((hub (::cell (::hub world))))
     (Cell (+ (::x hub) dx) (+ (::y hub) dy))))
 
-(: started (-> World World))
+(: started (impl (Fn World -> World)))
 (define (started world)
   (try world (Build (Extractor) (::starter (::land world)) #f)))
 
-(: reinforce (-> World World))
+(: reinforce (impl (Fn World -> World)))
 (define (reinforce world)
   (try (fold-left (lambda (world d)
                     (try world (Build (Turret) (offset world (::first d) (::second d)) #f)))
@@ -83,7 +83,7 @@
                         (Pair -2 -2)))
        (Upgrade (offset world 0 0))))
 
-(: defend (-> World I64 World))
+(: defend (impl (Fn World I64 -> World)))
 (define (defend world ticks)
   (if (or (<= ticks 0) (not (playing? world)))
       world
@@ -111,7 +111,7 @@
 ;; Turrets three cells west and east of the hub flank a sturdy enemy to
 ;; the north. Both hit it, but it turns only on the first and keeps after
 ;; that one.
-(: flanked (-> World World))
+(: flanked (impl (Fn World -> World)))
 (define (flanked world)
   (let ((world (run (try (try world (Build (Turret) (offset world -3 0) #f))
                          (Build (Turret) (offset world 3 0) #f))
@@ -128,7 +128,7 @@
                                     (None)
                                     (None))))))
 
-(: aggro-text (-> World String))
+(: aggro-text (impl (Fn World -> String)))
 (define (aggro-text world)
   (match (find (lambda (e) (= (::id e) 999)) (::enemies world))
     ((Some enemy)
@@ -137,7 +137,7 @@
        ((None) "nothing")))
     ((None) "gone")))
 
-(: watch (-> World I64 Unit ! console))
+(: watch (impl (Fn World I64 -> Unit ! console)))
 (define (watch world ticks)
   (if (> ticks 0)
       (let ((next (advance world)))
@@ -159,7 +159,7 @@
         (write-line (string-append "the guns stay on each turret's last shot: "
                                    (string-join (map aim-text (::buildings world)) ", "))))))
 
-(: aim-text (-> Building String))
+(: aim-text (impl (Fn Building -> String)))
 (define (aim-text b)
   (string-append (kind-name (::kind b)) " at x " (show (::x (::cell b))) " "
                  (match (::aim b)

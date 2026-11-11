@@ -33,7 +33,7 @@
     ;; after four leads: E0 and F0 would otherwise begin overlong forms, ED
     ;; a surrogate, and F4 a code beyond U+10FFFF. C0, C1 and F5..FF begin
     ;; nothing, and neither does a continuation.
-    (: lead (-> I32 (Option Lead)))
+    (: lead (impl (Fn I32 -> (Option Lead))))
     (define (lead byte)
       (cond ((< byte 128) (Some (Lead 1 0 0 byte)))
             ((< byte 194) (None))
@@ -48,7 +48,7 @@
 
     ;; The byte at `index`, if the bytes reach that far and it is in the
     ;; range from `low` to `high`.
-    (: continuation (-> Bytes I64 I32 I32 (Option I32)))
+    (: continuation (impl (Fn Bytes I64 I32 I32 -> (Option I32))))
     (define (continuation bytes index low high)
       (if (< index (vector-length bytes))
           (let ((byte (u8->i32 (vector-ref bytes index))))
@@ -58,7 +58,7 @@
     ;; The scalar whose sequence starts at `index`, and the index after it,
     ;; or None if the sequence is ill-formed or the bytes end inside it.
     ;; Each continuation adds its low six bits.
-    (: sequence-at (-> Bytes I64 (Option (Pair Char I64))))
+    (: sequence-at (impl (Fn Bytes I64 -> (Option (Pair Char I64)))))
     (define (sequence-at bytes index)
       (match (lead (u8->i32 (vector-ref bytes index)))
         ((None) (None))
@@ -76,7 +76,7 @@
 
     ;; A text has at most as many scalars as its bytes, so one array of
     ;; that length, local to this call, holds them all.
-    (: utf8->string (-> Bytes (Result String Utf8Error)))
+    (: utf8->string (impl (Fn Bytes -> (Result String Utf8Error))))
     (define (utf8->string bytes)
       (let ((chars (make-array (vector-length bytes) #\space)))
         (let loop ((index 0) (count 0))
@@ -93,12 +93,12 @@
     ;; A Char that is not a Unicode scalar, a surrogate or a code beyond
     ;; U+10FFFF, can come only from `i32->char`. It encodes as U+FFFD, as
     ;; `TextEncoder` encodes a lone surrogate, so the output is always UTF-8.
-    (: scalar (-> Char I32))
+    (: scalar (impl (Fn Char -> I32)))
     (define (scalar char)
       (let ((code (char->i32 char)))
         (if (or (< code 0) (> code 1114111) (and (>= code 55296) (<= code 57343))) 65533 code)))
 
-    (: encoded-width (-> I32 I64))
+    (: encoded-width (impl (Fn I32 -> I64)))
     (define (encoded-width code)
       (cond ((< code 128) 1)
             ((< code 2048) 2)
@@ -107,7 +107,7 @@
 
     ;; The high bits of a lead byte, which give its sequence's width:
     ;; 0xxxxxxx, 110xxxxx, 1110xxxx or 11110xxx.
-    (: lead-marker (-> I64 I32))
+    (: lead-marker (impl (Fn I64 -> I32)))
     (define (lead-marker width)
       (case width
         ((1) 0)
@@ -118,7 +118,7 @@
     ;; Byte `position` of a scalar's encoding. The lead carries the scalar's
     ;; highest bits after its marker; each continuation, 10xxxxxx, carries
     ;; the next six.
-    (: encoded-byte (-> I32 I64 I64 U8))
+    (: encoded-byte (impl (Fn I32 I64 I64 -> U8)))
     (define (encoded-byte code width position)
       (let ((bits (i32-shift-right/logical code (i64->i32 (* 6 (- (- width 1) position))))))
         (i32->u8
@@ -126,7 +126,7 @@
 
     ;; The scalars are measured first, so the bytes fill one array of the
     ;; exact length, local to this call.
-    (: string->utf8 (-> String Bytes))
+    (: string->utf8 (impl (Fn String -> Bytes)))
     (define (string->utf8 text)
       (let* ((codes (vector-map scalar (string->vector text)))
              (bytes

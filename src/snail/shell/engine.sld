@@ -57,13 +57,13 @@
        (files (List Object))))
 
     ;; The manifest at `path`, whose text the entry read.
-    (: parse-manifest (-> String String Manifest))
+    (: parse-manifest (impl (Fn String String -> Manifest)))
     (define (parse-manifest path text)
       (match (manifest-of (directory-of path) (string->json text))
         ((Some manifest) manifest)
         ((None) (panic (string-append path " is not the modules.json of a program")))))
 
-    (: manifest-of (-> String (Option Json) (Option Manifest)))
+    (: manifest-of (impl (Fn String (Option Json) -> (Option Manifest))))
     (define (manifest-of directory json)
       (match json
         ((Some json)
@@ -78,7 +78,7 @@
            (_ (None))))
         ((None) (None))))
 
-    (: modules-of (-> (List Json) (Option (List (Pair String Object)))))
+    (: modules-of (impl (Fn (List Json) -> (Option (List (Pair String Object))))))
     (define (modules-of entries)
       (fold-right (lambda (entry rest)
                     (match (Pair rest (Pair (json-member entry "name") (object-of (Some entry))))
@@ -89,7 +89,7 @@
                   entries))
 
     ;; The objects among `entries`, each with a digest.
-    (: objects-of (-> (List Json) (List Object)))
+    (: objects-of (impl (Fn (List Json) -> (List Object))))
     (define (objects-of entries)
       (concatenate (map (lambda (entry)
                           (match (object-of (Some entry))
@@ -97,7 +97,7 @@
                             ((None) (Nil))))
                         entries)))
 
-    (: object-of (-> (Option Json) (Option Object)))
+    (: object-of (impl (Fn (Option Json) -> (Option Object))))
     (define (object-of json)
       (match json
         ((Some entry)
@@ -110,20 +110,20 @@
            (_ (None))))
         ((None) (None))))
 
-    (: json-text (-> Json String String String))
+    (: json-text (impl (Fn Json String String -> String)))
     (define (json-text json name default)
       (match (json-member json name)
         ((Some (JsonString text)) text)
         (_ default)))
 
-    (: json-array (-> Json String (List Json)))
+    (: json-array (impl (Fn Json String -> (List Json))))
     (define (json-array json name)
       (match (json-member json name)
         ((Some (JsonArray items)) items)
         (_ (Nil))))
 
     ;; A path's directory with its final slash, or "" for a bare name.
-    (: directory-of (-> String String))
+    (: directory-of (impl (Fn String -> String)))
     (define (directory-of path)
       (let loop ((index (- (string-length path) 1)))
         (cond ((< index 0) "")
@@ -132,7 +132,7 @@
 
     ;; Where an object lies: the store, relative to the manifest, then its
     ;; digest under sha256/.
-    (: object-file (-> Manifest String String))
+    (: object-file (impl (Fn Manifest String -> String)))
     (define (object-file manifest digest)
       (string-append (::directory manifest) (::store manifest) "sha256/" digest))
 
@@ -144,11 +144,11 @@
     ;; reads a file. A read may wait by ticket, as a fetch does
     ;; ((snail shell task)'s `through-host`), so it runs in a task.
     (effect linked-content-store
-      ((read-object (-> String (Option Bytes) ! tasks))))
+      ((read-object (dyn (Fn String -> (Option Bytes) ! tasks)))))
 
     ;; An object the program needs; one the store cannot give is a build
     ;; the engine cannot run.
-    (: object-bytes (-> Manifest String Object Bytes ! tasks linked-content-store))
+    (: object-bytes (impl (Fn Manifest String Object -> Bytes ! tasks linked-content-store)))
     (define (object-bytes manifest name object)
       (match (read-object (object-file manifest (::digest object)))
         ((Some bytes) bytes)
@@ -181,7 +181,7 @@
     ;; Links the program the manifest at `path` names, whose text is
     ;; `text`, and runs each main in program order, answering the last
     ;; one's result.
-    (: run-manifest (-> String String I64 ! mut wasm tasks linked-content-store))
+    (: run-manifest (impl (Fn String String -> I64 ! mut wasm tasks linked-content-store)))
     (define (run-manifest path text)
       (let* ((manifest (parse-manifest path text))
              (runtime
@@ -202,7 +202,7 @@
     ;; its definitions initialized and its body run as the first task of
     ;; the scheduler when the program links one, so its statements may
     ;; yield; otherwise its main runs whole, as a library's does.
-    (: run-mains (-> (List (Pair String Module)) (Option Module) Unit ! mut wasm))
+    (: run-mains (impl (Fn (List (Pair String Module)) (Option Module) -> Unit ! mut wasm)))
     (define (run-mains libraries scheduler)
       (match libraries
         ((Nil) (unit))
@@ -218,7 +218,7 @@
          (ref-set! status (call library "main" 0))
          (run-mains rest scheduler))))
 
-    (: program-status (-> I64 ! mut))
+    (: program-status (impl (Fn -> I64 ! mut)))
     (define (program-status)
       (ref-get status))
 
@@ -226,9 +226,9 @@
     ;; in program order, and named in the program's namespace, where a
     ;; module the program loads while it runs sees it.
     (: link-libraries
-       (-> Manifest Module (List (Pair String Object)) (List (Pair String Module))
-           (List (Pair String Module))
-           ! wasm tasks linked-content-store))
+       (impl (Fn Manifest Module (List (Pair String Object)) (List (Pair String Module))
+                 -> (List (Pair String Module))
+                 ! wasm tasks linked-content-store)))
     (define (link-libraries manifest runtime modules libraries)
       (match modules
         ((Nil) (reverse libraries))
@@ -242,8 +242,8 @@
     ;; An object compiled and linked, called `name` in a failure, against
     ;; the providers its imports call for.
     (: link-object
-       (-> Manifest String Object (Option Module) (List (Pair String Module)) Module
-           ! wasm tasks linked-content-store))
+       (impl (Fn Manifest String Object (Option Module) (List (Pair String Module)) -> Module
+                 ! wasm tasks linked-content-store)))
     (define (link-object manifest name object runtime libraries)
       (let ((compiled
              (match (compile-bytes (object-bytes manifest name object))
@@ -263,7 +263,7 @@
     ;; host's function otherwise, or one that fails if called when the host
     ;; lacks it, as a library's module may import a service, such as the
     ;; screen, that this host lacks and the program never calls.
-    (: provider (-> Manifest (Option Module) (List (Pair String Module)) Import Provider))
+    (: provider (impl (Fn Manifest (Option Module) (List (Pair String Module)) Import -> Provider)))
     (define (provider manifest runtime libraries import)
       (let ((from (::from import)) (name (::name import)))
         (cond ((string=? from "snail.core.support")
@@ -282,7 +282,7 @@
                  ((None) (HostIfProvided)))))))
 
     ;; A linked file's handle: its position among the manifest's files.
-    (: file-handle (-> Manifest String I32 (Option I32)))
+    (: file-handle (impl (Fn Manifest String I32 -> (Option I32))))
     (define (file-handle manifest digest index)
       (match (list-tail (::files manifest) (i32->i64 index))
         ((Nil) (None))
@@ -303,7 +303,7 @@
     ;; and the program's comes once linking is done, so the two share a
     ;; ticket only if the engine took a thousand a millisecond while it
     ;; linked.
-    (: engine-turn (-> I64 I64 ! mut wasm host))
+    (: engine-turn (impl (Fn I64 -> I64 ! mut wasm host)))
     (define (engine-turn now)
       (let* ((program (program-turn now))
              (own (begin (ref-set! turning (InEngine)) (tasks-turn now))))
@@ -312,7 +312,7 @@
             (begin (ref-set! woke #f) 0)
             (sooner program own))))
 
-    (: program-turn (-> I64 I64 ! mut wasm))
+    (: program-turn (impl (Fn I64 -> I64 ! mut wasm)))
     (define (program-turn now)
       (match (scheduler)
         ((Some scheduler)
@@ -323,7 +323,7 @@
     ;; When the next turn is due, from each scheduler's answer: 0 when a
     ;; task is ready, -1 when none is live, -2 when every live task waits
     ;; on a ticket, and otherwise the milliseconds until a sleeper wakes.
-    (: sooner (-> I64 I64 I64))
+    (: sooner (impl (Fn I64 I64 -> I64)))
     (define (sooner a b)
       (cond ((or (= a 0) (= b 0)) 0)
             ((= a -1) b)
@@ -348,7 +348,7 @@
     (: woke (Ref Bool))
     (define woke (ref #f))
 
-    (: engine-wake (-> I64 I32 ! mut wasm))
+    (: engine-wake (impl (Fn I64 -> I32 ! mut wasm)))
     (define (engine-wake ticket)
       (if (tasks-wake! ticket)
           1
@@ -356,14 +356,14 @@
             ((Some scheduler) (i64->i32 (call scheduler "tasks:wake" ticket)))
             ((None) 0))))
 
-    (: engine-close-tasks (-> Unit ! mut wasm host))
+    (: engine-close-tasks (impl (Fn -> Unit ! mut wasm host)))
     (define (engine-close-tasks)
       (match (scheduler)
         ((Some scheduler) (call scheduler "tasks:close" 0) (unit))
         ((None) (unit)))
       (tasks-close!))
 
-    (: engine-running (-> I64 ! mut wasm))
+    (: engine-running (impl (Fn -> I64 ! mut wasm)))
     (define (engine-running)
       (match (ref-get turning)
         ((InProgram)
@@ -373,14 +373,14 @@
         ((InEngine) (- 0 (tasks-running)))
         ((Idle) 0)))
 
-    (: engine-live (-> I64 ! mut wasm))
+    (: engine-live (impl (Fn -> I64 ! mut wasm)))
     (define (engine-live)
       (+ (tasks-live)
          (match (scheduler)
            ((Some scheduler) (call scheduler "tasks:live" 0))
            ((None) 0))))
 
-    (: scheduler (-> (Option Module) ! mut))
+    (: scheduler (impl (Fn -> (Option Module) ! mut)))
     (define (scheduler)
       (match (ref-get linked)
         ((Some linked) (::scheduler linked))
@@ -388,7 +388,7 @@
 
     ;; Calls an export the program's modules are known to have; one they
     ;; lack is a build the engine cannot run.
-    (: call (-> Module String I64 I64 ! wasm))
+    (: call (impl (Fn Module String I64 -> I64 ! wasm)))
     (define (call instance name argument)
       (match (run-export instance name argument)
         ((Ok answer) answer)
@@ -396,7 +396,7 @@
 
     ;; Closes the program's runtime, as the host closes its own: the
     ;; status of closing its resources.
-    (: close-program (-> I32 ! mut wasm))
+    (: close-program (impl (Fn -> I32 ! mut wasm)))
     (define (close-program)
       (match (ref-get linked)
         ((Some linked) (i64->i32 (call (::runtime linked) "snail:io/close-all" 0)))
@@ -421,7 +421,7 @@
     (: held (Ref Bytes))
     (define held (ref #u8()))
 
-    (: resource-read (-> I64 I32 Unit ! mut wasm linked-content-store))
+    (: resource-read (impl (Fn I64 I32 -> Unit ! mut wasm linked-content-store)))
     (define (resource-read ticket handle)
       (let ((file (vector-ref (ref-get files) (i32->i64 handle))))
         (dispatch-local (once (lambda ()
@@ -433,7 +433,7 @@
     ;; Wakes a ticket of the program's, answering whether a task waited on
     ;; it: one that trapped or was closed did not, and its answer is not
     ;; kept.
-    (: wake-program! (-> I64 Bool ! mut wasm))
+    (: wake-program! (impl (Fn I64 -> Bool ! mut wasm)))
     (define (wake-program! ticket)
       (match (scheduler)
         ((Some scheduler)
@@ -443,7 +443,7 @@
            woken))
         ((None) #f)))
 
-    (: resource-finish (-> I64 I32 ! mut))
+    (: resource-finish (impl (Fn I64 -> I32 ! mut)))
     (define (resource-finish ticket)
       (let ((answer (assoc-ref (ref-get answers) ticket)))
         (ref-set! answers
@@ -455,6 +455,6 @@
           ((Some (None)) (panic "cannot read a linked file: the store does not have it"))
           ((None) (panic "a ticket was finished before its read completed")))))
 
-    (: resource-byte (-> I32 I32 ! mut))
+    (: resource-byte (impl (Fn I32 -> I32 ! mut)))
     (define (resource-byte index)
       (u8->i32 (vector-ref (ref-get held) (i32->i64 index))))))

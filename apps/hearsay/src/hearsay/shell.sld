@@ -42,17 +42,17 @@
        (height I32))
       (deriving Serialize Deserialize))
 
-    (: new-shell (-> I32 I32 I32 Shell))
+    (: new-shell (impl (Fn I32 I32 I32 -> Shell)))
     (define (new-shell seed width height)
       (Shell (Menu) (i32->i64 seed) 0 #f #f width height))
 
     ;; The whole shell is the save; the host reports the screen's size after
     ;; restoring.
-    (: shell-save (-> Shell Shell))
+    (: shell-save (impl (Fn Shell -> Shell)))
     (define (shell-save shell)
       shell)
 
-    (: shell-restore (-> Shell Shell))
+    (: shell-restore (impl (Fn Shell -> Shell)))
     (define (shell-restore shell)
       shell)
 
@@ -64,7 +64,7 @@
 
     ;; ---- Updates ----
 
-    (: open (-> Shell I32 I32 Shell))
+    (: open (impl (Fn Shell I32 I32 -> Shell)))
     (define (open shell action argument)
       (let ((index (i32->i64 argument)) (opened (+ (::opened shell) 1)))
         (cond ((= action action-ledger)
@@ -82,25 +82,25 @@
 
     ;; Shows a newly opened prototype and counts it, pressing its Guide
     ;; button unless it has been `guided` before.
-    (: show-opened (-> Shell Screen Bool Shell))
+    (: show-opened (impl (Fn Shell Screen Bool -> Shell)))
     (define (show-opened shell screen guided)
       (let ((shown (Shell-opened-set (Shell-screen-set shell screen) (+ (::opened shell) 1))))
         (if guided shown (forward shown (Press guide-open 0)))))
 
-    (: forward (-> Shell Input Shell))
+    (: forward (impl (Fn Shell Input -> Shell)))
     (define (forward shell input)
       (match (::screen shell)
         ((Menu) shell)
         ((Rumors screen) (Shell-screen-set shell (Rumors (update-mill-screen screen input))))
         ((Favors screen) (Shell-screen-set shell (Favors (update-ledger-screen screen input))))))
 
-    (: press (-> Shell I32 I32 Shell))
+    (: press (impl (Fn Shell I32 I32 -> Shell)))
     (define (press shell action argument)
       (cond ((= action action-menu) (Shell-screen-set shell (Menu)))
             ((match (::screen shell) ((Menu) #t) (_ #f)) (open shell action argument))
             (else (forward shell (Press action argument)))))
 
-    (: update-shell (-> Shell Input Shell))
+    (: update-shell (impl (Fn Shell Input -> Shell)))
     (define (update-shell shell input)
       (match input
         ((Press action argument) (press shell action argument))
@@ -112,7 +112,7 @@
 
     ;; `art` gives the bytes of each sheet the cast wears; main.sld passes
     ;; the embedded ones, and tests may pass none.
-    (: view-shell (-> Shell (-> String (Option Source)) Frame))
+    (: view-shell (impl (Fn Shell (dyn (Fn String -> (Option Source))) -> Frame)))
     (define (view-shell shell art)
       (match (::screen shell)
         ((Menu) (empty-frame (Nil)))
@@ -154,7 +154,7 @@
                    (list (button "back" "Menu" action-menu)
                          (button "open-guide" "Guide" guide-open)))))
 
-    (: shell-hud (-> Shell (List Panel)))
+    (: shell-hud (impl (Fn Shell -> (List Panel))))
     (define (shell-hud shell)
       (match (::screen shell)
         ((Menu) menu-panels)

@@ -28,7 +28,7 @@
     ;; None means Git is unavailable or the directory is outside a worktree.
     ;; Once a repository is found, failures are errors, never partial results.
     (: read-gitignore
-       (-> String (Result (Option IgnoreSnapshot) String) ! mut tasks process))
+       (impl (Fn String -> (Result (Option IgnoreSnapshot) String) ! mut tasks process)))
     (define (read-gitignore directory)
       (match (git-output directory (list "rev-parse" "--is-inside-work-tree" "--show-prefix"))
         ((Err message) (Err message))
@@ -41,7 +41,7 @@
 
     ;; The first line is fixed vocabulary; the remaining prefix may contain
     ;; newlines. A bare repository and Git's own metadata are not worktrees.
-    (: worktree-prefix (-> Captured (Result (Option String) String)))
+    (: worktree-prefix (impl (Fn Captured -> (Result (Option String) String))))
     (define (worktree-prefix result)
       (match (::exit result)
         ((Exited 128) (Ok (None)))
@@ -59,7 +59,7 @@
         (_ (Err (git-failure result)))))
 
     ;; One final newline frames the prefix; newlines inside names stay intact.
-    (: project-prefix (-> String (Result String String)))
+    (: project-prefix (impl (Fn String -> (Result String String))))
     (define (project-prefix text)
       (let ((length (string-length text)))
         (if (and (> length 0) (char=? (string-ref text (- length 1)) #\newline)
@@ -69,7 +69,7 @@
 
     ;; Git changes directories physically. Each slash in its normalized prefix
     ;; names one parent back to the root, even if the caller used a symlink.
-    (: back-to-root (-> String String))
+    (: back-to-root (impl (Fn String -> String)))
     (define (back-to-root prefix)
       (fold-left (lambda (path char) (if (char=? char #\/) (string-append path "../") path))
                  "./" (string->list prefix)))
@@ -79,7 +79,7 @@
     ;; the traversal to this project, even if its name contains glob syntax.
     ;; Its trailing slash must go too, or Git repeats that prefix failure.
     (: query-ignored
-       (-> String String (Result (Option IgnoreSnapshot) String) ! mut tasks process))
+       (impl (Fn String String -> (Result (Option IgnoreSnapshot) String) ! mut tasks process)))
     (define (query-ignored directory prefix)
       (match (git-output directory (list "-C" (back-to-root prefix) "--literal-pathspecs"
                                          "ls-files" "--others" "--ignored" "--exclude-standard"
@@ -98,7 +98,7 @@
               ((Ok paths) (parse-paths prefix paths))))
            (_ (Err (git-failure result)))))))
 
-    (: ignored? (-> IgnoreSnapshot String Bool))
+    (: ignored? (impl (Fn IgnoreSnapshot String -> Bool)))
     (define (ignored? snapshot relative)
       (let* ((path (string-append (::prefix snapshot) relative))
              (paths (::paths snapshot)))
@@ -112,7 +112,7 @@
 
     ;; NUL framing preserves spaces, newlines, backslashes and Unicode.
     ;; Parse once into membership evidence; a truncated record is an error.
-    (: parse-paths (-> String String (Result (Option IgnoreSnapshot) String)))
+    (: parse-paths (impl (Fn String String -> (Result (Option IgnoreSnapshot) String))))
     (define (parse-paths prefix text)
       (let loop ((start 0) (at 0) (paths empty-table))
         (cond ((= at (string-length text))
@@ -123,13 +123,13 @@
                      (table-set paths (substring text start at) (unit))))
               (else (loop start (+ at 1) paths)))))
 
-    (: decoded (-> Bytes (Result String String)))
+    (: decoded (impl (Fn Bytes -> (Result String String))))
     (define (decoded bytes)
       (match (utf8->string bytes)
         ((Ok text) (Ok text))
         ((Err _) (Err "gitignore: Git returned a path that is not UTF-8"))))
 
-    (: git-failure (-> Captured String))
+    (: git-failure (impl (Fn Captured -> String)))
     (define (git-failure result)
       (match (utf8->string (::stderr result))
         ((Ok text) (string-append "gitignore: Git failed: " text))
@@ -141,7 +141,7 @@
     ;; runs, so a full pipe cannot deadlock it and other service tasks can
     ;; progress. No persistent child, shared cache or shell interpretation.
     (: git-output
-       (-> String (List String) (Result (Option Captured) String) ! mut tasks process))
+       (impl (Fn String (List String) -> (Result (Option Captured) String) ! mut tasks process)))
     (define (git-output directory arguments)
       (match (spawn (Command "git" arguments directory))
         ((Err error)
@@ -151,7 +151,7 @@
          (close-input child)
          (collect-git child))))
 
-    (: collect-git (-> Process (Result (Option Captured) String) ! mut tasks process))
+    (: collect-git (impl (Fn Process -> (Result (Option Captured) String) ! mut tasks process)))
     (define (collect-git child)
       (let ((errors (make-mailbox)))
         (dispatch-local
@@ -170,7 +170,8 @@
 
     ;; Close on any read failure so the other reader wakes too. Bounds are
     ;; explicit failures, rather than a quietly truncated exclusion set.
-    (: read-pipe (-> Process Stream I64 (List Bytes) (Result Bytes String) ! tasks process))
+    (: read-pipe
+       (impl (Fn Process Stream I64 (List Bytes) -> (Result Bytes String) ! tasks process)))
     (define (read-pipe child stream remaining chunks)
       (match (read-output child stream 65536)
         ((Err error)

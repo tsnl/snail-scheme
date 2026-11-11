@@ -8,7 +8,7 @@
 
 ;; Build an independent worktree so this repository's own excludes and index
 ;; cannot decide the answers. No commits or user identity are needed.
-(: git (-> String (List String) String ! process))
+(: git (impl (Fn String (List String) -> String ! process)))
 (define (git directory arguments)
   (match (run (Command "git" arguments directory) #u8())
     ((Ok result)
@@ -25,17 +25,17 @@
 (: root String)
 (define root (string-append (substring repository 0 (- (string-length repository) 1))
                             "/build/tests/gitignore"))
-(: at (-> String String))
+(: at (impl (Fn String -> String)))
 (define (at path) (string-append root "/" path))
 
-(: snapshot (-> String IgnoreSnapshot ! mut tasks process))
+(: snapshot (impl (Fn String -> IgnoreSnapshot ! mut tasks process)))
 (define (snapshot directory)
   (match (read-gitignore directory)
     ((Ok (Some value)) value)
     ((Ok (None)) (panic "Git fixture unavailable"))
     ((Err message) (panic message))))
 
-(: report (-> IgnoreSnapshot String Unit ! console))
+(: report (impl (Fn IgnoreSnapshot String -> Unit ! console)))
 (define (report rules path)
   (write-line (string-append path ": " (if (ignored? rules path) "ignored" "visible"))))
 

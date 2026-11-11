@@ -7,7 +7,7 @@
 ;; values it yields. Each yield saves the frames of every call it leaves,
 ;; with the locals they still need, and `resume` runs them again.
 (effect Gen
-  ((ctl yield (-> I64 Unit))))
+  ((ctl yield (dyn (Fn I64 -> Unit)))))
 
 (enum Tree
   (Leaf)
@@ -21,7 +21,7 @@
   (Node (Node (Leaf) 3 (Node (Leaf) 8 (Leaf))) 5 (Node (Node (Leaf) 12 (Leaf)) 7 (Leaf))))
 
 ;; Every value the body yields, then the body's own result.
-(: collect (-> (-> I64 ! Gen) (List I64)))
+(: collect (impl (Fn (dyn (Fn -> I64 ! Gen)) -> (List I64))))
 (define (collect body)
   (handle Gen ((yield (lambda (value resume) (Cons value (resume (unit))))))
     (list (body))))
@@ -29,7 +29,7 @@
 ;; An in-order walk yielding each value times its depth: `depth`,
 ;; `value`, `right` and the left subtree's sum are live across the yield,
 ;; in a frame per level of the tree. The result is the tree's sum.
-(: walk (-> Tree I64 I64 ! Gen))
+(: walk (impl (Fn Tree I64 -> I64 ! Gen)))
 (define (walk tree depth)
   (match tree
     ((Leaf) 0)
@@ -38,14 +38,14 @@
        (yield (* value depth))
        (+ (+ left-sum value) (walk right (+ depth 1)))))))
 
-(: show-all (-> (List I64) Unit ! console))
+(: show-all (impl (Fn (List I64) -> Unit ! console)))
 (define (show-all values)
   (write-line (string-join (map show values) " ")))
 
 (show-all (collect (lambda () (walk tree 1))))
 
 ;; Yields inside `if`, inside a `match` clause, and in a let's value.
-(: classify (-> (List I64) I64 ! Gen))
+(: classify (impl (Fn (List I64) -> I64 ! Gen)))
 (define (classify items)
   (match items
     ((Nil) 0)
@@ -57,16 +57,16 @@
 
 ;; Operands around a yield run in order: `f`'s yield and its value come
 ;; first, then the bare yield, then `g`'s.
-(: add3 (-> I64 I64 I64 I64))
+(: add3 (impl (Fn I64 I64 I64 -> I64)))
 (define (add3 a b c)
   (+ a (+ b c)))
 
-(: f (-> I64 I64 ! Gen))
+(: f (impl (Fn I64 -> I64 ! Gen)))
 (define (f x)
   (yield (* x 10))
   (+ x 100))
 
-(: g (-> I64 I64 ! Gen))
+(: g (impl (Fn I64 -> I64 ! Gen)))
 (define (g x)
   (yield (* x 10))
   (+ x 300))
@@ -90,7 +90,7 @@
 ;; Locals of other representations live across a yield too: a float,
 ;; boxed in the frame, and a `FnOnce`, moved into it and called once the
 ;; body resumes.
-(: halves (-> (List I64) F64 ! Gen))
+(: halves (impl (Fn (List I64) -> F64 ! Gen)))
 (define (halves items)
   (match items
     ((Nil) 0.0)
@@ -110,7 +110,7 @@
 
 ;; The handler can stop resuming, dropping the rest of the walk: the
 ;; values up to the first above the limit.
-(: until-above (-> I64 (-> I64 ! Gen) (List I64)))
+(: until-above (impl (Fn I64 (dyn (Fn -> I64 ! Gen)) -> (List I64))))
 (define (until-above limit body)
   (handle Gen ((yield (lambda (value resume)
                         (if (> value limit)

@@ -2,10 +2,10 @@
  (snail core base)
  (snail core io))
 
-(effect log ((message (-> String Unit))))
+(effect log ((message (dyn (Fn String -> Unit)))))
 (typeclass (Subtract e A B)
   (type Output)
-  (: subtract (-> A B Output ! e)))
+  (: subtract (impl (Fn A B -> Output ! e))))
 (define-instance-set ordinary
   (instance (Subtract (!) I64 I64)
     (type Output I64)
@@ -27,7 +27,7 @@
     (type Output F64)
     (define (subtract a b) (+ (i64->f64 a) b))))
 
-(: ordered (-> String Any Any ! console))
+(: ordered (impl (Fn String Any -> Any ! console)))
 (define (ordered label value) (write-line label) value)
 
 (with-instances (erased alternate)
@@ -56,5 +56,5 @@
 ;; Naming associated evidence does not execute its row.
 (: keep (All (A B e)
              (requires (Subtract e A B))
-             (-> (Subtract.Output e A B) (Subtract.Output e A B))))
+             (impl (Fn (Subtract.Output e A B) -> (Subtract.Output e A B)))))
 (define (keep value) value)

@@ -3,24 +3,24 @@
  (snail shell app)
  (snail shell wire))
 
-(: initial (-> I32 I32 I32 I64))
+(: initial (impl (Fn I32 I32 I32 -> I64)))
 (define (initial seed width height)
   0)
 
 ;; Updating a mutable cell could corrupt the checkpoint before an event traps.
-(: step (-> I64 Input I64 ! mut))
+(: step (impl (Fn I64 Input -> I64 ! mut)))
 (define (step state input)
   (ref-get (ref state)))
 
-(: draw (-> I64 Frame))
+(: draw (impl (Fn I64 -> Frame)))
 (define (draw state)
   (panic "unused"))
 
-(: panels (-> I64 (List Panel)))
+(: panels (impl (Fn I64 -> (List Panel))))
 (define (panels state)
   (Nil))
 
-(: saved (-> I64 I64))
+(: saved (impl (Fn I64 -> I64)))
 (define (saved state)
   state)
 

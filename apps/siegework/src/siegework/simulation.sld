@@ -24,7 +24,7 @@
     ;; this tick. Then the nests spawn, burrowers dig, enemies step and
     ;; turrets fire; the dead are removed before the colony is struck, and
     ;; the destroyed before the game is judged.
-    (: advance (-> World World))
+    (: advance (impl (Fn World -> World)))
     (define (advance world)
       (if (and (::started world) (playing? world))
           (judge (settle
@@ -46,7 +46,7 @@
 
     ;; Gives an order, returning the world and its journal entry, or why the
     ;; order was rejected.
-    (: command (-> World Action (Result (Pair World Entry) Rejection)))
+    (: command (impl (Fn World Action -> (Result (Pair World Entry) Rejection))))
     (define (command world action)
       (match (act world action)
         ((Ok next) (Ok (Pair next (Entry (::tick world) action))))
@@ -58,12 +58,12 @@
     ;; tick, through `command` as in play. Under rules that have changed
     ;; since the journal was written, an order the world now rejects, or
     ;; whose tick the world no longer reaches, is dropped.
-    (: replay (-> I64 (List Entry) I64 (Pair World (List Entry))))
+    (: replay (impl (Fn I64 (List Entry) I64 -> (Pair World (List Entry)))))
     (define (replay seed entries tick)
       (match (fold-left replay-entry (Pair (new-world seed) (Nil)) entries)
         ((Pair world kept) (Pair (advance-until world tick) (reverse kept)))))
 
-    (: replay-entry (-> (Pair World (List Entry)) Entry (Pair World (List Entry))))
+    (: replay-entry (impl (Fn (Pair World (List Entry)) Entry -> (Pair World (List Entry)))))
     (define (replay-entry played entry)
       (let ((world (advance-until (::first played) (::tick entry))))
         (if (= (::tick world) (::tick entry))
@@ -74,7 +74,7 @@
 
     ;; Advances to `tick`, or until the world stops: before the first order
     ;; and once the game is decided, a tick changes nothing.
-    (: advance-until (-> World I64 World))
+    (: advance-until (impl (Fn World I64 -> World)))
     (define (advance-until world tick)
       (if (< (::tick world) tick)
           (let ((next (advance world)))

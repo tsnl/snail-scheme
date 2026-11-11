@@ -4,7 +4,7 @@
 
 (typeclass (Combine A B)
   (type Output)
-  (: combine (-> A B Output)))
+  (: combine (impl (Fn A B -> Output))))
 
 (define-instance-set addition
   (instance (Combine I64 I64)
@@ -19,11 +19,11 @@
 (: generic
    (All (A B)
         (requires (Combine A B))
-        (-> A B (Combine.Output A B))))
+        (impl (Fn A B -> (Combine.Output A B)))))
 (define (generic a b) (combine a b))
 
 (with-instances (addition)
-                (: add-here (-> I64 I64 I64))
+                (: add-here (impl (Fn I64 I64 -> I64)))
                 (define (add-here a b) (generic a b)))
 
 (with-instances (description)

@@ -23,20 +23,20 @@
                (Nil)
                (list (RunDefinition "app" "server" (list "--port")))))
 
-(: candidate (-> String Candidate))
+(: candidate (impl (Fn String -> Candidate)))
 (define (candidate digest)
   (Candidate description
              (list
               (Generation "server" (string-append "/r/apps/p/build/s-" digest) digest (Nil) (Nil)))
              0))
 
-(: succeeded (-> String Reply))
+(: succeeded (impl (Fn String -> Reply)))
 (define (succeeded digest)
   (Reply (Some description) (Some (candidate digest)) (Nil)))
 
 ;; A build into generation `name`, whose files have the digest given, as a
 ;; build of an unchanged program does into a new generation.
-(: built-in (-> String String Reply))
+(: built-in (impl (Fn String String -> Reply)))
 (define (built-in name digest)
   (Reply (Some description)
          (Some (Candidate description
@@ -49,7 +49,7 @@
          (Nil)))
 
 ;; An edit, and the attempt it starts built and published as `epoch`.
-(: rebuilt (-> I64 Reply (List Event)))
+(: rebuilt (impl (Fn I64 Reply -> (List Event))))
 (define (rebuilt epoch reply)
   (list (Touched (list "/r/apps/p/main.sld"))
         (TimerFired)
@@ -73,7 +73,7 @@
            (Nil))))
 
 ;; A build whose program links the file at `path`.
-(: linking (-> String Reply))
+(: linking (impl (Fn String -> Reply)))
 (define (linking path)
   (Reply (Some description)
          (Some (Candidate description
@@ -83,7 +83,7 @@
 
 ;; ---- Printing ----
 
-(: event->string (-> Event String))
+(: event->string (impl (Fn Event -> String)))
 (define (event->string event)
   (match event
     ((ResidentStarted) "resident started")
@@ -113,7 +113,7 @@
     ((RestartRun name) (string-append "restart " name))
     ((Close) "close")))
 
-(: command->string (-> Command String))
+(: command->string (impl (Fn Command -> String)))
 (define (command->string command)
   (match command
     ((Build epoch) (string-append "build " (show epoch)))
@@ -138,7 +138,7 @@
     ((Shutdown) "shutdown")
     ((Closed) "closed")))
 
-(: snapshot->string (-> Snapshot String))
+(: snapshot->string (impl (Fn Snapshot -> String)))
 (define (snapshot->string snapshot)
   (string-append "notify "
                  (phase->string (::phase snapshot))
@@ -155,14 +155,14 @@
                    ((Nil) ""))
                  (string-concatenate (map run->string (::runs snapshot)))))
 
-(: run->string (-> RunStatus String))
+(: run->string (impl (Fn RunStatus -> String)))
 (define (run->string run)
   (string-append " run "
                  (::name run)
                  (if (::wanted run) " wanted" "")
                  (if (::available run) " available" "")))
 
-(: phase->string (-> Phase String))
+(: phase->string (impl (Fn Phase -> String)))
 (define (phase->string phase)
   (match phase
     ((Starting) "starting")
@@ -174,7 +174,7 @@
 
 ;; ---- Driving ----
 
-(: drive (-> Service (List Event) Service ! console))
+(: drive (impl (Fn Service (List Event) -> Service ! console)))
 (define (drive service events)
   (fold-left (lambda (service event)
                (let ((stepped (step service event)))
@@ -189,7 +189,7 @@
              service
              events))
 
-(: scenario (-> String (List Event) Service ! console))
+(: scenario (impl (Fn String (List Event) -> Service ! console)))
 (define (scenario name events)
   (write-line name)
   (drive (new-service root project) events))

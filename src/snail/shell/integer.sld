@@ -41,18 +41,18 @@
     (define no-limbs (vector-generate 0 (lambda (index) 0)))
 
     ;; Drops high zero limbs and gives zero its one sign.
-    (: canonical (-> Bool (Vector I64) Integer))
+    (: canonical (impl (Fn Bool (Vector I64) -> Integer)))
     (define (canonical negative limbs)
       (let loop ((length (vector-length limbs)))
         (cond ((= length 0) (Integer #f no-limbs))
               ((= (vector-ref limbs (- length 1)) 0) (loop (- length 1)))
               (else (Integer negative (subvector limbs 0 length))))))
 
-    (: limb (-> (Vector I64) I64 I64))
+    (: limb (impl (Fn (Vector I64) I64 -> I64)))
     (define (limb limbs index)
       (if (< index (vector-length limbs)) (vector-ref limbs index) 0))
 
-    (: integer-from-i64 (-> I64 Integer))
+    (: integer-from-i64 (impl (Fn I64 -> Integer)))
     (define (integer-from-i64 value)
       (if (= value -9223372036854775808)
           (integer-subtract (integer-from-i64 -9223372036854775807) (integer-from-i64 1))
@@ -61,49 +61,49 @@
                 (canonical (< value 0) (list->vector (reverse limbs)))
                 (loop (quotient rest base) (Cons (remainder rest base) limbs))))))
 
-    (: integer-zero? (-> Integer Bool))
+    (: integer-zero? (impl (Fn Integer -> Bool)))
     (define (integer-zero? n)
       (= (vector-length (::limbs n)) 0))
 
-    (: integer-negative? (-> Integer Bool))
+    (: integer-negative? (impl (Fn Integer -> Bool)))
     (define (integer-negative? n)
       (::negative n))
 
-    (: integer-negate (-> Integer Integer))
+    (: integer-negate (impl (Fn Integer -> Integer)))
     (define (integer-negate n)
       (canonical (not (::negative n)) (::limbs n)))
 
-    (: integer-abs (-> Integer Integer))
+    (: integer-abs (impl (Fn Integer -> Integer)))
     (define (integer-abs n)
       (Integer #f (::limbs n)))
 
     ;; ---- Conversions ----
 
-    (: integer-fits-i64? (-> Integer Bool))
+    (: integer-fits-i64? (impl (Fn Integer -> Bool)))
     (define (integer-fits-i64? n)
       (and (<= (integer-compare n (integer-from-i64 9223372036854775807)) 0)
            (>= (integer-compare n (integer-from-i64 -9223372036854775807)) 0)))
 
     ;; Wraps when the integer does not fit.
-    (: integer->i64 (-> Integer I64))
+    (: integer->i64 (impl (Fn Integer -> I64)))
     (define (integer->i64 n)
       (let ((magnitude (vector-fold (lambda (total limb) (+ (* total base) limb)) 0
                                     (reverse-vector (::limbs n)))))
         (if (::negative n) (negate magnitude) magnitude)))
 
-    (: integer->f64 (-> Integer F64))
+    (: integer->f64 (impl (Fn Integer -> F64)))
     (define (integer->f64 n)
       (let ((magnitude
              (vector-fold (lambda (total limb) (+ (* total 1000000000.0) (i64->f64 limb))) 0.0
                           (reverse-vector (::limbs n)))))
         (if (::negative n) (negate magnitude) magnitude)))
 
-    (: reverse-vector (-> (Vector I64) (Vector I64)))
+    (: reverse-vector (impl (Fn (Vector I64) -> (Vector I64))))
     (define (reverse-vector items)
       (vector-generate (vector-length items)
                        (lambda (index) (vector-ref items (- (- (vector-length items) 1) index)))))
 
-    (: integer->string (-> Integer String))
+    (: integer->string (impl (Fn Integer -> String)))
     (define (integer->string n)
       (let ((limbs (::limbs n)))
         (if (integer-zero? n)
@@ -114,13 +114,13 @@
                          (map (lambda (index) (padded-limb (vector-ref limbs index)))
                               (reverse (iota (- (vector-length limbs) 1))))))))))
 
-    (: padded-limb (-> I64 String))
+    (: padded-limb (impl (Fn I64 -> String)))
     (define (padded-limb value)
       (let ((digits (show value)))
         (string-append (make-string (- 9 (string-length digits)) #\0) digits)))
 
     ;; Optional sign, then decimal digits. None if the text is not an integer.
-    (: string->integer (-> String (Option Integer)))
+    (: string->integer (impl (Fn String -> (Option Integer))))
     (define (string->integer text)
       (let* ((negative (and (> (string-length text) 0) (= (string-ref text 0) #\-)))
              (start
@@ -130,7 +130,7 @@
             (Some (canonical negative (decimal-limbs digits)))
             (None))))
 
-    (: decimal-limbs (-> String (Vector I64)))
+    (: decimal-limbs (impl (Fn String -> (Vector I64))))
     (define (decimal-limbs digits)
       (let ((count (quotient (+ (string-length digits) 8) 9)))
         (vector-generate count
@@ -142,7 +142,7 @@
 
     ;; ---- Comparison ----
 
-    (: compare-magnitudes (-> (Vector I64) (Vector I64) I64))
+    (: compare-magnitudes (impl (Fn (Vector I64) (Vector I64) -> I64)))
     (define (compare-magnitudes a b)
       (if (= (vector-length a) (vector-length b))
           (let loop ((index (- (vector-length a) 1)))
@@ -153,7 +153,7 @@
           (if (< (vector-length a) (vector-length b)) -1 1)))
 
     ;; -1, 0 or 1.
-    (: integer-compare (-> Integer Integer I64))
+    (: integer-compare (impl (Fn Integer Integer -> I64)))
     (define (integer-compare a b)
       (cond ((and (::negative a) (not (::negative b))) -1)
             ((and (::negative b) (not (::negative a))) 1)
@@ -162,20 +162,20 @@
 
     ;; ---- Addition ----
 
-    (: add-magnitudes (-> (Vector I64) (Vector I64) (Vector I64)))
+    (: add-magnitudes (impl (Fn (Vector I64) (Vector I64) -> (Vector I64))))
     (define (add-magnitudes a b)
       (let ((count (+ 1 (max (vector-length a) (vector-length b)))))
         (carry-limbs (vector-generate count (lambda (index) (+ (limb a index) (limb b index)))))))
 
     ;; Requires |a| >= |b|.
-    (: subtract-magnitudes (-> (Vector I64) (Vector I64) (Vector I64)))
+    (: subtract-magnitudes (impl (Fn (Vector I64) (Vector I64) -> (Vector I64))))
     (define (subtract-magnitudes a b)
       (carry-limbs
        (vector-generate (vector-length a) (lambda (index) (- (limb a index) (limb b index))))))
 
     ;; Moves each limb's excess, positive or negative, into the next limb, in
     ;; a copy local to this call.
-    (: carry-limbs (-> (Vector I64) (Vector I64)))
+    (: carry-limbs (impl (Fn (Vector I64) -> (Vector I64))))
     (define (carry-limbs sums)
       (let ((limbs (vector->array sums)))
         (let loop ((index 0) (carry 0))
@@ -185,7 +185,7 @@
               (loop (+ index 1) (quotient (- value low) base)))))
         (array->vector limbs)))
 
-    (: integer-add (-> Integer Integer Integer))
+    (: integer-add (impl (Fn Integer Integer -> Integer)))
     (define (integer-add a b)
       (cond ((= (bool->sign (::negative a)) (bool->sign (::negative b)))
              (canonical (::negative a) (add-magnitudes (::limbs a) (::limbs b))))
@@ -195,11 +195,11 @@
             (else (canonical (::negative b)
                              (subtract-magnitudes (::limbs b) (::limbs a))))))
 
-    (: bool->sign (-> Bool I64))
+    (: bool->sign (impl (Fn Bool -> I64)))
     (define (bool->sign negative)
       (if negative -1 1))
 
-    (: integer-subtract (-> Integer Integer Integer))
+    (: integer-subtract (impl (Fn Integer Integer -> Integer)))
     (define (integer-subtract a b)
       (integer-add a (integer-negate b)))
 
@@ -207,7 +207,7 @@
 
     ;; Schoolbook multiplication into an array local to this call; each partial
     ;; product is carried at once so sums stay far below 2^63.
-    (: multiply-magnitudes (-> (Vector I64) (Vector I64) (Vector I64)))
+    (: multiply-magnitudes (impl (Fn (Vector I64) (Vector I64) -> (Vector I64))))
     (define (multiply-magnitudes a b)
       (let ((product (make-array (+ (vector-length a) (vector-length b)) 0)))
         (vector-for-each
@@ -222,7 +222,7 @@
          (list->vector (iota (vector-length a))))
         (array->vector product)))
 
-    (: integer-multiply (-> Integer Integer Integer))
+    (: integer-multiply (impl (Fn Integer Integer -> Integer)))
     (define (integer-multiply a b)
       (canonical (not (= (bool->sign (::negative a)) (bool->sign (::negative b))))
                  (multiply-magnitudes (::limbs a) (::limbs b))))
@@ -231,7 +231,7 @@
 
     ;; Long division, one quotient limb at a time; each limb is found by
     ;; binary search, which keeps the method obviously correct.
-    (: divide-magnitudes (-> (Vector I64) (Vector I64) (Pair (Vector I64) (Vector I64))))
+    (: divide-magnitudes (impl (Fn (Vector I64) (Vector I64) -> (Pair (Vector I64) (Vector I64)))))
     (define (divide-magnitudes a b)
       (let loop ((index (- (vector-length a) 1)) (remainder no-limbs) (quotient (Nil)))
         (if (< index 0)
@@ -255,7 +255,7 @@
                     (Cons digit quotient))))))
 
     ;; The largest d in [0, base) with b * d <= current.
-    (: quotient-limb (-> (Vector I64) (Vector I64) I64))
+    (: quotient-limb (impl (Fn (Vector I64) (Vector I64) -> I64)))
     (define (quotient-limb current b)
       (let search ((low 0) (high (- base 1)))
         (if (= low high)
@@ -273,20 +273,20 @@
                   (search low (- middle 1)))))))
 
     ;; Truncating division, as R7RS `quotient` and `remainder`.
-    (: integer-quotient (-> Integer Integer Integer))
+    (: integer-quotient (impl (Fn Integer Integer -> Integer)))
     (define (integer-quotient a b)
       (when (integer-zero? b) (panic "integer division by zero"))
       (canonical (not (= (bool->sign (::negative a)) (bool->sign (::negative b))))
                  (::first (divide-magnitudes (::limbs a) (::limbs b)))))
 
-    (: integer-remainder (-> Integer Integer Integer))
+    (: integer-remainder (impl (Fn Integer Integer -> Integer)))
     (define (integer-remainder a b)
       (when (integer-zero? b) (panic "integer division by zero"))
       (canonical (::negative a)
                  (::second (divide-magnitudes (::limbs a) (::limbs b)))))
 
     ;; The remainder with the sign of the divisor.
-    (: integer-modulo (-> Integer Integer Integer))
+    (: integer-modulo (impl (Fn Integer Integer -> Integer)))
     (define (integer-modulo a b)
       (let ((r (integer-remainder a b)))
         (if (and (not (integer-zero? r))
@@ -294,11 +294,11 @@
             (integer-add r b)
             r)))
 
-    (: integer-gcd (-> Integer Integer Integer))
+    (: integer-gcd (impl (Fn Integer Integer -> Integer)))
     (define (integer-gcd a b)
       (if (integer-zero? b) (integer-abs a) (integer-gcd b (integer-remainder a b))))
 
-    (: integer-expt (-> Integer I64 Integer))
+    (: integer-expt (impl (Fn Integer I64 -> Integer)))
     (define (integer-expt n power)
       (cond ((= power 0) (integer-from-i64 1))
             ((= (remainder power 2) 0)

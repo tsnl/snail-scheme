@@ -152,14 +152,14 @@
        (work (Option Work))
        (aim (Option Cell))))
 
-    (: kind-name (-> Kind String))
+    (: kind-name (impl (Fn Kind -> String)))
     (define (kind-name kind)
       (match kind
         ((Extractor) "Extractor")
         ((Pylon) "Pylon")
         ((Turret) "Turret")))
 
-    (: kind-health (-> Kind I64))
+    (: kind-health (impl (Fn Kind -> I64)))
     (define (kind-health kind)
       (match kind
         ((Extractor) 140)
@@ -168,7 +168,7 @@
 
     ;; How far a powered building of `kind` at `level` sees, and the longest
     ;; wire it can hold.
-    (: kind-reach (-> Kind I64 I64))
+    (: kind-reach (impl (Fn Kind I64 -> I64)))
     (define (kind-reach kind level)
       (match kind
         ((Extractor) 4)
@@ -179,30 +179,30 @@
     (define maximum-level 3)
 
     ;; The energy and ticks of work that raise a `kind` from `level`.
-    (: raise-cost (-> Kind I64 I64))
+    (: raise-cost (impl (Fn Kind I64 -> I64)))
     (define (raise-cost kind level)
       (match kind
         ((Extractor) (case level ((0) 25) ((1) 40) (else 160)))
         ((Pylon) (case level ((0) 25) ((1) 25) (else 50)))
         ((Turret) (case level ((0) 50) (else 25)))))
 
-    (: raise-duration (-> Kind I64 I64))
+    (: raise-duration (impl (Fn Kind I64 -> I64)))
     (define (raise-duration kind level)
       (match kind
         ((Extractor) (case level ((0) 30) ((1) 40) (else 60)))
         ((Pylon) (case level ((0) 20) ((1) 30) (else 50)))
         ((Turret) (case level ((0) 40) ((1) 40) (else 60)))))
 
-    (: built? (-> Building Bool))
+    (: built? (impl (Fn Building -> Bool)))
     (define (built? building)
       (> (::level building) 0))
 
-    (: building-reach (-> Building I64))
+    (: building-reach (impl (Fn Building -> I64)))
     (define (building-reach building)
       (kind-reach (::kind building) (max 1 (::level building))))
 
     ;; Everything paid for the levels a building has reached.
-    (: invested (-> Building I64))
+    (: invested (impl (Fn Building -> I64)))
     (define (invested building)
       (fold-left +
                  0
@@ -211,20 +211,20 @@
 
     ;; ---- Work ----
 
-    (: remaining-work (-> Work I64))
+    (: remaining-work (impl (Fn Work -> I64)))
     (define (remaining-work work)
       (max 0 (- (::duration work) (::progress work))))
 
     ;; Rushing finishes the work at once for four times the share of its
     ;; cost that remains, rounded up, so rushing as it is ordered costs five
     ;; times the price in all, and rushing later costs less.
-    (: rush-price (-> Work I64))
+    (: rush-price (impl (Fn Work -> I64)))
     (define (rush-price work)
       (quotient (+ (* 4 (* (::cost work) (remaining-work work))) (- (::duration work) 1))
                 (::duration work)))
 
     ;; Cancelling returns the whole cost.
-    (: work-refund (-> Work I64))
+    (: work-refund (impl (Fn Work -> I64)))
     (define (work-refund work)
       (::cost work))
 
@@ -247,15 +247,15 @@
     (: maximum-slots I64)
     (define maximum-slots 3)
 
-    (: slot-cost (-> I64 I64))
+    (: slot-cost (impl (Fn I64 -> I64)))
     (define (slot-cost slots)
       (* 100 slots))
 
-    (: slot-duration (-> I64 I64))
+    (: slot-duration (impl (Fn I64 -> I64)))
     (define (slot-duration slots)
       (+ 20 (* 30 slots)))
 
-    (: hub-cell? (-> Hub Cell Bool))
+    (: hub-cell? (impl (Fn Hub Cell -> Bool)))
     (define (hub-cell? hub cell)
       (and (<= (abs (- (::x cell) (::x (::cell hub)))) 1)
            (<= (abs (- (::y cell) (::y (::cell hub)))) 1)))
@@ -409,12 +409,12 @@
     ;; Each crystal site holds its full reserve, the nests cover theirs, and
     ;; each front holds a nest. The colony starts with its hub alone, the
     ;; ground around it already unveiled.
-    (: new-world (-> I64 World))
+    (: new-world (impl (Fn I64 -> World)))
     (define (new-world seed)
       (let ((world (first-world seed)))
         (World-reveal-set world (Reveal-tick-set (::reveal world) -1000))))
 
-    (: first-world (-> I64 World))
+    (: first-world (impl (Fn I64 -> World)))
     (define (first-world seed)
       (let ((land (new-land (land-seed seed))) (cells (* map-size map-size)))
         (rewire (World seed
@@ -445,15 +445,15 @@
                        0
                        0))))
 
-    (: site-crystal (-> Site Crystal))
+    (: site-crystal (impl (Fn Site -> Crystal)))
     (define (site-crystal site)
       (Crystal (::cell site) (::rate site) (* reserve-per-rate (::rate site))))
 
-    (: nest-crystal (-> Cell Crystal))
+    (: nest-crystal (impl (Fn Cell -> Crystal)))
     (define (nest-crystal cell)
       (Crystal cell nest-rate (* reserve-per-rate nest-rate)))
 
-    (: playing? (-> World Bool))
+    (: playing? (impl (Fn World -> Bool)))
     (define (playing? world)
       (match (::outcome world)
         ((Playing) #t)
@@ -461,59 +461,59 @@
 
     ;; The opening: the game is in play, and its first extractor is still
     ;; to be ordered.
-    (: opening? (-> World Bool))
+    (: opening? (impl (Fn World -> Bool)))
     (define (opening? world)
       (and (not (::started world)) (playing? world)))
 
-    (: fresh-id (-> World (Pair I64 World)))
+    (: fresh-id (impl (Fn World -> (Pair I64 World))))
     (define (fresh-id world)
       (Pair (::next-id world) (World-next-id-set world (+ (::next-id world) 1))))
 
     ;; ---- Lookups and replacements ----
 
-    (: building (-> World I64 (Option Building)))
+    (: building (impl (Fn World I64 -> (Option Building))))
     (define (building world id)
       (find (lambda (b) (= (::id b) id)) (::buildings world)))
 
-    (: building-at (-> World Cell (Option Building)))
+    (: building-at (impl (Fn World Cell -> (Option Building))))
     (define (building-at world cell)
       (find (lambda (b) (cell=? (::cell b) cell)) (::buildings world)))
 
-    (: put-building (-> World Building World))
+    (: put-building (impl (Fn World Building -> World)))
     (define (put-building world building)
       (World-buildings-set world
                            (map
                             (lambda (b) (if (= (::id b) (::id building)) building b))
                             (::buildings world))))
 
-    (: remove-building (-> World I64 World))
+    (: remove-building (impl (Fn World I64 -> World)))
     (define (remove-building world id)
       (rewire (World-buildings-set world
                                    (filter (lambda (b) (not (= (::id b) id)))
                                            (::buildings world)))))
 
-    (: crystal-at (-> World Cell (Option Crystal)))
+    (: crystal-at (impl (Fn World Cell -> (Option Crystal))))
     (define (crystal-at world cell)
       (find (lambda (crystal) (cell=? (::cell crystal) cell)) (::crystals world)))
 
-    (: put-crystal (-> World Crystal World))
+    (: put-crystal (impl (Fn World Crystal -> World)))
     (define (put-crystal world crystal)
       (World-crystals-set world
                           (map (lambda (c)
                                  (if (cell=? (::cell c) (::cell crystal)) crystal c))
                                (::crystals world))))
 
-    (: nest-at (-> World Cell (Option Nest)))
+    (: nest-at (impl (Fn World Cell -> (Option Nest))))
     (define (nest-at world cell)
       (find (lambda (nest) (cell=? (::cell nest) cell)) (::nests world)))
 
     ;; Rock that enemies have dug through for good.
-    (: opened? (-> World Cell Bool))
+    (: opened? (impl (Fn World Cell -> Bool)))
     (define (opened? world cell)
       (vector-ref (::opened world) (cell-index cell)))
 
     ;; Opening rock changes every route and may clear wires and shots.
-    (: open-rock (-> World Cell World))
+    (: open-rock (impl (Fn World Cell -> World)))
     (define (open-rock world cell)
       (rewire (World-routes-set
                (World-opened-set world (vector-set (::opened world) (cell-index cell) #t))
@@ -521,41 +521,41 @@
 
     ;; Spending and earning keep energy and the ledger in step; a refund is
     ;; negative spending.
-    (: spend (-> World I64 World))
+    (: spend (impl (Fn World I64 -> World)))
     (define (spend world amount)
       (World-ledger-set (World-energy-set world (- (::energy world) amount))
                         (Ledger-spent-set (::ledger world)
                                           (+ (::spent (::ledger world)) amount))))
 
-    (: earn (-> World I64 World))
+    (: earn (impl (Fn World I64 -> World)))
     (define (earn world amount)
       (World-ledger-set (World-energy-set world (+ (::energy world) amount))
                         (Ledger-produced-set (::ledger world)
                                              (+ (::produced (::ledger world)) amount))))
 
-    (: structures-changed (-> World World))
+    (: structures-changed (impl (Fn World -> World)))
     (define (structures-changed world)
       (World-structure-version-set world (+ (::structure-version world) 1)))
 
     ;; ---- Wires and power ----
 
     ;; Wires, shots and sight lines cross everything but intact rock.
-    (: clear-line? (-> World Cell Cell Bool))
+    (: clear-line? (impl (Fn World Cell Cell -> Bool)))
     (define (clear-line? world from to)
       (every? (lambda (cell)
                 (match (ground-at (::land world) cell) ((Rock) (opened? world cell)) (_ #t)))
               (line-cells from to)))
 
     ;; A wire reaches as far as the longer reach of its two ends.
-    (: wire-reaches? (-> World Cell I64 Cell I64 Bool))
+    (: wire-reaches? (impl (Fn World Cell I64 Cell I64 -> Bool)))
     (define (wire-reaches? world a reach-a b reach-b)
       (and (within? a b (max reach-a reach-b)) (clear-line? world a b)))
 
-    (: hub-node (-> World Node))
+    (: hub-node (impl (Fn World -> Node)))
     (define (hub-node world)
       (Node 0 (::cell (::hub world)) hub-reach))
 
-    (: building-nodes (-> World (List Node)))
+    (: building-nodes (impl (Fn World -> (List Node))))
     (define (building-nodes world)
       (map (lambda (b) (Node (::id b) (::cell b) (building-reach b)))
            (filter built? (::buildings world))))
@@ -568,14 +568,14 @@
        (cost I64)))
 
     ;; Every pair of nodes a wire reaches, each pair once, in node order.
-    (: links (-> World (Vector Node) (List Link)))
+    (: links (impl (Fn World (Vector Node) -> (List Link))))
     (define (links world nodes)
       (concatenate (map (lambda (i)
                           (filter-map (lambda (k) (link world nodes i (+ k (+ i 1))))
                                       (iota (- (vector-length nodes) (+ i 1)))))
                         (iota (vector-length nodes)))))
 
-    (: link (-> World (Vector Node) I64 I64 (Option Link)))
+    (: link (impl (Fn World (Vector Node) I64 I64 -> (Option Link))))
     (define (link world nodes i j)
       (let ((a (vector-ref nodes i)) (b (vector-ref nodes j)))
         (if (wire-reaches? world (::cell a) (::reach a) (::cell b) (::reach b))
@@ -588,7 +588,7 @@
     ;; hub's tree is the powered network, so it reaches exactly what the
     ;; links do, and losing a node may rewire it along links not drawn
     ;; before. Each wire runs from the node it was reached from.
-    (: span (-> (Vector Node) (List Link) (Pair (List Node) (List Wire))))
+    (: span (impl (Fn (Vector Node) (List Link) -> (Pair (List Node) (List Wire)))))
     (define (span nodes links)
       (let loop ((inside (make-vector (vector-length nodes) #f)) (wires (Nil)) (powered (None)))
         (match (find (lambda (i) (not (vector-ref inside i))) (iota (vector-length nodes)))
@@ -604,12 +604,12 @@
 
     ;; Adds the shortest link from the tree to a new node until none is left.
     (: grow
-       (-> (Vector Node)
-           (List Link)
-           (Vector Bool)
-           (List Wire)
-           (List Node)
-           (Pair (Pair (Vector Bool) (List Wire)) (List Node))))
+       (impl (Fn (Vector Node)
+                 (List Link)
+                 (Vector Bool)
+                 (List Wire)
+                 (List Node)
+                 -> (Pair (Pair (Vector Bool) (List Wire)) (List Node)))))
     (define (grow nodes links inside wires tree)
       (match (shortest-crossing links inside)
         ((Some l)
@@ -625,7 +625,7 @@
 
     ;; The first of the shortest links with one end inside, so ties go to
     ;; the older pair.
-    (: shortest-crossing (-> (List Link) (Vector Bool) (Option Link)))
+    (: shortest-crossing (impl (Fn (List Link) (Vector Bool) -> (Option Link))))
     (define (shortest-crossing links inside)
       (fold-left (lambda (best l)
                    (if (and (not (eq-bool? (vector-ref inside (::a l))
@@ -635,25 +635,25 @@
                        best))
                  (None) links))
 
-    (: eq-bool? (-> Bool Bool Bool))
+    (: eq-bool? (impl (Fn Bool Bool -> Bool)))
     (define (eq-bool? a b)
       (if a b (not b)))
 
-    (: filter-map (All (A B) (-> (-> A (Option B)) (List A) (List B))))
+    (: filter-map (All (A B) (impl (Fn (dyn (Fn A -> (Option B))) (List A) -> (List B)))))
     (define (filter-map f items)
       (fold-right
        (lambda (item kept) (match (f item) ((Some value) (Cons value kept)) ((None) kept)))
        (Nil)
        items))
 
-    (: powered? (-> World I64 Bool))
+    (: powered? (impl (Fn World I64 -> Bool)))
     (define (powered? world id)
       (any? (lambda (node) (= (::id node) id)) (::powered (::network world))))
 
     ;; ---- Sight ----
 
     ;; Every cell within reach of one of `nodes`.
-    (: lit-cells (-> (List Node) (Vector Bool)))
+    (: lit-cells (impl (Fn (List Node) -> (Vector Bool))))
     (define (lit-cells nodes)
       (unsafe-total
        (lambda ()
@@ -661,7 +661,7 @@
            (for-each (lambda (node) (light! seen (::cell node) (::reach node))) nodes)
            (array->vector seen)))))
 
-    (: light! (-> (Array Bool) Cell I64 Unit ! mut))
+    (: light! (impl (Fn (Array Bool) Cell I64 -> Unit ! mut)))
     (define (light! seen center radius)
       (let ((offsets (map (lambda (i) (- i radius)) (iota (+ 1 (* 2 radius))))))
         (for-each (lambda (dy)
@@ -672,11 +672,11 @@
                               offsets))
                   offsets)))
 
-    (: visible? (-> World Cell Bool))
+    (: visible? (impl (Fn World Cell -> Bool)))
     (define (visible? world cell)
       (vector-ref (::visible world) (cell-index cell)))
 
-    (: explored? (-> World Cell Bool))
+    (: explored? (impl (Fn World Cell -> Bool)))
     (define (explored? world cell)
       (vector-ref (::explored world) (cell-index cell)))
 
@@ -684,7 +684,7 @@
 
     ;; Recomputes the wires, power and sight after the buildings change. A
     ;; cell once visible stays explored.
-    (: rewire (-> World World))
+    (: rewire (impl (Fn World -> World)))
     (define (rewire world)
       (let* ((nodes (list->vector (Cons (hub-node world) (building-nodes world))))
              (spanned (span nodes (links world nodes))))
@@ -694,7 +694,7 @@
                                                                             (::first spanned)))
                                                         (lit-cells (::first spanned)))))))
 
-    (: explore (-> World World))
+    (: explore (impl (Fn World -> World)))
     (define (explore world)
       (let* ((explored (::explored world)) (visible (::visible world))
              (fresh (filter (lambda (index)
@@ -714,7 +714,7 @@
              (+ (::explored-version world) 1)))))
 
     ;; The newly explored cells unveil from their middle outward.
-    (: reveal-around (-> (Vector Bool) (List Cell) I64 Reveal))
+    (: reveal-around (impl (Fn (Vector Bool) (List Cell) I64 -> Reveal)))
     (define (reveal-around before cells tick)
       (let* ((count (length cells))
              (center (Cell (quotient (fold-left + 0 (map ::x cells)) count)
@@ -728,7 +728,7 @@
 
     ;; A decided game shows the whole map for inspection, at once: the world
     ;; is still, so nothing could unveil.
-    (: uncover (-> World World))
+    (: uncover (impl (Fn World -> World)))
     (define (uncover world)
       (let ((everything (make-vector (* map-size map-size) #t)) (reveal (::reveal world)))
         (structures-changed

@@ -17,7 +17,7 @@
     ;; result's own Drop row. Expected failures are values in T.
     (: dispatch
        (All (T e) (requires (Drop e T))
-            (-> (FnOnce T ! tasks e) (Future T) ! mut completion e)))
+            (impl (Fn (dyn (FnOnce -> T ! tasks e)) -> (Future T) ! mut completion e))))
     (define (dispatch work)
       (match (make-promise)
         ((Pair promise future)
@@ -26,7 +26,7 @@
 
     (: produce
        (All (T e) (requires (Drop e T))
-            (-> (Promise T) (FnOnce T ! tasks e) Unit ! mut completion tasks e)))
+            (impl (Fn (Promise T) (dyn (FnOnce -> T ! tasks e)) -> Unit ! mut completion tasks e))))
     (define (produce promise work)
       (drop (fulfill promise (work))))
 
@@ -37,7 +37,7 @@
     ;; polling, registering the ticket and parking on it in this runtime.
     (: await-future
        (All (T d) (requires (Drop d T))
-            (-> (Future T) (Completion T) ! mut tasks d)))
+            (impl (Fn (Future T) -> (Completion T) ! mut tasks d))))
     (define (await-future future)
       (match (poll future)
         ((Ready result) result)
@@ -49,6 +49,6 @@
 
     ;; The scheduler owns the deadline. The host only sleeps until its
     ;; next deadline or I/O completion; there is no repeated polling.
-    (: after (-> I64 (Future Unit) ! mut completion))
+    (: after (impl (Fn I64 -> (Future Unit) ! mut completion)))
     (define (after milliseconds)
       (dispatch (once (lambda () (sleep milliseconds)))))))

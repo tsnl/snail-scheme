@@ -53,17 +53,17 @@
     ;; Waiting for an event, like loading and storing a save below, starts
     ;; on the host and waits by ticket ((snail shell task)'s `through-host`).
     (effect events
-      ((poll-event (-> I32))
-       (wait-event (-> Unit ! tasks))
-       (event-field (-> I32 I32))
-       (random-seed (-> I32))
-       (canvas-width (-> I32))
-       (canvas-height (-> I32))
-       (report-boot (-> I32 Unit))
-       (report-ready (-> Unit))
-       (checkpoint-root (-> Unit))
-       (handover-only (-> I32))
-       (save-after (-> I32 Unit)))
+      ((poll-event (dyn (Fn -> I32)))
+       (wait-event (dyn (Fn -> Unit ! tasks)))
+       (event-field (dyn (Fn I32 -> I32)))
+       (random-seed (dyn (Fn -> I32)))
+       (canvas-width (dyn (Fn -> I32)))
+       (canvas-height (dyn (Fn -> I32)))
+       (report-boot (dyn (Fn I32 -> Unit)))
+       (report-ready (dyn (Fn -> Unit)))
+       (checkpoint-root (dyn (Fn -> Unit)))
+       (handover-only (dyn (Fn -> I32)))
+       (save-after (dyn (Fn I32 -> Unit))))
       (default
         ((poll-event host-poll)
          (wait-event (lambda () (through-host host-start-wait host-finish-wait)))
@@ -82,9 +82,9 @@
     ;; The root task owns this checkpoint protocol. Detached tasks
     ;; need their own storage binding; they cannot replace the loop's save.
     (effect storage
-      ((load-count (-> I32 ! tasks))
-       (loaded-byte (-> I32 U8))
-       (store-save (-> Bytes Unit ! tasks)))
+      ((load-count (dyn (Fn -> I32 ! tasks)))
+       (loaded-byte (dyn (Fn I32 -> U8)))
+       (store-save (dyn (Fn Bytes -> Unit ! tasks))))
       (default
         ((load-count (lambda () (through-host host-start-load host-finish-load)))
          (loaded-byte host-byte)
@@ -92,7 +92,7 @@
                        (through-host (lambda (ticket) (host-start-store ticket bytes))
                                      host-finish-store))))))
 
-    (: load-save (-> (Option Bytes) ! storage tasks))
+    (: load-save (impl (Fn -> (Option Bytes) ! storage tasks)))
     (define (load-save)
       (let ((count (load-count)))
         (if (< count 0)
@@ -108,7 +108,7 @@
     (: completed (Ref Bool))
     (define completed (ref #f))
 
-    (: page-done (-> I32 ! mut))
+    (: page-done (impl (Fn -> I32 ! mut)))
     (define (page-done)
       (if (ref-get completed) 1 0))
 
@@ -118,8 +118,8 @@
     ;; effects in a function. Engines request this ordinary evidence rather
     ;; than weakening the compiler's Any boundary.
     (typeclass (PageState S)
-      (: pack-state (-> S Any))
-      (: unpack-state (-> Any (Option S))))
+      (: pack-state (impl (Fn S -> Any)))
+      (: unpack-state (impl (Fn Any -> (Option S)))))
 
     (define-syntax define-page-state
       (syntax-rules ()
@@ -141,14 +141,19 @@
     (: current (Ref (Option Any)))
     (define current (ref (None)))
 
-    (: commit-page (All (S) (requires (PageState S) (Copy S)) (-> S Unit ! mut events)))
+    (: commit-page (All (S) (requires (PageState S) (Copy S)) (impl (Fn S -> Unit ! mut events))))
     (define (commit-page state)
       (checkpoint-root)
       (ref-set! current (Some (pack-state state))))
 
     (: restore-page
        (All (S) (requires (PageState S) (Copy S))
-            (-> Bool (-> S ! events) (-> Bytes S) (Option (Pair S I32)) ! events storage tasks)))
+            (impl (Fn Bool
+                      (dyn (Fn -> S ! events))
+                      (dyn (Fn Bytes -> S))
+                      ->
+                      (Option (Pair S I32))
+                      ! events storage tasks))))
     (define (restore-page cold? initialize decode)
       (match (load-save)
         ((Some bytes) (Some (Pair (decode bytes) 1)))
@@ -156,7 +161,11 @@
 
     (: boot-page
        (All (S) (requires (PageState S) (Copy S))
-            (-> (-> S ! events) (-> Bytes S) (Option (Pair S I32)) ! mut events storage tasks)))
+            (impl (Fn (dyn (Fn -> S ! events))
+                      (dyn (Fn Bytes -> S))
+                      ->
+                      (Option (Pair S I32))
+                      ! mut events storage tasks))))
     (define (boot-page initialize decode)
       (match (ref-get incoming)
         ((Some previous)
@@ -169,11 +178,11 @@
     ;; owns restore/refusal, the boot checkpoint and durable save encoding.
     (: run-page
        (All (S e) (requires (PageState S) (Copy S))
-            (-> (-> S ! events)
-                (-> S Bytes)
-                (-> Bytes S)
-                (-> S (-> S Unit ! events storage tasks) Unit ! e)
-                Unit ! mut events storage tasks e)))
+            (impl (Fn (dyn (Fn -> S ! events))
+                      (dyn (Fn S -> Bytes))
+                      (dyn (Fn Bytes -> S))
+                      (dyn (Fn S (dyn (Fn S -> Unit ! events storage tasks)) -> Unit ! e))
+                      -> Unit ! mut events storage tasks e))))
     (define (run-page initialize encode decode run)
       (match (boot-page initialize decode)
         ((Some (Pair state kind))
@@ -188,7 +197,7 @@
         ((None) (unit))))
 
     (: start-page
-       (All (e) (-> (Option Any) (FnOnce Unit ! mut tasks e) I64 ! mut e)))
+       (All (e) (impl (Fn (Option Any) (dyn (FnOnce -> Unit ! mut tasks e)) -> I64 ! mut e))))
     (define (start-page handover work)
       (ref-set! incoming handover)
       (ref-set! current (None))
@@ -197,7 +206,7 @@
 
     ;; Both normal return and failure hand over this same checkpoint. An
     ;; unadopted incoming value is never mistaken for the root's own state.
-    (: page-state (-> (Option Any) ! mut))
+    (: page-state (impl (Fn -> (Option Any) ! mut)))
     (define (page-state)
       (ref-get current))
 

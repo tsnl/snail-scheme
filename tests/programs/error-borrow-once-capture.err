@@ -1,1 +1,1 @@
-a closure cannot capture a Borrow
+a Borrow cannot escape into an owned type, result or storage

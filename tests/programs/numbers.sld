@@ -3,7 +3,7 @@
  (snail core io)
  (snail shell number))
 
-(: parse (-> String Number))
+(: parse (impl (Fn String -> Number)))
 (define (parse text)
   (match (string->number text)
     ((Some n) n)

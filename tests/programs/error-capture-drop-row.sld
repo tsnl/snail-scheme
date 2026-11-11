@@ -4,7 +4,7 @@
 ;; A once lambda dropped unrun drops what it captured under its own row,
 ;; which here allows nothing, while the handle's drop performs `audit`.
 (effect audit
-  ((note (-> String Unit))))
+  ((note (dyn (Fn String -> Unit)))))
 
 (struct Handle
   ((name String)))
@@ -14,7 +14,7 @@
     (match handle
       ((Handle name) (note name)))))
 
-(: keep (-> (FnOnce Handle)))
+(: keep (impl (Fn -> (dyn (FnOnce -> Handle)))))
 (define (keep)
   (let ((handle (Handle "h")))
     (once (lambda () handle))))

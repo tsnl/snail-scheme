@@ -1,0 +1,1 @@
+use (impl (Fn arguments -> result ! effects))

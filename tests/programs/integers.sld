@@ -3,13 +3,13 @@
  (snail core io)
  (snail shell integer))
 
-(: parse (-> String Integer))
+(: parse (impl (Fn String -> Integer)))
 (define (parse text)
   (match (string->integer text)
     ((Some n) n)
     ((None) (panic "not an integer"))))
 
-(: factorial (-> I64 Integer))
+(: factorial (impl (Fn I64 -> Integer)))
 (define (factorial n)
   (if (= n 0) (integer-from-i64 1) (* (integer-from-i64 n) (factorial (- n 1)))))
 
