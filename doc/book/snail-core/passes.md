@@ -18,7 +18,7 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 | `outline` | file | Syntax | Outline | The header is parsed: name, imports, exports. The body stays Syntax. | implemented |
 | `expand` | library | Outline, Offer | Expanded, Offer | Macros run, every name is resolved, every core form is parsed. | implemented |
 | `bind` | library | Expanded, Supply | Bound | Linked files and requests for other targets become what the build supplied. | implemented |
-| `derive` | library | Bound | Derived | `deriving` clauses become instance declarations. | planned |
+| `derive` | library | Bound, Offer | Derived | `deriving` clauses become instance declarations. | implemented |
 | `declare` | library | Derived | Declared | Written types become types; declarations become entities. | planned |
 | `dispatch` | library | Declared | Dispatched | `dispatch` clauses become method definitions. | planned |
 | `infer` | library | Dispatched | Inferred | Every node gets a type, with unknowns; constraints are recorded. | planned |
@@ -115,6 +115,11 @@ src/snail/compiler/
     needs.sld             part: what a library needs, found in its Supply, and what a miss means
     state.sld             the numbers it hands out, a copy's renaming, and numbering-let*
     pass.sld              (snail compiler bind pass): the function `bind`
+  derive/
+    language.sld          Derived, the tree it writes
+    implicit.sld          part: the names a derived instance is written with, in the implicit libraries' offers
+    instances.sld         part: a derived Serialize or Deserialize instance, built as nodes
+    pass.sld              (snail compiler derive pass): the function `derive`
     placed.sld            query: the files the build places beside the program
   ...
   integrate/              the integrator: one library per job
@@ -123,7 +128,7 @@ src/snail/compiler/
     load.sld              (snail compiler integrate load): a program and the libraries it reaches
     sha256.sld            (snail compiler integrate sha256): the digest a linked file is named by
     bind.sld              (snail compiler integrate bind): one library's linked files read, then bound
-    expand.sld            (snail compiler integrate expand): each loaded library expanded and bound, in order
+    compile.sld           (snail compiler integrate compile): each loaded library expanded, bound and derived, in order
 ```
 
 Each pass is a folder. `language.sld` holds the language the pass writes:
@@ -374,7 +379,7 @@ gather them: the integrator reads the files the links name, and `bind`
 finds those files and the other targets' files among what the build
 supplied, decides what a miss means, and replaces each form.
 A third query says whether a library derives an instance: the integrator
-then loads and expands the libraries `derive` writes instances with,
+then loads and compiles the libraries `derive` writes instances with,
 (snail core primitive) and (snail shell wire), before that library, where
 the old compiler puts them.
 
@@ -526,10 +531,6 @@ Implementation ::= Implementation Label Expr
 Pattern     ::= Wild | Bind Local | Equals Datum | Destructure TopValue Pattern*
 ```
 
-A query over Bound, `placed-files`, answers what the build must place
-beside the program for a library, as the old `library-links` does: each
-`LinkImport`'s digest and file, once for each digest, in order.
-
 ### Supply, what the build found for `bind` (implemented)
 
 What the build found for one expanded library: the SHA-256 of each file
@@ -555,13 +556,100 @@ reads the files it answers, and `bind` looks up their digests by the same
 answer. The integrator decides nothing about the library: it reads,
 digests, hands `bind` what it found, and relays the answer.
 
-The integrator binds each library as soon as it expands, before it
-expands the next, so a library's problems with its links come before a
-later library's, as the old expander finds them. The implicit libraries
-a deriving clause needs are expanded and bound after the library that
+The integrator takes each library through `expand`, `bind` and `derive`
+before it starts the next, so a problem is reported for the earliest
+library that has one, as the old compiler reports it. The implicit
+libraries a deriving clause needs are compiled after the library that
 derives expands and before it is bound. Of each library the integrator
-keeps its offer and its latest tree, the library bound, and stops at the
-first library that waits for targets.
+keeps its offer and its latest tree, the library derived, and it stops
+at the first library that waits for targets.
+
+### Derived, written by `derive` (implemented)
+
+No `Derivation` remains. A struct or an enum says instead whether it is
+`linear?`: whether a deriving clause of its declaration named Move, so
+that its values are moved and never copied, by its declaration, as the
+old compiler's DataType says with `owned?`; a Drop instance makes a type
+linear too, which is the instance's to say. Each Serialize and each
+Deserialize a deriving clause names is an instance, a `TopInstance` among
+the tops its declaration is in, right after the declaration, in the
+order the clauses name them, where the old expander scans the instance it
+writes for the clause. A derived instance is what the old expander's
+syntax for it expands to, up to the names of locals, for the type `T`
+declared with parameters `a ...` and constructors `C`, each with its
+fields:
+
+```scheme
+(instance (Serialize (T a ...)) (requires (Serialize a) ...)
+  (define (encode value encoder)
+    (match value
+      ((C field0 ...)
+       (encode-case-id encoder (case-id C))
+       (encode field0 encoder) ...
+       (unit))
+      ...)))
+(instance (Deserialize (T a ...)) (requires (Deserialize a) ...)
+  (define (decode decoder)
+    (let ((id (decode-case-id decoder)))
+      (if (case-id=? id (case-id C))
+          (let ((field0 (decode decoder))) ... (C field0 ...))
+          ...
+          (panic "wire data has a different schema")))))
+```
+
+The instance's variables are the type's parameters. Its classes and
+functions are those the implicit libraries, (snail core primitive) and
+(snail shell wire), export under those names, a later library's hiding an
+earlier's, as in the scope the old expander makes of their exports; the
+forms are written as nodes, and nothing resolves in the library's own
+scope. A constructor is the declaration's, a struct's being the struct.
+Every node is at the declaration's form, but that a constructor, in a
+pattern, a call or a `case-id`, is where its name is written. The locals
+of the instances are numbered from Bound's first unused number, and the
+root says where they stopped.
+
+Derived declares afresh the rules `derive` looks inside, the roots and
+`Top`, and reuses Bound's for the rest: `Instance`, `SetMember`,
+`Default`, `Expr` and the rules it holds, and through Bound, Expanded's.
+
+```text
+Derived     ::= Defined library Top* first-unused-number
+              | Program Top* Expr? first-unused-number          no Loc
+Top         ::= LinkImport Global name* digest file
+              | Define Global Expr
+              | Signature TopValue Scheme Annotation*
+              | Statement Expr                                  no Loc but its expression's
+              | Expose TopValue symbol dynamic?
+              | Struct Global parameter* Field* linear? Annotation*
+              | Enum Global parameter* Case* linear? Annotation*
+              | Alias Global parameter* Annotation*
+              | Class Global parameter* Member* Annotation*
+              | TopInstance Instance                            no Loc but its instance's
+              | InstanceSet Global SetMember*
+              | InstanceScope Global* Top*
+              | Extern Global module symbol TypeExpr Annotation*
+              | Effect Global Operation* Default* around-main? Annotation*
+              | Primitive Global PrimitiveType
+```
+
+`derive` is handed the bound library and the offers of the implicit
+libraries, as far as they are loaded, and nothing else. A name it needs
+that they do not offer as what it needs is a problem, with the old
+expander's message, at the declaration's form, where the old expander
+places the names of the syntax it writes: "instance of something that is
+not a typeclass" for a class, and for a function "unbound identifier
+NAME", or "a type is not a value: NAME" or "syntax used as a value: NAME"
+for a name that means something else. A problem with an instance's class
+is found as the old expander declares the instance, and ends the
+library's declarations, so the first such problem is the only one;
+otherwise each instance's body reports the first name it lacks, in the
+order the old expander expands the body, and every body's problem is
+reported, in order.
+
+A query over Derived, `placed-files`, answers what the build must place
+beside the program for a library, as the old `library-links` does: each
+`LinkImport`'s digest and file, once for each digest, in order. It reads
+Derived because the integrator keeps a library's latest tree.
 
 ### Typed, written by `settle` (sketch)
 
@@ -640,16 +728,19 @@ which read and write files as the old functions they call do.
 At each milestone the new passes become the default path, and `make test`,
 `make test-chibi`, `make bootstrap` and `make check` pass before the next
 begins. Between milestones a pass is judged by its own tests and by a
-comparison with the old pass that does its job. For `expand` and `bind`,
-`make compare-compiler` expands and binds every suite program that loads
+comparison with the old pass that does its job. For `expand`, `bind` and
+`derive`, `make compare-compiler` compiles every suite program that loads
 completely, with stand-in files for each target it asks for, handed to
 the old expander too, and compares it with the old expansion: both
 succeed or both fail; failures by their first problem, message and
 place, and every problem when the old expander reports several;
 successes library by library, in order, by their exports, their written
 definitions and each one's value in a normal form, by each linked file's
-import and the files to place beside the program, and, for the whole
-program, by the targets it asks for. It also compares the integrator's
+import and the files to place beside the program, by each derived
+instance beside the old instance of its class and types, its variables,
+requirements and method compared up to the renaming of locals, in the
+old order of each class, and, for the whole program, by the targets it
+asks for. It also compares the integrator's
 SHA-256 with the old one, compiled, as `make test-compiler` does on
 Chibi.
 
@@ -669,6 +760,20 @@ one line each, with its reason:
   files is still linked and placed; the old expander never expands those
   expressions when there is no file, and the new one has expanded them
   already.
+- `derive` reports a name the implicit libraries lack only when the
+  library otherwise expands; the old expander reports it beside the
+  problems of the other bodies, or alone when it is a class, since it
+  expands the instances it derives among the library's own declarations
+  and bodies, and the new one derives after expansion.
+- A derived instance's variables are its type's parameters, even one
+  named as a type the library's top level declares; the old expander
+  resolves the head it writes, the declaration's own, in the library's
+  scope, where that name is the type, so its instance is for that type
+  alone. `derive` resolves nothing in the library's scope.
+- A name `derive` needs that the implicit libraries offer as syntax, a
+  keyword or a macro, is refused as syntax used as a value; the old
+  expander would expand the form it writes there, and `derive` writes
+  nodes, not syntax.
 
 The integrator compiles everything on each build. Reuse between builds, which
 the old session provided, returns with the incremental work that follows the
