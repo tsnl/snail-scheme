@@ -67,6 +67,7 @@
    ::checker
    ::class
    ::classes
+   ::clauses
    ::column
    ::compiled
    ::compiled?
@@ -75,6 +76,7 @@
    ::confining
    ::constraints
    ::control
+   ::control?
    ::copy
    ::count
    ::counter
@@ -112,12 +114,14 @@
    ::external?
    ::f
    ::failed
+   ::feedback
    ::field
    ::fields
    ::file
    ::files
    ::finished
    ::first
+   ::flags
    ::form
    ::forms
    ::found
@@ -173,6 +177,7 @@
    ::marks
    ::matches
    ::meaning
+   ::members
    ::memo
    ::message
    ::metadata
@@ -185,6 +190,7 @@
    ::name
    ::name-loc
    ::names
+   ::naming
    ::needs
    ::next
    ::nodes
@@ -204,6 +210,7 @@
    ::outputs
    ::owned?
    ::owner
+   ::pairs
    ::parameters
    ::params
    ::path
@@ -216,6 +223,7 @@
    ::predecessor
    ::prefix
    ::program
+   ::program?
    ::public
    ::reached
    ::read
@@ -275,9 +283,11 @@
    ::value
    ::values
    ::variable
+   ::variables
    ::vars
    ::visited
    ::waiting
+   ::written
    ::x
    ;; ---- End field path exports ----
    )
@@ -320,6 +330,7 @@
     (define (::checker value) (field-of value (quote checker)))
     (define (::class value) (field-of value (quote class)))
     (define (::classes value) (field-of value (quote classes)))
+    (define (::clauses value) (field-of value (quote clauses)))
     (define (::column value) (field-of value (quote column)))
     (define (::compiled value) (field-of value (quote compiled)))
     (define (::compiled? value) (field-of value (quote compiled?)))
@@ -328,6 +339,7 @@
     (define (::confining value) (field-of value (quote confining)))
     (define (::constraints value) (field-of value (quote constraints)))
     (define (::control value) (field-of value (quote control)))
+    (define (::control? value) (field-of value (quote control?)))
     (define (::copy value) (field-of value (quote copy)))
     (define (::count value) (field-of value (quote count)))
     (define (::counter value) (field-of value (quote counter)))
@@ -365,12 +377,14 @@
     (define (::external? value) (field-of value (quote external?)))
     (define (::f value) (field-of value (quote f)))
     (define (::failed value) (field-of value (quote failed)))
+    (define (::feedback value) (field-of value (quote feedback)))
     (define (::field value) (field-of value (quote field)))
     (define (::fields value) (field-of value (quote fields)))
     (define (::file value) (field-of value (quote file)))
     (define (::files value) (field-of value (quote files)))
     (define (::finished value) (field-of value (quote finished)))
     (define (::first value) (field-of value (quote first)))
+    (define (::flags value) (field-of value (quote flags)))
     (define (::form value) (field-of value (quote form)))
     (define (::forms value) (field-of value (quote forms)))
     (define (::found value) (field-of value (quote found)))
@@ -426,6 +440,7 @@
     (define (::marks value) (field-of value (quote marks)))
     (define (::matches value) (field-of value (quote matches)))
     (define (::meaning value) (field-of value (quote meaning)))
+    (define (::members value) (field-of value (quote members)))
     (define (::memo value) (field-of value (quote memo)))
     (define (::message value) (field-of value (quote message)))
     (define (::metadata value) (field-of value (quote metadata)))
@@ -438,6 +453,7 @@
     (define (::name value) (field-of value (quote name)))
     (define (::name-loc value) (field-of value (quote name-loc)))
     (define (::names value) (field-of value (quote names)))
+    (define (::naming value) (field-of value (quote naming)))
     (define (::needs value) (field-of value (quote needs)))
     (define (::next value) (field-of value (quote next)))
     (define (::nodes value) (field-of value (quote nodes)))
@@ -457,6 +473,7 @@
     (define (::outputs value) (field-of value (quote outputs)))
     (define (::owned? value) (field-of value (quote owned?)))
     (define (::owner value) (field-of value (quote owner)))
+    (define (::pairs value) (field-of value (quote pairs)))
     (define (::parameters value) (field-of value (quote parameters)))
     (define (::params value) (field-of value (quote params)))
     (define (::path value) (field-of value (quote path)))
@@ -469,6 +486,7 @@
     (define (::predecessor value) (field-of value (quote predecessor)))
     (define (::prefix value) (field-of value (quote prefix)))
     (define (::program value) (field-of value (quote program)))
+    (define (::program? value) (field-of value (quote program?)))
     (define (::public value) (field-of value (quote public)))
     (define (::reached value) (field-of value (quote reached)))
     (define (::read value) (field-of value (quote read)))
@@ -528,9 +546,11 @@
     (define (::value value) (field-of value (quote value)))
     (define (::values value) (field-of value (quote values)))
     (define (::variable value) (field-of value (quote variable)))
+    (define (::variables value) (field-of value (quote variables)))
     (define (::vars value) (field-of value (quote vars)))
     (define (::visited value) (field-of value (quote visited)))
     (define (::waiting value) (field-of value (quote waiting)))
+    (define (::written value) (field-of value (quote written)))
     (define (::x value) (field-of value (quote x)))
     ;; ---- End field paths ----
 

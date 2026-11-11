@@ -79,7 +79,7 @@
     (: resolve (impl (Fn Scopes Env Identifier -> Resolution)))
     (define (resolve scopes env identifier)
       (match (framed (::frames env) identifier)
-        ((Some home) (BoundLocally (::denotation (home-frame home)) home))
+        ((Some (Pair frame outer)) (BoundLocally (::denotation frame) (Cons frame outer)))
         ((None)
          (match (top-meaning (top-scope scopes (::library env)) identifier)
            ((Some meaning) (BoundAtTop meaning))
@@ -97,21 +97,15 @@
                   (scope-env scopes (::scope mark))
                   (Identifier (::name identifier) earlier)))))
 
-    ;; The frames from the innermost one binding `identifier` outward.
-    (: framed (impl (Fn (List Frame) Identifier -> (Option (List Frame)))))
+    ;; The innermost frame binding `identifier`, and the frames outside it.
+    (: framed (impl (Fn (List Frame) Identifier -> (Option (Pair Frame (List Frame))))))
     (define (framed frames identifier)
       (match frames
         ((Nil) (None))
         ((Cons frame outer)
          (if (same-identifier? (::identifier frame) identifier)
-             (Some frames)
+             (Some (Pair frame outer))
              (framed outer identifier)))))
-
-    (: home-frame (impl (Fn (List Frame) -> Frame)))
-    (define (home-frame home)
-      (match home
-        ((Cons frame _) frame)
-        ((Nil) (panic "internal error: a home without its frame"))))
 
     (: top-meaning (impl (Fn TopScope Identifier -> (Option Meaning))))
     (define (top-meaning top identifier)

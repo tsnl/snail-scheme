@@ -8,7 +8,8 @@
 ;; finding a library or following an import reports.
 (define-library (snail compiler integrate load)
   (export
-   load-program)
+   load-program
+   load-libraries)
   (import
    (snail core base)
    (snail core io)
@@ -31,6 +32,21 @@
     (define (load-program directories path)
       (result-let* ((program (outlined-file path (AsProgram))))
         (loaded-walk directories (start-walk program))))
+
+    ;; The libraries `names` reach, each wanted at `loc`, loaded as a
+    ;; program importing them would load them, without the program.
+    (: load-libraries
+       (impl (Fn (List String) (List LibraryName) Loc -> (Result Loaded (List Feedback)) ! fs)))
+    (define (load-libraries directories names loc)
+      (let ((wanting (Outlined ""
+                               (Written (Program (Nil)
+                                                 (None)
+                                                 (map (lambda (name) (Whole name loc)) names)
+                                                 (Nil))))))
+        (result-let* ((loaded (loaded-walk directories (start-walk wanting))))
+          (Ok (Loaded
+               (filter (lambda (outlined) (not (string=? (::file outlined) ""))) (::files loaded))
+               (::waiting loaded))))))
 
     (: loaded-walk (impl (Fn (List String) Walk -> (Result Loaded (List Feedback)) ! fs)))
     (define (loaded-walk directories walk)

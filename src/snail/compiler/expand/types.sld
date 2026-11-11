@@ -15,7 +15,9 @@
 (define-library (snail compiler expand types)
   (export
    expand-type
-   expand-scheme)
+   expand-scheme
+   expand-requirements
+   with-variables)
   (import
    (snail core base)
    (snail compiler source)
@@ -54,13 +56,7 @@
         ((RowType labels loc)
          (result-let* ((effects (effects-of typing labels loc)))
            (Ok (Row effects loc))))
-        ((OldArrow loc)
-         (fail loc
-               "use (impl (Fn arguments -> result ! effects)) for a callable contract, or dyn for storage"))
-        ((BareCallable loc)
-         (fail loc "a callable type requires impl or dyn around its Fn, FnMut or FnOnce contract"))
-        ((NoConstructor head) (fail (marked-loc head) "expected a type constructor"))
-        ((NotAType loc) (fail loc "expected a type"))))
+        ((MalformedType loc message) (fail loc message))))
 
     (: types-of (impl (Fn Typing (List Marked) -> (Result (List TypeExpr) (List Feedback)))))
     (define (types-of typing items)
@@ -133,9 +129,7 @@
         ((WellFormedContract kind items)
          (result-let* ((arrow (arrow-of typing items loc)))
            (Ok (Callable former kind arrow loc))))
-        ((NotAContract) (fail loc "impl and dyn require an Fn, FnMut or FnOnce contract"))
-        ((MalformedContract)
-         (fail loc "expected (impl (Fn argument ... -> result ! effects)) or dyn"))))
+        ((MalformedContract message) (fail loc message))))
 
     ;; The parameters, then the result, then the effects; a malformed
     ;; arrow's parameters before its problem are expanded first.
@@ -147,9 +141,9 @@
                        (result-type (type-of typing result))
                        (row (effects-after typing effects loc)))
            (Ok (Arrow parameter-types result-type row))))
-        ((MalformedArrow parameters problem)
+        ((MalformedArrow parameters message)
          (result-let* ((parameter-types (types-of typing parameters)))
-           (fail loc (arrow-message problem))))))
+           (fail loc message)))))
 
     (: effects-after
        (impl (Fn Typing (Option (List Marked)) Loc -> (Result Effects (List Feedback)))))
@@ -157,16 +151,6 @@
       (match labels
         ((Some written) (effects-of typing written loc))
         ((None) (Ok (Effects (Nil) (None))))))
-
-    (: arrow-message (impl (Fn ArrowProblem -> String)))
-    (define (arrow-message problem)
-      (match problem
-        ((BangBeforeArrow)
-         "a callable signature puts -> before its result and ! before its effects")
-        ((NoArrow) "a callable signature needs -> followed by one result type")
-        ((TwoArrows) "a callable signature has only one ->")
-        ((BangBeforeResult) "a callable signature needs a result before !")
-        ((NotOneResult) "expected one result type after ->, optionally followed by ! effects")))
 
     ;; ---- Rows ----
 
@@ -205,7 +189,7 @@
         ((Unquantified type)
          (result-let* ((expanded (expand-type scopes env type)))
            (Ok (Scheme (Nil) (Nil) expanded (marked-loc syntax)))))
-        ((VariableNotIdentifier loc) (fail loc "expected a type variable"))
+        ((MalformedScheme loc message) (fail loc message))
         ((Quantified variables requirements type loc)
          (let ((typing (Typing scopes (with-variables env variables) (Nil)))
                (names (map ::name variables)))
@@ -215,11 +199,22 @@
                          (body (quantified-type typing type loc)))
              (Ok (Scheme names expanded body loc)))))))
 
-    (: quantified-type (impl (Fn Typing (Option Marked) Loc -> (Result TypeExpr (List Feedback)))))
+    (: quantified-type
+       (impl (Fn Typing (Result Marked String) Loc -> (Result TypeExpr (List Feedback)))))
     (define (quantified-type typing type loc)
       (match type
-        ((Some written) (type-of typing written))
-        ((None) (fail loc "expected (All (variable ...) [(requires constraint ...)] type)"))))
+        ((Ok written) (type-of typing written))
+        ((Err message) (fail loc message))))
+
+    ;; Requirements over the variables `names`, which `env` binds, as an
+    ;; instance's head writes them.
+    (: expand-requirements
+       (impl
+        (Fn Scopes Env (List String) (List Marked) -> (Result (List Requirement) (List Feedback)))))
+    (define (expand-requirements scopes env names requirements)
+      (let ((typing (Typing scopes env (Nil))))
+        (map-results (lambda (requirement) (requirement-of typing names requirement))
+                     requirements)))
 
     ;; `env` with each variable bound, the last innermost.
     (: with-variables (impl (Fn Env (List Identifier) -> Env)))
@@ -243,11 +238,9 @@
          (if (member? name names)
              (Ok (CopyRequirement name loc))
              (fail loc (string-append "Copy names a quantified type variable, not " name))))
-        ((MalformedCopy loc) (fail loc "expected (Copy variable)"))
         ((ClassApplied class class-loc arguments loc)
          (class-requirement typing class class-loc arguments loc))
-        ((ClassNotIdentifier loc) (fail loc "expected a typeclass"))
-        ((NotARequirement loc) (fail loc "expected (Class type ...)"))))
+        ((MalformedRequirement loc message) (fail loc message))))
 
     (: class-requirement
        (impl (Fn Typing Identifier Loc (List Marked) Loc -> (Result Requirement (List Feedback)))))
@@ -263,8 +256,7 @@
            ((PathLabels (Cons label (Nil))) (applied-class typing (FieldClass label) arguments loc))
            ((PathLabels _)
             (fail class-loc (string-append "a field class names one label, not " (::name class))))
-           ((EmptyLabel)
-            (fail class-loc (string-append "empty field label in " (::name class))))))))
+           ((EmptyLabel message) (fail class-loc message))))))
 
     (: callable-requirement
        (impl (Fn Typing Contract (List Marked) Loc -> (Result Requirement (List Feedback)))))
@@ -292,8 +284,8 @@
     (: equation-shape (impl (Fn Marked -> (Result EquationForm (List Feedback)))))
     (define (equation-shape syntax)
       (match (equation-form syntax)
-        ((Some form) (Ok form))
-        ((None) (fail (marked-loc syntax) "expected (type Output Type)"))))
+        ((Ok form) (Ok form))
+        ((Err message) (fail (marked-loc syntax) message))))
 
     (: equation-of (impl (Fn Typing EquationForm -> (Result Equation (List Feedback)))))
     (define (equation-of typing form)

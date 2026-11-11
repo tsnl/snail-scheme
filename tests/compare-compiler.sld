@@ -3,7 +3,9 @@
 ;; `make compare-compiler` runs this from the repository's root. Each
 ;; suite's programs load with the directories tests/run.scm gives that
 ;; suite: how far each loads is counted, and the libraries of each that
-;; loads completely are compared, in order, with the old expansion's.
+;; loads completely are compared, in order, with the old expansion's;
+;; then each such program is expanded, and compared with the old
+;; expansion as (snail compiler adapter expansion) says.
 (import
  (snail core base)
  (snail core io)
@@ -12,7 +14,8 @@
  (snail compiler integrate walk)
  (snail compiler integrate load)
  (snail compiler adapter outline)
- (snail compiler adapter load))
+ (snail compiler adapter load)
+ (snail compiler adapter expansion))
 
 ;; ---- Suites ----
 
@@ -51,13 +54,43 @@
 (struct Finding
   ((path String)
    (load String)
-   (order OrderComparison)))
+   (order OrderComparison)
+   (expansion (Pair String String))))
 
 (: program-finding (impl (Fn Suite String -> Finding ! fs)))
 (define (program-finding suite path)
   (Finding path
            (load-summary (load-program (::libraries suite) path))
-           (order-comparison (::libraries suite) path)))
+           (order-comparison (::libraries suite) path)
+           (expansion-comparison (::libraries suite) path)))
+
+;; The kinds of expansion finding, the ones that need no word first.
+(: expansion-kinds (List String))
+(define expansion-kinds
+  (list "expand alike"
+        "fail alike"
+        "fail alike, several problems"
+        "fail alike first, several problems differ"
+        "fail differently"
+        "only the old fails"
+        "only the new fails"
+        "expansions differ"
+        "not compared"))
+
+(: expansion-line (impl (Fn Finding -> (List String))))
+(define (expansion-line finding)
+  (let ((kind (::first (::expansion finding))))
+    (if (or (string=? kind "expand alike") (string=? kind "fail alike"))
+        (Nil)
+        (list (string-append (::path finding) ": " kind ": " (::second (::expansion finding)))))))
+
+(: expansion-count (impl (Fn (List Finding) String -> String)))
+(define (expansion-count findings kind)
+  (string-append (i64->string (length (filter (lambda (finding)
+                                                (string=? (::first (::expansion finding)) kind))
+                                              findings)))
+                 " "
+                 kind))
 
 ;; "complete", "generated" or "failed", and what stopped it.
 (: load-summary (impl (Fn (Result Loaded (List Feedback)) -> String)))
@@ -134,6 +167,20 @@
                                                      "other differences"
                                                      "not compared"))
                                           ", ")))
+  (for-each write-line (concatenate (map expansion-line findings)))
+  (write-line (string-append "compared their expansion with the old: "
+                             (string-join (map (lambda (kind) (expansion-count findings kind))
+                                               expansion-kinds)
+                                          ", ")))
+  (if (any? (lambda (finding)
+              (member? (::first (::expansion finding))
+                       (list "fail alike first, several problems differ"
+                             "fail differently"
+                             "only the new fails"
+                             "expansions differ")))
+            findings)
+      (panic "the expansions differ")
+      (unit))
   (if (any? (lambda (finding) (string=? (order-kind (::order finding)) "other differences"))
             findings)
       (panic "the orders differ")

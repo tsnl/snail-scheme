@@ -11,13 +11,14 @@
 ;; after it leave. `_` and `...` are known by name, whatever their marks.
 ;; A literal that is not an identifier is no literal at all; the old
 ;; expander stopped with an internal error wherever it met one while
-;; matching, and this rule answers there that it met one instead.
+;; matching, and this rule answers there that it met one instead. A
+;; malformed definition, rule or literal is answered with what to say of
+;; it, and where, which the part places.
 (define-library (snail compiler expand syntax-rules)
   (export
    MacroShape
    WellFormedMacro
-   NotSyntaxRules
-   NotMacroName
+   MalformedMacro
    MacroForm
    macro-shape
    RuleForm
@@ -30,7 +31,7 @@
    Matching
    Matched
    Mismatched
-   LiteralNotIdentifier
+   MalformedLiteral
    match-rule)
   (import
    (snail core base)
@@ -47,9 +48,9 @@
     (enum MacroShape
       (WellFormedMacro
        ((form MacroForm)))
-      (NotSyntaxRules)
-      (NotMacroName
-       ((loc Loc))))
+      (MalformedMacro
+       ((loc Loc)
+        (message String))))
 
     (struct MacroForm
       ((name Identifier)
@@ -69,8 +70,10 @@
                _)
          (match name
            ((Ident identifier loc) (WellFormedMacro (MacroForm identifier loc literals rules)))
-           (_ (NotMacroName (marked-loc name)))))
-        (_ (NotSyntaxRules))))
+           (_ (MalformedMacro (marked-loc name) "expected a macro name"))))
+        (_
+         (MalformedMacro (marked-loc form)
+                         "expected (define-syntax name (syntax-rules (literal ...) rule ...))"))))
 
     ;; ---- Rules ----
 
@@ -80,12 +83,13 @@
       ((patterns (List Marked))
        (template Marked)))
 
-    (: rule-form (impl (Fn Marked -> (Option RuleForm))))
+    ;; A rule of another shape is refused at the rule.
+    (: rule-form (impl (Fn Marked -> (Result RuleForm String))))
     (define (rule-form rule)
       (match rule
         ((Form (Cons (Form (Cons _ patterns) _) (Cons template (Nil))) _)
-         (Some (RuleForm patterns template)))
-        (_ (None))))
+         (Ok (RuleForm patterns template)))
+        (_ (Err "expected ((_ pattern ...) template)"))))
 
     ;; ---- Matching ----
 
@@ -116,8 +120,9 @@
       (Matched
        ((captures (List Capture))))
       (Mismatched)
-      (LiteralNotIdentifier
-       ((literal Marked))))
+      (MalformedLiteral
+       ((loc Loc)
+        (message String))))
 
     ;; Whether a rule's patterns match the items of a use after its head.
     (: match-rule (impl (Fn Matcher (List Marked) (List Marked) -> Matching)))
@@ -134,7 +139,7 @@
                ((NotLiteral) (Matched (list (Capture identifier (One input)))))
                ((IsLiteral)
                 (if (same-binding? matcher input identifier) (Matched (Nil)) (Mismatched)))
-               ((BadLiteral literal) (LiteralNotIdentifier literal)))))
+               ((BadLiteral literal) (malformed-literal literal)))))
         ((Atom datum _)
          (match input
            ((Atom other _) (if (same-datum? datum other) (Matched (Nil)) (Mismatched)))
@@ -188,40 +193,47 @@
       (match (find literal-problem? matchings)
         ((Some problem) problem)
         ((None)
-         (if (any? mismatched? matchings)
-             (Mismatched)
-             (match (pattern-variables (::literals matcher) repeated)
-               ((Ok variables)
-                (Matched (append (map (lambda (variable) (repeated-capture variable matchings))
-                                      variables)
-                                 tail)))
-               ((Err literal) (LiteralNotIdentifier literal)))))))
+         (match (every-capture matchings)
+           ((None) (Mismatched))
+           ((Some repeats)
+            (match (pattern-variables (::literals matcher) repeated)
+              ((Ok variables)
+               (Matched (append (map (lambda (variable) (repeated-capture variable repeats))
+                                     variables)
+                                tail)))
+              ((Err literal) (malformed-literal literal))))))))
 
-    (: repeated-capture (impl (Fn Identifier (List Matching) -> Capture)))
-    (define (repeated-capture variable matchings)
-      (Capture variable (Many (map (lambda (matching) (captured matching variable)) matchings))))
+    ;; What each repetition captured, when every one matched.
+    (: every-capture (impl (Fn (List Matching) -> (Option (List (List Capture))))))
+    (define (every-capture matchings)
+      (match matchings
+        ((Nil) (Some (Nil)))
+        ((Cons (Matched captures) rest)
+         (match (every-capture rest)
+           ((Some more) (Some (Cons captures more)))
+           ((None) (None))))
+        (_ (None))))
+
+    (: repeated-capture (impl (Fn Identifier (List (List Capture)) -> Capture)))
+    (define (repeated-capture variable repeats)
+      (Capture variable (Many (map (lambda (captures) (captured captures variable)) repeats))))
 
     ;; What one repetition bound `variable` to. Each repetition matched the
-    ;; repeated pattern, which binds every one of its variables.
-    (: captured (impl (Fn Matching Identifier -> Bound)))
-    (define (captured matching variable)
-      (match matching
-        ((Matched captures)
-         (match (find (lambda (capture) (same-identifier? (::variable capture) variable)) captures)
-           ((Some capture) (::bound capture))
-           ((None) (panic "internal error: a repetition did not bind its pattern's variable"))))
-        (_ (panic "internal error: a repetition did not match"))))
+    ;; repeated pattern, and a pattern binds every one of its variables.
+    (: captured (impl (Fn (List Capture) Identifier -> Bound)))
+    (define (captured captures variable)
+      (match (find (lambda (capture) (same-identifier? (::variable capture) variable)) captures)
+        ((Some capture) (::bound capture))
+        ((None) (panic "internal error: a repetition did not bind its pattern's variable"))))
+
+    (: malformed-literal (impl (Fn Marked -> Matching)))
+    (define (malformed-literal literal)
+      (MalformedLiteral (marked-loc literal) "expected an identifier"))
 
     (: literal-problem? (impl (Fn Matching -> Bool)))
     (define (literal-problem? matching)
       (match matching
-        ((LiteralNotIdentifier _) #t)
-        (_ #f)))
-
-    (: mismatched? (impl (Fn Matching -> Bool)))
-    (define (mismatched? matching)
-      (match matching
-        ((Mismatched) #t)
+        ((MalformedLiteral _ _) #t)
         (_ #f)))
 
     ;; The pattern variables of a pattern, in order: each identifier but
@@ -374,24 +386,27 @@
                  (MacroForm (plain "m") loc (list (marked 'else)) (list (marked '((_ x) x))))))
         (expect (macro-shape (marked '(define-syntax m (syntax-rules ()))))
                 (WellFormedMacro (MacroForm (plain "m") loc (list) (list))))
-        (expect (macro-shape (marked '(define-syntax m (syntax-rules x)))) (NotSyntaxRules))
-        (expect (macro-shape (marked '(define-syntax m (rules ())))) (NotSyntaxRules))
-        (expect (macro-shape (marked '(define-syntax m))) (NotSyntaxRules))
-        (expect (macro-shape (marked '(define-syntax m (syntax-rules ()) extra))) (NotSyntaxRules))
+        (expect (macro-shape (marked '(define-syntax m (syntax-rules x)))) not-syntax-rules)
+        (expect (macro-shape (marked '(define-syntax m (rules ())))) not-syntax-rules)
+        (expect (macro-shape (marked '(define-syntax m))) not-syntax-rules)
+        (expect (macro-shape (marked '(define-syntax m (syntax-rules ()) extra))) not-syntax-rules)
         (expect (macro-shape (Form (list (marked 'define-syntax)
                                          (Atom (syntax-Integer 1) (Loc "t.sld" 2 2))
                                          (marked '(syntax-rules ())))
                                    loc))
-                (NotMacroName (Loc "t.sld" 2 2))))
+                (MalformedMacro (Loc "t.sld" 2 2) "expected a macro name")))
+
+      (define not-syntax-rules
+        (MalformedMacro loc "expected (define-syntax name (syntax-rules (literal ...) rule ...))"))
 
       (define (test-rule-forms)
         (expect (rule-form (marked '((_ a b) (a b))))
-                (Some (RuleForm (list (marked 'a) (marked 'b)) (marked '(a b)))))
-        (expect (rule-form (marked '((m) 1))) (Some (RuleForm (list) (marked 1))))
-        (expect (rule-form (marked '(() 1))) (None))
-        (expect (rule-form (marked '(_ 1))) (None))
-        (expect (rule-form (marked '((_) 1 2))) (None))
-        (expect (rule-form (marked 'x)) (None)))
+                (Ok (RuleForm (list (marked 'a) (marked 'b)) (marked '(a b)))))
+        (expect (rule-form (marked '((m) 1))) (Ok (RuleForm (list) (marked 1))))
+        (expect (rule-form (marked '(() 1))) (Err "expected ((_ pattern ...) template)"))
+        (expect (rule-form (marked '(_ 1))) (Err "expected ((_ pattern ...) template)"))
+        (expect (rule-form (marked '((_) 1 2))) (Err "expected ((_ pattern ...) template)"))
+        (expect (rule-form (marked 'x)) (Err "expected ((_ pattern ...) template)")))
 
       ;; Variables capture in order; `_` and atoms capture nothing; a form
       ;; must have as many items as its pattern.
@@ -461,12 +476,15 @@
             (match-rule (Matcher (list (marked 'else) bad) scopes top top)
                         (map marked pattern)
                         (map marked use)))
-          (expect (with-bad '(a) '(1)) (LiteralNotIdentifier bad))
+          (expect (with-bad '(a) '(1))
+                  (MalformedLiteral (Loc "t.sld" 3 3) "expected an identifier"))
           (expect (with-bad '(else) '(else)) (Matched (list)))
           (expect (with-bad '(_ 1) '(2 1)) (Matched (list)))
           (expect (with-bad '(1 a) '(2 3)) (Mismatched))
           (expect (with-bad '(1 ...) '()) (Matched (list)))
-          (expect (with-bad '(a ...) '()) (LiteralNotIdentifier bad))
-          (expect (with-bad '((1 a) ...) '((2 3) (1 4))) (LiteralNotIdentifier bad))
+          (expect (with-bad '(a ...) '())
+                  (MalformedLiteral (Loc "t.sld" 3 3) "expected an identifier"))
+          (expect (with-bad '((1 a) ...) '((2 3) (1 4)))
+                  (MalformedLiteral (Loc "t.sld" 3 3) "expected an identifier"))
           (expect (with-bad '((1 else) ...) '((1 else) (2 else))) (Mismatched))))))
    (else)))
