@@ -242,7 +242,9 @@
    ;; ---- End field path exports ----
    )
   (import
-   (rename (scheme base) (case scheme-case))
+   (rename (scheme base)
+           (case scheme-case)
+           (define scheme-define))
    (only (chibi) _ ...)
    (scheme char)
    (rename (srfi 1) (drop list-drop))
