@@ -16,7 +16,8 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 | `include` | file | Syntax | Syntax | Each `include-bytes` form becomes the bytes of its file. | implemented |
 | `outline` | file | Syntax | Outline | The header is parsed: name, imports, exports. The body stays Syntax. | implemented |
 | `expand` | library | Outline | Expanded | Macros run, every name is resolved, every core form is parsed. | planned |
-| `derive` | library | Expanded | Derived | `deriving` clauses become instance declarations. | planned |
+| `bind` | library | Expanded | Bound | Linked files and requests for other targets become what the build supplied. | planned |
+| `derive` | library | Bound | Derived | `deriving` clauses become instance declarations. | planned |
 | `declare` | library | Derived | Declared | Written types become types; declarations become entities. | planned |
 | `dispatch` | library | Declared | Dispatched | `dispatch` clauses become method definitions. | planned |
 | `infer` | library | Dispatched | Inferred | Every node gets a type, with unknowns; constraints are recorded. | planned |
@@ -55,8 +56,9 @@ module: a whole program, or one library in a development build.
 - A **rule** is a pure function that makes one decision from the facts it is
   handed and returns the decision as data. It does not visit children, does
   not thread a pass's state and does not report failure.
-- The **integrator** is the one place that calls passes. It orders
-  libraries, runs the loops, reads files and decides what is reused.
+- The **integrator** is the one place that calls passes. It finds and reads
+  files, orders libraries, and runs the loops. Its libraries live in
+  `integrate/`, and they are the only ones whose functions perform `fs`.
 
 Passes are not strictly a chain: a pass may read more than one earlier
 language, as `expand` reads Outline and the Syntax inside it. A pass that
@@ -78,7 +80,7 @@ src/snail/compiler/
     language.sld
     pass.sld
   ...
-  integrate.sld           (snail compiler integrate)
+  integrate/              the integrator: one library per job, such as loading
 ```
 
 Each pass is a folder. `language.sld` holds the language the pass writes:
@@ -231,7 +233,7 @@ TypeExpr ::= Named Name TypeExpr* | Callable ... | Variable name
 
 `LinkedFile` and `ArtifactFiles` stay in the tree. Queries over Expanded
 gather them for the integrator, which reads the files and builds the other
-targets.
+targets, and `bind` then replaces each with what the integrator supplied.
 
 ### Typed, written by `settle` (sketch)
 
