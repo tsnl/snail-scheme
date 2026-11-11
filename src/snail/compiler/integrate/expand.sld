@@ -189,7 +189,8 @@
                                                             (Loc
                                                              (string-append directory "/main.sld")
                                                              2
-                                                             1))))))
+                                                             1)))
+                                     1)))
           (other (expect other "an expanded program")))
         (match (expanded-at directory "waiting.sld")
           ((Ok (WaitingFor libraries)) (expect libraries (list (list "sample" "made"))))

@@ -5,8 +5,8 @@
 ;; expansion reads, and the syntax `expand` works on is (snail compiler
 ;; expand marked)'s.
 ;;
-;;   Expanded    ::= Defined library Top*
-;;                 | Program Top* Expr?                              no Loc
+;;   Expanded    ::= Defined library Top* first-unused-number
+;;                 | Program Top* Expr? first-unused-number          no Loc
 ;;   Top         ::= Define Global Expr
 ;;                 | Signature TopValue Scheme Annotation*
 ;;                 | Statement Expr                                  no Loc but its expression's
@@ -85,6 +85,11 @@
 ;;   is the library that defines it and the name written there, with a
 ;;   serial of its own when a macro's template wrote the name. A Local's
 ;;   number is unique in its library.
+;; - The root's `first-unused-number` is the first number the library has
+;;   not used for a local, a mark or a serial: every Local's number in the
+;;   tree, and the serial of every Global the library defines, is below
+;;   it. A later pass that writes locals of its own numbers them from it,
+;;   and says in its own root where it stopped.
 ;; - A label is the one name not resolved here: a field's, a path's, and
 ;;   that of a member of a class or an effect, as a method definition, an
 ;;   associated output, a default or a handler's clause writes it. The
@@ -231,15 +236,18 @@
     ;; A library is at its `define-library` form. A program is the library
     ;; ("main"), whose Globals name that library; its statements, in order,
     ;; are its body, which runs once every definition is initialized, so no
-    ;; Statement is among its tops.
+    ;; Statement is among its tops. Either holds the first number its
+    ;; library has not used, from which a later pass numbers its locals.
     (enum Expanded
       (Defined
         ((name LibraryName)
          (tops (List Top))
+         (first-unused-number I64)
          (loc Loc)))
       (Program
        ((tops (List Top))
-        (body (Option Expr)))))
+        (body (Option Expr))
+        (first-unused-number I64))))
 
     ;; ---- Declarations ----
 

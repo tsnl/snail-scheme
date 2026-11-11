@@ -15,8 +15,8 @@
     (: first-derivation (impl (Fn Expanded -> (Option Loc))))
     (define (first-derivation expanded)
       (match expanded
-        ((Defined _ tops _) (tops-derivation tops))
-        ((Program tops _) (tops-derivation tops))))
+        ((Defined _ tops _ _) (tops-derivation tops))
+        ((Program tops _ _) (tops-derivation tops))))
 
     (: tops-derivation (impl (Fn (List Top) -> (Option Loc))))
     (define (tops-derivation tops)
@@ -59,12 +59,13 @@
       (define (test-derives)
         (define (data derivations)
           (Struct (Global (list "a") "P" 0) (list) (list) derivations (list) loc (Loc "t.sld" 4 1)))
-        (expect (first-derivation (Defined (list "a") (list (data (list (DeriveMove loc)))) loc))
+        (expect (first-derivation (Defined (list "a") (list (data (list (DeriveMove loc)))) 1 loc))
                 (None))
         (expect (first-derivation
                  (Program
                   (list (InstanceScope (list) (list (data (list (DeriveSerialize loc)))) loc))
-                  (None)))
+                  (None)
+                  1))
                 (Some (Loc "t.sld" 4 1))))
 
       (define loc (Loc "t.sld" 1 1))

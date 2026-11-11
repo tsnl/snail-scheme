@@ -5,16 +5,34 @@
 ;; binds its macro, which the forms after it may use. A declaration binds
 ;; its names: a type, a struct's constructor and its fields' functions,
 ;; an enum's cases and theirs, a class with its methods and outputs, an
-;; effect with its operations, an extern. What remains of each form waits
-;; as an Item for the passes after this, which read the syntax again. The
-;; first problem stops the scan, as it stops the old expander's, since
-;; what follows needs every name.
+;; effect with its operations, an extern. Each form becomes an Item of its
+;; kind, holding the shape the scan took it apart into, for the passes
+;; after this, which read that shape and never the form. The first
+;; problem stops the scan, as it stops the old expander's, since what
+;; follows needs every name.
 (define-library (snail compiler expand scan)
   (export
    Item
-   Pending
+   PendingDefinition
+   PendingSignature
+   PendingStruct
+   PendingEnum
+   PendingAlias
+   PendingClass
+   PendingInstance
+   PendingDynamic
+   PendingExtern
+   PendingEffect
+   PendingExpose
+   PendingStatement
    PendingScope
    PendingSet
+   Head
+   ScannedField
+   ScannedCase
+   ScannedMember
+   ScannedOutput
+   ScannedMethod
    Scan
    scan-forms
    top-global
@@ -38,15 +56,53 @@
 
     ;; ---- Items ----
 
-    ;; A form the scan found, by the keyword at its head, or "expression":
-    ;; without its annotation list, which `annotations` holds. A top-level
-    ;; `with-instances` holds the items written under its sets, and an
-    ;; instance set those its declarations are.
+    ;; A form the scan found, as an item of its kind, holding the shape the
+    ;; scan took it apart into, with its types and bodies still syntax.
+    ;; Some shapes the old expander checks only after the scan: with the
+    ;; declarations, a signature's, an instance's, a dynamic instances',
+    ;; an extern's after its name and an effect's clauses; with the
+    ;; bodies, an expose's. Each of those waits as its rule's answer,
+    ;; malformed or not, for that step to report. A statement is any form
+    ;; no keyword declares. A top-level `with-instances` holds the items
+    ;; written under its sets, and an instance set those its declarations
+    ;; are.
     (enum Item
-      (Pending
-       ((keyword String)
-        (form Marked)
-        (annotations (List Annotation))))
+      (PendingDefinition
+       ((global Global)
+        (value DefinedValue)
+        (loc Loc)))
+      (PendingSignature
+       ((shape SignatureShape)
+        (annotations (List Annotation))
+        (loc Loc)))
+      (PendingStruct
+       ((head Head)
+        (fields (List ScannedField))
+        (derivations (List Derivation))))
+      (PendingEnum
+       ((head Head)
+        (cases (List ScannedCase))
+        (derivations (List Derivation))))
+      (PendingAlias
+       ((head Head)))
+      (PendingClass
+       ((head Head)
+        (members (List ScannedMember))))
+      (PendingInstance
+       ((shape (Result InstanceForm Malformed))))
+      (PendingDynamic
+       ((shape (Result DynamicForm Malformed))))
+      (PendingExtern
+       ((head Head)
+        (shape (Result ExternForm Malformed))))
+      (PendingEffect
+       ((head Head)
+        (operations (List OperationForm))
+        (clauses (Result EffectClauses Malformed))))
+      (PendingExpose
+       ((shape (Result ExposeForm Malformed))))
+      (PendingStatement
+       ((form Marked)))
       (PendingScope
        ((sets (List Marked))
         (items (List Item))
@@ -55,6 +111,34 @@
        ((global Global)
         (items (List Item))
         (loc Loc))))
+
+    ;; What a declaration says of itself: the name it declares, the
+    ;; parameters its types are written over, none for an effect or an
+    ;; extern, its annotations, and where it is.
+    (struct Head
+      ((name Named)
+       (params (List Named))
+       (annotations (List Annotation))
+       (loc Loc)))
+
+    ;; A field once its functions are bound, so its label is a name.
+    (struct ScannedField
+      ((label Named)
+       (mutable? Bool)
+       (type Marked)
+       (annotations (List Annotation))))
+
+    (struct ScannedCase
+      ((name Named)
+       (fields (List ScannedField))
+       (annotations (List Annotation))))
+
+    ;; A class's member, in the order written.
+    (enum ScannedMember
+      (ScannedOutput
+       ((output OutputForm)))
+      (ScannedMethod
+       ((method MethodForm))))
 
     ;; The items a scan found, and the scopes with the names they bound.
     (struct Scan
@@ -200,12 +284,16 @@
           ((Some other)
            (if (member? other declaration-keywords)
                (unchanged state (scan-declared scopes other form annotations))
-               (unchanged state (Ok (Scan (list (Pending "expression" form (Nil))) scopes)))))
-          ((None) (unchanged state (Ok (Scan (list (Pending "expression" form (Nil))) scopes)))))))
+               (unchanged state (item-found (PendingStatement form) scopes))))
+          ((None) (unchanged state (item-found (PendingStatement form) scopes))))))
 
     (: declaration-keywords (List String))
     (define declaration-keywords
       (list ":" "struct" "enum" "type" "typeclass" "instance" "extern" "effect" "expose"))
+
+    (: item-found (impl (Fn Item Scopes -> (Result Scan (List Feedback)))))
+    (define (item-found item scopes)
+      (Ok (Scan (list item) scopes)))
 
     ;; ---- Scopes, sets and macros ----
 
@@ -260,7 +348,8 @@
       (cond ((equal-keyword? (form-keyword scopes declaration) "instance")
              (scan-form state scopes sets declaration))
             ((dynamic-instances? declaration)
-             (Ok (Pair (Scan (list (Pending "dynamic-instances" declaration (Nil))) scopes) state)))
+             (unchanged state
+                        (item-found (PendingDynamic (dynamic-instances-form declaration)) scopes)))
             (else
              (fail (marked-loc declaration)
                    "an instance set contains instance or dynamic-instances declarations"))))
@@ -293,88 +382,125 @@
     (: scan-define (impl (Fn Scopes Marked -> (Result Scan (List Feedback)))))
     (define (scan-define scopes form)
       (match (definition-shape form)
-        ((NamedDefinition name name-loc _)
+        ((NamedDefinition name name-loc value)
          (result-let* ((bound (bind-value scopes (Named name name-loc))))
-           (Ok (Scan (list (Pending "define" form (Nil))) bound))))
+           (item-found (PendingDefinition (top-global scopes name) value (marked-loc form)) bound)))
         ((MalformedDefinition place message) (fail place message))))
 
-    ;; A declaration binds its names; then a struct's or enum's deriving
-    ;; clauses are checked, which `derive` makes instances of.
+    ;; A declaration binds its names and is found as its kind. What a
+    ;; signature, an instance and an expose say is checked after the scan.
     (: scan-declared
        (impl (Fn Scopes String Marked (List Annotation) -> (Result Scan (List Feedback)))))
     (define (scan-declared scopes keyword form annotations)
       (match (form-tail form)
-        ((Cons head rest)
-         (result-let* ((bound (declaration-names scopes keyword head rest form))
-                       (checked (derivations-of keyword form)))
-           (Ok (Scan (list (Pending keyword form annotations)) bound))))
+        ((Cons head rest) (declaration-item scopes keyword head rest form annotations))
         ((Nil) (fail (marked-loc form) "expected a declaration"))))
 
-    (: declaration-names
-       (impl (Fn Scopes String Marked (List Marked) Marked -> (Result Scopes (List Feedback)))))
-    (define (declaration-names scopes keyword head rest form)
-      (cond ((string=? keyword "struct") (scan-struct scopes head form))
-            ((string=? keyword "enum") (scan-enum scopes head form))
-            ((string=? keyword "type") (scan-alias scopes head rest form))
-            ((string=? keyword "typeclass") (scan-class scopes head rest))
-            ((string=? keyword "extern")
-             (result-let* ((name (refused (named head "a name"))))
-               (bind-value scopes name)))
-            ((string=? keyword "effect") (scan-effect scopes head rest form))
-            (else (Ok scopes))))
+    (: declaration-item
+       (impl (Fn Scopes String Marked (List Marked) Marked (List Annotation)
+                 -> (Result Scan (List Feedback)))))
+    (define (declaration-item scopes keyword head rest form annotations)
+      (match keyword
+        (":"
+         (item-found (PendingSignature (signature-shape form) annotations (marked-loc form))
+                     scopes))
+        ("struct" (scan-struct scopes head form annotations))
+        ("enum" (scan-enum scopes head form annotations))
+        ("type" (scan-alias scopes head rest form annotations))
+        ("typeclass" (scan-class scopes head rest form annotations))
+        ("instance" (item-found (PendingInstance (instance-form form)) scopes))
+        ("extern" (scan-extern scopes head form annotations))
+        ("effect" (scan-effect scopes head rest form annotations))
+        ;; `expose`, the last of the declaration keywords.
+        (_ (item-found (PendingExpose (expose-form form)) scopes))))
 
     ;; ---- Structs and enums ----
 
-    (: scan-struct (impl (Fn Scopes Marked Marked -> (Result Scopes (List Feedback)))))
-    (define (scan-struct scopes head form)
+    ;; A struct binds its name, then its fields' functions; then its
+    ;; deriving clauses are checked, which `derive` makes instances of.
+    (: scan-struct
+       (impl (Fn Scopes Marked Marked (List Annotation) -> (Result Scan (List Feedback)))))
+    (define (scan-struct scopes head form annotations)
       (result-let* ((name (refused (declared-name head)))
                     (params (refused (declared-params head)))
                     (bound (bind scopes
                                  (::identifier name)
                                  (::loc name)
                                  (TypeName (top-global scopes (::identifier name)) #t)))
-                    (fields (refused (struct-fields form))))
-        (bind-fields bound name (top-global scopes (::identifier name)) fields #t)))
+                    (written (refused (struct-fields form)))
+                    (fields
+                     (bind-fields bound name (top-global scopes (::identifier name)) written #t))
+                    (derivations (derivations-of form (any? ::mutable? (::second fields)))))
+        (item-found (PendingStruct (Head name params annotations (marked-loc form))
+                                   (::second fields)
+                                   derivations)
+                    (::first fields))))
 
-    (: scan-enum (impl (Fn Scopes Marked Marked -> (Result Scopes (List Feedback)))))
-    (define (scan-enum scopes head form)
+    ;; An enum binds its name, then each case and its fields' functions,
+    ;; in order; then its deriving clauses are checked.
+    (: scan-enum
+       (impl (Fn Scopes Marked Marked (List Annotation) -> (Result Scan (List Feedback)))))
+    (define (scan-enum scopes head form annotations)
       (result-let* ((name (refused (declared-name head)))
                     (params (refused (declared-params head)))
                     (bound (bind scopes
                                  (::identifier name)
                                  (::loc name)
-                                 (TypeName (top-global scopes (::identifier name)) #f))))
-        (let loop ((scopes bound)
-                   (cases (enum-cases form)))
-          (match cases
-            ((Nil) (Ok scopes))
-            ((Cons case rest)
-             (result-let* ((parts (refused (case-form case)))
-                           (with-case (bind-value scopes (::name parts)))
-                           (with-fields (bind-fields with-case
-                                                     (::name parts)
-                                                     (top-global scopes
-                                                                 (::identifier (::name parts)))
-                                                     (::fields parts)
-                                                     #f)))
-               (loop with-fields rest)))))))
+                                 (TypeName (top-global scopes (::identifier name)) #f)))
+                    (cases (scan-cases bound (enum-cases form)))
+                    (derivations (derivations-of form #f)))
+        (item-found (PendingEnum (Head name params annotations (marked-loc form))
+                                 (::second cases)
+                                 derivations)
+                    (::first cases))))
+
+    (: scan-cases
+       (impl (Fn Scopes (List Marked)
+                 -> (Result (Pair Scopes (List ScannedCase)) (List Feedback)))))
+    (define (scan-cases scopes cases)
+      (let loop ((scopes scopes)
+                 (cases cases)
+                 (scanned (Nil)))
+        (match cases
+          ((Nil) (Ok (Pair scopes (reverse scanned))))
+          ((Cons case rest)
+           (result-let* ((parts (refused (case-form case)))
+                         (with-case (bind-value scopes (::name parts)))
+                         (fields (bind-fields with-case
+                                              (::name parts)
+                                              (top-global scopes (::identifier (::name parts)))
+                                              (::fields parts)
+                                              #f)))
+             (loop (::first fields)
+                   rest
+                   (Cons (ScannedCase (::name parts) (::second fields) (::annotations parts))
+                         scanned)))))))
 
     ;; Every field is parsed, then each is checked to be allowed mutable,
-    ;; then each binds its functions in order: a struct with no mutable
-    ;; field reserves its field's accessor name.
+    ;; then each, its label named, binds its functions in order: a struct
+    ;; with no mutable field reserves its field's accessor name.
     (: bind-fields
-       (impl (Fn Scopes Named Global (List Marked) Bool -> (Result Scopes (List Feedback)))))
+       (impl (Fn Scopes Named Global (List Marked) Bool
+                 -> (Result (Pair Scopes (List ScannedField)) (List Feedback)))))
     (define (bind-fields scopes owner case fields struct?)
       (result-let* ((parsed (map-results (lambda (field) (refused (field-form field))) fields))
                     (allowed (map-results (lambda (field) (mutable-allowed scopes field)) parsed)))
         (let ((pure? (not (any? ::mutable? parsed))))
           (let loop ((scopes scopes)
-                     (parsed parsed))
+                     (parsed parsed)
+                     (scanned (Nil)))
             (match parsed
-              ((Nil) (Ok scopes))
+              ((Nil) (Ok (Pair scopes (reverse scanned))))
               ((Cons field rest)
-               (result-let* ((bound (bind-field scopes owner case field struct? pure?)))
-                 (loop bound rest))))))))
+               (result-let* ((label (refused (named (::name field) "a field name")))
+                             (bound (bind-field scopes owner case label field struct? pure?)))
+                 (loop bound
+                       rest
+                       (Cons (ScannedField label
+                                           (::mutable? field)
+                                           (::type field)
+                                           (::annotations field))
+                             scanned)))))))))
 
     ;; Only Ref, in (snail core base), and the runtime's UnsafeSlot, in
     ;; (snail shell slot), have a mutable field.
@@ -388,10 +514,9 @@
           (Ok #t)))
 
     (: bind-field
-       (impl (Fn Scopes Named Global FieldForm Bool Bool -> (Result Scopes (List Feedback)))))
-    (define (bind-field scopes owner case field struct? pure?)
-      (result-let* ((label (refused (named (::name field) "a field name")))
-                    (reserved (if (and struct? pure?)
+       (impl (Fn Scopes Named Global Named FieldForm Bool Bool -> (Result Scopes (List Feedback)))))
+    (define (bind-field scopes owner case label field struct? pure?)
+      (result-let* ((reserved (if (and struct? pure?)
                                   (bind scopes
                                         (field-identifier owner label "")
                                         (::loc label)
@@ -431,26 +556,15 @@
             ((and struct? pure?) (Ok (list (Pair "-set" (Replacer)))))
             (else (Ok (list (Pair "" (Accessor)))))))
 
-    ;; A struct with a mutable field has identity, so it derives nothing
-    ;; but Move; every class a clause names must be one `derive` knows.
-    (: derivations-of (impl (Fn String Marked -> (Result (List Derivation) (List Feedback)))))
-    (define (derivations-of keyword form)
-      (if (or (string=? keyword "struct") (string=? keyword "enum"))
-          (result-let* ((identity (identity-checked keyword form)))
-            (map-results (lambda (class) (refused (derivation class))) (derived-classes form)))
-          (Ok (Nil))))
-
-    (: identity-checked (impl (Fn String Marked -> (Result Bool (List Feedback)))))
-    (define (identity-checked keyword form)
-      (if (string=? keyword "struct")
-          (result-let* ((fields (refused (struct-fields form)))
-                        (parsed (map-results (lambda (field) (refused (field-form field))) fields)))
-            (if (and (any? (lambda (class) (not (move? class))) (derived-classes form))
-                     (any? ::mutable? parsed))
-                (fail (marked-loc form)
-                      "a struct with a mutable field has identity, so it cannot derive an instance")
-                (Ok #t)))
-          (Ok #t)))
+    ;; The classes the deriving clauses name, each one `derive` knows. A
+    ;; struct with a mutable field has identity, so it derives nothing but
+    ;; Move.
+    (: derivations-of (impl (Fn Marked Bool -> (Result (List Derivation) (List Feedback)))))
+    (define (derivations-of form identity?)
+      (if (and identity? (any? (lambda (class) (not (move? class))) (derived-classes form)))
+          (fail (marked-loc form)
+                "a struct with a mutable field has identity, so it cannot derive an instance")
+          (map-results (lambda (class) (refused (derivation class))) (derived-classes form))))
 
     (: move? (impl (Fn Marked -> Bool)))
     (define (move? class)
@@ -462,39 +576,58 @@
 
     ;; An alias's body resolves at this top level, where it is used.
     (: scan-alias
-       (impl (Fn Scopes Marked (List Marked) Marked -> (Result Scopes (List Feedback)))))
-    (define (scan-alias scopes head rest form)
+       (impl (Fn Scopes Marked (List Marked) Marked (List Annotation)
+                 -> (Result Scan (List Feedback)))))
+    (define (scan-alias scopes head rest form annotations)
       (result-let* ((name (refused (declared-name head)))
                     (body (refused (alias-body rest form)))
-                    (params (refused (declared-params head))))
-        (bind scopes
-              (::identifier name)
-              (::loc name)
-              (TypeAlias (top-global scopes (::identifier name))
-                         (map ::identifier params)
-                         body
-                         (::library scopes)))))
+                    (params (refused (declared-params head)))
+                    (bound (bind scopes
+                                 (::identifier name)
+                                 (::loc name)
+                                 (TypeAlias (top-global scopes (::identifier name))
+                                            (map ::identifier params)
+                                            body
+                                            (::library scopes)))))
+        (item-found (PendingAlias (Head name params annotations (marked-loc form))) bound)))
 
-    ;; A class binds its name, each method, and each associated output as
-    ;; `Class.Output`, once its parameters and outputs are found distinct.
-    (: scan-class (impl (Fn Scopes Marked (List Marked) -> (Result Scopes (List Feedback)))))
-    (define (scan-class scopes head members)
+    ;; A class binds its name, then each member in order, a method as a
+    ;; value and an associated output as `Class.Output`, once its
+    ;; parameters and outputs are found distinct. Its outputs are taken
+    ;; apart before its parameters, its methods where they are bound.
+    (: scan-class
+       (impl (Fn Scopes Marked (List Marked) Marked (List Annotation)
+                 -> (Result Scan (List Feedback)))))
+    (define (scan-class scopes head members form annotations)
       (result-let* ((name (refused (declared-name head)))
-                    (outputs (map-results (lambda (member) (refused (associated-name member)))
-                                          (filter associated-form? members)))
+                    (written (map-results (lambda (member) (written-member member)) members))
                     (params (refused (declared-params head)))
                     (bound (bind scopes
                                  (::identifier name)
                                  (::loc name)
                                  (ClassName (top-global scopes (::identifier name)))))
-                    (distinct (distinct-parameters (append params outputs) (marked-loc head))))
-        (let loop ((scopes bound)
-                   (members members))
-          (match members
-            ((Nil) (Ok scopes))
-            ((Cons member rest)
-             (result-let* ((with-member (scan-member scopes name member)))
-               (loop with-member rest)))))))
+                    (distinct (distinct-parameters (append params (output-names written))
+                                                   (marked-loc head)))
+                    (scanned (scan-members bound name written)))
+        (item-found
+         (PendingClass (Head name params annotations (marked-loc form)) (::second scanned))
+         (::first scanned))))
+
+    ;; A member, with its output when it is one.
+    (: written-member
+       (impl (Fn Marked -> (Result (Pair Marked (Option OutputForm)) (List Feedback)))))
+    (define (written-member member)
+      (if (associated-form? member)
+          (result-let* ((output (refused (output-form member))))
+            (Ok (Pair member (Some output))))
+          (Ok (Pair member (None)))))
+
+    (: output-names (impl (Fn (List (Pair Marked (Option OutputForm))) -> (List Named))))
+    (define (output-names written)
+      (match written
+        ((Nil) (Nil))
+        ((Cons (Pair _ (Some output)) rest) (Cons (::name output) (output-names rest)))
+        ((Cons _ rest) (output-names rest))))
 
     (: distinct-parameters (impl (Fn (List Named) Loc -> (Result Bool (List Feedback)))))
     (define (distinct-parameters names loc)
@@ -503,49 +636,80 @@
             (Ok #t)
             (fail loc "class parameters and associated types must be distinct"))))
 
-    ;; A member's annotation list is split off, and what it annotates
-    ;; named, before the member is looked at.
-    (: scan-member (impl (Fn Scopes Named Marked -> (Result Scopes (List Feedback)))))
-    (define (scan-member scopes class member)
-      (let ((associated? (associated-form? member)))
-        (result-let* ((split (refused (split-annotations member (if associated? 2 3))))
-                      (owner (if associated?
-                                 (refused (associated-name (::form split)))
-                                 (result-let* ((head (refused (declaration-head (::form split)))))
-                                   (refused (declared-name head))))))
-          (if associated?
-              (bind scopes
-                    (suffixed (::identifier class)
-                              (string-append "." (::name (::identifier owner))))
-                    (marked-loc (::form split))
-                    (Associated (top-global scopes (::identifier class))
-                                (::name (::identifier owner))))
-              (match (method-form (::form split))
-                ((Some (Pair method _))
-                 (result-let* ((name (refused (named method "a name"))))
-                   (bind-value scopes name)))
-                ((None)
-                 (fail (marked-loc (::form split))
-                       "expected (: method type) or (type Output)")))))))
+    (: scan-members
+       (impl (Fn Scopes Named (List (Pair Marked (Option OutputForm)))
+                 -> (Result (Pair Scopes (List ScannedMember)) (List Feedback)))))
+    (define (scan-members scopes class written)
+      (let loop ((scopes scopes)
+                 (written written)
+                 (scanned (Nil)))
+        (match written
+          ((Nil) (Ok (Pair scopes (reverse scanned))))
+          ((Cons (Pair member output) rest)
+           (result-let* ((next (scan-member scopes class member output)))
+             (loop (::first next) rest (Cons (::second next) scanned)))))))
 
+    (: scan-member
+       (impl (Fn Scopes Named Marked (Option OutputForm)
+                 -> (Result (Pair Scopes ScannedMember) (List Feedback)))))
+    (define (scan-member scopes class member output)
+      (match output
+        ((Some form)
+         (result-let* ((bound (bind scopes
+                                    (suffixed (::identifier class)
+                                              (string-append "."
+                                                             (::name (::identifier (::name form)))))
+                                    (::loc form)
+                                    (Associated (top-global scopes (::identifier class))
+                                                (::name (::identifier (::name form)))))))
+           (Ok (Pair bound (ScannedOutput form)))))
+        ((None)
+         (result-let* ((method (refused (method-form member)))
+                       (bound (bind-value scopes (::name method))))
+           (Ok (Pair bound (ScannedMethod method)))))))
+
+    ;; An effect binds its name, then each operation in order. Its clauses
+    ;; are checked with the declarations.
     (: scan-effect
-       (impl (Fn Scopes Marked (List Marked) Marked -> (Result Scopes (List Feedback)))))
-    (define (scan-effect scopes head rest form)
+       (impl (Fn Scopes Marked (List Marked) Marked (List Annotation)
+                 -> (Result Scan (List Feedback)))))
+    (define (scan-effect scopes head rest form annotations)
       (result-let* ((name (refused (named head "an effect name")))
                     (bound (bind scopes
                                  (::identifier name)
                                  (::loc name)
                                  (EffectName (top-global scopes (::identifier name)))))
-                    (operations (refused (effect-operations rest form))))
-        (let loop ((scopes bound)
-                   (operations operations))
-          (match operations
-            ((Nil) (Ok scopes))
-            ((Cons operation more)
-             (result-let* ((parts (refused (operation-form operation)))
-                           (operation-name (refused (named (::name parts) "a name")))
-                           (with-operation (bind-value scopes operation-name)))
-               (loop with-operation more)))))))
+                    (parts (refused (effect-form rest form)))
+                    (operations (scan-operations bound (::operations parts))))
+        (item-found (PendingEffect (Head name (Nil) annotations (marked-loc form))
+                                   (::second operations)
+                                   (effect-clauses (::clauses parts)))
+                    (::first operations))))
+
+    (: scan-operations
+       (impl (Fn Scopes (List Marked)
+                 -> (Result (Pair Scopes (List OperationForm)) (List Feedback)))))
+    (define (scan-operations scopes operations)
+      (let loop ((scopes scopes)
+                 (operations operations)
+                 (scanned (Nil)))
+        (match operations
+          ((Nil) (Ok (Pair scopes (reverse scanned))))
+          ((Cons operation more)
+           (result-let* ((parts (refused (operation-form operation)))
+                         (bound (bind-value scopes (::name parts))))
+             (loop bound more (Cons parts scanned)))))))
+
+    ;; An extern binds its name; what follows it is checked with the
+    ;; declarations.
+    (: scan-extern
+       (impl (Fn Scopes Marked Marked (List Annotation) -> (Result Scan (List Feedback)))))
+    (define (scan-extern scopes head form annotations)
+      (result-let* ((name (refused (named head "a name")))
+                    (bound (bind-value scopes name)))
+        (item-found
+         (PendingExtern (Head name (Nil) annotations (marked-loc form)) (extern-form form))
+         bound)))
 
     )
 
@@ -564,7 +728,8 @@
       (define (test-scan)
         (test-binding)
         (test-declarations)
-        (test-order))
+        (test-order)
+        (test-items))
 
       (define main (list "main"))
 
@@ -671,11 +836,30 @@
           ((Ok scan)
            (expect (map (lambda (item)
                           (match item
-                            ((Pending keyword _ _) keyword)
+                            ((PendingDefinition _ _ _) "define")
+                            ((PendingSignature _ _ _) ":")
+                            ((PendingStatement _) "statement")
                             ((PendingScope _ items _)
                              (string-append "scope " (i64->string (length items))))
-                            ((PendingSet _ _ _) "set")))
+                            (_ "other")))
                         (::items scan))
                    (list "define" "scope 1" ":")))
+          ((Err feedback) (expect feedback (list)))))
+
+      ;; Each item holds its shape, and a shape checked after the scan
+      ;; waits in it, malformed.
+      (define (test-items)
+        (match (scanned main '((struct P
+                                 ((x I64))) (instance Show) (effect E () (bad))))
+          ((Ok scan)
+           (match (::items scan)
+             ((Cons (PendingStruct head (Cons field (Nil)) _)
+                    (Cons (PendingInstance shape) (Cons (PendingEffect _ (Nil) clauses) (Nil))))
+              (expect (::name head) (Named (Identifier "P" (Nil)) loc))
+              (expect (::label field) (Named (Identifier "x" (Nil)) loc))
+              (expect shape
+                      (Err (Malformed loc "expected (instance (Class type ...) definition ...)")))
+              (expect clauses (Err (Malformed loc "expected a default clause or (around-main)"))))
+             (other (expect other "a struct, an instance and an effect"))))
           ((Err feedback) (expect feedback (list)))))))
    (else)))

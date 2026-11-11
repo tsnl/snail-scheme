@@ -29,18 +29,17 @@
    derivation
    alias-body
    associated-form?
-   associated-name
+   OutputForm
+   output-form
+   MethodForm
    method-form
-   effect-operations
-   OperationForm
-   operation-form
    EffectForm
    effect-form
-   default-clauses
-   around-main?
-   default-entries
+   OperationForm
+   operation-form
+   EffectClauses
+   effect-clauses
    DefaultForm
-   default-entry
    InstanceForm
    instance-form
    InstanceMembers
@@ -324,39 +323,74 @@
     (define (associated-form? form)
       (headed? "type" form))
 
-    (: associated-name (impl (Fn Marked -> (Result Named Malformed))))
-    (define (associated-name form)
-      (result-let* ((split (split-annotations form 2)))
+    ;; `(type Output)`, optionally with an annotation list: its name, and
+    ;; where it is.
+    (struct OutputForm
+      ((name Named)
+       (annotations (List Annotation))
+       (loc Loc)))
+
+    (: output-form (impl (Fn Marked -> (Result OutputForm Malformed))))
+    (define (output-form member)
+      (result-let* ((split (split-annotations member 2)))
         (match (::form split)
-          ((Form (Cons _ (Cons (Ident identifier loc) (Nil))) _) (Ok (Named identifier loc)))
+          ((Form (Cons _ (Cons (Ident identifier loc) (Nil))) _)
+           (Ok
+            (OutputForm (Named identifier loc) (::annotations split) (marked-loc (::form split)))))
           (_
-           (Err (Malformed (marked-loc form)
+           (Err (Malformed (marked-loc member)
                            "expected (type Output); associated types take no parameters"))))))
 
-    ;; A class's `(: method type)` member: its name and its type.
-    (: method-form (impl (Fn Marked -> (Option (Pair Marked Marked)))))
-    (define (method-form form)
-      (match form
-        ((Form (Cons colon (Cons method (Cons type (Nil)))) _)
-         (if (word? ":" colon) (Some (Pair method type)) (None)))
-        (_ (None))))
+    ;; A class's `(: method type)` member, optionally with an annotation
+    ;; list. What it annotates is named before its shape is looked at, and
+    ;; its method's name last.
+    (struct MethodForm
+      ((name Named)
+       (type Marked)
+       (annotations (List Annotation))
+       (loc Loc)))
+
+    (: method-form (impl (Fn Marked -> (Result MethodForm Malformed))))
+    (define (method-form member)
+      (result-let* ((split (split-annotations member 3))
+                    (head (declaration-head (::form split)))
+                    (owner (declared-name head)))
+        (match (::form split)
+          ((Form (Cons colon (Cons method (Cons type (Nil)))) _)
+           (if (word? ":" colon)
+               (result-let* ((name (named method "a name")))
+                 (Ok (MethodForm name type (::annotations split) (marked-loc member))))
+               (Err (not-a-member (::form split)))))
+          (_ (Err (not-a-member (::form split)))))))
+
+    (: not-a-member (impl (Fn Marked -> Malformed)))
+    (define (not-a-member form)
+      (Malformed (marked-loc form) "expected (: method type) or (type Output)"))
 
     ;; ---- Effects ----
 
-    ;; The operations of `(effect Name ((operation type) ...) clause ...)`.
-    (: effect-operations (impl (Fn (List Marked) Marked -> (Result (List Marked) Malformed))))
-    (define (effect-operations rest form)
+    ;; What `(effect Name ((operation type) ...) clause ...)` holds after
+    ;; its name, `rest`: its operations, and the clauses after them.
+    (struct EffectForm
+      ((operations (List Marked))
+       (clauses (List Marked))))
+
+    (: effect-form (impl (Fn (List Marked) Marked -> (Result EffectForm Malformed))))
+    (define (effect-form rest form)
       (match rest
-        ((Cons operations _) (items-of operations "a list of operations"))
+        ((Cons operations clauses)
+         (result-let* ((items (items-of operations "a list of operations")))
+           (Ok (EffectForm items clauses))))
         (_ (Err (Malformed (marked-loc form) "expected (effect Name ((operation type) ...))")))))
 
     ;; `(name type)`, or `(ctl name type)` for a control operation,
-    ;; optionally with an annotation list.
+    ;; optionally with an annotation list; its shape, then its name.
     (struct OperationForm
-      ((name Marked)
+      ((name Named)
        (type Marked)
        (control? Bool)
-       (annotations (List Annotation))))
+       (annotations (List Annotation))
+       (loc Loc)))
 
     (: operation-form (impl (Fn Marked -> (Result OperationForm Malformed))))
     (define (operation-form operation)
@@ -364,28 +398,35 @@
         (match (::form split)
           ((Form (Cons ctl (Cons name (Cons type (Nil)))) _)
            (if (word? "ctl" ctl)
-               (Ok (OperationForm name type #t (::annotations split)))
+               (named-operation operation name type #t (::annotations split))
                (Err (malformed-operation operation))))
           ((Form (Cons name (Cons type (Nil))) _)
-           (Ok (OperationForm name type #f (::annotations split))))
+           (named-operation operation name type #f (::annotations split)))
           (_ (Err (malformed-operation operation))))))
+
+    (: named-operation
+       (impl (Fn Marked Marked Marked Bool (List Annotation) -> (Result OperationForm Malformed))))
+    (define (named-operation operation name type control? annotations)
+      (result-let* ((operation-name (named name "a name")))
+        (Ok (OperationForm operation-name type control? annotations (marked-loc operation)))))
 
     (: malformed-operation (impl (Fn Marked -> Malformed)))
     (define (malformed-operation operation)
       (Malformed (marked-loc operation) "expected (operation type) or (ctl operation type)"))
 
-    ;; An effect's name, operations and the clauses after them.
-    (struct EffectForm
-      ((name Marked)
-       (operations Marked)
-       (clauses (List Marked))))
+    ;; What an effect's clauses say: every clause is `default` or
+    ;; `(around-main)`, then each default's entries are taken apart, in
+    ;; the order written.
+    (struct EffectClauses
+      ((defaults (List DefaultForm))
+       (around-main? Bool)))
 
-    (: effect-form (impl (Fn Marked -> (Result EffectForm Malformed))))
-    (define (effect-form form)
-      (match form
-        ((Form (Cons _ (Cons name (Cons operations clauses))) _)
-         (Ok (EffectForm name operations clauses)))
-        (_ (Err (Malformed (marked-loc form) "expected (effect Name ((operation type) ...))")))))
+    (: effect-clauses (impl (Fn (List Marked) -> (Result EffectClauses Malformed))))
+    (define (effect-clauses clauses)
+      (result-let* ((defaults (default-clauses clauses))
+                    (entries (clause-entries defaults))
+                    (forms (default-forms entries)))
+        (Ok (EffectClauses forms (around-main? clauses)))))
 
     ;; The `default` clauses, once every clause is found to be one or
     ;; `(around-main)`.
@@ -420,6 +461,16 @@
          (Err
           (Malformed (marked-loc clause) "expected (default ((operation implementation) ...))")))))
 
+    ;; Every entry of every default clause, in order.
+    (: clause-entries (impl (Fn (List Marked) -> (Result (List Marked) Malformed))))
+    (define (clause-entries clauses)
+      (match clauses
+        ((Nil) (Ok (Nil)))
+        ((Cons clause rest)
+         (result-let* ((entries (default-entries clause))
+                       (more (clause-entries rest)))
+           (Ok (append entries more))))))
+
     ;; `(operation implementation)`, whose operation is a name.
     (struct DefaultForm
       ((name Named)
@@ -433,6 +484,15 @@
          (result-let* ((operation (named name "an operation name")))
            (Ok (DefaultForm operation value loc))))
         (_ (Err (Malformed (marked-loc entry) "expected (operation implementation)")))))
+
+    (: default-forms (impl (Fn (List Marked) -> (Result (List DefaultForm) Malformed))))
+    (define (default-forms entries)
+      (match entries
+        ((Nil) (Ok (Nil)))
+        ((Cons entry rest)
+         (result-let* ((first (default-entry entry))
+                       (more (default-forms rest)))
+           (Ok (Cons first more))))))
 
     ;; ---- Instances ----
 
@@ -503,9 +563,10 @@
 
     ;; ---- Externs, exposes and primitives ----
 
+    ;; `(extern name "module" "symbol" type)`: what follows its name,
+    ;; which is checked where it is bound.
     (struct ExternForm
-      ((name Marked)
-       (module String)
+      ((module String)
        (symbol String)
        (type Marked)))
 
@@ -513,18 +574,19 @@
     (define (extern-form form)
       (match form
         ((Form (Cons _
-                     (Cons name
+                     (Cons _
                            (Cons (Atom (syntax-Text module) _)
                                  (Cons (Atom (syntax-Text symbol) _) (Cons type (Nil))))))
                _)
-         (Ok (ExternForm name module symbol type)))
+         (Ok (ExternForm module symbol type)))
         (_
          (Err (Malformed (marked-loc form) "expected (extern name \"module\" \"symbol\" type)")))))
 
-    ;; `(expose name "symbol")` or `(expose name "symbol" dynamic)`; the
-    ;; flags are checked once the name is resolved.
+    ;; `(expose name "symbol")` or `(expose name "symbol" dynamic)`: its
+    ;; shape, then its name; the flags are checked once the name is
+    ;; resolved.
     (struct ExposeForm
-      ((name Marked)
+      ((name Named)
        (symbol String)
        (flags (List Marked))
        (loc Loc)))
@@ -533,7 +595,8 @@
     (define (expose-form form)
       (match form
         ((Form (Cons _ (Cons name (Cons (Atom (syntax-Text symbol) _) flags))) loc)
-         (Ok (ExposeForm name symbol flags loc)))
+         (result-let* ((exposed (named name "a function name")))
+           (Ok (ExposeForm exposed symbol flags loc))))
         (_ (Err (Malformed (marked-loc form) expose-usage)))))
 
     (: dynamic-flag (impl (Fn ExposeForm -> (Result Bool Malformed))))
@@ -694,24 +757,37 @@
         (expect (derivation (marked 'Show))
                 (refused "only Move, Serialize and Deserialize can be derived"))
         (expect (alias-body (list) (marked '(type T))) (refused "expected (type Name type)"))
-        (expect (associated-name (marked '(type Output))) (Ok (plain "Output")))
-        (expect (associated-name (marked '(type (Output a))))
+        (expect (output-form (marked '(type Output (annotations (doc "o")))))
+                (Ok (OutputForm (plain "Output") (list (Documentation "o" loc)) loc)))
+        (expect (output-form (marked '(type (Output a))))
                 (refused "expected (type Output); associated types take no parameters"))
         (expect (method-form (marked '(: show (Fn a -> String))))
-                (Some (Pair (marked 'show) (marked '(Fn a -> String)))))
-        (expect (method-form (marked '(define x 1))) (None)))
+                (Ok (MethodForm (plain "show") (marked '(Fn a -> String)) (list) loc)))
+        (expect (method-form (marked '(define x 1)))
+                (refused "expected (: method type) or (type Output)"))
+        (expect (method-form (marked '(: 1 T))) (refused "expected a type name"))
+        (expect (method-form (marked '(: (show a) T))) (refused "expected a name")))
 
       (define (test-effects)
-        (expect (effect-operations (list) (marked '(effect E)))
+        (expect (effect-form (list) (marked '(effect E)))
                 (refused "expected (effect Name ((operation type) ...))"))
-        (expect (effect-operations (list (marked 'x)) (marked '(effect E x)))
+        (expect (effect-form (list (marked 'x)) (marked '(effect E x)))
                 (refused "expected a list of operations"))
+        (expect (effect-form (map marked '(((read T)) (around-main))) (marked '(effect E)))
+                (Ok (EffectForm (list (marked '(read T))) (list (marked '(around-main))))))
         (expect (operation-form (marked '(ctl yield (Fn -> Unit))))
-                (Ok (OperationForm (marked 'yield) (marked '(Fn -> Unit)) #t (list))))
+                (Ok (OperationForm (plain "yield") (marked '(Fn -> Unit)) #t (list) loc)))
         (expect (operation-form (marked '(read T)))
-                (Ok (OperationForm (marked 'read) (marked 'T) #f (list))))
+                (Ok (OperationForm (plain "read") (marked 'T) #f (list) loc)))
         (expect (operation-form (marked '(read)))
                 (refused "expected (operation type) or (ctl operation type)"))
+        (expect (operation-form (marked '(1 T))) (refused "expected a name"))
+        (expect (effect-clauses (map marked '((default ((read f))) (around-main))))
+                (Ok (EffectClauses (list (DefaultForm (plain "read") (marked 'f) loc)) #t)))
+        (expect (effect-clauses (map marked '((default x) (around-main x))))
+                (refused "expected a default clause or (around-main)"))
+        (expect (effect-clauses (map marked '((default ((1 f))) (default x))))
+                (refused "expected (default ((operation implementation) ...))"))
         (expect (default-clauses (map marked '((default ()) (around-main) (default ((a b))))))
                 (Ok (map marked '((default ()) (default ((a b)))))))
         (expect (default-clauses (map marked '((around-main x))))
@@ -743,15 +819,17 @@
         (expect (pair-types (marked 'x)) (refused "expected a pair of concrete types")))
 
       (define (test-others)
-        (expect (extern-form (marked '(extern f "m" "s" T)))
-                (Ok (ExternForm (marked 'f) "m" "s" (marked 'T))))
+        (expect (extern-form (marked '(extern f "m" "s" T))) (Ok (ExternForm "m" "s" (marked 'T))))
         (expect (extern-form (marked '(extern f m "s" T)))
                 (refused "expected (extern name \"module\" \"symbol\" type)"))
-        (let ((form (ExposeForm (marked 'f) "f" (list (marked 'static)) loc)))
+        (expect (expose-form (marked '(expose f "f")))
+                (Ok (ExposeForm (plain "f") "f" (list) loc)))
+        (expect (expose-form (marked '(expose 1 "f"))) (refused "expected a function name"))
+        (let ((form (ExposeForm (plain "f") "f" (list (marked 'static)) loc)))
           (expect (dynamic-flag form)
                   (refused
                    "expected (expose name \"symbol\") or (expose name \"symbol\" dynamic)")))
-        (expect (dynamic-flag (ExposeForm (marked 'f) "f" (list (marked 'dynamic)) loc)) (Ok #t))
+        (expect (dynamic-flag (ExposeForm (plain "f") "f" (list (marked 'dynamic)) loc)) (Ok #t))
         (expect (primitive-form (marked '(primitive 1 T))) (refused "expected a primitive name"))
         (expect (primitive-form (marked '(primitive f))) (refused "expected (primitive name type)"))
         (expect (with-instances-form (marked '(with-instances x)))
