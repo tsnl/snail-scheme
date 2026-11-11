@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-compiler test-wasmtime test-chibi test-browser bootstrap ide site siegework hearsay pages
+.PHONY: format check fetch test test-compiler compare-compiler test-wasmtime test-chibi test-browser bootstrap ide site siegework hearsay pages
 
 CHIBI ?= chibi-scheme
 # Chibi collects the whole heap whenever it grows, so start it large.
@@ -33,6 +33,11 @@ test-compiler:
 	./scripts/chibi-paths --check
 	CHIBI="$(CHIBI)" ./scripts/compiler-imports --check
 	"$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/compiler.scm "$(CURDIR)"
+
+# The comparisons with the old compiler that load or expand whole programs,
+# compiled, since on Chibi they would take many minutes.
+compare-compiler:
+	./scripts/snail-tool run tests/compare-compiler.sld
 
 # The suite with every compile on the native executable's wasmtime instead of
 # Node, plus the check that both engines emit the same text.

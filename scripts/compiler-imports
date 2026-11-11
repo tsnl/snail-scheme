@@ -12,7 +12,7 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 ;; section are exempt. A library is known by its name:
 ;;
 ;;   (snail compiler source)          what every pass shares
-;;   (snail compiler integrate)       the integrator
+;;   (snail compiler integrate ...)   the integrator, one library per job
 ;;   (snail compiler adapter ...)     the bridge to the old compiler
 ;;   (snail compiler PASS language)   a pass's language
 ;;   (snail compiler PASS pass)       a pass
@@ -79,7 +79,7 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 ;; not name, and (other) for anything else.
 (define (library-kind root name)
   (cond ((equal? name '(snail compiler source)) '(source))
-        ((equal? name '(snail compiler integrate)) '(integrator))
+        ((prefix? '(snail compiler integrate) name) '(integrator))
         ((prefix? '(snail compiler adapter) name) '(adapter))
         ((prefix? '(snail compiler) name) (pass-library-kind root name))
         ((and (prefix? '(snail core) name) (= (length name) 3)) (list 'core (caddr name)))
@@ -153,16 +153,16 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 
 (define (integrator-refusal imported)
   (case (car imported)
-    ((source language pass query) #f)
+    ((source language pass query integrator) #f)
     ((core) (unless-allowed (member (cadr imported) '(base table io))
                             "the integrator imports only (snail core base), (snail core table) and (snail core io) of the core"))
-    (else "the integrator imports only the core, passes, languages and queries")))
+    (else "the integrator imports only the core, passes, languages, queries and itself")))
 
 ;; The adapter knows both compilers, and compares them on files, which it
 ;; reads and writes as the old functions it calls do.
 (define (adapter-refusal imported)
   (case (car imported)
-    ((source language pass query rule adapter old core) #f)
+    ((source language pass query rule adapter old core integrator) #f)
     (else "the adapter imports only the core, the new tree and the old compiler")))
 
 ;; Only the integrator imports (snail core io).

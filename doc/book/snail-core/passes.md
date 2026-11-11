@@ -58,7 +58,10 @@ module: a whole program, or one library in a development build.
   not thread a pass's state and does not report failure.
 - The **integrator** is the one place that calls passes. It finds and reads
   files, orders libraries, and runs the loops. Its libraries live in
-  `integrate/`, and they are the only ones whose functions perform `fs`.
+  `integrate/`, and they are the only libraries of the compiler whose
+  functions perform `fs`. What it decides, such as the order libraries load
+  in, it decides without the file system, so it can be tested with literal
+  values.
 
 Passes are not strictly a chain: a pass may read more than one earlier
 language, as `expand` reads Outline and the Syntax inside it. A pass that
@@ -80,7 +83,10 @@ src/snail/compiler/
     language.sld
     pass.sld
   ...
-  integrate/              the integrator: one library per job, such as loading
+  integrate/              the integrator: one library per job
+    files.sld             (snail compiler integrate files): every read of the file system
+    walk.sld              (snail compiler integrate walk): what to load next, and in what order
+    load.sld              (snail compiler integrate load): a program and the libraries it reaches
 ```
 
 Each pass is a folder. `language.sld` holds the language the pass writes:
@@ -157,8 +163,10 @@ with literal arguments.
 with a `Tests` section under the `snail-tests` feature, exporting one
 `test-<name>` entry point. A test constructs values of the input language
 directly and compares the output with `expect`. It reads no file and calls no
-other pass. `make test-compiler` runs these tests alone and, while the old
-compiler exists, the comparisons with it.
+other pass; only the integrator's tests write and read files, in a directory
+the runner supplies. `make test-compiler` runs these tests alone and, while the
+old compiler exists, the comparisons with it. The comparisons that load or
+expand whole programs are compiled instead, by `make compare-compiler`.
 
 **Stage 0 runs it.** The new tree is reached by Chibi through
 `bootstrap/chibi-include/`, so it uses only what both hosts agree on:
