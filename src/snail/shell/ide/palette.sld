@@ -2,13 +2,13 @@
 ;; input and result transitions do not know the IDE model. Only completed choices
 ;; cross back to the application, which owns buffers, panes and navigation.
 (define-library (snail shell ide palette)
-  (export State initial visible? cancel
+  (export State initial visible? finding? cancel
           Context Entry Mode Commands Files Searching Creating Creation
           Search SearchPhase Debouncing Fetching Finished
-          Message Idle Query KeyPressed Pick Dismiss Reconnected
+          Message Idle Query KeyPressed Pick FindNext Dismiss Reconnected
           Command CommandResult
           Outcome InvokeNamed OpenPath OpenSavedHit SelectDraftHit CreatedPath Dismissed
-          Step open update reconcile view)
+          Step open update reconcile view find-view current-match)
   (import
    (snail core base)
    (only (snail shell text) string-downcase)
@@ -71,7 +71,8 @@
       (OpenPath ((path String)))
       (OpenSavedHit ((hit Hit)))
       (SelectDraftHit ((draft search-Draft)
-                       (hit Occurrence)))
+                       (hit Occurrence)
+                       (length I64)))
       (CreatedPath ((path String)
                     (directory Bool)))
       (Dismissed))
@@ -87,6 +88,7 @@
                    (modifiers I32)))
       (Pick ((generation I64)
              (action Action)))
+      (FindNext ((backwards Bool)))
       (Dismiss)
       (Reconnected))
 
@@ -107,6 +109,16 @@
     (define (visible? state)
       (match (::panel state) ((Some _) #t) ((None) #f)))
 
+    (: finding? (-> State Bool))
+    (define (finding? state)
+      (match (::panel state)
+        ((Some panel) (find-mode? (::mode panel)))
+        ((None) #f)))
+
+    (: find-mode? (-> Mode Bool))
+    (define (find-mode? mode)
+      (match mode ((Searching (Search (search-CurrentDraft _) _)) #t) (_ #f)))
+
     (: cancel (-> State State))
     (define (cancel state)
       (State (+ 1 (::generation state)) (None)))
@@ -120,12 +132,13 @@
 
     (: open (-> State Mode Step))
     (define (open state mode)
-      (Step (State (+ 1 (::generation state)) (Some (Panel mode "" 0))) (None)
-            (list (Command (once (lambda ()
-                                   (match (element-by-id "command-query")
-                                     ((Some field) (focus-node field))
-                                     ((None) (unit)))
-                                   stay)) stay))))
+      (Step (if (and (finding? state) (find-mode? mode)) state
+                (State (+ 1 (::generation state)) (Some (Panel mode "" 0)))) (None)
+                (list (Command (once (lambda ()
+                                       (match (element-by-id "command-query")
+                                         ((Some field) (focus-node field))
+                                         ((None) (unit)))
+                                       stay)) stay))))
 
     ;; ---- Updates ----
 
@@ -135,6 +148,7 @@
         ((Idle) (stay state))
         ((Query text) (queried state text))
         ((KeyPressed key modifiers) (pressed state context key modifiers))
+        ((FindNext backwards) (find-next state context backwards))
         ((Pick generation action)
          (if (and (= generation (::generation state)) (visible? state))
              (match action
@@ -177,7 +191,7 @@
          (if (creation-pending? panel) (stay state)
              (let* ((generation (+ 1 (::generation state)))
                     (mode (reset-mode (::mode panel)))
-                    (next (State generation (Some (Panel mode text 0)))))
+                    (next (State generation (Some (Panel mode text (if (finding? state) -1 0))))))
                (Step next (None)
                      (if (and (searching? mode) (not (string=? text "")))
                          (list (Command (once (lambda ()
@@ -215,6 +229,10 @@
         ((Some panel)
          (let* ((options (choices context panel)) (count (length options)))
            (cond ((string=? key "Escape") (selected state (Dismissed)))
+                 ((and (finding? state) (or (string=? key "Enter")
+                                            (string=? key "ArrowUp")
+                                            (string=? key "ArrowDown")))
+                  (find-next state context (or (string=? key "ArrowUp") (= modifiers shift-key))))
                  ((and (string=? key "Enter") (> count 0))
                   (update state context
                           (Pick (::generation state)
@@ -225,6 +243,32 @@
                   (let* ((back (or (string=? key "ArrowUp") (= modifiers shift-key)))
                          (at (max 0 (min (- count 1) (+ (::selected panel) (if back -1 1))))))
                     (stay (State-panel-set state (Some (Panel-selected-set panel at)))))))))))
+
+    ;; Local find keeps its input and results while navigation reveals a match.
+    (: find-next (-> State Context Bool Step))
+    (define (find-next state context backwards)
+      (match (::panel state)
+        ((Some panel)
+         (let* ((options (choices context panel)) (count (length options))
+                (at (+ (::selected panel) (if backwards -1 1)))
+                (at (cond ((< at 0) (- count 1)) ((>= at count) 0) (else at))))
+           (if (or (not (finding? state)) (= count 0)) (stay state)
+               (match (::action (list-ref options at))
+                 ((Choose outcome)
+                  (Step (State (+ 1 (::generation state)) (Some (Panel-selected-set panel at)))
+                        (Some outcome) (Nil)))
+                 (_ (stay state))))))
+        ((None) (stay state))))
+
+    (: current-match (-> State (Option Outcome)))
+    (define (current-match state)
+      (match (::panel state)
+        ((Some panel)
+         (let ((options (choices (Context (Nil) (Nil)) panel)) (at (::selected panel)))
+           (if (and (finding? state) (>= at 0) (< at (length options)))
+               (match (::action (list-ref options at)) ((Choose outcome) (Some outcome)) (_ (None)))
+               (None))))
+        ((None) (None))))
 
     ;; ---- Search and creation tasks ----
 
@@ -338,15 +382,16 @@
                (list
                 (Choice (string-append (if directory "Create directory: " "Create file: ") query)
                         "Enter" (Create)))))
-          ((Searching (Search _ (Finished (Ok results)))) (search-choices results))
+          ((Searching (Search _ (Finished (Ok results))))
+           (search-choices results (string-length query)))
           ((Searching _) (Nil)))))
 
     (: location (-> String I64 I64 String))
     (define (location path line column)
       (string-append path ":" (show line) ":" (show column)))
 
-    (: search-choices (-> search-Results (List Choice)))
-    (define (search-choices results)
+    (: search-choices (-> search-Results I64 (List Choice)))
+    (define (search-choices results size)
       (match results
         ((search-SavedResults results)
          (map (lambda (hit)
@@ -358,9 +403,71 @@
          (map (lambda (hit)
                 (Choice
                  (location (::path draft) (::line hit) (::column hit))
-                 (::snippet hit) (Choose (SelectDraftHit draft hit)))) hits))))
+                 (::snippet hit) (Choose (SelectDraftHit draft hit size)))) hits))))
 
     ;; ---- View ----
+
+    (: find-view (-> State Context (List (Html Message))))
+    (define (find-view state context)
+      (match (::panel state)
+        ((Some panel)
+         (let ((count (length (choices context panel))))
+           (list (Element "section"
+                          (list (Attr "id" "find-widget") (Attr "class" "find-widget")
+                                (Attr "role" "search") (Attr "aria-label" "Find in current file")
+                                (On "keydown" (list (Key)) (Chords find-chords)
+                                    (lambda (event)
+                                      (KeyPressed (::key event) (::modifiers event)))))
+                          (list (find-input panel)
+                                (Element "span"
+                                         (list (Attr "id" "find-count") (Attr "role" "status"))
+                                         (list (Text (find-status panel count))))
+                                (find-button "Previous match (Shift+Enter)"
+                                             "↑"
+                                             (= count 0)
+                                             (FindNext #t))
+                                (find-button "Next match (Enter)" "↓" (= count 0) (FindNext #f))
+                                (find-button "Close find (Escape)" "×" #f (Dismiss)))))))
+        ((None) (Nil))))
+
+    (: find-input (-> Panel (Html Message)))
+    (define (find-input panel)
+      (Element "input"
+               (list (Attr "id" "command-query") (Attr "placeholder" "Find")
+                     (Attr "aria-label" "Find in current file")
+                     (Attr "aria-describedby" "find-count")
+                     (Attr "autocomplete" "off") (Attr "spellcheck" "false")
+                     (StringProperty "value" (::query panel))
+                     (On "input" (list (Value)) (Allow) (lambda (event) (Query (::value event)))))
+               (Nil)))
+
+    (: find-button (-> String String Bool Message (Html Message)))
+    (define (find-button title label disabled message)
+      (Element "button"
+               (list (Attr "title" title) (Attr "aria-label" title)
+                     (FlagProperty "disabled" disabled)
+                     (On "mousedown" (Nil) (Always) (lambda (event) (Idle)))
+                     (On "click" (Nil) (Allow) (lambda (event) message)))
+               (list (Text label))))
+
+    (: find-status (-> Panel I64 String))
+    (define (find-status panel count)
+      (if (string=? (::query panel) "") ""
+          (match (::mode panel)
+            ((Searching (Search _ (Finished (Ok results))))
+             (string-append (if (= count 0) "No matches"
+                                (if (< (::selected panel) 0) (string-append (show count) " matches")
+                                    (string-append (show (+ 1 (::selected panel)))
+                                                   " of "
+                                                   (show count))))
+                            (search-summary results)))
+            ((Searching (Search _ (Finished (Err failure)))) (::message failure))
+            (_ "Searching…"))))
+
+    (: find-chords (List Chord))
+    (define find-chords
+      (list (Chord "Enter" 0) (Chord "Enter" shift-key) (Chord "Escape" 0)
+            (Chord "ArrowUp" 0) (Chord "ArrowDown" 0)))
 
     (: view (-> State Context (List (Html Message))))
     (define (view state context)

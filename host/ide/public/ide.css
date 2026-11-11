@@ -82,6 +82,7 @@ button { font: inherit; color: inherit; }
 
 .marks { color: transparent; }
 .error-highlight { background: rgba(224, 108, 117, 0.24); }
+.find-highlight { background: #d19a6644; outline: 1px solid #d19a66; }
 .diagnostics button { display: block; width: 100%; border: 0; padding: 0; background: none; color: inherit; font: inherit; text-align: left; white-space: pre-wrap; cursor: pointer; }
 .diagnostics button:hover { text-decoration: underline; }
 
@@ -115,3 +116,15 @@ button { font: inherit; color: inherit; }
 .command-keys { overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .palette-help, .palette-empty { margin: 0; padding: 8px 14px; color: var(--muted); font-size: 11px; }
 .palette-help { border-top: 1px solid var(--line); }
+
+/* Current-file find belongs to the active pane and leaves the editor reachable. */
+.find-widget { position: absolute; top: 34px; right: 8px; z-index: 3; box-sizing: border-box;
+  display: flex; align-items: center; gap: 4px; width: min(430px, calc(100% - 16px)); padding: 6px;
+  border: 1px solid var(--line); border-radius: 4px; background: var(--surface); box-shadow: 0 4px 12px #0006; }
+.find-widget input { min-width: 36px; flex: 1; width: 0; padding: 4px 6px; border: 1px solid var(--line);
+  background: var(--background); color: var(--text); font: var(--code); }
+.find-widget input:focus { outline: 1px solid var(--accent); }
+#find-count { max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 11px; }
+.find-widget button { flex: 0 0 24px; height: 24px; padding: 0; border: 0; border-radius: 3px; background: none; cursor: pointer; }
+.find-widget button:hover { background: var(--raised); }
+.find-widget button:disabled { opacity: .4; cursor: default; }
