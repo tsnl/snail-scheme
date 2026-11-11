@@ -115,7 +115,7 @@
         (match (load-program (list directory) (in "main.sld"))
           ((Ok result)
            (match (::outline (list-ref (::files result) 1))
-             ((Defined _ _ _ (Cons (Atom (ByteVector bytes) _) (Nil)) _)
+             ((Written (Defined _ _ _ (Cons (Atom (ByteVector bytes) _) (Nil)) _))
               (expect bytes (list->vector (list 65 66))))
              (other (expect other "sample a with its bytes"))))
           ((Err feedback) (expect feedback "a loaded program")))

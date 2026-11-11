@@ -2,7 +2,7 @@
 ;; that has logic tests itself, with inputs built by hand. Given the
 ;; repository's root, it then compares the new passes with the old compiler
 ;; over every tracked library and the adapters' texts: the readers, the
-;; outlines, then loading's problems. `make test-compiler` runs it all;
+;; outlines, then loading's problems, then the offer of (snail core forms). `make test-compiler` runs it all;
 ;; the comparisons that expand whole programs are tests/compare-compiler.sld.
 ;;
 ;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/compiler.scm [ROOT]
@@ -28,6 +28,18 @@
  (only (snail compiler outline pass) test-outline)
  (only (snail compiler outline imports) test-imports)
  (only (snail compiler outline names) test-names)
+ (rename (only (snail compiler expand forms) test-forms) (test-forms test-expand-forms))
+ (only (snail compiler expand scopes) test-scopes)
+ (rename (only (snail compiler expand imports) test-imports) (test-imports test-expand-imports))
+ (only (snail compiler expand syntax-rules) test-syntax-rules)
+ (only (snail compiler expand macros) test-macros)
+ (only (snail compiler expand state) test-state)
+ (rename (only (snail compiler expand paths) test-paths) (test-paths test-expand-paths))
+ (only (snail compiler expand type-shapes) test-type-shapes)
+ (only (snail compiler expand types) test-types)
+ (only (snail compiler expand form-shapes) test-form-shapes)
+ (only (snail compiler expand patterns) test-patterns)
+ (only (snail compiler expand expressions) test-expressions)
  (only (snail compiler integrate files) test-files)
  (only (snail compiler integrate walk) test-walk)
  (only (snail compiler integrate load) test-load)
@@ -48,7 +60,8 @@
        header-comparison)
  (only (snail compiler adapter load)
        load-cases
-       load-case-comparison))
+       load-case-comparison)
+ (only (snail compiler adapter expand) forms-difference))
 
 ;; ---- Unit tests ----
 
@@ -67,6 +80,18 @@
   (test-outline)
   (test-imports)
   (test-names)
+  (test-expand-forms)
+  (test-scopes)
+  (test-expand-imports)
+  (test-syntax-rules)
+  (test-macros)
+  (test-state)
+  (test-expand-paths)
+  (test-type-shapes)
+  (test-types)
+  (test-form-shapes)
+  (test-patterns)
+  (test-expressions)
   (test-files (string-append root "/build/test-compiler/files"))
   (test-walk)
   (test-load (string-append root "/build/test-compiler/load"))
@@ -193,6 +218,17 @@
                              " not compared"))
       (null? differences))))
 
+;; ---- Expansion comparison ----
+
+(define (compare-forms)
+  (match (forms-difference)
+    ((None)
+     (report "compared the offer of (snail core forms) with the old core library: no differences")
+     #t)
+    ((Some difference)
+     (report (string-append "the offer of (snail core forms) differs: " difference))
+     #f)))
+
 ;; ---- Main ----
 
 (define (report line)
@@ -206,6 +242,7 @@
            (files (tracked-libraries root))
            (readers (compare-readers root files))
            (outlines (compare-outlines root files))
-           (loads (compare-loads root)))
-      (unless (and readers outlines loads)
+           (loads (compare-loads root))
+           (forms (compare-forms)))
+      (unless (and readers outlines loads forms)
         (exit 1)))))

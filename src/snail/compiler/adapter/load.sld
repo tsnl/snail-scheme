@@ -162,9 +162,9 @@
     (: file-key (impl (Fn Outlined -> String)))
     (define (file-key outlined)
       (match (::outline outlined)
-        ((Defined name _ _ _ _) (library-key name))
-        ((Generated name _ _ _) (library-key name))
-        ((Program _ _ _ _) "main")))
+        ((Written (Defined name _ _ _ _)) (library-key name))
+        ((Written (Program _ _ _ _)) "main")
+        ((Generated name _ _ _) (library-key name))))
 
     ;; Two differences are known. The old expansion records no run for the
     ;; primitive library, whose body declares and defines nothing, so it

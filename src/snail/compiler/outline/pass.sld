@@ -75,7 +75,7 @@
                     (sections (declarations-sections declarations))
                     (imports (map-results import-set (::imports sections)))
                     (exports (map-results export-spec (::exports sections))))
-        (Ok (Defined name imports exports (::body sections) loc))))
+        (Ok (Written (Defined name imports exports (::body sections) loc)))))
 
     ;; The name a library declares at `loc`, which is the name it was found
     ;; by. No library may be found as (prim), the name reserved for the
@@ -238,7 +238,7 @@
     (define (program-after loading forms)
       (let ((leading (leading-imports forms)))
         (result-let* ((imports (map-results import-set (::specs leading))))
-          (Ok (with-recipe loading imports (::body leading))))))
+          (Ok (Written (with-recipe loading imports (::body leading)))))))
 
     ;; The import sets of a program's leading `import` forms, joined in
     ;; order, and the forms after them.
@@ -257,7 +257,7 @@
     ;; A producer's body begins with `(recipe "file")`, naming the file its
     ;; recipe is written in. Only a program with libraries loading has a
     ;; recipe; in any other, that form is the body's first.
-    (: with-recipe (impl (Fn (List String) (List Import) (List syntax-Syntax) -> Outline)))
+    (: with-recipe (impl (Fn (List String) (List Import) (List syntax-Syntax) -> Library)))
     (define (with-recipe loading imports body)
       (match body
         ((Cons (syntax-Form (Cons (syntax-Ident "recipe" _)
@@ -372,17 +372,19 @@
                        (d))
                       (export w)
                       (begin y))))
-                (Ok (Defined (list "a" "1")
-                      (list (whole (list "b") 15)
-                            (Only (whole (list "c") 19) (list (identifier "p" 21)) (node 17))
-                            (whole (list "d") 30))
-                      (list (Export (identifier "x" 8) "x")
-                            (Export (identifier "y" 11) "z")
-                            (Export (identifier "w" 34) "w"))
-                      (list (numbered 24 '(define x 1)) (numbered 37 'y))
-                      (node 1))))
+                (Ok (Written (Defined (list "a" "1")
+                               (list (whole (list "b") 15)
+                                     (Only (whole (list "c") 19)
+                                           (list (identifier "p" 21))
+                                           (node 17))
+                                     (whole (list "d") 30))
+                               (list (Export (identifier "x" 8) "x")
+                                     (Export (identifier "y" 11) "z")
+                                     (Export (identifier "w" 34) "w"))
+                               (list (numbered 24 '(define x 1)) (numbered 37 'y))
+                               (node 1)))))
         (expect (library (list "a") '((define-library (a))))
-                (Ok (Defined (list "a") (list) (list) (list) (node 1)))))
+                (Ok (Written (Defined (list "a") (list) (list) (list) (node 1))))))
 
       ;; A generated library keeps its recipe's import sets and expression
       ;; as written.
@@ -434,7 +436,7 @@
         (expect (library (list "a") '((generate-library (b) (import) e)))
                 (fail (node 1) "library name does not match its path"))
         (expect (library (list) '((define-library ())))
-                (Ok (Defined (list) (list) (list) (list) (node 1)))))
+                (Ok (Written (Defined (list) (list) (list) (list) (node 1))))))
 
       ;; A `cond-expand` chooses its first clause that holds, at any depth,
       ;; and reads no clause after it.
@@ -445,25 +447,28 @@
                                                       (x)))
                                    (snail-core (export y))
                                    (else (bogus))))))
-                (Ok (Defined (list "a")
-                      (list)
-                      (list (Export (identifier "y" 19) "y"))
-                      (list)
-                      (node 1))))
+                (Ok (Written (Defined (list "a")
+                               (list)
+                               (list (Export (identifier "y" 19) "y"))
+                               (list)
+                               (node 1)))))
         (expect (library (list "a")
                   '((define-library (a)
                       (begin x)
                       (cond-expand (else (begin y) (cond-expand (snail-core (begin z)))))
                       (begin w))))
-                (Ok (Defined (list "a")
-                      (list)
-                      (list)
-                      (list (numbered 7 'x) (numbered 14 'y) (numbered 21 'z) (numbered 24 'w))
-                      (node 1))))
+                (Ok (Written (Defined (list "a")
+                               (list)
+                               (list)
+                               (list (numbered 7 'x)
+                                     (numbered 14 'y)
+                                     (numbered 21 'z)
+                                     (numbered 24 'w))
+                               (node 1)))))
         (expect (library (list "a") '((define-library (a) (cond-expand (snail-core) x))))
-                (Ok (Defined (list "a") (list) (list) (list) (node 1))))
+                (Ok (Written (Defined (list "a") (list) (list) (list) (node 1)))))
         (expect (library (list "a") '((define-library (a) (cond-expand (snail-tests (bogus))))))
-                (Ok (Defined (list "a") (list) (list) (list) (node 1))))
+                (Ok (Written (Defined (list "a") (list) (list) (list) (node 1)))))
         (expect (library (list "a") '((define-library (a) (include "x") (bogus))))
                 (fail (node 5) "expected import, export, begin or cond-expand"))
         (expect (library (list "a") '((define-library (a) x)))
@@ -580,19 +585,22 @@
       ;; A program's leading `import` forms join, and its body is every form
       ;; after them; a library's form read as a program is its body.
       (define (test-programs)
-        (expect (program '()) (Ok (Program (list) (None) (list) (list))))
+        (expect (program '()) (Ok (Written (Program (list) (None) (list) (list)))))
         (expect (program '((import
                             (a)
                             (b)) (import
                                   (c)) (define x 1) (import
                                                      (d))))
-                (Ok (Program (list)
-                             (None)
-                             (list (whole (list "a") 3) (whole (list "b") 5) (whole (list "c") 9))
-                             (list (numbered 11 '(define x 1)) (numbered 15 '(import
-                                                                              (d)))))))
+                (Ok (Written (Program (list)
+                                      (None)
+                                      (list (whole (list "a") 3)
+                                            (whole (list "b") 5)
+                                            (whole (list "c") 9))
+                                      (list (numbered 11 '(define x 1)) (numbered 15 '(import
+                                                                                       (d))))))))
         (expect (program '((define-library (a))))
-                (Ok (Program (list) (None) (list) (list (numbered 1 '(define-library (a)))))))
+                (Ok (Written
+                     (Program (list) (None) (list) (list (numbered 1 '(define-library (a))))))))
         (expect (program '((import
                             (only (a) 1)))) (fail (node 7) "expected an identifier"))
         (expect (program '((import x))) (fail (node 3) "expected a library name")))
@@ -602,27 +610,28 @@
       (define (test-producers)
         (expect (program '((generating "a.b" "c") (import
                                                    (x)) (recipe "lib/r.sld") (run)))
-                (Ok (Program (list "a.b" "c")
-                             (Some "lib/r.sld")
-                             (list (whole (list "x") 7))
-                             (list (numbered 12 '(run))))))
+                (Ok (Written (Program (list "a.b" "c")
+                                      (Some "lib/r.sld")
+                                      (list (whole (list "x") 7))
+                                      (list (numbered 12 '(run)))))))
         (expect (program '((recipe "r.sld") (run)))
-                (Ok (Program (list)
-                             (None)
-                             (list)
-                             (list (numbered 1 '(recipe "r.sld")) (numbered 4 '(run))))))
+                (Ok (Written (Program (list)
+                                      (None)
+                                      (list)
+                                      (list (numbered 1 '(recipe "r.sld")) (numbered 4 '(run)))))))
         (expect (program '((generating) (recipe "r.sld")))
-                (Ok (Program (list) (None) (list) (list (numbered 3 '(recipe "r.sld"))))))
+                (Ok (Written (Program (list) (None) (list) (list (numbered 3 '(recipe "r.sld")))))))
         (expect (program '((generating "k") (recipe "r.sld" x)))
-                (Ok (Program (list "k") (None) (list) (list (numbered 4 '(recipe "r.sld" x))))))
+                (Ok (Written
+                     (Program (list "k") (None) (list) (list (numbered 4 '(recipe "r.sld" x)))))))
         (expect (program '((generating "k") (recipe r)))
-                (Ok (Program (list "k") (None) (list) (list (numbered 4 '(recipe r))))))
+                (Ok (Written (Program (list "k") (None) (list) (list (numbered 4 '(recipe r)))))))
         (expect (program '((import
                             (x)) (generating "k")))
-                (Ok (Program (list)
-                             (None)
-                             (list (whole (list "x") 3))
-                             (list (numbered 5 '(generating "k"))))))
+                (Ok (Written (Program (list)
+                                      (None)
+                                      (list (whole (list "x") 3))
+                                      (list (numbered 5 '(generating "k")))))))
         (expect (program '((generating "k" a))) (fail (node 4) "expected a library key string"))
         (expect (program '((generating 1) (import 2)))
                 (fail (node 3) "expected a library key string")))))

@@ -15,9 +15,13 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 ;;   (snail compiler integrate ...)   the integrator, one library per job
 ;;   (snail compiler adapter ...)     the bridge to the old compiler
 ;;   (snail compiler PASS language)   a pass's language
+;;   (snail compiler expand marked)   expand's working syntax, a language
+;;   (snail compiler expand offer)    what expand offers, a language
 ;;   (snail compiler PASS pass)       a pass
 ;;   (snail compiler PASS ...)        a query, if its file's first line
 ;;                                    starts ";; Query:", and else a rule
+;;                                    or a part, to which the same
+;;                                    imports are open
 ;;
 ;;   scripts/compiler-imports --check
 (import
@@ -43,6 +47,7 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
     include
     outline
     expand
+    bind
     derive
     declare
     dispatch
@@ -70,10 +75,22 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 (define (earlier? pass than)
   (< (pass-index pass) (pass-index than)))
 
+;; A pass with languages beyond language.sld names them here, by the last
+;; part of their libraries' names: `expand` writes its tree in
+;; language.sld, what a library offers the libraries that import it in
+;; offer.sld, and works in the marked syntax of marked.sld. These may read
+;; the pass's other languages.
+(define more-languages
+  '((expand marked) (expand offer)))
+
+(define (more-language? pass part)
+  (member (list pass part) more-languages))
+
 ;; ---- Kinds ----
 
 ;; What a library is, as a list whose head says what kind: (source),
-;; (integrator), (adapter), (language PASS), (pass PASS), (query PASS),
+;; (integrator), (adapter), (language PASS), (language PASS PART) for a
+;; pass's other languages, (pass PASS), (query PASS),
 ;; (rule PASS), (core NAME) for one of (snail core ...), (old) for the old
 ;; compiler, (unknown) for a library of the new tree that the layout does
 ;; not name, and (other) for anything else.
@@ -91,6 +108,8 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
   (let ((pass (and (>= (length name) 4) (caddr name))))
     (cond ((not (and pass (pass-index pass))) '(unknown))
           ((equal? (cdddr name) '(language)) (list 'language pass))
+          ((and (= (length name) 4) (more-language? pass (cadddr name)))
+           (list 'language pass (cadddr name)))
           ((equal? (cdddr name) '(pass)) (list 'pass pass))
           ((query-file? (library-file root name)) (list 'query pass))
           (else (list 'rule pass)))))
@@ -119,7 +138,7 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 (define (refusal importer imported)
   (case (car importer)
     ((source) (unless-allowed (equal? imported '(core base)) "source.sld imports only (snail core base)"))
-    ((language) (language-refusal (cadr importer) imported))
+    ((language) (language-refusal importer imported))
     ((pass rule query) (pass-refusal (cadr importer) imported))
     ((integrator) (integrator-refusal imported))
     ((adapter) (adapter-refusal imported))
@@ -128,12 +147,15 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 (define (unless-allowed allowed? reason)
   (if allowed? #f reason))
 
-;; A language reads only the shared libraries and earlier languages.
-(define (language-refusal pass imported)
+;; A language reads only the shared libraries and earlier languages, and
+;; a pass's other languages the pass's languages.
+(define (language-refusal importer imported)
   (case (car imported)
     ((source) #f)
     ((core) (core-refusal imported))
-    ((language) (unless-allowed (earlier? (cadr imported) pass)
+    ((language) (unless-allowed (or (earlier? (cadr imported) (cadr importer))
+                                    (and (pair? (cddr importer))
+                                         (eq? (cadr imported) (cadr importer))))
                                 "a language imports only the languages of earlier passes"))
     (else "a language imports only (snail core base), (snail core table), (snail compiler source) and earlier languages")))
 

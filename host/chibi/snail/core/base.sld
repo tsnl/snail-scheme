@@ -58,6 +58,7 @@
    ::body
    ::body-key
    ::borrowed
+   ::bound
    ::browser?
    ::builds
    ::bytes
@@ -81,8 +82,10 @@
    ::declarations
    ::declared
    ::defaults
+   ::definition
    ::definitions
    ::delta
+   ::denotation
    ::derives
    ::deriving
    ::digest
@@ -97,6 +100,7 @@
    ::entry
    ::enum?
    ::env
+   ::equations
    ::evidence
    ::exclusive
    ::exit
@@ -130,6 +134,8 @@
    ::handle
    ::helpers
    ::holder
+   ::home
+   ::id
    ::identifier
    ::imports
    ::index
@@ -138,6 +144,7 @@
    ::input
    ::inputs
    ::instance
+   ::instance-sets
    ::instances
    ::interface
    ::interfaces
@@ -160,7 +167,12 @@
    ::loc
    ::locals
    ::low
+   ::macro
    ::main
+   ::mark
+   ::marks
+   ::matches
+   ::meaning
    ::memo
    ::message
    ::metadata
@@ -171,9 +183,14 @@
    ::more
    ::mutable?
    ::name
+   ::name-loc
    ::names
    ::needs
+   ::next
    ::nodes
+   ::number
+   ::offer
+   ::offers
    ::offset
    ::open
    ::operands
@@ -187,9 +204,11 @@
    ::outputs
    ::owned?
    ::owner
+   ::parameters
    ::params
    ::path
    ::pattern
+   ::patterns
    ::pending
    ::pending-count
    ::performed
@@ -204,6 +223,7 @@
    ::recipe
    ::relative
    ::reps
+   ::requirements
    ::requires
    ::resolving
    ::result
@@ -214,6 +234,7 @@
    ::rows
    ::rules
    ::runs
+   ::scheme
    ::schemes
    ::scope
    ::scope-count
@@ -221,9 +242,12 @@
    ::scratch
    ::second
    ::self
+   ::serial
    ::set
+   ::sets
    ::setup
    ::signed
+   ::site
    ::solution
    ::source
    ::specs
@@ -237,14 +261,17 @@
    ::tag
    ::target
    ::targets
+   ::template
    ::term
    ::text
+   ::top
    ::top-count
    ::tops
    ::type
    ::type-ids
    ::typed
    ::types
+   ::use
    ::value
    ::values
    ::variable
@@ -284,6 +311,7 @@
     (define (::body value) (field-of value (quote body)))
     (define (::body-key value) (field-of value (quote body-key)))
     (define (::borrowed value) (field-of value (quote borrowed)))
+    (define (::bound value) (field-of value (quote bound)))
     (define (::browser? value) (field-of value (quote browser?)))
     (define (::builds value) (field-of value (quote builds)))
     (define (::bytes value) (field-of value (quote bytes)))
@@ -307,8 +335,10 @@
     (define (::declarations value) (field-of value (quote declarations)))
     (define (::declared value) (field-of value (quote declared)))
     (define (::defaults value) (field-of value (quote defaults)))
+    (define (::definition value) (field-of value (quote definition)))
     (define (::definitions value) (field-of value (quote definitions)))
     (define (::delta value) (field-of value (quote delta)))
+    (define (::denotation value) (field-of value (quote denotation)))
     (define (::derives value) (field-of value (quote derives)))
     (define (::deriving value) (field-of value (quote deriving)))
     (define (::digest value) (field-of value (quote digest)))
@@ -323,6 +353,7 @@
     (define (::entry value) (field-of value (quote entry)))
     (define (::enum? value) (field-of value (quote enum?)))
     (define (::env value) (field-of value (quote env)))
+    (define (::equations value) (field-of value (quote equations)))
     (define (::evidence value) (field-of value (quote evidence)))
     (define (::exclusive value) (field-of value (quote exclusive)))
     (define (::exit value) (field-of value (quote exit)))
@@ -356,6 +387,8 @@
     (define (::handle value) (field-of value (quote handle)))
     (define (::helpers value) (field-of value (quote helpers)))
     (define (::holder value) (field-of value (quote holder)))
+    (define (::home value) (field-of value (quote home)))
+    (define (::id value) (field-of value (quote id)))
     (define (::identifier value) (field-of value (quote identifier)))
     (define (::imports value) (field-of value (quote imports)))
     (define (::index value) (field-of value (quote index)))
@@ -364,6 +397,7 @@
     (define (::input value) (field-of value (quote input)))
     (define (::inputs value) (field-of value (quote inputs)))
     (define (::instance value) (field-of value (quote instance)))
+    (define (::instance-sets value) (field-of value (quote instance-sets)))
     (define (::instances value) (field-of value (quote instances)))
     (define (::interface value) (field-of value (quote interface)))
     (define (::interfaces value) (field-of value (quote interfaces)))
@@ -386,7 +420,12 @@
     (define (::loc value) (field-of value (quote loc)))
     (define (::locals value) (field-of value (quote locals)))
     (define (::low value) (field-of value (quote low)))
+    (define (::macro value) (field-of value (quote macro)))
     (define (::main value) (field-of value (quote main)))
+    (define (::mark value) (field-of value (quote mark)))
+    (define (::marks value) (field-of value (quote marks)))
+    (define (::matches value) (field-of value (quote matches)))
+    (define (::meaning value) (field-of value (quote meaning)))
     (define (::memo value) (field-of value (quote memo)))
     (define (::message value) (field-of value (quote message)))
     (define (::metadata value) (field-of value (quote metadata)))
@@ -397,9 +436,14 @@
     (define (::more value) (field-of value (quote more)))
     (define (::mutable? value) (field-of value (quote mutable?)))
     (define (::name value) (field-of value (quote name)))
+    (define (::name-loc value) (field-of value (quote name-loc)))
     (define (::names value) (field-of value (quote names)))
     (define (::needs value) (field-of value (quote needs)))
+    (define (::next value) (field-of value (quote next)))
     (define (::nodes value) (field-of value (quote nodes)))
+    (define (::number value) (field-of value (quote number)))
+    (define (::offer value) (field-of value (quote offer)))
+    (define (::offers value) (field-of value (quote offers)))
     (define (::offset value) (field-of value (quote offset)))
     (define (::open value) (field-of value (quote open)))
     (define (::operands value) (field-of value (quote operands)))
@@ -413,9 +457,11 @@
     (define (::outputs value) (field-of value (quote outputs)))
     (define (::owned? value) (field-of value (quote owned?)))
     (define (::owner value) (field-of value (quote owner)))
+    (define (::parameters value) (field-of value (quote parameters)))
     (define (::params value) (field-of value (quote params)))
     (define (::path value) (field-of value (quote path)))
     (define (::pattern value) (field-of value (quote pattern)))
+    (define (::patterns value) (field-of value (quote patterns)))
     (define (::pending value) (field-of value (quote pending)))
     (define (::pending-count value) (field-of value (quote pending-count)))
     (define (::performed value) (field-of value (quote performed)))
@@ -430,6 +476,7 @@
     (define (::recipe value) (field-of value (quote recipe)))
     (define (::relative value) (field-of value (quote relative)))
     (define (::reps value) (field-of value (quote reps)))
+    (define (::requirements value) (field-of value (quote requirements)))
     (define (::requires value) (field-of value (quote requires)))
     (define (::resolving value) (field-of value (quote resolving)))
     (define (::result value) (field-of value (quote result)))
@@ -440,6 +487,7 @@
     (define (::rows value) (field-of value (quote rows)))
     (define (::rules value) (field-of value (quote rules)))
     (define (::runs value) (field-of value (quote runs)))
+    (define (::scheme value) (field-of value (quote scheme)))
     (define (::schemes value) (field-of value (quote schemes)))
     (define (::scope value) (field-of value (quote scope)))
     (define (::scope-count value) (field-of value (quote scope-count)))
@@ -447,9 +495,12 @@
     (define (::scratch value) (field-of value (quote scratch)))
     (define (::second value) (field-of value (quote second)))
     (define (::self value) (field-of value (quote self)))
+    (define (::serial value) (field-of value (quote serial)))
     (define (::set value) (field-of value (quote set)))
+    (define (::sets value) (field-of value (quote sets)))
     (define (::setup value) (field-of value (quote setup)))
     (define (::signed value) (field-of value (quote signed)))
+    (define (::site value) (field-of value (quote site)))
     (define (::solution value) (field-of value (quote solution)))
     (define (::source value) (field-of value (quote source)))
     (define (::specs value) (field-of value (quote specs)))
@@ -463,14 +514,17 @@
     (define (::tag value) (field-of value (quote tag)))
     (define (::target value) (field-of value (quote target)))
     (define (::targets value) (field-of value (quote targets)))
+    (define (::template value) (field-of value (quote template)))
     (define (::term value) (field-of value (quote term)))
     (define (::text value) (field-of value (quote text)))
+    (define (::top value) (field-of value (quote top)))
     (define (::top-count value) (field-of value (quote top-count)))
     (define (::tops value) (field-of value (quote tops)))
     (define (::type value) (field-of value (quote type)))
     (define (::type-ids value) (field-of value (quote type-ids)))
     (define (::typed value) (field-of value (quote typed)))
     (define (::types value) (field-of value (quote types)))
+    (define (::use value) (field-of value (quote use)))
     (define (::value value) (field-of value (quote value)))
     (define (::values value) (field-of value (quote values)))
     (define (::variable value) (field-of value (quote variable)))
