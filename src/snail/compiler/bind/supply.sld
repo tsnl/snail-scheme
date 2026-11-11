@@ -1,44 +1,38 @@
-;; Supply, what the build supplies `bind` for one expanded library: each
-;; file the library links, as the integrator found it, and the files of
-;; each target the library asks for.
+;; Supply, what the build found for `bind` to bind one expanded library
+;; with: the digest of each file it read, by the file's path, and the
+;; files of every target its caller supplied, by target, whichever the
+;; library asks for. When the library is a producer program's printed
+;; copy, the Supply also names the copy and the recipe it stands for.
 ;;
-;;   Supply      ::= Supply FoundLink* TargetFiles*                  no Loc
-;;   FoundLink   ::= FoundLink name* digest file
-;;   TargetFiles ::= TargetFiles target TargetFile*                  no Loc
-;;   TargetFile  ::= TargetFile path bytes                           no Loc
+;;   Supply      ::= Supply PrintedCopy? digest-by-file TargetFile*-by-target   no Loc
+;;   PrintedCopy ::= PrintedCopy copy recipe                          no Loc
+;;   TargetFile  ::= TargetFile path bytes                            no Loc
 ;;
-;; A Supply guarantees that it holds a FoundLink for each path the
-;; library's links name, as (snail compiler expand links) answers them,
-;; once for each path, in the order the library first names it and at
-;; that place, and nothing else: `name*` is the path, `file` the file the
-;; build read, and `digest` the SHA-256 of its bytes in lowercase hex. It
-;; holds the files of each target (snail compiler expand targets) answers,
-;; once each, as the build supplied them: relative paths with their bytes,
-;; in path order.
+;; Nothing in a Supply is promised complete. A file a library links has no
+;; digest when the build found no file there, and a target a library asks
+;; for may not be supplied: what a miss means is `bind`'s to decide. A
+;; digest is the SHA-256 of the file's bytes in lowercase hex, and a
+;; target's files are relative paths with their bytes, in path order.
 (define-library (snail compiler bind supply)
   (export
    Supply
-   FoundLink
-   TargetFiles
+   PrintedCopy
    TargetFile)
   (import
    (snail core base)
-   (snail compiler source))
+   (snail core table))
   (begin
 
     (struct Supply
-      ((links (List FoundLink))
-       (targets (List TargetFiles))))
+      ((printed (Option PrintedCopy))
+       (digests (Table String))
+       (targets (Table (List TargetFile)))))
 
-    (struct FoundLink
-      ((path (List String))
-       (digest String)
-       (file String)
-       (loc Loc)))
-
-    (struct TargetFiles
-      ((target String)
-       (files (List TargetFile))))
+    ;; The file a producer program is printed to, and the recipe it was
+    ;; printed from.
+    (struct PrintedCopy
+      ((copy String)
+       (recipe String)))
 
     (struct TargetFile
       ((path String)

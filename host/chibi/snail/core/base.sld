@@ -92,6 +92,7 @@
    ::derives
    ::deriving
    ::digest
+   ::digests
    ::directories
    ::directory
    ::discharged
@@ -228,6 +229,7 @@
    ::predecessor
    ::prefix
    ::prepend
+   ::printed
    ::program
    ::program?
    ::public
@@ -362,6 +364,7 @@
     (define (::derives value) (field-of value (quote derives)))
     (define (::deriving value) (field-of value (quote deriving)))
     (define (::digest value) (field-of value (quote digest)))
+    (define (::digests value) (field-of value (quote digests)))
     (define (::directories value) (field-of value (quote directories)))
     (define (::directory value) (field-of value (quote directory)))
     (define (::discharged value) (field-of value (quote discharged)))
@@ -498,6 +501,7 @@
     (define (::predecessor value) (field-of value (quote predecessor)))
     (define (::prefix value) (field-of value (quote prefix)))
     (define (::prepend value) (field-of value (quote prepend)))
+    (define (::printed value) (field-of value (quote printed)))
     (define (::program value) (field-of value (quote program)))
     (define (::program? value) (field-of value (quote program?)))
     (define (::public value) (field-of value (quote public)))

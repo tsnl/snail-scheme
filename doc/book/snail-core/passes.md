@@ -110,7 +110,9 @@ src/snail/compiler/
     derives.sld           query: whether, and where first, a library derives
   bind/
     language.sld          Bound, the tree it writes
-    supply.sld            Supply, what the integrator found for a library
+    supply.sld            Supply, what the build found for a library
+    linked.sld            query: the file each link names, and the files to read
+    needs.sld             part: what a library needs, found in its Supply, and what a miss means
     state.sld             the numbers it hands out, a copy's renaming, and numbering-let*
     pass.sld              (snail compiler bind pass): the function `bind`
     placed.sld            query: the files the build places beside the program
@@ -120,7 +122,7 @@ src/snail/compiler/
     walk.sld              (snail compiler integrate walk): what to load next, and in what order
     load.sld              (snail compiler integrate load): a program and the libraries it reaches
     sha256.sld            (snail compiler integrate sha256): the digest a linked file is named by
-    bind.sld              (snail compiler integrate bind): one library's files found, then bound
+    bind.sld              (snail compiler integrate bind): one library's linked files read, then bound
     expand.sld            (snail compiler integrate expand): each loaded library expanded and bound, in order
 ```
 
@@ -368,9 +370,9 @@ Label       ::= Label name
 ```
 
 `LinkedFile` and `ArtifactFiles` stay in the tree. Queries over Expanded
-gather them for the integrator, which reads the files and finds the other
-targets' files among those its caller supplied, and `bind` then replaces
-each with what the integrator found.
+gather them: the integrator reads the files the links name, and `bind`
+finds those files and the other targets' files among what the build
+supplied, decides what a miss means, and replaces each form.
 A third query says whether a library derives an instance: the integrator
 then loads and expands the libraries `derive` writes instances with,
 (snail core primitive) and (snail shell wire), before that library, where
@@ -462,6 +464,23 @@ again for each file, so every `Local`'s number is still unique in its
 library. The root's `first-unused-number` counts the handles' serials and
 the copies' locals.
 
+`bind` answers a Result. Its success is the library bound, or, when the
+library asks for targets the build did not supply, each of them, in the
+order first asked, for the integrator to relay to its caller, as the old
+compiler asks its caller for an input. A target not supplied is no
+failure of the program. `bind` works in two steps. First it finds what
+the library needs, in the old expander's order, which asks for a target
+and finds two links clashing while it expands the body, and reads the
+linked files once the body is done: the targets the library asks for,
+all of them; then two links of one path that name different files, a
+problem at the second, "two files link as PATH: FILE and FILE"; then the
+first linked file the build found none for, a problem where the library
+first writes it, "the library NAME links PATH, but there is no file at
+FILE". Then it walks the library, handed what was found and threading
+only numbers. The walk's lookups of a file and a target cannot miss,
+since the first step took the links and the targets from the same tree
+through the queries; a miss is a compiler bug, and panics.
+
 Bound declares afresh the rules `bind` looks inside, which are those that
 hold an expression or a pattern, and reuses Expanded's for the rest:
 `Field`, `Case`, `Derivation`, `Member`, `Operation`, `PrimitiveType`,
@@ -511,32 +530,38 @@ A query over Bound, `placed-files`, answers what the build must place
 beside the program for a library, as the old `library-links` does: each
 `LinkImport`'s digest and file, once for each digest, in order.
 
-### Supply, what the integrator hands `bind` (implemented)
+### Supply, what the build found for `bind` (implemented)
 
-For one expanded library: a `FoundLink` for each path its links write,
-once for each path, in the order first written and at that place, with
-the file it names beside the file that writes it and the SHA-256 of that
-file's bytes; and the files of each target it asks for, as the caller
-supplied them, relative paths with their bytes in path order. Two links
-of one path that name different files, and a linked file that is not
-there, are the integrator's problems, with the old messages at the old
-places, so `bind` cannot fail. A target the caller did not supply is no
-failure of the program: the integrator stops at the first library that
-asks for one and answers the targets it waits for, as the old compiler
-asks its caller for an input, and binds nothing.
+What the build found for one expanded library: the SHA-256 of each file
+it read, in lowercase hex, by the file's path; the files of every target
+its caller supplied, by target, whichever the library asks for, as
+relative paths with their bytes in path order; and, when the library is a
+producer program's printed copy, the copy and the recipe it stands for.
+Nothing in it is promised complete: a file a library links has no digest
+when the build found no file there, and a target the library asks for
+may be missing. What a miss means is `bind`'s to decide.
 
 ```text
-Supply      ::= Supply FoundLink* TargetFiles*                  no Loc
-FoundLink   ::= FoundLink name* digest file
-TargetFiles ::= TargetFiles target TargetFile*                  no Loc
+Supply      ::= Supply PrintedCopy? digest-by-file TargetFile*-by-target   no Loc
+PrintedCopy ::= PrintedCopy copy recipe                         no Loc
 TargetFile  ::= TargetFile path bytes                           no Loc
 ```
+
+One function, `linked-file` in the query library `bind/linked.sld`,
+answers the file a link names: beside the file the link is written in, but
+beside the recipe when it is written in the printed copy, so a recipe
+names files beside itself wherever its producer is printed. The integrator
+reads the files it answers, and `bind` looks up their digests by the same
+answer. The integrator decides nothing about the library: it reads,
+digests, hands `bind` what it found, and relays the answer.
 
 The integrator binds each library as soon as it expands, before it
 expands the next, so a library's problems with its links come before a
 later library's, as the old expander finds them. The implicit libraries
 a deriving clause needs are expanded and bound after the library that
-derives expands and before it is bound.
+derives expands and before it is bound. Of each library the integrator
+keeps its offer and its latest tree, the library bound, and stops at the
+first library that waits for targets.
 
 ### Typed, written by `settle` (sketch)
 
@@ -623,12 +648,27 @@ succeed or both fail; failures by their first problem, message and
 place, and every problem when the old expander reports several;
 successes library by library, in order, by their exports, their written
 definitions and each one's value in a normal form, by each linked file's
-import and the files to place beside the program, and by what the
-queries answer. It also compares the integrator's SHA-256 with the old
-one, compiled, as `make test-compiler` does on Chibi.
+import and the files to place beside the program, and, for the whole
+program, by the targets it asks for. It also compares the integrator's
+SHA-256 with the old one, compiled, as `make test-compiler` does on
+Chibi.
 
 The language the compiler accepts does not change during the replacement,
-so every existing program stays an oracle.
+so every existing program stays an oracle. Where the new front end
+knowingly differs from the old compiler, the difference is listed here,
+one line each, with its reason:
+
+- `bind` asks for every target a library was not supplied at once; the
+  old compiler asks for one at a time, since it stops where it first
+  reaches one, and asking once saves its caller a build per target.
+- `bind` reports two links that clash only when the library otherwise
+  expands; the old expander reports it beside the problems of the other
+  bodies, since it checks links while it expands each body, and the new
+  one checks after expansion.
+- A link inside the `file` or `prepend` expression of a target with no
+  files is still linked and placed; the old expander never expands those
+  expressions when there is no file, and the new one has expanded them
+  already.
 
 The integrator compiles everything on each build. Reuse between builds, which
 the old session provided, returns with the incremental work that follows the

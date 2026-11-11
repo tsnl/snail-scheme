@@ -1,49 +1,89 @@
-;; The pass `bind`: an expanded library, and what the build supplied for
-;; it, become the library bound. Each file the library links is declared
-;; once, by a LinkImport that binds a handle of the library's to the
-;; import named for the file's digest, and each `link-handle` form becomes
-;; a call of its file's handle, as the old expander binds them once a
-;; library's body has expanded. Each `artifact-files` form becomes the
-;; list of its target's files, built from the form's three expressions,
-;; which the old expander writes as syntax and expands again for each
-;; file; here a repeated expression is a copy with locals of its own, so
-;; the library still binds each local once. Binding cannot fail: before
-;; the integrator calls `bind`, it reports a linked file that is not
-;; there and asks its caller for a target it was not supplied.
+;; The pass `bind`: an expanded library, and what the build found for it,
+;; become the library bound, or the targets it waits for. It works in two
+;; steps. First it finds what the library needs among what the build
+;; supplied, and decides what a miss means, as (snail compiler bind needs)
+;; says. Then it walks the library, handed what was found and threading
+;; only numbers. Each file the library links is declared once, by a
+;; LinkImport that binds a handle of the library's to the import named
+;; for the file's digest, and each `link-handle` form becomes a call of
+;; its file's handle, as the old expander binds them once a library's body
+;; has expanded. Each `artifact-files` form becomes the list of its
+;; target's files, built from the form's three expressions, which the old
+;; expander writes as syntax and expands again for each file; here a
+;; repeated expression is a copy with locals of its own, so the library
+;; still binds each local once.
 (define-library (snail compiler bind pass)
   (export
+   BindOutcome
+   BoundLibrary
+   WantsTargets
    bind)
   (import
    (snail core base)
    (snail compiler source)
    (only (snail compiler outline language) LibraryName)
    (prefix (snail compiler expand language) expanded-)
-   (only (snail compiler expand links) same-link-path?)
+   (snail compiler expand links)
+   (snail compiler expand targets)
    (snail compiler bind language)
    (snail compiler bind supply)
+   (snail compiler bind needs)
    (snail compiler bind state))
   (begin
 
     ;; ---- The pass ----
 
-    ;; The handles are numbered first, from the first number the library
-    ;; has not used, then the copies' locals; the bound library's root
-    ;; holds the first number left. A program's globals are in ("main").
-    (: bind (impl (Fn expanded-Expanded Supply -> Bound)))
+    ;; A library bound, or the targets it waits for: each it asks for that
+    ;; the build did not supply, in the order it first asks.
+    (enum BindOutcome
+      (BoundLibrary
+       ((bound Bound)))
+      (WantsTargets
+       ((requests (List TargetRequest)))))
+
+    ;; What the library needs is found in the old expander's order: first
+    ;; the targets it asks for, all of them; then the files it links, a
+    ;; clash before a missing file. A program's globals are in ("main").
+    (: bind (impl (Fn expanded-Expanded Supply -> (Result BindOutcome (List Feedback)))))
     (define (bind expanded supply)
+      (let ((name (library-name expanded)))
+        (match (targets-supplied (requested-targets expanded) (::targets supply))
+          ((Unsupplied requests) (Ok (WantsTargets requests)))
+          ((Supplied targets)
+           (result-let* ((links (found-links name
+                                             (::printed supply)
+                                             (linked-files expanded)
+                                             (::digests supply))))
+             (Ok (BoundLibrary (bound-library expanded name links targets))))))))
+
+    (: library-name (impl (Fn expanded-Expanded -> LibraryName)))
+    (define (library-name expanded)
       (match expanded
-        ((expanded-Defined name tops first-unused loc)
-         (let ((site (supplied-site name supply first-unused)))
+        ((expanded-Defined name _ _ _) name)
+        ((expanded-Program _ _ _) (list "main"))))
+
+    ;; ---- The walk ----
+
+    ;; The library `name` bound with the files it links and the files of
+    ;; the targets it asks for. The handles are numbered first, from the
+    ;; first number the library has not used, then the copies' locals; the
+    ;; bound library's root holds the first number left.
+    (: bound-library
+       (impl (Fn expanded-Expanded LibraryName (List FoundLink) (List TargetFiles) -> Bound)))
+    (define (bound-library expanded name links targets)
+      (match expanded
+        ((expanded-Defined _ tops first-unused loc)
+         (let ((site (found-site name links targets first-unused)))
            (numbering-let* ((bound state
                                    (bound-tops (first-numbering site first-unused) site tops)))
              (Defined name (append (link-imports site) bound) (::next state) loc))))
         ((expanded-Program tops body first-unused)
-         (let ((site (supplied-site (list "main") supply first-unused)))
+         (let ((site (found-site name links targets first-unused)))
            (numbering-let* ((bound state (bound-tops (first-numbering site first-unused) site tops))
                             (bound-body state (bound-option state site body)))
              (Program (append (link-imports site) bound) bound-body (::next state)))))))
 
-    ;; ---- What the build supplied ----
+    ;; ---- What was found ----
 
     ;; What a library's expressions are bound with: a handle for each file
     ;; it links, and the files of each target it asks for.
@@ -57,23 +97,24 @@
        (link FoundLink)))
 
     ;; Each linked file's handle is a Global of `library` named
-    ;; "link-handle", numbered in the supply's order from the first number
-    ;; the library has not used, so no other Global of it has that serial.
-    (: supplied-site (impl (Fn LibraryName Supply I64 -> Site)))
-    (define (supplied-site library supply first-unused)
+    ;; "link-handle", numbered in the order the library first links the
+    ;; files from the first number it has not used, so no other Global of
+    ;; it has that serial.
+    (: found-site (impl (Fn LibraryName (List FoundLink) (List TargetFiles) I64 -> Site)))
+    (define (found-site library links targets first-unused)
       (Site (map-indexed (lambda (index link)
                            (LinkHandle
                             (expanded-Global library "link-handle" (+ first-unused index))
                             link))
-                         (::links supply))
-            (::targets supply)))
+                         links)
+            targets))
 
     ;; Numbering starts after the handles.
     (: first-numbering (impl (Fn Site I64 -> Numbering)))
     (define (first-numbering site first-unused)
       (numbering-from (+ first-unused (length (::handles site)))))
 
-    ;; The LinkImport of each handle, in the supply's order.
+    ;; The LinkImport of each handle, in the order of its serial.
     (: link-imports (impl (Fn Site -> (List Top))))
     (define (link-imports site)
       (map (lambda (handle)
@@ -317,16 +358,16 @@
     (define (linked-call site path loc)
       (Call (TopRef (expanded-TopGlobal (::global (path-handle site path))) loc) (Nil) loc))
 
-    ;; The handle of the file the library links at `path`. The integrator
-    ;; supplies a file for every path the library's links name, as (snail
-    ;; compiler expand links) answers them, or binds nothing, so the
-    ;; search finds one.
+    ;; The handle of the file the library links at `path`. The first step
+    ;; found a file for every path `linked-files` answers over this same
+    ;; tree, or the walk does not run, so a miss means the query skipped
+    ;; a node the walk reaches: a bug in the compiler.
     (: path-handle (impl (Fn Site (List String) -> LinkHandle)))
     (define (path-handle site path)
       (match (find (lambda (handle) (same-link-path? (::path (::link handle)) path))
                    (::handles site))
         ((Some handle) handle)
-        ((None) (panic "internal error: bind was not supplied a file the library links"))))
+        ((None) (panic "internal error: the links query skipped a file the walk reaches"))))
 
     ;; ---- Target files ----
 
@@ -337,15 +378,15 @@
        (empty expanded-Expr)
        (loc Loc)))
 
-    ;; The files the build supplied for `target`. The integrator supplies
-    ;; every target the library asks for, as (snail compiler expand
-    ;; targets) answers them, or asks its caller for one and binds nothing,
-    ;; so the search finds them.
+    ;; The files the build supplied for `target`. The first step found the
+    ;; files of every target `requested-targets` answers over this same
+    ;; tree, or the walk does not run, so a miss means the query skipped
+    ;; a node the walk reaches: a bug in the compiler.
     (: target-files (impl (Fn Site String -> (List TargetFile))))
     (define (target-files site target)
       (match (find (lambda (files) (string=? (::target files) target)) (::targets site))
         ((Some files) (::files files))
-        ((None) (panic "internal error: bind was not supplied a target the library asks for"))))
+        ((None) (panic "internal error: the targets query skipped a request the walk reaches"))))
 
     ;; For each file, `(prepend (file path bytes) rest)`, and `(empty)`
     ;; after the last, each call at the form. The first file's `prepend`
@@ -401,13 +442,15 @@
     (export
      test-bind)
     (import
+     (snail core table)
      (snail stage0 testing))
     (begin
       (define (test-bind)
         (test-declarations)
         (test-linked-files)
         (test-target-files)
-        (test-copies))
+        (test-copies)
+        (test-needs-first))
 
       ;; ---- Helpers ----
 
@@ -435,7 +478,13 @@
         (expanded-Defined a tops first-unused (at 1)))
 
       (define no-supply
-        (Supply (list) (list)))
+        (Supply (None) empty-table empty-table))
+
+      (define (targets-supply target files)
+        (Supply (None) empty-table (table-set empty-table target files)))
+
+      (define (bound-as library)
+        (Ok (BoundLibrary library)))
 
       (define (bytes numbers)
         (list->vector numbers))
@@ -476,44 +525,47 @@
                                                         (at 6)))
                           5)
                         no-supply)
-                  (Defined a
-                    (list (Signature (expanded-TopGlobal (global "x")) scheme (list) (at 2))
-                          (InstanceScope (list (global "set"))
-                                         (list (Define (global "x")
-                                                 (Literal (expanded-Integer 1) (at 9))
-                                                 (at 2))
-                                               (TopInstance
-                                                (Instance (expanded-ClassGlobal (global "Show"))
-                                                          (list)
-                                                          (list)
-                                                          (list)
-                                                          (list)
-                                                          (Methods
-                                                           (list (InstanceMethod
-                                                                  (expanded-Label "show" (at 5))
-                                                                  (Literal (expanded-Integer 1)
-                                                                           (at 9)))))
-                                                          (at 3))))
-                                         (at 1))
-                          (Effect (global "e")
-                                  (list)
-                                  (list (Default (expanded-Label "op" (at 6))
-                                          (Literal (expanded-Integer 1) (at 9))
-                                          (at 6)))
-                                  #f
-                                  (list)
-                                  (at 6)))
-                    5
-                    (at 1)))
+                  (bound-as
+                   (Defined a
+                     (list (Signature (expanded-TopGlobal (global "x")) scheme (list) (at 2))
+                           (InstanceScope (list (global "set"))
+                                          (list (Define (global "x")
+                                                  (Literal (expanded-Integer 1) (at 9))
+                                                  (at 2))
+                                                (TopInstance
+                                                 (Instance (expanded-ClassGlobal (global "Show"))
+                                                           (list)
+                                                           (list)
+                                                           (list)
+                                                           (list)
+                                                           (Methods
+                                                            (list (InstanceMethod
+                                                                   (expanded-Label "show" (at 5))
+                                                                   (Literal (expanded-Integer 1)
+                                                                            (at 9)))))
+                                                           (at 3))))
+                                          (at 1))
+                           (Effect (global "e")
+                                   (list)
+                                   (list (Default (expanded-Label "op" (at 6))
+                                           (Literal (expanded-Integer 1) (at 9))
+                                           (at 6)))
+                                   #f
+                                   (list)
+                                   (at 6)))
+                     5
+                     (at 1))))
           (expect (bind (expanded-Program (list) (Some (expanded-LocalRef (local "y" 2) (at 3))) 3)
                         no-supply)
-                  (Program (list) (Some (LocalRef (local "y" 2) (at 3))) 3))))
+                  (bound-as (Program (list) (Some (LocalRef (local "y" 2) (at 3))) 3)))))
 
-      ;; Each linked file is declared first, once, with the next serial;
-      ;; each use of it calls its handle, at the use.
+      ;; Each linked file is declared first, once, with the next serial,
+      ;; where the library first writes it; each use of it calls its
+      ;; handle, at the use.
       (define (test-linked-files)
-        (let ((pixel (FoundLink (list "data" "pixel.png") "aa" "lib/data/pixel.png" (at 20)))
-              (notes (FoundLink (list "notes.txt") "bb" "lib/notes.txt" (at 40))))
+        (let ((digests (table-set (table-set empty-table "lib/data/pixel.png" "aa")
+                                  "lib/notes.txt"
+                                  "bb")))
           (expect (bind (library (list (expanded-Define (global "x")
                                                         (expanded-LinkedFile
                                                          (list "data" "pixel.png")
@@ -531,20 +583,21 @@
                                                               (at 50)))
                                                        (at 30))))
                           7)
-                        (Supply (list pixel notes) (list)))
-                  (Defined a
-                    (list (LinkImport (handle 7)
-                                      (list "data" "pixel.png")
-                                      "aa"
-                                      "lib/data/pixel.png"
-                                      (at 20))
-                          (LinkImport (handle 8) (list "notes.txt") "bb" "lib/notes.txt" (at 40))
-                          (Define (global "x") (handle-call 7 10) (at 1))
-                          (Statement (Call (TopRef (expanded-TopGlobal (global "f")) (at 31))
-                                           (list (handle-call 8 32) (handle-call 7 50))
-                                           (at 30))))
-                    9
-                    (at 1)))))
+                        (Supply (None) digests empty-table))
+                  (bound-as
+                   (Defined a
+                     (list (LinkImport (handle 7)
+                                       (list "data" "pixel.png")
+                                       "aa"
+                                       "lib/data/pixel.png"
+                                       (at 20))
+                           (LinkImport (handle 8) (list "notes.txt") "bb" "lib/notes.txt" (at 40))
+                           (Define (global "x") (handle-call 7 10) (at 1))
+                           (Statement (Call (TopRef (expanded-TopGlobal (global "f")) (at 31))
+                                            (list (handle-call 8 32) (handle-call 7 50))
+                                            (at 30))))
+                     9
+                     (at 1))))))
 
       ;; A target's files are the list `prepend` and `file` build from them,
       ;; ending in `(empty)`; one without files is `(empty)`.
@@ -555,9 +608,8 @@
                                                   (top-ref "Cons" 4)
                                                   (top-ref "Nil" 5)
                                                   (at 2))))
-               (files (TargetFiles "site"
-                                   (list (TargetFile "a.html" (bytes (list 1)))
-                                         (TargetFile "b.js" (bytes (list 2 3))))))
+               (files (list (TargetFile "a.html" (bytes (list 1)))
+                            (TargetFile "b.js" (bytes (list 2 3)))))
                (bound-ref
                 (lambda (name column) (TopRef (expanded-TopGlobal (global name)) (at column))))
                (file (lambda (path contents)
@@ -569,19 +621,22 @@
           (expect (bind (library (list (expanded-Define (global "x") (request "site") (at 1))
                                        (expanded-Define (global "y") (request "none") (at 1)))
                           4)
-                        (Supply (list) (list files (TargetFiles "none" (list)))))
-                  (Defined a
-                    (list (Define (global "x")
-                            (Call (bound-ref "Cons" 4)
-                                  (list (file "a.html" (bytes (list 1)))
-                                        (Call (bound-ref "Cons" 4)
-                                              (list (file "b.js" (bytes (list 2 3))) empty)
-                                              (at 2)))
-                                  (at 2))
-                            (at 1))
-                          (Define (global "y") empty (at 1)))
-                    4
-                    (at 1)))))
+                        (Supply (None)
+                                empty-table
+                                (table-set (table-set empty-table "site" files) "none" (list))))
+                  (bound-as
+                   (Defined a
+                     (list (Define (global "x")
+                             (Call (bound-ref "Cons" 4)
+                                   (list (file "a.html" (bytes (list 1)))
+                                         (Call (bound-ref "Cons" 4)
+                                               (list (file "b.js" (bytes (list 2 3))) empty)
+                                               (at 2)))
+                                   (at 2))
+                             (at 1))
+                           (Define (global "y") empty (at 1)))
+                     4
+                     (at 1))))))
 
       ;; The first file's `file` is the expression as written; each later
       ;; file's is a copy whose parameters, and the pattern variable and
@@ -639,43 +694,65 @@
                                                                 (at 2))
                                         (at 1)))
                           6)
-                        (Supply (list)
-                                (list (TargetFiles "site"
-                                                   (list (TargetFile "a" (bytes (list 1)))
-                                                         (TargetFile "b" (bytes (list 2)))
-                                                         (TargetFile "c" (bytes (list 3))))))))
-                  (Defined a
-                    (list (Define (global "x")
-                            (Call cons-ref
-                                  (list (entry (copy (local "path" 2)
-                                                     (local "bytes" 3)
-                                                     (local "kept" 4)
-                                                     (local "b" 5))
-                                               "a"
-                                               (bytes (list 1)))
-                                        (Call cons-ref
-                                              (list (entry (copy (local "path" 6)
-                                                                 (local "bytes" 7)
-                                                                 (local "kept" 8)
-                                                                 (local "b" 9))
-                                                           "b"
-                                                           (bytes (list 2)))
-                                                    (Call cons-ref
-                                                          (list (entry (copy (local "path" 10)
-                                                                             (local "bytes" 11)
-                                                                             (local "kept" 12)
-                                                                             (local "b" 13))
-                                                                       "c"
-                                                                       (bytes (list 3)))
-                                                                (Call (TopRef (expanded-TopGlobal
-                                                                               (global "Nil"))
-                                                                              (at 13))
-                                                                      (list)
-                                                                      (at 2)))
-                                                          (at 2)))
-                                              (at 2)))
-                                  (at 2))
-                            (at 1)))
-                    14
-                    (at 1)))))))
+                        (targets-supply "site"
+                                        (list (TargetFile "a" (bytes (list 1)))
+                                              (TargetFile "b" (bytes (list 2)))
+                                              (TargetFile "c" (bytes (list 3))))))
+                  (bound-as
+                   (Defined a
+                     (list (Define (global "x")
+                             (Call cons-ref
+                                   (list (entry (copy (local "path" 2)
+                                                      (local "bytes" 3)
+                                                      (local "kept" 4)
+                                                      (local "b" 5))
+                                                "a"
+                                                (bytes (list 1)))
+                                         (Call cons-ref
+                                               (list (entry (copy (local "path" 6)
+                                                                  (local "bytes" 7)
+                                                                  (local "kept" 8)
+                                                                  (local "b" 9))
+                                                            "b"
+                                                            (bytes (list 2)))
+                                                     (Call cons-ref
+                                                           (list (entry (copy (local "path" 10)
+                                                                              (local "bytes" 11)
+                                                                              (local "kept" 12)
+                                                                              (local "b" 13))
+                                                                        "c"
+                                                                        (bytes (list 3)))
+                                                                 (Call (TopRef (expanded-TopGlobal
+                                                                                (global "Nil"))
+                                                                               (at 13))
+                                                                       (list)
+                                                                       (at 2)))
+                                                           (at 2)))
+                                               (at 2)))
+                                   (at 2))
+                             (at 1)))
+                     14
+                     (at 1))))))
+
+      ;; The targets come first: a library that asks for one the build
+      ;; did not supply waits for it, whatever its links. Then its links:
+      ;; a file the build found none for is a problem where it is first
+      ;; written, and a target supplied that it does not ask for is no
+      ;; matter.
+      (define (test-needs-first)
+        (let* ((linking (expanded-Define (global "x")
+                                         (expanded-LinkedFile (list "absent.bin") (at 20) (at 10))
+                                         (at 1)))
+               (asking (expanded-Define (global "y")
+                                        (expanded-ArtifactFiles "site"
+                                                                (top-ref "File" 3)
+                                                                (top-ref "Cons" 4)
+                                                                (top-ref "Nil" 5)
+                                                                (at 30))
+                                        (at 1))))
+          (expect (bind (library (list linking asking) 2) no-supply)
+                  (Ok (WantsTargets (list (TargetRequest "site" (at 30))))))
+          (expect (bind (library (list linking) 2) (targets-supply "docs" (list)))
+                  (fail (at 20)
+                        "the library a links absent.bin, but there is no file at lib/absent.bin"))))))
    (else)))
