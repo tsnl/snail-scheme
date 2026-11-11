@@ -19,7 +19,8 @@
    (snail compiler source)
    (prefix (snail compiler read language) syntax-)
    (snail compiler read location)
-   (snail compiler outline language))
+   (snail compiler outline language)
+   (only (snail compiler outline names) same-library?))
   (begin
 
     ;; ---- Files ----
@@ -82,10 +83,10 @@
     (: declared-name
        (impl (Fn LibraryName syntax-Syntax Loc -> (Result LibraryName (List Feedback)))))
     (define (declared-name wanted declared loc)
-      (if (same-name? wanted (list "prim"))
+      (if (same-library? wanted (list "prim"))
           (fail loc "the prim library name is reserved for compiler primitives")
           (result-let* ((name (library-name declared)))
-            (if (same-name? name wanted)
+            (if (same-library? name wanted)
                 (Ok name)
                 (fail loc "library name does not match its path")))))
 
@@ -102,16 +103,6 @@
         ((syntax-Ident name _) (Ok name))
         ((syntax-Atom (syntax-Integer integer) _) (Ok (i64->string integer)))
         (_ (fail (syntax-loc part) "expected a library name part"))))
-
-    (: same-name? (impl (Fn LibraryName LibraryName -> Bool)))
-    (define (same-name? name other)
-      (match name
-        ((Nil) (null? other))
-        ((Cons part rest)
-         (match other
-           ((Cons other-part other-rest)
-            (and (string=? part other-part) (same-name? rest other-rest)))
-           ((Nil) #f)))))
 
     ;; ---- Declarations ----
 
@@ -230,12 +221,12 @@
     (define (program-outline forms)
       (match forms
         ((Cons (syntax-Form (Cons (syntax-Ident "generating" _) keys) _) rest)
-         (result-let* ((loading (map-results library-key keys)))
+         (result-let* ((loading (map-results loading-key keys)))
            (program-after loading rest)))
         (_ (program-after (Nil) forms))))
 
-    (: library-key (impl (Fn syntax-Syntax -> (Result String (List Feedback)))))
-    (define (library-key key)
+    (: loading-key (impl (Fn syntax-Syntax -> (Result String (List Feedback)))))
+    (define (loading-key key)
       (match key
         ((syntax-Atom (syntax-Text text) _) (Ok text))
         (_ (fail (syntax-loc key) "expected a library key string"))))

@@ -1,6 +1,7 @@
 ;; Query: the libraries an outline imports, which the integrator loads
-;; before it. Each is at its import set, where a library that cannot be
-;; found, or that leads back to one still loading, is reported.
+;; before it. Each is where its name is written, which is where a library
+;; that cannot be found, or that leads back to one still loading, is
+;; reported, as the old expander reports it.
 (define-library (snail compiler outline imports)
   (export
    Imported
@@ -13,8 +14,8 @@
 
     ;; ---- Imported libraries ----
 
-    ;; A library an import set names, under its modifiers, and where the
-    ;; whole set is written.
+    ;; A library an import set names, under its modifiers, and where its
+    ;; name is written.
     (struct Imported
       ((library LibraryName)
        (loc Loc)))
@@ -31,25 +32,12 @@
 
     (: imported (impl (Fn Import -> Imported)))
     (define (imported import)
-      (Imported (modified-library import) (import-loc import)))
-
-    (: modified-library (impl (Fn Import -> LibraryName)))
-    (define (modified-library import)
       (match import
-        ((Whole library _) library)
-        ((Only inner _ _) (modified-library inner))
-        ((Except inner _ _) (modified-library inner))
-        ((Prefix inner _ _) (modified-library inner))
-        ((Rename inner _ _) (modified-library inner))))
-
-    (: import-loc (impl (Fn Import -> Loc)))
-    (define (import-loc import)
-      (match import
-        ((Whole _ loc) loc)
-        ((Only _ _ loc) loc)
-        ((Except _ _ loc) loc)
-        ((Prefix _ _ loc) loc)
-        ((Rename _ _ loc) loc)))
+        ((Whole library loc) (Imported library loc))
+        ((Only inner _ _) (imported inner))
+        ((Except inner _ _) (imported inner))
+        ((Prefix inner _ _) (imported inner))
+        ((Rename inner _ _) (imported inner))))
 
     )
 
@@ -72,9 +60,9 @@
                                  (at 1)))
                (imports (list (Whole (list "b" "c") (at 9)) modified)))
           (expect (imported-libraries (Program (list) (None) imports (list)))
-                  (list (Imported (list "b" "c") (at 9)) (Imported (list "a") (at 1))))
+                  (list (Imported (list "b" "c") (at 9)) (Imported (list "a") (at 2))))
           (expect (imported-libraries (Defined (list "d") imports (list) (list) (at 7)))
-                  (list (Imported (list "b" "c") (at 9)) (Imported (list "a") (at 1))))
+                  (list (Imported (list "b" "c") (at 9)) (Imported (list "a") (at 2))))
           (expect (imported-libraries (Defined (list "d") (list) (list) (list) (at 7))) (list))
           (expect (imported-libraries (Generated (list "g") (list) (Ident "e" (at 8)) (at 7)))
                   (list))))))

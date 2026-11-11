@@ -1,8 +1,9 @@
 ;; The new compiler's unit tests, on Chibi: each library of src/snail/compiler
 ;; that has logic tests itself, with inputs built by hand. Given the
 ;; repository's root, it then compares the new passes with the old compiler
-;; over every tracked library and the adapters' texts: the readers, then
-;; the outlines. `make test-compiler` runs it all.
+;; over every tracked library and the adapters' texts: the readers, the
+;; outlines, then loading's problems. `make test-compiler` runs it all;
+;; the comparisons that expand whole programs are tests/compare-compiler.sld.
 ;;
 ;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/compiler.scm [ROOT]
 (import
@@ -14,7 +15,7 @@
  (only (chibi string) string-split)
  (only (chibi filesystem) create-directory*)
  (snail stage0 process)
- (only (snail core base) match Some None)
+ (only (snail core base) match Some None ::main)
  (only (snail compiler source) test-source)
  (only (snail compiler read lexemes) test-lexemes)
  (only (snail compiler read lines) test-lines)
@@ -26,6 +27,10 @@
  (only (snail compiler include pass) test-include)
  (only (snail compiler outline pass) test-outline)
  (only (snail compiler outline imports) test-imports)
+ (only (snail compiler outline names) test-names)
+ (only (snail compiler integrate files) test-files)
+ (only (snail compiler integrate walk) test-walk)
+ (only (snail compiler integrate load) test-load)
  (only (snail compiler adapter read)
        read-difference
        malformed-texts
@@ -40,11 +45,16 @@
        LibraryHeader
        ProgramHeader
        malformed-headers
-       header-comparison))
+       header-comparison)
+ (only (snail compiler adapter load)
+       load-cases
+       load-case-comparison))
 
 ;; ---- Unit tests ----
 
-(define (unit-tests)
+;; The tests that read files write them under `root`'s
+;; build/test-compiler/.
+(define (unit-tests root)
   (test-source)
   (test-lexemes)
   (test-lines)
@@ -56,6 +66,10 @@
   (test-include)
   (test-outline)
   (test-imports)
+  (test-names)
+  (test-files (string-append root "/build/test-compiler/files"))
+  (test-walk)
+  (test-load (string-append root "/build/test-compiler/load"))
   (report "the new compiler's unit tests passed"))
 
 ;; ---- Reader comparison ----
@@ -159,18 +173,39 @@
         ((eq? (caar found) kind) (cons (car found) (filter-kind kind (cdr found))))
         (else (filter-kind kind (cdr found)))))
 
+;; ---- Loading comparison ----
+
+;; The cases are written in build/test-compiler/loads/.
+(define (compare-loads root)
+  (let ((directory (string-append root "/build/test-compiler/loads")))
+    (create-directory* (string-append directory "/sample"))
+    (let* ((found (findings (lambda (load-case) (load-case-comparison directory load-case))
+                            ::main
+                            load-cases))
+           (differences (filter-kind 'differed found)))
+      (for-each (lambda (finding) (report (cdr finding))) found)
+      (report (string-append "compared loading on "
+                             (number->string (length load-cases))
+                             " problems: "
+                             (number->string (length differences))
+                             " differences, "
+                             (number->string (length (filter-kind 'uncompared found)))
+                             " not compared"))
+      (null? differences))))
+
 ;; ---- Main ----
 
 (define (report line)
   (display line)
   (newline))
 
-(unit-tests)
 (let ((arguments (command-line)))
+  (unit-tests (if (pair? (cdr arguments)) (cadr arguments) "."))
   (when (pair? (cdr arguments))
     (let* ((root (cadr arguments))
            (files (tracked-libraries root))
            (readers (compare-readers root files))
-           (outlines (compare-outlines root files)))
-      (unless (and readers outlines)
+           (outlines (compare-outlines root files))
+           (loads (compare-loads root)))
+      (unless (and readers outlines loads)
         (exit 1)))))

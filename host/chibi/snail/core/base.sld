@@ -112,11 +112,13 @@
    ::fields
    ::file
    ::files
+   ::finished
    ::first
    ::form
    ::forms
    ::found
    ::found?
+   ::frames
    ::from
    ::function?
    ::functions
@@ -158,6 +160,7 @@
    ::loc
    ::locals
    ::low
+   ::main
    ::memo
    ::message
    ::metadata
@@ -178,6 +181,8 @@
    ::operations
    ::order
    ::original
+   ::outline
+   ::outlined
    ::output
    ::outputs
    ::owned?
@@ -245,6 +250,7 @@
    ::variable
    ::vars
    ::visited
+   ::waiting
    ::x
    ;; ---- End field path exports ----
    )
@@ -332,11 +338,13 @@
     (define (::fields value) (field-of value (quote fields)))
     (define (::file value) (field-of value (quote file)))
     (define (::files value) (field-of value (quote files)))
+    (define (::finished value) (field-of value (quote finished)))
     (define (::first value) (field-of value (quote first)))
     (define (::form value) (field-of value (quote form)))
     (define (::forms value) (field-of value (quote forms)))
     (define (::found value) (field-of value (quote found)))
     (define (::found? value) (field-of value (quote found?)))
+    (define (::frames value) (field-of value (quote frames)))
     (define (::from value) (field-of value (quote from)))
     (define (::function? value) (field-of value (quote function?)))
     (define (::functions value) (field-of value (quote functions)))
@@ -378,6 +386,7 @@
     (define (::loc value) (field-of value (quote loc)))
     (define (::locals value) (field-of value (quote locals)))
     (define (::low value) (field-of value (quote low)))
+    (define (::main value) (field-of value (quote main)))
     (define (::memo value) (field-of value (quote memo)))
     (define (::message value) (field-of value (quote message)))
     (define (::metadata value) (field-of value (quote metadata)))
@@ -398,6 +407,8 @@
     (define (::operations value) (field-of value (quote operations)))
     (define (::order value) (field-of value (quote order)))
     (define (::original value) (field-of value (quote original)))
+    (define (::outline value) (field-of value (quote outline)))
+    (define (::outlined value) (field-of value (quote outlined)))
     (define (::output value) (field-of value (quote output)))
     (define (::outputs value) (field-of value (quote outputs)))
     (define (::owned? value) (field-of value (quote owned?)))
@@ -465,6 +476,7 @@
     (define (::variable value) (field-of value (quote variable)))
     (define (::vars value) (field-of value (quote vars)))
     (define (::visited value) (field-of value (quote visited)))
+    (define (::waiting value) (field-of value (quote waiting)))
     (define (::x value) (field-of value (quote x)))
     ;; ---- End field paths ----
 

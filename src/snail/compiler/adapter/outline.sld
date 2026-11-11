@@ -20,6 +20,11 @@
    Agreed
    Differed
    Uncompared
+   as-comparison
+   stop-comparison
+   only-old-stops
+   only-new-stops
+   feedback-text
    file-comparison
    Header
    LibraryHeader
@@ -39,6 +44,7 @@
    (snail compiler outline language)
    (snail compiler outline pass)
    (snail compiler outline imports)
+   (snail compiler outline names)
    (snail compiler adapter read)
    (prefix (only (snail shell compiler read)
                  Loc
@@ -355,7 +361,7 @@
 
     (: name-difference (impl (Fn LibraryName (List old:Syntax) old:Loc -> (Option String))))
     (define (name-difference library parts loc)
-      (text-difference (string-join library " ") (string-join (map part-text parts) " ") loc))
+      (text-difference (written-name library) (written-name (map part-text parts)) loc))
 
     (: part-text (impl (Fn old:Syntax -> String)))
     (define (part-text part)
@@ -381,10 +387,11 @@
         (_ (Some (string-append (old:loc->string (old:syntax-loc pair))
                                 ": the new compiler reads a renaming here")))))
 
-    ;; Each import set's library and place beside the old walk from that
-    ;; set alone. The walk searches no directory, so it reports the first
-    ;; library it would read as missing, where the set is written, or reads
-    ;; nothing for the compiler's own (snail core forms).
+    ;; Each import set's library beside the old walk from that set alone.
+    ;; The walk searches no directory, so it reports the first library it
+    ;; would read as missing, where the whole set is written, or reads
+    ;; nothing for the compiler's own (snail core forms). Where each set and
+    ;; name is written is compared with the sets themselves.
     (: walks-difference (impl (Fn (List Imported) (List old:Syntax) -> (Option String) ! fs)))
     (define (walks-difference imported specs)
       (if (= (length imported) (length specs))
@@ -395,21 +402,23 @@
     (: walk-difference (impl (Fn Imported old:Syntax -> (Option String) ! fs)))
     (define (walk-difference imported spec)
       (match (old:compiling (lambda () (old:library-closure (Nil) old:no-inputs (Nil) (list spec))))
-        ((Ok _) (feedback-difference (walk-stops imported) (Nil)))
+        ((Ok _) (feedback-difference (walk-stops imported spec) (Nil)))
         ((Err (old:Failed diagnostics))
-         (feedback-difference (walk-stops imported) (old:diagnostics->list diagnostics)))
+         (feedback-difference (walk-stops imported spec) (old:diagnostics->list diagnostics)))
         ((Err (old:Requested _)) (Some "the old walk asked for an input"))))
 
-    (: walk-stops (impl (Fn Imported -> (List old:SourceDiagnostic))))
-    (define (walk-stops imported)
-      (if (string=? (string-join (::library imported) " ") "snail core forms")
+    (: walk-stops (impl (Fn Imported old:Syntax -> (List old:SourceDiagnostic))))
+    (define (walk-stops imported spec)
+      (if (same-library? (::library imported) (list "snail" "core" "forms"))
           (Nil)
-          (list (feedback->old (missing-library (::library imported) (::loc imported))))))
+          (list (old:SourceDiagnostic (old:syntax-loc spec)
+                                      (::message (missing-library (::library imported)
+                                                                  (::loc imported)))))))
 
     ;; What the old compiler says of a library it cannot find.
     (: missing-library (impl (Fn LibraryName Loc -> Feedback)))
     (define (missing-library library loc)
-      (Feedback loc (string-append "library not found: (" (string-join library " ") ")")))
+      (Feedback loc (string-append "library not found: " (written-name library))))
 
     ;; ---- Exports ----
 
@@ -526,37 +535,32 @@
       (old:compile-error (old:Loc directory 0 0) "the comparison runs no producer"))
 
     ;; The first problem the old expander finds with what was outlined: the
-    ;; outline's own, or else the first import set's library, which is
-    ;; missing, or a library's first export, when it imports nothing and
-    ;; defines nothing, or the producer a generated library asks for.
+    ;; outline's own, or else the first imported library, which is missing,
+    ;; or a library's first export, when it imports nothing and defines
+    ;; nothing, or the producer a generated library asks for.
     (: predicted-stop
        (impl (Fn String (Result Outline (List Feedback)) -> (Option (List Feedback)))))
     (define (predicted-stop directory new)
       (match new
         ((Err feedback) (Some feedback))
-        ((Ok (Program _ _ (Cons first-import _) _)) (Some (list (innermost-missing first-import))))
-        ((Ok (Defined _ (Cons first-import _) _ _ _))
-         (Some (list (innermost-missing first-import))))
-        ((Ok (Defined _ (Nil) (Cons first-export _) (Nil) _))
+        ((Ok outline)
+         (match (imported-libraries outline)
+           ((Cons first _) (Some (list (missing-library (::library first) (::loc first)))))
+           ((Nil) (unimported-stop directory outline))))))
+
+    (: unimported-stop (impl (Fn String Outline -> (Option (List Feedback)))))
+    (define (unimported-stop directory outline)
+      (match outline
+        ((Defined _ _ (Cons first-export _) (Nil) _)
          (Some (list (undefined-export (::identifier first-export)))))
-        ((Ok (Generated _ _ _ _))
+        ((Generated _ _ _ _)
          (Some (list (Feedback (Loc directory 0 0) "the comparison runs no producer"))))
-        ((Ok _) (None))))
+        (_ (None))))
 
     (: undefined-export (impl (Fn Identifier -> Feedback)))
     (define (undefined-export identifier)
       (Feedback (::loc identifier)
                 (string-append "exported name is not defined: " (::name identifier))))
-
-    ;; The expander loads an import set's library where its name is.
-    (: innermost-missing (impl (Fn Import -> Feedback)))
-    (define (innermost-missing import)
-      (match import
-        ((Whole library loc) (missing-library library loc))
-        ((Only inner _ _) (innermost-missing inner))
-        ((Except inner _ _) (innermost-missing inner))
-        ((Prefix inner _ _) (innermost-missing inner))
-        ((Rename inner _ _) (innermost-missing inner))))
 
     ;; Headers that are malformed, or that the outline accepts and the
     ;; expander then stops on. Each has one problem, or its first problem
