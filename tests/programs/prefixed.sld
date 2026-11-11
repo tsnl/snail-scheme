@@ -10,8 +10,8 @@
 (b:instance (b:Show (!) Pair2)
             (b:define show
                       (b:lambda (pair)
-                                (b:string-append (b:show (::left pair))
+                                (b:string-append (b:show (b:● pair left))
                                                  "/"
-                                                 (b:show (::right pair))))))
+                                                 (b:show (b:● pair right))))))
 
 (write-line (b:show (Pair2 3 4)))

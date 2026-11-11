@@ -109,17 +109,19 @@ the result and `!` introducing effects. Named function definitions require
 typed parameter pairs and may carry result, effect, generic and constraint
 clauses inline. Value definitions retain their initializer form. Definitions
 continue to use `define`.
+Direct field selection is implemented as `(● receiver label ...)`: the
+receiver's nominal struct type supplies stored fields, and paths traverse
+`Ref` values between labels while preserving a final `Ref`. Field classes
+and computed field overloads are not part of this contract.
 Direct-style suspension remains available: the compiler turns the remaining
 computation into a one-shot callable. Callable contracts expose continuation
 boundaries, including through wrapper calls. A separate checked call-site
 marker remains open; examples use ordinary operation names and `!` retains
 its mutation convention. [Effect transitions](effects.md#resumption-effects-and-effect-transitions)
 describe entry and resumption requirements. The proposed
-[places and locators](types.md#proposed-places-and-locators) let field
-selection describe a typed path without exposing the compiler's field
-classes. Exact projection, read, write and continuation-binder syntax
-remains open. Choosing `::count!` is not a prerequisite for implementing
-typed places, and dot notation need not expose a runtime offset.
+[places and locators](types.md#proposed-places-and-locators) remain a proposal
+for typed place syntax beyond the implemented field path. Dot notation need
+not expose a runtime offset.
 
 Evaluate candidates by rewriting complete examples: the tour's counter,
 a nested update in an application, a higher-order collection operation,

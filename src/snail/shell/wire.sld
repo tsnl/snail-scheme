@@ -50,20 +50,20 @@
        (position (Ref I64))))
 
     (define (encode-byte (encoder Encoder) (byte U8)) (→ Unit) (! mut)
-      (let ((bytes (ref-get (::bytes encoder))) (size (ref-get (::size encoder))))
+      (let ((bytes (ref-get (● encoder bytes))) (size (ref-get (● encoder size))))
         (when (= size (array-length bytes))
           (let ((larger (make-array (* 2 size) (ann 0 U8))))
             (array-copy! larger 0 bytes 0 size)
-            (ref-set! (::bytes encoder) larger)))
-        (array-set! (ref-get (::bytes encoder)) size byte)
-        (ref-set! (::size encoder) (+ size 1))))
+            (ref-set! (● encoder bytes) larger)))
+        (array-set! (ref-get (● encoder bytes)) size byte)
+        (ref-set! (● encoder size) (+ size 1))))
 
     (define (decode-byte (decoder Decoder)) (→ U8) (! mut)
-      (let ((position (ref-get (::position decoder))))
-        (when (>= position (vector-length (::bytes decoder)))
+      (let ((position (ref-get (● decoder position))))
+        (when (>= position (vector-length (● decoder bytes)))
           (panic "wire data ended early"))
-        (ref-set! (::position decoder) (+ position 1))
-        (vector-ref (::bytes decoder) position)))
+        (ref-set! (● decoder position) (+ position 1))
+        (vector-ref (● decoder bytes) position)))
 
     ;; The encoder and its buffer are local to this call.
 
@@ -72,9 +72,9 @@
        (lambda ()
          (let ((encoder (Encoder (ref (make-array 64 (ann 0 U8))) (ref 0))))
            (encode value encoder)
-           (subvector (array->vector (ref-get (::bytes encoder)))
+           (subvector (array->vector (ref-get (● encoder bytes)))
                       0
-                      (ref-get (::size encoder)))))))
+                      (ref-get (● encoder size)))))))
 
     ;; Panics if the bytes were not written for this type. The decoder's
     ;; position is local to this call.
@@ -83,7 +83,7 @@
       (unsafe-total
        (lambda ()
          (let* ((decoder (Decoder bytes (ref 0))) (value (decode decoder)))
-           (unless (= (ref-get (::position decoder)) (vector-length bytes))
+           (unless (= (ref-get (● decoder position)) (vector-length bytes))
              (panic "wire data has trailing bytes"))
            value))))
 

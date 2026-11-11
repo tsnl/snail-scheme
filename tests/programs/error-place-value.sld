@@ -1,8 +1,8 @@
 (import
  (snail core base))
 
-;; As a value, a field operation consumes the record it is applied to,
-;; which would leave a linear record's work item with no owner.
+;; A selector lambda still owns its linear argument. Observing a field
+;; does not consume the rest of the record or release its work item.
 (struct Task
   ((work (dyn (FnOnce → Unit)))
    (tries I64)))
@@ -10,4 +10,4 @@
 (define (tries (read (dyn (Fn Task → I64)))) (→ (dyn (Fn Task → I64)))
   read)
 
-(tries ::tries)
+(tries (lambda (record) (● record tries)))

@@ -32,7 +32,10 @@
                   (args (List Expr))
                   (loc Loc))
       (→ Expr)
-      (Expr (App (Expr (Var name types (Nil)) (TFun (map ::type args) result row) loc) args)
+      (Expr (App (Expr (Var name types (Nil))
+                       (TFun (map (lambda (record) (● record type)) args) result row)
+                       loc)
+                 args)
             result loc))
 
     (define (text-value (value String) (loc Loc)) (→ Expr)
@@ -100,7 +103,7 @@
                                  (checked-branch attempt? value target loc)
                                  (failed-branch attempt? value target loc))
                              (if attempt? (cast-result-type target) target) loc))))
-        (Pair (Expr (Let name inner body) (::type body) loc) (+ count 1))))
+        (Pair (Expr (Let name inner body) (● body type) loc) (+ count 1))))
 
     ;; ---- Immediate probes ----
 
@@ -115,14 +118,14 @@
        (loc Loc)))
 
     (define (probe (value Expr) (pattern Pattern)) (→ (Option Probe))
-      (match (Pair (::term value) pattern)
+      (match (Pair (● value term) pattern)
         ((Pair (TryConvert input target)
                (PCon "snail.core.base:Ok" (Cons (PVar name _) (Nil)) _))
-         (Some (Probe input target name (::loc value))))
+         (Some (Probe input target name (● value loc))))
         (_ (None))))
 
     (define (probes (value Expr) (pattern Pattern)) (→ (Option (List Probe)))
-      (match (Pair (::term value) pattern)
+      (match (Pair (● value term) pattern)
         ((Pair (App (Expr (Var "snail.core.base:Pair" _ _) _ _)
                     (Cons left (Cons right (Nil))))
                (PCon "snail.core.base:Pair" (Cons left-pattern (Cons right-pattern (Nil))) _))
@@ -141,20 +144,20 @@
     (define (probe-test (held (List (Pair Probe Expr))) (loc Loc)) (→ Expr)
       (let ((bool (TCon "Bool" (Nil))))
         (fold-right (lambda (entry rest)
-                      (let* ((probe (::first entry)) (target (::target probe)))
+                      (let* ((probe (● entry first)) (target (● probe target)))
                         (if (any-type? target) rest
                             (Expr
-                             (If (Expr (TypeTest (::second entry) target) bool (::loc probe))
+                             (If (Expr (TypeTest (● entry second) target) bool (● probe loc))
                                  rest (Expr (Lit (DBool #f)) bool loc)) bool loc))))
                     (Expr (Lit (DBool #t)) bool loc) held)))
 
     (define (probe-values (held (List (Pair Probe Expr))) (body Expr) (loc Loc)) (→ Expr)
       (fold-right (lambda (entry body)
-                    (let ((probe (::first entry)))
-                      (Expr (Let (::name probe)
-                                 (checked-branch #f (::second entry) (::target probe)
-                                                 (::loc probe))
-                                 body) (::type body) loc)))
+                    (let ((probe (● entry first)))
+                      (Expr (Let (● probe name)
+                                 (checked-branch #f (● entry second) (● probe target)
+                                                 (● probe loc))
+                                 body) (● body type) loc)))
                   body held))
 
     ;; Evaluate every input before selecting a branch: Pair is strict even
@@ -168,15 +171,15 @@
                         (failure Expr)
                         (matched Expr))
       (→ Expr)
-      (let* ((loc (::loc matched))
+      (let* ((loc (● matched loc))
              (names (map (lambda (i) (string-append "%dyn-cast." (i64->string (+ count i)) "%"))
                          (iota (length probes))))
              (values (map (lambda (name) (Expr (Var name (Nil) (Nil)) any-type loc)) names))
              (held (zip probes values))
              (body (Expr (If (probe-test held loc) (probe-values held success loc) failure)
-                         (::type matched) loc)))
+                         (● matched type) loc)))
         (fold-right (lambda (entry body)
-                      (Expr (Let (::first entry) (::second entry) body) (::type body) loc))
+                      (Expr (Let (● entry first) (● entry second) body) (● body type) loc))
                     body (zip names inputs))))
 
     ;; ---- Traversal ----
@@ -197,23 +200,23 @@
                           (failure Expr)
                           (matched Expr))
       (→ (Pair Expr I64))
-      (lowering count ((inputs (lower-exprs (map ::input probes)))
+      (lowering count ((inputs (lower-exprs (map (lambda (record) (● record input)) probes)))
                        (success (lower-expr success))
                        (failure (lower-expr failure)))
                 (Pair (probe-body count probes inputs success failure matched)
                       (+ count (length probes)))))
 
     (define (lower-expr (count I64) (expr Expr)) (→ (Pair Expr I64))
-      (let ((rebuild (lambda (term) (Expr term (::type expr) (::loc expr)))))
-        (match (::term expr)
+      (let ((rebuild (lambda (term) (Expr term (● expr type) (● expr loc)))))
+        (match (● expr term)
           ((Convert inner target)
            (lowering count ((inner (lower-expr inner)))
-                     (cond ((type=? (::type inner) target) (Pair inner count))
+                     (cond ((type=? (● inner type) target) (Pair inner count))
                            ((any-type? target) (Pair (rebuild (Convert inner target)) count))
-                           (else (projection count #f inner target (::loc expr))))))
+                           (else (projection count #f inner target (● expr loc))))))
           ((TryConvert inner target)
            (lowering count ((inner (lower-expr inner)))
-                     (projection count #t inner target (::loc expr))))
+                     (projection count #t inner target (● expr loc))))
           ((Lambda params body captures?)
            (lowering count ((body (lower-expr body)))
                      (Pair (rebuild (Lambda params body captures?)) count)))
@@ -233,6 +236,7 @@
           ((Match value clauses)
            (lower-match count expr value clauses))
           ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
+          ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((Ann inner type)
            (lowering count ((inner (lower-expr inner)))
                      (Pair (rebuild (Ann inner type)) count)))
@@ -240,10 +244,15 @@
            (lowering count ((inner (lower-expr inner)))
                      (Pair (rebuild (TypeTest inner target)) count)))
           ((Handle effect implementations body)
-           (lowering count ((values (lower-exprs (map ::second implementations)))
-                            (body (lower-expr body)))
+           (lowering count
+                     ((values
+                       (lower-exprs (map (lambda (record) (● record second)) implementations)))
+                      (body (lower-expr body)))
                      (Pair
-                      (rebuild (Handle effect (zip (map ::first implementations) values) body))
+                      (rebuild (Handle effect
+                                       (zip (map (lambda (record) (● record first)) implementations)
+                                            values)
+                                       body))
                       count)))
           (_ (Pair expr count)))))
 
@@ -259,7 +268,7 @@
     (define (lower-ordinary-match (count I64) (expr Expr) (value Expr) (clauses (List Clause)))
       (→ (Pair Expr I64))
       (lowering count ((value (lower-expr value)) (clauses (lower-clauses clauses)))
-                (Pair (Expr (Match value clauses) (::type expr) (::loc expr)) count)))
+                (Pair (Expr (Match value clauses) (● expr type) (● expr loc)) count)))
 
     (define (lower-exprs (count I64) (exprs (List Expr))) (→ (Pair (List Expr) I64))
       (match exprs
@@ -271,8 +280,8 @@
     (define (lower-clauses (count I64) (clauses (List Clause))) (→ (Pair (List Clause) I64))
       (match clauses
         ((Cons clause rest)
-         (lowering count ((body (lower-expr (::body clause))) (rest (lower-clauses rest)))
-                   (Pair (Cons (Clause (::pattern clause) body) rest) count)))
+         (lowering count ((body (lower-expr (● clause body))) (rest (lower-clauses rest)))
+                   (Pair (Cons (Clause (● clause pattern) body) rest) count)))
         ((Nil) (Pair (Nil) count))))
 
     (define (lower-item (count I64) (item Item)) (→ (Pair Item I64))
@@ -285,11 +294,10 @@
 
     (define (lower-conversions (items (List Item))) (→ (List Item))
       (reverse
-       (::first
-        (fold-left (lambda (result item)
-                     (match (lower-item (::second result) item)
-                       ((Pair item count) (Pair (Cons item (::first result)) count))))
-                   (Pair (Nil) 0) items)))))
+       (● (fold-left (lambda (result item)
+                       (match (lower-item (● result second) item)
+                         ((Pair item count) (Pair (Cons item (● result first)) count))))
+                     (Pair (Nil) 0) items) first))))
 
   ;; ---- Tests ----
 
@@ -311,10 +319,10 @@
       (define matched
         (lambda (value pattern fallback)
           (Expr (Match value (list (Clause pattern (integer-value 1 loc)) fallback)) i64 loc)))
-      (define lower (lambda (value) (::first (lower-expr 0 value))))
+      (define lower (lambda (value) (● (lower-expr 0 value) first)))
 
       (define count-terms
-        (lambda (predicate value) (+ (if (predicate (::term value)) 1 0)
+        (lambda (predicate value) (+ (if (predicate (● value term)) 1 0)
                                      (fold-left
                                       (lambda (total child) (+ total (count-terms predicate child)))
                                       0 (expr-children value)))))
@@ -359,7 +367,7 @@
       (define test-paired-probes
         (lambda () (let* ((left (attempt (call "left" (Nil) any-type empty-row (Nil) loc) i64))
                           (right (attempt (call "right" (Nil) any-type empty-row (Nil) loc) string))
-                          (types (list (::type left) (::type right)))
+                          (types (list (● left type) (● right type)))
                           (pair (TCon "snail.core.base:Pair" types))
                           (value
                            (call "snail.core.base:Pair" types pair empty-row (list left right) loc))
@@ -377,9 +385,9 @@
       ;; An escaping result or a fallback binding can observe the error.
       (define test-observed-results
         (lambda () (let* ((value (attempt (local "input" any-type) i64))
-                          (fallback (Clause (PVar "result" (::type value))
+                          (fallback (Clause (PVar "result" (● value type))
                                             (call "observe" (Nil) i64 empty-row
-                                                  (list (local "result" (::type value))) loc))))
+                                                  (list (local "result" (● value type))) loc))))
                      (for-each (lambda (body)
                                  (expect (references "snail.core.base:Ok" body) 1)
                                  (expect (references "snail.core.base:Err" body) 1)

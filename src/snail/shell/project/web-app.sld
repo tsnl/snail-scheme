@@ -22,7 +22,7 @@
 
     (define (web-app-manifest (name String)) (→ Json)
       (JsonObject
-       (append (map (lambda (field) (Pair (::first field) (JsonString (::second field))))
+       (append (map (lambda (field) (Pair (● field first) (JsonString (● field second))))
                     (list (Pair "name" name) (Pair "short_name" name)
                           (Pair "start_url" "./") (Pair "scope" "./") (Pair "display" "standalone")
                           (Pair "background_color" "#24282f") (Pair "theme_color" "#24282f")))
@@ -59,8 +59,8 @@
       (string-append "<" name
                      (string-concatenate
                       (map (lambda (attribute)
-                             (string-append " " (::first attribute) "=\""
-                                            (attribute-text (::second attribute)) "\""))
+                             (string-append " " (● attribute first) "=\""
+                                            (attribute-text (● attribute second)) "\""))
                            attributes))
                      ">"))
 
@@ -87,10 +87,10 @@
     ;; A doctype/preamble stays before the generated head.
 
     (define (insert-metadata (text String) (items (List PageMetadata))) (→ String)
-      (let* ((head (head-boundary text)) (at (::first head))
+      (let* ((head (head-boundary text)) (at (● head first))
              (added (string-concatenate (map metadata-text items))))
         (string-append (substring text 0 at)
-                       (if (::second head) added (string-append "<head>" added))
+                       (if (● head second) added (string-append "<head>" added))
                        (substring text at (string-length text)))))
 
     (define (with-web-app (text String) (development Bool)) (→ String)
@@ -101,7 +101,7 @@
     ;; base must never pin the app's installation identity to one generation.
 
     (define (stable-web-app (text String) (mount String)) (→ String)
-      (let ((start (::first (head-boundary text))))
+      (let ((start (● (head-boundary text) first)))
         (if (text-at? text start default-link)
             (string-append (substring text 0 start)
                            (metadata-text

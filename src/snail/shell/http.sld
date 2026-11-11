@@ -202,7 +202,8 @@
 
     (define (header-values (headers (List Header)) (name String)) (→ (List String))
       (let ((name (lower-ascii name)))
-        (map ::value (filter (lambda (header) (string=? (::name header) name)) headers))))
+        (map (lambda (record) (● record value))
+             (filter (lambda (header) (string=? (● header name) name)) headers))))
 
     ;; The check precedes arithmetic, including for thousands of digits.
 
@@ -260,7 +261,7 @@
                          ((Err error) (Err error))
                          ((Ok count)
                           (Ok
-                           (RequestHead (::first line) (::second line) headers count))))))))
+                           (RequestHead (● line first) (● line second) headers count))))))))
         ((Nil) (Err (Malformed "missing Host")))))
 
     (define (complete-head (lines (List String))) (→ (Result RequestHead HttpError))
@@ -398,7 +399,7 @@
         (match headers
           ((Nil) (Ok (reverse lines)))
           ((Cons header rest)
-           (let ((name (::name header)) (value (::value header)))
+           (let ((name (● header name)) (value (● header value)))
              (cond ((or (> (string-length name) remaining)
                         (> (string-length value) (- (- remaining (string-length name)) 4)))
                     (Err (HeadTooLarge)))

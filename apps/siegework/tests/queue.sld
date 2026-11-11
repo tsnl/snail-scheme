@@ -22,25 +22,25 @@
   (match owner
     ((OfHub) "hub slot")
     ((OfBuilding b)
-     (string-append (kind-name (::kind b))
+     (string-append (kind-name (● b kind))
                     " "
-                    (show (::x (::cell b)))
+                    (show (● (● b cell) x))
                     ","
-                    (show (::y (::cell b)))))))
+                    (show (● (● b cell) y))))))
 
 (define (task-text (world World) (task Task)) (→ String)
-  (let ((work (::work task)))
-    (string-append (owner-text world (::owner task))
+  (let ((work (● task work)))
+    (string-append (owner-text world (● task owner))
                    " "
-                   (show (::progress work))
+                   (show (● work progress))
                    "/"
-                   (show (::duration work))
-                   (if (::active task) " active" ""))))
+                   (show (● work duration))
+                   (if (● task active) " active" ""))))
 
 (define (report (world World)) (→ Unit) (! console)
   (write-line
-   (string-append "tick " (show (::tick world)) ", energy " (show (::energy world))
-                  ", slots " (show (::slots (::hub world))) ": "
+   (string-append "tick " (show (● world tick)) ", energy " (show (● world energy))
+                  ", slots " (show (● (● world hub) slots)) ": "
                   (string-join (map (lambda (task) (task-text world task)) (tasks world)) "; "))))
 
 (let ()

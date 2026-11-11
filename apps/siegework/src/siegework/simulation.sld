@@ -25,12 +25,13 @@
     ;; turrets fire; the dead are removed before the colony is struck, and
     ;; the destroyed before the game is judged.
     (define (advance (world World)) (→ World)
-      (if (and (::started world) (playing? world))
+      (if (and (● world started) (playing? world))
           (judge (settle
                   (strike (settle (fire (march (excavate (spawn (work (produce (World-tick-set world
                                                                                                (+
-                                                                                                (::tick
-                                                                                                 world)
+                                                                                                (●
+                                                                                                 world
+                                                                                                 tick)
                                                                                                 1))))))))))))
           world))
 
@@ -47,7 +48,7 @@
     ;; order was rejected.
     (define (command (world World) (action Action)) (→ (Result (Pair World Entry) Rejection))
       (match (act world action)
-        ((Ok next) (Ok (Pair next (Entry (::tick world) action))))
+        ((Ok next) (Ok (Pair next (Entry (● world tick) action))))
         ((Err rejection) (Err rejection))))
 
     ;; Rebuilds a colony from its seed, its journal, oldest entry first, and
@@ -62,19 +63,19 @@
 
     (define (replay-entry (played (Pair World (List Entry))) (entry Entry))
       (→ (Pair World (List Entry)))
-      (let ((world (advance-until (::first played) (::tick entry))))
-        (if (= (::tick world) (::tick entry))
-            (match (command world (::action entry))
-              ((Ok (Pair next kept)) (Pair next (Cons kept (::second played))))
-              ((Err _) (Pair world (::second played))))
-            (Pair world (::second played)))))
+      (let ((world (advance-until (● played first) (● entry tick))))
+        (if (= (● world tick) (● entry tick))
+            (match (command world (● entry action))
+              ((Ok (Pair next kept)) (Pair next (Cons kept (● played second))))
+              ((Err _) (Pair world (● played second))))
+            (Pair world (● played second)))))
 
     ;; Advances to `tick`, or until the world stops: before the first order
     ;; and once the game is decided, a tick changes nothing.
     (define (advance-until (world World) (tick I64)) (→ World)
-      (if (< (::tick world) tick)
+      (if (< (● world tick) tick)
           (let ((next (advance world)))
-            (if (= (::tick next) (::tick world)) next (advance-until next tick)))
+            (if (= (● next tick) (● world tick)) next (advance-until next tick)))
           world))
 
     ))

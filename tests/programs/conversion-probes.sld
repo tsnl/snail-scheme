@@ -26,12 +26,12 @@
 (for-each
  (lambda (example)
    (let* ((trace (ref ""))
-          (result (match (Pair (try-convert (input trace "L" (::left example)) I64)
-                               (try-convert (input trace "R" (::right example)) String))
+          (result (match (Pair (try-convert (input trace "L" (● example left)) I64)
+                               (try-convert (input trace "R" (● example right)) String))
                     ((Pair (Ok left) (Ok right)) (string-append (show left) right))
                     (_ "missing"))))
      (assert (string=? (ref-get trace) "LR"))
-     (assert (string=? result (::expected example)))))
+     (assert (string=? result (● example expected)))))
  (list (Example 2 "yes" "2yes") (Example 2 #f "missing")
        (Example #f "yes" "missing") (Example #f #f "missing")))
 
@@ -39,12 +39,12 @@
 (let ((result (try-convert (ann #f Any) I64)))
   (assert (match result
             ((Err error)
-             (and (string=? (string-join (::expected error) ",") "I64")
-                  (match (::reason error) ((TypeMismatch) #t) (_ #f))))
+             (and (string=? (string-join (● error expected) ",") "I64")
+                  (match (● error reason) ((TypeMismatch) #t) (_ #f))))
             (_ #f))))
 (assert (match (try-convert (ann #f Any) I64)
           ((Ok value) (= value 0))
-          ((Err error) (= (::argument error) -1))))
+          ((Err error) (= (● error argument) -1))))
 
 ;; A successful conversion does not imply that its nested pattern matches.
 (struct Point
@@ -54,7 +54,7 @@
           ((Ok (Point 0 y)) #f)
           (_ #t)))
 (assert (match (try-convert (ann (Point 1 2) Any) Point)
-          ((Ok point) (= (+ (::x point) (::y point)) 3))
+          ((Ok point) (= (+ (● point x) (● point y)) 3))
           (_ #f)))
 (assert (match (try-convert (ann "identity" Any) Any)
           ((Ok value) (type-test value String))

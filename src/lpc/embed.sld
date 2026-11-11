@@ -34,8 +34,8 @@
     ;; `((string=? key "K") VALUE)`.
     (define (lookup-clause (entry (Pair String Syntax))) (→ Syntax)
       (ListSyntax
-       (list (form "string=?" (list (SymbolSyntax "key") (StringSyntax (::first entry))))
-             (::second entry))))
+       (list (form "string=?" (list (SymbolSyntax "key") (StringSyntax (● entry first))))
+             (● entry second))))
 
     ;; ---- Images ----
 
@@ -95,9 +95,9 @@
 
     ;; Ramp K gives `(list C ...)`.
     (define (ramp-entry (ramp (Pair String (List I32)))) (→ (Pair String Syntax))
-      (Pair (::first ramp)
+      (Pair (● ramp first)
             (form "list"
-                  (map (lambda (color) (IntegerSyntax (i32->i64 color))) (::second ramp)))))
+                  (map (lambda (color) (IntegerSyntax (i32->i64 color))) (● ramp second)))))
 
     ;; The quoted strings of the file in order: each key is followed by its
     ;; colors, so a string that is not a color starts the next ramp.

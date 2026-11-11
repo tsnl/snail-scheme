@@ -114,14 +114,21 @@ function of the expander has `mut` in its row — and where it does not, the
   passes so definitions may refer to later ones; local bodies are
   sequential. Declarations become entities in the program tables: a struct
   or enum is a `DataType` whose fields say whether they are mutable, with
-  an accessor for each field, bound as the field class instance's method
-  for a struct and by name for an enum case, and, depending on
+  struct fields selected by nominal field paths and enum accessors bound
+  by name for each case, and, depending on
   mutability, a pure replacement or a setter and a swapper. Derived
   wire instances are generated as ordinary instance syntax that resolves in
   the implicit libraries, `(snail shell wire)` among them, which the build's
   first deriving clause loads, and expressions become core `Expr`s with
   unique names. Each library's build key, the text of its declarations with
   its imports' interfaces, lets a session replay it.
+
+  A `FieldRead` waits only while its receiver's type is unknown. The checker
+  substitutes the nominal struct's type parameters, follows any `Ref`
+  dereferences, and records a direct accessor call. Delayed selections are
+  revisited before a later call's effects are checked; zonking removes every
+  `FieldRead` before ownership and lowering. No field constraint or dispatch
+  dictionary reaches those passes.
 
   The pass holds no mutable state. A `Context` is plain data, threaded
   through: each step takes one and hands back the one it learned in, and a

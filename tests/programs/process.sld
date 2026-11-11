@@ -8,7 +8,7 @@
 (define (require (result (Result T ProcessError))) (→ T) (∀ T)
   (match result
     ((Ok value) value)
-    ((Err error) (panic (::code error)))))
+    ((Err error) (panic (● error code)))))
 
 (define (shell (script String)) (→ Process) (! process tasks)
   (require (spawn (Command "/bin/sh" (list "-c" script) "."))))
@@ -29,7 +29,7 @@
 
 (define (report-error (result (Result T ProcessError))) (→ Unit) (! console) (∀ T) (⊨ (Copy T))
   (match result
-    ((Err error) (write-line (::code error)))
+    ((Err error) (write-line (● error code)))
     ((Ok _) (panic "the operation succeeded"))))
 
 ;; A program waits on processes from a task, which the scheduler runs once
@@ -41,7 +41,7 @@
            (write-line (exit-text (require (wait-exit child))))
            (write-string (read-all child (Stdout)))
            (write-string (read-all child (Stderr)))
-           (write-line (if (> (::id child) 0) "has a process id" "has no process id"))
+           (write-line (if (> (● child id) 0) "has a process id" "has no process id"))
            (require (close-process child)))
 
          ;; Input echoed back once it is closed.
