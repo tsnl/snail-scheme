@@ -18,7 +18,10 @@
    WrittenSets
    expand-expression
    expand-body
-   expand-head)
+   expand-head
+   defined-value
+   instance-sets
+   expr-loc)
   (import
    (snail core base)
    (snail compiler source)
@@ -122,12 +125,12 @@
           ((Atom datum loc) (Ok (Pair (Literal (datum-constant datum) loc) state)))
           ((Ident identifier loc) (unchanged state (reference site identifier loc)))
           ((Form (Nil) loc) (fail loc "empty application"))
-          ((Form (Cons (Ident head _) (Cons argument (Nil))) loc)
-           (match (field-path (::name head))
+          ((Form (Cons (Ident identifier head-loc) (Cons argument (Nil))) loc)
+           (match (field-path (::name identifier))
              ((PathLabels labels) (path-application state site labels argument loc))
-             ((EmptyLabel) (fail loc (empty-label head)))
-             ((NotAPath) (application state site expanded loc))))
-          ((Form _ loc) (application state site expanded loc)))))
+             ((EmptyLabel message) (fail loc message))
+             ((NotAPath) (application state site (Ident identifier head-loc) (list argument) loc))))
+          ((Form (Cons head arguments) loc) (application state site head arguments loc)))))
 
     (: datum-constant (impl (Fn syntax-Datum -> Constant)))
     (define (datum-constant datum)
@@ -146,13 +149,9 @@
     (define (reference site identifier loc)
       (match (field-path (::name identifier))
         ((PathLabels labels) (Ok (Path labels loc)))
-        ((EmptyLabel) (fail loc (empty-label identifier)))
+        ((EmptyLabel message) (fail loc message))
         ((NotAPath)
          (resolved-reference (resolve (::scopes site) (::env site) identifier) identifier loc))))
-
-    (: empty-label (impl (Fn Identifier -> String)))
-    (define (empty-label identifier)
-      (string-append "empty field label in " (::name identifier)))
 
     ;; A value, or a struct, whose name is its constructor.
     (: resolved-reference (impl (Fn Resolution Identifier Loc -> (Result Expr (List Feedback)))))
@@ -188,28 +187,32 @@
 
     ;; A core form, or a call: the callee, then each argument in order.
     (: application
-       (impl (Fn Expanding Site Marked Loc -> (Result (Pair Expr Expanding) (List Feedback)))))
-    (define (application state site syntax loc)
-      (match (head-resolution (::scopes site) (::env site) syntax)
-        ((BoundAtTop (Keyword keyword)) (core state site keyword (form-items syntax) loc))
+       (impl (Fn Expanding
+                 Site
+                 Marked
+                 (List Marked)
+                 Loc
+                 ->
+                 (Result (Pair Expr Expanding) (List Feedback)))))
+    (define (application state site head arguments loc)
+      (match (head-meaning site head)
+        ((BoundAtTop (Keyword keyword)) (core state site keyword (Cons head arguments) loc))
         ((BoundAtTop (ReservedAccessor)) (fail loc field-read-message))
         (_
-         (match syntax
-           ((Form (Cons head arguments) _)
-            (expanding-let* ((callee state (expand-expression state site head))
-                             (expanded state (expanding-map state (lambda (state argument)
-                                                                    (expand-expression state
-                                                                                       site
-                                                                                       argument))
-                                                            arguments)))
-              (Ok (Pair (Call callee expanded loc) state))))
-           (_ (panic "internal error: an application is a form with a head"))))))
+         (expanding-let* ((callee state (expand-expression state site head))
+                          (expanded state
+                                    (expanding-map state
+                                                   (lambda (state argument)
+                                                     (expand-expression state site argument))
+                                                   arguments)))
+           (Ok (Pair (Call callee expanded loc) state))))))
 
-    (: form-items (impl (Fn Marked -> (List Marked))))
-    (define (form-items syntax)
-      (match syntax
-        ((Form items _) items)
-        (_ (Nil))))
+    ;; What the identifier at a form's head means, if one is there.
+    (: head-meaning (impl (Fn Site Marked -> Resolution)))
+    (define (head-meaning site head)
+      (match head
+        ((Ident identifier _) (resolve (::scopes site) (::env site) identifier))
+        (_ (Unbound))))
 
     ;; ---- Core forms ----
 
@@ -240,31 +243,7 @@
          (handler state site effect implementations body loc))
         ((CaseIdForm constructor) (unchanged state (case-id site constructor loc)))
         ((QuoteForm datum) (Ok (Pair (Literal (datum-constant datum) loc) state)))
-        ((DefinitionOnly)
-         (fail loc (string-append "this form is only valid as a definition: " keyword)))
-        ((MalformedForm) (fail loc (malformed-message keyword)))))
-
-    ;; What the form `keyword` heads should have been. `core-form` finds a
-    ;; form malformed only for these keywords.
-    (: malformed-message (impl (Fn String -> String)))
-    (define (malformed-message keyword)
-      (cond ((string=? keyword "lambda") "expected (lambda (parameter ...) body ...)")
-            ((string=? keyword "fn") "expected (fn (parameter ...) body ...)")
-            ((string=? keyword "if") "expected (if test then [else])")
-            ((string=? keyword "with-instances") "expected (with-instances (set ...) body ...)")
-            ((string=? keyword "let") "expected (let ((name value) ...) body ...)")
-            ((string=? keyword "match") "expected (match expression clause ...)")
-            ((string=? keyword "artifact-files") "artifact-bundle expects a literal target name")
-            ((string=? keyword "link-handle") "link-file expects a literal relative path")
-            ((string=? keyword "handle")
-             "expected (handle Effect ((operation implementation) ...) body ...)")
-            ((string=? keyword "case-id") "expected (case-id Constructor)")
-            ((string=? keyword "quote") "only literals can be quoted")
-            ((string=? keyword "ann") "expected (ann expression type)")
-            ((string=? keyword "type-convert") "expected (type-convert expression type)")
-            ((string=? keyword "try-convert") "expected (try-convert expression type)")
-            ((string=? keyword "type-test") "expected (type-test expression type)")
-            (else (panic "internal error: core-form finds only the forms above malformed"))))
+        ((MalformedForm message) (fail loc message))))
 
     ;; ---- Functions ----
 
@@ -462,21 +441,23 @@
                                                       clauses)))
         (Ok (Pair (Match value expanded loc) state))))
 
-    ;; `(pattern body ...)`: its variables are bound, then its pattern and
-    ;; its body are expanded.
+    ;; `(pattern body ...)`: its pattern, which binds its variables, the
+    ;; last innermost, then its body.
     (: match-clause
        (impl (Fn Expanding Site Marked -> (Result (Pair Clause Expanding) (List Feedback)))))
     (define (match-clause state site clause)
       (match clause
         ((Form (Cons pattern body) loc)
-         (expanding-let* ((names state (unchanged state (pattern-variables pattern)))
-                          (bound state (bind-locals state site names))
-                          (expanded state (unchanged state (expand-pattern (::scopes site)
-                                                                           (::env site)
-                                                                           (::env (::site bound))
-                                                                           pattern)))
-                          (value state (expand-body state (::site bound) body loc)))
-           (Ok (Pair (Clause expanded value loc) state))))
+         (expanding-let* ((expanded state
+                                    (expand-pattern state (::scopes site) (::env site) pattern))
+                          (value state (expand-body state
+                                                    (framed-site site
+                                                                 (append
+                                                                  (reverse (::frames expanded))
+                                                                  (::frames (::env site))))
+                                                    body
+                                                    loc)))
+           (Ok (Pair (Clause (::pattern expanded) value loc) state))))
         ((Form (Nil) loc) (fail loc "expected (pattern body ...)"))
         (_ (fail (marked-loc clause) "expected a match clause"))))
 
@@ -503,14 +484,7 @@
     (define (linked-file path path-loc loc)
       (match (linked-path path)
         ((LinkedNames names) (Ok (LinkedFile names path-loc loc)))
-        ((NamesNothing) (fail path-loc (string-append "link-file names no file: " path)))
-        ((LeavesDirectory)
-         (fail path-loc (string-append "link-file may not leave the library's directory: " path)))
-        ((EmptyName)
-         (fail path-loc
-               (string-append
-                "link-file takes a path relative to the library, with no empty names: "
-                path)))))
+        ((UnlinkablePath message) (fail path-loc message))))
 
     ;; ---- Types in expressions ----
 
@@ -666,8 +640,7 @@
                                             (Some (Pending (::name name) scheme (marked-loc form)))
                                             loc)))
            (Ok (Pair (dropped pending body) state))))
-        ((SignatureNameNotIdentifier name-loc) (fail name-loc "expected a name"))
-        ((MalformedSignature) (fail (marked-loc form) "expected (: name type)"))))
+        ((MalformedSignature place message) (fail place message))))
 
     ;; A definition binds a fresh local over the rest of the body; a
     ;; function sees itself, and a value does not. The signature waiting
@@ -693,10 +666,7 @@
                                        body
                                        (marked-loc form)))
                          state))))))
-        ((DefinitionNameNotIdentifier name-loc) (fail name-loc "expected a definition name"))
-        ((MalformedDefinition)
-         (fail (marked-loc form)
-               "expected (define name value) or (define (name parameter ...) body ...)"))))
+        ((MalformedDefinition place message) (fail place message))))
 
     ;; A definition is a function's when it is written `(define (name
     ;; parameter ...) body ...)` or its value is a `lambda` or `fn` form.

@@ -2,7 +2,8 @@
 ;; field path, the identifier `::a::b`, whose labels are its fields in
 ;; order; and the path of a linked file, the string `"data/x.png"`, whose
 ;; canonical names are where the file is beside the library. Each is
-;; decided here from its text, as the old expander decides it.
+;; decided here from its text, as the old expander decides it, with what
+;; to say of a path that is not one.
 (define-library (snail compiler expand paths)
   (export
    FieldPath
@@ -12,9 +13,7 @@
    field-path
    LinkedPath
    LinkedNames
-   NamesNothing
-   LeavesDirectory
-   EmptyName
+   UnlinkablePath
    linked-path)
   (import
    (snail core base))
@@ -28,13 +27,18 @@
       (NotAPath)
       (PathLabels
        ((labels (List String))))
-      (EmptyLabel))
+      (EmptyLabel
+       ((message String))))
 
     (: field-path (impl (Fn String -> FieldPath)))
     (define (field-path name)
       (if (and (> (string-length name) 2) (string=? (substring name 0 2) "::"))
           (path-labels name (string->vector name) 2 2 (Nil))
           (NotAPath)))
+
+    (: empty-label (impl (Fn String -> FieldPath)))
+    (define (empty-label name)
+      (EmptyLabel (string-append "empty field label in " name)))
 
     ;; The labels of `name` from `start`, where the label being read began,
     ;; with `index` the character being looked at.
@@ -43,13 +47,13 @@
       (let ((end (vector-length chars)))
         (cond ((= index end)
                (if (= start end)
-                   (EmptyLabel)
+                   (empty-label name)
                    (PathLabels (reverse (Cons (substring name start end) labels)))))
               ((and (char=? (vector-ref chars index) #\:)
                     (< (+ index 1) end)
                     (char=? (vector-ref chars (+ index 1)) #\:))
                (if (= start index)
-                   (EmptyLabel)
+                   (empty-label name)
                    (path-labels name
                                 chars
                                 (+ index 2)
@@ -67,22 +71,29 @@
     (enum LinkedPath
       (LinkedNames
        ((names (List String))))
-      (NamesNothing)
-      (LeavesDirectory)
-      (EmptyName))
+      (UnlinkablePath
+       ((message String))))
 
     (: linked-path (impl (Fn String -> LinkedPath)))
     (define (linked-path path)
       (let loop ((names (path-names path))
                  (kept (Nil)))
         (match names
-          ((Nil) (if (null? kept) (NamesNothing) (LinkedNames (reverse kept))))
+          ((Nil)
+           (if (null? kept)
+               (UnlinkablePath (string-append "link-file names no file: " path))
+               (LinkedNames (reverse kept))))
           ((Cons "." rest) (loop rest kept))
           ((Cons ".." rest)
            (match kept
              ((Cons _ parent) (loop rest parent))
-             ((Nil) (LeavesDirectory))))
-          ((Cons "" _) (EmptyName))
+             ((Nil)
+              (UnlinkablePath (string-append "link-file may not leave the library's directory: "
+                                             path)))))
+          ((Cons "" _)
+           (UnlinkablePath
+            (string-append "link-file takes a path relative to the library, with no empty names: "
+                           path)))
           ((Cons name rest) (loop rest (Cons name kept))))))
 
     (: path-names (impl (Fn String -> (List String))))
@@ -114,19 +125,33 @@
         (expect (field-path "x") (NotAPath))
         (expect (field-path "::") (NotAPath))
         (expect (field-path ":a") (NotAPath))
-        (expect (field-path "::a::") (EmptyLabel))
-        (expect (field-path "::::a") (EmptyLabel))
+        (expect (field-path "::a::") (EmptyLabel "empty field label in ::a::"))
+        (expect (field-path "::::a") (EmptyLabel "empty field label in ::::a"))
         (expect (field-path "::a:b") (PathLabels (list "a:b")))
         (expect (field-path ":::a") (PathLabels (list ":a"))))
 
       (define (test-linked-paths)
         (expect (linked-path "pixel.png") (LinkedNames (list "pixel.png")))
         (expect (linked-path "data/./x/../pixel.bin") (LinkedNames (list "data" "pixel.bin")))
-        (expect (linked-path "a/..") (NamesNothing))
-        (expect (linked-path ".") (NamesNothing))
-        (expect (linked-path "../x") (LeavesDirectory))
-        (expect (linked-path "/abs") (EmptyName))
-        (expect (linked-path "a//b") (EmptyName))
-        (expect (linked-path "") (EmptyName))
-        (expect (linked-path "a/../../b") (LeavesDirectory)))))
+        (expect (linked-path "a/..") (UnlinkablePath "link-file names no file: a/.."))
+        (expect (linked-path ".") (UnlinkablePath "link-file names no file: ."))
+        (expect (linked-path "../x")
+                (UnlinkablePath "link-file may not leave the library's directory: ../x"))
+        (expect (linked-path "/abs")
+                (UnlinkablePath
+                 (string-append
+                  "link-file takes a path relative to the library, with no empty names: "
+                  "/abs")))
+        (expect (linked-path "a//b")
+                (UnlinkablePath
+                 (string-append
+                  "link-file takes a path relative to the library, with no empty names: "
+                  "a//b")))
+        (expect (linked-path "")
+                (UnlinkablePath
+                 (string-append
+                  "link-file takes a path relative to the library, with no empty names: "
+                  "")))
+        (expect (linked-path "a/../../b")
+                (UnlinkablePath "link-file may not leave the library's directory: a/../../b")))))
    (else)))

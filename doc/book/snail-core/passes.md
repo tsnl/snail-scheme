@@ -16,7 +16,7 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 | `read` | file | text | Syntax | Text becomes located forms. | implemented |
 | `include` | file | Syntax | Syntax | Each `include-bytes` form becomes the bytes of its file. | implemented |
 | `outline` | file | Syntax | Outline | The header is parsed: name, imports, exports. The body stays Syntax. | implemented |
-| `expand` | library | Outline, Offer | Expanded, Offer | Macros run, every name is resolved, every core form is parsed. | in progress |
+| `expand` | library | Outline, Offer | Expanded, Offer | Macros run, every name is resolved, every core form is parsed. | implemented |
 | `bind` | library | Expanded | Bound | Linked files and requests for other targets become what the build supplied. | planned |
 | `derive` | library | Bound | Derived | `deriving` clauses become instance declarations. | planned |
 | `declare` | library | Derived | Declared | Written types become types; declarations become entities. | planned |
@@ -95,16 +95,25 @@ src/snail/compiler/
     paths.sld             rule: a field path's labels and a linked file's names
     type-shapes.sld       rule: the shape of type syntax
     form-shapes.sld       rule: the shape of each core form and local definition
+    declaration-shapes.sld rule: the shape of each top-level form and declaration
     imports.sld           part: import sets
     macros.sld            part: macro definitions and uses
     types.sld             part: types and schemes, with aliases expanded
     patterns.sld          part: match patterns
     expressions.sld       part: expressions and local bodies
+    scan.sld              part: the top level's names, bound in the order written
+    declarations.sld      part: signatures, declarations, then every body
+    pass.sld              (snail compiler expand pass): the function `expand`
+    subexpressions.sld    query: every expression of a library
+    links.sld             query: the files a library links
+    targets.sld           query: the targets a library asks for
+    derives.sld           query: whether, and where first, a library derives
   ...
   integrate/              the integrator: one library per job
     files.sld             (snail compiler integrate files): every read of the file system
     walk.sld              (snail compiler integrate walk): what to load next, and in what order
     load.sld              (snail compiler integrate load): a program and the libraries it reaches
+    expand.sld            (snail compiler integrate expand): each loaded library expanded, in order
 ```
 
 Each pass is a folder. `language.sld` holds the language the pass writes:
@@ -253,7 +262,7 @@ Export     ::= Export Identifier name              no Loc but its identifier's
 Identifier ::= Identifier name
 ```
 
-### Expanded, written by `expand` (implemented; the pass is in progress)
+### Expanded, written by `expand` (implemented)
 
 No macro use or definition remains, nor a top-level `begin` or an
 `include-bytes` form, and every form is a core form. Every identifier is
@@ -347,8 +356,18 @@ Label       ::= Label name
 `LinkedFile` and `ArtifactFiles` stay in the tree. Queries over Expanded
 gather them for the integrator, which reads the files and builds the other
 targets, and `bind` then replaces each with what the integrator supplied.
+A third query says whether a library derives an instance: the integrator
+then loads and expands the libraries `derive` writes instances with,
+(snail core primitive) and (snail shell wire), before that library, where
+the old compiler puts them.
 
-### Offer, written by `expand` (implemented; the pass is in progress)
+`expand` checks what needs only syntax and what names mean. What needs a
+declaration's content, such as which method or operation a label names,
+whether a struct can be built, or what a dispatch clause covers, is
+`declare`'s; a program whose only problem is one of those expands, and the
+later pass reports it.
+
+### Offer, written by `expand` (implemented)
 
 What a library offers the expansion of each library that imports it: its
 exports, and its top level, where the names its macros and aliases introduce
@@ -380,7 +399,7 @@ Meaning     ::= Value TopValue | TypeName Global constructs?
               | ReservedAccessor                                no Loc
 ```
 
-### Marked, the syntax `expand` works on (implemented; the pass is in progress)
+### Marked, the syntax `expand` works on (implemented)
 
 `expand` reads a library's body into marked syntax, macros write it, and an
 offer holds it; no later pass sees it. Each identifier carries the marks of
@@ -485,7 +504,13 @@ which read and write files as the old functions they call do.
 At each milestone the new passes become the default path, and `make test`,
 `make test-chibi`, `make bootstrap` and `make check` pass before the next
 begins. Between milestones a pass is judged by its own tests and by a
-comparison with the old pass that does its job.
+comparison with the old pass that does its job. For `expand`, `make
+compare-compiler` expands every suite program that loads completely and
+compares it with the old expansion: both succeed or both fail; failures
+by their first problem, message and place, and every problem when the old
+expander reports several; successes library by library, in order, by
+their exports, their written definitions and each one's value in a
+normal form, and by what the queries answer.
 
 The language the compiler accepts does not change during the replacement,
 so every existing program stays an oracle.

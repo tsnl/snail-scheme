@@ -32,10 +32,7 @@
     (define (macro-definition form)
       (match (macro-shape form)
         ((WellFormedMacro parts) (Ok parts))
-        ((NotSyntaxRules)
-         (fail (marked-loc form)
-               "expected (define-syntax name (syntax-rules (literal ...) rule ...))"))
-        ((NotMacroName loc) (fail loc "expected a macro name"))))
+        ((MalformedMacro loc message) (fail loc message))))
 
     ;; ---- Uses ----
 
@@ -65,16 +62,15 @@
         ((Nil) (fail (::loc use) "no syntax-rules pattern matches this use"))
         ((Cons rule more)
          (match (rule-form rule)
-           ((None) (fail (marked-loc rule) "expected ((_ pattern ...) template)"))
-           ((Some form)
+           ((Err message) (fail (marked-loc rule) message))
+           ((Ok form)
             (match (match-rule matcher (::patterns form) arguments)
               ((Matched captures) (transcribe (::template form) captures use))
               ((Mismatched) (first-match matcher more arguments use))
               ;; A deviation, approved: where matching meets a literal that
               ;; is not an identifier, the old expander stopped with an
               ;; internal error; this reports the literal.
-              ((LiteralNotIdentifier literal)
-               (fail (marked-loc literal) "expected an identifier"))))))))
+              ((MalformedLiteral loc message) (fail loc message))))))))
 
     ;; ---- Transcription ----
 

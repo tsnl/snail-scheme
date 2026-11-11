@@ -20,7 +20,8 @@
    KnownOrder
    OtherOrder
    UncomparedOrder
-   order-comparison)
+   order-comparison
+   old-expansion)
   (import
    (snail core base)
    (snail core io)

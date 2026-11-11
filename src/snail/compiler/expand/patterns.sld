@@ -1,12 +1,13 @@
-;; Patterns: a match clause's pattern becomes a Pattern. A clause binds
-;; its pattern's variables before the pattern is expanded, so the pattern
-;; only looks names up: each variable in the frames the clause made, and
-;; each constructor where the match is written. A variable is any
-;; identifier but `_` that is not at the head of a form, and the head of a
-;; form is its constructor, which is always applied, as in `(None)`.
+;; Patterns: a match clause's pattern becomes a Pattern and the frames
+;; that bind its variables, which its body sees. Its variables must be
+;; distinct; then each is bound to a fresh local where it is met, in the
+;; order written, and each constructor is resolved where the match is
+;; written. A variable is any identifier but `_` that is not at the head
+;; of a form, and the head of a form is its constructor, which is always
+;; applied, as in `(None)`.
 (define-library (snail compiler expand patterns)
   (export
-   pattern-variables
+   Patterned
    expand-pattern
    constructor-of)
   (import
@@ -16,10 +17,16 @@
    (snail compiler expand language)
    (snail compiler expand marked)
    (snail compiler expand offer)
-   (snail compiler expand scopes))
+   (snail compiler expand scopes)
+   (snail compiler expand state))
   (begin
 
     ;; ---- Variables ----
+
+    ;; A variable where it is written.
+    (struct Occurrence
+      ((identifier Identifier)
+       (loc Loc)))
 
     ;; The variables of a pattern, in the order written, each once. The
     ;; first variable written twice is reported where it is first written.
@@ -27,61 +34,67 @@
     (define (pattern-variables syntax)
       (let ((variables (variable-occurrences syntax)))
         (match (find (lambda (variable) (written-twice? variable variables)) variables)
-          ((Some (Ident identifier loc))
-           (fail loc (string-append "pattern variable bound twice: " (::name identifier))))
-          (_ (Ok (map occurrence-identifier variables))))))
+          ((Some twice)
+           (fail (::loc twice)
+                 (string-append "pattern variable bound twice: " (::name (::identifier twice)))))
+          ((None) (Ok (map ::identifier variables))))))
 
-    ;; Each variable's identifier where it is written.
-    (: variable-occurrences (impl (Fn Marked -> (List Marked))))
+    (: variable-occurrences (impl (Fn Marked -> (List Occurrence))))
     (define (variable-occurrences syntax)
       (match syntax
         ((Ident (Identifier "_" _) _) (Nil))
-        ((Ident _ _) (list syntax))
+        ((Ident identifier loc) (list (Occurrence identifier loc)))
         ((Form (Cons _ arguments) _) (concatenate (map variable-occurrences arguments)))
         (_ (Nil))))
 
-    (: written-twice? (impl (Fn Marked (List Marked) -> Bool)))
+    (: written-twice? (impl (Fn Occurrence (List Occurrence) -> Bool)))
     (define (written-twice? variable variables)
       (< 1
          (length (filter (lambda (other)
-                           (same-identifier? (occurrence-identifier other)
-                                             (occurrence-identifier variable)))
+                           (same-identifier? (::identifier other) (::identifier variable)))
                          variables))))
-
-    ;; Only an identifier is a variable's occurrence.
-    (: occurrence-identifier (impl (Fn Marked -> Identifier)))
-    (define (occurrence-identifier syntax)
-      (match syntax
-        ((Ident identifier _) identifier)
-        (_ (panic "internal error: only an identifier is a variable's occurrence"))))
 
     ;; ---- Patterns ----
 
-    ;; The pattern `syntax`, whose variables `bound` has bound, as a match
-    ;; written in `env` sees it. A constructor is resolved before the
-    ;; patterns it is applied to.
-    (: expand-pattern (impl (Fn Scopes Env Env Marked -> (Result Pattern (List Feedback)))))
-    (define (expand-pattern scopes env bound syntax)
-      (match syntax
-        ((Ident (Identifier "_" _) loc) (Ok (Wild loc)))
-        ((Ident identifier loc) (Ok (Bind (bound-variable scopes bound identifier) loc)))
-        ((Atom (syntax-ByteVector _) loc) (fail loc "a byte vector cannot be a pattern"))
-        ((Atom datum loc) (Ok (Equals datum loc)))
-        ((Form (Cons head arguments) _)
-         (result-let* ((constructor (constructor-of scopes env head))
-                       (patterns (map-results (lambda (argument)
-                                                (expand-pattern scopes env bound argument))
-                                              arguments)))
-           (Ok (Destructure constructor patterns (marked-loc head)))))
-        ((Form (Nil) loc) (fail loc "expected a pattern"))))
+    ;; A pattern, and a frame for each of its variables, in the order
+    ;; written.
+    (struct Patterned
+      ((pattern Pattern)
+       (frames (List Frame))))
 
-    ;; A variable's local. `pattern-variables` gave every variable a frame
-    ;; of `bound`, the innermost frames, so each resolves to its own.
-    (: bound-variable (impl (Fn Scopes Env Identifier -> Local)))
-    (define (bound-variable scopes bound identifier)
-      (match (resolve scopes bound identifier)
-        ((BoundLocally (LocalValue local) _) local)
-        (_ (panic "internal error: a pattern variable is bound before its pattern is expanded"))))
+    ;; The pattern `syntax`, as a match written in `env` sees it, once its
+    ;; variables are found to be distinct.
+    (: expand-pattern
+       (impl
+        (Fn Expanding Scopes Env Marked -> (Result (Pair Patterned Expanding) (List Feedback)))))
+    (define (expand-pattern state scopes env syntax)
+      (expanding-let* ((variables state (unchanged state (pattern-variables syntax))))
+        (pattern-of state scopes env syntax)))
+
+    ;; A constructor is resolved before the patterns it is applied to.
+    (: pattern-of
+       (impl
+        (Fn Expanding Scopes Env Marked -> (Result (Pair Patterned Expanding) (List Feedback)))))
+    (define (pattern-of state scopes env syntax)
+      (match syntax
+        ((Ident (Identifier "_" _) loc) (Ok (Pair (Patterned (Wild loc) (Nil)) state)))
+        ((Ident identifier loc)
+         (expanding-let* ((number state (fresh state)))
+           (let ((local (Local (::name identifier) number)))
+             (Ok (Pair (Patterned (Bind local loc) (list (Frame identifier (LocalValue local))))
+                       state)))))
+        ((Atom (syntax-ByteVector _) loc) (fail loc "a byte vector cannot be a pattern"))
+        ((Atom datum loc) (Ok (Pair (Patterned (Equals datum loc) (Nil)) state)))
+        ((Form (Cons head arguments) _)
+         (expanding-let* ((constructor state (unchanged state (constructor-of scopes env head)))
+                          (parts state (expanding-map state
+                                                      (lambda (state argument)
+                                                        (pattern-of state scopes env argument))
+                                                      arguments)))
+           (Ok (Pair (Patterned (Destructure constructor (map ::pattern parts) (marked-loc head))
+                                (concatenate (map ::frames parts)))
+                     state))))
+        ((Form (Nil) loc) (fail loc "expected a pattern"))))
 
     ;; ---- Constructors ----
 
@@ -161,15 +174,6 @@
       (define env
         (Env (list (Frame (plain "y") (LocalValue (Local "y" 1)))) main))
 
-      (define (bound-in names)
-        (Env (fold-left (lambda (frames pair)
-                          (Cons (Frame (plain (::first pair))
-                                       (LocalValue (Local (::first pair) (::second pair))))
-                                frames))
-                        (::frames env)
-                        names)
-             main))
-
       ;; Heads and `_` are no variables; a variable written twice is
       ;; reported where it is first written.
       (define (test-variables)
@@ -193,34 +197,40 @@
                                          loc))
                 (Ok (list (plain "a") (Identifier "a" (list (Mark main 1 (TopLevel main))))))))
 
+      ;; Variables are bound in the order written, numbered from the
+      ;; state.
       (define (test-expansion)
-        (let ((bound (bound-in (list (Pair "a" 2) (Pair "b" 3)))))
-          (expect (expand-pattern scopes env bound (marked '_)) (Ok (Wild loc)))
-          (expect (expand-pattern scopes env bound (marked 'a)) (Ok (Bind (Local "a" 2) loc)))
-          (expect (expand-pattern scopes env bound (marked 5)) (Ok (Equals (syntax-Integer 5) loc)))
-          (expect (expand-pattern scopes
-                                  env
-                                  bound
-                                  (Atom (syntax-ByteVector (list->vector (list 1))) (at 2)))
-                  (fail (at 2) "a byte vector cannot be a pattern"))
-          (expect (expand-pattern scopes env bound (marked '(Some (Point a _) b)))
-                  (Ok (Destructure (TopGlobal (global "Some"))
-                                   (list (Destructure (TopGlobal (global "Point"))
-                                                      (list (Bind (Local "a" 2) loc) (Wild loc))
-                                                      loc)
-                                         (Bind (Local "b" 3) loc))
-                                   loc)))
-          (expect (expand-pattern scopes env bound (marked '(Some)))
-                  (Ok (Destructure (TopGlobal (global "Some")) (list) loc)))
-          (expect (expand-pattern scopes env bound (marked '())) (fail loc "expected a pattern"))
-          (expect (expand-pattern scopes
-                                  env
-                                  bound
-                                  (Form (list (marked 'Missing)
-                                              (Atom (syntax-ByteVector (list->vector (list 1)))
-                                                    (at 2)))
-                                        loc))
-                  (fail loc "not a constructor: Missing"))))
+        (define (expanded syntax)
+          (match (expand-pattern (Expanding 2) scopes env syntax)
+            ((Ok (Pair patterned _)) (Ok patterned))
+            ((Err feedback) (Err feedback))))
+        (define (frame name number)
+          (Frame (plain name) (LocalValue (Local name number))))
+        (expect (expanded (marked '_)) (Ok (Patterned (Wild loc) (list))))
+        (expect (expanded (marked 'a))
+                (Ok (Patterned (Bind (Local "a" 2) loc) (list (frame "a" 2)))))
+        (expect (expanded (marked 5)) (Ok (Patterned (Equals (syntax-Integer 5) loc) (list))))
+        (expect (expanded (Atom (syntax-ByteVector (list->vector (list 1))) (at 2)))
+                (fail (at 2) "a byte vector cannot be a pattern"))
+        (expect (expanded (marked '(Some (Point a _) b)))
+                (Ok (Patterned (Destructure (TopGlobal (global "Some"))
+                                            (list (Destructure (TopGlobal (global "Point"))
+                                                               (list (Bind (Local "a" 2) loc)
+                                                                     (Wild loc))
+                                                               loc)
+                                                  (Bind (Local "b" 3) loc))
+                                            loc)
+                               (list (frame "a" 2) (frame "b" 3)))))
+        (expect (expanded (marked '(Some)))
+                (Ok (Patterned (Destructure (TopGlobal (global "Some")) (list) loc) (list))))
+        (expect (expanded (marked '())) (fail loc "expected a pattern"))
+        (expect (expanded (Form (list (marked 'Missing)
+                                      (Atom (syntax-ByteVector (list->vector (list 1))) (at 2)))
+                                loc))
+                (fail loc "not a constructor: Missing"))
+        (expect
+         (expanded (Form (list (marked 'Missing) (marked 'a) (Ident (plain "a") (at 2))) loc))
+         (fail loc "pattern variable bound twice: a")))
 
       ;; A head is a value or a struct, resolved where the match is.
       (define (test-constructors)
