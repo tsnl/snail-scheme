@@ -1,12 +1,13 @@
 ;; The integrator's reads of the file system: a source's text, where a
-;; library's file is, and the bytes a source includes. These are the
-;; compiler's only functions that perform `fs`, and each answers what it
-;; found as data, so the decisions about it are made elsewhere.
+;; library's file is, and the bytes of the files a source includes or a
+;; library links. These are the compiler's only functions that perform
+;; `fs`, and each answers what it found as data, so the decisions about it
+;; are made elsewhere.
 (define-library (snail compiler integrate files)
   (export
    source-text
    library-file
-   included-files)
+   existing-files)
   (import
    (snail core base)
    (snail core table)
@@ -38,12 +39,13 @@
     (define (library-path directory name)
       (string-append directory "/" (string-join name "/") ".sld"))
 
-    ;; ---- Included files ----
+    ;; ---- Included and linked files ----
 
     ;; The bytes of each file of `paths` that exists, by path. One that is
-    ;; not there is left out, and `include` reports it where it is named.
-    (: included-files (impl (Fn (List String) -> (Table Bytes) ! fs)))
-    (define (included-files paths)
+    ;; not there is left out, and what named it reports it where it is
+    ;; named: `include` an included file, the integrator a linked one.
+    (: existing-files (impl (Fn (List String) -> (Table Bytes) ! fs)))
+    (define (existing-files paths)
       (fold-left (lambda (files path)
                    (if (file-exists? path) (table-set files path (read-bytes path)) files))
                  empty-table
@@ -81,7 +83,7 @@
           (expect (source-text (string-append second "/sample/b.sld")) (Ok "second b"))
           (expect (source-text (string-append first "/missing.sld"))
                   (fail (Loc (string-append first "/missing.sld") 0 0) "no such file or directory"))
-          (expect (included-files (list (string-append first "/blob.bin")
+          (expect (existing-files (list (string-append first "/blob.bin")
                                         (string-append first "/missing.bin")))
                   (table-set empty-table
                              (string-append first "/blob.bin")

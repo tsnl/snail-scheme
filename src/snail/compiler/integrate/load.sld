@@ -73,7 +73,7 @@
     (define (outlined-file path reading)
       (result-let* ((text (source-text path))
                     (forms (read path text))
-                    (included (include forms (included-files (included-paths forms))))
+                    (included (include forms (existing-files (included-paths forms))))
                     (file-outline (outline reading path included)))
         (Ok (Outlined path file-outline))))
 

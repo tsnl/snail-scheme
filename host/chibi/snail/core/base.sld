@@ -99,6 +99,7 @@
    ::effects
    ::emission
    ::emitted
+   ::empty
    ::end
    ::entry
    ::enum?
@@ -138,6 +139,7 @@
    ::global
    ::globals
    ::handle
+   ::handles
    ::helpers
    ::holder
    ::home
@@ -166,6 +168,7 @@
    ::line
    ::line-starts
    ::lines
+   ::link
    ::links
    ::literals
    ::live
@@ -224,6 +227,7 @@
    ::phase
    ::predecessor
    ::prefix
+   ::prepend
    ::program
    ::program?
    ::public
@@ -232,6 +236,7 @@
    ::reading
    ::recipe
    ::relative
+   ::renamed
    ::reps
    ::requirements
    ::requires
@@ -364,6 +369,7 @@
     (define (::effects value) (field-of value (quote effects)))
     (define (::emission value) (field-of value (quote emission)))
     (define (::emitted value) (field-of value (quote emitted)))
+    (define (::empty value) (field-of value (quote empty)))
     (define (::end value) (field-of value (quote end)))
     (define (::entry value) (field-of value (quote entry)))
     (define (::enum? value) (field-of value (quote enum?)))
@@ -403,6 +409,7 @@
     (define (::global value) (field-of value (quote global)))
     (define (::globals value) (field-of value (quote globals)))
     (define (::handle value) (field-of value (quote handle)))
+    (define (::handles value) (field-of value (quote handles)))
     (define (::helpers value) (field-of value (quote helpers)))
     (define (::holder value) (field-of value (quote holder)))
     (define (::home value) (field-of value (quote home)))
@@ -431,6 +438,7 @@
     (define (::line value) (field-of value (quote line)))
     (define (::line-starts value) (field-of value (quote line-starts)))
     (define (::lines value) (field-of value (quote lines)))
+    (define (::link value) (field-of value (quote link)))
     (define (::links value) (field-of value (quote links)))
     (define (::literals value) (field-of value (quote literals)))
     (define (::live value) (field-of value (quote live)))
@@ -489,6 +497,7 @@
     (define (::phase value) (field-of value (quote phase)))
     (define (::predecessor value) (field-of value (quote predecessor)))
     (define (::prefix value) (field-of value (quote prefix)))
+    (define (::prepend value) (field-of value (quote prepend)))
     (define (::program value) (field-of value (quote program)))
     (define (::program? value) (field-of value (quote program?)))
     (define (::public value) (field-of value (quote public)))
@@ -497,6 +506,7 @@
     (define (::reading value) (field-of value (quote reading)))
     (define (::recipe value) (field-of value (quote recipe)))
     (define (::relative value) (field-of value (quote relative)))
+    (define (::renamed value) (field-of value (quote renamed)))
     (define (::reps value) (field-of value (quote reps)))
     (define (::requirements value) (field-of value (quote requirements)))
     (define (::requires value) (field-of value (quote requires)))

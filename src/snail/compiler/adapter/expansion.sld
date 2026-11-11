@@ -1,26 +1,27 @@
-;; Whole programs expanded by the pass `expand` beside the old expander,
-;; which tests/compare-compiler.sld runs, compiled, over the suites'
-;; programs that load completely. Both succeed or both fail. When both
-;; fail, the first problem each reports is compared, message and place;
-;; the old expander reports several when several bodies fail, and those
-;; programs are named apart, with whether every problem agrees. When both
-;; succeed, each library the old expansion records is compared: the names
-;; it exports, in order; its written top-level definitions, in order; and
-;; each one's value in a normal form, as is a program's body; and what
-;; the queries over Expanded answer, the files it links, the targets it
-;; asks for and whether it derives, beside what the old expansion
-;; records of the same.
+;; Whole programs expanded and bound by the new passes beside the old
+;; expander, which tests/compare-compiler.sld runs, compiled, over the
+;; suites' programs that load completely. A program that asks for a
+;; target's files is supplied stand-in files for each target it asks for,
+;; the same to both. Both succeed or both fail. When both fail, the first
+;; problem each reports is compared, message and place; the old expander
+;; reports several when several bodies fail, and those programs are named
+;; apart, with whether every problem agrees. When both succeed, each
+;; library the old expansion records is compared: the names it exports,
+;; in order; its written top-level definitions, in order; and each one's
+;; value in a normal form, as is a program's body; the files it links,
+;; each LinkImport beside the old value of its handle, and the files the
+;; build must place beside the program, beside the old `library-links`;
+;; and what the queries over Expanded answer, the targets it asks for and
+;; whether it derives, beside what the old expansion records of the same.
 ;;
 ;; The normal form is a text in which each local is numbered in the order
 ;; it is bound, each macro-written global is its name marked as written
-;; by an expansion, without the expansion's number, and each field
-;; function is its name. It leaves out types, whether a function may
+;; by an expansion, without the expansion's number, each field function is
+;; its name, and a linked file's handle is the old expander's name for it,
+;; `library:%link path`. It leaves out types, whether a function may
 ;; capture, a local signature that annotates no definition, instance
 ;; methods and effect defaults, which the old expander names afresh, and
-;; statements of a library. Where the old expander resolves what `declare`
-;; or `bind` will, the two are made alike: an `artifact-files` form is its
-;; `empty`, as the old expander writes it for a target with no files, and
-;; a linked file is its path. A `case-id` is the old expander's case
+;; statements of a library. A `case-id` is the old expander's case
 ;; number, which only `declare` knows, so it differs, and is reported.
 (define-library (snail compiler adapter expansion)
   (export
@@ -32,16 +33,38 @@
    (snail compiler source)
    (prefix (snail compiler read language) syntax-)
    (only (snail compiler outline names) library-key)
-   (snail compiler expand language)
+   (only (snail compiler expand language)
+         Expanded
+         Global
+         TopValue
+         TopGlobal
+         FieldFunction
+         FieldRole
+         Accessor
+         Replacer
+         Setter
+         Swapper
+         Local
+         Constant
+         Integer
+         Float
+         Text
+         Character
+         ByteVector
+         Boolean
+         UnitValue)
    (snail compiler expand offer)
-   (snail compiler expand links)
    (snail compiler expand targets)
    (snail compiler expand derives)
+   (snail compiler bind language)
+   (snail compiler bind supply)
+   (snail compiler bind placed)
    (snail compiler integrate walk)
    (snail compiler integrate load)
    (snail compiler integrate expand)
+   (snail compiler integrate sha256)
    (only (snail compiler adapter outline) feedback-text)
-   (only (snail compiler adapter load) old-expansion)
+   (only (snail compiler adapter load) old-expansion-with)
    (prefix (only (snail shell compiler read)
                  Loc
                  Datum
@@ -82,10 +105,15 @@
                  PCon
                  Item
                  Define
+                 Program
+                 Foreign
+                 Import
+                 program-value
                  library-items
                  program-items)
            old:)
-   (prefix (only (snail shell compiler expand) ExpandedProgram) old:))
+   (prefix (only (snail shell compiler expand) ExpandedProgram library-links) old:)
+   (prefix (only (snail shell compiler inputs) Inputs no-inputs supply-artifact) old:))
   (begin
 
     ;; ---- Programs ----
@@ -98,9 +126,72 @@
         ((Err feedback)
          (Pair "not compared" (string-append "it does not load: " (feedback-text feedback))))
         ((Ok loaded)
-         (match (expand-loaded directories loaded)
-           ((Ok (WaitingFor _)) (Pair "not compared" "it reaches a generated library"))
-           (new (outcomes new (old-expansion directories path)))))))
+         (let ((supplied (supplied-expansion directories loaded (Nil))))
+           (match (::first supplied)
+             ((Ok (WaitingFor _)) (Pair "not compared" "it reaches a generated library"))
+             (new
+              (outcomes new
+                        (old-expansion-with directories
+                                            (old-inputs (::second supplied))
+                                            path))))))))
+
+    ;; ---- Targets ----
+
+    ;; The files supplied for each target, the same to both compilers.
+    (struct Supplied
+      ((target String)
+       (files (List TargetFile))))
+
+    ;; The program expanded and bound, with stand-in files for each target
+    ;; it asks for, and the targets supplied. Expanding stops at the first
+    ;; library that asks for a target not supplied, so the targets are
+    ;; supplied a library at a time.
+    (: supplied-expansion
+       (impl (Fn (List String) Loaded (List Supplied)
+                 -> (Pair (Result ProgramExpansion (List Feedback)) (List Supplied))
+                 !
+                 fs)))
+    (define (supplied-expansion directories loaded supplied)
+      (match (expand-loaded directories (target-table supplied) loaded)
+        ((Ok (WaitingForTargets requests))
+         (supplied-expansion directories
+                             loaded
+                             (append supplied
+                                     (map (lambda (request)
+                                            (Supplied (::target request)
+                                                      (stand-in-files (::target request))))
+                                          requests))))
+        (new (Pair new supplied))))
+
+    ;; Two files, the first holding the target's name, so two targets'
+    ;; lists differ.
+    (: stand-in-files (impl (Fn String -> (List TargetFile))))
+    (define (stand-in-files target)
+      (list (TargetFile "index.html" (text-bytes target))
+            (TargetFile "main.wasm" (text-bytes "wasm"))))
+
+    (: text-bytes (impl (Fn String -> Bytes)))
+    (define (text-bytes text)
+      (list->vector
+       (map (lambda (char) (i32->u8 (i64->i32 (char->integer char)))) (string->list text))))
+
+    (: target-table (impl (Fn (List Supplied) -> (Table (List TargetFile)))))
+    (define (target-table supplied)
+      (fold-left (lambda (table entry) (table-set table (::target entry) (::files entry)))
+                 empty-table
+                 supplied))
+
+    (: old-inputs (impl (Fn (List Supplied) -> old:Inputs)))
+    (define (old-inputs supplied)
+      (fold-left (lambda (inputs entry)
+                   (old:supply-artifact inputs
+                                        (::target entry)
+                                        (map (lambda (file) (Pair (::path file) (::bytes file)))
+                                             (::files entry))))
+                 old:no-inputs
+                 supplied))
+
+    ;; ---- Outcomes ----
 
     (: outcomes
        (impl (Fn (Result ProgramExpansion (List Feedback))
@@ -121,7 +212,8 @@
         ((Pair (Ok _) (Err (old:Requested _)))
          (Pair "not compared" "the old compiler asks for an input"))
         ((Pair (Ok (ExpandedAll files)) (Ok expanded)) (expansions-comparison files expanded))
-        ((Pair (Ok (WaitingFor _)) _) (Pair "not compared" "it reaches a generated library"))))
+        ((Pair (Ok (WaitingFor _)) _) (Pair "not compared" "it reaches a generated library"))
+        ((Pair (Ok (WaitingForTargets _)) _) (Pair "not compared" "it waits for a target"))))
 
     ;; ---- Problems ----
 
@@ -200,11 +292,13 @@
                                                  (string=? (::first entry) (file-key file)))
                                                old-libraries)
                                     ((Some entry)
-                                     (append (library-differences file
-                                                                  (::second entry)
-                                                                  (old-exports expanded
-                                                                               (::first entry)))
-                                             (query-differences file expanded)))
+                                     (concatenate
+                                      (list (library-differences file
+                                                                 (::second entry)
+                                                                 (old-exports expanded
+                                                                              (::first entry)))
+                                            (link-differences file expanded)
+                                            (query-differences file expanded))))
                                     ((None) (Nil))))
                                 files))))
         (match (append (order-difference files old-libraries) differences)
@@ -235,20 +329,18 @@
         ((Some entry) (map ::first (::exports entry)))
         ((None) (Nil))))
 
-    ;; The files linked and the targets asked for, each once, in name
-    ;; order, and whether the library derives.
+    ;; The targets asked for, each once, in name order, and whether the
+    ;; library derives.
     (: query-differences (impl (Fn ExpandedFile old:ExpandedProgram -> (List String))))
     (define (query-differences file expanded)
       (match (table-ref (::libraries expanded) (file-key file))
         ((Some entry)
          (let* ((library (::expanded (::expansion file)))
-                (new (list (names-text (map linked-path (linked-files library)))
-                           (names-text (requested-targets library))
+                (new (list (names-text (map ::target (requested-targets library)))
                            (match (first-derivation library)
                              ((Some _) "derives")
                              ((None) "derives nothing"))))
-                (old (list (names-text (map ::path (::links entry)))
-                           (names-text (map ::name (::artifacts entry)))
+                (old (list (names-text (map ::name (::artifacts entry)))
                            (match (::derives entry)
                              ((Some _) "derives")
                              ((None) "derives nothing")))))
@@ -258,28 +350,82 @@
                                     "; old " (string-join old ", "))))))
         ((None) (Nil))))
 
-    ;; A linked file's path beside the file that names it, as the old
-    ;; expander records it.
-    (: linked-path (impl (Fn Link -> String)))
-    (define (linked-path link)
-      (let ((file (string->list (::file (::written link)))))
-        (string-append (match (list-index (lambda (char) (char=? char #\/)) (reverse file))
-                         ((Some index) (list->string (take file (- (length file) index))))
-                         ((None) ""))
-                       (string-join (::path link) "/"))))
-
     (: names-text (impl (Fn (List String) -> String)))
     (define (names-text names)
       (string-append "("
                      (string-join (list-sort string<? (delete-duplicates string=? names)) " ")
                      ")"))
 
+    ;; ---- Linked files ----
+
+    ;; The files a library links: each LinkImport's digest beside the old
+    ;; value of its handle, an import from "snail.runtime.link" named for
+    ;; the digest; and the files to place, in order, beside the old
+    ;; `library-links`.
+    (: link-differences (impl (Fn ExpandedFile old:ExpandedProgram -> (List String))))
+    (define (link-differences file expanded)
+      (let* ((key (file-key file))
+             (new (map placed-text (placed-files (::bound file))))
+             (old (map (lambda (linked) (string-append (::digest linked) " at " (::path linked)))
+                       (old:library-links expanded key))))
+        (append (concatenate (map (lambda (top) (import-difference key (::program expanded) top))
+                                  (bound-tops (::bound file))))
+                (if (same-texts? new old)
+                    (Nil)
+                    (list (string-append key ": the files to place differ: new "
+                                         (string-join new ", ")
+                                         "; old "
+                                         (string-join old ", ")))))))
+
+    (: placed-text (impl (Fn Placed -> String)))
+    (define (placed-text placed)
+      (string-append (::digest placed) " at " (::file placed)))
+
+    (: import-difference (impl (Fn String old:Program Top -> (List String))))
+    (define (import-difference key program top)
+      (match top
+        ((LinkImport _ path digest _ _)
+         (let ((name (handle-name key path)))
+           (match (old:program-value program name)
+             ((Some (old:Foreign import _))
+              (if (and (string=? (::module import) "snail.runtime.link")
+                       (string=? (::symbol import) digest))
+                  (Nil)
+                  (list (string-append name " imports " (::module import) " " (::symbol import)
+                                       " in the old, " digest " in the new"))))
+             (_ (list (string-append name " is no linked file's import in the old"))))))
+        (_ (Nil))))
+
+    (: bound-tops (impl (Fn Bound -> (List Top))))
+    (define (bound-tops library)
+      (match library
+        ((Defined _ tops _ _) tops)
+        ((Program tops _ _) tops)))
+
+    ;; The old expander's name for the handle of a file a library links.
+    (: handle-name (impl (Fn String (List String) -> String)))
+    (define (handle-name key path)
+      (string-append key ":%link " (string-join path "/")))
+
+    ;; Each handle a library's LinkImports declare, with its old name.
+    (: handle-names (impl (Fn Bound -> (List (Pair Global String)))))
+    (define (handle-names library)
+      (concatenate (map (lambda (top)
+                          (match top
+                            ((LinkImport global path _ _ _)
+                             (list
+                              (Pair global (handle-name (library-key (::library global)) path))))
+                            (_ (Nil))))
+                        (bound-tops library))))
+
+    ;; ---- Definitions ----
+
     (: library-differences
        (impl (Fn ExpandedFile (List old:Item) (List String) -> (List String))))
     (define (library-differences file items old-exported)
       (let* ((key (file-key file))
              (exported (map ::name (::exports (::offer (::expansion file)))))
-             (new (written-definitions (::expanded (::expansion file))))
+             (new (written-definitions (::bound file)))
              (new-names (map ::first new))
              (old (filter (lambda (entry)
                             (or (member? (::first entry) new-names)
@@ -328,38 +474,50 @@
         (and (>= length-of suffix-length)
              (string=? (substring text (- length-of suffix-length) length-of) suffix))))
 
+    (: string-index-of (impl (Fn String String -> (Option I64))))
+    (define (string-index-of text part)
+      (let loop ((index 0))
+        (cond ((> (+ index (string-length part)) (string-length text)) (None))
+              ((string=? (substring text index (+ index (string-length part))) part) (Some index))
+              (else (loop (+ index 1))))))
+
     ;; ---- New definitions ----
 
     ;; Each written definition, by its normal name, with its value's
     ;; normal form; a program's body is `main:%body`, a function of
     ;; nothing.
-    (: written-definitions (impl (Fn Expanded -> (List (Pair String String)))))
-    (define (written-definitions expanded)
-      (match expanded
-        ((Defined _ tops _ _) (tops-definitions tops (Nil)))
-        ((Program tops body _)
-         (append (tops-definitions tops (Nil))
-                 (match body
-                   ((Some expr)
-                    (list (Pair "main:%body"
-                                (::text
-                                 (new-text (Lambda (Nil) expr (Loc "" 0 0)) (Naming (Nil) 0))))))
-                   ((None) (Nil)))))))
+    (: written-definitions (impl (Fn Bound -> (List (Pair String String)))))
+    (define (written-definitions library)
+      (let ((names (handle-names library)))
+        (match library
+          ((Defined _ tops _ _) (tops-definitions names tops (Nil)))
+          ((Program tops body _)
+           (append (tops-definitions names tops (Nil))
+                   (match body
+                     ((Some expr)
+                      (list (Pair "main:%body"
+                                  (::text (new-text names
+                                                    (Lambda (Nil) expr (Loc "" 0 0))
+                                                    (Naming (Nil) 0))))))
+                     ((None) (Nil))))))))
 
-    (: tops-definitions (impl (Fn (List Top) (List Global) -> (List (Pair String String)))))
-    (define (tops-definitions tops sets)
-      (concatenate (map (lambda (top) (top-definitions top sets)) tops)))
+    (: tops-definitions
+       (impl
+        (Fn (List (Pair Global String)) (List Top) (List Global) -> (List (Pair String String)))))
+    (define (tops-definitions names tops sets)
+      (concatenate (map (lambda (top) (top-definitions names top sets)) tops)))
 
     ;; A definition under a top-level `with-instances` has its sets twice,
     ;; as the old expander scopes them.
-    (: top-definitions (impl (Fn Top (List Global) -> (List (Pair String String)))))
-    (define (top-definitions top sets)
+    (: top-definitions
+       (impl (Fn (List (Pair Global String)) Top (List Global) -> (List (Pair String String)))))
+    (define (top-definitions names top sets)
       (match top
         ((Define global value _)
          (list (Pair (global-text global)
-                     (::text (new-text (scoped (scoped value sets) sets) (Naming (Nil) 0))))))
+                     (::text (new-text names (scoped (scoped value sets) sets) (Naming (Nil) 0))))))
         ((InstanceScope own tops _)
-         (tops-definitions tops (delete-duplicates same-global-text? (append own sets))))
+         (tops-definitions names tops (delete-duplicates same-global-text? (append own sets))))
         (_ (Nil))))
 
     (: same-global-text? (impl (Fn Global Global -> Bool)))
@@ -385,12 +543,23 @@
                      (::name global)
                      (if (= (::serial global) 0) "" "%")))
 
-    (: top-value-text (impl (Fn TopValue -> String)))
-    (define (top-value-text value)
+    ;; A value's normal name: a linked file's handle is the old
+    ;; expander's name for it.
+    (: top-value-text (impl (Fn (List (Pair Global String)) TopValue -> String)))
+    (define (top-value-text names value)
       (match value
-        ((TopGlobal global) (global-text global))
+        ((TopGlobal global)
+         (match (find (lambda (entry) (same-global? (::first entry) global)) names)
+           ((Some entry) (::second entry))
+           ((None) (global-text global))))
         ((FieldFunction case label role)
          (string-append (global-text case) "-" label (role-suffix role)))))
+
+    (: same-global? (impl (Fn Global Global -> Bool)))
+    (define (same-global? global other)
+      (and (string=? (library-key (::library global)) (library-key (::library other)))
+           (string=? (::name global) (::name other))
+           (= (::serial global) (::serial other))))
 
     (: role-suffix (impl (Fn FieldRole -> String)))
     (define (role-suffix role)
@@ -452,15 +621,16 @@
       (string-append "(" (string-join (Cons head items) " ") ")"))
 
     ;; Each of `texts` in turn, threading the naming.
-    (: new-texts (impl (Fn (List Expr) Naming -> (Pair (List String) Naming))))
-    (define (new-texts exprs naming)
+    (: new-texts
+       (impl (Fn (List (Pair Global String)) (List Expr) Naming -> (Pair (List String) Naming))))
+    (define (new-texts names exprs naming)
       (let loop ((exprs exprs)
                  (naming naming)
                  (texts (Nil)))
         (match exprs
           ((Nil) (Pair (reverse texts) naming))
           ((Cons expr rest)
-           (let ((rendered (new-text expr naming)))
+           (let ((rendered (new-text names expr naming)))
              (loop rest (::naming rendered) (Cons (::text rendered) texts)))))))
 
     (: new-binders (impl (Fn (List Local) Naming -> (Pair (List String) Naming))))
@@ -474,12 +644,12 @@
            (let ((rendered (bound naming (local-key local))))
              (loop rest (::naming rendered) (Cons (::text rendered) texts)))))))
 
-    (: new-text (impl (Fn Expr Naming -> Rendered)))
-    (define (new-text expr naming)
+    (: new-text (impl (Fn (List (Pair Global String)) Expr Naming -> Rendered)))
+    (define (new-text names expr naming)
       (match expr
         ((Literal constant _) (Rendered (constant-text constant) naming))
         ((LocalRef local _) (Rendered (named naming (local-key local)) naming))
-        ((TopRef value _) (Rendered (top-value-text value) naming))
+        ((TopRef value _) (Rendered (top-value-text names value) naming))
         ((Path (Cons label (Nil)) _) (Rendered (string-append "::" label) naming))
         ((Path labels _)
          (let ((parameter (bound naming "%path")))
@@ -488,18 +658,18 @@
                                       (path-text labels (::text parameter))))
                      (::naming parameter))))
         ((PathApply labels record _)
-         (let ((rendered (new-text record naming)))
+         (let ((rendered (new-text names record naming)))
            (Rendered (path-text labels (::text rendered)) (::naming rendered))))
-        ((Lambda parameters body _) (lambda-text parameters body naming))
-        ((ClosedLambda parameters body _) (lambda-text parameters body naming))
-        ((Call callee arguments _) (sequence-text "call" (Cons callee arguments) naming))
+        ((Lambda parameters body _) (lambda-text names parameters body naming))
+        ((ClosedLambda parameters body _) (lambda-text names parameters body naming))
+        ((Call callee arguments _) (sequence-text names "call" (Cons callee arguments) naming))
         ((If test consequent alternative _)
-         (sequence-text "if" (list test consequent alternative) naming))
-        ((Seq first rest _) (sequence-text "seq" (list first rest) naming))
+         (sequence-text names "if" (list test consequent alternative) naming))
+        ((Seq first rest _) (sequence-text names "seq" (list first rest) naming))
         ((Let local signature value body _)
          (let* ((binder (bound naming (local-key local)))
-                (value-text (new-text value (::naming binder)))
-                (body-text (new-text body (::naming value-text))))
+                (value-text (new-text names value (::naming binder)))
+                (body-text (new-text names body (::naming value-text))))
            (Rendered (form-text "let"
                                 (list (::text binder)
                                       (match signature
@@ -507,15 +677,15 @@
                                         ((None) (::text value-text)))
                                       (::text body-text)))
                      (::naming body-text))))
-        ((LocalSignature _ body _) (new-text body naming))
+        ((LocalSignature _ body _) (new-text names body naming))
         ((Match scrutinee clauses _)
-         (let* ((value (new-text scrutinee naming))
-                (rendered (clauses-text clauses (::naming value))))
+         (let* ((value (new-text names scrutinee naming))
+                (rendered (clauses-text names clauses (::naming value))))
            (Rendered (form-text "match" (Cons (::text value) (::first rendered)))
                      (::second rendered))))
         ((Handle effect implementations body _)
-         (let* ((values (new-texts (map ::value implementations) naming))
-                (body-text (new-text body (::second values))))
+         (let* ((values (new-texts names (map ::value implementations) naming))
+                (body-text (new-text names body (::second values))))
            (Rendered (form-text "handle"
                                 (Cons (global-text effect)
                                       (append (map (lambda (pair)
@@ -528,18 +698,16 @@
                                               (list (::text body-text)))))
                      (::naming body-text))))
         ((WithInstances sets body _)
-         (let ((rendered (new-text body naming)))
+         (let ((rendered (new-text names body naming)))
            (Rendered (form-text "with-instances"
                                 (list (form-text "" (map global-text sets)) (::text rendered)))
                      (::naming rendered))))
-        ((Ann value _ _) (wrapped-text "ann" value naming))
-        ((Convert value _ _) (wrapped-text "convert" value naming))
-        ((TryConvert value _ _) (wrapped-text "try-convert" value naming))
-        ((TypeTest value _ _) (wrapped-text "type-test" value naming))
+        ((Ann value _ _) (wrapped-text names "ann" value naming))
+        ((Convert value _ _) (wrapped-text names "convert" value naming))
+        ((TryConvert value _ _) (wrapped-text names "try-convert" value naming))
+        ((TypeTest value _ _) (wrapped-text names "type-test" value naming))
         ((CaseId constructor _ _)
-         (Rendered (form-text "case-id" (list (top-value-text constructor))) naming))
-        ((LinkedFile path _ _) (Rendered (form-text "link" (list (string-join path "/"))) naming))
-        ((ArtifactFiles _ _ _ empty _) (new-text empty naming))))
+         (Rendered (form-text "case-id" (list (top-value-text names constructor))) naming))))
 
     (: path-text (impl (Fn (List String) String -> String)))
     (define (path-text labels record)
@@ -547,39 +715,41 @@
                  record
                  labels))
 
-    (: lambda-text (impl (Fn (List Local) Expr Naming -> Rendered)))
-    (define (lambda-text parameters body naming)
+    (: lambda-text (impl (Fn (List (Pair Global String)) (List Local) Expr Naming -> Rendered)))
+    (define (lambda-text names parameters body naming)
       (let* ((binders (new-binders parameters naming))
-             (rendered (new-text body (::second binders))))
+             (rendered (new-text names body (::second binders))))
         (Rendered (form-text "lambda" (list (form-text "" (::first binders)) (::text rendered)))
                   (::naming rendered))))
 
-    (: sequence-text (impl (Fn String (List Expr) Naming -> Rendered)))
-    (define (sequence-text head exprs naming)
-      (let ((rendered (new-texts exprs naming)))
+    (: sequence-text
+       (impl (Fn (List (Pair Global String)) String (List Expr) Naming -> Rendered)))
+    (define (sequence-text names head exprs naming)
+      (let ((rendered (new-texts names exprs naming)))
         (Rendered (form-text head (::first rendered)) (::second rendered))))
 
-    (: wrapped-text (impl (Fn String Expr Naming -> Rendered)))
-    (define (wrapped-text head value naming)
-      (let ((rendered (new-text value naming)))
+    (: wrapped-text (impl (Fn (List (Pair Global String)) String Expr Naming -> Rendered)))
+    (define (wrapped-text names head value naming)
+      (let ((rendered (new-text names value naming)))
         (Rendered (form-text head (list (::text rendered))) (::naming rendered))))
 
-    (: clauses-text (impl (Fn (List Clause) Naming -> (Pair (List String) Naming))))
-    (define (clauses-text clauses naming)
+    (: clauses-text
+       (impl (Fn (List (Pair Global String)) (List Clause) Naming -> (Pair (List String) Naming))))
+    (define (clauses-text names clauses naming)
       (let loop ((clauses clauses)
                  (naming naming)
                  (texts (Nil)))
         (match clauses
           ((Nil) (Pair (reverse texts) naming))
           ((Cons clause rest)
-           (let* ((pattern (pattern-text (::pattern clause) naming))
-                  (body (new-text (::body clause) (::naming pattern))))
+           (let* ((pattern (pattern-text names (::pattern clause) naming))
+                  (body (new-text names (::body clause) (::naming pattern))))
              (loop rest
                    (::naming body)
                    (Cons (form-text (::text pattern) (list (::text body))) texts)))))))
 
-    (: pattern-text (impl (Fn Pattern Naming -> Rendered)))
-    (define (pattern-text pattern naming)
+    (: pattern-text (impl (Fn (List (Pair Global String)) Pattern Naming -> Rendered)))
+    (define (pattern-text names pattern naming)
       (match pattern
         ((Wild _) (Rendered "_" naming))
         ((Bind local _) (bound naming (local-key local)))
@@ -590,9 +760,9 @@
                     (texts (Nil)))
            (match arguments
              ((Nil)
-              (Rendered (form-text (top-value-text constructor) (reverse texts)) naming))
+              (Rendered (form-text (top-value-text names constructor) (reverse texts)) naming))
              ((Cons argument rest)
-              (let ((rendered (pattern-text argument naming)))
+              (let ((rendered (pattern-text names argument naming)))
                 (loop rest (::naming rendered) (Cons (::text rendered) texts)))))))))
 
     (: constant-text (impl (Fn Constant -> String)))
@@ -602,7 +772,7 @@
         ((Float text) (string-append "f:" text))
         ((Text text) (string-append "s:" text))
         ((Character char) (string-append "c:" (i64->string (char->integer char))))
-        ((ByteVector bytes) (string-append "b:" (i64->string (vector-length bytes))))
+        ((ByteVector bytes) (string-append "b:" (bytes-text bytes)))
         ((Boolean value) (if value "#t" "#f"))
         ((UnitValue) "unit")))
 
@@ -613,8 +783,14 @@
         ((syntax-Float text) (string-append "f:" text))
         ((syntax-Text text) (string-append "s:" text))
         ((syntax-Character char) (string-append "c:" (i64->string (char->integer char))))
-        ((syntax-ByteVector bytes) (string-append "b:" (i64->string (vector-length bytes))))
+        ((syntax-ByteVector bytes) (string-append "b:" (bytes-text bytes)))
         ((syntax-Boolean value) (if value "#t" "#f"))))
+
+    ;; A byte vector by its length and its digest, so two of one length
+    ;; but other bytes differ.
+    (: bytes-text (impl (Fn Bytes -> String)))
+    (define (bytes-text bytes)
+      (string-append (i64->string (vector-length bytes)) ":" (bytes->hex (sha256 bytes))))
 
     ;; ---- Old definitions ----
 
@@ -657,19 +833,6 @@
           (old-global-text name)
           (named naming name)))
 
-    (: old-link (impl (Fn String -> (Option String))))
-    (define (old-link name)
-      (match (string-index-of name "%link ")
-        ((Some index) (Some (substring name (+ index 6) (string-length name))))
-        ((None) (None))))
-
-    (: string-index-of (impl (Fn String String -> (Option I64))))
-    (define (string-index-of text part)
-      (let loop ((index 0))
-        (cond ((> (+ index (string-length part)) (string-length text)) (None))
-              ((string=? (substring text index (+ index (string-length part))) part) (Some index))
-              (else (loop (+ index 1))))))
-
     (: old-text (impl (Fn old:Expr Naming -> Rendered)))
     (define (old-text expr naming)
       (match (::term expr)
@@ -683,13 +846,7 @@
                 (rendered (old-text body (::second binders))))
            (Rendered (form-text "lambda" (list (form-text "" (::first binders)) (::text rendered)))
                      (::naming rendered))))
-        ((old:App callee arguments)
-         (match (Pair (::term callee) arguments)
-           ((Pair (old:Var name _ _) (Nil))
-            (match (old-link name)
-              ((Some path) (Rendered (form-text "link" (list path)) naming))
-              ((None) (old-sequence "call" (Cons callee arguments) naming))))
-           (_ (old-sequence "call" (Cons callee arguments) naming))))
+        ((old:App callee arguments) (old-sequence "call" (Cons callee arguments) naming))
         ((old:If test consequent alternative)
          (old-sequence "if" (list test consequent alternative) naming))
         ((old:Seq first rest) (old-sequence "seq" (list first rest) naming))
@@ -783,7 +940,7 @@
         ((old:DFloat text) (string-append "f:" text))
         ((old:DString text) (string-append "s:" text))
         ((old:DChar char) (string-append "c:" (i64->string (char->integer char))))
-        ((old:DBytes bytes) (string-append "b:" (i64->string (vector-length bytes))))
+        ((old:DBytes bytes) (string-append "b:" (bytes-text bytes)))
         ((old:DBool value) (if value "#t" "#f"))
         ((old:DUnit) "unit")))
 

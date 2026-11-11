@@ -21,7 +21,8 @@
    OtherOrder
    UncomparedOrder
    order-comparison
-   old-expansion)
+   old-expansion
+   old-expansion-with)
   (import
    (snail core base)
    (snail core io)
@@ -47,21 +48,28 @@
                  empty-expansion)
            old:)
    (prefix (only (snail shell compiler inputs)
+                 Inputs
                  no-inputs)
            old:))
   (begin
 
     ;; ---- The old expansion ----
 
-    ;; What the old expander makes of the program at `path`. It runs no
-    ;; producer program, and says so.
+    ;; What the old expander makes of the program at `path`, supplied
+    ;; nothing. It runs no producer program, and says so.
     (: old-expansion
        (impl (Fn (List String) String -> (Result old:ExpandedProgram old:Stop) ! fs)))
     (define (old-expansion directories path)
+      (old-expansion-with directories old:no-inputs path))
+
+    ;; The same, supplied `inputs`, such as the files of a target.
+    (: old-expansion-with
+       (impl (Fn (List String) old:Inputs String -> (Result old:ExpandedProgram old:Stop) ! fs)))
+    (define (old-expansion-with directories inputs path)
       (old:compiling (lambda ()
                        (old:expand-program directories
                                            (lambda (loading forms) (no-producer path))
-                                           old:no-inputs
+                                           inputs
                                            path
                                            old:empty-expansion))))
 
