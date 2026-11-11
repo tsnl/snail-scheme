@@ -94,3 +94,6 @@ generated library (the crate's README has the plan).
 [Instances, queues and shared memory](instances.md) proposes how several
 single-threaded instances will cooperate. [Continuations and parallel
 execution](future.md) retains the earlier backend research.
+[The linear-memory collector experiment](linear-memory.md) measures explicit
+root publication and explores conservative collection and memory64; the
+shipping backend remains WasmGC.
