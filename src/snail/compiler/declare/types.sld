@@ -345,14 +345,6 @@
       (define io (global main "io"))
       (define log (global lib "log"))
 
-      (define (by-name table name entry)
-        (table-set table
-                   name
-                   (append (match (table-ref table name)
-                             ((Some entries) entries)
-                             ((None) (Nil)))
-                           (list entry))))
-
       ;; (main) declares (List a) and (Show a), whose output is Out; it
       ;; imports (lib), which declares (Pair a b), the class (Collect c)
       ;; with outputs Item and Key, and the class (Store e s), e a row.
