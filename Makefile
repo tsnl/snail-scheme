@@ -4,7 +4,6 @@
 CHIBI ?= chibi-scheme
 # Chibi collects the whole heap whenever it grows, so start it large.
 HEAP ?= 2G
-EMACS ?= emacs
 NIXFMT ?= nixfmt
 MDBOOK ?= mdbook
 SCHEME_SOURCES = '*.scm' '*.sld'
@@ -25,7 +24,6 @@ fetch:
 test:
 	./scripts/chibi-paths --check
 	./scripts/snail-tool dev-tools >/dev/null
-	"$(EMACS)" --quick --batch -l tests/format-scheme.el -f ert-run-tests-batch-and-exit
 	"$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"
 
 # The suite with every compile on the native executable's wasmtime instead of
@@ -65,11 +63,11 @@ bootstrap:
 	./scripts/snail-tool bootstrap
 
 format:
-	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --write
+	git ls-files -z $(SCHEME_SOURCES) | xargs -0 ./scripts/format-scheme --write
 	$(NIXFMT) shell.nix
 
 check:
-	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --check
+	git ls-files -z $(SCHEME_SOURCES) | xargs -0 ./scripts/format-scheme --check
 	$(NIXFMT) --check shell.nix
 
 # The native project service and browser editor for the whole repository.

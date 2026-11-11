@@ -1,11 +1,10 @@
-;; Formatting as the repository's Emacs formatter does: calls, special
-;; forms, a named let, imports and struct fields on their own lines, strings
+;; The shared formatter: calls, special forms, a named let, imports and
+;; struct fields on their own lines, strings
 ;; and characters that hold parentheses, and comments that keep their place.
-;; Then lines past a width, here 40 columns, as tests/format-scheme.el
-;; breaks them: binding forms, calls, match arms, a comment after the code,
+;; Then lines past a width, here 40 columns: binding forms, calls, match arms,
+;; a comment after the code,
 ;; a string that cannot break, effects after `!`, tokens written together,
-;; and forms that share a line. The expected output is what
-;; scripts/format-scheme makes of the same text.
+;; and forms that share a line. CLI contracts live in tests/format-scheme.mjs.
 (import
  (snail core base)
  (snail core io)
@@ -20,6 +19,7 @@
   (string-append
    "(define (f x) (let* ((a (foo x)) (b (bar a)) (c (baz b))) (+ a b c)))\n"
    "(define (make-thing alpha beta gamma delta) (list alpha beta))\n"
+   "(result-let* ((a (foo x)) (b (bar a)) (c (baz b))) (+ a b c) (Ok c))\n"
    "(string-append \"first part\" (symbol->string name) \"last part\")\n"
    "(error \"a message that is long enough to matter\")\n"
    "(match option ((Some value) (display (string-append \"found \" value))) ((None) (display \"nothing\")))\n"
@@ -40,3 +40,15 @@
 
 ;; Reindenting only the second line leaves the third as it was.
 (write-string (indent-lines "(foo bar\nbaz\n  qux)\n" 1 1))
+
+;; Binding bodies dedent both on format and when the editor indents one line.
+(define result-bindings "(result-let* ((a (Ok 1)))\n(Ok a))\n")
+(write-string (format-source result-bindings format-width))
+(write-string (indent-lines result-bindings 1 1))
+
+;; The editor's line indentation uses the naming convention too, without
+;; knowing these macros. Names that only contain `let` remain ordinary calls.
+(for-each (lambda (name)
+            (write-string (indent-lines (string-append "(" name " ((x 1))\n(x))\n") 1 1)))
+          (list "let" "let*" "retry-let" "custom-let*" "def-let" "outlet" "custom-let-later"))
+(write-string (indent-lines "(retry-let loop ((x 1))\n(loop x))\n" 1 1))
