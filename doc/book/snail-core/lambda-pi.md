@@ -43,6 +43,36 @@ that unwraps success or reports the typed error.
 {{#include ../../../examples/lambda-pi.sld:variable}}
 ```
 
+`default-context` is just the example context we build here, containing
+`A : *`, `x : A`, and `f : A → A`. It has no special role in the checker.
+
+`with-results` is a sequential binding form for computations returning
+`Result`. Each `Ok` supplies the bound value to the remaining steps. An
+`Err` becomes the result immediately, skipping the remaining computations.
+For example:
+
+```scheme
+(with-results ((c1 (assume empty-context "A" star))
+               (c2 (assume c1 "x" (reference "A"))))
+  (Ok c2))
+```
+
+expands, with temporary names made explicit, to:
+
+```scheme
+(match (assume empty-context "A" star)
+  ((Err problem1) (Err problem1))
+  ((Ok c1)
+   (match (assume c1 "x" (reference "A"))
+     ((Err problem2) (Err problem2))
+     ((Ok c2) (Ok c2)))))
+```
+
+The macro does not wrap the final body in `Ok`; the body above does that
+explicitly. In the full example, the last `assume` already returns a
+`Result`, which `context-of` unwraps. Reusing the name `context` in its
+bindings shadows the previous immutable value, just as in `let*`.
+
 `x` has type `A` and normal form `x`. Checking a variable needs its binding's
 type; evaluating an opaque variable produces a *neutral*: a computation
 blocked on something unknown. It does not invent a value for `x`.
@@ -84,9 +114,8 @@ The driver obtains and orders those dependencies explicitly.
 {{#include ../../../src/snail/experiment/lambda-pi/rules.sld:product-rule}}
 ```
 
-`with-results` expands to nested `Result` matches with early error return.
-It is sequencing sugar; all actual dependencies are written at the call
-site. There is no hidden query, callback, or ambient context.
+The same `with-results` form sequences these checking prerequisites. All
+dependencies are explicit at the call site.
 
 ## 3. A lambda and beta reduction
 
@@ -94,9 +123,14 @@ site. There is no hidden query, callback, or ambient context.
 {{#include ../../../examples/lambda-pi.sld:identity}}
 ```
 
-`typed` supplies an annotation, making the lambda inferable. `local 0` means
+`ann` supplies an annotation, making the lambda inferable. `local 0` means
 the innermost bound variable. The identity's type prints as `(Pi A A)` and
 its normal form as `(lambda #0)`. Applying it to `x` normalizes to `x`.
+
+The annotation builder is `(ann term type)`, implemented as
+`(IAnn (:: term type))`. `::` is the struct holding those two fields.
+The example imports exclude Snail-Core's own `ann` form so the name refers
+unambiguously to this LambdaPi builder.
 
 Checking a lambda starts with an expected function type. It introduces a
 fresh unknown argument, computes the expected body type, extends the context,

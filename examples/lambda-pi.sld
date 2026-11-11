@@ -1,6 +1,6 @@
 ;; Read these examples in order with the LambdaPi walkthrough in the book.
 (import
- (snail core base)
+ (except (snail core base) ann)
  (snail core io)
  (snail experiment lambda-pi language)
  (snail experiment lambda-pi normal)
@@ -20,33 +20,33 @@
      (write-line (string-append "  normal: " (normal->string (term-normal checked)))))))
 
 ;; ANCHOR: variable
-(: abstract Context)
-(define abstract
+(: default-context Context)
+(define default-context
   (context-of
    (with-results ((context (assume empty-context "A" star))
                   (context (assume context "x" (reference "A"))))
                  (assume context "f" (pi (reference "A") (reference "A"))))))
 
-(example "1. A variable" abstract (free "x"))
+(example "1. A variable" default-context (free "x"))
 ;; ANCHOR_END: variable
 
 ;; ANCHOR: call
-(example "2. A call with an unknown function" abstract
+(example "2. A call with an unknown function" default-context
          (app (free "f") (reference "x")))
 ;; ANCHOR_END: call
 
 ;; ANCHOR: identity
 (: identity Infer)
-(define identity (typed (lam (local 0)) (pi (reference "A") (reference "A"))))
+(define identity (ann (lam (local 0)) (pi (reference "A") (reference "A"))))
 
-(example "3. An annotated identity" abstract identity)
-(example "4. Beta reduction" abstract (app identity (reference "x")))
+(example "3. An annotated identity" default-context identity)
+(example "4. Beta reduction" default-context (app identity (reference "x")))
 ;; ANCHOR_END: identity
 
 ;; ANCHOR: polymorphic
 ;; Pi A:*. Pi x:A. A. The second Pi adds a binder, so its result is #1.
 (: polymorphic-identity Infer)
-(define polymorphic-identity (typed (lam (lam (local 0))) (pi star (pi (local 0) (local 1)))))
+(define polymorphic-identity (ann (lam (lam (local 0))) (pi star (pi (local 0) (local 1)))))
 
 (example "5. A dependent identity" empty-context polymorphic-identity)
 (example "6. Instantiate the dependent identity" empty-context
@@ -55,23 +55,23 @@
 
 ;; ANCHOR: conversion
 (: type-identity Infer)
-(define type-identity (typed (lam (local 0)) (pi star star)))
+(define type-identity (ann (lam (local 0)) (pi star star)))
 
 (example "7. A type that computes" empty-context
-         (typed (Zero) (Inf (app type-identity nat))))
+         (ann (Zero) (Inf (app type-identity nat))))
 
 (example "8. Normalization beneath a binder" empty-context
-         (typed (lam (Inf (app (typed (lam (local 0)) (pi nat nat)) (local 0))))
-                (pi nat nat)))
+         (ann (lam (Inf (app (ann (lam (local 0)) (pi nat nat)) (local 0))))
+              (pi nat nat)))
 ;; ANCHOR_END: conversion
 
 ;; ANCHOR: naturals
 ;; add m n = nat-elim (lambda k. Nat) m (lambda k ih. succ ih) n.
 (: addition Infer)
 (define addition
-  (typed (lam (lam (Inf (nat-elim (lam nat) (local 1)
-                                  (lam (lam (successor (local 0)))) (local 0)))))
-         (pi nat (pi nat nat))))
+  (ann (lam (lam (Inf (nat-elim (lam nat) (local 1)
+                                (lam (lam (successor (local 0)))) (local 0)))))
+       (pi nat (pi nat nat))))
 
 (example "9. Natural-number elimination: 2 + 3" empty-context
          (apps addition (list (number 2) (number 3))))
@@ -82,12 +82,12 @@
 (define singleton (vcons nat (Zero) (number 2) (vnil nat)))
 
 (example "10. A length-indexed vector" empty-context
-         (typed singleton (vec nat (number 1))))
+         (ann singleton (vec nat (number 1))))
 
 ;; A dependent identity on vectors: Pi n:Nat. Pi xs:(Vec Nat n). Vec Nat n.
 (: vector-identity Infer)
 (define vector-identity
-  (typed (lam (lam (local 0))) (pi nat (pi (vec nat (local 0)) (vec nat (local 1))))))
+  (ann (lam (lam (local 0))) (pi nat (pi (vec nat (local 0)) (vec nat (local 1))))))
 
 (example "11. An index supplied by an earlier argument" empty-context
          (apps vector-identity (list (number 1) singleton)))
@@ -97,7 +97,7 @@
 ;; Rebuild every constructor. This motive depends on the vector's length.
 (: vector-copy Infer)
 (define vector-copy
-  (typed
+  (ann
    (lam (lam (Inf (vec-elim nat (lam (lam (vec nat (local 1)))) (vnil nat)
                             (lam (lam (lam (lam (vcons nat (local 3) (local 2) (local 0))))))
                             (local 1) (local 0)))))
@@ -111,20 +111,20 @@
 ;; tag-type zero = Nat; tag-type (succ n) = Nat -> Nat.
 (: tag-type Infer)
 (define tag-type
-  (typed (lam (Inf (nat-elim (lam star) nat (lam (lam (pi nat nat))) (local 0))))
-         (pi nat star)))
+  (ann (lam (Inf (nat-elim (lam star) nat (lam (lam (pi nat nat))) (local 0))))
+       (pi nat star)))
 
 ;; tag-value n : tag-type n. Its result is zero or the identity function.
 (: tag-value Infer)
 (define tag-value
-  (typed (lam (Inf (nat-elim (lam (Inf (app (free "tag-type") (local 0))))
-                             (Zero) (lam (lam (lam (local 0)))) (local 0))))
-         (pi nat (Inf (app (free "tag-type") (local 0))))))
+  (ann (lam (Inf (nat-elim (lam (Inf (app (free "tag-type") (local 0))))
+                           (Zero) (lam (lam (lam (local 0)))) (local 0))))
+       (pi nat (Inf (app (free "tag-type") (local 0))))))
 
 ;; vector-type nil = Nat; vector-type (cons h t) = tag-type h.
 (: vector-type Infer)
 (define vector-type
-  (typed
+  (ann
    (lam (lam (Inf (vec-elim nat (lam (lam star)) nat
                             (lam (lam (lam (lam (Inf (app (free "tag-type") (local 2)))))))
                             (local 1) (local 0)))))
@@ -132,7 +132,7 @@
 
 (: vector-value Infer)
 (define vector-value
-  (typed
+  (ann
    (lam (lam (Inf (vec-elim nat (reference "vector-type") (Zero)
                             (lam (lam (lam (lam (Inf (app (free "tag-value") (local 2)))))))
                             (local 1) (local 0)))))

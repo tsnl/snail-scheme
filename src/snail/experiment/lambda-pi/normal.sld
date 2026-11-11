@@ -3,7 +3,7 @@
 (define-library (snail experiment lambda-pi normal)
   (export normal=? normal->term normal->string error->string)
   (import
-   (snail core base)
+   (except (snail core base) ann)
    (snail experiment lambda-pi language))
   (begin
 
