@@ -23,9 +23,9 @@
 (: default-context Context)
 (define default-context
   (context-of
-   (with-results ((context (assume empty-context "A" star))
-                  (context (assume context "x" (reference "A"))))
-                 (assume context "f" (pi (reference "A") (reference "A"))))))
+   (result-let* ((context (assume empty-context "A" star))
+                 (context (assume context "x" (reference "A"))))
+     (assume context "f" (pi (reference "A") (reference "A"))))))
 
 (example "1. A variable" default-context (free "x"))
 ;; ANCHOR_END: variable
@@ -142,10 +142,10 @@
 (: dependent Context)
 (define dependent
   (context-of
-   (with-results ((context (define-global empty-context "tag-type" tag-type))
-                  (context (define-global context "tag-value" tag-value))
-                  (context (define-global context "vector-type" vector-type)))
-                 (define-global context "vector-value" vector-value))))
+   (result-let* ((context (define-global empty-context "tag-type" tag-type))
+                 (context (define-global context "tag-value" tag-value))
+                 (context (define-global context "vector-type" vector-type)))
+     (define-global context "vector-value" vector-value))))
 
 (example "13. Same length, zero head: result type Nat" dependent
          (apps (free "vector-value") (list (number 1) (vcons nat (Zero) (Zero) (vnil nat)))))

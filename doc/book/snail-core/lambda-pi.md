@@ -46,13 +46,14 @@ that unwraps success or reports the typed error.
 `default-context` is just the example context we build here, containing
 `A : *`, `x : A`, and `f : A → A`. It has no special role in the checker.
 
-`with-results` is a sequential binding form for computations returning
-`Result`. Each `Ok` supplies the bound value to the remaining steps. An
+`result-let*` is a binding macro for computations returning `Result`, with
+the sequential scope of `let*`. Each `Ok` supplies the bound value to the
+remaining steps. An
 `Err` becomes the result immediately, skipping the remaining computations.
 For example:
 
 ```scheme
-(with-results ((c1 (assume empty-context "A" star))
+(result-let* ((c1 (assume empty-context "A" star))
                (c2 (assume c1 "x" (reference "A"))))
   (Ok c2))
 ```
@@ -72,6 +73,10 @@ The macro does not wrap the final body in `Ok`; the body above does that
 explicitly. In the full example, the last `assume` already returns a
 `Result`, which `context-of` unwraps. Reusing the name `context` in its
 bindings shadows the previous immutable value, just as in `let*`.
+The shared CLI and IDE formatter recognizes the `-let*` suffix: bindings
+align with each other, and the body is indented two spaces from the form's
+opening parenthesis. User-defined `-let` and `-let*` macros follow the same
+[naming convention](toolchain.md#browser-editor).
 
 `x` has type `A` and normal form `x`. Checking a variable needs its binding's
 type; evaluating an opaque variable produces a *neutral*: a computation
@@ -114,7 +119,7 @@ The driver obtains and orders those dependencies explicitly.
 {{#include ../../../src/snail/experiment/lambda-pi/rules.sld:product-rule}}
 ```
 
-The same `with-results` form sequences these checking prerequisites. All
+The same `result-let*` form sequences these checking prerequisites. All
 dependencies are explicit at the call site.
 
 ## 3. A lambda and beta reduction
