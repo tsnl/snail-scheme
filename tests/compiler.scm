@@ -2,8 +2,9 @@
 ;; that has logic tests itself, with inputs built by hand. Given the
 ;; repository's root, it then compares the new passes with the old compiler
 ;; over every tracked library and the adapters' texts: the readers, the
-;; outlines, then loading's problems, then the offer of (snail core forms),
-;; then the SHA-256 the integrator names linked files by. `make
+;; outlines, then loading's problems, then the offer of (snail core forms)
+;; and the builtin types `declare` knows, then the SHA-256 the integrator
+;; names linked files by. `make
 ;; test-compiler` runs it all; the comparisons that expand whole programs
 ;; are tests/compare-compiler.sld.
 ;;
@@ -58,6 +59,13 @@
  (only (snail compiler derive implicit) test-implicit)
  (only (snail compiler derive instances) test-instances)
  (only (snail compiler derive pass) test-derive)
+ (only (snail compiler declare equality) test-equality)
+ (rename (only (snail compiler declare forms) test-forms) (test-forms test-declare-forms))
+ (only (snail compiler declare known) test-known)
+ (only (snail compiler declare requirements) test-requirements)
+ (only (snail compiler declare projections) test-projections)
+ (only (snail compiler declare callables) test-callables)
+ (rename (only (snail compiler declare types) test-types) (test-types test-declare-types))
  (only (snail compiler integrate files) test-files)
  (only (snail compiler integrate sha256) test-sha256)
  (only (snail compiler integrate walk) test-walk)
@@ -83,6 +91,7 @@
        load-cases
        load-case-comparison)
  (only (snail compiler adapter expand) forms-difference)
+ (only (snail compiler adapter declare) builtins-difference)
  (only (snail compiler adapter sha256) digest-difference))
 
 ;; ---- Unit tests ----
@@ -130,6 +139,13 @@
   (test-implicit)
   (test-instances)
   (test-derive)
+  (test-equality)
+  (test-declare-forms)
+  (test-known)
+  (test-requirements)
+  (test-projections)
+  (test-callables)
+  (test-declare-types)
   (test-files (string-append root "/build/test-compiler/files"))
   (test-sha256)
   (test-walk)
@@ -270,6 +286,15 @@
      (report (string-append "the offer of (snail core forms) differs: " difference))
      #f)))
 
+(define (compare-builtins)
+  (match (builtins-difference)
+    ((None)
+     (report "compared the builtin types declare knows with the old core library: no differences")
+     #t)
+    ((Some difference)
+     (report (string-append "the builtin types declare knows differ: " difference))
+     #f)))
+
 (define (compare-digests)
   (match (digest-difference)
     ((None)
@@ -294,6 +319,7 @@
            (outlines (compare-outlines root files))
            (loads (compare-loads root))
            (forms (compare-forms))
+           (builtins (compare-builtins))
            (digests (compare-digests)))
-      (unless (and readers outlines loads forms digests)
+      (unless (and readers outlines loads forms builtins digests)
         (exit 1)))))

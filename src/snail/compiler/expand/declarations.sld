@@ -241,19 +241,35 @@
 
     ;; Whether an `impl` callable is the type or within it, where the old
     ;; expander looks: arguments, and the parameters and results of
-    ;; callables and code.
+    ;; callables and code. It looks at an alias's use as the type it
+    ;; resolves to, its body with each parameter its argument, so an
+    ;; argument the body does not use is not looked at.
     (: impl-callable? (impl (Fn TypeExpr -> Bool)))
     (define (impl-callable? type)
+      (impl-within? (Nil) type))
+
+    ;; `parameters` says of each parameter of the alias whose body `type`
+    ;; is part of whether its argument holds an `impl` callable.
+    (: impl-within? (impl (Fn (List Bool) TypeExpr -> Bool)))
+    (define (impl-within? parameters type)
       (match type
         ((Callable (Impl) _ _ _) #t)
-        ((Callable (Dyn) _ arrow _) (arrow-impl? arrow))
-        ((Applied _ _ arguments _) (any? impl-callable? arguments))
-        ((Code arrow _) (arrow-impl? arrow))
+        ((Callable (Dyn) _ arrow _) (arrow-impl? parameters arrow))
+        ((Applied _ _ arguments _)
+         (any? (lambda (argument) (impl-within? parameters argument)) arguments))
+        ((Code arrow _) (arrow-impl? parameters arrow))
+        ((Aliased _ arguments body _)
+         (impl-within? (map (lambda (argument) (impl-within? parameters argument)) arguments)
+                       body))
+        ;; An AliasParameter's index is below its alias's count of
+        ;; arguments, which Expanded guarantees.
+        ((AliasParameter index _) (list-ref parameters index))
         (_ #f)))
 
-    (: arrow-impl? (impl (Fn Arrow -> Bool)))
-    (define (arrow-impl? arrow)
-      (or (impl-callable? (::result arrow)) (any? impl-callable? (::parameters arrow))))
+    (: arrow-impl? (impl (Fn (List Bool) Arrow -> Bool)))
+    (define (arrow-impl? parameters arrow)
+      (or (impl-within? parameters (::result arrow))
+          (any? (lambda (parameter) (impl-within? parameters parameter)) (::parameters arrow))))
 
     ;; ---- Aliases and classes ----
 
@@ -854,6 +870,14 @@
                                   loc))))
         (expect (messages '((struct P
                               ((f (impl (Fn -> I64)))))))
+                (list
+                 "stored and returned callable types require explicit dyn; impl is a definition or argument contract"))
+        ;; A field's type is looked at as it resolves: an argument an
+        ;; alias's body does not use is not stored.
+        (expect (messages '((type (Ignore a) I64) (struct P
+                                                    ((f (Ignore (impl (Fn -> I64)))))))) (list))
+        (expect (messages '((type (Keep a) (Array a)) (struct P
+                                                        ((f (Keep (impl (Fn -> I64))))))))
                 (list
                  "stored and returned callable types require explicit dyn; impl is a definition or argument contract"))
         (expect (expanded '((enum E (A) (B ((v I64))))))

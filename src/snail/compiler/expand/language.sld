@@ -57,6 +57,7 @@
 ;;   TypeExpr    ::= Applied Global written TypeExpr* | Variable name
 ;;                 | Projection Global member TypeExpr*
 ;;                 | Callable Former Contract Arrow | Code Arrow | Row Effects
+;;                 | Aliased Global TypeExpr* TypeExpr | AliasParameter index
 ;;   Arrow       ::= Arrow TypeExpr* TypeExpr Effects                no Loc
 ;;   Effects     ::= Effects Global* TypeExpr?                       no Loc
 ;;   Former      ::= Impl | Dyn                                      no Loc
@@ -99,8 +100,13 @@
 ;;   path, `(define (::x circle) ...)`, which is read into its labels, as a
 ;;   path in an expression is; either keeps the name as written.
 ;; - Types are as written, with their names resolved, except that an alias
-;;   is expanded where it is used, as a macro is, so no type names an
-;;   alias.
+;;   is expanded where it is used, as a macro is. Its use is Aliased: the
+;;   arguments the use writes, expanded where it is, and the alias's body,
+;;   expanded at the top level of the alias's library, where each parameter
+;;   is an AliasParameter standing for the argument at its index. A body
+;;   is written over its alias's parameters alone, so an AliasParameter
+;;   names a parameter of the innermost Aliased around it, and its index is
+;;   below that alias's count of arguments. No other type names an alias.
 ;; - Declarations come in the order written once macros are run. A
 ;;   program's statements are its body, each under the instance sets in
 ;;   scope where it was written; a library's stay statements.
@@ -202,6 +208,8 @@
    Callable
    Code
    Row
+   Aliased
+   AliasParameter
    Arrow
    Effects
    Former
@@ -636,7 +644,11 @@
     ;; scheme's, a declaration's or a class's parameter, or an instance's
     ;; variable. A Projection is `(Class.member type ...)`. A Callable is
     ;; `(impl (Fn ...))` or `(dyn (FnMut ...))`, Code is `(fn ...)`, and a
-    ;; Row is `(! effect ... tail)`.
+    ;; Row is `(! effect ... tail)`. An alias's use is Aliased: the
+    ;; arguments it writes, and the alias's body over its parameters, each
+    ;; an AliasParameter, at the place the body writes it. The old expander
+    ;; resolves the arguments first, where the use is, and the body in the
+    ;; alias's own scope, so the two stay apart.
     (enum TypeExpr
       (Applied
        ((type Global)
@@ -661,6 +673,14 @@
         (loc Loc)))
       (Row
        ((effects Effects)
+        (loc Loc)))
+      (Aliased
+       ((alias Global)
+        (arguments (List TypeExpr))
+        (body TypeExpr)
+        (loc Loc)))
+      (AliasParameter
+       ((index I64)
         (loc Loc))))
 
     ;; `parameter ... -> result ! effect ...`; no `!` is no effects.
@@ -669,8 +689,8 @@
        (result TypeExpr)
        (effects Effects)))
 
-    ;; Effects in the order written, and the type a row ends with, which an
-    ;; alias's argument may be.
+    ;; Effects in the order written, and the type a row ends with: a type
+    ;; variable, or an alias's parameter, whose argument may be any type.
     (struct Effects
       ((labels (List Global))
        (tail (Option TypeExpr))))

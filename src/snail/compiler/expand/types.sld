@@ -77,7 +77,7 @@
          (result-let* ((types (types-of typing arguments)))
            (Ok (Projection class member types loc))))
         ((BoundLocally (TypeVariable name) _) (unapplied (Variable name loc) arguments loc))
-        ((BoundLocally (TypeArgument type) _) (unapplied type arguments loc))
+        ((BoundLocally (TypeArgument index) _) (unapplied (AliasParameter index loc) arguments loc))
         ((BoundAtTop (TypeAlias global parameters body scope))
          (alias-type typing identifier (AliasUse global parameters body scope) arguments loc))
         (_ (fail loc (string-append "not a type: " (::name identifier))))))
@@ -94,9 +94,9 @@
        (body Marked)
        (scope LibraryName)))
 
-    ;; An alias's use is its body, expanded at the top level of the alias's
-    ;; library with each parameter bound to its argument; the arguments are
-    ;; expanded where the use is.
+    ;; An alias's use is its arguments, expanded where the use is, and its
+    ;; body, expanded at the top level of the alias's library with each
+    ;; parameter bound to the argument at its index.
     (: alias-type
        (impl
         (Fn Typing Identifier AliasUse (List Marked) Loc -> (Result TypeExpr (List Feedback)))))
@@ -106,19 +106,24 @@
             ((any? (lambda (other) (same-global? other (::global alias))) (::aliases typing))
              (fail loc (string-append "type alias refers to itself: " (::name identifier))))
             (else
-             (result-let* ((types (types-of typing arguments)))
-               (type-of (Typing (::scopes typing)
-                                (Env (alias-frames (::parameters alias) types) (::scope alias))
-                                (Cons (::global alias) (::aliases typing)))
-                        (::body alias))))))
+             (result-let* ((types (types-of typing arguments))
+                           (body (type-of (Typing (::scopes typing)
+                                                  (Env (alias-frames (::parameters alias))
+                                                       (::scope alias))
+                                                  (Cons (::global alias) (::aliases typing)))
+                                          (::body alias))))
+               (Ok (Aliased (::global alias) types body loc))))))
 
-    ;; Each parameter bound to its argument, the last innermost.
-    (: alias-frames (impl (Fn (List Identifier) (List TypeExpr) -> (List Frame))))
-    (define (alias-frames parameters types)
-      (fold-left
-       (lambda (frames pair) (Cons (Frame (::first pair) (TypeArgument (::second pair))) frames))
-       (Nil)
-       (zip parameters types)))
+    ;; Each parameter bound to its index, the last innermost.
+    (: alias-frames (impl (Fn (List Identifier) -> (List Frame))))
+    (define (alias-frames parameters)
+      (let loop ((parameters parameters)
+                 (index 0)
+                 (frames (Nil)))
+        (match parameters
+          ((Nil) frames)
+          ((Cons parameter rest)
+           (loop rest (+ index 1) (Cons (Frame parameter (TypeArgument index)) frames))))))
 
     ;; ---- Callables ----
 
@@ -154,8 +159,8 @@
 
     ;; ---- Rows ----
 
-    ;; Effects in the order written, and a type variable last, which an
-    ;; alias's parameter may stand for.
+    ;; Effects in the order written, and a type variable or an alias's
+    ;; parameter last.
     (: effects-of (impl (Fn Typing (List Marked) Loc -> (Result Effects (List Feedback)))))
     (define (effects-of typing items loc)
       (let loop ((items items)
@@ -167,7 +172,8 @@
              ((BoundAtTop (EffectName global)) (loop rest (Cons global labels)))
              ((BoundLocally (TypeVariable name) _)
               (row-tail (reverse labels) (Variable name item-loc) rest loc))
-             ((BoundLocally (TypeArgument type) _) (row-tail (reverse labels) type rest loc))
+             ((BoundLocally (TypeArgument index) _)
+              (row-tail (reverse labels) (AliasParameter index item-loc) rest loc))
              (_ (fail item-loc (string-append "not an effect: " (::name identifier))))))
           ((Cons item _) (fail (marked-loc item) "expected an effect label")))))
 
@@ -354,9 +360,10 @@
       (define (i64 here)
         (Applied (Global forms-library "I64" 0) "I64" (list) here))
 
-      ;; (main) defines List, Show, Fresh, the alias Twice and an effect
-      ;; io, and imports Fn and Show.Output; (lib) defines the alias Box
-      ;; over its own type Cell and the alias Loop, which uses itself.
+      ;; (main) defines List, Show, Fresh, the aliases Twice, Ignore, which
+      ;; uses no parameter, and Io, whose parameter ends a row, and an
+      ;; effect io, and imports Fn and Show.Output; (lib) defines the alias
+      ;; Box over its own type Cell and the alias Loop, which uses itself.
       (define loop
         (TypeAlias (global lib "Loop") (list) (marked-at (at 7) '(List Loop)) lib))
 
@@ -370,6 +377,16 @@
                                         (TypeAlias (global main "Twice")
                                                    (list (plain "a"))
                                                    (marked-at (at 5) '(List (List a)))
+                                                   main))
+                                  (Pair "Ignore"
+                                        (TypeAlias (global main "Ignore")
+                                                   (list (plain "a"))
+                                                   (marked-at (at 8) 'I64)
+                                                   main))
+                                  (Pair "Io"
+                                        (TypeAlias (global main "Io")
+                                                   (list (plain "e"))
+                                                   (marked-at (at 9) '(! io e))
                                                    main))))
                   (table-of (list (Pair "Fn" (ClassName (global base "Fn")))
                                   (Pair "Show.Output" (Associated (global main "Show") "Output"))
@@ -445,27 +462,40 @@
         (expect (type-in inner '(List a)) (Ok (list-of (Variable "a" loc))))
         (expect (type-in inner '(a Missing)) (fail loc "a type variable takes no arguments")))
 
-      ;; An alias is its body at its own library's top level, with each
-      ;; parameter its argument; an alias that reaches itself is refused.
+      ;; An alias's use is its arguments and its body, expanded at its own
+      ;; library's top level over its parameters, each standing for the
+      ;; argument at its index; an alias that reaches itself is refused.
       (define (test-aliases)
-        (expect (type '(Twice I64))
-                (Ok (Applied (global main "List")
-                             "List"
-                             (list (Applied (global main "List") "List" (list (i64 loc)) (at 5)))
-                             (at 5))))
-        (expect (type '(Box I64))
-                (Ok (Applied (global lib "Cell") "Cell" (list (i64 loc)) (at 6))))
-        (expect (type '(Twice (Box I64)))
-                (Ok (Applied (global main "List")
-                             "List"
-                             (list (Applied (global main "List")
-                                            "List"
-                                            (list (Applied (global lib "Cell")
-                                                           "Cell"
-                                                           (list (i64 loc))
-                                                           (at 6)))
-                                            (at 5)))
-                             (at 5))))
+        (define (twice-of argument)
+          (Aliased (global main "Twice")
+                   (list argument)
+                   (Applied (global main "List")
+                            "List"
+                            (list (Applied (global main "List")
+                                           "List"
+                                           (list (AliasParameter 0 (at 5)))
+                                           (at 5)))
+                            (at 5))
+                   loc))
+        (define (box-of argument)
+          (Aliased (global lib "Box")
+                   (list argument)
+                   (Applied (global lib "Cell") "Cell" (list (AliasParameter 0 (at 6))) (at 6))
+                   loc))
+        (expect (type '(Twice I64)) (Ok (twice-of (i64 loc))))
+        (expect (type '(Box I64)) (Ok (box-of (i64 loc))))
+        (expect (type '(Twice (Box I64))) (Ok (twice-of (box-of (i64 loc)))))
+        ;; An argument the body does not use is kept, as the old expander
+        ;; resolves every argument; a parameter may end a row.
+        (expect (type '(Ignore (List I64)))
+                (Ok (Aliased (global main "Ignore") (list (list-of (i64 loc))) (i64 (at 8)) loc)))
+        (expect (type '(Io I64))
+                (Ok (Aliased (global main "Io")
+                             (list (i64 loc))
+                             (Row
+                              (Effects (list (global main "io")) (Some (AliasParameter 0 (at 9))))
+                              (at 9))
+                             loc)))
         (expect (type '(Twice I64 I64)) (fail loc "wrong number of alias arguments: Twice"))
         (expect (type 'Twice) (fail loc "wrong number of alias arguments: Twice"))
         (expect (type '(Twice Missing)) (fail loc "not a type: Missing"))

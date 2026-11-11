@@ -19,8 +19,9 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 | `expand` | library | Outline, Offer | Expanded, Offer | Macros run, every name is resolved, every core form is parsed. | implemented |
 | `bind` | library | Expanded, Supply | Bound | Linked files and requests for other targets become what the build supplied. | implemented |
 | `derive` | library | Bound, Offer | Derived | `deriving` clauses become instance declarations. | implemented |
-| `declare` | library | Derived | Declared | Written types become types; declarations become entities. | planned |
+| `declare` | library | Derived | Declared | Written types become types; declarations become entities. | in progress |
 | `dispatch` | library | Declared | Dispatched | `dispatch` clauses become method definitions. | planned |
+| `cohere` | library | Dispatched | nothing | No two instances that can be in scope together overlap on their input types. | planned |
 | `infer` | library | Dispatched | Inferred | Every node gets a type, with unknowns; constraints are recorded. | planned |
 | `solve` | library | Inferred | Solved | Every recorded constraint is decided. | planned |
 | `settle` | library | Solved | Typed | Every unknown is replaced. | planned |
@@ -121,6 +122,16 @@ src/snail/compiler/
     implicit.sld          part: the names a derived instance is written with, in the implicit libraries' offers
     instances.sld         part: a derived Serialize or Deserialize instance, built as nodes
     pass.sld              (snail compiler derive pass): the function `derive`
+  declare/
+    language.sld          Declared, the tree it writes
+    offer.sld             Declarations, what a library offers its importers' declaration
+    equality.sld          rule: when Globals and types are the same, and the order of a row's effects
+    forms.sld             rule: the builtin types of (snail core forms), with their arities
+    known.sld             rule: what is known of types and classes where a type is written
+    requirements.sld      rule: what a class requirement gives its class
+    projections.sld       rule: the type a projection stands for
+    callables.sld         rule: the rules callable types obey in a scheme, and executable code's type
+    types.sld             part: written types, schemes and requirements
   ...
   integrate/              the integrator: one library per job
     files.sld             (snail compiler integrate files): every read of the file system
@@ -303,12 +314,18 @@ a path but for an empty label, `::x::`, is a member's label that names no
 member, since the old expander reads no path there: it finds the method a
 name names by comparing text. Types are
 as written, with their names resolved, but an alias is expanded where it is
-used, as a macro is. An `if` has its alternative, the unit value when none is
-written, which no `Datum` writes, so Expanded's expressions have constants of
-their own; a pattern's literal stays the `Datum` written. A
-program's statements are its body, each under the instance sets in scope
-where it was written. A tree node is at the place the old expander's
-messages name.
+used, as a macro is, into an `Aliased` type: the arguments the use writes,
+expanded where it is, and the alias's body, expanded at the top level of
+its library, where each parameter is an `AliasParameter` standing for the
+argument at its index. The two stay apart because the old compiler checks
+them apart: it resolves every argument first, where the use is, even one
+the body does not use, and then the body in the alias's own scope, where no
+requirement of the use is in scope. An `if` has its alternative, the unit
+value when none is written, which no `Datum` writes, so Expanded's
+expressions have constants of their own; a pattern's literal stays the
+`Datum` written. A program's statements are its body, each under the
+instance sets in scope where it was written. A tree node is at the place
+the old expander's messages name.
 
 ```text
 Expanded    ::= Defined library Top* first-unused-number
@@ -363,6 +380,7 @@ Constant    ::= Integer integer | Float text | Text text | Character character
 TypeExpr    ::= Applied Global written TypeExpr* | Variable name
               | Projection Global member TypeExpr*
               | Callable Former Contract Arrow | Code Arrow | Row Effects
+              | Aliased Global TypeExpr* TypeExpr | AliasParameter index
 Arrow       ::= Arrow TypeExpr* TypeExpr Effects                no Loc
 Effects     ::= Effects Global* TypeExpr?                       no Loc
 Former      ::= Impl | Dyn                                      no Loc
@@ -451,7 +469,7 @@ Mark        ::= Mark library number Scope                       no Loc
 Scope       ::= TopLevel library | LocalScope Frame*            no Loc
 Frame       ::= Frame Identifier Denotation                     no Loc
 Denotation  ::= LocalValue Local | LocalMacro Macro
-              | TypeVariable name | TypeArgument TypeExpr       no Loc
+              | TypeVariable name | TypeArgument index          no Loc
 Macro       ::= Macro MacroId Marked* Marked*                   no Loc
 MacroId     ::= MacroId library number                          no Loc
 ```
@@ -661,6 +679,157 @@ otherwise each instance's body reports the first name it lacks, in the
 order the old expander expands the body, and every body's problem is
 reported, in order.
 
+### Declared, written by `declare` (implemented)
+
+`declare` is in progress: its types part is written, and the rest of the
+pass, which makes each declaration its entity, is still to come.
+
+Every written type is a `Type` and every signature a `Scheme`. A `Con` is a
+struct, an enum or a builtin of (snail core forms), at as many arguments as
+it takes. No alias remains, nor a projection, which is the type the one
+requirement of its class in scope gives the output, matched on the
+arguments it gives the class's parameters that are not rows. Types carry no
+`Loc`: they are values, compared and substituted as values. A row's
+effects are a set, each once, in the order of their Globals (library, then
+name, then serial), so equal sets are equal lists. Its tail is what the row
+was written to end with: a variable, or, where an alias's parameter ends
+it, the type the alias's argument wrote, which may be a row itself; a row
+whose tail is a row is not the same value as the one row they make.
+
+A scheme quantifies its written variables; then each output a class
+requirement leaves unwritten, `Associated n label` for the requirement at
+position `n` among the scheme's requirements; then, when its type is a
+callable or code, a `CallableArgument n` for each `impl` parameter, `n` its
+position among the scheme's variables, whose callable requirement, of the
+parameter's contract, follows the written ones. A number names a variable
+by its position in the scheme that introduces it, as the old compiler names
+it `$associated.N.label` or `$callable-argument.N`, and keeps it when the
+scheme is combined with another, as a method's is with its class's. The
+variables `Copy` names are apart from the requirements, which have evidence
+by position. A method's, an operation's and a primitive's scheme, and an
+extern's type, is executable code's: a callable there is `Callable Dyn
+FnContract arrow`, as the old compiler makes it a bare function type.
+
+Every declaration is its entity, in the order written. A struct or an enum
+is `Data`: each case tagged by its position, each field's type, whether a
+deriving clause names Move, and whether its library declares a Drop
+instance for it, which only that library can. A class knows which of its
+parameters are rows, and each method's own scheme. An instance has a
+Global of its own and gives each of its class's parameters, its outputs in
+place of its equations. Each label of a method definition, a default and a
+handler clause is the member it names. A `case-id` is its case and that
+case's TypeId. Each definition carries the last signature written for it.
+
+```text
+Declared    ::= Defined library Top* first-unused-number
+              | Program Top* Expr? first-unused-number          no Loc
+Top         ::= LinkImport Global name* digest file
+              | Define Global Expr Signed? Annotation*
+              | Statement Expr                                  no Loc but its expression's
+              | Expose TopValue symbol dynamic?
+              | TopData Data                                    no Loc but its data's
+              | Alias Global parameter* Annotation*
+              | TopClass Class                                  no Loc but its class's
+              | TopInstance Instance                            no Loc but its instance's
+              | InstanceSet Global SetMember*
+              | InstanceScope Global* Top*
+              | Extern Global module symbol Type Annotation*
+              | TopEffect Effect                                no Loc but its effect's
+              | Primitive Global PrimitiveType
+Signed      ::= Signed Scheme
+
+Data        ::= Data Global parameter* DataCase* DataKind move? drop? Annotation*
+DataKind    ::= StructData | EnumData                           no Loc
+DataCase    ::= DataCase Global tag DataField* Annotation*
+DataField   ::= DataField label mutable? Type Annotation*
+
+Class       ::= Class Global ClassParameter* Output* Method* Annotation*
+ClassParameter ::= TypeParameter name | RowParameter name      no Loc
+Output      ::= Output Label Annotation*                        no Loc but its label's
+Method      ::= Method Global Scheme Annotation*
+
+Instance    ::= Instance Global ClassRef TypeVariable* Type* Type* Requirement*
+                         TypeVariable* InstanceBody
+InstanceBody ::= Dispatch Type* | Methods InstanceMethod*       Methods: no Loc
+InstanceMethod ::= InstanceMethod Member Global Expr
+Member      ::= ClassMethod Global | FieldReader label          no Loc
+SetMember   ::= SetInstance Instance                            no Loc but its instance's
+              | DynamicInstances ClassRef (Type*)*
+
+Effect      ::= Effect Global Operation* Default* around-main? Annotation*
+Operation   ::= Operation Global control? Type* Type Global* Annotation*
+Default     ::= Default Global Global Expr
+PrimitiveType ::= PrimitiveScheme Scheme | CallableOnce         no Loc
+
+Expr        ::= Literal Constant | LocalRef Local | TopRef TopValue
+              | Path label* | PathApply label* Expr
+              | Lambda Local* Expr | ClosedLambda Local* Expr | Call Expr Expr*
+              | If Expr Expr Expr | Seq Expr Expr
+              | Let Local Scheme? Expr Expr
+              | Match Expr Clause* | Handle Global Implementation* Expr
+              | WithInstances Global* Expr
+              | Ann Expr Type | Convert Expr Type | TryConvert Expr Type
+              | TypeTest Expr Type | CaseId Global id
+Clause      ::= Clause Pattern Expr
+Implementation ::= Implementation Global Expr
+Pattern     ::= Wild | Bind Local | Equals Datum | Destructure TopValue Pattern*
+
+Type        ::= Con Global Type* | Callable Former Contract Arrow | Code Arrow
+              | Row Effects | Var TypeVariable                  no Loc
+Arrow       ::= Arrow Type* Type Effects                        no Loc
+Effects     ::= Effects Global* Type?                           no Loc
+TypeVariable ::= Written name | Associated number label
+               | CallableArgument number | Own TypeVariable     no Loc
+Scheme      ::= Scheme TypeVariable* Requirement* TypeVariable* Type   no Loc
+Requirement ::= ClassRequirement ClassRef Type*
+              | CallableRequirement Contract Type Arrow         no Loc
+```
+
+Declared reuses Expanded's `Constant`, `Local`, `Global`, `TopValue`,
+`FieldRole`, `Label`, `Annotation`, `ClassRef`, `Former` and `Contract`.
+
+`declare` is handed the derived library and the `Declarations` of every
+library in its import closure, and, when the library derives, those of
+(snail shell wire) and its closure, since a derived instance names wire's
+classes; nothing else, and no instance. It writes the library declared and
+what it offers the declaration of its importers: its data types, its
+classes and each effect's operations, complete, by name.
+
+```text
+DeclaredLibrary ::= DeclaredLibrary Declared Declarations       no Loc
+Declarations ::= Declarations library Data* Class* Effect*      no Loc
+Effect      ::= OfferedEffect Global Operation*                 no Loc
+```
+
+The types part converts a written type where it is written, handed a
+`Scope`: what is known there, and the requirements in scope. What is known
+is the offers of the import closure and, of the library's own
+declarations, the shapes its scan finds, each type's parameters and each
+class's parameters and outputs, and each declaration once the pass reaches
+it, as its entity. So a class of the library's own has every parameter a
+type until its declaration is reached, as in the old compiler, where a
+declaration sees only the entities before it; the pass threads what is
+known through the declarations in order. The requirements in scope are
+those a projection reads: none at the start of a signature or for a type in
+an expression, the class's own `(Class parameter ... output ...)` for its
+methods, and an instance's requirements for its head. Each requirement of a
+scheme is in scope for those after it and for the scheme's type, not for
+its own arguments. An alias's use converts its arguments where it is, then
+its body with each parameter the type its argument became, and no
+requirement in scope, as the old compiler resolves the body in the alias's
+own scope.
+
+The first problem stops a conversion, in the old compiler's order. A type's
+arity is checked before its arguments are converted, and a projection's
+arguments are converted before it is looked up. A requirement's types,
+then the types its equations give its class's outputs, in the class's
+order, come before the checks of the requirement as a whole: that its
+equations name distinct outputs of the class, that it gives each of the
+class's parameters, and that it gives each parameter known to be a row a
+row or a variable. A scheme's type is then made to obey the rules of
+callables: its result is no `impl`, each `impl` parameter becomes a
+variable, and then no `impl` is within its result or a parameter.
+
 ### Typed, written by `settle` (sketch)
 
 Every node has a type and every use of a global its instantiation.
@@ -805,6 +974,12 @@ one line each, with its reason:
   keyword or a macro, is refused as syntax used as a value; the old
   expander would expand the form it writes there, and `derive` writes
   nodes, not syntax.
+- A requirement that does not give each of its class's parameters is
+  refused with the class's name as written; the old compiler spells the
+  text after the last colon of the class's unique name, which differs for
+  a name that holds a colon, and for a name a macro's template wrote,
+  whose unique name holds its mark's stamp. Names are data, so `declare`
+  reads no name's text.
 
 The integrator compiles everything on each build. Reuse between builds, which
 the old session provided, returns with the incremental work that follows the

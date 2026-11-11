@@ -10,7 +10,7 @@
 ;;   Scope       ::= TopLevel library | LocalScope Frame*            no Loc
 ;;   Frame       ::= Frame Identifier Denotation                     no Loc
 ;;   Denotation  ::= LocalValue Local | LocalMacro Macro
-;;                 | TypeVariable name | TypeArgument TypeExpr       no Loc
+;;                 | TypeVariable name | TypeArgument index          no Loc
 ;;   Macro       ::= Macro MacroId Marked* Marked*                   no Loc
 ;;   MacroId     ::= MacroId library number                          no Loc
 ;;
@@ -46,7 +46,7 @@
    (snail compiler source)
    (only (snail compiler read language) Datum)
    (only (snail compiler outline language) LibraryName)
-   (only (snail compiler expand language) Local TypeExpr))
+   (only (snail compiler expand language) Local))
   (begin
 
     ;; ---- Syntax ----
@@ -94,7 +94,8 @@
 
     ;; What a frame binds: a local variable; a macro a body defines; a type
     ;; variable a scheme, declaration or instance binds, known by its name;
-    ;; or an alias's parameter, which stands for the type its use gives.
+    ;; or an alias's parameter, which stands for the type its use gives at
+    ;; `index`, counting from 0.
     (enum Denotation
       (LocalValue
        ((local Local)))
@@ -103,7 +104,7 @@
       (TypeVariable
        ((name String)))
       (TypeArgument
-       ((type TypeExpr))))
+       ((index I64))))
 
     ;; ---- Macros ----
 
