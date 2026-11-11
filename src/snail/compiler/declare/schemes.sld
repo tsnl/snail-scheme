@@ -11,7 +11,9 @@
 ;;   swapper, which perform `mut`; a field of a struct with no mutable
 ;;   field is replaced by a replacer, which copies the struct.
 ;; - A class's method quantifies the class's parameters and outputs, then
-;;   its own variables, and requires the class first.
+;;   its own variables, and requires the class first. A field class
+;;   `::label` is `(::label R T)`, two types and no output, and its one
+;;   method, the reader, has the scheme `(Fn R -> T)` of its own.
 ;; - An operation's type performs its effect besides its latent effects; a
 ;;   default's performs only its latent effects, since no handler of the
 ;;   effect is in scope where a default runs.
@@ -23,11 +25,16 @@
 ;;
 ;; And a type with its variables bound, as the old compiler's `substitute`
 ;; makes it, which the schemes above are made with, as is a struct's field
-;; at its type's arguments.
+;; at its type's arguments; and whether a struct has no mutable field,
+;; which gives its fields replacers and each the instance of its label's
+;; field class that reads it.
 (define-library (snail compiler declare schemes)
   (export
    constructor-scheme
    field-schemes
+   pure-struct?
+   field-class-parameters
+   field-reader-scheme
    method-scheme
    operation-scheme
    default-scheme
@@ -99,6 +106,8 @@
                      (Pair (Replacer) (data-scheme data (function (list self type) self (Nil))))))
               (else (list accessor)))))
 
+    ;; Whether `case`, a case of `data`, is a struct's with no mutable
+    ;; field: a value read by path, whose fields are replaced by copying.
     (: pure-struct? (impl (Fn Data DataCase -> Bool)))
     (define (pure-struct? data case)
       (match (::kind data)
@@ -106,6 +115,16 @@
         ((EnumData) #f)))
 
     ;; ---- Classes ----
+
+    ;; A field class's parameters: the record type, then its field's type.
+    (: field-class-parameters (List ClassParameter))
+    (define field-class-parameters
+      (list (TypeParameter "R") (TypeParameter "T")))
+
+    ;; The reader's own scheme, over the field class's parameters.
+    (: field-reader-scheme Scheme)
+    (define field-reader-scheme
+      (Scheme (Nil) (Nil) (Nil) (function (list (Var (Written "R"))) (Var (Written "T")) (Nil))))
 
     (: class-variables (impl (Fn Class -> (List TypeVariable))))
     (define (class-variables class)
@@ -257,6 +276,9 @@
                           (fn (list (var "a")) cell-type (list))))
           (expect (map ::first (field-schemes cell cell-case value))
                   (list (Accessor) (Setter) (Swapper)))
+          (expect (map (lambda (pair) (pure-struct? (::first pair) (::second pair)))
+                       (list (Pair cell cell-case) (Pair point point-case)))
+                  (list #f #t))
           (expect (::second (list-ref (field-schemes cell cell-case value) 0))
                   (Scheme (list (Written "a"))
                           (list)
@@ -307,6 +329,14 @@
                                                   (list (var "e") (var "S"))))
                           (list)
                           (::type (::scheme put))))
+          (expect
+           (method-scheme (Class (global "::x") field-class-parameters (list) (list) (list) loc)
+                          (Method (global "::x") field-reader-scheme (list) loc))
+           (Scheme (list (Written "R") (Written "T"))
+                   (list (ClassRequirement (ClassGlobal (global "::x"))
+                                           (list (var "R") (var "T"))))
+                   (list)
+                   (fn (list (var "R")) (var "T") (list))))
           (expect (implementation-scheme store put instance)
                   (Scheme (list (Own (Written "b")))
                           (list)

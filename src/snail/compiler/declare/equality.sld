@@ -1,5 +1,5 @@
-;; When two Globals, and two types, are the same; and the one order of a
-;; row's effects, which makes the same set of effects the same list. A
+;; Query: when two Globals, and two types, are the same; and the one order
+;; of a row's effects, which makes the same set of effects the same list. A
 ;; type is a value, so two types are the same exactly when they are equal
 ;; part by part: a row's labels are compared as the lists they are, which
 ;; the order makes the sets they stand for, and its tail as written, as
@@ -12,7 +12,9 @@
    same-type?
    same-types?
    same-variable?
-   variable-among?)
+   variable-among?
+   same-former?
+   same-contract?)
   (import
    (snail core base)
    (only (snail compiler outline language) LibraryName)

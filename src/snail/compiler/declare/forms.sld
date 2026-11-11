@@ -1,5 +1,5 @@
-;; What `declare` knows of (snail core forms), the library without a file:
-;; its builtin types, each with how many arguments it takes. The list is
+;; Query: what `declare` knows of (snail core forms), the library without a
+;; file: its builtin types, each with how many arguments it takes. The list is
 ;; the old compiler's, src/snail/shell/compiler/core.sld's
 ;; `builtin-types`, in its order, but for `fn`, which (snail core forms)
 ;; offers as a keyword: `(fn ...)` is Code, never a type's name. The

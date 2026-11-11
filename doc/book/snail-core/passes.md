@@ -20,7 +20,7 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 | `bind` | library | Expanded, Supply | Bound | Linked files and requests for other targets become what the build supplied. | implemented |
 | `derive` | library | Bound, Offer | Derived | `deriving` clauses become instance declarations. | implemented |
 | `declare` | library | Derived | Declared | Written types become types; declarations become entities. | implemented |
-| `dispatch` | library | Declared | Dispatched | `dispatch` clauses become method definitions. | planned |
+| `dispatch` | library | Declared, Declarations, listings | Dispatched | Dispatch clauses and `dynamic-instances` forms become instances with methods. | in progress |
 | `cohere` | library | Dispatched | nothing | No two instances that can be in scope together overlap on their input types. | planned |
 | `infer` | library | Dispatched | Inferred | Every node gets a type, with unknowns; constraints are recorded. | planned |
 | `solve` | library | Inferred | Solved | Every recorded constraint is decided. | planned |
@@ -125,8 +125,8 @@ src/snail/compiler/
   declare/
     language.sld          Declared, the tree it writes
     offer.sld             Declarations, what a library offers its importers' declaration
-    equality.sld          rule: when Globals and types are the same, and the order of a row's effects
-    forms.sld             rule: the builtin types of (snail core forms), with their arities
+    equality.sld          query: when Globals and types are the same, and the order of a row's effects
+    forms.sld             query: the builtin types of (snail core forms), with their arities
     known.sld             rule: what is known of types and classes where a type is written
     requirements.sld      rule: what a class requirement gives its class
     projections.sld       rule: the type a projection stands for
@@ -151,7 +151,12 @@ src/snail/compiler/
     expressions.sld       part: bodies
     top.sld               part: the scan, the signatures, each declaration, the structs, then every body
     pass.sld              (snail compiler declare pass): the function `declare`
-    schemes.sld           query: the scheme of each value a declaration makes, and substitution
+    schemes.sld           query: the scheme of each value a declaration makes, substitution, and field classes
+  dispatch/
+    language.sld          Dispatched, the tree it writes
+    listing.sld           query: every instance a library declares, and what is read of one
+    matching.sld          query: one-way matching of an instance's head
+    text.sld              query: the texts the generated code holds: a type, a place, a method
   ...
   integrate/              the integrator: one library per job
     files.sld             (snail compiler integrate files): every read of the file system
@@ -910,6 +915,69 @@ a Drop instance where it is taken apart or has a field replaced: a match
 clause's pattern before its body, a constructor before the patterns it is
 given, and a `case-id`'s constructor before its case is found.
 
+### Dispatched, written by `dispatch` (implemented)
+
+Every instance has its methods. An instance written with a dispatch
+clause is the instance it was, with a method for each method of its class
+as known where it is written, none when the class is declared later in its
+library: a lambda that recovers its erased argument from `Any` for each
+target in turn and calls the class's method, and fails with a `CastError`
+after the last. Each `dynamic-instances` form is, in its place in its set,
+the instances it generates, each at the form, for the heads `(Any R)`,
+`(L Any)` and `(Any Any)` of its pairs, whose methods call the one active
+source instance of each pair the head accepts. `language.sld` states the
+code each writes, up to the names of locals. The texts a `CastError` holds
+are the old compiler's: the types it expected, the place and the method,
+which only `text.sld` writes. Who wrote an instance's methods is not kept:
+the old compiler marks a dispatched method `function?`, and reads the mark
+only for a value a program names, which no dispatched method is.
+
+Dispatched declares afresh the roots, `Top` and `Instance`, and reuses
+Declared's for the rest.
+
+```text
+Dispatched  ::= Defined library Top* first-unused-number
+              | Program Top* Expr? first-unused-number          no Loc
+Top         ::= LinkImport Global name* digest file
+              | Define Global Expr Signed? Annotation*
+              | Statement Expr                                  no Loc but its expression's
+              | Expose TopValue symbol dynamic?
+              | TopData Data                                    no Loc but its data's
+              | Alias Global parameter* Annotation*
+              | TopClass Class                                  no Loc but its class's
+              | TopInstance Instance                            no Loc but its instance's
+              | InstanceSet Global Instance*
+              | InstanceScope Global* Top*
+              | Extern Global module symbol Type Annotation*
+              | TopEffect Effect                                no Loc but its effect's
+              | Primitive Global PrimitiveType
+Instance    ::= Instance Global ClassRef TypeVariable* Type* Type* Requirement*
+                         TypeVariable* InstanceMethod*
+```
+
+Instances are global, so the passes that choose or compare them read every
+instance of the libraries before the one they work on. One instance, as
+they read it, is a `Listed`, which the query library `listing.sld` writes
+from Dispatched: an instance of the tree with its set, or the instance a
+struct with no mutable field implies for each of its fields, `(::label (S
+p ...) type)`, read by the field's accessor. A library's listing is its
+instances in the order the old compiler enters them: an instance where it
+is written, a struct's field instances at the struct, an instance scope's
+in turn and a set's in order. From one entry the listing answers its
+class, variables, types, outputs, requirements, Copy variables and set,
+whether it is active under a list of sets, and its selecting types: its
+head's types that are no row, a field instance's record and field types.
+
+```text
+Listed      ::= ListedInstance Instance set?                    no Loc but its instance's
+              | FieldInstance Data DataField                    no Loc
+```
+
+`matching.sld` matches an instance's head one way against types, as the
+old `match-types` does: only the instance's variables bind, a callable
+matches a callable of its kind and code matches code by parameters and
+result, never by effects, and a row matches nothing.
+
 ### Typed, written by `settle` (sketch)
 
 Every node has a type and every use of a global its instantiation.
@@ -1097,6 +1165,11 @@ one line each, with its reason:
   compiler refuses the first by its unique name's text, which can differ
   where one library's name begins another's, as `(a)` and `(a b)` do. No
   program in the repository names two.
+- A type or a method a macro's template wrote is spelled in a `CastError`'s
+  texts by its name and serial, `Box%12`, where the old compiler spells
+  the stamp of the macro's use, `Box%m.12`; and a type whose name holds a
+  colon is spelled by its whole name, where the old spells the text after
+  the last colon. No program in the repository dispatches over either.
 
 The integrator compiles everything on each build. Reuse between builds, which
 the old session provided, returns with the incremental work that follows the
