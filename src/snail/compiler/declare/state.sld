@@ -14,6 +14,7 @@
    Declaring
    declaring-let*
    declaring-map
+   checked
    unchanged
    fresh-global
    fresh-local
@@ -65,6 +66,14 @@
          (match step
            ((Ok (Pair name state)) (declaring-let* (more ...) body ...))
            ((Err name) (Err name))))))
+
+    ;; A rule's answer as a step: the problem it found, placed at `loc`, or
+    ;; none, which lets the steps after it run.
+    (: checked (impl (Fn (Option String) Loc -> (Result Unit (List Feedback)))))
+    (define (checked problem loc)
+      (match problem
+        ((Some message) (fail loc message))
+        ((None) (Ok (unit)))))
 
     ;; A step of `declaring-let*` that leaves the state as it is.
     (: unchanged
@@ -150,6 +159,8 @@
           (expect (declaring-let* ((a state (unchanged state (Ok 3))))
                     (Ok (Pair a (::next state))))
                   (Ok (Pair 3 1)))
+          (expect (checked (None) (Loc "t.sld" 1 5)) (Ok (unit)))
+          (expect (checked (Some "odd") (Loc "t.sld" 1 5)) (fail (Loc "t.sld" 1 5) "odd"))
           (expect (declaring-map state odd (list 1 3)) (Ok (Pair (list 1 3) state)))
           (expect (declaring-map state odd (list 1 2 4)) (fail (Loc "t.sld" 1 2) "even"))))))
    (else)))

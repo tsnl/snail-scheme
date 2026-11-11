@@ -105,20 +105,26 @@
 ;;   of callables and code, but not a row.
 ;; - A class requirement gives each of its class's parameters, its
 ;;   outputs last, in the class's order, and each row parameter a row or a
-;;   variable, as far as the class's rows were known where it was written.
-;;   A callable requirement is the compiler's, never an instance's. The
-;;   variables a scheme says `Copy` are apart from its requirements, which
-;;   have evidence, by position.
+;;   variable, as far as the class's rows were known where it was written,
+;;   and in a definition's signature as every class of the library is once
+;;   each is declared. A callable requirement is the compiler's, never an
+;;   instance's. The variables a scheme says `Copy` are apart from its
+;;   requirements, which have evidence, by position.
 ;; - Every declaration is its entity. A struct or an enum is Data, with
 ;;   each case's tag its position and each field its type; whether it
 ;;   derives Move, and whether its library declares a Drop instance for
-;;   it. A class knows which of its parameters are rows, and each method's
-;;   own scheme over the class's parameters and outputs. An operation is
-;;   its parameters, result and latent effects, without its own effect.
-;;   A method's, an operation's and a primitive's scheme, and an extern's
-;;   type, is operational: a callable or code there is `(Callable Dyn
-;;   FnContract arrow)` of its arrow, as the old compiler makes executable
-;;   code's type its bare arrow.
+;;   it; and a struct can be built, since not every value of it holds
+;;   another. A class knows which of its parameters are rows, each one kind
+;;   only, its outputs types, and each method's own scheme over the
+;;   class's parameters and outputs. An operation is its parameters, result
+;;   and latent effects, without its own effect, which is not among them;
+;;   its type quantifies nothing, and a control operation's has no latent
+;;   effect and no default. No operation has two defaults. A host function
+;;   takes a String or Bytes only as its last argument. A method's, an
+;;   operation's and a primitive's scheme, and an extern's type, is
+;;   operational: a callable or code there is `(Callable Dyn FnContract
+;;   arrow)` of its arrow, as the old compiler makes executable code's type
+;;   its bare arrow.
 ;; - Every label is the member it names: a method definition's is a
 ;;   method of its instance's class, a default's and a handler clause's an
 ;;   operation of the effect, and an equation's an output, which the head

@@ -1,5 +1,6 @@
-;; Values: what a library's signatures say of the values they name, and
-;; the values whose declarations write a type, externs and primitives.
+;; Values: what a library's signatures say of the values they name, a
+;; definition's body, and the values whose declarations write a type,
+;; externs and primitives.
 ;;
 ;; Every signature is converted before any declaration, in the order
 ;; written, those under a top-level `with-instances` among them, and the
@@ -19,20 +20,25 @@
    declared-signatures
    signed
    signature-annotations
+   declared-definition
    declared-extern
-   declared-primitive
-   definition)
+   declared-primitive)
   (import
    (snail core base)
    (snail core table)
    (snail compiler source)
    (prefix (snail compiler expand language) expanded-)
+   (prefix (snail compiler bind language) bound-)
    (prefix (snail compiler derive language) derived-)
    (snail compiler declare language)
    (snail compiler declare known)
+   (snail compiler declare state)
    (snail compiler declare equality)
+   (snail compiler declare requirements)
    (snail compiler declare callables)
-   (snail compiler declare types))
+   (snail compiler declare host)
+   (snail compiler declare types)
+   (snail compiler declare expressions))
   (begin
 
     ;; ---- Signatures ----
@@ -103,20 +109,42 @@
 
     ;; ---- Definitions ----
 
-    ;; A definition whose value is declared, with what its signatures say.
-    (: definition (impl (Fn Signatures expanded-Global Expr Loc -> Top)))
-    (define (definition signatures global value loc)
-      (Define global
-        value
-        (signed signatures global)
-        (signature-annotations signatures global)
-        loc))
+    ;; A definition's body, declared once every declaration is reached:
+    ;; first the requirements of its signature, the last written for it,
+    ;; checked again at the signature, since each class of the library is
+    ;; now known whole, which no class of its own was where the signature
+    ;; was converted; then its value. The first problem stops the body, as
+    ;; the old compiler's `check-signature` does before the definition's
+    ;; value is expanded. Only a definition's signature is checked again:
+    ;; one written for any other value was checked only where it was
+    ;; converted.
+    (: declared-definition
+       (impl (Fn Known
+                 Signatures
+                 expanded-Global
+                 bound-Expr
+                 Loc
+                 ->
+                 (Result Top (List Feedback)))))
+    (define (declared-definition known signatures global value loc)
+      (let ((signature (signed signatures global)))
+        (result-let* ((complete (signature-check known signature))
+                      (declared (declared-expr known value)))
+          (Ok (Define global declared signature (signature-annotations signatures global) loc)))))
+
+    (: signature-check (impl (Fn Known (Option Signed) -> (Result Unit (List Feedback)))))
+    (define (signature-check known signature)
+      (match signature
+        ((Some found)
+         (checked (requirements-problem known (::requirements (::scheme found))) (::loc found)))
+        ((None) (Ok (unit)))))
 
     ;; ---- Externs and primitives ----
 
     ;; An extern's type is a type, not a scheme, so it is held to no rule
     ;; of callables; it is executable code's, its arrow, as the old
-    ;; compiler's `declare-extern` makes it.
+    ;; compiler's `declare-extern` makes it, and what a host function may
+    ;; take, refused at the type.
     (: declared-extern
        (impl (Fn Known
                  Signatures
@@ -130,12 +158,14 @@
                  (Result Top (List Feedback)))))
     (define (declared-extern known signatures global module symbol type annotations loc)
       (result-let* ((declared (declared-type (Scope known (Nil)) type)))
-        (Ok (Extern global
-                    module
-                    symbol
-                    (operational-type declared)
-                    (append annotations (signature-annotations signatures global))
-                    loc))))
+        (let ((code (operational-type declared)))
+          (result-let* ((staged (checked (host-problem code) (type-loc type))))
+            (Ok (Extern global
+                        module
+                        symbol
+                        code
+                        (append annotations (signature-annotations signatures global))
+                        loc))))))
 
     ;; A primitive's scheme is executable code's; `callable-once` stays the
     ;; compiler's own.
@@ -158,13 +188,13 @@
     (export
      test-values)
     (import
-     (prefix (only (snail compiler bind language) Literal) bound-)
      (snail compiler declare offer)
      (snail compiler declare forms)
      (snail stage0 testing))
     (begin
       (define (test-values)
         (test-signatures)
+        (test-definitions)
         (test-externs)
         (test-primitives))
 
@@ -249,6 +279,98 @@
                                                         (list))))
                   (fail (at 5) "wrong number of type arguments: Array"))))
 
+      ;; (main)'s class (Store e S), whose e is a row: by its scan where the
+      ;; signatures are converted, and declared once the bodies are.
+      (define store (global "Store"))
+
+      (define store-scanned
+        (Scanned empty-table
+                 (by-name empty-table "Store" (ScannedClass store (list "e" "S") (list)))))
+
+      (define store-known
+        (Known main
+               store-scanned
+               (Declarations main empty-table empty-table empty-table)
+               (list)))
+
+      (define complete-known
+        (Known main
+               store-scanned
+               (Declarations main
+                             empty-table
+                             (by-name empty-table
+                                      "Store"
+                                      (Class store
+                                             (list (RowParameter "e") (TypeParameter "S"))
+                                             (list)
+                                             (list)
+                                             (list)
+                                             loc))
+                             empty-table)
+               (list)))
+
+      ;; `(: f (All (S) (requires (Store row S)) I64))`, at line 2.
+      (define (store-signatures row)
+        (match (declared-signatures
+                store-known
+                (list (derived-Signature (expanded-TopGlobal (global "f"))
+                                         (expanded-Scheme
+                                          (list "S")
+                                          (list (expanded-ClassRequirement
+                                                 (expanded-ClassGlobal store)
+                                                 (list row (expanded-Variable "S" loc))
+                                                 (list)
+                                                 (at 3)))
+                                          (applied "I64" 3)
+                                          (at 3))
+                                         (list)
+                                         (at 2))))
+          ((Ok found) found)
+          ((Err _) (panic "the signature"))))
+
+      ;; Read off error-class-row-requires-row.sld: where the signatures
+      ;; are converted the class is its scan, so its row is not checked;
+      ;; the definition's body checks it again, at the signature, before
+      ;; its value, which is then never looked at.
+      (define (test-definitions)
+        (let ((bad-value (bound-Ann (bound-Literal (expanded-UnitValue) (at 4))
+                                    (expanded-Applied (builtin "Array") "Array" (list) (at 5))
+                                    (at 4)))
+              (closed (expanded-Row (expanded-Effects (list) (None)) loc)))
+          (expect (declared-definition complete-known
+                                       (store-signatures (applied "I64" 3))
+                                       (global "f")
+                                       bad-value
+                                       (at 4))
+                  (fail (at 2) "a constraint gives the class's row parameter e a row"))
+          (expect (declared-definition complete-known
+                                       (store-signatures closed)
+                                       (global "f")
+                                       bad-value
+                                       (at 4))
+                  (fail (at 5) "wrong number of type arguments: Array"))
+          (expect (declared-definition complete-known
+                                       (store-signatures closed)
+                                       (global "f")
+                                       (bound-Literal (expanded-UnitValue) (at 4))
+                                       (at 4))
+                  (Ok (Define (global "f")
+                        (Literal (expanded-UnitValue) (at 4))
+                        (signed (store-signatures closed) (global "f"))
+                        (list)
+                        (at 4))))
+          ;; A definition with no signature has nothing to check again.
+          (expect (declared-definition complete-known
+                                       (store-signatures closed)
+                                       (global "g")
+                                       (bound-Literal (expanded-UnitValue) (at 6))
+                                       (at 6))
+                  (Ok (Define (global "g")
+                        (Literal (expanded-UnitValue) (at 6))
+                        (None)
+                        (list)
+                        (at 6))))))
+
       ;; An extern's type is its arrow, whatever callable it was written as,
       ;; with its annotations and its signatures'.
       (define (test-externs)
@@ -289,7 +411,26 @@
                                    (expanded-Applied (builtin "Array") "Array" (list) (at 8))
                                    (list)
                                    loc)
-                  (fail (at 8) "wrong number of type arguments: Array"))))
+                  (fail (at 8) "wrong number of type arguments: Array"))
+          ;; A host function takes a buffer only last, refused at its type
+          ;; (error-host-buffer-position.sld).
+          (expect (declared-extern known
+                                   signatures
+                                   (global "greet")
+                                   "host"
+                                   "greet"
+                                   (expanded-Callable (expanded-Impl)
+                                                      (expanded-FnContract)
+                                                      (expanded-Arrow (list (applied "String" 9)
+                                                                            (applied "I64" 9))
+                                                                      (applied "Unit" 9)
+                                                                      (expanded-Effects (list)
+                                                                                        (None)))
+                                                      (at 10))
+                                   (list)
+                                   loc)
+                  (fail (at 10)
+                        "a host function can take a String or Bytes only as its last argument"))))
 
       ;; A primitive's scheme is operational; callable-once stays.
       (define (test-primitives)

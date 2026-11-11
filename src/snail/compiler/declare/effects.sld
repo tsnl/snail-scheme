@@ -2,10 +2,13 @@
 ;; `declare-effect` (src/snail/shell/compiler/expand.sld) declares it.
 ;; Each operation's scheme is converted in order, where no requirement is
 ;; in scope, and is executable code's; an operation is then its type's
-;; parameters, result and latent effects, without its own effect. Then
-;; each default entry, in order, names an operation of the effect, and its
-;; implementation is given a Global of its own, named for the operation.
-;; The first problem stops the declaration. A default's value is a body,
+;; parameters, result and latent effects, without its own effect, or its
+;; type is refused at the type. Then each default entry, in order, names an
+;; operation of the effect, refused at its label, which may have a default,
+;; refused at the entry, and its implementation is given a Global of its
+;; own, named for the operation. Then no operation has two defaults,
+;; refused at the effect. The first problem stops the declaration, in that
+;; order (`declare-effect`). A default's value is a body,
 ;; declared with the library's other bodies, once every declaration is
 ;; reached: a lambda, as written, or a function's name, which becomes the
 ;; lambda that calls it with the operation's arguments, each a local of
@@ -72,26 +75,40 @@
                                             (map-results (lambda (operation)
                                                            (declared-operation (::known state)
                                                                                signatures
+                                                                               global
                                                                                operation))
                                                          operations)))
                        (pending state
                                 (declaring-map state
                                                (lambda (state default)
                                                  (pending-default state declared default))
-                                               defaults)))
+                                               defaults))
+                       (once state
+                             (unchanged state
+                                        (checked (defaults-problem
+                                                   (map (lambda (default)
+                                                          (::global (::operation default)))
+                                                        pending))
+                                                 loc))))
         (Ok
          (Pair (DeclaredEffect (Effect global declared (Nil) around-main? annotations loc) pending)
                state))))
 
     ;; ---- Operations ----
 
-    ;; What the operation's type says, refused at the type.
+    ;; What the type of an operation of the effect `effect` says, refused
+    ;; at the type.
     (: declared-operation
-       (impl (Fn Known Signatures expanded-Operation -> (Result Operation (List Feedback)))))
-    (define (declared-operation known signatures operation)
+       (impl (Fn Known
+                 Signatures
+                 expanded-Global
+                 expanded-Operation
+                 ->
+                 (Result Operation (List Feedback)))))
+    (define (declared-operation known signatures effect operation)
       (let ((written (::scheme operation)))
         (result-let* ((scheme (declared-scheme (Scope known (Nil)) written)))
-          (match (operation-type (operational-scheme scheme))
+          (match (operation-type effect (::control? operation) (operational-scheme scheme))
             ((Ok type)
              (Ok (Operation (::global operation)
                             (::control? operation)
@@ -105,7 +122,8 @@
 
     ;; ---- Defaults ----
 
-    ;; A default's operation, refused at the label that names it, and its
+    ;; A default's operation, refused at the label that names it, or, when
+    ;; the operation may have no default, at the entry; and its
     ;; implementation's Global.
     (: pending-default
        (impl (Fn Declaring
@@ -114,13 +132,15 @@
                  ->
                  (Result (Pair PendingDefault Declaring) (List Feedback)))))
     (define (pending-default state operations default)
-      (let ((label (::label default)))
+      (let ((label (::label default))
+            (loc (::loc default)))
         (match (named-operation operations (::name label))
           ((Ok operation)
-           (declaring-let* ((implementation state
+           (declaring-let* ((allowed state
+                                     (unchanged state (checked (default-problem operation) loc)))
+                            (implementation state
                                             (fresh-global state (::name (::global operation)))))
-             (Ok (Pair (PendingDefault operation implementation (::value default) (::loc default))
-                       state))))
+             (Ok (Pair (PendingDefault operation implementation (::value default) loc) state))))
           ((Err message) (fail (::loc label) message)))))
 
     ;; ---- Default bodies ----
@@ -236,6 +256,8 @@
         (operation "read" #f (function (list) (expanded-Effects (list log) (None))) 2))
       (define jump-op
         (operation "jump" #t (function (list (i64-at 1)) (expanded-Effects (list) (None))) 3))
+      (define send-op
+        (operation "send" #f (function (list (i64-at 1)) (expanded-Effects (list) (None))) 3))
 
       (define (state-from next)
         (Declaring next known))
@@ -248,6 +270,7 @@
 
       (define declared-read (Operation (global "read") #f (list) i64 (list log) (list) (at 2)))
       (define declared-jump (Operation (global "jump") #t (list i64) i64 (list) (list) (at 3)))
+      (define declared-send (Operation (global "send") #f (list i64) i64 (list) (list) (at 3)))
 
       ;; An operation is its type's parameters, result and latent effects;
       ;; a type that is no function with a closed row is refused at it.
@@ -293,7 +316,64 @@
                                  (list)
                                  loc)
                 (fail (at 6)
-                      "an operation has a function type with a closed row; its effect is implied")))
+                      "an operation has a function type with a closed row; its effect is implied"))
+        ;; The rest of the operation's rules, each at the type, the first
+        ;; operation's problem before the second's.
+        (expect (declared-effect (state-from 4)
+                                 no-signatures
+                                 (global "io")
+                                 (list (expanded-Operation (global "pick")
+                                                           #f
+                                                           (expanded-Scheme
+                                                            (list "A")
+                                                            (list)
+                                                            (function (list)
+                                                                      (expanded-Effects (list)
+                                                                                        (None)))
+                                                            (at 10))
+                                                           (list)
+                                                           (at 10))
+                                       (operation "own"
+                                                  #f
+                                                  (function (list)
+                                                            (expanded-Effects (list (global "io"))
+                                                                              (None)))
+                                                  11))
+                                 (list)
+                                 #f
+                                 (list)
+                                 loc)
+                (fail (at 10)
+                      "an operation's type cannot be polymorphic: a handler implements it once, at one type"))
+        (expect (declared-effect (state-from 4)
+                                 no-signatures
+                                 (global "io")
+                                 (list read-op
+                                       (operation "own"
+                                                  #f
+                                                  (function (list)
+                                                            (expanded-Effects (list (global "io"))
+                                                                              (None)))
+                                                  11))
+                                 (list)
+                                 #f
+                                 (list)
+                                 loc)
+                (fail (at 11) "an operation's latent row cannot name its own effect"))
+        (expect (declared-effect (state-from 4)
+                                 no-signatures
+                                 (global "Gen")
+                                 (list (operation "yield"
+                                                  #t
+                                                  (function (list)
+                                                            (expanded-Effects (list log) (None)))
+                                                  12))
+                                 (list)
+                                 #f
+                                 (list)
+                                 loc)
+                (fail (at 12)
+                      "a control operation has a total function type; its effect is implied")))
 
       ;; Each default names an operation, refused at its label, and takes
       ;; the next number for its implementation, named for the operation.
@@ -301,13 +381,13 @@
         (expect (declared-effect (state-from 4)
                                  no-signatures
                                  (global "io")
-                                 (list read-op jump-op)
-                                 (list (default "read" 7) (default "jump" 8))
+                                 (list read-op send-op)
+                                 (list (default "read" 7) (default "send" 8))
                                  #f
                                  (list)
                                  loc)
                 (Ok (Pair (DeclaredEffect (Effect (global "io")
-                                                  (list declared-read declared-jump)
+                                                  (list declared-read declared-send)
                                                   (list)
                                                   #f
                                                   (list)
@@ -316,8 +396,8 @@
                                                                 (expanded-Global main "read" 4)
                                                                 (unit-at 7)
                                                                 (at 7))
-                                                (PendingDefault declared-jump
-                                                                (expanded-Global main "jump" 5)
+                                                (PendingDefault declared-send
+                                                                (expanded-Global main "send" 5)
                                                                 (unit-at 8)
                                                                 (at 8))))
                           (state-from 6))))
@@ -329,13 +409,57 @@
                                  #f
                                  (list)
                                  loc)
-                (fail (at 9) "not an operation of this effect: write")))
+                (fail (at 9) "not an operation of this effect: write"))
+        ;; A control operation's default is refused at its entry, after
+        ;; its label names it (error-control-default.sld); an entry with
+        ;; no operation before it is refused first.
+        (expect (declared-effect (state-from 4)
+                                 no-signatures
+                                 (global "io")
+                                 (list read-op jump-op)
+                                 (list (bound-Default (expanded-Label "jump" (at 7))
+                                                      (unit-at 8)
+                                                      (at 8))
+                                       (default "write" 9))
+                                 #f
+                                 (list)
+                                 loc)
+                (fail (at 8) "a control operation has no default"))
+        (expect (declared-effect (state-from 4)
+                                 no-signatures
+                                 (global "io")
+                                 (list read-op jump-op)
+                                 (list (default "write" 9) (default "jump" 8))
+                                 #f
+                                 (list)
+                                 loc)
+                (fail (at 9) "not an operation of this effect: write"))
+        ;; Two defaults of one operation are refused at the effect, once
+        ;; every entry is read.
+        (expect (declared-effect (state-from 4)
+                                 no-signatures
+                                 (global "io")
+                                 (list read-op jump-op)
+                                 (list (default "read" 7) (default "read" 8) (default "write" 9))
+                                 #f
+                                 (list)
+                                 (at 6))
+                (fail (at 9) "not an operation of this effect: write"))
+        (expect (declared-effect (state-from 4)
+                                 no-signatures
+                                 (global "io")
+                                 (list read-op jump-op)
+                                 (list (default "read" 7) (default "read" 8))
+                                 #f
+                                 (list)
+                                 (at 6))
+                (fail (at 6) "an operation has at most one default")))
 
       ;; A lambda stays as written; a name is called with a local of its
       ;; own for each of the operation's parameters, numbered in turn.
       (define (test-default-bodies)
         (let ((lambda-value (bound-Lambda (list) (unit-at 7) (at 7)))
-              (name (bound-TopRef (expanded-TopGlobal (global "jump-twice")) (at 8))))
+              (name (bound-TopRef (expanded-TopGlobal (global "send-twice")) (at 8))))
           (expect (declared-default (state-from 6)
                                     (PendingDefault declared-read
                                                     (expanded-Global main "read" 4)
@@ -347,15 +471,15 @@
                               (at 7))
                             (state-from 6))))
           (expect (declared-default (state-from 6)
-                                    (PendingDefault declared-jump
-                                                    (expanded-Global main "jump" 5)
+                                    (PendingDefault declared-send
+                                                    (expanded-Global main "send" 5)
                                                     name
                                                     (at 9)))
-                  (Ok (Pair (Default (global "jump")
-                              (expanded-Global main "jump" 5)
+                  (Ok (Pair (Default (global "send")
+                              (expanded-Global main "send" 5)
                               (Lambda (list (expanded-Local "argument" 6))
                                       (Call
-                                       (TopRef (expanded-TopGlobal (global "jump-twice")) (at 8))
+                                       (TopRef (expanded-TopGlobal (global "send-twice")) (at 8))
                                        (list (LocalRef (expanded-Local "argument" 6) (at 9)))
                                        (at 9))
                                       (at 9))

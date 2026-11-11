@@ -9,15 +9,14 @@
 ;;    entities of those before it; the first problem in this step or the
 ;;    one before stops the library, since the bodies need every entity.
 ;;    Then the library's Drop instances say which of its types have one.
-;; 4. Each body, in order, is declared, once every declaration is
-;;    reached: a definition's value, a library's statement, each method of
-;;    an instance and each default of an effect; then a program's body. A
-;;    body that fails leaves the numbers as they were, and the bodies after
-;;    it are declared all the same, so every body's problem is returned, in
-;;    order.
-;;
-;; Whether the library's structs can be built, which the old compiler
-;; checks between the last two steps, is still to come.
+;; 4. Each struct is checked to be one a program can build, in order; the
+;;    first problem stops the library.
+;; 5. Each body, in order, is declared, once every declaration is
+;;    reached: a definition's signature checked again and then its value,
+;;    a library's statement, each method of an instance and each default
+;;    of an effect; then a program's body. A body that fails leaves the
+;;    numbers as they were, and the bodies after it are declared all the
+;;    same, so every body's problem is returned, in order.
 (define-library (snail compiler declare top)
   (export
    Walked
@@ -40,6 +39,7 @@
    (snail compiler declare effects)
    (snail compiler declare instances)
    (snail compiler declare lifecycle)
+   (snail compiler declare buildable)
    (snail compiler declare expressions))
   (begin
 
@@ -54,6 +54,12 @@
        (state Declaring)))
 
     ;; `imported` holds what each library in the import closure offers.
+    ;; Once every declaration is reached and every struct can be built, the
+    ;; library's types are marked on the items reached, and what the bodies
+    ;; know of the library's own declarations is read again from those
+    ;; items, as each declaration added its entity when it was reached,
+    ;; starting from what was known before any. The library offers what the
+    ;; bodies know, so the tree the bodies write and the offer agree.
     (: declared-tops
        (impl (Fn LibraryName
                  (List derived-Top)
@@ -69,15 +75,11 @@
                            imported))
              (start (Declaring first-unused known)))
         (result-let* ((signatures (declared-signatures known tops))
-                      (reached (reached-tops start signatures tops)))
-          (let* ((items (::first reached))
-                 (dropped (dropped-types library items))
-                 (state (with-known (::second reached)
-                                    (known-with-drops (::known (::second reached)) dropped))))
-            (walked-bodies (items-bodies (Bodies (Nil) (Nil) state)
-                                         signatures
-                                         (with-dropped items dropped))
-                           body)))))
+                      (reached (reached-tops start signatures tops))
+                      (buildable (buildable-items (::known (::second reached)) (::first reached))))
+          (let* ((items (with-dropped buildable (dropped-types library buildable)))
+                 (state (with-known (::second reached) (fold-left known-with-item known items))))
+            (walked-bodies (items-bodies (Bodies (Nil) (Nil) state) signatures items) body)))))
 
     ;; ---- Scan ----
 
@@ -249,8 +251,7 @@
                  (Result (Pair (List Reached) Declaring) (List Feedback)))))
     (define (data-reached state declared)
       (result-let* ((data declared))
-        (Ok (Pair (list (Ready (TopData data)))
-                  (with-known state (known-with-data (::known state) data))))))
+        (entity-reached state (Ready (TopData data)))))
 
     (: class-reached
        (impl (Fn Declaring
@@ -259,10 +260,8 @@
                  (Result (Pair (List Reached) Declaring) (List Feedback)))))
     (define (class-reached state declared)
       (result-let* ((class declared))
-        (Ok (Pair (list (Ready (TopClass class)))
-                  (with-known state (known-with-class (::known state) class))))))
+        (entity-reached state (Ready (TopClass class)))))
 
-    ;; An effect is known by its operations.
     (: effect-reached
        (impl (Fn Declaring
                  (Result (Pair DeclaredEffect Declaring) (List Feedback))
@@ -270,12 +269,26 @@
                  (Result (Pair (List Reached) Declaring) (List Feedback)))))
     (define (effect-reached state declared)
       (declaring-let* ((pending state declared))
-        (let ((effect (::effect pending)))
-          (Ok (Pair (list (Effecting pending))
-                    (with-known state
-                                (known-with-effect (::known state)
-                                                   (OfferedEffect (::global effect)
-                                                                  (::operations effect)))))))))
+        (entity-reached state (Effecting pending))))
+
+    (: entity-reached
+       (impl (Fn Declaring Reached -> (Result (Pair (List Reached) Declaring) (List Feedback)))))
+    (define (entity-reached state item)
+      (Ok (Pair (list item) (with-known state (known-with-item (::known state) item)))))
+
+    ;; What is known once `item` is reached: the entity it holds, among the
+    ;; library's own, and those an instance scope holds, in order. An
+    ;; effect is known by its operations.
+    (: known-with-item (impl (Fn Known Reached -> Known)))
+    (define (known-with-item known item)
+      (match item
+        ((Ready (TopData data)) (known-with-data known data))
+        ((Ready (TopClass class)) (known-with-class known class))
+        ((Effecting declared)
+         (let ((effect (::effect declared)))
+           (known-with-effect known (OfferedEffect (::global effect) (::operations effect)))))
+        ((Scoping _ inner _) (fold-left known-with-item known inner))
+        (_ known)))
 
     (: reached-member
        (impl (Fn Declaring
@@ -293,6 +306,36 @@
                                               (declared-dynamic (::known state) class pairs loc))))
            (Ok (Pair (MemberReady dynamic) state))))))
 
+    ;; ---- Buildable structs ----
+
+    ;; The items, once every struct among them can be built, each refused
+    ;; where its name is written, in the order written; the first problem
+    ;; stops the library, as the old compiler's `check-buildable-structs`
+    ;; checks them once every declaration is reached and before any body.
+    (: buildable-items
+       (impl (Fn Known (List Reached) -> (Result (List Reached) (List Feedback)))))
+    (define (buildable-items known items)
+      (result-let* ((every (map-results (lambda (found)
+                                          (checked (struct-problem known (::first found))
+                                                   (::second found)))
+                                        (reached-structs items))))
+        (Ok items)))
+
+    ;; Each struct among the items, inside an instance scope too, and where
+    ;; its name is written, its one case's place.
+    (: reached-structs (impl (Fn (List Reached) -> (List (Pair Data Loc)))))
+    (define (reached-structs items)
+      (concatenate (map (lambda (item)
+                          (match item
+                            ((Ready (TopData data))
+                             (match (Pair (::kind data) (::cases data))
+                               ((Pair (StructData) (Cons case (Nil)))
+                                (list (Pair data (::loc case))))
+                               (_ (Nil))))
+                            ((Scoping _ inner _) (reached-structs inner))
+                            (_ (Nil))))
+                        items)))
+
     ;; ---- Drop instances ----
 
     ;; Which of the library's types its Drop instances are for, found once
@@ -304,7 +347,9 @@
     ;; capabilities.sld) and the passes after it. No declaration and no
     ;; body reads it, there or here, so saying it once every declaration
     ;; is reached gives each read the old answer. A Drop instance written
-    ;; before its type, where the old compiler fails, is accepted.
+    ;; before its type, where the old compiler fails, is accepted. The mark
+    ;; is made once, on the items, and the bodies and the offer read it
+    ;; there.
     (: dropped-types (impl (Fn LibraryName (List Reached) -> (List expanded-Global))))
     (define (dropped-types library items)
       (concatenate (map (lambda (instance)
@@ -387,9 +432,8 @@
         (match item
           ((Ready top) (with-top bodies top (::state bodies)))
           ((Defining global value loc)
-           (match (declared-expr known value)
-             ((Ok declared)
-              (with-top bodies (definition signatures global declared loc) (::state bodies)))
+           (match (declared-definition known signatures global value loc)
+             ((Ok top) (with-top bodies top (::state bodies)))
              ((Err feedback) (with-feedback bodies feedback))))
           ((Stating expr)
            (match (declared-expr known expr)
@@ -465,6 +509,8 @@
       (define (test-top)
         (test-order)
         (test-drops)
+        (test-buildable)
+        (test-rows)
         (test-bodies))
 
       (define (at line)
@@ -611,6 +657,129 @@
                            (table-values (::data (::declared (::known (::state walked)))))))
                      (list #t)))
             (other (expect other "a library with a Drop instance")))))
+
+      (define (bad-at line)
+        (bound-Ann (unit-at line)
+                   (expanded-Applied (global "Box") "Box" (list (i64-at line)) (at line))
+                   (at line)))
+
+      ;; `(struct NAME (next NAME))`, written at `line`.
+      (define (self-struct name line)
+        (derived-Struct (global name)
+                        (list)
+                        (list (expanded-Field "next"
+                                              #f
+                                              (expanded-Applied (global name) name (list) (at line))
+                                              (list)
+                                              (at line)))
+                        #f
+                        (list)
+                        (at line)
+                        (at (+ line 100))))
+
+      ;; Once every declaration is reached, the first struct that can never
+      ;; be built, at its name, stops the library before any body
+      ;; (error-struct-contains-itself.sld); one inside an instance scope
+      ;; is checked in its turn.
+      (define (test-buildable)
+        (expect (walk (list (box-struct 1)
+                            (derived-Define (global "x") (bad-at 2) (at 2))
+                            (self-struct "A" 3)
+                            (self-struct "B" 4))
+                      (None))
+                (fail (at 3)
+                      "the struct A can never be built: each of its values would contain another"))
+        (expect (walk (list (derived-InstanceScope (list (global "set"))
+                                                   (list (box-struct 1) (self-struct "B" 4))
+                                                   loc)
+                            (self-struct "A" 5))
+                      (None))
+                (fail (at 4)
+                      "the struct B can never be built: each of its values would contain another")))
+
+      ;; (typeclass (Store e S) (: fetch (impl (Fn S -> String ! e)))), at
+      ;; `line`, whose e is a row once it is reached.
+      (define (store-class line)
+        (derived-Class (global "Store")
+                       (list "e" "S")
+                       (list (expanded-MethodSignature
+                              (global "fetch")
+                              (expanded-Scheme
+                               (list)
+                               (list)
+                               (expanded-Callable (expanded-Impl)
+                                                  (expanded-FnContract)
+                                                  (expanded-Arrow
+                                                   (list (expanded-Variable "S" loc))
+                                                   (expanded-Applied (expanded-Global forms-library
+                                                                                      "String"
+                                                                                      0)
+                                                                     "String"
+                                                                     (list)
+                                                                     loc)
+                                                   (expanded-Effects
+                                                    (list)
+                                                    (Some (expanded-Variable "e" loc))))
+                                                  loc)
+                               (at line))
+                              (list)
+                              (at line)))
+                       (list)
+                       (at line)))
+
+      ;; `(requires (Store I64 T))`, at `line`.
+      (define (store-i64 line)
+        (expanded-ClassRequirement (expanded-ClassGlobal (global "Store"))
+                                   (list (i64-at line) (expanded-Variable "T" loc))
+                                   (list)
+                                   (at line)))
+
+      ;; (typeclass (Uses S) (: use (All (T) (requires (Store I64 T)) I64))).
+      (define (uses-class line)
+        (derived-Class (global "Uses")
+                       (list "S")
+                       (list (expanded-MethodSignature (global "use")
+                                                       (expanded-Scheme (list "T")
+                                                                        (list (store-i64
+                                                                               (+ line 50)))
+                                                                        (i64-at line)
+                                                                        (at line))
+                                                       (list)
+                                                       (at line)))
+                       (list)
+                       (at line)))
+
+      ;; A requirement's rows are checked as far as its class's rows are
+      ;; known where it is written (note 6 of the inventory). A
+      ;; declaration's requirement sees the rows of a class declared before
+      ;; it, refused at the requirement, and none of one declared after
+      ;; (build/declare-probes/row-method-*.sld). A signature sees no row of
+      ;; the library's own classes; a definition's is checked again, at the
+      ;; signature, before its value, and the bodies after it are declared
+      ;; all the same (error-class-row-requires-row.sld).
+      (define (test-rows)
+        (expect (walk (list (store-class 1) (uses-class 2)) (None))
+                (fail (at 52) "a constraint gives the class's row parameter e a row"))
+        (expect (match (walk (list (uses-class 2) (store-class 3)) (None))
+                  ((Ok walked) (length (::tops walked)))
+                  (other other))
+                2)
+        (let ((signature (derived-Signature (expanded-TopGlobal (global "f"))
+                                            (expanded-Scheme (list "T")
+                                                             (list (store-i64 5))
+                                                             (i64-at 5)
+                                                             (at 5))
+                                            (list)
+                                            (at 4))))
+          (expect (walk (list (box-struct 1)
+                              signature
+                              (derived-Define (global "f") (bad-at 6) (at 6))
+                              (store-class 7)
+                              (derived-Define (global "g") (bad-at 8) (at 8)))
+                        (None))
+                  (Err
+                   (list (Feedback (at 4) "a constraint gives the class's row parameter e a row")
+                         (Feedback (at 8) "wrong number of type arguments: Box"))))))
 
       ;; Every body's problem, in order, the program's body last; a body
       ;; that fails leaves the numbers as they were.

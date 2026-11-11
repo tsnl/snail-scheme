@@ -21,7 +21,6 @@
    known-with-data
    known-with-class
    known-with-effect
-   known-with-drops
    known-class
    known-data
    constructor-case
@@ -36,8 +35,7 @@
    (snail compiler declare language)
    (snail compiler declare offer)
    (snail compiler declare forms)
-   (snail compiler declare equality)
-   (snail compiler declare lifecycle))
+   (snail compiler declare equality))
   (begin
 
     ;; ---- What is known ----
@@ -168,33 +166,6 @@
                                      (by-name (::effects declared)
                                               (::name (::global effect))
                                               effect)))))
-
-    ;; What is known once every declaration is reached and the library's
-    ;; Drop instances are found: whether each of its types, `dropped`
-    ;; among them, has one. Each name's entries are replaced on their own,
-    ;; so the order the names are visited in does not matter.
-    (: known-with-drops (impl (Fn Known (List Global) -> Known)))
-    (define (known-with-drops known dropped)
-      (let* ((declared (::declared known))
-             (data (::data declared)))
-        (with-declared known
-                       (Declarations (::library declared)
-                                     (fold-left (lambda (table name)
-                                                  (table-set table
-                                                             name
-                                                             (map (lambda (entry)
-                                                                    (with-drops entry dropped))
-                                                                  (named-entries data name))))
-                                                data
-                                                (table-keys data))
-                                     (::classes declared)
-                                     (::effects declared)))))
-
-    (: named-entries (All (T) (requires (Copy T)) (impl (Fn (Table (List T)) String -> (List T)))))
-    (define (named-entries table name)
-      (match (table-ref table name)
-        ((Some entries) entries)
-        ((None) (Nil))))
 
     (: with-declared (impl (Fn Known Declarations -> Known)))
     (define (with-declared known declared)
@@ -492,12 +463,5 @@
           (expect (constructor-case reached (Global (list "prim") "once" 0)) (None))
           (expect
            (map ::name (map ::global (option-list (known-data reached (global main "Shape")))))
-           (list "Shape"))
-          ;; Once the Drop instances are found, each type says whether it
-          ;; has one.
-          (let ((dropped (known-with-drops reached (list (global main "Point")))))
-            (expect (map ::drop? (option-list (known-data dropped (global main "Point"))))
-                    (list #t))
-            (expect (map ::drop? (option-list (known-data dropped (global main "Shape"))))
-                    (list #f)))))))
+           (list "Shape"))))))
    (else)))
