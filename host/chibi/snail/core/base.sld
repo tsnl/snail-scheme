@@ -50,6 +50,7 @@
    ::aliases
    ::annotations
    ::arguments
+   ::arity
    ::around-main
    ::around-main?
    ::artifact-uses
@@ -63,6 +64,7 @@
    ::browser?
    ::builds
    ::bytes
+   ::case-id-equal
    ::cases
    ::chars
    ::checker
@@ -76,6 +78,8 @@
    ::confined
    ::confining
    ::constraints
+   ::constructor
+   ::constructors
    ::control
    ::control?
    ::copy
@@ -84,13 +88,17 @@
    ::data
    ::declarations
    ::declared
+   ::decode
+   ::decode-case-id
    ::defaults
    ::definition
    ::definitions
    ::delta
    ::denotation
+   ::derived
    ::derives
    ::deriving
+   ::deserialize
    ::digest
    ::digests
    ::directories
@@ -101,6 +109,8 @@
    ::emission
    ::emitted
    ::empty
+   ::encode
+   ::encode-case-id
    ::end
    ::entry
    ::enum?
@@ -217,6 +227,7 @@
    ::owned?
    ::owner
    ::pairs
+   ::panic
    ::parameters
    ::params
    ::path
@@ -230,6 +241,7 @@
    ::prefix
    ::prepend
    ::printed
+   ::problems
    ::program
    ::program?
    ::public
@@ -260,6 +272,7 @@
    ::second
    ::self
    ::serial
+   ::serialize
    ::set
    ::sets
    ::setup
@@ -288,6 +301,7 @@
    ::type-ids
    ::typed
    ::types
+   ::unit
    ::use
    ::value
    ::values
@@ -322,6 +336,7 @@
     (define (::aliases value) (field-of value (quote aliases)))
     (define (::annotations value) (field-of value (quote annotations)))
     (define (::arguments value) (field-of value (quote arguments)))
+    (define (::arity value) (field-of value (quote arity)))
     (define (::around-main value) (field-of value (quote around-main)))
     (define (::around-main? value) (field-of value (quote around-main?)))
     (define (::artifact-uses value) (field-of value (quote artifact-uses)))
@@ -335,6 +350,7 @@
     (define (::browser? value) (field-of value (quote browser?)))
     (define (::builds value) (field-of value (quote builds)))
     (define (::bytes value) (field-of value (quote bytes)))
+    (define (::case-id-equal value) (field-of value (quote case-id-equal)))
     (define (::cases value) (field-of value (quote cases)))
     (define (::chars value) (field-of value (quote chars)))
     (define (::checker value) (field-of value (quote checker)))
@@ -348,6 +364,8 @@
     (define (::confined value) (field-of value (quote confined)))
     (define (::confining value) (field-of value (quote confining)))
     (define (::constraints value) (field-of value (quote constraints)))
+    (define (::constructor value) (field-of value (quote constructor)))
+    (define (::constructors value) (field-of value (quote constructors)))
     (define (::control value) (field-of value (quote control)))
     (define (::control? value) (field-of value (quote control?)))
     (define (::copy value) (field-of value (quote copy)))
@@ -356,13 +374,17 @@
     (define (::data value) (field-of value (quote data)))
     (define (::declarations value) (field-of value (quote declarations)))
     (define (::declared value) (field-of value (quote declared)))
+    (define (::decode value) (field-of value (quote decode)))
+    (define (::decode-case-id value) (field-of value (quote decode-case-id)))
     (define (::defaults value) (field-of value (quote defaults)))
     (define (::definition value) (field-of value (quote definition)))
     (define (::definitions value) (field-of value (quote definitions)))
     (define (::delta value) (field-of value (quote delta)))
     (define (::denotation value) (field-of value (quote denotation)))
+    (define (::derived value) (field-of value (quote derived)))
     (define (::derives value) (field-of value (quote derives)))
     (define (::deriving value) (field-of value (quote deriving)))
+    (define (::deserialize value) (field-of value (quote deserialize)))
     (define (::digest value) (field-of value (quote digest)))
     (define (::digests value) (field-of value (quote digests)))
     (define (::directories value) (field-of value (quote directories)))
@@ -373,6 +395,8 @@
     (define (::emission value) (field-of value (quote emission)))
     (define (::emitted value) (field-of value (quote emitted)))
     (define (::empty value) (field-of value (quote empty)))
+    (define (::encode value) (field-of value (quote encode)))
+    (define (::encode-case-id value) (field-of value (quote encode-case-id)))
     (define (::end value) (field-of value (quote end)))
     (define (::entry value) (field-of value (quote entry)))
     (define (::enum? value) (field-of value (quote enum?)))
@@ -489,6 +513,7 @@
     (define (::owned? value) (field-of value (quote owned?)))
     (define (::owner value) (field-of value (quote owner)))
     (define (::pairs value) (field-of value (quote pairs)))
+    (define (::panic value) (field-of value (quote panic)))
     (define (::parameters value) (field-of value (quote parameters)))
     (define (::params value) (field-of value (quote params)))
     (define (::path value) (field-of value (quote path)))
@@ -502,6 +527,7 @@
     (define (::prefix value) (field-of value (quote prefix)))
     (define (::prepend value) (field-of value (quote prepend)))
     (define (::printed value) (field-of value (quote printed)))
+    (define (::problems value) (field-of value (quote problems)))
     (define (::program value) (field-of value (quote program)))
     (define (::program? value) (field-of value (quote program?)))
     (define (::public value) (field-of value (quote public)))
@@ -532,6 +558,7 @@
     (define (::second value) (field-of value (quote second)))
     (define (::self value) (field-of value (quote self)))
     (define (::serial value) (field-of value (quote serial)))
+    (define (::serialize value) (field-of value (quote serialize)))
     (define (::set value) (field-of value (quote set)))
     (define (::sets value) (field-of value (quote sets)))
     (define (::setup value) (field-of value (quote setup)))
@@ -560,6 +587,7 @@
     (define (::type-ids value) (field-of value (quote type-ids)))
     (define (::typed value) (field-of value (quote typed)))
     (define (::types value) (field-of value (quote types)))
+    (define (::unit value) (field-of value (quote unit)))
     (define (::use value) (field-of value (quote use)))
     (define (::value value) (field-of value (quote value)))
     (define (::values value) (field-of value (quote values)))
