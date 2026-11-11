@@ -7,7 +7,7 @@
           Reduction Reduced Recur reduce-natural reduce-vector
           constant-product nat-motive-type nat-step-type vector-motive-type vector-step-type)
   (import
-   (snail core base)
+   (except (snail core base) ann)
    (snail experiment lambda-pi language))
   (begin
 

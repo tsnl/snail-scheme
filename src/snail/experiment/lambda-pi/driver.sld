@@ -4,7 +4,7 @@
 (define-library (snail experiment lambda-pi driver)
   (export Checked infer check assume define-global term-normal type-normal with-results)
   (import
-   (snail core base)
+   (except (snail core base) ann)
    (snail experiment lambda-pi language)
    (snail experiment lambda-pi rules)
    (snail experiment lambda-pi normal))
@@ -86,7 +86,7 @@
         ((IVec node) (infer-vector-type context node))
         ((IVecElim node) (infer-vector-elimination context node))))
 
-    (: infer-annotation (-> Context (Ascription Check Check) (Result Value Error)))
+    (: infer-annotation (-> Context (:: Check Check) (Result Value Error)))
     (define (infer-annotation context node)
       (with-results ((verified (check-term context (::type node) (Universe))))
                     (let ((type (evaluate-check (::environment context) (::type node))))

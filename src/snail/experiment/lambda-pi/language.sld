@@ -2,7 +2,7 @@
 ;; Node payloads are structs; the enums say which nodes each language admits.
 (define-library (snail experiment lambda-pi language)
   (export
-   Identifier Index Binder Ascription Product Application Successor
+   Identifier Index Binder :: Product Application Successor
    NatElimination VectorType VectorCons VectorElimination
    Infer IAnn IStar IPi IBound IFree IApp INat INatElim IVec IVecElim
    Check Inf Lam Zero Succ VNil VCons
@@ -15,10 +15,10 @@
    NeutralNormal NormalFree NormalBound NormalApp NormalNatElim NormalVecElim
    Error UnknownName InvalidIndex ExpectedFunction ExpectedNatural
    ConversionMismatch DuplicateName
-   star nat free local reference pi lam app apps typed successor number
+   star nat free local reference pi lam app apps ann successor number
    nat-elim vec vnil vcons vec-elim)
   (import
-   (snail core base))
+   (except (snail core base) ann))
   (begin
 
     ;; ---- Constructor shapes ----
@@ -32,7 +32,7 @@
     (struct (Binder Body)
       ((body Body)))
 
-    (struct (Ascription Term Type)
+    (struct (:: Term Type)
       ((term Term)
        (type Type)))
 
@@ -76,7 +76,7 @@
     ;; Bound indices count outwards from zero. Pi's codomain and a lambda's
     ;; body introduce one binder. A lambda needs an annotation to synthesize.
     (enum Infer
-      (IAnn ((node (Ascription Check Check))))
+      (IAnn ((node (:: Check Check))))
       (IStar)
       (IPi ((node (Product Check Check))))
       (IBound ((node Index)))
@@ -202,8 +202,8 @@
     (: apps (-> Infer (List Check) Infer))
     (define (apps function arguments) (fold-left app function arguments))
 
-    (: typed (-> Check Check Infer))
-    (define (typed term type) (IAnn (Ascription term type)))
+    (: ann (-> Check Check Infer))
+    (define (ann term type) (IAnn (:: term type)))
 
     (: successor (-> Check Check))
     (define (successor previous) (Succ (Successor previous)))
