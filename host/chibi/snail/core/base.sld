@@ -120,6 +120,7 @@
    ::forms
    ::found
    ::found?
+   ::framed?
    ::from
    ::function?
    ::functions
@@ -175,6 +176,7 @@
    ::names
    ::needs
    ::nodes
+   ::noncollecting
    ::offset
    ::open
    ::operands
@@ -345,6 +347,7 @@
     (define (::forms value) (field-of value (quote forms)))
     (define (::found value) (field-of value (quote found)))
     (define (::found? value) (field-of value (quote found?)))
+    (define (::framed? value) (field-of value (quote framed?)))
     (define (::from value) (field-of value (quote from)))
     (define (::function? value) (field-of value (quote function?)))
     (define (::functions value) (field-of value (quote functions)))
@@ -400,6 +403,7 @@
     (define (::names value) (field-of value (quote names)))
     (define (::needs value) (field-of value (quote needs)))
     (define (::nodes value) (field-of value (quote nodes)))
+    (define (::noncollecting value) (field-of value (quote noncollecting)))
     (define (::offset value) (field-of value (quote offset)))
     (define (::open value) (field-of value (quote open)))
     (define (::operands value) (field-of value (quote operands)))
