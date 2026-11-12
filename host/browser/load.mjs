@@ -23,15 +23,17 @@ const EBADF = 8, ENOSYS = 52;
 // `instantiate` answers every other function with ENOSYS.
 export function createWasi({args = [], print}) {
   let memory = null;
-  const view = () => new DataView(memory.buffer), bytes = (pointer, length) => new Uint8Array(memory.buffer, pointer, length);
+  // Wasm passes i32 values as signed JS numbers; linear-memory offsets are u32.
+  const view = () => new DataView(memory.buffer), bytes = (pointer, length) => new Uint8Array(memory.buffer, pointer >>> 0, length >>> 0);
   const encoded = args.map(argument => encoder.encode(`${argument}\0`)), lines = new Map();
   const imports = {
     args_sizes_get(count, size) {
-      view().setUint32(count, encoded.length, true);
-      view().setUint32(size, encoded.reduce((total, argument) => total + argument.length, 0), true);
+      view().setUint32(count >>> 0, encoded.length, true);
+      view().setUint32(size >>> 0, encoded.reduce((total, argument) => total + argument.length, 0), true);
       return 0;
     },
     args_get(pointers, buffer) {
+      pointers >>>= 0; buffer >>>= 0;
       for (const argument of encoded) {
         view().setUint32(pointers, buffer, true);
         bytes(buffer, argument.length).set(argument);
@@ -40,18 +42,19 @@ export function createWasi({args = [], print}) {
       }
       return 0;
     },
-    environ_sizes_get(count, size) { view().setUint32(count, 0, true); view().setUint32(size, 0, true); return 0; },
+    environ_sizes_get(count, size) { view().setUint32(count >>> 0, 0, true); view().setUint32(size >>> 0, 0, true); return 0; },
     environ_get: () => 0,
     random_get(pointer, length) { crypto.getRandomValues(bytes(pointer, length)); return 0; },
     // Nanoseconds: clock 0 is the time of day, and the others count from
     // when the page started, never backwards.
     clock_time_get(clock, precision, time) {
-      view().setBigUint64(time, BigInt(Math.round((clock === 0 ? Date.now() : performance.now()) * 1e6)), true);
+      view().setBigUint64(time >>> 0, BigInt(Math.round((clock === 0 ? Date.now() : performance.now()) * 1e6)), true);
       return 0;
     },
     fd_prestat_get: () => EBADF,
     fd_prestat_dir_name: () => EBADF,
     fd_write(fd, iovs, count, written) {
+      iovs >>>= 0; count >>>= 0;
       let total = 0, text = lines.get(fd) ?? '';
       for (let i = 0; i < count; i++) {
         const length = view().getUint32(iovs + 8 * i + 4, true);
@@ -61,7 +64,7 @@ export function createWasi({args = [], print}) {
       const complete = text.split('\n');
       lines.set(fd, complete.pop());
       for (const line of complete) print(fd, line);
-      view().setUint32(written, total, true);
+      view().setUint32(written >>> 0, total, true);
       return 0;
     },
     proc_exit(code) { throw new Error(`the module exited with status ${code}`); },
