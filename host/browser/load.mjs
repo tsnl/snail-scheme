@@ -437,10 +437,10 @@ export function wasmImports(program, memory = () => (program().loader ?? program
 // definitions initialized by `main:init`, and its body, `main:body`, run
 // as the first task by `tasks:start-main`, so its statements may yield;
 // any other module's `main` does both at once. Answers main's result.
-export function runMain(exports) {
+export function runMain(exports, tasks) {
   if (exports['tasks:start-main'] && exports['main:body']) {
     const status = exports['main:init']();
-    exports['tasks:start-main'](exports['main:body']);
+    tasks.startMain(exports['main:body']);
     return status;
   }
   return exports.main();

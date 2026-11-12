@@ -197,15 +197,15 @@
 
 ;; Counted owners crossing the host boundary survive repeated calls and release
 ;; once per returned credit, including aliases and nullable Any payloads.
-(define (check-host-owners root)
-  (let* ((program (path-join root "build/tests/host-owners.wasm"))
+(define (check-owned-boundary root name)
+  (let* ((program (path-join root (string-append "build/tests/" name ".wasm")))
          (text (program->wat root (standard-directories root)
-                             (path-join root "tests/host-owners/main.sld"))))
+                             (path-join root "tests" name "main.sld"))))
     (link-wat root text program)
     (let ((result (capture-process (list "node" "--no-warnings"
-                                         (path-join root "tests/host-owners/check.mjs") program))))
+                                         (path-join root "tests" name "check.mjs") program))))
       (or (zero? (caddr result))
-          (report "host owners" "failed" (string-append (car result) (cadr result)))))))
+          (report name "failed" (string-append (car result) (cadr result)))))))
 
 ;; The exposed and foreign ABI, exercised from JavaScript against linked Wasm.
 (define (check-host-boundary root)
@@ -817,7 +817,9 @@
                                   (lambda () (check-type-ids root))
                                   (lambda () (check-numeric-runtime root))
                                   (lambda ()
-                                    (and (check-host-owners root) (check-host-boundary root)))
+                                    (and (and (check-owned-boundary root "host-owners")
+                                              (check-owned-boundary root "task-owners"))
+                                         (check-host-boundary root)))
                                   (compile-artifacts root)
                                   (compile-socket-boundary root)
                                   (compile-async-files root)

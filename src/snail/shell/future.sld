@@ -1,24 +1,18 @@
-;; A one-shot result channel, independent of the work that produces it.
-;; The two linear endpoints share one private slot. Only the promise may
-;; fill it; only the future may take its result. Every transition restores
-;; the slot before calling a waker or user handler, so reentry observes a
-;; complete state. There is no suspension and no scheduler in this library.
+;; A one-shot channel. Its linear endpoints share an Rc-owned state; no
+;; borrowed or unowned slot can hide a buffered linear value. Every transition
+;; publishes its new state before invoking or dropping a callback.
 (define-library (snail shell future)
   (export
-   Promise Future
-   Completion Completed Abandoned
-   Poll Pending Ready
-   completion completed
-   make-promise fulfill poll on-ready)
+   Promise Future Completion Completed Abandoned Poll Pending Ready
+   completion completed make-promise fulfill poll on-ready)
   (import
    (snail core base)
-   (snail shell slot))
+   (only (snail core forms) host)
+   (only (snail core primitive) inherit-handlers))
   (begin
 
-    ;; ---- Results and endpoints ----
+    ;; ---- The channel ----
 
-    ;; Application errors belong in T, commonly a Result. Abandoned means
-    ;; the producer was dropped without supplying a result.
     (enum (Completion T)
       (Completed ((value T)))
       (Abandoned))
@@ -27,113 +21,117 @@
       (Pending ((future (Future T))))
       (Ready ((result (Completion T)))))
 
+    ;; One registration is invoked or dropped once. Its inherited handlers
+    ;; outlive registration and bound both invocation and capture cleanup.
+    (type Waker (FnOnce → Unit ! host))
     (enum (State T)
-      (Unresolved ((waker (Option (Fn → Unit ! mut)))))
+      (Unresolved ((waker (Option Waker))))
       (Resolved ((result (Completion T))))
       (Unobserved))
 
-    ;; Constructors and slots stay private: exporting an endpoint's type
-    ;; never lets a client manufacture a second endpoint for its slot.
+    (struct (Channel T)
+      ((state (State T))))
+
     (enum (Promise T)
-      (Sender ((slot (UnsafeSlot (State T))))))
+      (Sender ((channel (Rc (Channel T))))))
 
     (enum (Future T)
-      (Receiver ((slot (UnsafeSlot (State T))))))
+      (Receiver ((channel (Rc (Channel T))))))
 
-    ;; A reactor may request another update after any completion. This is
-    ;; a notification, never an application-specific completion message.
     (effect completion
       ((completed (Fn → Unit)))
       (default ((completed (lambda () (unit))))))
 
-    (define (make-promise) (→ (Pair (Promise T) (Future T))) (∀ T)
-      (let ((slot (unsafe-slot (Unresolved (None)))))
-        (Pair (Sender slot) (Receiver slot))))
+    ;; Each endpoint owns one shared credit. Either may release the last
+    ;; one, so both carry T's disposal bound, including operations that
+    ;; normally transfer T without dropping it. No state provenance is hidden
+    ;; in a convention about which endpoint happens to be released first.
+    (define (make-promise) (→ (Pair (Promise T) (Future T))) (∀ T d) (⊨ (Drop d T))
+      (let ((channel (rc (Channel (Unresolved (None))))))
+        (Pair (Sender channel) (Receiver channel))))
 
     ;; ---- Sending ----
 
-    ;; A canceled receiver returns the unsent value to its producer.
-    ;; Synchronization and one-shot ownership do not make publication pure:
-    ;; it changes what another endpoint's next poll observes.
-
-    (define (fulfill (promise (Promise T)) (value T)) (→ (Result Unit T)) (! mut completion) (∀ T)
+    (define (fulfill (promise (Promise T)) (value T))
+      (→ (Result Unit T)) (! mut host completion d) (∀ T d) (⊨ (Drop d T))
       (match promise
-        ((Sender slot)
-         (match (take! slot)
+        ((Sender channel)
+         (match (replace! (● channel state) (Unobserved))
            ((Unresolved waker)
-            (put! slot (Resolved (Completed value)))
-            (notify waker)
-            (Ok (unit)))
-           ((Unobserved)
-            (put! slot (Unobserved))
-            (Err value))
-           ((Resolved result) (panic "a promise was fulfilled twice"))))))
+            (drop (replace! (● channel state) (Resolved (Completed value))))
+            (sent waker))
+           ((Unobserved) (Err value))
+           ((Resolved result)
+            (drop result)
+            (drop value)
+            (panic "a promise was fulfilled twice"))))))
 
-    (define (notify (waker (Option (Fn → Unit ! mut)))) (→ Unit) (! mut completion)
+    ;; This tail call releases the sender's local channel owner before a
+    ;; waker can reenter. The state already owns the published result.
+    (define (sent (waker (Option Waker))) (→ (Result Unit T)) (! host completion) (∀ T)
+      (notify waker)
+      (Ok (unit)))
+
+    (define (notify (waker (Option Waker))) (→ Unit) (! host completion)
       (match waker
         ((Some wake) (wake))
         ((None) (unit)))
       (completed))
 
-    ;; Dropping a promise closes the sender, including when a suspended
-    ;; task is canceled. An already canceled receiver needs no notification.
-    (instance (Drop (! mut completion) (Promise T))
-      (define drop
-        (lambda (promise) (match promise
-                            ((Sender slot)
-                             (match (take! slot)
-                               ((Unresolved waker)
-                                (put! slot (Resolved (Abandoned)))
-                                (notify waker))
-                               ((Unobserved) (put! slot (Unobserved)))
-                               ((Resolved result) (panic "a consumed promise was dropped"))))))))
+    (instance (Drop (! mut host completion d) (Promise T))
+      (⊨ (Drop d T))
+      (define drop (lambda (promise)
+                     (match promise
+                       ((Sender channel)
+                        (match (replace! (● channel state) (Unobserved))
+                          ((Unresolved waker)
+                           (drop (replace! (● channel state) (Resolved (Abandoned))))
+                           (notify waker))
+                          ((Unobserved) (unit))
+                          ((Resolved result)
+                           (drop result)
+                           (panic "a consumed promise was dropped"))))))))
 
     ;; ---- Receiving ----
 
-    ;; Pending returns ownership of the endpoint. Ready transfers the
-    ;; result exactly once and consumes the endpoint. Neither runs work.
-
-    (define (poll (future (Future T))) (→ (Poll T)) (! mut) (∀ T)
+    (define (poll (future (Future T)))
+      (→ (Poll T)) (! mut host d) (∀ T d) (⊨ (Drop d T))
       (match future
-        ((Receiver slot)
-         (match (take! slot)
+        ((Receiver channel)
+         (match (replace! (● channel state) (Unobserved))
            ((Unresolved waker)
-            (put! slot (Unresolved waker))
-            (Pending (Receiver slot)))
-           ((Resolved result)
-            (put! slot (Unobserved))
-            (Ready result))
+            (drop (replace! (● channel state) (Unresolved waker)))
+            (Pending (Receiver channel)))
+           ((Resolved result) (Ready result))
            ((Unobserved) (panic "a consumed future was polled"))))))
 
-    ;; Replace the one waiting observer. A scheduler uses this to register
-    ;; its ticket before suspending; registration and suspension must have
-    ;; no intervening yield. A ready result calls the observer immediately.
+    ;; Registration owns its callback and handlers. No suspension is allowed:
+    ;; a ready result calls it immediately, and a pending result calls it
+    ;; after publication. Replacing a registration drops its previous callback
+    ;; only after the new callback is installed.
+    (define (on-ready (future (Future T)) (wake (FnOnce → Unit ! d)))
+      (→ (Future T)) (! mut host d) (∀ T d) (⊨ (Drop d T))
+      (register future (inherit-handlers wake)))
 
-    (define (on-ready (future (Future T)) (wake (Fn → Unit ! mut)))
-      (→ (Future T))
-      (! mut)
-      (∀ T)
+    (define (register (future (Future T)) (wake Waker))
+      (→ (Future T)) (! mut host d) (∀ T d) (⊨ (Drop d T))
       (match future
-        ((Receiver slot)
-         (match (take! slot)
-           ((Unresolved _)
-            (put! slot (Unresolved (Some wake))))
+        ((Receiver channel)
+         (match (replace! (● channel state) (Unobserved))
+           ((Unresolved previous)
+            (drop (replace! (● channel state) (Unresolved (Some wake))))
+            (drop previous))
            ((Resolved result)
-            (put! slot (Resolved result))
+            (drop (replace! (● channel state) (Resolved result)))
             (wake))
-           ((Unobserved) (panic "a consumed future was observed")))
-         (Receiver slot))))
+           ((Unobserved) (drop wake) (panic "a consumed future was observed")))
+         (Receiver channel))))
 
-    ;; The receiver owns cleanup of a buffered result. Publish cancellation
-    ;; before dropping it: its drop may call arbitrary ordinary handlers.
-    (instance (Drop (! mut e) (Future T))
-      (⊨ (Drop e T))
-      (define drop
-        (lambda (future) (match future
-                           ((Receiver slot)
-                            (let ((state (take! slot)))
-                              (put! slot (Unobserved))
-                              (match state
-                                ((Resolved result) (drop result))
-                                ((Unresolved _) (unit))
-                                ((Unobserved) (panic "a consumed future was dropped")))))))))))
+    ;; Detach buffered content before disposing it. The Rc payload then holds
+    ;; Unobserved, so releasing either endpoint cannot finalize that content
+    ;; a second time, even if its cleanup calls another channel operation.
+    (instance (Drop (! mut host d) (Future T))
+      (⊨ (Drop d T))
+      (define drop (lambda (future)
+                     (match future
+                       ((Receiver channel) (drop (replace! (● channel state) (Unobserved))))))))))

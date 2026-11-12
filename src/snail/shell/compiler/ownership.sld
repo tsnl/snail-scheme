@@ -133,13 +133,10 @@
 
     ;; ---- Representable ownership ----
 
-    ;; A Vector or an Array holds only ω values, since reading one leaves
-    ;; its element in place, and so does a Ref: a cell is shared, so nothing
-    ;; would finalize linear content it still held. Other data moves its
-    ;; fields out with `match`, so it may hold a linear value, and the
-    ;; runtime's UnsafeSlot (snail shell slot) is the one shared place a
-    ;; linear value rests between frames. `copy` names the type variables
-    ;; declared ω.
+    ;; Sequence reads leave elements in place, so they require Copy elements.
+    ;; Ordinary aggregates are linear whenever a member is linear. Rc alone
+    ;; may own linear content while remaining Copy; WeakRc does not own it.
+    ;; `copy` names the type variables proven Copy by a declaration.
 
     (define (check-type (program Program) (copy (List String)) (type Type) (loc Loc))
       (→ Unit) (! compile)

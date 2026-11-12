@@ -5,6 +5,7 @@
   (export dispatch await-future after)
   (import
    (snail core base)
+   (only (snail core forms) host)
    (snail shell future)
    (snail shell task))
   (begin
@@ -18,7 +19,7 @@
 
     (define (dispatch (work (FnOnce → T ! tasks e)))
       (→ (Future T))
-      (! mut completion e)
+      (! mut host completion tasks e)
       (∀ T e)
       (⊨ (Drop e T))
       (match (make-promise)
@@ -28,7 +29,7 @@
 
     (define (produce (promise (Promise T)) (work (FnOnce → T ! tasks e)))
       (→ Unit)
-      (! mut completion tasks e)
+      (! mut host completion tasks e)
       (∀ T e)
       (⊨ (Drop e T))
       (drop (fulfill promise (work))))
@@ -41,19 +42,19 @@
 
     (define (await-future (future (Future T)))
       (→ (Completion T))
-      (! mut tasks d)
+      (! mut host tasks d)
       (∀ T d)
       (⊨ (Drop d T))
       (match (poll future)
         ((Ready result) result)
         ((Pending future)
-         (let* ((id (ticket))
-                (future (on-ready future (lambda () (tasks-wake! id) (unit)))))
+         (let* ((id (ticket)) (scheduler (current-scheduler))
+                (future (on-ready future (once (lambda () (wake-task! scheduler id) (unit))))))
            (await id)
            (await-future future)))))
 
     ;; The scheduler owns the deadline. The host only sleeps until its
     ;; next deadline or I/O completion; there is no repeated polling.
 
-    (define (after (milliseconds I64)) (→ (Future Unit)) (! mut completion)
+    (define (after (milliseconds I64)) (→ (Future Unit)) (! mut host completion tasks)
       (dispatch (once (lambda () (sleep milliseconds)))))))
