@@ -1,11 +1,13 @@
 ;; Physical lowering of the backend's typed, folded instructions. Prepared
-;; source and allocation choices are unchanged. References become linear-memory
+;; source is unchanged. The allocation graph chooses frame or heap storage.
+;; References become linear-memory
 ;; addresses; function references become indices in the runtime's shared table.
 (define-library (snail shell compiler memory)
   (export lower-memory)
   (import
    (snail core base)
    (snail core table)
+   (snail shell compiler allocation-wat)
    (snail shell compiler wat))
   (begin
 
@@ -431,8 +433,13 @@
          ((string=? op "call_ref")
           (result-type (type-body (lookup (::types module) (word (at args 0))))))
          ((member? op (list "block" "loop" "if")) (result-type tree))
-         ((member? op (list "struct.new" "struct.new_default" "array.new" "array.new_fixed"
-                            "array.new_default" "array.new_data")) (wat "ref" (at args 0)))
+         ((member? op
+                   (list "struct.new"
+                         "frame.struct.at"
+                         "struct.new_default"
+                         "array.new"
+                         "array.new_fixed"
+                         "array.new_default" "array.new_data")) (wat "ref" (at args 0)))
          ((string=? op "struct.get")
           (at (fields-of module (word (at args 0))) (number (word (at args 1)))))
          ((member? op (list "array.get" "array.get_u" "array.get_s"))
@@ -509,7 +516,10 @@
          ((string=? op "global.get") (read-global fn (word (at args 0))))
          ((string=? op "global.set")
           (write-global fn (word (at args 0)) (lower-expression fn (at args 1))))
-         ((string=? op "struct.new") (new-struct fn (word (at args 0)) (list-drop args 1)))
+         ((string=? op "struct.new") (new-struct fn (word (at args 0)) (list-drop args 1) (None)))
+         ((string=? op "frame.struct.at")
+          (new-struct fn (word (at args 0)) (list-drop args 2)
+                      (Some (number (word (at args 1))))))
          ((member? op (list "struct.get" "struct.set")) (struct-access fn op args))
          ((string-prefix? "array." op) (array-operation fn op args))
          ((string-prefix? "ref." op) (reference-operation fn op args))
@@ -619,17 +629,12 @@
                                                                     (indirect-arguments
                                                                      (::second saved))))))))))))
 
-    (: new-struct (impl (Fn MemoryFunction String (List Wat) -> Wat ! mut)))
-    (define (new-struct fn name operands)
+    (: new-struct (impl (Fn MemoryFunction String (List Wat) (Option I64) -> Wat ! mut)))
+    (define (new-struct fn name operands storage)
       (let* ((fields (fields-of (::module fn) name)) (saved (save-operands fn operands))
              (object "$lm.object"))
         (wat* "block" (concatenate (list (list (wat "result" (Word "i32"))) (::first saved)
-                                         (list (wat "local.set" (Word object)
-                                                    (runtime-call (::module fn) "alloc"
-                                                                  (list (c32 (struct-size fields))
-                                                                        (tag name)
-                                                                        (c32 0))
-                                                                  "i32")))
+                                         (struct-storage fn name (struct-size fields) storage)
                                          (map (lambda (index)
                                                 (wat (store-op (at fields index))
                                                      (Word (string-append "offset="
@@ -640,6 +645,24 @@
                                                      (at (::second saved) index)))
                                               (iota (length fields)))
                                          (list (get-local object)))))))
+
+    ;; Frame payloads are scanned directly, including their heap pointers.
+    ;; The allocation graph proves that no heap/global/returned value retains
+    ;; a frame address and that repeated construction cannot overlap lifetimes.
+    ;; Enter zeroes the whole frame; each construction writes its tag and fields.
+    (: struct-storage (impl (Fn MemoryFunction String I64 (Option I64) -> (List Wat) ! mut)))
+    (define (struct-storage fn name bytes storage)
+      (match storage
+        ((None)
+         (list (wat "local.set" (Word "$lm.object")
+                    (runtime-call (::module fn)
+                                  "alloc"
+                                  (list (c32 bytes) (tag name) (c32 0))
+                                  "i32"))))
+        ((Some slot)
+         (list (wat "local.set" (Word "$lm.object")
+                    (wat "i32.and" (wat "i32.add" (root-address slot) (c32 7)) (c32 -8)))
+               (wat "i32.store" (get-local "$lm.object") (tag name))))))
 
     (: struct-access (impl (Fn MemoryFunction String (List Wat) -> Wat ! mut)))
     (define (struct-access fn op args)
@@ -824,9 +847,29 @@
                      (not (member? (head part) (list "param" "result" "local" "type" "export")))))
               (parts function)))
 
+    ;; Reserve fixed object extents before temporary roots, whose cleanup must
+    ;; never erase a live payload. One spare word permits eight-byte alignment
+    ;; even when the root frame starts at an odd word. Frames are per invocation.
+    (: reserve-frame-objects (impl (Fn MemoryFunction Wat -> Wat ! mut)))
+    (define (reserve-frame-objects fn tree)
+      (let* ((tree (if (string=? (head tree) "frame.struct.new")
+                       (let* ((type (at (parts tree) 0))
+                              (size (struct-size (fields-of (::module fn) (word type))))
+                              (slot (ref-get (::slots fn))))
+                         (ref-set! (::slots fn) (+ (+ slot 1) (quotient (+ size 3) 4)))
+                         (wat* "frame.struct.at"
+                               (Cons type (Cons (int slot) (list-drop (parts tree) 2)))))
+                       tree)))
+        (match tree
+          ((Node items) (Node (map (lambda (child) (reserve-frame-objects fn child)) items)))
+          (_ tree))))
+
     (: lower-function (impl (Fn MemoryModule Wat -> Wat ! mut)))
     (define (lower-function module function)
       (let* ((fn (function-context module function))
+             (function (match (place-allocations (::types module) function)
+                         ((Some placed) (reserve-frame-objects fn placed))
+                         ((None) function)))
              (body (map (lambda (tree) (lower-expression fn tree)) (function-code function)))
              (result (::result fn))
              (returned (if (null? (result-annotation result)) "" (value-local result)))

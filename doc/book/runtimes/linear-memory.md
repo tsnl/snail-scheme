@@ -22,12 +22,13 @@ templates go through this pass too. Each finished physical function is rendered
 before lowering the next, so the compiler need not retain its entire expanded
 instruction tree alongside the output text.
 
-The frontend, ownership checks, allocation decisions and supported source types
-are unchanged. Structs, captured environments, saved continuations and arrays
-that previously allocated still allocate on the heap. Scalars remain Wasm
-locals. Wasm keeps the ordinary control stack; the explicit stack holds roots.
-Escape analysis, user-visible interior pointers, additional array element
-layouts and an LLVM backend are future work in
+The frontend, ownership checks and supported source types are unchanged. The
+first migration preserves all heap allocation choices. The optimization stage
+adds the graph-based placement described below: fixed-size structs start as
+frame candidates and are promoted when their lifetime requires it. Scalars
+remain Wasm locals. Wasm keeps the ordinary control stack; the explicit stack
+holds roots and eligible object payloads. User-visible interior pointers,
+additional array element layouts and an LLVM backend are future work in
 [#749](https://github.com/tsnl/snail-scheme/issues/749).
 
 Every managed object starts with two 32-bit words: a runtime layout identity
@@ -146,7 +147,8 @@ which runtime costs can be removed while keeping collection correct.
 
 ## Measured backend optimizations
 
-The next stage keeps the same source and allocation sites. Four cumulative
+The first optimization measurements keep the same source and allocation sites.
+Four main cumulative
 changes are implemented: omit frames in direct-call graphs proved noncollecting;
 cache rooted pointer variables in Wasm locals; omit intermediate roots inside
 expressions proved noncollecting; and fast-path an exact layout tag before
@@ -171,22 +173,36 @@ Median milliseconds per batch; each cell is **V8 / Wasmtime**:
 | Pointer variables cached | 0.577 / 0.994 | 0.724 / 1.008 | 2.450 / 4.340 | 4.292 / 10.273 | 0.536 / 0.978 | 0.724 / 1.377 |
 | Intermediate roots omitted | 0.577 / 0.980 | 0.602 / 1.003 | 2.261 / 2.490 | 3.866 / 4.659 | 0.505 / 0.641 | 0.627 / 0.751 |
 | Exact-type fast path | 0.577 / 0.990 | 0.393 / 0.945 | 2.240 / 2.512 | 3.719 / 4.591 | 0.494 / 0.636 | 0.611 / 0.756 |
+| Single-word root clears | 0.577 / 0.993 | 0.394 / 0.945 | 2.260 / 2.454 | 3.679 / 4.558 | 0.505 / 0.616 | 0.604 / 0.725 |
+
+The final small change emits an ordinary store when clearing one temporary root,
+instead of `memory.fill` for four bytes. A separate paired comparison against
+the exact-type stage finds about 2% less list time and 3% less effect time on
+Wasmtime, consistently across three processes; V8 differences are around 1% or
+less, without a meaningful benefit. Those paired samples are in
+`tests/linear-gc/results/2026-11-12-singleword-paired/`.
+
+The compiler also counts a layout key's UTF-8 bytes directly instead of building
+character and byte lists just to take their length. Unicode tests cover the
+encoding widths, and the emitted benchmark text is unchanged by this counting
+change. It reduces compiler allocation; no isolated whole-program speedup is
+claimed for it.
 
 For the final stage, the ratios against its accompanying WasmGC runs are:
 
 | Workload | V8 linear / WasmGC | Wasmtime linear / WasmGC |
 | --- | ---: | ---: |
-| Arithmetic | 1.02× | 1.00× |
-| Rooted calls | 3.50× | 1.70× |
-| Lists | 8.33× | 0.67× |
-| Arrays | 8.04× | 1.77× |
-| Closures | 8.18× | 0.46× |
-| Effects | 11.15× | 0.34× |
+| Arithmetic | 1.02× | 1.01× |
+| Rooted calls | 3.51× | 1.70× |
+| Lists | 9.80× | 0.66× |
+| Arrays | 8.60× | 1.77× |
+| Closures | 9.92× | 0.45× |
+| Effects | 11.85× | 0.34× |
 
-The final linked module is 302,711 bytes, versus 312,349 for the MVP and 194,631
-for WasmGC. V8's eager compilation is 231 ms versus 133 ms for WasmGC;
-Wasmtime's is 124 ms versus 84 ms. Peak process RSS is 91,204 versus 124,716 KiB
-on V8, and 28,204 versus 23,748 KiB on Wasmtime. These are benchmark-process
+The final linked module is 302,595 bytes, versus 312,349 for the MVP and 194,631
+for WasmGC. V8's eager compilation is 223 ms versus 130 ms for WasmGC;
+Wasmtime's is 124 ms versus 85 ms. Peak process RSS is 89,552 versus 123,056 KiB
+on V8, and 30,704 versus 26,508 KiB on Wasmtime. These are benchmark-process
 figures, not self-hosting compiler memory requirements.
 
 Raw measurements live in `tests/linear-gc/results/2026-11-11-{leaf,cache,subtrees,casts}/`.
@@ -194,6 +210,10 @@ Use the corresponding `linear-{leaf,cache,subtrees,casts}` label as the final
 argument to `programs/measure` and `programs/report.mjs`. Each set includes its
 own WasmGC runs, artifact hashes and every timing sample. As with the MVP,
 background development work and unconstrained CPU frequency limit precision.
+The final samples are in `tests/linear-gc/results/2026-11-12-singleword/`.
+Its V8 WasmGC list baseline is 0.231 ms versus 0.269 ms in the preceding set,
+while linear-memory list time stays near 2.25 ms. Ratios from different sampling
+sessions therefore must not be treated as isolated optimization effects.
 
 Separate instrumented batches suggest collection occupies about 19% of list
 time, 4% of array time, 7–8% of closure time and 3–4% of effect time. The two
@@ -202,6 +222,56 @@ batches with uninstrumented execution and are approximate. Even eliminating
 collection time entirely would leave most of V8's gap: tracing alone cannot
 explain the results. Allocation, root-frame maintenance, checked addressing,
 indirect calls and engine optimization remain relevant.
+
+## Allocation placement on a control-flow graph
+
+`allocation.sld` owns a backend-independent graph of values, copies, object
+construction, field reads and writes, calls, and escapes. Each node has explicit
+successors. `allocation-wat.sld` adapts folded instructions to that graph,
+preserving operand evaluation order, local aliases, branch results, joins and
+loop backedges. It annotates the original construction sites with their chosen
+storage. `memory.sld` supplies the physical layouts and frame addresses.
+
+Every fixed-size struct construction starts as a frame candidate. Inclusion
+constraints find all allocation sites a value can reference, and the objects
+reachable through each site's pointer fields. These sets are conservative:
+local assignments are flow insensitive and fields share one containment set.
+A returning reference, a global store, a store through an external pointer or
+an unknown retaining call requires heap storage. Promotion follows containment
+transitively. An escaping closure or saved continuation therefore promotes its
+captured objects, while a local container can still hold heap references.
+There is no runtime copy or relocation during promotion; placement is decided
+before emission.
+
+For sites on control-flow cycles, value liveness determines whether an earlier
+instance can remain reachable at the next construction. This includes objects
+reachable through live containers. Such overlapping instances need independent
+heap storage. Otherwise the site reuses its own fixed frame extent. Each
+recursive invocation has a separate frame. Sites outside cycles do not need
+this liveness calculation.
+
+Frame extents precede temporary roots and are aligned for their fields. The
+collector scans the whole active extent, so a frame object's heap children
+remain reachable even though its own address is outside the managed heap.
+Temporary-root cleanup never clears object payloads. The frame is released on
+return, tail transfer, or host trap restoration. No heap or exported object may
+retain an address into it.
+
+The first adapter has no interprocedural borrowing summaries: calls may retain
+their arguments, and tail-call arguments outlive the caller's frame. Returning
+objects use the current pointer ABI and therefore escape; caller-owned return
+storage would require an ABI extension. Arrays still use the heap because this
+version reserves fixed struct extents. Unsupported control constructs disable
+placement for that function. These limitations are explicit promotion reasons,
+not local source patterns that happen to match an optimization.
+
+The graph tests cover aliases, joins, captures, external stores and loop
+overlap. `tests/linear-gc/placement.wat` executes the lowered loops while
+collecting on every iteration and checking dynamic allocation counts: 100 dead
+instances use zero heap allocations, while 100 overlapping instances use 100.
+A live container retains its previous child and forces the same promotion.
+`linear-memory-placement.sld` covers frame payload tracing, branches, escaping
+closures, returns and tail arguments under forced collection on both engines.
 
 ## The existing Immix implementation
 
@@ -438,9 +508,10 @@ be a separate design; neither is implemented here.
 
 ## Scope of later optimization
 
-The migration preserves allocation sites so comparisons with WasmGC can use the
-same source and object shapes. Escape analysis and stack allocation remain
-separate optimizations. Precise heap descriptors can reduce scanning and false
+The first migration preserves allocation sites so comparisons with WasmGC can
+use the same source and object shapes. Graph-based frame placement is measured
+separately in the optimization stage. Borrowing summaries and caller-owned
+return storage remain future extensions. Precise heap descriptors can reduce scanning and false
 retention; liveness can reduce root publication and stale roots. A nonmoving
 heap permits pointer values to remain cached in Wasm locals across collection,
 although mutable field loads still need ordinary alias reasoning.
