@@ -26,7 +26,7 @@
   (import
    (snail shell project web-app)
    (snail core base)
-   (snail core io)
+   (except (snail core io) write)
    (snail shell task)
    (snail shell socket)
    (rename (snail shell process)

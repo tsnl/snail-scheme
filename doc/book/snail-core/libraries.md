@@ -18,8 +18,8 @@ its `base`, `table` and `io`, so it can compile itself.
 | --- | --- |
 | `(snail core forms)` | The core forms, the builtin types, and the builtin `mut` and `host` effects. The compiler serves it; it has no file. |
 | `(snail core primitive)` | The operations the backend implements, each declared with its type by `(primitive name type)`. `(snail core base)` gives most of them their everyday names. |
-| `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, `Never`, lists, vectors, arrays, strings, `Show`. |
-| `(snail core io)` | The `console`, `fs` and `clock` effects: text output, lines of input, files as text or bytes, [directories and names](#files-and-directories), and a monotonic clock; and, as total reads, `command-line`, `environment-variable` and `working-directory`. |
+| `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, `Never`, lists, vectors, arrays, strings, `Show` and `Repr`. |
+| `(snail core io)` | The `console`, `fs` and `clock` effects: [text output and value representations](#console-output), lines of input, files as text or bytes, [directories and names](#files-and-directories), and a monotonic clock; and, as total reads, `command-line`, `environment-variable` and `working-directory`. |
 | `(snail core table)` | Immutable tables from strings to values. |
 
 ### Shell: data and text
@@ -133,6 +133,57 @@ precedes the other retain their input order. Comparison reads the items,
 so their type must satisfy `Copy`. A merge sort bounds comparisons and
 traversal by O(n log n); the compiler, project builder and editor use this
 same operation. Stage 0 supplies the corresponding stable sort on Chibi.
+
+## Console output
+
+`(display value)` prints the text chosen by its `Show` instance.
+`(write value)` prints its `Repr` representation: strings keep quotes and
+escapes, characters use `#\` notation, and containers represent their
+elements recursively. Both perform `console` and append no newline;
+`(newline)` adds one. `(scheme base)` also exports both operations.
+The socket library has its own `write`; import `(except (snail core io) write)`
+when only the socket operation is needed, or rename one of them.
+
+```scheme
+(display (Some "hello")) ; prints (Some hello)
+(write (Some "hello"))   ; prints (Some "hello")
+(write (list "a" "b"))   ; prints ("a" "b")
+```
+
+`(repr value)` returns the same representation as a `String`, without
+effects. `(snail core base)` supplies `Repr` instances for numeric scalars,
+booleans, characters, strings, `Unit`, lists, vectors, `Option`, `Result`
+and `Pair`. Lists use `(element ...)`, vectors use `#(element ...)`, and
+the other containers name their constructors, such as `(Some "hello")`
+or `(Pair 1 "one")`. Vectors require `Copy` elements.
+
+A struct or enum can request constructor notation with `(deriving Repr)`:
+
+```scheme
+(enum Action
+  (Rock)
+  (Paper)
+  (Scissors)
+  (deriving Repr))
+
+(write (Rock)) ; prints (Rock)
+```
+
+Deriving generates a pure instance that matches each constructor and
+represents its fields in declaration order. Generic type parameters require
+`Copy` and `Repr`. Deriving requires a Copy type, so formatting cannot consume
+a resource owner without releasing it. A struct with mutable fields cannot
+derive an instance.
+An explicit `(instance (Repr T) (define repr (lambda (value) ...)))` chooses custom
+notation. A `Show` instance alone does not supply `Repr`; missing instances
+are compile errors.
+
+`(snail shell write)` supplies `Repr Any` using its existing Scheme datum
+printer, so `(write datum)` replaces `(write-string (datum->string datum))`.
+Translated Scheme's `write` uses this same operation. Foreign values in
+`Any` retain the datum printer's `#<opaque>` notation; deriving does not add
+runtime reflection. Constructor notation describes a typed value but does
+not promise that the Scheme reader reconstructs its original type.
 
 ## Files and directories
 

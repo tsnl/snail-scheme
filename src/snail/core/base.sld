@@ -31,6 +31,7 @@
    i32->f32 f32->i32
    f32->bits bits->f32 f64->bits bits->f64
    Show show i64->string string->i64 f64->string
+   Repr repr
    Option Some None Result Ok Err Pair Never absurd
    dyn-cast conversion-failed CastError
    CastReason TypeMismatch UnsupportedInstance ArgumentMismatch
@@ -1052,5 +1053,85 @@
     (define (f64->string (value F64)) (→ String)
       (string-generate (i32->i64 (real-text value))
                        (lambda (index) (text-character (i64->i32 index)))))
+
+    ;; ---- Representing values ----
+
+    ;; Representations are pure. Containers preserve their elements' notation,
+    ;; including quotes and escapes; displaying a value still uses Show.
+    (typeclass (Repr T)
+      (: repr (impl (Fn T → String))))
+
+    (instance (Repr I64)
+      (define repr i64->string))
+
+    (instance (Repr I32)
+      (define repr (lambda (value) (i64->string (i32->i64 value)))))
+
+    (instance (Repr U8)
+      (define repr (lambda (value) (i64->string (i32->i64 (u8->i32 value))))))
+
+    (instance (Repr F64)
+      (define repr f64->string))
+
+    (instance (Repr F32)
+      (define repr (lambda (value) (f64->string (f32->f64 value)))))
+
+    (instance (Repr Bool)
+      (define repr (lambda (value) (if value "#t" "#f"))))
+
+    (instance (Repr Unit)
+      (define repr (lambda (value) "()")))
+
+    (instance (Repr Char)
+      (define repr (lambda (char)
+                     (cond ((= char #\space) "#\\space")
+                           ((= char #\newline) "#\\newline")
+                           ((= char #\tab) "#\\tab")
+                           (else (string-append "#\\" (make-string 1 char)))))))
+
+    (instance (Repr String)
+      (define repr (lambda (text)
+                     (string-append "\""
+                                    (string-concatenate (map repr-escape (string->list text)))
+                                    "\""))))
+
+    (define (repr-escape (char Char)) (→ String)
+      (cond ((= char #\") "\\\"")
+            ((= char #\\) "\\\\")
+            ((= char #\newline) "\\n")
+            ((= char #\return) "\\r")
+            ((= char #\tab) "\\t")
+            (else (make-string 1 char))))
+
+    (instance (Repr (List T))
+      (⊨ (Repr T))
+      (define repr (lambda (items)
+                     (string-append "(" (string-join (map repr items) " ") ")"))))
+
+    (instance (Repr (Vector T))
+      (⊨ (Repr T) (Copy T))
+      (define repr (lambda (items)
+                     (string-append "#(" (string-join (map repr (vector->list items)) " ") ")"))))
+
+    (instance (Repr (Option T))
+      (⊨ (Repr T))
+      (define repr (lambda (value)
+                     (match value
+                       ((Some item) (string-append "(Some " (repr item) ")"))
+                       ((None) "(None)")))))
+
+    (instance (Repr (Result T E))
+      (⊨ (Repr T) (Repr E))
+      (define repr (lambda (value)
+                     (match value
+                       ((Ok item) (string-append "(Ok " (repr item) ")"))
+                       ((Err error) (string-append "(Err " (repr error) ")"))))))
+
+    (instance (Repr (Pair A B))
+      (⊨ (Repr A) (Repr B))
+      (define repr (lambda (value)
+                     (match value
+                       ((Pair first second)
+                        (string-append "(Pair " (repr first) " " (repr second) ")"))))))
 
     ))

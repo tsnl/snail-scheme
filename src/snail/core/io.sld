@@ -12,6 +12,7 @@
    newline
    write-line
    display
+   write
    read-line
    fs
    read-file
@@ -105,6 +106,9 @@
 
     (define (display (value T)) (→ Unit) (! console e) (∀ T e) (⊨ (Show e T))
       (write-string (show value)))
+
+    (define (write (value T)) (→ Unit) (! console) (∀ T) (⊨ (Repr T))
+      (write-string (repr value)))
 
     ;; ---- Files ----
 

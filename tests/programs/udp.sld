@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (snail core io)
+ (except (snail core io) write)
  (only (snail shell task) dispatch-local)
  (snail shell socket))
 

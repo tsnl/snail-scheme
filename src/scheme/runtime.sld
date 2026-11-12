@@ -453,9 +453,7 @@
       (→ (Ref Any))
       (procedure1 (lambda (a) (write-string (datum->display-string a)) unspecified)))
 
-    (define %write
-      (→ (Ref Any))
-      (procedure1 (lambda (a) (write-string (datum->string a)) unspecified)))
+    (define %write (→ (Ref Any)) (procedure1 (lambda (a) (write a) unspecified)))
 
     (define %newline
       (→ (Ref Any))

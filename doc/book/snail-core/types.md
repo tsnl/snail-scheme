@@ -229,6 +229,11 @@ instances use `(!)`, so static arithmetic remains pure; a dynamic
 instance can instead declare `(! dyn-cast)`. `Drop` releases values
 ([ownership](ownership.md#releasing)).
 
+`Repr` is a pure class with one type parameter: `(Repr T)` supplies
+`(repr value) → String`. `(snail core io)`'s `write` prints that
+representation through `console`. Structs and enums can generate instances
+with `(deriving Repr)`; see [console output](libraries.md#console-output).
+
 ### Associated output types
 
 A class can declare ordinary associated types. Each instance defines them:
