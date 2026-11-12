@@ -1,0 +1,13 @@
+diff --git a/src/snail/shell/compiler/memory.sld b/src/snail/shell/compiler/memory.sld
+index 6251dc7b..4b5063f5 100644
+--- a/src/snail/shell/compiler/memory.sld
++++ b/src/snail/shell/compiler/memory.sld
+@@ -777,7 +777,7 @@
+ 
+     (: function-context (impl (Fn MemoryModule Wat -> MemoryFunction ! mut)))
+     (define (function-context module function)
+-      (let* ((framed? (not (table-contains? (::noncollecting module) (member-name function))))
++      (let* ((framed? #f) ;; Measurement control only; collection must also be disabled.
+              (declarations
+               (append (pick "param" (parts function)) (pick "local" (parts function)))))
+         (fold-left (lambda (fn index) (bind-function-local fn (at declarations index) index))

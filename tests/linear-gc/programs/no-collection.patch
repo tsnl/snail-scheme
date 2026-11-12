@@ -1,0 +1,13 @@
+diff --git a/crates/snail-core-support/src/gc.rs b/crates/snail-core-support/src/gc.rs
+index 2c86f01a..5c96c5b3 100644
+--- a/crates/snail-core-support/src/gc.rs
++++ b/crates/snail-core-support/src/gc.rs
+@@ -314,6 +314,8 @@ impl Heap {
+     }
+ 
+     fn collect(&mut self) {
++        // Measurement control only: this bounded process never reclaims memory.
++        return;
+         let started = self.profile.then(Instant::now);
+         let mut work = Vec::new();
+         for candidate in self.roots.values() {
