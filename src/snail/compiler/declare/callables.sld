@@ -15,8 +15,9 @@
    operational-type)
   (import
    (snail core base)
-   (only (snail compiler expand language) Impl Dyn FnContract)
-   (snail compiler declare language))
+   (snail compiler declare language)
+   (snail compiler types type)
+   (snail compiler types scheme))
   (begin
 
     ;; ---- Callable schemes ----
@@ -140,7 +141,6 @@
     (export
      test-callables)
     (import
-     (only (snail compiler expand language) FnMutContract FnOnceContract)
      (only (snail compiler names globals) Global ClassGlobal)
      (snail stage0 testing))
     (begin

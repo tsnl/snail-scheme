@@ -31,9 +31,11 @@
    (prefix (snail compiler bind language) bound-)
    (prefix (snail compiler derive language) derived-)
    (snail compiler declare language)
+   (snail compiler types type)
+   (snail compiler types scheme)
    (snail compiler declare known)
    (snail compiler declare state)
-   (snail compiler declare equality)
+   (snail compiler types equality)
    (only (snail compiler names globals) Global TopValue TopGlobal FieldFunction same-global?)
    (snail compiler declare requirements)
    (snail compiler declare callables)
@@ -392,8 +394,8 @@
                                    (global "now")
                                    "host"
                                    "now"
-                                   (expanded-Callable (expanded-Impl)
-                                                      (expanded-FnOnceContract)
+                                   (expanded-Callable (Impl)
+                                                      (FnOnceContract)
                                                       arrow
                                                       loc)
                                    (list (note "own"))
@@ -401,8 +403,8 @@
                   (Ok (Extern (global "now")
                               "host"
                               "now"
-                              (Callable (expanded-Dyn)
-                                        (expanded-FnContract)
+                              (Callable (Dyn)
+                                        (FnContract)
                                         (Arrow (list i64) i64 (Effects (list) (None))))
                               (list (note "own") (note "signed"))
                               loc)))
@@ -422,8 +424,8 @@
                                    (global "greet")
                                    "host"
                                    "greet"
-                                   (expanded-Callable (expanded-Impl)
-                                                      (expanded-FnContract)
+                                   (expanded-Callable (Impl)
+                                                      (FnContract)
                                                       (expanded-Arrow (list (applied "String" 9)
                                                                             (applied "I64" 9))
                                                                       (applied "Unit" 9)
@@ -449,8 +451,8 @@
                                   (Scheme (list)
                                           (list)
                                           (list)
-                                          (Callable (expanded-Dyn)
-                                                    (expanded-FnContract)
+                                          (Callable (Dyn)
+                                                    (FnContract)
                                                     (Arrow (list)
                                                            (Con (builtin "Unit") (list))
                                                            (Effects (list) (None))))))

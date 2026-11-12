@@ -86,8 +86,8 @@
          Wild
          Bind
          Equals
-         Destructure
-         Type)
+         Destructure)
+   (only (snail compiler types type) Type)
    (only (snail compiler integrate sha256) sha256 bytes->hex)
    (only (snail compiler adapter declaration) old-type normal-type-text name-text)
    (prefix (only (snail compiler adapter declaration) scheme-text) normal-)
@@ -177,15 +177,19 @@
     (define (top-value-text names value)
       (match value
         ((TopGlobal global)
-         (match (find (lambda (entry) (same-global? (::first entry) global))
+         (match (find (lambda (entry) (same-global-key? (::first entry) global))
                       (append (::handles names) (::implementations names)))
            ((Some entry) (name-text (::second entry)))
            ((None) (global-text global))))
         ((FieldFunction case label role)
          (string-append (global-text case) "-" label (role-suffix role)))))
 
-    (: same-global? (impl (Fn Global Global -> Bool)))
-    (define (same-global? global other)
+    ;; Whether two Globals have one key: the same library as the old
+    ;; compiler's dotted text names it, name and serial. It is not the
+    ;; vocabulary's `same-global?`, which tells (a.b) from (a b), since the
+    ;; normal form compares names as the old compiler writes them.
+    (: same-global-key? (impl (Fn Global Global -> Bool)))
+    (define (same-global-key? global other)
       (and (string=? (library-key (::library global)) (library-key (::library other)))
            (string=? (::name global) (::name other))
            (= (::serial global) (::serial other))))

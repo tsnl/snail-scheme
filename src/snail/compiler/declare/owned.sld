@@ -17,6 +17,7 @@
    (snail compiler names libraries)
    (only (snail compiler names globals) TopValue TopGlobal FieldFunction Replacer)
    (snail compiler declare language)
+   (snail compiler types type)
    (snail compiler declare known))
   (begin
 

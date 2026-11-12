@@ -25,6 +25,7 @@
    (snail compiler source)
    (snail compiler names libraries)
    (snail compiler expand language)
+   (only (snail compiler types type) Impl Dyn Contract)
    (snail compiler expand marked)
    (snail compiler expand offer)
    (snail compiler expand scopes)

@@ -8,17 +8,17 @@
 ;; The schema is a wire format, hashed and never looked up, and it must be
 ;; spelled as the old compiler spells it, or wire data an old program wrote
 ;; stops reading, so each Global in it is spelled as (snail compiler
-;; declare spellings) says.
+;; names spellings) says.
 (define-library (snail compiler declare identities)
   (export
    case-type-id)
   (import
    (snail core base)
    (only (snail compiler source) fnv-1a)
-   (only (snail compiler expand language) Impl Dyn FnContract FnMutContract FnOnceContract)
    (snail compiler declare language)
+   (snail compiler types type)
    (snail compiler declare known)
-   (snail compiler declare equality)
+   (snail compiler types equality)
    (only (snail compiler names globals) Global same-global?)
    (only (snail compiler names spellings) global-spelling))
   (begin

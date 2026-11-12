@@ -31,6 +31,7 @@
    (prefix (snail compiler bind language) bound-)
    (prefix (snail compiler derive language) derived-)
    (snail compiler declare language)
+   (snail compiler types type)
    (snail compiler declare offer)
    (only (snail compiler names numbering) Numbering)
    (snail compiler declare known)
@@ -574,8 +575,8 @@
                               (global "show")
                               (expanded-Scheme (list)
                                                (list)
-                                               (expanded-Callable (expanded-Impl)
-                                                                  (expanded-FnContract)
+                                               (expanded-Callable (Impl)
+                                                                  (FnContract)
                                                                   (expanded-Arrow
                                                                    (list (expanded-Variable "a"
                                                                                             loc))
@@ -727,8 +728,8 @@
                               (expanded-Scheme
                                (list)
                                (list)
-                               (expanded-Callable (expanded-Impl)
-                                                  (expanded-FnContract)
+                               (expanded-Callable (Impl)
+                                                  (FnContract)
                                                   (expanded-Arrow
                                                    (list (expanded-Variable "S" loc))
                                                    (expanded-Applied (Global forms-library

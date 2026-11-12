@@ -8,8 +8,9 @@
 ;; that `fn` is a keyword and no type: `(fn ...)` is Code, never a type's
 ;; name. The adapter compares them. `expand` offers each under its name,
 ;; and `declare` checks a type's arguments by its arity. A rule names some
-;; builtin types by their Globals: String, and Vector and U8, which make
-;; Bytes; and Any, the type every erased value has.
+;; builtins by their Globals: String, and Vector and U8, which make Bytes;
+;; Any, the type every erased value has; Unit and I32; and the effect
+;; `mut`. The types they name are (snail compiler types builtins)'s.
 (define-library (snail compiler builtins forms)
   (export
    keywords
@@ -17,9 +18,12 @@
    builtin-arity
    builtin-effects
    any-global
-   string-type
-   vector-type
-   u8-type)
+   string-global
+   vector-global
+   u8-global
+   unit-global
+   i32-global
+   mut-global)
   (import
    (snail core base)
    (snail compiler names libraries)
@@ -99,23 +103,35 @@
     (define builtin-effects
       (list "mut" "host"))
 
-    ;; ---- Known types ----
+    ;; ---- Builtins by name ----
 
     (: any-global Global)
     (define any-global
       (Global forms-library "Any" 0))
 
-    (: string-type Global)
-    (define string-type
+    (: string-global Global)
+    (define string-global
       (Global forms-library "String" 0))
 
-    (: vector-type Global)
-    (define vector-type
+    (: vector-global Global)
+    (define vector-global
       (Global forms-library "Vector" 0))
 
-    (: u8-type Global)
-    (define u8-type
+    (: u8-global Global)
+    (define u8-global
       (Global forms-library "U8" 0))
+
+    (: unit-global Global)
+    (define unit-global
+      (Global forms-library "Unit" 0))
+
+    (: i32-global Global)
+    (define i32-global
+      (Global forms-library "I32" 0))
+
+    (: mut-global Global)
+    (define mut-global
+      (Global forms-library "mut" 0))
 
     )
 
@@ -137,11 +153,11 @@
         (expect (builtin-arity (Global forms-library "Vector" 0)) (Some 1))
         (expect (builtin-arity (Global forms-library "FnMut" 0)) (Some 1))
         (expect (builtin-arity (Global forms-library "fn" 0)) (None))
-        (expect (builtin-arity (Global forms-library "mut" 0)) (None))
         (expect (builtin-arity (Global (list "snail" "core" "base") "I64" 0)) (None))
         (expect (map (lambda (global) (builtin-arity global))
-                     (list any-global string-type vector-type u8-type))
-                (list (Some 0) (Some 0) (Some 1) (Some 0))))
+                     (list any-global string-global vector-global u8-global unit-global i32-global))
+                (list (Some 0) (Some 0) (Some 1) (Some 0) (Some 0) (Some 0)))
+        (expect (builtin-arity mut-global) (None)))
 
       ;; Each name once: thirty keywords, sixteen types and two effects.
       (define (test-names)

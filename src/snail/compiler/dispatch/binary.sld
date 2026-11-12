@@ -39,17 +39,29 @@
    family-problem)
   (import
    (snail core base)
-   (only (snail compiler expand language) Dyn FnContract)
    (prefix (snail compiler declare language) declared-)
-   (only (snail compiler declare equality) same-type? same-types? effect-set)
+   (only (snail compiler types type)
+         Type
+         Con
+         Callable
+         Row
+         Var
+         Arrow
+         Effects
+         TypeVariable
+         Written
+         Dyn
+         FnContract)
+   (only (snail compiler types scheme) Scheme ClassRequirement)
+   (only (snail compiler types substitution) substituted)
+   (only (snail compiler types equality) same-type? same-types? effect-set)
    (only (snail compiler names globals) Global)
-   (only (snail compiler declare schemes) substituted)
    (only (snail compiler declare membership) same-member?)
    (only (snail compiler declare misplaced-rows) misplaced-row-problem)
    (only (snail compiler dispatch language) Instance)
    (only (snail compiler dispatch listing) instance-selecting-types)
-   (only (snail compiler dispatch matching) matched-types)
-   (snail compiler dispatch runtime)
+   (only (snail compiler typer matching) matched-types)
+   (snail compiler types builtins)
    (only (snail compiler builtins base) dyn-cast-effect)
    (snail compiler dispatch known)
    (only (snail compiler dispatch domains) ground? concrete?))
@@ -121,30 +133,30 @@
              ((None) (loop rest)))))))
 
     ;; `own` is the method's own scheme, over the class's parameters.
-    (: method-problem (impl (Fn BinaryClass declared-Scheme -> (Option String))))
+    (: method-problem (impl (Fn BinaryClass Scheme -> (Option String))))
     (define (method-problem binary own)
       (match (Pair (::requirements own) (::type own))
-        ((Pair (Nil) (declared-Callable (Dyn) (FnContract) arrow))
+        ((Pair (Nil) (Callable (Dyn) (FnContract) arrow))
          (if (and (null? (::variables own)) (binary-arrow? binary arrow))
              (None)
              (Some "dynamic-instances needs methods of type (dyn (Fn A B -> Output ! e))")))
         (_ (Some "dynamic-instances does not support independent method requirements"))))
 
-    (: binary-arrow? (impl (Fn BinaryClass declared-Arrow -> Bool)))
+    (: binary-arrow? (impl (Fn BinaryClass Arrow -> Bool)))
     (define (binary-arrow? binary arrow)
       (and (same-types? (::parameters arrow)
                         (list (written (::left binary)) (written (::right binary))))
            (same-type? (::result arrow) (written (::output binary)))
-           (same-type? (declared-Row (::effects arrow))
-                       (declared-Row (declared-Effects (Nil) (Some (written (::row binary))))))))
+           (same-type? (Row (::effects arrow))
+                       (Row (Effects (Nil) (Some (written (::row binary))))))))
 
-    (: written (impl (Fn String -> declared-Type)))
+    (: written (impl (Fn String -> Type)))
     (define (written name)
-      (declared-Var (declared-Written name)))
+      (Var (Written name)))
 
     ;; ---- Domains ----
 
-    (: domain-problem (impl (Fn (List (List declared-Type)) -> (Option String))))
+    (: domain-problem (impl (Fn (List (List Type)) -> (Option String))))
     (define (domain-problem pairs)
       (if (or (null? pairs) (not (= (length pairs) (length (delete-duplicates same-types? pairs)))))
           (Some "dynamic-instances needs a nonempty domain of distinct type pairs")
@@ -156,16 +168,16 @@
     ;; the pair, and the source's implementation of each of the class's
     ;; methods, in the class's order.
     (struct Case
-      ((left declared-Type)
-       (right declared-Type)
-       (output declared-Type)
+      ((left Type)
+       (right Type)
+       (output Type)
        (effects (List Global))
        (implementations (List Global))))
 
     ;; `sources` are the instances of the class active at the form,
     ;; written or generated before it, in the program's order.
     (: domain-pair-case
-       (impl (Fn BinaryClass (List Instance) (List declared-Type) -> (Result Case String))))
+       (impl (Fn BinaryClass (List Instance) (List Type) -> (Result Case String))))
     (define (domain-pair-case binary sources pair)
       (match pair
         ((Cons left (Cons right (Nil)))
@@ -182,8 +194,8 @@
       "dynamic-instances domain entries are two concrete, non-Any types")
 
     (: matching-sources
-       (impl (Fn (List Instance) (List declared-Type)
-                 -> (List (Pair Instance (List (Pair declared-TypeVariable declared-Type)))))))
+       (impl (Fn (List Instance) (List Type)
+                 -> (List (Pair Instance (List (Pair TypeVariable Type)))))))
     (define (matching-sources sources pair)
       (concatenate (map (lambda (source)
                           (match (matched-types (::variables source)
@@ -200,9 +212,9 @@
     (: source-case
        (impl (Fn BinaryClass
                  Instance
-                 (List (Pair declared-TypeVariable declared-Type))
-                 declared-Type
-                 declared-Type
+                 (List (Pair TypeVariable Type))
+                 Type
+                 Type
                  ->
                  (Result Case String))))
     (define (source-case binary source bindings left right)
@@ -211,7 +223,7 @@
                 (row (substituted bindings (list-ref (::types source) (::row-index binary)))))
             (if (and (ground? output) (ground? row))
                 (match row
-                  ((declared-Row effects)
+                  ((Row effects)
                    (Ok (Case left
                              right
                              output
@@ -222,7 +234,7 @@
                 (Err "dynamic-instances source outputs and rows must be determined")))
           (Err "dynamic-instances source instances must have no class prerequisites")))
 
-    (: only-output (impl (Fn Instance -> declared-Type)))
+    (: only-output (impl (Fn Instance -> Type)))
     (define (only-output source)
       (match (::outputs source)
         ((Cons output (Nil)) output)
@@ -244,9 +256,9 @@
     ;; (Any Any).
     (enum Head
       (ErasedLeft
-       ((right declared-Type)))
+       ((right Type)))
       (ErasedRight
-       ((left declared-Type)))
+       ((left Type)))
       (ErasedBoth))
 
     (: family-heads (impl (Fn (List Case) -> (List Head))))
@@ -273,7 +285,7 @@
     (struct Family
       ((head Head)
        (cases (List Case))
-       (output declared-Type)
+       (output Type)
        (effects (List Global))))
 
     (: head-family (impl (Fn (List Case) Head -> Family)))
@@ -296,25 +308,25 @@
 
     ;; The head the family's instance gives each of the class's written
     ;; parameters: its row, and each type parameter its side.
-    (: family-types (impl (Fn BinaryClass Family -> (List declared-Type))))
+    (: family-types (impl (Fn BinaryClass Family -> (List Type))))
     (define (family-types binary family)
       (map (lambda (parameter)
              (match parameter
                ((declared-RowParameter _)
-                (declared-Row (declared-Effects (::effects family) (None))))
+                (Row (Effects (::effects family) (None))))
                ((declared-TypeParameter name)
                 (if (string=? name (::left binary))
                     (left-type (::head family))
                     (right-type (::head family))))))
            (::parameters binary)))
 
-    (: left-type (impl (Fn Head -> declared-Type)))
+    (: left-type (impl (Fn Head -> Type)))
     (define (left-type head)
       (match head
         ((ErasedRight left) left)
         (_ any-type)))
 
-    (: right-type (impl (Fn Head -> declared-Type)))
+    (: right-type (impl (Fn Head -> Type)))
     (define (right-type head)
       (match head
         ((ErasedLeft right) right)
@@ -362,21 +374,21 @@
       (define main (list "main"))
 
       (define (builtin name)
-        (declared-Con (Global forms-library name 0) (list)))
+        (Con (Global forms-library name 0) (list)))
 
       (define i64 (builtin "I64"))
       (define f64 (builtin "F64"))
-      (define (var name) (declared-Var (declared-Written name)))
+      (define (var name) (Var (Written name)))
       (define log (Global main "log" 0))
       (define op (Global main "op" 0))
 
       (define (arrow parameters result effects)
-        (declared-Callable (Dyn) (FnContract) (declared-Arrow parameters result effects)))
+        (Callable (Dyn) (FnContract) (Arrow parameters result effects)))
 
-      (define open-row (declared-Effects (list) (Some (var "e"))))
+      (define open-row (Effects (list) (Some (var "e"))))
 
       (define (own type)
-        (declared-Scheme (list) (list) (list) type))
+        (Scheme (list) (list) (list) type))
 
       ;; (typeclass (Op e A B) (type Output) (: op (impl (Fn A B -> Output ! e)))).
       (define (op-class members)
@@ -430,30 +442,30 @@
                        (binary-class
                         (op-class (list op-method (Pair (declared-ClassMethod log) scheme)))))))
           (expect (class (own i64)) (Err requirements))
-          (expect (class (declared-Scheme (list)
-                                          (list (declared-ClassRequirement (ClassGlobal op) (list)))
-                                          (list)
-                                          (arrow (list (var "A") (var "B"))
-                                                 (var "Output")
-                                                 open-row)))
+          (expect (class (Scheme (list)
+                                 (list (ClassRequirement (ClassGlobal op) (list)))
+                                 (list)
+                                 (arrow (list (var "A") (var "B"))
+                                        (var "Output")
+                                        open-row)))
                   (Err requirements))
-          (expect (class (declared-Scheme (list (declared-Written "c"))
-                                          (list)
-                                          (list)
-                                          (arrow (list (var "A") (var "B"))
-                                                 (var "Output")
-                                                 open-row)))
+          (expect (class (Scheme (list (Written "c"))
+                                 (list)
+                                 (list)
+                                 (arrow (list (var "A") (var "B"))
+                                        (var "Output")
+                                        open-row)))
                   (Err shape))
           (expect (class (own (arrow (list (var "B") (var "A")) (var "Output") open-row)))
                   (Err shape))
           (expect (class (own (arrow (list (var "A") (var "B")) (var "A") open-row))) (Err shape))
           (expect (class (own (arrow (list (var "A") (var "B"))
                                      (var "Output")
-                                     (declared-Effects (list) (None)))))
+                                     (Effects (list) (None)))))
                   (Err shape))
           (expect (class (own (arrow (list (var "A") (var "B"))
                                      (var "Output")
-                                     (declared-Effects (list log) (Some (var "e"))))))
+                                     (Effects (list log) (Some (var "e"))))))
                   (Err shape))))
 
       (define (test-domains)
@@ -479,15 +491,15 @@
                                                  loc))
                   loc))
 
-      (define closed (declared-Row (declared-Effects (list) (None))))
-      (define logged (declared-Row (declared-Effects (list log) (None))))
+      (define closed (Row (Effects (list) (None))))
+      (define logged (Row (Effects (list log) (None))))
 
       ;; Read off error-binary-domain.sld and error-binary-source-inactive.sld,
       ;; and the old `binary-case`'s order.
       (define (test-cases)
         (let ((entries "dynamic-instances domain entries are two concrete, non-Any types")
               (ints (source 1 (list) closed i64 i64 i64 (list)))
-              (any-left (source 2 (list (declared-Written "a")) logged (var "a") f64 f64 (list))))
+              (any-left (source 2 (list (Written "a")) logged (var "a") f64 f64 (list))))
           (expect (domain-pair-case op-binary (list ints) (list any-type i64)) (Err entries))
           (expect (domain-pair-case op-binary (list ints) (list i64)) (Err entries))
           (expect (domain-pair-case op-binary (list ints) (list i64 (var "a"))) (Err entries))
@@ -504,13 +516,13 @@
           (expect (domain-pair-case op-binary
                                     (list (source 3 (list) closed i64 i64 i64
                                                   (list
-                                                   (declared-ClassRequirement (ClassGlobal op)
-                                                                              (list)))))
+                                                   (ClassRequirement (ClassGlobal op)
+                                                                     (list)))))
                                     (list i64 i64))
                   (Err "dynamic-instances source instances must have no class prerequisites"))
           (expect (domain-pair-case op-binary
                                     (list (source 4
-                                                  (list (declared-Written "o"))
+                                                  (list (Written "o"))
                                                   closed
                                                   i64
                                                   i64
@@ -520,7 +532,7 @@
                   (Err "dynamic-instances source outputs and rows must be determined"))
           (expect (domain-pair-case op-binary
                                     (list
-                                     (source 5 (list) (declared-Row open-row) i64 i64 i64 (list)))
+                                     (source 5 (list) (Row open-row) i64 i64 i64 (list)))
                                     (list i64 i64))
                   (Err "dynamic-instances source outputs and rows must be determined"))
           ;; An instance that gives the row parameter a type, as one written
@@ -568,7 +580,7 @@
                           i64
                           (effect-set (list dyn-cast-effect log))))
           (expect (family-types op-binary left-erased)
-                  (list (declared-Row (declared-Effects (list dyn-cast-effect) (None)))
+                  (list (Row (Effects (list dyn-cast-effect) (None)))
                         any-type
                         i64))
           (expect (family-problem "Op" op-binary left-erased) (None))

@@ -44,6 +44,8 @@
    (only (snail compiler names globals) Global ClassRef ClassGlobal FieldClass)
    (prefix (snail compiler bind language) bound-)
    (snail compiler declare language)
+   (snail compiler types type)
+   (snail compiler types scheme)
    (only (snail compiler names numbering) Numbering fresh-global)
    (snail compiler declare known)
    (snail compiler declare state)

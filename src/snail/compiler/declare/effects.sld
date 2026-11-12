@@ -28,6 +28,7 @@
    (only (snail compiler names globals) Global)
    (prefix (snail compiler bind language) bound-)
    (snail compiler declare language)
+   (snail compiler types type)
    (snail compiler declare known)
    (only (snail compiler names numbering) Numbering fresh-global fresh-locals)
    (snail compiler declare state)
@@ -254,8 +255,8 @@
                             (at line)))
 
       (define (function parameters effects)
-        (expanded-Callable (expanded-Impl)
-                           (expanded-FnContract)
+        (expanded-Callable (Impl)
+                           (FnContract)
                            (expanded-Arrow parameters (i64-at 1) effects)
                            loc))
 

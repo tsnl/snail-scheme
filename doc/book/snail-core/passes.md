@@ -48,8 +48,8 @@ module: a whole program, or one library in a development build.
 - A **vocabulary** is data and logic that many passes share: what a
   library's name is, what a Global and a local are and when two are the
   same, the literals a program writes, the numbers a library hands out,
-  and what the compiler knows by name of the libraries it treats
-  specially. A vocabulary is not a language, since no pass writes it: a
+  what the compiler knows by name of the libraries it treats specially,
+  and what a type is and what is decided about one. A vocabulary is not a language, since no pass writes it: a
   language states what one pass guarantees of its output, while a
   vocabulary holds what every language from some pass on agrees on. So it
   lives in a folder of its own, which no pass owns, and a language that
@@ -95,8 +95,17 @@ src/snail/compiler/
     datum.sld             Datum, a literal as it is read
     constant.sld          Constant, a literal value or the unit value
   builtins/               vocabulary: what the compiler knows by name
-    forms.sld             the keywords, builtin types and builtin effects of (snail core forms), with the types' arities
+    forms.sld             the keywords, builtin types and builtin effects of (snail core forms), with the types' arities, and the Globals of those a pass names
     base.sld              the classes of (snail core base) the compiler treats specially, and the runtime's Globals generated code names
+  types/                  vocabulary: types, as every pass from declare on holds them
+    type.sld              Type, Arrow, Effects, TypeVariable, Former and Contract
+    scheme.sld            Scheme and Requirement
+    equality.sld          when types are the same, and a row's effects as a set
+    substitution.sld      a type or a requirement with its variables bound
+    text.sld              the text a type is written as in the running program
+    builtins.sld          the builtin types the passes write by name: Any, Unit and I32
+  typer/                  vocabulary: what is decided about types
+    matching.sld          one-way matching of an instance's head against types
   read/
     language.sld          (snail compiler read language): the Syntax language
     pass.sld              (snail compiler read pass): the function `read`, and `read-generated` for a producer's output
@@ -148,7 +157,6 @@ src/snail/compiler/
   declare/
     language.sld          Declared, the tree it writes
     offer.sld             Declarations, what a library offers its importers' declaration
-    equality.sld          query: when types are the same, and a row's effects as a set
     membership.sld        query: the members an instance of a class implements, and the name each goes by
     misplaced-rows.sld    query: the refusal of a head that gives a type parameter a row
     known.sld             rule: what is known of types and classes where a type is written
@@ -175,14 +183,12 @@ src/snail/compiler/
     expressions.sld       part: bodies
     top.sld               part: the scan, the signatures, each declaration, the structs, then every body
     pass.sld              (snail compiler declare pass): the function `declare`
-    schemes.sld           query: the scheme of each value a declaration makes, substitution, and field classes
+    schemes.sld           query: the scheme of each value a declaration makes, and field classes
   dispatch/
     language.sld          Dispatched, the tree it writes
     listing.sld           query: every instance a library declares, and what is read of one
-    matching.sld          query: one-way matching of an instance's head
     overlap.sld           query: when one instance overlaps another, and whether two active under some sets do
-    text.sld              query: the texts the generated code holds: a type, a place, a method
-    runtime.sld           rule: Any, the type an erased value has
+    text.sld              query: the texts the generated code holds beside its types': a place, a method
     known.sld             rule: what is known of a class where an instance names it
     domains.sld           rule: what a dispatch clause covers, and what each method of its class must be
     binary.sld            rule: a binary class, each domain pair's case, the heads, and each head's cases, output and row
@@ -210,7 +216,7 @@ under a name that says what it decides or answers.
 
 Each vocabulary is a folder too, of libraries named for their subject, with
 no `language.sld` and no `pass.sld`. The vocabularies come in an order,
-`names`, `literals`, `builtins`, then the planned `types`, `typer` and
+`names`, `literals`, `builtins`, `types`, `typer`, then the planned
 `declarations`, and each may read only those before it. A pass's language
 names a vocabulary's data where it carries it, and its grammar says whose
 each such rule is.
@@ -530,8 +536,10 @@ Label       ::= Label name
 Expanded is the first language to carry the vocabularies' rules, and
 states them here once. `Constant` is `literals/constant.sld`'s. `ClassRef`,
 `Local`, `Global`, `TopValue`, `FieldRole` and `Label` are
-`names/globals.sld`'s, and a `library` is a `LibraryName`. Every language
-after Expanded carries them as Expanded does.
+`names/globals.sld`'s, and a `library` is a `LibraryName`. `Former` and
+`Contract` are `types/type.sld`'s, since a written callable type and a
+type name them alike. Every language after Expanded carries them as
+Expanded does.
 
 `LinkedFile` and `ArtifactFiles` stay in the tree. Queries over Expanded
 gather them: the integrator reads the files the links name, and `bind`
@@ -972,9 +980,16 @@ Requirement ::= ClassRequirement ClassRef Type*
               | CallableRequirement Contract Type Arrow         no Loc
 ```
 
-Declared reuses Expanded's `Annotation`, `Former` and `Contract`, and
-carries the vocabularies' `Constant`, `Datum`, `Local`, `Global`,
-`TopValue`, `FieldRole`, `Label` and `ClassRef`.
+Declared reuses Expanded's `Annotation`, and carries the vocabularies'
+`Constant`, `Datum`, `Local`, `Global`, `TopValue`, `FieldRole`, `Label`
+and `ClassRef`. Declared is the first language to carry the types, and
+states them here once: `Type`, `Arrow`, `Effects`, `TypeVariable`,
+`Former` and `Contract` are `types/type.sld`'s, and `Scheme` and
+`Requirement` `types/scheme.sld`'s. Every language after Declared carries
+them as Declared does. When two types are the same, a type with its
+variables bound and the text a type is written as are the vocabulary's
+too, `types/equality.sld`, `types/substitution.sld` and `types/text.sld`,
+and the builtin types a pass writes by name, `types/builtins.sld`.
 
 `declare` is handed the derived library and the `Declarations` of every
 library in its import closure, and, when the library derives, those of
@@ -1072,8 +1087,9 @@ the instances it generates, each at the form, for the heads `(Any R)`,
 `(L Any)` and `(Any Any)` of its pairs, whose methods call the one active
 source instance of each pair the head accepts. `language.sld` states the
 code each writes, up to the names of locals. The texts a `CastError` holds
-are the old compiler's: the types it expected, the place and the method,
-which only `text.sld` writes. Who wrote an instance's methods is not kept:
+are the old compiler's: the types it expected, as `types/text.sld` writes
+a type, and the place and the method, which only `dispatch/text.sld`
+writes. Who wrote an instance's methods is not kept:
 the old compiler marks a dispatched method `function?`, and reads the mark
 only for a value a program names, which no dispatched method is.
 
@@ -1156,8 +1172,8 @@ Listed      ::= ListedInstance Instance set?                    no Loc but its i
               | FieldInstance Data DataField                    no Loc
 ```
 
-`matching.sld` matches an instance's head one way against types, as the
-old `match-types` does: only the instance's variables bind, a callable
+`typer/matching.sld` matches an instance's head one way against types, as
+the old `match-types` does: only the instance's variables bind, a callable
 matches a callable of its kind and code matches code by parameters and
 result, never by effects, and a row matches nothing.
 

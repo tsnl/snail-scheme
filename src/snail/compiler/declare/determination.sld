@@ -16,8 +16,10 @@
   (import
    (snail core base)
    (snail compiler declare language)
+   (snail compiler types type)
+   (snail compiler types scheme)
    (snail compiler declare known)
-   (snail compiler declare equality)
+   (snail compiler types equality)
    (snail compiler declare kinds))
   (begin
 
@@ -99,7 +101,6 @@
     (import
      (snail core table)
      (snail compiler source)
-     (only (snail compiler expand language) FnContract)
      (only (snail compiler names globals) Global ClassGlobal Label)
      (snail compiler declare offer)
      (snail stage0 testing))

@@ -23,9 +23,10 @@
 ;;
 ;; Every other rule is Declared's, (snail compiler declare language), which
 ;; `dispatch` writes but never looks inside: Signed, Data, Class, Effect,
-;; PrimitiveType, InstanceMethod and Member, Expr and every rule it holds,
-;; the types, Scheme and Requirement; and through Declared, Expanded's and
-;; Syntax's.
+;; PrimitiveType, InstanceMethod and Member, Expr and every rule it holds;
+;; and through Declared, Expanded's Annotation. The types, Scheme and
+;; Requirement are the vocabulary's, (snail compiler types type) and
+;; (snail compiler types scheme), as the names and literals are.
 ;;
 ;; Over the Declared library it comes from, Dispatched guarantees:
 ;;
@@ -172,10 +173,9 @@
          Effect
          PrimitiveType
          InstanceMethod
-         Expr
-         Type
-         TypeVariable
-         Requirement))
+         Expr)
+   (only (snail compiler types type) Type TypeVariable)
+   (only (snail compiler types scheme) Requirement))
   (begin
 
     ;; ---- Libraries ----

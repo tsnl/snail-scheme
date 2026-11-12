@@ -21,6 +21,7 @@
    (prefix (snail compiler expand language) expanded-)
    (only (snail compiler names globals) Global)
    (snail compiler declare language)
+   (snail compiler types type)
    (snail compiler declare known)
    (snail compiler declare types)
    (snail compiler declare values))

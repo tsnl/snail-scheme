@@ -14,6 +14,7 @@
    (snail compiler names libraries)
    (prefix (snail compiler derive language) derived-)
    (snail compiler declare language)
+   (snail compiler types type)
    (snail compiler declare offer)
    (snail compiler declare known)
    (snail compiler declare state)
@@ -87,8 +88,8 @@
                                                         (expanded-Scheme (list)
                                                                          (list)
                                                                          (expanded-Callable
-                                                                          (expanded-Impl)
-                                                                          (expanded-FnContract)
+                                                                          (Impl)
+                                                                          (FnContract)
                                                                           (expanded-Arrow (list)
                                                                                           i64-type
                                                                                           (expanded-Effects

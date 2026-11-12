@@ -15,7 +15,9 @@
    (snail core base)
    (snail compiler declare language)
    (only (snail compiler names globals) ClassRef ClassGlobal FieldClass same-global?)
-   (only (snail compiler declare schemes) field-reader-scheme))
+   (only (snail compiler declare schemes) field-reader-scheme)
+   (snail compiler types type)
+   (snail compiler types scheme))
   (begin
 
     ;; ---- Members ----

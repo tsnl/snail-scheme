@@ -1,11 +1,11 @@
-;; Query: when two types are the same; and a row's effects as a set, in
-;; the one order of Globals, (snail compiler names globals), which makes
-;; the same set of effects the same list. A type is a value, so two types
+;; When two types are the same; and a row's effects as a set, in the one
+;; order of Globals, (snail compiler names globals), which makes the same
+;; set of effects the same list. A type is a value, so two types
 ;; are the same exactly when they are equal part by part: a row's labels
 ;; are compared as the lists they are, which the order makes the sets
 ;; they stand for, and its tail as written, as the old compiler's `type=?`
 ;; compares a row's.
-(define-library (snail compiler declare equality)
+(define-library (snail compiler types equality)
   (export
    effect-set
    same-type?
@@ -16,16 +16,8 @@
    same-contract?)
   (import
    (snail core base)
-   (only (snail compiler expand language)
-         Former
-         Impl
-         Dyn
-         Contract
-         FnContract
-         FnMutContract
-         FnOnceContract)
    (only (snail compiler names globals) Global same-global? global<?)
-   (snail compiler declare language))
+   (snail compiler types type))
   (begin
 
     ;; ---- Effects ----

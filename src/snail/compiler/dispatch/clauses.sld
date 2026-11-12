@@ -29,8 +29,10 @@
    (snail compiler source)
    (only (snail compiler names globals) Local TopGlobal)
    (prefix (snail compiler declare language) declared-)
+   (only (snail compiler types type) Type Con Callable Row Var Arrow Effects Written)
+   (only (snail compiler types scheme) Scheme)
    (only (snail compiler declare membership) member-name)
-   (snail compiler dispatch runtime)
+   (snail compiler types builtins)
    (only (snail compiler builtins base)
          unsupported-instance-case
          argument-mismatch-case
@@ -53,7 +55,7 @@
     ;; stands for, `class` as known where the instance is written; or the
     ;; domain's problem, at the instance.
     (: clause-methods
-       (impl (Fn Numbering KnownClass declared-Instance (List declared-Type)
+       (impl (Fn Numbering KnownClass declared-Instance (List Type)
                  -> (Result (Pair ClauseMethods Numbering) (List Feedback)))))
     (define (clause-methods state class instance targets)
       (let ((loc (::loc instance)))
@@ -62,7 +64,7 @@
           ((Ok domain) (Ok (members-methods state domain (::members class) loc))))))
 
     (: members-methods
-       (impl (Fn Numbering Domain (List (Pair declared-Member declared-Scheme)) Loc
+       (impl (Fn Numbering Domain (List (Pair declared-Member Scheme)) Loc
                  -> (Pair ClauseMethods Numbering))))
     (define (members-methods state domain members loc)
       (let loop ((state state)
@@ -100,7 +102,7 @@
     ;; One target's branch: the target, the local the selecting argument is
     ;; recovered as, and the call made with it.
     (struct Branch
-      ((target declared-Type)
+      ((target Type)
        (selected Local)
        (call declared-Expr)))
 
@@ -142,7 +144,7 @@
                    loc))
 
     ;; Each branch in turn, then the failure that names every target.
-    (: tried (impl (Fn Dispatching (List declared-Type) (List Branch) -> declared-Expr)))
+    (: tried (impl (Fn Dispatching (List Type) (List Branch) -> declared-Expr)))
     (define (tried dispatching targets branches)
       (let ((loc (::loc dispatching)))
         (fold-right (lambda (branch rest)
@@ -160,7 +162,7 @@
                                   loc)
                     branches)))
 
-    (: branch (impl (Fn Numbering Dispatching declared-Type -> (Pair Branch Numbering))))
+    (: branch (impl (Fn Numbering Dispatching Type -> (Pair Branch Numbering))))
     (define (branch state dispatching target)
       (state-let* ((selected state (fresh-local state "selected"))
                    (arguments state
@@ -179,7 +181,7 @@
     ;; target or the dispatch failed for it; or the parameter as it is.
     (: argument
        (impl
-        (Fn Numbering Dispatching declared-Type Local Parameter -> (Pair declared-Expr Numbering))))
+        (Fn Numbering Dispatching Type Local Parameter -> (Pair declared-Expr Numbering))))
     (define (argument state dispatching target selected parameter)
       (let ((loc (::loc dispatching))
             (value (declared-LocalRef (::local parameter) (::loc dispatching))))
@@ -233,11 +235,11 @@
     (export
      test-clauses)
     (import
-     (only (snail compiler expand language) Dyn FnContract)
      (only (snail compiler names globals) Global ClassGlobal FieldClass)
      (only (snail compiler literals constant) Integer Text)
      (only (snail compiler names libraries) forms-library)
      (only (snail compiler declare schemes) field-class-parameters field-reader-scheme)
+     (only (snail compiler types type) Dyn FnContract)
      (snail stage0 testing))
     (begin
       (define (test-clauses)
@@ -252,29 +254,29 @@
       (define main (list "main"))
 
       (define (builtin name)
-        (declared-Con (Global forms-library name 0) (list)))
+        (Con (Global forms-library name 0) (list)))
 
       (define i64 (builtin "I64"))
       (define f64 (builtin "F64"))
       (define string-type (builtin "String"))
-      (define t (declared-Var (declared-Written "T")))
-      (define dyn-cast-row (declared-Row (declared-Effects (list dyn-cast-effect) (None))))
+      (define t (Var (Written "T")))
+      (define dyn-cast-row (Row (Effects (list dyn-cast-effect) (None))))
 
       (define (list-of type)
-        (declared-Con (Global base "List" 0) (list type)))
+        (Con (Global base "List" 0) (list type)))
 
       ;; `(dyn (Fn parameter ... -> result ! e))`, a method's own type.
       (define (method-type parameters result)
-        (declared-Callable (Dyn)
-                           (FnContract)
-                           (declared-Arrow parameters
-                                           result
-                                           (declared-Effects (list)
-                                                             (Some (declared-Var
-                                                                    (declared-Written "e")))))))
+        (Callable (Dyn)
+                  (FnContract)
+                  (Arrow parameters
+                         result
+                         (Effects (list)
+                                  (Some (Var
+                                         (Written "e")))))))
 
       (define (own type)
-        (declared-Scheme (list) (list) (list) type))
+        (Scheme (list) (list) (list) type))
 
       (define (class-of members)
         (KnownClass (list (declared-RowParameter "e") (declared-TypeParameter "T")) (list) members))
@@ -288,7 +290,7 @@
         (declared-Instance (Global main "Clause" 1)
                            class
                            (list)
-                           (list dyn-cast-row (declared-Con (Global forms-library "Any" 0) (list)))
+                           (list dyn-cast-row (Con (Global forms-library "Any" 0) (list)))
                            (list)
                            (list)
                            (list)
@@ -346,7 +348,7 @@
         (Local name number))
 
       (define (to-any expr)
-        (declared-Convert expr (declared-Con (Global forms-library "Any" 0) (list)) loc))
+        (declared-Convert expr (Con (Global forms-library "Any" 0) (list)) loc))
 
       ;; ---- Num ----
 
@@ -495,7 +497,7 @@
       ;; by its path, and named by it in a CastError
       ;; (build/dispatch-probes/field-dispatch.sld).
       (define (test-field)
-        (let ((point (declared-Con (Global main "Point" 0) (list)))
+        (let ((point (Con (Global main "Point" 0) (list)))
               (value (local "argument" 2)))
           (expect (clause-methods (Numbering main 1)
                                   (KnownClass field-class-parameters
@@ -506,8 +508,8 @@
                                                      (FieldClass "x")
                                                      (list)
                                                      (list
-                                                      (declared-Con (Global forms-library "Any" 0)
-                                                                    (list))
+                                                      (Con (Global forms-library "Any" 0)
+                                                           (list))
                                                       i64)
                                                      (list)
                                                      (list)

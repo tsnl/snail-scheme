@@ -30,6 +30,8 @@
    (only (snail compiler names globals) TopValue TopGlobal FieldFunction)
    (prefix (snail compiler bind language) bound-)
    (snail compiler declare language)
+   (snail compiler types type)
+   (snail compiler types scheme)
    (snail compiler declare known)
    (only (snail compiler declare state) checked)
    (snail compiler declare owned)

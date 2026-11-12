@@ -16,6 +16,8 @@
    (snail core base)
    (prefix (only (snail compiler expand language) Equation) expanded-)
    (snail compiler declare language)
+   (snail compiler types type)
+   (snail compiler types scheme)
    (snail compiler declare known))
   (begin
 
@@ -106,7 +108,6 @@
     (import
      (snail core table)
      (snail compiler source)
-     (only (snail compiler expand language) FnContract)
      (prefix (only (snail compiler expand language) Variable) expanded-)
      (only (snail compiler names globals) Global ClassGlobal FieldClass Label)
      (snail compiler declare offer)

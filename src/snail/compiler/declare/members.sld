@@ -19,6 +19,8 @@
    (only (snail compiler expand language) MethodName MemberName PathName)
    (only (snail compiler names globals) Global)
    (snail compiler declare language)
+   (snail compiler types type)
+   (snail compiler types scheme)
    (snail compiler declare membership))
   (begin
 

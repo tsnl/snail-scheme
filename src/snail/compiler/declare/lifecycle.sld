@@ -27,8 +27,9 @@
   (import
    (snail core base)
    (snail compiler names libraries)
-   (only (snail compiler expand language) Dyn FnContract)
    (snail compiler declare language)
+   (snail compiler types type)
+   (snail compiler types scheme)
    (snail compiler declare known)
    (only (snail compiler builtins base)
          drop-class
@@ -37,7 +38,7 @@
          Dropping
          Cloning
          lifecycle-class)
-   (snail compiler declare equality)
+   (snail compiler types equality)
    (only (snail compiler names globals) Global ClassGlobal same-global?))
   (begin
 
@@ -231,7 +232,6 @@
     (import
      (snail core table)
      (snail compiler source)
-     (only (snail compiler expand language) Impl FnMutContract)
      (only (snail compiler names globals) FieldClass)
      (snail compiler declare offer)
      (snail stage0 testing))

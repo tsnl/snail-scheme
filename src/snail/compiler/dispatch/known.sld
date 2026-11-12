@@ -23,6 +23,8 @@
    (only (snail compiler declare offer) Declarations)
    (only (snail compiler names globals) Global ClassRef ClassGlobal FieldClass same-global?)
    (only (snail compiler declare schemes) field-class-parameters)
+   (only (snail compiler types type) Con)
+   (only (snail compiler types scheme) Scheme)
    (only (snail compiler declare membership) member-schemes))
   (begin
 
@@ -34,7 +36,7 @@
     (struct KnownClass
       ((parameters (List declared-ClassParameter))
        (outputs (List declared-Output))
-       (members (List (Pair declared-Member declared-Scheme)))))
+       (members (List (Pair declared-Member Scheme)))))
 
     ;; What is known of classes at one point of the library `library`: the
     ;; offers of its import closure; each class it declares, found before
@@ -155,10 +157,10 @@
       (define lib (list "lib"))
 
       (define own-scheme
-        (declared-Scheme (list)
-                         (list)
-                         (list)
-                         (declared-Con (Global forms-library "Unit" 0) (list))))
+        (Scheme (list)
+                (list)
+                (list)
+                (Con (Global forms-library "Unit" 0) (list))))
 
       ;; (typeclass (Store e S) (type Out) (: fetch ...)) in `library`,
       ;; whose e is a row.

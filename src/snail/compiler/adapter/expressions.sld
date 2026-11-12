@@ -67,12 +67,10 @@
          Wild
          Bind
          Equals
-         Destructure
-         Type
-         Con
-         Scheme
-         Requirement
-         ClassRequirement)
+         Destructure)
+   (only (snail compiler types type) Type Con)
+   (only (snail compiler types builtins) i32-type)
+   (only (snail compiler types scheme) Scheme Requirement ClassRequirement)
    (only (snail compiler names globals) Local Global FieldClass same-global?)
    (only (snail compiler literals constant)
          Constant
@@ -224,7 +222,7 @@
            (Pair (at (old:TypeTest value (old-type type)) loc) state)))
         ((CaseId _ id loc)
          (Pair (at (old:Ann (at (old:Lit (old:DInt id)) loc)
-                            (old-type (Con (Global forms-library "I32" 0) (Nil))))
+                            (old-type i32-type))
                    loc)
                state))))
 
