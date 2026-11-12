@@ -14,6 +14,7 @@ import {createProcesses, createTermination} from './process.mjs';
 import {processImports} from './process-imports.mjs';
 import {createHints} from './hints.mjs';
 import {createAsyncFiles} from './async-files.mjs';
+import {Exit, exiting} from './wasi.mjs';
 
 // ---- One reactor initialization and one program invocation ----
 //
@@ -51,24 +52,6 @@ function resultStatus(value) {
     return Number(value);
   }
   return 1;
-}
-
-// Node's WASI keeps an exit's status where only `start` reads it, and a
-// program is a reactor, so its `proc_exit` throws an Exit instead.
-class Exit { constructor(code) { this.code = code; } }
-
-function exiting(wasi) {
-  const imports = wasi.getImportObject();
-  const native = imports.wasi_snapshot_preview1;
-  imports.wasi_snapshot_preview1 = {...native, proc_exit(code) { throw new Exit(code); },
-    // uvwasi resolves SYMLINK_FOLLOW before applying CREAT | EXCL. Clear
-    // that lookup flag for exclusive creation so a dangling leaf cannot
-    // become a newly created link target before the OS checks exclusivity.
-    path_open(fd, lookup, path, length, flags, ...rest) {
-      return native.path_open(fd, (flags & 5) === 5 ? lookup & ~1 : lookup, path, length, flags, ...rest);
-    },
-  };
-  return {getImportObject: () => imports, initialize: instance => wasi.initialize(instance)};
 }
 
 async function run(filename, arguments_) {
