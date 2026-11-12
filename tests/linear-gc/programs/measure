@@ -7,6 +7,7 @@ baseline=$1
 candidate=$2
 output=$3
 label=${4:-linear-mvp}
+reference=${5:-wasmgc}
 runner=crates/linear-gc-prototype/runner
 mkdir -p "$output"
 cargo build --locked --offline --release --manifest-path "$runner/Cargo.toml"
@@ -14,11 +15,11 @@ node --version > "$output/environment.txt"
 wasm-opt --version >> "$output/environment.txt"
 sha256sum "$baseline" "$candidate" >> "$output/environment.txt"
 for round in 1 2 3; do
-  order="wasmgc $label"
-  if [ "$round" = 2 ]; then order="$label wasmgc"; fi
+  order="$reference $label"
+  if [ "$round" = 2 ]; then order="$label $reference"; fi
   for variant in $order; do
     artifact=$candidate
-    if [ "$variant" = wasmgc ]; then artifact=$baseline; fi
+    if [ "$variant" = "$reference" ]; then artifact=$baseline; fi
     taskset -c "${BENCH_CPU:-0}" node --no-warnings --no-liftoff --no-wasm-lazy-compilation \
       tests/linear-gc/programs/run.mjs "$artifact" "$variant" > "$output/$variant-node-$round.json"
     taskset -c "${BENCH_CPU:-0}" "$runner/target/release/linear-gc-runner" program \
