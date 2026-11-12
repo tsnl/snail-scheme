@@ -8,7 +8,8 @@
 ;; another library the compiler knows by their Globals: Drop and Clone, of
 ;; (snail core base), the lifecycle classes, whose instances say how a
 ;; value of their type is dropped and cloned; a Drop instance makes its
-;; type's values moved.
+;; type's values moved. `declare` checks what a lifecycle instance may be,
+;; and `dispatch` dispatches over no lifecycle class.
 (define-library (snail compiler declare forms)
   (export
    forms-library
@@ -18,12 +19,18 @@
    vector-type
    u8-type
    drop-class
-   clone-class)
+   clone-class
+   Lifecycle
+   Dropping
+   Cloning
+   instance-lifecycle
+   lifecycle-class)
   (import
    (snail core base)
    (only (snail compiler outline language) LibraryName)
    (only (snail compiler outline names) same-library?)
-   (only (snail compiler expand language) Global))
+   (only (snail compiler expand language) Global ClassRef ClassGlobal FieldClass)
+   (only (snail compiler declare equality) same-global?))
   (begin
 
     ;; ---- Builtin types ----
@@ -85,6 +92,26 @@
     (define clone-class
       (Global (list "snail" "core" "base") "Clone" 0))
 
+    ;; Which lifecycle class an instance's class is, if it is one.
+    (enum Lifecycle
+      (Dropping)
+      (Cloning))
+
+    (: instance-lifecycle (impl (Fn ClassRef -> (Option Lifecycle))))
+    (define (instance-lifecycle class)
+      (match class
+        ((ClassGlobal global)
+         (cond ((same-global? global drop-class) (Some (Dropping)))
+               ((same-global? global clone-class) (Some (Cloning)))
+               (else (None))))
+        ((FieldClass _) (None))))
+
+    (: lifecycle-class (impl (Fn Lifecycle -> Global)))
+    (define (lifecycle-class lifecycle)
+      (match lifecycle
+        ((Dropping) drop-class)
+        ((Cloning) clone-class)))
+
     )
 
   ;; ---- Tests ----
@@ -107,5 +134,11 @@
         (expect
          (map (lambda (global) (builtin-arity global)) (list string-type vector-type u8-type))
          (list (Some 0) (Some 1) (Some 0)))
-        (expect (map ::name (list drop-class clone-class)) (list "Drop" "Clone")))))
+        (expect (map ::name (list drop-class clone-class)) (list "Drop" "Clone"))
+        (expect (instance-lifecycle (ClassGlobal drop-class)) (Some (Dropping)))
+        (expect (instance-lifecycle (ClassGlobal clone-class)) (Some (Cloning)))
+        (expect (instance-lifecycle (ClassGlobal (Global (list "snail" "core" "base") "Show" 0)))
+                (None))
+        (expect (instance-lifecycle (FieldClass "x")) (None))
+        (expect (map lifecycle-class (list (Dropping) (Cloning))) (list drop-class clone-class)))))
    (else)))

@@ -126,7 +126,9 @@ src/snail/compiler/
     language.sld          Declared, the tree it writes
     offer.sld             Declarations, what a library offers its importers' declaration
     equality.sld          query: when Globals and types are the same, and the order of a row's effects
-    forms.sld             query: the builtin types of (snail core forms), with their arities
+    forms.sld             query: the builtin types of (snail core forms), with their arities, and the lifecycle classes
+    spellings.sld         query: how a Global is spelled in the texts a running program holds
+    membership.sld        query: the members an instance of a class implements, and the name each goes by
     known.sld             rule: what is known of types and classes where a type is written
     requirements.sld      rule: what a class requirement gives its class
     projections.sld       rule: the type a projection stands for
@@ -157,6 +159,13 @@ src/snail/compiler/
     listing.sld           query: every instance a library declares, and what is read of one
     matching.sld          query: one-way matching of an instance's head
     text.sld              query: the texts the generated code holds: a type, a place, a method
+    runtime.sld           rule: the Globals of the runtime the generated code names
+    known.sld             rule: what is known of a class where an instance names it
+    domains.sld           rule: what a dispatch clause covers, and what each method of its class must be
+    state.sld             the numbers it hands out, numbering-let* and numbering-map
+    conversions.sld       part: the recovery of a typed value from Any, and the CastError that fails it
+    clauses.sld           part: a dispatch clause's methods
+    pass.sld              (snail compiler dispatch pass): the function `dispatch`
   ...
   integrate/              the integrator: one library per job
     files.sld             (snail compiler integrate files): every read of the file system
@@ -235,6 +244,9 @@ written. Where one remains, a comment says which invariant it rests on.
 
 **Names are data.** A global is a library and a name; a local is a name and
 a number. No pass builds a name by joining text or reads one by scanning it.
+A name is spelled only into the texts a running program holds, a wire
+schema's and a `CastError`'s, which `declare/spellings.sld` writes, and
+no pass looks a name up by its spelling.
 
 **Sequencing.** `result-let*` from `(snail compiler source)` sequences
 steps that return a `Result`, with the scope of `let*`, and `map-results`
@@ -931,6 +943,21 @@ are the old compiler's: the types it expected, the place and the method,
 which only `text.sld` writes. Who wrote an instance's methods is not kept:
 the old compiler marks a dispatched method `function?`, and reads the mark
 only for a value a program names, which no dispatched method is.
+
+`dispatch` walks a library's declarations in the order written, so a
+class of the library is known, with its methods, from its declaration on,
+and before that only its shape. A dispatch clause's domain is checked
+first, each refusal at its instance: a ground head with exactly one `Any`
+and a class no lifecycle class; at least one target; each ground and none
+`Any`; none repeated. A domain's refusal is the library's only problem,
+though a method's was found before it. Then each method of the class in
+order: no requirement of its own, no variable of its own, a function, its
+result and each parameter the erased type whole or apart from it, one
+parameter the erased type. Each method's refusal is reported, at the
+instance, and the walk goes on, so a library fails with every method's
+problem in the order written. Each method's implementation Global is
+numbered first, then the lambda's parameters, then each target's locals
+in turn, from the root's first unused number on.
 
 Dispatched declares afresh the roots, `Top` and `Instance`, and reuses
 Declared's for the rest.

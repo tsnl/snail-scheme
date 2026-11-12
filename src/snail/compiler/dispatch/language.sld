@@ -41,14 +41,15 @@
 ;;   class as known where the instance is written, which is none when the
 ;;   class is declared later in the library, in the class's order, one
 ;;   InstanceMethod: the member, an implementation Global of its own named
-;;   for the member, and a Lambda. For the erased parameter E, the first of
-;;   the class's parameters, its outputs last, that the head gives Any; the
-;;   targets T1 ... Tn; and a method m whose type, at the head's other
-;;   types, is (Fn P0 ... Pk -> R ! effects), where Ps is the first
-;;   parameter that is E, the Lambda is what this source stands for, up to
-;;   the names of locals:
+;;   for the member, and a ClosedLambda, which reads only its parameters,
+;;   as the old compiler's has no environment. For the erased parameter E,
+;;   the first of the class's parameters, its outputs last, that the head
+;;   gives Any; the targets T1 ... Tn; and a method m whose type, at the
+;;   head's other types, is (Fn P0 ... Pk -> R ! effects), where Ps is the
+;;   first parameter that is E, the ClosedLambda is what this source
+;;   stands for, up to the names of locals:
 ;;
-;;     (lambda (p0 ... pk)
+;;     (fn (p0 ... pk)
 ;;       (match (try-convert ps T1)
 ;;         ((Ok selected) (m a0 ... ak))
 ;;         (_ (match (try-convert ps T2)
@@ -71,9 +72,10 @@
 ;;                             (any-type-id pi) "FILE:LINE:COLUMN" "LIBRARY:m" i)))))
 ;;
 ;;   and pi otherwise; and the call is `(convert (m ...) Any)` when R is E.
-;;   The `m` called is the class's method, a TopRef of its Global, or the
-;;   path of a field class's label. A `match` there with no clause is one
-;;   of no clauses, typed by where it is: `conversion-failed` never returns.
+;;   The `m` called is the class's method, a TopRef of its Global; a field
+;;   class's reader is the read `(::label selected)` itself, a PathApply,
+;;   as `expand` writes it. A `match` there with no clause is one of no
+;;   clauses, typed by where it is: `conversion-failed` never returns.
 ;; - Each `dynamic-instances` form is, in its place among its set's
 ;;   members, the instances it generates, at the form. For a class
 ;;   (C e A B) with output O and methods m ..., and for each pair (L R) of
@@ -85,7 +87,7 @@
 ;;
 ;;     (instance (C (! dyn-cast effect ...) H1 H2)
 ;;       (type O output)
-;;       (define (m left right) body) ...)
+;;       (define m (fn (left right) body)) ...)
 ;;
 ;;   Its cases are the domain's pairs it accepts, each side Any or the
 ;;   pair's, in domain order. Its output is the one output its cases share,

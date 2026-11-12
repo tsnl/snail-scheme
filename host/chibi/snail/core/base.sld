@@ -64,6 +64,7 @@
    ::browser?
    ::builds
    ::bytes
+   ::call
    ::case-id-equal
    ::cases
    ::chars
@@ -118,6 +119,7 @@
    ::enum?
    ::env
    ::equations
+   ::erased
    ::evidence
    ::exclusive
    ::exit
@@ -137,6 +139,7 @@
    ::finished
    ::first
    ::first-unused-number
+   ::fixed
    ::flags
    ::form
    ::forms
@@ -193,6 +196,7 @@
    ::live
    ::loading
    ::loc
+   ::local
    ::locals
    ::low
    ::macro
@@ -221,6 +225,7 @@
    ::next
    ::nodes
    ::number
+   ::numbering
    ::offer
    ::offers
    ::offset
@@ -234,6 +239,7 @@
    ::outlined
    ::output
    ::outputs
+   ::own
    ::owned?
    ::owner
    ::pairs
@@ -248,6 +254,7 @@
    ::performed
    ::phase
    ::placed
+   ::position
    ::predecessor
    ::prefix
    ::prepend
@@ -282,12 +289,16 @@
    ::scopes
    ::scratch
    ::second
+   ::selected
+   ::selecting
+   ::selector
    ::self
    ::serial
    ::serialize
    ::set
    ::sets
    ::setup
+   ::shape
    ::show
    ::signed
    ::site
@@ -365,6 +376,7 @@
     (define (::browser? value) (field-of value (quote browser?)))
     (define (::builds value) (field-of value (quote builds)))
     (define (::bytes value) (field-of value (quote bytes)))
+    (define (::call value) (field-of value (quote call)))
     (define (::case-id-equal value) (field-of value (quote case-id-equal)))
     (define (::cases value) (field-of value (quote cases)))
     (define (::chars value) (field-of value (quote chars)))
@@ -419,6 +431,7 @@
     (define (::enum? value) (field-of value (quote enum?)))
     (define (::env value) (field-of value (quote env)))
     (define (::equations value) (field-of value (quote equations)))
+    (define (::erased value) (field-of value (quote erased)))
     (define (::evidence value) (field-of value (quote evidence)))
     (define (::exclusive value) (field-of value (quote exclusive)))
     (define (::exit value) (field-of value (quote exit)))
@@ -438,6 +451,7 @@
     (define (::finished value) (field-of value (quote finished)))
     (define (::first value) (field-of value (quote first)))
     (define (::first-unused-number value) (field-of value (quote first-unused-number)))
+    (define (::fixed value) (field-of value (quote fixed)))
     (define (::flags value) (field-of value (quote flags)))
     (define (::form value) (field-of value (quote form)))
     (define (::forms value) (field-of value (quote forms)))
@@ -494,6 +508,7 @@
     (define (::live value) (field-of value (quote live)))
     (define (::loading value) (field-of value (quote loading)))
     (define (::loc value) (field-of value (quote loc)))
+    (define (::local value) (field-of value (quote local)))
     (define (::locals value) (field-of value (quote locals)))
     (define (::low value) (field-of value (quote low)))
     (define (::macro value) (field-of value (quote macro)))
@@ -522,6 +537,7 @@
     (define (::next value) (field-of value (quote next)))
     (define (::nodes value) (field-of value (quote nodes)))
     (define (::number value) (field-of value (quote number)))
+    (define (::numbering value) (field-of value (quote numbering)))
     (define (::offer value) (field-of value (quote offer)))
     (define (::offers value) (field-of value (quote offers)))
     (define (::offset value) (field-of value (quote offset)))
@@ -535,6 +551,7 @@
     (define (::outlined value) (field-of value (quote outlined)))
     (define (::output value) (field-of value (quote output)))
     (define (::outputs value) (field-of value (quote outputs)))
+    (define (::own value) (field-of value (quote own)))
     (define (::owned? value) (field-of value (quote owned?)))
     (define (::owner value) (field-of value (quote owner)))
     (define (::pairs value) (field-of value (quote pairs)))
@@ -549,6 +566,7 @@
     (define (::performed value) (field-of value (quote performed)))
     (define (::phase value) (field-of value (quote phase)))
     (define (::placed value) (field-of value (quote placed)))
+    (define (::position value) (field-of value (quote position)))
     (define (::predecessor value) (field-of value (quote predecessor)))
     (define (::prefix value) (field-of value (quote prefix)))
     (define (::prepend value) (field-of value (quote prepend)))
@@ -583,12 +601,16 @@
     (define (::scopes value) (field-of value (quote scopes)))
     (define (::scratch value) (field-of value (quote scratch)))
     (define (::second value) (field-of value (quote second)))
+    (define (::selected value) (field-of value (quote selected)))
+    (define (::selecting value) (field-of value (quote selecting)))
+    (define (::selector value) (field-of value (quote selector)))
     (define (::self value) (field-of value (quote self)))
     (define (::serial value) (field-of value (quote serial)))
     (define (::serialize value) (field-of value (quote serialize)))
     (define (::set value) (field-of value (quote set)))
     (define (::sets value) (field-of value (quote sets)))
     (define (::setup value) (field-of value (quote setup)))
+    (define (::shape value) (field-of value (quote shape)))
     (define (::show value) (field-of value (quote show)))
     (define (::signed value) (field-of value (quote signed)))
     (define (::site value) (field-of value (quote site)))

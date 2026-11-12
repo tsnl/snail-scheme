@@ -36,6 +36,7 @@
    (snail compiler declare known)
    (snail compiler declare equality)
    (snail compiler declare kinds)
+   (only (snail compiler declare forms) Lifecycle)
    (snail compiler declare lifecycle))
   (begin
 

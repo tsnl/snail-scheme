@@ -5,22 +5,15 @@
 ;; compiler's `case-type-id` (src/snail/shell/compiler/core.sld), so the
 ;; identity changes exactly when the encoded shape can.
 ;;
-;; This rule builds a text from names, which no other decision may do: the
-;; schema is a wire format, hashed and never looked up, and it must be
+;; The schema is a wire format, hashed and never looked up, and it must be
 ;; spelled as the old compiler spells it, or wire data an old program wrote
-;; stops reading. A Global is spelled as the old compiler's unique name:
-;; its library's parts joined by dots, a colon and its name; a builtin of
-;; (snail core forms) by its name alone. A Global a macro's template wrote
-;; has a serial of its own, and the old name holds the stamp of the
-;; macro's use, which no new pass has, so it is spelled `name%serial`,
-;; which matches no old name.
+;; stops reading, so each Global in it is spelled as (snail compiler
+;; declare spellings) says.
 (define-library (snail compiler declare identities)
   (export
-   case-type-id
-   wire-name)
+   case-type-id)
   (import
    (snail core base)
-   (only (snail compiler outline names) same-library? library-key)
    (only (snail compiler expand language)
          Global
          Impl
@@ -30,8 +23,8 @@
          FnOnceContract)
    (snail compiler declare language)
    (snail compiler declare known)
-   (snail compiler declare forms)
-   (snail compiler declare equality))
+   (snail compiler declare equality)
+   (snail compiler declare spellings))
   (begin
 
     ;; ---- Identities ----
@@ -64,7 +57,7 @@
     (: case-schema (impl (Fn Known Data DataCase (List Global) -> String)))
     (define (case-schema known data case visiting)
       (let ((inside (Cons (::global data) visiting)))
-        (string-append (wire-name (::global case))
+        (string-append (global-spelling (::global case))
                        "("
                        (string-concatenate
                         (map (lambda (field)
@@ -92,7 +85,7 @@
            ((None) "#?")))
         ((Var _) "#?")
         ((Con global arguments)
-         (string-append (wire-name global)
+         (string-append (global-spelling global)
                         (arguments-schema known arguments parameters visiting)
                         (cases-schema known global visiting)))
         ((Callable (Dyn) (FnContract) _) "fn")
@@ -123,23 +116,6 @@
                                       (::cases data))))
             ((None) ""))))
 
-    ;; ---- Names ----
-
-    ;; A Global as the old compiler's unique name spells it, or a serial's
-    ;; spelling of its own.
-    (: wire-name (impl (Fn Global -> String)))
-    (define (wire-name global)
-      (cond ((and (same-library? (::library global) forms-library) (= (::serial global) 0))
-             (::name global))
-            ((= (::serial global) 0)
-             (string-append (library-key (::library global)) ":" (::name global)))
-            (else
-             (string-append (library-key (::library global))
-                            ":"
-                            (::name global)
-                            "%"
-                            (i64->string (::serial global))))))
-
     )
 
   ;; ---- Tests ----
@@ -152,10 +128,10 @@
      (snail core table)
      (snail compiler source)
      (snail compiler declare offer)
+     (snail compiler declare forms)
      (snail stage0 testing))
     (begin
       (define (test-identities)
-        (test-names)
         (test-schemas))
 
       (define loc (Loc "t.sld" 1 1))
@@ -223,11 +199,6 @@
 
       (define pair
         (Data (global main "Pair") (list) (list pair-case) (StructData) #f #f (list) loc))
-
-      (define (test-names)
-        (expect (wire-name (global base "Option")) "snail.core.base:Option")
-        (expect (wire-name (Global forms-library "I64" 0)) "I64")
-        (expect (wire-name (Global main "Box" 3)) "main:Box%3"))
 
       ;; Read off `case-schema` and `type-schema`: parameters by position, a
       ;; type visited cut, a field type's cases followed, and the TypeId of

@@ -35,6 +35,7 @@
    pure-struct?
    field-class-parameters
    field-reader-scheme
+   class-variables
    method-scheme
    operation-scheme
    default-scheme
@@ -126,20 +127,22 @@
     (define field-reader-scheme
       (Scheme (Nil) (Nil) (Nil) (function (list (Var (Written "R"))) (Var (Written "T")) (Nil))))
 
-    (: class-variables (impl (Fn Class -> (List TypeVariable))))
-    (define (class-variables class)
+    ;; A class's parameters, then its outputs, as the variables each of its
+    ;; methods' own schemes is written over.
+    (: class-variables (impl (Fn (List ClassParameter) (List Output) -> (List TypeVariable))))
+    (define (class-variables parameters outputs)
       (map Written
            (append (map (lambda (parameter)
                           (match parameter
                             ((TypeParameter name) name)
                             ((RowParameter name) name)))
-                        (::parameters class))
-                   (map (lambda (output) (::name (::label output))) (::outputs class)))))
+                        parameters)
+                   (map (lambda (output) (::name (::label output))) outputs))))
 
     (: method-scheme (impl (Fn Class Method -> Scheme)))
     (define (method-scheme class method)
       (let ((own (::scheme method))
-            (variables (class-variables class)))
+            (variables (class-variables (::parameters class) (::outputs class))))
         (Scheme (append variables (::variables own))
                 (Cons (ClassRequirement (ClassGlobal (::global class)) (map Var variables))
                       (::requirements own))
@@ -170,7 +173,7 @@
     (: implementation-scheme (impl (Fn Class Method Instance -> Scheme)))
     (define (implementation-scheme class method instance)
       (let* ((own (::scheme method))
-             (bindings (append (zip (class-variables class)
+             (bindings (append (zip (class-variables (::parameters class) (::outputs class))
                                     (append (::types instance) (::outputs instance)))
                                (map (lambda (variable) (Pair variable (Var (Own variable))))
                                     (::variables own)))))

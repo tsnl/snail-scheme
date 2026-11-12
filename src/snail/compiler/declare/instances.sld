@@ -47,8 +47,10 @@
    (snail compiler declare requirements)
    (snail compiler declare heads)
    (snail compiler declare determination)
+   (snail compiler declare forms)
    (snail compiler declare lifecycle)
    (snail compiler declare members)
+   (snail compiler declare membership)
    (snail compiler declare types)
    (snail compiler declare expressions))
   (begin
@@ -278,7 +280,6 @@
      (snail core table)
      (only (snail compiler expand language) Label)
      (snail compiler declare offer)
-     (snail compiler declare forms)
      (snail stage0 testing))
     (begin
       (define (test-instances)
