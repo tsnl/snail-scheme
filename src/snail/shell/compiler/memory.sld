@@ -291,6 +291,9 @@
 
     ;; ---- Function roots ----
 
+    ;; Frame lifetime belongs to the whole function, even when a return value
+    ;; is computed without collection. Temporary publication may be disabled
+    ;; inside one such expression without changing the function's exit rules.
     (struct MemoryFunction
       ((module MemoryModule)
        (framed? Bool)
@@ -777,6 +780,8 @@
 
     (: function-context (impl (Fn MemoryModule Wat -> MemoryFunction ! mut)))
     (define (function-context module function)
+      ;; A collecting function also roots its module owner: even a function
+      ;; with only scalar parameters can be executing retired module code.
       (let* ((framed? (not (table-contains? (::noncollecting module) (member-name function))))
              (declarations
               (append (pick "param" (parts function)) (pick "local" (parts function)))))
