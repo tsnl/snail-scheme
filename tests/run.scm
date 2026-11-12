@@ -218,7 +218,7 @@
   (let* ((program (path-join root "build/tests/allocation-placement.wasm"))
          (logical (parse-wat (read-file (path-join root "tests/linear-gc/placement.wat")))))
     (link-wat root (wat->string (lower-memory logical)) program)
-    (let ((ran (run-wasm root program '())))
+    (let ((ran (capture-process (program-command root program))))
       (or (zero? (caddr ran))
           (report "allocation placement"
                   "execution failed"
