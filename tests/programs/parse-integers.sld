@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(for-each (lambda (text) (display (string->i64 text)) (newline))
+(for-each (lambda (text) (write (string->i64 text)) (newline))
           (list "0"
                 "-42"
                 "+7"

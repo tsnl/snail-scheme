@@ -24,18 +24,18 @@
    ((value I64)))
   (Waiting
    ((ticket I64)
-    (next (dyn (FnOnce I64 → Task ! Io console))))))
+    (next (dyn (FnOnce I64 → Task ! Io output-port))))))
 
 ;; Runs a task to its first wait under its own handler, which hands back
 ;; the rest of the task rather than resuming it.
-(define (start (id I64) (body (dyn (Fn → I64 ! Io Async console)))) (→ Task) (! Io console)
+(define (start (id I64) (body (dyn (Fn → I64 ! Io Async output-port)))) (→ Task) (! Io output-port)
   (handle Async
       ((await (lambda (ticket resume) (Waiting ticket resume)))
        (task-id (lambda () id)))
     (Done (body))))
 
 ;; Two fetches, the second after the first has been answered.
-(define (job (first I64)) (→ I64) (! Io Async console)
+(define (job (first I64)) (→ I64) (! Io Async output-port)
   (let ((answer (fetch first)))
     (write-line (string-append "fetched " (show answer)))
     (+ answer (fetch (+ first 1)))))
@@ -43,7 +43,7 @@
 
 ;; Answers each wait with ten times its ticket, alternating between the
 ;; tasks, long after their handlers returned.
-(define (alternate (this Task) (other Task)) (→ Unit) (! Io console)
+(define (alternate (this Task) (other Task)) (→ Unit) (! Io output-port)
   (match this
     ((Done value)
      (write-line (string-append "done with " (show value)))
@@ -52,7 +52,7 @@
      (write-line (string-append "waiting on " (show ticket)))
      (alternate other (next (* ticket 10))))))
 
-(define (drive (task Task)) (→ Unit) (! Io console)
+(define (drive (task Task)) (→ Unit) (! Io output-port)
   (match task
     ((Done value) (write-line (string-append "done with " (show value))))
     ((Waiting ticket next)

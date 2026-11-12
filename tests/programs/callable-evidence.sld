@@ -37,4 +37,4 @@
     answer))
 
 (write-line (show (exclusive-twice increment 50)))
-(write-line (show (map (ann increment (fn I64 → I64)) (list 60 70))))
+(write-line (repr (map (ann increment (fn I64 → I64)) (list 60 70))))

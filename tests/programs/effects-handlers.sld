@@ -87,7 +87,7 @@
   (default
     ((verbosity (lambda () 1)))))
 
-(define (note (level I64) (message String)) (→ Unit) (! Verbosity console)
+(define (note (level I64) (message String)) (→ Unit) (! Verbosity output-port)
   (when (<= level (verbosity))
     (write-line message)))
 

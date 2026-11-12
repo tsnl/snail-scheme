@@ -24,7 +24,7 @@
    0
    (● land ground)))
 
-(define (describe (seed I64)) (→ Unit) (! console)
+(define (describe (seed I64)) (→ Unit) (! output-port)
   (let ((land (new-land seed)))
     (write-line (string-append "seed "
                                (show seed)
@@ -91,7 +91,7 @@
                                                    (biome-name biome)))
                                        lands)))))
 
-(define (show-map (land Land)) (→ Unit) (! console)
+(define (show-map (land Land)) (→ Unit) (! output-port)
   (write-line (string-append (biome-name (● land biome)) ", seed " (show (● land seed)) ":"))
   (for-each (lambda (y) (write-line (map-row land y))) (iota map-size))
   (write-line (string-append "walking steps from the hub to each nest: " (nest-distances land))))

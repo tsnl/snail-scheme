@@ -27,7 +27,7 @@
     ((Exited code) (string-append "exited " (show code)))
     ((Signaled name) (string-append "signaled " name))))
 
-(define (report-error (result (Result T ProcessError))) (→ Unit) (! console) (∀ T) (⊨ (Copy T))
+(define (report-error (result (Result T ProcessError))) (→ Unit) (! output-port) (∀ T) (⊨ (Copy T))
   (match result
     ((Err error) (write-line (● error code)))
     ((Ok _) (panic "the operation succeeded"))))

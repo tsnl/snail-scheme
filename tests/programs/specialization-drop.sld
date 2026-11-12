@@ -11,7 +11,7 @@
 (define (released-name (name String)) (→ String)
   (string-append "released " name))
 
-(instance (Drop (! console) Resource)
+(instance (Drop (! output-port) Resource)
   (define drop
     (lambda (resource) (match resource
                          ((Resource name)
@@ -20,7 +20,7 @@
 ;; No ordinary call requests Resource's Drop method. Only lowering the
 ;; suspended ownership scope discovers it. Its restriction check must see
 ;; released-name's concrete body, discovered in that same cleanup batch.
-(define (work (name String)) (→ Unit) (! Pause console)
+(define (work (name String)) (→ Unit) (! Pause output-port)
   (let ((resource (Resource name)))
     (pause)
     (match resource

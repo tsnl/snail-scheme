@@ -43,7 +43,7 @@
   (match session
     ((Session ide pending) (drop pending) ide)))
 
-(define (run (delay Delay) (cues (List Cue))) (→ (Pair Ide Document)) (! mut console tasks)
+(define (run (delay Delay) (cues (List Cue))) (→ (Pair Ide Document)) (! mut output-port tasks)
   (let ((disk (ref "disk")) (revision (ref "initial")) (reads (ref 0))
         (writes (ref 0)) (completed (ref 0)) (streamed (ref #f)) (gate (make-mailbox)))
     (let ((result
@@ -84,7 +84,7 @@
                                                             (dyn (Fn Session
                                                                      (Option Msg)
                                                                      → Session
-                                                                     ! mut completion console dom fetch)))
+                                                                     ! mut completion output-port dom fetch)))
                                                        session-view
                                                        session-window
                                                        snapshot
@@ -96,7 +96,7 @@
       (write-line (string-append "requests " (show (ref-get reads)) "/" (show (ref-get writes))))
       result)))
 
-(define (report (model Ide)) (→ Unit) (! console)
+(define (report (model Ide)) (→ Unit) (! output-port)
   (match (buffer-at model "notes.txt")
     ((Some buffer)
      (write-line (● buffer text))
@@ -106,11 +106,11 @@
      (write-line (show (dirty? buffer))))
     ((None) (panic "missing buffer"))))
 
-(define (panes-after (cues (List Cue))) (→ Unit) (! mut console tasks)
+(define (panes-after (cues (List Cue))) (→ Unit) (! mut output-port tasks)
   (let ((model (● (run (NoDelay) cues) first)))
     (write-line (show (length (● model panes))))))
 
-(define (files-after (cues (List Cue))) (→ Unit) (! mut console tasks)
+(define (files-after (cues (List Cue))) (→ Unit) (! mut output-port tasks)
   (write-line (show (● (● (run (NoDelay) cues) first) files-shown))))
 
 (dispatch-local

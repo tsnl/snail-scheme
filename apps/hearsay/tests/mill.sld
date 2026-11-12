@@ -22,7 +22,7 @@
 
 ;; Who a person is, what they believe and the stories they hold, as the
 ;; person panel shows them.
-(define (show-person (mill Mill) (person I64)) (→ Unit) (! console)
+(define (show-person (mill Mill) (person I64)) (→ Unit) (! output-port)
   (write-line
    (string-append (show person) " " (person-name person) ", " (audience-name (audience-of person))
                   (if (hub? person) ", hub" "")
@@ -44,7 +44,7 @@
 
 ;; The shift and coins, what each audience and its people believe, the
 ;; liabilities and the goal, then the forecast or the verdict.
-(define (show-board (mill Mill)) (→ Unit) (! console)
+(define (show-board (mill Mill)) (→ Unit) (! output-port)
   (write-line (string-append (● (scenario-rules (● mill scenario)) name) ": "
                              (if (mill-over? mill)
                                  (string-append "after shift " (show (last-shift mill)))
@@ -89,7 +89,7 @@
   (Act ((text String) (action Action)))
   (Look ((text String) (person I64))))
 
-(define (run-step (mill Mill) (step Step)) (→ Mill) (! console)
+(define (run-step (mill Mill) (step Step)) (→ Mill) (! output-port)
   (match step
     ((Act text action)
      (write-line (string-append "> " text))
@@ -101,7 +101,7 @@
      (show-person mill person)
      mill)))
 
-(define (game (scenario Scenario) (steps (List Step))) (→ Unit) (! console)
+(define (game (scenario Scenario) (steps (List Step))) (→ Unit) (! output-port)
   (write-line (string-append "==== " (● (scenario-rules scenario) name)))
   (show-board (fold-left run-step (new-mill scenario) steps))
   (write-line ""))

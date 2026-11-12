@@ -1,4 +1,4 @@
-;; (snail core io) for the Chibi host: files and console text with Chibi's ports.
+;; (snail core io) for Chibi: files and the current standard streams.
 (define-library (snail core io)
   (export
    read-file

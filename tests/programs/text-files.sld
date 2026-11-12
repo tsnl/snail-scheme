@@ -11,13 +11,13 @@
 (define (at (name String)) (→ String)
   (string-append root "/" name))
 
-(define (report (label String) (text String)) (→ Unit) (! console)
+(define (report (label String) (text String)) (→ Unit) (! output-port)
   (write-line (string-append label " -> " text)))
 
 ;; What a read answered, the text described by `describe`.
 (define (read-report (label String) (name String) (limit I64) (describe (dyn (Fn String → String))))
   (→ Unit)
-  (! console fs)
+  (! output-port fs)
   (report label (match (read-text-file (at name) limit)
                   ((Ok text) (string-append "ok " (describe text)))
                   ((Err error) (string-append "error: " (show error))))))
@@ -28,7 +28,7 @@
 (define (characters (text String)) (→ String)
   (string-append (show (string-length text)) " characters"))
 
-(define (write-report (label String) (name String) (text String)) (→ Unit) (! console fs)
+(define (write-report (label String) (name String) (text String)) (→ Unit) (! output-port fs)
   (report label (match (write-text-file (at name) text (CreateOrReplace))
                   ((Ok _) "ok")
                   ((Err error) (string-append "error: " (show error))))))

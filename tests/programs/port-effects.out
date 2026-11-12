@@ -1,0 +1,13 @@
+(Some #\a)
+(Some "λ😀")
+(Some "")
+(Some "last")
+(None)
+(None)
+(Some #\a)
+(Some "inner")
+(Some #\b)
+(Some "my string input")
+before:(Some "inner"):after
+["forwarded"]
+(None)

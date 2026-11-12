@@ -40,12 +40,11 @@
 
 ;; Read scalars, not lines, so EOF does not invent a final newline.
 
-(define (read-input) (→ String) (! console)
+(define (read-input) (→ String) (! input-port)
   (let loop ((characters (Nil)))
-    (let ((code (console-read)))
-      (if (= code -1)
-          (list->string (reverse characters))
-          (loop (Cons (i32->char code) characters))))))
+    (match (read-char)
+      ((None) (list->string (reverse characters)))
+      ((Some char) (loop (Cons char characters))))))
 
 ;; Every changed path, in order. Check mode leaves files alone; write mode
 ;; leaves already formatted files alone, including their timestamps.
@@ -72,7 +71,7 @@
      (panic (string-join (map (lambda (path) (string-append path ": needs formatting")) changed)
                          "\n")))))
 
-(define (perform (request Request)) (→ Unit) (! console fs)
+(define (perform (request Request)) (→ Unit) (! input-port output-port fs)
   (match (● request input)
     ((StandardInput) (write-string (format-source (read-input) (● request width))))
     ((CheckFiles paths) (check-files (● request width) paths))

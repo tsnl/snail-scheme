@@ -117,9 +117,10 @@ function of the expander has `mut` in its row — and where it does not, the
   struct fields selected by nominal field paths and enum accessors bound
   by name for each case, and, depending on
   mutability, a pure replacement or a setter and a swapper. Derived
-  wire instances are generated as ordinary instance syntax that resolves in
-  the implicit libraries, `(snail shell wire)` among them, which the build's
-  first deriving clause loads, and expressions become core `Expr`s with
+  `Repr` and wire instances are generated as ordinary instance syntax that
+  resolves in the implicit libraries, `(snail core base)` and `(snail shell
+  wire)` among them, which the build's first deriving clause loads, and
+  expressions become core `Expr`s with
   unique names. Each library's build key, the text of its declarations with
   its imports' interfaces, lets a session replay it.
 

@@ -7,7 +7,7 @@
 
 (display (fibonacci 25))
 (newline)
-(display (map (lambda (x) (* x x)) (cons 1 (list 2 3))))
+(write (map (lambda (x) (* x x)) (cons 1 (list 2 3))))
 (newline)
 (display (car (cdr (list 10 20 30))))
 (newline)

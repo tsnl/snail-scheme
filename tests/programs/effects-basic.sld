@@ -11,13 +11,13 @@
 (define (square (n I64)) (→ I64)
   (* n n))
 
-;; Writes to the console, and its type says so.
-(define (report (label String) (n I64)) (→ Unit) (! console)
+;; Writes to the output-port, and its type says so.
+(define (report (label String) (n I64)) (→ Unit) (! output-port)
   (write-line (string-append label " " (show n))))
 ;; ANCHOR_END: rows
 
 ;; ANCHOR: inferred
-;; No signature: the row, console, is inferred from the body.
+;; No signature: the row, output-port, is inferred from the body.
 (define report-square
   (lambda (n) (report "squared" (square n))))
 

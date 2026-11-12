@@ -11,7 +11,7 @@ contract:
 
 `Entry` is an empty type witness. Selecting an application does not require
 constructing its state: `start` creates that state and runs the program. A
-console application can implement the class directly, perform console and task
+console application can implement the class directly, perform `output-port` and task
 effects, and return when it is done. Custom handlers and background tasks belong
 inside `start`. There is no reset binder or separate declaration of entry effects.
 

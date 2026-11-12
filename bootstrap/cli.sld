@@ -192,12 +192,14 @@
   (PublishRequest ((epoch I64)))
   (DiscardRequest ((epoch I64))))
 
-(define (serve (resident Resident)) (→ Unit) (! mut fs clock process console)
+(define (serve (resident Resident)) (→ Unit) (! mut fs clock process input-port output-port)
   (match (read-line)
     ((None) (unit))
     ((Some line) (serve (answer resident (parse-request line))))))
 
-(define (answer (resident Resident) (request Request)) (→ Resident) (! mut fs clock process console)
+(define (answer (resident Resident) (request Request))
+  (→ Resident)
+  (! mut fs clock process output-port)
   (match request
     ((BuildRequest epoch prefix) (build-for resident epoch prefix))
     ((PublishRequest epoch)
@@ -214,7 +216,7 @@
 
 (define (build-for (resident Resident) (epoch I64) (prefix String))
   (→ Resident)
-  (! mut fs clock process console)
+  (! mut fs clock process output-port)
   (let ((job (● resident job)))
     (match (● resident held)
       ((Some _) (panic "internal error: a build was asked for before the last was decided"))
@@ -260,7 +262,7 @@
          (panic (string-append "internal error: no candidate for epoch " (show epoch)))))
     ((None) (panic (string-append "internal error: no candidate for epoch " (show epoch))))))
 
-(define (reply (members (List (Pair String Json)))) (→ Unit) (! console)
+(define (reply (members (List (Pair String Json)))) (→ Unit) (! output-port)
   (write-line (json->string (JsonObject members))))
 
 ;; ---- Requests and replies as JSON ----
@@ -427,7 +429,7 @@
 
 ;; A build, a run, or the resident builder.
 
-(define (invoke (job Job)) (→ Unit) (! mut fs clock process console)
+(define (invoke (job Job)) (→ Unit) (! mut fs clock process input-port output-port)
   (match (● job mode)
     ((Development) (serve (Resident job (Nil) (None))))
     (_

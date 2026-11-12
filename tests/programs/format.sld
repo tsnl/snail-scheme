@@ -11,7 +11,7 @@
  (snail shell format))
 
 (define source
-  "(define (f x)\n(let loop ((i 0) (acc (Nil)))\n(if (< i x)\n(loop (+ i 1)\n(Cons i acc))\nacc)))\n(import (snail core base) (snail core io)\n(only (snail core table) empty-table))\n(struct Point ((x F64) (y F64)) (deriving Show))\n(match value\n((Some x) (display x))\n(_ (unit)))\n(handle console\n((console-write (lambda (c) (unit))))\n(display \"a\nb\")\n(display #\\())\n(foo bar\nbaz\nqux)\n(foo\nbar\nbaz)\n;;; three semicolons stay\n   ;;; even indented\n(let* ((a 1)\n(b 2))\n(+ a b))\n")
+  "(define (f x)\n(let loop ((i 0) (acc (Nil)))\n(if (< i x)\n(loop (+ i 1)\n(Cons i acc))\nacc)))\n(import (snail core base) (snail core io)\n(only (snail core table) empty-table))\n(struct Point ((x F64) (y F64)) (deriving Show))\n(match value\n((Some x) (display x))\n(_ (unit)))\n(handle output-port\n((write-string (lambda (c) (unit))))\n(display \"a\nb\")\n(display #\\())\n(foo bar\nbaz\nqux)\n(foo\nbar\nbaz)\n;;; three semicolons stay\n   ;;; even indented\n(let* ((a 1)\n(b 2))\n(+ a b))\n")
 
 (write-string (format-source source format-width))
 
@@ -26,7 +26,7 @@
    "(foo alpha beta gamma delta epsilon) ; fits: the comment does not count\n"
    "(foo alpha beta gamma delta epsilon zeta) ; stays on the last line\n"
    "(define message \"a string much longer than forty columns cannot break\")\n"
-   "(define (run (config Config) (args (List String))) (→ Status) (! fs console) (status config args))\n"
+   "(define (run (config Config) (args (List String))) (→ Status) (! fs output-port) (status config args))\n"
    "(bytes #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))\n"
    "(display \"one\") (display \"two\") (display \"three\")\n"))
 

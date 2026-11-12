@@ -43,7 +43,7 @@
     ((Cons first rest)
      (if (string<? name first) (Cons name names) (Cons first (insert rest name))))))
 
-(define (report (label String) (before Inventory) (after Inventory)) (→ Inventory) (! console)
+(define (report (label String) (before Inventory) (after Inventory)) (→ Inventory) (! output-port)
   (write-line (string-append label " -> " (changes before after)))
   after)
 

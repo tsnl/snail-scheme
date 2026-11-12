@@ -26,7 +26,7 @@
 (define (adder) (→ (dyn (Fn I64 → I64))) (! Abort) (let ((z (abort 5))) (lambda (y) (* y z))))
 
 (define (later)
-  (→ (dyn (FnOnce → Unit ! console)))
+  (→ (dyn (FnOnce → Unit ! output-port)))
   (! Abort)
   (let ((value (abort 6))) (once (lambda () (write-line (show value))))))
 

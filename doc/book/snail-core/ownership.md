@@ -20,7 +20,7 @@ borrow that owner. Callability and `Copy` are independent
  (snail core io))
 
 
-(define (greeting (name String)) (→ (dyn (FnOnce → Unit ! console)))
+(define (greeting (name String)) (→ (dyn (FnOnce → Unit ! output-port)))
   (once (lambda () (write-line name))))
 
 (let ((work (greeting "hello")))

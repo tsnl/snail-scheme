@@ -14,8 +14,8 @@
 (match value
   ((Some x) (display x))
   (_ (unit)))
-(handle console
-    ((console-write (lambda (c) (unit))))
+(handle output-port
+    ((write-string (lambda (c) (unit))))
   (display "a
 b")
   (display #\())
@@ -67,7 +67,7 @@ b")
 (define (run (config Config)
              (args (List String)))
   (→ Status)
-  (! fs console)
+  (! fs output-port)
   (status config args))
 (bytes
  #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))

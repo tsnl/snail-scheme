@@ -35,7 +35,7 @@
        (yield (* value depth))
        (+ (+ left-sum value) (walk right (+ depth 1)))))))
 
-(define (show-all (values (List I64))) (→ Unit) (! console)
+(define (show-all (values (List I64))) (→ Unit) (! output-port)
   (write-line (string-join (map show values) " ")))
 
 (show-all (collect (lambda () (walk tree 1))))

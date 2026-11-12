@@ -8,7 +8,7 @@
   (match pair
     ((Pair a b) (Pair b a))))
 
-(define (say (text String)) (→ (dyn (FnOnce → Unit ! console)))
+(define (say (text String)) (→ (dyn (FnOnce → Unit ! output-port)))
   (once (lambda () (write-line text))))
 
 (match (swap (Pair (say "first") (say "second")))
