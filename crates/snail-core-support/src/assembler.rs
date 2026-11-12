@@ -68,7 +68,14 @@ fn public_exports(bytes: &[u8]) -> Result<Vec<u8>, String> {
             let mut section = ExportSection::new();
             for export in exports {
                 let export = export.map_err(|error| error.to_string())?;
-                if !export.name.starts_with("snail:") && !export.name.starts_with("diagnostics/") {
+                if export.name.starts_with("snail:gc/")
+                    || export.name.starts_with("snail:signature/")
+                    || export.name.starts_with("snail:abi/")
+                    || export.name.starts_with("snail:foreign/")
+                    || export.name.starts_with("snail:code/")
+                    || (!export.name.starts_with("snail:")
+                        && !export.name.starts_with("diagnostics/"))
+                {
                     wasm_encoder::reencode::RoundtripReencoder
                         .parse_export(&mut section, export)
                         .map_err(|error| error.to_string())?;

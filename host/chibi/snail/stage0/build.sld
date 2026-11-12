@@ -113,8 +113,8 @@
     ;; ordinary program: Node runs it through host/native/run-snail.mjs by
     ;; default, and with SNAIL_ENGINE=wasmtime, build/snail's `run-wasm`
     ;; does, from its machine code. The native executable stays an opt-in
-    ;; because wasmtime's collector makes a compile 9 to 37 times slower
-    ;; than on V8 (see "The native executable" in
+    ;; following the old WasmGC performance comparison. Current linear-memory
+    ;; measurements are separate (see "The native executable" in
     ;; doc/book/snail-core/bootstrap.md).
     (define (compiler-command root program)
       (if (wasmtime-engine?)
@@ -353,6 +353,8 @@
                          (map (lambda (path) (path-join root path))
                               '("host/chibi/snail/stage0/build.sld"
                                 "crates/snail-core-support/src/assembler.rs"
+                                "crates/snail-core-support/src/gc.rs"
+                                "crates/snail-core-support/build.rs"
                                 "bootstrap/compile.sld"
                                 "src/snail/shell/compiler.sld"
                                 "src/snail/shell/compiler"

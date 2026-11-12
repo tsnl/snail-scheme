@@ -1,9 +1,9 @@
-# Linear-memory collector experiment
+# Linear-memory runtime and collector experiments
 
-Research and an executable prototype, 2026-11-11. The shipping compiler still
-emits WasmGC. This experiment asks how much publishing roots costs, and whether
-ordinary linear memory supports the layouts we want. It does not migrate the
-compiler or measure its application performance.
+The compiler lowers its managed values into wasm32 linear memory. The runtime
+uses a nonmoving conservative collector. This chapter describes that contract
+and the separate experiments started on 2026-11-11. The microbenchmarks below
+measure root publication; they are not whole-program performance estimates.
 
 The initial direction is a nonmoving collector, with managed objects and
 explicit root frames in one linear memory. Keep arithmetic in Wasm locals;
@@ -11,6 +11,126 @@ publish live pointers before calls that can collect. A shadow root stack does
 not require every scalar to live in memory. Interior pointers and contiguous
 arrays of records then follow from byte offsets and strides. They do not
 require memory64.
+
+## The compiler and runtime
+
+`wasm.sld` still selects logical structs, arrays, closures and evidence records
+from `Prepared`. `wat.sld` supplies its folded instruction vocabulary and text
+writer. `memory.sld` then replaces managed instructions with checked offsets,
+loads, stores, allocator calls and a shared function table. Fixed helper
+templates go through this pass too. Each finished physical function is rendered
+before lowering the next, so the compiler need not retain its entire expanded
+instruction tree alongside the output text.
+
+The frontend, ownership checks, allocation decisions and supported source types
+are unchanged. Structs, captured environments, saved continuations and arrays
+that previously allocated still allocate on the heap. Scalars remain Wasm
+locals. Wasm keeps the ordinary control stack; the explicit stack holds roots.
+Escape analysis, user-visible interior pointers, additional array element
+layouts and an LLVM backend are future work in
+[#749](https://github.com/tsnl/snail-scheme/issues/749).
+
+Every managed object starts with two 32-bit words: a runtime layout identity
+and an array length. Payload fields have their natural alignment, at most eight
+bytes. Null is zero. Code references are managed descriptors containing a
+function-table index and the module that owns its globals. Source array bounds,
+null checks and dynamic casts remain checked. The 4-GiB limit covers all linear
+memory, including Rust services, metadata, roots and the heap.
+
+`crates/snail-core-support/src/gc.rs` owns the heap and its metadata. Small
+objects occupy power-of-two slots, 16 bytes through 32 KiB, in 32-KiB blocks;
+larger objects have separate extents. Conservative marking checks membership
+and requested byte extent before reading a candidate. Padding and one-past
+addresses do not retain an object. Metadata is outside the scanned payload.
+Allocation collects according to the live-byte budget and retries after
+collection when memory is exhausted. No object moves. Fixed slots allow reuse
+between surviving objects without the line fragmentation encountered in the
+initial nonmoving Immix port; the historical moving collector and the bounded
+mark/line experiment below remain distinct implementations.
+
+Each function reserves an initialized root frame without collecting, then
+publishes its pointer parameters. Pointer locals remain rooted until return.
+Pending operands have separate slots, cleared after their consuming operation
+finishes. Returns and tail calls pop the caller only after evaluating their
+arguments; no collection occurs before the callee publishes those arguments.
+A host invocation saves and restores frame depth, including when a trap skips
+generated epilogues. A frame also roots its module while old code is executing.
+
+Module globals occupy registered cells. Active modules retain their owner
+object; old closures retain their code, globals and imported modules through
+that owner after reload. Dead code descriptors release their table entries
+before indices are reused. Logical recursion groups and import/export
+signatures are interned using complete keys, so erasing references to `i32`
+does not erase layout checks at a source-library link boundary.
+
+On Node and in the browser, `hostExports` is the host-facing view of an
+instance's exports. Managed results become opaque handles with registered roots;
+a weak identity cache preserves object identity, and finalization releases
+roots without deciding language resource cleanup. Nullable handovers still use
+`null`. Host calls check runtime ownership and logical types. Foreign callbacks
+use the corresponding descriptor to carry managed arguments and results through
+the same view, including synchronous re-entry. Raw imports between compiled
+modules pass addresses directly. The native loader uses explicit code handles;
+the compiler engine recreates a forwarded code descriptor in its receiving
+runtime instead of passing an address from a different heap.
+
+`SNAIL_GC_STRESS=1` collects at every allocation after program initialization.
+The root regression covers incoming parameters, earlier operands, rotating loop
+values, closure captures and array initialization. Host-boundary tests also
+collect between calls and catch a nested trap before continuing.
+
+## First migration measurements
+
+The initial implementation gives every function a root frame, including leaf
+functions and scalar tail loops. It reads pointer locals from those frames.
+These are the baseline for optimization, not a prediction of unavoidable
+shadow-stack overhead. The workloads below are ordinary Snail-Core source with
+identical allocation decisions, compiled by the frozen WasmGC compiler at
+`6ecf6291` and the linear-memory backend. They cover computation, lists, arrays,
+capturing closures and one-shot resumable effects; they are small synthetic
+programs, not application-wide speed estimates.
+
+Milliseconds per complete Wasm batch, then linear/WasmGC ratio:
+
+| Workload | V8 WasmGC | V8 linear | Ratio | Wasmtime WasmGC | Wasmtime linear | Ratio |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Scalar arithmetic | 0.567 | 7.436 | 13.11× | 0.984 | 7.898 | 8.02× |
+| Tiny rooted calls | 0.112 | 5.518 | 49.14× | 0.556 | 9.787 | 17.62× |
+| Lists | 0.266 | 2.879 | 10.82× | 3.727 | 4.614 | 1.24× |
+| Arrays | 0.454 | 6.971 | 15.34× | 2.587 | 12.030 | 4.65× |
+| Capturing closures | 0.059 | 0.668 | 11.33× | 1.380 | 1.129 | 0.82× |
+| Resumable effects | 0.053 | 0.722 | 13.60× | 2.254 | 1.360 | 0.60× |
+
+Each process warms each entry 32 times, then records nine samples of 32 calls.
+The table takes the median of 27 samples across three fresh processes, with
+variant order alternated. Every checksum agrees. The machine is the Intel Core
+Ultra 7 270K Plus below, pinned to P-core 0. Node 26.8.1 / V8 14.6 uses
+`--no-liftoff --no-wasm-lazy-compilation`; Wasmtime 48.0.7 uses Cranelift Speed
+and DRC for WasmGC. Compilation and initialization are outside execution times.
+GC timing is disabled for these samples; allocation and collection remain in
+execution. Separate nine-call diagnostic batches record allocation counts,
+requested bytes, collection time and longest observed pause.
+
+The linked module grows from 194,631 to 312,349 bytes. Median eager compilation
+on the pinned core is 134 to 226 ms in V8 and 84 to 129 ms in Wasmtime. Peak
+process RSS is 124,708 to 97,956 KiB in Node and 23,788 to 28,428 KiB in Wasmtime;
+RSS includes the engine and generated code. The JSON also records linear-memory
+size, which excludes the WasmGC heap and must not be used to compare total heaps.
+Other development work was running on other cores during this initial sample.
+
+Reproduce using `tests/linear-gc/programs/runtime.sld`, compiled with each
+checkout's own compiler and Rust runtime, then:
+
+```sh
+tests/linear-gc/programs/measure /path/to/wasmgc.wasm /path/to/linear.wasm /tmp/results
+node tests/linear-gc/programs/report.mjs /tmp/results
+```
+
+Raw samples and artifact hashes are in
+`tests/linear-gc/results/2026-11-11-mvp/`. The earlier publication-only experiment
+below used hand-written code and a much cheaper frame protocol. Its percentages
+do not bound the naive production implementation. The next stage measures
+which runtime costs can be removed while keeping collection correct.
 
 ## The existing Immix implementation
 
@@ -245,35 +365,24 @@ that the current WASI bindings, linker, allocator, loader or host packet formats
 are memory64-ready. A 32-bit I/O scratch-memory bridge or updated host ABI would
 be a separate design; neither is implemented here.
 
-## What a runtime migration would change
+## Scope of later optimization
 
-The frontend can keep its resolved types, ownership and effect evidence. A
-separate linear-memory backend should consume prepared concrete code, with one
-visible target-layout decision for size, alignment, field offset and array
-stride. The current emitter is `src/snail/shell/compiler/wasm.sld`.
+The migration preserves allocation sites so comparisons with WasmGC can use the
+same source and object shapes. Escape analysis and stack allocation remain
+separate optimizations. Precise heap descriptors can reduce scanning and false
+retention; liveness can reduce root publication and stale roots. A nonmoving
+heap permits pointer values to remain cached in Wasm locals across collection,
+although mutable field loads still need ordinary alias reasoning.
 
-| Existing mechanism | Required linear-memory counterpart |
-| --- | --- |
-| GC structs, arrays, packed bytes and literals | Explicit layouts, bounds/overflow checks, allocation and initialized payloads |
-| `ref.cast`, subtyping, dynamic values | Runtime tags/descriptors with checked casts at dynamic boundaries |
-| Closures and typed function references | Environment address plus function-table index; preserve call signatures |
-| Root globals and module initialization | Registered root slots shared by every linked module |
-| Evidence lists, yields, saved frames and resumptions | Ordinary heap objects; scheduler roots retain suspended computations |
-| Host-retained values and callbacks | Explicit registered handles or rooted borrows across re-entry |
-| Dynamic linking and live reload | Shared memory, allocator and root ABI, including removal of retired roots |
-| Rust resources and cleanup | Continue explicit ownership; cleanup records must not retain managed wrappers |
+The microbenchmarks above isolate publication and deliberately forced scalar
+spills. Compiler and application measurements must also include the allocator,
+collector, code size and host boundaries. An ablation that omits roots or
+collection is only an experimental ceiling for bounded workloads; it cannot
+establish a safe implementation's performance. The migration and optimization
+reports are tracked in [#749](https://github.com/tsnl/snail-scheme/issues/749).
 
-The existing evidence-passing control transformation can continue to unwind and
-save one-shot continuations as closures. Those frames move to the managed
-linear heap. Ordinary Wasm call frames can remain engine-owned. Putting the
-*entire control stack* in memory would require an additional transformation or
-interpreter/trampoline; it is not a prerequisite for conservative GC and is not
-measured by this prototype.
-
-Before replacing WasmGC, the meaningful next measurement is one representative
-compiled Snail workload using this representation, including allocation and
-root-liveness lowering. Then compare the self-hosted compiler and application
-workloads against the current backend on both engines. Preserve forced-GC
-regressions through the final optimizer and linker. The experiment establishes
-feasibility and a root-publication cost range; it does not establish production
-collection policy, memory usage or a migration speedup.
+Ordinary Wasm call frames remain engine-owned. Moving the entire control stack
+into memory would require another transformation or an interpreter/trampoline;
+it is not required to trace the managed heap. Memory64 remains an experiment:
+the production compiler, Rust services, linker and host ABI currently use
+32-bit addresses.

@@ -1,7 +1,7 @@
 # Snail-Core
 
 Snail-Core is a typed, pure-by-default functional language with Scheme syntax. It
-compiles to WasmGC. Scheme does not compile directly: its macros and
+compiles to WebAssembly with a managed linear-memory heap. Scheme does not compile directly: its macros and
 libraries expand it into Snail-Core, and checking, specialization and code
 generation all happen there, so Scheme ships as libraries over the typed
 language. The compiler is a Snail-Core program and compiles itself. Erasing

@@ -254,22 +254,18 @@
 
 (define (enum-type-id root cases)
   (let ((source (path-join root "build/tests/type-ids/main.sld"))
-        (marker "(struct.new $any (i32.const "))
+        (program (path-join root "build/tests/type-ids/main.wasm")))
     (create-directory* (path-join root "build/tests/type-ids"))
     (call-with-output-file source
       (lambda (port)
-        (write-string (string-append "(import (snail core base))\n(enum Phase "
-                                     cases
-                                     ")\n(type-convert (Day) Any)\n")
-                      port)))
-    (let* ((text (program->wat root (standard-directories root) source))
-           (start (+ (text-index text marker 0) (string-length marker))))
-      (substring text start (text-index text ")" start)))))
-
-(define (text-index text pattern from)
-  (cond ((> (+ from (string-length pattern)) (string-length text)) (error "not found" pattern))
-        ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
-        (else (text-index text pattern (+ from 1)))))
+        (write-string
+         (string-append
+          "(import (snail core base) (snail core io) (only (snail core primitive) any-type-id))\n(enum Phase "
+          cases
+          ")\n(display (i64->string (any-type-id (type-convert (Day) Any))))\n(newline)\n")
+         port)))
+    (link-wat root (program->wat root (standard-directories root) source) program)
+    (run-wasm root program)))
 
 ;; The production formatter's CLI contracts, including the repository's
 ;; formatting gate, run on the same engine as the rest of this suite.

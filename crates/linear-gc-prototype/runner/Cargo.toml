@@ -7,5 +7,6 @@ publish = false
 [dependencies]
 wat = "=1.262.0"
 serde_json = "=1.0.154"
-wasmtime = { version = "=48.0.7", default-features = false, features = ["cranelift", "runtime", "std", "parallel-compilation"] }
+wasmtime = { version = "=48.0.7", default-features = false, features = ["cranelift", "runtime", "std", "parallel-compilation", "gc", "gc-drc"] }
+wasmtime-wasi = { version = "=48.0.7", default-features = false, features = ["p1"] }
 

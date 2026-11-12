@@ -142,7 +142,7 @@
     ;; the client's program, so they stay the same across builds.
     (: client-file (impl (Fn Reloading String -> Response ! fs)))
     (define (client-file reloading file)
-      (cond ((member? file (list "reload.mjs" "reload-client.mjs" "load.mjs"))
+      (cond ((member? file (list "reload.mjs" "reload-client.mjs" "load.mjs" "memory.mjs"))
              (bundle-file (::host reloading) (list file)))
             ((and (string=? file "reload.wasm") (regular-file? (::program reloading)))
              (found file (read-bytes (::program reloading))))

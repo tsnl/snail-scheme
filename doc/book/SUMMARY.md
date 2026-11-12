@@ -31,7 +31,7 @@
   - [Language contract](runtimes/contract.md)
   - [Instances, queues and shared memory](runtimes/instances.md)
   - [Continuations and parallel execution](runtimes/future.md)
-  - [Linear-memory collector experiment](runtimes/linear-memory.md)
+  - [Linear-memory runtime and collector experiments](runtimes/linear-memory.md)
 
 # Extras
 

@@ -1,5 +1,6 @@
 // One loader and replacement transaction for every browser application.
 // Engines supply device imports and reset their presentation before each run.
+import {holdRoot, retireProgram} from './memory.mjs';
 import {createWasi, instantiate, linkedFileImports, linkProgram, relinkProgram, runMain, runProgram} from './load.mjs';
 import {applicationEntry, HIDDEN} from './runtime.mjs';
 
@@ -104,19 +105,25 @@ async function relinkApplication(application, from, fresh, manifest) {
   const {runtime, program: previous} = application;
   application.capture = [];
   const {state, saved} = await runtime.stop();
+  const handover = holdRoot(previous.runtime.exports, state);
+  let candidate;
   try {
     const program = await relinkProgram(previous, from, manifest, fetchRead(manifest));
+    candidate = program;
     application.reset();
     const run = runtime.start(applicationEntry(program), fresh ? null : state, {restore: fresh ? null : saved});
     await run.ready.promise;
     application.program = program;
+    retireProgram(previous, program);
   } catch (error) {
     await runtime.execution.done;
+    if (candidate) retireProgram(candidate, previous);
     application.reset();
     const rollback = runtime.start(applicationEntry(previous), state, {restore: saved});
     try { await rollback.ready.promise; } catch { await rollback.done; }
     throw new Error(application.capture.join('\n') || error.message);
   } finally {
+    handover.release();
     application.capture = null;
   }
 }

@@ -9,7 +9,8 @@ text ──read───▶ located syntax
      ──expand─▶ core program      unique names, resolved types, entity tables
      ──check──▶ typed program     every expression typed, instances chosen
      ──prepare▶ concrete code     fixed declarations, explicit control/cleanup
-     ──emit───▶ WasmGC text ──assemble──▶ module, linked with the Rust runtime
+     ──emit───▶ typed folded instructions
+     ──memory─▶ linear-memory Wasm text ──assemble──▶ module with the Rust runtime
 ```
 
 Preparation has one registry and worklist for source definitions and generated
@@ -26,6 +27,14 @@ named evaluation points and explicit cleanup. There is no separate CPS
 language. The emitter receives neither source recipes nor a specialization
 state, and reports no source-level errors. It selects Wasm representations and
 constructs target instructions from those established facts.
+
+The logical emission vocabulary still names GC structs, arrays and references.
+`memory.sld` lowers that vocabulary before assembly: explicit layouts and bounds
+checks, conservative roots, runtime type identities and function-table calls.
+`wat.sld` owns folded instructions, fixed-template parsing and text rendering.
+The [runtime chapter](../runtimes/linear-memory.md#the-compiler-and-runtime)
+specifies the physical representation and host root contract. This containment
+leaves the preparation boundary and the frontend unchanged.
 
 This boundary deliberately retains concrete bodies during preparation rather
 than reconstructing them during analysis. The [proposal below](#proposed-specialization-directly-to-wasmgc)
@@ -810,7 +819,7 @@ invariants, not a proposed source GADT feature. Only generated constructors
 can create or splice chains, and they must match the adjoining value types,
 scope and effect contracts. The runtime cannot manufacture arbitrary chains.
 
-The physical layout is a finite set of WasmGC struct types, schematically:
+The proposed logical layout is a finite set of struct types, lowered to linear-memory records, schematically:
 
 ```text
 Frame:
@@ -1472,7 +1481,7 @@ the library that failed to check. These operations are implemented and tested.
 | `crates/snail/` | `build/snail`, a native executable embedding wasmtime, which runs programs that need only WASI, linked files and module loading by `run-snail.mjs`'s protocol, the compiled compiler among them, when `SNAIL_ENGINE=wasmtime`; it precompiles the compiler to a `.cwasm`. See [the bootstrap](bootstrap.md#the-native-executable). |
 | `host/chibi/snail/stage0/build.sld` | Bootstrap, standalone generated libraries, tool builds and the native assembler/linker entry point. Each compile has private scratch; rebuilding shared tools holds `build/lock`. |
 | `host/chibi/snail/stage0/process.sld` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. This avoids Chibi 0.12 pipe-finalizer and sequential pipe-draining failures. |
-| `crates/snail-core-support/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; managed references remain engine-traced. Its `assembler` feature builds the toolchain's runtime, which tools written in Snail-Core link (`build-toolchain-tool`), with in-process assembly and static linking for `(snail shell assembler)`, shared by the native executable. |
+| `crates/snail-core-support/` | Rust services: the conservative heap and explicit roots in `gc.rs`, math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources continue to use explicit handles. Its `assembler` feature builds the toolchain's runtime, which tools written in Snail-Core link (`build-toolchain-tool`), with in-process assembly and static linking for `(snail shell assembler)`, shared by the native executable. |
 | `host/native/run-snail.mjs` | Node/WASI program execution, the compiled compiler's included, on Node's main thread, plus module loading; it drives the program's task scheduler through `host/browser/tasks.mjs`, as the page does. A trap is status 2 and a WASI exit its own, as on wasmtime. |
 | `src/`, `host/chibi/snail/`, `bootstrap/chibi-include/` | Every library that ships with the language, the compiler among them, and the separate stage-0 implementations of the three it imports. Stage 0's only search root is `bootstrap/chibi-include/`, one symlink per library the compiler reaches. |
 

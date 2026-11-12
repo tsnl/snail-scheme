@@ -1,0 +1,27 @@
+#!/bin/sh
+# Identical source artifacts, alternating fresh processes, one pinned P-core.
+# Build runtime.sld with each checkout's compiler/runtime before invoking this.
+set -eu
+cd "$(dirname "$0")/../../.."
+baseline=$1
+candidate=$2
+output=$3
+label=${4:-linear-mvp}
+runner=crates/linear-gc-prototype/runner
+mkdir -p "$output"
+cargo build --locked --offline --release --manifest-path "$runner/Cargo.toml"
+node --version > "$output/environment.txt"
+wasm-opt --version >> "$output/environment.txt"
+sha256sum "$baseline" "$candidate" >> "$output/environment.txt"
+for round in 1 2 3; do
+  order="wasmgc $label"
+  if [ "$round" = 2 ]; then order="$label wasmgc"; fi
+  for variant in $order; do
+    artifact=$candidate
+    if [ "$variant" = wasmgc ]; then artifact=$baseline; fi
+    taskset -c "${BENCH_CPU:-0}" node --no-warnings --no-liftoff --no-wasm-lazy-compilation \
+      tests/linear-gc/programs/run.mjs "$artifact" "$variant" > "$output/$variant-node-$round.json"
+    taskset -c "${BENCH_CPU:-0}" "$runner/target/release/linear-gc-runner" program \
+      "$artifact" "$variant" > "$output/$variant-wasmtime-$round.json"
+  done
+done

@@ -1,5 +1,6 @@
 // Applications own input and checkpoint handover; (snail shell task) owns
 // tasks, the application's loop among them.
+import {holdRoot, hostExports} from './memory.mjs';
 import {programEntry} from './entry.mjs';
 import {byteSnapshot} from './load.mjs';
 import {createTasks, taskExports} from './tasks.mjs';
@@ -76,7 +77,7 @@ export function createEventQueue(frames = null) {
 // and those of (snail shell task), which drive the loop.
 export function applicationEntry(program) {
   const entry = programEntry(program, 'app_main');
-  return {...entry, app: program.names ? program.linked.get('snail.shell.page').exports : entry.exports,
+  return {...entry, app: hostExports(program.names ? program.linked.get('snail.shell.page').exports : entry.exports, entry.gc),
           tasks: taskExports(program)};
 }
 
@@ -85,7 +86,7 @@ export function applicationEntry(program) {
 // awaiting.
 export function createRuntime({size = () => [960, 640], seed = 1, load = async () => undefined,
                                store = async () => {}, frames = null, initial = () => [[RESIZE, ...size()], [FRAME, 0]], reportError = () => {}, warn = console.warn} = {}) {
-  let current = null, stopping = null;
+  let current = null, stopping = null, stateRoot = null;
   const pending = [];
   // This scope starts exactly one loop, the root task, which owns the
   // application protocol. Other tasks must not consume its input or replace
@@ -127,6 +128,7 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
         const run = applicationRun();
         if (run.accepted) return;
         run.accepted = true;
+        run.handoverRoot.release();
         run.ready.resolve(run.boot);
         while (pending.length && run.queue.push(...pending[0])) pending.shift();
       },
@@ -153,6 +155,7 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
     },
   };
   function finish(run, state, error) {
+    run.handoverRoot.release();
     clearTimeout(run.saveTimer);
     const unread = run.queue.close();
     if (run.accepted) pending.unshift(...unread);
@@ -178,7 +181,9 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
     if (!transfer) stopping = null;
     const ready = Promise.withResolvers(), queue = createEventQueue(transfer ? null : frames);
     const run = {entry, ready, queue, restore, transfer, tasks: null, accepted: false, saved: null, loaded: null,
-                 event: null, boot: null, loop: null, failure: null, root: null, done: null, saveTimer: null};
+                 event: null, boot: null, loop: null, failure: null, root: null, done: null, saveTimer: null,
+                 handoverRoot: holdRoot(entry.gc, handover)};
+    stateRoot?.release(); stateRoot = null;
     run.tasks = createTasks(() => entry.tasks, {reportError: (error, task) => trapped(run, error, task)});
     ready.promise.catch(() => {});
     current = run;
@@ -192,6 +197,7 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       // Capture the root's checkpoint before draining children or allowing
       // another entry to reset the shared page module.
       const state = error && run.boot === null ? handover : entry.app.app_state();
+      stateRoot = holdRoot(entry.gc, state);
       // After the sole event consumer returns, an unpresented application
       // can never become ready. Its children cannot complete startup for it.
       if (error || !run.accepted) run.tasks.close();

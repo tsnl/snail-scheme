@@ -1,6 +1,6 @@
 # Runtimes
 
-Snail-Core's shipping target is WebAssembly GC. Tasks are an effect,
+Snail-Core targets WebAssembly with a conservative heap in linear memory. Tasks are an effect,
 scheduled in Snail-Core; a host drives the scheduler and completes the
 operations tasks wait on. A runtime supplies platform effects and owns
 the computations that use them. Each
@@ -77,9 +77,9 @@ does, the engine links in a task of its own. The page still links through
 `crates/snail` runs programs that
 need WASI and the native async-file capability on wasmtime, and the suite runs on it with
 `make test-wasmtime`, but moving the toolchain onto it is not planned:
-its collector made the compiler compiling itself take 46 s against
+the previous WasmGC collector made the compiler compiling itself take 46 s against
 Node's 1.3 s ([#562](https://github.com/tsnl/snail-scheme/issues/562)).
-workerd's isolates are not OS processes, and its WasmGC and import support
+workerd's isolates are not OS processes, and its Wasm feature and import support
 must be checked before promising compatibility.
 
 The Rust support module, `snail.core.support` from
@@ -94,6 +94,5 @@ generated library (the crate's README has the plan).
 [Instances, queues and shared memory](instances.md) proposes how several
 single-threaded instances will cooperate. [Continuations and parallel
 execution](future.md) retains the earlier backend research.
-[The linear-memory collector experiment](linear-memory.md) measures explicit
-root publication and explores conservative collection and memory64; the
-shipping backend remains WasmGC.
+[The linear-memory runtime](linear-memory.md) describes the collector and root
+contract, preserves the root-publication experiments, and explores memory64.
