@@ -570,6 +570,7 @@
     (define (load-library cx name loc)
       (let ((key (string-join name ".")))
         (cond ((builtin-library? key) (Pair (core-library) cx))
+              ((program-key? key) (refuse-program-import loc))
               ((member? key (::loading cx))
                (compile-error loc (string-append "library import cycle through " key)))
               (else (match (table-ref (::expanded cx) key)
@@ -579,6 +580,17 @@
                                             name
                                             loc)
                          ((Pair exports loaded) (Pair exports (resumed cx loaded))))))))))
+
+    ;; A library cannot be named (main), the program's own name, since a
+    ;; library's key prefixes its globals and names its run: the program
+    ;; and the library would share `main`, and one body, `main:%body`.
+    (: program-key? (impl (Fn String -> Bool)))
+    (define (program-key? key)
+      (string=? key "main"))
+
+    (: refuse-program-import (All (A) (impl (Fn Loc -> A ! compile))))
+    (define (refuse-program-import loc)
+      (compile-error loc "the library name main is the program's own"))
 
     (: read-library (impl (Fn Context (List String) Loc -> (Pair Exports Context) ! fs compile)))
     (define (read-library cx name loc)
@@ -1115,11 +1127,13 @@
         ((None) walk)))
 
     ;; The checks are `load-library`'s, in its order: (snail core forms) has
-    ;; no file, and a library already loading is a cycle.
+    ;; no file, (main) is the program's own name, and a library already
+    ;; loading is a cycle.
     (: walk-library (impl (Fn Walk (List String) (List String) Loc -> Walk ! fs compile)))
     (define (walk-library walk loading name loc)
       (let ((key (string-join name ".")))
         (cond ((builtin-library? key) walk)
+              ((program-key? key) (refuse-program-import loc))
               ((member? key loading)
                (compile-error loc (string-append "library import cycle through " key)))
               ((table-contains? (::visited walk) key) walk)

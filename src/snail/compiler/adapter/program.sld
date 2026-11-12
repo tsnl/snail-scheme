@@ -20,11 +20,11 @@
 ;;   exposure, and each instance's methods and effect's defaults at their
 ;;   declaration. A definition under instance scopes is scoped twice, as
 ;;   the old expander scopes it, a statement once. The statements of a
-;;   library whose key is `main` are instead one body, `main:%body`, a
+;;   program, whose key is `main`, are instead one body, `main:%body`, a
 ;;   function of no arguments, defined after every other item, and one
-;;   statement calls it, as the old `with-one-body` gathers them; the old
-;;   expander decides by the key, so a library named `(main)` is gathered
-;;   as a program is. `program-body` is that gathering, which the
+;;   statement calls it, as the old `with-one-body` gathers them; no
+;;   library can be named `(main)`, since its import is refused where it
+;;   is written. `program-body` is that gathering, which the
 ;;   comparison of expansions shares. The primitive library records no
 ;;   run, since the backend implements all it declares.
 ;;
@@ -560,7 +560,7 @@
       (define (test-program)
         (test-library)
         (test-statements)
-        (test-main-library)
+        (test-program-body)
         (test-numbers)
         (test-primitives))
 
@@ -722,20 +722,14 @@
                                         (old:App (old-at 2 (old:Var "main:%body" (list) (list)))
                                                  (list))))))))
 
-      ;; A library named (main) is gathered as a program is, since the old
-      ;; expander gathers by the key; a library of another name keeps its
-      ;; statement where it is.
-      (define (test-main-library)
-        (let ((gathered (lambda (library)
+      ;; A program's statements are gathered into one body; a library keeps
+      ;; its statement where it is.
+      (define (test-program-body)
+        (let ((gathered (lambda (library root)
                           (old:program-items
-                           (::program
-                            (adapted-program
-                             (list (compiled library
-                                             (Defined library
-                                               (list (Statement (Literal (Integer 1) (loc 2))))
-                                               0
-                                               (loc 1))))))))))
-          (expect (gathered main)
+                           (::program (adapted-program (list (compiled library root)))))))
+              (statements (list (Statement (Literal (Integer 1) (loc 2))))))
+          (expect (gathered main (Program statements 0))
                   (list (old:Define "main:%body"
                                     (old-at 2
                                             (old:Lambda (list)
@@ -744,7 +738,8 @@
                         (old:Do (old-at 2
                                         (old:App (old-at 2 (old:Var "main:%body" (list) (list)))
                                                  (list))))))
-          (expect (gathered shapes) (list (old:Do (old-at 2 (old:Lit (old:DInt 1))))))))
+          (expect (gathered shapes (Defined shapes statements 0 (loc 1)))
+                  (list (old:Do (old-at 2 (old:Lit (old:DInt 1))))))))
 
       ;; Each library's locals are numbered after those of the libraries
       ;; before it, its paths' parameters among them: the first library
