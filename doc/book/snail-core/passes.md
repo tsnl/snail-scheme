@@ -669,11 +669,17 @@ digests, hands `bind` what it found, and relays the answer.
 
 The integrator takes each library through `expand`, `bind` and `derive`
 before it starts the next, so a problem is reported for the earliest
-library that has one, as the old compiler reports it. The implicit
-libraries a deriving clause needs are compiled after the library that
-derives expands and before it is bound. Of each library the integrator
-keeps its offer; the files to place beside the program, which it asks
-`placed-files` once the library is bound; and its latest tree, the
+library that has one, as the old compiler reports it. An import of
+`(main)` is refused where it is written, "the library name main is the
+program's own": `main` is the program's key, which names its Globals and
+its body. The old compiler gave such a library and the program one key and
+one body, so it ran the program's statements in the library's place and
+never the library's, or failed assembling a name both define; it refuses
+the import alike now, and `tests/programs/error-main-library.sld` pins it.
+The implicit libraries a deriving clause needs are compiled after the
+library that derives expands and before it is bound. Of each library the
+integrator keeps its offer; the files to place beside the program, which
+it asks `placed-files` once the library is bound; and its latest tree, the
 library derived. It stops at the first library that waits for targets.
 
 A generated library waits for its producer instead. Its caller names the
@@ -1229,10 +1235,10 @@ the old expander too, and compares it with the old expansion: both
 succeed or both fail; failures by their first problem, message and
 place, and every problem when the old expander reports several;
 successes library by library, in order, by their exports, their written
-definitions and each one's value in a normal form, in which a `case-id`
-is the TypeId `declare` gives its case, and a program's body, its
-statements gathered as the old `with-one-body` gathers them, since no new
-pass gathers them, by each linked file's import and
+definitions and each one's value in a normal form, `adapter/normal.sld`'s,
+in which a `case-id` is the TypeId `declare` gives its case, and a
+program's body, its statements gathered as the old `with-one-body` gathers
+them, since no new pass gathers them, by each linked file's import and
 the files to place beside the program, by each derived instance beside
 the old instance of its class and types, its variables, requirements and
 method compared up to the renaming of locals, in the old order of each
@@ -1275,18 +1281,17 @@ adapted program as `declare` does. A local is `name.number`, unique in
 the program, as the old expander's are: a library's locals are numbered
 after those of the libraries before it, since the old checker names the
 type of a closure a `let` binds for its local, and that type can reach a
-scheme another library sees. The statements of a library whose key is
-`main`, a program's or a library named `(main)`, are gathered into
-`main:%body` as `with-one-body` gathers them, since the old expander
-decides by the key; `adapter/program.sld`'s `program-body` and `scoped`
-are the gathering and the scoping the expansion comparison uses too. An
-operation's scheme puts its own effect before its latent row's labels, as
-the old expander writes it, out of the sorted order the old core keeps a
-row's labels in, since the old checker's answers depend on that order. No
-implementation or default is marked a function, where the old expander
-marks a dispatched implementation one, since the mark is read only of a
-value a program names; metadata is left empty, since nothing past the old
-expander reads it; and the primitive library records no run.
+scheme another library sees. A program's statements are gathered into
+`main:%body` as `with-one-body` gathers them; `adapter/program.sld`'s
+`program-body` and `scoped` are the gathering and the scoping the
+expansion comparison uses too. An operation's scheme puts its own effect
+before its latent row's labels, as the old expander writes it, out of the
+sorted order the old core keeps a row's labels in, since the old
+checker's answers depend on that order. No implementation or default is
+marked a function, where the old expander marks a dispatched
+implementation one, since the mark is read only of a value a program
+names; metadata is left empty, since nothing past the old expander reads
+it; and the primitive library records no run.
 
 `adapter/compile.sld`'s `adapted-compile` is the entry the old facade
 will call in the old expander's place. It is given the directories, the
@@ -1370,6 +1375,11 @@ one line each, with its reason:
   expander expands them again for every file. `bind` copies them for each
   file instead, and the one use, in `src/snail/shell/artifact.sld`,
   passes three constructors, so nothing shows the difference.
+- A producer's output is named by its key alone, as the integrator reads
+  `GENERATED/KEY.syntax`; the old compiler also compares the producer's
+  text with the one its output was supplied for, which tells apart two
+  producers whose keys collide. The adapter writes each output the old
+  `Inputs` supply to that file under its key.
 - `bind` asks for every target a library was not supplied at once; the
   old compiler asks for one at a time, since it stops where it first
   reaches one, and asking once saves its caller a build per target.

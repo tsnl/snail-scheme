@@ -204,6 +204,7 @@
       (match (import-decision walk (::library imported))
         ((SkipImport) (next-step walk))
         ((ImportCycle) (Stopped (list (cycle-feedback imported))))
+        ((ProgramImport) (Stopped (list (program-import-feedback imported))))
         ((LoadImport) (ReadLibrary (::library imported) (::loc imported) walk))))
 
     ;; ---- Producers ----
@@ -231,17 +232,21 @@
     ;; ---- Imports ----
 
     ;; What an import needs, decided in the old expander's order: nothing
-    ;; for (snail core forms), which the compiler provides; a cycle when
-    ;; the library is still loading; nothing when it is loaded, or waits
-    ;; for its producer; and else its library read.
+    ;; for (snail core forms), which the compiler provides; a problem for
+    ;; (main), the program's own name, which no library can have, since
+    ;; the program's Globals are of that library; a cycle when the library
+    ;; is still loading; nothing when it is loaded, or waits for its
+    ;; producer; and else its library read.
     (enum Decision
       (SkipImport)
+      (ProgramImport)
       (ImportCycle)
       (LoadImport))
 
     (: import-decision (impl (Fn Walk LibraryName -> Decision)))
     (define (import-decision walk name)
       (cond ((same-library? name (list "snail" "core" "forms")) (SkipImport))
+            ((same-library? name program-library) (ProgramImport))
             ((loading? walk name) (ImportCycle))
             ((or (any? (lambda (file) (same-library? (loaded-name file) name)) (::finished walk))
                  (any? (lambda (producer) (same-library? (::library producer) name))
@@ -269,6 +274,13 @@
         ((Written (Defined name _ _ _ _)) (Some name))
         ((Written (Program _ _ _ _)) (None))
         ((Generated name _ _ _) (Some name))))
+
+    (: program-import-feedback (impl (Fn Imported -> Feedback)))
+    (define (program-import-feedback imported)
+      (Feedback (::loc imported)
+                (string-append "the library name "
+                               (library-key (::library imported))
+                               " is the program's own")))
 
     (: cycle-feedback (impl (Fn Imported -> Feedback)))
     (define (cycle-feedback imported)
@@ -494,7 +506,7 @@
           (expect (import-decision walk c) (SkipImport))
           (expect (import-decision walk d) (SkipImport))
           (expect (import-decision walk b) (LoadImport))
-          (expect (import-decision walk (list "main")) (LoadImport))
+          (expect (import-decision walk (list "main")) (ProgramImport))
           (expect (import-decision walk (list)) (LoadImport))))
 
       ;; A cycle is reported at the import that closes it, by the old
@@ -511,7 +523,14 @@
                 (cycle "main.sld" "x.y"))
         (expect
          (order (list (defined (list "x" "y") (list))) (program (list "x.z") (list (list "x" "y"))))
-         (Ok (list "x/y.sld" "main.sld"))))
+         (Ok (list "x/y.sld" "main.sld")))
+        ;; (main) is the program's own name, refused where it is imported,
+        ;; by a program or by a library.
+        (expect (walked (list (defined (list "main") (list))) (program (list) (list (list "main"))))
+                (fail (at "main.sld") "the library name main is the program's own"))
+        (expect (walked (list (defined a (list (list "main"))) (defined (list "main") (list)))
+                        (program (list) (list a)))
+                (fail (at "a.sld") "the library name main is the program's own")))
 
       ;; A generated library's output is asked for once the library is
       ;; read: its producer, with what was loading, innermost first, a

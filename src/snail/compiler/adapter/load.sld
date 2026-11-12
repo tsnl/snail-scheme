@@ -131,7 +131,14 @@
                                   "(define-library (sample loop) (import (sample leaf) (sample loop)))")))
             (LoadCase "keyed.sld"
                       (Some "(generating \"other\" \"sample.keyed\")\n(import (sample keyed))")
-                      (list))))
+                      (list))
+            (LoadCase "named-main.sld"
+                      (Some "(import (main))")
+                      (list (Pair "main.sld" "(define-library (main) (begin (define x 1)))")))
+            (LoadCase "through-main.sld"
+                      (Some "(import (sample through))")
+                      (list (Pair "sample/through.sld"
+                                  "(define-library (sample through) (import (main)))")))))
 
     ;; The case written in `directory`, loaded, beside the old expansion.
     (: load-case-comparison (impl (Fn String LoadCase -> Comparison ! fs)))
