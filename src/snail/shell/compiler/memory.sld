@@ -97,6 +97,7 @@
        (code-start I64)
        (dependencies (List String))
        (foreign (List String))
+       (noncollecting (Table Bool))
        (imports (Ref (Table Wat)))))
 
     (: type-body (impl (Fn Wat -> Wat)))
@@ -178,6 +179,60 @@
     (: tag (impl (Fn String -> Wat)))
     (define (tag name) (get-global (tag-id name)))
 
+    ;; ---- Calls that cannot collect ----
+
+    ;; Collection only occurs in managed allocation or a call. Unknown imports
+    ;; and indirect calls may re-enter the runtime, so they are collecting.
+    ;; Propagate those facts backwards over direct calls. Recursive components
+    ;; with no collecting operation need no roots, including scalar tail loops.
+    (: direct-callees (impl (Fn Wat -> (List String))))
+    (define (direct-callees tree)
+      (let ((nested (concatenate (map direct-callees (parts tree)))))
+        (if (member? (head tree) (list "call" "return_call"))
+            (Cons (word (at (parts tree) 0)) nested) nested)))
+
+    (: collection-point? (impl (Fn (Table Wat) Wat -> Bool)))
+    (define (collection-point? local tree)
+      (let ((op (head tree)))
+        (or (string-prefix? "struct.new" op) (string-prefix? "array.new" op)
+            (member? op (list "call_ref" "return_call_ref" "call_indirect" "return_call_indirect"))
+            (and (member? op (list "call" "return_call"))
+                 (not (table-contains? local (word (at (parts tree) 0)))))
+            (any? (lambda (child) (collection-point? local child)) (parts tree)))))
+
+    (: callers-of (impl (Fn (Table (List String)) String -> (List String))))
+    (define (callers-of callers name)
+      (match (table-ref callers name) ((Some names) names) (_ (Nil))))
+
+    (: reverse-calls (impl (Fn (List Wat) -> (Table (List String)))))
+    (define (reverse-calls functions)
+      (fold-left (lambda (callers function)
+                   (fold-left (lambda (callers callee)
+                                (table-set callers callee
+                                           (Cons (member-name function)
+                                                 (callers-of callers callee))))
+                              callers (direct-callees function))) empty-table functions))
+
+    (: collecting-callers
+       (impl (Fn (Table (List String)) (List String) (Table Bool) -> (Table Bool))))
+    (define (collecting-callers callers pending collecting)
+      (match pending
+        ((Nil) collecting)
+        ((Cons name rest)
+         (if (table-contains? collecting name) (collecting-callers callers rest collecting)
+             (collecting-callers callers (append (callers-of callers name) rest)
+                                 (table-set collecting name #t))))))
+
+    (: noncollecting-functions (impl (Fn (List Wat) -> (Table Bool))))
+    (define (noncollecting-functions fields)
+      (let* ((functions (pick "func" fields)) (local (declarations "func" functions))
+             (seeds (map member-name (filter (lambda (fn) (collection-point? local fn)) functions)))
+             (collecting (collecting-callers (reverse-calls functions) seeds empty-table)))
+        (fold-left (lambda (safe function)
+                     (let ((name (member-name function)))
+                       (if (table-contains? collecting name) safe (table-set safe name #t))))
+                   empty-table functions)))
+
     ;; ---- Layouts ----
 
     ;; Eight header bytes precede every payload: type identity and array length.
@@ -236,6 +291,7 @@
 
     (struct MemoryFunction
       ((module MemoryModule)
+       (framed? Bool)
        (local-types (Table Wat))
        (local-names (Table String))
        (local-roots (Table I64))
@@ -325,7 +381,9 @@
 
     (: leave-frame (impl (Fn MemoryFunction -> Wat ! mut)))
     (define (leave-frame fn)
-      (runtime-call (::module fn) "leave" (list (get-local "$lm.frame")) "void"))
+      (if (::framed? fn)
+          (runtime-call (::module fn) "leave" (list (get-local "$lm.frame")) "void")
+          (wat "nop")))
 
     ;; Original folded operands are evaluated once, left to right. Their own
     ;; root slots protect managed results while later operands allocate. New
@@ -339,7 +397,7 @@
            (if (member? (head operand)
                         (list "i32.const" "i64.const" "f32.const" "f64.const" "ref.null"))
                (loop rest stores (Cons (lower-operation fn operand) reads))
-               (if (managed? (::module fn) (expression-type fn operand))
+               (if (and (::framed? fn) (managed? (::module fn) (expression-type fn operand)))
                    (let* ((value (lower-expression fn operand)) (slot (- (ref-get (::slots fn)) 1)))
                      (loop rest (Cons (wat "drop" value) stores)
                            (Cons (wat "i32.load" (root-address slot)) reads)))
@@ -397,6 +455,11 @@
 
     (: lower-expression (impl (Fn MemoryFunction Wat -> Wat ! mut)))
     (define (lower-expression fn tree)
+      (if (not (::framed? fn)) (lower-operation fn tree)
+          (lower-rooted-expression fn tree)))
+
+    (: lower-rooted-expression (impl (Fn MemoryFunction Wat -> Wat ! mut)))
+    (define (lower-rooted-expression fn tree)
       (let* ((first (ref-get (::slots fn))) (value (lower-operation fn tree))
              (end (ref-get (::slots fn))) (type (expression-type fn tree)))
         (cond ((managed? (::module fn) type) (root-result fn value first end))
@@ -690,8 +753,9 @@
              (number (i64->string index))
              (name (if (named? (at (parts declaration) 0)) (word (at (parts declaration) 0))
                        (string-append "$lm.local." number)))
-             (slot (if (managed? (::module fn) type) (root-slot fn) -1)))
+             (slot (if (and (::framed? fn) (managed? (::module fn) type)) (root-slot fn) -1)))
         (MemoryFunction (::module fn)
+                        (::framed? fn)
                         (table-set (table-set (::local-types fn) name type) number type)
                         (table-set (table-set (::local-names fn) name name) number name)
                         (if (< slot 0) (::local-roots fn)
@@ -700,16 +764,18 @@
 
     (: function-context (impl (Fn MemoryModule Wat -> MemoryFunction ! mut)))
     (define (function-context module function)
-      (let* ((declarations
+      (let* ((framed? (not (table-contains? (::noncollecting module) (member-name function))))
+             (declarations
               (append (pick "param" (parts function)) (pick "local" (parts function)))))
         (fold-left (lambda (fn index) (bind-function-local fn (at declarations index) index))
                    (MemoryFunction module
+                                   framed?
                                    empty-table
                                    empty-table
                                    empty-table
                                    (ref (Nil))
                                    (ref 0)
-                                   (ref 1)
+                                   (ref (if framed? 1 0))
                                    (result-type function)) (iota (length declarations)))))
 
     (: parameter-root (impl (Fn MemoryFunction I64 -> (List Wat))))
@@ -750,10 +816,14 @@
                                         (pick "param" (local-declarations fn function))
                                         (result-annotation result)
                                         (filter (lambda (local)
-                                                  (not (managed? module
-                                                                 (lookup (::local-types fn)
-                                                                         (word
-                                                                          (at (parts local) 0))))))
+                                                  (not (and (::framed? fn) (managed? module
+                                                                                     (lookup
+                                                                                      (::local-types
+                                                                                       fn)
+                                                                                      (word
+                                                                                       (at (parts
+                                                                                            local)
+                                                                                           0)))))))
                                                 (pick "local" (local-declarations fn function)))
                                         (list (wat "local" (Word "$lm.frame") (Word "i32")))
                                         (scratch-locals)
@@ -774,20 +844,12 @@
     ;; tail call, crosses to the next prologue without a collection boundary.
     (: finish-function (impl (Fn MemoryFunction (List Wat) String I64 -> (List Wat) ! mut)))
     (define (finish-function fn body returned count)
-      (let* ((body (if (= count 0) (map remove-empty-leave body) body))
-             (leave (if (= count 0) (Nil) (list (leave-frame fn)))))
+      (let* ((leave (if (= count 0) (Nil) (list (leave-frame fn)))))
         (if (string=? returned "") (append body leave)
             (concatenate (list (list (wat "local.set" (Word returned)
                                           (wat* "block"
                                                 (append (result-annotation (::result fn)) body))))
                                leave (list (get-local returned)))))))
-
-    (: remove-empty-leave (impl (Fn Wat -> Wat)))
-    (define (remove-empty-leave tree)
-      (match tree
-        ((Node (Cons (Word "call") (Cons (Word "$lm.leave") _))) (wat "nop"))
-        ((Node items) (Node (map remove-empty-leave items)))
-        (_ tree)))
 
     ;; ---- Checked memory operations ----
 
@@ -1271,6 +1333,7 @@
                                             (pick "global" fields)))
                                    (module-dependencies fields)
                                    (foreign-functions fields)
+                                   (noncollecting-functions fields)
                                    (ref empty-table)))
              (groups (filter (lambda (field) (member? (head field) (list "type" "rec"))) fields))
              (setup (map (lambda (index) (setup-group module (at groups index) index))
