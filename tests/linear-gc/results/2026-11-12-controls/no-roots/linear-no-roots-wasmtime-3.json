@@ -1,0 +1,169 @@
+{
+  "calls_per_sample": 32,
+  "compile_ms": 107.491398,
+  "engine": "Wasmtime 48.0.7 / Cranelift speed / DRC for WasmGC",
+  "initialize_ms": 0.13139099999999998,
+  "max_rss_kib": 1474432,
+  "samples": 9,
+  "variant": "linear-no-roots",
+  "warmup_calls": 32,
+  "wasm_bytes": 271102,
+  "workloads": [
+    {
+      "checksum": "3134814395574376036",
+      "count": 1000000,
+      "linear_memory_bytes": 1310720,
+      "median_ms": 0.9888765625,
+      "name": "arithmetic",
+      "profile": {
+        "batches": 9,
+        "collections": 0,
+        "longest-pause-ns": "0",
+        "pause-ns": "0",
+        "profile-allocations": "0",
+        "profile-bytes": "0"
+      },
+      "samples_ms": [
+        0.9865365,
+        0.972068625,
+        0.9847570937499999,
+        0.99263859375,
+        0.9901465312500001,
+        0.9880915312499999,
+        0.9888765625,
+        0.989966125,
+        0.9936576875
+      ]
+    },
+    {
+      "checksum": "24448",
+      "count": 300000,
+      "linear_memory_bytes": 1310720,
+      "median_ms": 0.94504715625,
+      "name": "rooted-calls",
+      "profile": {
+        "batches": 9,
+        "collections": 0,
+        "longest-pause-ns": "0",
+        "pause-ns": "0",
+        "profile-allocations": "18",
+        "profile-bytes": "324"
+      },
+      "samples_ms": [
+        0.94640775,
+        0.9450055,
+        0.94432478125,
+        0.94494759375,
+        0.94540053125,
+        0.94504715625,
+        0.94757071875,
+        0.94369196875,
+        0.94553384375
+      ]
+    },
+    {
+      "checksum": "1249975000",
+      "count": 50000,
+      "linear_memory_bytes": 580517888,
+      "median_ms": 1.33665246875,
+      "name": "lists",
+      "profile": {
+        "batches": 9,
+        "collections": 0,
+        "longest-pause-ns": "0",
+        "pause-ns": "0",
+        "profile-allocations": "450000",
+        "profile-bytes": "12600000"
+      },
+      "samples_ms": [
+        1.32369696875,
+        1.32727359375,
+        1.33665246875,
+        1.33310275,
+        1.336586125,
+        1.38187065625,
+        1.364924375,
+        1.39572021875,
+        1.3971804375
+      ]
+    },
+    {
+      "checksum": "5000250000",
+      "count": 100000,
+      "linear_memory_bytes": 1108541440,
+      "median_ms": 2.511149125,
+      "name": "arrays",
+      "profile": {
+        "batches": 9,
+        "collections": 0,
+        "longest-pause-ns": "0",
+        "pause-ns": "0",
+        "profile-allocations": "36",
+        "profile-bytes": "14400576"
+      },
+      "samples_ms": [
+        2.55653,
+        2.5272824687499997,
+        2.5124895,
+        2.51011165625,
+        2.5085531875,
+        2.511149125,
+        2.5043366875,
+        2.50597125,
+        2.51667159375
+      ]
+    },
+    {
+      "checksum": "50025000",
+      "count": 10000,
+      "linear_memory_bytes": 1238106112,
+      "median_ms": 0.3974145,
+      "name": "closures",
+      "profile": {
+        "batches": 9,
+        "collections": 0,
+        "longest-pause-ns": "0",
+        "pause-ns": "0",
+        "profile-allocations": "90018",
+        "profile-bytes": "2520288"
+      },
+      "samples_ms": [
+        0.39972253125,
+        0.40051321875,
+        0.39331750000000004,
+        0.40074318750000004,
+        0.39596875,
+        0.3972136875,
+        0.39741984374999995,
+        0.3974145,
+        0.393313875
+      ]
+    },
+    {
+      "checksum": "2001000",
+      "count": 2000,
+      "linear_memory_bytes": 1488060416,
+      "median_ms": 0.62433178125,
+      "name": "effects",
+      "profile": {
+        "batches": 9,
+        "collections": 0,
+        "longest-pause-ns": "0",
+        "pause-ns": "0",
+        "profile-allocations": "252018",
+        "profile-bytes": "4896288"
+      },
+      "samples_ms": [
+        0.62559671875,
+        0.621254875,
+        0.62236509375,
+        0.62172753125,
+        0.6251285,
+        0.62433178125,
+        0.6271342812499999,
+        0.62706771875,
+        0.61680821875
+      ]
+    }
+  ]
+}

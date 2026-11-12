@@ -91,16 +91,34 @@ Checks run serially by default because compiler instances can use substantial
 memory. `SNAIL_TEST_JOBS` opts into more concurrent checks. Chibi's initial heaps
 are controlled separately: `HEAP` for the test runner, `SNAIL_HEAP` for the build
 driver and `SNAIL_STAGE0_HEAP` for source compilation. These are initial sizes,
-not memory limits. On Linux, a systemd scope can cap the whole build and its
-children; for example, a constrained local run uses:
+not memory limits. On Linux, put builds in a shared systemd slice so concurrent
+commands share one budget. A separate limit on each command would permit their
+limits to add up. Bubblewrap isolates descendants and cleans them up when its
+parent exits; the cgroup, rather than bubblewrap, enforces the memory limit:
 
 ```sh
-systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 \
+systemctl --user set-property --runtime snail-build.slice \
+  MemoryMax=8G MemorySwapMax=0
+systemd-run --user --scope --slice=snail-build.slice \
+  -p MemoryMax=8G -p MemorySwapMax=0 \
+  bwrap --unshare-pid --die-with-parent --new-session \
+  --ro-bind / / --bind "$PWD" "$PWD" --bind /tmp /tmp \
+  --bind "${CARGO_HOME:-$HOME/.cargo}" "${CARGO_HOME:-$HOME/.cargo}" \
+  --dev-bind /dev /dev --proc /proc --chdir "$PWD" \
   env SNAIL_HEAP=256M SNAIL_STAGE0_HEAP=1G SNAIL_TEST_JOBS=1 \
   make HEAP=256M test
 ```
 
 Run bootstrap, tests and benchmarks one at a time when memory is limited.
+
+For backend experiments, a compatible frozen WasmGC compiler can compile the
+new compiler source much faster than Chibi. `tests/linear-gc/programs/host-compiler`
+takes that compiler's checkout, the source checkout, and an output Wasm path.
+It links the hosted compiler with the frozen compiler's matching runtime. That
+hosted copy runs on WasmGC but executes the new compiler's code, including its
+linear-memory emitter. Use it for iteration, then build the linear-memory
+compiler and verify that it reproduces its own output. Keep Chibi agreement as
+a separate compatibility check; a hosted copy does not establish that agreement.
 
 ## The native executable
 

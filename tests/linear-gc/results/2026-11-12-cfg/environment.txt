@@ -1,0 +1,4 @@
+v26.8.1
+wasm-opt version 132
+2cdbf1c042b640b83718bb876cce24b59d2de8561a278cef57bb32f17af7871b  /tmp/linear-singleword-bench.wasm
+2cdbf1c042b640b83718bb876cce24b59d2de8561a278cef57bb32f17af7871b  /tmp/linear-cfg-bench.wasm

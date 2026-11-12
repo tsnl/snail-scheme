@@ -1,0 +1,23 @@
+{
+  "variant": "bridge",
+  "mode": "wat",
+  "profiling": false,
+  "source": "/tmp/snail-linear-memory-gc-20261111/apps/siegework/tests/siege.sld",
+  "node": "v26.8.1",
+  "v8": "14.6.202.34-node.28",
+  "flags": [
+    "--no-warnings",
+    "--no-liftoff",
+    "--no-wasm-lazy-compilation"
+  ],
+  "compiler_sha256": "3c2a19b247929f3e53c0580fd18c2940147ba2210639ec72a0bf9def2e7bee16",
+  "compiler_bytes": 3084848,
+  "output_bytes": 4352418,
+  "output_sha256": "03cbfb2db71da5c9576564a949f4cd5d95b42c1a41ff98954827d6cf85f83340",
+  "compile_ms": 2039.843429,
+  "initialize_ms": 2.223163999999997,
+  "execute_ms": 404.4501909999999,
+  "linear_memory_bytes": 22937600,
+  "max_rss_kib": 268140,
+  "stats": {}
+}

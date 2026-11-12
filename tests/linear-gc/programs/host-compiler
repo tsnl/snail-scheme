@@ -1,0 +1,13 @@
+#!/bin/sh
+# Compile the requested compiler source with a frozen compiler/runtime pair.
+# A WasmGC host can iterate quickly while that compiler emits linear memory.
+set -eu
+task_base=$(cd "$1" && pwd)
+task_source=$(cd "$2" && pwd)
+task_output=$3
+task_scratch=$(mktemp -d)
+trap 'rm -rf "$task_scratch"' EXIT HUP INT TERM
+node --no-warnings "$task_base/host/native/run-snail.mjs" "$task_base/build/compiler/snailc.wasm" \
+  wat "$task_source/bootstrap/compile.sld" "$task_output.wat" "$task_scratch" "$task_source/src"
+"$task_base/build/snail" link "$task_output.wat" \
+  "$task_base/build/wasm-snail-core-support/wasm32-wasip1/release/snail_core_support.wasm" "$task_output"

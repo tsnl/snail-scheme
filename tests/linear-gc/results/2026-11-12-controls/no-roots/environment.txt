@@ -1,0 +1,4 @@
+v26.8.1
+wasm-opt version 132
+d451d308e57676bff7c964c2ccf3a6c753deff09ecc18f4d85002197f7fbb278  /tmp/linear-final-no-collection.wasm
+ba0aba2b8dd2b489f38e946930c704ed1ad8450efda0c1dd7bca1729540705b2  /tmp/linear-final-no-roots.wasm

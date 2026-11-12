@@ -1,0 +1,18 @@
+{
+  "variant": "linear-opt",
+  "engine": "wasmtime",
+  "round": 1,
+  "command": [
+    "/tmp/snail-linear-memory-opt-20261111/build/snail",
+    "run-wasm",
+    "/tmp/linear-siege-linear-opt.wasm"
+  ],
+  "sha256": "d120b70d2418cf34b0e7819c1cbc82913ea177aa6d5abce8c3cf7f081f481a0d",
+  "wasm_bytes": 1034268,
+  "elapsed_s": 1.3,
+  "user_s": 1.45,
+  "system_s": 0.01,
+  "max_rss_kib": 45012,
+  "stdout": "attacks: 450 wave of 8, 750 wave of 8, 1050 raid of 11, 1350 wave of 8, 1650 raid of 12, 1950 wave of 8, 2250 raid of 13, 2550 wave of 8, 2850 raid of 14, 3150 wave of 9, 3450 raid of 15, 3750 wave of 9\nnext attack after tick 5000: 5250 raid of 18\nundefended: tick 860, buildings 1, hub 0, enemies 16, kills 0, lost 0, opened rock 1, lost\nthe lost colony's whole map is uncovered: #t\ndefended: tick 1000, buildings 7, hub 600, enemies 6, kills 10, lost 0, opened rock 1, playing\ndefended: tick 3000, buildings 9, hub 600, enemies 12, kills 78, lost 0, opened rock 4, playing\ntick 101: the turret at x 41 fires; the enemy has turned on building 3\ntick 102: the turret at x 35 fires; the enemy has turned on building 3\ntick 109: the turret at x 41 fires; the enemy has turned on building 3\ntick 110: the turret at x 35 fires; the enemy has turned on building 3\ntick 117: the turret at x 41 fires; the enemy has turned on building 3\ntick 118: the turret at x 35 fires; the enemy has turned on building 3\ntick 125: the turret at x 41 fires; the enemy has turned on building 3\ntick 126: the turret at x 35 fires; the enemy has turned on building 3\ntick 133: the turret at x 41 fires; the enemy has turned on building 3\ntick 134: the turret at x 35 fires; the enemy has turned on building 3\nat tick 140 the enemy has turned on building 3\nthe guns stay on each turret's last shot: Extractor at x 41 has not fired, Turret at x 35 aims at 40,42, Turret at x 41 aims at 40,42\n",
+  "stderr": ""
+}
