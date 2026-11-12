@@ -10,13 +10,12 @@
 (define greeting (→ String) "hello")
 
 (define (shout (name String)) (→ Unit) (! output-port)
-  (let ((say (fn (text) (write-line (string-append greeting ", " text)))))
+  (let ((say (fn (text) → (write-line (string-append greeting ", " text)))))
     (say name)))
 
 (define (count-down (from I64)) (→ Unit) (! output-port)
   (define step
-    (fn (n)
-      (when (> n 0)
+    (fn (n) → (when (> n 0)
         (write-line (i64->string n))
         (step (- n 1)))))
   (step from))
@@ -24,5 +23,5 @@
 
 (shout "world")
 (count-down 3)
-(for-each (fn (n) (write-line (i64->string (* n n)))) (list 1 2 3))
-(call-once (once (fn () (write-line "once"))))
+(for-each (fn (n) → (write-line (i64->string (* n n)))) (list 1 2 3))
+(call-once (once (fn () → (write-line "once"))))

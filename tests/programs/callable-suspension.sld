@@ -3,10 +3,12 @@
  (snail core io))
 
 (effect Pause
-  ((ctl pause (impl (Fn I64 → I64)))))
+  ((ctl pause (Fn I64 → I64))))
 
-(define (twice (function F)) (→ I64) (! Pause) (∀ F) (⊨ (Copy F) (Fn F I64 → I64 ! Pause))
-  (+ (function 1) (function 2)))
+(define (twice (function (Fn I64 → I64 ! Pause)))
+      (→ I64)
+      (! Pause)
+      (+ (function 1) (function 2)))
 
 (write-line
  (show

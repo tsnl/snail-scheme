@@ -20,7 +20,7 @@
    (snail core base))
   (begin
     (struct (UnsafeSlot A)
-      ((content mut (Option A))))
+      ((content (Option A))))
 
     (define (unsafe-slot (value A)) (→ (UnsafeSlot A)) (∀ A)
       (UnsafeSlot (Some value)))

@@ -4,22 +4,22 @@
 
 (struct Model
   ((title String)
-   (work (dyn (FnOnce → Unit ! output-port)))))
+   (work (FnOnce → Unit ! output-port))))
 
 (define (title (model (Borrow Model))) (→ String)
   (● model title))
 
-(define (forward (model (Borrow M)) (read (dyn (Fn (Borrow M) → String)))) (→ String) (∀ M)
+(define (forward (model (Borrow M)) (read (Fn (Borrow M) → String))) (→ String) (∀ M)
   (read model))
 
 ;; A function accepting Borrow is owned: storage retains its code, not a loan.
 (struct Reader
-  ((read (dyn (Fn (Borrow Model) → String)))))
+  ((read (Fn (Borrow Model) → String))))
 
 (define (identity (value T)) (→ T) (∀ T) value)
 
 ;; The callback owns the copied text; it does not retain the borrowed model.
-(define (callback (model (Borrow Model))) (→ (dyn (Fn → String)))
+(define (callback (model (Borrow Model))) (→ (Fn → String))
   (let ((text (● model title)))
     (lambda () text)))
 

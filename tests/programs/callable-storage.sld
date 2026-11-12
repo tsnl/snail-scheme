@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(define handlers (→ (List (dyn (Fn I64 → I64))))
+(define handlers (→ (List (Fn I64 → I64)))
   (list (lambda (value) (+ value 1))
         (lambda (value) (* value 2))))
 
@@ -18,14 +18,15 @@
 (let ((function (once code)))
   (write-line (show (function 5))))
 
-(define (consume (function F)) (→ I64) (∀ F) (⊨ (FnOnce F I64 → I64))
-  (function 7))
+(define (consume (function (FnOnce I64 → I64)))
+      (→ I64)
+      (function 7))
 (write-line (show (consume code)))
 
 ;; Explicit storage permits different owned implementation families.
 (let ((jobs (ann (list (once (lambda (value) (+ value 2)))
                        (once (lambda (value) (* value 3))))
-                 (List (dyn (FnOnce I64 → I64))))))
+                 (List (FnOnce I64 → I64)))))
   (match jobs
     ((Cons first (Cons second (Nil)))
      (write-line (show (first 10)))

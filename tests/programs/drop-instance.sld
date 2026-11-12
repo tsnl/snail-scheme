@@ -7,7 +7,7 @@
 ;; ownership chapter includes the text between ANCHOR and ANCHOR_END.
 ;; ANCHOR: handle
 (effect log
-  ((say (dyn (Fn String → Unit)))))
+  ((say (Fn String → Unit))))
 
 (struct Handle
   ((name String)))

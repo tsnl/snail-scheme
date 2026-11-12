@@ -6,7 +6,7 @@
 ;; that cannot: each use is its own specialization, and only the first
 ;; tests for a yield after each call.
 (effect Stop
-  ((ctl stop (dyn (Fn I64 → I64)))))
+  ((ctl stop (Fn I64 → I64))))
 
 (define (sum-until-negative (items (List I64))) (→ I64)
   (handle Stop ((stop (lambda (total resume) (drop resume) total)))

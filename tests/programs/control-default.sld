@@ -8,11 +8,11 @@
 ;; scheduler, and `now` is pure.
 ;; ANCHOR: clock
 (effect Async
-  ((ctl await (dyn (Fn I64 → I64)))))
+  ((ctl await (Fn I64 → I64))))
 
 (effect Clock
-  ((now (dyn (Fn → I64)))
-   (sleep-until (dyn (Fn I64 → I64 ! Async))))
+  ((now (Fn → I64))
+   (sleep-until (Fn I64 → I64 ! Async)))
   (default
     ((now (lambda () 1000))
      (sleep-until wait-for))))
@@ -26,9 +26,9 @@
    ((value I64)))
   (Waiting
    ((deadline I64)
-    (next (dyn (FnOnce I64 → Task ! Clock output-port))))))
+    (next (FnOnce I64 → Task ! Clock output-port)))))
 
-(define (start (body (dyn (Fn → I64 ! Clock Async output-port)))) (→ Task) (! Clock output-port)
+(define (start (body (Fn → I64 ! Clock Async output-port))) (→ Task) (! Clock output-port)
   (handle Async ((await (lambda (deadline resume) (Waiting deadline resume))))
     (Done (body))))
 

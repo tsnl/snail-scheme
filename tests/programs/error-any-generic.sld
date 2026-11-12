@@ -6,10 +6,10 @@
 ;; specialization erases an ordinary effect before the backend sees it, so
 ;; a conversion must name its types where it is written.
 (effect Log
-  ((log (dyn (Fn String → Unit)))))
+  ((log (Fn String → Unit))))
 
 (define (box (value A)) (→ Any) (∀ A) (type-convert value Any))
 
 (define (noisy) (→ Unit) (! Log) (log "hi"))
 
-((ann (type-convert (box noisy) (dyn (Fn → Unit))) (dyn (Fn → Unit))))
+((ann (type-convert (box noisy) (Fn → Unit)) (Fn → Unit)))

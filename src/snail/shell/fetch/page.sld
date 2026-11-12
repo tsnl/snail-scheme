@@ -16,7 +16,7 @@
 
     ;; ---- Handling ----
 
-    (define (with-page-fetch (work (dyn (Fn → T ! fetch e)))) (→ T) (! e) (∀ T e)
+    (define (with-page-fetch (work (Fn → T ! fetch e))) (→ T) (! e) (∀ T e)
       (handle fetch
           ((request page-request)
            (stream-open (lambda (url kinds)

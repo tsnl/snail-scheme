@@ -7,11 +7,11 @@
 
 (define (add (value I64)) (→ I64) (+ value 1))
 
-(define entries (→ (Vector (command-Command (dyn (Fn I64 → I64)))))
+(define entries (→ (Vector (command-Command (Fn I64 → I64))))
   (list->vector (list (command-Command "add" add)
                       (command-Command "double" (lambda (value) (* value 2))))))
 
-(define (invoke (command (Option (dyn (Fn I64 → I64)))) (value I64)) (→ I64)
+(define (invoke (command (Option (Fn I64 → I64))) (value I64)) (→ I64)
   (match command ((Some run) (run value)) ((None) -1)))
 
 (match (command-register entries)

@@ -9,5 +9,5 @@
   (Deeper
    ((inner (Nest (Pair A A))))))
 
-(define (release (nest (Nest (dyn (FnOnce → Unit))))) (→ Unit)
+(define (release (nest (Nest (FnOnce → Unit)))) (→ Unit)
   (drop nest))

@@ -32,7 +32,7 @@
   (Saved ((count I64))))
 
 (define (update (model Model) (message Msg))
-  (→ (Pair Model (List (dyn (FnOnce → Msg ! output-port tasks)))))
+  (→ (Pair Model (List (FnOnce → Msg ! output-port tasks))))
   (match message
     ((Typed text) (Pair (Model-draft-set model text) (Nil)))
     ((Add)

@@ -6,6 +6,7 @@
 (define-library (scheme runtime)
   (export
    call
+   Variable Variable-value Variable-value-set!
    scheme-evaluate
    arity!
    rest-arguments
@@ -99,6 +100,11 @@
    (snail shell text)
    (snail shell write))
   (begin
+    ;; Scheme bindings have shared mutable identity, independently of their
+    ;; dynamically typed value. The typed core needs no special reference type.
+    (struct Variable
+      ((value Any)))
+
 
     ;; ---- Calls ----
 
@@ -107,9 +113,7 @@
 
     ;; Generated scripts fail at the current evaluation. A caller using call
     ;; directly can instead recover with its own dyn-cast handler.
-    (define (scheme-evaluate (work (dyn (Fn → Any ! output-port mut dyn-cast))))
-      (→ Any)
-      (! output-port mut)
+    (define (scheme-evaluate (work (Fn → Any ! output-port mut dyn-cast))) (→ Any) (! output-port mut)
       (handle dyn-cast
           ((conversion-failed (lambda (error) (panic (cast-error->string error)))))
         (work)))
@@ -160,7 +164,7 @@
     (define-syntax variadic
       (syntax-rules (lambda)
         ((_ (lambda (arguments) body ...))
-         (ref (ann (Procedure (lambda (arguments)
+         (Variable (ann (Procedure (lambda (arguments)
                                 (ann arguments (List Any))
                                 (ann (begin body ...) Any))) Any)))))
 
@@ -183,7 +187,7 @@
          (if (rational-integer? r) (● r numerator) (type-error "an integer" datum)))
         ((Inexact _) (type-error "an exact integer" datum))))
 
-    (define (inverse-fold (op (dyn (Fn Any Any → Any ! dyn-cast)))
+    (define (inverse-fold (op (Fn Any Any → Any ! dyn-cast))
                           (identity Any)
                           (arguments (List Any)))
       (→ Any)
@@ -193,7 +197,7 @@
         ((Cons first rest) (fold-left op first rest))
         ((Nil) (panic "expected at least one argument"))))
 
-    (define (chain (test (dyn (Fn I64 → Bool))) (arguments (List Any))) (→ Any) (! dyn-cast)
+    (define (chain (test (Fn I64 → Bool)) (arguments (List Any))) (→ Any) (! dyn-cast)
       (let loop ((items arguments))
         (match items
           ((Cons a (Cons b rest))
@@ -203,56 +207,56 @@
     ;; Only these definitions select the Scheme numeric tower policy.
     ;; Importing the runtime cannot enable promotion in its typed clients.
     (with-instances (dynamic-arithmetic)
-                    (define %+ (→ (Ref Any)) (variadic (lambda (arguments)
+                    (define %+ (→ Variable) (variadic (lambda (arguments)
                                                          (fold-left add
                                                                     (ann (integer-from-i64 0) Any)
                                                                     arguments))))
-                    (define %* (→ (Ref Any)) (variadic (lambda (arguments)
+                    (define %* (→ Variable) (variadic (lambda (arguments)
                                                          (fold-left multiply
                                                                     (ann (integer-from-i64 1) Any)
                                                                     arguments))))
-                    (define %- (→ (Ref Any)) (variadic (lambda (arguments)
+                    (define %- (→ Variable) (variadic (lambda (arguments)
                                                          (inverse-fold subtract
                                                                        (integer-from-i64 0)
                                                                        arguments))))
-                    (define %/ (→ (Ref Any)) (variadic (lambda (arguments)
+                    (define %/ (→ Variable) (variadic (lambda (arguments)
                                                          (inverse-fold divide
                                                                        (integer-from-i64 1)
                                                                        arguments)))))
 
     (define %=
-      (→ (Ref Any))
+      (→ Variable)
       (variadic (lambda (arguments) (chain (lambda (order) (= order 0)) arguments))))
 
     (define %<
-      (→ (Ref Any))
+      (→ Variable)
       (variadic (lambda (arguments) (chain (lambda (order) (< order 0)) arguments))))
 
     (define %>
-      (→ (Ref Any))
+      (→ Variable)
       (variadic (lambda (arguments) (chain (lambda (order) (> order 0)) arguments))))
 
     (define %<=
-      (→ (Ref Any))
+      (→ Variable)
       (variadic (lambda (arguments) (chain (lambda (order) (<= order 0)) arguments))))
 
     (define %>=
-      (→ (Ref Any))
+      (→ Variable)
       (variadic (lambda (arguments) (chain (lambda (order) (>= order 0)) arguments))))
 
-    (define %quotient (→ (Ref Any))
+    (define %quotient (→ Variable)
       (procedure2 (lambda (a b)
                     (ann (integer-quotient (integer-of a) (integer-of b)) Any))))
 
-    (define %remainder (→ (Ref Any))
+    (define %remainder (→ Variable)
       (procedure2 (lambda (a b)
                     (ann (integer-remainder (integer-of a) (integer-of b)) Any))))
 
-    (define %modulo (→ (Ref Any))
+    (define %modulo (→ Variable)
       (procedure2 (lambda (a b)
                     (ann (integer-modulo (integer-of a) (integer-of b)) Any))))
 
-    (define %abs (→ (Ref Any))
+    (define %abs (→ Variable)
       (procedure1 (lambda (a)
                     (if (< (sign a) 0)
                         (with-instances (dynamic-arithmetic)
@@ -260,14 +264,14 @@
                         a))))
 
     (define %max
-      (→ (Ref Any))
+      (→ Variable)
       (variadic (lambda (arguments) (extreme (lambda (order) (> order 0)) arguments))))
 
     (define %min
-      (→ (Ref Any))
+      (→ Variable)
       (variadic (lambda (arguments) (extreme (lambda (order) (< order 0)) arguments))))
 
-    (define (extreme (better? (dyn (Fn I64 → Bool))) (arguments (List Any))) (→ Any) (! dyn-cast)
+    (define (extreme (better? (Fn I64 → Bool)) (arguments (List Any))) (→ Any) (! dyn-cast)
       (match arguments
         ((Cons first rest)
          (fold-left (lambda (best item)
@@ -276,42 +280,42 @@
                     rest))
         ((Nil) (panic "expected at least one argument"))))
 
-    (define %number? (→ (Ref Any))
+    (define %number? (→ Variable)
       (procedure1 (lambda (a) (match (datum-number a) ((Some _) #t) ((None) #f)))))
 
-    (define %integer? (→ (Ref Any))
+    (define %integer? (→ Variable)
       (procedure1
        (lambda (a) (match (datum-number a) ((Some n) (number-integer? n)) ((None) #f)))))
 
     (define (sign (a Any)) (→ I64) (! dyn-cast)
       (number-compare (number-of a) (number-from-i64 0)))
 
-    (define %zero? (→ (Ref Any)) (procedure1 (lambda (a) (= (sign a) 0))))
+    (define %zero? (→ Variable) (procedure1 (lambda (a) (= (sign a) 0))))
 
-    (define %positive? (→ (Ref Any)) (procedure1 (lambda (a) (> (sign a) 0))))
+    (define %positive? (→ Variable) (procedure1 (lambda (a) (> (sign a) 0))))
 
-    (define %negative? (→ (Ref Any)) (procedure1 (lambda (a) (< (sign a) 0))))
+    (define %negative? (→ Variable) (procedure1 (lambda (a) (< (sign a) 0))))
 
-    (define %even? (→ (Ref Any))
+    (define %even? (→ Variable)
       (procedure1 (lambda (a)
                     (integer-zero? (integer-remainder (integer-of a) (integer-from-i64 2))))))
 
-    (define %odd? (→ (Ref Any))
+    (define %odd? (→ Variable)
       (procedure1 (lambda (a)
                     (not (integer-zero?
                           (integer-remainder (integer-of a) (integer-from-i64 2)))))))
 
-    (define %number->string (→ (Ref Any)) (procedure1 (lambda (a) (number->string (number-of a)))))
+    (define %number->string (→ Variable) (procedure1 (lambda (a) (number->string (number-of a)))))
 
     ;; ---- Pairs and lists ----
 
-    (define %cons (→ (Ref Any)) (procedure2 (lambda (a b) (SchemePair a b))))
+    (define %cons (→ Variable) (procedure2 (lambda (a b) (SchemePair a b))))
 
-    (define %car (→ (Ref Any)) (procedure1 (lambda (a) (● (type-convert a SchemePair) car))))
+    (define %car (→ Variable) (procedure1 (lambda (a) (● (type-convert a SchemePair) car))))
 
-    (define %cdr (→ (Ref Any)) (procedure1 (lambda (a) (● (type-convert a SchemePair) cdr))))
+    (define %cdr (→ Variable) (procedure1 (lambda (a) (● (type-convert a SchemePair) cdr))))
 
-    (define %list (→ (Ref Any)) (variadic (lambda (arguments) (datum-list arguments))))
+    (define %list (→ Variable) (variadic (lambda (arguments) (datum-list arguments))))
 
     (define (items-of (datum Any)) (→ (List Any)) (! dyn-cast)
       (match (datum->list datum)
@@ -319,11 +323,11 @@
         ((None) (type-error "a list" datum))))
 
     (define %length
-      (→ (Ref Any))
+      (→ Variable)
       (procedure1 (lambda (a) (integer-from-i64 (length (items-of a))))))
 
     ;; The last argument becomes the tail as it is, so it need not be a list.
-    (define %append (→ (Ref Any)) (variadic (lambda (arguments)
+    (define %append (→ Variable) (variadic (lambda (arguments)
                                               (match (reverse arguments)
                                                 ((Cons last front)
                                                  (fold-left (lambda (tail items)
@@ -337,68 +341,68 @@
                                                             front))
                                                 ((Nil) (ann (Null) Any))))))
 
-    (define %reverse (→ (Ref Any)) (procedure1 (lambda (a) (datum-list (reverse (items-of a))))))
+    (define %reverse (→ Variable) (procedure1 (lambda (a) (datum-list (reverse (items-of a))))))
 
-    (define %list-ref (→ (Ref Any))
+    (define %list-ref (→ Variable)
       (procedure2 (lambda (a k) (list-ref (items-of a) (integer->i64 (integer-of k))))))
 
-    (define %null? (→ (Ref Any)) (procedure1 (lambda (a) (type-test a Null))))
+    (define %null? (→ Variable) (procedure1 (lambda (a) (type-test a Null))))
 
-    (define %pair? (→ (Ref Any)) (procedure1 (lambda (a) (type-test a SchemePair))))
+    (define %pair? (→ Variable) (procedure1 (lambda (a) (type-test a SchemePair))))
 
-    (define %list? (→ (Ref Any))
+    (define %list? (→ Variable)
       (procedure1 (lambda (a) (match (datum->list a) ((Some _) #t) ((None) #f)))))
 
     ;; ---- Equivalence and types ----
 
-    (define %eq? (→ (Ref Any)) (procedure2 (lambda (a b) (datum=? a b))))
+    (define %eq? (→ Variable) (procedure2 (lambda (a b) (datum=? a b))))
 
-    (define %eqv? (→ (Ref Any)) (procedure2 (lambda (a b) (datum=? a b))))
+    (define %eqv? (→ Variable) (procedure2 (lambda (a b) (datum=? a b))))
 
-    (define %equal? (→ (Ref Any)) (procedure2 (lambda (a b) (datum=? a b))))
+    (define %equal? (→ Variable) (procedure2 (lambda (a b) (datum=? a b))))
 
-    (define %not (→ (Ref Any)) (procedure1 (lambda (a) (not (datum-truthy? a)))))
+    (define %not (→ Variable) (procedure1 (lambda (a) (not (datum-truthy? a)))))
 
-    (define %boolean? (→ (Ref Any)) (procedure1 (lambda (a) (type-test a Bool))))
+    (define %boolean? (→ Variable) (procedure1 (lambda (a) (type-test a Bool))))
 
-    (define %symbol? (→ (Ref Any)) (procedure1 (lambda (a) (type-test a Symbol))))
+    (define %symbol? (→ Variable) (procedure1 (lambda (a) (type-test a Symbol))))
 
-    (define %string? (→ (Ref Any)) (procedure1 (lambda (a) (type-test a String))))
+    (define %string? (→ Variable) (procedure1 (lambda (a) (type-test a String))))
 
-    (define %char? (→ (Ref Any)) (procedure1 (lambda (a) (type-test a Char))))
+    (define %char? (→ Variable) (procedure1 (lambda (a) (type-test a Char))))
 
-    (define %procedure? (→ (Ref Any))
+    (define %procedure? (→ Variable)
       (procedure1 (lambda (a) (type-test a Procedure))))
 
     ;; ---- Strings and symbols ----
 
     (define (text-of (value Any)) (→ String) (! dyn-cast) value)
 
-    (define %string-append (→ (Ref Any))
+    (define %string-append (→ Variable)
       (variadic (lambda (arguments) (string-concatenate (map text-of arguments)))))
 
-    (define %string-length (→ (Ref Any))
+    (define %string-length (→ Variable)
       (procedure1 (lambda (a) (integer-from-i64 (string-length a)))))
 
-    (define %substring (→ (Ref Any))
+    (define %substring (→ Variable)
       (variadic (lambda (arguments)
                   (arity! arguments 3 #f)
                   (substring (list-ref arguments 0)
                              (integer->i64 (integer-of (list-ref arguments 1)))
                              (integer->i64 (integer-of (list-ref arguments 2)))))))
 
-    (define %string=? (→ (Ref Any)) (procedure2 (lambda (a b) (string=? a b))))
+    (define %string=? (→ Variable) (procedure2 (lambda (a b) (string=? a b))))
 
-    (define (text (f (dyn (Fn String → String)))) (→ (Ref Any))
+    (define (text (f (Fn String → String))) (→ Variable)
       (procedure1 (lambda (a) (f a))))
 
-    (define %string-upcase (→ (Ref Any)) (text string-upcase))
+    (define %string-upcase (→ Variable) (text string-upcase))
 
-    (define %string-downcase (→ (Ref Any)) (text string-downcase))
+    (define %string-downcase (→ Variable) (text string-downcase))
 
-    (define %string-foldcase (→ (Ref Any)) (text string-foldcase))
+    (define %string-foldcase (→ Variable) (text string-foldcase))
 
-    (define %string-ci=? (→ (Ref Any))
+    (define %string-ci=? (→ Variable)
       (procedure2 (lambda (a b)
                     (string=? (string-foldcase a) (string-foldcase b)))))
 
@@ -410,58 +414,58 @@
     ;; `string-foldcase` may expand a scalar, as "ß" into "ss", so
     ;; `string-ci=?` compares folded text rather than scalar by scalar.
 
-    (define (character (f (dyn (Fn Char → Char)))) (→ (Ref Any))
+    (define (character (f (Fn Char → Char))) (→ Variable)
       (procedure1 (lambda (a) (f a))))
 
-    (define (character-property (holds? (dyn (Fn Char → Bool)))) (→ (Ref Any))
+    (define (character-property (holds? (Fn Char → Bool))) (→ Variable)
       (procedure1 (lambda (a) (holds? a))))
 
-    (define %char-upcase (→ (Ref Any)) (character char-upcase))
+    (define %char-upcase (→ Variable) (character char-upcase))
 
-    (define %char-downcase (→ (Ref Any)) (character char-downcase))
+    (define %char-downcase (→ Variable) (character char-downcase))
 
-    (define %char-foldcase (→ (Ref Any)) (character char-foldcase))
+    (define %char-foldcase (→ Variable) (character char-foldcase))
 
-    (define %char-alphabetic? (→ (Ref Any)) (character-property char-unicode-alphabetic?))
+    (define %char-alphabetic? (→ Variable) (character-property char-unicode-alphabetic?))
 
-    (define %char-numeric? (→ (Ref Any)) (character-property char-unicode-numeric?))
+    (define %char-numeric? (→ Variable) (character-property char-unicode-numeric?))
 
-    (define %char-whitespace? (→ (Ref Any)) (character-property char-unicode-whitespace?))
+    (define %char-whitespace? (→ Variable) (character-property char-unicode-whitespace?))
 
-    (define %char-upper-case? (→ (Ref Any)) (character-property char-upper-case?))
+    (define %char-upper-case? (→ Variable) (character-property char-upper-case?))
 
-    (define %char-lower-case? (→ (Ref Any)) (character-property char-lower-case?))
+    (define %char-lower-case? (→ Variable) (character-property char-lower-case?))
 
-    (define %char-ci=? (→ (Ref Any))
+    (define %char-ci=? (→ Variable)
       (procedure2
        (lambda (a b) (char=? (char-foldcase a) (char-foldcase b)))))
 
     ;; R7RS answers #f for anything that is not a decimal digit.
-    (define %digit-value (→ (Ref Any))
+    (define %digit-value (→ Variable)
       (procedure1 (lambda (a)
                     (match (char-digit-value a)
                       ((Some value) (ann (integer-from-i64 value) Any))
                       ((None) (ann #f Any))))))
 
     (define %symbol->string
-      (→ (Ref Any))
+      (→ Variable)
       (procedure1 (lambda (a) (● (type-convert a Symbol) name))))
 
-    (define %string->symbol (→ (Ref Any)) (procedure1 (lambda (a) (Symbol a))))
+    (define %string->symbol (→ Variable) (procedure1 (lambda (a) (Symbol a))))
 
     ;; ---- Output and errors ----
 
     (define %display
-      (→ (Ref Any))
+      (→ Variable)
       (procedure1 (lambda (a) (write-string (datum->display-string a)) unspecified)))
 
-    (define %write (→ (Ref Any)) (procedure1 (lambda (a) (write a) unspecified)))
+    (define %write (→ Variable) (procedure1 (lambda (a) (write a) unspecified)))
 
     (define %newline
-      (→ (Ref Any))
+      (→ Variable)
       (variadic (lambda (arguments) (arity! arguments 0 #f) (newline) unspecified)))
 
-    (define %error (→ (Ref Any))
+    (define %error (→ Variable)
       (variadic (lambda (arguments)
                   (match arguments
                     ((Cons message irritants)
@@ -476,7 +480,7 @@
     ;; ---- Higher-order procedures ----
 
     ;; `(apply f a ... list)` calls f with the a's followed by the list.
-    (define %apply (→ (Ref Any))
+    (define %apply (→ Variable)
       (variadic (lambda (arguments)
                   (match arguments
                     ((Cons f rest)
@@ -485,23 +489,23 @@
                        ((Nil) (call f (Nil)))))
                     ((Nil) (panic "apply: expected a procedure"))))))
 
-    (define %map (→ (Ref Any))
+    (define %map (→ Variable)
       (procedure2
        (lambda (f items) (datum-list (map (lambda (item) (call f (list item))) (items-of items))))))
 
-    (define %for-each (→ (Ref Any))
+    (define %for-each (→ Variable)
       (procedure2 (lambda (f items)
                     (for-each (lambda (item) (call f (list item)) (unit)) (items-of items))
                     unspecified)))
 
     ;; ---- Vectors ----
 
-    (define %vector (→ (Ref Any)) (variadic (lambda (arguments) (list->vector arguments))))
+    (define %vector (→ Variable) (variadic (lambda (arguments) (list->vector arguments))))
 
-    (define %vector-ref (→ (Ref Any))
+    (define %vector-ref (→ Variable)
       (procedure2 (lambda (v k) (vector-ref (ann v (Vector Any)) (integer->i64 (integer-of k))))))
 
-    (define %vector-length (→ (Ref Any))
+    (define %vector-length (→ Variable)
       (procedure1 (lambda (v) (integer-from-i64 (vector-length (ann v (Vector Any)))))))
 
     ))

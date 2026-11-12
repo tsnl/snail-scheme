@@ -66,7 +66,7 @@
 
     (define (build-session (session Session)
                            (source String)
-                           (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                           (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                            (inputs Inputs))
       (→ (Pair (List Built) Session))
       (! mut fs compile)

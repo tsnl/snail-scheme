@@ -10,7 +10,7 @@
   ((title String)
    (count I64)
    (pending (Option Child))
-   (work (dyn (FnOnce → Unit)))))
+   (work (FnOnce → Unit))))
 
 ;; A constructor pattern on a borrow binds a Copy field as an owned value
 ;; and a linear field as a borrow; a wildcard skips a linear field without

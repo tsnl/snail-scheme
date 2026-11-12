@@ -10,7 +10,7 @@
     (lambda (token) (match token
                       ((Token label) (write-line label))))))
 
-(define (offset (token Token) (amount I64)) (→ (dyn (FnOnce I64 → I64 ! output-port)))
+(define (offset (token Token) (amount I64)) (→ (FnOnce I64 → I64 ! output-port))
   (once (lambda (value)
           (drop token)
           (+ amount value))))
@@ -23,7 +23,7 @@
 (let ((work (once (lambda (first last) (string-append first last)))))
   (write-line (work "left" "right")))
 
-(define (consume-job (job (dyn (FnOnce → Unit ! output-port)))) (→ I64) (! output-port)
+(define (consume-job (job (FnOnce → Unit ! output-port))) (→ I64) (! output-port)
   (job)
   7)
 
@@ -31,9 +31,9 @@
   (write-line (show (work (once (lambda () (write-line "argument")))))))
 
 (effect Pause
-  ((ctl pause (dyn (Fn → I64)))))
+  ((ctl pause (Fn → I64))))
 
-(define (suspended (token Token)) (→ (dyn (FnOnce I64 → I64 ! Pause output-port)))
+(define (suspended (token Token)) (→ (FnOnce I64 → I64 ! Pause output-port))
   (once (lambda (value)
           (let ((answer (pause)))
             (drop token)

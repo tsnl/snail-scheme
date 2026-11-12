@@ -61,10 +61,7 @@
                                          (run-reactor (begin-session initial)
                                                       (list (Open "main.sld"))
                                                       (ann update-session
-                                                           (dyn (Fn Session
-                                                                    (Option Msg)
-                                                                    → Session
-                                                                    ! mut completion output-port dom fetch)))
+                                                           (Fn Session (Option Msg) → Session ! mut completion output-port dom fetch))
                                                       session-view session-window snapshot
                                                       (lambda (model) (unit))
                                                       (lambda (model) (unit)))))) first))
@@ -75,10 +72,7 @@
                                             (list (DispatchCommand "format-buffer"))
                                             (ann (lambda (model msg)
                                                    (race-update changed-path injected model msg))
-                                                 (dyn (Fn Session
-                                                          (Option Msg)
-                                                          → Session
-                                                          ! mut completion output-port dom fetch)))
+                                                 (Fn Session (Option Msg) → Session ! mut completion output-port dom fetch))
                                             session-view session-window snapshot
                                             (lambda (model) (unit)) (lambda (model) (unit))))
                          (report-editor)))

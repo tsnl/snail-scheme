@@ -4,7 +4,7 @@
 ;; vector-generate calls its callback from a loop in WAT, which cannot
 ;; leave early when the callback yields.
 (effect Abort
-  ((ctl abort (dyn (Fn I64 → I64)))))
+  ((ctl abort (Fn I64 → I64))))
 
 (define (squares (count I64)) (→ (Vector I64))
   (handle Abort ((abort

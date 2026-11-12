@@ -5,7 +5,7 @@
   ((number I64))
   (deriving Move))
 
-(define (conceal (value T)) (→ (dyn (Fn → Unit))) (∀ T) (⊨ (Copy T))
+(define (conceal (value T)) (→ (Fn → Unit)) (∀ T) (⊨ (Copy T))
   (lambda () (drop value)))
 
 (let ((token (Token 1)))

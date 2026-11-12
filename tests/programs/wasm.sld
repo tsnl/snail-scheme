@@ -25,7 +25,7 @@
 (define (use-adder (module Module)) (→ Unit) (! wasm output-port)
   (match (module-export module "add")
     ((Ok function)
-     (let ((add (ann (unsafe-cast function) (dyn (Fn I64 I64 → I64))))
+     (let ((add (ann (unsafe-cast function) (Fn I64 I64 → I64)))
            (code (ann (unsafe-cast function) (fn I64 I64 → I64))))
        (display (add 40 2))
        (newline)

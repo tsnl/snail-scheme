@@ -11,9 +11,9 @@
        ((Ok checked) checked)
        ((Err _) (panic "fixture payload has the wrong type"))))))
 
-(extern note-text "snail.test" "text" (impl (Fn String → I32)))
-(extern note-bytes "snail.test" "bytes" (impl (Fn I32 Bytes → I32)))
-(extern receive-managed "snail.test" "managed" (impl (Fn → (Result Payload String))))
+(extern note-text "snail.test" "text" (Fn String → I32))
+(extern note-bytes "snail.test" "bytes" (Fn I32 Bytes → I32))
+(extern receive-managed "snail.test" "managed" (Fn → (Result Payload String)))
 
 (define checkpoint (→ (Ref Any)) (ref (type-convert (ann 42 I64) Any)))
 

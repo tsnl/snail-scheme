@@ -4,7 +4,7 @@
 
 ;; An instance's methods perform no more than the row its head writes.
 (typeclass (Store e S)
-  (: fetch-object (impl (Fn S String → String ! e))))
+  (: fetch-object (Fn S String → String ! e)))
 
 (struct Loud
   ((name String)))

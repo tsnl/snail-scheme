@@ -41,7 +41,7 @@
     (define (translate-top (top Any)) (→ Syntax)
       (match (definition top)
         ((Some (Pair name value))
-         (form "define" (list (variable name) (form "ref" (list (evaluation (translate value)))))))
+         (form "define" (list (variable name) (form "Variable" (list (evaluation (translate value)))))))
         ((None) (evaluation (translate top)))))
 
     ;; A generated script installs its failure boundary explicitly. Runtime
@@ -79,7 +79,7 @@
 
     (define (translate (datum Any)) (→ Syntax)
       (match-any datum
-                 ((Symbol (Symbol name)) (form "ref-get" (list (variable name))))
+                 ((Symbol (Symbol name)) (form "Variable-value" (list (variable name))))
                  ((SchemePair (SchemePair head rest))
                   (match-any head
                              ((Symbol (Symbol keyword))
@@ -119,7 +119,7 @@
         (("if") (translate-if args))
         (("set!")
          (form "begin"
-               (list (form "ref-set!"
+               (list (form "Variable-value-set!"
                            (list (variable (symbol-name (first args))) (translate (second args))))
                      unspecified)))
         (("let") (translate-let args))
@@ -198,7 +198,7 @@
 
     ;; `(%name (ref value))`, a binding of a variable's cell.
     (define (cell (name String) (value Syntax)) (→ Syntax)
-      (ListSyntax (list (variable name) (form "ref" (list value)))))
+      (ListSyntax (list (variable name) (form "Variable" (list value)))))
 
     (define (empty-cells (names (List String))) (→ (List Syntax))
       (map (lambda (name) (cell name unspecified)) names))
@@ -215,7 +215,7 @@
                           (map (lambda (item)
                                  (match (definition item)
                                    ((Some (Pair name value))
-                                    (form "ref-set!" (list (variable name) (translate value))))
+                                    (form "Variable-value-set!" (list (variable name) (translate value))))
                                    ((None) (translate item))))
                                body)))))
 
@@ -246,9 +246,9 @@
                          (map (lambda (pair) (ann (Symbol (● pair first)) Any)) pairs))
                         body)))
         (form "let" (list (ListSyntax (empty-cells (list name)))
-                          (form "ref-set!" (list (variable name) procedure))
+                          (form "Variable-value-set!" (list (variable name) procedure))
                           (form "call"
-                                (list (form "ref-get" (list (variable name)))
+                                (list (form "Variable-value" (list (variable name)))
                                       (form "list"
                                             (map translate
                                                  (map (lambda (record) (● record second))
@@ -267,7 +267,7 @@
       (let ((pairs (map binding bindings)))
         (form "let" (Cons (ListSyntax (empty-cells (map (lambda (record) (● record first)) pairs)))
                           (append (map (lambda (pair)
-                                         (form "ref-set!"
+                                         (form "Variable-value-set!"
                                                (list (variable (● pair first))
                                                      (translate (● pair second)))))
                                        pairs)
@@ -278,7 +278,7 @@
         ((Some (Cons name (Cons value (Nil)))) (Pair (symbol-name name) value))
         (_ (panic (string-append "scheme: expected (name value), got " (datum->string datum))))))
 
-    (define (holding (name String) (value Syntax) (body (dyn (Fn Syntax → Syntax)))) (→ Syntax)
+    (define (holding (name String) (value Syntax) (body (Fn Syntax → Syntax))) (→ Syntax)
       (let ((held (SymbolSyntax name)))
         (form "let" (list (ListSyntax (list (ListSyntax (list held value)))) (body held)))))
 

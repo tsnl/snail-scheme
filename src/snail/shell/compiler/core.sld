@@ -7,24 +7,14 @@
    Type
    TCon
    TFun
-   borrow-type?
-   borrow-target
    TRow
    TVar
    TRigid
    TVar-id
    empty-row
    fn-arrow
-   callable-class?
-   callable-class
-   callable-implies?
    callable-kind
    callable-arrow
-   concrete-callable?
-   concrete-callable
-   impl-callable?
-   callable-captures
-   invocation-mode
    mut-row
    unchecked
    Constraint
@@ -200,15 +190,9 @@
     ;; locals and signatures through checking; only representation lowering
     ;; uses its target. Lexical ownership checking proves where it may live.
 
-    (define (borrow-type? (type Type)) (→ Bool)
-      (match type
-        ((TCon "Borrow" (Cons _ (Nil))) #t)
-        (_ #f)))
+    
 
-    (define (borrow-target (type Type)) (→ Type)
-      (match type
-        ((TCon "Borrow" (Cons value (Nil))) value)
-        (_ type)))
+    
 
     ;; The signature a callable holds, including `(fn A → B ! e)` code; any
     ;; other type is its own.
@@ -225,53 +209,27 @@
     ;; are the owned environment. Generic instantiation substitutes both.
     ;; These compiler names cannot be written as source type constructors.
 
-    (define (concrete-callable (kind String) (identity String) (arrow Type) (captures (List Type)))
-      (→ Type)
-      (TCon (string-append "$callable." kind ":" identity) (Cons arrow captures)))
+    
 
-    (define (concrete-callable? (type Type)) (→ Bool)
-      (match type
-        ((TCon name _)
-         (and (>= (string-length name) 10) (string=? (substring name 0 10) "$callable.")))
-        (_ #f)))
+    
 
-    (define (impl-callable? (type Type)) (→ Bool)
-      (match type
-        ((TCon name _) (member? name (list "$impl.Fn" "$impl.FnMut" "$impl.FnOnce")))
-        (_ #f)))
+    
 
-    (define (callable-captures (type Type)) (→ (List Type))
-      (match type
-        ((TCon _ (Cons _ captures)) (if (concrete-callable? type) captures (Nil)))
-        (_ (Nil))))
+    
 
-    (define (callable-class (kind String)) (→ String)
-      (string-append "snail.core.base:" kind))
+    
 
-    (define (callable-class? (name String)) (→ Bool)
-      (member? name (map callable-class (list "Fn" "FnMut" "FnOnce"))))
+    
 
     ;; This implication is about receiver access, never Copy or purity.
 
-    (define (callable-implies? (actual String) (required String)) (→ Bool)
-      (or (string=? actual required)
-          (string=? actual "Fn")
-          (and (string=? actual "FnMut") (string=? required "FnOnce"))))
+    
 
     (define (callable-kind (type Type)) (→ (Option String))
       (match type
         ((TFun _ _ _) (Some "Fn"))
-        ((TCon name _)
-         (cond ((string=? name "fn") (Some "Fn"))
-               ((member? name (list "FnMut" "FnOnce")) (Some name))
-               ((impl-callable? type)
-                (Some (substring name 6 (string-length name))))
-               ((concrete-callable? type)
-                (let ((tail (substring name 10 (string-length name))))
-                  (match (string-index tail #\:)
-                    ((Some end) (Some (substring tail 0 end)))
-                    ((None) (None)))))
-               (else (None))))
+        ((TCon "FnOnce" _) (Some "FnOnce"))
+        ((TCon "fn" _) (Some "Fn"))
         (_ (None))))
 
     (define (callable-arrow (type Type)) (→ (Option Type))
@@ -285,10 +243,7 @@
     ;; It remains attached through specialization: a FnOnce requirement
     ;; consumes its receiver even when the concrete value also implements Fn.
 
-    (define (invocation-mode (callee Expr)) (→ (Option String))
-      (match (● callee term)
-        ((Ann _ (TCon "$invoke" (Cons (TCon mode (Nil)) _))) (Some mode))
-        (_ (None))))
+    
 
     ;; The row of an operation on a mutable field, which reads or writes
     ;; storage and nothing else.
@@ -356,7 +311,8 @@
 
     (define builtin-types (→ (List (Pair String I64)))
       (list (Pair "Any" 0)
-            (Pair "Borrow" 1)
+            (Pair "Rc" 1)
+            (Pair "WeakRc" 1)
             (Pair "Funcref" 0)
             (Pair "U8" 0)
             (Pair "I32" 0)
@@ -370,7 +326,7 @@
             (Pair "Array" 1)
             (Pair "Vector" 1)
             (Pair "FnOnce" 1)
-            (Pair "FnMut" 1)
+            (Pair "Fn" 0)
             (Pair "fn" 1)))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source
@@ -416,25 +372,19 @@
         (_ #f)))
 
     (define (type->string (type Type)) (→ String)
-      (if (or (concrete-callable? type) (impl-callable? type))
-          (callable->string "impl" type)
-          (match type
-            ((TCon "FnOnce" _) (callable->string "dyn" type))
-            ((TCon "FnMut" _) (callable->string "dyn" type))
-            ((TCon "fn" (Cons (TFun params result row) (Nil)))
-             (arrow->string "fn" params result row))
-            ((TCon name (Nil)) (short-name name))
-            ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
-            ((TFun _ _ _) (callable->string "dyn" type))
-            ((TRow _ _) (string-append "{" (row->string type) " }"))
-            ((TVar id) (string-append "?" (i64->string id)))
-            ((TRigid name) name))))
+      (match type
+        ((TFun params result row) (arrow->string "Fn" params result row))
+        ((TCon "FnOnce" (Cons (TFun params result row) (Nil)))
+         (arrow->string "FnOnce" params result row))
+        ((TCon "fn" (Cons (TFun params result row) (Nil)))
+         (arrow->string "fn" params result row))
+        ((TCon name (Nil)) (short-name name))
+        ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
+        ((TRow _ _) (string-append "{" (row->string type) " }"))
+        ((TVar id) (string-append "?" (i64->string id)))
+        ((TRigid name) name)))
 
-    (define (callable->string (former String) (type Type)) (→ String)
-      (match (Pair (callable-kind type) (callable-arrow type))
-        ((Pair (Some kind) (Some (TFun params result row)))
-         (string-append "(" former " " (arrow->string kind params result row) ")"))
-        (_ (panic "internal error: printing a callable without its signature"))))
+    
 
     (define (arrow->string (kind String) (params (List Type)) (result Type) (row Type)) (→ String)
       (string-append "(" kind (types->string params) " → " (type->string result)
@@ -817,8 +767,7 @@
     ;; that holds it, so a struct with one has identity.
     (struct Field
       ((name String)
-       (type Type)
-       (mutable? Bool)))
+       (type Type)))
 
     ;; Method schemes quantify the class parameters first and require the
     ;; class itself as their first constraint. `rows` are the parameters
@@ -1393,7 +1342,7 @@
                        (string-concatenate
                         (map (lambda (field)
                                (string-append (● field name)
-                                              (if (● field mutable?) " mut:" ":")
+                                              ":"
                                               (type-schema program
                                                            (● field type)
                                                            (● data params)

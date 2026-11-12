@@ -2,10 +2,10 @@
  (snail core base)
  (snail core io))
 
-(effect log ((message (dyn (Fn String → Unit)))))
+(effect log ((message (Fn String → Unit))))
 (typeclass (Subtract e A B)
   (type Output)
-  (: subtract (impl (Fn A B → Output ! e))))
+  (: subtract (Fn A B → Output ! e)))
 (define-instance-set ordinary
   (instance (Subtract (!) I64 I64)
     (type Output I64)

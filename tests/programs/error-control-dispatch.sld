@@ -5,7 +5,7 @@
 ;; Dispatched work runs later, on a turn of the scheduler, when the
 ;; handles it would yield to may have returned; it may yield only to tasks.
 (effect Abort
-  ((ctl abort (dyn (Fn I64 → I64)))))
+  ((ctl abort (Fn I64 → I64))))
 
 (define (start) (→ Unit) (! mut)
   (handle Abort ((abort (lambda (value resume) (drop resume) (unit))))

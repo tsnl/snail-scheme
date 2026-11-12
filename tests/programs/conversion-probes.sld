@@ -62,7 +62,7 @@
 
 ;; A right-hand abort still happens after a failed left probe. Ownership
 ;; sees that exit and releases the surrounding resource before handling it.
-(effect Stop ((ctl stop (dyn (Fn → Never)))))
+(effect Stop ((ctl stop (Fn → Never))))
 (struct Resource
   ())
 (instance (Drop (! output-port) Resource)

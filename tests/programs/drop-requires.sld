@@ -7,10 +7,10 @@
 ;; is whatever dropping the item performs. The book's ownership chapter
 ;; includes the text between ANCHOR and ANCHOR_END.
 (effect log
-  ((say (dyn (Fn String → Unit)))))
+  ((say (Fn String → Unit))))
 
 (effect audit
-  ((note (dyn (Fn String → Unit)))))
+  ((note (Fn String → Unit))))
 
 (struct Handle
   ((name String)))

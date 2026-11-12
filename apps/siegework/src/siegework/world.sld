@@ -588,7 +588,7 @@
     (define (eq-bool? (a Bool) (b Bool)) (→ Bool)
       (if a b (not b)))
 
-    (define (filter-map (f (dyn (Fn A → (Option B)))) (items (List A))) (→ (List B)) (∀ A B)
+    (define (filter-map (f (Fn A → (Option B))) (items (List A))) (→ (List B)) (∀ A B)
       (fold-right
        (lambda (item kept) (match (f item) ((Some value) (Cons value kept)) ((None) kept)))
        (Nil)

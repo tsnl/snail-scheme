@@ -3,7 +3,7 @@
  (snail core io)
  (snail shell task))
 
-(effect Label ((label (dyn (Fn → String)))))
+(effect Label ((label (Fn → String))))
 
 (define (child) (→ Unit) (! output-port tasks Label)
   (write-line (string-append (label) " starts"))

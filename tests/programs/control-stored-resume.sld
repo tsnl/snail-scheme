@@ -6,10 +6,10 @@
 ;; whoever holds it resumes the computation later, after the handler has
 ;; returned, under whatever handlers are in scope where it is called.
 (effect Gen
-  ((ctl yield (dyn (Fn I64 → Unit)))))
+  ((ctl yield (Fn I64 → Unit))))
 
 (effect Log
-  ((log (dyn (Fn String → Unit)))))
+  ((log (Fn String → Unit))))
 
 ;; A step of a generator: done, or a value and the rest, which may be
 ;; resumed once. Holding `resume` makes a Step linear.
@@ -17,11 +17,11 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (dyn (FnOnce Unit → Step ! Log))))))
+    (next (FnOnce Unit → Step ! Log)))))
 
 ;; The generator's first step: the handler hands back each value with the
 ;; rest of the body still to run.
-(define (start (body (dyn (Fn → Unit ! Gen Log)))) (→ Step) (! Log)
+(define (start (body (Fn → Unit ! Gen Log))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (value resume) (Yielded value resume))))
     (body)
     (Done)))
@@ -65,13 +65,13 @@
 ;; resumer's evidence as its outside, so the yield reaches that handler,
 ;; not the one that was in scope when the generator started.
 (effect Ask
-  ((ctl ask (dyn (Fn → I64)))))
+  ((ctl ask (Fn → I64))))
 
 (enum Asking
   (Finished)
   (Gave
    ((value I64)
-    (next (dyn (FnOnce Unit → Asking ! Ask))))))
+    (next (FnOnce Unit → Asking ! Ask)))))
 
 (define (scaled (count I64)) (→ Asking) (! Ask)
   (handle Gen ((yield (lambda (value resume) (Gave value resume))))

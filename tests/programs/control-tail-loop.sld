@@ -10,7 +10,7 @@
 ;; next yield returns again.
 ;; ANCHOR: count-down
 (effect Tick
-  ((ctl tick (dyn (Fn I64 → I64)))))
+  ((ctl tick (Fn I64 → I64))))
 
 (define (count-down (n I64) (total I64)) (→ I64) (! Tick)
   (if (= n 0)

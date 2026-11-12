@@ -64,11 +64,11 @@
     ;; ---- Current port effects ----
 
     (effect input-port
-      ((read-char (dyn (Fn → (Option Char)))))
+      ((read-char (Fn → (Option Char))))
       (default ((read-char read-standard-char))))
 
     (effect output-port
-      ((write-string (dyn (Fn String → Unit))))
+      ((write-string (Fn String → Unit)))
       (default ((write-string write-standard-string))))
 
     ;; The runtime reserves -3 for borrowed stdin and -2 for borrowed stdout.
@@ -123,28 +123,28 @@
     ;; One that takes two paths takes them as one text, joined by a NUL,
     ;; which no path can hold (path-pair).
     (effect fs
-      ((path-exists (dyn (Fn String → I32)))
-       (open-input (dyn (Fn String → I32)))
-       (open-output (dyn (Fn String → I32)))
-       (port-read (dyn (Fn I32 → I32)))
-       (port-read-byte (dyn (Fn I32 → I32)))
-       (port-write (dyn (Fn I32 String → Unit)))
-       (port-write-byte (dyn (Fn I32 I32 → Unit)))
-       (port-close (dyn (Fn I32 → Unit)))
-       (path-make-directory (dyn (Fn String → I32)))
-       (path-rename (dyn (Fn String → I32)))
-       (path-remove-file (dyn (Fn String → I32)))
-       (path-remove-directory (dyn (Fn String → I32)))
-       (path-list (dyn (Fn String → I32)))
-       (path-status (dyn (Fn String → I32)))
-       (path-followed-status (dyn (Fn String → I32)))
-       (path-make-link (dyn (Fn String → I32)))
-       (path-read-link (dyn (Fn String → I32)))
-       (reply-character (dyn (Fn I32 → Char)))
-       (status-size (dyn (Fn → I64)))
-       (status-modified (dyn (Fn → I64)))
-       (path-read-text (dyn (Fn I64 String → I32)))
-       (path-write-text (dyn (Fn I32 String → I32))))
+      ((path-exists (Fn String → I32))
+       (open-input (Fn String → I32))
+       (open-output (Fn String → I32))
+       (port-read (Fn I32 → I32))
+       (port-read-byte (Fn I32 → I32))
+       (port-write (Fn I32 String → Unit))
+       (port-write-byte (Fn I32 I32 → Unit))
+       (port-close (Fn I32 → Unit))
+       (path-make-directory (Fn String → I32))
+       (path-rename (Fn String → I32))
+       (path-remove-file (Fn String → I32))
+       (path-remove-directory (Fn String → I32))
+       (path-list (Fn String → I32))
+       (path-status (Fn String → I32))
+       (path-followed-status (Fn String → I32))
+       (path-make-link (Fn String → I32))
+       (path-read-link (Fn String → I32))
+       (reply-character (Fn I32 → Char))
+       (status-size (Fn → I64))
+       (status-modified (Fn → I64))
+       (path-read-text (Fn I64 String → I32))
+       (path-write-text (Fn I32 String → I32)))
       (default ((path-exists support-path-exists)
                 (open-input support-open-input)
                 (open-output support-open-output)
@@ -171,76 +171,76 @@
     (extern support-path-exists
             "snail.core.support"
             "snail:io/file-exists"
-            (impl (Fn String → I32)))
+            (Fn String → I32))
     (extern support-open-input
             "snail.core.support"
             "snail:io/open-input-file"
-            (impl (Fn String → I32)))
+            (Fn String → I32))
     (extern support-open-output
             "snail.core.support"
             "snail:io/open-output-file"
-            (impl (Fn String → I32)))
-    (extern support-port-read "snail.core.support" "snail:io/read-character" (impl (Fn I32 → I32)))
-    (extern support-port-read-byte "snail.core.support" "snail:io/read-byte" (impl (Fn I32 → I32)))
+            (Fn String → I32))
+    (extern support-port-read "snail.core.support" "snail:io/read-character" (Fn I32 → I32))
+    (extern support-port-read-byte "snail.core.support" "snail:io/read-byte" (Fn I32 → I32))
     (extern support-port-write
             "snail.core.support"
             "snail:io/write-string"
-            (impl (Fn I32 String → Unit)))
+            (Fn I32 String → Unit))
     (extern support-port-write-byte
             "snail.core.support"
             "snail:io/write-byte"
-            (impl (Fn I32 I32 → Unit)))
-    (extern support-port-close "snail.core.support" "snail:io/close" (impl (Fn I32 → Unit)))
+            (Fn I32 I32 → Unit))
+    (extern support-port-close "snail.core.support" "snail:io/close" (Fn I32 → Unit))
     (extern support-path-make-directory
             "snail.core.support"
             "snail:io/make-directory"
-            (impl (Fn String → I32)))
-    (extern support-path-rename "snail.core.support" "snail:io/rename" (impl (Fn String → I32)))
+            (Fn String → I32))
+    (extern support-path-rename "snail.core.support" "snail:io/rename" (Fn String → I32))
     (extern support-path-remove-file
             "snail.core.support"
             "snail:io/remove-file"
-            (impl (Fn String → I32)))
+            (Fn String → I32))
     (extern support-path-remove-directory
             "snail.core.support"
             "snail:io/remove-directory"
-            (impl (Fn String → I32)))
+            (Fn String → I32))
     (extern support-path-list
             "snail.core.support"
             "snail:io/list-directory"
-            (impl (Fn String → I32)))
+            (Fn String → I32))
     (extern support-path-status
             "snail.core.support"
             "snail:io/file-status"
-            (impl (Fn String → I32)))
+            (Fn String → I32))
     (extern support-path-followed-status
             "snail.core.support"
             "snail:io/followed-status"
-            (impl (Fn String → I32)))
+            (Fn String → I32))
     (extern support-path-make-link
             "snail.core.support"
             "snail:io/make-symbolic-link"
-            (impl (Fn String → I32)))
+            (Fn String → I32))
     (extern support-path-read-link
             "snail.core.support"
             "snail:io/read-symbolic-link"
-            (impl (Fn String → I32)))
+            (Fn String → I32))
     (extern support-reply-character
             "snail.core.support"
             "snail:io/reply-character"
-            (impl (Fn I32 → Char)))
-    (extern support-status-size "snail.core.support" "snail:io/status-size" (impl (Fn → I64)))
+            (Fn I32 → Char))
+    (extern support-status-size "snail.core.support" "snail:io/status-size" (Fn → I64))
     (extern support-status-modified
             "snail.core.support"
             "snail:io/status-modified"
-            (impl (Fn → I64)))
+            (Fn → I64))
     (extern support-path-read-text
             "snail.core.support"
             "snail:io/read-text"
-            (impl (Fn I64 String → I32)))
+            (Fn I64 String → I32))
     (extern support-path-write-text
             "snail.core.support"
             "snail:io/write-text"
-            (impl (Fn I32 String → I32)))
+            (Fn I32 String → I32))
 
     (define (file-exists? (path String)) (→ Bool) (! fs)
       (= (path-exists path) 1))
@@ -272,7 +272,7 @@
     ;; cell.
     (define chunk-size 4096)
 
-    (define (drain (next (dyn (Fn → (Option T) ! e)))) (→ (Vector T)) (! e) (∀ T e) (⊨ (Copy T))
+    (define (drain (next (Fn → (Option T) ! e))) (→ (Vector T)) (! e) (∀ T e) (⊨ (Copy T))
       (let loop ((chunks (Nil)))
         (let ((chunk (next-chunk next)))
           (if (< (vector-length chunk) chunk-size)
@@ -281,7 +281,7 @@
 
     ;; Up to `chunk-size` items, fewer only at the end.
 
-    (define (next-chunk (next (dyn (Fn → (Option T) ! e))))
+    (define (next-chunk (next (Fn → (Option T) ! e)))
       (→ (Vector T))
       (! e)
       (∀ T e)
@@ -578,27 +578,27 @@
     ;; Nanoseconds since an origin the host chooses, which only ever grow:
     ;; the difference between two readings is the time between them.
     (effect clock
-      ((monotonic-nanoseconds (dyn (Fn → I64))))
+      ((monotonic-nanoseconds (Fn → I64)))
       (default ((monotonic-nanoseconds support-monotonic-nanoseconds))))
 
     (extern support-monotonic-nanoseconds
             "snail.core.support"
             "snail:clock/monotonic"
-            (impl (Fn → I64)))
+            (Fn → I64))
 
     ;; ---- Command line ----
 
     ;; The program's arguments, starting with its own path. They never change
     ;; while it runs, so reading them is total.
-    (extern argument-count "snail.core.support" "snail:process/argument-count" (impl (Fn → I32)))
+    (extern argument-count "snail.core.support" "snail:process/argument-count" (Fn → I32))
     (extern argument-length
             "snail.core.support"
             "snail:process/argument-length"
-            (impl (Fn I32 → I32)))
+            (Fn I32 → I32))
     (extern argument-character
             "snail.core.support"
             "snail:process/argument-character"
-            (impl (Fn I32 I32 → Char)))
+            (Fn I32 I32 → Char))
 
     (define (command-line) (→ (List String))
       (map (lambda (index)
@@ -617,19 +617,19 @@
     (extern variable-length
             "snail.core.support"
             "snail:process/variable-length"
-            (impl (Fn String → I32)))
+            (Fn String → I32))
     (extern variable-character
             "snail.core.support"
             "snail:process/variable-character"
-            (impl (Fn I32 String → Char)))
+            (Fn I32 String → Char))
     (extern directory-length
             "snail.core.support"
             "snail:process/directory-length"
-            (impl (Fn → I32)))
+            (Fn → I32))
     (extern directory-character
             "snail.core.support"
             "snail:process/directory-character"
-            (impl (Fn I32 → Char)))
+            (Fn I32 → Char))
 
     (define (environment-variable (name String)) (→ (Option String))
       (let ((length (variable-length name)))

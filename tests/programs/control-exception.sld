@@ -7,7 +7,7 @@
 ;; answer for the whole handled computation instead.
 ;; ANCHOR: parse-or
 (effect Raise
-  ((ctl raise (dyn (Fn String → I64)))))
+  ((ctl raise (Fn String → I64))))
 
 (define (digit (c Char)) (→ I64) (! Raise)
   (if (char-numeric? c)

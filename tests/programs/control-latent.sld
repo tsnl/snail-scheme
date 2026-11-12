@@ -9,11 +9,11 @@
 ;; handler. So each task's fetch waits on that task's own scheduler.
 ;; ANCHOR: effects
 (effect Async
-  ((ctl await (dyn (Fn I64 → I64)))
-   (task-id (dyn (Fn → I64)))))
+  ((ctl await (Fn I64 → I64))
+   (task-id (Fn → I64))))
 
 (effect Io
-  ((fetch (dyn (Fn I64 → I64 ! Async)))))
+  ((fetch (Fn I64 → I64 ! Async))))
 ;; ANCHOR_END: effects
 
 ;; ANCHOR: tasks
@@ -24,11 +24,11 @@
    ((value I64)))
   (Waiting
    ((ticket I64)
-    (next (dyn (FnOnce I64 → Task ! Io output-port))))))
+    (next (FnOnce I64 → Task ! Io output-port)))))
 
 ;; Runs a task to its first wait under its own handler, which hands back
 ;; the rest of the task rather than resuming it.
-(define (start (id I64) (body (dyn (Fn → I64 ! Io Async output-port)))) (→ Task) (! Io output-port)
+(define (start (id I64) (body (Fn → I64 ! Io Async output-port))) (→ Task) (! Io output-port)
   (handle Async
       ((await (lambda (ticket resume) (Waiting ticket resume)))
        (task-id (lambda () id)))
@@ -73,10 +73,10 @@
 ;; An ordinary effect in a latent row goes to the performer's handler
 ;; too: note's implementation logs where note is performed.
 (effect Log
-  ((log (dyn (Fn String → Unit)))))
+  ((log (Fn String → Unit))))
 
 (effect Notes
-  ((note (dyn (Fn String → Unit ! Log)))))
+  ((note (Fn String → Unit ! Log))))
 
 (handle Log ((log (lambda (line) (write-line (string-append "outer log: " line)))))
   (handle Notes ((note (lambda (text) (log (string-append "note " text)))))

@@ -4,7 +4,7 @@
 
 (struct Model
   ((title String)
-   (work (dyn (FnOnce → Unit)))))
+   (work (FnOnce → Unit))))
 
 ;; The receiver becomes a Borrow after this lambda has been inferred.
 (let ((read (lambda (r) (● r title))))

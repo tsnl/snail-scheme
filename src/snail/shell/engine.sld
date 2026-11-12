@@ -139,7 +139,7 @@
     ;; reads a file. A read may wait by ticket, as a fetch does
     ;; ((snail shell task)'s `through-host`), so it runs in a task.
     (effect linked-content-store
-      ((read-object (dyn (Fn String → (Option Bytes) ! tasks)))))
+      ((read-object (Fn String → (Option Bytes) ! tasks))))
 
     ;; An object the program needs; one the store cannot give is a build
     ;; the engine cannot run.
@@ -169,11 +169,11 @@
     ;; What runs: set once the program is linked, and read by every export
     ;; the host calls after.
 
-    (define linked (→ (Ref (Option Linked))) (ref (None)))
+    
 
     ;; The status the last main answered.
 
-    (define status (→ (Ref I64)) (ref 0))
+    
 
     ;; Links the program the manifest at `path` names, whose text is
     ;; `text`, and runs each main in program order, answering the last
@@ -188,14 +188,12 @@
         (unless (name-instance runtime "snail.core.support")
           (panic "the host has a runtime for this program already"))
         (let ((libraries (link-libraries manifest runtime (● manifest modules) (Nil))))
-          (ref-set! linked
-                    (Some (Linked runtime libraries (assoc-ref libraries "snail.shell.task"))))
-          (ref-set! files
-                    (list->vector
+          (set! (● enginestate linked) (Some (Linked runtime libraries (assoc-ref libraries "snail.shell.task"))))
+          (set! (● enginestate files) (list->vector
                      (map (lambda (object) (object-file manifest (● object digest)))
                           (● manifest files))))
           (run-mains libraries (assoc-ref libraries "snail.shell.task"))
-          (ref-get status))))
+          (● enginestate status))))
 
     ;; Each library's main in program order. The program's own, last, has
     ;; its definitions initialized and its body run as the first task of
@@ -210,17 +208,17 @@
         ((Cons (Pair _ program) (Nil))
          (match (Pair scheduler (module-export program "main:body"))
            ((Pair (Some scheduler) (Ok body))
-            (ref-set! status (call program "main:init" 0))
+            (set! (● enginestate status) (call program "main:init" 0))
             (match (run-export-with scheduler "tasks:start-main" body)
               ((Ok _) (unit))
               ((Err error) (panic (load-error-message error)))))
-           (_ (ref-set! status (call program "main" 0)))))
+           (_ (set! (● enginestate status) (call program "main" 0)))))
         ((Cons (Pair _ library) rest)
-         (ref-set! status (call library "main" 0))
+         (set! (● enginestate status) (call library "main" 0))
          (run-mains rest scheduler))))
 
     (define (program-status) (→ I64) (! mut)
-      (ref-get status))
+      (● enginestate status))
 
     ;; Each library linked against the runtime and the libraries before it,
     ;; in program order, and named in the program's namespace, where a
@@ -316,16 +314,16 @@
 
     (define (engine-turn (now I64)) (→ I64) (! mut wasm host)
       (let* ((program (program-turn now))
-             (own (begin (ref-set! turning (InEngine)) (tasks-turn now))))
-        (ref-set! turning (Idle))
-        (if (ref-get woke)
-            (begin (ref-set! woke #f) 0)
+             (own (begin (set! (● enginestate turning) (InEngine)) (tasks-turn now))))
+        (set! (● enginestate turning) (Idle))
+        (if (● enginestate woke)
+            (begin (set! (● enginestate woke) #f) 0)
             (sooner program own))))
 
     (define (program-turn (now I64)) (→ I64) (! mut wasm)
       (match (scheduler)
         ((Some scheduler)
-         (ref-set! turning (InProgram))
+         (set! (● enginestate turning) (InProgram))
          (call scheduler "tasks:turn" now))
         ((None) -1)))
 
@@ -349,12 +347,12 @@
       (InProgram)
       (InEngine))
 
-    (define turning (→ (Ref Turning)) (ref (Idle)))
+    
 
     ;; Whether the engine's turn woke a task of the program's, which is
     ;; then ready.
 
-    (define woke (→ (Ref Bool)) (ref #f))
+    
 
     (define (engine-wake (ticket I64)) (→ I32) (! mut wasm)
       (if (tasks-wake! ticket)
@@ -370,7 +368,7 @@
       (tasks-close!))
 
     (define (engine-running) (→ I64) (! mut wasm)
-      (match (ref-get turning)
+      (match (● enginestate turning)
         ((InProgram)
          (match (scheduler)
            ((Some scheduler) (call scheduler "tasks:running" 0))
@@ -385,7 +383,7 @@
            ((None) 0))))
 
     (define (scheduler) (→ (Option Module)) (! mut)
-      (match (ref-get linked)
+      (match (● enginestate linked)
         ((Some linked) (● linked scheduler))
         ((None) (None))))
 
@@ -401,7 +399,7 @@
     ;; status of closing its resources.
 
     (define (close-program) (→ I32) (! mut wasm)
-      (match (ref-get linked)
+      (match (● enginestate linked)
         ((Some linked) (i64->i32 (call (● linked runtime) "snail:io/close-all" 0)))
         ((None) 0)))
 
@@ -416,19 +414,18 @@
     ;; program's task as it finishes. `files` holds each linked file's
     ;; location, by handle.
 
-    (define files (→ (Ref (Vector String))) (ref (ann (list->vector (Nil)) (Vector String))))
+    
 
-    (define answers (→ (Ref (List (Pair I64 (Option Bytes))))) (ref (Nil)))
+    
 
-    (define held (→ (Ref Bytes)) (ref #u8()))
+    
 
     (define (resource-read (ticket I64) (handle I32)) (→ Unit) (! mut wasm linked-content-store)
-      (let ((file (vector-ref (ref-get files) (i32->i64 handle))))
+      (let ((file (vector-ref (● enginestate files) (i32->i64 handle))))
         (dispatch-local (once (lambda ()
                                 (let ((bytes (read-object file)))
                                   (when (wake-program! ticket)
-                                    (ref-set! answers
-                                              (Cons (Pair ticket bytes) (ref-get answers))))))))))
+                                    (set! (● enginestate answers) (Cons (Pair ticket bytes) (● enginestate answers))))))))))
 
     ;; Wakes a ticket of the program's, answering whether a task waited on
     ;; it: one that trapped or was closed did not, and its answer is not
@@ -439,20 +436,30 @@
         ((Some scheduler)
          (let ((woken (not (= (call scheduler "tasks:wake" ticket) 0))))
            (when woken
-             (ref-set! woke #t))
+             (set! (● enginestate woke) #t))
            woken))
         ((None) #f)))
 
     (define (resource-finish (ticket I64)) (→ I32) (! mut)
-      (let ((answer (assoc-ref (ref-get answers) ticket)))
-        (ref-set! answers
-                  (filter (lambda (answer) (not (= (● answer first) ticket))) (ref-get answers)))
+      (let ((answer (assoc-ref (● enginestate answers) ticket)))
+        (set! (● enginestate answers) (filter (lambda (answer) (not (= (● answer first) ticket))) (● enginestate answers)))
         (match answer
           ((Some (Some bytes))
-           (ref-set! held bytes)
+           (set! (● enginestate held) bytes)
            (i64->i32 (vector-length bytes)))
           ((Some (None)) (panic "cannot read a linked file: the store does not have it"))
           ((None) (panic "a ticket was finished before its read completed")))))
 
     (define (resource-byte (index I32)) (→ I32) (! mut)
-      (u8->i32 (vector-ref (ref-get held) (i32->i64 index))))))
+      (u8->i32 (vector-ref (● enginestate held) (i32->i64 index))))
+(struct EngineState
+  ((linked (Option Linked))
+   (status I64)
+   (turning Turning)
+   (woke Bool)
+   (files (Vector String))
+   (answers (List (Pair I64 (Option Bytes))))
+   (held Bytes)))
+(define enginestate (→ EngineState) (EngineState (None) 0 (Idle) #f (ann (list->vector (Nil)) (Vector String)) (Nil) #u8))
+
+))

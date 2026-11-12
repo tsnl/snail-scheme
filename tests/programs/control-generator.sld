@@ -7,7 +7,7 @@
 ;; values it yields. Each yield saves the frames of every call it leaves,
 ;; with the locals they still need, and `resume` runs them again.
 (effect Gen
-  ((ctl yield (dyn (Fn I64 → Unit)))))
+  ((ctl yield (Fn I64 → Unit))))
 
 (enum Tree
   (Leaf)
@@ -20,7 +20,7 @@
   (Node (Node (Leaf) 3 (Node (Leaf) 8 (Leaf))) 5 (Node (Node (Leaf) 12 (Leaf)) 7 (Leaf))))
 
 ;; Every value the body yields, then the body's own result.
-(define (collect (body (dyn (Fn → I64 ! Gen)))) (→ (List I64))
+(define (collect (body (Fn → I64 ! Gen))) (→ (List I64))
   (handle Gen ((yield (lambda (value resume) (Cons value (resume (unit))))))
     (list (body))))
 
@@ -101,7 +101,7 @@
 
 ;; The handler can stop resuming, dropping the rest of the walk: the
 ;; values up to the first above the limit.
-(define (until-above (limit I64) (body (dyn (Fn → I64 ! Gen)))) (→ (List I64))
+(define (until-above (limit I64) (body (Fn → I64 ! Gen))) (→ (List I64))
   (handle Gen ((yield (lambda (value resume)
                         (if (> value limit)
                             (begin

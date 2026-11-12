@@ -7,7 +7,7 @@
 ;; frames: a queue of work items in a global, taken out and put back around
 ;; each change. A cell could not hold it, since a cell holds no linear
 ;; value.
-(type Work (dyn (FnOnce → Unit ! output-port)))
+(type Work (FnOnce → Unit ! output-port))
 
 (define queue (→ (UnsafeSlot (List Work))) (unsafe-slot (Nil)))
 

@@ -4,9 +4,9 @@
 ;; unsafe-total discards its thunk's row, so nothing after it would test
 ;; for a yield.
 (effect Abort
-  ((ctl abort (dyn (Fn I64 → I64)))))
+  ((ctl abort (Fn I64 → I64))))
 
-(define (run (thunk (dyn (Fn → I64 ! Abort)))) (→ I64)
+(define (run (thunk (Fn → I64 ! Abort))) (→ I64)
   (unsafe-total thunk))
 
 (handle Abort ((abort (lambda (value resume) (drop resume) value)))

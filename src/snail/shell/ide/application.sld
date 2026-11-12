@@ -32,8 +32,8 @@
    (prefix (snail shell ui shortcuts) shortcut-))
   (begin
     (struct Command
-      ((work (dyn (FnOnce → CommandResult ! tasks dom fetch)))
-       (interrupted (dyn (Fn Ide → Step)))))
+      ((work (FnOnce → CommandResult ! tasks dom fetch))
+       (interrupted (Fn Ide → Step))))
 
     ;; ---- Text ----
 
@@ -861,12 +861,12 @@
       (Control ((action String))))
 
     (struct CommandResult
-      ((accept (dyn (FnOnce → (dyn (Fn Ide → Step)))))))
+      ((accept (FnOnce → (Fn Ide → Step)))))
 
     ;; A command owns its transition in a one-shot thunk and unwraps it
     ;; only at the point it is applied to the current editor state.
 
-    (define (command-result (transition (dyn (Fn Ide → Step)))) (→ CommandResult)
+    (define (command-result (transition (Fn Ide → Step))) (→ CommandResult)
       (CommandResult (once (lambda () transition))))
 
     (define (apply-result (result CommandResult) (ide Ide)) (→ Step)
@@ -882,7 +882,7 @@
     ;; shareable; the session itself cannot be copied or checkpointed.
     (struct PendingCommand
       ((future (Future CommandResult))
-       (interrupted (dyn (Fn Ide → Step)))))
+       (interrupted (Fn Ide → Step))))
 
     (struct Session
       ((ide Ide)
@@ -951,7 +951,7 @@
     (define (stay (model Ide)) (→ Step)
       (Pair model (Nil)))
 
-    (define (then (step Step) (next (dyn (Fn Ide → Step)))) (→ Step)
+    (define (then (step Step) (next (Fn Ide → Step))) (→ Step)
       (match step
         ((Pair model commands)
          (match (next model)
@@ -1771,7 +1771,7 @@
               (map (lambda (held) (Chord spelling (+ held extra))) (list control-key meta-key)))
             (delete-duplicates string=? (list (string-upcase key) (string-downcase key))))))
 
-    (define commands (→ (command-Registry (dyn (Fn Ide → Step))))
+    (define commands (→ (command-Registry (Fn Ide → Step)))
       (match (command-register
               (ann (list->vector (list (command-Command "command-palette"
                                                         (lambda (model)
@@ -1823,7 +1823,7 @@
                                        (command-Command "split-down"
                                                         (lambda (model) (divided model "column")))
                                        (command-Command "close-editor" closing)))
-                   (Vector (command-Command (dyn (Fn Ide → Step))))))
+                   (Vector (command-Command (Fn Ide → Step)))))
         ((Ok registry) registry)
         ((Err message) (panic message))))
 
@@ -1874,7 +1874,7 @@
             ((Some name) (update model (DispatchCommand name)))
             ((None) (stay model)))))
 
-    (define (invoked (model Ide) (run (dyn (Fn Ide → Step)))) (→ Step)
+    (define (invoked (model Ide) (run (Fn Ide → Step))) (→ Step)
       (then (run (search-invalidated model))
             (lambda (next)
               (if (palette-visible? (● next palette)) (stay next)
@@ -2871,7 +2871,7 @@
           (deserialize bytes)))
 
     (define (recovery-tag (bytes Bytes)) (→ I32)
-      (unsafe-total (lambda () (decode-case-id (Decoder bytes (ref 0))))))
+      (unsafe-total (lambda () (decode-case-id (Decoder bytes 0)))))
 
     (define (kept (model Ide)) (→ TabbedRecovery)
       (TabbedRecovery

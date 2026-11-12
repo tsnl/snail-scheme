@@ -33,7 +33,7 @@
 
     (define (source->expanded (directories (List String))
                               (source String)
-                              (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                              (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                               (inputs Inputs))
       (→ ExpandedProgram)
       (! fs compile)
@@ -47,7 +47,7 @@
 
     (define (source->wat (directories (List String))
                          (source String)
-                         (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                         (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                          (inputs Inputs))
       (→ WholeProgram)
       (! mut fs compile)
@@ -63,7 +63,7 @@
 
     (define (source->modules (directories (List String))
                              (source String)
-                             (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                              (inputs Inputs))
       (→ (List Built))
       (! mut fs compile)
@@ -71,7 +71,7 @@
 
     (define (source->schemas (directories (List String))
                              (source String)
-                             (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                              (inputs Inputs))
       (→ String)
       (! fs compile)

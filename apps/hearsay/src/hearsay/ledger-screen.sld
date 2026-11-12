@@ -102,7 +102,7 @@
 
     ;; The scene is empty; its pictures are the rivals' portraits for the
     ;; HUD, from the sheets `art` gives.
-    (define (view-ledger-screen (screen LedgerScreen) (art (dyn (Fn String → (Option Source)))))
+    (define (view-ledger-screen (screen LedgerScreen) (art (Fn String → (Option Source))))
       (→ Frame)
       (empty-frame
        (map (lambda (who) (walk-picture art (rival-picture who) (rival who))) (list vee kit))))

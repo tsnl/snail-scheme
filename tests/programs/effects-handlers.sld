@@ -8,7 +8,7 @@
 
 ;; ANCHOR: declare
 (effect Log
-  ((log (dyn (Fn String → Unit)))))
+  ((log (Fn String → Unit))))
 
 ;; Adds up prices, logging each one.
 (define (total (prices (List I64))) (→ I64) (! Log)
@@ -26,7 +26,7 @@
 
 ;; ANCHOR: quietly
 ;; Runs `action`, discarding what it logs.
-(define (quietly (action (dyn (Fn → A ! Log e)))) (→ A) (! e) (∀ A e)
+(define (quietly (action (Fn → A ! Log e))) (→ A) (! e) (∀ A e)
   (handle Log
       ((log (lambda (message) (unit))))
     (action)))
@@ -41,7 +41,7 @@
 ;; ANCHOR: indented
 ;; Indents what `action` logs: each implementation passes the line on to
 ;; the Log handler outside this one.
-(define (indented (action (dyn (Fn → A ! Log e)))) (→ A) (! Log e) (∀ A e)
+(define (indented (action (Fn → A ! Log e))) (→ A) (! Log e) (∀ A e)
   (handle Log
       ((log (lambda (message) (log (string-append "  " message)))))
     (action)))
@@ -55,20 +55,20 @@
 
 ;; ANCHOR: files
 (effect Files
-  ((load (dyn (Fn String → String)))))
+  ((load (Fn String → String))))
 
 (define (greeting (name String)) (→ String) (! Files)
   (string-append (load "greeting.txt") ", " name))
 
 ;; Files from the disk, under `build/`. `read-file` performs fs, which
 ;; goes to the handlers outside this one: here, the host.
-(define (from-disk (action (dyn (Fn → A ! Files e)))) (→ A) (! fs e) (∀ A e)
+(define (from-disk (action (Fn → A ! Files e))) (→ A) (! fs e) (∀ A e)
   (handle Files
       ((load (lambda (name) (read-file (string-append "build/" name)))))
     (action)))
 
 ;; A test double: files from memory, with no file system at all.
-(define (from-memory (action (dyn (Fn → A ! Files e)))) (→ A) (! e) (∀ A e)
+(define (from-memory (action (Fn → A ! Files e))) (→ A) (! e) (∀ A e)
   (handle Files
       ((load (lambda (name) (if (string=? name "greeting.txt") "hello" ""))))
     (action)))
@@ -83,7 +83,7 @@
 ;; ANCHOR: default
 ;; How much to report: 1 unless a handler says otherwise.
 (effect Verbosity
-  ((verbosity (dyn (Fn → I64))))
+  ((verbosity (Fn → I64)))
   (default
     ((verbosity (lambda () 1)))))
 

@@ -101,12 +101,12 @@
     ;; failure runs, so a yield to this effect saves no frames. `attempt`
     ;; turns the work into a Result.
     (effect building
-      ((ctl stop (dyn (Fn Failure → Never)))))
+      ((ctl stop (Fn Failure → Never))))
 
     (define (fail-build (message String)) (→ A) (! building) (∀ A)
       (absurd (stop (BuildFailure message))))
 
-    (define (attempt (work (dyn (Fn → T ! building e)))) (→ (Result T Failure)) (! e) (∀ T e)
+    (define (attempt (work (Fn → T ! building e))) (→ (Result T Failure)) (! e) (∀ T e)
       (handle building
           ((stop (lambda (failure) (Err failure))))
         (Ok (work))))
@@ -115,7 +115,7 @@
     ;; supplies every input a phase needs before it runs, so a compile that
     ;; asks for one names a need the planner missed.
 
-    (define (compiled (work (dyn (Fn → T ! compile e)))) (→ T) (! building e) (∀ T e) (⊨ (Copy T))
+    (define (compiled (work (Fn → T ! compile e))) (→ T) (! building e) (∀ T e) (⊨ (Copy T))
       (match (compiling work)
         ((Ok value) value)
         ((Err (Failed diagnostics)) (absurd (stop (CompileFailure diagnostics))))
@@ -539,7 +539,7 @@
     ;; `work`'s value; when it fails, `directory` goes before the failure
     ;; does.
 
-    (define (removing (directory String) (work (dyn (Fn → T ! building e))))
+    (define (removing (directory String) (work (Fn → T ! building e)))
       (→ T)
       (! fs building e)
       (∀ T e)
@@ -616,7 +616,7 @@
 
     ;; `work` in a directory of its own in the build's scratch, removed after.
 
-    (define (in-working (builder Builder) (node I64) (work (dyn (Fn String → T ! fs e))))
+    (define (in-working (builder Builder) (node I64) (work (Fn String → T ! fs e)))
       (→ T)
       (! fs e)
       (∀ T e)

@@ -3,7 +3,7 @@
 
 (struct Model
   ((title String)
-   (work (dyn (FnOnce → Unit)))))
+   (work (FnOnce → Unit))))
 
-(define (escaped (model (Borrow Model))) (→ (dyn (Fn → String)))
+(define (escaped (model (Borrow Model))) (→ (Fn → String))
   (lambda () (● model title)))

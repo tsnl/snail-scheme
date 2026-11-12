@@ -1,8 +1,8 @@
 (import
  (snail core base)
  (snail core io))
-(effect audit ((note (dyn (Fn String → Unit)))))
-(effect Ask ((ctl ask (dyn (Fn → Unit)))))
+(effect audit ((note (Fn String → Unit))))
+(effect Ask ((ctl ask (Fn → Unit))))
 (struct Resource
   ((name String)))
 (instance (Drop (! audit) Resource)
@@ -45,8 +45,8 @@
 ;; A mixed effect may save frames even for an operation that answers Never.
 ;; Its abortive dispatcher must drain them before calling the handler.
 (effect Mixed
-  ((ctl pause (dyn (Fn → Unit)))
-   (ctl stop (dyn (Fn → Never)))))
+  ((ctl pause (Fn → Unit))
+   (ctl stop (Fn → Never))))
 (define (mixed) (→ Unit) (! Mixed audit)
   (let ((resource (Resource "mixed")))
     (absurd (stop))))

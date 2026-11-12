@@ -39,7 +39,7 @@
        (cell-width I32)
        (cell-height I32)
        (headings I64)
-       (strip (dyn (Fn M I64 → Strip)))))
+       (strip (Fn M I64 → Strip))))
 
     (define (strip-texture (book (Spritebook M)) (strip Strip)) (→ Texture) (∀ M) (⊨ (Copy M))
       (let ((width (● book cell-width)) (height (● book cell-height)))

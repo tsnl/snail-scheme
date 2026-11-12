@@ -19,18 +19,18 @@
 ;; events. Its default, the host's, lets the runner detect a leaked handler
 ;; between turns.
 (effect Marker
-  ((marker (dyn (Fn → I32))))
+  ((marker (Fn → I32)))
   (default
     ((marker host-marker))))
 
-(extern host-marker "snail.test" "marker" (impl (Fn → I32)))
+(extern host-marker "snail.test" "marker" (Fn → I32))
 
 ;; The runtime drains children after a normal root return. Explicit reload
 ;; closes that scope after the root has handed over, including this case.
 ;; Each root is a task, as the shared page loop is.
-(extern background-boot "snail.runtime.browser.events" "boot" (impl (Fn I32 → Unit ! events)))
-(extern background-ready "snail.runtime.browser.events" "ready" (impl (Fn → Unit ! events)))
-(extern background-poll "snail.runtime.browser.events" "poll" (impl (Fn → I32 ! events)))
+(extern background-boot "snail.runtime.browser.events" "boot" (Fn I32 → Unit ! events))
+(extern background-ready "snail.runtime.browser.events" "ready" (Fn → Unit ! events))
+(extern background-poll "snail.runtime.browser.events" "poll" (Fn → I32 ! events))
 (define (background-main (handover (Option Any))) (→ I64) (! mut events)
   (start-page handover (once (lambda ()
                                (background-boot 2)

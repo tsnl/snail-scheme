@@ -16,7 +16,7 @@
 
 (define buttons (→ (List Button))
   (list (Button "named" shout)
-        (Button "fn" (fn (count) (string-append "a fn saw " (i64->string count))))))
+        (Button "fn" (fn (count) → (string-append "a fn saw " (i64->string count))))))
 
 ;; Calling an Fn calls its code.
 (define (press (button Button) (count I64)) (→ String)
@@ -39,7 +39,7 @@
 
 ;; A call through an Fn may yield to a control handler.
 (effect Stop
-  ((ctl stop (dyn (Fn I64 → Unit)))))
+  ((ctl stop (Fn I64 → Unit))))
 
 (define (stop-at-two (n I64)) (→ Unit) (! Stop output-port)
   (write-line (string-append "checked " (i64->string n)))
@@ -54,6 +54,6 @@
 
 (for-each (lambda (button) (write-line (press button 3))) buttons)
 (for-each (lambda (n) (write-line (i64->string n)))
-          (apply-all (list twice (ann (fn (x) (+ x 1)) (fn I64 → I64))) 10))
+          (apply-all (list twice (ann (fn (x) → (+ x 1)) (fn I64 → I64))) 10))
 (log-with write-line)
 (write-line (string-append "stopped at " (i64->string (until-stop stop-at-two))))

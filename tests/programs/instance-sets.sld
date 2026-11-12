@@ -4,7 +4,7 @@
 
 (typeclass (Combine A B)
   (type Output)
-  (: combine (impl (Fn A B → Output))))
+  (: combine (Fn A B → Output)))
 
 (define-instance-set addition
   (instance (Combine I64 I64)

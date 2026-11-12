@@ -728,7 +728,7 @@
     ;; Each client `chosen` picks gets the frame; the rest are left as they
     ;; are.
 
-    (define (sent-to (clients (List Client)) (chosen (dyn (Fn Client → Bool))) (bytes Bytes))
+    (define (sent-to (clients (List Client)) (chosen (Fn Client → Bool)) (bytes Bytes))
       (→ (List Client))
       (! mut tcp)
       (match clients
@@ -1687,7 +1687,7 @@
           (refused 400 "command takes no request body")
           (asking owner (lambda (reply) (Ask event reply)))))
 
-    (define (asking (owner (Mailbox Message)) (message (dyn (Fn (Mailbox Answer) → Message))))
+    (define (asking (owner (Mailbox Message)) (message (Fn (Mailbox Answer) → Message)))
       (→ Response)
       (! mut tasks)
       (let ((reply (make-mailbox)))

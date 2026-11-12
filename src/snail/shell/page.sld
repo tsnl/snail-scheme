@@ -50,17 +50,17 @@
     ;; Waiting for an event, like loading and storing a save below, starts
     ;; on the host and waits by ticket ((snail shell task)'s `through-host`).
     (effect events
-      ((poll-event (dyn (Fn → I32)))
-       (wait-event (dyn (Fn → Unit ! tasks)))
-       (event-field (dyn (Fn I32 → I32)))
-       (random-seed (dyn (Fn → I32)))
-       (canvas-width (dyn (Fn → I32)))
-       (canvas-height (dyn (Fn → I32)))
-       (report-boot (dyn (Fn I32 → Unit)))
-       (report-ready (dyn (Fn → Unit)))
-       (checkpoint-root (dyn (Fn → Unit)))
-       (handover-only (dyn (Fn → I32)))
-       (save-after (dyn (Fn I32 → Unit))))
+      ((poll-event (Fn → I32))
+       (wait-event (Fn → Unit ! tasks))
+       (event-field (Fn I32 → I32))
+       (random-seed (Fn → I32))
+       (canvas-width (Fn → I32))
+       (canvas-height (Fn → I32))
+       (report-boot (Fn I32 → Unit))
+       (report-ready (Fn → Unit))
+       (checkpoint-root (Fn → Unit))
+       (handover-only (Fn → I32))
+       (save-after (Fn I32 → Unit)))
       (default
         ((poll-event host-poll)
          (wait-event (lambda () (through-host host-start-wait host-finish-wait)))
@@ -79,9 +79,9 @@
     ;; The root task owns this checkpoint protocol. Detached tasks
     ;; need their own storage binding; they cannot replace the loop's save.
     (effect storage
-      ((load-count (dyn (Fn → I32 ! tasks)))
-       (loaded-byte (dyn (Fn I32 → U8)))
-       (store-save (dyn (Fn Bytes → Unit ! tasks))))
+      ((load-count (Fn → I32 ! tasks))
+       (loaded-byte (Fn I32 → U8))
+       (store-save (Fn Bytes → Unit ! tasks)))
       (default
         ((load-count (lambda () (through-host host-start-load host-finish-load)))
          (loaded-byte host-byte)
@@ -102,10 +102,10 @@
     ;; return, independently of readiness and the optional checkpoint below.
     ;; Suspension or failure never sets it.
 
-    (define completed (→ (Ref Bool)) (ref #f))
+    
 
     (define (page-done) (→ I32) (! mut)
-      (if (ref-get completed) 1 0))
+      (if (● pagestate completed) 1 0))
 
     ;; ---- Checkpointed pages ----
 
@@ -113,8 +113,8 @@
     ;; effects in a function. Engines request this ordinary evidence rather
     ;; than weakening the compiler's Any boundary.
     (typeclass (PageState S)
-      (: pack-state (impl (Fn S → Any)))
-      (: unpack-state (impl (Fn Any → (Option S)))))
+      (: pack-state (Fn S → Any))
+      (: unpack-state (Fn Any → (Option S))))
 
     (define-syntax define-page-state
       (syntax-rules ()
@@ -131,17 +131,17 @@
     ;; point without declaring the page ready. The host checks root
     ;; ownership before a caller can replace the checkpoint.
 
-    (define incoming (→ (Ref (Option Any))) (ref (None)))
+    
 
-    (define current (→ (Ref (Option Any))) (ref (None)))
+    
 
     (define (commit-page (state S)) (→ Unit) (! mut events) (∀ S) (⊨ (PageState S) (Copy S))
       (checkpoint-root)
-      (ref-set! current (Some (pack-state state))))
+      (set! (● pagestate current) (Some (pack-state state))))
 
     (define (restore-page (cold? Bool)
-                          (initialize (dyn (Fn → S ! events)))
-                          (decode (dyn (Fn Bytes → S))))
+                          (initialize (Fn → S ! events))
+                          (decode (Fn Bytes → S)))
       (→ (Option (Pair S I32)))
       (! events storage tasks)
       (∀ S)
@@ -150,12 +150,12 @@
         ((Some bytes) (Some (Pair (decode bytes) 1)))
         ((None) (if cold? (Some (Pair (initialize) 2)) (None)))))
 
-    (define (boot-page (initialize (dyn (Fn → S ! events))) (decode (dyn (Fn Bytes → S))))
+    (define (boot-page (initialize (Fn → S ! events)) (decode (Fn Bytes → S)))
       (→ (Option (Pair S I32)))
       (! mut events storage tasks)
       (∀ S)
       (⊨ (PageState S) (Copy S))
-      (match (ref-get incoming)
+      (match (● pagestate incoming)
         ((Some previous)
          (match (unpack-state previous)
            ((Some state) (Some (Pair state 0)))
@@ -165,10 +165,10 @@
     ;; Engines own presentation and event reduction. This shared boundary
     ;; owns restore/refusal, the boot checkpoint and durable save encoding.
 
-    (define (run-page (initialize (dyn (Fn → S ! events)))
-                      (encode (dyn (Fn S → Bytes)))
-                      (decode (dyn (Fn Bytes → S)))
-                      (run (dyn (Fn S (dyn (Fn S → Unit ! events storage tasks)) → Unit ! e))))
+    (define (run-page (initialize (Fn → S ! events))
+                      (encode (Fn S → Bytes))
+                      (decode (Fn Bytes → S))
+                      (run (Fn S (Fn S → Unit ! events storage tasks) → Unit ! e)))
       (→ Unit)
       (! mut events storage tasks e)
       (∀ S e)
@@ -176,7 +176,7 @@
       (match (boot-page initialize decode)
         ((Some (Pair state kind))
          (commit-page state)
-         (ref-set! incoming (None))
+         (set! (● pagestate incoming) (None))
          (report-boot kind)
          (if (= (handover-only) 1)
              (store-save (encode state))
@@ -185,20 +185,20 @@
                (run state (lambda (state) (store-save (encode state)) (save-after 5000))))))
         ((None) (unit))))
 
-    (define (start-page (handover (Option Any)) (work (dyn (FnOnce → Unit ! mut tasks e))))
+    (define (start-page (handover (Option Any)) (work (FnOnce → Unit ! mut tasks e)))
       (→ I64)
       (! mut e)
       (∀ e)
-      (ref-set! incoming handover)
-      (ref-set! current (None))
-      (ref-set! completed #f)
-      (dispatch-task (once (lambda () (work) (ref-set! completed #t)))))
+      (set! (● pagestate incoming) handover)
+      (set! (● pagestate current) (None))
+      (set! (● pagestate completed) #f)
+      (dispatch-task (once (lambda () (work) (set! (● pagestate completed) #t)))))
 
     ;; Both normal return and failure hand over this same checkpoint. An
     ;; unadopted incoming value is never mistaken for the root's own state.
 
     (define (page-state) (→ (Option Any)) (! mut)
-      (ref-get current))
+      (● pagestate current))
 
     ;; The only generated browser scaffolding is an ordinary Application
     ;; call. Its selected instance determines the effect row, without an
@@ -214,4 +214,11 @@
            (expose page-main "app_main")))))
 
     (expose page-done "app_done")
-    (expose page-state "app_state")))
+    (expose page-state "app_state")
+(struct PageState
+  ((completed Bool)
+   (incoming (Option Any))
+   (current (Option Any))))
+(define pagestate (→ PageState) (PageState #f (None) (None)))
+
+))

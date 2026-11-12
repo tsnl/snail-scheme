@@ -2,7 +2,7 @@
  (snail core base))
 
 (effect Pause
-  ((ctl pause (dyn (Fn → Unit)))))
+  ((ctl pause (Fn → Unit))))
 
 (struct Token
   ((number I64))

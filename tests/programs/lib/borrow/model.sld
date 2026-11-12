@@ -6,7 +6,7 @@
   (begin
     (struct Model
       ((title String)
-       (work (dyn (FnOnce → Unit)))))
+       (work (FnOnce → Unit))))
 
     (define (make-model (text String)) (→ Model)
       (Model text (once (lambda () (unit)))))

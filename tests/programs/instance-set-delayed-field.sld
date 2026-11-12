@@ -4,7 +4,7 @@
 (struct Record
   ((value I64)))
 (typeclass (Describe T)
-  (: describe (impl (Fn T → I64))))
+  (: describe (Fn T → I64)))
 (define-instance-set fields
   (instance (Describe Record)
     (define (describe (record Record)) (→ I64)

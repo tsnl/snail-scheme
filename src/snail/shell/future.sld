@@ -28,7 +28,7 @@
       (Ready ((result (Completion T)))))
 
     (enum (State T)
-      (Unresolved ((waker (Option (dyn (Fn → Unit ! mut))))))
+      (Unresolved ((waker (Option (Fn → Unit ! mut)))))
       (Resolved ((result (Completion T))))
       (Unobserved))
 
@@ -43,7 +43,7 @@
     ;; A reactor may request another update after any completion. This is
     ;; a notification, never an application-specific completion message.
     (effect completion
-      ((completed (dyn (Fn → Unit))))
+      ((completed (Fn → Unit)))
       (default ((completed (lambda () (unit))))))
 
     (define (make-promise) (→ (Pair (Promise T) (Future T))) (∀ T)
@@ -69,7 +69,7 @@
             (Err value))
            ((Resolved result) (panic "a promise was fulfilled twice"))))))
 
-    (define (notify (waker (Option (dyn (Fn → Unit ! mut))))) (→ Unit) (! mut completion)
+    (define (notify (waker (Option (Fn → Unit ! mut)))) (→ Unit) (! mut completion)
       (match waker
         ((Some wake) (wake))
         ((None) (unit)))
@@ -109,7 +109,7 @@
     ;; its ticket before suspending; registration and suspension must have
     ;; no intervening yield. A ready result calls the observer immediately.
 
-    (define (on-ready (future (Future T)) (wake (dyn (Fn → Unit ! mut))))
+    (define (on-ready (future (Future T)) (wake (Fn → Unit ! mut)))
       (→ (Future T))
       (! mut)
       (∀ T)

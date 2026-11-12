@@ -261,7 +261,7 @@
 
     (define (holds-yield-point? (callees Callees) (expr Expr)) (→ Bool)
       (match (● expr term)
-        ((Lambda _ _ _) #f)
+        ((Lambda _ _ _) (match (● expr type) ((TCon "FnOnce" _) #t) (_ #f)))
         ((Let _ value body)
          (or (not (null? (yields callees value))) (holds-yield-point? callees body)))
         (_ (any? (lambda (child) (holds-yield-point? callees child)) (expr-children expr)))))
@@ -522,7 +522,7 @@
     ;; `make` applied to `operand`, or, when the operand may yield, to a
     ;; temporary that a let binds to it first.
 
-    (define (named (count I64) (callees Callees) (operand Expr) (make (dyn (Fn Expr → Expr))))
+    (define (named (count I64) (callees Callees) (operand Expr) (make (Fn Expr → Expr)))
       (→ (Pair Expr I64))
       (if (null? (yields callees operand))
           (Pair (make operand) count)
@@ -697,7 +697,7 @@
     (define (holds-once? (expr Expr)) (→ Bool)
       (or (match (● expr term)
             ((App (Expr (Var "prim:once" _ _) _ _) _) #t)
-            ((Lambda _ _ _) (concrete-callable? (● expr type)))
+            ((Lambda _ _ _) (match (● expr type) ((TCon "FnOnce" _) #t) (_ #f)))
             (_ #f))
           (any? holds-once? (expr-children expr))))
 
@@ -734,7 +734,7 @@
                             body)
              ((Pair body types)
               (let ((value (rebuild (Lambda params body captures?))))
-                (if (concrete-callable? (● expr type))
+                (if (match (● expr type) ((TCon "FnOnce" _) #t) (_ #f))
                     (dropper-lambda callees drops scope value types)
                     (Pair value types))))))
           ((App callee args) (dropper-call callees drops scope expr callee args))

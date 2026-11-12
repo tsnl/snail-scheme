@@ -8,7 +8,7 @@
 
 ;; ANCHOR: collect
 (effect Gen
-  ((ctl yield (dyn (Fn I64 → Unit)))))
+  ((ctl yield (Fn I64 → Unit))))
 
 ;; Yields the numbers from `low` to `high`.
 (define (range (low I64) (high I64)) (→ Unit) (! Gen)
@@ -17,7 +17,7 @@
     (range (+ low 1) high)))
 
 ;; Every value `body` yields, in order.
-(define (collect (body (dyn (Fn → Unit ! Gen)))) (→ (List I64))
+(define (collect (body (Fn → Unit ! Gen))) (→ (List I64))
   (handle Gen
       ((yield (lambda (value resume) (Cons value (resume (unit))))))
     (body)
@@ -33,7 +33,7 @@
 
 ;; ANCHOR: first-above
 ;; The first value above `limit` that `body` yields, or -1.
-(define (first-above (limit I64) (body (dyn (Fn → Unit ! Gen)))) (→ I64)
+(define (first-above (limit I64) (body (Fn → Unit ! Gen))) (→ I64)
   (handle Gen
       ((yield (lambda (value resume)
                 (if (> value limit)
@@ -54,11 +54,11 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (dyn (FnOnce Unit → Step))))))
+    (next (FnOnce Unit → Step)))))
 
 ;; Runs `body` to its first yield, and hands back the rest rather than
 ;; resuming it.
-(define (start (body (dyn (Fn → Unit ! Gen)))) (→ Step)
+(define (start (body (Fn → Unit ! Gen))) (→ Step)
   (handle Gen
       ((yield (lambda (value resume) (Yielded value resume))))
     (body)

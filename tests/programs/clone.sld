@@ -6,7 +6,7 @@
 ;; performs what copying it does. The book's ownership chapter includes
 ;; the text between ANCHOR and ANCHOR_END.
 (effect log
-  ((say (dyn (Fn String → Unit)))))
+  ((say (Fn String → Unit))))
 
 ;; ANCHOR: ticket
 ;; A ticket is linear by its Drop instance, so only its Clone instance

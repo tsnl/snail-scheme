@@ -138,7 +138,7 @@
         ((Ok _) (None))
         ((Err rejection) (Some rejection))))
 
-    (define (pay (world World) (price I64) (apply (dyn (Fn World → World))))
+    (define (pay (world World) (price I64) (apply (Fn World → World)))
       (→ (Result World Rejection))
       (if (< (● world energy) price) (Err (CannotAfford)) (Ok (apply (spend world price)))))
 
@@ -232,7 +232,7 @@
 
     (define (with-owner (world World)
                         (cell Cell)
-                        (order (dyn (Fn World Owner → (Result World Rejection)))))
+                        (order (Fn World Owner → (Result World Rejection))))
       (→ (Result World Rejection))
       (cond ((hub-cell? (● world hub) cell) (order world (OfHub)))
             (else (match (building-at world cell)
@@ -423,20 +423,20 @@
 
     ;; ---- Lists ----
 
-    (define (filter-map (f (dyn (Fn A → (Option B)))) (items (List A))) (→ (List B)) (∀ A B)
+    (define (filter-map (f (Fn A → (Option B))) (items (List A))) (→ (List B)) (∀ A B)
       (fold-right
        (lambda (item kept) (match (f item) ((Some value) (Cons value kept)) ((None) kept)))
        (Nil)
        items))
 
     ;; Stable, for the handful of queued works.
-    (define (insertion-sort (before? (dyn (Fn T T → Bool))) (items (List T)))
+    (define (insertion-sort (before? (Fn T T → Bool)) (items (List T)))
       (→ (List T))
       (∀ T)
       (⊨ (Copy T))
       (fold-left (lambda (sorted item) (insert before? item sorted)) (Nil) items))
 
-    (define (insert (before? (dyn (Fn T T → Bool))) (item T) (sorted (List T)))
+    (define (insert (before? (Fn T T → Bool)) (item T) (sorted (List T)))
       (→ (List T))
       (∀ T)
       (⊨ (Copy T))

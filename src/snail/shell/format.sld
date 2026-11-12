@@ -1027,7 +1027,7 @@
     ;; The outermost of `candidates` that `eligible` accepts, the leftmost
     ;; of those equally deep.
 
-    (define (outermost (candidates (List Candidate)) (eligible (dyn (Fn Candidate → Bool))))
+    (define (outermost (candidates (List Candidate)) (eligible (Fn Candidate → Bool)))
       (→ (Option Candidate))
       (fold-left (lambda (best candidate)
                    (if (and (eligible candidate)

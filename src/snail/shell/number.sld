@@ -72,8 +72,8 @@
     ;; Applies the exact operation when both operands are exact, and the
     ;; inexact one otherwise.
 
-    (define (combine (exact (dyn (Fn Rational Rational → Rational)))
-                     (inexact (dyn (Fn F64 F64 → F64)))
+    (define (combine (exact (Fn Rational Rational → Rational))
+                     (inexact (Fn F64 F64 → F64))
                      (a Number)
                      (b Number))
       (→ Number)
@@ -153,8 +153,8 @@
            ((Some n) (Some (number-from-integer n)))
            ((None) (runtime-real text))))))
 
-    (extern parse-real "snail.core.support" "snail:datum/parse-real" (impl (Fn String → I32)))
-    (extern parsed-real "snail.core.support" "snail:datum/parsed-real" (impl (Fn → F64)))
+    (extern parse-real "snail.core.support" "snail:datum/parse-real" (Fn String → I32))
+    (extern parsed-real "snail.core.support" "snail:datum/parsed-real" (Fn → F64))
 
     ;; Read the scratch result only on success, before returning to user code.
 

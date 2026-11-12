@@ -5,6 +5,7 @@
 (define-library (snail shell compiler capabilities)
   (export
    linear-type?
+   shared-type?
    missing-copy
    copy-declaration
    copy-refusal
@@ -46,8 +47,7 @@
       (match (Pair type entered)
         ((Pair _ (None)) (None))
         ((Pair (TCon name args) _)
-         (if (concrete-callable? type) (None)
-             (match (fold-left (lambda (found arg) (first-order-search program arg found))
+         (match (fold-left (lambda (found arg) (first-order-search program arg found))
                                entered
                                args)
                ((Some names)
@@ -56,7 +56,7 @@
                            (any? (lambda (entry) (string=? name (● entry first))) builtin-types))
                        (Some names))
                       (else (first-order-fields program name args (Cons name names)))))
-               ((None) (None)))))
+               ((None) (None))))
         ((Pair (TRow _ _) _) entered)
         (_ (None))))
 
@@ -70,6 +70,41 @@
                      (first-order-search program (substitute bindings (● field type)) found))
                    (Some entered)
                    (concatenate (map (lambda (record) (● record fields)) (● data cases))))))
+
+    ;; ---- Shared ownership ----
+
+    ;; Copy containers own their fields once, even when the container has
+    ;; aliases. Only containers that can reach counted content need their
+    ;; own count. Linear containers already have exactly one owner.
+    (define (shared-type? (program Program) (type Type)) (→ Bool)
+      (and (not (linear-type? program (Nil) type))
+           (shared-content? program type (Nil))))
+
+    (define (shared-content? (program Program) (type Type) (seen (List String))) (→ Bool)
+      (match type
+        ((TFun _ _ _) #t)
+        ((TCon "Rc" _) #t)
+        ((TCon "Any" _) #t)
+        ((TCon "WeakRc" _) #f)
+        ((TCon "FnOnce" _) #f)
+        ((TCon "fn" _) #f)
+        ((TCon name args)
+         (cond ((member? name (list "Array" "Vector"))
+                (any? (lambda (arg) (shared-content? program arg seen)) args))
+               ((any? (lambda (entry) (string=? name (● entry first))) builtin-types) #f)
+               ((member? name seen)
+                (any? (lambda (arg) (shared-content? program arg seen)) args))
+               (else (shared-fields? program type (Cons name seen)))))
+        (_ #f)))
+
+    (define (shared-fields? (program Program) (type Type) (seen (List String))) (→ Bool)
+      (match type
+        ((TCon name _)
+         (any? (lambda (case)
+                 (any? (lambda (field) (shared-content? program field seen))
+                       (field-types program type case)))
+               (● (program-type program name) cases)))
+        (_ #f)))
 
     ;; ---- Type grades ----
 
@@ -103,15 +138,11 @@
     (define (linear-search (program Program) (copy (List String)) (type Type) (progress Linearity))
       (→ Linearity)
       (match type
-        ((TCon "Borrow" _) progress)
+        ((TCon "Rc" _) progress)
+        ((TCon "WeakRc" _) progress)
         ((TCon "FnOnce" _) (Linearity-found?-set progress #t))
-        ((TCon "FnMut" _) (Linearity-found?-set progress #t))
         ((TCon name args)
-         (if (concrete-callable? type)
-             (match (callable-kind type)
-               ((Some "FnOnce") (Linearity-found?-set progress #t))
-               (_ (linear-any program copy (callable-captures type) progress)))
-             (linear-instance program copy name args progress)))
+         (linear-instance program copy name args progress))
         ((TRigid name) (if (member? name copy) progress (Linearity-found?-set progress #t)))
         (_ progress)))
 
@@ -175,9 +206,7 @@
                          (found Linearity))
       (→ Linearity)
       (fold-left (lambda (found field)
-                   (if (● field mutable?)
-                       found
-                       (linear-next program copy (substitute bindings (● field type)) found)))
+                   (linear-next program copy (substitute bindings (● field type)) found))
                  found (● case fields)))
 
     ;; The variables a signature would have to declare Copy to make `type`
@@ -271,19 +300,13 @@
       (→ Plan)
       (match type
         ((TCon "FnOnce" _)
-         (if (string=? class drop-class)
-             (Trivial)
+         (if (string=? class drop-class) (Trivial)
              (Refused "a FnOnce runs once, so it has no clone")))
         ((TCon name _)
-         (if (or (concrete-callable? type) (string=? name "FnMut"))
-             (if (or (string=? class drop-class) (not (linear-type? program copy type)))
-                 (Trivial)
-                 (Refused "a callable with owned captures has no clone"))
-             (if (any? (lambda (entry) (string=? name (● entry first))) builtin-types)
-                 (Trivial)
-                 (match (lifecycle-instance program class name)
-                   ((Some instance) (Implemented instance))
-                   ((None) (data-plan program class copy type))))))
+         (if (any? (lambda (entry) (string=? name (● entry first))) builtin-types) (Trivial)
+             (match (lifecycle-instance program class name)
+               ((Some instance) (Implemented instance))
+               ((None) (data-plan program class copy type)))))
         (_ (Trivial))))
 
     ;; The plan the checker records for a drop or a clone of `type`, or None
@@ -322,10 +345,7 @@
               ((● data owned?)
                (Refused (string-append (short-name name)
                                        " is linear by its declaration, so only a Clone instance copies one")))
-              ((any? (lambda (case) (any? (lambda (record) (● record mutable?)) (● case fields)))
-                     (● data cases))
-               (Refused (string-append (short-name name)
-                                       " has a mutable field, which a clone could only share; give it a Clone instance")))
+
               (else (Glue)))))
 
     (define (type-name (type Type)) (→ String)
@@ -352,9 +372,7 @@
         ;; (control.sld, "Droppers"), so data holding one runs glue.
         ((TCon "FnOnce" _) #t)
         ((TCon name _)
-         (cond ((or (concrete-callable? type) (string=? name "FnMut"))
-                (linear-type? program copy type))
-               ((member? (type-key type) keys) #f)
+         (cond ((member? (type-key type) keys) #f)
                ((member? name names) #t)
                ((any? (lambda (entry) (string=? name (● entry first))) builtin-types) #f)
                (else (match (lifecycle-instance program drop-class name)
@@ -387,12 +405,7 @@
     (define (glue-fields (program Program) (copy (List String)) (type Type) (case Case))
       (→ (List (Pair I64 Type)))
       (filter (lambda (field) (linear-type? program copy (● field second)))
-              (concatenate
-               (map-indexed (lambda (index pair)
-                              (if (● (● pair first) mutable?)
-                                  (Nil)
-                                  (list (Pair index (● pair second)))))
-                            (zip (● case fields) (field-types program type case))))))
+              (zip (iota (length (● case fields))) (field-types program type case))))
 
     ;; Each field of `case` at the type `type` gives its declaration's
     ;; parameters.

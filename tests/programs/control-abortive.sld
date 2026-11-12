@@ -7,7 +7,7 @@
 ;; type. Nothing after it runs, so its yields save no frames.
 ;; ANCHOR: fail
 (effect Fail
-  ((ctl fail (dyn (Fn String → Never)))))
+  ((ctl fail (Fn String → Never))))
 
 (define (checked (n I64)) (→ I64) (! Fail)
   (if (< n 0) (absurd (fail (string-append "negative: " (show n)))) n))
@@ -31,7 +31,7 @@
 ;; A failure inside a resumed computation: the generator's rest runs from
 ;; its frames after each `emit`, and fails there, past the Emit handler.
 (effect Emit
-  ((ctl emit (dyn (Fn I64 → Unit)))))
+  ((ctl emit (Fn I64 → Unit))))
 
 (define (emit-all (items (List I64))) (→ Unit) (! Emit Fail)
   (for-each (lambda (item) (emit (checked item))) items))

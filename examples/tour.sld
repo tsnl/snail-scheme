@@ -95,7 +95,7 @@
 
 ;; A typeclass names operations, and an instance gives them for one type.
 (typeclass (Describe T)
-  (: describe (impl (Fn T → String))))
+  (: describe (Fn T → String)))
 
 (instance (Describe Point)
   (define describe
@@ -139,7 +139,7 @@
 ;; code it runs. A function's row, after `!`, lists what it may perform:
 ;; `greet` asks, and whoever calls it decides what asking means.
 (effect Ask
-  ((ask (dyn (Fn → String)))))
+  ((ask (Fn → String))))
 
 (define (greet) (→ String) (! Ask)
   (string-append "hello, " (ask)))
@@ -152,7 +152,7 @@
 ;; `resume`, the rest of the handled code, and calls it at most once:
 ;; here it collects each value emitted and carries on.
 (effect Emit
-  ((ctl emit (dyn (Fn I64 → Unit)))))
+  ((ctl emit (Fn I64 → Unit))))
 
 (define (count-down (n I64)) (→ Unit) (! Emit)
   (when (> n 0)

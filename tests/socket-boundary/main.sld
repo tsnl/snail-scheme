@@ -23,7 +23,7 @@
 ;; answers; the host reports the trap under the same id.
 (define slots (→ (Ref (List (Pair I64 (Ref (Option Any)))))) (ref (Nil)))
 
-(define (request (work (dyn (FnOnce → Any ! tcp udp tasks)))) (→ I64) (! mut tcp udp)
+(define (request (work (FnOnce → Any ! tcp udp tasks))) (→ I64) (! mut tcp udp)
   (let* ((slot (ref (ann (None) (Option Any))))
          (id (dispatch-task (once (lambda () (ref-set! slot (Some (work))))))))
     (ref-set! slots (Cons (Pair id slot) (ref-get slots)))

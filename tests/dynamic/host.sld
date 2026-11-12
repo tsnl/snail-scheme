@@ -15,12 +15,12 @@
   (match (load-module "cell" file)
     ((Ok cell)
      (match (module-export cell "cell:run")
-       ((Ok function) (display ((ann (unsafe-cast function) (dyn (Fn I64 → I64))) 41)) (newline))
+       ((Ok function) (display ((ann (unsafe-cast function) (Fn I64 → I64)) 41)) (newline))
        ((Err error) (write-line (load-error-message error)))))
     ((Err error) (write-line (load-error-message error)))))
 
 (define (summarizer (plugin Plugin) (name String))
-  (→ (Result (dyn (Fn Project → Report)) LoadError))
+  (→ (Result (Fn Project → Report) LoadError))
   (! wasm)
   (plugin-function plugin name))
 

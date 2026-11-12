@@ -14,7 +14,7 @@
        (advance (ann (lambda (amount)
                        (set! (ref-get (● counter value)) (+ (ref-get (● counter value)) amount))
                        (ref-get (● counter value)))
-                     (impl (FnMut I64 → I64 ! mut output-port)))))
+                     (Fn I64 → I64 ! mut output-port))))
   (write-line (show (advance 3)))
   (write-line (show (advance 4)))
   (drop advance))
@@ -24,29 +24,27 @@
        (inner (ann (lambda (amount)
                      (set! (ref-get (● counter value)) (+ (ref-get (● counter value)) amount))
                      (ref-get (● counter value)))
-                   (impl (FnMut I64 → I64 ! mut output-port))))
+                   (Fn I64 → I64 ! mut output-port)))
        (outer (ann (lambda (amount) (inner amount))
-                   (impl (FnMut I64 → I64 ! mut output-port)))))
+                   (Fn I64 → I64 ! mut output-port))))
   (write-line (show (outer 2)))
   (drop outer))
 
-(define (consume (function F) (value I64))
-  (→ I64)
-  (! mut output-port)
-  (∀ F)
-  (⊨ (FnOnce F I64 → I64 ! mut output-port))
-  (function value))
+(define (consume (function (FnOnce I64 → I64 ! mut output-port)) (value I64))
+      (→ I64)
+      (! mut output-port)
+      (function value))
 
 ;; Consuming an exclusive implementation runs its capture cleanup once.
 (let* ((counter (Counter (ref 0)))
        (advance (ann (lambda (amount)
                        (set! (ref-get (● counter value)) amount)
                        (ref-get (● counter value)))
-                     (impl (FnMut I64 → I64 ! mut output-port)))))
+                     (Fn I64 → I64 ! mut output-port))))
   (write-line (show (consume advance 9))))
 
 (struct Work
-  ((run (dyn (FnMut I64 → I64 ! mut output-port)))))
+  ((run (Fn I64 → I64 ! mut output-port))))
 
 ;; An erased exclusive receiver can be called through its owner's field.
 (let* ((counter (Counter (ref 0)))

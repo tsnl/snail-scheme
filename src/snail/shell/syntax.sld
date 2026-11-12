@@ -122,7 +122,7 @@
     ;; driver names as the producer's argument. The expression runs in a
     ;; task, so it may read the files its recipe links with `read-resource`.
 
-    (define (write-generated-library (library (dyn (Fn → Syntax ! fs resource tasks))))
+    (define (write-generated-library (library (Fn → Syntax ! fs resource tasks)))
       (→ Unit)
       (! mut fs resource)
       (match (command-line)

@@ -4,14 +4,17 @@
 
 ;; A shared-call requirement permits repeated calls without making F Copy.
 ;; The owner is still consumed explicitly after the two loans end.
-(define (twice (function F) (value I64)) (→ I64) (∀ F) (⊨ (Fn F I64 → I64) (Drop (!) F))
-  (let* ((first (function value))
+(define (twice (function (Fn I64 → I64)) (value I64))
+      (→ I64)
+      (⊨ (Drop (!) (Fn I64 → I64)))
+      (let* ((first (function value))
          (second (function first)))
     (drop function)
     second))
 
-(define (consume (function F) (value I64)) (→ I64) (∀ F) (⊨ (FnOnce F I64 → I64))
-  (function value))
+(define (consume (function (FnOnce I64 → I64)) (value I64))
+      (→ I64)
+      (function value))
 
 (define (increment (value I64)) (→ I64)
   (+ value 1))
@@ -21,17 +24,16 @@
 (write-line (show (consume (once increment) 30)))
 
 ;; Argument impl introduces a fresh callable type and the same evidence.
-(define (through-impl (function (impl (FnOnce I64 → I64))) (value I64)) (→ I64)
+(define (through-impl (function (FnOnce I64 → I64)) (value I64)) (→ I64)
   (function value))
 
 (write-line (show (through-impl (once increment) 40)))
 
 ;; Shared callability supplies exclusive callability, without adding Copy.
-(define (exclusive-twice (function F) (value I64))
-  (→ I64)
-  (∀ F)
-  (⊨ (FnMut F I64 → I64) (Drop (!) F))
-  (let* ((first (function value))
+(define (exclusive-twice (function (Fn I64 → I64)) (value I64))
+      (→ I64)
+      (⊨ (Drop (!) (Fn I64 → I64)))
+      (let* ((first (function value))
          (answer (function first)))
     (drop function)
     answer))

@@ -3,10 +3,10 @@
  (snail core io))
 
 (effect Pause
-  ((ctl pause (dyn (Fn → Unit)))))
+  ((ctl pause (Fn → Unit))))
 
 (effect Stop
-  ((ctl stop (dyn (Fn → Unit)))))
+  ((ctl stop (Fn → Unit))))
 
 (struct Resource
   ((name String)))

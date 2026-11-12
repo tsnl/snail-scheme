@@ -6,7 +6,7 @@
 ;; its handler, whose implementation drops `resume`, so nothing after the
 ;; operation runs, in the search or in the frames that called it.
 (effect Found
-  ((ctl found (dyn (Fn I64 → Unit)))))
+  ((ctl found (Fn I64 → Unit))))
 
 (enum Tree
   (Leaf)
@@ -20,7 +20,7 @@
 
 ;; An in-order walk that reports each value it passes, so the output shows
 ;; where the walk stopped.
-(define (walk (wanted (dyn (Fn I64 → Bool))) (tree Tree)) (→ Unit) (! Found output-port)
+(define (walk (wanted (Fn I64 → Bool)) (tree Tree)) (→ Unit) (! Found output-port)
   (match tree
     ((Leaf) (unit))
     ((Node left value right)
@@ -29,7 +29,7 @@
      (when (wanted value) (found value))
      (walk wanted right))))
 
-(define (first-where (wanted (dyn (Fn I64 → Bool)))) (→ I64) (! output-port)
+(define (first-where (wanted (Fn I64 → Bool))) (→ I64) (! output-port)
   (handle Found ((found (lambda (value resume) (drop resume) value)))
     (walk wanted tree)
     -1))

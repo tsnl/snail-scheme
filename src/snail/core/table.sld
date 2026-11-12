@@ -86,7 +86,7 @@
 
     ;; Entries in trie order, which depends only on the keys.
 
-    (define (table-fold (f (dyn (Fn A (Pair String V) → A))) (initial A) (table (Table V)))
+    (define (table-fold (f (Fn A (Pair String V) → A)) (initial A) (table (Table V)))
       (→ A)
       (∀ V A)
       (match table

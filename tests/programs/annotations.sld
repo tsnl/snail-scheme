@@ -11,7 +11,7 @@
   (annotations (doc "An agent's durable state.")))
 
 (define describe-agent
-  (→ (dyn (Fn Agent → String)))
+  (→ (Fn Agent → String))
   (annotations (doc "Return the agent's display name.")
                (doc "This does not run an operation."))
   (lambda (agent) (● agent name)))
@@ -25,14 +25,14 @@
   (annotations (doc "The initialization result.")))
 
 (typeclass (Named T)
-  (: name-of (dyn (Fn T → String)) (annotations (doc "Return this value's name.")))
+  (: name-of (Fn T → String) (annotations (doc "Return this value's name.")))
   (annotations (doc "Values with a human-readable name.")))
 (instance (Named Agent)
   (define name-of (lambda (agent) (● agent name))))
 
 (effect information
-  ((fetch-name (dyn (Fn Unit → String)) (annotations (doc "Read the current name.")))
-   (ctl await-name (dyn (Fn Unit → String)) (annotations (doc "Wait for a new name."))))
+  ((fetch-name (Fn Unit → String) (annotations (doc "Read the current name.")))
+   (ctl await-name (Fn Unit → String) (annotations (doc "Wait for a new name."))))
   (annotations (doc "The source of names.")))
 
 (define constant (→ I64) (annotations (doc "A documented constant.")) 7)

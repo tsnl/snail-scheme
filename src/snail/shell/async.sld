@@ -16,7 +16,7 @@
     ;; If nobody receives, the task drops its unsent result under the
     ;; result's own Drop row. Expected failures are values in T.
 
-    (define (dispatch (work (dyn (FnOnce → T ! tasks e))))
+    (define (dispatch (work (FnOnce → T ! tasks e)))
       (→ (Future T))
       (! mut completion e)
       (∀ T e)
@@ -26,7 +26,7 @@
          (dispatch-task (once (lambda () (produce promise work))))
          future)))
 
-    (define (produce (promise (Promise T)) (work (dyn (FnOnce → T ! tasks e))))
+    (define (produce (promise (Promise T)) (work (FnOnce → T ! tasks e)))
       (→ Unit)
       (! mut completion tasks e)
       (∀ T e)

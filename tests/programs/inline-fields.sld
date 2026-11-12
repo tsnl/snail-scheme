@@ -49,7 +49,7 @@
 ;; written.
 (struct Job
   ((at Point)
-   (work (dyn (FnOnce → Unit ! output-port)))))
+   (work (FnOnce → Unit ! output-port))))
 
 (define (flip (job Job)) (→ Job)
   (Job-at-set job (Point (● (● job at) y) (● (● job at) x))))
@@ -117,7 +117,7 @@
 ;; A call that may yield leaves with a placeholder of its type, here a
 ;; Segment, before the frames resume.
 (effect Ask
-  ((ctl ask (dyn (Fn → I64)))))
+  ((ctl ask (Fn → I64))))
 
 (define (build) (→ Segment) (! Ask)
   (Segment (Point (ask) 0) (Point 0 (ask)) "asked"))

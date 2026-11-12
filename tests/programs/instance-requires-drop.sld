@@ -7,7 +7,7 @@
 ;; gives A as any drop does: through its instance, its glue, or for
 ;; nothing, and charges what that performs to the requirement's row.
 (effect log
-  ((say (dyn (Fn String → Unit)))))
+  ((say (Fn String → Unit))))
 
 (struct Handle
   ((name String)))
@@ -18,7 +18,7 @@
                        ((Handle name) (say (string-append "released " name)))))))
 
 (typeclass (Release T)
-  (: release (impl (Fn T → Unit ! log))))
+  (: release (Fn T → Unit ! log)))
 
 (instance (Release (Option A))
   (⊨ (Drop (! log) A))

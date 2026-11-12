@@ -5,9 +5,9 @@
 ;; An ordinary class may select a control row. Calling it preserves the
 ;; yield and resumes through the correct specialized method.
 (effect Gen
-  ((ctl next (dyn (Fn → Unit)))))
+  ((ctl next (Fn → Unit))))
 (typeclass (Store e S)
-  (: fetch-object (impl (Fn S String → String ! e))))
+  (: fetch-object (Fn S String → String ! e)))
 
 (struct Loud
   ((name String)))

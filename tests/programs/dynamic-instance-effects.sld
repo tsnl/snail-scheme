@@ -3,10 +3,10 @@
  (snail core io))
 
 (effect log
-  ((message (dyn (Fn String → Unit)))))
+  ((message (Fn String → Unit))))
 
 (typeclass (ReadValue e T R)
-  (: read-value (impl (Fn T R → R ! e))))
+  (: read-value (Fn T R → R ! e)))
 
 (instance (ReadValue (!) I64 String)
   (define read-value (lambda (value fallback) (i64->string value))))

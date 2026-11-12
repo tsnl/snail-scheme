@@ -35,7 +35,7 @@
   (Done ((what String))))
 
 (type (Command M)
-      (dyn (FnOnce → M ! dom tasks)))
+      (FnOnce → M ! dom tasks))
 
 (define (update (model Model) (message Msg)) (→ (Pair Model (List (Command Msg))))
   (match message

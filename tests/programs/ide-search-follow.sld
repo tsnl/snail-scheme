@@ -26,7 +26,7 @@
               (completed (Ref I64))
               (reads (Ref I64))
               (commands (List Command)))
-  (→ (List (dyn (FnOnce → Delivery ! mut output-port tasks dom fetch))))
+  (→ (List (FnOnce → Delivery ! mut output-port tasks dom fetch)))
   (match commands
     ((Nil) (Nil))
     ((Cons (Command work _) rest)
@@ -38,7 +38,7 @@
            (jobs delayed gate completed reads rest)))))
 
 ;; Record the request identity at its boundary, before it can suspend.
-(define (observed (work (dyn (FnOnce → CommandResult ! tasks dom fetch))) (reads (Ref I64)))
+(define (observed (work (FnOnce → CommandResult ! tasks dom fetch)) (reads (Ref I64)))
   (→ Delivery)
   (! mut tasks dom fetch)
   (let ((issued (ref (ann 0 I64))))
@@ -62,7 +62,7 @@
                      (model Model)
                      (message Delivery))
   (→ (Pair Model
-           (List (dyn (FnOnce → Delivery ! mut output-port tasks dom fetch)))))
+           (List (FnOnce → Delivery ! mut output-port tasks dom fetch))))
   (match message
     ((Input message)
      (match (update (● model ide) message)

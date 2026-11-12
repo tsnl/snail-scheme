@@ -5,12 +5,12 @@
 ;; A resumable exception: `fail` reports a problem and asks for a value to
 ;; go on with, which the handler supplies by resuming.
 (effect Fail
-  ((ctl fail (dyn (Fn String → I64)))))
+  ((ctl fail (Fn String → I64))))
 
 ;; A log whose handler prints each line and resumes, so performing it
 ;; leaves the computation and comes back.
 (effect Log
-  ((ctl log (dyn (Fn String → Unit)))))
+  ((ctl log (Fn String → Unit))))
 
 (define (digit (c Char)) (→ I64) (! Fail)
   (if (char-numeric? c)
@@ -52,7 +52,7 @@
     (log (string-append "value " (show value)))
     value))
 
-(define (logged (body (dyn (Fn → I64 ! Log)))) (→ I64) (! output-port)
+(define (logged (body (Fn → I64 ! Log))) (→ I64) (! output-port)
   (handle Log ((log
                 (lambda (line resume) (write-line (string-append "log: " line)) (resume (unit)))))
     (body)))

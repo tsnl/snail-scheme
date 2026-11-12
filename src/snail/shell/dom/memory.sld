@@ -380,7 +380,7 @@
     (define (commanded (document Document)
                        (node Node)
                        (words (List String))
-                       (change (dyn (Fn Entry → Entry))))
+                       (change (Fn Entry → Entry)))
       (→ Document)
       (let ((handle (● node handle)))
         (match (live document handle)
@@ -478,27 +478,34 @@
 
     ;; ---- Handling ----
 
+    ;; The simulated host shares one explicit state record among handlers.
+    (struct Memory
+      ((document Document)
+       (cues (List Cue))
+       (woken Bool)
+       (inputs (List Delivery))))
+
     ;; One operation's change to the document in `state`, and its answer.
 
-    (define (change! (state (Ref Document)) (operation (dyn (Fn Document → (Pair A Document)))))
+    (define (change! (state Memory) (operation (Fn Document → (Pair A Document))))
       (→ A)
       (! mut)
       (∀ A)
       (⊨ (Copy A))
-      (let ((result (operation (ref-get state))))
-        (ref-set! state (● result second))
+      (let ((result (operation (● state document))))
+        (set! (● state document) (● result second))
         (● result first)))
 
-    (define (alter! (state (Ref Document)) (operation (dyn (Fn Document → Document))))
+    (define (alter! (state Memory) (operation (Fn Document → Document)))
       (→ Unit)
       (! mut)
-      (ref-set! state (operation (ref-get state))))
+      (set! (● state document) (operation (● state document))))
 
-    (define (with-memory-dom (script (List Cue)) (work (dyn (Fn → T ! dom e))))
+    (define (with-memory-dom (script (List Cue)) (work (Fn → T ! dom e)))
       (→ (Pair T Document))
       (! mut e)
       (∀ T e)
-      (let ((state (ref empty-document)) (cues (ref script)) (woken (ref #f)) (inputs (ref (Nil))))
+      (let ((state (Memory empty-document script #f (Nil))))
         (let ((value
                (handle dom
                    ((document-root (lambda () (Node 0)))
@@ -528,12 +535,12 @@
                                (lambda (document) (property-set document node name (Flag value))))))
                     (string-property
                      (lambda (node name)
-                       (match (property-of (ref-get state) node name)
+                       (match (property-of (● state document) node name)
                          ((Some (Text value)) value)
                          (_ ""))))
                     (number-property
                      (lambda (node name)
-                       (match (property-of (ref-get state) node name)
+                       (match (property-of (● state document) node name)
                          ((Some (Number value)) value)
                          (_ 0.0))))
                     (insert-node
@@ -559,7 +566,7 @@
                                             (lambda (found) found))))))
                     (element-by-id
                      (lambda (id)
-                       (match (element-handle (ref-get state) id 0)
+                       (match (element-handle (● state document) id 0)
                          ((Some handle) (Some (Node handle)))
                          ((None) (None)))))
                     (select-range
@@ -567,8 +574,8 @@
                        (alter! state (lambda (document) (selected document node start end)))))
                     (selection-range
                      (lambda (node)
-                       (Pair (offset-property (ref-get state) node "selectionStart")
-                             (offset-property (ref-get state) node "selectionEnd"))))
+                       (Pair (offset-property (● state document) node "selectionStart")
+                             (offset-property (● state document) node "selectionEnd"))))
                     (window-node (lambda () (Node -1)))
                     (refresh-page (lambda () (unit)))
                     (confirm
@@ -584,43 +591,43 @@
                     (set-fullscreen (lambda (enter) #f))
                     (insert-text
                      (lambda (node start end text)
-                       (let ((taken (match (live (ref-get state) (● node handle))
+                       (let ((taken (match (live (● state document) (● node handle))
                                       ((Some _) #t)
                                       ((None) #f))))
                          (alter! state
                                  (lambda (document) (text-inserted document node start end text)))
-                         (match (input-fired (ref-get state) node)
+                         (match (input-fired (● state document) node)
                            ((Some delivery)
-                            (ref-set! inputs (append (ref-get inputs) (list delivery))))
+                            (set! (● state inputs) (append (● state inputs) (list delivery))))
                            ((None) (unit)))
                          taken)))
                     (measure
                      (lambda (node) (change! state (lambda (document) (measured document node)))))
                     (wake
                      (lambda ()
-                       (ref-set! woken #t)
+                       (set! (● state woken) #t)
                        (alter! state (lambda (document) (traced document (list "wake"))))))
                     (next-event
                      (lambda ()
                        (yield)
-                       (match (ref-get inputs)
+                       (match (● state inputs)
                          ((Cons delivery rest)
-                          (ref-set! inputs rest)
+                          (set! (● state inputs) rest)
                           delivery)
                          ((Nil)
-                          (if (ref-get woken)
+                          (if (● state woken)
                               (begin
-                                (ref-set! woken #f)
+                                (set! (● state woken) #f)
                                 (Woken))
-                              (match (ref-get cues)
+                              (match (● state cues)
                                 ((Cons cue rest)
-                                 (ref-set! cues rest)
+                                 (set! (● state cues) rest)
                                  (change! state (lambda (document) (cued document cue))))
                                 ((Nil)
                                  (alter! state (lambda (document) (traced document (list "close"))))
                                  (Closed)))))))))
                  (work))))
-          (Pair value (ref-get state)))))
+          (Pair value (● state document)))))
 
     ;; ---- Printing ----
 

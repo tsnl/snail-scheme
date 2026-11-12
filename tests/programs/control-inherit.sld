@@ -11,7 +11,7 @@
 ;; which a program's top level may. The book's chapter on effects includes
 ;; the text between each ANCHOR and ANCHOR_END.
 (effect Log
-  ((log (dyn (Fn String → Unit)))))
+  ((log (Fn String → Unit))))
 
 (define (first-log (line String)) (→ Unit) (! output-port)
   (write-line (string-append "first log: " line)))
@@ -34,16 +34,16 @@
 ;; closed over its handlers first, it logs to the one in scope where the
 ;; generator yielded, as a task scheduler's steps must.
 (effect Gen
-  ((ctl yield (dyn (Fn I64 → Unit)))))
+  ((ctl yield (Fn I64 → Unit))))
 
 ;; ANCHOR: resume
 (enum Step
   (Done)
   (Yielded
    ((value I64)
-    (next (dyn (FnOnce Unit → Step ! host))))))
+    (next (FnOnce Unit → Step ! host)))))
 
-(define (start (body (dyn (Fn → Unit ! Gen Log)))) (→ Step) (! Log)
+(define (start (body (Fn → Unit ! Gen Log))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (value resume) (Yielded value (inherit-handlers-1 resume)))))
     (body)
     (Done)))

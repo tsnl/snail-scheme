@@ -8,7 +8,7 @@
 ;; receiver that takes it, so it runs exactly once. The consumer starts
 ;; first and parks, so the first item reaches it by waking it, and the
 ;; second is posted after the producer yields.
-(type Work (dyn (FnOnce → Unit ! output-port)))
+(type Work (FnOnce → Unit ! output-port))
 
 (define (say (text String)) (→ Work)
   (once (lambda () (write-line text))))

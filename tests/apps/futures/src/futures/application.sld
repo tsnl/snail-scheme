@@ -120,7 +120,7 @@
 
     ;; Only Save enters the shared lifecycle. Construct the linear model inside
     ;; the repeatable host binders, then keep it owned by the reactor's loop.
-    (define (present (saved Save) (checkpoint (dyn (Fn Save → Unit ! events storage tasks))))
+    (define (present (saved Save) (checkpoint (Fn Save → Unit ! events storage tasks)))
       (→ Unit)
       (! mut events storage tasks)
       (with-page-dom
@@ -129,12 +129,9 @@
           (lambda ()
             (drop (run-reactor (restore saved) (Nil)
                                (ann update
-                                    (dyn (Fn Model
-                                             (Option Msg)
-                                             → Model
-                                             ! mut completion events storage dom fetch)))
+                                    (Fn Model (Option Msg) → Model ! mut completion events storage dom fetch))
                                view window save
-                               (ann commit (dyn (Fn Save → Unit ! mut events storage dom fetch)))
+                               (ann commit (Fn Save → Unit ! mut events storage dom fetch))
                                (lambda (saved) (checkpoint saved)))))))))
 
     (define (commit (saved Save)) (→ Unit) (! mut events)

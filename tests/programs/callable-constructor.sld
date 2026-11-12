@@ -9,16 +9,16 @@
 
 (let* ((token (Token "first-class cleanup"))
        (function (ann (lambda (value) (string-append (● token label) value))
-                      (impl (Fn String → String ! output-port))))
+                      (Fn String → String ! output-port)))
        (constructor once)
        (single (constructor function)))
   (write-line (single " called")))
 
 (let* ((token (Token "first-class abandoned"))
-       (function (ann (lambda () (● token label)) (impl (Fn → String ! output-port))))
+       (function (ann (lambda () (● token label)) (Fn → String ! output-port)))
        (constructor once)
        (single (constructor function)))
   (drop single))
 
-(let ((single (once (ann (fn (value) (+ value 1)) (fn I64 → I64)))))
+(let ((single (once (ann (fn (value) → (+ value 1)) (fn I64 → I64)))))
   (write-line (show (single 4))))

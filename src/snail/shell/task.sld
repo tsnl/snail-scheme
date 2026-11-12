@@ -44,10 +44,10 @@
     ;; an ordinary operation. A program's body runs as its first task,
     ;; under this handler, so it may perform these (`around-main`).
     (effect tasks
-      ((ctl yield (dyn (Fn → Unit)))
-       (ctl sleep (dyn (Fn I64 → Unit)))
-       (ctl await (dyn (Fn I64 → Unit)))
-       (ticket (dyn (Fn → I64))))
+      ((ctl yield (Fn → Unit))
+       (ctl sleep (Fn I64 → Unit))
+       (ctl await (Fn I64 → Unit))
+       (ticket (Fn → I64)))
       (around-main))
 
     ;; ---- Queues ----
@@ -83,15 +83,15 @@
     (enum Step
       (Finished)
       (Yielded
-       ((next (dyn (FnOnce → Step ! host)))))
+       ((next (FnOnce → Step ! host))))
       (Sleeping
        ((delay I64)
-        (next (dyn (FnOnce → Step ! host)))))
+        (next (FnOnce → Step ! host))))
       (Waiting
        ((ticket I64)
-        (next (dyn (FnOnce → Step ! host))))))
+        (next (FnOnce → Step ! host)))))
 
-    (type Run (dyn (FnOnce → Step ! host)))
+    (type Run (FnOnce → Step ! host))
 
     ;; A task that is ready, under its id.
     (struct Runnable
@@ -130,10 +130,7 @@
        (now I64)
        (last-ticket I64)))
 
-    ;; The counters are a value in one cell, whose slots are its fields;
-    ;; each operation writes the one field it changes.
-
-    (define scheduler (→ (Ref Scheduler)) (ref (Scheduler 0 0 0 0 0 0)))
+    (define scheduler (→ Scheduler) (Scheduler 0 0 0 0 0 0))
 
     ;; The queues of tasks rest in the runtime's slots. A queue is taken
     ;; out, changed and put back while no task runs, so a second taker,
@@ -164,10 +161,10 @@
       (put! waiters pending))
 
     (define (add-live! (change I64)) (→ Unit) (! mut)
-      (set! (● (ref-get scheduler) live) (+ (● (ref-get scheduler) live) change)))
+      (set! (● scheduler live) (+ (● scheduler live) change)))
 
     (define (add-ready! (change I64)) (→ Unit) (! mut)
-      (set! (● (ref-get scheduler) ready-count) (+ (● (ref-get scheduler) ready-count) change)))
+      (set! (● scheduler ready-count) (+ (● scheduler ready-count) change)))
 
     (define (push-ready! (task Runnable)) (→ Unit) (! mut)
       (put-ready! (enqueue (take-ready!) task))
@@ -181,7 +178,7 @@
     ;; the task over them. A `resume` runs the rest of the work under this
     ;; handle again, so closing it cannot let a yield to `tasks` escape.
 
-    (define (start-task (work (dyn (FnOnce → Unit ! tasks e)))) (→ Step) (! mut e) (∀ e)
+    (define (start-task (work (FnOnce → Unit ! tasks e))) (→ Step) (! mut e) (∀ e)
       (handle tasks
           ((yield (lambda (resume)
                     (Yielded (inherit-handlers (once (lambda () (resume (unit))))))))
@@ -194,21 +191,21 @@
         (Finished)))
 
     (define (next-ticket!) (→ I64) (! mut)
-      (let ((ticket (+ (● (ref-get scheduler) last-ticket) 1)))
-        (set! (● (ref-get scheduler) last-ticket) ticket)
+      (let ((ticket (+ (● scheduler last-ticket) 1)))
+        (set! (● scheduler last-ticket) ticket)
         ticket))
 
     ;; Dispatching charges the work's effects to the dispatcher, so it
     ;; cannot hide an unhandled operation. The work runs on a later turn,
     ;; as a task whose id `dispatch-task` answers.
 
-    (define (dispatch-local (work (dyn (FnOnce → Unit ! tasks e)))) (→ Unit) (! mut e) (∀ e)
+    (define (dispatch-local (work (FnOnce → Unit ! tasks e))) (→ Unit) (! mut e) (∀ e)
       (dispatch-task work)
       (unit))
 
-    (define (dispatch-task (work (dyn (FnOnce → Unit ! tasks e)))) (→ I64) (! mut e) (∀ e)
-      (let ((id (+ (● (ref-get scheduler) last-task) 1)))
-        (set! (● (ref-get scheduler) last-task) id)
+    (define (dispatch-task (work (FnOnce → Unit ! tasks e))) (→ I64) (! mut e) (∀ e)
+      (let ((id (+ (● scheduler last-task) 1)))
+        (set! (● scheduler last-task) id)
         (add-live! 1)
         (push-ready! (Runnable id (inherit-handlers (once (lambda () (start-task work))))))
         id))
@@ -222,10 +219,10 @@
     ;; ticket, and otherwise the milliseconds until the earliest deadline.
 
     (define (tasks-turn (now I64)) (→ I64) (! mut host)
-      (when (= (● (ref-get scheduler) last-ticket) 0)
-        (set! (● (ref-get scheduler) last-ticket) (* now 1000)))
-      (set! (● (ref-get scheduler) now) now)
-      (run-ready! (● (ref-get scheduler) ready-count))
+      (when (= (● scheduler last-ticket) 0)
+        (set! (● scheduler last-ticket) (* now 1000)))
+      (set! (● scheduler now) now)
+      (run-ready! (● scheduler ready-count))
       (put-timers! (wake-due! now (take-timers!)))
       (outlook now))
 
@@ -242,9 +239,9 @@
            (put-ready! rest)
            (add-ready! -1)
            (add-live! -1)
-           (set! (● (ref-get scheduler) running) id)
+           (set! (● scheduler running) id)
            (record! id (run))
-           (set! (● (ref-get scheduler) running) 0)
+           (set! (● scheduler running) 0)
            (run-ready! (- count 1))))))
 
     (define (record! (id I64) (step Step)) (→ Unit) (! mut)
@@ -256,7 +253,7 @@
         ((Sleeping delay next)
          (add-live! 1)
          (put-timers!
-          (insert-timer (Pending (+ (● (ref-get scheduler) now) delay) id next) (take-timers!))))
+          (insert-timer (Pending (+ (● scheduler now) delay) id next) (take-timers!))))
         ((Waiting ticket next)
          (add-live! 1)
          (put-waiters! (Cons (Pending ticket id next) (take-waiters!))))))
@@ -285,8 +282,8 @@
 
     (define (outlook (now I64)) (→ I64) (! mut)
       (cond
-       ((> (● (ref-get scheduler) ready-count) 0) 0)
-       ((= (● (ref-get scheduler) live) 0) -1)
+       ((> (● scheduler ready-count) 0) 0)
+       ((= (● scheduler live) 0) -1)
        (else
         (match (take-timers!)
           ((Nil)
@@ -336,18 +333,18 @@
         (put-ready! (empty-queue))
         (put-timers! (Nil))
         (put-waiters! (Nil))
-        (set! (● (ref-get scheduler) ready-count) 0)
-        (set! (● (ref-get scheduler) live) 0)
+        (set! (● scheduler ready-count) 0)
+        (set! (● scheduler live) 0)
         (drop queued)
         (drop sleeping)
         (drop waiting))
-      (when (> (● (ref-get scheduler) live) 0) (tasks-close!)))
+      (when (> (● scheduler live) 0) (tasks-close!)))
 
     (define (tasks-running) (→ I64) (! mut)
-      (● (ref-get scheduler) running))
+      (● scheduler running))
 
     (define (tasks-live) (→ I64) (! mut)
-      (● (ref-get scheduler) live))
+      (● scheduler live))
 
     ;; The program's body, its `main:body` export, which takes the evidence
     ;; and answers its status, run as the first task: the host, or the
@@ -357,7 +354,7 @@
 
     (define (start-main (body Funcref)) (→ Unit) (! mut host)
       (dispatch-local (once (lambda ()
-                              ((ann (unsafe-cast body) (dyn (Fn → I32 ! tasks host))))
+                              ((ann (unsafe-cast body) (Fn → I32 ! tasks host)))
                               (unit)))))
 
     (expose start-main "tasks:start-main")
@@ -375,7 +372,7 @@
     ;; it. Only the task's own Wasm runs between taking the ticket and
     ;; awaiting it, so the completion cannot come first.
 
-    (define (through-host (start (dyn (Fn I64 → Unit))) (finish (dyn (Fn I64 → A))))
+    (define (through-host (start (Fn I64 → Unit)) (finish (Fn I64 → A)))
       (→ A)
       (! tasks)
       (∀ A)

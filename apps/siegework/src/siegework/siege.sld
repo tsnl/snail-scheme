@@ -235,7 +235,7 @@
            (< (manhattan front (● building cell)) limit)))
 
     ;; The first of the nearest, so ties go to the oldest.
-    (define (nearest (items (List A)) (distance (dyn (Fn A → I64))))
+    (define (nearest (items (List A)) (distance (Fn A → I64)))
       (→ (Option A))
       (∀ A)
       (⊨ (Copy A))

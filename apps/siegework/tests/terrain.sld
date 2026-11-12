@@ -60,7 +60,7 @@
         ((any? (lambda (site) (cell=? (● site cell) cell)) (● land sites)) #\*)
         (else (ground-char (ground-at land cell)))))
 
-(define (steps-from-hub (land Land) (crosses? (dyn (Fn Ground → Bool)))) (→ (Vector I64))
+(define (steps-from-hub (land Land) (crosses? (Fn Ground → Bool))) (→ (Vector I64))
   (distance-field (vector-map crosses? (● land ground)) (list (● land hub))))
 
 (define (walkable? (ground Ground)) (→ Bool)

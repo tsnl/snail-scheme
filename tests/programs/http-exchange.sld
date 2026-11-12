@@ -79,7 +79,7 @@
   (ref-set! (● (token connection) ended) 2)
   (Err (SocketError "TEST_CLOSE")))
 
-(define (run (state Stream) (handler (dyn (Fn Request → (Result Response String) ! e))))
+(define (run (state Stream) (handler (Fn Request → (Result Response String) ! e)))
   (→ (Result Unit (ExchangeError String)))
   (! tcp tasks e)
   (∀ e)

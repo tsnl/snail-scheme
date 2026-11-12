@@ -7,15 +7,15 @@
 ;; which resuming re-installed around the rest of the body; only what the
 ;; second handle's own body yields reaches the second.
 (effect Gen
-  ((ctl yield (dyn (Fn I64 → Unit)))))
+  ((ctl yield (Fn I64 → Unit))))
 
 (enum Step
   (Done)
   (Yielded
    ((value I64)
-    (next (dyn (FnOnce Unit → Step))))))
+    (next (FnOnce Unit → Step)))))
 
-(define (start (body (dyn (Fn → Unit ! Gen)))) (→ Step)
+(define (start (body (Fn → Unit ! Gen))) (→ Step)
   (handle Gen ((yield (lambda (value resume) (Yielded value resume))))
     (body)
     (Done)))
@@ -27,7 +27,7 @@
 
 ;; Yields once to a second handler, which announces and resumes it, then
 ;; resumes the generator under that handler.
-(define (under-second (next (dyn (FnOnce Unit → Step)))) (→ Step) (! output-port)
+(define (under-second (next (FnOnce Unit → Step))) (→ Step) (! output-port)
   (handle Gen ((yield (lambda (value resume)
                         (write-line (string-append "second handler: " (show value)))
                         (resume (unit)))))

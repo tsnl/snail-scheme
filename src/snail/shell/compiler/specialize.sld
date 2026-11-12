@@ -130,7 +130,7 @@
     ;; `step` over each item in order, threading the state and collecting
     ;; the values, so a sequence of steps is itself one step.
 
-    (define (each (state State) (step (dyn (Fn State A → (Pair B State)))) (items (List A)))
+    (define (each (state State) (step (Fn State A → (Pair B State))) (items (List A)))
       (→ (Pair (List B) State))
       (∀ A B)
       (⊨ (Copy B))
@@ -359,116 +359,52 @@
     (define (copy-expr (state State) (inst Instantiation) (expr Expr)) (→ (Pair Expr State))
       (let ((type (ground inst (● expr type))) (loc (● expr loc)))
         (match (● expr term)
-          ((Var "prim:once" _ _) (once-function-value state type loc))
           ((Var name types evidence)
-           (reference state
-                      name
-                      (map (lambda (t) (ground inst t)) types)
-                      (map (lambda (e) (ground-evidence inst e)) evidence)
-                      type
-                      loc))
-          ((App callee args)
-           (specializing state ((callee (copy-callee inst callee)) (args (copy-exprs inst args)))
-                         (specialized-call state callee args type loc)))
-          ((Ann inner target)
-           (specializing state ((inner (copy-expr inst inner)))
-                         (if (and (match (callable-kind type) ((Some "FnOnce") #t) (_ #f))
-                                  (needs-consuming-adapter? state inner))
-                             (once-adapter state inner type loc)
-                             (Pair (Expr (Ann inner (ground inst target)) type loc) state))))
-          (term (specializing state
-                              ((copied (copy-term inst term)))
+           (reference state name (map (lambda (t) (ground inst t)) types)
+                      (map (lambda (e) (ground-evidence inst e)) evidence) type loc))
+          (term (specializing state ((copied (copy-term inst term)))
                               (Pair (Expr copied type loc) state))))))
 
-    (define (copy-callee (state State) (inst Instantiation) (callee Expr)) (→ (Pair Expr State))
-      (match (● callee term)
-        ((Var "prim:once" _ _)
-         (Pair (Expr (Var "prim:once" (Nil) (Nil))
-                     (ground inst (● callee type)) (● callee loc)) state))
-        (_ (copy-expr state inst callee))))
+    
 
     ;; A first-class once constructor uses the same adaptation as a direct
     ;; use, including owned shared environments and bare code pointers.
 
-    (define (once-function-value (state State) (type Type) (loc Loc)) (→ (Pair Expr State))
-      (match (fn-arrow type)
-        ((TFun (Cons receiver (Nil)) result _)
-         (let* ((name (string-append "$once.input:" (loc->string loc)))
-                (callee (Expr (Var "prim:once" (Nil) (Nil)) type loc)))
-           (specializing state ((body
-                                 (specialized-call callee (list (local-value name receiver loc))
-                                                   result loc)))
-                         (Pair (Expr (Lambda (list name) body #f) type loc) state))))
-        (_ (panic "internal error: once takes one callable"))))
+    
 
     ;; A consuming requirement may be instantiated by a shared callable.
     ;; Its body borrows the environment, so this call owns and releases the
     ;; environment after the answer, including cleanup on an aborted call.
 
-    (define (specialized-call (state State) (callee Expr) (args (List Expr)) (type Type) (loc Loc))
-      (→ (Pair Expr State))
-      (match (Pair (● callee term) args)
-        ((Pair (Var "prim:once" _ _) (Cons value (Nil)))
-         (if (needs-consuming-adapter? state value)
-             (once-adapter state value type loc)
-             (Pair (Expr (App callee args) type loc) state)))
-        (_ (if (and (match (invocation-mode callee) ((Some "FnOnce") #t) (_ #f))
-                    (needs-consuming-adapter? state callee))
-               (let ((name (string-append "$consuming.receiver:" (loc->string loc))))
-                 (specializing state ((body (consuming-body (local-value name (● callee type) loc)
-                                                            args type loc)))
-                               (Pair (Expr (Let name callee body) type loc) state)))
-               (Pair (Expr (App callee args) type loc) state)))))
+    
 
-    (define (needs-consuming-adapter? (state State) (value Expr)) (→ Bool)
-      (and (match (callable-kind (● value type)) ((Some "FnOnce") #f) (_ #t))
-           (or (linear-type? (specialization-program state) (Nil) (● value type))
-               (match (● value type) ((TCon "fn" _) #t) (_ #f)))))
+    
 
     (define (local-value (name String) (type Type) (loc Loc)) (→ Expr)
       (Expr (Var name (Nil) (Nil)) type loc))
 
-    (define (shared-invocation (receiver Expr)) (→ Expr)
-      (match (callable-kind (● receiver type))
-        ((Some kind) (Expr (Ann receiver (TCon "$invoke"
-                                               (list (TCon kind (Nil))
-                                                     (fn-arrow (● receiver type)))))
-                           (● receiver type) (● receiver loc)))
-        (_ (panic "internal error: a consuming adapter has a callable receiver"))))
+    
 
-    (define (consuming-body (state State) (receiver Expr) (args (List Expr)) (type Type) (loc Loc))
-      (→ (Pair Expr State))
-      (let* ((name (string-append "$consuming.answer:" (loc->string loc)))
-             (call (Expr (App (shared-invocation receiver) args) type loc)))
-        (specializing state ((drop (drop-entry (● receiver type) loc)))
-                      (Pair (Expr (Let name call
-                                       (Expr (Seq (Expr (App (● drop second) (list receiver))
-                                                        unit-type loc)
-                                                  (local-value name type loc)) type loc))
-                                  type loc) state))))
+    
 
     ;; `once` and dyn FnOnce storage use the same adapter when they take a
     ;; shared owner. The ordinary once dropper releases it if never called.
 
-    (define (once-adapter (state State) (value Expr) (type Type) (loc Loc)) (→ (Pair Expr State))
-      (match (fn-arrow type)
-        ((TFun params result row)
-         (let* ((name (string-append "$once.receiver:" (loc->string loc)))
-                (receiver (local-value name (● value type) loc))
-                (names (map-indexed (lambda (index param)
-                                      (string-append "$once.argument:" (i64->string index)
-                                                     ":" (loc->string loc))) params))
-                (args (map (lambda (entry) (local-value (● entry first) (● entry second) loc))
-                           (zip names params))))
-           (specializing state ((body (consuming-body receiver args result loc)))
-                         (let* ((arrow (TFun params result row))
-                                (lambda-value (Expr (Lambda names body #t) arrow loc))
-                                (once (Expr (Var "prim:once" (Nil) (Nil))
-                                            (TFun (list arrow) type empty-row) loc)))
-                           (Pair
-                            (Expr (Let name value (Expr (App once (list lambda-value)) type loc))
-                                  type loc) state)))))
-        (_ (panic "internal error: a once adapter has a signature"))))
+    
+
+    ;; A counted owner keeps the finalizer selected for its concrete
+    ;; payload. Requesting it here uses the same registry as explicit drop.
+    (define (counted-construction (state State) (callee Expr) (args (List Expr)))
+      (→ (Pair Term State))
+      (match (Pair (● callee term) args)
+        ((Pair (Var "prim:rc" _ _) (Cons value (Nil)))
+         (specializing state ((drop (drop-entry (● value type) (● value loc))))
+                       (let* ((finalizer (● drop second))
+                              (type (TFun (list (● value type) (● finalizer type))
+                                          (TCon "Rc" (list (● value type))) empty-row))
+                              (constructor (Expr (Var "prim:rc-new" (Nil) (Nil)) type (● callee loc))))
+                         (Pair (App constructor (list value finalizer)) state))))
+        (_ (Pair (App callee args) state))))
 
     ;; A copy requests the specializations it references, so the copies of
     ;; sibling terms are steps in the order they are written.
@@ -483,7 +419,7 @@
                        (Pair (Lambda params body captures?) state)))
         ((App callee args)
          (specializing state ((callee (copy-expr inst callee)) (args (copy-exprs inst args)))
-                       (Pair (App callee args) state)))
+                       (counted-construction state callee args)))
         ((If test consequent alternative)
          (specializing state ((test (copy-expr inst test))
                               (consequent (copy-expr inst consequent))
@@ -593,27 +529,15 @@
     ;; the checker charged for one written in the program, which the ground
     ;; plan may not exceed (`plan-covers?`), and None for one glue makes.
 
-    (define (lifecycle-reference (state State)
-                                 (class String)
-                                 (method String)
-                                 (subject Type)
-                                 (charged (Option Plan))
-                                 (type Type)
-                                 (loc Loc))
+    (define (lifecycle-reference (state State) (class String) (method String) (subject Type)
+                                 (charged (Option Plan)) (type Type) (loc Loc))
       (→ (Pair Expr State))
-      (if (and (or (concrete-callable? subject)
-                   (match subject ((TCon "FnMut" _) #t) (_ #f)))
-               (string=? class drop-class)
-               (linear-type? (specialization-program state) (Nil) subject))
-          (Pair (Expr (Var "prim:drop-once" (Nil) (Nil)) type loc) state)
-          (match (Pair class subject)
-            ;; Dropping a FnOnce runs the dropper its closure carries, which
-            ;; drops what it captured (wasm.sld, `drop-once`).
-            ((Pair _ (TCon "FnOnce" _))
-             (if (string=? class drop-class)
-                 (Pair (Expr (Var "prim:drop-once" (Nil) (Nil)) type loc) state)
-                 (planned-reference state class method subject charged type loc)))
-            (_ (planned-reference state class method subject charged type loc)))))
+      (match (Pair class subject)
+        ((Pair _ (TCon "FnOnce" _))
+         (if (string=? class drop-class)
+             (Pair (Expr (Var "prim:drop-once" (Nil) (Nil)) type loc) state)
+             (planned-reference state class method subject charged type loc)))
+        (_ (planned-reference state class method subject charged type loc))))
 
     (define (planned-reference (state State)
                                (class String)
@@ -876,7 +800,7 @@
     (define (glue-lambda (state State)
                          (subject Type)
                          (result Type)
-                         (clause (dyn (Fn State Case → (Pair Clause State))))
+                         (clause (Fn State Case → (Pair Clause State)))
                          (loc Loc))
       (→ (Pair Expr State))
       (let ((data (program-type (specialization-program state) (type-name subject)))

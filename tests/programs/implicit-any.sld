@@ -32,10 +32,10 @@
   (display (type-test (first boxed boxed) I64))
   (newline))
 
-(define function (→ Any) (ann (lambda (x) (+ x 1)) (dyn (Fn I64 → I64))))
+(define function (→ Any) (ann (lambda (x) (+ x 1)) (Fn I64 → I64)))
 (handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
-  (display ((ann function (dyn (Fn I64 → I64))) 9))
+  (display ((ann function (Fn I64 → I64)) 9))
   (newline))
 
 (define condition (→ Any) #t)
@@ -47,7 +47,7 @@
   (newline))
 
 (effect ask
-  ((ctl answer (dyn (Fn → Never)))))
+  ((ctl answer (Fn → Never))))
 (handle dyn-cast
     ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
   (display (ann (handle ask

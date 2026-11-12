@@ -1,10 +1,10 @@
 (import
  (snail core base))
 
-(effect log ((record (dyn (Fn → Unit)))))
+(effect log ((record (Fn → Unit))))
 (typeclass (Add e A B)
   (type Output)
-  (: add (impl (Fn A B → Output ! e))))
+  (: add (Fn A B → Output ! e)))
 (define-instance-set sources
   (instance (Add (!) I64 I64)
     (type Output I64)

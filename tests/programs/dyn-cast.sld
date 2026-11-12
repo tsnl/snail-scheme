@@ -22,7 +22,7 @@
 (write-line (show (match (try-convert (ann (Point 9) Any) Point)
                     ((Ok point) (● point x)) ((Err _) -1))))
 (write-line
- (show (match (try-convert (ann (lambda (x) (+ x 1)) (dyn (Fn I64 → I64))) (dyn (Fn I64 → I64)))
+ (show (match (try-convert (ann (lambda (x) (+ x 1)) (Fn I64 → I64)) (Fn I64 → I64))
          ((Ok function) (function 9)) ((Err _) -1))))
 (write-line (show (match (try-dynamic (lambda () (inferred "bad")))
                     ((Ok _) #f) ((Err _) #t))))

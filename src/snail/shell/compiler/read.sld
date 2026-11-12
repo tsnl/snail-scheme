@@ -241,14 +241,14 @@
     ;; `compile-error`, or every one a pass collected from its items before
     ;; it stopped.
     (effect compile
-      ((ctl fail (dyn (Fn Diagnostics → Never)))
-       (ctl need (dyn (Fn CompilerRequest → Never)))))
+      ((ctl fail (Fn Diagnostics → Never))
+       (ctl need (Fn CompilerRequest → Never))))
 
     (enum Stop
       (Failed ((diagnostics Diagnostics)))
       (Requested ((request CompilerRequest))))
 
-    (define (compiling (work (dyn (Fn → T ! compile e)))) (→ (Result T Stop)) (! e) (∀ T e)
+    (define (compiling (work (Fn → T ! compile e))) (→ (Result T Stop)) (! e) (∀ T e)
       (handle compile
           ((fail (lambda (diagnostics) (Err (Failed diagnostics))))
            (need (lambda (request) (Err (Requested request)))))
@@ -259,7 +259,7 @@
     ;; an input is no failure of the item: the request goes on to the
     ;; compile's handler, since an implementation runs outside its handle.
 
-    (define (recovering (work (dyn (Fn → T ! compile e))))
+    (define (recovering (work (Fn → T ! compile e)))
       (→ (Result T Diagnostics))
       (! compile e)
       (∀ T e)
@@ -271,7 +271,7 @@
     ;; What `check` finds wrong in each item, checking every item past one
     ;; that fails, in the items' order.
 
-    (define (failures-of (check (dyn (Fn A → Unit ! compile e))) (items (List A)))
+    (define (failures-of (check (Fn A → Unit ! compile e)) (items (List A)))
       (→ (List SourceDiagnostic))
       (! compile e)
       (∀ A e)

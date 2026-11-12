@@ -3,7 +3,7 @@
  (snail core io))
 
 ;; These private handlers model streams with state owned by each invocation.
-(define (from-text (text String) (action (dyn (Fn → A ! input-port e))))
+(define (from-text (text String) (action (Fn → A ! input-port e)))
   (→ A) (! mut e) (∀ A e)
   (let ((position (ref 0)))
     (handle input-port
@@ -15,7 +15,7 @@
                                    (Some (string-ref text index))))))))
       (action))))
 
-(define (capture (action (dyn (Fn → Unit ! output-port e))))
+(define (capture (action (Fn → Unit ! output-port e)))
   (→ String) (! mut e) (∀ e)
   (let ((chunks (ref (ann (Nil) (List String)))))
     (handle output-port

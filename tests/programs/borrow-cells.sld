@@ -4,7 +4,7 @@
 
 (struct Model
   ((count (Ref I64))
-   (work (dyn (FnOnce → Unit)))))
+   (work (FnOnce → Unit))))
 
 ;; A Copy field holding a cell leaves the borrow as the cell itself, so a
 ;; borrowed model can be counted through: the loan is read-only one level

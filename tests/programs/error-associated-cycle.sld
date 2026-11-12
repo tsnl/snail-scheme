@@ -4,10 +4,10 @@
 
 (typeclass (First A)
   (type Output)
-  (: first (impl (Fn A → Output))))
+  (: first (Fn A → Output)))
 (typeclass (Second A)
   (type Output)
-  (: second (impl (Fn A → Output))))
+  (: second (Fn A → Output)))
 (instance (First A)
   (⊨ (Second A))
   (type Output (Second.Output A))

@@ -60,20 +60,20 @@
       (On ((event String)
            (captures (List Capture))
            (prevent Prevent)
-           (message (dyn (Fn Event → M)))))
+           (message (Fn Event → M))))
       (Keyed ((key String))))
 
     ;; A component keeps its own message type. Only its event listeners need
     ;; wrapping when its tree is embedded in a larger application.
 
-    (define (map-html (wrap (dyn (Fn A → B))) (html (Html A))) (→ (Html B)) (∀ A B)
+    (define (map-html (wrap (Fn A → B)) (html (Html A))) (→ (Html B)) (∀ A B)
       (match html
         ((Text text) (Text text))
         ((Element tag attributes children)
          (Element tag (map (lambda (attribute) (map-attribute wrap attribute)) attributes)
                   (map (lambda (child) (map-html wrap child)) children)))))
 
-    (define (map-attribute (wrap (dyn (Fn A → B))) (attribute (Attribute A)))
+    (define (map-attribute (wrap (Fn A → B)) (attribute (Attribute A)))
       (→ (Attribute B))
       (∀ A B)
       (match attribute
@@ -430,14 +430,14 @@
 
     ;; Each listener's function in the trees, by the listener's id.
 
-    (define (listener-table (trees (List (Shown M)))) (→ (Table (dyn (Fn Event → M)))) (∀ M)
+    (define (listener-table (trees (List (Shown M)))) (→ (Table (Fn Event → M))) (∀ M)
       (fold-left (lambda (table pair)
                    (table-set table (show (● (● pair second) id)) (● pair first)))
                  empty-table
                  (concatenate (map listener-functions trees))))
 
     (define (listener-functions (shown (Shown M)))
-      (→ (List (Pair (dyn (Fn Event → M)) Listener)))
+      (→ (List (Pair (Fn Event → M) Listener)))
       (∀ M)
       (match shown
         ((ShownText _ _) (Nil))
@@ -459,7 +459,7 @@
       ((model Model)
        (shown (Shown M))
        (window (Shown M))
-       (listeners (Table (dyn (Fn Event → M))))))
+       (listeners (Table (Fn Event → M)))))
 
     (define (showing (model Model) (shown (Shown M)) (window (Shown M)))
       (→ (Running Model M))
@@ -478,11 +478,11 @@
 
     (define (run-ui (model Model)
                     (start (List M))
-                    (update (dyn (Fn Model M → (Pair Model (List (dyn (FnOnce → M ! tasks e)))))))
-                    (view (dyn (Fn Model → (Html M))))
-                    (window (dyn (Fn Model → (List (Attribute M)))))
-                    (commit (dyn (Fn Model → Unit ! e)))
-                    (checkpoint (dyn (Fn Model → Unit ! tasks e))))
+                    (update (Fn Model M → (Pair Model (List (FnOnce → M ! tasks e)))))
+                    (view (Fn Model → (Html M)))
+                    (window (Fn Model → (List (Attribute M))))
+                    (commit (Fn Model → Unit ! e))
+                    (checkpoint (Fn Model → Unit ! tasks e)))
       (→ Model)
       (! mut dom tasks e)
       (∀ Model M e)
@@ -500,11 +500,11 @@
                           start))))
 
     (define (serve (box (Mailbox M))
-                   (update (dyn (Fn Model M → (Pair Model (List (dyn (FnOnce → M ! tasks e)))))))
-                   (view (dyn (Fn Model → (Html M))))
-                   (window (dyn (Fn Model → (List (Attribute M)))))
-                   (commit (dyn (Fn Model → Unit ! e)))
-                   (checkpoint (dyn (Fn Model → Unit ! tasks e)))
+                   (update (Fn Model M → (Pair Model (List (FnOnce → M ! tasks e)))))
+                   (view (Fn Model → (Html M)))
+                   (window (Fn Model → (List (Attribute M))))
+                   (commit (Fn Model → Unit ! e))
+                   (checkpoint (Fn Model → Unit ! tasks e))
                    (running (Running Model M)))
       (→ Model)
       (! mut dom tasks e)
@@ -542,10 +542,10 @@
     ;; The interface after every answer the mailbox holds.
 
     (define (answered (box (Mailbox M))
-                      (update (dyn (Fn Model M → (Pair Model (List (dyn (FnOnce → M ! tasks e)))))))
-                      (view (dyn (Fn Model → (Html M))))
-                      (window (dyn (Fn Model → (List (Attribute M)))))
-                      (commit (dyn (Fn Model → Unit ! e)))
+                      (update (Fn Model M → (Pair Model (List (FnOnce → M ! tasks e)))))
+                      (view (Fn Model → (Html M)))
+                      (window (Fn Model → (List (Attribute M))))
+                      (commit (Fn Model → Unit ! e))
                       (running (Running Model M)))
       (→ (Running Model M))
       (! mut dom e)
@@ -562,9 +562,9 @@
     ;; the view and window of the next model shown.
 
     (define (updated (box (Mailbox M))
-                     (update (dyn (Fn Model M → (Pair Model (List (dyn (FnOnce → M ! tasks e)))))))
-                     (view (dyn (Fn Model → (Html M))))
-                     (window (dyn (Fn Model → (List (Attribute M)))))
+                     (update (Fn Model M → (Pair Model (List (FnOnce → M ! tasks e)))))
+                     (view (Fn Model → (Html M)))
+                     (window (Fn Model → (List (Attribute M))))
                      (running (Running Model M))
                      (message M))
       (→ (Running Model M))
@@ -578,7 +578,7 @@
                   (patch-root (● running shown) (view model))
                   (patch-window (● running window) (window model))))))
 
-    (define (start-commands (box (Mailbox M)) (commands (List (dyn (FnOnce → M ! tasks e)))))
+    (define (start-commands (box (Mailbox M)) (commands (List (FnOnce → M ! tasks e))))
       (→ Unit)
       (! mut dom e)
       (∀ M e)
@@ -588,7 +588,7 @@
          (start-commands box rest))
         ((Nil) (unit))))
 
-    (define (answer (box (Mailbox M)) (command (dyn (FnOnce → M ! tasks e))))
+    (define (answer (box (Mailbox M)) (command (FnOnce → M ! tasks e)))
       (→ Unit)
       (! mut dom tasks e)
       (∀ M e)
@@ -605,12 +605,12 @@
 
     (define (run-reactor (model Model)
                          (start (List M))
-                         (update (dyn (Fn Model (Option M) → Model ! mut completion e)))
-                         (view (dyn (Fn (Borrow Model) → (Html M))))
-                         (window (dyn (Fn (Borrow Model) → (List (Attribute M)))))
-                         (snapshot (dyn (Fn (Borrow Model) → S)))
-                         (commit (dyn (Fn S → Unit ! mut e)))
-                         (checkpoint (dyn (Fn S → Unit ! mut tasks e))))
+                         (update (Fn Model (Option M) → Model ! mut completion e))
+                         (view (Fn (Borrow Model) → (Html M)))
+                         (window (Fn (Borrow Model) → (List (Attribute M))))
+                         (snapshot (Fn (Borrow Model) → S))
+                         (commit (Fn S → Unit ! mut e))
+                         (checkpoint (Fn S → Unit ! mut tasks e)))
       (→ Model)
       (! mut dom tasks e)
       (∀ Model M S e)
@@ -620,12 +620,12 @@
 
     (define (mount-reactor (model Model)
                            (start (List M))
-                           (update (dyn (Fn Model (Option M) → Model ! mut completion e)))
-                           (view (dyn (Fn (Borrow Model) → (Html M))))
-                           (window (dyn (Fn (Borrow Model) → (List (Attribute M)))))
-                           (snapshot (dyn (Fn (Borrow Model) → S)))
-                           (commit (dyn (Fn S → Unit ! mut e)))
-                           (checkpoint (dyn (Fn S → Unit ! mut tasks e))))
+                           (update (Fn Model (Option M) → Model ! mut completion e))
+                           (view (Fn (Borrow Model) → (Html M)))
+                           (window (Fn (Borrow Model) → (List (Attribute M))))
+                           (snapshot (Fn (Borrow Model) → S))
+                           (commit (Fn S → Unit ! mut e))
+                           (checkpoint (Fn S → Unit ! mut tasks e)))
       (→ Model)
       (! mut completion dom tasks e)
       (∀ Model M S e)
@@ -639,12 +639,12 @@
                                   (showing model shown window-shown)
                                   start))))
 
-    (define (serve-reactor (update (dyn (Fn Model (Option M) → Model ! mut completion e)))
-                           (view (dyn (Fn (Borrow Model) → (Html M))))
-                           (window (dyn (Fn (Borrow Model) → (List (Attribute M)))))
-                           (snapshot (dyn (Fn (Borrow Model) → S)))
-                           (commit (dyn (Fn S → Unit ! mut e)))
-                           (checkpoint (dyn (Fn S → Unit ! mut tasks e)))
+    (define (serve-reactor (update (Fn Model (Option M) → Model ! mut completion e))
+                           (view (Fn (Borrow Model) → (Html M)))
+                           (window (Fn (Borrow Model) → (List (Attribute M))))
+                           (snapshot (Fn (Borrow Model) → S))
+                           (commit (Fn S → Unit ! mut e))
+                           (checkpoint (Fn S → Unit ! mut tasks e))
                            (running (Running Model M)))
       (→ Model)
       (! mut completion dom tasks e)
@@ -677,9 +677,9 @@
                                 (step-reactor update view window running (Some (message event))))
                                ((None) running)))))))))
 
-    (define (step-reactor (update (dyn (Fn Model (Option M) → Model ! mut completion e)))
-                          (view (dyn (Fn (Borrow Model) → (Html M))))
-                          (window (dyn (Fn (Borrow Model) → (List (Attribute M)))))
+    (define (step-reactor (update (Fn Model (Option M) → Model ! mut completion e))
+                          (view (Fn (Borrow Model) → (Html M)))
+                          (window (Fn (Borrow Model) → (List (Attribute M))))
                           (running (Running Model M))
                           (message (Option M)))
       (→ (Running Model M))
@@ -692,8 +692,8 @@
     ;; Finish both reads before moving the owner into Running. Listeners
     ;; may capture copied display data, but never the borrowed model.
 
-    (define (render-reactor (view (dyn (Fn (Borrow Model) → (Html M))))
-                            (window (dyn (Fn (Borrow Model) → (List (Attribute M)))))
+    (define (render-reactor (view (Fn (Borrow Model) → (Html M)))
+                            (window (Fn (Borrow Model) → (List (Attribute M))))
                             (model Model)
                             (shown (Shown M))
                             (window-shown (Shown M)))

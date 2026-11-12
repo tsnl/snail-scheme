@@ -32,4 +32,4 @@
 
     (define (fixed (value I64)) (→ I64) (+ value 1))
 
-    (define round-trip (→ (dyn (Fn A I64 → A))) (∀ A) outbound)))
+    (define round-trip (→ (Fn A I64 → A)) (∀ A) outbound)))

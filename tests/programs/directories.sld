@@ -10,7 +10,7 @@
 (define (at (name String)) (→ String)
   (string-append root "/" name))
 
-(define (answer (describe (dyn (Fn T → String))) (result (Result T FileError))) (→ String) (∀ T)
+(define (answer (describe (Fn T → String)) (result (Result T FileError))) (→ String) (∀ T)
   (match result
     ((Ok value)
      (let ((text (describe value))) (if (string=? text "") "ok" (string-append "ok " text))))

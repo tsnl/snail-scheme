@@ -2,7 +2,7 @@
  (snail core base))
 
 (effect Pause
-  ((ctl pause (dyn (Fn → Unit)))))
+  ((ctl pause (Fn → Unit))))
 
 ;; A locally handled operation still captures the borrowed frame. Checking
 ;; only this function's final, empty effect row would miss it.

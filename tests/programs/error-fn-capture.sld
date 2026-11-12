@@ -4,5 +4,5 @@
 
 ;; A `fn` cannot read a local of the code around it.
 (define (greet (name String)) (→ Unit) (! output-port)
-  (let ((say (fn () (write-line name))))
+  (let ((say (fn () → (write-line name))))
     (say)))

@@ -6,7 +6,7 @@
 ;; which no caller reads: each representation has one. The handler's
 ;; result is what the program sees.
 (effect Abort
-  ((ctl abort (dyn (Fn I64 → I64)))))
+  ((ctl abort (Fn I64 → I64))))
 
 (struct Point
   ((x I64)
@@ -23,10 +23,10 @@
 
 (define (text) (→ String) (! Abort) (string-append "x" (show (abort 4))))
 
-(define (adder) (→ (dyn (Fn I64 → I64))) (! Abort) (let ((z (abort 5))) (lambda (y) (* y z))))
+(define (adder) (→ (Fn I64 → I64)) (! Abort) (let ((z (abort 5))) (lambda (y) (* y z))))
 
 (define (later)
-  (→ (dyn (FnOnce → Unit ! output-port)))
+  (→ (FnOnce → Unit ! output-port))
   (! Abort)
   (let ((value (abort 6))) (once (lambda () (write-line (show value))))))
 
@@ -42,7 +42,7 @@
 (display
  ((handle Abort ((abort (lambda (value resume)
                           (drop resume)
-                          (ann (lambda (y) (+ y value)) (dyn (Fn I64 → I64)))))) (adder))
+                          (ann (lambda (y) (+ y value)) (Fn I64 → I64))))) (adder))
   1))
 (newline)
 ((handle Abort ((abort (lambda (value resume)
@@ -53,11 +53,11 @@
 ;; A handler of an ordinary operation inside the handle is left behind with
 ;; the rest of the body; an effect may mix both kinds of operation.
 (effect Log
-  ((log (dyn (Fn String → Unit)))))
+  ((log (Fn String → Unit))))
 
 (effect Probe
-  ((peek (dyn (Fn → I64)))
-   (ctl bail (dyn (Fn I64 → Unit)))))
+  ((peek (Fn → I64))
+   (ctl bail (Fn I64 → Unit))))
 
 (display (handle Abort ((abort (lambda (value resume) (drop resume) (* value 10))))
            (handle Log ((log (lambda (message) (write-line message))))

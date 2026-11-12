@@ -498,7 +498,7 @@
     ;; `step` over each item in order, threading the checker and collecting
     ;; the values, so a sequence of learning steps is itself one step.
 
-    (define (each (ck Checker) (step (dyn (Fn Checker A → (Pair B Checker) ! e))) (items (List A)))
+    (define (each (ck Checker) (step (Fn Checker A → (Pair B Checker) ! e)) (items (List A)))
       (→ (Pair (List B) Checker))
       (! e)
       (∀ A B e)
@@ -515,10 +515,7 @@
          (learning ck ((tail (fresh-meta)))
                    (Pair (TFun params result (TRow labels (Some tail))) ck)))
         ((TCon name (Cons arrow captures))
-         (if (concrete-callable? type)
-             (learning ck ((arrow (open-row arrow)))
-                       (Pair (TCon name (Cons arrow captures)) ck))
-             (Pair type ck)))
+         (Pair type ck))
         (_ (Pair type ck))))
 
     (define (global-scheme (ck Checker) (name String)) (→ (Option Scheme))
@@ -528,7 +525,7 @@
          (match (program-value (program-of ck) name)
            ((Some value)
             (match (value-scheme value)
-              ((Some scheme) (Some (named-callable-scheme name scheme)))
+              ((Some scheme) (Some scheme))
               ((None) (None))))
            ((None) (None))))))
 
@@ -630,18 +627,10 @@
         (check-active-instances (program-of ck) sets loc)
         (Checker-instances-set ck sets)))
 
-    (define (infer-lambda (ck Checker)
-                          (params (List String))
-                          (body Expr)
-                          (captures? Bool)
-                          (loc Loc))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params))
-                    (value (infer-lambda-at params body captures? types loc))
-                    (type (lambda-contract params body
-                                           (TCon "$impl.Fn" (list (● value type))) loc)))
-                (Pair (Expr (● value term) type loc) ck)))
+    (define (infer-lambda (ck Checker) (params (List String)) (body Expr) (captures? Bool) (loc Loc))
+      (→ (Pair Expr Checker)) (! compile)
+      (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params)))
+                (infer-lambda-at ck params body captures? types loc)))
 
     ;; A lambda whose parameter types are known before its body is seen.
 
@@ -664,7 +653,7 @@
     ;; is built from this one, so everything it learns flows back; only its
     ;; scope is discarded.
 
-    (define (within (ck Checker) (inner Checker) (check (dyn (Fn Checker → (Pair A Checker) ! e))))
+    (define (within (ck Checker) (inner Checker) (check (Fn Checker → (Pair A Checker) ! e)))
       (→ (Pair A Checker))
       (! e)
       (∀ A e)
@@ -710,49 +699,15 @@
         ((Pair _ (TCon "fn" (Cons arrow (Nil))))
          (learning ck ((value (check-value expr arrow row)))
                    (fit ck type value row (● value loc))))
-        ((Pair (Lambda params body captures?) (TCon _ (Cons arrow _)))
-         (cond ((impl-callable? type)
-                (learning ck ((concrete (lambda-contract params body type (● expr loc))))
-                          (check-value ck expr concrete row)))
-               ((concrete-callable? type)
-                (match arrow
-                  ((TFun types result effects)
-                   (check-lambda ck expr params body captures? type types result effects))
-                  (_ (panic "internal error: a concrete callable has a signature"))))
-               ((match (callable-kind type)
-                  ((Some kind) (member? kind (list "FnMut" "FnOnce"))) (_ #f))
-                (learning ck ((concrete (lambda-contract params body type (● expr loc))))
-                          (check-value ck expr concrete row)))
-               (else (infer ck expr row))))
-        ((Pair (Lambda params body _) _)
-         (check-constrained-lambda ck expr params body type row))
+        ((Pair (Lambda params body captures?) (TCon "FnOnce" (Cons (TFun types result effects) (Nil))))
+         (check-lambda ck expr params body captures? type types result effects))
         (_ (infer ck expr row))))
 
     ;; A generic callable argument gets its signature from the outstanding
     ;; class requirement before its body is checked. Its identity stays
     ;; concrete; only an explicit dyn field chooses erased storage.
 
-    (define (check-constrained-lambda (ck Checker)
-                                      (expr Expr)
-                                      (params (List String))
-                                      (body Expr)
-                                      (type Type)
-                                      (row Type))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (let ((requirements (fold-right (lambda (wanted rest)
-                                        (match wanted
-                                          ((WantClass constraint _ _ _ _ _) (Cons constraint rest))
-                                          (_ rest))) (Nil) (● ck pending))))
-        (match (given-callable ck type requirements (list "Fn" "FnMut" "FnOnce"))
-          ((Some (Pair "FnOnce" (TVar _))) (infer-once-argument ck expr row))
-          ((Some (Pair kind arrow))
-           (learning ck ((concrete (lambda-contract params body
-                                                    (TCon (string-append "$impl." kind)
-                                                          (list arrow))
-                                                    (● expr loc))))
-                     (check-value ck expr concrete row)))
-          ((None) (infer ck expr row)))))
+    
 
     (define (check-result (ck Checker) (expr Expr) (type Type) (row Type))
       (→ (Pair Expr Checker))
@@ -760,27 +715,9 @@
       (learning ck ((expr (check-value expr type row)))
                 (fit ck type expr row (● expr loc))))
 
-    (define (lambda-contract (ck Checker)
-                             (params (List String))
-                             (body Expr)
-                             (contract Type)
-                             (loc Loc))
-      (→ (Pair Type Checker))
-      (learning ck ((identity (fresh-identity)))
-                (match (Pair (callable-kind contract) (callable-arrow contract))
-                  ((Pair (Some kind) (Some arrow))
-                   (Pair (concrete-callable kind
-                                            (string-append (loc->string loc) "."
-                                                           (i64->string identity))
-                                            arrow (capture-types ck params body)) ck))
-                  (_ (panic "internal error: a lambda has a callable contract")))))
+    
 
-    (define (capture-types (ck Checker) (params (List String)) (body Expr)) (→ (List Type))
-      (fold-right (lambda (name types)
-                    (match (if (member? name params) (None) (table-ref (● ck locals) name))
-                      ((Some type) (Cons type types))
-                      ((None) types)))
-                  (Nil) (expr-references body)))
+    
 
     ;; A lambda checked against its type. The body's row is a variable bound
     ;; to the type's row, so `perform` can recognize it: calls in this body,
@@ -877,11 +814,9 @@
         (learning ck ((callee (infer callee row))
                       (then (result-context callee expected loc))
                       (args (infer-arguments callee args row))
-                      (callee (borrowed-accessor callee args))
                       (result (fresh-meta))
                       (latent (fresh-meta))
                       (args (unify-call (● callee type) args result latent row loc))
-                      (callee (mark-invocation callee))
                       (then (improve-types before))
                       (then (perform latent row loc))
                       (then (solve-found-rows before row)))
@@ -893,8 +828,8 @@
     (define (result-context (ck Checker) (callee Expr) (expected (Option Type)) (loc Loc))
       (→ Checker)
       (! compile)
-      (match (Pair (callable-contract ck (● callee type) (● ck givens)) expected)
-        ((Pair (Some (Pair _ (TFun _ (TCon result args) _))) (Some type))
+      (match (Pair (callable-arrow (prune (solution ck) (● callee type))) expected)
+        ((Pair (Some (TFun _ (TCon result args) _)) (Some type))
          (match (prune (solution ck) type)
            ((TCon target _) (if (string=? target result)
                                 (unify ck type (TCon result args) loc) ck))
@@ -904,8 +839,8 @@
     (define (infer-arguments (ck Checker) (callee Expr) (args (List Expr)) (row Type))
       (→ (Pair (List Expr) Checker))
       (! compile)
-      (match (callable-contract ck (● callee type) (● ck givens))
-        ((Some (Pair _ (TFun params _ _)))
+      (match (callable-arrow (prune (solution ck) (● callee type)))
+        ((Some (TFun params _ _))
          (if (= (length params) (length args))
              (each ck (lambda (ck pair)
                         (if (projection-call? ck callee)
@@ -929,52 +864,15 @@
     ;; A literal once body consumes its captures. Giving that lambda the
     ;; actual FnOnce identity removes a special ownership-checking mode.
 
-    (define (infer-once-argument (ck Checker) (expr Expr) (row Type))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (learning ck ((value (infer expr row)))
-                (Pair (if (and (lambda-expr? expr) (concrete-callable? (● value type)))
-                          (match (● value type)
-                            ((TCon name (Cons arrow captures))
-                             (Expr (● value term) (concrete-callable "FnOnce" name arrow captures)
-                                   (● value loc)))
-                            (_ value))
-                          value) ck)))
+    
 
     ;; An immutable accessor reads through a Borrow without changing
     ;; it into an owner. Copy fields leave as owned values; linear fields
     ;; remain borrowed. Ordinary function calls never unwrap Borrow.
 
-    (define (borrowed-accessor (ck Checker) (callee Expr) (args (List Expr)))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (match (Pair (● callee term) args)
-        ((Pair (Var name _ _) (Cons record (Nil)))
-         (if (borrow-type? (prune (solution ck) (● record type)))
-             (match (program-value (program-of ck) name)
-               ((Some (Accessor case index _))
-                (borrowed-field ck callee record (list-ref (● case fields) index)))
-               (_ (Pair callee ck)))
-             (Pair callee ck)))
-        (_ (Pair callee ck))))
+    
 
-    (define (borrowed-field (ck Checker) (callee Expr) (record Expr) (field Field))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (when (● field mutable?)
-        (compile-error (● record loc) "a Borrow can read only immutable fields"))
-      (match (● callee type)
-        ((TFun (Cons owner (Nil)) result row)
-         (learning ck ((then (unify owner
-                                    (borrow-target (prune (solution ck) (● record type)))
-                                    (● record loc))))
-                   (Pair (Expr (● callee term)
-                               (TFun (list (● record type))
-                                     (if (linear? ck result)
-                                         (TCon "Borrow" (list result)) result)
-                                     row)
-                               (● callee loc)) ck)))
-        (_ (panic "internal error: an accessor does not have one argument"))))
+    
 
     ;; Arguments are compared one by one, so a mismatch names its argument,
     ;; and each meets its parameter's type (`fit`), which may give it the
@@ -1008,60 +906,24 @@
                        (then (unify callee-result result loc))
                        (then (unify row latent loc)))
                    (Pair args ck)))
-        ((TVar _)
-         (Pair args
-               (unify ck
-                      callee-type
-                      (TFun (map (lambda (record) (● record type)) args) result latent)
-                      loc)))
+        ((TVar _) (Pair args (unify ck callee-type (TFun (map (lambda (record) (● record type)) args) result latent) loc)))
         ;; Calling a `FnOnce` calls the procedure it holds; ownership consumes
-        ;; it. Calling a `fn` calls the code it is.
+        ;; it. Calling an `Fn` calls the code it is.
         ((TCon "FnOnce" (Cons procedure (Nil)))
          (unify-call ck procedure args result latent context loc))
         ((TCon "fn" (Cons procedure (Nil)))
          (unify-call ck procedure args result latent context loc))
-        (other
-         (match (callable-contract ck other (● ck givens))
-           ((Some contract) (unify-call ck (● contract second) args result latent context loc))
-           ((None) (compile-error loc (string-append "not a function: " (type->string other))))))))
+        (other (compile-error loc (string-append "not a function: " (type->string other))))))
 
     ;; The strongest available receiver contract decides a call. A generic
     ;; callable's contract comes from its requirement, not from Copy and not
     ;; from a particular implementation that may later instantiate it.
 
-    (define (callable-contract (ck Checker) (type Type) (givens (List Constraint)))
-      (→ (Option (Pair String Type)))
-      (let ((type (prune (solution ck) type)))
-        (match (Pair (callable-kind type) (callable-arrow type))
-          ((Pair (Some kind) (Some arrow)) (Some (Pair kind arrow)))
-          (_ (given-callable ck type givens (list "Fn" "FnMut" "FnOnce"))))))
+    
 
-    (define (given-callable (ck Checker)
-                            (type Type)
-                            (givens (List Constraint))
-                            (kinds (List String)))
-      (→ (Option (Pair String Type)))
-      (match kinds
-        ((Nil) (None))
-        ((Cons kind rest)
-         (match (find (lambda (given)
-                        (and (string=? (● given class) (callable-class kind))
-                             (type=? type (prune (solution ck) (list-ref (● given types) 0)))))
-                      givens)
-           ((Some given) (Some (Pair kind (prune (solution ck) (list-ref (● given types) 1)))))
-           ((None) (given-callable ck type givens rest))))))
+    
 
-    (define (mark-invocation (ck Checker) (callee Expr)) (→ (Pair Expr Checker))
-      (let ((type (prune (solution ck) (● callee type))))
-        (if (or (concrete-callable? type)
-                (match type ((TRigid _) #t) ((TCon "FnMut" _) #t) (_ #f)))
-            (match (callable-contract ck (● callee type) (● ck givens))
-              ((Some contract)
-               (Pair (Expr (Ann callee (TCon "$invoke" (list (TCon (● contract first) (Nil))
-                                                             (● contract second))))
-                           (● callee type) (● callee loc)) ck))
-              ((None) (Pair callee ck)))
-            (Pair callee ck))))
+    
 
     ;; Concrete arguments constrain shared type variables before an Any
     ;; can instantiate one. This changes inference order, never evaluation
@@ -1091,31 +953,30 @@
     (define (fit (ck Checker) (expected Type) (expr Expr) (row Type) (loc Loc))
       (→ (Pair Expr Checker))
       (! compile)
-      (let ((expected (prune (solution ck) expected))
-            (actual (prune (solution ck) (● expr type))))
-        (cond ((impl-callable? expected) (fit-callable-contract ck expected expr row loc))
-              ((and (concrete-callable? actual) (not (concrete-callable? expected))
-                    (not (match expected ((TCon "fn" _) #t) (_ #f)))
-                    (match (callable-arrow expected) ((Some _) #t) ((None) #f)))
-               (erase-callable ck expected expr row loc))
-              (else (match (Pair expected actual)
-                      ((Pair (TCon "Any" (Nil)) (TCon "Any" (Nil))) (Pair expr ck))
-                      ((Pair (TCon "Any" (Nil)) (TVar _))
-                       (fit-any-literal ck expected expr (● expr type) row loc))
-                      ((Pair (TVar _) (TCon "Any" (Nil)))
-                       (fit-any-literal ck expected expr expected row loc))
-                      ((Pair (TVar _) _) (Pair expr (unify ck expected (● expr type) loc)))
-                      ((Pair _ (TVar _)) (Pair expr (unify ck expected (● expr type) loc)))
-                      ((Pair (TCon "Any" (Nil)) _)
-                       (convert-value ck expr expected row loc))
-                      ((Pair _ (TCon "Any" (Nil)))
-                       (convert-value ck expr expected row loc))
-                      ((Pair (TCon "fn" (Cons arrow (Nil))) _)
-                       (fit-code-pointer ck expected arrow expr loc))
-                      ((Pair (TFun _ _ _) (TCon "fn" _))
-                       (compile-error loc
-                                      "a fn is not a closure; wrap it in a lambda, as (lambda (x) (f x))"))
-                      (_ (Pair expr (unify ck expected (● expr type) loc))))))))
+      (match (Pair (prune (solution ck) expected) (prune (solution ck) (● expr type)))
+        ((Pair (TCon "Any" (Nil)) (TCon "Any" (Nil))) (Pair expr ck))
+        ((Pair (TCon "Any" (Nil)) (TVar _))
+         (fit-any-literal ck expected expr (● expr type) row loc))
+        ((Pair (TVar _) (TCon "Any" (Nil)))
+         (fit-any-literal ck expected expr expected row loc))
+        ((Pair (TVar _) _) (Pair expr (unify ck expected (● expr type) loc)))
+        ((Pair _ (TVar _)) (Pair expr (unify ck expected (● expr type) loc)))
+        ((Pair (TCon "Any" (Nil)) _)
+         (convert-value ck expr expected row loc))
+        ((Pair _ (TCon "Any" (Nil)))
+         (convert-value ck expr expected row loc))
+        ((Pair (TCon "fn" (Cons arrow (Nil))) (TFun _ _ _))
+         (unless (environment-free? ck expr)
+           (compile-error loc
+                          (string-append "only a fn or a top-level function has type "
+                                         (type->string (resolve-type (solution ck) expected))
+                                         "; a lambda, or a local bound to one, may capture")))
+         (Pair (Expr (● expr term) expected (● expr loc))
+               (unify ck arrow (● expr type) loc)))
+        ((Pair (TFun _ _ _) (TCon "fn" _))
+         (compile-error loc
+                        "an Fn is not a closure, and does not become one; wrap it in a lambda, as (lambda (x) (f x))"))
+        (_ (Pair expr (unify ck expected (● expr type) loc)))))
 
     (define (fit-code-pointer (ck Checker) (expected Type) (arrow Type) (expr Expr) (loc Loc))
       (→ (Pair Expr Checker))
@@ -1132,31 +993,9 @@
             (Pair (Expr (● expr term) expected (● expr loc))
                   (unify ck arrow (fn-arrow (● expr type)) loc)))))
 
-    (define (fit-callable-contract (ck Checker) (expected Type) (expr Expr) (row Type) (loc Loc))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (match (Pair (callable-kind expected) (callable-arrow expected))
-        ((Pair (Some kind) (Some arrow))
-         (match (callable-evidence ck (Constraint (callable-class kind)
-                                                  (list (● expr type) arrow))
-                                   (● ck givens) loc)
-           ((Some proved) (Pair expr (● proved second)))
-           ((None) (compile-error loc "a callable implementation type must be known"))))
-        (_ (panic "internal error: an impl contract has a callable signature"))))
+    
 
-    (define (erase-callable (ck Checker) (expected Type) (expr Expr) (row Type) (loc Loc))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (match (Pair (callable-kind expected) (callable-arrow expected))
-        ((Pair (Some kind) (Some arrow))
-         (let ((ck (improve-callable ck (Constraint (callable-class kind)
-                                                    (list (● expr type) arrow))
-                                     (● ck givens) loc)))
-           (when (and (string=? kind "Fn") (linear? ck (● expr type)))
-             (compile-error loc
-                            "dyn Fn storage requires Copy captures; keep the concrete impl callable to retain owned captures"))
-           (Pair (Expr (Ann expr expected) expected (● expr loc)) ck)))
-        (_ (panic "internal error: callable erasure has a calling signature"))))
+    
 
     ;; A numeric literal's variable is already constrained to a number.
     ;; Keep that constraint across an Any boundary: ordinary literal
@@ -1235,53 +1074,26 @@
 
     (define (local-placeholder (ck Checker) (name String) (value Expr)) (→ (Pair Type Checker))
       (match (● value term)
-        ((Lambda params body _)
+        ((Lambda params _ _)
          (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params))
                        (result (fresh-meta)) (row (fresh-meta)))
-                   (Pair (concrete-callable "Fn" name (TFun types result row)
-                                            (capture-types ck params body)) ck)))
-        ((Ann (Expr (Lambda params body _) _ _) expected)
-         (if (impl-callable? expected)
-             (match (callable-kind expected)
-               ((Some kind)
-                (Pair (concrete-callable kind name (fn-arrow expected)
-                                         (capture-types ck params body)) ck))
-               (_ (fresh-meta ck)))
-             (fresh-meta ck)))
+                   (Pair (TFun types result row) ck)))
         (_ (fresh-meta ck))))
 
     ;; A `let`'s own name is visible in its value only when the value is a
     ;; lambda, so a recursive local function can call itself.
 
     (define (infer-let-value (ck Checker) (name String) (type Type) (value Expr) (row Type))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (match (● value term)
-        ((Lambda _ _ _)
-         (within ck (bind-local ck name type)
-                 (lambda (inner) (infer-local-lambda inner value type))))
-        ((Ann closure expected)
-         (if (and (impl-callable? expected) (lambda-expr? closure))
-             (within ck (bind-local ck name type)
-                     (lambda (inner)
-                       (check-annotated-local-lambda inner closure expected type row)))
-             (infer ck value row)))
-        (_ (infer ck value row))))
+      (→ (Pair Expr Checker)) (! compile)
+      (if (lambda-expr? value)
+          (within ck (bind-local ck name type) (lambda (inner) (infer inner value row)))
+          (infer ck value row)))
 
     ;; The inline `impl` contract determines the recursive closure's receiver
     ;; kind and arrow. Check the body at that concrete identity, then prove it
     ;; implements the declared contract.
 
-    (define (check-annotated-local-lambda (ck Checker)
-                                          (closure Expr)
-                                          (contract Type)
-                                          (type Type)
-                                          (row Type))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (learning ck ((value (check-value closure type row))
-                    (value (fit contract value row (● closure loc))))
-                (Pair value ck)))
+    
 
     (define (infer-local-lambda (ck Checker) (value Expr) (type Type))
       (→ (Pair Expr Checker))
@@ -1526,13 +1338,12 @@
                                                          " has "
                                                          (i64->string (length fields))
                                                          " fields")))
-                         (check-mutable-positions case args loc)
-                         (let ((owned (borrow-target (prune (solution ck) type))))
+                         (let ((owned (prune (solution ck) type)))
                            (learning ck ((then (unify owned result loc))
                                          (checked (check-fields constructor
                                                                 owned
                                                                 args
-                                                                (borrowed-fields ck type fields)
+                                                                fields
                                                                 loc)))
                                      (Pair checked ck))))
                         (_ (panic "internal error: a constructor is a function")))))
@@ -1542,32 +1353,14 @@
     ;; A mutable field is read through its accessor, which performs `mut`,
     ;; so a pattern can only skip it.
 
-    (define (check-mutable-positions (case Case) (args (List Pattern)) (loc Loc))
-      (→ Unit)
-      (! compile)
-      (for-each (lambda (pair)
-                  (match (Pair (● (● pair first) mutable?) (● pair second))
-                    ((Pair #f _) (unit))
-                    ((Pair #t (PWild _)) (unit))
-                    ((Pair #t _)
-                     (compile-error loc
-                                    (string-append "a pattern cannot read the mutable field "
-                                                   (● (● pair first) name)
-                                                   "; write _ there and read it with "
-                                                   (short-name (● case name))
-                                                   "-"
-                                                   (● (● pair first) name))))))
-                (zip (● case fields) args)))
+    
 
     ;; A constructor pattern on a borrow binds its fields as field reads
     ;; through a borrow do: a Copy field as an owned value, a linear field
     ;; as a borrow. The pattern's own type is the referent's, which names
     ;; the struct the emitter reads. Mutable positions are already wildcards.
 
-    (define (borrowed-fields (ck Checker) (scrutinee Type) (fields (List Type))) (→ (List Type))
-      (if (borrow-type? (prune (solution ck) scrutinee))
-          (map (lambda (field) (if (linear? ck field) (TCon "Borrow" (list field)) field)) fields)
-          fields))
+    
 
     ;; A constructor pattern's fields, checked in order into one scope:
     ;; names are unique, so the fields' locals simply join.
@@ -1748,23 +1541,14 @@
                        (string-append "field " (● projection label)
                                       " requires a known struct type; annotate the receiver"))))
 
-    ;; Follow Ref only to reach the next requested slot. The final selected
-    ;; field is returned intact, even when it is itself a Ref. Each implicit
-    ;; read remains visible as an accessor call and charges mut.
+    ;; Each label selects one stored field of the current nominal object.
     (define (resolve-projection (ck Checker) (record Expr) (label String)
                                 (copy (List String)) (loc Loc))
       (→ (Option (Pair Expr Type))) (! compile)
       (let* ((type (resolve-type (solution ck) (● record type)))
-             (owner (borrow-target type)))
+             (owner type))
         (match owner
           ((TVar _) (None))
-          ((TCon "snail.core.base:Ref" _)
-           (match (projection-slot ck record owner "contents" copy loc)
-             ((Some (Pair value _))
-              (match (resolve-projection ck value label copy loc)
-                ((Some (Pair selected _)) (Some (Pair selected mut-row)))
-                ((None) (None))))
-             ((None) (None))))
           ((TCon _ _) (projection-slot ck record owner label copy loc))
           (_ (compile-error loc (string-append "field " label
                                                " requires a known struct type, found "
@@ -1774,6 +1558,7 @@
                              (copy (List String)) (loc Loc))
       (→ (Option (Pair Expr Type))) (! compile)
       (match owner
+        ((TCon "Rc" (Cons value (Nil))) (projection-slot ck record value label copy loc))
         ((TCon name args)
          (match (table-ref (● (program-of ck) types) name)
            ((Some data)
@@ -1790,19 +1575,12 @@
 
     (define (projection-value (ck Checker) (record Expr) (data DataType) (case Case)
                               (index I64) (args (List Type)) (copy (List String)) (loc Loc))
-      (→ (Option (Pair Expr Type))) (! compile)
+      (→ (Option (Pair Expr Type))) 
       (let* ((field (list-ref (● case fields) index))
              (result (substitute (zip (● data params) args) (● field type)))
-             (borrowed? (borrow-type? (prune (solution ck) (● record type)))))
-        (when (and borrowed? (● field mutable?))
-          (compile-error loc "a Borrow can read only immutable fields"))
-        (if (and borrowed? (has-meta? (solution ck) result)) (None)
-            (let* ((result (if (and borrowed? (linear-type? (program-of ck) copy result))
-                               (TCon "Borrow" (list result)) result))
-                   (row (if (● field mutable?) mut-row empty-row))
-                   (callee (Expr (Var (string-append (● case name) "-" (● field name)) args (Nil))
-                                 (TFun (list (● record type)) result row) loc)))
-              (Some (Pair (Expr (App callee (list record)) result loc) row))))))
+             (callee (Expr (Var (string-append (● case name) "-" (● field name)) args (Nil))
+                           (TFun (list (● record type)) result empty-row) loc)))
+        (Some (Pair (Expr (App callee (list record)) result loc) empty-row))))
 
     ;; ---- Solving ----
 
@@ -1887,73 +1665,10 @@
       (! compile)
       (cond ((determined-class? ck (● constraint class))
              (solve-found ck constraint hole givens copy (None) loc))
-            ((string=? (● constraint class) unboxed-class)
-             (solve-unboxed ck constraint hole givens loc))
             (else
              (match (find-evidence ck constraint givens copy loc)
                ((Some (Pair evidence ck)) (with-evidence ck hole evidence))
                ((None) (compile-error loc (ambiguous-constraint ck constraint)))))))
-
-    ;; `(Unboxed T)` holds when a value of T is one Wasm slot, which the
-    ;; type's representation decides: a scalar, a reference, or a struct of
-    ;; one unboxed field. It has no instances; a type variable needs the
-    ;; requirement in scope. The evidence is derived, as a drop's is, and
-    ;; nothing reads it.
-
-    (define unboxed-class (→ String) "snail.core.base:Unboxed")
-
-    (define (solve-unboxed (ck Checker)
-                           (constraint Constraint)
-                           (hole I64)
-                           (givens (List Constraint))
-                           (loc Loc))
-      (→ Checker)
-      (! compile)
-      (match (● constraint types)
-        ((Cons type (Nil))
-         (let ((type (resolve-type (solution ck) type)))
-           (cond ((has-meta? (solution ck) type)
-                  (compile-error loc (ambiguous-constraint ck constraint)))
-                 ((unboxed? (program-of ck) type) (with-evidence ck hole (EvDerived (None))))
-                 (else
-                  (match (given-evidence unboxed-class (list type) givens)
-                    ((Some evidence) (with-evidence ck hole evidence))
-                    ((None)
-                     (compile-error loc
-                                    (string-append (type->string type)
-                                                   " is not unboxed: an array element is one Wasm slot, so hold a struct of several fields as a struct of arrays"))))))))
-        (_ (panic "internal error: Unboxed has one type"))))
-
-    (define (unboxed? (program Program) (type Type)) (→ Bool)
-      (if (concrete-callable? type) #t
-          (match type
-            ((TFun _ _ _) #t)
-            ((TCon name args)
-             (or (member? name
-                          (list "U8"
-                                "I32"
-                                "I64"
-                                "F32"
-                                "F64"
-                                "Bool"
-                                "Char"
-                                "Unit"
-                                "String"
-                                "Any"
-                                "Funcref"
-                                "Array" "Vector" "Ref" "FnOnce" "FnMut" "fn"))
-                 (let ((data (program-type program name)))
-                   (or (● data enum?)
-                       (match (● data cases)
-                         ((Cons case _)
-                          (match (● case fields)
-                            ((Cons field (Nil))
-                             (unboxed? program
-                                       (substitute (zip (● data params) args)
-                                                   (● field type))))
-                            (_ #f)))
-                         ((Nil) #f))))))
-            (_ #f))))
 
     ;; Rows and associated outputs are determined arguments. The remaining
     ;; input arguments select evidence; that evidence establishes outputs
@@ -2237,72 +1952,28 @@
       (match want
         ((WantField projection) (improve-projection ck projection))
         ((WantClass constraint _ givens copy sets loc)
-         (if (callable-class? (● constraint class))
-             (improve-callable ck constraint givens loc)
-             (let ((class (program-class (program-of ck) (● constraint class))))
-               (if (and (not (null? (● class outputs))) (known-class-inputs? ck want))
-                   (resumed ck (● (determined-source (Checker-instances-set ck sets) class
-                                                     (map (lambda (type)
-                                                            (resolve-type (solution ck)
-                                                                          type))
-                                                          (● constraint types))
-                                                     givens copy loc) second))
-                   ck))))
+         (let ((class (program-class (program-of ck) (● constraint class))))
+           (if (and (not (null? (● class outputs))) (known-class-inputs? ck want))
+               (resumed ck (● (determined-source (Checker-instances-set ck sets) class
+                                  (map (lambda (type) (resolve-type (solution ck) type))
+                                       (● constraint types)) givens copy loc) second)) ck)))
         (_ ck)))
 
-    (define (improve-callable (ck Checker)
-                              (requirement Constraint)
-                              (givens (List Constraint))
-                              (loc Loc))
-      (→ Checker)
-      (! compile)
-      (match (● requirement types)
-        ((Cons receiver (Cons signature (Nil)))
-         (match (callable-contract ck receiver givens)
-           ((Some contract)
-            (unless (callable-implies? (● contract first) (short-name (● requirement class)))
-              (compile-error loc (string-append (● contract first) " does not satisfy "
-                                                (short-name (● requirement class)))))
-            (unify ck signature (● contract second) loc))
-           ((None) ck)))
-        (_ (panic "internal error: a callable requirement has a receiver and signature"))))
+    
 
     ;; Evidence from the enclosing definition's requirements, or from the
     ;; unique instance whose head matches. None while the types are ambiguous.
 
-    (define (find-evidence (ck Checker)
-                           (constraint Constraint)
-                           (givens (List Constraint))
-                           (copy (List String))
-                           (loc Loc))
-      (→ (Option (Pair Evidence Checker)))
-      (! compile)
-      (if (callable-class? (● constraint class))
-          (callable-evidence ck constraint givens loc)
-          (let ((types
-                 (map (lambda (type) (resolve-type (solution ck) type)) (● constraint types))))
-            (if (any? (lambda (type) (has-meta? (solution ck) type)) types)
-                (None)
-                (match (given-evidence (● constraint class) types givens)
-                  ((Some evidence) (Some (Pair evidence ck)))
-                  ((None)
-                   (Some
-                    (instance-evidence ck (● constraint class) types givens copy loc))))))))
+    (define (find-evidence (ck Checker) (constraint Constraint) (givens (List Constraint))
+                           (copy (List String)) (loc Loc))
+      (→ (Option (Pair Evidence Checker))) (! compile)
+      (let ((types (map (lambda (type) (resolve-type (solution ck) type)) (● constraint types))))
+        (if (any? (lambda (type) (has-meta? (solution ck) type)) types) (None)
+            (match (given-evidence (● constraint class) types givens)
+              ((Some evidence) (Some (Pair evidence ck)))
+              ((None) (Some (instance-evidence ck (● constraint class) types givens copy loc)))))))
 
-    (define (callable-evidence (ck Checker)
-                               (requirement Constraint)
-                               (givens (List Constraint))
-                               (loc Loc))
-      (→ (Option (Pair Evidence Checker)))
-      (! compile)
-      (let ((receiver (prune (solution ck) (list-ref (● requirement types) 0))))
-        (match (callable-contract ck receiver givens)
-          ((Some _)
-           (Some (Pair (EvDerived (None)) (improve-callable ck requirement givens loc))))
-          ((None)
-           (if (meta? receiver) (None)
-               (compile-error loc (string-append (type->string receiver) " does not satisfy "
-                                                 (short-name (● requirement class)))))))))
+    
 
     (define (given-evidence (class String) (types (List Type)) (givens (List Constraint)))
       (→ (Option Evidence))
@@ -2643,14 +2314,9 @@
     ;; Builtin types other than `Array` and `Any` have no fields.
 
     (define (fields-hold-storage? (program Program) (name String) (visiting (List String))) (→ Bool)
-      (and (not (concrete-callable? (TCon name (Nil))))
+      (and #t
            (not (any? (lambda (entry) (string=? (● entry first) name)) builtin-types))
-           (any? (lambda (case)
-                   (any?
-                    (lambda (field)
-                      (or (● field mutable?)
-                          (holds-storage-within? program (● field type) visiting)))
-                    (● case fields)))
+           (any? (lambda (case) (not (null? (● case fields))))
                  (● (program-type program name) cases))))
 
     ;; The variable reads in `expr` of names it does not bind. Names are
@@ -2716,8 +2382,7 @@
 
     (define (check-place-links (program Program) (place Expr)) (→ Unit) (! compile)
       (match (place-link program place)
-        ((Ok (Pair field inner))
-         (unless (● field mutable?) (check-place-links program inner)))
+        ((Ok _) (unit))
         ((Err problem) (compile-error (● place loc) problem))))
 
     (define (place-link (program Program) (expr Expr)) (→ (Result (Pair Field Expr) String))
@@ -2733,7 +2398,7 @@
         (_ (Err not-a-place))))
 
     (define not-a-place (→ String)
-      "a place is a cell's content, (ref-get cell), or a chain of struct fields read from one")
+      "a place must select a mutable struct field")
 
     (define (link-field (program Program) (name String))
       (→ (Result Field String))
@@ -2821,7 +2486,7 @@
          (refuse-function-reference "try-convert" target (● expr loc))
          (check-through-any (● inner type) target (● expr loc)))
         ((TypeTest _ target)
-         (check-boundary-type target (● expr loc))
+         (unit)
          (refuse-hidden-effects "type-test" target (● expr loc))
          (refuse-function-reference "type-test" target (● expr loc)))
         (_ (unit)))
@@ -2831,8 +2496,8 @@
     ;; of it: there is no other representation change for it to make.
 
     (define (check-through-any (source Type) (target Type) (loc Loc)) (→ Unit) (! compile)
-      (check-boundary-type source loc)
-      (check-boundary-type target loc)
+      (unit)
+      (unit)
       (unless (or (string=? (type-key source) (type-key target))
                   (any-type? source)
                   (any-type? target))
@@ -2886,10 +2551,7 @@
 
     (define (cleanup-row (ck Checker) (callee Expr)) (→ Type)
       (match (● callee term)
-        ((Ann inner (TCon "$invoke" (Cons _ (Cons signature (Nil)))))
-         (match (prune (solution ck) (● inner type))
-           ((TRigid _) (cleanup-arrow-row ck signature))
-           (_ (cleanup-row ck inner))))
+        
         ((Ann inner _) (cleanup-row ck inner))
         ((Var name types evidence)
          (match (program-value (program-of ck) name)
@@ -3406,7 +3068,7 @@
     (define (check-exposed-type (ck Checker) (type Type) (dynamic Bool) (loc Loc))
       (→ Checker)
       (! compile)
-      (check-boundary-type type loc)
+      (unit)
       (match (fn-arrow type)
         ((TFun params result row)
          (when (any? (lambda (type) (linear? ck type)) (Cons result params))
@@ -3445,7 +3107,7 @@
     (define (check-effects-with (ck Checker)
                                 (row Type)
                                 (loc Loc)
-                                (allowed (dyn (Fn Effect → Bool))))
+                                (allowed (Fn Effect → Bool)))
       (→ Checker)
       (! compile)
       (for-each (lambda (label)
@@ -3651,17 +3313,10 @@
 
     (define (annotated-scheme (program Program) (name String)) (→ (Option Scheme))
       (match (program-value program name)
-        ((Some (Defined (Some scheme) _ _)) (Some (named-callable-scheme name scheme)))
+        ((Some (Defined (Some scheme) _ _)) (Some scheme))
         (_ (None))))
 
-    (define (named-callable-scheme (name String) (scheme Scheme)) (→ Scheme)
-      (if (impl-callable? (● scheme type))
-          (match (Pair (callable-kind (● scheme type)) (callable-arrow (● scheme type)))
-            ((Pair (Some kind) (Some arrow))
-             (Scheme (● scheme vars) (● scheme constraints) (● scheme copy)
-                     (concrete-callable kind name arrow (Nil))))
-            (_ scheme))
-          scheme))
+    
 
     ;; Where a definition's own signature was written, if it has one.
 
@@ -3691,9 +3346,9 @@
     ;; `references` and `names` say what an item refers to and defines.
 
     (define (each-recovered (start (Recovered B))
-                            (references (dyn (Fn A → (List String))))
-                            (names (dyn (Fn A → (List String))))
-                            (step (dyn (Fn Checker A → (Pair B Checker) ! compile)))
+                            (references (Fn A → (List String)))
+                            (names (Fn A → (List String)))
+                            (step (Fn Checker A → (Pair B Checker) ! compile))
                             (items (List A)))
       (→ (Recovered B))
       (! compile)
@@ -3705,9 +3360,9 @@
         (Recovered-values-set done (reverse (● done values)))))
 
     (define (recover (done (Recovered B))
-                     (references (dyn (Fn A → (List String))))
-                     (names (dyn (Fn A → (List String))))
-                     (step (dyn (Fn Checker A → (Pair B Checker) ! compile)))
+                     (references (Fn A → (List String)))
+                     (names (Fn A → (List String)))
+                     (step (Fn Checker A → (Pair B Checker) ! compile))
                      (item A))
       (→ (Recovered B))
       (! compile)

@@ -4,7 +4,7 @@
  (snail shell task))
 
 (effect Pause
-  ((ctl pause (dyn (Fn → Unit)))))
+  ((ctl pause (Fn → Unit))))
 
 (struct Model
   ((title String))
@@ -17,7 +17,7 @@
       ((pause (lambda (resume) (resume (unit)))))
     (pause)))
 
-(define (work (model (Borrow Model))) (→ (dyn (FnOnce → Unit ! tasks output-port)))
+(define (work (model (Borrow Model))) (→ (FnOnce → Unit ! tasks output-port))
   (local-control)
   (let ((text (● model title)))
     (once (lambda ()

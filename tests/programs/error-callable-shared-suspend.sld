@@ -2,7 +2,7 @@
  (snail core base))
 
 (effect Pause
-  ((ctl pause (impl (Fn → Unit)))))
+  ((ctl pause (Fn → Unit))))
 
 (struct Token
   ((number I64)))
@@ -12,5 +12,5 @@
 
 (let* ((token (Token 10))
        (function (ann (lambda () (● token number) (pause))
-                      (impl (Fn → Unit ! Pause)))))
+                      (Fn → Unit ! Pause))))
   (drop function))

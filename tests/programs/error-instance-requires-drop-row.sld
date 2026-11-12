@@ -5,7 +5,7 @@
 ;; An instance's drop requirement allows only its row: releasing a Handle
 ;; performs `log`, which `(Drop (!) A)` does not allow.
 (effect log
-  ((say (dyn (Fn String → Unit)))))
+  ((say (Fn String → Unit))))
 
 (struct Handle
   ((name String)))
@@ -16,7 +16,7 @@
                        ((Handle name) (say (string-append "released " name)))))))
 
 (typeclass (Release T)
-  (: release (impl (Fn T → Unit ! log))))
+  (: release (Fn T → Unit ! log)))
 
 (instance (Release (Option A))
   (⊨ (Drop (!) A))

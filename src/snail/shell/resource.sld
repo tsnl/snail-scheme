@@ -43,7 +43,7 @@
     ;; for it, and the task waits until it has; a handler can serve it
     ;; otherwise.
     (effect resource
-      ((resource-bytes (dyn (Fn I32 → Bytes ! tasks))))
+      ((resource-bytes (Fn I32 → Bytes ! tasks)))
       (default ((resource-bytes host-bytes))))
 
     ;; The host holds the bytes from `finish` until its next `finish`, and

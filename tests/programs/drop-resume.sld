@@ -7,10 +7,10 @@
 ;; FnOnce's own row. The book's ownership chapter includes the text between
 ;; ANCHOR and ANCHOR_END.
 (effect audit
-  ((note (dyn (Fn String → Unit)))))
+  ((note (Fn String → Unit))))
 
 (effect Ask
-  ((ctl ask (dyn (Fn → I64)))))
+  ((ctl ask (Fn → I64))))
 
 (struct Handle
   ((name String)))

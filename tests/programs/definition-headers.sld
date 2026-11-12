@@ -17,7 +17,7 @@
   (∀ T)
   (Nil))
 
-(define (apply-one (action (impl (FnOnce I64 → I64))) (value I64))
+(define (apply-one (action (FnOnce I64 → I64)) (value I64))
   (→ I64)
   (action value))
 

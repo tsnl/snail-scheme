@@ -3,7 +3,7 @@
  (snail core io))
 
 (effect Pause
-  ((ctl pause (dyn (Fn → Unit)))))
+  ((ctl pause (Fn → Unit))))
 
 (struct Resource
   ((name String)))

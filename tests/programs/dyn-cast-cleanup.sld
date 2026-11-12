@@ -3,7 +3,7 @@
  (snail core io))
 
 (effect audit
-  ((note (dyn (Fn String → Unit)))))
+  ((note (Fn String → Unit))))
 (struct Resource
   ((name String)))
 (instance (Drop (! audit) Resource)

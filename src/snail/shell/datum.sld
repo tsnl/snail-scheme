@@ -32,7 +32,7 @@
       ((car Any)
        (cdr Any)))
     (struct Procedure
-      ((call (dyn (Fn (List Any) → Any ! output-port mut dyn-cast)))))
+      ((call (Fn (List Any) → Any ! output-port mut dyn-cast))))
 
     ;; Each branch names a concrete type and an ordinary pattern for it.
     ;; Probing is pure; a failed type or pattern proceeds to the next branch.

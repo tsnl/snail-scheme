@@ -4,7 +4,7 @@
 
 ;; An instance gives each of its class's parameters, its row among them.
 (typeclass (Store e S)
-  (: fetch-object (impl (Fn S String → String ! e))))
+  (: fetch-object (Fn S String → String ! e)))
 
 (struct Loud
   ((name String)))

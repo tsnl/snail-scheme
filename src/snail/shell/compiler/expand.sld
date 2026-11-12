@@ -238,7 +238,7 @@
     (struct Context
       ((predecessor (Table Expanded))
        (directories (List String))
-       (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+       (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
        (inputs Inputs)
        (recipe (Option Recipe))
        (prefix String)
@@ -307,7 +307,7 @@
     ;; `step` over each item in order, threading the context and collecting
     ;; the values, so a sequence of steps is itself one step.
 
-    (define (each (cx Context) (step (dyn (Fn Context A → (Pair B Context) ! e))) (items (List A)))
+    (define (each (cx Context) (step (Fn Context A → (Pair B Context) ! e)) (items (List A)))
       (→ (Pair (List B) Context))
       (! e)
       (∀ A B e)
@@ -411,7 +411,7 @@
       (ExpandedProgram empty-program empty-table 0 0 empty-table empty-table 0))
 
     (define (new-context (directories (List String))
-                         (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                         (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                          (inputs Inputs)
                          (artifacts ArtifactSource)
                          (predecessor ExpandedProgram))
@@ -1010,7 +1010,7 @@
     ;; that form names, so one that leads back to them is a cycle.
 
     (define (expand-program (directories (List String))
-                            (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                            (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                             (inputs Inputs)
                             (path String)
                             (predecessor ExpandedProgram))
@@ -1739,12 +1739,9 @@
     (define (definition-callable-type (parameters (List (Pair Syntax Syntax)))
               (result Syntax) (effects (List Syntax)) (loc Loc))
       (→ Syntax)
-      (let* ((arguments (map (lambda (record) (● record second)) parameters))
-             (returns (list (Ident "→" (None) loc) result))
-             (performs (if (null? effects) (Nil) (Cons (Ident "!" (None) loc) effects)))
-             (arrow (Form (Cons (Ident "Fn" (None) loc)
-                                (concatenate (list arguments returns performs))) loc)))
-        (Form (list (Ident "impl" (None) loc) arrow) loc)))
+      (let ((arguments (map (lambda (record) (● record second)) parameters))
+            (performs (if (null? effects) (Nil) (Cons (Ident "!" (None) loc) effects))))
+        (Form (Cons (Ident "Fn" (None) loc) (append arguments (Cons (Ident "→" (None) loc) (Cons result performs)))) loc)))
 
     (define (definition-scope (cx Context) (env Env) (definition Definition)) (→ Env) (! compile)
       (let* ((header (● definition header)) (variables (● header variables))
@@ -1790,7 +1787,7 @@
     ;; it, since pass 1 bound every name. The library then fails with what
     ;; every failed body found, in order, and is never checked.
 
-    (define (expand-bodies (cx Context) (bodies (List (dyn (Fn Context → Context ! compile)))))
+    (define (expand-bodies (cx Context) (bodies (List (Fn Context → Context ! compile))))
       (→ Context)
       (! compile)
       (let ((run (fold-left (lambda (run body)
@@ -1982,7 +1979,7 @@
                           "expected (define name value) or (define (name (parameter Type) ...) (→ Result) body ...)"))))
 
     (define (declare (cx Context) (signatures (Table (Pair Scheme (Option Loc)))) (pending Pending))
-      (→ (Pair (List (dyn (Fn Context → Context ! compile))) Context))
+      (→ (Pair (List (Fn Context → Context ! compile)) Context))
       (! compile)
       (let ((form (● pending form)) (env (● pending env)))
         (case (● pending keyword)
@@ -2272,22 +2269,16 @@
     ;; mutable one, optionally followed by an annotation list.
     (struct FieldSyntax
       ((name Syntax)
-       (mutable? Bool)
        (type Syntax)
        (annotations (List Annotation))))
 
     (define (parse-field (field Syntax)) (→ FieldSyntax) (! compile)
-      (let* ((required (match field
-                         ((Form (Cons _ (Cons (Ident "mut" _ _) _)) _) 3)
-                         (_ 2)))
-             (parsed (split-annotations field required))
-             (annotations (● parsed second)))
+      (let ((parsed (split-annotations field 2)))
         (match (● parsed first)
-          ((Form (Cons name (Cons type (Nil))) _) (FieldSyntax name #f type annotations))
-          ((Form (Cons name (Cons (Ident "mut" _ _) (Cons type (Nil)))) _)
-           (FieldSyntax name #t type annotations))
+          ((Form (Cons name (Cons type (Nil))) _)
+           (FieldSyntax name type (● parsed second)))
           (_ (compile-error (syntax-loc field)
-                            "expected (field type) or (field mut type), optionally with (annotations ...)")))))
+                            "expected (field type), optionally with (annotations ...)")))))
 
     ;; A field's generated names, by `field-suffixes`; a pure struct's
     ;; accessor name is reserved instead of bound.
@@ -2295,9 +2286,7 @@
     (define (bind-fields (cx Context) (env Env) (name Syntax) (fields (List Syntax)) (struct? Bool))
       (→ Context)
       (! compile)
-      (let* ((parsed (map parse-field fields))
-             (pure? (not (any? (lambda (record) (● record mutable?)) parsed))))
-        (for-each (lambda (field) (check-mutable-field cx field)) parsed)
+      (let ((parsed (map parse-field fields)))
         (fold-left (lambda (cx field)
                      (let ((cx (Context-program-set cx
                                                     (program-with-field-annotations
@@ -2313,8 +2302,8 @@
                                                  (field-ident name
                                                               (● field name)
                                                               suffix)))
-                                  (if (and struct? pure?) (reserve-field-read cx env name field) cx)
-                                  (field-suffixes field struct? pure?))))
+                                  (if struct? (reserve-field-read cx env name field) cx)
+                                  (field-suffixes struct?))))
                    cx parsed)))
 
     ;; A pure struct's field is read by path, but its accessor still exists
@@ -2331,36 +2320,20 @@
     (define field-read-message (→ String)
       "a struct's field is read by path, (● s field), not through an accessor")
 
-    ;; `Ref` is the struct with a mutable field, declared in (snail core
-    ;; base), and the runtime's `UnsafeSlot` in (snail shell slot) the
-    ;; other: every other struct is a value, and a program holds one in a
-    ;; cell to write its fields, `(set! (● r count) 1)`.
 
-    (define (check-mutable-field (cx Context) (field FieldSyntax)) (→ Unit) (! compile)
-      (when (and (● field mutable?)
-                 (not (member? (● cx prefix) (list "snail.core.base" "snail.shell.slot"))))
-        (compile-error (syntax-loc (● field name))
-                       "only Ref and the runtime's UnsafeSlot have a mutable field; hold the struct in a cell and write its fields with set!")))
 
     ;; The suffixes of the names a field binds. A struct whose fields are
     ;; all immutable is a value read by path, `(● s field)`, so it binds
     ;; only the pure replacement `Name-field-set`; its accessor exists in the
     ;; program for the checker's resolved call. A mutable field, which
-    ;; only Ref and UnsafeSlot have, is read by `Name-field` and written by
+    ;; is read by `Name-field` and written by
     ;; `Name-field-set!` and `Name-field-replace!`, and its struct has
     ;; identity, so no pure replacements. An enum's fields stay immutable
     ;; and a case's partial accessor `Case-field`
     ;; reads them, or a pattern does.
 
-    (define (field-suffixes (field FieldSyntax) (struct? Bool) (pure? Bool))
-      (→ (List String))
-      (! compile)
-      (cond ((and (● field mutable?) (not struct?))
-             (compile-error (syntax-loc (● field name))
-                            "an enum's fields cannot be mutable; hold a struct with a mutable field in the case"))
-            ((● field mutable?) (list "" "-set!" "-replace!"))
-            ((and struct? pure?) (list "-set"))
-            (else (list ""))))
+    (define (field-suffixes (struct? Bool)) (→ (List String))
+      (if struct? (list "-set" "-set!" "-replace!") (list "")))
 
     ;; A field identifier shares the mark of its type's name, so a struct a
     ;; macro introduces has accessors only that expansion sees.
@@ -2474,23 +2447,15 @@
     (define (resolve-field (cx Context) (scope Env) (field Syntax)) (→ Field) (! compile)
       (let ((parsed (parse-field field)))
         (Field (Ident-name (expect-ident (● parsed name) "a field name"))
-               (stored-type cx scope (● parsed type))
-               (● parsed mutable?))))
+               (stored-type cx scope (● parsed type)))))
 
     (define (stored-type (cx Context) (env Env) (syntax Syntax)) (→ Type) (! compile)
       (let ((type (resolve-type cx env syntax)))
         (check-stored-type type (syntax-loc syntax))
         type))
 
-    (define (check-stored-type (type Type) (loc Loc)) (→ Unit) (! compile)
-      (when (impl-callable? type)
-        (compile-error loc
-                       "stored and returned callable types require explicit dyn; impl is a definition or argument contract"))
-      (match type
-        ((TCon _ args) (for-each (lambda (arg) (check-stored-type arg loc)) args))
-        ((TFun params result _) (for-each (lambda (part) (check-stored-type part loc))
-                                          (Cons result params)))
-        (_ (unit))))
+    (define (check-stored-type (type Type) (loc Loc)) (→ Unit)
+      (unit))
 
     (define (constructor-name (cx Context) (env Env) (ident Syntax)) (→ String) (! compile)
       (match (resolve cx env ident)
@@ -2514,55 +2479,36 @@
                                                (TFun (map (lambda (record) (● record type))
                                                           (● case fields))
                                                      self
-                                                     empty-row))))
-             (pure?
-              (and struct? (not (any? (lambda (record) (● record mutable?)) (● case fields))))))
+                                                     empty-row)))))
         (fold-left (lambda (program indexed)
                      (with-field-values program
                                         data
                                         case
                                         (● indexed first)
                                         (● indexed second)
-                                        pure?))
+                                        struct?))
                    (program-with-value program (● case name) constructor)
                    (zip (iota (length (● case fields))) (● case fields)))))
 
-    (define (with-field-values (program Program)
-                               (data DataType)
-                               (case Case)
-                               (index I64)
-                               (field Field)
-                               (pure? Bool))
+    (define (with-field-values (program Program) (data DataType) (case Case)
+                               (index I64) (field Field) (struct? Bool))
       (→ Program)
       (let* ((params (● data params))
              (self (TCon (● data name) (map TRigid params)))
              (type (● field type))
-             (accessor (string-append (● case name) "-" (● field name)))
-             (program (program-with-value
-                       program
-                       accessor
-                       (Accessor case
-                                 index
-                                 (field-scheme params
-                                               (list self)
-                                               type
-                                               (if (● field mutable?) mut-row empty-row))))))
-        (cond ((● field mutable?)
-               (program-with-value
-                (program-with-value
-                 program
-                 (string-append accessor "-set!")
-                 (Setter case
-                         index
-                         (field-scheme params (list self type) (TCon "Unit" (Nil)) mut-row)))
-                (string-append accessor "-replace!")
-                (Swapper case index (field-scheme params (list self type) type mut-row))))
-              (pure?
-               (program-with-value
-                program
-                (string-append accessor "-set")
-                (Replacer case index (field-scheme params (list self type) self empty-row))))
-              (else program))))
+             (name (string-append (● case name) "-" (● field name)))
+             (program (program-with-value program name
+                       (Accessor case index (field-scheme params (list self) type empty-row)))))
+        (if struct?
+            (program-with-value
+             (program-with-value
+              (program-with-value program (string-append name "-set")
+               (Replacer case index (field-scheme params (list self type) self empty-row)))
+              (string-append name "-set!")
+              (Setter case index (field-scheme params (list self type) (TCon "Unit" (Nil)) mut-row)))
+             (string-append name "-replace!")
+             (Swapper case index (field-scheme params (list self type) type mut-row)))
+            program)))
 
     (define (field-scheme (params (List String)) (arguments (List Type)) (result Type) (row Type))
       (→ Scheme)
@@ -2702,7 +2648,7 @@
     ;; Returns one step per method, which expands its definition.
 
     (define (declare-instance (cx Context) (env Env) (form Syntax))
-      (→ (Pair (List (dyn (Fn Context → Context ! compile))) Context))
+      (→ (Pair (List (Fn Context → Context ! compile)) Context))
       (! compile)
       (match form
         ((Form (Cons _ (Cons (Form (Cons class-ident type-args) _) body)) loc)
@@ -2731,7 +2677,7 @@
          (compile-error (syntax-loc form) "expected (instance (Class type ...) definition ...)"))))
 
     (define (declare-dynamic-instances (cx Context) (env Env) (form Syntax))
-      (→ (Pair (List (dyn (Fn Context → Context ! compile))) Context))
+      (→ (Pair (List (Fn Context → Context ! compile)) Context))
       (! compile)
       (match (Pair (form-tail form) (instance-owner env))
         ((Pair (Cons name domain) (Some owner))
@@ -2758,7 +2704,7 @@
                                         (class Class)
                                         (generated GeneratedInstance)
                                         (loc Loc))
-      (→ (Pair (List (dyn (Fn Context → Context ! compile))) Context))
+      (→ (Pair (List (Fn Context → Context ! compile)) Context))
       (! compile)
       (let* ((instance (● generated instance))
              (cx (fold-left (lambda (cx method)
@@ -2780,12 +2726,8 @@
       (→ (Pair Class Context)) (! compile)
       (match (resolve cx env class-ident)
         ((Some (ClassName id))
-         (when (callable-class? id)
-           (compile-error (syntax-loc class-ident)
-                          "callable instances are established by the compiler from receiver access and captures"))
-         (when (string=? id "snail.core.base:Unboxed")
-           (compile-error (syntax-loc class-ident)
-                          "Unboxed is decided by a type's representation; no instance can be declared"))
+
+
          (Pair (program-class (● cx program) id) cx))
         (_ (compile-error (syntax-loc class-ident)
                           "instance of something that is not a typeclass"))))
@@ -3168,7 +3110,7 @@
     (struct MethodDefinition
       ((method String)
        (global String)
-       (expand (dyn (Fn Context → Context ! compile)))))
+       (expand (Fn Context → Context ! compile))))
 
     (define (instance-method (cx Context)
                              (env Env)
@@ -3327,7 +3269,7 @@
     ;; library's bodies, in the steps this returns.
 
     (define (declare-effect (cx Context) (env Env) (form Syntax))
-      (→ (Pair (List (dyn (Fn Context → Context ! compile))) Context))
+      (→ (Pair (List (Fn Context → Context ! compile)) Context))
       (! compile)
       (match form
         ((Form (Cons _ (Cons name (Cons operations clauses))) loc)
@@ -3450,7 +3392,7 @@
     (struct DefaultDefinition
       ((operation String)
        (global String)
-       (expand (dyn (Fn Context → Context ! compile)))))
+       (expand (Fn Context → Context ! compile))))
 
     ;; `(default ((operation implementation) ...))` defines each
     ;; implementation as a function of this library whose type is its
@@ -3579,15 +3521,18 @@
     ;; FnOnce evidence determines the result's erased calling convention.
 
     (define (resolve-primitive-scheme (cx Context) (env Env) (global String) (syntax Syntax))
-      (→ Scheme)
-      (! compile)
-      (if (and (string=? global "prim:once")
-               (match syntax ((Ident "callable-once" _ _) #t) (_ #f)))
-          (let ((receiver (TRigid "F")) (signature (TRigid "Signature")))
-            (Scheme (list "F" "Signature")
-                    (list (Constraint (callable-class "FnOnce") (list receiver signature)))
-                    (Nil) (TFun (list receiver) (TCon "FnOnce" (list signature)) empty-row)))
-          (operational-scheme (resolve-scheme cx env syntax))))
+      (→ Scheme) (! compile)
+      (cond ((string=? global "prim:once")
+             (let ((signature (TRigid "F")))
+               (Scheme (list "F") (Nil) (Nil)
+                       (TFun (list signature) (TCon "FnOnce" (list signature)) empty-row))))
+            ((string=? global "prim:weak-rc-upgrade")
+             (let ((value (TRigid "T")))
+               (Scheme (list "T") (Nil) (Nil)
+                       (TFun (list (TCon "WeakRc" (list value)))
+                             (TCon "snail.core.base:Option" (list (TCon "Rc" (list value))))
+                             mut-row))))
+            (else (operational-scheme (resolve-scheme cx env syntax)))))
 
     ;; ---- Types ----
 
@@ -3601,7 +3546,7 @@
        (env Env)))
 
     (define (resolve-scheme (cx Context) (env Env) (syntax Syntax)) (→ Scheme) (! compile)
-      (callable-scheme (resolve-raw-scheme cx env syntax) (syntax-loc syntax)))
+      (resolve-raw-scheme cx env syntax))
 
     ;; A primitive, method or operation describes executable code, rather
     ;; than introducing a source closure identity of its own.
@@ -3630,50 +3575,11 @@
     ;; The outer impl belongs to this definition; checking gives it the
     ;; definition's concrete identity. Results and storage use explicit dyn.
 
-    (define (callable-scheme (scheme Scheme) (loc Loc)) (→ Scheme) (! compile)
-      (let ((type (● scheme type)))
-        (match (callable-arrow type)
-          ((Some arrow)
-           (match (callable-signature-parameters arrow scheme loc)
-             ((Pair arrow found)
-              (Scheme (● found vars) (● found constraints) (● found copy)
-                      (match type
-                        ((TFun _ _ _) arrow)
-                        ((TCon name _) (TCon name (list arrow)))
-                        (_ type))))))
-          ((None) scheme))))
+    
 
-    (define (callable-signature-parameters (arrow Type) (found Scheme) (loc Loc))
-      (→ (Pair Type Scheme))
-      (! compile)
-      (match arrow
-        ((TFun params result row)
-         (when (impl-callable? result)
-           (compile-error loc
-                          "a returned callable needs explicit dyn storage; impl is an argument or definition contract"))
-         (let ((parts (fold-left (lambda (parts param)
-                                   (match (callable-parameter param (● parts second))
-                                     ((Pair param found)
-                                      (Pair (Cons param (● parts first)) found))))
-                                 (Pair (Nil) found) params)))
-           (for-each (lambda (part) (check-stored-type part loc))
-                     (Cons result (● parts first)))
-           (Pair (TFun (reverse (● parts first)) result row) (● parts second))))
-        (_ (panic "internal error: a callable contract has a function signature"))))
+    
 
-    (define (callable-parameter (type Type) (found Scheme)) (→ (Pair Type Scheme))
-      (if (impl-callable? type)
-          (let* ((name (string-append "$callable-argument." (i64->string (length (● found vars)))))
-                 (receiver (TRigid name)))
-            (match (Pair (callable-kind type) (callable-arrow type))
-              ((Pair (Some kind) (Some arrow))
-               (Pair receiver (Scheme (append (● found vars) (list name))
-                                      (append (● found constraints)
-                                              (list (Constraint (callable-class kind)
-                                                                (list receiver arrow))))
-                                      (● found copy) (● found type))))
-              (_ (panic "internal error: an impl parameter has a callable signature"))))
-          (Pair type found)))
+    
 
     (define (resolve-requirements (cx Context)
                                   (env Env)
@@ -3721,26 +3627,11 @@
         ((Form (Cons class types) loc)
          (match (resolve cx env (expect-ident class "a typeclass"))
            ((Some (ClassName id))
-            (if (callable-class? id)
-                (resolve-callable-constraint cx env id types loc)
-                (checked-constraint cx env id types index loc)))
+            (checked-constraint cx env id types index loc))
            (_ (compile-error loc "expected a typeclass constraint"))))
         (_ (compile-error (syntax-loc syntax) "expected (Class type ...)"))))
 
-    (define (resolve-callable-constraint (cx Context)
-                                         (env Env)
-                                         (class String)
-                                         (items (List Syntax))
-                                         (loc Loc))
-      (→ Constraint)
-      (! compile)
-      (match items
-        ((Cons receiver signature)
-         (Constraint class
-                     (list (resolve-type cx env receiver)
-                           (resolve-callable-arrow cx env signature (Nil) loc))))
-        (_ (compile-error loc
-                          "a callable requirement names its receiver type before its arguments"))))
+    
 
     ;; The constraint of a class at resolved types, checked against the
     ;; class's parameters.
@@ -3809,20 +3700,11 @@
     (define (resolve-type (cx Context) (env Env) (syntax Syntax)) (→ Type) (! compile)
       (match syntax
         ((Ident _ _ loc) (resolve-type-name cx env syntax (Nil) loc))
-        ((Form (Cons (Ident "impl" _ _) (Cons contract (Nil))) loc)
-         (resolve-callable-contract cx env contract #f loc))
-        ((Form (Cons (Ident "dyn" _ _) (Cons contract (Nil))) loc)
-         (resolve-callable-contract cx env contract #t loc))
-        ((Form (Cons (Ident "fn" _ _) items) loc)
-         (TCon "fn" (list (resolve-callable-arrow cx env items (Nil) loc))))
-        ((Form (Cons (Ident "->" _ _) _) loc)
-         (compile-error loc
-                        "use (impl (Fn arguments → result ! effects)) for a callable contract, or dyn for storage"))
         ((Form (Cons (Ident "!" _ _) labels) loc) (resolve-row cx env labels loc))
-        ((Form (Cons (Ident kind _ _) _) loc)
-         (if (member? kind (list "Fn" "FnMut" "FnOnce"))
-             (compile-error loc
-                            "a callable type requires impl or dyn around its Fn, FnMut or FnOnce contract")
+        ((Form (Cons (Ident kind _ _) items) loc)
+         (if (member? kind (list "Fn" "FnOnce" "fn"))
+             (let ((arrow (resolve-callable-arrow cx env items (Nil) loc)))
+               (if (string=? kind "Fn") arrow (TCon kind (list arrow))))
              (resolve-type-application cx env syntax loc)))
         ((Form (Cons head args) loc)
          (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
@@ -3836,22 +3718,7 @@
          (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
         (_ (compile-error loc "expected a type application"))))
 
-    (define (resolve-callable-contract (cx Context)
-                                       (env Env)
-                                       (contract Syntax)
-                                       (erased? Bool)
-                                       (loc Loc))
-      (→ Type)
-      (! compile)
-      (match contract
-        ((Form (Cons (Ident kind _ _) items) _)
-         (unless (member? kind (list "Fn" "FnMut" "FnOnce"))
-           (compile-error loc "impl and dyn require an Fn, FnMut or FnOnce contract"))
-         (let ((arrow (resolve-callable-arrow cx env items (Nil) loc)))
-           (if erased?
-               (if (string=? kind "Fn") arrow (TCon kind (list arrow)))
-               (TCon (string-append "$impl." kind) (list arrow)))))
-        (_ (compile-error loc "expected (impl (Fn argument ... → result ! effects)) or dyn"))))
+    
 
     (define (resolve-type-name (cx Context) (env Env) (ident Syntax) (args (List Syntax)) (loc Loc))
       (→ Type)
@@ -3912,9 +3779,8 @@
         ((Frame _ _ rest) (enclosing-requirements rest))
         ((Top _ _) (Nil))))
 
-    ;; Callable contracts separate their parameters from one result with
-    ;; `→`; only `!` may follow that result. Representation and receiver
-    ;; mode are decisions of the enclosing former, not of this parser.
+    ;; Function formers separate their parameters from one result with
+    ;; `→`; only `!` and the effect row may follow that result.
 
     (define (resolve-callable-arrow (cx Context)
                                     (env Env)
@@ -3949,6 +3815,8 @@
          (TFun params (resolve-type cx env result) (resolve-row cx env labels loc)))
         (_ (compile-error loc
                           "expected one result type after →, optionally followed by ! effects"))))
+
+    
 
     (define (resolve-row (cx Context) (env Env) (items (List Syntax)) (loc Loc))
       (→ Type)
@@ -4421,12 +4289,7 @@
                                  (Pair (● case name) (length (● case fields)))))
                              (enum-cases form))
                         (list (Pair (declared-name head) (length (struct-fields form)))))))
-        (when (and (not enum?)
-                   (not (null? (derived-instance-classes form)))
-                   (any? (lambda (field) (● (parse-field field) mutable?))
-                         (struct-fields form)))
-          (compile-error loc
-                         "a struct with a mutable field has identity, so it cannot derive an instance"))
+
         (each cx
               (lambda (cx class)
                 (match class

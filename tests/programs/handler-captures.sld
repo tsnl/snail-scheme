@@ -3,7 +3,7 @@
  (snail core io)
  (handler helper))
 
-(effect Counter ((tick (dyn (Fn → I64)))))
+(effect Counter ((tick (Fn → I64))))
 
 (define (recursive (n I64)) (→ I64) (if (= n 0) 4 (recursive (- n 1))))
 

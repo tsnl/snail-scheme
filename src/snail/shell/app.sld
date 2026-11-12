@@ -420,7 +420,7 @@
     ;; host decodes each key once, so `bytes` runs only when it has not.
     (struct Source
       ((key I32)
-       (bytes (dyn (Fn → Bytes)))))
+       (bytes (Fn → Bytes))))
 
     ;; The pixels of `source` within `from`, drawn with their top left at
     ;; (x, y) of the picture. Each swap replaces the 0xRRGGBB color first in
@@ -441,7 +441,7 @@
        (version I32)
        (width I32)
        (height I32)
-       (layers (dyn (Fn → (List Layer))))))
+       (layers (Fn → (List Layer)))))
 
     ;; A region of a picture. With more than one frame it is a strip: the
     ;; host shows `frames` regions side by side, starting at `region` and
@@ -546,7 +546,7 @@
       ((key I32)
        (version I32)
        (style Style)
-       (items (dyn (Fn → (List Item))))))
+       (items (Fn → (List Item)))))
 
     ;; ---- HUD ----
 
@@ -636,26 +636,26 @@
     ;; ---- Drawing ----
 
     (effect screen
-      ((frame-begin (dyn (Fn I32 F32 → Unit)))
-       (camera (dyn (Fn F32 F32 F32 F32 F32 F32 I32 F32 → Unit)))
-       (light (dyn (Fn F32 F32 F32 F32 F32 → Unit)))
-       (picture-begin (dyn (Fn I32 I32 I32 I32 → Bool)))
-       (layer (dyn (Fn I32 I32 I32 I32 I32 I32 I32 → Bool)))
-       (source-begin (dyn (Fn I32 I32 → Unit)))
-       (source-word (dyn (Fn I32 → Unit)))
-       (swap (dyn (Fn I32 I32 → Unit)))
-       (picture-end (dyn (Fn → Unit)))
-       (batch-begin (dyn (Fn I32 I32 I32 F32 F32 F32 F32 → Bool)))
-       (instance (dyn (Fn I32 F32 F32 F32 F32 F32 F32 F32 I32 F32 F32 F32 F32 → Unit)))
-       (surface (dyn (Fn F32 F32 I32 I32 I32 I32 I32 I32 I32 I32 → Unit)))
-       (frame-end (dyn (Fn → Unit)))
-       (hud-begin (dyn (Fn → Unit)))
-       (panel-begin (dyn (Fn I32 I32 I32 I32 → Unit)))
-       (widget-begin (dyn (Fn I32 I32 I32 I32 I32 F32 → Unit)))
-       (widget-image (dyn (Fn I32 I32 I32 I32 I32 I32 → Unit)))
-       (field (dyn (Fn I32 → Unit)))
-       (text-character (dyn (Fn Char → Unit)))
-       (hud-end (dyn (Fn → Unit))))
+      ((frame-begin (Fn I32 F32 → Unit))
+       (camera (Fn F32 F32 F32 F32 F32 F32 I32 F32 → Unit))
+       (light (Fn F32 F32 F32 F32 F32 → Unit))
+       (picture-begin (Fn I32 I32 I32 I32 → Bool))
+       (layer (Fn I32 I32 I32 I32 I32 I32 I32 → Bool))
+       (source-begin (Fn I32 I32 → Unit))
+       (source-word (Fn I32 → Unit))
+       (swap (Fn I32 I32 → Unit))
+       (picture-end (Fn → Unit))
+       (batch-begin (Fn I32 I32 I32 F32 F32 F32 F32 → Bool))
+       (instance (Fn I32 F32 F32 F32 F32 F32 F32 F32 I32 F32 F32 F32 F32 → Unit))
+       (surface (Fn F32 F32 I32 I32 I32 I32 I32 I32 I32 I32 → Unit))
+       (frame-end (Fn → Unit))
+       (hud-begin (Fn → Unit))
+       (panel-begin (Fn I32 I32 I32 I32 → Unit))
+       (widget-begin (Fn I32 I32 I32 I32 I32 F32 → Unit))
+       (widget-image (Fn I32 I32 I32 I32 I32 I32 → Unit))
+       (field (Fn I32 → Unit))
+       (text-character (Fn Char → Unit))
+       (hud-end (Fn → Unit)))
       (default ((frame-begin host-frame-begin)
                 (camera host-camera)
                 (light host-light)
@@ -1023,12 +1023,12 @@
     ;; ---- Scene applications ----
 
     (typeclass (Scene S)
-      (: scene-initialize (impl (Fn I32 I32 I32 → S)))
-      (: scene-update (impl (Fn S Input → S)))
-      (: scene-view (impl (Fn S → Frame)))
-      (: scene-hud (impl (Fn S → (List Panel))))
-      (: scene-save (impl (Fn S → Bytes)))
-      (: scene-restore (impl (Fn Bytes → S))))
+      (: scene-initialize (Fn I32 I32 I32 → S))
+      (: scene-update (Fn S Input → S))
+      (: scene-view (Fn S → Frame))
+      (: scene-hud (Fn S → (List Panel)))
+      (: scene-save (Fn S → Bytes))
+      (: scene-restore (Fn Bytes → S)))
 
     ;; This adapter supplies Application through ordinary instance evidence.
     ;; A project's selected type may be an alias for (SceneApplication Game).
@@ -1056,7 +1056,7 @@
     ;; drawing and HUD throttling; an input owns its HUD. Save events share
     ;; the same queue, independently of display frames.
 
-    (define (scene-loop (save (dyn (Fn S → Unit ! events storage tasks))) (state S) (since-hud I32))
+    (define (scene-loop (save (Fn S → Unit ! events storage tasks)) (state S) (since-hud I32))
       (→ Unit)
       (! mut screen events storage tasks)
       (∀ S)

@@ -20,7 +20,7 @@
 
     ;; ---- Handling ----
 
-    (define (with-page-dom (work (dyn (Fn → T ! dom e)))) (→ T) (! events e) (∀ T e)
+    (define (with-page-dom (work (Fn → T ! dom e))) (→ T) (! events e) (∀ T e)
       (handle dom
           ((document-root (lambda () (Node (host-root))))
            (create-element (lambda (tag) (Node (host-create-element (string->utf8 tag)))))

@@ -15,7 +15,7 @@
   (write-line (string-append label " -> " text)))
 
 ;; What a read answered, the text described by `describe`.
-(define (read-report (label String) (name String) (limit I64) (describe (dyn (Fn String → String))))
+(define (read-report (label String) (name String) (limit I64) (describe (Fn String → String)))
   (→ Unit)
   (! output-port fs)
   (report label (match (read-text-file (at name) limit)

@@ -17,7 +17,7 @@
 (enum Msg
   (Next))
 
-(define (update (step I64) (message Msg)) (→ (Pair I64 (List (dyn (FnOnce → Msg ! tasks)))))
+(define (update (step I64) (message Msg)) (→ (Pair I64 (List (FnOnce → Msg ! tasks))))
   (Pair (+ step 1) (Nil)))
 
 (define (view (step I64)) (→ (Html Msg))

@@ -27,9 +27,9 @@
     ;; `invariant` explains why a state is wrong, if it is.
 
     (define (explore (initial S)
-                     (moves (dyn (Fn S → (List M))))
-                     (step (dyn (Fn S M → S)))
-                     (invariant (dyn (Fn S → (Option String))))
+                     (moves (Fn S → (List M)))
+                     (step (Fn S M → S))
+                     (invariant (Fn S → (Option String)))
                      (depth I64))
       (→ (Option (Violation S M)))
       (∀ S M)
@@ -45,9 +45,9 @@
     ;; time. `seen` holds every state reached so far.
 
     (define (search (frontier (List (Visit S M)))
-                    (moves (dyn (Fn S → (List M))))
-                    (step (dyn (Fn S M → S)))
-                    (invariant (dyn (Fn S → (Option String))))
+                    (moves (Fn S → (List M)))
+                    (step (Fn S M → S))
+                    (invariant (Fn S → (Option String)))
                     (depth I64)
                     (seen (Table Bool)))
       (→ (Option (Violation S M)))
@@ -62,7 +62,7 @@
                ((Pair next seen) (search next moves step invariant (- depth 1) seen)))))))
 
     (define (first-violation (frontier (List (Visit S M)))
-                             (invariant (dyn (Fn S → (Option String)))))
+                             (invariant (Fn S → (Option String))))
       (→ (Option (Violation S M)))
       (∀ S M)
       (⊨ (Copy M) (Copy S))
@@ -78,8 +78,8 @@
     ;; grown by them.
 
     (define (successors (frontier (List (Visit S M)))
-                        (moves (dyn (Fn S → (List M))))
-                        (step (dyn (Fn S M → S)))
+                        (moves (Fn S → (List M)))
+                        (step (Fn S M → S))
                         (seen (Table Bool)))
       (→ (Pair (List (Visit S M)) (Table Bool)))
       (∀ S M)
