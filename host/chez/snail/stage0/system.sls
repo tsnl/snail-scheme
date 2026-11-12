@@ -58,8 +58,10 @@
 
   ;; Chez loads libc through the current process. flock owns the descriptor
   ;; only while its port remains open; the caller closes it after unlocking.
+  ;; A blocked waiter must let the lock holder collect and continue. Only
+  ;; scalar descriptors cross this collect-safe call; no Scheme heap pointer.
   (define loaded-libc (load-shared-object #f))
-  (define c-flock (foreign-procedure "flock" (int int) int))
+  (define c-flock (foreign-procedure __collect_safe "flock" (int int) int))
   (define c-symlink (foreign-procedure "symlink" (string string) int))
   (define lock/exclusive 2)
   (define lock/unlock 8)

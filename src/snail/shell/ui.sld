@@ -6,7 +6,7 @@
 ;; it showed before, so a node keeps its identity, and with it the focus,
 ;; selection and scroll the page gave it, for as long as the view keeps it.
 ;; Events come back as messages: a listener holds a function from what its
-;; event carried to a message, which stays in Snail-Core, as the host sees
+;; event carried to a message, which stays in Snail Scheme, as the host sees
 ;; only the listener's id. A command is one-shot work, run as a task, whose
 ;; answer is a message: it posts the answer to the interface's mailbox and
 ;; wakes the interface's task, the only one that waits on the document.

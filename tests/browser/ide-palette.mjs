@@ -1,5 +1,5 @@
 // Browser-only focus, keyboard delivery and confirm-dialog behavior.
-// Registry, fuzzy selection and request ordering run in Snail-Core fixtures.
+// Registry, fuzzy selection and request ordering run in Snail Scheme fixtures.
 import assert from 'node:assert/strict';
 import {mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';

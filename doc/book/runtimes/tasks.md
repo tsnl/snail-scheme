@@ -11,8 +11,8 @@ handles it, both in Snail Scheme:
 | `(sleep milliseconds)` | Wait for an `I64` number of milliseconds. |
 | `(ticket)` | A fresh `I64` ticket, naming one wait. |
 | `(await ticket)` | Wait until the ticket is woken. |
-| `(tasks-wake! ticket)` | Ready a task waiting on that ticket; a stale ticket does nothing. |
-| `(tasks-close!)` | Detach and drop queued, sleeping and waiting tasks. Cleanup may notify futures. |
+| `(tasks-wake! scheduler ticket)` | Ready a task waiting on that ticket; a stale ticket does nothing. |
+| `(tasks-close! scheduler)` | Detach and drop queued, sleeping and waiting tasks. Cleanup may notify futures. |
 | `(through-host start finish)` | Wait on a host operation by ticket ([below](#waiting-on-the-host)). |
 | `(make-mailbox)` | A new, empty `(Mailbox T)`: a queue of messages between tasks. |
 | `(mailbox-post mailbox message)` | Add a message at the back. Posting never waits. |
@@ -23,26 +23,25 @@ handles it, both in Snail Scheme:
 (import
  (snail core base)
  (snail core io)
+ (only (snail core forms) host)
  (snail shell task))
 
-(dispatch-local
- (once (lambda ()
-         (yield)
-         (write-line "the child finishes after main returns"))))
+(define (main) (→ Unit) (! mut host tasks output-port)
+  (dispatch-local
+   (once (lambda ()
+           (yield)
+           (write-line "the child finishes after main returns")))))
 ```
 
-A program's statements run as its first task: once every definition is
-initialized, the host hands the program's body to `tasks:start-main`, and
-drives the scheduler until no task is live, before closing its external
-resources. The body may therefore `yield`, `sleep` and `await` like any
-task (`tests/programs/tasks-main.sld`); a child it dispatches runs when
-it yields or finishes. A task runs until it finishes or waits; a trap ends
-only the task that trapped, which the host reports, and gives the run a
-failing exit status, while its siblings go on (`tests/tasks/failure.sld`),
-and so does a trap in the body. Whole-program builds and separately linked
-library builds share one scheduler, the one in the program's copy of
-`(snail shell task)`. Library initializers run in dependency order, before
-the body, and the tasks they dispatch run after it.
+The host creates one explicit `Scheduler` owner for a program and passes it
+to `start-main`, turns, wakes and closure. The root `main` runs as its first
+task and may yield, sleep or await like any other task. A child starts when
+the parent yields or returns. A trap fails the run. The host reports it and
+closes the scheduler, disposing reachable queued work. Wasm traps do not
+unwind language owners, so cleanup cannot recover owners held by the
+trapping frame.
+Whole-program and separately linked builds use this same explicit scheduler.
+Libraries have no runtime initializers or implicit scheduler globals.
 
 The operations are not actors: there are no request/reply protocols or
 supervisors. A task's id names it to the host, which reports a trap under
@@ -101,24 +100,23 @@ The policy is cooperative first-in, first-out, with no priorities:
   the milliseconds until the earliest deadline, -2 when every live task
   waits on a ticket, and -1 when no task is live.
 - A task leaves the queue, and the rest of the queue is back in place,
-  before it runs, so a trap loses that task alone; `running` still names
-  it for the host's report, and the turns go on.
+  before it runs. After a trap, `running` still names it for the host's
+  report, and the host closes the scheduler instead of running more tasks.
 
-The queues hold tasks, which are linear, and a cell holds no linear
-value, so they rest in slots of `(snail shell slot)`: an `UnsafeSlot`
-is the one shared place a linear value may rest between frames. A queue is
-taken out, changed and put back while no task runs. Taking an empty slot
-or putting into a full one traps, which catches a host callback that
-reenters `wake` while a queue is out; no other check is needed, since an
-instance is single-threaded. Nothing finalizes what a slot holds: `close`
-drains the three slots and drops the tasks.
+`Scheduler` is `Rc SchedulerState`. Its linear task queues are ordinary
+mutable fields: replace a queue with an empty value, process the removed
+owner, then put it back before invoking work. Saved task handlers capture a
+`WeakRc` link to the scheduler, avoiding a scheduler–task ownership cycle.
+Closing marks the scheduler closed and detaches every queue before dropping
+work, so cleanup can reenter safely. The host releases its final scheduler
+credit after closure; no language global owns it.
 
 ## Effects and locality
 
 The dispatcher must admit both `tasks` and the effects of the thunk, so
 dispatching cannot hide an otherwise unhandled operation. The work may
 yield only to `tasks`: its other handlers may have returned by the time
-it runs, so `control.sld` refuses work that may yield to any other
+it runs, so preparation refuses work that may yield to any other
 control effect where it is dispatched.
 
 `tasks` is an ordinary effect. A program can handle it itself, for a
@@ -126,8 +124,8 @@ simulated clock in a test or a scheduler of its own;
 `tests/programs/tasks-handler.sld` runs a countdown under a handler whose
 `sleep` advances a logical clock, then under the real scheduler.
 
-Local dispatch may capture a mutable `Ref`, because the work stays in
-this instance, which is single-threaded. Work for another instance travels
+Local dispatch may capture shared mutable objects and `Rc` owners, because
+the work stays in this single-threaded instance. Work for another instance travels
 as bytes through a queue, never as a closure ([#553](https://github.com/tsnl/snail-scheme/issues/553), proposed).
 
 Only `yield`, `sleep` and `await` let other tasks run. Console and
@@ -155,8 +153,9 @@ consumes its promise in `fulfill`; the receiver consumes its future in
 Pending returns the future for the next poll. Ready transfers the result
 exactly once. A result may itself be linear. Polling neither runs work nor
 waits for work: it performs `mut`, but no control effect. A model can own
-the future and keep its last display snapshot alongside it; a pure view
-reads the snapshot through a [`Borrow<Model>` parameter](../snail-core/ownership.md#lexically-scoped-borrows).
+the future inside an `Rc` payload and keep its last display snapshot alongside
+it. Views receive ordinary shared model references; polling transfers the
+future out of its slot with `replace!` ([application models](../snail-core/applications.md#resource-owning-models-and-futures)).
 
 `fulfill` answers `Ok Unit` after publication, or `Err T` if the receiver
 was already dropped, returning the unsent value to its caller. Dropping a
@@ -173,7 +172,7 @@ type. Synchronization does not make publication pure: it changes what a
 later poll of another endpoint observes.
 
 `on-ready` consumes and returns a future with a replacement waker, an
-ordinary `-> Unit ! mut` function. A pending future stores it; a ready
+ordinary `(Fn → Unit ! mut)` function. A pending future stores it; a ready
 future invokes it immediately. Publication restores the shared slot before
 calling the waker and then `completed`, so either may reenter without
 observing a half-written slot. A scheduler must register its waker and
@@ -186,9 +185,9 @@ polling loop, or task of its own.
 
 | Operation | Result | Effects |
 | --- | --- | --- |
-| `(dispatch work)` | A `Future<T>` immediately; work starts on a later turn. | `mut`, `completion`, and the work and result cleanup's ordinary effects. |
+| `(dispatch work)` | A `Future<T>` immediately; work starts on a later turn. | `mut`, `host`, `tasks`, `completion`, and work/result cleanup effects. |
 | `(await-future future)` | `Completion<T>`, parking this task if necessary. | `tasks`, `mut`, and the result's cleanup effects. |
-| `(after milliseconds)` | A `Future<Unit>` fulfilled after a scheduler deadline. | `mut`, `completion`. |
+| `(after milliseconds)` | A `Future<Unit>` fulfilled after a scheduler deadline. | `mut`, `host`, `tasks`, `completion`. |
 
 The `tasks` effect is the suspension surface; `async` is a library, not a
 new compiler effect. Polling needs no `tasks` capability. An update that
@@ -348,8 +347,9 @@ A host's loop calls `turn`, rests until the answer says, or until a
 completion wakes a ticket, and calls it again until no task is live
 (`host/browser/tasks.mjs`'s `drive`, and `drive` in
 `crates/snail/src/program.rs` for wasmtime). A trap unwinds out of `turn`;
-the scheduler took the trapped task off its queue before running it, so
-the host reports the trap under `tasks:running` and turns again. An
+the scheduler took the trapped task off its queue before running it. The
+host reports the trap under `tasks:running`, closes the scheduler and ends
+the run. An
 answer of -2 while no host operation is outstanding is a deadlock: no
 completion will wake a ticket, so the run fails. The wasmtime host
 completes no host operations, so there -2 always fails; a program that

@@ -476,7 +476,7 @@
     ;; A drop that runs nothing performs nothing, except a FnOnce's:
     ;; dropping one unrun drops what it captured, whose drops its own row
     ;; allows (ownership.sld, "Drops that may run"), so dropping a
-    ;; `(dyn (FnOnce A → B ! e))` performs `e`, less its control effects, which no
+    ;; `(FnOnce A → B ! e)` performs `e`, less its control effects, which no
     ;; drop performs.
 
     (define (drop-search (program Program) (copy (List String))

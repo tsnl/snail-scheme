@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-;; An operation's default may be a Snail-Core function, which runs when no
+;; An operation's default may be a Snail Scheme function, which runs when no
 ;; handler of its effect is in scope, under the handlers in scope where the
 ;; operation is performed: here `sleep-until` waits on its caller's
 ;; scheduler, and `now` is pure.

@@ -1,4 +1,4 @@
-;; The host's Wasm primitives as a loader written in Snail-Core uses them:
+;; The host's Wasm primitives as a loader written in Snail Scheme uses them:
 ;; a module's imports listed, each given a provider, the module linked and
 ;; an export run. The two hosts must answer alike: this runs on Node in
 ;; `make test` and on wasmtime in `make test-wasmtime`. `one` exports a

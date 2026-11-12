@@ -37,7 +37,7 @@
                               (inputs Inputs))
       (→ ExpandedProgram)
       (! fs compile)
-      (expand-program directories generate inputs source empty-expansion))
+      (expand-program directories generate inputs source))
 
     ;; A program compiled to one module: its text, and the files it links,
     ;; which ship beside it.

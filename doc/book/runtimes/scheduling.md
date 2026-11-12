@@ -20,7 +20,9 @@ says, until no task is live:
 
 A trap unwinds out of `turn`. The scheduler took the trapped task off its
 queue before running it, so the driver reports the trap with the id
-`tasks:running` gives, and turns again. `drive` takes a `stopped` test,
+`tasks:running` gives, closes the run and returns. Wasm does not unwind
+language owners; closure can dispose queued work but cannot recover owners
+stranded in the trapping frame. `drive` takes a `stopped` test,
 asked after each turn: the application runtime stops at the loop's answer
 and only then decides whether its children may go on. `interrupt` ends a
 rest early, so that `stopped` is asked again. A CPU loop that does not
@@ -70,6 +72,6 @@ A disposer must not suspend or reenter Snail Scheme; if it starts OS
 resource closure, the native owner awaits that remaining cleanup during
 shutdown. An adapter that never settles keeps its run from ending.
 
-A task failure does not close its siblings' run. A Node host holds a
+A task failure ends the run, including its siblings. A Node host holds a
 process-lifetime token until `drive` returns, since a task waiting on a
 timer or a ticket is live work that no OS handle keeps Node alive for.

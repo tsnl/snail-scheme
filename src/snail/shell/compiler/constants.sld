@@ -57,6 +57,7 @@
     (struct ClosureRecipe
       ((expression Expr)
        (captures (List (Pair String Type)))
+       (cleanup (List String))
        (self (Option String))))
 
     (struct ConstantHandler
@@ -140,10 +141,9 @@
 
     ;; ---- Source closures and prepared execution ----
 
-    (define (bind-types (scope (Table Type)) (names (List String)) (types (List Type)))
-      (→ (Table Type))
-      (fold-left (lambda (scope pair) (table-set scope (● pair first) (● pair second)))
-                 scope (zip names types)))
+    (define (bind-types (scope (List (Pair String Type))) (names (List String)) (types (List Type)))
+      (→ (List (Pair String Type)))
+      (fold-left (lambda (scope pair) (Cons pair scope)) scope (zip names types)))
 
 
 
@@ -152,21 +152,34 @@
         ((Some recipe) recipe)
         ((None) (panic "internal error: missing constant closure recipe"))))
 
-    (define (lift-closure (ev Evaluation) (scope (Table Type)) (expr Expr) (self (Option String)))
+    (define (lift-closure (ev Evaluation)
+                          (scope (List (Pair String Type)))
+                          (expr Expr)
+                          (self (Option String)))
       (→ (Pair Expr Evaluation))
       (let* ((names (filter (lambda (name)
-                              (and (table-contains? scope name)
+                              (and (match (assoc-ref scope name) ((Some _) #t) ((None) #f))
                                    (match self
                                      ((Some own) (not (string=? name own)))
                                      ((None) #t))))
                             (expr-references expr)))
              (captures (map (lambda (name)
-                              (match (table-ref scope name)
+                              (match (assoc-ref scope name)
                                 ((Some type) (Pair name type))
                                 ((None) (panic "internal error: missing closure capture"))))
                             names))
              (name (string-append "constant-closure:" (i64->string (● ev next))))
-             (value (ClosureRecipe expr captures self)))
+             (cleanup (append
+                       (map (lambda (entry) (● entry first))
+                            (filter (lambda (entry)
+                                      (and (member? (● entry first) names)
+                                           (linear-type? (program ev) (Nil) (● entry second))))
+                                    scope))
+                       (map (lambda (entry) (● entry first))
+                            (filter (lambda (entry)
+                                      (not (linear-type? (program ev) (Nil) (● entry second))))
+                                    captures))))
+             (value (ClosureRecipe expr captures cleanup self)))
         (Pair (constant-call name
                              (map (lambda (entry)
                                     (Expr (Var (● entry first) (Nil) (Nil))
@@ -176,9 +189,10 @@
                (Evaluation-recipes-set ev (table-set (● ev recipes) name value))
                (+ (● ev next) 1)))))
 
-    (define (lift-pattern (scope (Table Type)) (pattern Pattern)) (→ (Table Type))
+    (define (lift-pattern (scope (List (Pair String Type))) (pattern Pattern))
+      (→ (List (Pair String Type)))
       (match pattern
-        ((PVar name type) (table-set scope name type))
+        ((PVar name type) (Cons (Pair name type) scope))
         ((PCon _ args _) (fold-left lift-pattern scope args))
         (_ scope)))
 
@@ -186,10 +200,10 @@
     ;; in recipes; only their construction sites are traversed here. A finish
     ;; step consumes exactly its direct children from the result stack.
     (enum LiftStep
-      (LiftVisit ((scope (Table Type)) (expression Expr) (self (Option String))))
+      (LiftVisit ((scope (List (Pair String Type))) (expression Expr) (self (Option String))))
       (LiftFinish ((expression Expr) (count I64))))
 
-    (define (lift-expression (ev Evaluation) (scope (Table Type)) (expr Expr))
+    (define (lift-expression (ev Evaluation) (scope (List (Pair String Type))) (expr Expr))
       (→ (Pair Expr Evaluation))
       (let loop ((ev ev) (pending (list (LiftVisit scope expr (None)))) (values (Nil)))
         (match pending
@@ -207,15 +221,15 @@
                                values))))))
              ((LiftFinish expr count)
               (loop ev rest
-                    (Cons (lift-rebuild expr (reverse (take values count)))
+                    (Cons (rebuild-expression expr (reverse (take values count)))
                           (list-drop values count)))))))))
 
-    (define (lift-children (scope (Table Type)) (expr Expr) (self (Option String)))
+    (define (lift-children (scope (List (Pair String Type))) (expr Expr) (self (Option String)))
       (→ (List LiftStep))
       (match (● expr term)
         ((Let name value body)
          (list (LiftVisit scope value (Some name))
-               (LiftVisit (table-set scope name (● value type)) body (None))))
+               (LiftVisit (Cons (Pair name (● value type)) scope) body (None))))
         ((Match value clauses)
          (Cons (LiftVisit scope value (None))
                (map (lambda (clause)
@@ -226,9 +240,10 @@
 
     ;; Exhaustive reconstruction keeps each source constructor visible. The
     ;; worklist already established the number and order of its children.
-    (define (lift-rebuild (expr Expr) (values (List Expr))) (→ Expr)
+    (define (rebuild-expression (expr Expr) (values (List Expr))) (→ Expr)
       (Expr
        (match (● expr term)
+         ((Lambda params _ captures?) (Lambda params (list-ref values 0) captures?))
          ((App _ _) (App (list-ref values 0) (list-drop values 1)))
          ((Let name _ _) (Let name (list-ref values 0) (list-ref values 1)))
          ((If _ _ _) (If (list-ref values 0) (list-ref values 1) (list-ref values 2)))
@@ -254,9 +269,9 @@
     (define (lift-body (ev Evaluation) (body Expr)) (→ (Pair Expr Evaluation))
       (match (Pair (● body term) (fn-arrow (● body type)))
         ((Pair (Lambda params value captures?) (TFun types _ _))
-         (evaluating ev ((value (lift-expression (bind-types empty-table params types) value)))
+         (evaluating ev ((value (lift-expression (bind-types (Nil) params types) value)))
                      (Pair (Expr (Lambda params value captures?) (● body type) (● body loc)) ev)))
-        (_ (lift-expression ev empty-table body))))
+        (_ (lift-expression ev (Nil) body))))
 
     (define (prepared-body (ev Evaluation) (name String) (body Expr))
       (→ (Pair Expr Evaluation)) (! compile)
@@ -271,7 +286,12 @@
         ((Some body) (Pair body ev))
         ((None)
          (let* ((source (recipe ev name)) (expr (● source expression))
-                (captured (● source captures))
+                (captured (map (lambda (name)
+                                 (Pair name (match (assoc-ref (● source captures) name)
+                                              ((Some type) type)
+                                              ((None)
+                                               (panic "internal error: missing capture type")))))
+                               (reverse (● source cleanup))))
                 (captured (match (● source self)
                             ((Some self) (Cons (Pair self (● expr type)) captured))
                             ((None) captured))))
@@ -556,6 +576,15 @@
                             ((None) (Nil))))
                         (● (recipe ev name) captures))))
 
+    ;; Linear captures follow lexical cleanup order, then shared captures
+    ;; release in environment order, as the prepared runtime dropper does.
+    (define (closure-cleanup (ev Evaluation) (name String) (env (Table Known)))
+      (→ (List Known))
+      (concatenate (map (lambda (name)
+                          (match (table-ref env name)
+                            ((Some value) (list value)) ((None) (Nil))))
+                        (● (recipe ev name) cleanup))))
+
     (define (invoke-closure (ev Evaluation) (handlers (List ConstantHandler))
                             (frames (List EvaluationFrame)) (function Known) (name String)
                             (env (Table Known)) (args (List Known)) (loc Loc))
@@ -568,8 +597,6 @@
                         captures)))
              (ev (if move-captures? (replace-object ev function (ClosureValue name empty-table))
                      (fold-left retain-known ev captures)))
-             (captures
-              (match (● source self) ((Some _) (Cons function captures)) ((None) captures)))
              (ev (match (● source self) ((Some _) (retain-known ev function)) ((None) ev))))
         (evaluating ev ((body (closure-body name)))
                     (enter-code ev
@@ -577,7 +604,14 @@
                                 (Cons (ReleaseFunction function) frames)
                                 empty-table
                                 body
-                                (append captures args)))))
+                                (append (match (● source self)
+                                          ((Some _) (Cons function
+                                                          (map
+                                                           (lambda (name) (table-ref-or env name))
+                                                           (reverse (● source cleanup)))))
+                                          ((None) (map (lambda (name) (table-ref-or env name))
+                                                       (reverse (● source cleanup)))))
+                                        args)))))
 
     (define (invoke-global (ev Evaluation) (handlers (List ConstantHandler))
                            (frames (List EvaluationFrame))
@@ -899,7 +933,7 @@
                (drop-captures ev
                               handlers
                               (Cons (ContinueAction next) frames)
-                              values
+                              (closure-cleanup ev name env)
                               (Loc "constant finalizer" 0 0))
                (run-evaluation ev handlers frames (ReleaseValues values next)))))
         ((RcValue (Some payload) finalizer)
@@ -939,8 +973,7 @@
         ((ResumeValue (None)) (compile-error loc "constant resumption was already consumed"))
         ((ClosureValue name env)
          (let ((ev (replace-object ev function (ClosureValue name empty-table)))
-               (values (map (lambda (entry) (table-ref-or env (● entry first)))
-                            (● (recipe ev name) captures))))
+               (values (closure-cleanup ev name env)))
            (drop-captures ev handlers frames values loc)))
         ((CodeValue expr env) (enter-code ev handlers frames env expr (Nil)))
         ((OnceValue inner)
@@ -1277,17 +1310,43 @@
 
     ;; ---- Fresh constant graphs ----
 
-    ;; Copy through an identity map, preserving internal aliases. Placeholders
-    ;; are installed before children, so copying itself also handles cycles.
+    ;; Reserve all identities before connecting any edges. The table is only
+    ;; bookkeeping: each owning field and the returned root establish their
+    ;; own credits. Weak-only targets become expired cells, without copying
+    ;; their payload or finalizer. No user code runs during construction.
     (struct Copying
       ((evaluation Evaluation)
        (objects (Table String))))
 
     (define (copy-value (ev Evaluation) (value Known)) (→ (Pair Known Evaluation)) (! compile)
-      (match (copy-known (Copying ev empty-table) value)
-        ((Pair value copying) (Pair value (● copying evaluation)))))
+      (let* ((loc (Loc "constant copy" 0 0)) (graph (ordered-graph ev value loc))
+             (copying (fold-left reserve-copy (Copying ev empty-table) (● graph values)))
+             (copying (fold-left (lambda (copying value)
+                                   (copy-node copying
+                                              value
+                                              (graph-object ev (● graph owning) value loc)))
+                                 copying (● graph values))))
+        (match (copy-known copying value)
+          ((Pair value copying) (Pair value (● copying evaluation))))))
 
-    (define (copy-known (copying Copying) (value Known)) (→ (Pair Known Copying)) (! compile)
+    (define (copy-node (copying Copying) (value Known) (object ObjectValue))
+      (→ Copying) (! compile)
+      (match (copy-object-value
+              (Copying-evaluation-set copying (reserve-object (● copying evaluation) object))
+              object)
+        ((Pair object copying)
+         (match (● value value)
+           ((Object old)
+            (let* ((fresh (match (table-ref (● copying objects) old)
+                            ((Some id) id)
+                            ((None) (panic "internal error: missing copied identity"))))
+                   (ev (● copying evaluation)))
+              (Copying-evaluation-set copying
+                                      (Evaluation-heap-set ev
+                                                           (table-set (● ev heap) fresh object)))))
+           (_ (panic "internal error: copied graph node has no identity"))))))
+
+    (define (copy-known (copying Copying) (value Known)) (→ (Pair Known Copying))
       (match (● value value)
         ((Object old)
          (match (table-ref (● copying objects) old)
@@ -1298,35 +1357,17 @@
                            (Evaluation-counts-set ev (table-set (● ev counts) fresh (+ count 1)))
                            ev)))
               (Pair (Known (● value type) (Object fresh)) (Copying-evaluation-set copying ev))))
-           ((None) (copy-object copying value old))))
+           ((None) (panic "internal error: copied reference has no reserved identity"))))
         (_ (Pair value copying))))
 
-    (define (copy-object (copying Copying) (value Known) (old String))
-      (→ (Pair Known Copying))
-      (! compile)
-      (let* ((ev (● copying evaluation)) (fresh (i64->string (● ev next)))
-             (ev (Evaluation-counts-set ev (table-set (● ev counts) fresh
-                                                      (if
-                                                       (shared-type? (program ev) (● value type))
-                                                       1
-                                                       0))))
-             (copying (Copying (Evaluation-next-set ev (+ (● ev next) 1))
-                               (table-set (● copying objects) old fresh))))
-        (match (table-ref (● ev heap) old)
-          ((Some object)
-           (let ((copying
-                  (Copying-evaluation-set copying (reserve-object (● copying evaluation) object))))
-             (match (copy-object-value copying object)
-               ((Pair object copying)
-                (let ((ev (● copying evaluation)))
-                  (Pair (Known (● value type) (Object fresh))
-                        (Copying-evaluation-set copying
-                                                (Evaluation-heap-set ev
-                                                                     (table-set (● ev heap)
-                                                                                fresh
-                                                                                object))))))))
-           )
-          ((None) (panic "internal error: missing constant object")))))
+    (define (reserve-copy (copying Copying) (value Known)) (→ Copying)
+      (match (● value value)
+        ((Object old)
+         (let* ((ev (● copying evaluation)) (fresh (i64->string (● ev next)))
+                (ev (Evaluation-counts-set ev (table-set (● ev counts) fresh 0))))
+           (Copying (Evaluation-next-set ev (+ (● ev next) 1))
+                    (table-set (● copying objects) old fresh))))
+        (_ (panic "internal error: copied graph node has no identity"))))
 
     (define (handler-values (handlers (List ConstantHandler))) (→ (List Known))
       (concatenate
@@ -1342,20 +1383,18 @@
                  handlers))
 
     (define (copy-handlers (copying Copying) (handlers (List ConstantHandler)))
-      (→ (Pair (List ConstantHandler) Copying)) (! compile)
-      (match handlers
-        ((Nil) (Pair (Nil) copying))
-        ((Cons handler rest)
-         (match (copy-values copying (map (lambda (entry) (● entry second)) (● handler operations)))
-           ((Pair values copying)
-            (match (copy-handlers copying rest)
-              ((Pair rest copying)
-               (Pair (Cons (ConstantHandler (● handler id) (● handler effect)
-                                            (zip (map (lambda (entry) (● entry first))
-                                                      (● handler operations))
-                                                 values))
-                           rest)
-                     copying))))))))
+      (→ (Pair (List ConstantHandler) Copying))
+      (let loop ((copying copying) (remaining handlers) (done (Nil)))
+        (match remaining
+          ((Nil) (Pair (reverse done) copying))
+          ((Cons handler rest)
+           (match (copy-values copying
+                               (map (lambda (entry) (● entry second)) (● handler operations)))
+             ((Pair values copying)
+              (loop copying rest
+                    (Cons (ConstantHandler (● handler id) (● handler effect)
+                                           (zip (map (lambda (entry) (● entry first))
+                                                     (● handler operations)) values)) done))))))))
 
     (define (reify-bound-handlers (r Reifying)
                                   (handlers (List ConstantHandler))
@@ -1409,15 +1448,11 @@
            (match (copy-values copying (map (lambda (name) (table-ref-or env name)) names))
              ((Pair values copying)
               (Pair (ClosureValue name (bind-values empty-table names values)) copying)))))
-        ((RcValue payload finalizer)
-         (match (copy-values copying
-                             (match payload
-                               ((Some value) (list value finalizer))
-                               ((None) (list finalizer))))
+        ((RcValue (Some payload) finalizer)
+         (match (copy-values copying (list payload finalizer))
            ((Pair values copying)
-            (Pair (match payload
-                    ((Some _) (RcValue (Some (list-ref values 0)) (list-ref values 1)))
-                    ((None) (RcValue (None) (list-ref values 0)))) copying))))
+            (Pair (RcValue (Some (list-ref values 0)) (list-ref values 1)) copying))))
+        ((RcValue (None) _) (Pair (RcValue (None) (unit-known)) copying))
         ((OnceValue inner)
          (match (copy-known copying inner)
            ((Pair inner copying) (Pair (OnceValue inner) copying))))
@@ -1436,14 +1471,12 @@
 
     (define (copy-values (copying Copying) (values (List Known)))
       (→ (Pair (List Known) Copying))
-      (! compile)
-      (match values
-        ((Nil) (Pair (Nil) copying))
-        ((Cons first rest)
-         (match (copy-known copying first)
-           ((Pair first copying)
-            (match (copy-values copying rest)
-              ((Pair rest copying) (Pair (Cons first rest) copying))))))))
+      (let loop ((copying copying) (values values) (done (Nil)))
+        (match values
+          ((Nil) (Pair (reverse done) copying))
+          ((Cons first rest)
+           (match (copy-known copying first)
+             ((Pair first copying) (loop copying rest (Cons first done))))))))
 
     ;; ---- Floating-point values ----
 
@@ -1824,6 +1857,7 @@
     ;; are named before the object, so repeated fields share one local.
     (struct Reifying
       ((evaluation Evaluation)
+       (owning (Table Known))
        (done (Table Expr))
        (active (List String))
        (bindings (List (Pair String Expr)))))
@@ -1925,31 +1959,64 @@
 
     (struct ConstantGraph
       ((values (List Known))
-       (cycle? Bool)))
+       (cycle? Bool)
+       (owning (Table Known))))
+
+    ;; Weak edges observe a cell but never bring its resources into a fresh
+    ;; graph. First establish owning reachability; the construction walk then
+    ;; follows weak links to those owned cells too, since they can form cycles.
+    (define (owning-graph (ev Evaluation) (value Known) (loc Loc))
+      (→ (Table Known)) (! compile)
+      (let loop ((pending (list value)) (found empty-table))
+        (match pending
+          ((Nil) found)
+          ((Cons value rest)
+           (match (Pair (● value type) (● value value))
+             ((Pair (TCon "WeakRc" _) _) (loop rest found))
+             ((Pair _ (Object id))
+              (if (table-contains? found id) (loop rest found)
+                  (loop (append (object-children ev (object-value ev value loc)) rest)
+                        (table-set found id value))))
+             (_ (loop rest found)))))))
+
+    (define (graph-object (ev Evaluation) (owning (Table Known)) (value Known) (loc Loc))
+      (→ ObjectValue) (! compile)
+      (match (Pair (● value type) (● value value))
+        ((Pair (TCon "WeakRc" _) (Object id))
+         (if (table-contains? owning id) (object-value ev value loc)
+             (RcValue (None) (unit-known))))
+        (_ (object-value ev value loc))))
 
     (define (ordered-graph (ev Evaluation) (value Known) (loc Loc))
       (→ ConstantGraph) (! compile)
-      (let loop ((pending (list (GraphEnter value))) (seen empty-table)
-                 (ordered (Nil)) (cycle? #f))
-        (match pending
-          ((Nil) (ConstantGraph (reverse ordered) cycle?))
-          ((Cons step rest)
-           (match step
-             ((GraphLeave value)
-              (match (● value value)
-                ((Object id) (loop rest (table-set seen id #t) (Cons value ordered) cycle?))
-                (_ (panic "internal error: graph leave has no identity"))))
-             ((GraphEnter value)
-              (match (● value value)
-                ((Object id)
-                 (match (table-ref seen id)
-                   ((Some finished?) (loop rest seen ordered (or cycle? (not finished?))))
-                   ((None)
-                    (loop (fold-left (lambda (pending child) (Cons (GraphEnter child) pending))
-                                     (Cons (GraphLeave value) rest)
-                                     (reverse (object-children ev (object-value ev value loc))))
-                          (table-set seen id #f) ordered cycle?))))
-                (_ (loop rest seen ordered cycle?)))))))))
+      (let ((owning (owning-graph ev value loc)))
+        (let loop ((pending (list (GraphEnter value))) (seen empty-table)
+                   (ordered (Nil)) (cycle? #f))
+          (match pending
+            ((Nil) (ConstantGraph (reverse ordered) cycle? owning))
+            ((Cons step rest)
+             (match step
+               ((GraphLeave value)
+                (match (● value value)
+                  ((Object id) (loop rest (table-set seen id #t) (Cons value ordered) cycle?))
+                  (_ (panic "internal error: graph leave has no identity"))))
+               ((GraphEnter value)
+                (match (● value value)
+                  ((Object id)
+                   (match (table-ref seen id)
+                     ((Some finished?) (loop rest seen ordered (or cycle? (not finished?))))
+                     ((None)
+                      (let ((value (match (table-ref owning id)
+                                     ((Some owner) owner) ((None) value))))
+                        (loop (fold-left (lambda (pending child) (Cons (GraphEnter child) pending))
+                                         (Cons (GraphLeave value) rest)
+                                         (reverse (object-children ev
+                                                                   (graph-object ev
+                                                                                 owning
+                                                                                 value
+                                                                                 loc))))
+                              (table-set seen id #f) ordered cycle?)))))
+                  (_ (loop rest seen ordered cycle?))))))))))
 
     (define (linear-closure? (ev Evaluation) (value Known) (loc Loc)) (→ Bool) (! compile)
       (match (● value value)
@@ -1992,21 +2059,40 @@
          (constant-call "prim:rc-downgrade" (list expr) type loc))
         (_ expr)))
 
-    (define (constant-owner (ev Evaluation) (value Known) (loc Loc)) (→ Known) (! compile)
-      (match (Pair (● value type) (object-value ev value loc))
-        ((Pair (TCon "WeakRc" args) (RcValue (Some _) _))
-         (Known (TCon "Rc" args) (● value value)))
+    (define (constant-owner (r Reifying) (value Known)) (→ Known)
+      (match (● value value)
+        ((Object id)
+         (match (table-ref (● r owning) id) ((Some owner) owner) ((None) value)))
         (_ value)))
 
 
+    ;; Evaluation may build a large intermediate graph and reduce it to a
+    ;; scalar. Only a returned graph expands into nested runtime construction
+    ;; code. Bound that expansion before recursive downstream passes see it;
+    ;; both objects and edges matter (one array may contain many elements).
+    (define (factory-graph (ev Evaluation) (value Known) (loc Loc))
+      (→ ConstantGraph) (! compile)
+      (let* ((graph (ordered-graph ev value loc))
+             (size (fold-left (lambda (size value)
+                                (+ size (+ 1 (length (object-children ev
+                                                                      (graph-object ev
+                                                                                    (● graph owning)
+                                                                                    value
+                                                                                    loc))))))
+                              0 (● graph values))))
+        (when (> size 512)
+          (compile-error loc
+                         "constant factory exceeds 512 object/field construction steps; use a runtime function for this value"))
+        graph))
+
     (define (reify (ev Evaluation) (value Known) (loc Loc)) (→ Expr) (! compile)
-      (let* ((graph (ordered-graph ev value loc)) (objects (● graph values))
+      (let* ((graph (factory-graph ev value loc)) (objects (● graph values))
              (mutable (if (● graph cycle?)
                           (filter
                            (lambda (value) (mutable-node? (object-value ev value loc)))
                            objects) (Nil)))
              (r (fold-left (lambda (r value) (reserve-shell r value loc))
-                           (Reifying ev empty-table (Nil) (Nil)) mutable))
+                           (Reifying ev (● graph owning) empty-table (Nil) (Nil)) mutable))
              (r (reify-objects r objects loc)))
         (match (fill-shells r mutable loc)
           ((Pair fills r)
@@ -2031,7 +2117,7 @@
          (match (table-ref (● r done) id)
            ((Some result) (Pair (constant-reference result (● value type) loc) r))
            ((None)
-            (match (reify-object r id (constant-owner (● r evaluation) value loc) loc)
+            (match (reify-object r id (constant-owner r value) loc)
               ((Pair result r) (Pair (constant-reference result (● value type) loc) r))))))))
 
     (define (reify-object (r Reifying) (id String) (value Known) (loc Loc))
@@ -2045,7 +2131,7 @@
         (match (reify-object-value r
                                    name
                                    (● value type)
-                                   (object-value (● r evaluation) value loc)
+                                   (graph-object (● r evaluation) (● r owning) value loc)
                                    loc)
           ((Pair expression r)
            (Pair read (Reifying-bindings-set
@@ -2070,53 +2156,75 @@
          (match (reify-value r inner loc)
            ((Pair inner r) (Pair (Expr (Convert inner type) type loc) r))))
         ((ClosureValue key env)
-         (let* ((source (recipe (● r evaluation) key)) (expr (● source expression))
-                (names (table-keys env)))
-           (match (reify-values r (map (lambda (name) (table-ref-or env name)) names) loc)
-             ((Pair values r)
-              (let* ((bindings (zip names values))
-                     (bindings (match (● source self)
-                                 ((Some old)
-                                  (Cons (Pair old (Expr (Var name (Nil) (Nil)) type loc))
-                                        bindings))
-                                 ((None) bindings)))
-                     (expr (substitute-locals bindings expr)))
-                (Pair (if (once-type? type) (constant-call "prim:once" (list expr) type loc) expr)
-                      r))))))
+         (reify-source-closure r (recipe (● r evaluation) key) env name type loc))
         ((RcValue (Some payload) finalizer)
          (match (reify-values r (list payload finalizer) loc)
            ((Pair args r) (Pair (constant-call "prim:rc-new" args type loc) r))))
         ((RcValue (None) _)
          (Pair (constant-call "prim:constant-dead-weak" (Nil) type loc) r))
-        ((OnceValue inner)
-         (match (reify-once-function r inner loc)
-           ((Pair inner r) (Pair (constant-call "prim:once" (list inner) type loc) r))))
+        ((OnceValue inner) (reify-once r inner type loc))
         ((BoundValue inner handlers) (reify-bound r inner handlers type loc))
         (_ (compile-error loc
                           "this interpreter control value cannot escape in a compile-time value"))))
 
-    ;; A source once-lambda moves its linear captures directly. Keep that
-    ;; construction intact: naming its inner lambda as a reusable Fn would
-    ;; lose the evidence that its capture dropper owns those linear fields.
-    (define (reify-once-function (r Reifying) (value Known) (loc Loc))
+    ;; Preserve each lexical capture as a distinct owner even when two names
+    ;; refer to the same graph object. Source references fix shared-field order;
+    ;; lexical aliases recover linear cancellation order for normal preparation.
+    (define (reify-source-closure (r Reifying) (source ClosureRecipe) (env (Table Known))
+                                  (prefix String) (type Type) (loc Loc))
       (→ (Pair Expr Reifying)) (! compile)
-      (match (● value value)
-        ((Object id)
-         (if (linear-closure? (● r evaluation) value loc)
-             (reify-object-value r (string-append "%constant.once." id) (● value type)
-                                 (object-value (● r evaluation) value loc) loc)
-             (reify-value r value loc)))
-        (_ (reify-value r value loc))))
+      (let ((names (● source cleanup)))
+        (match (reify-values r (map (lambda (name) (table-ref-or env name)) names) loc)
+          ((Pair values r)
+           (let* ((aliases (map (lambda (name) (string-append prefix ".capture." name)) names))
+                  (reads (map (lambda (pair)
+                                (Expr (Var (● pair first) (Nil) (Nil))
+                                      (● (● pair second) type)
+                                      loc))
+                              (zip aliases values)))
+                  (self (string-append prefix ".self"))
+                  (bindings (zip names reads))
+                  (bindings (match (● source self)
+                              ((Some old) (Cons (Pair old (Expr (Var self (Nil) (Nil))
+                                                                (● (● source expression) type) loc))
+                                                bindings))
+                              ((None) bindings)))
+                  (body (substitute-locals bindings (● source expression)))
+                  (body (match (● source self)
+                          ((Some _) (Expr (Let self body
+                                               (Expr (Var self (Nil) (Nil)) (● body type) loc))
+                                          (● body type) loc))
+                          ((None) body)))
+                  (body
+                   (if (once-type? type) (constant-call "prim:once" (list body) type loc) body)))
+             (Pair (fold-left (lambda (body binding)
+                                (Expr (Let (● binding first) (● binding second) body)
+                                      (● body type)
+                                      loc))
+                              body (zip aliases values)) r))))))
+
+    ;; A source once-lambda moves linear captures directly; keep its aliases
+    ;; outside the syntactic once call, where ordinary dropper preparation sees
+    ;; their lexical scope. Reusable closures can use their graph binding.
+    (define (reify-once (r Reifying) (value Known) (type Type) (loc Loc))
+      (→ (Pair Expr Reifying)) (! compile)
+      (if (linear-closure? (● r evaluation) value loc)
+          (match (Pair (● value value) (object-value (● r evaluation) value loc))
+            ((Pair (Object id) (ClosureValue key env))
+             (reify-source-closure r (recipe (● r evaluation) key) env
+                                   (string-append "%constant.once." id) type loc))
+            (_ (panic "internal error: linear source closure lost its identity")))
+          (match (reify-value r value loc)
+            ((Pair function r) (Pair (constant-call "prim:once" (list function) type loc) r)))))
 
     (define (reify-values (r Reifying) (values (List Known)) (loc Loc))
       (→ (Pair (List Expr) Reifying)) (! compile)
-      (match values
-        ((Nil) (Pair (Nil) r))
-        ((Cons first rest)
-         (match (reify-value r first loc)
-           ((Pair first r)
-            (match (reify-values r rest loc)
-              ((Pair rest r) (Pair (Cons first rest) r))))))))
+      (let loop ((r r) (values values) (done (Nil)))
+        (match values
+          ((Nil) (Pair (reverse done) r))
+          ((Cons first rest)
+           (match (reify-value r first loc)
+             ((Pair first r) (loop r rest (Cons first done))))))))
 
     (define (constant-call (name String) (args (List Expr)) (type Type) (loc Loc)) (→ Expr)
       (Expr (App (Expr (Var name (Nil) (Nil))
@@ -2125,34 +2233,36 @@
             loc))
 
     (define (substitute-locals (bindings (List (Pair String Expr))) (expr Expr)) (→ Expr)
-      (match (● expr term)
-        ((Var name _ _)
-         (match (assoc-ref bindings name) ((Some value) value) ((None) expr)))
-        (_ (map-expression (lambda (child) (substitute-locals bindings child)) expr))))
+      (rewrite-variables (lambda (read)
+                           (match (● read term)
+                             ((Var name _ _)
+                              (match (assoc-ref bindings name) ((Some value) value) ((None) read)))
+                             (_ read))) expr))
 
-    ;; One structural walk used by both capture substitution and the final
-    ;; rewrite of value references. Names are already resolved and unique.
-    (define (map-expression (visit (Fn Expr → Expr)) (expr Expr)) (→ Expr)
-      (Expr (match (● expr term)
-              ((Lambda params body captures?) (Lambda params (visit body) captures?))
-              ((App callee args) (App (visit callee) (map visit args)))
-              ((If test yes no) (If (visit test) (visit yes) (visit no)))
-              ((Let name value body) (Let name (visit value) (visit body)))
-              ((Seq first rest) (Seq (visit first) (visit rest)))
-              ((Match value clauses)
-               (Match (visit value)
-                      (map (lambda (clause) (Clause (● clause pattern) (visit (● clause body))))
-                           clauses)))
-              ((Ann value type) (Ann (visit value) type))
-              ((Convert value type) (Convert (visit value) type))
-              ((TypeTest value type) (TypeTest (visit value) type))
-              ((Handle effect implementations body)
-               (Handle effect
-                       (map (lambda (entry) (Pair (● entry first) (visit (● entry second))))
-                            implementations)
-                       (visit body)))
-              (term term))
-            (● expr type) (● expr loc)))
+    ;; Names are resolved and unique. Substitution and factory-call rewriting
+    ;; share this variable walk; generated graph bindings may be far deeper than
+    ;; source expressions, so traversal and reconstruction use explicit stacks.
+    (enum RewriteStep
+      (RewriteVisit ((expression Expr)))
+      (RewriteFinish ((expression Expr) (count I64))))
+
+    (define (rewrite-variables (read (Fn Expr → Expr)) (expr Expr)) (→ Expr)
+      (let loop ((pending (list (RewriteVisit expr))) (values (Nil)))
+        (match pending
+          ((Nil) (list-ref values 0))
+          ((Cons step rest)
+           (match step
+             ((RewriteVisit expr)
+              (match (● expr term)
+                ((Var _ _ _) (loop rest (Cons (read expr) values)))
+                (_ (let ((children (expr-children expr)))
+                     (if (null? children) (loop rest (Cons expr values))
+                         (loop (append (map RewriteVisit children)
+                                       (Cons (RewriteFinish expr (length children)) rest))
+                               values))))))
+             ((RewriteFinish expr count)
+              (loop rest (Cons (rebuild-expression expr (reverse (take values count)))
+                               (list-drop values count)))))))))
 
     ;; ---- Preparation ----
 
@@ -2168,11 +2278,12 @@
 
     (define (constant-items (ev Evaluation) (items (List Item)))
       (→ (Pair (List Item) Evaluation)) (! compile)
-      (match items
-        ((Nil) (Pair (Nil) ev))
-        ((Cons first rest)
-         (evaluating ev ((first (constant-item first)) (rest (constant-items rest)))
-                     (Pair (Cons first rest) ev)))))
+      (let loop ((ev ev) (items items) (done (Nil)))
+        (match items
+          ((Nil) (Pair (reverse done) ev))
+          ((Cons first rest)
+           (match (constant-item ev first)
+             ((Pair first ev) (loop ev rest (Cons first done))))))))
 
     (define (constant-item (ev Evaluation) (item Item)) (→ (Pair Item Evaluation)) (! compile)
       (match item
@@ -2192,12 +2303,12 @@
         (_ item)))
 
     (define (rewrite-references (state State) (expr Expr)) (→ Expr)
-      (match (● expr term)
-        ((Var name _ _)
-         (if (constant-binding? state name)
-             (constant-call name (Nil) (● expr type) (● expr loc))
-             expr))
-        (_ (map-expression (lambda (child) (rewrite-references state child)) expr))))
+      (rewrite-variables (lambda (read)
+                           (match (● read term)
+                             ((Var name _ _)
+                              (if (constant-binding? state name)
+                                  (constant-call name (Nil) (● read type) (● read loc)) read))
+                             (_ read))) expr))
 
     (define (constant-declarations (declarations Declarations)) (→ Declarations)
       (Declarations (● declarations program) (● declarations owner) (● declarations control)

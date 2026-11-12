@@ -3,14 +3,16 @@
  (snail core io)
  (snail core table))
 
-(define table
-  (fold-left (lambda (table i) (table-set table (string-append "key" (show i)) (* i i)))
-             empty-table
-             (iota 1000)))
 
-(define updated (table-set table "key7" -1))
+
+
 
 (define (main) (→ Unit) (! output-port)
+  (define table
+    (fold-left (lambda (table i) (table-set table (string-append "key" (show i)) (* i i)))
+               empty-table
+               (iota 1000)))
+  (define updated (table-set table "key7" -1))
   (display (table-count updated))
   (newline)
   (write (table-ref updated "key7"))

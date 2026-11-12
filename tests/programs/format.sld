@@ -28,12 +28,13 @@
    "(bytes #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))\n"
    "(display \"one\") (display \"two\") (display \"three\")\n"))
 
-(define broken (format-source long 40))
+
 
 ;; Binding bodies dedent both on format and when the editor indents one line.
 (define result-bindings "(result-let* ((a (Ok 1)))\n(Ok a))\n")
 
 (define (main) (→ Unit) (! output-port)
+  (define broken (format-source long 40))
   (write-string (format-source source format-width))
   (write-string broken)
   ;; Formatting what formatting made changes nothing.

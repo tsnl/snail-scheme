@@ -199,13 +199,15 @@
            file))))
 
     (define (application-source (browser? Bool) (library (List String)) (name String)) (→ String)
+      ;; The lambda's row follows the selected Application instance, just as
+      ;; define-page-entry's does. Importing the entry performs no work.
       (string-append "(import (snail core base) (snail shell application) "
                      (if browser? "(snail shell page) " "")
                      "(prefix (" (string-join library " ") ") selected:))\n"
                      (if browser?
                          "(define-page-entry selected:"
-                         "(start (ann (Entry) (Entry selected:")
-                     name (if browser? ")\n" ")))\n")))
+                         "(define main (lambda () (start (ann (Entry) (Entry selected:")
+                     name (if browser? ")\n" ")))))\n")))
 
     (define (in-project (builder Builder) (path ProjectPath)) (→ String)
       (if (string=? (● path text) ".")

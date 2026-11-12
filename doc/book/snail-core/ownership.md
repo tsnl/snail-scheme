@@ -157,7 +157,10 @@ its payload's:
 
 The checker accounts for cleanup at explicit drops, ordinary shared scope
 exits, and possible cancellation points. Inference defers these obligations
-until the relevant types and effect rows are known. A function's effect row
+until the relevant types and effect rows are known. Tail calls retain their outgoing
+arguments, then release the caller's remaining shared locals before entering
+the callee. This keeps tail recursion at constant stack depth and makes that
+cleanup order observable to finalizers. A function's effect row
 must cover cleanup that can occur when its owned arguments or captures lose
 their last reference.
 

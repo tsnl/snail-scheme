@@ -562,7 +562,8 @@
 
     ;; `access` maps each visible local name to the instruction that reads it,
     ;; and `reps` to its representation. In a recursive lambda, `self` pairs
-    ;; its own name with its Wasm function, so it can call itself directly.
+    ;; its scoped aliases with its Wasm function, so ownership staging does
+    ;; not hide the proven direct target of a recursive call.
     ;; `exit` is where a yield leaves the code being emitted (see Control).
     (struct FnState
       ((locals (List Wat))
@@ -573,7 +574,7 @@
     (struct Fn
       ((module Module)
        (state FnState)
-       (self (Option (Pair String String)))
+       (self (Option (Pair (List String) String)))
        (evidence Wat)
        (exit (Option Exit))))
 
@@ -792,7 +793,7 @@
                           (emit-let-value fn value)))
                 (local (declare-local! fn name (fn-rep fn (● value type)))))
            (Cons (wat "local.set" (id local) code)
-                 (let-rest fn name value dropper body tail?))))))
+                 (let-rest (bind-self fn name value) name value dropper body tail?))))))
 
     ;; A let's value and the dropper it was marked with, if any.
 
@@ -895,7 +896,7 @@
     ;; a recursive local function, which reads as the closure itself. A
     ;; closure that may not capture has nothing to copy, which the checker
     ;; established (`check-closed`), so it is always one global, and at type
-    ;; Fn it is no closure but its code (`code-reference`).
+    ;; fn it is no closure but its code (`code-reference`).
 
     (define (closure (fn Fn) (function Expr) (self (Option String))) (→ Wat) (! mut)
       (let ((captured (filter (lambda (name) (and (not (self-name? self name)) (local? fn name)))
@@ -936,6 +937,9 @@
                                        (dropper-null))))
                       (wat "global.get" (id global)))))))
 
+    ;; Only captures with deterministic cleanup need a counted owner. Prepare
+    ;; attaches a cancellation dropper only to lambdas with linear captures,
+    ;; which keeps every closure that can acquire a dropper counted here.
     (define (closure-with-captures (fn Fn)
                                    (function Expr)
                                    (self (Option String))
@@ -947,11 +951,15 @@
              (subtype (capture-type m base reps))
              (types (expr-reference-types function))
              (fields (map (lambda (name) (reference-type-of types name)) captured))
+             (counted? (any? (lambda (type)
+                               (or (shared-type? (program-of m) type)
+                                   (linear-type? (program-of m) (Nil) type))) fields))
              (code (lambda-function! m function self (zip captured reps) subtype)))
         (wat* "struct.new"
               (Cons (id subtype)
-                    (append (list (wat "i64.const" (int 1))
-                                  (code-of m (capture-destructor m subtype fields))
+                    (append (list (wat "i64.const" (int (if counted? 1 -1)))
+                                  (code-of m (if counted? (capture-destructor m subtype fields)
+                                                 (owner-noop m)))
                                   (wat "ref.func" (id code)) (dropper-null))
                             (map (lambda (entry) (retain-value m (● entry second)
                                                                (variable fn
@@ -1132,7 +1140,7 @@
       (! mut)
       (match self
         ((Some name)
-         (let ((fn (Fn-self-set (new-fn m) (Some (Pair name function-id)))))
+         (let ((fn (Fn-self-set (new-fn m) (Some (Pair (list name) function-id)))))
            (bind-local! fn name (wat "local.get" (Word "$closure")) (Reference base))
            fn))
         ((None) (new-fn m))))
@@ -1215,22 +1223,40 @@
     (define (call-op (tail? Bool)) (→ String)
       (if tail? "return_call" "call"))
 
-    (define (emit-call (fn Fn) (expr Expr) (callee Expr) (args (List Expr)) (tail? Bool))
-      (→ (List Wat))
-      (! mut)
+    ;; Resolved locals are immutable. A direct alias or retain keeps the same
+    ;; recursive entry point; other expressions establish no such proof. Emit
+    ;; the actual callee operand below, preserving every ownership operation.
+    (define (self-target (fn Fn) (callee Expr)) (→ (Option String))
       (match (● callee term)
-
         ((Var name _ _)
          (match (● fn self)
-           ((Some (Pair own function-id))
-            (if (string=? own name)
-                (list (wat* (call-op tail?)
-                            (Cons (id function-id)
-                                  (Cons (wat "local.get" (Word "$closure"))
-                                        (Cons (● fn evidence) (emit-args fn args))))))
-                (named-call fn expr callee name args tail?)))
-           ((None) (named-call fn expr callee name args tail?))))
-        (_ (closure-call fn callee args tail?))))
+           ((Some (Pair names target)) (if (member? name names) (Some target) (None)))
+           ((None) (None))))
+        ((App operation (Cons value (Nil)))
+         (match (● operation term)
+           ((Var "prim:retain" _ _) (self-target fn value))
+           (_ (None))))
+        (_ (None))))
+
+    ;; The alias belongs only to this let's body. Fresh function and control
+    ;; frame contexts start with no inherited proof about their caller.
+    (define (bind-self (fn Fn) (name String) (value Expr)) (→ Fn)
+      (match (Pair (● fn self) (self-target fn value))
+        ((Pair (Some (Pair names target)) (Some _))
+         (Fn-self-set fn (Some (Pair (Cons name names) target))))
+        (_ fn)))
+
+    (define (emit-call (fn Fn) (expr Expr) (callee Expr) (args (List Expr)) (tail? Bool))
+      (→ (List Wat)) (! mut)
+      (match (self-target fn callee)
+        ((Some function-id)
+         (list (wat* (call-op tail?)
+                     (Cons (id function-id)
+                           (Cons (emit1 fn callee) (Cons (● fn evidence) (emit-args fn args)))))))
+        ((None)
+         (match (● callee term)
+           ((Var name _ _) (named-call fn expr callee name args tail?))
+           (_ (closure-call fn callee args tail?))))))
 
     (define (named-call (fn Fn)
                         (expr Expr)
@@ -1819,21 +1845,16 @@
     ;; Wasm evaluates the receiver before the incoming value, each once.
     (define (set-field (fn Fn) (case Case) (index I64) (record Expr) (content Expr))
       (→ (List Wat)) (! mut)
-      (let* ((m (● fn module)) (type (record-type (● record type)))
-             (holder (field-holder m type case)) (slot (+ index (field-offset m type))))
-        (if (shared-type? (program-of m) (● content type))
-            (list (wat "drop" (release-value m (● content type)
-                                             (swap-field fn case index record content)
-                                             (● fn evidence))))
-            (list (wat "struct.set" (id holder) (int slot)
-                       (field-record fn case record) (emit1 fn content))))))
+      (list (wat "drop" (release-value (● fn module) (● content type)
+                                       (swap-field fn case index record content)
+                                       (● fn evidence)))))
 
     (define (swap-field (fn Fn) (case Case) (index I64) (record Expr) (content Expr))
       (→ Wat) (! mut)
       (let* ((m (● fn module)) (type (record-type (● record type))))
-        (wat "call" (id (swap-helper m (field-holder m type case) (+ index (field-offset m type))
-                                     (rep m (● content type))))
-             (field-record fn case record) (emit1 fn content))))
+        (wat "call" (id (swap-helper m (data-type m type) (field-holder m type case)
+                                     (+ index (field-offset m type)) (rep m (● content type))))
+             (record-value fn record) (emit1 fn content))))
 
     ;; Checking has resolved a place to an actual mutable field. The target
     ;; expression may itself follow any number of ordinary object references.
@@ -1861,26 +1882,27 @@
 
     ;; Swaps a mutable field's content for a new value and answers the old
     ;; one, which stays on the operand stack while the new one is stored.
+    ;; The case check is inside the helper, after both call operands run.
     ;; The content moves without a copy, so the caller is its only owner,
     ;; and a mutable field may hold a linear value.
 
-    (define (swap-helper (m Module) (record String) (index I64) (content Rep)) (→ String) (! mut)
+    (define (swap-helper (m Module) (base String) (holder String) (index I64) (content Rep))
+      (→ String) (! mut)
       (let ((type (rep->wat content)))
-        (helper! m
-                 "swap"
-                 (string-append record "." (i64->string index))
+        (helper! m "swap" (string-append holder "." (i64->string index))
                  (lambda (function-id)
-                   (wat "func"
-                        (id function-id)
-                        (wat "param" (id "$record") (wat "ref" (id record)))
-                        (wat "param" (id "$value") type)
+                   (wat "func" (id function-id)
+                        (wat "param" (Word "$record") (wat "ref" (id base)))
+                        (wat "param" (Word "$value") type)
                         (wat "result" type)
-                        (wat "struct.get" (id record) (int index) (wat "local.get" (id "$record")))
-                        (wat "struct.set"
-                             (id record)
-                             (int index)
-                             (wat "local.get" (id "$record"))
-                             (wat "local.get" (id "$value"))))))))
+                        (wat "local" (Word "$case") (wat "ref" (id holder)))
+                        (wat "local.set" (Word "$case")
+                             (wat "ref.cast" (wat "ref" (id holder))
+                                  (wat "local.get" (Word "$record"))))
+                        (wat "struct.get" (id holder) (int index) (wat "local.get" (Word "$case")))
+                        (wat "struct.set" (id holder) (int index)
+                             (wat "local.get" (Word "$case"))
+                             (wat "local.get" (Word "$value"))))))))
 
     ;; A pure replacement consumes its record. Its established uniqueness
     ;; permits reuse; otherwise the new object shares unchanged field values.
@@ -1900,7 +1922,7 @@
                           (list (wat "drop" (release-value m (● replacement type)
                                                            (wat "call"
                                                                 (id (swap-helper m
-                                                                                 holder
+                                                                                 holder holder
                                                                                  (+ index offset)
                                                                                  (rep m
                                                                                       (● replacement
@@ -2373,9 +2395,9 @@
     ;; A Funcref becomes a closure that holds it, whose code casts it to the
     ;; Wasm type of a function of the expected type and calls it. The cast is
     ;; the only check: the engine traps if the function's Wasm type differs,
-    ;; and nothing compares Snail-Core types, which is what makes the cast unsafe.
-    ;; That type is a Snail-Core function's, which takes the evidence first,
-    ;; so the held function is one another module compiled from Snail-Core.
+    ;; and nothing compares Snail Scheme types, which is what makes the cast unsafe.
+    ;; That type is a Snail Scheme function's, which takes the evidence first,
+    ;; so the held function is one another module compiled from Snail Scheme.
     ;; At a fn, which is such code, the cast alone makes the value.
 
     (define (funcref-closure (m Module) (type Type) (reference Wat)) (→ Wat) (! mut)
@@ -2543,7 +2565,7 @@
            wrapper))
         (_ (panic "internal error: a dynamic export is a function"))))
 
-    ;; The signature takes the evidence, as every Snail-Core function does,
+    ;; The signature takes the evidence, as every Snail Scheme function does,
     ;; so a program that loads it calls it as a function of no arguments.
 
     (define (signature-function! (m Module) (name String) (type Type)) (→ String) (! mut)
@@ -2610,7 +2632,7 @@
     ;; The code passes the closure's arguments as Any values, with its own
     ;; evidence, to the export it holds, and takes the result out of the Any
     ;; that returns, which checks its TypeId. TypeIds depend on the
-    ;; Snail-Core types and not only on their representations, so the code
+    ;; Snail Scheme types and not only on their representations, so the code
     ;; is kept per type.
 
     (define (dynamic-code (m Module) (type Type) (base String) (holder String)) (→ String) (! mut)
@@ -2621,7 +2643,7 @@
                    (function-wat fn function-id
                                  (append (list (wat "type" (id (code-type m base)))
                                                (wat "param" (wat "ref" (id base)))
-                                               (wat "param" (evidence-ref m)))
+                                               (evidence-param m))
                                          (map (lambda (param) (wat "param" (rep->wat param)))
                                               (● signature first)))
                                  (● signature second) (list (dynamic-call fn type holder)))))))
@@ -3164,7 +3186,7 @@
     (define (node-outside (m Module) (node Wat)) (→ Wat) (! mut)
       (wat "ref.as_non_null" (wat "struct.get" (id (evidence-type m)) (int 4) node)))
 
-    ;; Past the last node: the Snail-Core default, called under the
+    ;; Past the last node: the Snail Scheme default, called under the
     ;; performer's evidence, or a trap.
 
     (define (default-call (m Module) (info Effect) (operation String) (names (List String)))
@@ -3205,7 +3227,7 @@
     ;; built for the rest. A call whose value flows straight out needs
     ;; no test, so a tail call stays a tail call. Nothing reads a
     ;; placeholder, since every caller tests first and leaves too. The
-    ;; record is clear whenever Snail-Core code runs outside a yield, so
+    ;; record is clear whenever Snail Scheme code runs outside a yield, so
     ;; none is live while the host runs between calls.
 
     ;; Where a yield leaves the code being emitted, with a placeholder: a

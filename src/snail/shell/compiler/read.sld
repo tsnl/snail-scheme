@@ -665,7 +665,7 @@
     (define (token-kind (text String)) (→ TokenKind)
       (cond ((or (string=? text "#t") (string=? text "#true")) (BooleanToken #t))
             ((or (string=? text "#f") (string=? text "#false")) (BooleanToken #f))
-            ((string=? text ".") (InvalidToken "dotted lists are not part of Snail-Core"))
+            ((string=? text ".") (InvalidToken "dotted lists are not part of Snail Scheme"))
             ((char=? (string-ref text 0) #\#)
              (InvalidToken (string-append "unsupported syntax " text)))
             (else (number-kind text))))

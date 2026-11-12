@@ -14,10 +14,9 @@ each can return if a program needs it.
   `(Copy A)` a definition requires ([ownership](ownership.md)); there are
   no grade variables.
 - **Checked interfaces.** Separate compilation hashes each library's
-  interface to decide what to rebuild, but stores none: the compiled
-  compiler checks Siegework, the largest program, in a fraction of a second,
-  so an interface file would add a format and its invalidation without a
-  measurable gain. Wire schemas come from the checked program.
+  interface to decide what to rebuild, but writes no interface file.
+  Development sessions retain checked code and module text in memory; a
+  cold process checks from source. Wire schemas come from the checked program.
 - **The WGSL backend.** The renderer's shaders are WGSL text that shares no
   structs with Snail Scheme code beyond fixed instance and material layouts. The
   runtime and graphics plan proposes shaders written as S-expressions.

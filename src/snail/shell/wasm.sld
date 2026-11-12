@@ -348,7 +348,7 @@
 
     ;; ---- Linking by hand ----
 
-    ;; What a loader written in Snail-Core, such as an engine linking a
+    ;; What a loader written in Snail Scheme, such as an engine linking a
     ;; program's modules, needs: a compiled module, its imports, and a link
     ;; against providers it chooses, one per import.
     (struct Compiled

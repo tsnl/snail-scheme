@@ -73,10 +73,10 @@
   ;; A definition's name, a comment, a number and the core forms.
   (show-reading "(define (twice (x I64)) (→ I64) ; doubles\n  (* 2 x))")
   (show-reading "(define label (→ String) \"label\")")
-  (show-reading "(define ((adder n) x) (+ n x))")
+  (show-reading "(define (adder (n I64)) (→ (Fn I64 → I64)) (lambda (x) (+ n x)))")
   (show-reading "(struct Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
   (show-reading
-   "(effect ask (ctl ask (dyn (Fn Unit → I64)))) (handle ask ((ask (lambda (resume) 1))) body)")
+   "(effect ask ((ctl ask (Fn → I64)))) (handle ask ((ask (lambda (resume) (resume 1)))) body)")
   ;; Block comments nest.
   (show-reading "#| outer #| inner |# still outer |#x")
   ;; Escapes stay inside their string; `#\` takes the character after it,

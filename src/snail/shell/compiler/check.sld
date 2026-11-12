@@ -3062,7 +3062,7 @@
 
     ;; The host may retain unrestricted values, holding managed references
     ;; opaquely. Linear ownership cannot cross this unrestricted boundary.
-    ;; The trusted host respects Snail-Core types and implements the declared effects.
+    ;; The trusted host respects Snail Scheme types and implements the declared effects.
     ;; What is exposed is a definition's code: a foreign function, a
     ;; constructor or an operation has none.
 

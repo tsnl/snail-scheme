@@ -375,9 +375,9 @@ The host turns that scheduler until the root returns or fails. `(snail shell pag
 exposes `app_done` to distinguish a successful return from suspension or an
 invalid disappearance, and `app_state` for the optional checkpoint. Normal
 return and failure use that same checkpoint; a root that never adopts state
-has none. Completion and presentation readiness are independent. A trap whose
-task is the loop's, by `tasks:running`, is the loop's failure; any other is a child's,
-reported and survived. Normal root completion after initial presentation
+has none. Completion and presentation readiness are independent. A trap in
+any task fails the run and closes the scheduler; `tasks:running` identifies
+the failing task for the report. Normal root completion after initial presentation
 lets children finish: the host turns until no task is live. Root failure
 or return before that acceptance boundary closes the scheduler, dropping
 the remaining tasks. Explicit reload waits for the root's checkpoint

@@ -1,4 +1,4 @@
-;; `snail dev`'s service in Snail-Core: one project's editor, builds and run
+;; `snail dev`'s service in Snail Scheme: one project's editor, builds and run
 ;; targets behind one local port. (snail shell development)'s pure `step`
 ;; decides; this library carries out what it decides, with tasks that each
 ;; wait on one thing:

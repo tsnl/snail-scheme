@@ -1,6 +1,6 @@
 ;; A page's document as an effect: the primitives a user interface needs to
 ;; build and change it. A node is a handle the host keeps in a table, so no
-;; host object crosses into Snail-Core and no closure crosses out. A
+;; host object crosses into Snail Scheme and no closure crosses out. A
 ;; listener says, when it is made, what its events carry and which of them
 ;; the host prevents the default action of, since the host must decide both
 ;; synchronously, while the event is being dispatched. The browser host

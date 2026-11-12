@@ -82,7 +82,7 @@
                   (camera Camera))
       (→ Item)
       (∀ M)
-      (⊨ (Copy M))
+      (⊨ (Copy M) (Drop (!) M))
       (sprite (posed-texture book motion facing camera)
               position
               (cell-width-for book height)
@@ -99,7 +99,7 @@
                        (camera Camera))
       (→ Item)
       (∀ M)
-      (⊨ (Copy M))
+      (⊨ (Copy M) (Drop (!) M))
       (flat-sprite (posed-texture book motion facing camera)
                    position
                    (cell-width-for book height)
@@ -108,7 +108,7 @@
     (define (posed-texture (book (Spritebook M)) (motion M) (facing Vec3) (camera Camera))
       (→ Texture)
       (∀ M)
-      (⊨ (Copy M))
+      (⊨ (Copy M) (Drop (!) M))
       (strip-texture book
                      ((● book strip)
                       motion

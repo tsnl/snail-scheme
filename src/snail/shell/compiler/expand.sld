@@ -1,12 +1,12 @@
 ;; Located syntax to the core program. The expander is the only pass that knows
-;; Snail-Core's binding forms. It loads libraries, resolves every identifier to a
+;; Snail Scheme's binding forms. It loads libraries, resolves every identifier to a
 ;; binding, runs `syntax-rules` macros, records declared entities in the
 ;; program tables, and emits core expressions with unique names.
 (define-library (snail shell compiler expand)
   (export
    ExpandedProgram
-   empty-expansion
    library-key
+   instance-interfaces
    expand-program
    ArtifactUse
    discover-artifacts
@@ -200,10 +200,8 @@
     ;; it as plain data: a step takes the context and hands back the one it
     ;; learned in. Its fields fall into three kinds.
     ;;
-    ;; What the build is given, which never changes: `predecessor` holds the
-    ;; libraries of the build before, which this one replays where their
-    ;; declarations and their imports' interfaces are unchanged, and a
-    ;; one-off compile has none; `directories` are searched for libraries;
+    ;; What the build is given, which never changes: `directories` are
+    ;; searched for libraries;
     ;; `inputs` holds what
     ;; the build supplies in memory: completed targets' files and producers'
     ;; outputs; and `recipe`, in a producer program, is the recipe its
@@ -224,8 +222,7 @@
     ;;
     ;; What the build has learned, which flows forward out of every library:
     ;; `program` is the program built so far, and `expanded` holds each
-    ;; library this build has expanded, with what a later build needs to
-    ;; replay it. `artifacts` says where an `artifact-files` use finds its
+    ;; library this build has expanded, with its exports and content key. `artifacts` says where an `artifact-files` use finds its
     ;; files; a discovery records there each use it reaches. `counter`
     ;; numbers fresh names. `scopes` holds the environments that marks refer
     ;; to, by number, and `scope-count` is the next number; `tops` holds
@@ -233,8 +230,7 @@
     ;; key. `deriving` is the scope derived instances resolve in, once one
     ;; is made.
     (struct Context
-      ((predecessor (Table Expanded))
-       (directories (List String))
+      ((directories (List String))
        (inputs Inputs)
        (recipe (Option Recipe))
        (prefix String)
@@ -261,8 +257,7 @@
     ;; it.
 
     (define (resumed (outer Context) (inner Context)) (→ Context)
-      (Context (● outer predecessor)
-               (● outer directories)
+      (Context (● outer directories)
                (● outer inputs)
                (● outer recipe)
                (● outer prefix)
@@ -362,84 +357,28 @@
          (Pair (Nil)
                (Context-artifacts-set cx (Discovering (Cons (ArtifactUse name loc (Nil)) uses)))))))
 
-    ;; A library as a build expanded it: its build key, the canonical text
-    ;; of its declarations with the interfaces of its imports, which decides
-    ;; whether a later build may replay it; its own interface; its exports;
-    ;; everything it added to the program; the targets whose files it
-    ;; embeds; the files it links; and what it derived instances against,
-    ;; if it did.
+    ;; Expansion is fresh for each build. Only semantic content keys,
+    ;; exports used by this build's imports, and linked files survive it.
     (struct Expanded
-      ((key String)
-       (body-key String)
-       (interface String)
+      ((interface String)
        (exports Exports)
-       (delta Program)
-       (artifacts (List ArtifactUse))
-       (links (List LinkedFile))
-       (derives (Option Derivation))))
+       (links (List LinkedFile))))
 
-    ;; A library's derived instances are made of the implicit libraries'
-    ;; names, so they hold while those libraries' interfaces do (#546).
-    ;; `loc` is the declaration whose deriving clause loaded them, which
-    ;; loads them again when the library is replayed.
-    (struct Derivation
-      ((loc Loc)
-       (interfaces String)))
-
-    ;; What a build expanded: the program, its libraries, and the counters,
-    ;; scopes and top levels a later build continues from, so that the names
-    ;; and marks of the libraries it replays stay unique and resolve as they
-    ;; did.
     (struct ExpandedProgram
       ((program Program)
-       (libraries (Table Expanded))
-       (counter I64)
-       (scope-count I64)
-       (scopes (Table Env))
-       (tops (Table (Table Binding)))
-       (top-count I64)))
+       (libraries (Table Expanded))))
 
-    ;; The build before the first, or before a one-off compile: it expanded
-    ;; nothing, so nothing is replayed.
 
-    (define empty-expansion (→ ExpandedProgram)
-      (ExpandedProgram empty-program empty-table 0 0 empty-table empty-table 0))
 
     (define (new-context (directories (List String))
                          (inputs Inputs)
-                         (artifacts ArtifactSource)
-                         (predecessor ExpandedProgram))
+                         (artifacts ArtifactSource))
       (→ Context)
-      (Context (● predecessor libraries)
-               directories
-               inputs
-               (None)
-               ""
-               (Nil)
-               (Nil)
-               (Nil)
-               (Nil)
-               (Nil)
-               (None)
-               empty-program
-               empty-table
-               artifacts
-               (● predecessor counter)
-               (● predecessor scopes)
-               (● predecessor scope-count)
-               (● predecessor tops)
-               (● predecessor top-count)
-               (None)))
-
-    ;; What a finished build hands the next: everything it learned.
+      (Context directories inputs (None) "" (Nil) (Nil) (Nil) (Nil) (Nil) (None)
+               empty-program empty-table artifacts 0 empty-table 0 empty-table 0 (None)))
 
     (define (expanded-program (cx Context)) (→ ExpandedProgram)
-      (ExpandedProgram (● cx program)
-                       (● cx expanded)
-                       (● cx counter)
-                       (● cx scope-count)
-                       (● cx scopes)
-                       (● cx tops) (● cx top-count)))
+      (ExpandedProgram (● cx program) (● cx expanded)))
 
     ;; Each addition hands back the context with a larger program, except
     ;; that an item joins the library's own items until its run is done.
@@ -834,13 +773,6 @@
     (define (file-digest (path String)) (→ String) (! fs)
       (bytes->hex (sha256 (read-bytes path))))
 
-    ;; A replayed library's files must hold the bytes it was expanded with,
-    ;; since its module names their digests.
-
-    (define (linked-file-current? (file LinkedFile)) (→ Bool) (! fs)
-      (and (file-exists? (● file path))
-           (string=? (file-digest (● file path)) (● file digest))))
-
     ;; The digests enter the library's keys: its module names them, and so
     ;; does an importer's that specializes a generic function calling one
     ;; of its handles.
@@ -868,10 +800,9 @@
         (concatenate (map (lambda (library) (library-links expansion (● library first)))
                           (library-items program (program-items program))))))
 
-    ;; Loads the imports, then replays the library from the build before
-    ;; where it may, or expands it; either way the library is recorded for
-    ;; the next build. What it uses and makes starts empty, after its
-    ;; imports have loaded with their own.
+    ;; Load imports once per build, then expand current declarations. What
+    ;; this library uses and makes starts empty after its imports have loaded.
+    ;; Checked code and Wasm may be reused later, under completed content keys.
 
     (define (expand-sections (cx Context) (sections (List (Pair String (List Syntax)))))
       (→ (Pair Exports Context))
@@ -879,15 +810,10 @@
       (expanding cx ((env (import-env (section-items sections "import"))))
                  (let* ((key (sections-key cx sections))
                         (cx (Context-derives-set
-                             (Context-items-set (Context-links-set (Context-artifact-uses-set cx
-                                                                                              (Nil))
-                                                                   (Nil))
-                                                (Nil))
+                             (Context-items-set (Context-links-set
+                                                 (Context-artifact-uses-set cx (Nil)) (Nil)) (Nil))
                              (None))))
-                   (expanding cx ((previous (replayable key)))
-                              (match previous
-                                ((Some entry) (replay cx entry))
-                                ((None) (expand-recorded cx sections env key)))))))
+                   (expand-recorded cx sections env key))))
 
     ;; The primitive library's body is its declarations, which add no items,
     ;; so it records no run and has no module.
@@ -943,7 +869,7 @@
         (_
          (compile-error (syntax-loc declaration) "expected import, export, begin or cond-expand"))))
 
-    ;; The declarations of the first clause whose requirement holds. Snail-Core's
+    ;; The declarations of the first clause whose requirement holds. Snail Scheme's
     ;; only feature is `snail-core`.
 
     (define (cond-expand-sections (clauses (List Syntax)))
@@ -973,21 +899,20 @@
             (filter (lambda (section) (string=? (● section first) kind)) sections))))
 
     ;; A program is a sequence of imports followed by a body, which counts as
-    ;; a library named `main` that exports nothing. A build replays what it
-    ;; can of `predecessor`, the build before. A producer program begins
+    ;; a library named `main` that exports nothing. Every build starts with
+    ;; fresh names and scopes. A producer program begins
     ;; with `(generating ...)`, and its imports load inside the libraries
     ;; that form names, so one that leads back to them is a cycle.
 
     (define (expand-program (directories (List String))
                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                             (inputs Inputs)
-                            (path String)
-                            (predecessor ExpandedProgram))
+                            (path String))
       (→ ExpandedProgram)
       (! fs compile)
       (handle generator ((run-generator generate))
         (expanded-program
-         (expand-source (new-context directories inputs (Supplied) predecessor) path))))
+         (expand-source (new-context directories inputs (Supplied)) path))))
 
     (define (expand-source (cx Context) (path String)) (→ Context) (! fs compile generator)
       (let* ((source (generating-stack (read-source path)))
@@ -1156,8 +1081,7 @@
       (handle generator ((run-generator unsupplied-producer))
         (match (● (expand-source (new-context directories
                                               inputs
-                                              (Discovering (Nil))
-                                              empty-expansion)
+                                              (Discovering (Nil)))
                                  path) artifacts)
           ((Discovering uses) (reverse uses))
           ((Supplied) (Nil)))))
@@ -1165,145 +1089,46 @@
     (define (unsupplied-producer (loading (List String)) (forms (List Syntax))) (→ Bytes)
       (panic "internal error: discovery reached a producer whose output was not supplied"))
 
-    ;; ---- Replaying libraries ----
+    ;; ---- Expansion fingerprints ----
 
-    ;; Ordinary source/import eligibility is checked before these requests:
-    ;; a changed body may have removed an old dependency. Every candidate
-    ;; replay still requires the recorded inputs and compares exact file
-    ;; contents. Removing an invocation must not require its obsolete input.
+    ;; Artifacts may change without any source edit. Their stamp is content,
+    ;; never a fresh-name counter: expansion restarts those counters each build.
+    (define (artifact-stamp (uses (List ArtifactUse))) (→ String)
+      (i64->string (fnv-1a (string-join (map artifact-key uses) "\n"))))
 
-    (define (artifacts-current? (cx Context) (uses (List ArtifactUse)))
-      (→ (Pair Bool Context))
-      (! compile)
-      (match uses
-        ((Nil) (Pair #t cx))
-        ((Cons use rest)
-         (expanding cx ((files (artifact-files (● use name) (● use loc))))
-                    (if (artifact-files=? (● use files) files)
-                        (artifacts-current? cx rest)
-                        (Pair #f cx))))))
-
-    (define (artifact-files=? (left ArtifactFiles) (right ArtifactFiles)) (→ Bool)
-      (match (Pair left right)
-        ((Pair (Nil) (Nil)) #t)
-        ((Pair (Cons a rest-a) (Cons b rest-b))
-         (and (string=? (● a first) (● b first))
-              (bytes=? (● a second) (● b second))
-              (artifact-files=? rest-a rest-b)))
-        (_ #f)))
-
-    ;; The library as the build before expanded it, if this build may replay
-    ;; it: its declarations and its imports' interfaces are unchanged, the
-    ;; instances it derived still hold, its embedded files are current and
-    ;; its linked files hold the bytes they did.
-
-    (define (replayable (cx Context) (key String))
-      (→ (Pair (Option Expanded) Context))
-      (! fs compile generator)
-      (match (table-ref (● cx predecessor) (● cx prefix))
-        ((Some entry)
-         (if (string=? (● entry key) key)
-             (expanding cx ((derived (derived-as-before? entry))
-                            (current (artifacts-current? (● entry artifacts))))
-                        (Pair (if (and derived
-                                       current
-                                       (every? linked-file-current? (● entry links)))
-                                  (Some entry)
-                                  (None))
-                              cx))
-             (Pair (None) cx)))
-        ((None) (Pair (None) cx))))
-
-    ;; Whether the implicit libraries' interfaces are those the library
-    ;; derived its instances against. Its declarations are unchanged, so it
-    ;; derives them again either way, and loading the implicit libraries is
-    ;; what its replay or its expansion would do first.
-
-    (define (derived-as-before? (cx Context) (entry Expanded))
-      (→ (Pair Bool Context))
-      (! fs compile generator)
-      (match (● entry derives)
-        ((Some derivation)
-         (let ((cx (● (deriving-scope cx (● derivation loc)) second)))
-           (Pair (string=? (implicit-interfaces cx) (● derivation interfaces)) cx)))
-        ((None) (Pair #t cx))))
-
-    ;; A library replayed adds what it added in the build before, after the
-    ;; implicit libraries if it derived instances, since its run follows
-    ;; them, as it did when it was expanded. The generation handoff is
-    ;; functional: `expand-program` takes the previous generation as an
-    ;; argument, `(● scope predecessor)` holds it read-only, and
-    ;; `program-with` unions persistent tables, so a replayed library's
-    ;; values alias the ones it produced before rather than being rebuilt.
-
-    (define (replay (cx Context) (entry Expanded))
-      (→ (Pair Exports Context))
-      (! fs compile generator)
-      (let ((cx (match (● entry derives)
-                  ((Some derivation) (● (deriving-scope cx (● derivation loc)) second))
-                  ((None) cx))))
-        (Pair (● entry exports)
-              (record
-               (Context-program-set cx (program-with (● cx program) (● entry delta)))
-               entry))))
-
-    ;; The fresh artifact stamp identifies each new artifact-bearing
-    ;; expansion. The counter continues from the last
-    ;; successful build; replay keeps its old stamp. It enters both the
-    ;; checked-body key and importers' interface keys, including generic
-    ;; importers that specialize this library's body into their own module.
-    ;; Stamps identify entries in one session lineage, not global content.
-
-    (define (artifact-stamp (cx Context) (uses (List ArtifactUse))) (→ (Pair String Context))
-      (if (null? uses) (Pair "" cx) (fresh cx " artifact-")))
+    (define (artifact-key (use ArtifactUse)) (→ String)
+      (string-append (datum->string (DString (● use name))) " "
+                     (string-join
+                      (map (lambda (file)
+                             (string-append (datum->string (DString (● file first))) " "
+                                            (syntax->key (Atom (DBytes (● file second))
+                                                               (● use loc)))))
+                           (● use files)) " ")))
 
     (define (expand-recorded (cx Context)
                              (sections (List (Pair String (List Syntax))))
-                             (env Env)
-                             (key String))
+                             (env Env) (key String))
       (→ (Pair Exports Context))
       (! fs compile generator)
-      (expanding cx ((exports (expand-library-body sections env)))
-                 (let* ((uses (● cx artifact-uses))
-                        (derivation (derivation-of cx))
-                        (derived (derivation-key derivation)))
-                   (expanding cx ((stamp (artifact-stamp uses))
-                                  (links (bind-links (reverse (● cx links)))))
-                              (Pair exports
-                                    (record cx
-                                            (Expanded key
-                                                      (string-append key
-                                                                     derived
-                                                                     stamp
-                                                                     (links-stamp links))
-                                                      (string-append (interface-hash cx sections)
-                                                                     derived
-                                                                     stamp
-                                                                     (links-stamp links))
-                                                      exports
-                                                      (library-delta cx)
-                                                      uses
-                                                      links
-                                                      derivation)))))))
+      (expanding cx ((exports (expand-library-body sections env))
+                     (links (bind-links (reverse (● cx links)))))
+                 (Pair exports
+                       (record cx (Expanded
+                                   (string-append (interface-hash cx key)
+                                                  (derivation-key cx)
+                                                  " artifacts-"
+                                                  (artifact-stamp (● cx artifact-uses))
+                                                  (links-stamp links))
+                                   exports links)))))
 
-    ;; What the library's instances were derived against, if it derived any.
-
-    (define (derivation-of (cx Context)) (→ (Option Derivation))
+    ;; Derived code depends on the implicit libraries loaded at the deriving
+    ;; clause, even when the source did not import those libraries explicitly.
+    (define (derivation-key (cx Context)) (→ String)
       (match (● cx derives)
-        ((Some loc) (Some (Derivation loc (implicit-interfaces cx))))
-        ((None) (None))))
-
-    ;; A derivation enters the checked-body key and importers' interface
-    ;; keys as the artifact stamp does: a change to the implicit libraries'
-    ;; interfaces derives the instances again, and the instances' code is
-    ;; then new to whatever checked or specialized it.
-
-    (define (derivation-key (derivation (Option Derivation))) (→ String)
-      (match derivation
-        ((Some derivation) (string-append " derived " (● derivation interfaces)))
+        ((Some _) (string-append " derived " (implicit-interfaces cx)))
         ((None) "")))
 
-    ;; What the library added, which a later build replays.
+    ;; The declarations introduced by this library, for its identity key.
 
     (define (library-delta (cx Context)) (→ Program)
       (if (primitive-library? cx)
@@ -1377,13 +1202,35 @@
         ((Some entry) (● entry interface))
         ((None) "builtin")))
 
+    ;; Checking sees the final program's instances, including sibling
+    ;; providers outside a library's imports. Their implementations and
+    ;; imports enter every checked-code key. Named policies participate too.
+    ;; Expansion itself always uses the current program, so it caches no
+    ;; choices made under a partially loaded instance environment.
+    (define (instance-interfaces (program Program) (libraries (Table Expanded))) (→ String)
+      (let ((owners (list-sort string<?
+                               (delete-duplicates string=?
+                                                  (map (lambda (instance)
+                                                         (name-owner (● instance name)))
+                                                       (concatenate
+                                                        (table-values (● program instances))))))))
+        (string-join (map (lambda (owner)
+                            (string-append owner " "
+                                           (match (table-ref libraries owner)
+                                             ((Some entry) (● entry interface))
+                                             ((None)
+                                              (panic
+                                               "internal error: an instance provider was not expanded")))))
+                          owners)
+                     "\n")))
+
     ;; The key a build expanded a library under. Anything made from the
     ;; library's expansion, such as its checked items, stays valid while its
-    ;; key is unchanged.
+    ;; completed interface key is unchanged, including its own fresh names.
 
     (define (library-key (expansion ExpandedProgram) (name String)) (→ String)
       (match (table-ref (● expansion libraries) name)
-        ((Some entry) (● entry body-key))
+        ((Some entry) (● entry interface))
         ((None) "")))
 
     (define (spec-library (spec Syntax)) (→ Syntax)
@@ -1392,25 +1239,14 @@
          (if (member? keyword (list "only" "except" "prefix" "rename")) (spec-library inner) spec))
         (_ spec)))
 
-    ;; What importers depend on: every declaration except the bodies of
-    ;; definitions whose signatures are not generic, which only the
-    ;; library's own module uses; and its imports' interfaces, since its
-    ;; generic code carries theirs into importers.
-
-    (define (interface-hash (cx Context) (sections (List (Pair String (List Syntax)))))
-      (→ String)
-      (! compile)
-      (let* ((forms (section-items sections "begin")) (signed (monomorphic-signatures forms)))
-        (i64->string (fnv-1a (string-append (forms-text (section-items sections "import"))
-                                            "\n"
-                                            (forms-text (section-items sections "export"))
-                                            "\n"
-                                            (string-join
-                                             (map (lambda (form) (interface-form cx form signed))
-                                                  forms)
-                                             "\n")
-                                            "\n" (imports-interfaces cx sections)
-                                            "\n" (library-identities cx))))))
+    ;; Any function can run while forcing a constant, even a monomorphic
+    ;; function under a local handler. Importers therefore depend on every
+    ;; implementation body through its transitive source key. The final
+    ;; counter certifies local-name stability when an earlier library changes;
+    ;; global declaration identities certify generated types and imports.
+    (define (interface-hash (cx Context) (key String)) (→ String)
+      (i64->string (fnv-1a (string-append key "\n" (i64->string (● cx counter))
+                                          "\n" (library-identities cx)))))
 
     ;; Instance methods and macro-introduced globals have fresh names after
     ;; expansion. Importers must not retain checked evidence or Wasm imports
@@ -1420,48 +1256,13 @@
       (let ((delta (library-delta cx)))
         (string-join
          (list-sort string<?
-                    (append (table-keys (item-definitions (program-items delta)))
-                            (map (lambda (record) (● record name))
-                                 (concatenate (table-values (● delta instances))))))
+                    (concatenate (list (table-keys (● delta values))
+                                       (table-keys (● delta types))
+                                       (table-keys (● delta classes))
+                                       (table-keys (● delta effects))
+                                       (map (lambda (record) (● record name))
+                                            (concatenate (table-values (● delta instances)))))))
          "\n")))
-
-    (define (interface-form (cx Context) (form Syntax) (signed (List String)))
-      (→ String)
-      (! compile)
-      (match form
-        ((Form (Cons (Ident "define" _ _) items) loc)
-         (let* ((definition (parse-definition form)) (header (● definition header))
-                (name (Ident-name (● definition name))))
-           (cond ((and (match (● header result) ((Some _) #t) (_ #f))
-                       (monomorphic-definition? cx definition))
-                  (syntax->key (Form (Cons (Ident "define" (None) loc)
-                                           (take items
-                                                 (- (length items) (length (● definition body)))))
-                                     loc)))
-                 ((member? name signed) (string-append "(define " name ")"))
-                 (else (syntax->key form)))))
-        (_ (syntax->key form))))
-
-    ;; Resolving a signature can introduce variables for impl arguments,
-    ;; even without an explicit ∀ header. Importers specialize those bodies.
-    (define (monomorphic-definition? (cx Context) (definition Definition)) (→ Bool)
-      (match (program-value (● cx program) (unique-name cx (● definition name)))
-        ((Some (Defined (Some scheme) _ _))
-         (and (null? (● scheme vars)) (null? (● scheme constraints))))
-        (_ #f)))
-
-    (define (monomorphic-signatures (forms (List Syntax))) (→ (List String))
-      (concatenate (map (lambda (form)
-                          (match form
-                            ((Form (Cons (Ident ":" _ _)
-                                         (Cons (Ident name _ _)
-                                               (Cons (Form (Cons (Ident "∀" _ _) _) _) _)))
-                                   _)
-                             (Nil))
-                            ((Form (Cons (Ident ":" _ _) (Cons (Ident name _ _) (Cons _ _))) _)
-                             (list name))
-                            (_ (Nil))))
-                        forms)))
 
     ;; ---- Imports and exports ----
 
@@ -2553,8 +2354,8 @@
                                                                      methods)))))))
 
     ;; The parameters the class's methods perform as rows, `e` in
-    ;; `(: fetch-object (impl (Fn S String → String ! e)))`, in order; a row's kind
-    ;; is found from its use, as `All`'s variables' are. A parameter a
+    ;; `(: fetch-object (Fn S String → String ! e))`, in order; a row's kind
+    ;; is found from its use, as quantified variables are. A parameter a
     ;; method also writes as a type could not be both.
 
     (define (class-rows (program Program) (params (List String)) (methods (List String)) (loc Loc))
@@ -3238,7 +3039,7 @@
         (_ #t)))
 
     ;; Operations perform their effect. A `default` clause after them names
-    ;; Snail-Core implementations, whose definitions expand with the
+    ;; Snail Scheme implementations, whose definitions expand with the
     ;; library's bodies, in the steps this returns.
 
     (define (declare-effect (cx Context) (env Env) (form Syntax))
@@ -3360,7 +3161,7 @@
           (compile-error loc "an operation has at most one default"))
         defaults))
 
-    ;; One Snail-Core default: its operation, the global that holds its
+    ;; One Snail Scheme default: its operation, the global that holds its
     ;; definition, and the step that expands it.
     (struct DefaultDefinition
       ((operation String)
@@ -4276,7 +4077,7 @@
     ;; The scope derived instances resolve in, made at the build's first
     ;; deriving clause, which loads the implicit libraries, and shared by
     ;; every later one. The library notes the declaration at `loc`, so that
-    ;; replaying it loads them too.
+    ;; each expansion loads their current declarations.
 
     (define (deriving-scope (cx Context) (loc Loc)) (→ (Pair I64 Context)) (! fs compile generator)
       (let ((cx (Context-derives-set cx (Some loc))))
@@ -4900,7 +4701,7 @@
 
       (define callable-signature
         (lambda (text)
-          (let* ((cx (new-context (Nil) no-inputs (Supplied) empty-expansion))
+          (let* ((cx (new-context (Nil) no-inputs (Supplied)))
                  (imports (fold-left (lambda (table entry)
                                        (table-set table (● entry first) (● entry second)))
                                      empty-table (core-library)))
@@ -4908,7 +4709,7 @@
             (match (read-text text "callable.sld")
               ((Cons (Form items loc) (Nil)) (resolve-callable-arrow cx env items (Nil) loc))))))
 
-      ;; Metadata follows canonical declarations through imports and replay.
+      ;; Metadata follows canonical declarations through imports and repeated builds.
       ;; Updating only a field's documentation does not change its wire or
       ;; dynamic type identity, and equal field names have distinct owners.
       (define test-annotation-metadata
@@ -4922,11 +4723,10 @@
                   (let* ((first (expand-program directories
                                                 annotation-generator
                                                 no-inputs
-                                                source
-                                                empty-expansion))
-                         (replayed
-                          (expand-program directories annotation-generator no-inputs source first))
-                         (program (● replayed program))
+                                                source))
+                         (repeated
+                          (expand-program directories annotation-generator no-inputs source))
+                         (program (● repeated program))
                          (entry (program-type program "sample.docs:Entry")))
                     (expect
                      (annotation-documentation (program-annotations program "sample.docs:Entry"))
@@ -4955,8 +4755,7 @@
                             (expand-program directories
                                             annotation-generator
                                             no-inputs
-                                            source
-                                            replayed))
+                                            source))
                            (next (● changed program)))
                       (expect (annotation-documentation
                                (program-field-annotations next "sample.docs:Entry" "value"))
@@ -5098,8 +4897,7 @@
                 (expand-program (list root)
                                 (lambda (loading forms) (panic "unexpected producer"))
                                 no-inputs
-                                (string-append root "/main.sld")
-                                empty-expansion)))
+                                (string-append root "/main.sld"))))
 
       (define link-error
         (lambda (root path) (let ((message (compile-failure
@@ -5129,8 +4927,7 @@
                                                   (lambda (loading forms)
                                                     (panic "unexpected producer"))
                                                   no-inputs
-                                                  (string-append root "/main.sld")
-                                                  empty-expansion) program)))
+                                                  (string-append root "/main.sld")) program)))
                   (expect (primitive-scheme program "vector-ref")
                           (list (list "A") "(Fn (Vector A) I64 → A)"))
                   (expect (primitive-scheme program "vector-generate")
@@ -5149,8 +4946,8 @@
       ;; it at its first deriving clause, and the wire's run of items comes
       ;; before the library's, not inside it: each run holds only the
       ;; definitions of the library it names, and the library's are the two
-      ;; methods it derived. Replaying the library, when nothing else
-      ;; imports the wire, loads it first again.
+      ;; methods it derived. Repeating expansion preserves that order,
+      ;; including when nothing else imports the wire.
       (define test-deriving-runs
         (lambda (root library) (create-directory* (string-append root "/sample"))
                 (write-file (string-append root "/sample/shape.sld")
@@ -5159,17 +4956,17 @@
                              " (begin (struct Shape ((side I64)) (deriving Serialize Deserialize))))"))
                 (write-file (string-append root "/main.sld")
                             "(import (snail core base) (sample shape)) (define example (Shape 2))")
-                (let* ((expand (lambda (predecessor)
+                (let* ((expand (lambda ()
                                  (expand-program (list root library)
                                                  (lambda (loading forms)
                                                    (panic "unexpected producer"))
                                                  no-inputs
-                                                 (string-append root "/main.sld") predecessor)))
-                       (first (expand empty-expansion)))
+                                                 (string-append root "/main.sld"))))
+                       (first (expand)))
                   (expect (every? own-run? (expansion-runs first)) #t)
                   (expect (run-length first "sample.shape") 2)
                   (expect (deriving-order first) (list "snail.shell.wire" "sample.shape" "main"))
-                  (expect (deriving-order (expand first))
+                  (expect (deriving-order (expand))
                           (list "snail.shell.wire" "sample.shape" "main")))))
 
       ;; A library's derived instances hold while the implicit libraries'
@@ -5177,7 +4974,7 @@
       ;; interface, so the library that derives is expanded under a new
       ;; key, though its text is the same. A body edit also re-expands the
       ;; wire's instance methods with fresh identities; derived evidence
-      ;; must follow them. An unchanged build still replays. The wire is a
+      ;; must follow them. An unchanged build keeps its key. The wire is a
       ;; copy of the standard one, found first.
       (define test-deriving-key
         (lambda (root library)
@@ -5188,13 +4985,12 @@
                                           " (begin (: wire-marker I64) (define wire-marker "
                                           value
                                           ")))\n")))
-                 (expand (lambda (text predecessor)
+                 (expand (lambda (text)
                            (write-file (string-append root "/snail/shell/wire.sld") text)
                            (expand-program (list root library)
                                            (lambda (loading forms) (panic "unexpected producer"))
                                            no-inputs
-                                           (string-append root "/main.sld")
-                                           predecessor)))
+                                           (string-append root "/main.sld"))))
                  (key (lambda (expansion) (library-key expansion "sample.shape"))))
             (expect (substring wire end (string-length wire)) ")\n")
             (create-directory* (string-append root "/sample"))
@@ -5205,10 +5001,10 @@
                          " (begin (struct Shape ((side I64)) (deriving Serialize))))"))
             (write-file (string-append root "/main.sld")
                         "(import (snail core base) (sample shape)) (define example (Shape 2))")
-            (let* ((first (expand wire empty-expansion))
-                   (second (expand (marked "1") first))
-                   (third (expand (marked "2") second))
-                   (fourth (expand (marked "2") third)))
+            (let* ((first (expand wire))
+                   (second (expand (marked "1")))
+                   (third (expand (marked "2")))
+                   (fourth (expand (marked "2"))))
               (expect (string=? (key first) (key second)) #f)
               (expect (string=? (key second) (key third)) #f)
               (expect (key fourth) (key third))))))

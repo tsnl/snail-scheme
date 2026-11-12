@@ -36,12 +36,12 @@ definition, before its body:
   (∀ A B e)
   (⊨ (Copy A) (Copy B))
   (map function values))
-(define (sum (values (List T)))
+(define (sum (zero T) (values (List T)))
   (→ T)
   (! e)
   (∀ T e)
   (⊨ (Num e T))
-  (fold-left + 0 values))
+  (fold-left + zero values))
 ```
 
 Ordinary value definitions retain their initializer form and can put an
@@ -100,7 +100,13 @@ inside a justified `unsafe-total`, and handle effects locally. The evaluator
 uses the same ownership and cleanup decisions as runtime code. It supports
 the compiler's deterministic scalar services, not arbitrary foreign calls or
 host I/O. It bounds evaluation at ten million steps and one million heap
-cells, reporting a compile error on exhaustion. Linear top-level values are
+cells, reporting a compile error on exhaustion. Emitting a fresh runtime graph
+has a separate limit of 512 construction steps: one per object and one per
+field or element. Larger intermediate values can still be computed and reduced
+to a small result. Use an ordinary runtime function to construct a larger
+returned graph; runtime arrays have no fixed size. This emission limit protects
+recursive compiler passes and is an implementation limit, not a type rule.
+Linear top-level values are
 rejected; a function can construct a fresh linear owner when called. An
 unfinished interpreter resumption cannot escape into a constant.
 

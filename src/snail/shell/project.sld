@@ -414,5 +414,5 @@
                              "duplicate run target x")
                             ("((run-target x (shell \"echo hello\")))" "expected (run BUILD-NAME")
                             ("((build-target x (program (entry \"x\"))) . tail)"
-                             "dotted lists are not part of Snail-Core")))))))
+                             "dotted lists are not part of Snail Scheme")))))))
    (else)))

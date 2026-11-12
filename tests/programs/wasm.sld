@@ -7,17 +7,108 @@
 ;; called at the type the program expects: as a closure, or as an Fn,
 ;; which is the code itself. The program writes the module itself: each of
 ;; its bytes is below 128, so its text is its binary. Its function takes
-;; the evidence first, as a Snail-Core function does.
-;;   (module
-;;     (type $evidence (struct (field i32) (field (ref null any)) (field (mut (ref null $evidence)))))
-;;     (func (export "add") (param (ref $evidence) i64 i64) (result i64)
-;;       (i64.add (local.get 1) (local.get 2))))
+;; the evidence first, as a Snail Scheme function does.
+;; The bytes encode the current recursive owner/evidence ABI. Evidence
+;; includes the owner header and the forwarding/copy links used by resumptions;
+;; an older three-field evidence type is not interchangeable with this one.
+;; The only function is (param evidence i64 i64) -> i64 and adds locals 1 and 2.
 (define adder (→ (List I32))
-  (list 0 97 115 109 1 0 0 0
-        1 19 2 95 3 127 0 99 110 0 99 0 1 96 3 100 0 126 126 1 126
-        3 2 1 1
-        7 7 1 3 97 100 100 0 0
-        10 9 1 7 0 32 1 32 2 124 11))
+  (list 0
+        97
+        115
+        109
+        1
+        0
+        0
+        0
+        1
+        62
+        2
+        78
+        4
+        96
+        3
+        100
+        3
+        100
+        3
+        99
+        3
+        1
+        100
+        3
+        80
+        0
+        95
+        2
+        126
+        1
+        100
+        2
+        0
+        96
+        2
+        100
+        1
+        100
+        3
+        1
+        127
+        79
+        1
+        1
+        95
+        7
+        126
+        1
+        100
+        2
+        0
+        127
+        0
+        110
+        0
+        99
+        3
+        0
+        99
+        0
+        0
+        99
+        3
+        0
+        96
+        3
+        100
+        3
+        126
+        126
+        1
+        126
+        3
+        2
+        1
+        4
+        7
+        7
+        1
+        3
+        97
+        100
+        100
+        0
+        0
+        10
+        9
+        1
+        7
+        0
+        32
+        1
+        32
+        2
+        124
+        11))
 
 (define path "build/tests/adder.wasm")
 

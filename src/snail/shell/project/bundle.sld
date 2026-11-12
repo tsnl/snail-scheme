@@ -171,7 +171,8 @@
 
     (define (pairs-text (head String) (pairs (List (Pair String String)))) (→ String)
       (string-append "(" head
-                     (string-concatenate (map (lambda (pair) (string-append " " (string-pair-text pair))) pairs))
+                     (string-concatenate
+                      (map (lambda (pair) (string-append " " (string-pair-text pair))) pairs))
                      ")"))
 
     (define (string-pair-text (pair (Pair String String))) (→ String)

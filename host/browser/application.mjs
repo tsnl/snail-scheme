@@ -94,7 +94,7 @@ export async function relinkAll(from, fresh, manifest) {
   for (const application of running) await relinkApplication(application, from, fresh, manifest);
 }
 
-// No Snail-Core stack remains while modules relink. Keep the old program and its
+// No Snail Scheme stack remains while modules relink. Keep the old program and its
 // immutable handover until the candidate finishes its initial presentation.
 // Rejected migration restarts the old entry; host resources outlive both.
 async function relinkApplication(application, from, fresh, manifest) {

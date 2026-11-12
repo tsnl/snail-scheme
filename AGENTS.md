@@ -155,11 +155,10 @@ opens this same root project for the whole repository. The root
 `project.datum` names the `siegework` and `hearsay` browser targets. It serves
 the browser editor at `http://127.0.0.1:8000/` and each browser target at
 `http://127.0.0.1:8001/TARGET/`, rebuilds only the libraries an edit reaches,
-about 100 ms for a function body in Siegework, and relinks them into each open
-page, keeping the running state; point `tests/browser/page.mjs` at the
+reusing checked code and Wasm when their content keys match, and relinks them
+into each open page while keeping the running state; point `tests/browser/page.mjs` at the
 target's URL to see an edit land. Each build first runs the producers of the
-`generate-library` recipes it reaches, so Hearsay serves too, rebuilding in
-about 750 ms since its producers run every time. The book's
+`generate-library` recipes it reaches, so Hearsay serves too; its producers run every time. The book's
 [application model](doc/book/snail-core/applications.md) gives the reload
 rules; what matters when writing code:
 

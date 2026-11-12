@@ -7,5 +7,6 @@
 
 (define wrong (→ I64) (Left-value (Right 3)))
 
-(define (main) (→ I64)
-  wrong)
+(define (main) (→ Unit)
+  (ann wrong I64)
+  (unit))

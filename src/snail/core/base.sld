@@ -375,27 +375,12 @@
     (effect dyn-cast
       ((ctl conversion-failed (Fn CastError → Never))))
 
-    ;; ---- Callable contracts ----
-
-    ;; The compiler establishes these contracts for concrete callables and
-    ;; erased callable storage. Signature carries arguments, result and
-    ;; effects together. Receiver access implies Fn -> FnMut -> FnOnce;
-    ;; none of these classes implies Copy or a total effect row.
-
-
-
-
     ;; ---- Releasing ----
 
-    ;; `drop` releases a value without using it, and performs what
-    ;; releasing it does, found from its type: nothing for an unrestricted
-    ;; value, a FnOnce, or data with nothing linear in it; the method of the
-    ;; type's instance, which names its row in its head; and otherwise a
-    ;; drop of each linear field. A definition that drops a value of a type
-    ;; variable A requires (Drop e A), with `e` in its row:
-    ;;
-    ;;     (instance (Drop (! log) Handle)
-    ;;       (define drop (lambda (handle) ...)))
+    ;; `drop` consumes a linear value or releases one shared owner. The
+    ;; final shared owner releases its fields; Rc runs its payload finalizer.
+    ;; A FnOnce drops its uncalled captures. Uncounted values need no cleanup.
+    ;; The Drop constraint records the effects this cleanup may perform.
     (typeclass (Drop e T)
       (: drop (Fn T → Unit ! e)))
 

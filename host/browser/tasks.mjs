@@ -1,4 +1,4 @@
-// The host side of (snail shell task). The scheduler is Snail-Core's; a
+// The host side of (snail shell task). The scheduler is Snail Scheme's; a
 // host drives it a turn at a time and completes the host operations its
 // tasks wait on. A task takes a ticket, starts the operation through a
 // synchronous import that returns at once, awaits the ticket, and then

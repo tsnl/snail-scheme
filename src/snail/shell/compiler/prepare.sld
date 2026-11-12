@@ -76,22 +76,26 @@
       (match (complete-specializations state)
         ((Pair definitions state)
          (let ((items (append roots definitions)))
-           (if (null? items)
-               (Lowered (reverse done) state)
-               (let ((lowered (prepare-batch state items)))
-                 (prepare-batches (● lowered state) (Nil)
-                                  (append (reverse (● lowered items)) done))))))))
+           (if (null? items) (Lowered (reverse done) state)
+               (match (fold-constants state items prepare-constant-body)
+                 ((Pair items state)
+                  ;; Imported constant bodies and cleanup requests can open
+                  ;; the graph again. Close it before control analysis; keep
+                  ;; the newly completed bodies for the next preparation batch.
+                  (match (complete-specializations state)
+                    ((Pair discovered state)
+                     (let ((lowered (prepare-batch state items)))
+                       (prepare-batches (● lowered state) discovered
+                                        (append (reverse (● lowered items)) done))))))))))))
 
     (define (prepare-batch (state State) (items (List Item))) (→ Lowered) (! compile)
-      (match (fold-constants state items prepare-constant-body)
-        ((Pair items state)
-         (let ((callees (specialization-callees state)))
-           (for-each (lambda (item) (check-item callees item)) items)
-           (let* ((declarations (constant-declarations (specialization-declarations state)))
-                  (items (map (lambda (item) (lower-lifetimes declarations item)) items))
-                  (lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
-                                      (Lowered (Nil) state) items)))
-             (Lowered-items-set lowered (reverse (● lowered items))))))))
+      (let ((callees (specialization-callees state)))
+        (for-each (lambda (item) (check-item callees item)) items)
+        (let* ((declarations (constant-declarations (specialization-declarations state)))
+               (items (map (lambda (item) (lower-lifetimes declarations item)) items))
+               (lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
+                                   (Lowered (Nil) state) items)))
+          (Lowered-items-set lowered (reverse (● lowered items))))))
 
 
 

@@ -1,2 +1,4 @@
-(import (snail core base) (snail core io))
+(import
+ (snail core base)
+ (snail core io))
 (define message (→ Unit) (display "initializing"))

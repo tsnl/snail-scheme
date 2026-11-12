@@ -1,6 +1,6 @@
 // Check the actual browser's manifest and installability decisions, on the IDE
 // origin and two ordinary application mounts. Pure packaging/escaping cases
-// run in Snail-Core (web-app-metadata.sld); CDP checks actual browser decisions.
+// run in Snail Scheme (web-app-metadata.sld); CDP checks actual browser decisions.
 import assert from 'node:assert/strict';
 import {mkdtemp, mkdir, writeFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';

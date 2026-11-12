@@ -4,11 +4,13 @@
 
 (define v (vector-generate 5 (lambda (i) (* i i))))
 
-(define a (make-array 3 0))
+
 
 (define s "hello")
 
 (define (main) (→ Unit) (! mut output-port)
+  (define a (make-array 3 0))
+
   (display (vector-ref v 3))
   (newline)
   (write (vector->list (vector-map (lambda (x) (+ x 1)) v)))

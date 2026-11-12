@@ -69,8 +69,8 @@ types differ. Tokens must remain with the runtime that issued them.
 
 A replacement `handle tcp` supplies eight operations; `handle udp` supplies four.
 They may create endpoint values with their own tokens. For example, a test
-can put a `Ref Bytes` in a connection token or a `Ref Datagram` in a UDP token,
-accessed through operation arguments. Like any handler, the replacement
+can put a record with a mutable `Bytes` field in a connection token, or a
+mutable `Datagram` field in a UDP token, accessed through operation arguments. Like any handler, the replacement
 must be reusable, grade `omega`.
 
 ## Wasm boundary

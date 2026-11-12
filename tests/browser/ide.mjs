@@ -13,7 +13,7 @@ import {command} from './ide-commands.mjs';
 const [root, screenshot] = process.argv.slice(2), project = await mkdtemp(join(tmpdir(), 'snail-ide-'));
 const source = join(project, 'main.sld'), description = join(project, 'project.datum');
 const config = '((build-target main (program (entry "main.sld"))))';
-const program = text => `(import (snail core base) (snail core io))\n(define greeting (→ String) "${text}")\n(write-line greeting)\n`;
+const program = text => `(import (snail core base) (snail core io))\n(define greeting (→ String) "${text}")\n(define (main) (→ Unit) (! output-port) (write-line greeting))\n`;
 await writeFile(description, config); await writeFile(source, program('hello'));
 await writeFile(join(project, 'notes.txt'), 'plain text\r\n');
 const service = await startDevelopment(root, project), browser = await openBrowser();

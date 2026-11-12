@@ -181,8 +181,14 @@ A locally handled effect therefore does not need a second ownership policy.
 Fuel and heap budgets bound compile-time execution.
 
 Source closure recipes are retained separately from the prepared code the
-interpreter executes. Freezing a result reconstructs source closures with
+interpreter executes. Lifting uses an explicit worklist carrying lexical
+scope and pending reconstruction, so deep constructor expressions do not
+consume the host's native stack. Freezing a result reconstructs source closures with
 their evaluated captures, which then pass through normal lowering once.
+Each captured name gets its own lexical alias, even when several names share
+an object. This preserves counted ownership edges and shared cleanup order.
+Recipes also retain reverse lexical cleanup order for linear captures; synthetic
+execution parameters and reconstructed source bindings recover that order.
 Reusable closure aliases stay shared inside a frozen graph. A one-shot
 source lambda keeps the construction that establishes its linear captures;
 inserting an intermediate reusable binding would lose that evidence.
@@ -190,11 +196,22 @@ Inherited handlers are captured when the frozen wrapper is constructed, so
 calling and dropping it use the same context.
 
 Each constant read copies the evaluated graph. The copy map preserves
-internal aliases and weak-to-strong relationships. Acyclic graphs use direct
-constructors. Cyclic graphs allocate private record/array shells, build the
-other nodes, then fill the shells before exposing the result. Placeholder
-values are inert and never observed by source code. These factories use
-private primitives that user libraries cannot import.
+internal aliases and weak-to-strong relationships. An owning-reachability walk
+excludes weak-only payloads: those references become expired cells without
+constructing or finalizing the inaccessible resource. Copying reserves all
+identities before connecting edges and assigns a credit for each owning edge.
+Acyclic graphs use direct
+constructors. An explicit enter/leave worklist discovers identities in
+dependency order. Cyclic graphs allocate private record/array shells, build
+the other nodes, then fill the shells before exposing the result. Record
+fills use ordinary case-specific setters; their placeholders are immortal
+and inert, so replacing them cannot invoke user cleanup. Private allocation
+and array-fill primitives cannot be imported by user libraries.
+Before emission, a factory budget limits objects plus field/element edges to
+512. Evaluation may compute larger intermediate graphs, but expanding them
+into nested runtime construction code would exceed recursive downstream
+passes. Oversized results get a source diagnostic recommending an ordinary
+runtime construction function, before any such syntax is emitted.
 
 The evaluator can finish a handled continuation, but an unfinished
 interpreter continuation cannot be serialized as a runtime constant. Linear
@@ -245,12 +262,18 @@ a one-shot resumption. Calling it executes the frames from inside out;
 dropping it runs their cleanup without executing their continuation code.
 A handled scope saved among those frames preserves its delimiter.
 
-Resumption reinstalls its handler and attaches the outside context to the
-caller of `resume`. `inherit-handlers` instead captures an explicit context
-for later invocation *and cancellation*. Evidence ownership must survive
-both paths, including an inner operation whose implementation suspends in an
-outer handler. The invariants beside the backend's evidence, frame and
-resumption helpers are part of their contract.
+Resumption creates a fresh handler activation whose outside context is the
+caller of `resume`. A memoized renewal walks parent and forwarding-origin
+edges, then updates compiler-owned frame evidence and nested delimiters to
+use the corresponding new identities. Its map owns old and fresh nodes
+until all slots are consistent. Existing source closures and independently
+owned resumptions retain their original contexts.
+
+`inherit-handlers` captures an explicit context for later invocation *and
+cancellation*. Ordinary evidence copies share their implementation closures;
+forwarding copies rebuild closures over the renewed origin. Nested handled
+frames execute or cancel their already renewed continuation without activating
+it again. The invariants beside these helpers are part of their contract.
 
 This is ordinary calls and explicit frames, not stack switching. V8 and
 Wasmtime execute the same linked code; no JavaScript continuation mechanism
@@ -281,26 +304,25 @@ that import it, so a definition's type comes from its own library and not
 from how an importer happens to use it.
 
 A **session** (`src/snail/shell/compiler/session.sld`) compiles a program again
-and again, as the development loop does, keeping everything in memory:
+and again, as the development loop does, retaining checked code and Wasm:
 
-- The expander replays a library, adding what it added before, when its
-  declarations read the same and its imports show the same interfaces. A
-  library that derived instances loads the implicit libraries first, as its
-  expansion did, so its run follows theirs in every build. Its instances
-  are made of their names, so it replays only while their interfaces are
-  the ones it derived against, which its checked-body key and its interface
-  include, as they include the stamp of a library that embeds artifacts.
-- A library's **interface** is what importers depend on: its imports and
-  exports, every declaration except the bodies of definitions whose
-  signatures are monomorphic, and its imports' interfaces, since its
-  generic code carries theirs into importers. It also includes the expanded
-  global and instance identities: rebuilding an instance-bearing library
-  gives its methods fresh names, so checked callers must select the new
-  evidence and Wasm symbols even when only a signed helper body changed.
-  It is hashed, as GHC uses interface hashes to avoid recompilation.
+- Each build expands current sources, producer outputs and artifacts from
+  scratch. Expansion itself selects instance providers, so an old expansion
+  cannot safely stand in for the current declarations. No saved expansion,
+  scope or replay log survives into another build.
+- A library's **interface** fingerprints all its declarations and imported
+  interfaces, including monomorphic function bodies: any function can
+  contribute to a compile-time value. Derived instances also depend on their
+  implicit libraries. Artifact bytes, linked files, expanded declaration
+  identities and the final fresh-name counter complete the key. The counter
+  prevents cached local names from colliding after an earlier library changes.
 - Each library's checked items, type schemes and module text are kept
-  under the expansion they came from. A build checks, specializes and
-  emits only the libraries whose expansion changed.
+  under that key and the final program's instance-provider interfaces.
+  Instances can come from a sibling outside a library's imports; named
+  policies participate too. A build checks, specializes and emits only
+  libraries whose combined key changed. A provider edit conservatively
+  invalidates every checked library; an ordinary body edit invalidates its
+  importers. Unchanged builds reuse checked code and module text.
 
 Sessions retain compilation evidence, not a build's providers or files. The
 [input boundary](#compiler-inputs) defines how current inputs validate reuse.
@@ -561,23 +583,18 @@ records a typed request and aborts the invocation. The Chez driver services
 the request after the compiler stack has unwound; the native builder, whose
 compiles the plan has already supplied, never does.
 
-Each library's expansion records its direct requests and the exact file values
-embedded. Ordinary source/import eligibility is checked before replaying those
-requests, so an edited body can remove an obsolete dependency. A cache hit
-still looks up every recorded input and compares paths and every byte using the
-reader's byte comparison. A missing input fails the build; changed contents cause
-fresh expansion. No lookup rereads a backing file.
+Each build expands current declarations and requests only their current inputs.
+Removing an artifact invocation therefore removes its dependency. Every input
+comes from the supplied snapshot; no lookup rereads a backing file. A missing
+input fails the build before cached checked code can be reused.
 
-An artifact-bearing expansion receives a fresh revision stamp from the
-session's existing expansion counter. Replaying it preserves that stamp. Its compiled
-key is constructed once with its source key and stamp; its interface also
-includes the stamp, so changed bytes also
-invalidate generic importers that embed specialized bodies. These stamps are
-local to one session lineage, not persistent content identities. Failed builds
-publish no replacement session. This keeps bundle bytes out of string keys
-without trusting a content checksum.
+Artifact fingerprints include target names, canonical file paths, byte lengths
+and content hashes. They enter the library's completed interface, so changed
+bytes invalidate both the library and its importers. These are deterministic
+content keys; restarting expansion's fresh-name counter cannot accidentally
+reuse an old artifact revision. Failed builds publish no replacement session.
 
-Generated syntax is obtained before deciding whether to replay its library.
+Generated syntax is obtained before expanding its library.
 The native project builder runs each producer once per build, as a phase of its
 plan, and its output serves every later compile of that build. Persistent
 producer caching remains separate work.
@@ -659,14 +676,12 @@ no runtime file access.
 ### Linked files
 
 A linked file's bytes are an input of the compile, as their digest: the
-module imports its handle under that name. A replayed library first checks
-that each file it linked still has the digest it was expanded with; a
-missing or edited one expands the library again, which fails for a missing
-file with the library and the path, and otherwise binds the new digest. The
-digests enter the library's checked-body and interface keys, as an artifact
-stamp does, so an edit compiles the library and its importers, which may
-specialize a generic function that calls one of its handles. Every build
-places every file from the modules it returns, compiled or replayed, as an
+module imports its handle under that name. Each build binds the current linked
+files during expansion. A missing file fails with the library and path;
+changed bytes bind a new digest. Digests enter the library's interface and
+checked-code keys, so an edit recompiles the library and its importers, which
+may specialize a generic function that uses one of its handles. Every build
+places every linked file, including those of cached modules, as an
 object of the build's store, `store/sha256/DIGEST` beside a linked program
 or the store a project's development builds share, checking that the bytes
 it copies have the digest the compile read; a file edited during the build
@@ -690,7 +705,7 @@ client compares, and any diagnostics; the resident holds the candidate until a `
 `discard` names it. Sessions, Plans and inputs stay in the resident and never
 cross. A development build assembles each module the session compiled
 again with `(snail shell assembler)`, in the same process; a module the
-session replayed keeps the bytes it was assembled into, and their digest,
+session reused keeps the bytes it was assembled into, and their digest,
 which names its object (`Retained`). The service, `(snail shell project service)`, writes the
 requests and reads the replies.
 

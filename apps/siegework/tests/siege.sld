@@ -80,9 +80,9 @@
       world
       (defend (run (reinforce world) 100) (- ticks 100))))
 
-(define lost (run (started (new-world 1)) 6000))
 
-(define defended (defend (started (new-world 1)) 1000))
+
+
 
 ;; Turrets three cells west and east of the hub flank a sturdy enemy to
 ;; the north. Both hit it, but it turns only on the first and keeps after
@@ -139,25 +139,26 @@
                     (string-append "aims at " (show (● cell x)) "," (show (● cell y))))
                    ((None) "has not fired"))))
 
-(define main
-  (lambda ()
-    (write-line
-     (string-append "attacks: " (string-join (map attack-text (let loop ((tick 0) (found (Nil)))
-                                                                (if (= (length found) 12)
-                                                                    (reverse found)
-                                                                    (let ((next
-                                                                           (next-attack-tick tick)))
-                                                                      (loop next
-                                                                            (Cons next found))))))
-                                             ", ")))
-    (write-line
-     (string-append "next attack after tick 5000: " (attack-text (next-attack-tick 5000))))
-    (report "undefended" lost)
-    (write-line (string-append "the lost colony's whole map is uncovered: "
-                               (show (vector-fold (lambda (all seen) (and all seen))
-                                                  #t
-                                                  (● lost explored)))))
-    (report "defended" defended)
-    (report "defended" (defend defended 2000))
-    (watch (flanked (started (new-world 1))) 40)
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+  (define lost (run (started (new-world 1)) 6000))
+  (define defended (defend (started (new-world 1)) 1000))
+  (write-line
+   (string-append "attacks: " (string-join (map attack-text (let loop ((tick 0) (found (Nil)))
+                                                              (if (= (length found) 12)
+                                                                  (reverse found)
+                                                                  (let ((next
+                                                                         (next-attack-tick tick)))
+                                                                    (loop next
+                                                                          (Cons next found))))))
+                                           ", ")))
+  (write-line
+   (string-append "next attack after tick 5000: " (attack-text (next-attack-tick 5000))))
+  (report "undefended" lost)
+  (write-line (string-append "the lost colony's whole map is uncovered: "
+                             (show (vector-fold (lambda (all seen) (and all seen))
+                                                #t
+                                                (● lost explored)))))
+  (report "defended" defended)
+  (report "defended" (defend defended 2000))
+  (watch (flanked (started (new-world 1))) 40)
+  (unit))

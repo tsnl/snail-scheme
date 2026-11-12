@@ -16,7 +16,7 @@ import {startDevelopment} from './development-service.mjs';
 
 const root = process.argv[2], project = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-bundles-')));
 const source = join(project, 'main.sld');
-const program = text => `(import (snail core base) (snail core io)) (write-line "${text}")`;
+const program = text => `(import (snail core base) (snail core io)) (define (main) (→ Unit) (! output-port) (write-line "${text}"))`;
 fs.writeFileSync(join(project, 'project.datum'),
   '((build-target site (browser (entry "main.sld") (public "public"))) (build-target tool (program (entry "main.sld"))))');
 fs.mkdirSync(join(project, 'public'));
@@ -120,7 +120,7 @@ try {
 
   // A failure names its place, and keeps the build it follows, which a page
   // that connects after it hears of with the failure.
-  fs.writeFileSync(source, '(import (snail core base) (snail core io)) (write-line 5)');
+  fs.writeFileSync(source, '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! output-port) (write-line 5))');
   await service.settled(third.id, 'failed');
   assert.match(await firstEvent(`${origin}/site/.snail/events`),
     new RegExp(`^\\(failed "[^"]*main\\.sld:\\d+:\\d+: [^"]+" \\(base "${pinned(third.id)}"\\)`));

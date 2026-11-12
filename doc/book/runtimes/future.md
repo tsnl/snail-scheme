@@ -139,9 +139,8 @@ concurrently. Each invocation receives its own linear resumption.
 That does not make the installation, delimiter or captured resources
 unrestricted. A continuation must retain the bindings and resources it
 needs; cancellation must release them without retaining managed wrappers
-through external cleanup records. A precise account of grades, effect
-instances and escaping resumptions remains theoretical work before public
-`ctl` handlers are added.
+through external cleanup records. The implemented evidence/frame translation establishes these lifetimes;
+alternative backends would need to preserve that same contract.
 
 A shared-heap backend would want a conventional work-stealing pool. That is
 not the plan: each instance schedules its own tasks, and parallel work
@@ -149,41 +148,14 @@ runs as more instances ([instances](instances.md)). For now, deploy
 independent Wasm instances and balance requests externally. Neither native
 backend is on the implementation path of the task rewrite.
 
-## Scheme control and dynamic wind
+## Deliberate language limits
 
-The Scheme layer needs abortive `call/cc` with reusable continuations of
-unlimited extent, multiple values, dynamic parameters and exception
-handlers. Invoking an escape continuation replaces the current
-continuation. A root delimiter must model the Scheme execution context;
-delimiting every ordinary function or temporary browser callback would
-truncate it. Other Scheme conformance work remains in the
-[language issue](https://github.com/tsnl/snail-scheme/issues/456). See [R7RS sections 6.10 and 6.11](https://standards.scheme.org/official/r7rs.pdf).
-
-Represent `dynamic-wind` scopes as persistent nodes with identity, parent,
-entry and exit thunks, and their surrounding dynamic context. A
-continuation retains the applicable chain. For a control transfer, find
-the common ancestor, exit current scopes from inside outward, then enter
-destination scopes from outside inward:
-
-```text
-Current: root -> A -> B -> C
-Target:  root -> A -> D
-Actions: C.after -> B.after -> D.before -> resume target
-```
-
-Remove a scope before calling its exit thunk; install it after its entry
-thunk returns. Preserve the body's returned values across normal exit.
-The transition machinery must participate in control lowering when a
-hook performs an effect. The standard library implementation in
-[The Scheme Programming Language](https://www.scheme.com/tspl4/control.html#./control:h6)
-illustrates the chain and ordering.
-
-Compiler-generated returns used to package a suspension do not themselves
-leave a language scope. Ordinary I/O waiting preserves the task's dynamic
-context. Actual continuation transfers run the corresponding wind
-transitions. Capturing a continuation and collecting an already inactive
-continuation do not independently trigger wind hooks. Final resource
-destruction and dynamic scope exit remain separate operations.
+Snail Scheme is a statically typed Scheme descendant, not an R7RS
+implementation. `call/cc`, `dynamic-wind`, reusable continuations and a separate
+Scheme compatibility runtime are outside the language. Its implemented
+control model is one-shot delimited effects, with exact-once resumption
+ownership and explicit cancellation cleanup. Future backends must preserve
+that contract rather than add a second continuation model.
 
 ## Cancellation and foreign callbacks
 
@@ -196,9 +168,8 @@ exhaustion while waits or cleanup remain live.
 
 Cancellation follows an explicit task cleanup path. It does not rely on
 GC reachability or a native Rust/JavaScript exception to walk language
-frames. Reusable Scheme continuations require a distinct lifetime policy:
-discarding one reference does not cancel every retained invocation or
-destroy resources still reachable through another reference.
+frames. Shared resources use `Rc`; their last strong release invokes the
+finalizer, independently of the engine's reachability collector.
 
 Foreign callbacks return normally. They copy transient inputs or transfer
 an explicitly owned buffer, settle a registration and enqueue Snail Scheme work.

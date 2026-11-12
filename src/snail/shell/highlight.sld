@@ -113,7 +113,7 @@
                     "prefix"
                     "rename"
                     "cond-expand"
-                    "ctl" "∀" "⊨" "deriving" "host" "impl" "dyn" "→" "!"
+                    "ctl" "∀" "⊨" "deriving" "host" "→" "!"
                     "define-page-state" "define-record-type" "guard")))
 
     ;; A definition names what follows `(define`, `(define-syntax` or `(:`.

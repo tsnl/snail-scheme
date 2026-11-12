@@ -1,7 +1,7 @@
-// The JavaScript side of running Snail-Core, the same in Node and in a browser:
+// The JavaScript side of running Snail Scheme, the same in Node and in a browser:
 // the WASI a module that opens no files needs, the files a program links,
 // linking a program compiled one library at a time and relinking it from a
-// rebuilt library, and how Snail-Core passes a host strings and commands. It
+// rebuilt library, and how Snail Scheme passes a host strings and commands. It
 // decides nothing about what a program is for: the browser host (host.mjs),
 // the reload client (reload-client.mjs) and host/native/run-snail.mjs build
 // on it.
@@ -432,7 +432,7 @@ function linkedInstance(program, module) {
 
 // ---- Host commands ----
 
-// Snail-Core passes a host strings a character at a time, each ended by
+// Snail Scheme passes a host strings a character at a time, each ended by
 // `argument-end`. A command's strings are its name and its arguments:
 // `command` calls the function `commands` has under the name with the
 // arguments and a number, and answers with its result, or 0. The `develop`
@@ -459,7 +459,7 @@ export function byteSnapshot(memory, address) {
   return new Uint8Array(buffer, pointer + 4, length).slice();
 }
 
-// Strings Snail-Core sends a character at a time, each ended by
+// Strings Snail Scheme sends a character at a time, each ended by
 // `argument-end`; `take` gives those sent since it last took them.
 export function stagedStrings() {
   let staged = [], current = '';

@@ -143,7 +143,6 @@
    program-with-effect
    program-with-library
    program-delta
-   program-with
    table-union
    program-items
    library-items
@@ -869,7 +868,7 @@
     ;; of the handled computation as `resume`; the others return to their
     ;; caller. `defaults` maps operation names to what performs them when no
     ;; handler is in scope.
-    ;; Each default is an operation's and the global of the Snail-Core
+    ;; Each default is an operation's and the global of the Snail Scheme
     ;; function the effect's declaration defines for it, which runs under
     ;; the performer's handlers.
     ;; An effect: its operations, those among them that are control
@@ -1186,8 +1185,8 @@
                              (Cons (Pair name (length items)) (● program libraries))))
 
     ;; What the newest library added: the globals named for it, and its run
-    ;; of items, which are the newest. A later build replays it with
-    ;; `program-with` instead of expanding the library again.
+    ;; of items, which are the newest. Expansion fingerprints these identities
+    ;; before deciding whether checked code from a previous build still applies.
 
     (define (program-delta (program Program) (owner String)) (→ Program)
       (let ((count (match (● program libraries)
@@ -1229,25 +1228,6 @@
       (match (table-ref table class)
         ((Some instances) instances)
         ((None) (Nil))))
-
-    ;; The program with a library's additions from an earlier build. Its
-    ;; globals are its own, so it replaces nothing; the order of instances
-    ;; within a class does not matter, since no two of them overlap.
-
-    (define (program-with (program Program) (delta Program)) (→ Program)
-      (Program (table-union (● program values) (● delta values))
-               (table-union (● program types) (● delta types))
-               (table-union (● program classes) (● delta classes))
-               (fold-left (lambda (table class)
-                            (table-set table
-                                       class
-                                       (append (class-list table class)
-                                               (class-list (● delta instances) class))))
-                          (● program instances) (table-keys (● delta instances)))
-               (table-union (● program effects) (● delta effects))
-               (table-union (● program metadata) (● delta metadata))
-               (append (● delta items) (● program items))
-               (append (● delta libraries) (● program libraries))))
 
     ;; `table` with every entry of `additions`, which win where both have a
     ;; key.
@@ -1538,8 +1518,8 @@
     (define (primitive-global (name String)) (→ String)
       (string-append "prim:" name))
 
-    ;; What the primitive library adds to a program, for a later build to
-    ;; replay: its values alone. It has no module, since the backend
+    ;; What the primitive library adds to a program: its values alone.
+    ;; It has no module, since the backend
     ;; implements everything it declares, so it records no run of items.
 
     (define (primitive-delta (program Program)) (→ Program)

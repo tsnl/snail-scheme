@@ -1,4 +1,4 @@
-// Real static and dynamically linked Wasm: the loop as a Snail-Core task,
+// Real static and dynamically linked Wasm: the loop as a Snail Scheme task,
 // fencing and recovery.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -190,7 +190,7 @@ async function checkUpdateTrap() {
   await turn();
   runtime.send(PRESS, 2); runtime.send(PRESS, 1);
   const failure = await run.done;
-  assert.ok(failure.error, 'a Snail-Core panic ends the loop\'s task');
+  assert.ok(failure.error, 'a Snail Scheme panic ends the loop\'s task');
   assert.equal(entry.exports.count(failure.state), 1n);
   app.settled();
   const handover = await runtime.stop();

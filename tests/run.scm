@@ -160,17 +160,20 @@
                                        (path-join directory "assemble.wasm")
                                        (standard-directories root)))
            (assembled (begin
-                        (call-with-output-file wat (lambda (port) (write-string text port)))
+                        (call-with-replacing-output-file wat
+                                                         (lambda (port) (write-string text port)))
                         (run-wasm root tool wat (path-join directory "fibonacci.wasm")
                                   (build-runtime root #f) (path-join directory "linked.wasm")))))
       (let ((runtime (place-object! directory (file-bytes (build-runtime root #f))))
             (module (place-object! directory (file-bytes (path-join directory "fibonacci.wasm")))))
-        (call-with-output-file manifest
-          (lambda (port)
-            (write-string (string-append "{\"runtime\":{\"digest\":\"" (car runtime)
-                                         "\"},\"modules\":[{\"name\":\"program\",\"digest\":\""
-                                         (car module) "\"}],\"files\":[]}")
-                          port))))
+        (call-with-replacing-output-file manifest
+                                         (lambda (port)
+                                           (write-string
+                                            (string-append "{\"runtime\":{\"digest\":\""
+                                                           (car runtime)
+                                                           "\"},\"modules\":[{\"name\":\"program\",\"digest\":\""
+                                                           (car module) "\"}],\"files\":[]}")
+                                            port))))
       (let ((expected
              "assembled the program\nlinked the program after a failed link\nbroken text names its line and column\n"))
         (if (string=? assembled expected)
@@ -255,14 +258,15 @@
 
 (define (enum-type-id root cases)
   (let ((source (path-join root "build/tests/type-ids/main.sld"))
-        (marker "(struct.new $any (i32.const "))
+        (marker "(struct.new $any (i64.const -1) (ref.func $owner-noop.) (i32.const "))
     (create-directory* (path-join root "build/tests/type-ids"))
-    (call-with-output-file source
-      (lambda (port)
-        (write-string (string-append "(import (snail core base))\n(enum Phase "
-                                     cases
-                                     ")\n(type-convert (Day) Any)\n")
-                      port)))
+    (call-with-replacing-output-file source
+                                     (lambda (port)
+                                       (write-string
+                                        (string-append "(import (snail core base))\n(enum Phase "
+                                                       cases
+                                                       ")\n(define (main) (→ Unit) (drop (type-convert (Day) Any)))\n")
+                                        port)))
     (let* ((text (program->wat root (standard-directories root) source))
            (start (+ (text-index text marker 0) (string-length marker))))
       (substring text start (text-index text ")" start)))))
@@ -326,19 +330,23 @@
         (run (tool-run root "run" "examples/fibonacci.sld"))
         (failed (tool-run root "run" "tests/tasks/failure.sld"))
         (panicked (tool-run root "run" "tests/programs/panic.sld"))
-        (trapped (tool-run root "run" "tests/programs/traps.sld")))
+        (trapped (tool-run root "run" "tests/programs/traps.sld"))
+        (enum-order (tool-run root "run" "tests/enum-field-order/main.sld")))
     (cond ((not (and (zero? (caddr wat)) (string-contains (car wat) "(func $main")))
            (report "compiler wat" "no module text" (cadr wat)))
           ((not (equal? (car run) "832040\n"))
            (report "compiler run" "wrong output" (string-append (car run) (cadr run))))
-          ((not (and (not (zero? (caddr failed))) (equal? (car failed) "survived\n")))
+          ((not (and (not (zero? (caddr failed))) (equal? (car failed) "")))
            (report "compiler run"
-                   "a failed child must set failure status and let its sibling finish"
+                   "a fatal child panic must fail the run before starting queued siblings"
                    (string-append (car failed) (cadr failed))))
           ((not (= (caddr panicked) 256))
            (report "compiler run" "a panic must exit with status 1" (cadr panicked)))
           ((not (= (caddr trapped) 512))
            (report "compiler run" "a trap must be status 2" (cadr trapped)))
+          ((not (and (= (caddr enum-order) 512) (equal? (car enum-order) "incoming\n")))
+           (report "compiler run" "enum writes must evaluate both operands before checking the case"
+                   (string-append (car enum-order) (cadr enum-order))))
           (else #t))))
 
 

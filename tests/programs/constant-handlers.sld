@@ -82,6 +82,12 @@
       (if (= value 0) 0 (+ value (sum (- value 1)))))
     sum))
 
+(define recursive-capture (→ (Fn I64 → I64))
+  (let ((base 2))
+    (define (sum (value I64)) (→ I64)
+      (if (= value 0) base (+ value (sum (- value 1)))))
+    sum))
+
 (define folded-sum (→ I64) (recursive-sum 5))
 
 (define (bound-reader) (→ I64)
@@ -119,6 +125,18 @@
            (drop f)))
        (● counter value)))))
 
+(define (linear-capture-order) (→ I64)
+  (unsafe-total
+   (lambda ()
+     (let ((counter (Counter 0)))
+       (handle Finalized
+           ((finalized
+             (lambda (value) (set! (● counter value) (+ (* 10 (● counter value)) value)))))
+         (let ((alpha (Resource 1)) (omega (Resource 2)))
+           (drop (once (lambda () (drop alpha) (drop omega))))))
+       (● counter value)))))
+
+
 (struct Work
   ((action (FnOnce → Unit))
    (owner (Rc Resource))
@@ -137,6 +155,8 @@
 (define folded-hidden (→ I64) (hidden-handler))
 (define folded-alias (→ I64) (once-alias))
 (define folded-order (→ I64) (capture-order))
+(define folded-linear-order (→ I64) (linear-capture-order))
+
 (define folded-replacement (→ I64) (linear-replacement))
 
 (define (main) (→ Unit) (! output-port)
@@ -165,4 +185,7 @@
   (write-line (show (capture-order)))
   (write-line (show folded-replacement))
   (write-line (show (linear-replacement)))
+  (write-line (show folded-linear-order))
+  (write-line (show (linear-capture-order)))
+  (write-line (show (recursive-capture 5)))
   (unit))

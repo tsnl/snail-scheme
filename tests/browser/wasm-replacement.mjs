@@ -17,7 +17,7 @@ await promisify(execFile)(join(root, 'scripts/snail-tool'),
 const expected = await readFile(join(root, 'tests/programs/wasm-replacement.out'), 'utf8');
 const page = `<!doctype html><title>Namespace publication</title><pre></pre>
 <script type="module">
-import {createWasi, instantiate, wasmImports} from './load.mjs';
+import {createWasi, instantiate, wasmImports, runMain} from './load.mjs';
 const output = document.querySelector('pre');
 try {
   const wasi = createWasi({print: (fd, line) => { output.textContent += line + '\\n'; }});
@@ -27,6 +27,7 @@ try {
   const instance = await instantiate(module, {...wasi.getImportObject(), ...program.host});
   program.runtime = instance;
   wasi.initialize(instance);
+  runMain(instance.exports);
 } catch (error) { document.body.dataset.error = String(error); }
 document.body.dataset.finished = 'true';
 </script>`;

@@ -1,4 +1,4 @@
-;; Snail-Core in ten minutes. Every line of this file runs:
+;; Snail Scheme in ten minutes. Every line of this file runs:
 ;;
 ;;   ./scripts/snail-tool run examples/tour.sld
 ;;

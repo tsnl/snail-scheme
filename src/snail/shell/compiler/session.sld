@@ -1,11 +1,7 @@
-;; A compiler that keeps running between builds, as a development server's
-;; does, and compiles each library to its own module. A session is a value:
-;; each build returns the session the next one starts from. A build expands
-;; only the libraries whose declarations, or whose imports' interfaces,
-;; changed since the build before, and replays the others. It checks,
-;; specializes and emits only the libraries whose expansion changed, and
-;; keeps every other library's checked items and module text from the build
-;; that made them, all in memory.
+;; A compiler that keeps checked code and Wasm between builds, one library
+;; at a time. Expansion always reads current declarations, generated outputs
+;; and instance providers. Completed content keys certify when the cached
+;; checked items, schemes and emitted text are still valid.
 (define-library (snail shell compiler session)
   (export
    Session
@@ -39,11 +35,11 @@
        (schemes (Table Scheme))
        (emission (Option String))))
 
-    ;; Where libraries are found, the last expansion and each library as
-    ;; last compiled. Generators and build inputs belong to one invocation.
+    ;; Where libraries are found, whether the fixed control module existed,
+    ;; and each library as last compiled. Expansion and inputs belong to one build.
     (struct Session
       ((directories (List String))
-       (expansion ExpandedProgram)
+       (control? Bool)
        (compiled (Table Compiled))))
 
     ;; One library's module after a build, whether this build compiled it,
@@ -56,7 +52,7 @@
        (links (List LinkedFile))))
 
     (define (make-session (directories (List String))) (→ Session)
-      (Session directories empty-expansion empty-table))
+      (Session directories #f empty-table))
 
     ;; ---- Builds ----
 
@@ -73,15 +69,16 @@
       (let* ((expansion (expand-program (● session directories)
                                         generate
                                         inputs
-                                        source
-                                        (● session expansion)))
+                                        source))
              (program (● expansion program))
              (libraries (library-items program (program-items program)))
              (checked (check-libraries (● session compiled) expansion libraries))
              (built
               (emit-libraries expansion (● checked second) (● checked first) libraries)))
         (Pair (append (control-modules session program) (● built first))
-              (Session (● session directories) expansion (● built second)))))
+              (Session (● session directories)
+                       (not (null? (control-effects program)))
+                       (● built second)))))
 
     ;; A program with control effects links the control module first: it
     ;; holds the yield record that the program's modules share. Its text is
@@ -92,8 +89,7 @@
       (if (null? (control-effects program))
           (Nil)
           (list (Built "snail.core.control" (wat->string (emit-control-module program))
-                       (null?
-                        (control-effects (● (● session expansion) program)))
+                       (not (● session control?))
                        (Nil)))))
 
     ;; Checks each library whose expansion changed, after the schemes of the
@@ -105,26 +101,28 @@
                              (libraries (List (Pair String (List Item)))))
       (→ (Pair Typed (Table Compiled)))
       (! compile)
-      (let loop ((libraries libraries) (compiled compiled) (items (Nil)) (schemes empty-table))
-        (match libraries
-          ((Cons library rest)
-           (let ((checked (checked-library compiled expansion schemes library)))
-             (loop rest
-                   (table-set compiled (● library first) checked)
-                   (append items (● checked items))
-                   (table-union schemes (● checked schemes)))))
-          ((Nil) (Pair (Typed (● expansion program) items schemes) compiled)))))
+      (let ((instances (instance-interfaces (● expansion program) (● expansion libraries))))
+        (let loop ((libraries libraries) (compiled compiled) (items (Nil)) (schemes empty-table))
+          (match libraries
+            ((Cons library rest)
+             (let ((checked (checked-library compiled expansion instances schemes library)))
+               (loop rest
+                     (table-set compiled (● library first) checked)
+                     (append items (● checked items))
+                     (table-union schemes (● checked schemes)))))
+            ((Nil) (Pair (Typed (● expansion program) items schemes) compiled))))))
 
     ;; A library as compiled before, if made from its current expansion, or
     ;; checked again.
 
     (define (checked-library (compiled (Table Compiled))
                              (expansion ExpandedProgram)
+                             (instances String)
                              (schemes (Table Scheme))
                              (library (Pair String (List Item))))
       (→ Compiled)
       (! compile)
-      (let ((key (library-key expansion (● library first))))
+      (let ((key (string-append (library-key expansion (● library first)) "\n" instances)))
         (match (table-ref compiled (● library first))
           ((Some before)
            (if (string=? (● before key) key)
@@ -210,9 +208,8 @@
      (only (snail shell compiler inputs) supply-artifact))
     (begin
 
-      ;; A session rebuilds only what an edit changed: a body edit under a
-      ;; signature recompiles its library alone, and an edit to what
-      ;; importers see recompiles them too. The libraries use only
+      ;; A session rebuilds changed implementations and their importers:
+      ;; any function body may contribute to a compile-time value. The libraries use only
       ;; primitives, so the session runs quickly on Chez. The sources are
       ;; written into `directory`; `library` holds the standard libraries,
       ;; (snail core primitive) among them.
@@ -250,21 +247,26 @@
                                         (expect (compiled-names first)
                                                 (list "sample.a" "sample.b" "main"))
                                         (expect (compiled-names unchanged) (list))
-                                        (expect (compiled-names body) (list "sample.a"))
+                                        (expect (compiled-names body)
+                                                (list "sample.a" "sample.b" "main"))
                                         (expect (compiled-names interface)
                                                 (list "sample.a" "sample.b" "main"))))
-                (test-specialization-replay directory library)
+                (test-specialization-cache directory library)
                 (test-header-interfaces directory library)
-                (test-instance-replay directory library)
-                (test-artifact-replay directory library)
-                (test-link-replay directory library)
+                (test-instance-cache directory library)
+                (test-constant-cache directory library)
+                (test-sibling-instance-cache directory library)
+                (test-dynamic-instance-cache directory library)
+                (test-local-name-cache directory library)
+                (test-artifact-cache directory library)
+                (test-link-cache directory library)
                 (test-extern-library directory library)))
 
       (define no-generation (lambda (loading forms) (panic "unexpected generated library")))
 
       ;; A signed helper's edit still gives the library's instance methods
       ;; fresh names. An importer must select their new evidence and symbols.
-      (define test-instance-replay
+      (define test-instance-cache
         (lambda (directory library) (let ((main (string-append directory "/instance.sld"))
                                           (file (string-append directory "/sample/policy.sld")))
                                       (define source
@@ -290,10 +292,132 @@
                                                                         no-inputs))
                                          (list "sample.policy" "main"))))))
 
+      ;; A constant depends on function implementations across libraries,
+      ;; even when their public signatures do not change. Its importer freezes
+      ;; the new result, with exactly the same text as a cold compilation.
+      (define (test-constant-cache directory library)
+        (let ((main (string-append directory "/constants.sld"))
+              (helper (string-append directory "/sample/constant-helper.sld")))
+          (define (write-helper amount)
+            (write-file helper
+                        (string-append
+                         "(define-library (sample constant-helper) (export compute) "
+                         "(import (snail core forms) (snail core primitive)) "
+                         "(begin (define (compute (x I64)) (→ I64) (i64-add x " amount "))))")))
+          (write-file (string-append directory "/sample/constant.sld")
+                      "(define-library (sample constant) (export answer) (import (snail core forms) (snail core primitive) (sample constant-helper)) (begin (define answer (→ I64) (compute 41))))")
+          (write-file main
+                      "(import (snail core forms) (snail core primitive) (sample constant)) (define (main) (→ Unit) (i64-add answer 0) (unit))")
+          (write-helper "1")
+          (let ((first (build-session (make-session (list directory library))
+                                      main no-generation no-inputs)))
+            (write-helper "2")
+            (let ((warm (build-session (● first second) main no-generation no-inputs))
+                  (cold (build-session (make-session (list directory library))
+                                       main no-generation no-inputs)))
+              (expect (compiled-names warm)
+                      (list "sample.constant-helper" "sample.constant" "main"))
+              (expect (map (lambda (built) (● built text)) (● warm first))
+                      (map (lambda (built) (● built text)) (● cold first)))
+              (expect (and (string-contains (● (list-ref (reverse (● warm first)) 0) text)
+                                            "(i64.const 43)")
+                           #t)
+                      #t)))))
+
+      ;; An unnamed instance can come from an earlier sibling, outside the
+      ;; constant library's explicit imports. Its provider enters every key.
+      (define (test-sibling-instance-cache directory library)
+        (let ((main (string-append directory "/sibling.sld"))
+              (provider (string-append directory "/sample/provider.sld")))
+          (define (write-provider amount)
+            (write-file provider
+                        (string-append
+                         "(define-library (sample provider) (export) (import (snail core forms) (snail core primitive) (sample value-class)) "
+                         "(begin (instance (Value I64) (define value (lambda (x) (i64-add x "
+                         amount
+                         "))))))")))
+          (write-file (string-append directory "/sample/value-class.sld")
+                      "(define-library (sample value-class) (export Value value) (import (snail core forms)) (begin (typeclass (Value A) (: value (Fn A → I64)))))")
+          (write-file (string-append directory "/sample/answer.sld")
+                      "(define-library (sample answer) (export answer) (import (snail core forms) (snail core primitive) (sample value-class)) (begin (define answer (→ I64) (value (ann 1 I64)))))")
+
+          (write-file main
+                      "(import (snail core forms) (snail core primitive) (sample provider) (sample answer)) (define (main) (→ Unit) (i64-add answer 0) (unit))")
+          (write-provider "40")
+          (let ((first (build-session (make-session (list directory library))
+                                      main no-generation no-inputs)))
+            (write-provider "42")
+            (let ((warm (build-session (● first second) main no-generation no-inputs))
+                  (cold (build-session (make-session (list directory library))
+                                       main no-generation no-inputs)))
+              (expect (member? "sample.answer" (compiled-names warm)) #t)
+              (expect (map (lambda (built) (● built text)) (● warm first))
+                      (map (lambda (built) (● built text)) (● cold first)))
+              (expect (and (string-contains (● (list-ref (reverse (● warm first)) 0) text)
+                                            "(i64.const 43)")
+                           #t)
+                      #t)))))
+
+      ;; Dynamic dispatch captures source instances during expansion. An
+      ;; earlier sibling can replace their identities without changing the
+      ;; dispatch library's source or imports.
+      (define (test-dynamic-instance-cache directory library)
+        (let ((main (string-append directory "/dynamic.sld"))
+              (provider (string-append directory "/sample/dynamic-provider.sld")))
+          (define (write-provider extra)
+            (write-file provider
+                        (string-append
+                         "(define-library (sample dynamic-provider) (export) (import (snail core base) (sample op)) (begin "
+                         extra
+                         " (instance (Op (!) I64 I64) (type Output I64) (define op (lambda (a b) (+ a b))))))")))
+          (write-file (string-append directory "/sample/op.sld")
+                      "(define-library (sample op) (export Op op) (import (snail core base)) (begin (typeclass (Op e A B) (type Output) (: op (Fn A B → Output ! e)))))")
+          (write-file (string-append directory "/sample/dispatch.sld")
+                      "(define-library (sample dispatch) (export erased) (import (snail core base) (sample op)) (begin (define-instance-set erased (dynamic-instances Op (I64 I64)))))")
+          (write-file main
+                      "(import (snail core base) (sample dynamic-provider) (sample op) (sample dispatch)) (with-instances (erased) (define (main) (→ Unit) (handle dyn-cast ((conversion-failed (lambda (_) (panic \"unexpected conversion\")))) (op (ann 3 Any) (ann 2 Any)) (unit))))")
+          (write-provider "")
+          (let ((first (build-session (make-session (list directory library))
+                                      main no-generation no-inputs)))
+            (write-provider
+             "(instance (Op (!) F64 F64) (type Output F64) (define op (lambda (a b) (+ a b))))")
+            (let ((warm (build-session (● first second) main no-generation no-inputs))
+                  (cold (build-session (make-session (list directory library))
+                                       main no-generation no-inputs)))
+              (expect (member? "sample.dispatch" (compiled-names warm)) #t)
+              (expect (map (lambda (built) (● built text)) (● warm first))
+                      (map (lambda (built) (● built text)) (● cold first)))))))
+
+      ;; Fresh counters restart each build. A preceding library can shift a
+      ;; sibling's local names without changing its source or global names.
+      ;; Checked locals must agree with the newly expanded bodies.
+      (define (test-local-name-cache directory library)
+        (let ((main (string-append directory "/local-names.sld"))
+              (preceding (string-append directory "/sample/preceding.sld")))
+          (define (write-preceding body)
+            (write-file preceding
+                        (string-append
+                         "(define-library (sample preceding) (export before) (import (snail core forms) (snail core primitive)) (begin (define (before (x I64)) (→ I64) "
+                         body ")))")))
+          (write-file (string-append directory "/sample/sibling.sld")
+                      "(define-library (sample sibling) (export after) (import (snail core forms) (snail core primitive)) (begin (define (after (x I64)) (→ I64) (let ((y (i64-add x 1))) (i64-add y y)))))")
+          (write-file main
+                      "(import (snail core forms) (snail core primitive) (sample preceding) (sample sibling)) (define (main) (→ Unit) (after (before 2)) (unit))")
+          (write-preceding "x")
+          (let ((first (build-session (make-session (list directory library))
+                                      main no-generation no-inputs)))
+            (write-preceding "(let ((y x)) (i64-add y y))")
+            (let ((warm (build-session (● first second) main no-generation no-inputs))
+                  (cold (build-session (make-session (list directory library))
+                                       main no-generation no-inputs)))
+              (expect (member? "sample.sibling" (compiled-names warm)) #t)
+              (expect (map (lambda (built) (● built text)) (● warm first))
+                      (map (lambda (built) (● built text)) (● cold first)))))))
+
       ;; A cached library retains checked generic code, not old concrete
       ;; copies. A new caller can request another type without recompiling
       ;; that library, and gets exactly the same Wasm as a fresh session.
-      (define test-specialization-replay
+      (define test-specialization-cache
         (lambda (directory library) (let ((main (string-append directory "/generic.sld"))
                                           (source
                                            "(import (snail core forms) (snail core primitive) (sample generic)) "))
@@ -324,8 +448,9 @@
                                            (map (lambda (record) (● record text))
                                                 (● cold first))))))))
 
-      ;; Polymorphic bodies specialize in their importers. An ordinary FnOnce
-      ;; parameter stays monomorphic, so editing its body only rebuilds its library.
+      ;; Polymorphic bodies specialize in their importers. Monomorphic code
+      ;; remains in its library, but both edits invalidate importers because
+      ;; either function could contribute to a compile-time value.
       (define test-header-interfaces
         (lambda (directory library)
           (test-header-edit directory library
@@ -356,7 +481,7 @@
               (write-file module (source after))
               (let ((warm (build-session (● first second) main no-generation no-inputs)))
                 (expect (compiled-names warm)
-                        (if specialized? (list "sample.headers" "main") (list "sample.headers")))
+                        (list "sample.headers" "main"))
                 (expect (any? (lambda (module)
                                 (and (string=? (● module name)
                                                (if specialized? "main" "sample.headers"))
@@ -364,8 +489,8 @@
                               (● warm first)) #t))))))
 
       ;; Unchanged bytes preserve emission. Missing inputs invalidate even
-      ;; a replay, but removing the invocation must not demand its old input.
-      (define test-artifact-replay
+      ;; an unchanged source, but a removed invocation needs no old input.
+      (define test-artifact-cache
         (lambda (directory library) (let ((main (string-append directory "/artifact.sld"))
                                           (files (list (Pair "page.html"
                                                              (list->vector (list (i32->u8 1)))))))
@@ -394,7 +519,7 @@
                                         (expect (compiled-names unchanged) (Nil))
                                         (expect (compiled-names empty)
                                                 (list "sample.assets" "main"))
-                                        (expect (artifact-replay-error (● empty second) main) #t)
+                                        (expect (artifact-cache-error (● empty second) main) #t)
                                         (write-artifact-source directory "(ArtifactBundle (Nil))")
                                         (expect
                                          (compiled-names (build-session (● empty second)
@@ -406,9 +531,9 @@
       ;; A linked file's digest is in its library's keys and in its
       ;; importers': a build with the file unchanged compiles nothing, and
       ;; editing it compiles the library, whose module names the new
-      ;; digest, and its importer. Removing it fails even a replay, naming
+      ;; digest, and its importer. Removing it fails even an unchanged source, naming
       ;; the library and the path.
-      (define test-link-replay
+      (define test-link-cache
         (lambda (directory library) (let ((main (string-append directory "/linked.sld"))
                                           (data (string-append directory "/sample/data.bin")))
                                       (write-file data "first")
@@ -485,7 +610,7 @@
                                                        "the library sample.linked links data.bin, but there is no file at")
                                       #t))))
 
-      (define artifact-replay-error
+      (define artifact-cache-error
         (lambda (session main)
           (match (compiling (lambda () (build-session session main no-generation no-inputs)))
             ((Err (Requested (ArtifactInput "client" _))) #t)

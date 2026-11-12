@@ -7,7 +7,7 @@
 //! program runs.
 //!
 //! A per-library build is named by its modules.json, which `build-modules`
-//! in host/chibi/snail/stage0/build.sld writes beside the modules:
+//! in host/chez/snail/stage0/build.sld writes beside the modules:
 //! `{"store": STORE, "runtime": OBJECT, "modules": [{"name": LIBRARY, ...OBJECT}, ...], "files": [OBJECT, ...]}`,
 //! where an OBJECT is `{"digest": DIGEST, "size": SIZE}` naming a file of the
 //! store, the libraries in program order; `snail imports` reads it.
