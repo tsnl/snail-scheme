@@ -90,15 +90,14 @@
 
 ;; ---- Mutation ----
 
-;; A struct is a value. One a program changes lives in a cell, `Ref`, and
-;; `set!` writes a place: the cell's content, or a field of it. Reading or
-;; writing a cell performs `mut`, which the type records after `!`, so a
-;; type without `! mut` promises that the function changes nothing.
+;; Structs are heap objects with mutable fields. Aliases see the same
+;; writes, and set! performs mut. Reads are pure; a type without ! mut
+;; promises that the function does not change its inputs.
 (struct Counter
   ((count I64)))
 
-(define (bump! (counter (Ref Counter))) (→ Unit) (! mut)
-  (set! (● (ref-get counter) count) (+ (● (ref-get counter) count) 1)))
+(define (bump! (counter Counter)) (→ Unit) (! mut)
+  (set! (● counter count) (+ (● counter count) 1)))
 
 ;; ---- Effects ----
 
@@ -126,11 +125,14 @@
 
 ;; Macros are Scheme's `syntax-rules`, and hygienic: `swap!`'s own
 ;; `temporary` cannot capture the caller's.
+(struct Label
+  ((text String)))
+
 (define-syntax swap!
   (syntax-rules ()
-    ((_ a b) (let ((temporary (ref-get a)))
-               (ref-set! a (ref-get b))
-               (ref-set! b temporary)))))
+    ((_ a b) (let ((temporary (● a text)))
+               (set! (● a text) (● b text))
+               (set! (● b text) temporary)))))
 
 (define main
   (lambda ()
@@ -153,10 +155,10 @@
               (list 2 0))
     (write-line (describe-all (list (Point 1 2) (Point 3 4))))
     (write-line (describe-all (list #t #f)))
-    (let ((clicks (ref (Counter 0))))
+    (let ((clicks (Counter 0)))
       (bump! clicks)
       (bump! clicks)
-      (display (● (ref-get clicks) count))
+      (display (● clicks count))
       (newline))
     (write-line (handle Ask
                     ((ask (lambda () "world")))
@@ -172,8 +174,8 @@
     ;; owned value is used exactly once: called, passed on or dropped.
     (let ((job (once (lambda () (write-line "ran once")))))
       (call-once job))
-    (let ((left (ref "left"))
-          (right (ref "right")))
+    (let ((left (Label "left"))
+          (right (Label "right")))
       (swap! left right)
-      (write-line (string-append (ref-get left) " " (ref-get right))))
+      (write-line (string-append (● left text) " " (● right text))))
     (unit)))

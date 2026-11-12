@@ -10,7 +10,7 @@
 
 (define (increment (value I64)) (→ I64) (+ value 1))
 
-(define (first (a T) (b T)) (→ T) (∀ T) (⊨ (Copy T)) a)
+(define (first (a T) (b T)) (→ T) (∀ T) (⊨ (Copy T) (Drop (!) T)) a)
 
 (struct Holder
   ((value Any)))

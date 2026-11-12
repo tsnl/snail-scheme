@@ -26,7 +26,7 @@
                  (show (● segment to x))))
 
 ;; A generic nominal record still identifies the slot being read.
-(define (labelled (record (Pair T String))) (→ String) (∀ T) (⊨ (Copy T))
+(define (labelled (record (Pair T String))) (→ String) (∀ T) (⊨ (Copy T) (Drop (!) T))
   (string-append "[" (● record second) "]"))
 
 ;; Computation uses an ordinary function; projection always means storage.

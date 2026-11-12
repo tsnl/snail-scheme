@@ -5,15 +5,18 @@
 
 (effect Counter ((tick (Fn → I64))))
 
+(struct CounterState
+  ((count I64)))
+
 (define (recursive (n I64)) (→ I64) (if (= n 0) 4 (recursive (- n 1))))
 
 (define main
   (lambda ()
     ;; Local mutation belongs to each invocation, not to its reusable environment.
     (display (handle Counter
-                 ((tick (lambda () (let ((cell (ref (ann 1 I64))))
-                                     (ref-set! cell 7)
-                                     (ref-get cell)))))
+                 ((tick (lambda () (let ((cell (CounterState 1)))
+                                     (set! (● cell count) 7)
+                                     (● cell count)))))
                (+ (tick) (tick))))
     (newline)
     (let* ((offset (ann 3 I64))

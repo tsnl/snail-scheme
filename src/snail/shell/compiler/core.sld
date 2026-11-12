@@ -23,6 +23,7 @@
    Substitution
    type->string
    type-key
+   require-type-capacity
    any-type?
    never-type?
    drop-class
@@ -187,14 +188,6 @@
 
     (define empty-row (→ Type) (TRow (Nil) (None)))
 
-    ;; Borrow is a scoped, non-owning value type. It remains visible in
-    ;; locals and signatures through checking; only representation lowering
-    ;; uses its target. Lexical ownership checking proves where it may live.
-
-
-
-
-
     ;; The signature a callable holds, including `(fn A → B ! e)` code; any
     ;; other type is its own.
 
@@ -203,28 +196,10 @@
         ((Some arrow) arrow)
         ((None) type)))
 
-    ;; ---- Callable contracts ----
+    ;; ---- Procedure types ----
 
-    ;; A concrete closure keeps its construction identity and capture types.
-    ;; Its first argument is its calling signature; the remaining arguments
-    ;; are the owned environment. Generic instantiation substitutes both.
-    ;; These compiler names cannot be written as source type constructors.
-
-
-
-
-
-
-
-
-
-
-
-
-
-    ;; This implication is about receiver access, never Copy or purity.
-
-
+    ;; Fn is a reusable closure, FnOnce consumes its captures, and fn is
+    ;; capture-free code. Each contains the same argument/result/effect shape.
 
     (define (callable-kind (type Type)) (→ (Option String))
       (match type
@@ -240,14 +215,7 @@
          (match (callable-kind type) ((Some _) (Some arrow)) ((None) (None))))
         (_ (None))))
 
-    ;; An invocation records the receiver operation the checker selected.
-    ;; It remains attached through specialization: a FnOnce requirement
-    ;; consumes its receiver even when the concrete value also implements Fn.
-
-
-
-    ;; The row of an operation on a mutable field, which reads or writes
-    ;; storage and nothing else.
+    ;; Writing a field changes storage; reading it has no mutation effect.
 
     (define mut-row (→ Type) (TRow (list "mut") (None)))
 
@@ -385,8 +353,6 @@
         ((TVar id) (string-append "?" (i64->string id)))
         ((TRigid name) name)))
 
-
-
     (define (arrow->string (kind String) (params (List Type)) (result Type) (row Type)) (→ String)
       (string-append "(" kind (types->string params) " → " (type->string result)
                      (row->string row) ")"))
@@ -457,6 +423,30 @@
     ;; A unique text for a ground type, with full names; it names
     ;; specializations and Wasm types. A row argument, as in (Task e), does
     ;; not affect representation.
+
+    ;; Specialization can grow types indefinitely under polymorphic recursion.
+    ;; Bound expanded syntax before serializing a key. Count occurrences, not
+    ;; shared object identities: Pair<T,T> writes T twice. This is a compiler
+    ;; capacity limit, not a test for whether a recursive type is regular.
+    (define (require-type-capacity (type Type)) (→ Unit)
+      (when (< (type-capacity-left type 4096) 0)
+        (panic "type expansion exceeds the compiler limit of 4096 type nodes")))
+
+    (define (type-capacity-left (type Type) (remaining I64)) (→ I64)
+      (if (<= remaining 0) -1
+          (match type
+            ((TCon _ args) (types-capacity-left args (- remaining 1)))
+            ((TFun params result row)
+             (types-capacity-left (Cons result (Cons row params)) (- remaining 1)))
+            ((TRow _ (Some tail)) (type-capacity-left tail (- remaining 1)))
+            (_ (- remaining 1)))))
+
+    (define (types-capacity-left (types (List Type)) (remaining I64)) (→ I64)
+      (if (< remaining 0) -1
+          (match types
+            ((Nil) remaining)
+            ((Cons type rest)
+             (types-capacity-left rest (type-capacity-left type remaining))))))
 
     (define (type-key (type Type)) (→ String)
       (match type

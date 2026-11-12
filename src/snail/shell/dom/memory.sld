@@ -143,7 +143,7 @@
     (define (assigned (pairs (List (Pair String V))) (name String) (value (Option V)))
       (→ (List (Pair String V)))
       (∀ V)
-      (⊨ (Copy V))
+      (⊨ (Copy V) (Drop (!) V))
       (let ((others (filter (lambda (pair) (not (string=? (● pair first) name))) pairs)))
         (match value
           ((None) others)
@@ -489,7 +489,7 @@
       (→ A)
       (! mut)
       (∀ A)
-      (⊨ (Copy A))
+      (⊨ (Copy A) (Drop (!) A))
       (let ((result (operation (● state document))))
         (set! (● state document) (● result second))
         (● result first)))
@@ -499,7 +499,7 @@
       (! mut)
       (set! (● state document) (operation (● state document))))
 
-    (define (with-memory-dom (script (List Cue)) (work (Fn → T ! dom e)))
+    (define (with-memory-dom (script (List Cue)) (work (FnOnce → T ! dom e)))
       (→ (Pair T Document))
       (! mut e)
       (∀ T e)

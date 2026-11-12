@@ -14,7 +14,8 @@
 
 (define t #t)
 
-(define counter (ref 0))
+(struct Counter
+  ((count I64)))
 
 (define f
   (lambda (x) (define y (* x 2))
@@ -23,19 +24,20 @@
 
 (define main
   (lambda ()
-    (display (my-or #f t))
-    (newline)
-    (while (< (ref-get counter) 5) (ref-set! counter (+ (ref-get counter) 1)))
-    (display (ref-get counter))
-    (newline)
-    (display (case (* 2 3) ((2 3 5 7) "prime") ((1 4 6 8 9) "composite") (else "other")))
-    (newline)
-    (display (cond ((> 1 2) "a") ((> 2 1) "b") (else "c")))
-    (newline)
-    (display (do ((i 0 (+ i 1)) (total 0 (+ total i))) ((= i 5) total)))
-    (newline)
-    (display (let* ((x 1) (y (+ x 1))) (* x y)))
-    (newline)
-    (display (f 10))
-    (newline)
-    (unit)))
+    (let ((counter (Counter 0)))
+      (display (my-or #f t))
+      (newline)
+      (while (< (● counter count) 5) (set! (● counter count) (+ (● counter count) 1)))
+      (display (● counter count))
+      (newline)
+      (display (case (* 2 3) ((2 3 5 7) "prime") ((1 4 6 8 9) "composite") (else "other")))
+      (newline)
+      (display (cond ((> 1 2) "a") ((> 2 1) "b") (else "c")))
+      (newline)
+      (display (do ((i 0 (+ i 1)) (total 0 (+ total i))) ((= i 5) total)))
+      (newline)
+      (display (let* ((x 1) (y (+ x 1))) (* x y)))
+      (newline)
+      (display (f 10))
+      (newline)
+      (unit))))

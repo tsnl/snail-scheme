@@ -14,7 +14,7 @@
 (define controls (→ String) (chars (append (iota 32) (list 127))))
 
 ;; A mebibyte of text in lines, as a file's contents would be sent.
-(define long-text (→ String)
+(define (long-text) (→ String)
   (string-concatenate (map (lambda (line)
                              (string-append (make-string 63 (integer->char (+ 97 (modulo line 26))))
                                             "\n"))
@@ -58,7 +58,7 @@
                                                                                     12)))))))
                                     (Pair "published" (JsonNull))
                                     (Pair "runs" (JsonArray (Nil)))))))
-  (let ((text (json->string (JsonString long-text))))
+  (let ((text (json->string (JsonString (long-text)))))
     (write-line (show (string-length text)))
     (write-line (substring text 0 70)))
   (write-line

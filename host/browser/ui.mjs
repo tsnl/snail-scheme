@@ -72,7 +72,7 @@ export async function startInterface({url, container, storageKey, session = fals
       container.inert = false;
       dispatchEvent(new Event('snail-refresh-failed'));
       for (const type of ['keydown', 'beforeinput', 'click']) removeEventListener(type, block, true);
-    }
+    } finally { stopped?.release(); }
   }
   application.refresh = refresh;
   return application;

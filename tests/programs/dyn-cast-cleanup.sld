@@ -8,6 +8,9 @@
 (struct Resource
   ((name String)))
 
+(struct Count
+  ((value I64)))
+
 (instance (Drop (! audit) Resource)
   (define drop
     (lambda (resource) (match resource ((Resource name) (note (string-append "drop " name)))))))
@@ -39,15 +42,15 @@
 
 (define (later) (→ I64) (! output-port) (write-line "unreachable argument") 0)
 
-;; Local handlers discharge cleanup effects too; the exported function is pure.
-(define (pure-cleanup) (→ I64)
-  (let ((count (ref 0)))
-    (handle audit ((note (lambda (_) (ref-set! count (+ 1 (ref-get count))))))
+;; Local handlers discharge audit effects; updating the counter remains mut.
+(define (pure-cleanup) (→ I64) (! mut)
+  (let ((count (Count 0)))
+    (handle audit ((note (lambda (_) (set! (● count value) (+ 1 (● count value))))))
       (handle dyn-cast ((conversion-failed (lambda (_) (unit))))
         (let ((resource (Resource "local")))
           (ann (ann "bad" Any) I64)
           (panic "unreachable"))))
-    (ref-get count)))
+    (● count value)))
 
 (define main
   (lambda ()

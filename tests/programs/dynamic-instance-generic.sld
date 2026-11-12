@@ -18,12 +18,12 @@
   (→ String)
   (! e)
   (∀ T e)
-  (⊨ (Describe e T) (Copy T))
+  (⊨ (Describe e T) (Copy T) (Drop e T))
   (string-append (describe value) (describe value)))
 
 ;; An explicit generic presentation propagates its element's row.
 (instance (Show (! e) (List T))
-  (⊨ (Show e T))
+  (⊨ (Show e T) (Copy T) (Drop e T))
   (define show (lambda (items)
                  (string-append "(" (string-join (map show items) " ") ")"))))
 

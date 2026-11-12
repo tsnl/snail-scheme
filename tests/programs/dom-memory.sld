@@ -43,21 +43,23 @@
                      "] "
                      (show (● keys id))))))
 
-(define result (→ (Pair String Document)) (with-memory-dom (Nil) build))
 
-(define removed (→ Document)
-  (● (with-memory-dom (Nil) (lambda ()
-                              (let ((outer (create-element "div"))
-                                    (inner (create-element "p")))
-                                (insert-node (document-root) outer (None))
-                                (insert-node outer inner (None))
-                                (remove-node outer)
-                                (insert-node (document-root)
-                                             (create-text "after")
-                                             (None))))) second))
+
+
 
 (define main
   (lambda ()
+    (define result (→ (Pair String Document)) (with-memory-dom (Nil) (once build)))
+    (define removed (→ Document)
+      (● (with-memory-dom (Nil) (lambda ()
+                                  (let ((outer (create-element "div"))
+                                        (inner (create-element "p")))
+                                    (insert-node (document-root) outer (None))
+                                    (insert-node outer inner (None))
+                                    (remove-node outer)
+                                    (insert-node (document-root)
+                                                 (create-text "after")
+                                                 (None))))) second))
     (write-line (● result first))
     (write-line (document->html (● result second)))
     (for-each write-line (document-trace (● result second)))

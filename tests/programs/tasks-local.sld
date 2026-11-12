@@ -3,13 +3,16 @@
  (snail core io)
  (snail shell task))
 
+(struct TaskValue
+  ((value I64)))
+
 (define main
   (lambda ()
-    (let ((cell (ref (ann 0 I64))))
+    (let ((cell (TaskValue 0)))
       (dispatch-local
        (once (lambda ()
-               (ref-set! cell 42)
+               (set! (● cell value) 42)
                (yield)
-               (display (ref-get cell))
+               (display (● cell value))
                (newline)))))
     (unit)))

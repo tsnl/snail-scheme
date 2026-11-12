@@ -8,6 +8,9 @@
 
 ;; ANCHOR: rows
 ;; Total: no row, so a call can only compute its result.
+(struct Total
+  ((value I64)))
+
 (define (square (n I64)) (→ I64)
   (* n n))
 
@@ -35,11 +38,11 @@
 ;; ANCHOR_END: polymorphic
 
 ;; ANCHOR: local
-;; Mutates a cell it allocates, which nothing keeps once it returns.
-(define (sum-of-squares (count I64)) (→ I64)
-  (let ((total (ref 0)))
-    (repeat count (lambda (i) (ref-set! total (+ (ref-get total) (square i)))))
-    (ref-get total)))
+;; Mutation is explicit even when the scratch never leaves this function.
+(define (sum-of-squares (count I64)) (→ I64) (! mut)
+  (let ((total (Total 0)))
+    (repeat count (lambda (i) (set! (● total value) (+ (● total value) (square i)))))
+    (● total value)))
 
 (define main
   (lambda ()

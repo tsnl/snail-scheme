@@ -40,14 +40,14 @@ async function startCold(application) {
   const run = runtime.start(entry);
   try { await run.ready.promise; }
   catch (error) {
-    await run.done;
+    (await run.done).release();
     if (application.strictRestore) throw error;
     if (run.boot !== null || run.loaded == null) { reportApplicationError(error); return; }
     console.warn('discarding an incompatible save:', error.message);
     application.reset();
     const retry = runtime.start(entry, null, {restore: null});
     try { await retry.ready.promise; }
-    catch (error) { await retry.done; reportApplicationError(error); }
+    catch (error) { (await retry.done).release(); reportApplicationError(error); }
   }
 }
 
@@ -84,7 +84,7 @@ function printer(application) {
 
 // A full page reload first lets every loop save and return.
 export function saveAll() {
-  return Promise.all(running.map(async application => { await application.startup; return application.runtime.stop(); }));
+  return Promise.all(running.map(async application => { await application.startup; const saved = await application.runtime.stop(); saved.release(); return saved; }));
 }
 
 // `manifest` is the modules.json of the build to relink from, which the
@@ -101,20 +101,23 @@ async function relinkApplication(application, from, fresh, manifest) {
   await application.startup;
   const {runtime, program: previous} = application;
   application.capture = [];
-  const {state, saved} = await runtime.stop();
+  const handover = await runtime.stop();
+  const {state, saved} = handover;
+  let candidate = null;
   try {
     const program = await relinkProgram(previous, from, manifest, fetchRead(manifest));
     application.reset();
-    const run = runtime.start(applicationEntry(program), fresh ? null : state, {restore: fresh ? null : saved});
-    await run.ready.promise;
+    candidate = runtime.start(applicationEntry(program), fresh ? null : state, {restore: fresh ? null : saved});
+    await candidate.ready.promise;
     application.program = program;
   } catch (error) {
-    await runtime.execution.done;
+    if (candidate) (await candidate.done).release();
     application.reset();
     const rollback = runtime.start(applicationEntry(previous), state, {restore: saved});
-    try { await rollback.ready.promise; } catch { await rollback.done; }
+    try { await rollback.ready.promise; } catch { (await rollback.done).release(); }
     throw new Error(application.capture.join('\n') || error.message);
   } finally {
+    handover.release();
     application.capture = null;
   }
 }

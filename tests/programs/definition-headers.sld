@@ -8,7 +8,7 @@
   (→ T)
   (! E)
   (∀ T E)
-  (⊨ (Num E T) (Copy T))
+  (⊨ (Num E T) (Copy T) (Drop E T))
   (annotations (doc "Add a value to itself."))
   (+ (ann value T) value))
 

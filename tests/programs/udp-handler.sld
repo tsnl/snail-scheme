@@ -18,6 +18,9 @@
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
+(struct PendingPacket
+  ((packet Datagram)))
+
 (define main
   (lambda ()
     ;; A program waits on sockets from a task, which the scheduler runs once
@@ -26,15 +29,16 @@
      (once (lambda ()
              (handle udp
                  ((bind (lambda (endpoint)
-                          (Ok (UdpSocket (type-convert (ref (Datagram endpoint #u8())) Any)
-                                         (Endpoint-port endpoint)))))
+                          (Ok
+                           (UdpSocket (type-convert (PendingPacket (Datagram endpoint #u8())) Any)
+                                      (Endpoint-port endpoint)))))
                   (send (lambda (socket peer bytes)
                           (sleep 1)
-                          (ref-set! (fixture-convert (● socket token) (Ref Datagram))
-                                    (Datagram peer bytes))
+                          (set! (● (fixture-convert (● socket token) PendingPacket) packet)
+                                (Datagram peer bytes))
                           (Ok (i64->i32 (vector-length bytes)))))
                   (receive (lambda (socket _)
-                             (Ok (ref-get (fixture-convert (● socket token) (Ref Datagram))))))
+                             (Ok (● (fixture-convert (● socket token) PendingPacket) packet))))
                   (close-udp (lambda (_) (Ok (unit)))))
                (let ((socket (require (bind (require (endpoint "192.0.2.1" 7))))))
                  (dispatch-local

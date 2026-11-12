@@ -7,7 +7,6 @@ const instance = await instantiate(await WebAssembly.compile(await readFile(proc
 });
 wasi.initialize(instance);
 const api = instance.exports;
-api['main:init']();
 const a = api['tasks:create'](), b = api['tasks:create'](), weak = api.watch(a);
 api.seed(a, 10n); api.seed(b, 20n);
 assert.equal(api['tasks:turn'](a, 1000n), 0n);

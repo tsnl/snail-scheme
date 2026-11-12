@@ -6,6 +6,9 @@
 (struct Point
   ((x I64)))
 
+(struct Reports
+  ((count I64)))
+
 (define (integer (value Any)) (→ I64) (! dyn-cast) value)
 
 ;; Inference propagates the conversion effect; explicit syntax obeys the
@@ -50,11 +53,11 @@
       (write-line (show (type-convert (type-convert (ann 8 I64) Any) I64))))
     ;; An interactive client gets a report and a failure value, and can run
     ;; another evaluation. Capture output-port output so origins remain portable.
-    (let ((reported (ref 0)))
+    (let ((reported (Reports 0)))
       (handle output-port
-          ((write-string (lambda (_) (ref-set! reported (+ 1 (ref-get reported))))))
+          ((write-string (lambda (_) (set! (● reported count) (+ 1 (● reported count))))))
         (run-dynamic (lambda () (integer "bad"))))
-      (write-line (show (> (ref-get reported) 0))))
+      (write-line (show (> (● reported count) 0))))
     (write-line (show (match (run-dynamic (lambda () (integer 43)))
                         ((Ok value) value) ((Err _) -1))))
     (write-line (show (type-test (same 7) I64)))

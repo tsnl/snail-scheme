@@ -1,7 +1,7 @@
 # Runtimes
 
-Snail-Core's shipping target is WebAssembly GC. Tasks are an effect,
-scheduled in Snail-Core; a host drives the scheduler and completes the
+Snail Scheme's shipping target is WebAssembly GC. Tasks are an effect,
+scheduled in Snail Scheme; a host drives the scheduler and completes the
 operations tasks wait on. A runtime supplies platform effects and owns
 the computations that use them. Each
 instance of a program is single-threaded; parallel work runs as several
@@ -43,7 +43,7 @@ purposes. Linux `epoll` reports which descriptors can make progress; it
 does not schedule language closures or preserve effect bindings. Our host
 uses JavaScript platform APIs for Node and browser I/O notifications, and
 Linux `io_uring` for [native asynchronous file reads](tasks.md#native-asynchronous-file-reads).
-Snail-Core's scheduler owns tasks on both hosts. It does not need its own `epoll` wrapper. See the
+Snail Scheme's scheduler owns tasks on both hosts. It does not need its own `epoll` wrapper. See the
 [Linux interface](https://man7.org/linux/man-pages/man7/epoll.7.html).
 
 ## Scaling the deployed program
@@ -53,12 +53,12 @@ agents or processes and distribute requests at the service boundary. A
 reverse proxy can load-balance several processes. Each instance has its own
 managed heap; communication uses an explicit external protocol.
 
-Snail-Core does not need a second compiler backend to use multiple
+Snail Scheme does not need a second compiler backend to use multiple
 independently hosted instances.
 
 ## Direction
 
-Node and the page are today's hosts, not the only ones Snail-Core is for.
+Node and the page are today's hosts, not the only ones Snail Scheme is for.
 Others, such as [wasmtime](https://wasmtime.dev) and
 [workerd](https://github.com/cloudflare/workerd), should be able to run the
 same programs, so nothing a program or library does may depend on
@@ -66,7 +66,7 @@ JavaScript: a host provides Wasm imports, and JavaScript is the glue that
 provides them on Node and in the page.
 
 The native engine is the first step taken ([#660](https://github.com/tsnl/snail-scheme/issues/660)):
-`(snail shell engine)`, in Snail-Core, links a program compiled one library
+`(snail shell engine)`, in Snail Scheme, links a program compiled one library
 at a time and runs it, so Node and wasmtime each do only what a host must,
 WASI, the Wasm primitives of `(snail shell wasm)`, their device services
 and the loop that turns the scheduler. Where the engine reads objects is
@@ -85,7 +85,7 @@ must be checked before promising compatibility.
 The Rust support module, `snail.core.support` from
 `crates/snail-core-support`, is what lies beneath `(snail core …)`, not a
 runtime interface. *Proposed:* it shrinks to pure scalar services, float
-printing and the transcendental math. I/O moves into Snail-Core through
+printing and the transcendental math. I/O moves into Snail Scheme through
 WASI once memory primitives exist, and the Unicode tables become a
 generated library (the crate's README has the plan).
 

@@ -117,7 +117,7 @@
     ;; arguments, as non-regular recursion would, has its arguments searched
     ;; as if it held them directly, which keeps the query finite. Sibling
     ;; fields that hold one declaration at different arguments, as
-    ;; `(Ref (Queue T))` and `(Ref T)` do, are not recursion, so each is
+    ;; `(Option (Queue T))` and `(Option T)` do, are not recursion, so each is
     ;; searched through its fields. Carrying the sets rather than mutating
     ;; them keeps the query a function of its arguments.
     (struct Linearity
@@ -126,11 +126,9 @@
        (names (List String))))
 
     ;; A type variable is linear unless `copy` names it, as a signature's
-    ;; `(⊨ (Copy A))` does. An owned declaration is linear, and
-    ;; immutable fields can make any record linear; ordinary arrows never
-    ;; describe owned captures. A cell, like any struct with a mutable
-    ;; field, is a shared handle whatever it holds, so a declaration that
-    ;; holds a parameter only in a `Ref` is unrestricted.
+    ;; `(⊨ (Copy A))` does. A declared destructor or any linear field makes
+    ;; an aggregate linear. Rc is the sole owning wrapper that can hold a
+    ;; linear value while remaining Copy; WeakRc has no ownership of its target.
 
     (define (linear-type? (program Program) (copy (List String)) (type Type)) (→ Bool)
       (● (linear-search program copy type (Linearity #f (Nil) (Nil))) found?))

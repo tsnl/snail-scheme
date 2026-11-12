@@ -10,7 +10,7 @@ import {createWasi, instantiate, linkProgram} from '../../host/browser/load.mjs'
 const path = resolve(process.argv[2]);
 const turn = () => new Promise(setImmediate);
 const PRESS = 9, RESIZE = 8, MOVE = 4;
-const live = entry => Number(entry.tasks['tasks:live']());
+const live = run => run.tasks.live();
 
 // Waits up to a hundred turns of the event loop for `condition`.
 async function until(condition) {
@@ -103,7 +103,7 @@ async function checkSuspension() {
   const run = runtime.start(entry);
   runtime.send(PRESS, 1); runtime.send(PRESS, 1);
   await turn();
-  assert.equal(live(entry), 2, 'the root and its sleeping child both remain live');
+  assert.equal(live(run), 2, 'the root and its sleeping child both remain live');
   assert.equal(observed.frames, 0);
   assert.throws(() => runtime.start(entry), /overlap/);
   loaded.resolve(undefined);
@@ -126,9 +126,10 @@ async function checkSuspension() {
   assert.ok(handover.saved.length);
   app.settled();
   assert.equal(await runtime.start(entry, handover.state).ready.promise, 0);
+  handover.release();
   await turn();
   assert.equal(observed.count, '4', 'transition input is delivered once after adoption');
-  await runtime.stop();
+  (await runtime.stop()).release();
   app.settled();
 }
 
@@ -145,9 +146,10 @@ async function checkReloadDuringBoot() {
   assert.equal(entry.exports.count(handover.state), 0n, 'input beyond a startup fence waits for the next run');
   app.settled();
   await runtime.start(entry, handover.state).ready.promise;
+  handover.release();
   await turn();
   assert.equal(observed.count, '1', 'accepting a fenced startup never discards pending input');
-  await runtime.stop();
+  (await runtime.stop()).release();
   app.settled();
 }
 
@@ -173,9 +175,10 @@ async function checkTrap() {
   app.settled();
   observed.failFrame = false;
   await runtime.start(entry, handover.state).ready.promise;
+  handover.release();
   await turn();
   assert.equal(observed.count, '3', 'unread actions survive a trap and are consumed once');
-  await runtime.stop();
+  (await runtime.stop()).release();
   app.settled();
 }
 
@@ -192,9 +195,10 @@ async function checkUpdateTrap() {
   app.settled();
   const handover = await runtime.stop();
   await runtime.start(entry, handover.state).ready.promise;
+  handover.release();
   await turn();
   assert.equal(observed.count, '2', 'the trapping action is consumed and the following action survives');
-  await runtime.stop();
+  (await runtime.stop()).release();
   app.settled();
 }
 
@@ -206,13 +210,18 @@ async function checkRefusal() {
   const refused = runtime.start(entry, foreign, {restore: null});
   runtime.send(PRESS, 1);
   await assert.rejects(refused.ready.promise, /could not take over/);
-  assert.equal((await refused.done).state, null);
+  const refusal = await refused.done;
+  assert.equal(refusal.state, null);
+  refusal.release();
+  entry.exports['other:release-result'](foreign);
   app.settled();
   await runtime.start(entry, previous.state).ready.promise;
+  previous.release();
   await turn();
   assert.equal(observed.count, '1');
   const rollback = await runtime.stop();
   assert.equal(entry.exports.resizes(rollback.state), 2, 'a rejected candidate cannot donate its synthetic Resize to rollback');
+  rollback.release();
   app.settled();
 }
 
@@ -222,10 +231,13 @@ async function checkStartupFailures() {
   const loading = rejected.runtime.start(rejected.entry);
   await assert.rejects(loading.ready.promise, /load failed/);
   assert.equal((await loading.done).state, null, 'a preboot failure cannot invent a checkpoint');
+  (await loading.done).release();
   const incoming = rejected.entry.exports.other();
   const retry = rejected.runtime.start(rejected.entry, incoming);
   await assert.rejects(retry.ready.promise, /load failed/);
   assert.equal((await retry.done).state, incoming, 'a preboot failure retains the incoming state for rollback');
+  (await retry.done).release();
+  rejected.entry.exports['other:release-result'](incoming);
   rejected.settled();
   const trapped = await application();
   trapped.observed.failFrame = true;
@@ -236,7 +248,8 @@ async function checkStartupFailures() {
   trapped.observed.failFrame = false;
   const saved = await trapped.runtime.stop();
   await trapped.runtime.start(trapped.entry, saved.state).ready.promise;
-  await trapped.runtime.stop();
+  saved.release();
+  (await trapped.runtime.stop()).release();
   trapped.settled();
 }
 
@@ -247,6 +260,7 @@ async function checkStorageFailure() {
   assert.equal(handover.error, null);
   assert.ok(handover.saved.length, 'migration keeps an owned save even if persistence fails');
   assert.match(app.observed.warnings[0], /disk full/);
+  handover.release();
   app.settled();
 }
 
@@ -256,6 +270,7 @@ async function checkRootReturn() {
   const previous = await app.runtime.stop();
   const entry = {...app.entry, main: app.entry.exports.background_main};
   const run = app.runtime.start(entry, previous.state);
+  previous.release();
   assert.equal(await run.ready.promise, 2);
   await run.root;
   let settled = false;
@@ -264,7 +279,8 @@ async function checkRootReturn() {
   assert.equal(settled, false, 'a child outlives a normally returning root');
   const handover = await app.runtime.stop();
   assert.equal(handover.state, null, 'a root that never adopts the incoming state has no checkpoint');
-  assert.equal(live(entry), 0, 'reload cancels and drains the remaining child');
+  assert.equal(live(run), 0, 'reload cancels and drains the remaining child');
+  handover.release();
   app.settled();
 }
 
@@ -272,8 +288,9 @@ async function checkUnpresentedReturn() {
   const app = await application();
   const run = app.runtime.start({...app.entry, main: app.entry.exports.unpresented_main});
   await run.root; await turn();
-  assert.equal(live(app.entry), 0, 'children cannot keep an unpresented application alive');
+  assert.equal(live(run), 0, 'children cannot keep an unpresented application alive');
   await assert.rejects(run.ready.promise, /before startup completed/);
+  (await run.done).release();
   app.settled();
 }
 
@@ -290,35 +307,49 @@ async function checkReservedName() {
     /no library may be linked as snail\.runtime\.wasm, which the host provides/);
 }
 
-// Tasks beside the loop trap on entering its protocol, each reported, and
-// change nothing of it.
+// Each violation ends its whole scheduler generation. No source ownership
+// unwind exists for Wasm traps; a fresh invocation proves isolation instead.
 async function checkProtocolOwnership() {
-  const loaded = Promise.withResolvers(), stored = Promise.withResolvers();
-  let loads = 0;
-  const saves = [], app = await application({load: () => { loads++; return loaded.promise; },
-    store: bytes => { saves.push(bytes); return stored.promise; }});
-  const {errors} = app.observed;
+  for (const which of [0, 1, 2, 3, 4, 5]) {
+    const loaded = Promise.withResolvers();
+    let loads = 0, saves = 0;
+    const app = await application({load: () => { loads++; return loaded.promise; },
+                                   store: () => { saves++; }});
+    const run = app.runtime.start(app.entry);
+    await turn();
+    run.tasks.call(app.entry.exports.spawn_child, run.page, which);
+    run.tasks.interrupt();
+    await assert.rejects(run.ready.promise, /belong to the root task/);
+    const failed = await run.done;
+    assert.match(failed.error.message, /belong to the root task/);
+    assert.equal(loads, 1, 'a child cannot replace the root load buffer');
+    assert.equal(saves, 0);
+    assert.equal(run.boot, null);
+    assert.equal(failed.state, null);
+    assert.equal(run.page, null, 'the host releases its page context after failure');
+    assert.equal(live(run), 0);
+    failed.release();
+    loaded.resolve(undefined);
+    app.settled();
+  }
+  const stored = Promise.withResolvers();
+  const saves = [];
+  const app = await application({store: bytes => { saves.push(bytes); return stored.promise; }});
   const run = app.runtime.start(app.entry);
-  await turn();
-  for (const which of [0, 1, 2, 3, 4, 5]) app.entry.exports.spawn_child(which);
-  run.tasks.interrupt();
-  await until(() => errors.length === 6);
-  for (const error of errors) assert.match(error.message, /belong to the root task/);
-  assert.equal(loads, 1, 'a child cannot replace the root load buffer');
-  assert.equal(saves.length, 0); assert.equal(run.boot, null);
-  loaded.resolve(undefined); await run.ready.promise;
-  assert.equal(app.entry.exports.count(app.entry.app.app_state()), 0n, 'children cannot publish a checkpoint');
+  await run.ready.promise;
   const stopping = app.runtime.stop();
   await turn();
   assert.equal(saves.length, 1);
-  app.entry.exports.spawn_child(1);
+  run.tasks.call(app.entry.exports.spawn_child, run.page, 1);
   run.tasks.interrupt();
-  await until(() => errors.length === 7);
-  assert.equal(saves.length, 1, 'a child cannot start persistence during checkpoint handover');
+  await until(() => app.observed.errors.length === 1);
+  assert.ok(saves.every(bytes => bytes.toString() === saves[0].toString()),
+            'a child cannot replace the root checkpoint; recovery may retry its persistence');
   stored.resolve();
   const handover = await stopping;
+  assert.equal(saves.length, 2, 'recovery retries the root checkpoint after the terminal trap');
   assert.deepEqual(handover.saved, saves[0]);
-  assert.equal(errors.length, 7);
+  handover.release();
   app.settled();
 }
 

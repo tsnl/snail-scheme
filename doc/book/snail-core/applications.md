@@ -6,7 +6,7 @@ contract:
 ```scheme
 (struct (Entry A) ())
 (typeclass (Application e A)
-  (: start (impl (Fn (Entry A) → Unit ! e))))
+  (: start (Fn (Entry A) → Unit ! e)))
 ```
 
 `Entry` is an empty type witness. Selecting an application does not require
@@ -87,8 +87,8 @@ the preceding checkpoint available through `app_state`. The engine reports
 readiness explicitly after its first complete frame. Since elapsed time is
 input, the application decides how its simulation advances. Each task keeps its
 handlers across waits. Reload lets the root save and return, then closes the
-remaining tasks before relinking. Module globals still initialize synchronously;
-dispatch application work from the running entry.
+remaining tasks before relinking. Libraries have no runtime initialization;
+application state is created by the running entry.
 
 Frames are built from batches of items. The host keeps a batch until its
 version changes, so a still scene costs nothing to send; each item also
@@ -129,7 +129,7 @@ canvas, in the shape Elm gave them:
 | Function | Meaning |
 | --- | --- |
 | `view : Model -> (Html M)` | A tree of elements and texts. An element's attributes, typed properties (`StringProperty`, `NumberProperty`, `FlagProperty`) and listeners (`On`) are plain data; a listener holds a function from what its event carried to a message `M`. |
-| `update : Model M -> (Pair Model (List (dyn (FnOnce → M ! tasks e))))` | The next model, and the commands the message starts: one-shot work, run as tasks, each answering a message. |
+| `update : Model M -> (Pair Model (List (FnOnce → M ! tasks e)))` | The next model, and the commands the message starts: one-shot work, run as tasks, each answering a message. |
 
 `run-ui model start update view window commit checkpoint` shows the view in the
 document's root through the `dom` effect of `(snail shell dom)`, updates
@@ -156,8 +156,8 @@ dispatched, a listener declares them when it is made: the fields its events
 carry (`Capture`) and when the host prevents their default action
 (`Prevent`, never, always, or for listed key chords). A listener with
 chords hears only them, so the keys it leaves alone never cross into
-Snail-Core, and never a key that ends an input method's composition.
-Functions stay in Snail-Core: the host sees nodes and listeners only as
+Snail Scheme, and never a key that ends an input method's composition.
+Functions stay in Snail Scheme: the host sees nodes and listeners only as
 handles. A selection's offsets count scalars, as a String's indices do,
 though the page counts UTF-16 code units.
 
@@ -173,7 +173,7 @@ asks the person a question and answers whether they agreed. When the view
 gives a field a new value, as when another view of its text changed it,
 the field keeps its selection and scroll as far as the new text reaches.
 
-Browser installation and fullscreen are shared Snail-Core capabilities. Any
+Browser installation and fullscreen are shared Snail Scheme capabilities. Any
 application using `(snail shell dom)` with the page handler can invoke them;
 the IDE's named commands are one UI for those operations. Every browser target
 also receives the default manifest and icons during packaging, unless it
@@ -262,93 +262,67 @@ periodic saves and live reload through the same transaction as scenes.
 after a rejected view. Listener identities are never reused after replacement,
 so queued events from an old document cannot invoke a new listener.
 
-### Owned models and futures
+### Resource-owning models and futures
 
-`run-reactor model start update view window snapshot commit checkpoint` uses the same HTML
-renderer with an owned, possibly linear model. It is available alongside
-the mailbox-based `run-ui`, which continues to serve `Interface` applications.
-The IDE uses `run-reactor` with a linear `Session` containing its immutable
-display data and pending command futures.
+`run-reactor model start update view window snapshot commit checkpoint` uses the
+same renderer with futures stored in the model. The model satisfies `Copy`;
+linear resources live inside explicit `Rc` owners. The IDE's `Session`, for
+example, shares a counted pending-work object containing its futures. The
+compiler retains and releases those owners when callbacks receive the model.
 
 | Function | Ownership and effects |
 | --- | --- |
-| `update : Model (Option M) -> Model ! mut completion e` | Takes the model, polls its futures, dispatches work and returns ownership. `Some M` is input; `None` is a generic completion wake. The compiler rejects an update that can suspend. |
-| `view : (Borrow Model) -> Html<M>` | Reads a lexical borrow of the model in a pure call. |
-| `window : (Borrow Model) -> List<Attribute<M>>` | Borrows the model to describe window listeners. |
-| `snapshot : (Borrow Model) -> Save` | Borrows the model to construct an independent save value. |
-| `commit : Save -> Unit ! mut e` | Publishes a snapshot after a successful presentation. |
-| `checkpoint : Save -> Unit ! mut tasks e` | Stores a snapshot; the loop retains ownership of the model across the wait. |
+| `update : Model (Option M) → Model ! mut host completion tasks e` | Processes input, polls futures and returns the next model. `Some M` is input; `None` is a completion wake. It may suspend through the ordinary task effect. |
+| `view : Model → (Html M) ! mut host e` | Receives a shared model and describes its presentation. |
+| `window : Model → (List (Attribute M)) ! mut host e` | Describes window listeners. |
+| `snapshot : Model → Save ! mut host e` | Constructs detached recovery data. |
+| `commit : Save → Unit ! mut e` | Publishes a snapshot after a successful presentation. |
+| `checkpoint : Save → Unit ! mut tasks e` | Persists a snapshot on a save request, hiding or close. |
 
-The runtime holds exactly one model between turns. After update it finishes
-both borrowed reads before moving the model back into its running state.
-`Copy Model` is not required. The loop admits the model's cleanup effects
-so cancellation of a waiting continuation can drop the model it owns.
+The loop retains its model across waits and admits its cleanup effects. There
+are no source borrows. Reading a field is pure, but releasing a callback's
+last counted owner may run a finalizer; its type must admit those effects.
+Views conventionally leave the model unchanged. The language does not enforce
+that convention with field annotations or mutation protection.
 
-Dispatch from `(snail shell async)` returns a future immediately. The model
-stores it beside ordinary display data. On a wake, update consumes each
-future in `poll`: Pending returns the endpoint to store again; Ready moves
-its result into the next model. No completion payload travels through the
-input enum. All commands in a registry can choose one result type, while
-other model fields can own futures of other types.
+Dispatch from `(snail shell async)` returns a future immediately. To poll a
+linear future held in a shared object, replace its slot with `None`, then
+consume the removed endpoint. `Pending` returns the endpoint to store again;
+`Ready` moves its result into the next model. This explicit slot transfer
+preserves exact-once ownership without a borrow checker. No completion payload
+has to travel through the input enum.
 
-The IDE's common `CommandResult` owns a one-shot, pure transition over the
-current display data. It captures the request's result and identity, not an
-old model. Update processes input first, then polls each pre-existing future
-once; commands started during that update wait for a later turn. Each
+The reactor handles `completion` by calling `dom`'s `wake`, which queues a
+delivery rather than invoking update inline. Notifications may repeat or be
+unrelated, so update tolerates finding nothing ready. The loop yields between
+deliveries even when input remains queued. Polling itself neither runs tasks
+nor waits for them.
+
+The IDE's `CommandResult` owns a one-shot transition over the current display
+data. It captures the request's result and identity, not an old model. Each
 transition checks the operation's generation, revision or submitted draft
-before accepting its result. Abandonment follows the same operation-specific
-recovery path, releasing pending state without accepting obsolete results.
-The session's immutable `Ide` field remains `Copy`; copying it shares managed
-data rather than duplicating the text graph. The session itself is linear.
-Its snapshot contains only `Recovery`; futures and event subscriptions never
-cross a reload, and the replacement reconnects under its new scheduler.
+before accepting its result. Its recovery snapshot excludes futures and event
+subscriptions; a replacement reconnects under its new scheduler.
 
-The reactor handles the ordinary `completion` effect by calling `dom`'s
-`wake`. That queues a delivery; it never calls update inline. Notifications
-may be repeated or unrelated, so update must tolerate finding nothing
-ready. The loop yields between deliveries even when more input is queued,
-so the Snail scheduler can advance tasks between updates. Polling itself
-neither runs tasks nor awaits them. A listener returned by view may capture
-a copied field, but the [lexical borrow rules](ownership.md#lexically-scoped-borrows) prevent it from retaining
-the borrowed model or moving one of its linear fields.
+`tests/apps/futures/src/futures/application.sld` is a complete example. Its
+`Model` shares an `Rc PendingWork`, whose field owns an optional future; its
+`Save` contains only display data and a click count. The ordinary `Application`
+instance uses `run-page`, installs DOM and fetch handlers, and calls
+`run-reactor`. Its commit callback calls `commit-page` and `report-ready`; the
+checkpoint callback comes from `run-page`.
 
-The browser example implements the ordinary `Application` class and uses the
-shared `run-page` lifecycle. Its `PageState` is Save, not Model:
+Only detached `Save` crosses a restart or handover. Mutable fields make this
+an application responsibility: a snapshot must not retain mutable model
+storage that later updates can change. Pending futures belong to the old
+scheduler and are never reified into `Any` or serialized. Restore decides
+whether interrupted work should be restarted. On close the example explicitly
+empties its pending slot, so aliases cannot keep a canceled request active.
+A view or update trap leaves the preceding committed Save available to recovery.
 
-```scheme
-(struct FuturesApplication ())
-(define-page-state Save)
-(instance (Application (! mut events storage tasks) FuturesApplication)
-  (define start
-    (lambda (entry) (run-page (lambda () (Save (Showing "idle") 0)) serialize deserialize present))))
-```
-
-`present` installs the page's DOM and fetch handlers, restores an owned Model
-from Save, and calls `run-reactor`. Its commit callback calls `commit-page` and
-`report-ready`; its checkpoint callback is the saver supplied by `run-page`.
-The complete example is `tests/apps/futures/src/futures/application.sld`.
-
-The reactor opens `with-borrow` scopes for view, window and snapshot,
-then ends each loan before moving the model or invoking effectful commit
-and checkpoint callbacks.
-
-Here `snapshot : (Borrow Model) -> Save` is pure, and Save is unrestricted,
-serializable data. The loop ends the borrow before publishing or storing
-Save. Saves occur on the shared timer's `SaveRequested`, hiding and close.
-On close the application drops the returned model. Only Save crosses a page
-restart or handover; pending futures belong to the old scheduler and are
-never stored in `Any` or serialized. Restore decides how to represent
-interrupted work or restart a request. This application always restores from
-Save, even when Model's type is unchanged. A view or update trap leaves the
-preceding committed Save available to the shared recovery protocol.
-
-`tests/apps/futures` is a browser example with only Load, Cancel and Click
-inputs. Its model owns a `Future<Result<String, String>>`. The browser
-test holds server replies while input continues, verifies that a canceled
-receiver cannot install a late reply, and refreshes while a request is
-pending. The next instance restores its snapshot and can dispatch again.
-`tests/programs/ui-futures.sld` covers the same ownership path over the
-in-memory DOM.
+The browser test holds server replies while input continues, verifies that a
+canceled receiver cannot install a late reply, and refreshes while a request
+is pending. The replacement restores its snapshot and can dispatch again.
+`tests/programs/ui-futures.sld` covers the same ownership path over the memory DOM.
 
 <a id="live-reload"></a>
 
@@ -363,8 +337,9 @@ records instead.
 builds it again whenever the project, the standard library or the browser
 host changes, compiling only the libraries the change reaches. Each page it
 serves ([below](#browser-targets-in-development)) relinks the modules that
-changed, and those after them, without reloading. Their globals start over;
-the application's state crosses to the new program:
+changed, and those after them, without reloading. Each invocation gets a fresh
+scheduler and page context; the application's explicit snapshot crosses to the
+new program:
 
 - as it is, when `type-test` finds its type unchanged;
 - through `save` and `restore` when its layout changed. That is the
@@ -394,8 +369,9 @@ fast, and the browser editor that subscribes to the same service.
 ## Task lifetime
 
 The loop is a task of the program's [scheduler](../runtimes/tasks.md).
-`app-main` dispatches it through `start-page`, which answers its id. The host
-turns the scheduler until the root returns or fails. `(snail shell page)`
+The host creates a scheduler and a `PageRun` context, then passes both to
+`app_main`. It dispatches the entry through `start-page`, which answers its id.
+The host turns that scheduler until the root returns or fails. `(snail shell page)`
 exposes `app_done` to distinguish a successful return from suspension or an
 invalid disappearance, and `app_state` for the optional checkpoint. Normal
 return and failure use that same checkpoint; a root that never adopts state
@@ -434,8 +410,8 @@ Consuming a pending frame requests the next animation frame, so slow work does
 not accumulate ticks. HUD values update at most every 100 milliseconds and
 periodic saves occur every five seconds.
 
-Event waits and complete storage operations wait by ticket on the Snail-Core
-scheduler. Starting a save copies its borrowed byte argument before the
+Event waits and complete storage operations wait by ticket on the Snail Scheme
+scheduler. Starting a save copies its byte argument before the
 IndexedDB request begins; a failed persistence operation still leaves an
 owned snapshot for migration. GPU drawing currently uses synchronous screen
 bindings. No import suspends Wasm, so the linear-memory stack of the Rust

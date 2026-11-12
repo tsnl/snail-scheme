@@ -34,11 +34,13 @@
   (⊨ (Subtract e A B))
   value)
 
+(with-instances (ordinary)
+                (define-instance-set erased
+                  (dynamic-instances Subtract (I64 I64) (I64 F64) (F64 I64))))
+
 (define main
   (lambda ()
-    (with-instances (ordinary)
-                    (define-instance-set erased
-                      (dynamic-instances Subtract (I64 I64) (I64 F64) (F64 I64))))
+
     (with-instances (erased alternate)
                     (handle dyn-cast ((conversion-failed (lambda (error)
                                                            (write-line "unsupported")

@@ -25,6 +25,9 @@
    storage
    load-save
    store-save
+   page
+   PageRun
+   make-page
    start-page
    PageState
    define-page-state
@@ -33,6 +36,7 @@
    define-page-entry)
   (import
    (snail core base)
+   (only (snail core forms) host)
    (prefix (snail runtime browser events) host-)
    (prefix (snail runtime browser storage) host-)
    (snail shell application)
@@ -102,10 +106,24 @@
     ;; return, independently of readiness and the optional checkpoint below.
     ;; Suspension or failure never sets it.
 
-    
 
-    (define (page-done) (→ I32) (! mut)
-      (if (● pagestate completed) 1 0))
+
+    (struct PageRun
+      ((completed Bool)
+       (incoming (Option Any))
+       (current (Option Any))))
+
+    ;; The host owns one context per invocation. It holds recovery values,
+    ;; never a scheduler or pending work. Saved handlers keep this context
+    ;; attached to its generation when the presentation suspends.
+    (effect page
+      ((current-page (Fn → PageRun))))
+
+    (define (make-page (handover (Option Any))) (→ PageRun)
+      (PageRun #f handover (None)))
+
+    (define (page-done (context PageRun)) (→ I32)
+      (if (● context completed) 1 0))
 
     ;; ---- Checkpointed pages ----
 
@@ -131,13 +149,17 @@
     ;; point without declaring the page ready. The host checks root
     ;; ownership before a caller can replace the checkpoint.
 
-    
 
-    
 
-    (define (commit-page (state S)) (→ Unit) (! mut events) (∀ S) (⊨ (PageState S) (Copy S))
+
+
+    (define (commit-page (state S))
+      (→ Unit)
+      (! mut events page)
+      (∀ S)
+      (⊨ (PageState S) (Copy S) (Drop (!) S))
       (checkpoint-root)
-      (set! (● pagestate current) (Some (pack-state state))))
+      (set! (● (current-page) current) (Some (pack-state state))))
 
     (define (restore-page (cold? Bool)
                           (initialize (Fn → S ! events))
@@ -145,17 +167,17 @@
       (→ (Option (Pair S I32)))
       (! events storage tasks)
       (∀ S)
-      (⊨ (PageState S) (Copy S))
+      (⊨ (PageState S) (Copy S) (Drop (!) S))
       (match (load-save)
         ((Some bytes) (Some (Pair (decode bytes) 1)))
         ((None) (if cold? (Some (Pair (initialize) 2)) (None)))))
 
-    (define (boot-page (initialize (Fn → S ! events)) (decode (Fn Bytes → S)))
+    (define (boot-page (context PageRun) (initialize (Fn → S ! events)) (decode (Fn Bytes → S)))
       (→ (Option (Pair S I32)))
-      (! mut events storage tasks)
+      (! events storage tasks)
       (∀ S)
-      (⊨ (PageState S) (Copy S))
-      (match (● pagestate incoming)
+      (⊨ (PageState S) (Copy S) (Drop (!) S))
+      (match (● context incoming)
         ((Some previous)
          (match (unpack-state previous)
            ((Some state) (Some (Pair state 0)))
@@ -170,35 +192,40 @@
                       (decode (Fn Bytes → S))
                       (run (Fn S (Fn S → Unit ! events storage tasks) → Unit ! e)))
       (→ Unit)
-      (! mut events storage tasks e)
+      (! mut events storage tasks page e)
       (∀ S e)
-      (⊨ (PageState S) (Copy S))
-      (match (boot-page initialize decode)
-        ((Some (Pair state kind))
-         (commit-page state)
-         (set! (● pagestate incoming) (None))
-         (report-boot kind)
-         (if (= (handover-only) 1)
-             (store-save (encode state))
-             (begin
-               (save-after 5000)
-               (run state (lambda (state) (store-save (encode state)) (save-after 5000))))))
-        ((None) (unit))))
+      (⊨ (PageState S) (Copy S) (Drop (!) S))
+      (let ((context (current-page)))
+        (match (boot-page context initialize decode)
+          ((Some (Pair state kind))
+           (commit-page state)
+           (set! (● context incoming) (None))
+           (report-boot kind)
+           (if (= (handover-only) 1)
+               (store-save (encode state))
+               (begin
+                 (save-after 5000)
+                 (run state (lambda (state) (store-save (encode state)) (save-after 5000))))))
+          ((None) (unit)))))
 
-    (define (start-page (handover (Option Any)) (work (FnOnce → Unit ! mut tasks e)))
-      (→ I64)
-      (! mut e)
-      (∀ e)
-      (set! (● pagestate incoming) handover)
-      (set! (● pagestate current) (None))
-      (set! (● pagestate completed) #f)
-      (dispatch-task (once (lambda () (work) (set! (● pagestate completed) #t)))))
+    (define (start-page (context PageRun) (scheduler Scheduler)
+                        (work (FnOnce → Unit ! mut tasks page e)))
+      (→ I64) (! mut host e) (∀ e)
+      (handle page ((current-page (lambda () context)))
+        (dispatch-in scheduler
+                     (once (lambda ()
+                             (work)
+                             (set! (● context completed) #t))))))
 
-    ;; Both normal return and failure hand over this same checkpoint. An
-    ;; unadopted incoming value is never mistaken for the root's own state.
+    ;; Only a published checkpoint is the page's state. If loading traps
+    ;; before boot, the host can recover the incoming value separately.
+    ;; Each getter transfers one credit to its host caller.
 
-    (define (page-state) (→ (Option Any)) (! mut)
-      (● pagestate current))
+    (define (page-state (context PageRun)) (→ (Option Any))
+      (● context current))
+
+    (define (page-incoming (context PageRun)) (→ (Option Any))
+      (● context incoming))
 
     ;; The only generated browser scaffolding is an ordinary Application
     ;; call. Its selected instance determines the effect row, without an
@@ -208,17 +235,14 @@
         ((_ App)
          (begin
            (define page-main
-             (lambda (handover)
-               (start-page (ann handover (Option Any))
+             (lambda (scheduler page)
+               (start-page (ann page PageRun) (ann scheduler Scheduler)
                            (once (lambda () (start (ann (Entry) (Entry App))))))))
            (expose page-main "app_main")))))
 
+    (expose make-page "app_create")
     (expose page-done "app_done")
     (expose page-state "app_state")
-(struct PageState
-  ((completed Bool)
-   (incoming (Option Any))
-   (current (Option Any))))
-(define pagestate (→ PageState) (PageState #f (None) (None)))
+    (expose page-incoming "app_incoming")
 
-))
+    ))

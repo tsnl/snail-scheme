@@ -16,7 +16,12 @@
 
 (define (sum (a A) (b B)) (→ (Add.Output e A B)) (! e) (∀ A B e) (⊨ (Add e A B)) (add a b))
 
-(define (twice (a A)) (→ A) (! e) (∀ A e) (⊨ (Copy A) (Add e A A (type Output A))) (add a a))
+(define (twice (a A))
+  (→ A)
+  (! e)
+  (∀ A e)
+  (⊨ (Copy A) (Drop e A) (Add e A A (type Output A)))
+  (add a a))
 
 ;; An output of an earlier prerequisite becomes a later prerequisite's input.
 (struct (Box A)

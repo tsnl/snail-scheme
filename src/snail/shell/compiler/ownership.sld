@@ -31,7 +31,6 @@
 
     (define no-loc (→ Loc) (Loc "ownership" 0 0))
 
-
     ;; ---- Shared call ownership ----
 
     ;; Ordinary calls and constructors consume their operands. Observation
@@ -45,14 +44,20 @@
         ((Some (Primitive _))
          (match (● callee term)
            ((Var name _ _)
-            (and (not (member? name
-                               (list "prim:unsafe-total"
-                                     "prim:inherit-handlers"
-                                     "prim:inherit-handlers-1"
-                                     "prim:once" "prim:call-once" "prim:drop-once" "prim:discard"
-                                     "prim:rc" "prim:rc-new" "prim:set!" "prim:replace!"
-                                     "prim:constant-array" "prim:retain" "prim:release")))
-                 (not (and (= index 2) (member? name (list "prim:array-set!" "prim:vector-set"))))))
+            (if (member? name (list "prim:constant-array-fill"))
+                (= index 0)
+                (and (not (member? name
+                                   (list "prim:unsafe-total"
+                                         "prim:inherit-handlers"
+                                         "prim:inherit-handlers-1"
+                                         "prim:once"
+                                         "prim:call-once"
+                                         "prim:drop-once"
+                                         "prim:discard"
+                                         "prim:rc" "prim:rc-new" "prim:set!" "prim:replace!"
+                                         "prim:constant-array" "prim:retain" "prim:release")))
+                     (not (and (= index 2)
+                               (member? name (list "prim:array-set!" "prim:vector-set")))))))
            (_ #f)))
         ((Some (Foreign _ _)) #t)
         (_ #f)))
@@ -153,11 +158,6 @@
          (for-each (lambda (part) (check-type program copy part loc)) (Cons result params)))
         (_ (unit))))
 
-    ;; A borrowed value is allowed only as a local or explicit parameter.
-    ;; Its target is owned: there are no nested or stored Borrow values.
-
-
-
     ;; A message about a value of a linear type, with the Copy that would
     ;; have made the type unrestricted, if one would.
 
@@ -227,11 +227,6 @@
       (check-type program copy (● expr type) (● expr loc))
       (for-each (lambda (child) (check-expression-types program copy child)) (expr-children expr)))
 
-    ;; Only introduction and direct immutable projections may produce a
-    ;; Borrow. They are compiler operations, never borrow-returning helpers.
-
-
-
     ;; ---- Paths ----
 
     ;; One path through a body, as far as the check has followed it: the
@@ -261,15 +256,12 @@
     (define (live? (path Path) (name String)) (→ Bool)
       (any? (lambda (owner) (string=? (● owner name) name)) (● path live)))
 
-
-
     ;; The same for a value on this path, under its definition's Copy.
 
     (define (explain (path Path) (type Type) (message String)) (→ String)
       (explain-type (● path program) (● path copy) type message))
 
-    ;; Borrow aliases are reusable within their lexical scope. They share
-    ;; its capture restriction; linear owners retain their once-only use.
+    ;; Only linear owners enter the live set; counted copies are reusable.
 
     (define (bind (path Path) (name String) (type Type)) (→ Path)
       (if (linear? path type) (Path-live-set path (Cons (Owner name type) (● path live))) path))
@@ -371,9 +363,7 @@
            (panic "internal error: try-convert must be lowered before ownership checking"))
           ((TypeTest inner target) (check-conversion path expr inner target)))))
 
-    ;; A private borrow initializer opens a lexical loan. Every exit must
-    ;; return owned data, and closing restores only loan metadata, keeping
-    ;; any consumption of other owners performed by the body.
+    ;; The body must consume every linear owner introduced by its binding.
 
     (define (check-let (path Path) (name String) (value Expr) (body Expr) (loc Loc))
       (→ Path) (! compile)
@@ -432,34 +422,14 @@
            ((None) (check-ordinary-call path callee args))))
         (_ (check-ordinary-call path callee args))))
 
-    ;; Borrow parameters receive already-scoped values. Calls never turn
-    ;; an owner into a borrow implicitly, including higher-order calls.
+    ;; Calls transfer their arguments, including the receiver of a FnOnce.
 
     (define (check-ordinary-call (path Path) (callee Expr) (args (List Expr))) (→ Path) (! compile)
       (check-yield-holds (check-all path (Cons callee args)) callee))
 
-
-
-
-
-    ;; The receiver stays owned by its lexical scope. Its loan lasts through
-    ;; argument evaluation and the call, so the existing continuation rule
-    ;; also refuses suspension that could outlive this owner. FnMut forbids
-    ;; another use of the loaned root while its exclusive call is prepared.
-
-
-
-    ;; Only a local or a path of immutable fields is a lendable place.
-    ;; Mutable content can be replaced through an alias while later
-    ;; arguments run, so it must first be read into an owned local.
-
-
-
-
-
     ;; The references that move ownership into an expression. Field reads
-    ;; borrow their place; a replacement consumes its record. Control uses
-    ;; the same distinction when assigning owners to saved or aborted scopes.
+    ;; observe their place; pure replacements consume their record. Control
+    ;; uses the same distinction for saved or aborted scopes.
 
     (define (consumed-references (program Program) (expr Expr)) (→ (List String))
       (match (● expr term)
@@ -652,11 +622,6 @@
                ((None) #f))))
         (_ #f)))
 
-    ;; Ordinary type variables range over owned values, even when they are
-    ;; Copy. This prevents polymorphic code from hiding a Borrow in a
-    ;; closure, container or opaque result. Explicit Borrow<T> helpers keep
-    ;; T owned and their non-retention contract visible.
-    ;;
     ;; A use of a generic function that may yield binds its type variables
     ;; to types it may hold across the yield. Only a definition or a method
     ;; has a body that could; a primitive, an operation or a constructor
@@ -679,20 +644,6 @@
                                         (● expr loc)))
                      types)))
         (_ (unit))))
-
-    ;; Fn -> FnOnce adaptation still calls through a receiver loan. Owning
-    ;; the adapter is not a proof that a suspended loan can outlive it.
-
-
-
-
-
-
-
-    ;; Any and host code cannot enforce lexical scope. Check a foreign
-    ;; reference, not just its calls, so aliasing cannot hide the boundary.
-
-
 
     (define (has-body? (value Value)) (→ Bool)
       (match value
@@ -750,8 +701,6 @@
            ((Some value) (if (field-value? value) (Some value) (None)))
            ((None) (None))))
         (_ (None))))
-
-
 
     (define (field-value? (value Value)) (→ Bool)
       (match value
@@ -871,11 +820,6 @@
             (when (linear? path (● record type))
               (require-live path (Owner name (● record type)) (● record loc))))
            (_ (unit))))))
-
-    ;; Shared captured owners are read-only. An FnMut body gets exclusive
-    ;; access to its captures without gaining permission to move them out.
-
-
 
     ;; The place rule: a field operation reads or writes its record where it
     ;; is, so a linear local it is applied to stays live. A linear record

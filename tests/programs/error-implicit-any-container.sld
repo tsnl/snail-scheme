@@ -1,9 +1,12 @@
 (import
  (snail core base))
 
-(define (integer (value (Ref I64))) (→ I64) (! mut) (ref-get value))
+(struct (Cell T)
+  ((value T)))
 
-(define dynamic (→ (Ref Any)) (ref (ann 1 Any)))
+(define (integer (value (Cell I64))) (→ I64) (● value value))
+
+(define dynamic (→ (Cell Any)) (Cell (ann 1 Any)))
 
 (define main
   (lambda ()

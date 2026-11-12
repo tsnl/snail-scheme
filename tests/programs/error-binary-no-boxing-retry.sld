@@ -11,11 +11,13 @@
     (type Output I64)
     (define op (lambda (a b) (+ a b)))))
 
+(with-instances (sources)
+                (define-instance-set dynamic
+                  (dynamic-instances Op (I64 I64))))
+
 (define main
   (lambda ()
-    (with-instances (sources)
-                    (define-instance-set dynamic
-                      (dynamic-instances Op (I64 I64))))
+
     (with-instances (dynamic)
                     (handle dyn-cast ((conversion-failed (lambda (_) (unit))))
                       (op (ann 1 I64) (ann 2 I64))

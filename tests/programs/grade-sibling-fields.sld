@@ -2,19 +2,18 @@
  (snail core base)
  (snail core io))
 
-;; Two sibling fields may hold one declaration at different arguments
-;; without that being recursion. A struct of two cells is a shared handle,
-;; so it is duplicated freely; the second taker finds the content gone.
+;; Sibling instances of the same aggregate are searched independently.
+;; Ordinary fields propagate linearity; Rc is the explicit shared owner.
 (struct (Shared T)
-  ((count (Ref I64))
-   (current (Ref (Option T)))))
+  ((count I64)
+   (current (Option T))))
 
-(define (share (shared (Shared T))) (→ (Pair (Shared T) (Shared T))) (∀ T)
+(define (share (shared (Rc (Shared T)))) (→ (Pair (Rc (Shared T)) (Rc (Shared T)))) (∀ T)
   (Pair shared shared))
 
-(define (run-current (shared (Shared String))) (→ Unit) (! output-port mut)
-  (ref-set! (● shared count) (+ (ref-get (● shared count)) 1))
-  (match (ref-replace! (● shared current) (None))
+(define (run-current (shared (Rc (Shared String)))) (→ Unit) (! output-port mut)
+  (set! (● shared count) (+ (● shared count) 1))
+  (match (replace! (● shared current) (None))
     ((Some text) (write-line text))
     ((None) (write-line "nothing to run"))))
 
@@ -40,10 +39,10 @@
 
 (define main
   (lambda ()
-    (match (share (Shared (ref 0) (ref (Some "ran once"))))
+    (match (share (rc (Shared 0 (Some "ran once"))))
       ((Pair first second)
        (run-current first)
        (run-current second)
-       (write-line (string-append "asked " (show (ref-get (● first count))) " times"))))
+       (write-line (string-append "asked " (show (● first count)) " times"))))
     (drop (Two (Some (Handle "h")) (Some (Token 1))))
     (unit)))

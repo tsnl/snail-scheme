@@ -1,4 +1,4 @@
-;; One compiler invocation, shared by the Chibi and Wasm entry programs. A
+;; One compiler invocation, shared by the Chez and Wasm entry programs. A
 ;; compile that fails prints its diagnostic and exits with status 1; one
 ;; that needs an input publishes its request beside the libraries its
 ;; producers generate, then exits the same way.

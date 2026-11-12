@@ -1,5 +1,6 @@
 (import
  (snail core base)
+ (only (snail core forms) host)
  (snail core io)
  (snail shell task))
 
@@ -13,12 +14,12 @@
 (define (say (text String)) (→ Work)
   (once (lambda () (write-line text))))
 
-(define (produce (mailbox (Mailbox Work))) (→ Unit) (! mut tasks)
+(define (produce (mailbox (Mailbox Work))) (→ Unit) (! host mut tasks output-port)
   (mailbox-post mailbox (say "one"))
   (yield)
   (mailbox-post mailbox (say "two")))
 
-(define (consume (mailbox (Mailbox Work)) (count I64)) (→ Unit) (! output-port mut tasks)
+(define (consume (mailbox (Mailbox Work)) (count I64)) (→ Unit) (! host output-port mut tasks)
   (when (> count 0)
     (call-once (mailbox-receive mailbox))
     (consume mailbox (- count 1))))

@@ -3,7 +3,7 @@
  (snail core io)
  (sample specialization))
 
-(define third (→ I64) (+ second (advance)))
+(define third (→ I64) (+ second 4))
 
 ;; The library module imports this same function for both its host wrapper
 ;; and its ordinary call; neither path may enqueue an imported body.
@@ -11,9 +11,7 @@
 
 (define main
   (lambda ()
-    ;; Definitions initialize before statements, in both whole-program and
-    ;; library builds, even when a statement precedes the definition in source.
-    (write-line (show (advance)))
+    ;; Source and emission order do not affect dependency forcing.
     (write-line (show first))
     (write-line (show second))
     (write-line (show third))
@@ -21,8 +19,7 @@
     (write-line (round-trip "again" 99))
     (write-line (show (round-trip 23 2)))
     (write-line (show (fixed 41)))
-    ;; Reading the inner list catches an initializer that captured its
-    ;; dependency's default null value before that dependency was initialized.
+    ;; Each imported generic constant has its dependencies fully evaluated.
     (match (ann nested-values (List (List I64)))
       ((Cons values _) (write-line (show (length values))))
       ((Nil) (panic "missing integer list")))

@@ -20,10 +20,10 @@
     (let ((to-once once))
       (let ((function (to-once (lambda (left right) (string-append left right)))))
         (write-line (function "first " "class"))))
-    (let ((function (once code)))
+    (let ((function (once (lambda (value) (code value)))))
       (write-line (show (function 5))))
-    (write-line (show (consume code)))
-    ;; Explicit storage permits different owned implementation families.
+    (write-line (show (consume (once (lambda (value) (code value))))))
+    ;; A list transfers each one-shot procedure to exactly one caller.
     (let ((jobs (ann (list (once (lambda (value) (+ value 2)))
                            (once (lambda (value) (* value 3))))
                      (List (FnOnce I64 → I64)))))

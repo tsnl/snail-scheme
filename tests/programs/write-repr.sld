@@ -3,7 +3,10 @@
  (snail core io)
  (sample representation))
 
-(define (line (value T)) (→ Unit) (! output-port) (∀ T) (⊨ (Repr T))
+(struct Output
+  ((text String)))
+
+(define (line (value T)) (→ Unit) (! output-port) (∀ T) (⊨ (Repr T) (Drop (!) T))
   (write value)
   (newline))
 
@@ -72,10 +75,10 @@
     (line (Batch (list->vector (list "one" "two"))))
     (line (Secret "private"))
     (write-line represented)
-    (let ((output (ref "")))
+    (let ((output (Output "")))
       (handle output-port
           ((write-string (lambda (text)
-                           (ref-set! output (string-append (ref-get output) text)))))
+                           (set! (● output text) (string-append (● output text) text)))))
         (write (Some "captured")))
-      (write-line (ref-get output)))
+      (write-line (● output text)))
     (unit)))

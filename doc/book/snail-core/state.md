@@ -61,13 +61,13 @@ Illustrative generated operations use existing effect syntax:
 
 ```scheme
 (effect NotesRead
-  ((paragraphs-ref (dyn (Fn EntityId → (Option Paragraph))))
-   (documents-ref (dyn (Fn EntityId → (Option Document))))))
+  ((paragraphs-ref (Fn EntityId → (Option Paragraph)))
+   (documents-ref (Fn EntityId → (Option Document)))))
 
 (effect NotesWrite
-  ((paragraphs-insert! (dyn (Fn EntityId Paragraph → Bool)))
-   (paragraphs-replace! (dyn (Fn EntityId Paragraph → Bool)))
-   (paragraphs-delete! (dyn (Fn EntityId → Bool)))))
+  ((paragraphs-insert! (Fn EntityId Paragraph → Bool))
+   (paragraphs-replace! (Fn EntityId Paragraph → Bool))
+   (paragraphs-delete! (Fn EntityId → Bool))))
 ```
 
 Insert returns false if the key exists; replace/delete return false if it is
@@ -94,12 +94,12 @@ not separate implementation declarations:
 ```scheme
 ;; notes-read contract (summary notation):
 ;; (∀ (A)
-;;   (impl (Fn (dyn (Fn → A ! NotesRead))
-;;       → (Result A StoreError) ! store)))
+;;   (Fn (Fn → A ! NotesRead)
+;;       → (Result A StoreError) ! store))
 ;; notes-write contract (summary notation):
 ;; (∀ (A E)
-;;   (impl (Fn (dyn (Fn → (Result A E) ! NotesRead NotesWrite))
-;;       → (Result A (WriteError E)) ! store)))
+;;   (Fn (Fn → (Result A E) ! NotesRead NotesWrite)
+;;       → (Result A (WriteError E)) ! store))
 ```
 
 `notes-read` binds one consistent snapshot for the whole computation, including

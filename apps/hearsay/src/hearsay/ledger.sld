@@ -223,7 +223,10 @@
        (last-round (List String)))
       (deriving Serialize Deserialize))
 
-    (define (replace-at (items (List T)) (index I64) (value T)) (→ (List T)) (∀ T) (⊨ (Copy T))
+    (define (replace-at (items (List T)) (index I64) (value T))
+      (→ (List T))
+      (∀ T)
+      (⊨ (Copy T) (Drop (!) T))
       (map-indexed (lambda (at item) (if (= at index) value item)) items))
 
     (define (ledger-fixer (ledger Ledger) (who I64)) (→ Fixer)

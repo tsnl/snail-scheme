@@ -2,7 +2,7 @@
 ;; and replacing the program with a command. A handler can replace the
 ;; effect in a test. By default an operation that waits starts on the
 ;; native host and waits by ticket, as (snail shell socket)'s do. Stage 0's tool runner,
-;; host/chibi/snail/stage0/process.sld, has the same name; Chibi never sees src/.
+;; host/chez/snail/stage0/process.sls, has the same name; Chez never sees src/.
 (define-library (snail shell process)
   (export
    process spawn read-output write-input close-input send-signal wait-exit close-process run exec

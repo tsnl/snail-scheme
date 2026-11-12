@@ -6,20 +6,30 @@
           file-lock lock/exclusive lock/unlock string-contains string-suffix? string-split
           write-string read-string read-bytevector write-bytevector
           open-binary-input-file open-binary-output-file port->string error-text
-          command-text run-command-status open-replacing-output-file call-with-replacing-output-file)
-  (import (chezscheme))
+          pinned-channel
+          command-text
+          run-command-status
+          open-replacing-output-file
+          call-with-replacing-output-file)
+  (import
+   (chezscheme))
 
   ;; ---- Paths and files ----
 
-  (define (path-directory path) (let ([parent (path-parent path)]) (if (string=? parent "") "." parent)))
+  (define (path-directory path)
+    (let ([parent (path-parent path)]) (if (string=? parent "") "." parent)))
   (define (make-path . parts)
-    (fold-left (lambda (path part) (if (string=? path "") part (string-append path "/" part))) "" parts))
+    (fold-left (lambda (path part) (if (string=? path "") part (string-append path "/" part)))
+               ""
+               parts))
   (define (path-normalize path)
     (let ([absolute? (path-absolute? path)])
       (let loop ([parts (string-split path #\/)] [kept '()])
         (cond [(null? parts)
                (let ([joined (apply make-path (reverse kept))])
-                 (cond [absolute? (string-append "/" joined)] [(string=? joined "") "."] [else joined]))]
+                 (cond [absolute? (string-append "/" joined)]
+                       [(string=? joined "") "."]
+                       [else joined]))]
               [(member (car parts) '("" ".")) (loop (cdr parts) kept)]
               [(and (string=? (car parts) "..") (pair? kept) (not (string=? (car kept) "..")))
                (loop (cdr parts) (cdr kept))]
@@ -59,6 +69,22 @@
   (define (symbolic-link-file target path)
     (unless (zero? (c-symlink target path)) (error 'symlink "cannot create link" target path)))
 
+  (define (pinned-channel root)
+    (let* ((path (make-path root "rust-toolchain.toml"))
+           (channel (quoted-value (call-with-input-file path port->string) "channel")))
+      (or channel (error 'snail "rust-toolchain.toml must name a channel" path))))
+
+  (define (quoted-value text key)
+    (let* ((at (string-contains text key))
+           (rest (and at (substring text at (string-length text))))
+           (open (and rest (string-contains rest "\"")))
+           (tail (and open
+                      (substring rest
+                                 (+ open 1)
+                                 (string-length rest))))
+           (close (and tail (string-contains tail "\""))))
+      (and close (substring tail 0 close))))
+
   ;; ---- Text and ports ----
 
   (define (string-contains text part)
@@ -95,9 +121,10 @@
            (if (format-condition? condition)
                (apply format (condition-message condition) (condition-irritants condition))
                (string-append (condition-message condition)
-                 (apply string-append (map (lambda (value) (format " ~s" value))
-                                          (if (irritants-condition? condition)
-                                              (condition-irritants condition) '())))))]
+                              (apply string-append (map (lambda (value) (format " ~s" value))
+                                                        (if (irritants-condition? condition)
+                                                            (condition-irritants condition)
+                                                            '())))))]
           [else (format "~s" condition)]))
 
   ;; ---- Commands ----
@@ -109,8 +136,10 @@
     (unless (and (string? text) (not (string-contains text (string #\nul))))
       (error 'command "expected an argument without NUL" text))
     (string-append "'"
-      (apply string-append
-        (map (lambda (char) (if (char=? char #\') "'\"'\"'" (string char))) (string->list text))) "'"))
+                   (apply string-append
+                          (map (lambda (char) (if (char=? char #\') "'\"'\"'" (string char)))
+                               (string->list text)))
+                   "'"))
   (define (command-text arguments)
     (unless (and (pair? arguments) (not (string=? (car arguments) ""))
                  (not (char=? (string-ref (car arguments) 0) #\-)))
@@ -120,4 +149,4 @@
   (define (run-command-status arguments)
     ;; The tool protocol uses POSIX wait statuses, including signal deaths.
     (let ([status (system (command-text arguments))]) (if (< status 0) (- status) (* status 256))))
-)
+  )

@@ -1,6 +1,7 @@
 (import
  (only (snail core forms) host)
  (snail core base)
+ (only (snail shell task) tasks)
  (rename (snail core io) (write write-value))
  (only (snail shell task) dispatch-local)
  (snail shell socket))

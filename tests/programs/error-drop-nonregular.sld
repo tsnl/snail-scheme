@@ -11,3 +11,6 @@
 
 (define (release (nest (Nest (FnOnce → Unit)))) (→ Unit)
   (drop nest))
+
+(define (main) (→ Unit)
+  (release (Flat (once (lambda () (unit))))))

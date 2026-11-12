@@ -1,7 +1,7 @@
 # Task operations
 
 `(snail shell task)` defines the `tasks` effect and the scheduler that
-handles it, both in Snail-Core:
+handles it, both in Snail Scheme:
 
 | Operation | Meaning |
 | --- | --- |
@@ -59,9 +59,9 @@ the same handlers.
 ```scheme
 (enum Step
   (Finished)
-  (Yielded ((next (dyn (FnOnce → Step ! host)))))
-  (Sleeping ((delay I64) (next (dyn (FnOnce → Step ! host)))))
-  (Waiting ((ticket I64) (next (dyn (FnOnce → Step ! host))))))
+  (Yielded ((next (FnOnce → Step ! host))))
+  (Sleeping ((delay I64) (next (FnOnce → Step ! host))))
+  (Waiting ((ticket I64) (next (FnOnce → Step ! host)))))
 ```
 
 The scheduler keeps every task that is not running in exactly one place:
@@ -278,7 +278,7 @@ after completion; no managed object is shared with the kernel.
 
 A `Mailbox` is how tasks hand each other values. Messages are received in
 the order they were posted, and receivers are served in the order they
-began to wait. Its queues are Snail-Core data, each in an `UnsafeSlot` of
+began to wait. Its queues are Snail Scheme data, each in an `UnsafeSlot` of
 `(snail shell slot)` ([scheduling](#scheduling)), one of messages
 posted while no task waited and one of waiting receivers: tasks share a
 mailbox, so its contents are the one piece of state this library cannot

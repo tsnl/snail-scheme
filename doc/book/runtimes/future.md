@@ -5,7 +5,7 @@ shipping features. We ship one WasmGC backend.
 
 Three decisions have been made since. One-shot `ctl` handlers are implemented
 by evidence passing ([effects and handlers](../snail-core/effects.md#control-handlers)),
-and the runtime's tasks are an effect on them, scheduled in Snail-Core, so
+and the runtime's tasks are an effect on them, scheduled in Snail Scheme, so
 no host suspends a Wasm stack ([task operations](tasks.md)).
 And each instance of a program is single-threaded, talking to others only
 through queues and shared memory ([instances](instances.md), proposed). So
@@ -109,9 +109,9 @@ continuation closures on the yielding path. A yielding flag distinguishes
 ordinary return values from suspension. Capture does work along the
 continuation's path, whereas native stack switching can retain the stack
 without rebuilding that path as closures. These are different cost models;
-neither establishes a performance result for Snail-Core without measurement.
+neither establishes a performance result for Snail Scheme without measurement.
 
-Koka supports multiple resumptions. Snail-Core restricts them to one: `resume`
+Koka supports multiple resumptions. Snail Scheme restricts them to one: `resume`
 is linear, so it is called or dropped exactly once. A C
 backend would still need closure conversion, effect lowering, a
 managed-memory strategy, a foreign ABI and a portable runtime.
@@ -201,7 +201,7 @@ discarding one reference does not cancel every retained invocation or
 destroy resources still reachable through another reference.
 
 Foreign callbacks return normally. They copy transient inputs or transfer
-an explicitly owned buffer, settle a registration and enqueue Snail-Core work.
+an explicitly owned buffer, settle a registration and enqueue Snail Scheme work.
 They do not capture a foreign stack as part of a continuation. Browser
 operations that need an immediate response, such as event suppression,
 keep that decision in the synchronous adapter.

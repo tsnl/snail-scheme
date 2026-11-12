@@ -18,10 +18,12 @@
 
 (define (generic (a A) (b B)) (→ (Combine.Output A B)) (∀ A B) (⊨ (Combine A B)) (combine a b))
 
+(with-instances (addition)
+                (define (add-here (a I64) (b I64)) (→ I64) (generic a b)))
+
 (define main
   (lambda ()
-    (with-instances (addition)
-                    (define (add-here (a I64) (b I64)) (→ I64) (generic a b)))
+
     (with-instances (description)
                     (display (generic (ann 2 I64) (ann 3 I64)))
                     (newline)

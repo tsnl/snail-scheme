@@ -598,17 +598,16 @@
                           (list-sort before? (list-drop items half))))))
 
     (define (merge-sorted (before? (Fn T T → Bool ! e)) (left (List T)) (right (List T)))
-      (→ (List T))
-      (! e)
-      (∀ T e)
-      (⊨ (Copy T) (Drop e T))
-      (match (Pair left right)
-        ((Pair (Nil) _) right)
-        ((Pair _ (Nil)) left)
-        ((Pair (Cons a rest-a) (Cons b rest-b))
-         (if (before? b a)
-             (Cons b (merge-sorted before? left rest-b))
-             (Cons a (merge-sorted before? rest-a right))))))
+      (→ (List T)) (! e) (∀ T e) (⊨ (Copy T) (Drop e T))
+      ;; The merge is linear in the list length, but uses constant stack.
+      ;; Equal elements come from the left run first, preserving stability.
+      (let loop ((left left) (right right) (reversed (Nil)))
+        (match (Pair left right)
+          ((Pair (Nil) _) (fold-left (lambda (rest item) (Cons item rest)) right reversed))
+          ((Pair _ (Nil)) (fold-left (lambda (rest item) (Cons item rest)) left reversed))
+          ((Pair (Cons a rest-a) (Cons b rest-b))
+           (if (before? b a) (loop left rest-b (Cons b reversed))
+               (loop rest-a right (Cons a reversed)))))))
 
     (define (last (items (List T)))
       (→ (Option T))

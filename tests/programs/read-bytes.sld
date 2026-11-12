@@ -3,10 +3,9 @@
  (snail core base)
  (snail core io))
 
-(define image (read-bytes "tests/programs/data/pixel.png"))
-
 (define main
   (lambda ()
+    (define image (read-bytes "tests/programs/data/pixel.png"))
     (display (vector-length image))
     (newline)
     (display

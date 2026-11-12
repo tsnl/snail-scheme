@@ -2,7 +2,7 @@
 ;; WebAssembly text, or to the schemas of its wire types. In a one-off
 ;; compile each pass's output is the next pass's only input; a session,
 ;; (snail shell compiler session), also keeps what each library became in the
-;; build before. The typed driver serves both compiler entries: Chibi runs
+;; build before. The typed driver serves both compiler entries: Chez runs
 ;; the source as stage 0, and Node runs the compiler compiled to Wasm.
 (define-library (snail shell compiler)
   (export

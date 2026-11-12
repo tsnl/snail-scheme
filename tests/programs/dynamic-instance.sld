@@ -6,7 +6,7 @@
 (instance (Num (! dyn-cast) Any)
   (dispatch I64 F64))
 
-(define (describe-twice (value T)) (→ String) (! e) (∀ T e) (⊨ (Describe e T) (Copy T))
+(define (describe-twice (value T)) (→ String) (! e) (∀ T e) (⊨ (Describe e T) (Copy T) (Drop e T))
   (string-append (describe value) (describe value)))
 
 (define (sum (a T) (b T)) (→ T) (! e) (∀ T e) (⊨ (Num e T)) (+ a b))

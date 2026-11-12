@@ -46,11 +46,11 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
     return scheduler;
   }
   function enter(name, ...args) {
-    if (closed && !(disposing && name.startsWith('resource:'))) throw new Error('the task scheduler has closed');
+    if (closed && !(disposing && typeof name === 'string' && name.startsWith('resource:'))) throw new Error('the task scheduler has closed');
     const api = context();
     if (!api) return null;
     active++;
-    try { return api[name](owner, ...args); }
+    try { return (typeof name === 'function' ? name : api[name])(owner, ...args); }
     finally {
       active--;
       if (!active && !disposing) {
@@ -142,6 +142,7 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
     async drive(stopped = () => false) {
       if (closed || !context()) return;
       for (;;) {
+        if (closed) return;
         let next;
         try { next = Number(enter('tasks:turn', BigInt(Date.now()))); }
         catch (error) {
@@ -160,11 +161,18 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
       if (closed) return;
       closed = true;
       controller.abort(reason);
-      if (!active) release();
-      for (const [, outcome] of settled.splice(0)) { outstanding--; outcome.dispose(); }
-      for (const outcome of outcomes.values()) outcome.dispose();
+      let failure;
+      try { if (!active) release(); } catch (error) { failure = error; }
+      // A source finalizer may trap. Host results still belong to this run
+      // and must be disposed even when releasing the scheduler failed.
+      outstanding -= settled.length;
+      const abandoned = [...settled.splice(0).map(([, outcome]) => outcome), ...outcomes.values()];
       outcomes.clear();
+      for (const outcome of abandoned) {
+        try { outcome.dispose(); } catch (error) { failure ??= error; }
+      }
       resting?.();
+      if (failure) throw failure;
     },
   };
 }

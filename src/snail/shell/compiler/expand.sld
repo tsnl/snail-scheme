@@ -2241,8 +2241,8 @@
              (cx (bind-fields cx env name (● parsed fields) #f)))
         (with-name-annotations cx name (● parsed annotations))))
 
-    ;; A field as written: `(name type)`, or `(name mut type)` for a
-    ;; mutable one, optionally followed by an annotation list.
+    ;; A field is `(name type)`, optionally followed by annotations.
+    ;; All fields are mutable; there is no second field grammar.
     (struct FieldSyntax
       ((name Syntax)
        (type Syntax)
@@ -2256,7 +2256,7 @@
           (_ (compile-error (syntax-loc field)
                             "expected (field type), optionally with (annotations ...)")))))
 
-    ;; A field's generated names, by `field-suffixes`; a pure struct's
+    ;; A field's generated names, by `field-suffixes`; a struct's
     ;; accessor name is reserved instead of bound.
 
     (define (bind-fields (cx Context) (env Env) (name Syntax) (fields (List Syntax)) (struct? Bool))
@@ -2282,7 +2282,7 @@
                                   (field-suffixes struct?))))
                    cx parsed)))
 
-    ;; A pure struct's field is read by path, but its accessor still exists
+    ;; A struct's field is read by path, but its accessor still exists
     ;; in the program under `Name-field` for the checker's resolved call,
     ;; so that name is bound as syntax that refuses use: a read
     ;; through it says to use the path, and a definition of it is a
@@ -2298,18 +2298,10 @@
 
 
 
-    ;; The suffixes of the names a field binds. A struct whose fields are
-    ;; all immutable is a value read by path, `(● s field)`, so it binds
-    ;; only the pure replacement `Name-field-set`; its accessor exists in the
-    ;; program for the checker's resolved call. A mutable field, which
-    ;; is read by `Name-field` and written by
-    ;; `Name-field-set!` and `Name-field-replace!`, and its struct has
-    ;; identity, so no pure replacements. An enum's fields stay immutable
-    ;; and a case's partial accessor `Case-field`
-    ;; reads them, or a pattern does.
-
+    ;; Every field has a setter and swapper. Struct reads use nominal paths
+    ;; and offer pure replacement; enum reads name their partial case accessor.
     (define (field-suffixes (struct? Bool)) (→ (List String))
-      (if struct? (list "-set" "-set!" "-replace!") (list "")))
+      (if struct? (list "-set" "-set!" "-replace!") (list "" "-set!" "-replace!")))
 
     ;; A field identifier shares the mark of its type's name, so a struct a
     ;; macro introduces has accessors only that expansion sees.
@@ -2423,15 +2415,11 @@
     (define (resolve-field (cx Context) (scope Env) (field Syntax)) (→ Field) (! compile)
       (let ((parsed (parse-field field)))
         (Field (Ident-name (expect-ident (● parsed name) "a field name"))
-               (stored-type cx scope (● parsed type)))))
+               (resolve-type cx scope (● parsed type)))))
 
-    (define (stored-type (cx Context) (env Env) (syntax Syntax)) (→ Type) (! compile)
-      (let ((type (resolve-type cx env syntax)))
-        (check-stored-type type (syntax-loc syntax))
-        type))
 
-    (define (check-stored-type (type Type) (loc Loc)) (→ Unit)
-      (unit))
+
+
 
     (define (constructor-name (cx Context) (env Env) (ident Syntax)) (→ String) (! compile)
       (match (resolve cx env ident)
@@ -2440,11 +2428,8 @@
         (_ (compile-error (syntax-loc ident)
                           (string-append "not a constructor: " (Ident-name ident))))))
 
-    ;; A case's constructor, then each field's operations, as `bind-fields`
-    ;; names them. Constructing is pure, even for a struct with identity,
-    ;; and so is reading an immutable field; reading or writing a mutable
-    ;; one performs `mut`.
-
+    ;; Construction and field reads are pure. Setters and swappers perform
+    ;; mut; ownership decides whether overwritten content may be released.
     (define (with-case-values (program Program) (data DataType) (case Case) (struct? Bool))
       (→ Program)
       (let* ((params (● data params)) (self (TCon (● data name) (map TRigid params)))
@@ -2469,31 +2454,34 @@
     (define (with-field-values (program Program) (data DataType) (case Case)
                                (index I64) (field Field) (struct? Bool))
       (→ Program)
-      (let* ((params (● data params))
-             (self (TCon (● data name) (map TRigid params)))
-             (type (● field type))
-             (name (string-append (● case name) "-" (● field name)))
+      (let* ((params (● data params)) (self (TCon (● data name) (map TRigid params)))
+             (type (● field type)) (name (string-append (● case name) "-" (● field name)))
              (program (program-with-value program name
                                           (Accessor case
                                                     index
                                                     (field-scheme params
                                                                   (list self)
                                                                   type
-                                                                  empty-row)))))
-        (if struct?
-            (program-with-value
-             (program-with-value
-              (program-with-value program (string-append name "-set")
-                                  (Replacer case
-                                            index
-                                            (field-scheme params (list self type) self empty-row)))
-              (string-append name "-set!")
-              (Setter case
-                      index
-                      (field-scheme params (list self type) (TCon "Unit" (Nil)) mut-row)))
-             (string-append name "-replace!")
-             (Swapper case index (field-scheme params (list self type) type mut-row)))
-            program)))
+                                                                  empty-row))))
+             (program (if struct?
+                          (program-with-value program (string-append name "-set")
+                                              (Replacer case
+                                                        index
+                                                        (field-scheme params
+                                                                      (list self type)
+                                                                      self
+                                                                      empty-row)))
+                          program)))
+        (program-with-value
+         (program-with-value program (string-append name "-set!")
+                             (Setter case
+                                     index
+                                     (field-scheme params
+                                                   (list self type)
+                                                   (TCon "Unit" (Nil))
+                                                   mut-row)))
+         (string-append name "-replace!")
+         (Swapper case index (field-scheme params (list self type) type mut-row)))))
 
     (define (field-scheme (params (List String)) (arguments (List Type)) (result Type) (row Type))
       (→ Scheme)
@@ -4355,7 +4343,10 @@
                                     (map (lambda (param)
                                            (let ((requirement (f d (list (w d class) param))))
                                              (if (string=? class "Repr")
-                                                 (list (f d (list (w d "Copy") param)) requirement)
+                                                 (list (f d (list (w d "Copy") param))
+                                                       (f d (list (w d "Drop")
+                                                                  (f d (list (w d "!"))) param))
+                                                       requirement)
                                                  (list requirement))))
                                          params)))))))))
 

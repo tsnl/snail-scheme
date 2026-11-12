@@ -162,6 +162,7 @@
    scene-restore)
   (import
    (rename (snail core base) (instance class-instance))
+   (only (snail core forms) host)
    (prefix (snail runtime browser screen) host-)
    (snail shell task)
    (snail shell application)
@@ -277,14 +278,11 @@
 
     (define (press-contact (contacts (List Contact)) (contact Contact)) (→ (List Contact))
       (let ((pressed (append (without-contact contacts (● contact pointer)) (list contact))))
-        (if (null? (cdr-list pressed))
-            pressed
-            (map (lambda (c) (Contact-mode-set c (Pinched))) pressed))))
+        (match pressed
+          ((Cons _ (Nil)) pressed)
+          (_ (map (lambda (c) (Contact-mode-set c (Pinched))) pressed)))))
 
-    (define (cdr-list (items (List T))) (→ (List T)) (∀ T) (⊨ (Copy T))
-      (match items
-        ((Cons _ rest) rest)
-        ((Nil) (Nil))))
+
 
     (define (without-contact (contacts (List Contact)) (pointer I32)) (→ (List Contact))
       (filter (lambda (c) (not (= (● c pointer) pointer))) contacts))
@@ -295,7 +293,7 @@
     (define (move-contact (contacts (List Contact)) (pointer I32) (x I32) (y I32))
       (→ (Pair Gestures (List Gesture)))
       (match (find (lambda (c) (= (● c pointer) pointer)) contacts)
-        ((Some contact) (if (null? (cdr-list contacts))
+        ((Some contact) (if (match contacts ((Cons _ (Nil)) #t) (_ #f))
                             (lone-move contact x y)
                             (let ((moved (map (lambda (c)
                                                 (if (= (● c pointer) pointer)
@@ -1035,8 +1033,8 @@
     (struct (SceneApplication S)
       ())
 
-    (class-instance (Application (! mut screen events storage tasks) (SceneApplication S))
-                    (⊨ (Scene S) (PageState S) (Copy S))
+    (class-instance (Application (! mut screen events storage tasks page) (SceneApplication S))
+                    (⊨ (Scene S) (PageState S) (Copy S) (Drop (!) S))
                     (define start
                       (lambda (entry)
                         (run-page (lambda () (initial-scene entry)) scene-save scene-restore
@@ -1058,9 +1056,9 @@
 
     (define (scene-loop (save (Fn S → Unit ! events storage tasks)) (state S) (since-hud I32))
       (→ Unit)
-      (! mut screen events storage tasks)
+      (! mut screen events storage tasks page)
       (∀ S)
-      (⊨ (Scene S) (PageState S) (Copy S))
+      (⊨ (Scene S) (PageState S) (Copy S) (Drop (!) S))
       (match (next-event)
         ((FrameEvent elapsed)
          (let* ((next (scene-update state (Elapsed elapsed))) (frame (scene-view next))

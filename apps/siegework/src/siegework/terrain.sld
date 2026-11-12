@@ -148,7 +148,10 @@
       (mix (+ (mix (+ (mix (+ (* seed 64) key)) x)) (* y 65536))))
 
     ;; One of `items` chosen by the seed and a key, if there are any.
-    (define (pick (seed I64) (key I64) (items (List A))) (→ (Option A)) (∀ A) (⊨ (Copy A))
+    (define (pick (seed I64) (key I64) (items (List A)))
+      (→ (Option A))
+      (∀ A)
+      (⊨ (Copy A) (Drop (!) A))
       (if (null? items)
           (None)
           (Some (list-ref items (remainder (hash seed key 0 0) (length items))))))

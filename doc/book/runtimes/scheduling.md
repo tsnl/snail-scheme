@@ -1,6 +1,6 @@
 # Driving the scheduler
 
-The scheduler is written in Snail-Core ([task operations](tasks.md)); a
+The scheduler is written in Snail Scheme ([task operations](tasks.md)); a
 host only drives it and completes the operations its tasks wait on.
 `host/browser/tasks.mjs` is the driver Node and the browser share, and
 `drive` in `crates/snail/src/program.rs` is wasmtime's. Each runs on one
@@ -66,7 +66,7 @@ An adapter receives the `AbortSignal` and returns one Promise covering
 both its operation and its owned cleanup. It must handle an already
 aborted signal, remove listeners on normal completion, and settle only
 after owned cleanup finishes. Timers and event waits can disarm promptly.
-A disposer must not suspend or reenter Snail-Core; if it starts OS
+A disposer must not suspend or reenter Snail Scheme; if it starts OS
 resource closure, the native owner awaits that remaining cleanup during
 shutdown. An adapter that never settles keeps its run from ending.
 

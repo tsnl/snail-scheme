@@ -83,7 +83,7 @@
                                   (append (reverse (● lowered items)) done))))))))
 
     (define (prepare-batch (state State) (items (List Item))) (→ Lowered) (! compile)
-      (match (fold-constants state items)
+      (match (fold-constants state items prepare-constant-body)
         ((Pair items state)
          (let ((callees (specialization-callees state)))
            (for-each (lambda (item) (check-item callees item)) items)
@@ -94,6 +94,18 @@
              (Lowered-items-set lowered (reverse (● lowered items))))))))
 
 
+
+    ;; Constant execution consumes the same lifetime and cancellation evidence
+    ;; as Wasm. The evaluator supplies source closure recipes separately.
+    (define (prepare-constant-body (state State) (name String) (body Expr))
+      (→ (Pair Expr State)) (! compile)
+      (let* ((callees (declaration-callees (specialization-declarations state)))
+             (item (Define name body)))
+        (check-item callees item)
+        (let ((item (lower-lifetimes (specialization-declarations state) item)))
+          (match (lower-droppers state callees (control-item callees item))
+            ((Pair (Define _ value) state) (Pair value state))
+            (_ (panic "internal error: preparation changed a constant definition"))))))
 
     (define (prepared (state State) (items (List Item)) (exported (List String))) (→ Prepared)
       (Prepared (constant-declarations (specialization-declarations state))
@@ -220,7 +232,8 @@
                               exprs))))
         (match (● expr term)
           ((Lambda _ _ _) (Nil))
-          ((App callee args) (label-union (callee-row callees callee) (all (Cons callee args))))
+          ((App callee args)
+           (label-union (application-yields callees callee args) (all (Cons callee args))))
           ((Handle effect implementations body)
            (label-union (all (map (lambda (record) (● record second)) implementations))
                         (label-union (label-difference (yields callees body) (list effect))
@@ -228,6 +241,19 @@
                                                                     effect
                                                                     implementations))))
           (_ (all (expr-children expr))))))
+
+    ;; These primitives execute a supplied callback. Its body is stronger
+    ;; evidence than a use row widened to the surrounding context. In
+    ;; particular, copying primitive array elements cannot start yielding
+    ;; merely because the caller also performs a control effect.
+    (define (application-yields (callees Callees) (callee Expr) (args (List Expr)))
+      (→ (List String))
+      (match (● callee term)
+        ((Ann inner _) (application-yields callees inner args))
+        ((Var "prim:unsafe-total" _ _) (procedure-yields callees (list-ref args 0)))
+        ((Var "prim:vector-generate" _ _) (procedure-yields callees (list-ref args 1)))
+        ((Var "prim:string-generate" _ _) (procedure-yields callees (list-ref args 1)))
+        (_ (callee-row callees callee))))
 
     (define (control-implementation-yields (callees Callees)
                                            (effect String)
@@ -301,9 +327,7 @@
             (Pair "snail.shell.task:dispatch-task"
                   (Restriction 0 "work given to dispatch-task" (list "snail.shell.task:tasks")))
             (Pair "snail.shell.async:dispatch"
-                  (Restriction 0 "work given to dispatch" (list "snail.shell.task:tasks")))
-            (Pair "snail.shell.ui:run-reactor"
-                  (Restriction 2 "a reactor update" (Nil)))))
+                  (Restriction 0 "work given to dispatch" (list "snail.shell.task:tasks")))))
 
     (define (restriction (callee Expr)) (→ (Option Restriction))
       (match (● callee term)

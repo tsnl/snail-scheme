@@ -13,7 +13,8 @@ import {createTcp} from '../../host/native/tcp.mjs';
 import {createUdp} from '../../host/native/udp.mjs';
 import {socketImports} from '../../host/native/socket-imports.mjs';
 
-let program, api, tasks, driving = null;
+let program, api, tasks, driving = null, requestOwner = null;
+const results = [];
 const tcp = createTcp(), udp = createUdp(), reported = [];
 // A request waits for its task's answer, or for the trap that ended it.
 const requests = new Map();
@@ -22,17 +23,33 @@ const current = {start: (...args) => tasks.start(...args), finish: ticket => tas
 const host = {'snail.runtime.native.socket': socketImports(() => program, current, tcp, udp)};
 const wasi = createWasi({print: (_, line) => reported.push(line)}), filename = resolve(process.argv[2]);
 
+function releaseRequests() {
+  if (requestOwner === null) return;
+  const value = requestOwner;
+  requestOwner = null;
+  api['requests:release-result'](value);
+}
+function context() {
+  if (requestOwner === null) requestOwner = api.requests();
+  return requestOwner;
+}
+function call(name, ...args) {
+  const value = api[name](...args), release = api[`${name}:release-result`];
+  if (release) results.push(() => release(value));
+  return value;
+}
 function fresh() {
+  releaseRequests();
   tasks = createTasks(() => program && taskExports(program), {reportError(error, task) {
     const request = requests.get(task);
     if (!request) return reported.push(error);
-    requests.delete(task);
-    request.reject(error);
+    for (const pending of requests.values()) pending.reject(error);
+    requests.clear();
   }});
 }
 function deliver() {
   for (const [id, request] of requests) {
-    if (api.answered(BigInt(id))) { requests.delete(id); request.resolve(api.answer(BigInt(id))); }
+    if (call('answered', context(), BigInt(id))) { requests.delete(id); request.resolve(call('answer', context(), BigInt(id))); }
   }
   return false;
 }
@@ -58,7 +75,8 @@ function cancel(reason) {
   fresh();
 }
 function invoke(name, ...args) {
-  const id = Number(api[`begin-${name}`](...args));
+  if (tasks.signal.aborted) fresh();
+  const id = Number(tasks.call(api[`begin-${name}`], context(), ...args));
   const done = new Promise((resolve, reject) => requests.set(id, {resolve, reject}));
   done.catch(() => {});
   pump();
@@ -77,13 +95,12 @@ try {
     program = {runtime, linked: new Map()};
   }
   api = programEntry(program, 'main').exports;
-  const modules = program.names ? program.names.map(name => program.linked.get(name)) : [program.runtime];
 
-  const listener = api.listener(await invoke('open').done), port = api.port(listener);
-  const client = api.connection(await invoke('dial', port).done);
+  const listener = call('listener', await invoke('open').done), port = call('port', listener);
+  const client = call('connection', await invoke('dial', port).done);
   let serverId;
   tcp.accept = async (...args) => (serverId = await native.accept(...args));
-  const server = api.connection(await invoke('take', listener).done);
+  const server = call('connection', await invoke('take', listener).done);
   tcp.accept = native.accept;
 
   // Another effect reuses staging while the first write is suspended.
@@ -95,16 +112,16 @@ try {
   };
   const sending = invoke('send', client);
   await held.promise;
-  assert.equal(api.truth(await invoke('overwrite').done), 1);
+  assert.equal(call('truth', await invoke('overwrite').done), 1);
   assert.deepEqual([...sent], [0, 255, 128, 1]);
   release.resolve();
-  assert.equal(api.written(await sending.done), 4);
+  assert.equal(call('written', await sending.done), 4);
   tcp.write = native.write;
   const received = [];
   while (received.length < 4) {
-    const chunk = await invoke('receive', server, 2).done, count = api['read-count'](chunk);
+    const chunk = await invoke('receive', server, 2).done, count = call('read-count', chunk);
     assert.ok(count > 0 && count <= 2);
-    for (let index = 0; index < count; index++) received.push(api['read-byte'](chunk, index));
+    for (let index = 0; index < count; index++) received.push(call('read-byte', chunk, index));
   }
   assert.deepEqual(received, [0, 255, 128, 1]);
 
@@ -117,10 +134,10 @@ try {
   const cancelled = Object.assign(new Error('cancel reading'), {code: 'EIO'});
   blocked.cancel(cancelled);
   await assert.rejects(blocked.done, error => error === cancelled);
-  assert.equal(api['bad-read'](await invoke('receive', server, 1).done), 1);
+  assert.equal(call('bad-read', await invoke('receive', server, 1).done), 1);
   await assert.rejects(native.read(new AbortController().signal, serverId, 1), {code: 'EBADF'});
   tcp.read = native.read;
-  assert.equal(api['read-count'](await invoke('receive', client, 1).done), -1, 'EOF is a typed None');
+  assert.equal(call('read-count', await invoke('receive', client, 1).done), -1, 'EOF is a typed None');
 
   // The native resource exists, but cancellation wins before managed
   // delivery. The cancelled run disposes of the listener when the
@@ -143,25 +160,25 @@ try {
   tcp.read = () => { throw fault; };
   await assert.rejects(invoke('receive', client, 1).done, error => error === fault);
   tcp.read = native.read;
-  assert.equal(api.finished(await invoke('finish', client, 1000).done), 1, 'finish after remote EOF returns typed Unit');
-  api['stop-listener'](listener);
+  assert.equal(call('finished', await invoke('finish', client, 1000).done), 1, 'finish after remote EOF returns typed Unit');
+  call('stop-listener', listener);
 
   // Both tasks may finish concurrently; unread bytes are drained.
-  const finishingListener = api.listener(await invoke('open').done), finishingPort = api.port(finishingListener);
-  const endingClient = api.connection(await invoke('dial', finishingPort).done);
-  const endingServer = api.connection(await invoke('take', finishingListener).done);
+  const finishingListener = call('listener', await invoke('open').done), finishingPort = call('port', finishingListener);
+  const endingClient = call('connection', await invoke('dial', finishingPort).done);
+  const endingServer = call('connection', await invoke('take', finishingListener).done);
   await invoke('send', endingClient).done;
   const ending = invoke('finish', endingClient, 1000);
-  assert.equal(api.finished(await invoke('finish', endingServer, 1000).done), 1);
-  assert.equal(api.finished(await ending.done), 1);
+  assert.equal(call('finished', await invoke('finish', endingServer, 1000).done), 1);
+  assert.equal(call('finished', await ending.done), 1);
 
-  const stalled = api.connection(await invoke('dial', finishingPort).done);
-  const stalledPeer = api.connection(await invoke('take', finishingListener).done);
-  assert.equal(api['timed-out'](await invoke('finish', stalled, 0).done), 1, 'deadline failure is a typed socket error');
-  api['stop-connection'](stalledPeer);
+  const stalled = call('connection', await invoke('dial', finishingPort).done);
+  const stalledPeer = call('connection', await invoke('take', finishingListener).done);
+  assert.equal(call('timed-out', await invoke('finish', stalled, 0).done), 1, 'deadline failure is a typed socket error');
+  call('stop-connection', stalledPeer);
 
-  const interrupted = api.connection(await invoke('dial', finishingPort).done);
-  const interruptedPeer = api.connection(await invoke('take', finishingListener).done);
+  const interrupted = call('connection', await invoke('dial', finishingPort).done);
+  const interruptedPeer = call('connection', await invoke('take', finishingListener).done);
   const nativeFinish = tcp.finish, started = Promise.withResolvers();
   tcp.finish = (...args) => { const result = nativeFinish(...args); started.resolve(); return result; };
   const finishing = invoke('finish', interrupted, 1000);
@@ -169,18 +186,18 @@ try {
   finishing.cancel(cancelled);
   await assert.rejects(finishing.done, error => error === cancelled);
   tcp.finish = nativeFinish;
-  assert.equal(api['bad-read'](await invoke('receive', interrupted, 1).done), 1, 'cancellation closes aliases and returns the scheduler permit');
-  api['stop-connection'](interruptedPeer);
-  api['stop-listener'](finishingListener);
+  assert.equal(call('bad-read', await invoke('receive', interrupted, 1).done), 1, 'cancellation closes aliases and returns the scheduler permit');
+  call('stop-connection', interruptedPeer);
+  call('stop-listener', finishingListener);
 
-  const first = api['udp-socket'](await invoke('open-udp').done);
-  const second = api['udp-socket'](await invoke('open-udp').done);
-  const firstPort = api['udp-port'](first), secondPort = api['udp-port'](second);
-  assert.equal(api.written(await invoke('send-udp', first, secondPort).done), 4);
+  const first = call('udp-socket', await invoke('open-udp').done);
+  const second = call('udp-socket', await invoke('open-udp').done);
+  const firstPort = call('udp-port', first), secondPort = call('udp-port', second);
+  assert.equal(call('written', await invoke('send-udp', first, secondPort).done), 4);
   const packet = await invoke('receive-udp', second, 4).done;
-  assert.equal(api['packet-size'](packet), 4);
-  assert.equal(api['packet-port'](packet), firstPort);
-  assert.deepEqual([0, 1, 2, 3].map(index => api['packet-byte'](packet, index)), [0, 255, 128, 1]);
+  assert.equal(call('packet-size', packet), 4);
+  assert.equal(call('packet-port', packet), firstPort);
+  assert.deepEqual([0, 1, 2, 3].map(index => call('packet-byte', packet, index)), [0, 255, 128, 1]);
 
   const nativeBind = udp.bind, nativeReceive = udp.receive;
   udp.bind = async (...args) => { acquired = await nativeBind(...args); opening.cancel(cancelled); return acquired; };
@@ -198,15 +215,17 @@ try {
   pending.cancel(cancelled);
   await assert.rejects(pending.done, value => value === cancelled);
   udp.receive = nativeReceive;
-  assert.equal(api['udp-port'](second), secondPort);
+  assert.equal(call('udp-port', second), secondPort);
   await invoke('send-udp', first, secondPort).done;
-  assert.equal(api['packet-size'](await invoke('receive-udp', second, 4).done), 4, 'cancelled receive preserves UDP socket');
-  api['stop-udp'](first);
-  api['stop-udp'](second);
+  assert.equal(call('packet-size', await invoke('receive-udp', second, 4).done), 4, 'cancelled receive preserves UDP socket');
+  call('stop-udp', first);
+  call('stop-udp', second);
   await turn();
   assert.deepEqual(reported, []);
 } finally {
   tasks.close();
+  releaseRequests();
+  for (const release of results.reverse()) release();
   await tcp.shutdown();
   await udp.shutdown();
   clearTimeout(timeout);

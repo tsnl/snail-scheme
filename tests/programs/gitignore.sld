@@ -4,6 +4,7 @@
  (snail shell gitignore)
  (snail shell process)
  (snail shell task)
+ (only (snail core forms) host)
  (snail shell utf8))
 
 ;; Build an independent worktree so this repository's own excludes and index
@@ -19,14 +20,7 @@
        (_ (panic "Git fixture setup failed"))))
     ((Err error) (panic (● error code)))))
 
-(define repository (→ String) (git "." (list "rev-parse" "--show-toplevel")))
-
-(define root (→ String) (string-append (substring repository 0 (- (string-length repository) 1))
-                                       "/build/tests/gitignore"))
-
-(define (at (path String)) (→ String) (string-append root "/" path))
-
-(define (snapshot (directory String)) (→ IgnoreSnapshot) (! mut tasks process)
+(define (snapshot (directory String)) (→ IgnoreSnapshot) (! mut host tasks process)
   (match (read-gitignore directory)
     ((Ok (Some value)) value)
     ((Ok (None)) (panic "Git fixture unavailable"))
@@ -37,6 +31,10 @@
 
 (define main
   (lambda ()
+    (define repository (git "." (list "rev-parse" "--show-toplevel")))
+    (define root (string-append (substring repository 0 (- (string-length repository) 1))
+                                "/build/tests/gitignore"))
+    (define (at (path String)) (→ String) (string-append root "/" path))
     (remove-tree root)
     (make-directories (at "hidden/deep"))
     (make-directories (at "project[n]/deep"))

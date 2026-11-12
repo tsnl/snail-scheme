@@ -9,6 +9,7 @@
    (snail shell compiler read)
    (snail shell compiler core)
    (snail shell compiler specialize)
+   (only (snail shell compiler capabilities) shared-type? linear-type?)
    (snail shell compiler constant-scalars))
   (begin
 
@@ -29,7 +30,14 @@
     (enum ObjectValue
       (RecordValue ((constructor String) (fields (List Known))))
       (ArrayValue ((items (List Known))))
-      (ClosureValue ((expression Expr) (environment (Table Known)) (self (Option String)))))
+      (DynamicValue ((inner Known)))
+      (ClosureValue ((recipe String) (environment (Table Known))))
+      (CodeValue ((expression Expr) (environment (Table Known))))
+      (RcValue ((payload (Option Known)) (finalizer Known)))
+      (ResumeValue ((suspension (Option Suspension))))
+      (BoundValue ((function Known) (handlers (List ConstantHandler))))
+      (OnceValue ((function Known)))
+      (SpentValue))
 
     (struct Evaluation
       ((state State)
@@ -37,7 +45,58 @@
        (values (Table Known))
        (forcing (List String))
        (heap (Table ObjectValue))
-       (next I64)))
+       (next I64)
+       (counts (Table I64))
+       (recipes (Table ClosureRecipe))
+       (fuel I64)
+       (cells-left I64)
+       (prepare (Fn State String Expr → (Pair Expr State) ! compile))))
+
+    ;; Source recipes survive evaluation so frozen closures re-enter the
+    ;; ordinary runtime pipeline. Only their execution uses prepared code.
+    (struct ClosureRecipe
+      ((expression Expr)
+       (captures (List (Pair String Type)))
+       (self (Option String))))
+
+    (struct ConstantHandler
+      ((id String)
+       (effect String)
+       (operations (List (Pair String Known)))))
+
+    (struct Suspension
+      ((frames (List EvaluationFrame))
+       (handlers (List ConstantHandler))))
+
+    (enum EvaluationFrame
+      (ApplyFunction ((environment (Table Known)) (arguments (List Expr)) (type Type) (loc Loc)))
+      (ApplyArgument ((function Known) (values (List Known)) (environment (Table Known))
+                      (remaining (List Expr)) (type Type) (loc Loc)))
+      (BindValue ((name String) (environment (Table Known)) (body Expr)))
+      (ChooseBranch ((environment (Table Known)) (yes Expr) (no Expr) (loc Loc)))
+      (NextExpression ((environment (Table Known)) (body Expr)))
+      (ChooseClause ((environment (Table Known)) (clauses (List Clause)) (loc Loc)))
+      (ConvertValue ((target Type) (loc Loc)))
+      (TestValue ((target Type) (type Type) (loc Loc)))
+      (InstallHandler ((effect String) (names (List String)) (values (List Known))
+                       (environment (Table Known)) (remaining (List Expr)) (body Expr)))
+      (HandlerBoundary ((handler ConstantHandler)))
+      (RestoreHandlers ((handlers (List ConstantHandler))))
+      ;; Prepared guards own exactly the values assigned by control lowering.
+      ;; Their environments are observations, never additional counted copies.
+      (CancellationGuard ((environment (Table Known)) (cleanup Expr)))
+      (ContinueAction ((action EvaluationAction)))
+      (ReleaseFunction ((function Known)))
+      (ReleaseCaptured ((handlers (List ConstantHandler))))
+      (GeneratedElement ((function Known) (index I64) (size I64)
+                         (values (List Known)) (type Type) (loc Loc))))
+
+    (enum EvaluationAction
+      (Evaluate ((environment (Table Known)) (expression Expr)))
+      (Invoke ((function Known) (arguments (List Known)) (type Type) (loc Loc)))
+      (ReturnValue ((value Known)))
+      (CancelFrames ((frames (List EvaluationFrame)) (next EvaluationAction)))
+      (ReleaseValues ((values (List Known)) (next EvaluationAction))))
 
     (define-syntax evaluating
       (syntax-rules ()
@@ -49,12 +108,20 @@
     (define (program (ev Evaluation)) (→ Program)
       (specialization-program (● ev state)))
 
+    (define (reserve-object (ev Evaluation) (object ObjectValue)) (→ Evaluation) (! compile)
+      (let ((size (+ 1 (length (object-children ev object)))))
+        (when (> size (● ev cells-left))
+          (compile-error (Loc "constant" 0 0)
+                         "constant evaluation exceeds the limit of 1000000 heap cells"))
+        (Evaluation-cells-left-set ev (- (● ev cells-left) size))))
+
     (define (allocate (ev Evaluation) (type Type) (value ObjectValue))
-      (→ (Pair Known Evaluation))
-      (let ((id (i64->string (● ev next))))
+      (→ (Pair Known Evaluation)) (! compile)
+      (let ((id (i64->string (● ev next))) (ev (reserve-object ev value)))
         (Pair (Known type (Object id))
               (Evaluation-next-set
-               (Evaluation-heap-set ev (table-set (● ev heap) id value)) (+ (● ev next) 1)))))
+               (Evaluation-heap-set (Evaluation-counts-set ev (table-set (● ev counts) id 1))
+                                    (table-set (● ev heap) id value)) (+ (● ev next) 1)))))
 
     (define (object-value (ev Evaluation) (value Known) (loc Loc)) (→ ObjectValue) (! compile)
       (match (● value value)
@@ -64,14 +131,161 @@
            ((None) (panic "internal error: missing constant object"))))
         (_ (compile-error loc "constant evaluation expected an object"))))
 
-    (define (body-of (ev Evaluation) (name String)) (→ (Pair Expr Evaluation))
+    (define (body-of (ev Evaluation) (name String)) (→ (Pair Expr Evaluation)) (! compile)
       (match (table-ref (● ev bodies) name)
         ((Some body) (Pair body ev))
         ((None)
          (match (constant-body (● ev state) name)
-           ((Pair body state)
-            (Pair body (Evaluation-bodies-set (Evaluation-state-set ev state)
-                                              (table-set (● ev bodies) name body))))))))
+           ((Pair body state) (prepared-body (Evaluation-state-set ev state) name body))))))
+
+    ;; ---- Source closures and prepared execution ----
+
+    (define (bind-types (scope (Table Type)) (names (List String)) (types (List Type)))
+      (→ (Table Type))
+      (fold-left (lambda (scope pair) (table-set scope (● pair first) (● pair second)))
+                 scope (zip names types)))
+
+
+
+    (define (recipe (ev Evaluation) (name String)) (→ ClosureRecipe)
+      (match (table-ref (● ev recipes) name)
+        ((Some recipe) recipe)
+        ((None) (panic "internal error: missing constant closure recipe"))))
+
+    (define (lift-closure (ev Evaluation) (scope (Table Type)) (expr Expr) (self (Option String)))
+      (→ (Pair Expr Evaluation))
+      (let* ((names (filter (lambda (name)
+                              (and (table-contains? scope name)
+                                   (match self
+                                     ((Some own) (not (string=? name own)))
+                                     ((None) #t))))
+                            (expr-references expr)))
+             (captures (map (lambda (name)
+                              (match (table-ref scope name)
+                                ((Some type) (Pair name type))
+                                ((None) (panic "internal error: missing closure capture"))))
+                            names))
+             (name (string-append "constant-closure:" (i64->string (● ev next))))
+             (value (ClosureRecipe expr captures self)))
+        (Pair (constant-call name
+                             (map (lambda (entry)
+                                    (Expr (Var (● entry first) (Nil) (Nil))
+                                          (● entry second) (● expr loc))) captures)
+                             (● expr type) (● expr loc))
+              (Evaluation-next-set
+               (Evaluation-recipes-set ev (table-set (● ev recipes) name value))
+               (+ (● ev next) 1)))))
+
+    (define (lift-pattern (scope (Table Type)) (pattern Pattern)) (→ (Table Type))
+      (match pattern
+        ((PVar name type) (table-set scope name type))
+        ((PCon _ args _) (fold-left lift-pattern scope args))
+        (_ scope)))
+
+    ;; The pending steps carry lexical scope explicitly. Lambda bodies stay
+    ;; in recipes; only their construction sites are traversed here. A finish
+    ;; step consumes exactly its direct children from the result stack.
+    (enum LiftStep
+      (LiftVisit ((scope (Table Type)) (expression Expr) (self (Option String))))
+      (LiftFinish ((expression Expr) (count I64))))
+
+    (define (lift-expression (ev Evaluation) (scope (Table Type)) (expr Expr))
+      (→ (Pair Expr Evaluation))
+      (let loop ((ev ev) (pending (list (LiftVisit scope expr (None)))) (values (Nil)))
+        (match pending
+          ((Nil) (Pair (list-ref values 0) ev))
+          ((Cons step rest)
+           (match step
+             ((LiftVisit scope expr self)
+              (match (● expr term)
+                ((Lambda _ _ _)
+                 (match (lift-closure ev scope expr self)
+                   ((Pair value ev) (loop ev rest (Cons value values)))))
+                (_ (let ((children (lift-children scope expr self)))
+                     (if (null? children) (loop ev rest (Cons expr values))
+                         (loop ev (append children (Cons (LiftFinish expr (length children)) rest))
+                               values))))))
+             ((LiftFinish expr count)
+              (loop ev rest
+                    (Cons (lift-rebuild expr (reverse (take values count)))
+                          (list-drop values count)))))))))
+
+    (define (lift-children (scope (Table Type)) (expr Expr) (self (Option String)))
+      (→ (List LiftStep))
+      (match (● expr term)
+        ((Let name value body)
+         (list (LiftVisit scope value (Some name))
+               (LiftVisit (table-set scope name (● value type)) body (None))))
+        ((Match value clauses)
+         (Cons (LiftVisit scope value (None))
+               (map (lambda (clause)
+                      (LiftVisit (lift-pattern scope (● clause pattern)) (● clause body) (None)))
+                    clauses)))
+        ((Ann inner _) (list (LiftVisit scope inner self)))
+        (_ (map (lambda (child) (LiftVisit scope child (None))) (expr-children expr)))))
+
+    ;; Exhaustive reconstruction keeps each source constructor visible. The
+    ;; worklist already established the number and order of its children.
+    (define (lift-rebuild (expr Expr) (values (List Expr))) (→ Expr)
+      (Expr
+       (match (● expr term)
+         ((App _ _) (App (list-ref values 0) (list-drop values 1)))
+         ((Let name _ _) (Let name (list-ref values 0) (list-ref values 1)))
+         ((If _ _ _) (If (list-ref values 0) (list-ref values 1) (list-ref values 2)))
+         ((Seq _ _) (Seq (list-ref values 0) (list-ref values 1)))
+         ((Match _ clauses)
+          (Match (list-ref values 0)
+                 (map (lambda (pair) (Clause (● (● pair first) pattern) (● pair second)))
+                      (zip clauses (list-drop values 1)))))
+         ((Handle effect implementations _)
+          (Handle effect
+                  (zip (map (lambda (entry) (● entry first)) implementations)
+                       (take values (length implementations)))
+                  (list-ref values (length implementations))))
+         ((Ann _ type) (Ann (list-ref values 0) type))
+         ((Convert _ type) (Convert (list-ref values 0) type))
+         ((TryConvert _ type) (TryConvert (list-ref values 0) type))
+         ((TypeTest _ type) (TypeTest (list-ref values 0) type))
+         ((FieldRead _ label usage) (FieldRead (list-ref values 0) label usage))
+         ((ScopedInstances instances _) (ScopedInstances instances (list-ref values 0)))
+         (_ (panic "internal error: closure lifting cannot rebuild a leaf")))
+       (● expr type) (● expr loc)))
+
+    (define (lift-body (ev Evaluation) (body Expr)) (→ (Pair Expr Evaluation))
+      (match (Pair (● body term) (fn-arrow (● body type)))
+        ((Pair (Lambda params value captures?) (TFun types _ _))
+         (evaluating ev ((value (lift-expression (bind-types empty-table params types) value)))
+                     (Pair (Expr (Lambda params value captures?) (● body type) (● body loc)) ev)))
+        (_ (lift-expression ev empty-table body))))
+
+    (define (prepared-body (ev Evaluation) (name String) (body Expr))
+      (→ (Pair Expr Evaluation)) (! compile)
+      (evaluating ev ((body (lift-body body)))
+                  (match ((● ev prepare) (● ev state) name body)
+                    ((Pair body state)
+                     (Pair body (Evaluation-bodies-set (Evaluation-state-set ev state)
+                                                       (table-set (● ev bodies) name body)))))))
+
+    (define (closure-body (ev Evaluation) (name String)) (→ (Pair Expr Evaluation)) (! compile)
+      (match (table-ref (● ev bodies) name)
+        ((Some body) (Pair body ev))
+        ((None)
+         (let* ((source (recipe ev name)) (expr (● source expression))
+                (captured (● source captures))
+                (captured (match (● source self)
+                            ((Some self) (Cons (Pair self (● expr type)) captured))
+                            ((None) captured))))
+           (match (Pair (● expr term) (fn-arrow (● expr type)))
+             ((Pair (Lambda params body _) (TFun types result row))
+              (prepared-body ev name
+                             (Expr (Lambda (append (map (lambda (entry) (● entry first)) captured)
+                                                   params)
+                                           body #f)
+                                   (TFun (append (map (lambda (entry) (● entry second)) captured)
+                                                 types)
+                                         result row) (● expr loc))))
+             (_ (panic "internal error: source closure recipe is not a lambda")))))))
+
 
     ;; Only actually evaluated references force a value. Ordinary recursion
     ;; enters function bodies without putting their names on this stack.
@@ -89,10 +303,11 @@
                        (let ((ev (Evaluation-forcing-set ev (Cons name outer))))
                          (evaluating ev ((value (evaluate empty-table body)))
                                      (Pair value
-                                           (Evaluation-values-set (Evaluation-forcing-set ev outer)
-                                                                  (table-set (● ev values)
-                                                                             name
-                                                                             value))))))))))
+                                           (Evaluation-values-set
+                                            (Evaluation-forcing-set ev outer)
+                                            (table-set (● ev values)
+                                                       name
+                                                       value))))))))))
 
     (define (reference (ev Evaluation) (env (Table Known)) (expr Expr) (name String))
       (→ (Pair Known Evaluation)) (! compile)
@@ -104,113 +319,926 @@
                          (copy-value ev value))
              (Pair (Known (● expr type) (Global name)) ev)))))
 
+
+
+    ;; ---- The evaluation machine ----
+
+    ;; Each transition consumes fuel. Source continuations contain pending
+    ;; work and cleanup guards, never an old snapshot of the mutable heap.
     (define (evaluate (ev Evaluation) (env (Table Known)) (expr Expr))
       (→ (Pair Known Evaluation)) (! compile)
+      (run-evaluation ev (Nil) (Nil) (Evaluate env expr)))
+
+    (define (spend (ev Evaluation)) (→ Evaluation) (! compile)
+      (when (= (● ev fuel) 0)
+        (compile-error (Loc "constant" 0 0)
+                       "constant evaluation exceeds the limit of 10000000 steps"))
+      (Evaluation-fuel-set ev (- (● ev fuel) 1)))
+
+    (define (run-evaluation (ev Evaluation) (handlers (List ConstantHandler))
+                            (frames (List EvaluationFrame)) (action EvaluationAction))
+      (→ (Pair Known Evaluation)) (! compile)
+      (let ((ev (spend ev)))
+        (match action
+          ((Evaluate env expr) (evaluate-step ev handlers frames env expr))
+          ((Invoke function args type loc)
+           (invoke-step ev handlers frames function args type loc))
+          ((ReturnValue value)
+           (match frames
+             ((Nil) (Pair value ev))
+             ((Cons frame rest) (continue-evaluation ev handlers rest frame value))))
+          ((CancelFrames abandoned next) (cancel-frames ev handlers frames abandoned next))
+          ((ReleaseValues values next) (release-values ev handlers frames values next)))))
+
+    (define (return-result (result (Pair Known Evaluation)) (handlers (List ConstantHandler))
+                           (frames (List EvaluationFrame)))
+      (→ (Pair Known Evaluation)) (! compile)
+      (run-evaluation (● result second) handlers frames (ReturnValue (● result first))))
+
+    (define (evaluate-step (ev Evaluation) (handlers (List ConstantHandler))
+                           (frames (List EvaluationFrame)) (env (Table Known)) (expr Expr))
+      (→ (Pair Known Evaluation)) (! compile)
       (match (● expr term)
-        ((Lit datum) (literal-value ev (● expr type) datum (● expr loc)))
-        ((Var name _ _) (reference ev env expr name))
-        ((Lambda _ _ _) (make-closure ev env expr (None)))
+        ((Lit datum)
+         (return-result (literal-value ev (● expr type) datum (● expr loc)) handlers frames))
+        ((Var name _ _) (return-result (reference ev env expr name) handlers frames))
+        ((Lambda _ _ _)
+         (return-result (allocate ev (● expr type) (CodeValue expr env)) handlers frames))
+        ((App (Expr (Var "prim:with-dropper" _ _) _ _) (Cons value (Cons cleanup (Nil))))
+         (run-evaluation ev
+                         handlers
+                         (Cons (CancellationGuard env cleanup) frames)
+                         (Evaluate env value)))
         ((App callee args)
-         (evaluating ev ((callee (evaluate env callee)) (args (evaluate-all env args)))
-                     (invoke ev callee args (● expr type) (● expr loc))))
+         (run-evaluation ev
+                         handlers
+                         (Cons (ApplyFunction env args (● expr type) (● expr loc)) frames)
+                         (Evaluate env callee)))
         ((Let name value body)
-         (evaluating ev ((value (evaluate-binding env name value)))
-                     (evaluate ev (table-set env name value) body)))
+         (run-evaluation ev
+                         handlers
+                         (Cons (BindValue name env body) frames)
+                         (Evaluate env value)))
         ((If test yes no)
-         (evaluating ev ((test (evaluate env test)))
-                     (evaluate ev env (if (boolean-value test (● expr loc)) yes no))))
+         (run-evaluation ev
+                         handlers
+                         (Cons (ChooseBranch env yes no (● expr loc)) frames)
+                         (Evaluate env test)))
         ((Seq first rest)
-         (evaluating ev ((ignored (evaluate env first))) (evaluate ev env rest)))
+         (run-evaluation ev
+                         handlers
+                         (Cons (NextExpression env rest) frames)
+                         (Evaluate env first)))
         ((Match value clauses)
-         (evaluating ev ((value (evaluate env value)))
-                     (evaluate-match ev env value clauses (● expr loc))))
-        ((Ann inner _) (evaluate ev env inner))
-        (_ (compile-error (● expr loc)
-                          "this operation cannot be evaluated in a compile-time value"))))
+         (run-evaluation ev
+                         handlers
+                         (Cons (ChooseClause env clauses (● expr loc)) frames)
+                         (Evaluate env value)))
+        ((Ann inner _) (run-evaluation ev handlers frames (Evaluate env inner)))
+        ((Convert inner target)
+         (run-evaluation ev
+                         handlers
+                         (Cons (ConvertValue target (● expr loc)) frames)
+                         (Evaluate env inner)))
+        ((TypeTest inner target)
+         (run-evaluation ev
+                         handlers
+                         (Cons (TestValue target (● expr type) (● expr loc)) frames)
+                         (Evaluate env inner)))
+        ((Handle effect implementations body)
+         (install-handler ev handlers frames effect
+                          (map (lambda (entry) (● entry first)) implementations) (Nil) env
+                          (map (lambda (entry) (● entry second)) implementations) body))
+        (_ (compile-error (● expr loc) "internal error: unprepared constant expression"))))
 
-    (define (evaluate-binding (ev Evaluation) (env (Table Known)) (name String) (value Expr))
+    (define (continue-evaluation (ev Evaluation) (handlers (List ConstantHandler))
+                                 (frames (List EvaluationFrame))
+                                 (frame EvaluationFrame)
+                                 (value Known))
       (→ (Pair Known Evaluation)) (! compile)
-      (if (lambda-expr? value) (make-closure ev env value (Some name)) (evaluate ev env value)))
+      (match frame
+        ((ApplyFunction env args type loc)
+         (evaluate-arguments ev handlers frames value (Nil) env args type loc))
+        ((ApplyArgument function values env remaining type loc)
+         (evaluate-arguments ev
+                             handlers
+                             frames
+                             function
+                             (Cons value values)
+                             env
+                             remaining
+                             type
+                             loc))
+        ((BindValue name env body)
+         (run-evaluation ev handlers frames (Evaluate (table-set env name value) body)))
+        ((ChooseBranch env yes no loc)
+         (run-evaluation ev handlers frames (Evaluate env (if (boolean-value value loc) yes no))))
+        ((NextExpression env body) (run-evaluation ev handlers frames (Evaluate env body)))
+        ((ChooseClause env clauses loc) (choose-clause ev handlers frames env value clauses loc))
+        ((ConvertValue target loc)
+         (evaluating ev ((result (convert-value value target loc)))
+                     (if (and (any-type? (● value type)) (not (any-type? target)))
+                         (run-evaluation (retain-known ev result) handlers frames
+                                         (ReleaseValues (list value) (ReturnValue result)))
+                         (run-evaluation ev handlers frames (ReturnValue result)))))
+        ((TestValue target type loc)
+         (return-result (scalar ev type
+                                (DBool (string=? (type-key (● (dynamic-inner ev value loc) type))
+                                                 (type-key target))))
+                        handlers frames))
+        ((InstallHandler effect names values env remaining body)
+         (install-handler ev handlers frames effect names (Cons value values) env remaining body))
+        ((HandlerBoundary handler)
+         (run-evaluation ev (handler-outside handlers (● handler id)) frames
+                         (ReleaseValues
+                          (map (lambda (entry) (● entry second)) (● handler operations))
+                          (ReturnValue value))))
+        ((RestoreHandlers previous) (run-evaluation ev previous frames (ReturnValue value)))
+        ((CancellationGuard _ _) (run-evaluation ev handlers frames (ReturnValue value)))
+        ((ContinueAction next) (run-evaluation ev handlers frames next))
+        ((ReleaseFunction function)
+         (run-evaluation ev handlers frames (ReleaseValues (list function) (ReturnValue value))))
+        ((ReleaseCaptured captured)
+         (run-evaluation ev
+                         handlers
+                         frames
+                         (ReleaseValues (handler-values captured) (ReturnValue value))))
+        ((GeneratedElement function index size values type loc)
+         (generate-element ev
+                           handlers
+                           frames
+                           function
+                           (+ index 1)
+                           size
+                           (Cons value values)
+                           type
+                           loc))))
 
-    (define (make-closure (ev Evaluation) (env (Table Known)) (expr Expr) (self (Option String)))
-      (→ (Pair Known Evaluation))
-      (allocate ev (● expr type)
-                (ClosureValue expr
-                              (fold-left (lambda (captures name)
-                                           (match (table-ref env name)
-                                             ((Some value) (table-set captures name value))
-                                             ((None) captures)))
-                                         empty-table (expr-references expr))
-                              self)))
-
-    (define (evaluate-all (ev Evaluation) (env (Table Known)) (exprs (List Expr)))
-      (→ (Pair (List Known) Evaluation)) (! compile)
-      (match exprs
-        ((Nil) (Pair (Nil) ev))
+    (define (evaluate-arguments (ev Evaluation) (handlers (List ConstantHandler))
+                                (frames (List EvaluationFrame))
+                                (function Known)
+                                (values (List Known))
+                                (env (Table Known)) (remaining (List Expr)) (type Type) (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (match remaining
+        ((Nil) (run-evaluation ev handlers frames (Invoke function (reverse values) type loc)))
         ((Cons first rest)
-         (evaluating ev ((first (evaluate env first)) (rest (evaluate-all env rest)))
-                     (Pair (Cons first rest) ev)))))
+         (run-evaluation ev
+                         handlers
+                         (Cons (ApplyArgument function values env rest type loc) frames)
+                         (Evaluate env first)))))
 
-    (define (invoke (ev Evaluation) (callee Known) (args (List Known)) (type Type) (loc Loc))
+    (define (choose-clause (ev Evaluation) (handlers (List ConstantHandler))
+                           (frames (List EvaluationFrame)) (env (Table Known)) (value Known)
+                           (clauses (List Clause)) (loc Loc))
       (→ (Pair Known Evaluation)) (! compile)
-      (match (● callee value)
-        ((Global name) (invoke-global ev name args type loc))
+      (match clauses
+        ((Nil) (compile-error loc "non-exhaustive match during constant evaluation"))
+        ((Cons clause rest)
+         (match (match-value ev env (● clause pattern) value loc)
+           ((Some inner) (run-evaluation ev handlers frames (Evaluate inner (● clause body))))
+           ((None) (choose-clause ev handlers frames env value rest loc))))))
+
+    (define (bind-values (env (Table Known)) (names (List String)) (values (List Known)))
+      (→ (Table Known))
+      (fold-left (lambda (env pair) (table-set env (● pair first) (● pair second)))
+                 env
+                 (zip names values)))
+
+    (define (enter-code (ev Evaluation) (handlers (List ConstantHandler))
+                        (frames (List EvaluationFrame))
+                        (env (Table Known))
+                        (expr Expr)
+                        (args (List Known)))
+      (→ (Pair Known Evaluation)) (! compile)
+      (match (● expr term)
+        ((Lambda params body _)
+         (run-evaluation ev handlers frames (Evaluate (bind-values env params args) body)))
+        (_ (compile-error (● expr loc) "constant evaluation expected a function"))))
+
+    (define (invoke-step (ev Evaluation) (handlers (List ConstantHandler))
+                         (frames (List EvaluationFrame))
+                         (function Known)
+                         (args (List Known))
+                         (type Type)
+                         (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (match (● function value)
+        ((Global name) (invoke-global ev handlers frames name args type loc))
         ((Object _)
-         (match (object-value ev callee loc)
-           ((ClosureValue (Expr (Lambda params body _) _ _) env self)
-            (let ((env (match self ((Some name) (table-set env name callee)) ((None) env))))
-              (evaluate ev (fold-left (lambda (env pair)
-                                        (table-set env (● pair first) (● pair second)))
-                                      env (zip params args)) body)))
+         (match (object-value ev function loc)
+           ((ClosureValue name env)
+            (invoke-closure ev handlers frames function name env args loc))
+           ((CodeValue expr env) (enter-code ev handlers frames env expr args))
+           ((ResumeValue (Some suspended))
+            (resume-evaluation ev handlers frames function suspended args loc))
+           ((ResumeValue (None)) (compile-error loc "constant resumption was already consumed"))
+           ((OnceValue inner)
+            (run-evaluation (replace-object ev function (SpentValue))
+                            handlers
+                            frames
+                            (Invoke inner args type loc)))
+           ((BoundValue inner captured)
+            (run-evaluation (replace-object ev function (SpentValue)) captured
+                            (Cons (RestoreHandlers handlers)
+                                  (Cons (ReleaseCaptured captured) frames))
+                            (Invoke inner args type loc)))
            (_ (compile-error loc "constant evaluation expected a function"))))
         (_ (compile-error loc "constant evaluation expected a function"))))
 
-    (define (invoke-global (ev Evaluation) (name String) (args (List Known)) (type Type) (loc Loc))
+    (define (once-type? (type Type)) (→ Bool)
+      (match type ((TCon "FnOnce" _) #t) (_ #f)))
+
+    (define (closure-captures (ev Evaluation) (name String) (env (Table Known))) (→ (List Known))
+      (concatenate (map (lambda (entry)
+                          (match (table-ref env (● entry first))
+                            ((Some value) (list value))
+                            ((None) (Nil))))
+                        (● (recipe ev name) captures))))
+
+    (define (invoke-closure (ev Evaluation) (handlers (List ConstantHandler))
+                            (frames (List EvaluationFrame)) (function Known) (name String)
+                            (env (Table Known)) (args (List Known)) (loc Loc))
       (→ (Pair Known Evaluation)) (! compile)
-      (match (program-value (program ev) name)
-        ((Some (Constructor _ _)) (allocate ev type (RecordValue name args)))
-        ((Some (Accessor _ index _))
-         (Pair (list-ref (record-fields ev (car-value args loc) loc) index) ev))
-        ((Some (Replacer _ index _))
+      (let* ((source (recipe ev name))
+             (captures (closure-captures ev name env))
+             (move-captures?
+              (or (once-type? (● function type))
+                  (any? (lambda (value) (linear-type? (program ev) (Nil) (● value type)))
+                        captures)))
+             (ev (if move-captures? (replace-object ev function (ClosureValue name empty-table))
+                     (fold-left retain-known ev captures)))
+             (captures
+              (match (● source self) ((Some _) (Cons function captures)) ((None) captures)))
+             (ev (match (● source self) ((Some _) (retain-known ev function)) ((None) ev))))
+        (evaluating ev ((body (closure-body name)))
+                    (enter-code ev
+                                handlers
+                                (Cons (ReleaseFunction function) frames)
+                                empty-table
+                                body
+                                (append captures args)))))
+
+    (define (invoke-global (ev Evaluation) (handlers (List ConstantHandler))
+                           (frames (List EvaluationFrame))
+                           (name String)
+                           (args (List Known))
+                           (type Type)
+                           (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (cond
+       ((table-contains? (● ev recipes) name)
+        (let ((source (recipe ev name)))
+          (return-result (allocate ev type
+                                   (ClosureValue name
+                                                 (bind-values empty-table
+                                                              (map
+                                                               (lambda (entry) (● entry first))
+                                                               (● source captures))
+                                                              args)))
+                         handlers frames)))
+       ((string-prefix? "prim:" name) (invoke-primitive ev handlers frames name args type loc))
+       (else
+        (match (program-value (program ev) name)
+          ((Some (Constructor _ _))
+           (return-result (allocate ev type (RecordValue name args)) handlers frames))
+          ((Some (Accessor case index _))
+           (check-record-case ev case (car-value args loc) loc)
+           (run-evaluation ev
+                           handlers
+                           frames
+                           (ReturnValue
+                            (list-ref (record-fields ev (car-value args loc) loc) index))))
+          ((Some (Replacer _ index _))
+           (if (linear-type? (program ev) (Nil) (● (car-value args loc) type))
+               (evaluating ev ((old (record-swap (car-value args loc) index (list-ref args 1) loc)))
+                           (run-evaluation ev
+                                           handlers
+                                           frames
+                                           (ReleaseValues (list old)
+                                                          (ReturnValue (car-value args loc)))))
+               (let* ((fields (record-fields ev (car-value args loc) loc))
+                      (ev (fold-left retain-known ev (map-indexed (lambda (i field)
+                                                                    (if (= i index)
+                                                                        (Known (TCon "Unit" (Nil))
+                                                                               (Scalar (DUnit)))
+                                                                        field))
+                                                                  fields)))
+                      (constructor
+                       (match (object-value ev (record-owner ev (car-value args loc) loc) loc)
+                         ((RecordValue constructor _) constructor)
+                         (_ (panic "internal error: record replacement")))))
+                 (return-result (allocate ev
+                                          type
+                                          (RecordValue constructor
+                                                       (replace-at fields index (list-ref args 1))))
+                                handlers
+                                frames))))
+          ((Some (Setter case index _))
+           (check-record-case ev case (car-value args loc) loc)
+           (evaluating ev ((old (record-swap (car-value args loc) index (list-ref args 1) loc)))
+                       (run-evaluation ev
+                                       handlers
+                                       frames
+                                       (ReleaseValues (list old) (ReturnValue (unit-known))))))
+          ((Some (Swapper case index _))
+           (check-record-case ev case (car-value args loc) loc)
+           (return-result (record-swap ev (car-value args loc) index (list-ref args 1) loc)
+                          handlers
+                          frames))
+          ((Some (Foreign import _))
+           (return-result (foreign-value ev import args type loc) handlers frames))
+          ((Some (Operation effect _))
+           (perform-operation ev handlers frames effect name args type loc))
+          (_ (evaluating ev ((body (body-of name)))
+                         (enter-code ev handlers frames empty-table body args)))))))
+
+    (define (check-record-case (ev Evaluation) (case Case) (value Known) (loc Loc))
+      (→ Unit) (! compile)
+      (match (object-value ev (record-owner ev value loc) loc)
+        ((RecordValue constructor _)
+         (unless (string=? constructor (● case name))
+           (compile-error loc
+                          "field access selects the wrong enum case during constant evaluation")))
+        (_ (panic "internal error: expected a constant record"))))
+
+    (define (unit-known) (→ Known) (Known (TCon "Unit" (Nil)) (Scalar (DUnit))))
+
+    ;; ---- Source handlers ----
+
+    (define (install-handler (ev Evaluation) (handlers (List ConstantHandler))
+                             (frames (List EvaluationFrame)) (effect String) (names (List String))
+                             (values (List Known))
+                             (env (Table Known))
+                             (remaining (List Expr))
+                             (body Expr))
+      (→ (Pair Known Evaluation)) (! compile)
+      (match remaining
+        ((Cons first rest)
+         (run-evaluation ev
+                         handlers
+                         (Cons (InstallHandler effect names values env rest body) frames)
+                         (Evaluate env first)))
+        ((Nil)
+         (let ((handler
+                (ConstantHandler (i64->string (● ev next)) effect (zip names (reverse values)))))
+           (run-evaluation (Evaluation-next-set ev (+ (● ev next) 1)) (Cons handler handlers)
+                           (Cons (HandlerBoundary handler) frames) (Evaluate env body))))))
+
+    (define (handler-outside (handlers (List ConstantHandler)) (id String))
+      (→ (List ConstantHandler))
+      (match handlers
+        ((Cons handler rest) (if (string=? (● handler id) id) rest (handler-outside rest id)))
+        ((Nil) (panic "internal error: missing constant handler boundary"))))
+
+    (define (handler-prefix (handlers (List ConstantHandler)) (id String))
+      (→ (List ConstantHandler))
+      (match handlers
+        ((Cons handler rest)
+         (Cons handler (if (string=? (● handler id) id) (Nil) (handler-prefix rest id))))
+        ((Nil) (panic "internal error: missing captured constant handler"))))
+
+    (define (split-frames (frames (List EvaluationFrame)) (id String))
+      (→ (Pair (List EvaluationFrame) (List EvaluationFrame)))
+      (match frames
+        ((Nil) (panic "internal error: constant control handler has no delimiter"))
+        ((Cons frame rest)
+         (if (match frame ((HandlerBoundary handler) (string=? (● handler id) id)) (_ #f))
+             (Pair (list frame) rest)
+             (match (split-frames rest id)
+               ((Pair inner outer) (Pair (Cons frame inner) outer)))))))
+
+    (define (perform-operation (ev Evaluation) (handlers (List ConstantHandler))
+                               (frames (List EvaluationFrame)) (effect String) (name String)
+                               (args (List Known)) (type Type) (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (match (find (lambda (handler) (string=? (● handler effect) effect)) handlers)
+        ((None)
+         (match (assoc-ref (● (program-effect (program ev) effect) defaults) name)
+           ((Some default) (invoke-global ev handlers frames default args type loc))
+           ((None) (compile-error loc "a compile-time value cannot perform an unhandled effect"))))
+        ((Some handler)
+         (match (assoc-ref (● handler operations) name)
+           ((None) (panic "internal error: incomplete constant handler"))
+           ((Some implementation)
+            (let ((ev (retain-known ev implementation))
+                  (outside (handler-outside handlers (● handler id))))
+              (if (member? name (● (program-effect (program ev) effect) control))
+                  (perform-control ev handlers frames handler implementation args type loc)
+                  (run-evaluation ev outside (Cons (RestoreHandlers handlers) frames)
+                                  (Invoke implementation args type loc)))))))))
+
+    (define (perform-control (ev Evaluation) (handlers (List ConstantHandler))
+                             (frames (List EvaluationFrame)) (handler ConstantHandler)
+                             (implementation Known) (args (List Known)) (type Type) (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (let ((outside (handler-outside handlers (● handler id))))
+        (match (split-frames frames (● handler id))
+          ((Pair captured frames)
+           (if (never-type? type)
+               (run-evaluation ev handlers (Cons (RestoreHandlers outside) frames)
+                               (CancelFrames captured (Invoke implementation args type loc)))
+               (let ((resume-type (match (fn-arrow (● implementation type))
+                                    ((TFun params _ _) (list-ref params (- (length params) 1)))
+                                    (_ (panic "internal error: control clause has no resume"))))
+                     (suspended (Suspension captured (handler-prefix handlers (● handler id)))))
+                 (evaluating ev ((resume (allocate resume-type (ResumeValue (Some suspended)))))
+                             (run-evaluation ev outside (Cons (RestoreHandlers outside) frames)
+                                             (Invoke implementation
+                                                     (append args (list resume))
+                                                     type
+                                                     loc)))))))))
+
+    ;; Fresh activations keep a resumed handler distinct from an identical
+    ;; handler still present at the invocation site. There are no mutable
+    ;; outside links, so resuming beneath a descendant cannot form a cycle.
+    (define (captured-handlers (frames (List EvaluationFrame))) (→ (List ConstantHandler))
+      (concatenate (map (lambda (frame)
+                          (match frame ((HandlerBoundary handler) (list handler)) (_ (Nil))))
+                        frames)))
+
+    (define (renew-handlers (ev Evaluation) (handlers (List ConstantHandler)))
+      (→ (Pair (List (Pair String ConstantHandler)) Evaluation))
+      (match handlers
+        ((Nil) (Pair (Nil) ev))
+        ((Cons handler rest)
+         (let* ((fresh (ConstantHandler (i64->string (● ev next))
+                                        (● handler effect)
+                                        (● handler operations)))
+                (ev (Evaluation-next-set ev (+ (● ev next) 1))))
+           (evaluating ev ((rest (renew-handlers rest)))
+                       (Pair (Cons (Pair (● handler id) fresh) rest) ev))))))
+
+    (define (rebase-handlers (saved (List ConstantHandler))
+                             (renewed (List (Pair String ConstantHandler)))
+                             (outside (List ConstantHandler))) (→ (List ConstantHandler))
+                             (match saved
+                               ((Nil) outside)
+                               ((Cons handler rest)
+                                (match (assoc-ref renewed (● handler id))
+                                  ((Some fresh)
+                                   (Cons fresh (rebase-handlers rest renewed outside)))
+                                  ((None) outside)))))
+
+    (define (rebase-frame (frame EvaluationFrame) (renewed (List (Pair String ConstantHandler)))
+                          (outside (List ConstantHandler))) (→ EvaluationFrame)
+                          (match frame
+                            ((HandlerBoundary handler)
+                             (match (assoc-ref renewed (● handler id))
+                               ((Some fresh) (HandlerBoundary fresh)) ((None) frame)))
+                            ((RestoreHandlers saved)
+                             (RestoreHandlers (rebase-handlers saved renewed outside)))
+                            (_ frame)))
+
+    (define (resume-evaluation (ev Evaluation) (handlers (List ConstantHandler))
+                               (frames (List EvaluationFrame))
+                               (resume Known)
+                               (suspended Suspension)
+                               (args (List Known)) (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (let ((ev (replace-object ev resume (ResumeValue (None)))))
+        (evaluating ev ((renewed (renew-handlers (captured-handlers (● suspended frames)))))
+                    (run-evaluation ev (rebase-handlers (● suspended handlers) renewed handlers)
+                                    (append
+                                     (map (lambda (frame) (rebase-frame frame renewed handlers))
+                                          (● suspended frames))
+                                     (Cons (RestoreHandlers handlers) frames))
+                                    (ReturnValue (car-value args loc))))))
+
+    (define (cancel-frames (ev Evaluation) (handlers (List ConstantHandler))
+                           (frames (List EvaluationFrame))
+                           (abandoned (List EvaluationFrame))
+                           (next EvaluationAction))
+      (→ (Pair Known Evaluation)) (! compile)
+      (match abandoned
+        ((Nil) (run-evaluation ev handlers frames next))
+        ((Cons frame rest)
+         (match frame
+           ((CancellationGuard env cleanup)
+            (match (● cleanup term)
+              ((Lambda _ body _)
+               (run-evaluation ev
+                               handlers
+                               (Cons (ContinueAction (CancelFrames rest next)) frames)
+                               (Evaluate env body)))
+              (_ (panic "internal error: constant cleanup is not a thunk"))))
+           ((HandlerBoundary handler)
+            (run-evaluation ev (handler-outside handlers (● handler id)) frames
+                            (ReleaseValues
+                             (map (lambda (entry) (● entry second)) (● handler operations))
+                             (CancelFrames rest next))))
+           ((RestoreHandlers saved) (run-evaluation ev saved frames (CancelFrames rest next)))
+           ((ReleaseFunction function)
+            (run-evaluation ev
+                            handlers
+                            frames
+                            (ReleaseValues (list function) (CancelFrames rest next))))
+           ((ReleaseCaptured captured)
+            (run-evaluation ev
+                            handlers
+                            frames
+                            (ReleaseValues (handler-values captured) (CancelFrames rest next))))
+           (_ (run-evaluation ev handlers frames (CancelFrames rest next)))))))
+
+
+    ;; ---- Interpreted reference counts ----
+
+    (define (replace-object (ev Evaluation) (value Known) (object ObjectValue)) (→ Evaluation)
+      (match (● value value)
+        ((Object id) (Evaluation-heap-set ev (table-set (● ev heap) id object)))
+        (_ (panic "internal error: constant object has no identity"))))
+
+    (define (owner-count (ev Evaluation) (id String)) (→ I64)
+      (match (table-ref (● ev counts) id)
+        ((Some count) count) ((None) (panic "internal error: constant owner has no count"))))
+
+    (define (retain-known (ev Evaluation) (value Known)) (→ Evaluation)
+      (match (● value value)
+        ((Object id)
+         (if (shared-type? (program ev) (● value type))
+             (let ((count (owner-count ev id)))
+               (when (<= count 0) (panic "internal error: retaining a dead constant owner"))
+               (Evaluation-counts-set ev (table-set (● ev counts) id (+ count 1)))) ev))
+        (_ ev)))
+
+    (define (release-values (ev Evaluation) (handlers (List ConstantHandler))
+                            (frames (List EvaluationFrame))
+                            (values (List Known))
+                            (next EvaluationAction))
+      (→ (Pair Known Evaluation)) (! compile)
+      (match values
+        ((Nil) (run-evaluation ev handlers frames next))
+        ((Cons value rest)
+         (let ((next (ReleaseValues rest next)))
+           (match (● value value)
+             ((Object id)
+              (if (shared-type? (program ev) (● value type))
+                  (let ((count (owner-count ev id)))
+                    (when (<= count 0) (panic "internal error: releasing a dead constant owner"))
+                    (let ((ev
+                           (Evaluation-counts-set ev (table-set (● ev counts) id (- count 1)))))
+                      (if (= count 1) (finalize-object ev handlers frames value next)
+                          (run-evaluation ev handlers frames next))))
+                  (run-evaluation ev handlers frames next)))
+             (_ (run-evaluation ev handlers frames next)))))))
+
+    (define (finalize-object (ev Evaluation) (handlers (List ConstantHandler))
+                             (frames (List EvaluationFrame))
+                             (value Known)
+                             (next EvaluationAction))
+      (→ (Pair Known Evaluation)) (! compile)
+      (match (object-value ev value (Loc "constant" 0 0))
+        ((RecordValue _ fields) (run-evaluation ev handlers frames (ReleaseValues fields next)))
+        ((ArrayValue items) (run-evaluation ev handlers frames (ReleaseValues items next)))
+        ((DynamicValue inner)
+         (run-evaluation ev handlers frames (ReleaseValues (list inner) next)))
+        ((ClosureValue name env)
+         (let* ((values (closure-captures ev name env))
+                (ev (replace-object ev value (ClosureValue name empty-table))))
+           (if (any? (lambda (value) (linear-type? (program ev) (Nil) (● value type))) values)
+               (drop-captures ev
+                              handlers
+                              (Cons (ContinueAction next) frames)
+                              values
+                              (Loc "constant finalizer" 0 0))
+               (run-evaluation ev handlers frames (ReleaseValues values next)))))
+        ((RcValue (Some payload) finalizer)
+         (run-evaluation (replace-object ev value (RcValue (None) finalizer)) handlers
+                         (Cons (ContinueAction next) frames)
+                         (Invoke finalizer
+                                 (list payload)
+                                 (TCon "Unit" (Nil))
+                                 (Loc "constant finalizer" 0 0))))
+        ((BoundValue inner _)
+         (run-evaluation ev handlers frames (ReleaseValues (list inner) next)))
+        (_ (run-evaluation ev handlers frames next))))
+
+    (define (record-owner (ev Evaluation) (value Known) (loc Loc)) (→ Known) (! compile)
+      (match (● value type)
+        ((TCon "Rc" _)
+         (match (object-value ev value loc)
+           ((RcValue (Some payload) _) (record-owner ev payload loc))
+           (_ (compile-error loc "constant Rc has already been finalized"))))
+        (_ value)))
+
+    (define (drop-closure (ev Evaluation) (handlers (List ConstantHandler))
+                          (frames (List EvaluationFrame)) (function Known) (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (match (object-value ev function loc)
+        ((ResumeValue (Some suspended))
+         (let ((ev (replace-object ev function (ResumeValue (None)))))
+           (evaluating ev ((renewed (renew-handlers (captured-handlers (● suspended frames)))))
+                       (run-evaluation ev
+                                       (rebase-handlers (● suspended handlers) renewed handlers)
+                                       (Cons (RestoreHandlers handlers) frames)
+                                       (CancelFrames
+                                        (map
+                                         (lambda (frame) (rebase-frame frame renewed handlers))
+                                         (● suspended frames))
+                                        (ReturnValue (unit-known)))))))
+        ((ResumeValue (None)) (compile-error loc "constant resumption was already consumed"))
+        ((ClosureValue name env)
+         (let ((ev (replace-object ev function (ClosureValue name empty-table)))
+               (values (map (lambda (entry) (table-ref-or env (● entry first)))
+                            (● (recipe ev name) captures))))
+           (drop-captures ev handlers frames values loc)))
+        ((CodeValue expr env) (enter-code ev handlers frames env expr (Nil)))
+        ((OnceValue inner)
+         (run-evaluation (replace-object ev function (SpentValue)) handlers frames
+                         (ReleaseValues (list inner) (ReturnValue (unit-known)))))
+        ((BoundValue inner captured)
+         (run-evaluation (replace-object ev function (SpentValue)) captured
+                         (Cons (RestoreHandlers handlers) (Cons (ReleaseCaptured captured) frames))
+                         (Invoke (Known (TFun (list (● inner type)) (TCon "Unit" (Nil)) empty-row)
+                                        (Global "prim:drop-once"))
+                                 (list inner) (TCon "Unit" (Nil)) loc)))
+        (_ (compile-error loc "constant drop-once expected a one-shot function"))))
+
+    (define (drop-captures (ev Evaluation) (handlers (List ConstantHandler))
+                           (frames (List EvaluationFrame)) (values (List Known)) (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (match (request-drops (● ev state) (map (lambda (value) (● value type)) values) loc)
+        ((Pair drops state)
+         (let ((ev (Evaluation-state-set ev state)))
+           (run-evaluation ev handlers frames
+                           (Evaluate (bind-values empty-table
+                                                  (map (lambda (index)
+                                                         (string-append "%drop."
+                                                                        (i64->string index)))
+                                                       (iota (length values)))
+                                                  values)
+                                     (fold-right
+                                      (lambda (pair rest)
+                                        (let* ((value (● pair second))
+                                               (name
+                                                (string-append "%drop."
+                                                               (i64->string (● pair first))))
+                                               (drop
+                                                (match (table-ref drops (type-key (● value type)))
+                                                  ((Some drop) drop)
+                                                  ((None)
+                                                   (panic
+                                                    "internal error: missing constant drop")))))
+                                          (Expr (Seq (Expr (App drop
+                                                                (list (Expr (Var name (Nil) (Nil))
+                                                                            (● value type)
+                                                                            loc)))
+                                                           (TCon "Unit" (Nil)) loc) rest)
+                                                (TCon "Unit" (Nil))
+                                                loc)))
+                                      (Expr (Lit (DUnit)) (TCon "Unit" (Nil)) loc)
+                                      (zip (iota (length values)) values))))))))
+
+    ;; ---- Calls implemented by the evaluator ----
+
+    (define (invoke-primitive (ev Evaluation) (handlers (List ConstantHandler))
+                              (frames (List EvaluationFrame))
+                              (name String)
+                              (args (List Known))
+                              (type Type)
+                              (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (case name
+        (("prim:retain" "prim:pattern-retain")
+         (run-evaluation (retain-known ev (car-value args loc))
+                         handlers
+                         frames
+                         (ReturnValue (car-value args loc))))
+        (("prim:release" "prim:discard")
+         (run-evaluation ev handlers frames (ReleaseValues args (ReturnValue (unit-known)))))
+        (("prim:rc-new")
+         (return-result (allocate ev type (RcValue (Some (car-value args loc)) (list-ref args 1)))
+                        handlers
+                        frames))
+        (("prim:rc-get")
          (match (object-value ev (car-value args loc) loc)
-           ((RecordValue name fields)
-            (allocate ev type (RecordValue name (replace-at fields index (list-ref args 1)))))
-           (_ (compile-error loc "constant replacement expected a record"))))
-        ((Some (Primitive _)) (primitive-value ev name args type loc))
-        ((Some (Foreign _ _))
-         (compile-error loc "a compile-time value cannot call a foreign function"))
-        ((Some (Operation _ _)) (compile-error loc "a compile-time value cannot perform an effect"))
-        (_ (evaluating ev ((body (body-of name)))
-                       (match (● body term)
-                         ((Lambda params body _)
-                          (evaluate ev (fold-left (lambda (env pair)
-                                                    (table-set env (● pair first) (● pair second)))
-                                                  empty-table (zip params args)) body))
-                         (_ (evaluating ev ((function (evaluate empty-table body)))
-                                        (invoke ev function args type loc))))))))
+           ((RcValue (Some payload) _) (run-evaluation ev handlers frames (ReturnValue payload)))
+           (_ (compile-error loc "constant Rc has already been finalized"))))
+        (("prim:rc-downgrade")
+         (run-evaluation ev
+                         handlers
+                         frames
+                         (ReturnValue (Known type (● (car-value args loc) value)))))
+        (("prim:once")
+         (return-result (allocate ev type (OnceValue (car-value args loc))) handlers frames))
+        (("prim:weak-rc-upgrade")
+         (upgrade-constant ev handlers frames (car-value args loc) type loc))
+        (("prim:unsafe-total" "prim:call-once")
+         (run-evaluation ev
+                         handlers
+                         frames
+                         (Invoke (car-value args loc) (list-drop args 1) type loc)))
+        (("prim:drop-once")
+         (match (● (car-value args loc) value)
+           ((Global _) (run-evaluation ev handlers frames (ReturnValue (unit-known))))
+           (_ (drop-closure ev handlers frames (car-value args loc) loc))))
+        (("prim:once-dropping")
+         (if (once-type? type)
+             (return-result (allocate ev type (OnceValue (car-value args loc))) handlers frames)
+             (run-evaluation ev handlers frames (ReturnValue (car-value args loc)))))
+        (("prim:inherit-handlers" "prim:inherit-handlers-1")
+         (return-result
+          (allocate (retained-handlers ev handlers) type (BoundValue (car-value args loc) handlers))
+          handlers
+          frames))
+        (("prim:vector-generate" "prim:string-generate")
+         (let ((size (integer-value (car-value args loc) loc)))
+           (check-size size loc)
+           (generate-element ev handlers frames (list-ref args 1) 0 size (Nil) type loc)))
+        (("prim:array-set!")
+         (let* ((array (car-value args loc)) (index (integer-value (list-ref args 1) loc))
+                (items (array-values ev array loc)))
+           (check-range index 1 (length items) loc)
+           (evaluating ev ((result (array-write array index (list-ref args 2) type loc)))
+                       (run-evaluation ev
+                                       handlers
+                                       frames
+                                       (ReleaseValues (list (list-ref items index))
+                                                      (ReturnValue result))))))
+        (("prim:array-copy!" "prim:vector-copy!")
+         (copy-array-contents ev handlers frames args type loc))
+        (("prim:vector-set")
+         (let* ((items (array-values ev (car-value args loc) loc))
+                (index (integer-value (list-ref args 1) loc)))
+           (check-range index 1 (length items) loc)
+           (let ((ev (fold-left (lambda (ev pair)
+                                  (if (= (● pair first) index)
+                                      ev
+                                      (retain-known ev (● pair second))))
+                                ev (zip (iota (length items)) items))))
+             (return-result
+              (sequence-value ev type (replace-at items index (list-ref args 2)) loc)
+              handlers
+              frames))))
+        (("prim:make-string" "prim:make-vector" "prim:make-array")
+         (let ((size (integer-value (car-value args loc) loc)) (value (list-ref args 1)))
+           (check-size size loc)
+           (let* ((items (map (lambda (index) value) (iota size)))
+                  (ev (fold-left retain-known ev items)))
+             (return-result (sequence-value ev type items loc) handlers frames))))
+        (("prim:vector-append"
+          "prim:string-append"
+          "prim:subvector"
+          "prim:substring"
+          "prim:array->vector"
+          "prim:vector->array")
+         (evaluating ev ((value (primitive-value name args type loc)))
+                     (run-evaluation (fold-left retain-known ev (array-values ev value loc))
+                                     handlers
+                                     frames
+                                     (ReturnValue value))))
+        (("prim:string->vector" "prim:vector->string")
+         (run-evaluation ev
+                         handlers
+                         frames
+                         (ReturnValue (Known type (● (car-value args loc) value)))))
+        (else (return-result (primitive-value ev name args type loc) handlers frames))))
+
+    (define (check-size (size I64) (loc Loc)) (→ Unit) (! compile)
+      (when (or (< size 0) (> size 1000000))
+        (compile-error loc "constant array length must be between 0 and 1000000")))
+
+    (define (generate-element (ev Evaluation) (handlers (List ConstantHandler))
+                              (frames (List EvaluationFrame))
+                              (function Known)
+                              (index I64)
+                              (size I64)
+                              (values (List Known)) (type Type) (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (if (= index size)
+          (return-result (sequence-value ev type (reverse values) loc) handlers frames)
+          (let ((element (match type
+                           ((TCon "String" _) (TCon "Char" (Nil)))
+                           ((TCon _ (Cons element _)) element)
+                           (_ (panic "internal error: array type")))))
+            (run-evaluation (retain-known ev function) handlers
+                            (Cons (GeneratedElement function index size values type loc) frames)
+                            (Invoke function
+                                    (list (Known (TCon "I64" (Nil)) (Scalar (DInt index))))
+                                    element
+                                    loc)))))
+
+    (define (upgrade-constant (ev Evaluation) (handlers (List ConstantHandler))
+                              (frames (List EvaluationFrame)) (weak Known) (type Type) (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (let* ((strong-type (match type ((TCon _ (Cons strong (Nil))) strong)
+                                 (_ (panic "internal error: weak upgrade result"))))
+             (strong (Known strong-type (● weak value)))
+             (live? (match (● weak value) ((Object id) (> (owner-count ev id) 0)) (_ #f))))
+        (return-result (allocate (if live? (retain-known ev strong) ev) type
+                                 (RecordValue
+                                  (if live? "snail.core.base:Some" "snail.core.base:None")
+                                  (if live? (list strong) (Nil)))) handlers frames)))
+
+    (define (copy-array-contents (ev Evaluation) (handlers (List ConstantHandler))
+                                 (frames (List EvaluationFrame))
+                                 (args (List Known))
+                                 (type Type)
+                                 (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (let* ((target (car-value args loc)) (at (integer-value (list-ref args 1) loc))
+             (source (list-ref args 2)) (from (integer-value (list-ref args 3) loc))
+             (count (integer-value (list-ref args 4) loc))
+             (old (array-values ev target loc)) (incoming (array-values ev source loc)))
+        (check-range at count (length old) loc)
+        (check-range from count (length incoming) loc)
+        (let ((ev (fold-left retain-known ev (take (list-drop incoming from) count))))
+          (evaluating ev ((result (array-copy target at source from count type loc)))
+                      (run-evaluation ev
+                                      handlers
+                                      frames
+                                      (ReleaseValues (take (list-drop old at) count)
+                                                     (ReturnValue result)))))))
+
+
+    ;; Any carries the same concrete type and payload as at runtime. Copying
+    ;; its wrapper copies the payload through the shared graph identity map.
+    (define (dynamic-inner (ev Evaluation) (value Known) (loc Loc)) (→ Known) (! compile)
+      (match (object-value ev value loc)
+        ((DynamicValue inner) inner)
+        (_ (compile-error loc "constant evaluation expected Any"))))
+
+    (define (convert-value (ev Evaluation) (value Known) (target Type) (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (cond ((string=? (type-key (● value type)) (type-key target)) (Pair value ev))
+            ((any-type? target) (allocate ev target (DynamicValue value)))
+            (else
+             (let ((inner (dynamic-inner ev value loc)))
+               (unless (string=? (type-key (● inner type)) (type-key target))
+                 (compile-error loc "internal error: unchecked constant conversion"))
+               (Pair inner ev)))))
+
+
+
+
+
+
+
+
+
+
 
     (define (car-value (values (List Known)) (loc Loc)) (→ Known) (! compile)
-      (match values ((Cons value _) value) ((Nil) (compile-error loc "missing constant operand"))))
+      (match values
+        ((Cons value _) value)
+        ((Nil) (compile-error loc "missing constant operand"))))
 
     (define (record-fields (ev Evaluation) (value Known) (loc Loc)) (→ (List Known)) (! compile)
-      (match (object-value ev value loc)
+      (match (object-value ev (record-owner ev value loc) loc)
         ((RecordValue _ fields) fields)
         (_ (compile-error loc "constant evaluation expected a record"))))
 
     (define (replace-at (values (List Known)) (index I64) (value Known)) (→ (List Known))
       (map-indexed (lambda (i previous) (if (= i index) value previous)) values))
 
+    ;; A checked place identifies one record slot. Evaluate its owner before
+    ;; the replacement, then update that identity in the evaluation heap.
+    ;; Aliases observe the write; copying a constant still copies its graph.
+
+
+    (define (record-swap (ev Evaluation) (owner Known) (index I64) (value Known) (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (let ((owner (record-owner ev owner loc)))
+        (match (Pair (● owner value) (object-value ev owner loc))
+          ((Pair (Object id) (RecordValue name fields))
+           (Pair (list-ref fields index)
+                 (Evaluation-heap-set ev
+                                      (table-set (● ev heap) id
+                                                 (RecordValue name
+                                                              (replace-at fields index value))))))
+          (_ (compile-error loc "constant field update expected a record")))))
+
+    ;; Only deterministic scalar services are callable here. An extern's
+    ;; empty row alone never authorizes host IO during compilation.
+    (define (foreign-value (ev Evaluation) (import Import) (args (List Known))
+                           (type Type) (loc Loc))
+      (→ (Pair Known Evaluation)) (! compile)
+      (unless (and (string=? (● import module) "snail.core.support")
+                   (or (string-prefix? "snail:text/" (● import symbol))
+                       (string=? (● import symbol) "snail:datum/whitespace")))
+        (compile-error loc "a compile-time value cannot call this foreign function"))
+      (let ((code (unicode-code (car-value args loc) loc))
+            (index (if (= (length args) 2) (i64->i32 (integer-value (list-ref args 1) loc)) 0)))
+        (when (and (string=? (● import symbol) "snail:text/full-fold-scalar")
+                   (match (unicode-scalar "snail:text/full-fold-length" code 0)
+                     ((Some size) (or (< index 0) (>= index size))) ((None) #t)))
+          (compile-error loc "full case-fold component index out of range"))
+        (match (unicode-scalar (● import symbol) code index)
+          ((Some result)
+           (scalar ev type (if (string=? (type-key type) "Char")
+                               (DChar (integer->char (i32->i64 result)))
+                               (DInt (i32->i64 result)))))
+          ((None) (compile-error loc "unknown compile-time Unicode service")))))
+
+    (define (unicode-code (value Known) (loc Loc)) (→ I32) (! compile)
+      (let ((code (integer-value value loc)))
+        (when (or (< code 0) (> code 1114111) (and (>= code 55296) (<= code 57343)))
+          (compile-error loc "compile-time Unicode service requires a Unicode scalar"))
+        (i64->i32 code)))
+
     ;; ---- Patterns ----
 
-    (define (evaluate-match (ev Evaluation) (env (Table Known)) (value Known)
-                            (clauses (List Clause)) (loc Loc))
-      (→ (Pair Known Evaluation)) (! compile)
-      (match clauses
-        ((Nil) (compile-error loc "non-exhaustive match during constant evaluation"))
-        ((Cons clause rest)
-         (match (match-value ev env (● clause pattern) value loc)
-           ((Some inner) (evaluate ev inner (● clause body)))
-           ((None) (evaluate-match ev env value rest loc))))))
+
 
     (define (match-value (ev Evaluation)
                          (env (Table Known))
@@ -222,14 +1250,21 @@
         ((PWild _) (Some env))
         ((PVar name _) (Some (table-set env name value)))
         ((PLit datum _)
-         (match (● value value)
-           ((Scalar actual) (if (datum=? datum actual) (Some env) (None)))
-           (_ (None))))
+         (if (literal-matches? ev datum value loc) (Some env) (None)))
         ((PCon name args _)
          (match (object-value ev value loc)
            ((RecordValue actual fields)
             (if (string=? name actual) (match-fields ev (Some env) args fields loc) (None)))
            (_ (None))))))
+
+    (define (literal-matches? (ev Evaluation) (datum Datum) (value Known) (loc Loc))
+      (→ Bool) (! compile)
+      (match datum
+        ((DChar char) (= (char->integer char) (integer-value value loc)))
+        ((DString text)
+         (= (compare-characters (array-values ev (Known (TCon "String" (Nil)) (Scalar datum)) loc)
+                                (array-values ev value loc) loc) 0))
+        (_ (match (● value value) ((Scalar actual) (datum=? datum actual)) (_ #f)))))
 
     (define (match-fields (ev Evaluation) (env (Option (Table Known)))
                           (patterns (List Pattern)) (values (List Known)) (loc Loc))
@@ -248,37 +1283,117 @@
       ((evaluation Evaluation)
        (objects (Table String))))
 
-    (define (copy-value (ev Evaluation) (value Known)) (→ (Pair Known Evaluation))
+    (define (copy-value (ev Evaluation) (value Known)) (→ (Pair Known Evaluation)) (! compile)
       (match (copy-known (Copying ev empty-table) value)
         ((Pair value copying) (Pair value (● copying evaluation)))))
 
-    (define (copy-known (copying Copying) (value Known)) (→ (Pair Known Copying))
+    (define (copy-known (copying Copying) (value Known)) (→ (Pair Known Copying)) (! compile)
       (match (● value value)
         ((Object old)
          (match (table-ref (● copying objects) old)
-           ((Some fresh) (Pair (Known (● value type) (Object fresh)) copying))
+           ((Some fresh)
+            (let* ((ev (● copying evaluation))
+                   (count (owner-count ev fresh))
+                   (ev (if (shared-type? (program ev) (● value type))
+                           (Evaluation-counts-set ev (table-set (● ev counts) fresh (+ count 1)))
+                           ev)))
+              (Pair (Known (● value type) (Object fresh)) (Copying-evaluation-set copying ev))))
            ((None) (copy-object copying value old))))
         (_ (Pair value copying))))
 
-    (define (copy-object (copying Copying) (value Known) (old String)) (→ (Pair Known Copying))
+    (define (copy-object (copying Copying) (value Known) (old String))
+      (→ (Pair Known Copying))
+      (! compile)
       (let* ((ev (● copying evaluation)) (fresh (i64->string (● ev next)))
+             (ev (Evaluation-counts-set ev (table-set (● ev counts) fresh
+                                                      (if
+                                                       (shared-type? (program ev) (● value type))
+                                                       1
+                                                       0))))
              (copying (Copying (Evaluation-next-set ev (+ (● ev next) 1))
                                (table-set (● copying objects) old fresh))))
         (match (table-ref (● ev heap) old)
           ((Some object)
-           (match (copy-object-value copying object)
-             ((Pair object copying)
-              (let ((ev (● copying evaluation)))
-                (Pair (Known (● value type) (Object fresh))
-                      (Copying-evaluation-set copying
-                                              (Evaluation-heap-set ev
-                                                                   (table-set (● ev heap)
-                                                                              fresh
-                                                                              object))))))))
+           (let ((copying
+                  (Copying-evaluation-set copying (reserve-object (● copying evaluation) object))))
+             (match (copy-object-value copying object)
+               ((Pair object copying)
+                (let ((ev (● copying evaluation)))
+                  (Pair (Known (● value type) (Object fresh))
+                        (Copying-evaluation-set copying
+                                                (Evaluation-heap-set ev
+                                                                     (table-set (● ev heap)
+                                                                                fresh
+                                                                                object))))))))
+           )
           ((None) (panic "internal error: missing constant object")))))
 
+    (define (handler-values (handlers (List ConstantHandler))) (→ (List Known))
+      (concatenate
+       (map (lambda (handler) (map (lambda (entry) (● entry second)) (● handler operations)))
+            handlers)))
+
+    (define (retained-handlers (ev Evaluation) (handlers (List ConstantHandler))) (→ Evaluation)
+      (fold-left (lambda (ev handler)
+                   (fold-left (lambda (ev entry) (retain-known ev (● entry second)))
+                              ev
+                              (● handler operations)))
+                 ev
+                 handlers))
+
+    (define (copy-handlers (copying Copying) (handlers (List ConstantHandler)))
+      (→ (Pair (List ConstantHandler) Copying)) (! compile)
+      (match handlers
+        ((Nil) (Pair (Nil) copying))
+        ((Cons handler rest)
+         (match (copy-values copying (map (lambda (entry) (● entry second)) (● handler operations)))
+           ((Pair values copying)
+            (match (copy-handlers copying rest)
+              ((Pair rest copying)
+               (Pair (Cons (ConstantHandler (● handler id) (● handler effect)
+                                            (zip (map (lambda (entry) (● entry first))
+                                                      (● handler operations))
+                                                 values))
+                           rest)
+                     copying))))))))
+
+    (define (reify-bound-handlers (r Reifying)
+                                  (handlers (List ConstantHandler))
+                                  (body Expr)
+                                  (loc Loc))
+      (→ (Pair Expr Reifying)) (! compile)
+      (match handlers
+        ((Nil) (Pair body r))
+        ((Cons handler rest)
+         (match (reify-values r (map (lambda (entry) (● entry second)) (● handler operations)) loc)
+           ((Pair values r)
+            (reify-bound-handlers r rest
+                                  (Expr (Handle (● handler effect)
+                                                (zip (map (lambda (entry) (● entry first))
+                                                          (● handler operations))
+                                                     values)
+                                                body)
+                                        (● body type) loc) loc))))))
+
+    (define (reify-bound (r Reifying)
+                         (function Known)
+                         (handlers (List ConstantHandler))
+                         (type Type)
+                         (loc Loc))
+      (→ (Pair Expr Reifying)) (! compile)
+      (match (reify-value r function loc)
+        ((Pair function r)
+         (let ((primitive (match (fn-arrow type)
+                            ((TFun (Nil) _ _) "prim:inherit-handlers")
+                            (_ "prim:inherit-handlers-1"))))
+           (reify-bound-handlers r
+                                 handlers
+                                 (constant-call primitive (list function) type loc)
+                                 loc)))))
+
+
     (define (copy-object-value (copying Copying) (object ObjectValue))
-      (→ (Pair ObjectValue Copying))
+      (→ (Pair ObjectValue Copying)) (! compile)
       (match object
         ((RecordValue name fields)
          (match (copy-values copying fields)
@@ -286,21 +1401,42 @@
         ((ArrayValue items)
          (match (copy-values copying items)
            ((Pair items copying) (Pair (ArrayValue items) copying))))
-        ((ClosureValue expr env self)
+        ((DynamicValue inner)
+         (match (copy-known copying inner)
+           ((Pair inner copying) (Pair (DynamicValue inner) copying))))
+        ((ClosureValue name env)
          (let ((names (table-keys env)))
            (match (copy-values copying (map (lambda (name) (table-ref-or env name)) names))
              ((Pair values copying)
-              (Pair (ClosureValue expr (fold-left (lambda (env pair)
-                                                    (table-set env (● pair first) (● pair second)))
-                                                  empty-table (zip names values)) self)
-                    copying)))))))
+              (Pair (ClosureValue name (bind-values empty-table names values)) copying)))))
+        ((RcValue payload finalizer)
+         (match (copy-values copying
+                             (match payload
+                               ((Some value) (list value finalizer))
+                               ((None) (list finalizer))))
+           ((Pair values copying)
+            (Pair (match payload
+                    ((Some _) (RcValue (Some (list-ref values 0)) (list-ref values 1)))
+                    ((None) (RcValue (None) (list-ref values 0)))) copying))))
+        ((OnceValue inner)
+         (match (copy-known copying inner)
+           ((Pair inner copying) (Pair (OnceValue inner) copying))))
+        ((BoundValue inner handlers)
+         (match (copy-known copying inner)
+           ((Pair inner copying)
+            (match (copy-handlers copying handlers)
+              ((Pair handlers copying) (Pair (BoundValue inner handlers) copying))))))
+        (_ (compile-error (Loc "constant" 0 0)
+                          "a live interpreter continuation cannot escape in a compile-time value"))))
 
     (define (table-ref-or (table (Table Known)) (name String)) (→ Known)
       (match (table-ref table name)
         ((Some value) value)
         ((None) (panic "internal error: missing constant binding"))))
 
-    (define (copy-values (copying Copying) (values (List Known))) (→ (Pair (List Known) Copying))
+    (define (copy-values (copying Copying) (values (List Known)))
+      (→ (Pair (List Known) Copying))
+      (! compile)
       (match values
         ((Nil) (Pair (Nil) copying))
         ((Cons first rest)
@@ -352,7 +1488,8 @@
                                (("sub") (- a b))
                                (("mul") (* a b))
                                (("div") (/ a b))
-                               (("negate") (bits-real (i64-xor (real-bits a) -9223372036854775808)))
+                               (("negate")
+                                (bits-real (i64-xor (real-bits a) -9223372036854775808)))
                                (("abs") (bits-real (i64-and (real-bits a) 9223372036854775807)))
                                (("min") (real-minmax a b #t))
                                (("max") (real-minmax a b #f))
@@ -435,10 +1572,17 @@
         ((Scalar (DBool value)) (if value 1 0))
         (_ (compile-error loc "constant evaluation expected an integer"))))
 
-    (define (text-value (value Known) (loc Loc)) (→ String) (! compile)
+    (define (text-value (ev Evaluation) (value Known) (loc Loc)) (→ String) (! compile)
       (match (● value value)
         ((Scalar (DString value)) value)
-        (_ (compile-error loc "constant evaluation expected a string"))))
+        (_ (list->string
+            (map (lambda (value)
+                   (let ((code (integer-value value loc)))
+                     (integer->char (if (unicode-scalar? code) code 65533))))
+                 (array-values ev value loc))))))
+
+    (define (unicode-scalar? (code I64)) (→ Bool)
+      (and (>= code 0) (<= code 1114111) (or (< code 55296) (> code 57343))))
 
     (define (array-values (ev Evaluation) (value Known) (loc Loc)) (→ (List Known)) (! compile)
       (match (● value value)
@@ -457,11 +1601,26 @@
 
     (define (sequence-value (ev Evaluation) (type Type) (items (List Known)) (loc Loc))
       (→ (Pair Known Evaluation)) (! compile)
-      (if (string=? (type-key type) "String")
+      (if (and (string=? (type-key type) "String")
+               (every? (lambda (value) (unicode-scalar? (integer-value value loc))) items))
           (scalar ev type (DString (list->string (map (lambda (value)
                                                         (integer->char (integer-value value loc)))
                                                       items))))
           (allocate ev type (ArrayValue items))))
+
+    ;; Char is an i32 at the primitive boundary. Keep non-scalar code units
+    ;; in arrays without asking the bootstrap host to construct a character.
+    ;; Unicode services validate them separately, just as the runtime does.
+    (define (compare-characters (left (List Known)) (right (List Known)) (loc Loc))
+      (→ I64) (! compile)
+      (match (Pair left right)
+        ((Pair (Nil) (Nil)) 0)
+        ((Pair (Nil) _) -1)
+        ((Pair _ (Nil)) 1)
+        ((Pair (Cons a left) (Cons b right))
+         (let ((a (i64-and (integer-value a loc) 4294967295))
+               (b (i64-and (integer-value b loc) 4294967295)))
+           (cond ((< a b) -1) ((> a b) 1) (else (compare-characters left right loc)))))))
 
     (define (primitive-value (ev Evaluation)
                              (name String)
@@ -492,17 +1651,19 @@
             (("bits->f64") (real-result ev type (bits-real (integer 0))))
             (("bits->f32") (real-result ev type (bits-single (i64->i32 (integer 0)))))
             (("unit" "discard") (scalar ev type (DUnit)))
+            (("any-type-id")
+             (scalar ev type
+                     (DInt (any-type-id (program ev) (● (dynamic-inner ev (arg 0) loc) type)))))
             (("panic")
-             (compile-error loc (string-append "constant panic: " (text-value (arg 0) loc))))
+             (compile-error loc (string-append "constant panic: " (text-value ev (arg 0) loc))))
             (("bool->i32" "char->i32" "u8->i32" "i32->i64") (scalar ev type (DInt (integer 0))))
             (("i64->i32") (scalar ev type (DInt (i32->i64 (i64->i32 (integer 0))))))
             (("i32->u8") (scalar ev type (DInt (i64-and (integer 0) 255))))
             (("i32->bool") (scalar ev type (DBool (not (= (integer 0) 0)))))
             (("i32->char")
              (let ((value (integer 0)))
-               (when (or (< value 0) (> value 1114111) (and (>= value 55296) (< value 57344)))
-                 (compile-error loc "invalid Unicode scalar in a compile-time value"))
-               (scalar ev type (DChar (integer->char value)))))
+               (scalar ev type (if (unicode-scalar? value) (DChar (integer->char value))
+                                   (DInt value)))))
             (("string-length" "array-length" "vector-length")
              (scalar ev type (DInt (length (array-values ev (arg 0) loc)))))
             (("string-ref" "array-ref" "vector-ref")
@@ -526,22 +1687,17 @@
              (let ((items (array-values ev (arg 0) loc)))
                (check-range (integer 1) 1 (length items) loc)
                (sequence-value ev type (replace-at items (integer 1) (arg 2)) loc)))
-            (("vector-generate" "string-generate")
-             (when (< (integer 0) 0)
-               (compile-error loc "negative array length in a compile-time value"))
-             (evaluating ev ((items (generate-values (arg 1) 0 (integer 0) type loc)))
-                         (sequence-value ev type items loc)))
-            (("string=?") (scalar ev type (DBool (string=? (text-value (arg 0) loc)
-                                                           (text-value (arg 1) loc)))))
+
+            (("string=?")
+             (scalar ev type (DBool (= (compare-characters (array-values ev (arg 0) loc)
+                                                           (array-values ev (arg 1) loc) loc)
+                                       0))))
             (("string-compare")
-             (let ((left (text-value (arg 0) loc)) (right (text-value (arg 1) loc)))
-               (scalar ev
-                       type
-                       (DInt
-                        (cond ((string=? left right) 0) ((string<? left right) -1) (else 1))))))
+             (scalar ev type (DInt (compare-characters (array-values ev (arg 0) loc)
+                                                       (array-values ev (arg 1) loc) loc))))
             ;; Total wrappers may use private, newly allocated scratch. Its
             ;; writes stay inside this interpreter's heap, never a host heap.
-            (("unsafe-total") (invoke ev (arg 0) (Nil) type loc))
+
             (("array-set!") (array-write ev (arg 0) (integer 1) (arg 2) type loc))
             (("array-copy!" "vector-copy!")
              (array-copy ev (arg 0) (integer 1) (arg 2) (integer 3) (integer 4) type loc))
@@ -558,20 +1714,7 @@
       (when (or (< start 0) (< count 0) (> start size) (> count (- size start)))
         (compile-error loc "array index out of bounds during constant evaluation")))
 
-    (define (generate-values (ev Evaluation) (function Known) (index I64) (size I64)
-                             (type Type) (loc Loc))
-      (→ (Pair (List Known) Evaluation)) (! compile)
-      (if (= index size) (Pair (Nil) ev)
-          (let ((element (match type
-                           ((TCon "String" _) (TCon "Char" (Nil)))
-                           ((TCon _ (Cons element _)) element)
-                           (_ (panic "internal error: array type")))))
-            (evaluating ev
-                        ((value
-                          (invoke function (list (Known (TCon "I64" (Nil)) (Scalar (DInt index))))
-                                  element loc))
-                         (rest (generate-values function (+ index 1) size type loc)))
-                        (Pair (Cons value rest) ev)))))
+
 
     (define (array-write (ev Evaluation)
                          (array Known)
@@ -585,7 +1728,8 @@
         (match (● array value)
           ((Object id)
            (scalar (Evaluation-heap-set ev (table-set (● ev heap) id
-                                                      (ArrayValue (replace-at items index value))))
+                                                      (ArrayValue
+                                                       (replace-at items index value))))
                    type
                    (DUnit)))
           (_ (compile-error loc
@@ -602,15 +1746,17 @@
            (scalar (Evaluation-heap-set ev (table-set (● ev heap) id
                                                       (ArrayValue (map-indexed (lambda (index old)
                                                                                  (if
-                                                                                  (and (>= index at)
-                                                                                       (<
-                                                                                        (- index at)
-                                                                                        count))
+                                                                                  (and
+                                                                                   (>= index at)
+                                                                                   (<
+                                                                                    (- index at)
+                                                                                    count))
                                                                                   (list-ref source
-                                                                                            (+ from
-                                                                                               (-
-                                                                                                index
-                                                                                                at)))
+                                                                                            (+
+                                                                                             from
+                                                                                             (-
+                                                                                              index
+                                                                                              at)))
                                                                                   old))
                                                                                target))))
                    type (DUnit)))
@@ -682,14 +1828,200 @@
        (active (List String))
        (bindings (List (Pair String Expr)))))
 
-    (define (reify (ev Evaluation) (value Known) (loc Loc)) (→ Expr) (! compile)
-      (match (reify-value (Reifying ev empty-table (Nil) (Nil)) value loc)
-        ((Pair result reifying)
-         (fold-left (lambda (body binding)
-                      (Expr (Let (● binding first) (● binding second) body) (● body type) loc))
-                    result (● reifying bindings)))))
+    ;; Discover mutable nodes first. Their private shells break heap cycles;
+    ;; immutable nodes can then be constructed from those identities. Only
+    ;; after every node exists are the shells filled and the root published.
+    (define (mutable-node? (object ObjectValue)) (→ Bool)
+      (match object
+        ((ArrayValue _) #t)
+        ((RecordValue _ fields) (not (null? fields)))
+        (_ #f)))
 
-    (define (reify-value (r Reifying) (value Known) (loc Loc)) (→ (Pair Expr Reifying)) (! compile)
+    (define (object-children (ev Evaluation) (object ObjectValue)) (→ (List Known))
+      (match object
+        ((RecordValue _ fields) fields)
+        ((ArrayValue items) items)
+        ((DynamicValue inner) (list inner))
+        ((ClosureValue _ env) (table-values env))
+        ((RcValue payload finalizer)
+         (match payload ((Some value) (list value finalizer)) ((None) (Nil))))
+        ((OnceValue inner) (list inner))
+        ((BoundValue inner handlers)
+         (Cons inner (concatenate (map (lambda (handler)
+                                         (map (lambda (entry) (● entry second))
+                                              (● handler operations)))
+                                       handlers))))
+        (_ (Nil))))
+
+
+
+    (define (constant-shell (value Known) (object ObjectValue) (loc Loc)) (→ Expr)
+      (match object
+        ((RecordValue constructor _)
+         (constant-call "prim:constant-record"
+                        (list (Expr (Lit (DString constructor)) (TCon "String" (Nil)) loc))
+                        (● value type) loc))
+        ((ArrayValue items)
+         (constant-call "prim:constant-array-shell"
+                        (list (Expr (Lit (DInt (length items))) (TCon "I64" (Nil)) loc))
+                        (● value type) loc))
+        (_ (panic "internal error: immutable constant shell"))))
+
+    (define (reserve-shell (r Reifying) (value Known) (loc Loc)) (→ Reifying) (! compile)
+      (match (● value value)
+        ((Object id)
+         (let* ((object (object-value (● r evaluation) value loc))
+                (name (string-append "%constant." id))
+                (read (Expr (Var name (Nil) (Nil)) (● value type) loc)))
+           (Reifying-bindings-set (Reifying-done-set r (table-set (● r done) id read))
+                                  (Cons (Pair name (constant-shell value object loc))
+                                        (● r bindings)))))
+        (_ (panic "internal error: constant shell has no identity"))))
+
+    (define (fill-shells (r Reifying) (values (List Known)) (loc Loc))
+      (→ (Pair (List Expr) Reifying)) (! compile)
+      (let loop ((r r) (values values) (fills (Nil)))
+        (match values
+          ((Nil) (Pair (reverse fills) r))
+          ((Cons value rest)
+           (let ((object (object-value (● r evaluation) value loc)))
+             (match (reify-values r (Cons value (object-children (● r evaluation) object)) loc)
+               ((Pair args r)
+                (loop r rest (fold-left (lambda (fills fill) (Cons fill fills))
+                                        fills
+                                        (shell-fills (program (● r evaluation))
+                                                     object
+                                                     args
+                                                     loc))))))))))
+
+    ;; Ordinary setters safely replace inert placeholders: no placeholder
+    ;; owns a source resource or invokes user code. This shares enum subtype
+    ;; selection and slot ownership with every other record write.
+    (define (shell-fills (program Program) (object ObjectValue) (args (List Expr)) (loc Loc))
+      (→ (List Expr))
+      (match object
+        ((RecordValue constructor _)
+         (map-indexed
+          (lambda (index value)
+            (match (program-value program constructor)
+              ((Some (Constructor case _))
+               (constant-call
+                (string-append constructor "-" (● (list-ref (● case fields) index) name) "-set!")
+                (list (list-ref args 0) value) (TCon "Unit" (Nil)) loc))
+              (_ (panic "internal error: constant shell constructor"))))
+          (list-drop args 1)))
+        ((ArrayValue _)
+         (list (constant-call "prim:constant-array-fill" args (TCon "Unit" (Nil)) loc)))
+        (_ (panic "internal error: only records and arrays have shells"))))
+
+
+
+
+    ;; Graph depth belongs in data, not the host stack. A leave action emits
+    ;; a node after its children; repeated active identities mark cycles.
+    (enum GraphStep
+      (GraphEnter ((value Known)))
+      (GraphLeave ((value Known))))
+
+    (struct ConstantGraph
+      ((values (List Known))
+       (cycle? Bool)))
+
+    (define (ordered-graph (ev Evaluation) (value Known) (loc Loc))
+      (→ ConstantGraph) (! compile)
+      (let loop ((pending (list (GraphEnter value))) (seen empty-table)
+                 (ordered (Nil)) (cycle? #f))
+        (match pending
+          ((Nil) (ConstantGraph (reverse ordered) cycle?))
+          ((Cons step rest)
+           (match step
+             ((GraphLeave value)
+              (match (● value value)
+                ((Object id) (loop rest (table-set seen id #t) (Cons value ordered) cycle?))
+                (_ (panic "internal error: graph leave has no identity"))))
+             ((GraphEnter value)
+              (match (● value value)
+                ((Object id)
+                 (match (table-ref seen id)
+                   ((Some finished?) (loop rest seen ordered (or cycle? (not finished?))))
+                   ((None)
+                    (loop (fold-left (lambda (pending child) (Cons (GraphEnter child) pending))
+                                     (Cons (GraphLeave value) rest)
+                                     (reverse (object-children ev (object-value ev value loc))))
+                          (table-set seen id #f) ordered cycle?))))
+                (_ (loop rest seen ordered cycle?)))))))))
+
+    (define (linear-closure? (ev Evaluation) (value Known) (loc Loc)) (→ Bool) (! compile)
+      (match (● value value)
+        ((Object _)
+         (match (object-value ev value loc)
+           ((ClosureValue key env)
+            (any? (lambda (capture) (linear-type? (program ev) (Nil) (● capture type)))
+                  (closure-captures ev key env)))
+           (_ #f)))
+        (_ #f)))
+
+    ;; Such a lambda is source syntax inside once, never a reusable binding.
+    ;; Its captured objects still occur earlier in the graph's construction order.
+    (define (inline-once-objects (ev Evaluation) (values (List Known)) (loc Loc))
+      (→ (Table Bool)) (! compile)
+      (fold-left
+       (lambda (inline value)
+         (match (object-value ev value loc)
+           ((OnceValue inner)
+            (match (● inner value)
+              ((Object id) (if (linear-closure? ev inner loc) (table-set inline id #t) inline))
+              (_ inline)))
+           (_ inline)))
+       empty-table values))
+
+    (define (reify-objects (r Reifying) (values (List Known)) (loc Loc))
+      (→ Reifying) (! compile)
+      (let ((inline (inline-once-objects (● r evaluation) values loc)))
+        (fold-left (lambda (r value)
+                     (match (● value value)
+                       ((Object id)
+                        (if (or (table-contains? inline id) (table-contains? (● r done) id)) r
+                            (● (reify-value r value loc) second)))
+                       (_ r))) r values)))
+
+
+    (define (constant-reference (expr Expr) (type Type) (loc Loc)) (→ Expr)
+      (match (Pair (● expr type) type)
+        ((Pair (TCon "Rc" _) (TCon "WeakRc" _))
+         (constant-call "prim:rc-downgrade" (list expr) type loc))
+        (_ expr)))
+
+    (define (constant-owner (ev Evaluation) (value Known) (loc Loc)) (→ Known) (! compile)
+      (match (Pair (● value type) (object-value ev value loc))
+        ((Pair (TCon "WeakRc" args) (RcValue (Some _) _))
+         (Known (TCon "Rc" args) (● value value)))
+        (_ value)))
+
+
+    (define (reify (ev Evaluation) (value Known) (loc Loc)) (→ Expr) (! compile)
+      (let* ((graph (ordered-graph ev value loc)) (objects (● graph values))
+             (mutable (if (● graph cycle?)
+                          (filter
+                           (lambda (value) (mutable-node? (object-value ev value loc)))
+                           objects) (Nil)))
+             (r (fold-left (lambda (r value) (reserve-shell r value loc))
+                           (Reifying ev empty-table (Nil) (Nil)) mutable))
+             (r (reify-objects r objects loc)))
+        (match (fill-shells r mutable loc)
+          ((Pair fills r)
+           (match (reify-value r value loc)
+             ((Pair result r)
+              (fold-left (lambda (body binding)
+                           (Expr (Let (● binding first) (● binding second) body) (● body type) loc))
+                         (fold-right (lambda (fill body) (Expr (Seq fill body) (● body type) loc))
+                                     result
+                                     fills)
+                         (● r bindings))))))))
+
+    (define (reify-value (r Reifying) (value Known) (loc Loc))
+      (→ (Pair Expr Reifying))
+      (! compile)
       (match (● value value)
         ((Scalar datum) (Pair (Expr (Lit datum) (● value type) loc) r))
         ((RealValue number)
@@ -697,13 +2029,15 @@
         ((Global name) (Pair (Expr (Var name (Nil) (Nil)) (● value type) loc) r))
         ((Object id)
          (match (table-ref (● r done) id)
-           ((Some result) (Pair result r))
-           ((None) (reify-object r id value loc))))))
+           ((Some result) (Pair (constant-reference result (● value type) loc) r))
+           ((None)
+            (match (reify-object r id (constant-owner (● r evaluation) value loc) loc)
+              ((Pair result r) (Pair (constant-reference result (● value type) loc) r))))))))
 
     (define (reify-object (r Reifying) (id String) (value Known) (loc Loc))
       (→ (Pair Expr Reifying)) (! compile)
       (when (member? id (● r active))
-        (compile-error loc "a compile-time object graph cannot contain a mutable cycle"))
+        (compile-error loc "constant graph has a cycle without mutable data"))
       (let* ((name (string-append "%constant." id))
              (read (Expr (Var name (Nil) (Nil)) (● value type) loc))
              (outer (● r active))
@@ -732,16 +2066,47 @@
         ((ArrayValue items)
          (match (reify-values r items loc)
            ((Pair items r) (Pair (constant-call "prim:constant-array" items type loc) r))))
-        ((ClosureValue expr env self)
-         (let ((names (table-keys env)))
+        ((DynamicValue inner)
+         (match (reify-value r inner loc)
+           ((Pair inner r) (Pair (Expr (Convert inner type) type loc) r))))
+        ((ClosureValue key env)
+         (let* ((source (recipe (● r evaluation) key)) (expr (● source expression))
+                (names (table-keys env)))
            (match (reify-values r (map (lambda (name) (table-ref-or env name)) names) loc)
              ((Pair values r)
-              (let ((bindings (zip names values)))
-                (Pair (substitute-locals
-                       (match self
-                         ((Some old)
-                          (Cons (Pair old (Expr (Var name (Nil) (Nil)) type loc)) bindings))
-                         ((None) bindings)) expr) r))))))))
+              (let* ((bindings (zip names values))
+                     (bindings (match (● source self)
+                                 ((Some old)
+                                  (Cons (Pair old (Expr (Var name (Nil) (Nil)) type loc))
+                                        bindings))
+                                 ((None) bindings)))
+                     (expr (substitute-locals bindings expr)))
+                (Pair (if (once-type? type) (constant-call "prim:once" (list expr) type loc) expr)
+                      r))))))
+        ((RcValue (Some payload) finalizer)
+         (match (reify-values r (list payload finalizer) loc)
+           ((Pair args r) (Pair (constant-call "prim:rc-new" args type loc) r))))
+        ((RcValue (None) _)
+         (Pair (constant-call "prim:constant-dead-weak" (Nil) type loc) r))
+        ((OnceValue inner)
+         (match (reify-once-function r inner loc)
+           ((Pair inner r) (Pair (constant-call "prim:once" (list inner) type loc) r))))
+        ((BoundValue inner handlers) (reify-bound r inner handlers type loc))
+        (_ (compile-error loc
+                          "this interpreter control value cannot escape in a compile-time value"))))
+
+    ;; A source once-lambda moves its linear captures directly. Keep that
+    ;; construction intact: naming its inner lambda as a reusable Fn would
+    ;; lose the evidence that its capture dropper owns those linear fields.
+    (define (reify-once-function (r Reifying) (value Known) (loc Loc))
+      (→ (Pair Expr Reifying)) (! compile)
+      (match (● value value)
+        ((Object id)
+         (if (linear-closure? (● r evaluation) value loc)
+             (reify-object-value r (string-append "%constant.once." id) (● value type)
+                                 (object-value (● r evaluation) value loc) loc)
+             (reify-value r value loc)))
+        (_ (reify-value r value loc))))
 
     (define (reify-values (r Reifying) (values (List Known)) (loc Loc))
       (→ (Pair (List Expr) Reifying)) (! compile)
@@ -791,10 +2156,12 @@
 
     ;; ---- Preparation ----
 
-    (define (fold-constants (state State) (items (List Item)))
+    (define (fold-constants (state State) (items (List Item))
+                            (prepare (Fn State String Expr → (Pair Expr State) ! compile)))
       (→ (Pair (List Item) State))
       (! compile)
-      (let ((ev (Evaluation state empty-table empty-table (Nil) empty-table 0)))
+      (let ((ev (Evaluation state empty-table empty-table (Nil) empty-table 0
+                            empty-table empty-table 10000000 1000000 prepare)))
         (match (constant-items ev items)
           ((Pair items ev)
            (Pair (map (lambda (item) (rewrite-item (● ev state) item)) items) (● ev state))))))
@@ -839,9 +2206,10 @@
                                    ((Some binding)
                                     (table-set bindings name
                                                (if (● binding function?) binding
-                                                   (Binding (TFun (Nil) (● binding type) empty-row)
-                                                            #t
-                                                            (● binding external?)))))
+                                                   (Binding
+                                                    (TFun (Nil) (● binding type) empty-row)
+                                                    #t
+                                                    (● binding external?)))))
                                    ((None) bindings)))
                                empty-table (table-keys (● declarations bindings)))))
 

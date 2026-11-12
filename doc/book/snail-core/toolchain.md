@@ -1,6 +1,6 @@
 # Development toolchain
 
-Snail-Core can link a program statically or link its libraries when it starts.
+Snail Scheme can link a program statically or link its libraries when it starts.
 Static builds compile the whole program and link the Rust runtime into one
 module. `--release` remains a build mode but runs no function-body optimizer. Development builds keep each library as its own module, with the runtime
 as a separate instance.
@@ -59,9 +59,9 @@ and development-service checks, and static and linked application checks.
 Each fixture owns its output files and each compile has private scratch, so
 the compiled compiler's fixture checks compile, link and run in the test
 runner's eight child processes. Linked-module cases use the same worker
-limit. `make test-chibi` keeps source compilation serial because each Chibi
+limit. `make test-chez` keeps source compilation serial because each Chez
 compiler needs a large heap; its static programs still link and run in parallel.
-Stage 0 places Wasm modules in the object store using Chibi's native SHA-256,
+Stage 0 places Wasm modules in the object store using the shared SHA-256 implementation,
 with parity tests against the compiler's portable hash. Hashing these large
 binary artifacts stays in the host; the self-hosted compiler keeps its own
 portable implementation.
@@ -142,7 +142,7 @@ The cold commands, `snail build` and `snail run`, are a Snail program,
 compiler and linker run inside it through `(snail shell assembler)`, and
 Node runs producers. Stage 0 rebuilds the
 program when its sources change (`scripts/snail-tool cli-tools`), and is the
-only judge of when they have. Starting Chibi and Cargo to find nothing stale
+only judge of when they have. Starting Chez and Cargo to find nothing stale
 takes most of a second, so `./snail` keeps stage 0's answer in
 `build/tools-KIND.txt`, stamped with the time stage 0 began, and uses it again
 while every tool it names exists and nothing stage 0's rule reads is newer:
@@ -702,7 +702,7 @@ can build the compiler. `tests/highlight-book.mjs` runs the preprocessor on a sm
 The editor, `host/ide/ide.sld`, draws the same tokens as `tok-` spans for the
 lines in view, read from the start of their top-level form.
 
-Proposed: once the book is itself a Snail-Core project, the classifier can run
+Proposed: once the book is itself a Snail Scheme project, the classifier can run
 in a `generate-library` recipe that writes the highlighted pages, and the mdbook
 preprocessor goes away.
 

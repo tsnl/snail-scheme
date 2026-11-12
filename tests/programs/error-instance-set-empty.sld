@@ -3,5 +3,5 @@
 
 (define main
   (lambda ()
-    (with-instances (missing))
+    (with-instances (missing) (unit))
     (unit)))

@@ -69,7 +69,8 @@
          ((yield (lambda (resume) (resume (unit))))
           (sleep (lambda (delay resume) (resume (unit))))
           (await (lambda (ticket resume) (drop resume) (panic "unexpected wait")))
-          (ticket (lambda () 0)))
+          (ticket (lambda () 0))
+          (current-scheduler (lambda () (panic "logical timer cannot dispatch"))))
        (handle fetch
            ((request (lambda (method url headers body) (Ok reply)))
             (stream-open (lambda (url kinds) (panic "stream")))
@@ -158,6 +159,6 @@
                   (stream-open (lambda (url kinds) (panic "stream")))
                   (stream-next (lambda (stream) (panic "stream")))
                   (stream-close (lambda (stream) (panic "stream"))))
-               (with-memory-dom (Nil) run))
+               (with-memory-dom (Nil) (once run)))
              (unit))))
     (unit)))

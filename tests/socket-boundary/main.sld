@@ -1,6 +1,7 @@
 (import
  (snail core base)
- (only (snail shell task) tasks dispatch-task)
+ (only (snail shell task) tasks Scheduler dispatch-in)
+ (only (snail core forms) host)
  (rename (snail shell socket)
          (send udp-send)
          (receive udp-receive)))
@@ -21,27 +22,38 @@
 ;; `answered` holds for that id, `answer` is the operation's result, as an
 ;; Any, which the accessors below convert back. A task that traps never
 ;; answers; the host reports the trap under the same id.
-(define slots (→ (Ref (List (Pair I64 (Ref (Option Any)))))) (ref (Nil)))
+(struct Slot
+  ((value (Option Any))))
 
-(define (request (work (FnOnce → Any ! tcp udp tasks))) (→ I64) (! mut tcp udp)
-  (let* ((slot (ref (ann (None) (Option Any))))
-         (id (dispatch-task (once (lambda () (ref-set! slot (Some (work))))))))
-    (ref-set! slots (Cons (Pair id slot) (ref-get slots)))
+(struct Requests
+  ((slots (List (Pair I64 Slot)))))
+
+(define (requests) (→ Requests) (Requests (Nil)))
+(expose requests "requests")
+
+(define (request (scheduler Scheduler) (requests Requests) (work (FnOnce → Any ! tcp udp tasks)))
+  (→ I64) (! mut host tcp udp)
+  (let* ((slot (Slot (None)))
+         (id (dispatch-in scheduler (once (lambda () (set! (● slot value) (Some (work))))))))
+    (set! (● requests slots) (Cons (Pair id slot) (● requests slots)))
     id))
 
-(define (slot (id I64)) (→ (Ref (Option Any))) (! mut)
-  (match (assoc-ref (ref-get slots) id)
+(define (slot (requests Requests) (id I64)) (→ Slot)
+  (match (assoc-ref (● requests slots) id)
     ((Some found) found)
     ((None) (panic "no such request"))))
 
-(define (answered? (id I64)) (→ Bool) (! mut)
-  (match (ref-get (slot id))
+(define (answered? (requests Requests) (id I64)) (→ Bool)
+  (match (● (slot requests id) value)
     ((Some _) #t)
     ((None) #f)))
 
-(define (answer (id I64)) (→ Any) (! mut)
-  (match (ref-get (slot id))
-    ((Some result) result)
+(define (answer (requests Requests) (id I64)) (→ Any) (! mut)
+  (match (replace! (● (slot requests id) value) (None))
+    ((Some result)
+     (set! (● requests slots) (filter (lambda (entry) (not (= (● entry first) id)))
+                                      (● requests slots)))
+     result)
     ((None) (panic "the request has not answered"))))
 
 (define (truth (answer Any)) (→ I32)
@@ -132,26 +144,39 @@
     ((Err error) (string=? (● error code) "ETIMEDOUT"))
     ((Ok _) #f)))
 
-(define (begin-open) (→ I64) (! mut tcp udp)
-  (request (once (lambda () (type-convert (open) Any)))))
+(define (begin-open (scheduler Scheduler) (requests Requests)) (→ I64) (! mut host tcp udp)
+  (request scheduler requests (once (lambda () (type-convert (open) Any)))))
 
-(define (begin-dial (port I32)) (→ I64) (! mut tcp udp)
-  (request (once (lambda () (type-convert (dial port) Any)))))
+(define (begin-dial (scheduler Scheduler) (requests Requests) (port I32))
+  (→ I64)
+  (! mut host tcp udp)
+  (request scheduler requests (once (lambda () (type-convert (dial port) Any)))))
 
-(define (begin-take (listener Listener)) (→ I64) (! mut tcp udp)
-  (request (once (lambda () (type-convert (take listener) Any)))))
+(define (begin-take (scheduler Scheduler) (requests Requests) (listener Listener))
+  (→ I64)
+  (! mut host tcp udp)
+  (request scheduler requests (once (lambda () (type-convert (take listener) Any)))))
 
-(define (begin-receive (connection Connection) (count I32)) (→ I64) (! mut tcp udp)
-  (request (once (lambda () (type-convert (receive connection count) Any)))))
+(define (begin-receive (scheduler Scheduler)
+                       (requests Requests)
+                       (connection Connection)
+                       (count I32))
+  (→ I64)
+  (! mut host tcp udp)
+  (request scheduler requests (once (lambda () (type-convert (receive connection count) Any)))))
 
-(define (begin-send (connection Connection)) (→ I64) (! mut tcp udp)
-  (request (once (lambda () (type-convert (send connection) Any)))))
+(define (begin-send (scheduler Scheduler) (requests Requests) (connection Connection))
+  (→ I64)
+  (! mut host tcp udp)
+  (request scheduler requests (once (lambda () (type-convert (send connection) Any)))))
 
-(define (begin-overwrite) (→ I64) (! mut tcp udp)
-  (request (once (lambda () (type-convert (overwrite) Any)))))
+(define (begin-overwrite (scheduler Scheduler) (requests Requests)) (→ I64) (! mut host tcp udp)
+  (request scheduler requests (once (lambda () (type-convert (overwrite) Any)))))
 
-(define (begin-finish (connection Connection) (grace I32)) (→ I64) (! mut tcp udp)
-  (request (once (lambda () (type-convert (finish connection grace) Any)))))
+(define (begin-finish (scheduler Scheduler) (requests Requests) (connection Connection) (grace I32))
+  (→ I64)
+  (! mut host tcp udp)
+  (request scheduler requests (once (lambda () (type-convert (finish connection grace) Any)))))
 
 (expose begin-open "begin-open")
 (expose listener "listener")
@@ -199,14 +224,18 @@
 
 (define (stop-udp (socket UdpSocket)) (→ Unit) (! udp) (require (close-udp socket)))
 
-(define (begin-open-udp) (→ I64) (! mut tcp udp)
-  (request (once (lambda () (type-convert (open-udp) Any)))))
+(define (begin-open-udp (scheduler Scheduler) (requests Requests)) (→ I64) (! mut host tcp udp)
+  (request scheduler requests (once (lambda () (type-convert (open-udp) Any)))))
 
-(define (begin-send-udp (socket UdpSocket) (port I32)) (→ I64) (! mut tcp udp)
-  (request (once (lambda () (type-convert (send-udp socket port) Any)))))
+(define (begin-send-udp (scheduler Scheduler) (requests Requests) (socket UdpSocket) (port I32))
+  (→ I64)
+  (! mut host tcp udp)
+  (request scheduler requests (once (lambda () (type-convert (send-udp socket port) Any)))))
 
-(define (begin-receive-udp (socket UdpSocket) (count I32)) (→ I64) (! mut tcp udp)
-  (request (once (lambda () (type-convert (receive-udp socket count) Any)))))
+(define (begin-receive-udp (scheduler Scheduler) (requests Requests) (socket UdpSocket) (count I32))
+  (→ I64)
+  (! mut host tcp udp)
+  (request scheduler requests (once (lambda () (type-convert (receive-udp socket count) Any)))))
 
 (expose begin-open-udp "begin-open-udp")
 (expose udp-socket "udp-socket")

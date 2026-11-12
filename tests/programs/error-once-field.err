@@ -1,1 +1,1 @@
-a type argument must be unrestricted
+an Array or Vector element must be Copy; use Rc to share a linear value

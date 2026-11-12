@@ -38,7 +38,7 @@
        (pending (List Wanted))
        (pending-count I64)
        (open (List String))
-       (performed (List String))))
+       (performed (List Type))))
 
     ;; A sequence of steps that each take the checker and hand it back,
     ;; written as `let*` is. `(name (step argument ...))` binds the step's
@@ -108,8 +108,8 @@
     ;; and a clone shares;
     ;; a Copy requirement keeps those variables too.
     ;; A selection waiting for its receiver's nominal type. The result and
-    ;; surrounding row participate in inference; the Copy scope determines
-    ;; whether an immutable borrowed slot can leave as an owned value.
+    ;; surrounding row participate in inference; Copy determines whether a
+    ;; field can be read without moving it out of its aggregate.
     (struct Projection
       ((record Expr)
        (label String)
@@ -120,6 +120,15 @@
        (loc Loc)))
 
     (enum Wanted
+      (WantPerformed ((name String) (declared Type) (performed (List Type)) (loc Loc)))
+      (WantInclusion ((latent Type) (context Type) (loc Loc)))
+      (WantEscape
+       ((scope (List (Pair String Type)))
+        (expression Expr)
+        (row Type)
+        (handled (List String))
+        (givens (List Constraint))
+        (copy (List String))))
       (WantField ((projection Projection)))
       (WantClass
        ((constraint Constraint)
@@ -345,41 +354,76 @@
         ((Some type) type)
         ((None) (panic "internal error: closed row"))))
 
-    ;; Calls require inclusion, not row equality: e fits console + e for every
-    ;; substitution of e. A shared tail proves inclusion when its known labels
-    ;; fit. Otherwise inference opens closed latent rows before unification.
-
+    ;; Calls require inclusion, while stored function types remain invariant.
+    ;; Unknown latent effects stay as obligations until class resolution has
+    ;; supplied their lower bounds. Neither pure nor the whole caller row is
+    ;; a valid early guess for an unresolved callback or destructor.
     (define (perform (ck Checker) (latent Type) (row Type) (loc Loc)) (→ Checker) (! compile)
-      (let* ((flat (flatten-row (solution ck) latent))
-             (labels (● flat first))
-             (ck (record-performed ck row (append labels (tail-variable (● flat second)))))
-             (context (flatten-row (solution ck) row)))
-        (if (and (same-tail? (● flat second) (● context second))
-                 (null? (label-difference labels (● context first))))
-            ck
-            (learning ck ((tail (row-tail (● flat second)))
-                          (included (unify? (TRow (label-union labels (● context first))
-                                                  (Some tail)) row)))
-                      (if included ck
-                          (compile-error loc
-                                         (string-append
-                                          "this performs effects its context does not allow:"
-                                          (labels->string
-                                           (append labels (tail-variable (● flat second)))))))))))
+      (let ((ck (record-performed ck row latent)))
+        (learning ck ((included (propagate-inclusion latent row loc)))
+                  (if included ck (want ck (WantInclusion latent row loc))))))
 
+    (define (propagate-inclusion (ck Checker) (latent Type) (row Type) (loc Loc))
+      (→ (Pair Bool Checker)) (! compile)
+      (let* ((source (flatten-row (solution ck) latent))
+             (target (flatten-row (solution ck) row))
+             (missing (label-difference (● source first) (● target first))))
+        (if (null? missing)
+            (if (and (meta-tail? (● target second))
+                     (match (● source second) ((Some (TRigid _)) #t) (_ #f)))
+                (learning ck ((then (unify (tail-type (● target second))
+                                           (tail-type (● source second)) loc)))
+                          (Pair #t ck))
+                (if (and (match (● source second) ((Some (TRigid _)) #t) (_ #f))
+                         (not (same-tail? (● source second) (● target second))))
+                    (effect-refusal ck latent loc)
+                    (Pair (or (match (● source second) ((None) #t) (_ #f))
+                              (same-tail? (● source second) (● target second))) ck)))
+            (if (meta-tail? (● target second))
+                (learning ck ((tail (fresh-meta))
+                              (then (unify (tail-type (● target second))
+                                           (TRow missing (Some tail)) loc)))
+                          (propagate-inclusion ck latent row loc))
+                (effect-refusal ck latent loc)))))
 
+    (define (effect-refusal (ck Checker) (latent Type) (loc Loc)) (→ T) (! compile) (∀ T)
+      (let ((flat (flatten-row (solution ck) latent)))
+        (compile-error loc
+                       (string-append "this performs effects its context does not allow:"
+                                      (labels->string (append (● flat first)
+                                                              (tail-variable (● flat second))))))))
 
+    ;; Propagation can expose a label through several calls. Each growth
+    ;; allocates a fresh tail, so the counter also detects a fixed point.
+    (define (propagate-inclusions (ck Checker)) (→ Checker) (! compile)
+      (let* ((before (● ck counter))
+             (ck (fold-left propagate-wanted-inclusion ck (reverse (● ck pending)))))
+        (if (= before (● ck counter)) ck (propagate-inclusions ck))))
 
-    ;; A latent row's own tail, or a fresh one when it is closed.
+    (define (solve-inclusions (ck Checker)) (→ Checker) (! compile)
+      (let ((ck (propagate-inclusions ck)))
+        (fold-left finish-wanted-inclusion ck (reverse (● ck pending)))))
 
-    (define (row-tail (ck Checker) (tail (Option Type))) (→ (Pair Type Checker))
-      (match tail
-        ((Some tail) (Pair tail ck))
-        ((None) (fresh-meta ck))))
+    (define (propagate-wanted-inclusion (ck Checker) (want Wanted)) (→ Checker) (! compile)
+      (match want
+        ((WantInclusion latent row loc) (● (propagate-inclusion ck latent row loc) second))
+        (_ ck)))
 
-
-
-
+    ;; Residual tails share one row variable. This conservative completion
+    ;; avoids adding bounded-row schemes; a closed allowance closes a still
+    ;; unconstrained source tail only after all class and cleanup obligations.
+    (define (finish-wanted-inclusion (ck Checker) (want Wanted)) (→ Checker) (! compile)
+      (match want
+        ((WantInclusion latent row loc)
+         (learning ck ((included (propagate-inclusion latent row loc)))
+                   (if included ck
+                       (let ((source (flatten-row (solution ck) latent))
+                             (target (flatten-row (solution ck) row)))
+                         (learning ck ((agreed (unify? (tail-type (● source second))
+                                                       (match (● target second)
+                                                         ((Some tail) tail) ((None) empty-row)))))
+                                   (if agreed ck (effect-refusal ck latent loc)))))))
+        (_ ck)))
 
     ;; Whether `row` is the row variable that `variable` names, if any.
 
@@ -388,14 +432,11 @@
         ((Pair (Some number) (TVar id)) (= number id))
         (_ #f)))
 
-    ;; A call in the signed body performs its labels, and its tail when that
-    ;; is a quantified variable. A metavariable tail performs nothing of its
-    ;; own: inclusion binds it to whatever the row has left over.
-
-    (define (record-performed (ck Checker) (row Type) (effects (List String))) (→ Checker)
+    ;; Preserve the row itself: generic evidence and cleanup may determine
+    ;; its effects later. The final check reads it through the solved types.
+    (define (record-performed (ck Checker) (row Type) (effects Type)) (→ Checker)
       (if (row-variable? (● ck signed) row)
-          (Checker-performed-set ck (label-union (● ck performed) effects))
-          ck))
+          (Checker-performed-set ck (Cons effects (● ck performed))) ck))
 
     (define (tail-variable (tail (Option Type))) (→ (List String))
       (match tail
@@ -684,17 +725,11 @@
     ;; class requirement before its body is checked. Its identity stays
     ;; concrete; only an explicit dyn field chooses erased storage.
 
-
-
     (define (check-result (ck Checker) (expr Expr) (type Type) (row Type))
       (→ (Pair Expr Checker))
       (! compile)
       (learning ck ((expr (check-value expr type row)))
                 (fit ck type expr row (● expr loc))))
-
-
-
-
 
     ;; A lambda checked against its type. The body's row is a variable bound
     ;; to the type's row, so `perform` can recognize it: calls in this body,
@@ -732,16 +767,10 @@
     (define (signed-body (ck Checker) (row Type)) (→ Checker)
       (Checker-performed-set (Checker-signed-set ck (Some (meta-number row))) (Nil)))
 
-
-
-
     (define (meta-number (meta Type)) (→ I64)
       (match meta
         ((TVar id) id)
         (_ -1)))
-
-
-
 
     (define (infer-app (ck Checker) (callee Expr) (args (List Expr)) (row Type) (loc Loc))
       (→ (Pair Expr Checker))
@@ -796,8 +825,8 @@
              (each ck (lambda (ck arg) (infer ck arg row)) args)))
         (_ (each ck (lambda (ck arg) (infer ck arg row)) args))))
 
-    ;; Projections first inspect their receiver to choose an owned or
-    ;; borrowed field signature. Other parameters constrain later arguments.
+    ;; Projections first inspect their receiver to select its field type.
+    ;; Other parameters constrain later arguments.
 
     (define (projection-call? (ck Checker) (callee Expr)) (→ Bool)
       (match (● callee term)
@@ -809,16 +838,6 @@
 
     ;; A literal once body consumes its captures. Giving that lambda the
     ;; actual FnOnce identity removes a special ownership-checking mode.
-
-
-
-    ;; An immutable accessor reads through a Borrow without changing
-    ;; it into an owner. Copy fields leave as owned values; linear fields
-    ;; remain borrowed. Ordinary function calls never unwrap Borrow.
-
-
-
-
 
     ;; Arguments are compared one by one, so a mismatch names its argument,
     ;; and each meets its parameter's type (`fit`), which may give it the
@@ -865,16 +884,6 @@
         ((TCon "fn" (Cons procedure (Nil)))
          (unify-call ck procedure args result latent context loc))
         (other (compile-error loc (string-append "not a function: " (type->string other))))))
-
-    ;; The strongest available receiver contract decides a call. A generic
-    ;; callable's contract comes from its requirement, not from Copy and not
-    ;; from a particular implementation that may later instantiate it.
-
-
-
-
-
-
 
     ;; Concrete arguments constrain shared type variables before an Any
     ;; can instantiate one. This changes inference order, never evaluation
@@ -943,10 +952,6 @@
                                             "; a lambda, or a local bound to one, may capture")))
             (Pair (Expr (● expr term) expected (● expr loc))
                   (unify ck arrow (fn-arrow (● expr type)) loc)))))
-
-
-
-
 
     ;; A numeric literal's variable is already constrained to a number.
     ;; Keep that constraint across an Any boundary: ordinary literal
@@ -1025,6 +1030,8 @@
 
     (define (local-placeholder (ck Checker) (name String) (value Expr)) (→ (Pair Type Checker))
       (match (● value term)
+        ((Ann inner type)
+         (if (local-function? inner) (Pair type ck) (fresh-meta ck)))
         ((Lambda params _ _)
          (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params))
                        (result (fresh-meta)) (row (fresh-meta)))
@@ -1036,15 +1043,19 @@
 
     (define (infer-let-value (ck Checker) (name String) (type Type) (value Expr) (row Type))
       (→ (Pair Expr Checker)) (! compile)
-      (if (lambda-expr? value)
+      (if (local-function? value)
           (within ck (bind-local ck name type) (lambda (inner) (check-value inner value type row)))
           (infer ck value row)))
 
-    ;; The inline `impl` contract determines the recursive closure's receiver
-    ;; kind and arrow. Check the body at that concrete identity, then prove it
-    ;; implements the declared contract.
+    ;; Typed define headers wrap the lambda in an annotation. They retain
+    ;; the same recursive scope as an unannotated local function.
+    (define (local-function? (value Expr)) (→ Bool)
+      (match (● value term)
+        ((Ann inner _) (local-function? inner))
+        (_ (lambda-expr? value))))
 
-
+    ;; A recursive local function reserves its argument and result types
+    ;; before checking the body, so recursive calls constrain that signature.
 
     (define (infer-local-lambda (ck Checker) (value Expr) (type Type))
       (→ (Pair Expr Checker))
@@ -1301,18 +1312,6 @@
            (_
             (compile-error loc (string-append "not a constructor: " (short-name constructor))))))))
 
-    ;; A mutable field is read through its accessor, which performs `mut`,
-    ;; so a pattern can only skip it.
-
-
-
-    ;; A constructor pattern on a borrow binds its fields as field reads
-    ;; through a borrow do: a Copy field as an owned value, a linear field
-    ;; as a borrow. The pattern's own type is the referent's, which names
-    ;; the struct the emitter reads. Mutable positions are already wildcards.
-
-
-
     ;; A constructor pattern's fields, checked in order into one scope:
     ;; names are unique, so the fields' locals simply join.
 
@@ -1556,18 +1555,41 @@
                                 ((WantCopy type copy loc) (check-copy ck type copy loc))
                                 (_ (unit))))
                             pending)
-                  (fold-left (lambda (ck want)
-                               (match want
-                                 ((WantClass constraint hole givens copy sets loc)
-                                  (resumed ck (solve-class (Checker-instances-set ck sets)
-                                                           constraint hole givens copy loc)))
-                                 ((WantCleanup type row handled givens copy shared-only? loc)
-                                  (resumed ck
-                                           (charge-disposal
-                                            (Checker-copy-set (Checker-givens-set ck givens) copy)
-                                            type handled row loc shared-only? #f)))
-                                 (_ ck)))
-                             ck pending))))
+                  (let* ((ck (propagate-inclusions (fold-left solve-pending-class ck pending)))
+                         (ck (propagate-inclusions (fold-left solve-pending-cleanup ck pending)))
+                         (ck (fold-left solve-pending-escape ck pending)))
+                    (let ((ck (solve-inclusions ck)))
+                      (for-each (lambda (want) (check-performed ck want)) pending)
+                      ck)))))
+
+    ;; Class resolution can still add effects to a procedure's inferred row.
+    ;; Finish those obligations before filtering control effects out of its
+    ;; destruction row; filtering an unresolved tail would retain them later.
+    (define (solve-pending-class (ck Checker) (want Wanted)) (→ Checker) (! compile)
+      (match want
+        ((WantClass constraint hole givens copy sets loc)
+         (resumed ck (solve-class (Checker-instances-set ck sets)
+                                  constraint hole givens copy loc)))
+        (_ ck)))
+
+    (define (solve-pending-cleanup (ck Checker) (want Wanted)) (→ Checker) (! compile)
+      (match want
+        ((WantCleanup type row handled givens copy shared-only? loc)
+         (resumed ck (charge-disposal (Checker-copy-set (Checker-givens-set ck givens) copy)
+                                      type handled row loc shared-only? #f)))
+        (_ ck)))
+
+    (define (solve-pending-escape (ck Checker) (want Wanted)) (→ Checker) (! compile)
+      (match want
+        ((WantEscape scope expr row handled givens copy)
+         (if (null? (label-difference (cleanup-yields ck expr) (list "?meta-control"))) ck
+             (resumed ck (charge-exceptional
+                          (Checker-copy-set (Checker-givens-set ck givens) copy)
+                          (map (lambda (owner)
+                                 (Pair (● owner first) (zonk (solution ck) (● owner second))))
+                               scope)
+                          handled row (● expr loc)))))
+        (_ ck)))
 
     (define (default-literals (ck Checker) (pending (List Wanted)) (float? Bool))
       (→ Checker)
@@ -1817,10 +1839,7 @@
           ((Some context)
            (if (same-tail? (● (flatten-row (solution ck) row) second)
                            (● (flatten-row (solution ck) context) second))
-               (record-performed ck
-                                 context
-                                 (let ((flat (flatten-row (solution ck) performed)))
-                                   (append (● flat first) (tail-variable (● flat second)))))
+               (record-performed ck context performed)
                ck))
           ((None) ck))))
 
@@ -1848,29 +1867,23 @@
     ;; `pending` keeps them.
 
     (define (solve-known-row (progress (Pair (List Wanted) Checker)) (want Wanted) (context Type))
-      (→ (Pair (List Wanted) Checker))
-      (! compile)
+      (→ (Pair (List Wanted) Checker)) (! compile)
       (match progress
         ((Pair kept ck)
-         (match want
-           ((WantClass constraint hole givens copy sets loc)
-            (if (known-class-inputs? ck want)
-                (Pair kept (resumed ck (solve-found (Checker-instances-set ck sets)
-                                                    constraint
-                                                    hole
-                                                    givens
-                                                    copy
-                                                    (Some context)
-                                                    loc)))
-                (Pair (Cons want kept) ck)))
-           ((WantCleanup type row handled givens copy shared-only? loc)
-            (if (known-class-inputs? ck want)
-                (Pair kept (resumed ck
-                                    (charge-disposal
-                                     (Checker-copy-set (Checker-givens-set ck givens) copy)
-                                     type handled row loc shared-only? #f)))
-                (Pair (Cons want kept) ck)))
-           (_ (Pair (Cons want kept) ck))))))
+         (if (not (known-class-inputs? ck want)) (Pair (Cons want kept) ck)
+             (let ((before (● ck pending-count)))
+               (let ((done
+                      (match want
+                        ((WantClass constraint hole givens copy sets loc)
+                         (resumed ck (solve-found (Checker-instances-set ck sets)
+                                                  constraint hole givens copy (Some context) loc)))
+                        ((WantCleanup type row handled givens copy shared-only? loc)
+                         (resumed ck (charge-disposal
+                                      (Checker-copy-set (Checker-givens-set ck givens) copy)
+                                      type handled row loc shared-only? #f)))
+                        (_ ck))))
+                 (Pair (append (take (● done pending) (- (● done pending-count) before)) kept)
+                       done)))))))
 
     (define (known-class-inputs? (ck Checker) (want Wanted)) (→ Bool)
       (match want
@@ -1936,8 +1949,6 @@
                ck)))
         (_ ck)))
 
-
-
     ;; Evidence from the enclosing definition's requirements, or from the
     ;; unique instance whose head matches. None while the types are ambiguous.
 
@@ -1949,8 +1960,6 @@
             (match (given-evidence (● constraint class) types givens)
               ((Some evidence) (Some (Pair evidence ck)))
               ((None) (Some (instance-evidence ck (● constraint class) types givens copy loc)))))))
-
-
 
     (define (given-evidence (class String) (types (List Type)) (givens (List Constraint)))
       (→ (Option Evidence))
@@ -2341,7 +2350,6 @@
         (_ (unit)))
       (for-each (lambda (child) (check-expression-conversions program child)) (expr-children expr)))
 
-
     (define (refuse-hidden-disposal (program Program) (type Type) (loc Loc)) (→ Unit) (! compile)
       (match (lifecycle-rows program drop-class (Nil) (Nil) type)
         ((Ok rows)
@@ -2472,7 +2480,10 @@
                           (match (table-ref (● (program-of ck) effects) label)
                             ((Some effect) (not (null? (● effect control))))
                             ((None) #f))) (● flat first))
-                (match (● flat second) ((None) (Nil)) (_ (list "?control"))))))
+                (match (● flat second)
+                  ((None) (Nil))
+                  ((Some (TVar _)) (list "?meta-control"))
+                  (_ (list "?control"))))))
 
     ;; Which yields escape an expression, without entering lambdas. Declared
     ;; global rows avoid mistaking a pure call's opened use row for an effect.
@@ -2511,20 +2522,28 @@
       (fold-left (lambda (ck entry)
                    (charge-disposal ck (● entry second) handled row loc #f #t)) ck scope))
 
-
-    ;; A callable's row bounds destruction of its immutable captures as well
+    ;; A procedure's row bounds destruction of its counted captures as well
     ;; as invocation. Its argument and result types do not affect that bound.
     (define (disposal-known? (type Type)) (→ Bool)
       (match type
         ((TVar _) #f)
-        ((TFun _ _ _) #t)
+        ((TFun _ _ row) (not (meta-tail? (● (flatten-row empty-solution row) second))))
         ((TCon _ args) (every? disposal-known? args))
         (_ #t)))
+
+    ;; Unconstrained effect tails close at the final checking boundary.
+    ;; Procedure arguments and results do not determine capture destruction.
+    (define (final-disposal-type (type Type)) (→ Type)
+      (match type
+        ((TFun params result row) (TFun params result (zonk-row empty-solution row)))
+        ((TCon name args) (TCon name (map final-disposal-type args)))
+        (_ type)))
 
     (define (charge-disposal (ck Checker) (type Type) (handled (List String)) (row Type)
                              (loc Loc) (shared-only? Bool) (defer? Bool))
       (→ Checker) (! compile)
-      (let ((type (resolve-type (solution ck) type)))
+      (let* ((type (resolve-type (solution ck) type))
+             (type (if defer? type (final-disposal-type type))))
         (cond ((not (disposal-known? type))
                (if defer?
                    (want ck
@@ -2608,14 +2627,25 @@
       (→ Checker) (! compile)
       (fold-left (lambda (ck owner)
                    (let ((type (resolve-type (solution ck) (● owner second))))
-                     (if (not (disposal-known? type)) ck
-                         (match (lifecycle-rows (program-of ck)
-                                                drop-class
-                                                (● ck copy)
-                                                (● ck givens)
-                                                type)
-                           ((Ok _) (charge-disposal ck type handled row loc #f #f))
-                           ((Err _) ck))))) ck scope))
+                     (match (lifecycle-rows (program-of ck)
+                                            drop-class
+                                            (● ck copy)
+                                            (● ck givens)
+                                            type)
+                       ((Ok _) (charge-disposal ck type handled row loc #f #t))
+                       ((Err _) ck)))) ck scope))
+
+    ;; A latent metavariable may later prove pure. Keep cancellation's
+    ;; cleanup obligation until the call's actual control effects are known.
+    (define (charge-escape (ck Checker) (scope (List (Pair String Type)))
+                           (handled (List String)) (expr Expr) (row Type))
+      (→ Checker) (! compile)
+      (let ((effects (cleanup-yields ck expr)))
+        (cond ((not (null? (label-difference effects (list "?meta-control"))))
+               (charge-exceptional ck scope handled row (● expr loc)))
+              ((member? "?meta-control" effects)
+               (want ck (WantEscape scope expr row handled (● ck givens) (● ck copy))))
+              (else ck))))
 
     ;; Earlier operands remain owned while later operands run. They are
     ;; represented as temporary owners here; ANF gives them real names later.
@@ -2646,7 +2676,6 @@
                            (handled (List String)) (expr Expr) (row Type))
       (→ Checker) (! compile)
       (infer-cleanup-at ck scope handled expr row #f))
-
 
     (define (infer-cleanup-at (ck Checker) (scope (List (Pair String Type)))
                               (handled (List String)) (expr Expr) (row Type) (tail? Bool))
@@ -2686,18 +2715,15 @@
                 (ck (fold-left (lambda (ck value) (charge-temporary ck scope value handled row))
                                ck
                                values)))
-           (if (null? (cleanup-yields ck expr)) ck
-               (charge-exceptional ck (cleanup-scope ck scope expr #f) handled row (● expr loc)))))
+           (charge-escape ck (cleanup-scope ck scope expr #f) handled expr row)))
         ((App callee args)
          (let* ((ck (cleanup-operands ck scope handled (Cons callee args) row))
                 (ck (cleanup-observation ck scope callee args handled row))
                 (ck (cleanup-write ck callee args handled row (● expr loc))))
-           (if (null? (cleanup-control ck (cleanup-row ck callee))) ck
-               (charge-exceptional ck (cleanup-scope ck scope expr #f) handled row (● expr loc)))))
+           (charge-escape ck (cleanup-scope ck scope expr #f) handled expr row)))
         ((Convert inner _)
          (let ((ck (infer-cleanup ck scope handled inner row)))
-           (if (null? (cleanup-yields ck expr)) ck
-               (charge-exceptional ck (cleanup-scope ck scope inner #f) handled row (● expr loc)))))
+           (charge-escape ck (cleanup-scope ck scope inner #f) handled expr row)))
         (_ (fold-left (lambda (ck child) (infer-cleanup ck scope handled child row))
                       ck (expr-children expr)))))
 
@@ -2877,6 +2903,13 @@
 
     (define (wanted-metas (solution Solution) (want Wanted)) (→ (List Type))
       (match want
+        ((WantPerformed _ _ rows _)
+         (concatenate (map (lambda (row) (free-metas solution row)) rows)))
+        ((WantInclusion latent row _)
+         (append (free-metas solution latent) (free-metas solution row)))
+        ((WantEscape scope expr row _ _ _)
+         (append (free-metas solution row)
+                 (concatenate (map (lambda (owner) (free-metas solution (● owner second))) scope))))
         ((WantField projection)
          (concatenate (map (lambda (type) (free-metas solution type))
                            (list (● projection record type) (● projection result)
@@ -2949,8 +2982,8 @@
                 (unless (total? (solution ck) row)
                   (compile-error (● value loc)
                                  "a top-level value must be effect-free; put runtime work in a function"))
-                (check-performed ck definition scheme)
-                (Pair (Define (Define-name definition) value) ck)))
+                (Pair (Define (Define-name definition) value)
+                      (want-performed ck definition scheme))))
 
     ;; A signature's row says what calling the function may do, so it may
     ;; not name an effect the body never performs. A lambda was checked by
@@ -2960,16 +2993,29 @@
     ;; neither is held to it. A default is: its `default` entry is its
     ;; signature (expand.sld's `snail-defaults`).
 
-    (define (check-performed (ck Checker) (definition Item) (scheme Scheme)) (→ Unit) (! compile)
+    (define (want-performed (ck Checker) (definition Item) (scheme Scheme)) (→ Checker)
       (match (Pair (signature-loc (program-of ck) (Define-name definition))
                    (fn-arrow (● scheme type)))
         ((Pair (Some loc) (TFun _ _ row))
-         (match (if (lambda-expr? (Define-value definition))
-                    (unperformed-effects row (● ck performed))
-                    (Nil))
+         (if (lambda-expr? (Define-value definition))
+             (want ck (WantPerformed (Define-name definition) row (● ck performed) loc)) ck))
+        (_ ck)))
+
+    (define (check-performed (ck Checker) (want Wanted)) (→ Unit) (! compile)
+      (match want
+        ((WantPerformed name declared performed loc)
+         (match (unperformed-effects declared
+                                     (concatenate (map (lambda (row)
+                                                         (let ((flat
+                                                                (flatten-row (solution ck) row)))
+                                                           (append (● flat first)
+                                                                   (tail-variable
+                                                                    (● flat second)))))
+                                                       performed)))
            ((Nil) (unit))
-           (effects (let ((label (definition-label (program-of ck) (Define-name definition))))
-                      (compile-error loc (unperformed-message label effects))))))
+           (effects (compile-error loc
+                                   (unperformed-message (definition-label (program-of ck) name)
+                                                        effects)))))
         (_ (unit))))
 
     ;; How an error names a definition: a default by its operation, since
@@ -3293,8 +3339,6 @@
       (match (program-value program name)
         ((Some (Defined (Some scheme) _ _)) (Some scheme))
         (_ (None))))
-
-
 
     ;; Where a definition's own signature was written, if it has one.
 

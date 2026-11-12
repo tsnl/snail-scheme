@@ -38,7 +38,13 @@
    (snail stage0 system)
    (snail stage0 process)
    (only (snail core base) match Ok Err)
-   (only (snail shell compiler read) loc->string diagnostics->string compiling Failed GenerateInput ArtifactInput)
+   (only (snail shell compiler read)
+         loc->string
+         diagnostics->string
+         compiling
+         Failed
+         GenerateInput
+         ArtifactInput)
    (snail shell compiler inputs)
    (only (snail shell compiler sha256) sha256 bytes->hex))
   (begin
@@ -215,8 +221,8 @@
          (produce! root directories generated key))
         ((ArtifactInput name loc)
          (error 'snail (string-append (loc->string loc)
-                               ": artifact-bundle requires a project build resolver: "
-                               name)))))
+                                      ": artifact-bundle requires a project build resolver: "
+                                      name)))))
 
     ;; The compiler's message without the host's prefix.
     (define (diagnostic text)
@@ -236,7 +242,8 @@
     ;; A producer may read files the key does not cover, so nothing produced
     ;; outlives the compile that needed it.
     (define (produce! root directories generated key)
-      (when (member key (producing)) (error 'snail "generated library cycle through the producer" key))
+      (when (member key (producing))
+        (error 'snail "generated library cycle through the producer" key))
       (parameterize ((producing (cons key (producing))))
         (let* ((source (path-join generated (string-append key ".sld")))
                (program (path-join generated (string-append key ".wasm")))
@@ -307,7 +314,9 @@
                (let ((path (path-join directory (car entries))))
                  (loop (cdr entries)
                        (max newest (cond ((file-directory? path) (newest-sld-time path))
-                                         ((or (string-suffix? ".sld" path) (string-suffix? ".sls" path) (string-suffix? ".scm" path))
+                                         ((or (string-suffix? ".sld" path)
+                                              (string-suffix? ".sls" path)
+                                              (string-suffix? ".scm" path))
                                           (modification-nanoseconds path))
                                          (else 0)))))))))
 
@@ -373,10 +382,12 @@
                     stage2)
           (write-file stage3 (run-compiler root (compiler-command root stage2) "wat" sources entry))
           (unless (equal? (read-file (string-append stage2 ".wat")) (read-file stage3))
-            (error 'snail "bootstrap: stage 2 does not reproduce its own text; compare build/compiler/stage2.wasm.wat with stage3.wat"))
+            (error 'snail
+                   "bootstrap: stage 2 does not reproduce its own text; compare build/compiler/stage2.wasm.wat with stage3.wat"))
           (when (and (car first)
                      (not (equal? (cdr first) (read-file (string-append stage2 ".wat")))))
-            (error 'snail "bootstrap: the source on Chez and its compiled form emit different text; compare build/compiler/stage1.wasm.wat with stage2.wasm.wat"))
+            (error 'snail
+                   "bootstrap: the source on Chez and its compiled form emit different text; compare build/compiler/stage1.wasm.wat with stage2.wasm.wat"))
           (rename-file stage2 (compiler-path root)))))
 
     ;; Whether Chez produced the text, and the text.
@@ -464,22 +475,9 @@
     ;; would otherwise compile these crates with whatever toolchain is default
     ;; there, which need not have the pinned `wasm32-wasip1` target.
     ;; rust-toolchain.toml holds the one pin; name its channel explicitly.
-    (define (pinned-channel root)
-      (let* ((path (path-join root "rust-toolchain.toml"))
-             (channel (quoted-value (read-file path) "channel")))
-        (or channel (error 'snail "rust-toolchain.toml must name a channel" path))))
 
-    ;; The text between the first pair of double quotes at or after KEY.
-    (define (quoted-value text key)
-      (let* ((at (string-contains text key))
-             (rest (and at (substring text at (string-length text))))
-             (open (and rest (string-contains rest "\"")))
-             (tail (and open
-                        (substring rest
-                                   (+ open 1)
-                                   (string-length rest))))
-             (close (and tail (string-contains tail "\""))))
-        (and close (substring tail 0 close))))
+
+
 
     ;; ---- The native executable ----
 
@@ -536,15 +534,15 @@
     ;; from a reused process id is skipped, never adopted or removed.
     (define (create-staging-directory output)
       (let ((number (with-mutex counter-lock
-                      (set! private-count (+ private-count 1)) private-count)))
-      (let ((directory (path-join output
-                                  (string-append ".snail-"
-                                                 (number->string (get-process-id))
-                                                 "-"
-                                                 (number->string number)))))
-        (cond ((create-directory directory #o700) directory)
-              ((file-link-status directory) (create-staging-directory output))
-              (else (error 'snail "cannot stage program in output directory" output))))))
+                                (set! private-count (+ private-count 1)) private-count)))
+        (let ((directory (path-join output
+                                    (string-append ".snail-"
+                                                   (number->string (get-process-id))
+                                                   "-"
+                                                   (number->string number)))))
+          (cond ((create-directory directory #o700) directory)
+                ((file-link-status directory) (create-staging-directory output))
+                (else (error 'snail "cannot stage program in output directory" output))))))
 
     ;; ---- Linked files ----
 

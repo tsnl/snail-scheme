@@ -73,7 +73,7 @@
                            (reply (Result Json Failure)))
       (→ (Result T Failure))
       (∀ T)
-      (⊨ (Copy T))
+      (⊨ (Copy T) (Drop (!) T))
       (match reply
         ((Err failure) (Err failure))
         ((Ok json)

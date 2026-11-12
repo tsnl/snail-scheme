@@ -1,5 +1,6 @@
 (import
  (snail core base)
+ (only (snail core forms) host)
  (snail shell task)
  (snail shell app)
  (snail shell application)
@@ -31,21 +32,21 @@
 (extern background-boot "snail.runtime.browser.events" "boot" (Fn I32 → Unit ! events))
 (extern background-ready "snail.runtime.browser.events" "ready" (Fn → Unit ! events))
 (extern background-poll "snail.runtime.browser.events" "poll" (Fn → I32 ! events))
-(define (background-main (handover (Option Any))) (→ I64) (! mut events)
-  (start-page handover (once (lambda ()
-                               (background-boot 2)
-                               (background-poll) ; Resize.
-                               (background-poll) ; Frame.
-                               (background-ready) ; Acknowledge presentation explicitly.
-                               (dispatch-local (once (lambda () (sleep 100000))))
-                               (unit)))))
+(define (background-main (scheduler Scheduler) (context PageRun)) (→ I64) (! mut host events)
+  (start-page context scheduler (once (lambda ()
+                                        (background-boot 2)
+                                        (background-poll) ; Resize.
+                                        (background-poll) ; Frame.
+                                        (background-ready) ; Acknowledge presentation explicitly.
+                                        (dispatch-local (once (lambda () (sleep 100000))))
+                                        (unit)))))
 (expose background-main "background_main")
 
-(define (unpresented-main (handover (Option Any))) (→ I64) (! mut events)
-  (start-page handover (once (lambda ()
-                               (background-boot 2)
-                               (dispatch-local (once (lambda () (sleep 100000))))
-                               (unit)))))
+(define (unpresented-main (scheduler Scheduler) (context PageRun)) (→ I64) (! mut host events)
+  (start-page context scheduler (once (lambda ()
+                                        (background-boot 2)
+                                        (dispatch-local (once (lambda () (sleep 100000))))
+                                        (unit)))))
 (expose unpresented-main "unpresented_main")
 
 ;; Tasks beside the loop cannot enter its protocol: each of these traps.
@@ -60,18 +61,22 @@
 (define (child-boot) (→ Unit) (! events)
   (background-boot 99))
 
-(define (child-commit) (→ Unit) (! mut events)
+(define (child-commit) (→ Unit) (! mut events page)
   (commit-page (Counter 999 0)))
 
-(define (spawn-child (which I32)) (→ Unit) (! mut storage events)
-  (dispatch-local (once (lambda ()
-                          (match which
-                            (0 (child-load))
-                            (1 (child-store))
-                            (2 (child-event))
-                            (4 (child-commit))
-                            (5 (report-ready))
-                            (_ (child-boot)))))))
+(define (spawn-child (scheduler Scheduler) (context PageRun) (which I32))
+  (→ Unit) (! mut host storage events)
+  (handle page ((current-page (lambda () context)))
+    (dispatch-in scheduler
+                 (once (lambda ()
+                         (match which
+                           (0 (child-load))
+                           (1 (child-store))
+                           (2 (child-event))
+                           (4 (child-commit))
+                           (5 (report-ready))
+                           (_ (child-boot)))))))
+  (unit))
 (expose spawn-child "spawn_child")
 
 (struct Counter
@@ -141,7 +146,7 @@
 (struct TestApplication
   ())
 
-(instance (Application (! mut screen events storage tasks) TestApplication)
+(instance (Application (! mut host screen events storage tasks page) TestApplication)
   (define start
     (lambda (entry) (handle Marker
                         ((marker (lambda () 17)))

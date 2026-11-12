@@ -11,7 +11,7 @@ request/response exchange over TCP. Browser sockets are not implemented.
 [The networking issue](https://github.com/tsnl/snail-scheme/issues/457) tracks the
 remaining work.
 
-## Snail-Core API
+## Snail Scheme API
 
 Import `(snail shell socket)` and include `tcp` or `udp` in the effect row of code using it.
 Every operation returns `Result` with a `SocketError` whose `code` is a string
@@ -141,7 +141,7 @@ retrying the whole buffer is not automatically safe.
 
 ### Finishing a connection
 
-Snail-Core's `finish-connection` binds the native `finish` operation. It takes an idle
+Snail Scheme's `finish-connection` binds the native `finish` operation. It takes an idle
 connection and a grace period in milliseconds, which the library refuses
 with `EINVAL` when it is negative. Pending read or write rejects with `EBUSY`
 without changing ownership.

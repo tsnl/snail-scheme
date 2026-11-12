@@ -66,6 +66,7 @@
        (owner (Option String))
        (control (List String))
        (bindings (Table Definition))
+       (remaining I64)
        (pending (List String))))
 
     ;; The registry owns each executable identity and its signature. A body
@@ -94,7 +95,7 @@
       (SourceBody
        ((origin String)
         (value Expr)))
-      (GlueBody)
+      (GlueBody ((value Expr)))
       (Imported))
 
     (define (Definition-external? (binding Definition)) (→ Bool)
@@ -178,9 +179,14 @@
     (define (reserve (state State) (name String) (binding Definition)) (→ State)
       (if (table-contains? (● state bindings) name)
           state
-          (State-pending-set
-           (State-bindings-set state (table-set (● state bindings) name binding))
-           (Cons name (● state pending)))))
+          (begin
+            (when (= (● state remaining) 0)
+              (panic "compilation exceeds the limit of 65536 specialized definitions"))
+            (State-pending-set
+             (State-remaining-set
+              (State-bindings-set state (table-set (● state bindings) name binding))
+              (- (● state remaining) 1))
+             (Cons name (● state pending))))))
 
     (define (requested (state State) (name String)) (→ State)
       (if (external? state name (Nil))
@@ -219,7 +225,7 @@
       (→ State)
       (let ((body (match (● definition body)
                     ((SourceRecipe origin _ _) (SourceBody origin value))
-                    (_ (GlueBody)))))
+                    (_ (GlueBody value)))))
         (State-bindings-set state
                             (table-set (● state bindings) name
                                        (Definition-body-set definition body)))))
@@ -260,7 +266,7 @@
       (fold-left (lambda (bodies name)
                    (match (● (binding-of state name) body)
                      ((SourceBody _ value) (table-set bodies name value))
-                     ((GlueBody) bodies)
+                     ((GlueBody value) bodies)
                      ((Imported) bodies)
                      (_ (panic "internal error: analysis requires completed definitions"))))
                  empty-table (table-keys (● state bindings))))
@@ -278,7 +284,7 @@
       (match (● (binding-of state name) body)
         ((SourceBody _ value) (Pair value state))
         ((Imported) (instantiate-body state (SourceRecipe name (Nil) (Nil))))
-        ((GlueBody) (panic "internal error: cleanup cannot run during constant evaluation"))
+        ((GlueBody value) (Pair value state))
         (recipe (instantiate-body state recipe))))
 
     ;; ---- Copying ----
@@ -317,14 +323,19 @@
     ;; code that cannot reach a control operation keeps its names.
 
     (define (spec-key (type Type)) (→ String)
+      (require-type-capacity type)
+      (unchecked-spec-key type))
+
+    (define (unchecked-spec-key (type Type)) (→ String)
       (match type
         ((TCon name (Nil)) name)
-        ((TCon name args) (string-append name "<" (string-join (map spec-key args) ",") ">"))
+        ((TCon name args)
+         (string-append name "<" (string-join (map unchecked-spec-key args) ",") ">"))
         ((TFun params result row)
          (string-append "fn<"
-                        (string-join (map spec-key params) ",")
+                        (string-join (map unchecked-spec-key params) ",")
                         "->"
-                        (spec-key result)
+                        (unchecked-spec-key result)
                         ">"
                         (control-suffix row)))
         ((TRow _ _) (string-append "row" (control-suffix type)))
@@ -948,7 +959,7 @@
     (define (new-state (input Specialization) (owner (Option String))) (→ State)
       (State input owner
              (control-effects (● (● input typed) program))
-             empty-table (Nil)))
+             empty-table 65536 (Nil)))
 
     ;; The effects with a control operation, in order of their names.
 

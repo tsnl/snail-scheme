@@ -83,14 +83,6 @@
                   (⊨ (Copy A))
                   (Fn Funcref (Fn (Vector I64) → Bool) → (Vector A))))
 
-    ;; ---- Lexical borrows ----
-
-    ;; A loan starts only as a let's initializer. That let is its lexical
-    ;; region: ownership checks the whole body and forbids a borrowed result.
-    ;; The prelude exposes with-borrow instead of this raw operation.
-
-
-
     ;; ---- Counted ownership ----
 
     (primitive rc (∀ (T) (Fn T → (Rc T))))
@@ -100,6 +92,10 @@
 
     ;; Lifetime lowering inserts these operations after types are concrete.
     ;; They are deliberately absent from this library's exports.
+    (primitive constant-record (∀ (T) (Fn String → T)))
+    (primitive constant-array-shell (∀ (T) (Fn I64 → (Vector T))))
+    (primitive constant-array-fill (∀ (T) (Fn (Vector T) → Unit)))
+    (primitive constant-dead-weak (∀ (T) (Fn → (WeakRc T))))
     (primitive constant-array (∀ (T) (Fn → (Vector T))))
     (primitive current-closure (∀ (T) (Fn → T)))
     (primitive pattern-retain (∀ (T) (Fn T → T)))

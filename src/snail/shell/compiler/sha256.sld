@@ -3,7 +3,7 @@
 ;; file it links by this digest, so stage 0 computes it too, and both hosts
 ;; must agree on every word: a word is an I64 holding an unsigned 32-bit
 ;; value, and each sum and left shift is masked back to 32 bits, where Wasm's
-;; i32 arithmetic would wrap and Chibi's integers would grow.
+;; i32 arithmetic would wrap and Chez's integers would grow.
 (define-library (snail shell compiler sha256)
   (export
    sha256

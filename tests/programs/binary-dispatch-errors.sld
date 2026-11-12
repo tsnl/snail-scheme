@@ -28,11 +28,13 @@
     (body)
     (panic "expected dispatch failure")))
 
+(with-instances (ordinary)
+                (define-instance-set erased
+                  (dynamic-instances Combine (I64 I64) (I64 F64) (F64 I64))))
+
 (define main
   (lambda ()
-    (with-instances (ordinary)
-                    (define-instance-set erased
-                      (dynamic-instances Combine (I64 I64) (I64 F64) (F64 I64))))
+
     ;; Missing a left type reports its full domain. A supported left type
     ;; restricts the right domain, even when the missing pair is otherwise valid.
     ;; Partially erased heads restrict the domain before dispatch begins.

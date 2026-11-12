@@ -8,18 +8,22 @@
 ;; once rather than waiting, so what the work prints depends on the
 ;; program alone, as a test of it needs. Nothing here wakes a ticket, so
 ;; awaiting one abandons the work.
-(define (logical (work (Fn → Unit ! output-port tasks))) (→ Unit) (! output-port mut)
-  (let ((clock (ref (ann 0 I64))))
+(struct Clock
+  ((elapsed I64)))
+
+(define (logical (work (FnOnce → Unit ! mut output-port tasks))) (→ Unit) (! output-port mut)
+  (let ((clock (Clock 0)))
     (handle tasks
         ((yield (lambda (resume) (resume (unit))))
          (sleep (lambda (delay resume)
-                  (ref-set! clock (+ (ref-get clock) delay))
-                  (write-line (string-append "at " (show (ref-get clock))))
+                  (set! (● clock elapsed) (+ (● clock elapsed) delay))
+                  (write-line (string-append "at " (show (● clock elapsed))))
                   (resume (unit))))
          (await (lambda (ticket resume)
                   (drop resume)
                   (panic "no ticket wakes under a logical clock")))
-         (ticket (lambda () 0)))
+         (ticket (lambda () 0))
+         (current-scheduler (lambda () (panic "the logical handler cannot dispatch work"))))
       (work))))
 
 (define (countdown (name String) (count I64)) (→ Unit) (! output-port tasks)
