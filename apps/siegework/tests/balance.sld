@@ -74,7 +74,7 @@
   (let ((world (defend (started seed) 3000)))
     (and (playing? world) (= (● world tick) 3000))))
 
-(define (check (claim String) (holds? (dyn (Fn I64 → Bool)))) (→ Unit) (! console)
+(define (check (claim String) (holds? (dyn (Fn I64 → Bool)))) (→ Unit) (! output-port)
   (let ((broken (filter (lambda (seed) (not (holds? seed))) seeds)))
     (write-line (string-append claim
                                ": "

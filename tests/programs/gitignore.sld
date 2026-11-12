@@ -30,7 +30,7 @@
     ((Ok (None)) (panic "Git fixture unavailable"))
     ((Err message) (panic message))))
 
-(define (report (rules IgnoreSnapshot) (path String)) (→ Unit) (! console)
+(define (report (rules IgnoreSnapshot) (path String)) (→ Unit) (! output-port)
   (write-line (string-append path ": " (if (ignored? rules path) "ignored" "visible"))))
 
 (remove-tree root)

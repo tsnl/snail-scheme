@@ -13,13 +13,13 @@
 (define (at (name String)) (→ String)
   (string-append root "/" name))
 
-(define (writer) (→ Unit) (! fs tasks console)
+(define (writer) (→ Unit) (! fs tasks output-port)
   (write-file (at "build/output") "out")
   (sleep 200)
   (write-line "writing outside")
   (write-file (at "src/main.sld") "main"))
 
-(define (waiter (watch Watch)) (→ Unit) (! fs tasks console hints)
+(define (waiter (watch Watch)) (→ Unit) (! fs tasks output-port hints)
   (write-line (if (next-hint watch) "hinted" "closed"))
   (close-watch watch)
   (write-line (if (next-hint watch) "hinted" "closed"))

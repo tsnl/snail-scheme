@@ -9,7 +9,7 @@
 (struct Directory
   ((root String)))
 
-(instance (Store (! console) Directory)
+(instance (Store (! output-port) Directory)
   (define fetch-object
     (lambda (directory name) (write-line name)
             name)))

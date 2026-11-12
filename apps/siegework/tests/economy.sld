@@ -19,7 +19,7 @@
     ((Ok world) world)
     ((Err rejection) (panic (rejection-text rejection)))))
 
-(define (report (world World)) (→ Unit) (! console)
+(define (report (world World)) (→ Unit) (! output-port)
   (let ((ledger (● world ledger)))
     (write-line (string-join (list (string-append "tick " (show (● world tick)))
                                    (string-append "energy " (show (● world energy)))

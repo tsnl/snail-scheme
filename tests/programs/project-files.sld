@@ -21,7 +21,7 @@
 (define (at (name String)) (→ String)
   (string-append root "/" name))
 
-(define (report (label String) (text String)) (→ Unit) (! console)
+(define (report (label String) (text String)) (→ Unit) (! output-port)
   (write-line (string-append label " -> " text)))
 
 (define (refusal->string (refusal FileRefusal)) (→ String)
@@ -30,7 +30,9 @@
     ((NotServed message) (string-append "not served: " message))
     ((DiskFailed error) (string-append "disk failed: " (show error)))))
 
-(define (text-report (label String) (result (Result ProjectText FileRefusal))) (→ Unit) (! console)
+(define (text-report (label String) (result (Result ProjectText FileRefusal)))
+  (→ Unit)
+  (! output-port)
   (report label (match result
                   ((Ok text)
                    (string-append (● text text)
@@ -38,7 +40,7 @@
                                   (substring (● text revision) 0 12)))
                   ((Err refusal) (refusal->string refusal)))))
 
-(define (read-report (path String)) (→ Unit) (! console fs)
+(define (read-report (path String)) (→ Unit) (! output-port fs)
   (text-report (string-append "read " path) (read-project-text root path)))
 
 ;; The revision of the file at `path` now, which a save names.
@@ -47,7 +49,7 @@
     ((Ok text) (● text revision))
     ((Err _) "")))
 
-(define (mode-report (path String)) (→ Unit) (! console modes)
+(define (mode-report (path String)) (→ Unit) (! output-port modes)
   (report (string-append "mode of " path) (match (file-mode (at path))
                                             ((Some mode) (number->octal mode))
                                             ((None) "none"))))

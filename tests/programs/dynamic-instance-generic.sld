@@ -27,7 +27,12 @@
   (write-line (twice (Wrapper (ann #t Any))))
   (write-line "unreachable"))
 
-;; The core's generic Show instance similarly propagates its element's row.
+;; An explicit generic presentation propagates its element's row.
+(instance (Show (! e) (List T))
+  (⊨ (Show e T))
+  (define show (lambda (items)
+                 (string-append "(" (string-join (map show items) " ") ")"))))
+
 (instance (Show (! dyn-cast) Any) (dispatch I64 String))
 (handle dyn-cast ((conversion-failed (lambda (_) (write-line "caught list show"))))
   (write-line (show (list (ann 7 Any) (ann "ok" Any))))

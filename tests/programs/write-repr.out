@@ -1,0 +1,30 @@
+""
+"quote: \"; slash: \\; line:\nreturn:\rtab:\tλ😀"
+#\space
+#\newline
+#\tab
+#\λ
+()
+(#t #f)
+-9223372036854775808
+-42
+255
+1.5
+2.5
+()
+(None)
+(Some "a\nb")
+((Some "hello") (None))
+(Ok "success")
+(Err "failure")
+(Pair "key" (Some "value"))
+#("a" "b\tc")
+#()
+(Rock)
+rock
+(Node (Leaf) "root" (Node (Leaf) "child" (Leaf)))
+(Envelope "parcel" ("a" "b"))
+(Batch #("one" "two"))
+#<secret>
+(Some "pure")
+(Some "captured")

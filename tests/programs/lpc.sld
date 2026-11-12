@@ -14,7 +14,7 @@
 (define (missing (paths (List String))) (→ (List String)) (! fs)
   (filter (lambda (path) (not (file-exists? path))) paths))
 
-(define (report (title String) (paths (List String))) (→ Unit) (! console fs)
+(define (report (title String) (paths (List String))) (→ Unit) (! output-port fs)
   (write-line (string-append title
                              ": "
                              (show (length paths))

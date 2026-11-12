@@ -33,11 +33,11 @@
 (define copy (ann (deserialize (serialize shapes)) (List Shape)))
 (match copy
   ((Cons (Circle (Point x y) r) (Cons (Polygon (Cons _ (Cons (Point px py) _))) _))
-   (display (list x y px py))
+   (write (list x y px py))
    (newline)
    (display r)
    (newline))
   (_ (write-line "mismatch")))
 (write-line (ann (deserialize (serialize "héllo")) String))
-(display (ann (deserialize (serialize (list -1 300 -70000))) (List I64)))
+(write (ann (deserialize (serialize (list -1 300 -70000))) (List I64)))
 (newline)

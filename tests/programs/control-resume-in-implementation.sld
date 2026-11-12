@@ -39,7 +39,7 @@
 (effect Runner
   ((run-step (dyn (Fn (dyn (FnOnce Unit → Step ! Log)) → Step)))))
 
-(define (show-step (step Step)) (→ Unit) (! console)
+(define (show-step (step Step)) (→ Unit) (! output-port)
   (match step
     ((Done) (write-line "done"))
     ((Yielded value next)

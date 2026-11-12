@@ -4,19 +4,19 @@
  (owned work))
 
 (struct Job
-  ((work (dyn (FnOnce → Unit ! console)))))
+  ((work (dyn (FnOnce → Unit ! output-port)))))
 (enum Bundle
   (Full ((job Job) (tag I64)))
   (Empty))
 (enum Chain
-  (Link ((work (dyn (FnOnce → Unit ! console))) (rest Chain)))
+  (Link ((work (dyn (FnOnce → Unit ! output-port))) (rest Chain)))
   (End))
 
 (effect Probe ((ping (dyn (Fn → Unit)))))
 
 (effect Abort ((ctl abort (dyn (Fn String → Never)))))
 
-(define (drain (chain Chain)) (→ Unit) (! console)
+(define (drain (chain Chain)) (→ Unit) (! output-port)
   (match chain
     ((Link work rest) (call-once work) (drain rest))
     ((End) (unit))))

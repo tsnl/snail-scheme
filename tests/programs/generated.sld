@@ -7,7 +7,7 @@
  (sample table)
  (sample blob))
 
-(display squares)
+(write squares)
 (newline)
 (display (vector-length pixel))
 (newline)

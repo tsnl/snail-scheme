@@ -4,7 +4,7 @@
 
 (struct Model
   ((title String)
-   (work (dyn (FnOnce → Unit ! console)))))
+   (work (dyn (FnOnce → Unit ! output-port)))))
 
 (define (title (model (Borrow Model))) (→ String)
   (● model title))

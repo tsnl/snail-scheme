@@ -49,7 +49,7 @@
 ;; written.
 (struct Job
   ((at Point)
-   (work (dyn (FnOnce → Unit ! console)))))
+   (work (dyn (FnOnce → Unit ! output-port)))))
 
 (define (flip (job Job)) (→ Job)
   (Job-at-set job (Point (● (● job at) y) (● (● job at) x))))

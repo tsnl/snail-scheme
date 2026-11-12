@@ -16,7 +16,7 @@
   (syntax-rules ()
     ((_) (bundle "admin"))))
 
-(define (print-bundle (bundle ArtifactBundle)) (→ Unit) (! console)
+(define (print-bundle (bundle ArtifactBundle)) (→ Unit) (! output-port)
   (for-each (lambda (file)
               (display (● file path))
               (display ":")

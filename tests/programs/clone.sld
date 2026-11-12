@@ -47,7 +47,7 @@
 (define (twin (value A)) (→ (Pair A A)) (! e) (∀ A e) (⊨ (Clone e A))
   (clone value))
 
-(define (demo) (→ Unit) (! log console)
+(define (demo) (→ Unit) (! log output-port)
   (match (clone (Ticket 1))
     ((Pair a b) (drop a) (drop b)))
   ;; Glue clones the linear fields and shares the others.

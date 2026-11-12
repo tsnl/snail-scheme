@@ -20,7 +20,7 @@
 
 ;; An in-order walk that reports each value it passes, so the output shows
 ;; where the walk stopped.
-(define (walk (wanted (dyn (Fn I64 → Bool))) (tree Tree)) (→ Unit) (! Found console)
+(define (walk (wanted (dyn (Fn I64 → Bool))) (tree Tree)) (→ Unit) (! Found output-port)
   (match tree
     ((Leaf) (unit))
     ((Node left value right)
@@ -29,7 +29,7 @@
      (when (wanted value) (found value))
      (walk wanted right))))
 
-(define (first-where (wanted (dyn (Fn I64 → Bool)))) (→ I64) (! console)
+(define (first-where (wanted (dyn (Fn I64 → Bool)))) (→ I64) (! output-port)
   (handle Found ((found (lambda (value resume) (drop resume) value)))
     (walk wanted tree)
     -1))
@@ -52,7 +52,7 @@
 
 ;; A `FnOnce` held across the operation is dropped with the frame that held
 ;; it, and never runs.
-(define (guarded (items (List I64))) (→ I64) (! console)
+(define (guarded (items (List I64))) (→ I64) (! output-port)
   (handle Found ((found (lambda (value resume) (drop resume) value)))
     (let ((cleanup (once (lambda () (write-line "cleanup ran")))))
       (for-each (lambda (item) (when (< item 0) (found item))) items)

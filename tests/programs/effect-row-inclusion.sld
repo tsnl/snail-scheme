@@ -5,13 +5,13 @@
 (effect Value
   ((value (dyn (Fn → I64)))))
 
-;; The callback uses e, while its caller also has console permission.
-(define (announce (action (dyn (Fn → A ! e)))) (→ A) (! console e) (∀ A e)
+;; The callback uses e, while its caller also has output-port permission.
+(define (announce (action (dyn (Fn → A ! e)))) (→ A) (! output-port e) (∀ A e)
   (write-line "calling")
   (action))
 
 ;; The shared rigid tail is also preserved when both rows have known labels.
-(define (with-value (action (dyn (Fn → I64 ! Value e)))) (→ I64) (! console Value e) (∀ e)
+(define (with-value (action (dyn (Fn → I64 ! Value e)))) (→ I64) (! output-port Value e) (∀ e)
   (write-line "calling")
   (action))
 

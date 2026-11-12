@@ -1781,6 +1781,7 @@
                    (expanding cx ((bodies (each (lambda (cx entry) (declare cx signatures entry))
                                                 pending)))
                               (check-buildable-structs cx pending)
+                              (check-repr-types cx pending)
                               (expand-bodies cx (concatenate bodies))))))
 
     ;; A body that fails leaves the context as it was before it, and the
@@ -4407,6 +4408,7 @@
     (define implicit-libraries (→ (List (List String)))
       (list (list "snail" "core" "forms")
             (list "snail" "core" "primitive")
+            (list "snail" "core" "base")
             (list "snail" "shell" "wire")))
 
     (define (derived-instances (cx Context) (form Syntax) (enum? Bool))
@@ -4428,10 +4430,11 @@
         (each cx
               (lambda (cx class)
                 (match class
+                  ((Ident "Repr" _ _) (repr-instance cx head cases loc))
                   ((Ident "Serialize" _ _) (serialize-instance cx head cases loc))
                   ((Ident "Deserialize" _ _) (deserialize-instance cx head cases loc))
                   (_ (compile-error (syntax-loc class)
-                                    "only Move, Serialize and Deserialize can be derived"))))
+                                    "only Move, Repr, Serialize and Deserialize can be derived"))))
               (derived-instance-classes form))))
 
     ;; The scope derived instances resolve in, made at the build's first
@@ -4454,7 +4457,27 @@
                           (scope (register-scope env)))
                       (Pair scope (Context-deriving-set cx (Some scope))))))))
 
-    ;; Builds the syntax of a derived instance; `w` makes wire identifiers.
+    ;; Deriving may inspect only Copy values. Check after all declarations,
+    ;; since a later Drop instance can make a type own an external resource.
+    (define (check-repr-types (cx Context) (pending (List Pending))) (→ Unit) (! compile)
+      (for-each (lambda (entry)
+                  (when (and (member? (● entry keyword) (list "struct" "enum"))
+                             (any? (lambda (class)
+                                     (match class ((Ident "Repr" _ _) #t) (_ #f)))
+                                   (derived-classes (● entry form))))
+                    (check-repr-type cx entry)))
+                pending))
+
+    (define (check-repr-type (cx Context) (entry Pending)) (→ Unit) (! compile)
+      (let ((name (declared-name (declaration-head (● entry form)))))
+        (match (resolve cx (● entry env) name)
+          ((Some (TypeName id _ _))
+           (let ((params (● (program-type (● cx program) id) params)))
+             (when (linear-type? (● cx program) params (TCon id (map TRigid params)))
+               (compile-error (syntax-loc name) "deriving Repr requires a Copy type"))))
+          (_ (panic "internal error: represented type")))))
+
+    ;; Builds the syntax of a derived instance; `w` marks introduced identifiers.
     (struct Deriver
       ((scope I64)
        (loc Loc)))
@@ -4480,8 +4503,13 @@
                     (Nil)
                     (list (f d
                              (Cons (w d "⊨")
-                                   (map (lambda (param) (f d (list (w d class) param)))
-                                        params))))))))
+                                   (concatenate
+                                    (map (lambda (param)
+                                           (let ((requirement (f d (list (w d class) param))))
+                                             (if (string=? class "Repr")
+                                                 (list (f d (list (w d "Copy") param)) requirement)
+                                                 (list requirement))))
+                                         params)))))))))
 
     ;; A derived method inherits its class's signature. Its lambda keeps
     ;; that inference without introducing an unannotated function head.
@@ -4489,6 +4517,32 @@
       (→ Syntax)
       (f d (list (w d "define") (w d name)
                  (f d (list (w d "lambda") (f d parameters) body)))))
+
+    ;; Constructor notation is ordinary pure code, with no runtime reflection.
+    (define (repr-instance (cx Context) (head Syntax) (cases (List (Pair Syntax I64))) (loc Loc))
+      (→ (Pair Syntax Context))
+      (! fs compile)
+      (expanding cx ((scope (deriving-scope loc)))
+                 (let* ((d (Deriver scope loc)) (value (w d "value"))
+                        (body (f d (Cons (w d "match")
+                                         (Cons value
+                                               (map (lambda (case) (repr-case d case)) cases))))))
+                   (Pair (f d (append (instance-head d "Repr" head)
+                                      (list (derived-method d "repr" (list value) body))))
+                         cx))))
+
+    (define (repr-case (d Deriver) (case (Pair Syntax I64))) (→ Syntax)
+      (let* ((fields (field-idents d (● case second)))
+             (open (Atom (DString (string-append "(" (Ident-name (● case first)))) (● d loc)))
+             (space (Atom (DString " ") (● d loc)))
+             (close (Atom (DString ")") (● d loc)))
+             (pieces (Cons open
+                           (append (concatenate (map (lambda (field)
+                                                       (list space (f d (list (w d "repr") field))))
+                                                     fields))
+                                   (list close)))))
+        (f d (list (f d (Cons (● case first) fields))
+                   (f d (list (w d "string-concatenate") (f d (Cons (w d "list") pieces))))))))
 
     ;; Each case writes its TypeId, then its fields in order.
 

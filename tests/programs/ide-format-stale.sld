@@ -41,14 +41,14 @@
       (replace-field changed-path))
     next))
 
-(define (report-editor) (→ Unit) (! dom console)
+(define (report-editor) (→ Unit) (! dom output-port)
   (match (Pair (element-by-id "text-0") (element-by-id "editor-0"))
     ((Pair (Some field) (Some scroller))
      (write-line (string-property field "value"))
      (write-line (show (number-property scroller "scrollTop"))))
     (_ (panic "missing editor"))))
 
-(define (run (changed-path Bool)) (→ Unit) (! mut console tasks)
+(define (run (changed-path Bool)) (→ Unit) (! mut output-port tasks)
   (handle fetch
       ((request (lambda (method url headers body)
                   (Ok (Reply 200 "{\"text\":\"(a   b)\",\"revision\":\"first\"}"))))
@@ -64,7 +64,7 @@
                                                            (dyn (Fn Session
                                                                     (Option Msg)
                                                                     → Session
-                                                                    ! mut completion console dom fetch)))
+                                                                    ! mut completion output-port dom fetch)))
                                                       session-view session-window snapshot
                                                       (lambda (model) (unit))
                                                       (lambda (model) (unit)))))) first))
@@ -78,7 +78,7 @@
                                                  (dyn (Fn Session
                                                           (Option Msg)
                                                           → Session
-                                                          ! mut completion console dom fetch)))
+                                                          ! mut completion output-port dom fetch)))
                                             session-view session-window snapshot
                                             (lambda (model) (unit)) (lambda (model) (unit))))
                          (report-editor)))

@@ -74,12 +74,12 @@
     ((Some instance) (answer instance "value"))
     ((None) -1)))
 
-(define (expect (label String) (condition Bool)) (→ Unit) (! console)
+(define (expect (label String) (condition Bool)) (→ Unit) (! output-port)
   (if condition (write-line label) (panic label)))
 
 (define (rejected (label String) (names (List (Pair String Module))) (a Compiled))
   (→ Unit)
-  (! wasm console)
+  (! wasm output-port)
   (expect label (not (replace-instances names)))
   (expect (string-append label ": old map kept") (= (lookup label a) 1)))
 

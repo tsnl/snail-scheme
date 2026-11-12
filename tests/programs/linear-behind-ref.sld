@@ -11,7 +11,7 @@
   (Link ((cell (Ref T))
          (next (Chain T)))))
 
-(define (run-chain (chain (Chain (Option String)))) (→ Unit) (! console mut)
+(define (run-chain (chain (Chain (Option String)))) (→ Unit) (! output-port mut)
   (match chain
     ((End) (unit))
     ((Link cell next)

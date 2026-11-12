@@ -26,7 +26,7 @@
   (! dom fetch)
   (state (palette-update before context message)))
 
-(define (check (ok Bool) (label String)) (→ Unit) (! console)
+(define (check (ok Bool) (label String)) (→ Unit) (! output-port)
   (if ok (write-line label) (panic label)))
 
 (define (requested? (step palette-Step)) (→ Bool) (! dom fetch)
@@ -83,7 +83,7 @@
   (! dom fetch)
   (state (result before)))
 
-(define (run) (→ Unit) (! dom fetch console)
+(define (run) (→ Unit) (! dom fetch output-port)
   (let* ((start (state (palette-open palette-initial
                                      (palette-Searching
                                       (palette-Search (search-SavedProject)

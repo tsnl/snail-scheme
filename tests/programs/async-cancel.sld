@@ -8,7 +8,7 @@
 (struct Resource
   ((name String)))
 
-(instance (Drop (! console) Resource)
+(instance (Drop (! output-port) Resource)
   (define drop
     (lambda (resource) (match resource
                          ((Resource name) (write-line (string-append "released " name)))))))
@@ -25,7 +25,7 @@
 ;; A future kept outside the canceled producer sees abandonment. A
 ;; completion observer attempting to dispatch during cleanup cannot leave
 ;; a new runnable task behind shutdown.
-(define (notified) (→ Unit) (! mut console)
+(define (notified) (→ Unit) (! mut output-port)
   (let ((held (Resource "during close")))
     (dispatch-local (once (lambda () (drop held))))))
 

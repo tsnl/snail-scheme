@@ -197,7 +197,7 @@ head, so the instances of one class may perform different effects:
 ```
 
 A use performs what its instance's head says. Reading a `Directory`
-prints, so `fetch-twice` at a `Directory` performs `console`; at a `Table`
+prints, so `fetch-twice` at a `Directory` performs `output-port`; at a `Table`
 it is total, and a total function may call it. The row is found from the
 types, not matched: the types choose the instance, which must be the only
 one for them whatever rows the others write, and its row is charged to the
@@ -216,7 +216,7 @@ decide:
 ```
 
 Fetching from a `(Logged Table)` performs `log`, and from a
-`(Logged Directory)`, `log` and `console`. Ordinary class rows may name control
+`(Logged Directory)`, `log` and `output-port`. Ordinary class rows may name control
 effects; specialization and control lowering preserve them. `Drop` and `Clone` are classes over a row too
 ([releasing](ownership.md#releasing)), whose rows are found from a type's
 structure where it has no instance. These lifecycle classes still prohibit
@@ -228,6 +228,11 @@ row followed by a value type, as in `(Num e T)`. Concrete numeric
 instances use `(!)`, so static arithmetic remains pure; a dynamic
 instance can instead declare `(! dyn-cast)`. `Drop` releases values
 ([ownership](ownership.md#releasing)).
+
+`Repr` is a pure class with one type parameter: `(Repr T)` supplies
+`(repr value) → String`. `(snail core io)`'s `write` prints that
+representation through `output-port`. Structs and enums can generate instances
+with `(deriving Repr)`; see [current ports](libraries.md#current-input-and-output-ports).
 
 ### Associated output types
 
@@ -418,10 +423,10 @@ different implementations of the same calling contract:
 
 ```scheme
 (struct Job
-  ((run (dyn (FnOnce I64 → Unit ! console)))))
+  ((run (dyn (FnOnce I64 → Unit ! output-port)))))
 
 
-(define (greeting (text String)) (→ (dyn (FnOnce → Unit ! console)))
+(define (greeting (text String)) (→ (dyn (FnOnce → Unit ! output-port)))
   (once (lambda () (write-line text))))
 ```
 
@@ -853,7 +858,7 @@ runtime selection. `Drop` and `Clone` use their existing ownership rules,
 not dynamic dispatch.
 
 Effects are checked over every branch. For example, an instance
-`(Store (! console dyn-cast) Any)` may dispatch to pure and console-performing
+`(Store (! output-port dyn-cast) Any)` may dispatch to pure and output-performing
 stores; `(Store (! dyn-cast) Any)` cannot dispatch to a store that prints.
 Every finite dispatcher needs `dyn-cast` for unsupported payloads. Calls
 perform the declared row under the caller's handlers. A payload's type
@@ -975,7 +980,7 @@ Errors do not retain the payload for diagnostics.
 
 `(snail core dynamic)` provides `try-dynamic`, which handles a thunk's
 `dyn-cast` failures as a `Result`, `cast-error->string`, and `run-dynamic`,
-which additionally reports failures through `console`. An interactive
+which additionally reports failures through `output-port`. An interactive
 caller can use this explicit boundary once per evaluation and continue
 after an `Err`; a script decides its exit status from the result. No host
 implicitly enables `dyn-cast`. Generated Scheme scripts explicitly wrap each

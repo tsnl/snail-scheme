@@ -10,7 +10,7 @@
    vector make-vector vector-ref vector-length vector->list list->vector
    string string-length string-ref string-append substring string=? string<?
    string->list list->string char->integer integer->char char=? char<?
-   display newline write-string write-char)
+   display write newline write-string write-char read-char read-line)
   (import
    (snail core base)
    (snail core io))

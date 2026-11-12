@@ -41,7 +41,7 @@ is total: a call can only compute its result.
 {{#include ../../../tests/programs/effects-basic.sld:rows}}
 ```
 
-`write-line` performs `console`, so `report` does too. A total function may
+`write-line` performs `output-port`, so `report` does too. A total function may
 not call it. `tests/programs/error-effect.sld`:
 
 ```scheme
@@ -55,7 +55,7 @@ fails to compile:
 ```
 
 `mut` covers reading and writing cells, `Ref`'s content and the places in
-it, and arrays. `(snail core io)` declares `console`, `fs` and `clock`, and other
+it, and arrays. `(snail core io)` declares `input-port`, `output-port`, `fs` and `clock`, and other
 libraries declare their own, such as `tcp` in `(snail shell socket)`. A
 program declares more with `effect`, in the [next section](#handlers). Traps
 and non-termination are not tracked: a total function may still panic or
@@ -75,7 +75,7 @@ gets the row its body performs:
 squared 49
 ```
 
-`report-square` performs `console`, through `report`. A call requires its
+`report-square` performs `output-port`, through `report`. A call requires its
 callee's effects to fit the row of the code around it, so a total function
 could call `square` but not `report-square`.
 
@@ -105,7 +105,7 @@ cost every caller that work for nothing.
 Some signatures have no body to hold them to. An instance method keeps its
 class method's row, which one instance may need less of than another:
 in `tests/programs/declared-effects.sld`, the `Bool` instance of
-`announce` performs nothing and keeps `! console`. A default is held to
+`announce` performs nothing and keeps `! output-port`. A default is held to
 its row all the same ([defaults](#defaults-in-snail-core)). `extern`
 declarations, class method signatures and definitions whose value is not
 a lambda are not compared either. A signature that a macro writes is held to each
@@ -128,7 +128,7 @@ squared 4
 squared 9
 ```
 
-Here `e` is `console`; with a total `action`, `repeat` is total. `map` in
+Here `e` is `output-port`; with a total `action`, `repeat` is total. `map` in
 `(snail core base)` has the same shape:
 `(∀ (A B e) (dyn (Fn (dyn (Fn A → B ! e)) (List A) → (List B) ! e)))`.
 
@@ -136,12 +136,12 @@ A class may take a row as a parameter too, so that each of its instances
 performs its own ([rows as parameters](types.md#rows-as-parameters)).
 
 A row with a tail fits a larger row with the same tail: `e` fits
-`console e`, and `fs e` fits `console fs e`. The reverse does not hold, and
+`output-port e`, and `fs e` fits `output-port fs e`. The reverse does not hold, and
 two unrelated tails never fit each other
 (`tests/programs/error-effect-row-tail.sld`). This check is about
 permission to call; equality of function types still compares whole rows.
 The [effects tutorial](tutorials/effects.md) shows a function that adds
-`console` around its argument's row.
+`output-port` around its argument's row.
 
 ### Local mutation
 
@@ -172,10 +172,10 @@ nothing escapes. A `gc` effect, "may allocate traced memory", is proposed in
 
 ### Defaults from the host
 
-`console`, `fs` and `clock` need no handler. Each of their operations has a
-[default](#defaults-in-snail-core) that names an `extern`, a Wasm import
-the host provides, so an operation performed where no handler of its
-effect is in scope calls the host. That is why the programs above call
+`input-port`, `output-port`, `fs` and `clock` need no handler. Each operation has a
+[default](#defaults-in-snail-core) implementation that reaches host services
+through `extern` imports. An operation performed where no handler of its
+effect is in scope calls that implementation. That is why the programs above call
 `report` at their top level with no handler around them.
 
 Every platform effect is declared the same way. `(snail core io)` declares
@@ -193,8 +193,8 @@ still replace them: `tests/programs/files.sld` handles `fs` to answer
 `file-exists?` and `list-directory` from memory. Such a handler may leave
 the rest of its row polymorphic, as any can:
 `tests/programs/effects-host-handler-row.sld` handles `clock` for a body
-of row `(clock e)`, answering through `console`, and is itself of row
-`(console e)`. An effect without a
+of row `(clock e)`, answering through `output-port`, and is itself of row
+`(output-port e)`. An effect without a
 default must be handled: performing it where no handler is in scope is an
 error (`tests/programs/error-unhandled.sld`).
 

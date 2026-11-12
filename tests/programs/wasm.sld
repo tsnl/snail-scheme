@@ -22,7 +22,7 @@
 (define path "build/tests/adder.wasm")
 (write-file path (list->string (map i32->char adder)))
 
-(define (use-adder (module Module)) (→ Unit) (! wasm console)
+(define (use-adder (module Module)) (→ Unit) (! wasm output-port)
   (match (module-export module "add")
     ((Ok function)
      (let ((add (ann (unsafe-cast function) (dyn (Fn I64 I64 → I64))))

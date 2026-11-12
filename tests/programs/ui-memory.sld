@@ -32,7 +32,7 @@
   (Saved ((count I64))))
 
 (define (update (model Model) (message Msg))
-  (→ (Pair Model (List (dyn (FnOnce → Msg ! console tasks)))))
+  (→ (Pair Model (List (dyn (FnOnce → Msg ! output-port tasks)))))
   (match message
     ((Typed text) (Pair (Model-draft-set model text) (Nil)))
     ((Add)
@@ -81,7 +81,7 @@
                                 (On "click" (Nil) (Allow) (lambda (event) (Remove (● item id)))))
                           (list (Text "x"))))))
 
-(define (checkpoint (model Model)) (→ Unit) (! console)
+(define (checkpoint (model Model)) (→ Unit) (! output-port)
   (write-line (string-append "checkpoint: "
                              (string-join (map (lambda (record) (● record text)) (● model items))
                                           ", ")

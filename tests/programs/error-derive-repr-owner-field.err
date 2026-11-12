@@ -1,0 +1,1 @@
+deriving Repr requires a Copy type

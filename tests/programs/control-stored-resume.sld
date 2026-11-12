@@ -37,14 +37,14 @@
    (right Step)))
 
 ;; Both generators take their first step under one log.
-(define (begin-both) (→ Pair-of-steps) (! console)
+(define (begin-both) (→ Pair-of-steps) (! output-port)
   (handle Log ((log (lambda (line) (write-line (string-append "first log: " line)))))
     (Pair-of-steps (start (lambda () (count-from "a" 1 3)))
                    (start (lambda () (count-from "b" 10 2))))))
 
 ;; The rest alternates between them, long after their handlers returned,
 ;; under another log: each resumed step logs to the handler in scope here.
-(define (alternate (this Step) (other Step)) (→ Unit) (! Log console)
+(define (alternate (this Step) (other Step)) (→ Unit) (! Log output-port)
   (match this
     ((Done)
      (match other
@@ -81,7 +81,7 @@
         (loop (+ index 1))))
     (Finished)))
 
-(define (drain (step Asking) (scale I64)) (→ Unit) (! console)
+(define (drain (step Asking) (scale I64)) (→ Unit) (! output-port)
   (match step
     ((Finished) (write-line "finished"))
     ((Gave value next)

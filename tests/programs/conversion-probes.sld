@@ -65,7 +65,7 @@
 (effect Stop ((ctl stop (dyn (Fn → Never)))))
 (struct Resource
   ())
-(instance (Drop (! console) Resource)
+(instance (Drop (! output-port) Resource)
   (define drop (lambda (resource) (match resource ((Resource) (write-line "released"))))))
 (define (right (trace (Ref String))) (→ Any) (! mut Stop)
   (ref-set! trace (string-append (ref-get trace) "R"))

@@ -27,7 +27,7 @@
     ((Lost) "lost")
     ((Resigned) "resigned")))
 
-(define (report (name String) (world World)) (→ Unit) (! console)
+(define (report (name String) (world World)) (→ Unit) (! output-port)
   (write-line (string-append name
                              ": tick "
                              (show (● world tick))
@@ -126,7 +126,7 @@
        ((None) "nothing")))
     ((None) "gone")))
 
-(define (watch (world World) (ticks I64)) (→ Unit) (! console)
+(define (watch (world World) (ticks I64)) (→ Unit) (! output-port)
   (if (> ticks 0)
       (let ((next (advance world)))
         (for-each (lambda (shot)

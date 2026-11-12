@@ -5,7 +5,7 @@
 
 (effect Label ((label (dyn (Fn → String)))))
 
-(define (child) (→ Unit) (! console tasks Label)
+(define (child) (→ Unit) (! output-port tasks Label)
   (write-line (string-append (label) " starts"))
   (yield)
   (write-line (string-append (label) " resumes"))

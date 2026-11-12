@@ -13,7 +13,7 @@
   (define twice
     (lambda (value) (Pair value value))))
 
-(define (run (option (Option (dyn (FnOnce → Unit ! console))))) (→ Unit) (! console)
+(define (run (option (Option (dyn (FnOnce → Unit ! output-port))))) (→ Unit) (! output-port)
   (match option
     ((Some work) (call-once work))
     ((None) (unit))))

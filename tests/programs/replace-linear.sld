@@ -11,13 +11,13 @@
 (struct Job
   ((name String)
    (attempts I64)
-   (work (dyn (FnOnce → Unit ! console)))))
+   (work (dyn (FnOnce → Unit ! output-port)))))
 
 (define (retry (job Job)) (→ Job)
   (Job-attempts-set job (+ (● job attempts) 1)))
 ;; ANCHOR_END: retry
 
-(define (run (job Job)) (→ Unit) (! console)
+(define (run (job Job)) (→ Unit) (! output-port)
   (match job
     ((Job name attempts work)
      (write-line (string-append name " after " (i64->string attempts) " retries"))

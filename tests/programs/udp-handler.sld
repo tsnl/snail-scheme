@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (snail core io)
+ (rename (snail core io) (write write-value))
  (snail shell task)
  (snail shell socket))
 
@@ -40,6 +40,6 @@
                       (require (send socket (require (endpoint "192.0.2.2" 8)) #u8(9 10)))
                       (let ((packet (require (receive socket 2))))
                         (write-line (Endpoint-address (● packet peer)))
-                        (display (vector->list (● packet bytes)))
+                        (write-value (vector->list (● packet bytes)))
                         (newline))))))))))
 (write-line "main returns")

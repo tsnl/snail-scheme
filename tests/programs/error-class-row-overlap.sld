@@ -10,7 +10,7 @@
 (struct Loud
   ((name String)))
 
-(instance (Store (! console) Loud)
+(instance (Store (! output-port) Loud)
   (define fetch-object
     (lambda (loud name) (write-line name)
             name)))

@@ -7,7 +7,7 @@
 (struct Handle
   ((name String)))
 
-(instance (Drop (! console) Handle)
+(instance (Drop (! output-port) Handle)
   (define drop
     (lambda (handle) (match handle
                        ((Handle name) (write-line (string-append "released " name)))))))

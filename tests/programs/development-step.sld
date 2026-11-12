@@ -161,7 +161,7 @@
 
 ;; ---- Driving ----
 
-(define (drive (service Service) (events (List Event))) (→ Service) (! console)
+(define (drive (service Service) (events (List Event))) (→ Service) (! output-port)
   (fold-left (lambda (service event)
                (let ((stepped (step service event)))
                  (write-line (string-append "  "
@@ -175,7 +175,7 @@
              service
              events))
 
-(define (scenario (name String) (events (List Event))) (→ Service) (! console)
+(define (scenario (name String) (events (List Event))) (→ Service) (! output-port)
   (write-line name)
   (drive (new-service root project) events))
 

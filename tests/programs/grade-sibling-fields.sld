@@ -12,7 +12,7 @@
 (define (share (shared (Shared T))) (→ (Pair (Shared T) (Shared T))) (∀ T)
   (Pair shared shared))
 
-(define (run-current (shared (Shared String))) (→ Unit) (! console mut)
+(define (run-current (shared (Shared String))) (→ Unit) (! output-port mut)
   (ref-set! (● shared count) (+ (ref-get (● shared count)) 1))
   (match (ref-replace! (● shared current) (None))
     ((Some text) (write-line text))
@@ -27,7 +27,7 @@
 (struct Handle
   ((name String)))
 
-(instance (Drop (! console) Handle)
+(instance (Drop (! output-port) Handle)
   (define drop
     (lambda (handle) (match handle
                        ((Handle name) (write-line (string-append "released " name)))))))
@@ -35,7 +35,7 @@
 (struct Token
   ((id I64)))
 
-(instance (Drop (! console) Token)
+(instance (Drop (! output-port) Token)
   (define drop
     (lambda (token) (match token
                       ((Token id) (write-line (string-append "released token " (show id))))))))

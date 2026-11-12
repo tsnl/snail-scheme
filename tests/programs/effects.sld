@@ -17,7 +17,7 @@
       ((log (lambda (message) (unit))))
     (action)))
 
-(define (loudly (action (dyn (Fn → A ! Log console e)))) (→ A) (! console e) (∀ A e)
+(define (loudly (action (dyn (Fn → A ! Log output-port e)))) (→ A) (! output-port e) (∀ A e)
   (handle Log
       ((log (lambda (message) (write-line (string-append "log: " message)))))
     (action)))

@@ -8,7 +8,7 @@
  (snail shell fetch)
  (snail shell ide application))
 
-(define (check (ok Bool) (label String)) (→ Unit) (! console)
+(define (check (ok Bool) (label String)) (→ Unit) (! output-port)
   (if ok (write-line label) (panic label)))
 
 (define (buffer (session (Borrow Session))) (→ Buffer)

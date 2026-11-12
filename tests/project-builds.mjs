@@ -96,7 +96,7 @@ try {
     (import (snail core base) (snail core io) (snail shell application) (snail shell task))
     (begin
       (struct Printer ()) (struct Missing ()) (struct (Generic A) ())
-      (instance (Application (! console tasks) Printer)
+      (instance (Application (! output-port tasks) Printer)
         (define start (lambda (entry) (yield) (write-line "typed entry"))))))`);
   const selected = type => `((build-target selected
     (program (entry ((typed entry) ${type})) (library-roots ("src")))))`;

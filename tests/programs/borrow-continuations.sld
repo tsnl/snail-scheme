@@ -17,7 +17,7 @@
       ((pause (lambda (resume) (resume (unit)))))
     (pause)))
 
-(define (work (model (Borrow Model))) (→ (dyn (FnOnce → Unit ! tasks console)))
+(define (work (model (Borrow Model))) (→ (dyn (FnOnce → Unit ! tasks output-port)))
   (local-control)
   (let ((text (● model title)))
     (once (lambda ()

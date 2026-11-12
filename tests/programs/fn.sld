@@ -9,11 +9,11 @@
 ;; ANCHOR: fn
 (define greeting (→ String) "hello")
 
-(define (shout (name String)) (→ Unit) (! console)
+(define (shout (name String)) (→ Unit) (! output-port)
   (let ((say (fn (text) (write-line (string-append greeting ", " text)))))
     (say name)))
 
-(define (count-down (from I64)) (→ Unit) (! console)
+(define (count-down (from I64)) (→ Unit) (! output-port)
   (define step
     (fn (n)
       (when (> n 0)

@@ -5,9 +5,9 @@
  (snail shell read)
  (snail shell write))
 
-(define (round-trip (text String)) (→ Unit) (! console)
+(define (round-trip (text String)) (→ Unit) (! output-port)
   (match (read-datums text)
-    ((Ok data) (for-each (lambda (datum) (write-line (datum->string datum))) data))
+    ((Ok data) (for-each (lambda (datum) (write datum) (newline)) data))
     ((Err message) (write-line (string-append "error: " message)))))
 
 (round-trip "(define (f x) (+ x 1/2)) ; comment

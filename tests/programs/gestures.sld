@@ -13,7 +13,7 @@
     ((Pinch ratio) (string-append "pinch " (show ratio)))))
 
 ;; Feeds the inputs in order and prints what each one meant.
-(define (play (name String) (inputs (List Input))) (→ Unit) (! console)
+(define (play (name String) (inputs (List Input))) (→ Unit) (! output-port)
   (write-line (string-append name ": "
                              (string-join (● (fold-left (lambda (state input)
                                                           (match (recognize

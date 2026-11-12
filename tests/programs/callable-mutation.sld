@@ -4,7 +4,7 @@
 
 (struct Counter
   ((value (Ref I64))))
-(instance (Drop (! mut console) Counter)
+(instance (Drop (! mut output-port) Counter)
   (define drop
     (lambda (counter) (match counter
                         ((Counter value)
@@ -14,7 +14,7 @@
        (advance (ann (lambda (amount)
                        (set! (ref-get (● counter value)) (+ (ref-get (● counter value)) amount))
                        (ref-get (● counter value)))
-                     (impl (FnMut I64 → I64 ! mut console)))))
+                     (impl (FnMut I64 → I64 ! mut output-port)))))
   (write-line (show (advance 3)))
   (write-line (show (advance 4)))
   (drop advance))
@@ -24,17 +24,17 @@
        (inner (ann (lambda (amount)
                      (set! (ref-get (● counter value)) (+ (ref-get (● counter value)) amount))
                      (ref-get (● counter value)))
-                   (impl (FnMut I64 → I64 ! mut console))))
+                   (impl (FnMut I64 → I64 ! mut output-port))))
        (outer (ann (lambda (amount) (inner amount))
-                   (impl (FnMut I64 → I64 ! mut console)))))
+                   (impl (FnMut I64 → I64 ! mut output-port)))))
   (write-line (show (outer 2)))
   (drop outer))
 
 (define (consume (function F) (value I64))
   (→ I64)
-  (! mut console)
+  (! mut output-port)
   (∀ F)
-  (⊨ (FnOnce F I64 → I64 ! mut console))
+  (⊨ (FnOnce F I64 → I64 ! mut output-port))
   (function value))
 
 ;; Consuming an exclusive implementation runs its capture cleanup once.
@@ -42,11 +42,11 @@
        (advance (ann (lambda (amount)
                        (set! (ref-get (● counter value)) amount)
                        (ref-get (● counter value)))
-                     (impl (FnMut I64 → I64 ! mut console)))))
+                     (impl (FnMut I64 → I64 ! mut output-port)))))
   (write-line (show (consume advance 9))))
 
 (struct Work
-  ((run (dyn (FnMut I64 → I64 ! mut console)))))
+  ((run (dyn (FnMut I64 → I64 ! mut output-port)))))
 
 ;; An erased exclusive receiver can be called through its owner's field.
 (let* ((counter (Counter (ref 0)))

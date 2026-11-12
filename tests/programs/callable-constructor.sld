@@ -3,19 +3,19 @@
  (snail core io))
 (struct Token
   ((label String)))
-(instance (Drop (! console) Token)
+(instance (Drop (! output-port) Token)
   (define drop
     (lambda (token) (match token ((Token label) (write-line label))))))
 
 (let* ((token (Token "first-class cleanup"))
        (function (ann (lambda (value) (string-append (● token label) value))
-                      (impl (Fn String → String ! console))))
+                      (impl (Fn String → String ! output-port))))
        (constructor once)
        (single (constructor function)))
   (write-line (single " called")))
 
 (let* ((token (Token "first-class abandoned"))
-       (function (ann (lambda () (● token label)) (impl (Fn → String ! console))))
+       (function (ann (lambda () (● token label)) (impl (Fn → String ! output-port))))
        (constructor once)
        (single (constructor function)))
   (drop single))

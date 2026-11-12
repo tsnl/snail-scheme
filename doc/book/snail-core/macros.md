@@ -54,7 +54,7 @@ once and tries the next clause if either the type or pattern does not match:
 ```
 
 Procedures use a nominal `Procedure` wrapper whose callable field has type
-`(dyn (Fn (List Any) → Any ! console mut dyn-cast))`. Recovering the wrapper preserves
+`(dyn (Fn (List Any) → Any ! output-port mut dyn-cast))`. Recovering the wrapper preserves
 that effect signature; it does not erase an effectful function type. The
 runtime's `call` takes `Any` and `List Any` and declares those same effects.
 A typed client can construct a `Procedure` adapter for its library function

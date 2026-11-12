@@ -33,7 +33,7 @@
 
 (define (consume (resource Resource) (a I64) (b I64)) (→ Unit) (! audit)
   (drop resource))
-(define (later) (→ I64) (! console) (write-line "unreachable argument") 0)
+(define (later) (→ I64) (! output-port) (write-line "unreachable argument") 0)
 
 (handle audit ((note (lambda (text) (write-line text))))
   (handle dyn-cast ((conversion-failed (lambda (_) (write-line "caught"))))

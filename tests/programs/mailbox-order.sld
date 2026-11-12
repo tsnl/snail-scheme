@@ -8,7 +8,7 @@
 ;; `second` park; the producer's post wakes `first`, and `third`, which
 ;; was ready behind the producer, asks before `first` runs. The message
 ;; is already `first`'s, so `third` waits behind `second`.
-(define (receive-one (mailbox (Mailbox String)) (name String)) (→ Unit) (! console mut tasks)
+(define (receive-one (mailbox (Mailbox String)) (name String)) (→ Unit) (! output-port mut tasks)
   (write-line (string-append name " received " (mailbox-receive mailbox))))
 
 (define (produce (mailbox (Mailbox String))) (→ Unit) (! mut tasks)
