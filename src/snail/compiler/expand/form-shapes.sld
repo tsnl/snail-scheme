@@ -40,7 +40,8 @@
   (import
    (snail core base)
    (snail compiler source)
-   (prefix (snail compiler read language) syntax-)
+   (only (snail compiler literals datum) Datum)
+   (prefix (snail compiler literals datum) datum-)
    (snail compiler expand marked)
    (only (snail compiler expand scopes) marked-loc))
   (begin
@@ -97,7 +98,7 @@
       (CaseIdForm
        ((constructor Marked)))
       (QuoteForm
-       ((datum syntax-Datum)))
+       ((datum Datum)))
       (MalformedForm
        ((message String))))
 
@@ -175,14 +176,14 @@
     (: artifact-files-form (impl (Fn (List Marked) -> CoreForm)))
     (define (artifact-files-form items)
       (match items
-        ((Cons (Atom (syntax-Text target) _) (Cons file (Cons prepend (Cons empty (Nil)))))
+        ((Cons (Atom (datum-Text target) _) (Cons file (Cons prepend (Cons empty (Nil)))))
          (ArtifactFilesForm target file prepend empty))
         (_ (MalformedForm "artifact-bundle expects a literal target name"))))
 
     (: link-handle-form (impl (Fn (List Marked) -> CoreForm)))
     (define (link-handle-form items)
       (match items
-        ((Cons (Atom (syntax-Text path) path-loc) (Nil)) (LinkHandleForm path path-loc))
+        ((Cons (Atom (datum-Text path) path-loc) (Nil)) (LinkHandleForm path path-loc))
         (_ (MalformedForm "link-file expects a literal relative path"))))
 
     (: handle-form (impl (Fn (List Marked) -> CoreForm)))
@@ -307,8 +308,8 @@
       (define (marked datum)
         (cond ((or (null? datum) (pair? datum)) (Form (map marked datum) loc))
               ((symbol? datum) (Ident (Identifier (symbol->string datum) (Nil)) loc))
-              ((string? datum) (Atom (syntax-Text datum) loc))
-              ((exact-integer? datum) (Atom (syntax-Integer datum) loc))
+              ((string? datum) (Atom (datum-Text datum) loc))
+              ((exact-integer? datum) (Atom (datum-Integer datum) loc))
               (else (panic "no syntax for this datum"))))
 
       (define (shape datum)
@@ -350,7 +351,7 @@
         (expect (shape '(let)) (MalformedForm "expected (let ((name value) ...) body ...)")))
 
       (define (test-literal-forms)
-        (expect (shape '(quote 1)) (QuoteForm (syntax-Integer 1)))
+        (expect (shape '(quote 1)) (QuoteForm (datum-Integer 1)))
         (expect (shape '(quote x)) (MalformedForm "only literals can be quoted"))
         (expect (shape '(quote 1 2)) (MalformedForm "only literals can be quoted"))
         (expect (shape '(link-handle "data/x.png")) (LinkHandleForm "data/x.png" loc))

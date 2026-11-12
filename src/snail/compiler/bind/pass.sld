@@ -21,15 +21,17 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler outline names) program-library)
+   (snail compiler names libraries)
    (prefix (snail compiler expand language) expanded-)
+   (only (snail compiler names globals) Global TopGlobal)
+   (only (snail compiler literals constant) Text ByteVector)
    (snail compiler expand links)
    (snail compiler expand targets)
    (snail compiler bind language)
    (snail compiler bind supply)
    (snail compiler bind needs)
-   (snail compiler bind state))
+   (snail compiler bind state)
+   (only (snail compiler names numbering) Numbering fresh-global))
   (begin
 
     ;; ---- The pass ----
@@ -75,15 +77,13 @@
     (define (bound-library expanded name links targets)
       (match expanded
         ((expanded-Defined _ tops first-unused loc)
-         (let ((site (found-site name links targets first-unused)))
-           (numbering-let* ((bound state
-                                   (bound-tops (first-numbering site first-unused) site tops)))
-             (Defined name (append (link-imports site) bound) (::next state) loc))))
+         (state-let* ((site numbering (found-site (Numbering name first-unused) links targets))
+                      (bound state (bound-tops (binding-from numbering) site tops)))
+           (Defined name (append (link-imports site) bound) (::next (::numbering state)) loc)))
         ((expanded-Program tops first-unused)
-         (let ((site (found-site name links targets first-unused)))
-           (numbering-let* ((bound state
-                                   (bound-tops (first-numbering site first-unused) site tops)))
-             (Program (append (link-imports site) bound) (::next state)))))))
+         (state-let* ((site numbering (found-site (Numbering name first-unused) links targets))
+                      (bound state (bound-tops (binding-from numbering) site tops)))
+           (Program (append (link-imports site) bound) (::next (::numbering state)))))))
 
     ;; ---- What was found ----
 
@@ -95,26 +95,22 @@
 
     ;; A file the library links, and the Global its uses call.
     (struct LinkHandle
-      ((global expanded-Global)
+      ((global Global)
        (link FoundLink)))
 
-    ;; Each linked file's handle is a Global of `library` named
+    ;; Each linked file's handle is a Global of the library named
     ;; "link-handle", numbered in the order the library first links the
-    ;; files from the first number it has not used, so no other Global of
-    ;; it has that serial.
-    (: found-site (impl (Fn LibraryName (List FoundLink) (List TargetFiles) I64 -> Site)))
-    (define (found-site library links targets first-unused)
-      (Site (map-indexed (lambda (index link)
-                           (LinkHandle
-                            (expanded-Global library "link-handle" (+ first-unused index))
-                            link))
-                         links)
-            targets))
+    ;; files, so no other Global of it has that serial.
+    (: found-site
+       (impl (Fn Numbering (List FoundLink) (List TargetFiles) -> (Pair Site Numbering))))
+    (define (found-site numbering links targets)
+      (state-let* ((handles numbering (map-with-state numbering link-handle links)))
+        (Pair (Site handles targets) numbering)))
 
-    ;; Numbering starts after the handles.
-    (: first-numbering (impl (Fn Site I64 -> Numbering)))
-    (define (first-numbering site first-unused)
-      (numbering-from (+ first-unused (length (::handles site)))))
+    (: link-handle (impl (Fn Numbering FoundLink -> (Pair LinkHandle Numbering))))
+    (define (link-handle numbering link)
+      (state-let* ((global numbering (fresh-global numbering "link-handle")))
+        (Pair (LinkHandle global link) numbering)))
 
     ;; The LinkImport of each handle, in the order of its serial.
     (: link-imports (impl (Fn Site -> (List Top))))
@@ -132,28 +128,28 @@
 
     ;; `expr` bound again, as a copy with locals of its own, as (snail
     ;; compiler bind state) renames them.
-    (: copied (impl (Fn Numbering Site expanded-Expr -> (Pair Expr Numbering))))
+    (: copied (impl (Fn Binding Site expanded-Expr -> (Pair Expr Binding))))
     (define (copied state site expr)
-      (numbering-let* ((copy inner (bound-expr (copying state) site expr)))
+      (state-let* ((copy inner (bound-expr (copying state) site expr)))
         (Pair copy (copy-done state inner))))
 
     ;; ---- Declarations ----
 
-    (: bound-tops (impl (Fn Numbering Site (List expanded-Top) -> (Pair (List Top) Numbering))))
+    (: bound-tops (impl (Fn Binding Site (List expanded-Top) -> (Pair (List Top) Binding))))
     (define (bound-tops state site tops)
-      (numbering-map state (lambda (state top) (bound-top state site top)) tops))
+      (map-with-state state (lambda (state top) (bound-top state site top)) tops))
 
     ;; Each declaration as it was, with the expressions it holds bound.
-    (: bound-top (impl (Fn Numbering Site expanded-Top -> (Pair Top Numbering))))
+    (: bound-top (impl (Fn Binding Site expanded-Top -> (Pair Top Binding))))
     (define (bound-top state site top)
       (match top
         ((expanded-Define global value loc)
-         (numbering-let* ((value state (bound-expr state site value)))
+         (state-let* ((value state (bound-expr state site value)))
            (Pair (Define global value loc) state)))
         ((expanded-Signature target scheme annotations loc)
          (Pair (Signature target scheme annotations loc) state))
         ((expanded-Statement expr)
-         (numbering-let* ((expr state (bound-expr state site expr)))
+         (state-let* ((expr state (bound-expr state site expr)))
            (Pair (Statement expr) state)))
         ((expanded-Expose target symbol dynamic? loc)
          (Pair (Expose target symbol dynamic? loc) state))
@@ -166,30 +162,30 @@
         ((expanded-Class global parameters members annotations loc)
          (Pair (Class global parameters members annotations loc) state))
         ((expanded-TopInstance instance)
-         (numbering-let* ((instance state (bound-instance state site instance)))
+         (state-let* ((instance state (bound-instance state site instance)))
            (Pair (TopInstance instance) state)))
         ((expanded-InstanceSet global members loc)
-         (numbering-let* ((members state (numbering-map state
-                                                        (lambda (state member)
-                                                          (bound-member state site member))
-                                                        members)))
+         (state-let* ((members state (map-with-state state
+                                                     (lambda (state member)
+                                                       (bound-member state site member))
+                                                     members)))
            (Pair (InstanceSet global members loc) state)))
         ((expanded-InstanceScope sets tops loc)
-         (numbering-let* ((tops state (bound-tops state site tops)))
+         (state-let* ((tops state (bound-tops state site tops)))
            (Pair (InstanceScope sets tops loc) state)))
         ((expanded-Extern global module symbol type annotations loc)
          (Pair (Extern global module symbol type annotations loc) state))
         ((expanded-Effect global operations defaults around-main? annotations loc)
-         (numbering-let* ((defaults state (numbering-map state
-                                                         (lambda (state default)
-                                                           (bound-default state site default))
-                                                         defaults)))
+         (state-let* ((defaults state (map-with-state state
+                                                      (lambda (state default)
+                                                        (bound-default state site default))
+                                                      defaults)))
            (Pair (Effect global operations defaults around-main? annotations loc) state)))
         ((expanded-Primitive global type loc) (Pair (Primitive global type loc) state))))
 
-    (: bound-instance (impl (Fn Numbering Site expanded-Instance -> (Pair Instance Numbering))))
+    (: bound-instance (impl (Fn Binding Site expanded-Instance -> (Pair Instance Binding))))
     (define (bound-instance state site instance)
-      (numbering-let* ((body state (bound-instance-body state site (::body instance))))
+      (state-let* ((body state (bound-instance-body state site (::body instance))))
         (Pair (Instance (::class instance)
                         (::variables instance)
                         (::types instance)
@@ -200,35 +196,35 @@
               state)))
 
     (: bound-instance-body
-       (impl (Fn Numbering Site expanded-InstanceBody -> (Pair InstanceBody Numbering))))
+       (impl (Fn Binding Site expanded-InstanceBody -> (Pair InstanceBody Binding))))
     (define (bound-instance-body state site body)
       (match body
         ((expanded-Dispatch types loc) (Pair (Dispatch types loc) state))
         ((expanded-Methods methods)
-         (numbering-let* ((methods state (numbering-map state
-                                                        (lambda (state method)
-                                                          (bound-method state site method))
-                                                        methods)))
+         (state-let* ((methods state (map-with-state state
+                                                     (lambda (state method)
+                                                       (bound-method state site method))
+                                                     methods)))
            (Pair (Methods methods) state)))))
 
     (: bound-method
-       (impl (Fn Numbering Site expanded-InstanceMethod -> (Pair InstanceMethod Numbering))))
+       (impl (Fn Binding Site expanded-InstanceMethod -> (Pair InstanceMethod Binding))))
     (define (bound-method state site method)
-      (numbering-let* ((value state (bound-expr state site (::value method))))
+      (state-let* ((value state (bound-expr state site (::value method))))
         (Pair (InstanceMethod (::name method) value) state)))
 
-    (: bound-member (impl (Fn Numbering Site expanded-SetMember -> (Pair SetMember Numbering))))
+    (: bound-member (impl (Fn Binding Site expanded-SetMember -> (Pair SetMember Binding))))
     (define (bound-member state site member)
       (match member
         ((expanded-SetInstance instance)
-         (numbering-let* ((instance state (bound-instance state site instance)))
+         (state-let* ((instance state (bound-instance state site instance)))
            (Pair (SetInstance instance) state)))
         ((expanded-DynamicInstances class pairs loc)
          (Pair (DynamicInstances class pairs loc) state))))
 
-    (: bound-default (impl (Fn Numbering Site expanded-Default -> (Pair Default Numbering))))
+    (: bound-default (impl (Fn Binding Site expanded-Default -> (Pair Default Binding))))
     (define (bound-default state site default)
-      (numbering-let* ((value state (bound-expr state site (::value default))))
+      (state-let* ((value state (bound-expr state site (::value default))))
         (Pair (Default (::label default) value (::loc default)) state)))
 
     ;; ---- Expressions ----
@@ -236,7 +232,7 @@
     ;; Each expression as it was, with the expressions inside it bound, a
     ;; binder's local renamed in a copy, and a linked file and a request
     ;; for a target's files replaced.
-    (: bound-expr (impl (Fn Numbering Site expanded-Expr -> (Pair Expr Numbering))))
+    (: bound-expr (impl (Fn Binding Site expanded-Expr -> (Pair Expr Binding))))
     (define (bound-expr state site expr)
       (match expr
         ((expanded-Literal constant loc) (Pair (Literal constant loc) state))
@@ -244,68 +240,68 @@
         ((expanded-TopRef value loc) (Pair (TopRef value loc) state))
         ((expanded-Path labels loc) (Pair (Path labels loc) state))
         ((expanded-PathApply labels record loc)
-         (numbering-let* ((record state (bound-expr state site record)))
+         (state-let* ((record state (bound-expr state site record)))
            (Pair (PathApply labels record loc) state)))
         ((expanded-Lambda parameters body loc)
-         (numbering-let* ((parameters state (binders state parameters))
-                          (body state (bound-expr state site body)))
+         (state-let* ((parameters state (binders state parameters))
+                      (body state (bound-expr state site body)))
            (Pair (Lambda parameters body loc) state)))
         ((expanded-ClosedLambda parameters body loc)
-         (numbering-let* ((parameters state (binders state parameters))
-                          (body state (bound-expr state site body)))
+         (state-let* ((parameters state (binders state parameters))
+                      (body state (bound-expr state site body)))
            (Pair (ClosedLambda parameters body loc) state)))
         ((expanded-Call callee arguments loc)
-         (numbering-let* ((callee state (bound-expr state site callee))
-                          (arguments state (bound-exprs state site arguments)))
+         (state-let* ((callee state (bound-expr state site callee))
+                      (arguments state (bound-exprs state site arguments)))
            (Pair (Call callee arguments loc) state)))
         ((expanded-If test consequent alternative loc)
-         (numbering-let* ((test state (bound-expr state site test))
-                          (consequent state (bound-expr state site consequent))
-                          (alternative state (bound-expr state site alternative)))
+         (state-let* ((test state (bound-expr state site test))
+                      (consequent state (bound-expr state site consequent))
+                      (alternative state (bound-expr state site alternative)))
            (Pair (If test consequent alternative loc) state)))
         ((expanded-Seq first rest loc)
-         (numbering-let* ((first state (bound-expr state site first))
-                          (rest state (bound-expr state site rest)))
+         (state-let* ((first state (bound-expr state site first))
+                      (rest state (bound-expr state site rest)))
            (Pair (Seq first rest loc) state)))
         ((expanded-Let local signature value body loc)
-         (numbering-let* ((local state (binder state local))
-                          (value state (bound-expr state site value))
-                          (body state (bound-expr state site body)))
+         (state-let* ((local state (binder state local))
+                      (value state (bound-expr state site value))
+                      (body state (bound-expr state site body)))
            (Pair (Let local signature value body loc) state)))
         ((expanded-LocalSignature scheme body loc)
-         (numbering-let* ((body state (bound-expr state site body)))
+         (state-let* ((body state (bound-expr state site body)))
            (Pair (LocalSignature scheme body loc) state)))
         ((expanded-Match scrutinee clauses loc)
-         (numbering-let* ((scrutinee state (bound-expr state site scrutinee))
-                          (clauses state (numbering-map state
-                                                        (lambda (state clause)
-                                                          (bound-clause state site clause))
-                                                        clauses)))
+         (state-let* ((scrutinee state (bound-expr state site scrutinee))
+                      (clauses state (map-with-state state
+                                                     (lambda (state clause)
+                                                       (bound-clause state site clause))
+                                                     clauses)))
            (Pair (Match scrutinee clauses loc) state)))
         ((expanded-Handle effect implementations body loc)
-         (numbering-let* ((implementations state
-                                           (numbering-map state
-                                                          (lambda (state implementation)
-                                                            (bound-implementation state
-                                                                                  site
-                                                                                  implementation))
-                                                          implementations))
-                          (body state (bound-expr state site body)))
+         (state-let* ((implementations state
+                                       (map-with-state state
+                                                       (lambda (state implementation)
+                                                         (bound-implementation state
+                                                                               site
+                                                                               implementation))
+                                                       implementations))
+                      (body state (bound-expr state site body)))
            (Pair (Handle effect implementations body loc) state)))
         ((expanded-WithInstances sets body loc)
-         (numbering-let* ((body state (bound-expr state site body)))
+         (state-let* ((body state (bound-expr state site body)))
            (Pair (WithInstances sets body loc) state)))
         ((expanded-Ann value type loc)
-         (numbering-let* ((value state (bound-expr state site value)))
+         (state-let* ((value state (bound-expr state site value)))
            (Pair (Ann value type loc) state)))
         ((expanded-Convert value type loc)
-         (numbering-let* ((value state (bound-expr state site value)))
+         (state-let* ((value state (bound-expr state site value)))
            (Pair (Convert value type loc) state)))
         ((expanded-TryConvert value type loc)
-         (numbering-let* ((value state (bound-expr state site value)))
+         (state-let* ((value state (bound-expr state site value)))
            (Pair (TryConvert value type loc) state)))
         ((expanded-TypeTest value type loc)
-         (numbering-let* ((value state (bound-expr state site value)))
+         (state-let* ((value state (bound-expr state site value)))
            (Pair (TypeTest value type loc) state)))
         ((expanded-CaseId constructor constructor-loc loc)
          (Pair (CaseId constructor constructor-loc loc) state))
@@ -313,35 +309,35 @@
         ((expanded-ArtifactFiles target file prepend empty loc)
          (target-list state site (target-files site target) (ListParts file prepend empty loc)))))
 
-    (: bound-exprs (impl (Fn Numbering Site (List expanded-Expr) -> (Pair (List Expr) Numbering))))
+    (: bound-exprs (impl (Fn Binding Site (List expanded-Expr) -> (Pair (List Expr) Binding))))
     (define (bound-exprs state site exprs)
-      (numbering-map state (lambda (state expr) (bound-expr state site expr)) exprs))
+      (map-with-state state (lambda (state expr) (bound-expr state site expr)) exprs))
 
     ;; The pattern's locals are bound before the body that names them.
-    (: bound-clause (impl (Fn Numbering Site expanded-Clause -> (Pair Clause Numbering))))
+    (: bound-clause (impl (Fn Binding Site expanded-Clause -> (Pair Clause Binding))))
     (define (bound-clause state site clause)
-      (numbering-let* ((pattern state (bound-pattern state (::pattern clause)))
-                       (body state (bound-expr state site (::body clause))))
+      (state-let* ((pattern state (bound-pattern state (::pattern clause)))
+                   (body state (bound-expr state site (::body clause))))
         (Pair (Clause pattern body (::loc clause)) state)))
 
     (: bound-implementation
-       (impl (Fn Numbering Site expanded-Implementation -> (Pair Implementation Numbering))))
+       (impl (Fn Binding Site expanded-Implementation -> (Pair Implementation Binding))))
     (define (bound-implementation state site implementation)
-      (numbering-let* ((value state (bound-expr state site (::value implementation))))
+      (state-let* ((value state (bound-expr state site (::value implementation))))
         (Pair (Implementation (::label implementation) value (::loc implementation)) state)))
 
     ;; ---- Patterns ----
 
-    (: bound-pattern (impl (Fn Numbering expanded-Pattern -> (Pair Pattern Numbering))))
+    (: bound-pattern (impl (Fn Binding expanded-Pattern -> (Pair Pattern Binding))))
     (define (bound-pattern state pattern)
       (match pattern
         ((expanded-Wild loc) (Pair (Wild loc) state))
         ((expanded-Bind local loc)
-         (numbering-let* ((local state (binder state local)))
+         (state-let* ((local state (binder state local)))
            (Pair (Bind local loc) state)))
         ((expanded-Equals datum loc) (Pair (Equals datum loc) state))
         ((expanded-Destructure constructor arguments loc)
-         (numbering-let* ((arguments state (numbering-map state bound-pattern arguments)))
+         (state-let* ((arguments state (map-with-state state bound-pattern arguments)))
            (Pair (Destructure constructor arguments loc) state)))))
 
     ;; ---- Linked files ----
@@ -349,7 +345,7 @@
     ;; `(link-handle "path")`: a call of its file's handle, at the form.
     (: linked-call (impl (Fn Site (List String) Loc -> Expr)))
     (define (linked-call site path loc)
-      (Call (TopRef (expanded-TopGlobal (::global (path-handle site path))) loc) (Nil) loc))
+      (Call (TopRef (TopGlobal (::global (path-handle site path))) loc) (Nil) loc))
 
     ;; The handle of the file the library links at `path`. The first step
     ;; found a file for every path `linked-files` answers over this same
@@ -386,33 +382,33 @@
     ;; and `file` are the expressions as expand wrote them, and each later
     ;; file's are copies; `empty` is used once.
     (: target-list
-       (impl (Fn Numbering Site (List TargetFile) ListParts -> (Pair Expr Numbering))))
+       (impl (Fn Binding Site (List TargetFile) ListParts -> (Pair Expr Binding))))
     (define (target-list state site files parts)
       (match files
         ((Nil) (ended-list state site parts))
         ((Cons first rest)
-         (numbering-let* ((prepend state (bound-expr state site (::prepend parts)))
-                          (file state (bound-expr state site (::file parts)))
-                          (later state (copied-list state site rest parts)))
+         (state-let* ((prepend state (bound-expr state site (::prepend parts)))
+                      (file state (bound-expr state site (::file parts)))
+                      (later state (copied-list state site rest parts)))
            (Pair (prepended prepend file first later (::loc parts)) state)))))
 
     ;; The list of the files after the first, whose `prepend` and `file`
     ;; are copies.
     (: copied-list
-       (impl (Fn Numbering Site (List TargetFile) ListParts -> (Pair Expr Numbering))))
+       (impl (Fn Binding Site (List TargetFile) ListParts -> (Pair Expr Binding))))
     (define (copied-list state site files parts)
       (match files
         ((Nil) (ended-list state site parts))
         ((Cons first rest)
-         (numbering-let* ((prepend state (copied state site (::prepend parts)))
-                          (file state (copied state site (::file parts)))
-                          (later state (copied-list state site rest parts)))
+         (state-let* ((prepend state (copied state site (::prepend parts)))
+                      (file state (copied state site (::file parts)))
+                      (later state (copied-list state site rest parts)))
            (Pair (prepended prepend file first later (::loc parts)) state)))))
 
     ;; `(empty)`, which ends the list.
-    (: ended-list (impl (Fn Numbering Site ListParts -> (Pair Expr Numbering))))
+    (: ended-list (impl (Fn Binding Site ListParts -> (Pair Expr Binding))))
     (define (ended-list state site parts)
-      (numbering-let* ((empty state (bound-expr state site (::empty parts))))
+      (state-let* ((empty state (bound-expr state site (::empty parts))))
         (Pair (Call empty (Nil) (::loc parts)) state)))
 
     ;; `(prepend (file path bytes) later)`.
@@ -420,8 +416,8 @@
     (define (prepended prepend file target-file later loc)
       (Call prepend
             (list (Call file
-                        (list (Literal (expanded-Text (::path target-file)) loc)
-                              (Literal (expanded-ByteVector (::bytes target-file)) loc))
+                        (list (Literal (Text (::path target-file)) loc)
+                              (Literal (ByteVector (::bytes target-file)) loc))
                         loc)
                   later)
             loc))
@@ -436,6 +432,8 @@
      test-bind)
     (import
      (snail core table)
+     (only (snail compiler names globals) Local ClassGlobal Label)
+     (only (snail compiler literals constant) Integer)
      (snail stage0 testing))
     (begin
       (define (test-bind)
@@ -453,19 +451,19 @@
       (define a (list "a"))
 
       (define (global name)
-        (expanded-Global a name 0))
+        (Global a name 0))
 
       (define (local name number)
-        (expanded-Local name number))
+        (Local name number))
 
       (define (top-ref name column)
-        (expanded-TopRef (expanded-TopGlobal (global name)) (at column)))
+        (expanded-TopRef (TopGlobal (global name)) (at column)))
 
       (define (handle serial)
-        (expanded-Global a "link-handle" serial))
+        (Global a "link-handle" serial))
 
       (define (handle-call serial column)
-        (Call (TopRef (expanded-TopGlobal (handle serial)) (at column)) (list) (at column)))
+        (Call (TopRef (TopGlobal (handle serial)) (at column)) (list) (at column)))
 
       (define (library tops first-unused)
         (expanded-Defined a tops first-unused (at 1)))
@@ -488,18 +486,18 @@
       ;; expression is bound wherever it is, a program's statement too, and
       ;; nothing is numbered.
       (define (test-declarations)
-        (let* ((value (expanded-Literal (expanded-Integer 1) (at 9)))
+        (let* ((value (expanded-Literal (Integer 1) (at 9)))
                (scheme (expanded-Scheme (list) (list) (expanded-Variable "a" (at 4)) (at 4)))
-               (method (expanded-InstanceMethod (expanded-MemberName (expanded-Label "show" (at 5)))
+               (method (expanded-InstanceMethod (expanded-MemberName (Label "show" (at 5)))
                                                 value))
-               (instance (expanded-Instance (expanded-ClassGlobal (global "Show"))
+               (instance (expanded-Instance (ClassGlobal (global "Show"))
                                             (list)
                                             (list)
                                             (list)
                                             (list)
                                             (expanded-Methods (list method))
                                             (at 3))))
-          (expect (bind (library (list (expanded-Signature (expanded-TopGlobal (global "x"))
+          (expect (bind (library (list (expanded-Signature (TopGlobal (global "x"))
                                                            scheme
                                                            (list)
                                                            (at 2))
@@ -511,7 +509,7 @@
                                        (expanded-Effect (global "e")
                                                         (list)
                                                         (list (expanded-Default
-                                                               (expanded-Label "op" (at 6))
+                                                               (Label "op" (at 6))
                                                                value
                                                                (at 6)))
                                                         #f
@@ -521,13 +519,13 @@
                         no-supply)
                   (bound-as
                    (Defined a
-                     (list (Signature (expanded-TopGlobal (global "x")) scheme (list) (at 2))
+                     (list (Signature (TopGlobal (global "x")) scheme (list) (at 2))
                            (InstanceScope (list (global "set"))
                                           (list (Define (global "x")
-                                                  (Literal (expanded-Integer 1) (at 9))
+                                                  (Literal (Integer 1) (at 9))
                                                   (at 2))
                                                 (TopInstance
-                                                 (Instance (expanded-ClassGlobal (global "Show"))
+                                                 (Instance (ClassGlobal (global "Show"))
                                                            (list)
                                                            (list)
                                                            (list)
@@ -535,15 +533,15 @@
                                                            (Methods
                                                             (list (InstanceMethod
                                                                    (expanded-MemberName
-                                                                    (expanded-Label "show" (at 5)))
-                                                                   (Literal (expanded-Integer 1)
+                                                                    (Label "show" (at 5)))
+                                                                   (Literal (Integer 1)
                                                                             (at 9)))))
                                                            (at 3))))
                                           (at 1))
                            (Effect (global "e")
                                    (list)
-                                   (list (Default (expanded-Label "op" (at 6))
-                                           (Literal (expanded-Integer 1) (at 9))
+                                   (list (Default (Label "op" (at 6))
+                                           (Literal (Integer 1) (at 9))
                                            (at 6)))
                                    #f
                                    (list)
@@ -590,7 +588,7 @@
                                        (at 20))
                            (LinkImport (handle 8) (list "notes.txt") "bb" "lib/notes.txt" (at 40))
                            (Define (global "x") (handle-call 7 10) (at 1))
-                           (Statement (Call (TopRef (expanded-TopGlobal (global "f")) (at 31))
+                           (Statement (Call (TopRef (TopGlobal (global "f")) (at 31))
                                             (list (handle-call 8 32) (handle-call 7 50))
                                             (at 30))))
                      9
@@ -608,11 +606,11 @@
                (files (list (TargetFile "a.html" (bytes (list 1)))
                             (TargetFile "b.js" (bytes (list 2 3)))))
                (bound-ref
-                (lambda (name column) (TopRef (expanded-TopGlobal (global name)) (at column))))
+                (lambda (name column) (TopRef (TopGlobal (global name)) (at column))))
                (file (lambda (path contents)
                        (Call (bound-ref "File" 3)
-                             (list (Literal (expanded-Text path) (at 2))
-                                   (Literal (expanded-ByteVector contents) (at 2)))
+                             (list (Literal (Text path) (at 2))
+                                   (Literal (ByteVector contents) (at 2)))
                              (at 2))))
                (empty (Call (bound-ref "Nil" 5) (list) (at 2))))
           (expect (bind (library (list (expanded-Define (global "x") (request "site") (at 1))
@@ -669,18 +667,18 @@
                                            (list
                                             (Clause (Bind b (at 6)) (LocalRef b (at 7)) (at 6)))
                                            (at 5))
-                                    (Call (TopRef (expanded-TopGlobal (global "File")) (at 8))
+                                    (Call (TopRef (TopGlobal (global "File")) (at 8))
                                           (list (LocalRef path (at 9))
                                                 (LocalRef kept (at 10))
                                                 (LocalRef outer (at 11)))
                                           (at 8))
                                     (at 4))
                                (at 3))))
-               (cons-ref (TopRef (expanded-TopGlobal (global "Cons")) (at 12)))
+               (cons-ref (TopRef (TopGlobal (global "Cons")) (at 12)))
                (entry (lambda (function path contents)
                         (Call function
-                              (list (Literal (expanded-Text path) (at 2))
-                                    (Literal (expanded-ByteVector contents) (at 2)))
+                              (list (Literal (Text path) (at 2))
+                                    (Literal (ByteVector contents) (at 2)))
                               (at 2)))))
           (expect (bind (library (list (expanded-Define
                                         (global "x")
@@ -719,7 +717,7 @@
                                                                               (local "b" 13))
                                                                         "c"
                                                                         (bytes (list 3)))
-                                                                 (Call (TopRef (expanded-TopGlobal
+                                                                 (Call (TopRef (TopGlobal
                                                                                 (global "Nil"))
                                                                                (at 13))
                                                                        (list)

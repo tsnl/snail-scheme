@@ -10,8 +10,9 @@
 ;; two problems is told of the same one. What needs declarations, which
 ;; `declare` makes, is left to it: which operation a handler's clause
 ;; implements, whether a value is a constructor, and whether a type with
-;; a Drop instance may be taken apart here. Each step threads the state
-;; of (snail compiler expand state), the numbers it hands out.
+;; a Drop instance may be taken apart here. Each step threads the
+;; library's Numbering, (snail compiler names numbering), from which it
+;; numbers locals, marks and macros.
 (define-library (snail compiler expand expressions)
   (export
    Site
@@ -25,14 +26,25 @@
   (import
    (snail core base)
    (snail compiler source)
-   (prefix (snail compiler read language) syntax-)
-   (only (snail compiler outline names) same-library?)
+   (only (snail compiler literals datum) Datum)
+   (prefix (snail compiler literals datum) datum-)
+   (snail compiler names libraries)
    (snail compiler expand language)
    (snail compiler expand marked)
    (snail compiler expand offer)
    (snail compiler expand forms)
    (snail compiler expand scopes)
-   (snail compiler expand state)
+   (only (snail compiler names globals) Local Global TopGlobal Label same-global?)
+   (only (snail compiler literals constant)
+         Constant
+         Integer
+         Float
+         Text
+         Character
+         ByteVector
+         Boolean
+         UnitValue)
+   (only (snail compiler names numbering) Numbering fresh-number fresh-local)
    (snail compiler expand paths)
    (snail compiler expand form-shapes)
    (snail compiler expand macros)
@@ -74,16 +86,18 @@
 
     (: bind-locals
        (impl
-        (Fn Expanding Site (List Identifier) -> (Result (Pair Bound Expanding) (List Feedback)))))
+        (Fn Numbering Site (List Identifier) -> (Result (Pair Bound Numbering) (List Feedback)))))
     (define (bind-locals state site identifiers)
-      (expanding-let* ((locals state (expanding-map state fresh-local identifiers)))
+      (result-state-let* ((locals state
+                                  (map-results-with-state state identifier-local identifiers)))
         (Ok (Pair (Bound (bound-site site identifiers locals) locals) state))))
 
-    (: fresh-local
-       (impl (Fn Expanding Identifier -> (Result (Pair Local Expanding) (List Feedback)))))
-    (define (fresh-local state identifier)
-      (expanding-let* ((number state (fresh state)))
-        (Ok (Pair (Local (::name identifier) number) state))))
+    ;; The local an identifier binds, numbered afresh, as a step that
+    ;; cannot fail.
+    (: identifier-local
+       (impl (Fn Numbering Identifier -> (Result (Pair Local Numbering) (List Feedback)))))
+    (define (identifier-local state identifier)
+      (Ok (fresh-local state (::name identifier))))
 
     (: identifier-in (impl (Fn Marked String -> (Result Identifier (List Feedback)))))
     (define (identifier-in syntax message)
@@ -95,17 +109,17 @@
 
     ;; `syntax` with each macro at its head used, until its head is none.
     (: expand-head
-       (impl (Fn Expanding Site Marked -> (Result (Pair Marked Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Marked -> (Result (Pair Marked Numbering) (List Feedback)))))
     (define (expand-head state site syntax)
       (match (resolved-macro (head-resolution (::scopes site) (::env site) syntax))
         ((Some found)
-         (expanding-let* ((number state (fresh state))
-                          (written state (unchanged state (macro-use (::scopes site)
-                                                                     (::env site)
-                                                                     found
-                                                                     (form-tail syntax)
-                                                                     (marked-loc syntax)
-                                                                     number))))
+         (result-state-let* ((number state (Ok (fresh-number state)))
+                             (written state (unchanged state (macro-use (::scopes site)
+                                                                        (::env site)
+                                                                        found
+                                                                        (form-tail syntax)
+                                                                        (marked-loc syntax)
+                                                                        number))))
            (expand-head state site written)))
         ((None) (Ok (Pair syntax state)))))
 
@@ -118,9 +132,9 @@
     ;; ---- Expressions ----
 
     (: expand-expression
-       (impl (Fn Expanding Site Marked -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Marked -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (expand-expression state site syntax)
-      (expanding-let* ((expanded state (expand-head state site syntax)))
+      (result-state-let* ((expanded state (expand-head state site syntax)))
         (match expanded
           ((Atom datum loc) (Ok (Pair (Literal (datum-constant datum) loc) state)))
           ((Ident identifier loc) (unchanged state (reference site identifier loc)))
@@ -132,15 +146,15 @@
              ((NotAPath) (application state site (Ident identifier head-loc) (list argument) loc))))
           ((Form (Cons head arguments) loc) (application state site head arguments loc)))))
 
-    (: datum-constant (impl (Fn syntax-Datum -> Constant)))
+    (: datum-constant (impl (Fn Datum -> Constant)))
     (define (datum-constant datum)
       (match datum
-        ((syntax-Integer integer) (Integer integer))
-        ((syntax-Float text) (Float text))
-        ((syntax-Text text) (Text text))
-        ((syntax-Character character) (Character character))
-        ((syntax-ByteVector bytes) (ByteVector bytes))
-        ((syntax-Boolean boolean) (Boolean boolean))))
+        ((datum-Integer integer) (Integer integer))
+        ((datum-Float text) (Float text))
+        ((datum-Text text) (Text text))
+        ((datum-Character character) (Character character))
+        ((datum-ByteVector bytes) (ByteVector bytes))
+        ((datum-Boolean boolean) (Boolean boolean))))
 
     ;; ---- References ----
 
@@ -174,37 +188,39 @@
 
     ;; `(::a::b value)` is the chain of reads itself, not a call.
     (: path-application
-       (impl (Fn Expanding
+       (impl (Fn Numbering
                  Site
                  (List String)
                  Marked
                  Loc
                  ->
-                 (Result (Pair Expr Expanding) (List Feedback)))))
+                 (Result (Pair Expr Numbering) (List Feedback)))))
     (define (path-application state site labels argument loc)
-      (expanding-let* ((record state (expand-expression state site argument)))
+      (result-state-let* ((record state (expand-expression state site argument)))
         (Ok (Pair (PathApply labels record loc) state))))
 
     ;; A core form, or a call: the callee, then each argument in order.
     (: application
-       (impl (Fn Expanding
+       (impl (Fn Numbering
                  Site
                  Marked
                  (List Marked)
                  Loc
                  ->
-                 (Result (Pair Expr Expanding) (List Feedback)))))
+                 (Result (Pair Expr Numbering) (List Feedback)))))
     (define (application state site head arguments loc)
       (match (head-meaning site head)
         ((BoundAtTop (Keyword keyword)) (core state site keyword (Cons head arguments) loc))
         ((BoundAtTop (ReservedAccessor)) (fail loc field-read-message))
         (_
-         (expanding-let* ((callee state (expand-expression state site head))
-                          (expanded state
-                                    (expanding-map state
-                                                   (lambda (state argument)
-                                                     (expand-expression state site argument))
-                                                   arguments)))
+         (result-state-let* ((callee state (expand-expression state site head))
+                             (expanded state
+                                       (map-results-with-state state
+                                                               (lambda (state argument)
+                                                                 (expand-expression state
+                                                                                    site
+                                                                                    argument))
+                                                               arguments)))
            (Ok (Pair (Call callee expanded loc) state))))))
 
     ;; What the identifier at a form's head means, if one is there.
@@ -217,13 +233,13 @@
     ;; ---- Core forms ----
 
     (: core
-       (impl (Fn Expanding
+       (impl (Fn Numbering
                  Site
                  String
                  (List Marked)
                  Loc
                  ->
-                 (Result (Pair Expr Expanding) (List Feedback)))))
+                 (Result (Pair Expr Numbering) (List Feedback)))))
     (define (core state site keyword items loc)
       (match (core-form keyword items)
         ((FunctionForm captures? parameters body)
@@ -250,14 +266,14 @@
     ;; `(lambda (parameter ...) body ...)`, and `fn`'s, which captures
     ;; nothing.
     (: function-form
-       (impl (Fn Expanding
+       (impl (Fn Numbering
                  Site
                  Bool
                  Marked
                  (List Marked)
                  Loc
                  ->
-                 (Result (Pair Expr Expanding) (List Feedback)))))
+                 (Result (Pair Expr Numbering) (List Feedback)))))
     (define (function-form state site captures? parameters body loc)
       (match parameters
         ((Form items _) (function-of state site captures? items body loc))
@@ -265,10 +281,10 @@
 
     ;; A function whose parameters are `parameters`, each a variable.
     (: function-of
-       (impl (Fn Expanding Site Bool (List Marked) (List Marked) Loc
-                 -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Bool (List Marked) (List Marked) Loc
+                 -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (function-of state site captures? parameters body loc)
-      (expanding-let* ((names state (unchanged state (variables parameters))))
+      (result-state-let* ((names state (unchanged state (variables parameters))))
         (expand-function state site captures? names body loc)))
 
     (: variables (impl (Fn (List Marked) -> (Result (List Identifier) (List Feedback)))))
@@ -278,11 +294,11 @@
 
     ;; Each name bound to a fresh local over the body.
     (: expand-function
-       (impl (Fn Expanding Site Bool (List Identifier) (List Marked) Loc
-                 -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Bool (List Identifier) (List Marked) Loc
+                 -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (expand-function state site captures? names body loc)
-      (expanding-let* ((bound state (bind-locals state site names))
-                       (value state (expand-body state (::site bound) body loc)))
+      (result-state-let* ((bound state (bind-locals state site names))
+                          (value state (expand-body state (::site bound) body loc)))
         (Ok (Pair (if captures?
                       (Lambda (::locals bound) value loc)
                       (ClosedLambda (::locals bound) value loc))
@@ -292,17 +308,17 @@
 
     ;; An `if` without an alternative has the unit value there.
     (: conditional
-       (impl (Fn Expanding Site Marked Marked (Option Marked) Loc
-                 -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Marked Marked (Option Marked) Loc
+                 -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (conditional state site test consequent alternative loc)
-      (expanding-let* ((tested state (expand-expression state site test))
-                       (then-value state (expand-expression state site consequent))
-                       (else-value state (alternative-of state site alternative loc)))
+      (result-state-let* ((tested state (expand-expression state site test))
+                          (then-value state (expand-expression state site consequent))
+                          (else-value state (alternative-of state site alternative loc)))
         (Ok (Pair (If tested then-value else-value loc) state))))
 
     (: alternative-of
        (impl
-        (Fn Expanding Site (Option Marked) Loc -> (Result (Pair Expr Expanding) (List Feedback)))))
+        (Fn Numbering Site (Option Marked) Loc -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (alternative-of state site alternative loc)
       (match alternative
         ((Some syntax) (expand-expression state site syntax))
@@ -316,22 +332,22 @@
     ;; the old expander resolves them each time a body ends. A set written
     ;; twice is in scope once.
     (: with-instances
-       (impl (Fn Expanding
+       (impl (Fn Numbering
                  Site
                  Marked
                  (List Marked)
                  Loc
                  ->
-                 (Result (Pair Expr Expanding) (List Feedback)))))
+                 (Result (Pair Expr Numbering) (List Feedback)))))
     (define (with-instances state site sets body loc)
       (match sets
         ((Form items _)
          (let* ((written (WrittenSets items (::env site)))
                 (inner (Site (::scopes site) (::env site) (Cons written (::instance-sets site)))))
-           (expanding-let* ((value state (expand-body state inner body loc))
-                            (sets state (unchanged state (active-sets (::scopes site)
-                                                                      written
-                                                                      (::instance-sets site)))))
+           (result-state-let* ((value state (expand-body state inner body loc))
+                               (sets state (unchanged state (active-sets (::scopes site)
+                                                                         written
+                                                                         (::instance-sets site)))))
              (Ok (Pair (WithInstances sets value loc) state)))))
         (_ (fail (marked-loc sets) "expected a list of instance sets"))))
 
@@ -363,22 +379,25 @@
     ;; variables' names are checked, then the loop's body is expanded,
     ;; where `name` is the loop, then the values, where it is not.
     (: named-let
-       (impl (Fn Expanding Site Identifier Marked (List Marked) Loc
-                 -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Identifier Marked (List Marked) Loc
+                 -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (named-let state site name bindings body loc)
       (match bindings
         ((Form items _)
-         (expanding-let* ((names state (unchanged state (map-results binding-name items)))
-                          (loop state (fresh-local state name))
-                          (function state
-                                    (expand-function state (bound-site site (list name) (list loop))
-                                                     #t
-                                                     names
-                                                     body
-                                                     loc))
-                          (initial state (expanding-map state (lambda (state binding)
-                                                                (binding-value state site binding))
-                                                        items)))
+         (result-state-let* ((names state (unchanged state (map-results binding-name items)))
+                             (loop state (identifier-local state name))
+                             (function state
+                                       (expand-function state
+                                                        (bound-site site (list name) (list loop))
+                                                        #t
+                                                        names
+                                                        body
+                                                        loc))
+                             (initial state (map-results-with-state state (lambda (state binding)
+                                                                            (binding-value state
+                                                                                           site
+                                                                                           binding))
+                                                                    items)))
            (Ok (Pair
                 (Let loop (None) function (Call (LocalRef loop loc) initial loc) loc)
                 state))))
@@ -387,22 +406,22 @@
     ;; `(let ((variable value) ...) body ...)`: the values, where no
     ;; variable is bound, then the names, then the body.
     (: plain-let
-       (impl (Fn Expanding
+       (impl (Fn Numbering
                  Site
                  (List Marked)
                  (List Marked)
                  Loc
                  ->
-                 (Result (Pair Expr Expanding) (List Feedback)))))
+                 (Result (Pair Expr Numbering) (List Feedback)))))
     (define (plain-let state site bindings body loc)
-      (expanding-let* ((initial state
-                                (expanding-map state
-                                               (lambda (state binding)
-                                                 (binding-value state site binding))
-                                               bindings))
-                       (names state (unchanged state (map-results binding-name bindings)))
-                       (bound state (bind-locals state site names))
-                       (value state (expand-body state (::site bound) body loc)))
+      (result-state-let* ((initial state
+                                   (map-results-with-state state
+                                                           (lambda (state binding)
+                                                             (binding-value state site binding))
+                                                           bindings))
+                          (names state (unchanged state (map-results binding-name bindings)))
+                          (bound state (bind-locals state site names))
+                          (value state (expand-body state (::site bound) body loc)))
         (Ok
          (Pair (fold-right (lambda (pair rest) (Let (::first pair) (None) (::second pair) rest loc))
                            value
@@ -417,7 +436,7 @@
         (_ (fail (marked-loc binding) "expected a (name value) binding"))))
 
     (: binding-value
-       (impl (Fn Expanding Site Marked -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Marked -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (binding-value state site binding)
       (match binding
         ((Form (Cons _ (Cons value (Nil))) _) (expand-expression state site value))
@@ -426,37 +445,39 @@
     ;; ---- Matches ----
 
     (: match-expression
-       (impl (Fn Expanding
+       (impl (Fn Numbering
                  Site
                  Marked
                  (List Marked)
                  Loc
                  ->
-                 (Result (Pair Expr Expanding) (List Feedback)))))
+                 (Result (Pair Expr Numbering) (List Feedback)))))
     (define (match-expression state site scrutinee clauses loc)
-      (expanding-let* ((value state (expand-expression state site scrutinee))
-                       (expanded state (expanding-map state
-                                                      (lambda (state clause)
-                                                        (match-clause state site clause))
-                                                      clauses)))
+      (result-state-let* ((value state (expand-expression state site scrutinee))
+                          (expanded state (map-results-with-state state
+                                                                  (lambda (state clause)
+                                                                    (match-clause state
+                                                                                  site
+                                                                                  clause))
+                                                                  clauses)))
         (Ok (Pair (Match value expanded loc) state))))
 
     ;; `(pattern body ...)`: its pattern, which binds its variables, the
     ;; last innermost, then its body.
     (: match-clause
-       (impl (Fn Expanding Site Marked -> (Result (Pair Clause Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Marked -> (Result (Pair Clause Numbering) (List Feedback)))))
     (define (match-clause state site clause)
       (match clause
         ((Form (Cons pattern body) loc)
-         (expanding-let* ((expanded state
-                                    (expand-pattern state (::scopes site) (::env site) pattern))
-                          (value state (expand-body state
-                                                    (framed-site site
-                                                                 (append
-                                                                  (reverse (::frames expanded))
-                                                                  (::frames (::env site))))
-                                                    body
-                                                    loc)))
+         (result-state-let* ((expanded state
+                                       (expand-pattern state (::scopes site) (::env site) pattern))
+                             (value state (expand-body state
+                                                       (framed-site site
+                                                                    (append
+                                                                     (reverse (::frames expanded))
+                                                                     (::frames (::env site))))
+                                                       body
+                                                       loc)))
            (Ok (Pair (Clause (::pattern expanded) value loc) state))))
         ((Form (Nil) loc) (fail loc "expected (pattern body ...)"))
         (_ (fail (marked-loc clause) "expected a match clause"))))
@@ -469,12 +490,12 @@
     ;; order. The only use, `artifact-bundle`'s, writes a constructor and
     ;; the list constructors, which expand without failing either way.
     (: artifact-files
-       (impl (Fn Expanding Site String Marked Marked Marked Loc
-                 -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site String Marked Marked Marked Loc
+                 -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (artifact-files state site target file prepend empty loc)
-      (expanding-let* ((file-value state (expand-expression state site file))
-                       (prepend-value state (expand-expression state site prepend))
-                       (empty-value state (expand-expression state site empty)))
+      (result-state-let* ((file-value state (expand-expression state site file))
+                          (prepend-value state (expand-expression state site prepend))
+                          (empty-value state (expand-expression state site empty)))
         (Ok (Pair (ArtifactFiles target file-value prepend-value empty-value loc)
                   state))))
 
@@ -490,18 +511,19 @@
 
     ;; The value, then the type.
     (: typed
-       (impl (Fn Expanding
+       (impl (Fn Numbering
                  Site
                  TypedKind
                  Marked
                  Marked
                  Loc
                  ->
-                 (Result (Pair Expr Expanding) (List Feedback)))))
+                 (Result (Pair Expr Numbering) (List Feedback)))))
     (define (typed state site kind value type loc)
-      (expanding-let* ((expanded state (expand-expression state site value))
-                       (written state
-                                (unchanged state (expand-type (::scopes site) (::env site) type))))
+      (result-state-let* ((expanded state (expand-expression state site value))
+                          (written state
+                                   (unchanged state
+                                              (expand-type (::scopes site) (::env site) type))))
         (Ok (Pair (match kind
                     ((Annotated) (Ann expanded written loc))
                     ((Converted) (Convert expanded written loc))
@@ -521,16 +543,17 @@
     ;; effect, each clause, then the body. The builtin effects have no
     ;; operations.
     (: handler
-       (impl (Fn Expanding Site Marked (List Marked) (List Marked) Loc
-                 -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Marked (List Marked) (List Marked) Loc
+                 -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (handler state site effect implementations body loc)
-      (expanding-let* ((global state (unchanged state (handled-effect site effect)))
-                       (expanded state (expanding-map state (lambda (state implementation)
-                                                              (handler-clause state
-                                                                              site
-                                                                              implementation))
-                                                      implementations))
-                       (value state (expand-body state site body loc)))
+      (result-state-let* ((global state (unchanged state (handled-effect site effect)))
+                          (expanded state
+                                    (map-results-with-state state (lambda (state implementation)
+                                                                    (handler-clause state
+                                                                                    site
+                                                                                    implementation))
+                                                            implementations))
+                          (value state (expand-body state site body loc)))
         (Ok (Pair (Handle global expanded value loc) state))))
 
     (: handled-effect (impl (Fn Site Marked -> (Result Global (List Feedback)))))
@@ -554,11 +577,11 @@
     ;; naming none whose implementation fails is told of the failure.
     (: handler-clause
        (impl
-        (Fn Expanding Site Marked -> (Result (Pair Implementation Expanding) (List Feedback)))))
+        (Fn Numbering Site Marked -> (Result (Pair Implementation Numbering) (List Feedback)))))
     (define (handler-clause state site implementation)
       (match implementation
         ((Form (Cons (Ident identifier name-loc) (Cons value (Nil))) loc)
-         (expanding-let* ((expanded state (expand-expression state site value)))
+         (result-state-let* ((expanded state (expand-expression state site value)))
            (Ok
             (Pair (Implementation (Label (::name identifier) name-loc) expanded loc)
                   state))))
@@ -569,7 +592,7 @@
 
     (: expand-body
        (impl
-        (Fn Expanding Site (List Marked) Loc -> (Result (Pair Expr Expanding) (List Feedback)))))
+        (Fn Numbering Site (List Marked) Loc -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (expand-body state site forms loc)
       (if (null? forms)
           (fail loc "empty body")
@@ -585,13 +608,13 @@
     ;; `begin` splices its forms in, and a signature waits across it and
     ;; across a macro's definition.
     (: body-forms
-       (impl (Fn Expanding Site (List Marked) (Option Pending) Loc
-                 -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site (List Marked) (Option Pending) Loc
+                 -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (body-forms state site forms pending loc)
       (match forms
         ((Nil) (fail loc "a body must end with an expression"))
         ((Cons form rest)
-         (expanding-let* ((expanded state (expand-head state site form)))
+         (result-state-let* ((expanded state (expand-head state site form)))
            (match (head-resolution (::scopes site) (::env site) expanded)
              ((BoundAtTop (Keyword "begin"))
               (body-forms state site (append (form-tail expanded) rest) pending loc))
@@ -606,11 +629,11 @@
     ;; A macro a body defines is the frame binding its name, which is its
     ;; home, so its template may use it.
     (: local-macro
-       (impl (Fn Expanding Site Marked (List Marked) (Option Pending) Loc
-                 -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Marked (List Marked) (Option Pending) Loc
+                 -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (local-macro state site form rest pending loc)
-      (expanding-let* ((parts state (unchanged state (macro-definition form)))
-                       (number state (fresh state)))
+      (result-state-let* ((parts state (unchanged state (macro-definition form)))
+                          (number state (Ok (fresh-number state))))
         (let ((macro (Macro (MacroId (::library (::scopes site)) number)
                             (::literals parts)
                             (::rules parts))))
@@ -625,20 +648,21 @@
     ;; `(: name type)` waits for the next definition; a signature waiting
     ;; already annotates no definition.
     (: local-signature
-       (impl (Fn Expanding Site Marked (List Marked) (Option Pending) Loc
-                 -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Marked (List Marked) (Option Pending) Loc
+                 -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (local-signature state site form rest pending loc)
       (match (signature-shape form)
         ((SignatureForm name _ type)
-         (expanding-let* ((scheme state
-                                  (unchanged state
-                                             (expand-scheme (::scopes site) (::env site) type)))
-                          (body state
-                                (body-forms state
-                                            site
-                                            rest
-                                            (Some (Pending (::name name) scheme (marked-loc form)))
-                                            loc)))
+         (result-state-let* ((scheme state
+                                     (unchanged state
+                                                (expand-scheme (::scopes site) (::env site) type)))
+                             (body state
+                                   (body-forms state
+                                               site
+                                               rest
+                                               (Some
+                                                (Pending (::name name) scheme (marked-loc form)))
+                                               loc)))
            (Ok (Pair (dropped pending body) state))))
         ((MalformedSignature place message) (fail place message))))
 
@@ -646,19 +670,19 @@
     ;; function sees itself, and a value does not. The signature waiting
     ;; annotates it if it names it.
     (: local-definition
-       (impl (Fn Expanding Site Marked (List Marked) (Option Pending) Loc
-                 -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Marked (List Marked) (Option Pending) Loc
+                 -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (local-definition state site form rest pending loc)
       (match (definition-shape form)
         ((NamedDefinition name _ defined)
-         (expanding-let* ((local state (fresh-local state name)))
+         (result-state-let* ((local state (identifier-local state name)))
            (let ((inner (bound-site site (list name) (list local))))
-             (expanding-let* ((value state
-                                     (defined-value state
-                                       (if (function-definition? site defined) inner site)
-                                       defined
-                                       (marked-loc form)))
-                              (body state (body-forms state inner rest (None) loc)))
+             (result-state-let* ((value state
+                                        (defined-value state
+                                          (if (function-definition? site defined) inner site)
+                                          defined
+                                          (marked-loc form)))
+                                 (body state (body-forms state inner rest (None) loc)))
                (Ok (Pair (dropped (unsigned (::name name) pending)
                                   (Let local
                                        (signed (::name name) pending)
@@ -682,7 +706,7 @@
 
     (: defined-value
        (impl
-        (Fn Expanding Site DefinedValue Loc -> (Result (Pair Expr Expanding) (List Feedback)))))
+        (Fn Numbering Site DefinedValue Loc -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (defined-value state site defined loc)
       (match defined
         ((FunctionValue parameters body) (function-of state site #t parameters body loc))
@@ -691,13 +715,13 @@
     ;; An expression is the body's value when it is last, and else is done
     ;; before the rest of the body.
     (: body-expression
-       (impl (Fn Expanding Site Marked (List Marked) (Option Pending) Loc
-                 -> (Result (Pair Expr Expanding) (List Feedback)))))
+       (impl (Fn Numbering Site Marked (List Marked) (Option Pending) Loc
+                 -> (Result (Pair Expr Numbering) (List Feedback)))))
     (define (body-expression state site form rest pending loc)
-      (expanding-let* ((value state (expand-expression state site form)))
+      (result-state-let* ((value state (expand-expression state site form)))
         (if (null? rest)
             (Ok (Pair (dropped pending value) state))
-            (expanding-let* ((more state (body-forms state site rest (None) loc)))
+            (result-state-let* ((more state (body-forms state site rest (None) loc)))
               (Ok
                (Pair (dropped pending (Seq value more (expr-loc value)))
                      state))))))
@@ -799,9 +823,9 @@
         (cond ((or (null? datum) (pair? datum))
                (Form (map (lambda (item) (marked-at here item)) datum) here))
               ((symbol? datum) (Ident (plain (symbol->string datum)) here))
-              ((string? datum) (Atom (syntax-Text datum) here))
-              ((exact-integer? datum) (Atom (syntax-Integer datum) here))
-              ((boolean? datum) (Atom (syntax-Boolean datum) here))
+              ((string? datum) (Atom (datum-Text datum) here))
+              ((exact-integer? datum) (Atom (datum-Integer datum) here))
+              ((boolean? datum) (Atom (datum-Boolean datum) here))
               (else (panic "no syntax for this datum"))))
 
       (define (plain name)
@@ -849,7 +873,7 @@
 
       ;; What `datum` expands to, numbering from 10, and the next number.
       (define (expanded datum)
-        (expand-expression (Expanding 10) site (marked datum)))
+        (expand-expression (Numbering main 10) site (marked datum)))
 
       (define (expression datum)
         (match (expanded datum)
@@ -878,7 +902,7 @@
 
       ;; A value, or a struct as its constructor; a path by its name.
       (define (test-references)
-        (expect (expanded 5) (Ok (Pair (lit 5) (Expanding 10))))
+        (expect (expanded 5) (Ok (Pair (lit 5) (Numbering main 10))))
         (expect (expression #t) (Ok (Literal (Boolean #t) loc)))
         (expect (expression 'f) (Ok (top "f")))
         (expect (expression 'Point) (Ok (top "Point")))
@@ -900,7 +924,7 @@
                 (Ok (PathApply (list "a" "b") (Call (top "f") (list) loc) loc)))
         (expect (expression '(::a f f))
                 (Ok (Call (Path (list "a") loc) (list (top "f") (top "f")) loc)))
-        (expect (expand-expression (Expanding 0)
+        (expect (expand-expression (Numbering main 0)
                                    site
                                    (Form (list (Ident (plain "::a::") (at 2)) (marked 'f)) (at 3)))
                 (fail (at 3) "empty field label in ::a::"))
@@ -917,7 +941,7 @@
       (define (test-functions)
         (expect (expanded '(lambda (x y) x))
                 (Ok (Pair (Lambda (list (local "x" 10) (local "y" 11)) (ref "x" 10) loc)
-                          (Expanding 12))))
+                          (Numbering main 12))))
         (expect (expression '(fn (x x) x))
                 (Ok (ClosedLambda (list (local "x" 10) (local "x" 11)) (ref "x" 11) loc)))
         (expect (expression '(lambda () f)) (Ok (Lambda (list) (top "f") loc)))
@@ -929,11 +953,12 @@
 
       (define (test-conditionals)
         (expect (expression '(if f 1 2)) (Ok (If (top "f") (lit 1) (lit 2) loc)))
-        (expect (expand-expression (Expanding 0)
+        (expect (expand-expression (Numbering main 0)
                                    site
                                    (Form (list (marked 'if) (marked 'f) (marked 1)) (at 4)))
                 (Ok
-                 (Pair (If (top "f") (lit 1) (Literal (UnitValue) (at 4)) (at 4)) (Expanding 0))))
+                 (Pair (If (top "f") (lit 1) (Literal (UnitValue) (at 4)) (at 4))
+                       (Numbering main 0))))
         (expect (expression '(if f)) (problem "expected (if test then [else])"))
         (expect (expression '(if missing 1 also-missing)) (problem "unbound identifier missing")))
 
@@ -960,7 +985,7 @@
                                (lit 1)
                                (Let (local "y" 11) (None) (top "f") (ref "y" 11) loc)
                                loc)
-                          (Expanding 12))))
+                          (Numbering main 12))))
         (expect (expression '(let ((x 1)) (let ((x x)) x)))
                 (Ok (Let (local "x" 10)
                          (None)
@@ -1026,10 +1051,10 @@
                 (problem "artifact-bundle expects a literal target name"))
         (expect (expression '(link-handle "data/../x.png"))
                 (Ok (LinkedFile (list "x.png") loc loc)))
-        (expect (expand-expression (Expanding 0)
+        (expect (expand-expression (Numbering main 0)
                                    site
                                    (Form
-                                    (list (marked 'link-handle) (Atom (syntax-Text "../x") (at 5)))
+                                    (list (marked 'link-handle) (Atom (datum-Text "../x") (at 5)))
                                     loc))
                 (fail (at 5) "link-file may not leave the library's directory: ../x"))
         (expect (expression '(link-handle "a/..")) (problem "link-file names no file: a/.."))
@@ -1085,42 +1110,42 @@
                 (problem "expected (handle Effect ((operation implementation) ...) body ...)")))
 
       (define (test-quotes)
-        (expect (expand-expression (Expanding 0)
+        (expect (expand-expression (Numbering main 0)
                                    site
-                                   (Form (list (marked 'quote) (Atom (syntax-Integer 5) (at 2)))
+                                   (Form (list (marked 'quote) (Atom (datum-Integer 5) (at 2)))
                                          (at 3)))
-                (Ok (Pair (Literal (Integer 5) (at 3)) (Expanding 0))))
+                (Ok (Pair (Literal (Integer 5) (at 3)) (Numbering main 0))))
         (expect (expression '(quote x)) (problem "only literals can be quoted"))
         (expect (expression '(quote)) (problem "only literals can be quoted")))
 
       ;; A macro at a head is used until none is; a local macro's names
       ;; mean what they meant where it was defined.
       (define (test-macros)
-        (expect (expanded '(twice f)) (Ok (Pair (Seq (top "f") (top "f") loc) (Expanding 11))))
+        (expect (expanded '(twice f)) (Ok (Pair (Seq (top "f") (top "f") loc) (Numbering main 11))))
         (expect (expression '(twice (twice f)))
                 (Ok (Seq (top "f") (Seq (top "f") (Seq (top "f") (top "f") loc) loc) loc)))
         (expect (expression '(twice)) (problem "no syntax-rules pattern matches this use"))
         (expect (expanded '(begin (define-syntax m (syntax-rules () ((_) f))) (m)))
-                (Ok (Pair (top "f") (Expanding 12))))
+                (Ok (Pair (top "f") (Numbering main 12))))
         (expect (expanded
                  '(lambda (f) (begin (define-syntax m (syntax-rules () ((_) f))) (lambda (f) (m)))))
                 (Ok (Pair (Lambda (list (local "f" 10))
                                   (Lambda (list (local "f" 12)) (ref "f" 10) loc)
                                   loc)
-                          (Expanding 14))))
+                          (Numbering main 14))))
         (expect (expression '(lambda () (define-syntax m) 1))
                 (problem "expected (define-syntax name (syntax-rules (literal ...) rule ...))")))
 
       ;; Definitions bind over what follows; a function sees itself.
       (define (test-bodies)
         (expect (expression '(begin 1 2)) (Ok (Seq (lit 1) (lit 2) loc)))
-        (expect (expand-expression (Expanding 0)
+        (expect (expand-expression (Numbering main 0)
                                    site
                                    (Form (list (marked 'begin)
-                                               (Atom (syntax-Integer 1) (at 2))
+                                               (Atom (datum-Integer 1) (at 2))
                                                (marked 2))
                                          (at 3)))
-                (Ok (Pair (Seq (Literal (Integer 1) (at 2)) (lit 2) (at 2)) (Expanding 0))))
+                (Ok (Pair (Seq (Literal (Integer 1) (at 2)) (lit 2) (at 2)) (Numbering main 0))))
         (expect (expression '(begin (begin) 1)) (Ok (lit 1)))
         (expect (expression '(begin (begin 1 (define x 2)) x))
                 (Ok (Seq (lit 1) (Let (local "x" 10) (None) (lit 2) (ref "x" 10) loc) loc)))

@@ -17,6 +17,8 @@
    (prefix (snail compiler expand language) expanded-)
    (only (snail compiler expand offer) Offered)
    (prefix (snail compiler bind language) bound-)
+   (snail compiler names libraries)
+   (only (snail compiler names numbering) Numbering)
    (snail compiler derive language)
    (snail compiler derive implicit)
    (snail compiler derive instances))
@@ -31,10 +33,11 @@
       (let ((names (wire-names offers)))
         (match bound
           ((bound-Defined name tops first-unused loc)
-           (result-let* ((walked (derived-tops names tops first-unused)))
+           (result-let* ((walked (derived-tops names tops (Numbering name first-unused))))
              (Ok (Defined name (::tops walked) (::next walked) loc))))
           ((bound-Program tops first-unused)
-           (result-let* ((walked (derived-tops names tops first-unused)))
+           (result-let* ((walked
+                          (derived-tops names tops (Numbering program-library first-unused))))
              (Ok (Program (::tops walked) (::next walked))))))))
 
     ;; The tops derived, and the first number they leave unused.
@@ -42,18 +45,18 @@
       ((tops (List Top))
        (next I64)))
 
-    ;; What the walk has found so far: the next number, and the problems,
-    ;; latest first.
+    ;; What the walk has found so far: the library's numbering, and the
+    ;; problems, latest first.
     (struct Walk
-      ((next I64)
+      ((numbering Numbering)
        (problems (List Problem))))
 
     (: derived-tops
-       (impl (Fn WireNames (List bound-Top) I64 -> (Result Walked (List Feedback)))))
-    (define (derived-tops names tops first-unused)
-      (let ((walked (walked-tops names (Walk first-unused (Nil)) tops)))
+       (impl (Fn WireNames (List bound-Top) Numbering -> (Result Walked (List Feedback)))))
+    (define (derived-tops names tops numbering)
+      (let ((walked (walked-tops names (Walk numbering (Nil)) tops)))
         (match (reported (reverse (::problems (::second walked))))
-          ((Nil) (Ok (Walked (::first walked) (::next (::second walked)))))
+          ((Nil) (Ok (Walked (::first walked) (::next (::numbering (::second walked))))))
           (problems (Err problems)))))
 
     ;; The old expander declares every instance before it expands any
@@ -167,22 +170,26 @@
         (match derivations
           ((Nil) (Pair (Cons declaration (reverse instances)) walk))
           ((Cons derivation rest)
-           (match (derived-instance names derived derivation (::next walk))
+           (match (derived-instance names derived derivation (::numbering walk))
              ((None) (loop rest walk instances))
-             ((Some (Ok (Pair instance next)))
-              (loop rest (Walk next (::problems walk)) (Cons (TopInstance instance) instances)))
+             ((Some (Ok (Pair instance numbering)))
+              (loop rest
+                    (Walk numbering (::problems walk))
+                    (Cons (TopInstance instance) instances)))
              ((Some (Err problem))
-              (loop rest (Walk (::next walk) (Cons problem (::problems walk))) instances)))))))
+              (loop rest
+                    (Walk (::numbering walk) (Cons problem (::problems walk)))
+                    instances)))))))
 
     ;; The instance a clause asks for, if any.
     (: derived-instance
-       (impl (Fn WireNames DerivedType expanded-Derivation I64
-                 -> (Option (Result (Pair bound-Instance I64) Problem)))))
-    (define (derived-instance names derived derivation next)
+       (impl (Fn WireNames DerivedType expanded-Derivation Numbering
+                 -> (Option (Result (Pair bound-Instance Numbering) Problem)))))
+    (define (derived-instance names derived derivation numbering)
       (match derivation
         ((expanded-DeriveMove _) (None))
-        ((expanded-DeriveSerialize _) (Some (serialize-instance names derived next)))
-        ((expanded-DeriveDeserialize _) (Some (deserialize-instance names derived next)))))
+        ((expanded-DeriveSerialize _) (Some (serialize-instance names derived numbering)))
+        ((expanded-DeriveDeserialize _) (Some (deserialize-instance names derived numbering)))))
 
     )
 
@@ -195,6 +202,8 @@
     (import
      (snail core table)
      (only (snail compiler expand offer) Offer Export TopScope Value ClassName)
+     (only (snail compiler names globals) Global TopGlobal)
+     (only (snail compiler literals constant) UnitValue)
      (snail stage0 testing))
     (begin
       (define (test-derive)
@@ -207,7 +216,7 @@
       (define a (list "a"))
 
       (define (global name)
-        (expanded-Global a name 0))
+        (Global a name 0))
 
       (define wire (list "snail" "shell" "wire"))
 
@@ -216,10 +225,10 @@
                  (Offer (map (lambda (name)
                                (Export name
                                        (if (string=? name "Serialize")
-                                           (ClassName (expanded-Global library name 0))
-                                           (Value (expanded-TopGlobal (expanded-Global library
-                                                                                       name
-                                                                                       0))))))
+                                           (ClassName (Global library name 0))
+                                           (Value (TopGlobal (Global library
+                                                                     name
+                                                                     0))))))
                              names)
                         (TopScope empty-table empty-table))))
 
@@ -242,7 +251,7 @@
       ;; instance and is said on the type, and a declaration without
       ;; clauses is as it was.
       (define (test-placement)
-        (let* ((statement (bound-Statement (bound-Literal (expanded-UnitValue) (at 9))))
+        (let* ((statement (bound-Statement (bound-Literal (UnitValue) (at 9))))
                (derived (derive (bound-Defined a
                                                (list (bound-InstanceScope
                                                       (list)

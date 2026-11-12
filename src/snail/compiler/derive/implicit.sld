@@ -15,7 +15,7 @@
    wire-names)
   (import
    (snail core base)
-   (only (snail compiler expand language) Global TopValue TopGlobal)
+   (only (snail compiler names globals) Global TopValue TopGlobal)
    (only (snail compiler expand offer) Offered Meaning Value TypeName ClassName))
   (begin
 

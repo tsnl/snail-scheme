@@ -45,6 +45,15 @@ module: a whole program, or one library in a development build.
 
 - A **language** is the set of data types one pass writes. It is declared in
   one file, under a grammar that states it.
+- A **vocabulary** is data and logic that many passes share: what a
+  library's name is, what a Global and a local are and when two are the
+  same, the literals a program writes, the numbers a library hands out,
+  and what the compiler knows by name of the libraries it treats
+  specially. A vocabulary is not a language, since no pass writes it: a
+  language states what one pass guarantees of its output, while a
+  vocabulary holds what every language from some pass on agrees on. So it
+  lives in a folder of its own, which no pass owns, and a language that
+  carries its values imports them rather than declaring them again.
 - A **pass** is a pure function from its input languages to its output
   language. A pass over a file also receives what the integrator read or
   decided for it, such as the bytes of the files it includes. A pass over a
@@ -74,7 +83,20 @@ only checks, as `cohere` and `confine` do, writes nothing.
 
 ```text
 src/snail/compiler/
-  source.sld              (snail compiler source): Loc, beside, Feedback, result-let*, map-results, fnv-1a
+  source.sld              (snail compiler source): Loc, beside, Feedback, fail, fnv-1a, and the binding forms
+                          result-let*, state-let* and result-state-let*, with map-results, map-with-state,
+                          map-results-with-state and unchanged
+  names/                  vocabulary: names
+    libraries.sld         LibraryName, its order and texts, and the libraries the compiler names itself
+    globals.sld           Global, Local, TopValue, FieldRole, ClassRef and Label, when two Globals are the same, and their order
+    spellings.sld         how a Global is spelled in the texts a running program holds
+    numbering.sld         Numbering: the numbers of a library no Local, mark, macro or serial has yet, handed out fresh
+  literals/               vocabulary: what a program writes literally
+    datum.sld             Datum, a literal as it is read
+    constant.sld          Constant, a literal value or the unit value
+  builtins/               vocabulary: what the compiler knows by name
+    forms.sld             the keywords, builtin types and builtin effects of (snail core forms), with the types' arities
+    base.sld              the classes of (snail core base) the compiler treats specially, and the runtime's Globals generated code names
   read/
     language.sld          (snail compiler read language): the Syntax language
     pass.sld              (snail compiler read pass): the function `read`, and `read-generated` for a producer's output
@@ -91,8 +113,7 @@ src/snail/compiler/
     language.sld          Expanded, the tree it writes
     offer.sld             Offer, what a library offers its importers' expansion
     marked.sld            Marked, the syntax it works on
-    state.sld             the numbers it hands out, and expanding-let*
-    forms.sld             rule: what (snail core forms) offers
+    forms.sld             rule: what (snail core forms) offers its importers
     scopes.sld            rule: what an identifier means where it is used
     syntax-rules.sld      rule: which of a macro's rules matches a use
     paths.sld             rule: a field path's labels and a linked file's names
@@ -116,7 +137,7 @@ src/snail/compiler/
     supply.sld            Supply, what the build found for a library
     linked.sld            query: the file each link names, and the files to read
     needs.sld             part: what a library needs, found in its Supply, and what a miss means
-    state.sld             the numbers it hands out, a copy's renaming, and numbering-let*
+    state.sld             the library's Numbering, and a copy's renaming
     pass.sld              (snail compiler bind pass): the function `bind`
     placed.sld            query: the files the build places beside the program
   derive/
@@ -127,9 +148,7 @@ src/snail/compiler/
   declare/
     language.sld          Declared, the tree it writes
     offer.sld             Declarations, what a library offers its importers' declaration
-    equality.sld          query: when Globals and types are the same, and the order of a row's effects
-    forms.sld             query: the builtin types of (snail core forms), with their arities, and the lifecycle classes
-    spellings.sld         query: how a Global is spelled in the texts a running program holds
+    equality.sld          query: when types are the same, and a row's effects as a set
     membership.sld        query: the members an instance of a class implements, and the name each goes by
     misplaced-rows.sld    query: the refusal of a head that gives a type parameter a row
     known.sld             rule: what is known of types and classes where a type is written
@@ -146,7 +165,7 @@ src/snail/compiler/
     lifecycle.sld         rule: what a Drop or a Clone instance may be, and the type a Drop instance makes moved
     owned.sld             rule: who may take apart a value of a type with a Drop instance, or replace its fields
     identities.sld        rule: a case's TypeId
-    state.sld             the numbers it hands out and what is known, declaring-let* and checked
+    state.sld             the library's Numbering and what is known, and checked
     types.sld             part: written types, schemes and requirements
     values.sld            part: signatures, definitions' bodies, externs and primitives
     data.sld              part: structs and enums
@@ -163,11 +182,10 @@ src/snail/compiler/
     matching.sld          query: one-way matching of an instance's head
     overlap.sld           query: when one instance overlaps another, and whether two active under some sets do
     text.sld              query: the texts the generated code holds: a type, a place, a method
-    runtime.sld           rule: the Globals of the runtime the generated code names
+    runtime.sld           rule: Any, the type an erased value has
     known.sld             rule: what is known of a class where an instance names it
     domains.sld           rule: what a dispatch clause covers, and what each method of its class must be
     binary.sld            rule: a binary class, each domain pair's case, the heads, and each head's cases, output and row
-    state.sld             the numbers it hands out, numbering-let* and numbering-map
     conversions.sld       part: the recovery of a typed value from Any, and the CastError that fails it
     clauses.sld           part: a dispatch clause's methods
     families.sld          part: the instances a `dynamic-instances` form generates
@@ -190,6 +208,13 @@ data definitions under their grammar, and no logic. `pass.sld` exports the
 pass as one function named for it. A rule or query library sits beside them
 under a name that says what it decides or answers.
 
+Each vocabulary is a folder too, of libraries named for their subject, with
+no `language.sld` and no `pass.sld`. The vocabularies come in an order,
+`names`, `literals`, `builtins`, then the planned `types`, `typer` and
+`declarations`, and each may read only those before it. A pass's language
+names a vocabulary's data where it carries it, and its grammar says whose
+each such rule is.
+
 A pass too large for one library divides its walk into parts: libraries of
 its own folder, one for each kind of thing it walks, named for that thing.
 A part recurses and reports as `pass.sld` does, and `pass.sld` remains the
@@ -206,12 +231,18 @@ The import rule keeps the folders apart, and `scripts/compiler-imports
 --check` enforces it:
 
 - `source.sld` imports only `(snail core base)`.
+- A vocabulary's library imports `(snail core base)`, `(snail core table)`,
+  `(snail compiler source)`, the libraries of its own folder, and the
+  vocabularies before it in their order. It never imports a library of a
+  pass's folder.
 - A `language.sld` imports `(snail core base)`, `(snail core table)`,
-  `(snail compiler source)` and the languages of earlier passes.
+  `(snail compiler source)`, any vocabulary, and the languages of earlier
+  passes.
 - Any other library of a pass imports those, the libraries of its own
   folder, and the languages and queries of earlier passes. It never imports
   another pass's `pass.sld` or rules.
-- Only the integrator imports a `pass.sld`, and only the integrator imports
+- The integrator imports the vocabularies as a pass does. Only the
+  integrator imports a `pass.sld`, and only the integrator imports
   `(snail core io)`.
 - The adapter is outside these rules; see the last section.
 
@@ -225,9 +256,12 @@ part, and the same imports are open to both.
 admits, under the same constructor names as the language before it, so a
 form that a pass removes is absent from its output and cannot be matched
 there. A language reuses a rule of an earlier language only where its pass
-never looks inside it: `Loc`, `Datum`, names, and the `Syntax` an Outline
-carries. A pass imports each language it reads under a prefix named for that
-language, and the language it writes without one:
+never looks inside it, as an Outline carries `Syntax`. What every language
+from some pass on agrees on, `Loc`, the literals and the names, is not
+reused from a language but imported from `(snail compiler source)` and
+the vocabularies, without a prefix. A pass imports each language it reads
+under a prefix named for that language, and the language it writes without
+one:
 
 ```scheme
 (import
@@ -256,15 +290,27 @@ written. Where one remains, a comment says which invariant it rests on.
 **Names are data.** A global is a library and a name; a local is a name and
 a number. No pass builds a name by joining text or reads one by scanning it.
 A name is spelled only into the texts a running program holds, a wire
-schema's and a `CastError`'s, which `declare/spellings.sld` writes, and
+schema's and a `CastError`'s, which `names/spellings.sld` writes, and
 no pass looks a name up by its spelling.
 
-**Sequencing.** `result-let*` from `(snail compiler source)` sequences
-steps that return a `Result`, with the scope of `let*`, and `map-results`
-steps each item of a list in order, stopping at the first failure. A pass
-that threads state defines one binding form for it beside the state, named
-with the `-let*` suffix; each step takes the state first and returns its
-value with the new state.
+**Sequencing.** `(snail compiler source)` holds every binding form a pass
+sequences with. `result-let*` sequences steps that return a `Result`, with
+the scope of `let*`, and `map-results` steps each item of a list in order,
+stopping at the first failure. A pass that threads a state writes each step
+to take the state first and return its value with the new state, as a
+`Pair`. `state-let*` sequences such steps, binding the value and the new
+state, and `map-with-state` steps each item of a list, handing each step
+the state the one before left; `result-state-let*` and
+`map-results-with-state` do the same for steps that can fail, and
+`unchanged` makes a `Result` a step that leaves the state as it is. A pass
+defines no binding form of its own.
+
+**One numbering.** The numbers of a library no local, mark, macro or
+serial has yet are one `Numbering`, of `names/numbering.sld`, which hands
+out a fresh number, Global or local. Every pass that writes Globals or
+locals of its own threads it from the first unused number its input's
+root holds, alone or in a state of its own: `bind`'s holds a copy's
+renaming beside it, and `declare`'s what is known.
 
 **Rules apart from recursion.** The function that walks a tree obtains what
 a rule needs, calls it, and carries out what it answers. The rule itself
@@ -308,6 +354,9 @@ Datum  ::= Integer integer | Float text | Text text | Character character
          | ByteVector bytes | Boolean boolean
 ```
 
+`Datum` is the vocabulary's, `literals/datum.sld`'s: Syntax carries it,
+and so do Marked and every pattern after it.
+
 A producer's output is Syntax too. `read-generated` decodes the bytes a
 producer wrote, as the old `decode-syntax` does: one form, a tag byte then
 its contents, a list, symbol, number, string, character, `#f`, `#t` or
@@ -328,7 +377,7 @@ A library's file holds one library, under the name it was found by. Its
 declarations are joined into imports, exports and body, each in the order
 written, with every `cond-expand` decided, and every import set and export
 is well formed. A library name is its parts in order, with an integer part
-as its decimal text. A program is its leading imports and its body; when
+as its decimal text, a `LibraryName` of `names/libraries.sld`. A program is its leading imports and its body; when
 it is a producer a build printed, it also names the libraries loading as
 it starts and its recipe's file. Nothing in a body is read, nor a generated
 library's recipe, whose imports and expression become a producer program.
@@ -376,9 +425,9 @@ the name, and a `Local`'s number is unique in its library. The root's
 `first-unused-number` is the first number the library has not used for a
 local, a mark or a serial: every `Local`'s number, and the serial of every
 `Global` the library defines, is below it. A later pass that writes locals
-of its own, as `derive` and `dispatch` do, numbers them from it, never
-walking the tree to find a free one, and writes where it stopped in its own
-output's root. A `Label` is the one name not resolved: a field's, a path's,
+of its own, as `derive` and `dispatch` do, numbers them from it with a
+`Numbering`, never walking the tree to find a free one, and writes where
+it stopped in its own output's root. A `Label` is the one name not resolved: a field's, a path's,
 and that of a class's or an effect's member as a method definition, an
 associated output, a default or a handler writes it; the pass that has the
 declaration resolves it. A method definition's name is a member's label
@@ -396,9 +445,9 @@ argument at its index. The two stay apart because the old compiler checks
 them apart: it resolves every argument first, where the use is, even one
 the body does not use, and then the body in the alias's own scope, where no
 requirement of the use is in scope. An `if` has its alternative, the unit
-value when none is written, which no `Datum` writes, so Expanded's
-expressions have constants of their own; a pattern's literal stays the
-`Datum` written. A program's statements are among its tops, where they
+value when none is written, which no `Datum` writes, so an expression's
+literal is a `Constant`, which may be the unit value; a pattern's literal
+stays the `Datum` written. A program's statements are among its tops, where they
 are written, inside the instance scopes around them, as a library's are.
 Once it has expanded each, the old expander gathers them into one body,
 a function of no arguments that the program's one remaining statement
@@ -477,6 +526,12 @@ TopValue    ::= TopGlobal Global | FieldFunction Global label FieldRole   no Loc
 FieldRole   ::= Accessor | Replacer | Setter | Swapper          no Loc
 Label       ::= Label name
 ```
+
+Expanded is the first language to carry the vocabularies' rules, and
+states them here once. `Constant` is `literals/constant.sld`'s. `ClassRef`,
+`Local`, `Global`, `TopValue`, `FieldRole` and `Label` are
+`names/globals.sld`'s, and a `library` is a `LibraryName`. Every language
+after Expanded carries them as Expanded does.
 
 `LinkedFile` and `ArtifactFiles` stay in the tree. Queries over Expanded
 gather them: the integrator reads the files the links name, and `bind`
@@ -593,9 +648,9 @@ through the queries; a miss is a compiler bug, and panics.
 Bound declares afresh the rules `bind` looks inside, which are those that
 hold an expression or a pattern, and reuses Expanded's for the rest:
 `Field`, `Case`, `Derivation`, `Member`, `MethodName`, `Operation`,
-`PrimitiveType`, `Annotation`, `Constant`, the types, `Scheme`,
-`Requirement`, `ClassRef`, `Equation`, `Local`, `Global`, `TopValue` and
-`Label`.
+`PrimitiveType`, `Annotation`, the types, `Scheme`, `Requirement` and
+`Equation`. `Constant`, `Datum`, `ClassRef`, `Local`, `Global`,
+`TopValue` and `Label` are the vocabularies'.
 
 ```text
 Bound       ::= Defined library Top* first-unused-number
@@ -917,8 +972,9 @@ Requirement ::= ClassRequirement ClassRef Type*
               | CallableRequirement Contract Type Arrow         no Loc
 ```
 
-Declared reuses Expanded's `Constant`, `Local`, `Global`, `TopValue`,
-`FieldRole`, `Label`, `Annotation`, `ClassRef`, `Former` and `Contract`.
+Declared reuses Expanded's `Annotation`, `Former` and `Contract`, and
+carries the vocabularies' `Constant`, `Datum`, `Local`, `Global`,
+`TopValue`, `FieldRole`, `Label` and `ClassRef`.
 
 `declare` is handed the derived library and the `Declarations` of every
 library in its import closure, and, when the library derives, those of
@@ -1275,7 +1331,7 @@ it, and, for each library that records a run of items, the files it
 links; it reads no file and performs no `compile`. Each entity is
 converted by `adapter/declaration.sld`, each expression by
 `adapter/expressions.sld`, and each place, literal and problem by
-`adapter/source.sld`. A Global is spelled as `declare/spellings.sld`
+`adapter/source.sld`. A Global is spelled as `names/spellings.sld`
 spells it, so the old compiler computes the TypeId of a case from the
 adapted program as `declare` does. A local is `name.number`, unique in
 the program, as the old expander's are: a library's locals are numbered

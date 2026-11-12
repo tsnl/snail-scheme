@@ -11,7 +11,7 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler outline names) program-library)
+   (snail compiler names libraries)
    (prefix (snail compiler derive language) derived-)
    (snail compiler declare language)
    (snail compiler declare offer)
@@ -33,11 +33,12 @@
       (match derived
         ((derived-Defined name tops first-unused loc)
          (result-let* ((walked (declared-tops name tops first-unused imported)))
-           (Ok (DeclaredLibrary (Defined name (::tops walked) (::next (::state walked)) loc)
-                                (offered walked)))))
+           (Ok (DeclaredLibrary
+                (Defined name (::tops walked) (::next (::numbering (::state walked))) loc)
+                (offered walked)))))
         ((derived-Program tops first-unused)
          (result-let* ((walked (declared-tops program-library tops first-unused imported)))
-           (Ok (DeclaredLibrary (Program (::tops walked) (::next (::state walked)))
+           (Ok (DeclaredLibrary (Program (::tops walked) (::next (::numbering (::state walked))))
                                 (offered walked)))))))
 
     (: offered (impl (Fn Walked -> Declarations)))
@@ -55,8 +56,10 @@
     (import
      (snail core table)
      (prefix (snail compiler expand language) expanded-)
+     (only (snail compiler names globals) Global TopGlobal)
+     (only (snail compiler literals constant) UnitValue)
      (prefix (snail compiler bind language) bound-)
-     (snail compiler declare forms)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-declare)
@@ -67,19 +70,19 @@
       (define lib (list "lib"))
 
       (define i64-type
-        (expanded-Applied (expanded-Global forms-library "I64" 0) "I64" (list) loc))
+        (expanded-Applied (Global forms-library "I64" 0) "I64" (list) loc))
 
       ;; (define-library (lib) ... (struct Box (x I64)) (effect io (: read (impl (Fn -> I64)))))
       (define tops
-        (list (derived-Struct (expanded-Global lib "Box" 0)
+        (list (derived-Struct (Global lib "Box" 0)
                               (list)
                               (list (expanded-Field "x" #f i64-type (list) loc))
                               #f
                               (list)
                               loc
                               loc)
-              (derived-Effect (expanded-Global lib "io" 0)
-                              (list (expanded-Operation (expanded-Global lib "read" 0)
+              (derived-Effect (Global lib "io" 0)
+                              (list (expanded-Operation (Global lib "read" 0)
                                                         #f
                                                         (expanded-Scheme (list)
                                                                          (list)
@@ -100,12 +103,12 @@
                               (list)
                               loc)))
 
-      (define i64 (Con (expanded-Global forms-library "I64" 0) (list)))
+      (define i64 (Con (Global forms-library "I64" 0) (list)))
 
       (define box
-        (Data (expanded-Global lib "Box" 0)
+        (Data (Global lib "Box" 0)
               (list)
-              (list (DataCase (expanded-Global lib "Box" 0)
+              (list (DataCase (Global lib "Box" 0)
                               0
                               (list (DataField "x" #f i64 (list) loc))
                               (list)
@@ -116,7 +119,7 @@
               (list)
               loc))
 
-      (define read-op (Operation (expanded-Global lib "read" 0) #f (list) i64 (list) (list) loc))
+      (define read-op (Operation (Global lib "read" 0) #f (list) i64 (list) (list) loc))
 
       ;; A library's tops become its entities, which it offers by name.
       (define (test-libraries)
@@ -125,7 +128,7 @@
            (expect (::declared declared)
                    (Defined lib
                      (list (TopData box)
-                           (TopEffect (Effect (expanded-Global lib "io" 0)
+                           (TopEffect (Effect (Global lib "io" 0)
                                               (list read-op)
                                               (list)
                                               #f
@@ -137,7 +140,7 @@
              (expect (::library offer) lib)
              (expect (table-ref (::data offer) "Box") (Some (list box)))
              (expect (table-ref (::effects offer) "io")
-                     (Some (list (OfferedEffect (expanded-Global lib "io" 0) (list read-op)))))))
+                     (Some (list (OfferedEffect (Global lib "io" 0) (list read-op)))))))
           (other (expect other "a declared library"))))
 
       ;; A program's statements are declared where they are written, as a
@@ -145,21 +148,21 @@
       (define (test-programs)
         (expect (declare (derived-Program (list (derived-Statement
                                                  (bound-CaseId
-                                                  (expanded-TopGlobal (expanded-Global (list "main")
-                                                                                       "f"
-                                                                                       0))
+                                                  (TopGlobal (Global (list "main")
+                                                                     "f"
+                                                                     0))
                                                   loc
                                                   loc)))
                                           1)
                          (list))
                 (fail loc "not a constructor"))
         (match (declare
-                (derived-Program (list (derived-Statement (bound-Literal (expanded-UnitValue) loc)))
+                (derived-Program (list (derived-Statement (bound-Literal (UnitValue) loc)))
                                  1)
                 (list))
           ((Ok declared)
            (expect (::declared declared)
-                   (Program (list (Statement (Literal (expanded-UnitValue) loc))) 1))
+                   (Program (list (Statement (Literal (UnitValue) loc))) 1))
            (expect (::library (::declarations declared)) (list "main")))
           (other (expect other "a declared program"))))))
    (else)))

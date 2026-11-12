@@ -27,6 +27,7 @@
    (snail core base)
    (snail compiler source)
    (prefix (snail compiler expand language) expanded-)
+   (only (snail compiler names globals) TopValue TopGlobal FieldFunction)
    (prefix (snail compiler bind language) bound-)
    (snail compiler declare language)
    (snail compiler declare known)
@@ -172,7 +173,7 @@
 
     ;; The case a constructor makes, and its TypeId, which the wire format
     ;; writes before the case's fields.
-    (: case-id (impl (Fn Known expanded-TopValue Loc Loc -> (Result Expr (List Feedback)))))
+    (: case-id (impl (Fn Known TopValue Loc Loc -> (Result Expr (List Feedback)))))
     (define (case-id known constructor constructor-loc loc)
       (match (constructed-case known constructor)
         ((Some found)
@@ -182,11 +183,11 @@
                        loc))))
         ((None) (fail constructor-loc "not a constructor"))))
 
-    (: constructed-case (impl (Fn Known expanded-TopValue -> (Option (Pair Data DataCase)))))
+    (: constructed-case (impl (Fn Known TopValue -> (Option (Pair Data DataCase)))))
     (define (constructed-case known value)
       (match value
-        ((expanded-TopGlobal global) (constructor-case known global))
-        ((expanded-FieldFunction _ _ _) (None))))
+        ((TopGlobal global) (constructor-case known global))
+        ((FieldFunction _ _ _) (None))))
 
     )
 
@@ -198,9 +199,10 @@
      test-expressions)
     (import
      (snail core table)
-     (only (snail compiler expand language) Label)
+     (only (snail compiler names globals) Local Global Accessor Replacer Label)
+     (only (snail compiler literals constant) UnitValue)
      (snail compiler declare offer)
-     (snail compiler declare forms)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-expressions)
@@ -217,21 +219,21 @@
       (define main (list "main"))
 
       (define (global name)
-        (expanded-Global main name 0))
+        (Global main name 0))
 
-      (define i64 (Con (expanded-Global forms-library "I64" 0) (list)))
+      (define i64 (Con (Global forms-library "I64" 0) (list)))
 
       (define (i64-at line)
-        (expanded-Applied (expanded-Global forms-library "I64" 0) "I64" (list) (at line)))
+        (expanded-Applied (Global forms-library "I64" 0) "I64" (list) (at line)))
 
       (define (arity-wrong line)
-        (expanded-Applied (expanded-Global forms-library "Array" 0) "Array" (list) (at line)))
+        (expanded-Applied (Global forms-library "Array" 0) "Array" (list) (at line)))
 
       (define (unit-at line)
-        (bound-Literal (expanded-UnitValue) (at line)))
+        (bound-Literal (UnitValue) (at line)))
 
       (define (local name number)
-        (expanded-Local name number))
+        (Local name number))
 
       ;; (main) declares (Point) with the field x and the effect io with
       ;; the operation read; (owned handle) offers Handle, with a Drop
@@ -249,7 +251,7 @@
 
       (define read-op (Operation (global "read") #f (list) i64 (list) (list) loc))
 
-      (define handle (expanded-Global (list "owned" "handle") "Handle" 0))
+      (define handle (Global (list "owned" "handle") "Handle" 0))
 
       (define handle-data
         (Data handle
@@ -291,17 +293,17 @@
                                     loc))
                 (fail (at 4) "wrong number of type arguments: Array"))
         (expect (declared (bound-TryConvert (unit-at 2) (i64-at 3) loc))
-                (Ok (TryConvert (Literal (expanded-UnitValue) (at 2)) i64 loc)))
+                (Ok (TryConvert (Literal (UnitValue) (at 2)) i64 loc)))
         (expect (declared (bound-Match (unit-at 2)
                                        (list (bound-Clause (bound-Destructure
-                                                            (expanded-TopGlobal (global "Point"))
+                                                            (TopGlobal (global "Point"))
                                                             (list (bound-Bind (local "x" 1) loc))
                                                             loc)
                                                            (bound-LocalRef (local "x" 1) loc)
                                                            loc))
                                        loc))
-                (Ok (Match (Literal (expanded-UnitValue) (at 2))
-                           (list (Clause (Destructure (expanded-TopGlobal (global "Point"))
+                (Ok (Match (Literal (UnitValue) (at 2))
+                           (list (Clause (Destructure (TopGlobal (global "Point"))
                                                       (list (Bind (local "x" 1) loc))
                                                       loc)
                                          (LocalRef (local "x" 1) loc)
@@ -320,7 +322,7 @@
                                        loc))
                   (Ok (Let (local "x" 1)
                            (Some (Scheme (list) (list) (list) i64))
-                           (Literal (expanded-UnitValue) (at 3))
+                           (Literal (UnitValue) (at 3))
                            (LocalRef (local "x" 1) (at 4))
                            loc)))
           (expect (declared (bound-Let (local "x" 1)
@@ -330,7 +332,7 @@
                                        loc))
                   (fail (at 2) "wrong number of type arguments: Array"))
           (expect (declared (bound-LocalSignature (scheme 2) (unit-at 3) loc))
-                  (Ok (Literal (expanded-UnitValue) (at 3))))
+                  (Ok (Literal (UnitValue) (at 3))))
           (expect (declared (bound-LocalSignature (bad 2) (unit-at 3) loc))
                   (fail (at 2) "wrong number of type arguments: Array"))))
 
@@ -344,9 +346,9 @@
                                           loc))
                   (Ok (Handle (global "io")
                               (list (Implementation (global "read")
-                                                    (Literal (expanded-UnitValue) (at 2))
+                                                    (Literal (UnitValue) (at 2))
                                                     (at 2)))
-                              (Literal (expanded-UnitValue) (at 3))
+                              (Literal (UnitValue) (at 3))
                               loc)))
           (expect (declared (bound-Handle (global "io")
                                           (list (clause "write"
@@ -361,25 +363,25 @@
       ;; A constructor's case and its TypeId; anything else is refused where
       ;; it is written.
       (define (test-case-ids)
-        (expect (declared (bound-CaseId (expanded-TopGlobal (global "Point")) (at 2) loc))
+        (expect (declared (bound-CaseId (TopGlobal (global "Point")) (at 2) loc))
                 (Ok (CaseId (global "Point")
                             (case-type-id known point (list-ref (::cases point) 0))
                             loc)))
-        (expect (declared (bound-CaseId (expanded-TopGlobal (global "read")) (at 2) loc))
+        (expect (declared (bound-CaseId (TopGlobal (global "read")) (at 2) loc))
                 (fail (at 2) "not a constructor"))
         (expect
-         (declared (bound-CaseId (expanded-FieldFunction (global "Point") "x" (expanded-Accessor))
+         (declared (bound-CaseId (FieldFunction (global "Point") "x" (Accessor))
                                  (at 3)
                                  loc))
          (fail (at 3) "not a constructor"))
-        (expect (declared (bound-CaseId (expanded-TopGlobal handle) (at 2) loc))
+        (expect (declared (bound-CaseId (TopGlobal handle) (at 2) loc))
                 (fail (at 2) take-apart)))
 
       (define take-apart
         "Handle has a Drop instance, so only its own library can take it apart; drop it instead")
 
       (define (handle-pattern line arguments)
-        (bound-Destructure (expanded-TopGlobal handle) arguments (at line)))
+        (bound-Destructure (TopGlobal handle) arguments (at line)))
 
       (define (clause pattern body)
         (bound-Clause pattern body loc))
@@ -403,7 +405,7 @@
                   (fail (at 4) "wrong number of type arguments: Array"))
           (expect (declared (bound-Match (unit-at 2)
                                          (list (clause (bound-Destructure
-                                                        (expanded-TopGlobal (global "Point"))
+                                                        (TopGlobal (global "Point"))
                                                         (list (handle-pattern 5 (list)))
                                                         (at 3))
                                                        (unit-at 6)))
@@ -415,16 +417,16 @@
                                                 (unit-at 6)))
                                          loc))
                   (fail (at 3) take-apart))
-          (expect (declared (bound-Call (bound-TopRef (expanded-FieldFunction handle
-                                                                              "name"
-                                                                              (expanded-Replacer))
+          (expect (declared (bound-Call (bound-TopRef (FieldFunction handle
+                                                                     "name"
+                                                                     (Replacer))
                                                       (at 2))
                                         (list bad-body)
                                         loc))
                   (fail (at 2)
                         "Handle has a Drop instance, so only its own library can replace its fields"))
-          (expect (declared (bound-TopRef (expanded-FieldFunction handle "name" (expanded-Accessor))
+          (expect (declared (bound-TopRef (FieldFunction handle "name" (Accessor))
                                           (at 2)))
                   (Ok
-                   (TopRef (expanded-FieldFunction handle "name" (expanded-Accessor)) (at 2))))))))
+                   (TopRef (FieldFunction handle "name" (Accessor)) (at 2))))))))
    (else)))

@@ -63,6 +63,8 @@
     (import
      (only (chibi filesystem) create-directory*)
      (prefix (snail compiler expand language) expanded-)
+     (only (snail compiler names globals) Global TopGlobal)
+     (only (snail compiler literals constant) UnitValue)
      (prefix (only (snail compiler bind language) Program LinkImport Define Call TopRef) bound-)
      (only (snail compiler expand targets) TargetRequest)
      (snail stage0 testing))
@@ -78,17 +80,17 @@
         (write-file (string-append directory "/recipe/data/x.txt") "")
         (let* ((main (string-append directory "/main.sld"))
                (link-loc (at main 20))
-               (global (expanded-Global (list "main") "x" 0))
+               (global (Global (list "main") "x" 0))
                (program (lambda (value)
                           (expanded-Program (list (expanded-Define global value (at main 1))) 3)))
                (linking (program (expanded-LinkedFile (list "data" "x.txt") link-loc (at main 10))))
                (missing (program (expanded-LinkedFile (list "absent.bin") link-loc (at main 10))))
                (requesting (program (expanded-ArtifactFiles "site"
-                                                            (expanded-Literal (expanded-UnitValue)
+                                                            (expanded-Literal (UnitValue)
                                                                               (at main 30))
-                                                            (expanded-Literal (expanded-UnitValue)
+                                                            (expanded-Literal (UnitValue)
                                                                               (at main 31))
-                                                            (expanded-Literal (expanded-UnitValue)
+                                                            (expanded-Literal (UnitValue)
                                                                               (at main 32))
                                                             (at main 29))))
                (printed (LoadedFile main
@@ -124,11 +126,11 @@
 
       ;; The program `linking` bound, its file found at `file`.
       (define (bound-program digest file main)
-        (let ((handle (expanded-Global (list "main") "link-handle" 3)))
+        (let ((handle (Global (list "main") "link-handle" 3)))
           (bound-Program
            (list (bound-LinkImport handle (list "data" "x.txt") digest file (at main 20))
-                 (bound-Define (expanded-Global (list "main") "x" 0)
-                               (bound-Call (bound-TopRef (expanded-TopGlobal handle) (at main 10))
+                 (bound-Define (Global (list "main") "x" 0)
+                               (bound-Call (bound-TopRef (TopGlobal handle) (at main 10))
                                            (list)
                                            (at main 10))
                                (at main 1)))

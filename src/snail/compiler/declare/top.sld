@@ -25,12 +25,14 @@
    (snail core base)
    (snail core table)
    (snail compiler source)
-   (only (snail compiler outline language) LibraryName)
+   (snail compiler names libraries)
    (prefix (snail compiler expand language) expanded-)
+   (only (snail compiler names globals) Global)
    (prefix (snail compiler bind language) bound-)
    (prefix (snail compiler derive language) derived-)
    (snail compiler declare language)
    (snail compiler declare offer)
+   (only (snail compiler names numbering) Numbering)
    (snail compiler declare known)
    (snail compiler declare state)
    (snail compiler declare values)
@@ -46,7 +48,7 @@
     ;; ---- The top level ----
 
     ;; The library's tops declared, and the state the bodies leave: the
-    ;; next number, and what is known once every declaration is reached,
+    ;; numbering, and what is known once every declaration is reached,
     ;; which the library offers.
     (struct Walked
       ((tops (List Top))
@@ -71,12 +73,13 @@
                            (scanned-tops (Scanned empty-table empty-table) tops)
                            (Declarations library empty-table empty-table empty-table)
                            imported))
-             (start (Declaring first-unused known)))
+             (start (Declaring (Numbering library first-unused) known)))
         (result-let* ((signatures (declared-signatures known tops))
                       (reached (reached-tops start signatures tops))
                       (buildable (buildable-items (::known (::second reached)) (::first reached))))
           (let* ((items (with-dropped buildable (dropped-types buildable)))
-                 (state (with-known (::second reached) (fold-left known-with-item known items))))
+                 (state (Declaring-known-set (::second reached)
+                                             (fold-left known-with-item known items))))
             (walked-bodies (items-bodies (Bodies (Nil) (Nil) state) signatures items))))))
 
     ;; ---- Scan ----
@@ -121,7 +124,7 @@
       (Ready
        ((top Top)))
       (Defining
-        ((global expanded-Global)
+        ((global Global)
          (value bound-Expr)
          (loc Loc)))
       (Stating
@@ -131,11 +134,11 @@
       (Effecting
        ((declared DeclaredEffect)))
       (Scoping
-       ((sets (List expanded-Global))
+       ((sets (List Global))
         (items (List Reached))
         (loc Loc)))
       (Setting
-       ((global expanded-Global)
+       ((global Global)
         (members (List ReachedMember))
         (loc Loc))))
 
@@ -152,10 +155,11 @@
                  ->
                  (Result (Pair (List Reached) Declaring) (List Feedback)))))
     (define (reached-tops state signatures tops)
-      (declaring-let* ((items state
-                              (declaring-map state
-                                             (lambda (state top) (reached-top state signatures top))
-                                             tops)))
+      (result-state-let* ((items state
+                                 (map-results-with-state state
+                                                         (lambda (state top)
+                                                           (reached-top state signatures top))
+                                                         tops)))
         (Ok (Pair (concatenate items) state))))
 
     ;; A declaration's entity, and what is known once it is reached. A
@@ -209,27 +213,35 @@
                                           annotations
                                           loc)))
           ((derived-TopInstance instance)
-           (declaring-let* ((declared state (declared-instance state instance #f)))
+           (result-state-let* ((declared state
+                                         (numbered state
+                                                   (declared-instance (::numbering state)
+                                                                      known
+                                                                      instance
+                                                                      #f))))
              (Ok (Pair (list (Instancing declared)) state))))
           ((derived-InstanceSet global members loc)
-           (declaring-let* ((reached state (declaring-map state reached-member members)))
+           (result-state-let* ((reached state
+                                        (map-results-with-state state reached-member members)))
              (Ok (Pair (list (Setting global reached loc)) state))))
           ((derived-InstanceScope sets inner loc)
-           (declaring-let* ((items state (reached-tops state signatures inner)))
+           (result-state-let* ((items state (reached-tops state signatures inner)))
              (Ok (Pair (list (Scoping sets items loc)) state))))
           ((derived-Extern global module symbol type annotations loc)
            (ready state
                   (declared-extern known signatures global module symbol type annotations loc)))
           ((derived-Effect global operations defaults around-main? annotations loc)
            (effect-reached state
-                           (declared-effect state
-                                            signatures
-                                            global
-                                            operations
-                                            defaults
-                                            around-main?
-                                            annotations
-                                            loc)))
+                           (numbered state
+                                     (declared-effect (::numbering state)
+                                                      known
+                                                      signatures
+                                                      global
+                                                      operations
+                                                      defaults
+                                                      around-main?
+                                                      annotations
+                                                      loc))))
           ((derived-Primitive global type loc)
            (ready state (declared-primitive known global type loc))))))
 
@@ -266,13 +278,25 @@
                  ->
                  (Result (Pair (List Reached) Declaring) (List Feedback)))))
     (define (effect-reached state declared)
-      (declaring-let* ((pending state declared))
+      (result-state-let* ((pending state declared))
         (entity-reached state (Effecting pending))))
 
     (: entity-reached
        (impl (Fn Declaring Reached -> (Result (Pair (List Reached) Declaring) (List Feedback)))))
     (define (entity-reached state item)
-      (Ok (Pair (list item) (with-known state (known-with-item (::known state) item)))))
+      (Ok (Pair (list item) (Declaring-known-set state (known-with-item (::known state) item)))))
+
+    ;; A part's step, which knows nothing new and changes the numbering
+    ;; only, as a step of the walk.
+    (: numbered
+       (All (T)
+            (impl (Fn Declaring
+                      (Result (Pair T Numbering) (List Feedback))
+                      ->
+                      (Result (Pair T Declaring) (List Feedback))))))
+    (define (numbered state step)
+      (result-state-let* ((value numbering step))
+        (Ok (Pair value (Declaring-numbering-set state numbering)))))
 
     ;; What is known once `item` is reached: the entity it holds, among the
     ;; library's own, and those an instance scope holds, in order. An
@@ -296,12 +320,15 @@
     (define (reached-member state member)
       (match member
         ((bound-SetInstance instance)
-         (declaring-let* ((declared state (declared-instance state instance #t)))
+         (result-state-let* ((declared state
+                                       (numbered state
+                                                 (declared-instance (::numbering state)
+                                                                    (::known state)
+                                                                    instance
+                                                                    #t))))
            (Ok (Pair (MemberInstancing declared) state))))
         ((bound-DynamicInstances class pairs loc)
-         (declaring-let* ((dynamic state
-                                   (unchanged state
-                                              (declared-dynamic (::known state) class pairs loc))))
+         (result-let* ((dynamic (declared-dynamic (::known state) class pairs loc)))
            (Ok (Pair (MemberReady dynamic) state))))))
 
     ;; ---- Buildable structs ----
@@ -349,7 +376,7 @@
     ;; the old answer. A Drop instance written before its type, where the
     ;; old compiler fails, is accepted. The mark is made once, on the
     ;; items, and the bodies and the offer read it there.
-    (: dropped-types (impl (Fn (List Reached) -> (List expanded-Global))))
+    (: dropped-types (impl (Fn (List Reached) -> (List Global))))
     (define (dropped-types items)
       (concatenate (map (lambda (instance)
                           (match (drop-type instance)
@@ -373,7 +400,7 @@
         ((MemberInstancing declared) (list (::instance declared)))
         ((MemberReady _) (Nil))))
 
-    (: with-dropped (impl (Fn (List Reached) (List expanded-Global) -> (List Reached))))
+    (: with-dropped (impl (Fn (List Reached) (List Global) -> (List Reached))))
     (define (with-dropped items dropped)
       (map (lambda (item)
              (match item
@@ -400,9 +427,11 @@
     (define (with-feedback bodies feedback)
       (Bodies (::tops bodies) (append (::feedback bodies) feedback) (::state bodies)))
 
-    (: with-state (impl (Fn Bodies Declaring -> Bodies)))
-    (define (with-state bodies state)
-      (Bodies (::tops bodies) (::feedback bodies) state))
+    (: with-numbering (impl (Fn Bodies Numbering -> Bodies)))
+    (define (with-numbering bodies numbering)
+      (Bodies (::tops bodies)
+              (::feedback bodies)
+              (Declaring-numbering-set (::state bodies) numbering)))
 
     ;; The whole library, or every body's problems.
     (: walked-bodies (impl (Fn Bodies -> (Result Walked (List Feedback)))))
@@ -466,12 +495,15 @@
                      (TopEffect (effect-with-defaults (::effect declared) (reverse done)))
                      (::state bodies)))
           ((Cons default rest)
-           (match (declared-default (::state bodies) default)
-             ((Ok (Pair value state)) (loop (with-state bodies state) rest (Cons value done)))
+           (match (declared-default (::numbering (::state bodies))
+                                    (::known (::state bodies))
+                                    default)
+             ((Ok (Pair value numbering))
+              (loop (with-numbering bodies numbering) rest (Cons value done)))
              ((Err feedback) (loop (with-feedback bodies feedback) rest done)))))))
 
     (: set-bodies
-       (impl (Fn Bodies expanded-Global (List ReachedMember) Loc -> Bodies)))
+       (impl (Fn Bodies Global (List ReachedMember) Loc -> Bodies)))
     (define (set-bodies bodies global members loc)
       (let loop ((bodies bodies)
                  (members members)
@@ -492,7 +524,10 @@
     (export
      test-top)
     (import
-     (snail compiler declare forms)
+     (only (snail compiler names libraries) forms-library)
+     (only (snail compiler builtins base) drop-class)
+     (only (snail compiler names globals) TopGlobal ClassGlobal Label)
+     (only (snail compiler literals constant) UnitValue)
      (snail stage0 testing))
     (begin
       (define (test-top)
@@ -509,15 +544,15 @@
       (define main (list "main"))
 
       (define (global name)
-        (expanded-Global main name 0))
+        (Global main name 0))
 
       (define (i64-at line)
-        (expanded-Applied (expanded-Global forms-library "I64" 0) "I64" (list) (at line)))
+        (expanded-Applied (Global forms-library "I64" 0) "I64" (list) (at line)))
 
-      (define i64 (Con (expanded-Global forms-library "I64" 0) (list)))
+      (define i64 (Con (Global forms-library "I64" 0) (list)))
 
       (define (unit-at line)
-        (bound-Literal (expanded-UnitValue) (at line)))
+        (bound-Literal (UnitValue) (at line)))
 
       (define (walk tops)
         (declared-tops main tops 10 (list)))
@@ -555,15 +590,15 @@
 
       (define (show-instance line)
         (derived-TopInstance
-         (bound-Instance (expanded-ClassGlobal (global "Show"))
+         (bound-Instance (ClassGlobal (global "Show"))
                          (list)
                          (list (i64-at line))
                          (list)
                          (list)
                          (bound-Methods
-                          (list (bound-InstanceMethod (expanded-MemberName (expanded-Label "show"
-                                                                                           (at
-                                                                                            line)))
+                          (list (bound-InstanceMethod (expanded-MemberName (Label "show"
+                                                                                  (at
+                                                                                   line)))
                                                       (unit-at line))))
                          (at line))))
 
@@ -576,14 +611,14 @@
         (match (walk (list show-class (show-instance 3)))
           ((Ok walked)
            (expect (length (::tops walked)) 2)
-           (expect (::next (::state walked)) 12)
+           (expect (::next (::numbering (::state walked))) 12)
            (match (list-ref (::tops walked) 1)
              ((TopInstance instance)
-              (expect (::global instance) (expanded-Global main "Show" 10))
+              (expect (::global instance) (Global main "Show" 10))
               (expect (::body instance)
                       (Methods (list (InstanceMethod (ClassMethod (global "show"))
-                                                     (expanded-Global main "show" 11)
-                                                     (Literal (expanded-UnitValue) (at 3))
+                                                     (Global main "show" 11)
+                                                     (Literal (UnitValue) (at 3))
                                                      (at 3))))))
              (other (expect other "an instance"))))
           (other (expect other "a class and its instance")))
@@ -612,7 +647,7 @@
       ;; tree and in the offer.
       (define (test-drops)
         (let ((drop (derived-TopInstance
-                     (bound-Instance (expanded-ClassGlobal drop-class)
+                     (bound-Instance (ClassGlobal drop-class)
                                      (list)
                                      (list (expanded-Row (expanded-Effects (list) (None)) loc)
                                            (expanded-Applied (global "Box") "Box" (list) loc))
@@ -696,9 +731,9 @@
                                                   (expanded-FnContract)
                                                   (expanded-Arrow
                                                    (list (expanded-Variable "S" loc))
-                                                   (expanded-Applied (expanded-Global forms-library
-                                                                                      "String"
-                                                                                      0)
+                                                   (expanded-Applied (Global forms-library
+                                                                             "String"
+                                                                             0)
                                                                      "String"
                                                                      (list)
                                                                      loc)
@@ -714,7 +749,7 @@
 
       ;; `(requires (Store I64 T))`, at `line`.
       (define (store-i64 line)
-        (expanded-ClassRequirement (expanded-ClassGlobal (global "Store"))
+        (expanded-ClassRequirement (ClassGlobal (global "Store"))
                                    (list (i64-at line) (expanded-Variable "T" loc))
                                    (list)
                                    (at line)))
@@ -749,7 +784,7 @@
                   ((Ok walked) (length (::tops walked)))
                   (other other))
                 2)
-        (let ((signature (derived-Signature (expanded-TopGlobal (global "f"))
+        (let ((signature (derived-Signature (TopGlobal (global "f"))
                                             (expanded-Scheme (list "T")
                                                              (list (store-i64 5))
                                                              (i64-at 5)
@@ -789,12 +824,12 @@
                              (derived-Define (global "z") (unit-at 4) (at 4))))
             ((Ok walked)
              (expect (::tops walked)
-                     (list (Statement (Literal (expanded-UnitValue) (at 3)))
+                     (list (Statement (Literal (UnitValue) (at 3)))
                            (Define (global "z")
-                             (Literal (expanded-UnitValue) (at 4))
+                             (Literal (UnitValue) (at 4))
                              (None)
                              (list)
                              (at 4))))
-             (expect (::next (::state walked)) 10))
+             (expect (::next (::numbering (::state walked))) 10))
             (other (expect other "a program")))))))
    (else)))

@@ -1,5 +1,5 @@
-;; Query: the text a Global is spelled as, where the compiler puts a name
-;; into the program it writes. The compiler never looks a name up by its
+;; The text a Global is spelled as, where the compiler puts a name into
+;; the program it writes. The compiler never looks a name up by its
 ;; text, nor learns anything by reading one: a name is data, compared as
 ;; its library, name and serial. Two texts are data a running program
 ;; holds, and must be spelled as the old compiler spells them, or a
@@ -17,15 +17,14 @@
 ;; of its own, and the old name holds the stamp of the macro's use, which
 ;; no new pass has, so it is spelled `name%serial`, which matches no old
 ;; name.
-(define-library (snail compiler declare spellings)
+(define-library (snail compiler names spellings)
   (export
    global-spelling
    short-spelling)
   (import
    (snail core base)
-   (only (snail compiler outline names) same-library? library-key)
-   (only (snail compiler expand language) Global)
-   (only (snail compiler declare forms) forms-library))
+   (snail compiler names libraries)
+   (only (snail compiler names globals) Global))
   (begin
 
     ;; ---- Spellings ----

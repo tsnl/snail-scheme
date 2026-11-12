@@ -23,12 +23,20 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler outline names) same-library?)
+   (snail compiler names libraries)
    (snail compiler expand language)
    (snail compiler expand marked)
    (snail compiler expand offer)
    (snail compiler expand scopes)
-   (snail compiler expand state)
+   (only (snail compiler names globals)
+         Global
+         TopValue
+         ClassRef
+         ClassGlobal
+         FieldClass
+         Label
+         same-global?)
+   (only (snail compiler names numbering) Numbering)
    (snail compiler expand paths)
    (snail compiler expand form-shapes)
    (snail compiler expand type-shapes)
@@ -428,7 +436,7 @@
 
     (: unboxed? (impl (Fn Global -> Bool)))
     (define (unboxed? global)
-      (and (same-library? (::library global) (list "snail" "core" "base"))
+      (and (same-library? (::library global) base-library)
            (string=? (::name global) "Unboxed")
            (= (::serial global) 0)))
 
@@ -545,7 +553,7 @@
     (struct Bodies
       ((tops (List Top))
        (feedback (List Feedback))
-       (state Expanding)))
+       (state Numbering)))
 
     ;; Where a body is: the scopes, and the sets of each `with-instances`
     ;; around it, innermost first.
@@ -553,7 +561,7 @@
       ((scopes Scopes)
        (sets (List WrittenSets))))
 
-    (: expanded-bodies (impl (Fn Expanding Scopes (List Declared) -> Bodies)))
+    (: expanded-bodies (impl (Fn Numbering Scopes (List Declared) -> Bodies)))
     (define (expanded-bodies state scopes declared)
       (let ((bodies (items-bodies (Bodies (Nil) (Nil) state) (Place scopes (Nil)) declared)))
         (Bodies (reverse (::tops bodies)) (::feedback bodies) (::state bodies))))
@@ -562,7 +570,7 @@
     (define (items-bodies bodies place declared)
       (fold-left (lambda (bodies item) (item-bodies bodies place item)) bodies declared))
 
-    (: with-top (impl (Fn Bodies Top Expanding -> Bodies)))
+    (: with-top (impl (Fn Bodies Top Numbering -> Bodies)))
     (define (with-top bodies top state)
       (Bodies (Cons top (::tops bodies)) (::feedback bodies) state))
 
@@ -571,7 +579,7 @@
     (define (with-feedback bodies feedback)
       (Bodies (::tops bodies) (append (::feedback bodies) feedback) (::state bodies)))
 
-    (: attempted (impl (Fn Bodies (Result (Pair Top Expanding) (List Feedback)) -> Bodies)))
+    (: attempted (impl (Fn Bodies (Result (Pair Top Numbering) (List Feedback)) -> Bodies)))
     (define (attempted bodies result)
       (match result
         ((Ok (Pair top state)) (with-top bodies top state))
@@ -609,11 +617,11 @@
         (Ok (delete-duplicates same-global? (concatenate resolved)))))
 
     (: definition-body
-       (impl (Fn Expanding Place Global DefinedValue Loc
-                 -> (Result (Pair Top Expanding) (List Feedback)))))
+       (impl (Fn Numbering Place Global DefinedValue Loc
+                 -> (Result (Pair Top Numbering) (List Feedback)))))
     (define (definition-body state place global value loc)
-      (expanding-let* ((expanded state (defined-value state (site-of place) value loc))
-                       (sets state (unchanged state (enclosing-sets place))))
+      (result-state-let* ((expanded state (defined-value state (site-of place) value loc))
+                          (sets state (unchanged state (enclosing-sets place))))
         (Ok (Pair (Define global expanded loc) state))))
 
     ;; A statement stays where it is written, inside the scopes around it,
@@ -621,11 +629,11 @@
     (: statement-body (impl (Fn Bodies Place Marked -> Bodies)))
     (define (statement-body bodies place form)
       (attempted bodies
-                 (expanding-let* ((expanded state
-                                            (expand-expression (::state bodies)
-                                                               (site-of place)
-                                                               form))
-                                  (sets state (unchanged state (enclosing-sets place))))
+                 (result-state-let* ((expanded state
+                                               (expand-expression (::state bodies)
+                                                                  (site-of place)
+                                                                  form))
+                                     (sets state (unchanged state (enclosing-sets place))))
                    (Ok (Pair (Statement expanded) state)))))
 
     ;; `(expose name "symbol")`, whose name is a top-level value.
@@ -693,9 +701,9 @@
              ((Err feedback) (loop (with-feedback bodies feedback) rest done)))))))
 
     (: default-value
-       (impl (Fn Expanding Place DefaultForm -> (Result (Pair Default Expanding) (List Feedback)))))
+       (impl (Fn Numbering Place DefaultForm -> (Result (Pair Default Numbering) (List Feedback)))))
     (define (default-value state place default)
-      (expanding-let* ((value state (expand-expression state (site-of place) (::value default))))
+      (result-state-let* ((value state (expand-expression state (site-of place) (::value default))))
         (if (default-function? value)
             (Ok (Pair
                  (Default (Label (::name (::identifier (::name default))) (::loc (::name default)))
@@ -772,8 +780,11 @@
     (import
      (only (scheme base) pair? symbol? symbol->string string? exact-integer? boolean?)
      (snail core table)
-     (prefix (snail compiler read language) syntax-)
+     (prefix (snail compiler literals datum) datum-)
      (snail compiler expand forms)
+     (only (snail compiler names libraries) forms-library)
+     (only (snail compiler names globals) TopGlobal)
+     (only (snail compiler literals constant) Integer)
      (snail stage0 testing))
     (begin
       (define (test-declarations)
@@ -792,8 +803,8 @@
       (define (marked datum)
         (cond ((or (null? datum) (pair? datum)) (Form (map marked datum) loc))
               ((symbol? datum) (Ident (Identifier (symbol->string datum) (Nil)) loc))
-              ((string? datum) (Atom (syntax-Text datum) loc))
-              ((exact-integer? datum) (Atom (syntax-Integer datum) loc))
+              ((string? datum) (Atom (datum-Text datum) loc))
+              ((exact-integer? datum) (Atom (datum-Integer datum) loc))
               (else (panic "no syntax for this datum"))))
 
       (define (global name)
@@ -813,7 +824,7 @@
 
       ;; The tops and feedback the three steps make of `forms`.
       (define (expanded forms)
-        (match (scan-forms (Expanding 1) forms-scopes (list) (map marked forms))
+        (match (scan-forms (Numbering main 1) forms-scopes (list) (map marked forms))
           ((Ok (Pair scan state))
            (match (result-let* ((signed (checked-signatures (::scopes scan) (::items scan))))
                     (declared-items (::scopes scan) (::items scan)))

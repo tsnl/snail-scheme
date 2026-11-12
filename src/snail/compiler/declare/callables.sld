@@ -140,7 +140,8 @@
     (export
      test-callables)
     (import
-     (only (snail compiler expand language) Global ClassGlobal FnMutContract FnOnceContract)
+     (only (snail compiler expand language) FnMutContract FnOnceContract)
+     (only (snail compiler names globals) Global ClassGlobal)
      (snail stage0 testing))
     (begin
       (define (test-callables)

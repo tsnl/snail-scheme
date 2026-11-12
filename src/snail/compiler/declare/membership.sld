@@ -13,9 +13,8 @@
    member-name)
   (import
    (snail core base)
-   (only (snail compiler expand language) ClassRef ClassGlobal FieldClass)
    (snail compiler declare language)
-   (only (snail compiler declare equality) same-global?)
+   (only (snail compiler names globals) ClassRef ClassGlobal FieldClass same-global?)
    (only (snail compiler declare schemes) field-reader-scheme))
   (begin
 
@@ -60,8 +59,8 @@
      test-membership)
     (import
      (snail compiler source)
-     (only (snail compiler expand language) Global)
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler names globals) Global)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-membership)

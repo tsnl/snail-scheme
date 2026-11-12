@@ -27,13 +27,17 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler expand language) Local TopGlobal)
+   (only (snail compiler names globals) Local TopGlobal)
    (prefix (snail compiler declare language) declared-)
    (only (snail compiler declare membership) member-name)
    (snail compiler dispatch runtime)
+   (only (snail compiler builtins base)
+         unsupported-instance-case
+         argument-mismatch-case
+         dyn-cast-effect)
    (snail compiler dispatch known)
    (snail compiler dispatch domains)
-   (snail compiler dispatch state)
+   (snail compiler names numbering)
    (snail compiler dispatch conversions))
   (begin
 
@@ -71,8 +75,8 @@
            (match (method-shape domain (::second member))
              ((Err message) (loop state rest methods (Cons (Feedback loc message) problems)))
              ((Ok shape)
-              (numbering-let* ((method state
-                                       (written-method state domain (::first member) shape loc)))
+              (state-let* ((method state
+                                   (written-method state domain (::first member) shape loc)))
                 (loop state rest (Cons method methods) problems))))))))
 
     ;; ---- Methods ----
@@ -104,14 +108,14 @@
        (impl (Fn Numbering Domain declared-Member MethodShape Loc
                  -> (Pair declared-InstanceMethod Numbering))))
     (define (written-method state domain member shape loc)
-      (numbering-let* ((implementation state (fresh-global state (member-name member)))
-                       (locals state (fresh-locals state "argument" (length (::parameters shape)))))
+      (state-let* ((implementation state (fresh-global state (member-name member)))
+                   (locals state (fresh-locals state "argument" (length (::parameters shape)))))
         (let ((dispatching (method-dispatching member shape locals loc)))
-          (numbering-let* ((branches state
-                                     (numbering-map state
-                                                    (lambda (state target)
-                                                      (branch state dispatching target))
-                                                    (::targets domain))))
+          (state-let* ((branches state
+                                 (map-with-state state
+                                                 (lambda (state target)
+                                                   (branch state dispatching target))
+                                                 (::targets domain))))
             (Pair (declared-InstanceMethod member
                                            implementation
                                            (declared-ClosedLambda locals
@@ -158,16 +162,16 @@
 
     (: branch (impl (Fn Numbering Dispatching declared-Type -> (Pair Branch Numbering))))
     (define (branch state dispatching target)
-      (numbering-let* ((selected state (fresh-local state "selected"))
-                       (arguments state
-                                  (numbering-map state
-                                                 (lambda (state parameter)
-                                                   (argument state
-                                                             dispatching
-                                                             target
-                                                             selected
-                                                             parameter))
-                                                 (::parameters dispatching))))
+      (state-let* ((selected state (fresh-local state "selected"))
+                   (arguments state
+                              (map-with-state state
+                                              (lambda (state parameter)
+                                                (argument state
+                                                          dispatching
+                                                          target
+                                                          selected
+                                                          parameter))
+                                              (::parameters dispatching))))
         (Pair (Branch target selected (method-call dispatching arguments)) state)))
 
     ;; The argument for `parameter` in the branch for `target`: the
@@ -184,7 +188,7 @@
             (match (::position parameter)
               ((Fixed) (Pair value state))
               ((Erased)
-               (numbering-let* ((recovery state (fresh-local state "recovered")))
+               (state-let* ((recovery state (fresh-local state "recovered")))
                  (Pair (recovered value
                                   target
                                   recovery
@@ -229,15 +233,10 @@
     (export
      test-clauses)
     (import
-     (only (snail compiler expand language)
-           Global
-           ClassGlobal
-           FieldClass
-           Text
-           Integer
-           Dyn
-           FnContract)
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler expand language) Dyn FnContract)
+     (only (snail compiler names globals) Global ClassGlobal FieldClass)
+     (only (snail compiler literals constant) Integer Text)
+     (only (snail compiler names libraries) forms-library)
      (only (snail compiler declare schemes) field-class-parameters field-reader-scheme)
      (snail stage0 testing))
     (begin

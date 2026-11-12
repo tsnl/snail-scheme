@@ -56,20 +56,8 @@
    (snail core base)
    (snail core table)
    (snail compiler source)
-   (only (snail compiler outline names) same-library? library-key)
+   (snail compiler names libraries)
    (only (snail compiler expand language)
-         Global
-         TopValue
-         TopGlobal
-         FieldFunction
-         FieldRole
-         Accessor
-         Replacer
-         Setter
-         Swapper
-         ClassRef
-         ClassGlobal
-         FieldClass
          Former
          Impl
          Dyn
@@ -97,10 +85,23 @@
            Instance)
    (prefix (only (snail compiler declare language) Instance) declared-)
    (snail compiler declare offer)
-   (snail compiler declare forms)
+   (only (snail compiler names spellings) global-spelling)
    (snail compiler declare equality)
+   (only (snail compiler names globals)
+         Global
+         TopValue
+         TopGlobal
+         FieldFunction
+         FieldRole
+         Accessor
+         Replacer
+         Setter
+         Swapper
+         ClassRef
+         ClassGlobal
+         FieldClass
+         same-global?)
    (snail compiler declare schemes)
-   (only (snail compiler declare spellings) global-spelling)
    (snail compiler dispatch language)
    (snail compiler dispatch listing)
    (only (snail compiler integrate compile) CompiledFile)

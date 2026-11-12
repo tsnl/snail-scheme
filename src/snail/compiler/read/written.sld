@@ -14,7 +14,8 @@
    text-literal)
   (import
    (snail core base)
-   (snail compiler read language))
+   (snail compiler read language)
+   (snail compiler literals datum))
   (begin
 
     ;; ---- Syntax ----

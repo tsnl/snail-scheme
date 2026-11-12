@@ -27,6 +27,7 @@
     (export
      test-location)
     (import
+     (snail compiler literals datum)
      (snail stage0 testing))
     (begin
       (define (test-location)

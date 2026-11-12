@@ -54,13 +54,9 @@
    (snail core table)
    (snail core io)
    (snail compiler source)
-   (only (snail compiler outline names) same-library? library-key program-library)
-   (only (snail compiler expand language)
-         Expanded
-         Global
-         ClassRef
-         ClassGlobal
-         FieldClass)
+   (snail compiler names libraries)
+   (only (snail compiler expand language) Expanded)
+   (only (snail compiler names globals) Global ClassGlobal FieldClass)
    (only (snail compiler expand offer) Offer Export)
    (snail compiler bind supply)
    (except (snail compiler declare language)

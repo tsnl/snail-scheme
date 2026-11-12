@@ -44,9 +44,9 @@
     (export
      test-misplaced-rows)
     (import
-     (only (snail compiler expand language) Global)
+     (only (snail compiler names globals) Global)
      (only (snail compiler declare language) Con Effects)
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-misplaced-rows)

@@ -162,8 +162,9 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler expand language) Global TopValue Annotation ClassRef)
+   (snail compiler names libraries)
+   (only (snail compiler expand language) Annotation)
+   (only (snail compiler names globals) Global TopValue ClassRef)
    (only (snail compiler declare language)
          Signed
          Data

@@ -17,6 +17,7 @@
    (snail core base)
    (snail compiler source)
    (prefix (snail compiler expand language) expanded-)
+   (only (snail compiler names globals) Global ClassGlobal)
    (snail compiler declare language)
    (snail compiler declare known)
    (snail compiler declare callables)
@@ -30,7 +31,7 @@
     (: declared-class
        (impl (Fn Known
                  Signatures
-                 expanded-Global
+                 Global
                  (List String)
                  (List expanded-Member)
                  (List expanded-Annotation)
@@ -63,9 +64,9 @@
         ((Err message) (fail loc message))))
 
     ;; `(Class parameter ... output ...)`, each a variable.
-    (: own-requirement (impl (Fn expanded-Global (List String) (List Output) -> Requirement)))
+    (: own-requirement (impl (Fn Global (List String) (List Output) -> Requirement)))
     (define (own-requirement global parameters outputs)
-      (ClassRequirement (expanded-ClassGlobal global)
+      (ClassRequirement (ClassGlobal global)
                         (map (lambda (name) (Var (Written name)))
                              (append parameters
                                      (map (lambda (output) (::name (::label output))) outputs)))))
@@ -112,7 +113,8 @@
     (import
      (snail core table)
      (snail compiler declare offer)
-     (snail compiler declare forms)
+     (only (snail compiler names libraries) forms-library)
+     (only (snail compiler names globals) Label)
      (snail stage0 testing))
     (begin
       (define (test-classes)
@@ -127,10 +129,10 @@
       (define main (list "main"))
 
       (define (global name)
-        (expanded-Global main name 0))
+        (Global main name 0))
 
       (define (builtin name)
-        (expanded-Global forms-library name 0))
+        (Global forms-library name 0))
 
       ;; (main) scans the class (Collect c) with the output Item, and the
       ;; class (Store e s).
@@ -172,7 +174,7 @@
                                   (list)
                                   (at line)))
 
-      (define item-output (expanded-AssociatedOutput (expanded-Label "Item" (at 2)) (list)))
+      (define item-output (expanded-AssociatedOutput (Label "Item" (at 2)) (list)))
 
       (define (var name)
         (Var (Written name)))
@@ -198,7 +200,7 @@
                                 loc)
                 (Ok (Class (global "Collect")
                            (list (TypeParameter "c"))
-                           (list (Output (expanded-Label "Item" (at 2)) (list)))
+                           (list (Output (Label "Item" (at 2)) (list)))
                            (list (Method (global "first")
                                          (Scheme (list)
                                                  (list)

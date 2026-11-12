@@ -26,7 +26,7 @@
  (snail core base)
  (snail core io)
  (snail compiler source)
- (snail compiler outline names)
+ (snail compiler names libraries)
  (snail compiler integrate walk)
  (snail compiler integrate load)
  (snail compiler adapter read)

@@ -93,7 +93,7 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler outline language) LibraryName)
+   (snail compiler names libraries)
    (only (snail compiler expand language)
          Field
          Case
@@ -102,9 +102,8 @@
          PrimitiveType
          Annotation
          TypeExpr
-         Scheme
-         Global
-         TopValue)
+         Scheme)
+   (only (snail compiler names globals) Global TopValue)
    (only (snail compiler bind language) Instance SetMember Default Expr))
   (begin
 

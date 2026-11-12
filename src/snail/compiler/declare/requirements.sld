@@ -106,8 +106,9 @@
     (import
      (snail core table)
      (snail compiler source)
-     (only (snail compiler expand language) Global Label ClassGlobal FieldClass FnContract)
+     (only (snail compiler expand language) FnContract)
      (prefix (only (snail compiler expand language) Variable) expanded-)
+     (only (snail compiler names globals) Global ClassGlobal FieldClass Label)
      (snail compiler declare offer)
      (snail stage0 testing))
     (begin

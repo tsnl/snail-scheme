@@ -53,7 +53,7 @@
     (export
      test-derives)
     (import
-
+     (only (snail compiler names globals) Global)
      (snail stage0 testing))
     (begin
       (define (test-derives)

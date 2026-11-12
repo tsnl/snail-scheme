@@ -31,12 +31,12 @@
   (import
    (snail core base)
    (prefix (only (snail compiler expand language) Equation) expanded-)
-   (only (snail compiler expand language) Global)
    (snail compiler declare language)
    (snail compiler declare known)
    (snail compiler declare equality)
+   (only (snail compiler names globals) Global)
    (snail compiler declare kinds)
-   (only (snail compiler declare forms) Lifecycle)
+   (only (snail compiler builtins base) Lifecycle)
    (only (snail compiler declare misplaced-rows) misplaced-row-problem)
    (snail compiler declare lifecycle))
   (begin
@@ -189,10 +189,12 @@
     (import
      (snail core table)
      (snail compiler source)
-     (only (snail compiler expand language) Label ClassGlobal FieldClass FnContract)
+     (only (snail compiler expand language) FnContract)
      (prefix (only (snail compiler expand language) Variable) expanded-)
+     (only (snail compiler names globals) ClassGlobal FieldClass Label)
      (snail compiler declare offer)
-     (snail compiler declare forms)
+     (only (snail compiler names libraries) forms-library)
+     (only (snail compiler builtins base) Dropping)
      (snail stage0 testing))
     (begin
       (define (test-heads)

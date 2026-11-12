@@ -21,12 +21,13 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler outline language) LibraryName)
+   (snail compiler names libraries)
    (snail compiler expand language)
    (snail compiler expand marked)
    (snail compiler expand offer)
    (snail compiler expand forms)
    (snail compiler expand scopes)
+   (only (snail compiler names globals) Global ClassRef ClassGlobal FieldClass Label same-global?)
    (snail compiler expand paths)
    (snail compiler expand type-shapes))
   (begin
@@ -309,7 +310,8 @@
     (import
      (only (scheme base) pair? symbol? symbol->string string? exact-integer? boolean?)
      (snail core table)
-     (prefix (snail compiler read language) syntax-)
+     (prefix (snail compiler literals datum) datum-)
+     (only (snail compiler names globals) Local TopGlobal)
      (snail stage0 testing))
     (begin
       (define (test-types)
@@ -339,8 +341,8 @@
         (cond ((or (null? datum) (pair? datum))
                (Form (map (lambda (item) (marked-at here item)) datum) here))
               ((symbol? datum) (Ident (Identifier (symbol->string datum) (Nil)) here))
-              ((string? datum) (Atom (syntax-Text datum) here))
-              ((exact-integer? datum) (Atom (syntax-Integer datum) here))
+              ((string? datum) (Atom (datum-Text datum) here))
+              ((exact-integer? datum) (Atom (datum-Integer datum) here))
               (else (panic "no syntax for this datum"))))
 
       (define (plain name)

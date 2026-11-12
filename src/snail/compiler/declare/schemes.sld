@@ -43,19 +43,18 @@
    substituted)
   (import
    (snail core base)
-   (only (snail compiler expand language)
+   (only (snail compiler expand language) Dyn FnContract)
+   (snail compiler declare language)
+   (only (snail compiler names libraries) forms-library)
+   (snail compiler declare equality)
+   (only (snail compiler names globals)
          Global
-         ClassGlobal
-         Dyn
-         FnContract
          FieldRole
          Accessor
          Replacer
          Setter
-         Swapper)
-   (snail compiler declare language)
-   (snail compiler declare forms)
-   (snail compiler declare equality))
+         Swapper
+         ClassGlobal))
   (begin
 
     ;; ---- Data ----
@@ -239,7 +238,6 @@
      test-schemes)
     (import
      (snail compiler source)
-     (only (snail compiler expand language) Label)
      (snail stage0 testing))
     (begin
       (define (test-schemes)

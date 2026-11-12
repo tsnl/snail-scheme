@@ -20,7 +20,6 @@
    (snail core base)
    (snail compiler source)
    (only (snail compiler expand language)
-         Global
          Former
          Impl
          Dyn
@@ -28,6 +27,7 @@
          FnContract
          FnMutContract
          FnOnceContract)
+   (only (snail compiler names globals) Global)
    (only (snail compiler declare language)
          Type
          Con
@@ -45,7 +45,7 @@
          Member
          ClassMethod
          FieldReader)
-   (snail compiler declare spellings))
+   (only (snail compiler names spellings) global-spelling short-spelling))
   (begin
 
     ;; ---- Names ----
@@ -170,7 +170,7 @@
     (export
      test-text)
     (import
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-text)

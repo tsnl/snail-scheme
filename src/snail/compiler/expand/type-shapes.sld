@@ -40,10 +40,11 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler outline names) same-library?)
+   (snail compiler names libraries)
    (snail compiler expand language)
    (snail compiler expand marked)
-   (only (snail compiler expand scopes) marked-loc))
+   (only (snail compiler expand scopes) marked-loc)
+   (only (snail compiler names globals) Global))
   (begin
 
     ;; ---- Types ----
@@ -128,7 +129,7 @@
     ;; names, and the contract each is.
     (: callable-contract (impl (Fn Global -> (Option Contract))))
     (define (callable-contract global)
-      (if (and (same-library? (::library global) (list "snail" "core" "base"))
+      (if (and (same-library? (::library global) base-library)
                (= (::serial global) 0))
           (named-contract (::name global))
           (None)))
@@ -299,7 +300,7 @@
      test-type-shapes)
     (import
      (only (scheme base) pair? symbol? symbol->string string? exact-integer? boolean?)
-     (prefix (snail compiler read language) syntax-)
+     (prefix (snail compiler literals datum) datum-)
      (snail stage0 testing))
     (begin
       (define (test-type-shapes)
@@ -314,8 +315,8 @@
       (define (marked datum)
         (cond ((or (null? datum) (pair? datum)) (Form (map marked datum) loc))
               ((symbol? datum) (Ident (Identifier (symbol->string datum) (Nil)) loc))
-              ((string? datum) (Atom (syntax-Text datum) loc))
-              ((exact-integer? datum) (Atom (syntax-Integer datum) loc))
+              ((string? datum) (Atom (datum-Text datum) loc))
+              ((exact-integer? datum) (Atom (datum-Integer datum) loc))
               (else (panic "no syntax for this datum"))))
 
       (define (plain name)
@@ -405,7 +406,7 @@
                             loc))
         (expect (scheme-shape (Form (list (marked 'All)
                                           (Form (list (marked 'a)
-                                                      (Atom (syntax-Integer 2) (Loc "t.sld" 2 2)))
+                                                      (Atom (datum-Integer 2) (Loc "t.sld" 2 2)))
                                                 loc)
                                           (marked 't))
                                     loc))
@@ -421,7 +422,7 @@
                 (MalformedRequirement loc "expected (Copy variable)"))
         (expect (requirement-shape (marked '(Show a (type Output b))))
                 (ClassApplied (plain "Show") loc (list (marked 'a) (marked '(type Output b))) loc))
-        (expect (requirement-shape (Form (list (Atom (syntax-Integer 5) (Loc "t.sld" 4 4))) loc))
+        (expect (requirement-shape (Form (list (Atom (datum-Integer 5) (Loc "t.sld" 4 4))) loc))
                 (MalformedRequirement (Loc "t.sld" 4 4) "expected a typeclass"))
         (expect (requirement-shape (marked '()))
                 (MalformedRequirement loc "expected (Class type ...)"))

@@ -49,18 +49,19 @@
      test-placed)
     (import
      (snail compiler source)
-     (prefix (snail compiler expand language) expanded-)
+     (only (snail compiler names globals) Global)
+     (only (snail compiler literals constant) UnitValue)
      (snail stage0 testing))
     (begin
       (define (test-placed)
         (let ((loc (Loc "a.sld" 1 1))
-              (handle (lambda (serial) (expanded-Global (list "main") "link-handle" serial))))
+              (handle (lambda (serial) (Global (list "main") "link-handle" serial))))
           (expect (placed-files
                    (Program (list (LinkImport (handle 1) (list "a.txt") "aa" "a.txt" loc)
                                   (LinkImport (handle 2) (list "b.txt") "bb" "b.txt" loc)
                                   (LinkImport (handle 3) (list "copy.txt") "aa" "copy.txt" loc)
-                                  (Define (expanded-Global (list "main") "x" 0)
-                                    (Literal (expanded-UnitValue) loc)
+                                  (Define (Global (list "main") "x" 0)
+                                    (Literal (UnitValue) loc)
                                     loc))
                             4))
                   (list (Placed "aa" "a.txt") (Placed "bb" "b.txt")))

@@ -33,9 +33,18 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler expand language) Global Local TopGlobal Text Integer)
+   (only (snail compiler names globals) Local Global TopGlobal)
+   (only (snail compiler literals constant) Integer Text)
    (prefix (snail compiler declare language) declared-)
-   (snail compiler dispatch runtime)
+   (only (snail compiler builtins base)
+         any-type-id-primitive
+         ok-case
+         pair-case
+         cons-case
+         nil-case
+         cast-error-case
+         argument-mismatch-case
+         conversion-failed-operation)
    (snail compiler dispatch text))
   (begin
 
@@ -132,7 +141,7 @@
     (export
      test-conversions)
     (import
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-conversions)

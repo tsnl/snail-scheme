@@ -42,12 +42,21 @@
    (snail core base)
    (snail core table)
    (snail compiler source)
-   (only (snail compiler outline names) same-library?)
+   (snail compiler names libraries)
    (snail compiler expand language)
    (snail compiler expand marked)
    (snail compiler expand offer)
    (snail compiler expand scopes)
-   (snail compiler expand state)
+   (only (snail compiler names globals)
+         Global
+         TopGlobal
+         FieldFunction
+         FieldRole
+         Accessor
+         Replacer
+         Setter
+         Swapper)
+   (only (snail compiler names numbering) Numbering fresh-number)
    (snail compiler expand form-shapes)
    (snail compiler expand macros)
    (snail compiler expand declaration-shapes)
@@ -217,8 +226,8 @@
 
     ;; The items `forms` are, in order, written under `sets`.
     (: scan-forms
-       (impl (Fn Expanding Scopes (List WrittenSets) (List Marked)
-                 -> (Result (Pair Scan Expanding) (List Feedback)))))
+       (impl (Fn Numbering Scopes (List WrittenSets) (List Marked)
+                 -> (Result (Pair Scan Numbering) (List Feedback)))))
     (define (scan-forms state scopes sets forms)
       (let loop ((state state)
                  (scopes scopes)
@@ -227,20 +236,20 @@
         (match forms
           ((Nil) (Ok (Pair (Scan (concatenate (reverse found)) scopes) state)))
           ((Cons form rest)
-           (expanding-let* ((scan state (scan-form state scopes sets form)))
+           (result-state-let* ((scan state (scan-form state scopes sets form)))
              (loop state (::scopes scan) rest (Cons (::items scan) found)))))))
 
     ;; A form once its head is expanded, without its annotation list. A
     ;; declaration with annotations names what they annotate, which must
     ;; be a name before the form is looked at further.
     (: scan-form
-       (impl (Fn Expanding Scopes (List WrittenSets) Marked
-                 -> (Result (Pair Scan Expanding) (List Feedback)))))
+       (impl (Fn Numbering Scopes (List WrittenSets) Marked
+                 -> (Result (Pair Scan Numbering) (List Feedback)))))
     (define (scan-form state scopes sets form)
-      (expanding-let* ((expanded state (expand-head state (top-site scopes sets) form)))
+      (result-state-let* ((expanded state (expand-head state (top-site scopes sets) form)))
         (let ((keyword (form-keyword scopes expanded)))
-          (expanding-let* ((split state (unchanged state (refused (annotated keyword expanded))))
-                           (owner state (unchanged state (annotated-owner split))))
+          (result-state-let* ((split state (unchanged state (refused (annotated keyword expanded))))
+                              (owner state (unchanged state (annotated-owner split))))
             (scan-keyword state scopes sets keyword split)))))
 
     ;; The keyword a form's head means, if it means one at the top level.
@@ -268,8 +277,8 @@
             (Ok #t))))
 
     (: scan-keyword
-       (impl (Fn Expanding Scopes (List WrittenSets) (Option String) AnnotatedForm
-                 -> (Result (Pair Scan Expanding) (List Feedback)))))
+       (impl (Fn Numbering Scopes (List WrittenSets) (Option String) AnnotatedForm
+                 -> (Result (Pair Scan Numbering) (List Feedback)))))
     (define (scan-keyword state scopes sets keyword split)
       (let ((form (::form split))
             (annotations (::annotations split)))
@@ -298,16 +307,17 @@
     ;; ---- Scopes, sets and macros ----
 
     (: scan-scope
-       (impl (Fn Expanding Scopes (List WrittenSets) Marked
-                 -> (Result (Pair Scan Expanding) (List Feedback)))))
+       (impl (Fn Numbering Scopes (List WrittenSets) Marked
+                 -> (Result (Pair Scan Numbering) (List Feedback)))))
     (define (scan-scope state scopes sets form)
-      (expanding-let* ((scope state (unchanged state (refused (with-instances-form form))))
-                       (inner state (scan-forms state
-                                                scopes
-                                                (Cons (WrittenSets (::sets scope)
-                                                                   (Env (Nil) (::library scopes)))
-                                                      sets)
-                                                (::body scope))))
+      (result-state-let* ((scope state (unchanged state (refused (with-instances-form form))))
+                          (inner state (scan-forms state
+                                                   scopes
+                                                   (Cons (WrittenSets (::sets scope)
+                                                                      (Env (Nil)
+                                                                           (::library scopes)))
+                                                         sets)
+                                                   (::body scope))))
         (Ok (Pair (Scan (list (PendingScope (::sets scope) (::items inner) (marked-loc form)))
                         (::scopes inner))
                   state))))
@@ -315,17 +325,18 @@
     ;; An instance set binds its name, then holds instances, each scanned
     ;; as written, and `dynamic-instances` declarations.
     (: scan-instance-set
-       (impl (Fn Expanding Scopes (List WrittenSets) Marked
-                 -> (Result (Pair Scan Expanding) (List Feedback)))))
+       (impl (Fn Numbering Scopes (List WrittenSets) Marked
+                 -> (Result (Pair Scan Numbering) (List Feedback)))))
     (define (scan-instance-set state scopes sets form)
-      (expanding-let* ((set state (unchanged state (refused (instance-set-form form))))
-                       (bound state (unchanged state
-                                               (bind scopes
-                                                     (::identifier (::name set))
-                                                     (::loc (::name set))
-                                                     (InstanceSetName
-                                                      (top-global scopes
-                                                                  (::identifier (::name set))))))))
+      (result-state-let* ((set state (unchanged state (refused (instance-set-form form))))
+                          (bound state (unchanged state
+                                                  (bind scopes
+                                                        (::identifier (::name set))
+                                                        (::loc (::name set))
+                                                        (InstanceSetName
+                                                         (top-global scopes
+                                                                     (::identifier
+                                                                      (::name set))))))))
         (let loop ((state state)
                    (scopes bound)
                    (declarations (::declarations set))
@@ -338,12 +349,12 @@
                              scopes)
                        state)))
             ((Cons declaration rest)
-             (expanding-let* ((scan state (set-member state scopes sets declaration)))
+             (result-state-let* ((scan state (set-member state scopes sets declaration)))
                (loop state (::scopes scan) rest (Cons (::items scan) found))))))))
 
     (: set-member
-       (impl (Fn Expanding Scopes (List WrittenSets) Marked
-                 -> (Result (Pair Scan Expanding) (List Feedback)))))
+       (impl (Fn Numbering Scopes (List WrittenSets) Marked
+                 -> (Result (Pair Scan Numbering) (List Feedback)))))
     (define (set-member state scopes sets declaration)
       (cond ((equal-keyword? (form-keyword scopes declaration) "instance")
              (scan-form state scopes sets declaration))
@@ -363,18 +374,18 @@
     ;; A top-level macro's templates resolve at this top level, where its
     ;; own name is bound, so it may expand to a use of itself.
     (: top-macro
-       (impl (Fn Expanding Scopes Marked -> (Result (Pair Scan Expanding) (List Feedback)))))
+       (impl (Fn Numbering Scopes Marked -> (Result (Pair Scan Numbering) (List Feedback)))))
     (define (top-macro state scopes form)
-      (expanding-let* ((parts state (unchanged state (macro-definition form)))
-                       (number state (fresh state))
-                       (bound state (unchanged state
-                                               (bind scopes
-                                                     (::name parts)
-                                                     (::name-loc parts)
-                                                     (MacroRules
-                                                      (Macro (MacroId (::library scopes) number)
-                                                             (::literals parts)
-                                                             (::rules parts)))))))
+      (result-state-let* ((parts state (unchanged state (macro-definition form)))
+                          (number state (Ok (fresh-number state)))
+                          (bound state (unchanged state
+                                                  (bind scopes
+                                                        (::name parts)
+                                                        (::name-loc parts)
+                                                        (MacroRules
+                                                         (Macro (MacroId (::library scopes) number)
+                                                                (::literals parts)
+                                                                (::rules parts)))))))
         (Ok (Pair (Scan (list) bound) state))))
 
     ;; ---- Definitions ----
@@ -508,7 +519,7 @@
     (define (mutable-allowed scopes field)
       (if (and (::mutable? field)
                (not (any? (lambda (library) (same-library? library (::library scopes)))
-                          (list (list "snail" "core" "base") (list "snail" "shell" "slot")))))
+                          (list base-library (list "snail" "shell" "slot")))))
           (fail (marked-loc (::name field))
                 "only Ref and the runtime's UnsafeSlot have a mutable field; hold the struct in a cell and write its fields with set!")
           (Ok #t)))
@@ -721,8 +732,9 @@
      test-scan)
     (import
      (only (scheme base) pair? symbol? symbol->string string? exact-integer? boolean?)
-     (prefix (snail compiler read language) syntax-)
+     (prefix (snail compiler literals datum) datum-)
      (snail compiler expand forms)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-scan)
@@ -741,8 +753,8 @@
       (define (marked datum)
         (cond ((or (null? datum) (pair? datum)) (Form (map marked datum) loc))
               ((symbol? datum) (Ident (Identifier (symbol->string datum) (Nil)) loc))
-              ((string? datum) (Atom (syntax-Text datum) loc))
-              ((exact-integer? datum) (Atom (syntax-Integer datum) loc))
+              ((string? datum) (Atom (datum-Text datum) loc))
+              ((exact-integer? datum) (Atom (datum-Integer datum) loc))
               (else (panic "no syntax for this datum"))))
 
       ;; A library that imports (snail core forms) whole.
@@ -759,7 +771,7 @@
                 (list (Offered forms-library forms-offer))))
 
       (define (scanned library forms)
-        (match (scan-forms (Expanding 1) (scopes-of library) (list) (map marked forms))
+        (match (scan-forms (Numbering main 1) (scopes-of library) (list) (map marked forms))
           ((Ok (Pair scan _)) (Ok scan))
           ((Err feedback) (Err feedback))))
 

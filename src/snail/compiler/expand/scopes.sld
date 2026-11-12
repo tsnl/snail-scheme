@@ -31,8 +31,6 @@
    offer-of
    written
    marked-loc
-   same-global?
-   same-top-value?
    same-identifier?
    same-meaning?
    same-resolution?)
@@ -41,9 +39,9 @@
    (snail core table)
    (snail compiler source)
    (prefix (snail compiler read language) syntax-)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler outline names) same-library?)
+   (snail compiler names libraries)
    (snail compiler expand language)
+   (only (snail compiler names globals) same-global? same-top-value?)
    (snail compiler expand marked)
    (snail compiler expand offer))
   (begin
@@ -207,31 +205,6 @@
               (same-marks? rest more)))
         (_ #f)))
 
-    (: same-global? (impl (Fn Global Global -> Bool)))
-    (define (same-global? global other)
-      (and (same-library? (::library global) (::library other))
-           (string=? (::name global) (::name other))
-           (= (::serial global) (::serial other))))
-
-    (: same-top-value? (impl (Fn TopValue TopValue -> Bool)))
-    (define (same-top-value? value other)
-      (match (Pair value other)
-        ((Pair (TopGlobal global) (TopGlobal other-global)) (same-global? global other-global))
-        ((Pair (FieldFunction case label role) (FieldFunction other-case other-label other-role))
-         (and (same-global? case other-case)
-              (string=? label other-label)
-              (same-role? role other-role)))
-        (_ #f)))
-
-    (: same-role? (impl (Fn FieldRole FieldRole -> Bool)))
-    (define (same-role? role other)
-      (match (Pair role other)
-        ((Pair (Accessor) (Accessor)) #t)
-        ((Pair (Replacer) (Replacer)) #t)
-        ((Pair (Setter) (Setter)) #t)
-        ((Pair (Swapper) (Swapper)) #t)
-        (_ #f)))
-
     ;; Two meanings are the same when they denote the same declaration,
     ;; which is when two imports of one name do not conflict, and when a
     ;; macro's literal matches. Every reserved accessor is one, as the old
@@ -297,6 +270,8 @@
      test-scopes)
     (import
      (snail core table)
+     (prefix (snail compiler literals datum) datum-)
+     (only (snail compiler names globals) Local Global TopGlobal FieldFunction Accessor Replacer)
      (snail stage0 testing))
     (begin
       (define (test-scopes)
@@ -493,7 +468,7 @@
           (expect (same-meaning? (Keyword "if") (Keyword "let")) #f)
           (expect (same-meaning? (MacroRules macro)
                                  (MacroRules (Macro (MacroId a 3)
-                                                    (list (Atom (syntax-Integer 1) (Loc "t" 1 1)))
+                                                    (list (Atom (datum-Integer 1) (Loc "t" 1 1)))
                                                     (list))))
                   #t)
           (expect (same-meaning? (MacroRules macro)
@@ -522,7 +497,7 @@
       (define (test-written)
         (let ((loc (Loc "t" 1 1)))
           (expect
-           (written (syntax-Form (list (syntax-Ident "f" loc) (syntax-Atom (syntax-Integer 1) loc))
+           (written (syntax-Form (list (syntax-Ident "f" loc) (syntax-Atom (datum-Integer 1) loc))
                                  loc))
-           (Form (list (Ident (plain "f") loc) (Atom (syntax-Integer 1) loc)) loc))))))
+           (Form (list (Ident (plain "f") loc) (Atom (datum-Integer 1) loc)) loc))))))
    (else)))

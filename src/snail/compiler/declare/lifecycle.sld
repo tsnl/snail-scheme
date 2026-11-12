@@ -26,13 +26,19 @@
    with-drops)
   (import
    (snail core base)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler outline names) same-library?)
-   (only (snail compiler expand language) Global ClassGlobal FieldClass Dyn FnContract)
+   (snail compiler names libraries)
+   (only (snail compiler expand language) Dyn FnContract)
    (snail compiler declare language)
    (snail compiler declare known)
-   (snail compiler declare forms)
-   (snail compiler declare equality))
+   (only (snail compiler builtins base)
+         drop-class
+         clone-class
+         Lifecycle
+         Dropping
+         Cloning
+         lifecycle-class)
+   (snail compiler declare equality)
+   (only (snail compiler names globals) Global ClassGlobal same-global?))
   (begin
 
     ;; ---- Sets ----
@@ -226,6 +232,7 @@
      (snail core table)
      (snail compiler source)
      (only (snail compiler expand language) Impl FnMutContract)
+     (only (snail compiler names globals) FieldClass)
      (snail compiler declare offer)
      (snail stage0 testing))
     (begin

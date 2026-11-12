@@ -40,7 +40,7 @@
    (snail compiler source)
    (snail compiler outline language)
    (snail compiler outline imports)
-   (snail compiler outline names)
+   (snail compiler names libraries)
    (only (snail compiler expand offer) Offered Expansion Offer)
    (snail compiler expand pass)
    (snail compiler expand derives)
@@ -235,9 +235,7 @@
 
     (: implicit-libraries (List LibraryName))
     (define implicit-libraries
-      (list (list "snail" "core" "forms")
-            (list "snail" "core" "primitive")
-            wire-library))
+      (list forms-library primitive-library wire-library))
 
     ;; The offers of the implicit libraries done so far, in the order the
     ;; old expander loads them. (snail core forms) has no file and offers
@@ -303,7 +301,7 @@
      (only (scheme base) apply bytevector write-bytevector close-port)
      (only (scheme file) open-binary-output-file)
      (only (chibi filesystem) create-directory* delete-file-hierarchy)
-     (prefix (snail compiler expand language) expanded-)
+     (only (snail compiler names globals) Global TopGlobal ClassGlobal)
      (prefix (only (snail compiler declare language) Call TopRef) declared-)
      (prefix
       (only (snail compiler dispatch language) Program LinkImport TopData TopInstance Statement)
@@ -354,8 +352,8 @@
                    (list (list "sample" "lib") (list "sample" "user") (list "main")))
            (expect (::dispatched (list-ref files 2))
                    (dispatched-Program (list (dispatched-Statement
-                                              (declared-TopRef (expanded-TopGlobal
-                                                                (expanded-Global
+                                              (declared-TopRef (TopGlobal
+                                                                (Global
                                                                  (list "sample" "user")
                                                                  "y"
                                                                  0))
@@ -395,7 +393,7 @@
         (match (compiled-at directory "linking.sld")
           ((Ok (CompiledAll files))
            (let* ((main (string-append directory "/linking.sld"))
-                  (handle (expanded-Global (list "main") "link-handle" 1))
+                  (handle (Global (list "main") "link-handle" 1))
                   (use (Loc main 2 1)))
              (expect (::placed (list-ref files 0))
                      (list
@@ -409,7 +407,7 @@
                                                    (string-append directory "/data/x.txt")
                                                    (Loc main 2 14))
                             (dispatched-Statement
-                             (declared-Call (declared-TopRef (expanded-TopGlobal handle) use)
+                             (declared-Call (declared-TopRef (TopGlobal handle) use)
                                             (list)
                                             use)))
                       2))))
@@ -432,9 +430,9 @@
                                         (Cons (dispatched-TopInstance instance) (Nil)))
                                   _)
               (expect (::class instance)
-                      (expanded-ClassGlobal (expanded-Global (list "snail" "shell" "wire")
-                                                             "Serialize"
-                                                             0))))
+                      (ClassGlobal (Global (list "snail" "shell" "wire")
+                                           "Serialize"
+                                           0))))
              (other (expect other "a struct and its derived instance")))
            (expect (length (::listing (list-ref files 2))) 1))
           (other (expect other "a program that derives an instance"))))

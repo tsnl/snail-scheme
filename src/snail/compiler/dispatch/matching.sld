@@ -30,12 +30,12 @@
          Arrow
          TypeVariable)
    (only (snail compiler declare equality)
-         same-global?
          same-type?
          same-variable?
          variable-among?
          same-former?
-         same-contract?))
+         same-contract?)
+   (only (snail compiler names globals) same-global?))
   (begin
 
     ;; ---- Matching ----
@@ -137,14 +137,10 @@
     (export
      test-matching)
     (import
-     (only (snail compiler expand language)
-           Global
-           Impl
-           Dyn
-           FnContract
-           FnMutContract)
+     (only (snail compiler expand language) Impl Dyn FnContract FnMutContract)
+     (only (snail compiler names globals) Global)
      (only (snail compiler declare language) Effects Written)
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-matching)

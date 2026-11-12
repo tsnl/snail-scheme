@@ -15,6 +15,7 @@
    (snail core table)
    (snail compiler source)
    (snail compiler read language)
+   (snail compiler literals datum)
    (snail compiler read location)
    (snail compiler include inclusion))
   (begin

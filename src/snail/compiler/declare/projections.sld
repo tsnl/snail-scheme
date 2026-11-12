@@ -13,10 +13,10 @@
    projected)
   (import
    (snail core base)
-   (only (snail compiler expand language) Global ClassGlobal FieldClass)
    (snail compiler declare language)
    (snail compiler declare known)
-   (snail compiler declare equality))
+   (snail compiler declare equality)
+   (only (snail compiler names globals) Global ClassGlobal FieldClass same-global?))
   (begin
 
     ;; The type `(class.output argument ...)` stands for, where the class

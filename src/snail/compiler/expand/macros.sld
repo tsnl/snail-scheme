@@ -188,8 +188,9 @@
     (import
      (only (scheme base) pair? symbol? symbol->string string? exact-integer? boolean?)
      (snail core table)
-     (prefix (snail compiler read language) syntax-)
+     (prefix (snail compiler literals datum) datum-)
      (snail compiler expand language)
+     (only (snail compiler names globals) Global TopGlobal)
      (snail compiler expand offer)
      (snail stage0 testing))
     (begin
@@ -217,9 +218,9 @@
         (cond ((or (null? datum) (pair? datum))
                (Form (map (lambda (item) (marked-at loc item)) datum) loc))
               ((symbol? datum) (Ident (Identifier (symbol->string datum) (Nil)) loc))
-              ((string? datum) (Atom (syntax-Text datum) loc))
-              ((exact-integer? datum) (Atom (syntax-Integer datum) loc))
-              ((boolean? datum) (Atom (syntax-Boolean datum) loc))
+              ((string? datum) (Atom (datum-Text datum) loc))
+              ((exact-integer? datum) (Atom (datum-Integer datum) loc))
+              ((boolean? datum) (Atom (datum-Boolean datum) loc))
               (else (panic "no syntax for this datum"))))
 
       (define (plain name)
@@ -297,7 +298,7 @@
       ;; rule is reported when it is tried, and only then.
       (define (test-rules)
         (expect (use (lib-macro '() '(((_ a) 1) ((_ a b) 2) bogus)) '(x y))
-                (Ok (Atom (syntax-Integer 2) (at 2))))
+                (Ok (Atom (datum-Integer 2) (at 2))))
         (expect (use (lib-macro '() '(((_) 1))) '(x))
                 (fail use-loc "no syntax-rules pattern matches this use"))
         (expect (use (lib-macro '() '()) '())
@@ -311,7 +312,7 @@
         (expect (use (lib-macro '() '(((_ a) (helper a 3)))) '((f x)))
                 (Ok (Form (list (introduced "helper")
                                 (marked-at use-loc '(f x))
-                                (Atom (syntax-Integer 3) (at 2)))
+                                (Atom (datum-Integer 3) (at 2)))
                           use-loc)))
         (expect (use (lib-macro '() '(((_ a ...) a))) '(1))
                 (fail use-loc "pattern variable used without an ellipsis: a")))
@@ -354,7 +355,7 @@
       ;; reported where it is written, when matching meets it.
       (define (test-bad-literal)
         (let ((macro (Macro (MacroId lib 1)
-                            (list (Atom (syntax-Integer 5) (at 7)))
+                            (list (Atom (datum-Integer 5) (at 7)))
                             (list (marked-at (at 2) '((_ a) a))))))
           (expect (macro-use scopes
                              top

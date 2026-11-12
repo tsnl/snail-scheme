@@ -1,83 +1,18 @@
-;; What (snail core forms) offers, the one library without a file: the
-;; keywords of the core forms, the builtin types, and the builtin effects,
-;; which no handler implements: `mut`, which the compiler itself performs,
-;; and `host`, the effect of code that may run anything the host
-;; implements. `fn` is a keyword, not a type, though the compiler has a
-;; type it writes. The lists are the old compiler's, in its order, in
-;; src/snail/shell/compiler/core.sld; the adapter compares them.
+;; What (snail core forms) offers the libraries that import it, the one
+;; library without a file: each of the names (snail compiler builtins
+;; forms) lists, meaning what it names there. A keyword is the core form
+;; it names, and a builtin type or effect a Global of the library.
 (define-library (snail compiler expand forms)
   (export
-   forms-library
    forms-offer)
   (import
    (snail core base)
    (snail core table)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler expand language) Global)
+   (snail compiler names libraries)
+   (only (snail compiler names globals) Global)
+   (only (snail compiler builtins forms) keywords builtin-types builtin-effects)
    (snail compiler expand offer))
   (begin
-
-    ;; ---- Names ----
-
-    (: forms-library LibraryName)
-    (define forms-library
-      (list "snail" "core" "forms"))
-
-    (: keywords (List String))
-    (define keywords
-      (list "define"
-            "lambda"
-            "fn"
-            "if"
-            "begin"
-            "let"
-            "define-syntax"
-            "syntax-rules"
-            "quote"
-            ":"
-            "struct"
-            "enum"
-            "type"
-            "typeclass"
-            "instance"
-            "define-instance-set"
-            "with-instances"
-            "match"
-            "ann"
-            "extern"
-            "primitive"
-            "effect"
-            "handle"
-            "expose"
-            "case-id"
-            "type-convert"
-            "try-convert"
-            "type-test"
-            "artifact-files"
-            "link-handle"))
-
-    (: types (List String))
-    (define types
-      (list "Any"
-            "Borrow"
-            "Funcref"
-            "U8"
-            "I32"
-            "I64"
-            "F32"
-            "F64"
-            "Bool"
-            "Char"
-            "Unit"
-            "String"
-            "Array"
-            "Vector"
-            "FnOnce"
-            "FnMut"))
-
-    (: effects (List String))
-    (define effects
-      (list "mut" "host"))
 
     ;; ---- The offer ----
 
@@ -98,7 +33,8 @@
     (: forms-offer Offer)
     (define forms-offer
       (Offer (append (map keyword-export keywords)
-                     (append (map type-export types) (map effect-export effects)))
+                     (append (map type-export (map ::first builtin-types))
+                             (map effect-export builtin-effects)))
              (TopScope empty-table empty-table)))
 
     )

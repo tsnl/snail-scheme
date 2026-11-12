@@ -10,8 +10,10 @@
   (import
    (snail core base)
    (snail compiler declare language)
-   (snail compiler declare forms)
-   (snail compiler declare equality))
+   (only (snail compiler names libraries) forms-library)
+   (only (snail compiler builtins forms) string-type vector-type u8-type)
+   (snail compiler declare equality)
+   (only (snail compiler names globals) same-global?))
   (begin
 
     ;; ---- Host functions ----
@@ -52,7 +54,8 @@
     (export
      test-host)
     (import
-     (only (snail compiler expand language) Global Dyn FnContract)
+     (only (snail compiler expand language) Dyn FnContract)
+     (only (snail compiler names globals) Global)
      (snail stage0 testing))
     (begin
       (define (test-host)
