@@ -1,0 +1,77 @@
+diff --git a/src/snail/shell/compiler/allocation-wat.sld b/src/snail/shell/compiler/allocation-wat.sld
+index 0825d6bb..eb70ab3a 100644
+--- a/src/snail/shell/compiler/allocation-wat.sld
++++ b/src/snail/shell/compiler/allocation-wat.sld
+@@ -151,6 +151,21 @@
+ 
+     ;; ---- Ordinary instructions ----
+ 
++    (: numeric? (impl (Fn String -> Bool)))
++    (define (numeric? name)
++      (and (>= (string-length name) 4)
++           (member? (substring name 0 4) (list "i32." "i64." "f32." "f64."))))
++
++    ;; Numeric instructions cannot consume or produce managed references.
++    ;; Preserve their operand evaluation, which may contain allocations or
++    ;; control flow, without adding scalar values to the lifetime graph.
++    (: scalar-flow (impl (Fn FlowContext Wat I64 GraphBuild -> Built)))
++    (define (scalar-flow context tree next build)
++      (let* ((operands (filter operand? (args tree)))
++             (values (numbered (::next build) (length operands)))
++             (built (build-arguments context operands values next (reserve build (length operands)))))
++        (Built (::build built) (::entry built) (with-operands tree (::trees built)))))
++
+     (: pointer-fields (impl (Fn (List Bool) (List I64) -> (List I64))))
+     (define (pointer-fields flags values)
+       (map ::second (filter (lambda (pair) (::first pair)) (zip flags values))))
+@@ -398,6 +413,7 @@
+     (: build-expression (impl (Fn FlowContext Wat I64 I64 GraphBuild -> Built)))
+     (define (build-expression context tree result next build)
+       (cond
++       ((or (numeric? (op tree)) (string=? (op tree) "nop")) (scalar-flow context tree next build))
+        ((and (member? (op tree) (list "block" "loop" "if")) (not (supported-control? tree)))
+         (Built (GraphBuild-complete?-set build #f) next tree))
+        ((member? (op tree) (list "block" "loop")) (block-flow context tree result next build))
+diff --git a/src/snail/shell/compiler/allocation.sld b/src/snail/shell/compiler/allocation.sld
+index 5c18041c..95f4ad44 100644
+--- a/src/snail/shell/compiler/allocation.sld
++++ b/src/snail/shell/compiler/allocation.sld
+@@ -129,20 +129,23 @@
+       ((values (Table (List I64)))
+        (changes I64)))
+ 
+-    (: live-before (impl (Fn LiveValues FlowNode -> LiveValues)))
+-    (define (live-before state node)
++    (: live-before (impl (Fn (Table (List I64)) LiveValues FlowNode -> LiveValues)))
++    (define (live-before references state node)
+       (let* ((after (gather (::values state) (::successors node)))
+-             (before (union (::uses node)
++             (uses (filter (lambda (value) (any? (lambda (site) (> site 0)) (entries references value))) (::uses node)))
++             (before (union uses
+                             (filter (lambda (value) (not (member? value (::defines node)))) after)))
+              (old (entries (::values state) (::point node))))
+         (if (= (length before) (length old)) state
+             (LiveValues (table-set (::values state) (i64->string (::point node)) before)
+                         (+ (::changes state) 1)))))
+ 
+-    (: live-values (impl (Fn FlowGraph -> (Table (List I64)))))
+-    (define (live-values graph)
++    ;; Only values that can reach local allocation sites need lifetime sets.
++    ;; Scalars and purely external references cannot make a frame site overlap.
++    (: live-values (impl (Fn FlowGraph Reachability -> (Table (List I64)))))
++    (define (live-values graph references)
+       (let loop ((state (LiveValues empty-table 0)))
+-        (let ((next (fold-left live-before state (reverse (::nodes graph)))))
++        (let ((next (fold-left (lambda (state node) (live-before (::values references) state node)) state (reverse (::nodes graph)))))
+           (if (= (::changes state) (::changes next)) (::values next) (loop next)))))
+ 
+     ;; ---- Escape and containment ----
+@@ -228,7 +231,7 @@
+       (let* ((nodes (node-table graph))
+              (repeated
+               (filter (lambda (allocation) (repeats? nodes (::point allocation))) candidates))
+-             (live (if (null? repeated) empty-table (live-values graph)))
++             (live (if (null? repeated) empty-table (live-values graph state)))
+              (heap (reachable-objects state
+                                       (map ::site
+                                            (filter (lambda (allocation)
