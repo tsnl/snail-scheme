@@ -1,0 +1,4 @@
+v26.8.1
+wasm-opt version 132
+deb50340ebef0db954db649ceb9440f9de916d76f8c7de9d4500cc6c520aa606  /tmp/wasmgc-runtime-bench.wasm
+9743092effa49b7fc193ca13befde35a4ae8146302a71ab5e7db21825e81da89  /tmp/linear-cast-bench.wasm

@@ -1,0 +1,169 @@
+{
+  "calls_per_sample": 32,
+  "compile_ms": 123.469922,
+  "engine": "Wasmtime 48.0.7 / Cranelift speed / DRC for WasmGC",
+  "initialize_ms": 0.159662,
+  "max_rss_kib": 28188,
+  "samples": 9,
+  "variant": "linear-casts",
+  "warmup_calls": 32,
+  "wasm_bytes": 302711,
+  "workloads": [
+    {
+      "checksum": "3134814395574376036",
+      "count": 1000000,
+      "linear_memory_bytes": 1376256,
+      "median_ms": 0.9889452500000001,
+      "name": "arithmetic",
+      "profile": {
+        "batches": 9,
+        "collections": 0,
+        "longest-pause-ns": "0",
+        "pause-ns": "0",
+        "profile-allocations": "0",
+        "profile-bytes": "0"
+      },
+      "samples_ms": [
+        0.95715359375,
+        0.965740375,
+        0.9850605625,
+        0.9939328124999999,
+        0.9889698124999999,
+        0.9923268437499999,
+        0.98650628125,
+        0.9889452500000001,
+        0.9923045625
+      ]
+    },
+    {
+      "checksum": "24448",
+      "count": 300000,
+      "linear_memory_bytes": 1376256,
+      "median_ms": 0.94539484375,
+      "name": "rooted-calls",
+      "profile": {
+        "batches": 9,
+        "collections": 0,
+        "longest-pause-ns": "0",
+        "pause-ns": "0",
+        "profile-allocations": "18",
+        "profile-bytes": "324"
+      },
+      "samples_ms": [
+        0.9440790625,
+        0.94539484375,
+        0.944996875,
+        0.94554475,
+        0.9444585937500001,
+        0.94719925,
+        0.945448375,
+        0.9455560625,
+        0.94483771875
+      ]
+    },
+    {
+      "checksum": "1249975000",
+      "count": 50000,
+      "linear_memory_bytes": 8388608,
+      "median_ms": 2.508429,
+      "name": "lists",
+      "profile": {
+        "batches": 9,
+        "collections": 3,
+        "longest-pause-ns": "1412897",
+        "pause-ns": "4139456",
+        "profile-allocations": "450000",
+        "profile-bytes": "12600000"
+      },
+      "samples_ms": [
+        2.557122375,
+        2.65332284375,
+        2.566128,
+        2.4616983749999997,
+        2.516142625,
+        2.508429,
+        2.3532493125,
+        2.3781987812499996,
+        2.34111478125
+      ]
+    },
+    {
+      "checksum": "5000250000",
+      "count": 100000,
+      "linear_memory_bytes": 8388608,
+      "median_ms": 4.565342,
+      "name": "arrays",
+      "profile": {
+        "batches": 9,
+        "collections": 4,
+        "longest-pause-ns": "811830",
+        "pause-ns": "1635183",
+        "profile-allocations": "36",
+        "profile-bytes": "14400576"
+      },
+      "samples_ms": [
+        4.598759843750001,
+        4.5517710625,
+        4.540028031249999,
+        4.54291234375,
+        4.565342,
+        4.5701617187500005,
+        4.541312062499999,
+        4.61164459375,
+        4.5905475000000004
+      ]
+    },
+    {
+      "checksum": "50025000",
+      "count": 10000,
+      "linear_memory_bytes": 8388608,
+      "median_ms": 0.6373941875,
+      "name": "closures",
+      "profile": {
+        "batches": 9,
+        "collections": 1,
+        "longest-pause-ns": "413624",
+        "pause-ns": "413624",
+        "profile-allocations": "90018",
+        "profile-bytes": "2520288"
+      },
+      "samples_ms": [
+        0.6373941875,
+        0.65546646875,
+        0.63701946875,
+        0.6403306562500001,
+        0.65937,
+        0.6222329375,
+        0.627170625,
+        0.63339259375,
+        0.64031515625
+      ]
+    },
+    {
+      "checksum": "2001000",
+      "count": 2000,
+      "linear_memory_bytes": 8388608,
+      "median_ms": 0.75276709375,
+      "name": "effects",
+      "profile": {
+        "batches": 9,
+        "collections": 2,
+        "longest-pause-ns": "113072",
+        "pause-ns": "224200",
+        "profile-allocations": "252018",
+        "profile-bytes": "4896288"
+      },
+      "samples_ms": [
+        0.74476821875,
+        0.74542290625,
+        0.75001265625,
+        0.75276709375,
+        0.75301809375,
+        0.75655146875,
+        0.75359321875,
+        0.74863496875,
+        0.7578440625
+      ]
+    }
+  ]
+}

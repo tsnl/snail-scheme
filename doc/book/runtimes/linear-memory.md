@@ -48,10 +48,14 @@ between surviving objects without the line fragmentation encountered in the
 initial nonmoving Immix port; the historical moving collector and the bounded
 mark/line experiment below remain distinct implementations.
 
-Each function reserves an initialized root frame without collecting, then
-publishes its pointer parameters. Pointer locals remain rooted until return.
-Pending operands have separate slots, cleared after their consuming operation
-finishes. Returns and tail calls pop the caller only after evaluating their
+Functions that may collect reserve an initialized root frame without collecting,
+then publish their pointer parameters. Direct-call analysis propagates allocation
+and unknown-call effects backwards; functions proved noncollecting omit frames.
+Pointer locals remain rooted until return and also stay cached in Wasm locals;
+assignments update both copies. Pending operands have separate slots, cleared
+after their consuming operation finishes. Inside a subtree proved noncollecting,
+intermediate values need no slots, but its final reference is published before
+later operands can collect. Returns and tail calls pop the caller only after evaluating their
 arguments; no collection occurs before the callee publishes those arguments.
 A host invocation saves and restores frame depth, including when a trap skips
 generated epilogues. A frame also roots its module while old code is executing.
@@ -139,6 +143,65 @@ Raw samples and artifact hashes are in
 below used hand-written code and a much cheaper frame protocol. Its percentages
 do not bound the naive production implementation. The next stage measures
 which runtime costs can be removed while keeping collection correct.
+
+## Measured backend optimizations
+
+The next stage keeps the same source and allocation sites. Four cumulative
+changes are implemented: omit frames in direct-call graphs proved noncollecting;
+cache rooted pointer variables in Wasm locals; omit intermediate roots inside
+expressions proved noncollecting; and fast-path an exact layout tag before
+consulting the subtype registry. Unknown, foreign and indirect calls retain the
+collecting path. An empty source effect row is not a proof that allocation is
+absent. Mutable object fields are still loaded normally.
+
+The largest improvement comes from removing frames from scalar tail loops.
+Caching alone has a modest V8 benefit and little measurable Wasmtime benefit.
+Removing intermediate roots matters much more on Wasmtime. The last change is a
+five-line runtime fast path, preserving the existing null and subtype behavior.
+These are cumulative ablations, measured in separate sets of fresh processes;
+small differences between sets can be noise. They do not isolate interactions
+as a full factorial experiment would.
+
+Median milliseconds per batch; each cell is **V8 / Wasmtime**:
+
+| Stage | Arithmetic | Rooted calls | Lists | Arrays | Closures | Effects |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Naive MVP | 7.436 / 7.898 | 5.518 / 9.787 | 2.879 / 4.614 | 6.971 / 12.030 | 0.668 / 1.129 | 0.722 / 1.360 |
+| Noncollecting frames omitted | 0.578 / 0.995 | 0.684 / 1.011 | 2.505 / 4.304 | 4.523 / 10.282 | 0.568 / 0.980 | 0.733 / 1.366 |
+| Pointer variables cached | 0.577 / 0.994 | 0.724 / 1.008 | 2.450 / 4.340 | 4.292 / 10.273 | 0.536 / 0.978 | 0.724 / 1.377 |
+| Intermediate roots omitted | 0.577 / 0.980 | 0.602 / 1.003 | 2.261 / 2.490 | 3.866 / 4.659 | 0.505 / 0.641 | 0.627 / 0.751 |
+| Exact-type fast path | 0.577 / 0.990 | 0.393 / 0.945 | 2.240 / 2.512 | 3.719 / 4.591 | 0.494 / 0.636 | 0.611 / 0.756 |
+
+For the final stage, the ratios against its accompanying WasmGC runs are:
+
+| Workload | V8 linear / WasmGC | Wasmtime linear / WasmGC |
+| --- | ---: | ---: |
+| Arithmetic | 1.02× | 1.00× |
+| Rooted calls | 3.50× | 1.70× |
+| Lists | 8.33× | 0.67× |
+| Arrays | 8.04× | 1.77× |
+| Closures | 8.18× | 0.46× |
+| Effects | 11.15× | 0.34× |
+
+The final linked module is 302,711 bytes, versus 312,349 for the MVP and 194,631
+for WasmGC. V8's eager compilation is 231 ms versus 133 ms for WasmGC;
+Wasmtime's is 124 ms versus 84 ms. Peak process RSS is 91,204 versus 124,716 KiB
+on V8, and 28,204 versus 23,748 KiB on Wasmtime. These are benchmark-process
+figures, not self-hosting compiler memory requirements.
+
+Raw measurements live in `tests/linear-gc/results/2026-11-11-{leaf,cache,subtrees,casts}/`.
+Use the corresponding `linear-{leaf,cache,subtrees,casts}` label as the final
+argument to `programs/measure` and `programs/report.mjs`. Each set includes its
+own WasmGC runs, artifact hashes and every timing sample. As with the MVP,
+background development work and unconstrained CPU frequency limit precision.
+
+Separate instrumented batches suggest collection occupies about 19% of list
+time, 4% of array time, 7–8% of closure time and 3–4% of effect time. The two
+nonallocating loops have no collections. These fractions compare diagnostic
+batches with uninstrumented execution and are approximate. Even eliminating
+collection time entirely would leave most of V8's gap: tracing alone cannot
+explain the results. Allocation, root-frame maintenance, checked addressing,
+indirect calls and engine optimization remain relevant.
 
 ## The existing Immix implementation
 

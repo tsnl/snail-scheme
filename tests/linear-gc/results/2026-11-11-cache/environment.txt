@@ -1,0 +1,4 @@
+v26.8.1
+wasm-opt version 132
+deb50340ebef0db954db649ceb9440f9de916d76f8c7de9d4500cc6c520aa606  /tmp/wasmgc-runtime-bench.wasm
+25f075fd2909eb7515f6f664357c54938af484cd82996a2accb8e487dcbfe6c8  /tmp/linear-cache-bench.wasm
