@@ -74,6 +74,14 @@ modules pass addresses directly. The native loader uses explicit code handles;
 the compiler engine recreates a forwarded code descriptor in its receiving
 runtime instead of passing an address from a different heap.
 
+Both JavaScript hosts interpret wasm32 addresses as unsigned offsets. In Node,
+`host/native/wasi.mjs` normalizes preview1's numeric arguments before calling
+WASI, while preserving signed `i64` seek offsets as BigInts. Node's
+[slow WASI dispatch](https://github.com/nodejs/node/blob/main/src/node_wasi.cc)
+requires unsigned JavaScript numbers; a valid buffer above 2 GiB otherwise
+causes `fd_readdir` to return `EINVAL`. The boundary regression uses a small
+simulated address window, avoiding a multi-gigabyte test allocation.
+
 `SNAIL_GC_STRESS=1` collects at every allocation after program initialization.
 The root regression covers incoming parameters, earlier operands, rotating loop
 values, closure captures and array initialization. Host-boundary tests also

@@ -2,6 +2,7 @@
 // These views model a small window at 0x80000000; Wasm supplies signed i32s.
 import assert from 'node:assert/strict';
 import {createWasi} from '../../host/browser/load.mjs';
+import {Exit, exiting} from '../../host/native/wasi.mjs';
 
 const base = 0x80000000, storage = new ArrayBuffer(128);
 const NativeView = globalThis.DataView, NativeBytes = globalThis.Uint8Array;
@@ -44,3 +45,25 @@ try {
   globalThis.DataView = NativeView;
   globalThis.Uint8Array = NativeBytes;
 }
+
+// Node's native methods reject negative i32 addresses (fd_readdir returns
+// EINVAL). The bridge must normalize every preview1 i32, preserving i64s.
+const calls = [], initialized = [];
+const native = exiting({
+  getImportObject: () => ({wasi_snapshot_preview1: Object.fromEntries(
+    ['fd_readdir', 'fd_seek', 'path_open'].map(name =>
+      [name, (...args) => { calls.push([name, ...args]); return 0; }]))}),
+  initialize: instance => initialized.push(instance),
+});
+const api = native.getImportObject().wasi_snapshot_preview1;
+api.fd_readdir(4, base | 0, 4096, 0n, (base + 16) | 0);
+api.fd_seek(4, -5n, 2, base | 0);
+api.path_open(3, 1, base | 0, 12, 5, 0n, 0n, 0, (base + 24) | 0);
+assert.deepEqual(calls, [
+  ['fd_readdir', 4, base, 4096, 0n, base + 16],
+  ['fd_seek', 4, -5n, 2, base],
+  ['path_open', 3, 0, base, 12, 5, 0n, 0n, 0, base + 24],
+]);
+assert.throws(() => api.proc_exit(-1), error => error instanceof Exit && error.code === 0xffffffff);
+native.initialize(memory);
+assert.deepEqual(initialized, [memory]);
