@@ -3230,8 +3230,23 @@
          (when (any? (lambda (type) (linear? ck type)) (Cons result params))
            (compile-error loc "an exposed function cannot take or return a linear value"))
          (when dynamic (check-dynamic ck (Cons result params) row loc))
+         (check-result-disposal ck result loc)
          (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
+
+    ;; The host eventually releases each returned owner under empty evidence.
+    ;; Its cleanup must be supported there even when the caller first closes
+    ;; the object: a convention does not change the result's static type.
+    (define (check-result-disposal (ck Checker) (type Type) (loc Loc)) (→ Unit) (! compile)
+      (match (lifecycle-rows (program-of ck) drop-class (Nil) (Nil) type)
+        ((Err problem) (compile-error loc problem))
+        ((Ok rows)
+         (for-each (lambda (row)
+                     (unless (match (● (flatten-row (solution ck) row) second)
+                               ((None) #t) (_ #f))
+                       (compile-error loc "an exposed result must have known disposal effects"))
+                     (check-host-effects ck row loc)
+                     (unit)) rows))))
 
     ;; A program that loads a dynamic export trusts nothing of it but its
     ;; signature, which names each type by its TypeId, so every parameter

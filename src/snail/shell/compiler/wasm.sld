@@ -1933,8 +1933,11 @@
 
     ;; ---- Exposed handovers ----
 
-    ;; Inside Snail-Core, Option keeps its normal enum representation. Only the
-    ;; exported wrapper maps None to null and Some Any to its opaque payload.
+    ;; Each host argument is observed: the entry acquires an owner for the
+    ;; source call, leaving the host's owner intact. Results transfer an owner
+    ;; to the host. Its creator's :release-result export consumes that owner;
+    ;; the host keeps the value and creator alive until release finishes.
+    ;; Option Any crosses as a nullable Any, not as its enum wrapper.
 
     (define (exposed-value-type (m Module) (type Type)) (→ Wat) (! mut)
       (if (optional-any-type? type) (nullable (Reference (any-type m))) (rep->wat (rep m type))))
@@ -1946,38 +1949,71 @@
         ((None) (panic "internal error: missing Option case"))))
 
     (define (import-handover (fn Fn) (type Type) (value Wat)) (→ Wat) (! mut)
-      (if (optional-any-type? type)
-          (let ((m (● fn module)))
+      (let ((m (● fn module)))
+        (if (optional-any-type? type)
             (wat "if" (wat "result" (rep->wat (rep m type))) (wat "ref.is_null" value)
                  (wat "then" (construct-slots fn (option-case m #f) type (Nil)))
                  (wat "else"
-                      (construct-slots fn
-                                       (option-case m #t)
-                                       type
-                                       (list (wat "ref.as_non_null" value))))))
-          value))
+                      (construct-slots fn (option-case m #t) type
+                                       (list (retain-value m (TCon "Any" (Nil))
+                                                           (wat "ref.as_non_null" value))))))
+            (retain-value m type value))))
 
     (define (export-handover (fn Fn) (type Type) (value Wat)) (→ Wat) (! mut)
       (if (optional-any-type? type)
-          (let* ((m (● fn module)) (temp (declare-temp! fn (rep->wat (rep m type))))
-                 (read (wat "local.get" (id temp))) (some (case-type m type (option-case m #t))))
-            (wat "block"
-                 (wat "result" (exposed-value-type m type))
-                 (wat "local.set" (id temp) value)
-                 (wat "if" (wat "result" (exposed-value-type m type))
-                      (wat "i32.eq"
-                           (wat "struct.get"
-                                (id (data-type m type))
-                                (int (data-offset m type))
-                                read)
-                           (wat "i32.const" (int (● (option-case m #f) tag))))
-                      (wat "then" (wat "ref.null" (id (any-type m))))
-                      (wat "else"
-                           (wat "struct.get"
-                                (id some)
-                                (int (+ 1 (data-offset m type)))
-                                (wat "ref.cast" (wat "ref" (id some)) read))))))
+          (export-option fn type value)
           value))
+
+    (define (export-option (fn Fn) (type Type) (value Wat)) (→ Wat) (! mut)
+      (let* ((m (● fn module)) (temp (declare-temp! fn (rep->wat (rep m type))))
+             (answer (declare-temp! fn (exposed-value-type m type)))
+             (read (wat "local.get" (id temp))) (some (case-type m type (option-case m #t))))
+        (wat "block" (wat "result" (exposed-value-type m type))
+             (wat "local.set" (id temp) value)
+             (wat "local.set" (id answer)
+                  (wat "if" (wat "result" (exposed-value-type m type))
+                       (wat "i32.eq"
+                            (wat "struct.get"
+                                 (id (data-type m type))
+                                 (int (data-offset m type))
+                                 read)
+                            (wat "i32.const" (int (● (option-case m #f) tag))))
+                       (wat "then" (wat "ref.null" (id (any-type m))))
+                       (wat "else"
+                            (retain-value m (TCon "Any" (Nil))
+                                          (wat "struct.get"
+                                               (id some)
+                                               (int (+ 1 (data-offset m type)))
+                                               (wat "ref.cast" (wat "ref" (id some)) read))))))
+             (wat "drop" (release-value m type read (evidence-none m)))
+             (wat "local.get" (id answer)))))
+
+    ;; A release entry consumes its argument without the ordinary entry's
+    ;; retain. Mark a host ownership record consumed before calling it, even
+    ;; if disposal reenters the host or traps. A trap is terminal, not unwind.
+    (define (export-result-release! (m Module) (name String) (symbol String) (type Type))
+      (→ Unit) (! mut)
+      (match (fn-arrow type)
+        ((TFun _ result _)
+         (when (counted-value? m result)
+           (let ((wrapper (wasm-id (string-append "release-result." name))))
+             (push-function! m wrapper
+                             (wat "func" (id wrapper)
+                                  (wat "param" (id "$result") (exposed-value-type m result))
+                                  (wat "drop" (release-handover m result
+                                                                (wat "local.get" (id "$result"))))))
+             (push! (● m exports)
+                    (wat "export" (wat-string (string-append symbol ":release-result"))
+                         (wat "func" (id wrapper)))))))
+        (_ (panic "internal error: an exposed value has a function type"))))
+
+    (define (release-handover (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
+      (if (optional-any-type? type)
+          (wat "if" (wat "result" (Word "i32")) (wat "ref.is_null" value)
+               (wat "then" (wat "i32.const" (int 0)))
+               (wat "else" (release-value m (TCon "Any" (Nil)) (wat "ref.as_non_null" value)
+                                          (evidence-none m))))
+          (release-value m type value (evidence-none m))))
 
     (define (exposed-function (m Module) (name String) (type Type)) (→ String) (! mut)
       (match (fn-arrow type)
@@ -4992,11 +5028,11 @@
               (panic "internal error: an exposed function is not a lambda"))
             (if dynamic
                 (export-dynamic! m name symbol (● definition type))
-                (push! (● m exports)
-                       (wat "export"
-                            (wat-string symbol)
-                            (wat "func"
-                                 (id (exposed-function m name (● definition type))))))))
+                (begin
+                  (push! (● m exports)
+                         (wat "export" (wat-string symbol)
+                              (wat "func" (id (exposed-function m name (● definition type))))))
+                  (export-result-release! m name symbol (● definition type)))))
            ((None) (panic "internal error: an exposed function has no definition")))
          (Nil))))
 

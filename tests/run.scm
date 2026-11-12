@@ -32,8 +32,9 @@
 
 (define (case-names directory)
   (list-sort string<? (filter values (map (lambda (file)
-                                    (and (string-suffix? ".sld" file)
-                                         (substring file 0 (- (string-length file) 4)))) (directory-list directory)))))
+                                            (and (string-suffix? ".sld" file)
+                                                 (substring file 0 (- (string-length file) 4))))
+                                          (directory-list directory)))))
 
 (define (error-text failure)
   (if (message-condition? failure)
@@ -194,6 +195,18 @@
     (or (not (string=? day-night night-day))
         (report "type ids" "unchanged by reordering an enum's cases" day-night))))
 
+;; Counted owners crossing the host boundary survive repeated calls and release
+;; once per returned credit, including aliases and nullable Any payloads.
+(define (check-host-owners root)
+  (let* ((program (path-join root "build/tests/host-owners.wasm"))
+         (text (program->wat root (standard-directories root)
+                             (path-join root "tests/host-owners/main.sld"))))
+    (link-wat root text program)
+    (let ((result (capture-process (list "node" "--no-warnings"
+                                         (path-join root "tests/host-owners/check.mjs") program))))
+      (or (zero? (caddr result))
+          (report "host owners" "failed" (string-append (car result) (cadr result)))))))
+
 ;; The exposed and foreign ABI, exercised from JavaScript against linked Wasm.
 (define (check-host-boundary root)
   (let* ((program (path-join root "build/tests/host-boundary.wasm"))
@@ -255,9 +268,10 @@
       (substring text start (text-index text ")" start)))))
 
 (define (text-index text pattern from)
-  (cond ((> (+ from (string-length pattern)) (string-length text)) (error 'test "not found" pattern))
-        ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
-        (else (text-index text pattern (+ from 1)))))
+  (cond
+   ((> (+ from (string-length pattern)) (string-length text)) (error 'test "not found" pattern))
+   ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
+   (else (text-index text pattern (+ from 1)))))
 
 ;; The production formatter's CLI contracts, including the repository's
 ;; formatting gate, run on the same engine as the rest of this suite.
@@ -479,12 +493,12 @@
 
 (define (check-udp root)
   (for-all (lambda (flags)
-           (let ((result (capture-process (append (list "node" "--no-warnings")
-                                                  flags
-                                                  (list (path-join root "tests/udp.mjs"))))))
-             (or (zero? (caddr result))
-                 (report "native UDP" "failed" (string-append (car result) (cadr result))))))
-         '(() ("--test-udp-no-try-send"))))
+             (let ((result (capture-process (append (list "node" "--no-warnings")
+                                                    flags
+                                                    (list (path-join root "tests/udp.mjs"))))))
+               (or (zero? (caddr result))
+                   (report "native UDP" "failed" (string-append (car result) (cadr result))))))
+           '(() ("--test-udp-no-try-send"))))
 
 (define (compile-async-files root)
   (let ((text (program->wat root (standard-directories root)
@@ -731,20 +745,21 @@
          [lock (make-mutex)] [done (make-condition)])
     (define (claim)
       (with-mutex lock
-        (and (< next (vector-length results))
-             (let ([index next]) (set! next (+ next 1)) index))))
+                  (and (< next (vector-length results))
+                       (let ([index next]) (set! next (+ next 1)) index))))
     (define (worker)
       (let loop ([index (claim)])
         (when index
           (let ([check (vector-ref results index)])
             (when (procedure? check)
               (vector-set! results index
-                (guard (failure [else (report "check" "raised" (error-text failure))]) (check)))))
+                           (guard (failure [else (report "check" "raised" (error-text failure))])
+                             (check)))))
           (loop (claim))))
       (with-mutex lock (set! remaining (- remaining 1)) (condition-signal done)))
     (do ([i 0 (+ i 1)]) [(= i jobs)] (fork-thread worker))
     (with-mutex lock
-      (let wait () (unless (= remaining 0) (condition-wait done lock) (wait))))
+                (let wait () (unless (= remaining 0) (condition-wait done lock) (wait))))
     (vector->list results)))
 
 ;; ---- Suite ----
@@ -801,7 +816,8 @@
                                   (lambda () (check-udp root))
                                   (lambda () (check-type-ids root))
                                   (lambda () (check-numeric-runtime root))
-                                  (lambda () (check-host-boundary root))
+                                  (lambda ()
+                                    (and (check-host-owners root) (check-host-boundary root)))
                                   (compile-artifacts root)
                                   (compile-socket-boundary root)
                                   (compile-async-files root)
