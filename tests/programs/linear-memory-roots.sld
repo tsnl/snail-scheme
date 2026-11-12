@@ -40,3 +40,9 @@
 ;; survive later allocations in generate's loop, including nonfinal elements.
 (let ((words (vector-generate 80 (lambda (index) (show index)))))
   (write-line (string-append (vector-ref words 3) ":" (vector-ref words 77))))
+
+;; The first argument is a snapshot. Replacing the cell's pointer must not
+;; replace the temporary root that protects that already evaluated argument.
+(let ((cell (ref (fresh 30))))
+  (write-line (operands (ref-get cell)
+                        (begin (ref-set! cell (fresh 40)) (fresh 50)))))
