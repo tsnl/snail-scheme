@@ -701,7 +701,8 @@ fn subtype(types: &Types, mut tag: u32, expected: u32) -> bool {
     tag != 0
 }
 
-/// The compiler supplies an actual managed address, or zero. Conservative
+/// The compiler supplies an actual object address in the heap or an active
+/// root frame, or zero. Conservative
 /// candidate recognition is confined to tracing; it never grants access here.
 #[unsafe(export_name = "snail:gc/test")]
 pub extern "C" fn test_type(address: usize, expected: u32, nullable: u32) -> u32 {

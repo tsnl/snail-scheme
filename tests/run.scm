@@ -34,6 +34,10 @@
  (only (snail shell compiler specialize) test-specialize)
  (only (snail shell compiler prepare) test-prepare)
  (only (snail shell compiler wasm) test-wasm)
+ (only (snail shell compiler allocation) test-allocation)
+ (only (snail shell compiler allocation-wat) test-allocation-wat)
+ (only (snail shell compiler memory) lower-memory)
+ (only (snail shell compiler wat) parse-wat wat->string)
  (only (snail shell compiler session) test-session)
  (only (snail shell project plan) test-plan)
  (only (snail shell project) test-project))
@@ -206,6 +210,19 @@
         (night-day (enum-type-id root "(Night) (Day)")))
     (or (not (string=? day-night night-day))
         (report "type ids" "unchanged by reordering an enum's cases" day-night))))
+
+;; The graph can reuse a loop allocation only after its earlier instance dies.
+;; Execute the actual physical lowering, including collection through frame
+;; payloads, and assert the dynamic heap-allocation counts inside the module.
+(define (check-allocation-placement root)
+  (let* ((program (path-join root "build/tests/allocation-placement.wasm"))
+         (logical (parse-wat (read-file (path-join root "tests/linear-gc/placement.wat")))))
+    (link-wat root (wat->string (lower-memory logical)) program)
+    (let ((ran (run-wasm root program '())))
+      (or (zero? (caddr ran))
+          (report "allocation placement"
+                  "execution failed"
+                  (string-append (car ran) (cadr ran)))))))
 
 ;; The exposed and foreign ABI, exercised from JavaScript against linked Wasm.
 (define (check-host-boundary root)
@@ -797,6 +814,8 @@
   (test-specialize)
   (test-prepare)
   (test-wasm)
+  (test-allocation)
+  (test-allocation-wat)
   (test-expand (path-join root "build/tests/expand") (path-join root "src"))
   (test-session (path-join root "build/tests/session") (path-join root "src"))
   (test-plan (path-join root "build/tests/plan") (path-join root "src"))
@@ -834,6 +853,7 @@
                                   (lambda () (check-tcp root))
                                   (lambda () (check-udp root))
                                   (lambda () (check-type-ids root))
+                                  (lambda () (check-allocation-placement root))
                                   (lambda () (check-numeric-runtime root))
                                   (lambda () (check-host-boundary root))
                                   (compile-artifacts root)

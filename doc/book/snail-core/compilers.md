@@ -1022,6 +1022,23 @@ outside its invocation or cleanup bounds. Check that adding a family member
 invalidates the dispatchers that depend on it.
 Bootstrap and compiled execution must agree.
 
+## Physical allocation placement
+
+After logical Wasm emission, `allocation-wat.sld` constructs an explicit
+control-flow graph for `allocation.sld`. The latter propagates reference
+origins and containment, then combines escape with liveness across backedges.
+Fixed struct sites begin as frame candidates; escaping or overlapping objects
+use the heap. Returning a pointer, storing it into longer-lived storage, and
+passing it to a call without a borrowing contract can require promotion.
+Closure captures follow the same containment rule.
+
+`memory.sld` consumes those placement annotations while lowering logical
+managed operations to linear-memory loads and stores. Frame payloads share the
+scanned root extent and precede temporary roots. This keeps storage placement
+separate from the source checker and from physical Wasm address emission. The
+[runtime chapter](../runtimes/linear-memory.md#allocation-placement-on-a-control-flow-graph)
+describes the tracing and lifetime invariants, current limitations and tests.
+
 ## Separate compilation
 
 The unit of compilation is a library (`source->modules` in
