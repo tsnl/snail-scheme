@@ -8,5 +8,8 @@
    ((x I64)))
   (Empty))
 
-(let ((cell (ref (Dot 1))))
-  (set! (Dot-x (ref-get cell)) 2))
+(define main
+  (lambda ()
+    (let ((cell (ref (Dot 1))))
+      (set! (Dot-x (ref-get cell)) 2))
+    (unit)))

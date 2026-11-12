@@ -29,6 +29,9 @@
   (match (clone (Wrapper (Handle "h")))
     ((Pair a b) (drop a) (drop b))))
 
-(handle log
-    ((say (lambda (text) (write-line text))))
-  (demo))
+(define main
+  (lambda ()
+    (handle log
+        ((say (lambda (text) (write-line text))))
+      (demo))
+    (unit)))

@@ -2,4 +2,8 @@
  (snail core base))
 
 (define (integer (value I64)) (→ I64) value)
-(integer "wrong")
+
+(define main
+  (lambda ()
+    (integer "wrong")
+    (unit)))

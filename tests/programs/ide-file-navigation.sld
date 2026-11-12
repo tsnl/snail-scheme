@@ -26,49 +26,58 @@
       ((Some buffer) (write-line (● buffer text)))
       ((None) (panic "draft lost during recovery")))))
 
-(dispatch-local
- (once (lambda ()
-         (let ((events (ref #f)) (requests (ref (ann (Nil) (List String)))))
-           (let ((result
-                  (handle fetch
-                      ((request (lambda (method url headers body)
-                                  (ref-set! requests (append (ref-get requests) (list url)))
-                                  (Ok (Reply 200
-                                             (cond ((string=? url "/api/project")
-                                                    "{\"name\":\"test\",\"directory\":\"/test\",\"files\":[\"main.sld\",\"lib/notes.txt\"],\"directories\":[\"lib\"]}")
-                                                   ((string=? url "/api/file?path=main.sld")
-                                                    "{\"text\":\"main\",\"revision\":\"main\"}")
-                                                   ((string=? url "/api/file?path=lib%2Fnotes.txt")
-                                                    "{\"text\":\"notes\",\"revision\":\"notes\"}")
-                                                   (else (panic url)))))))
-                       (stream-open (lambda (url kinds) (Stream 1)))
-                       (stream-next (lambda (stream)
-                                      (if (ref-get events) (None)
-                                          (begin
-                                            (ref-set! events #t)
-                                            (Some (StreamEvent "open" ""))))))
-                       (stream-close (lambda (stream) (unit))))
-                    (with-memory-dom
-                     (list (FireWindow "keydown"
-                                       (Event-modifiers-set (Event-key-set no-event "p") meta-key))
-                           (Fire "command-query" "input" (Event-value-set no-event "lnote"))
-                           (Fire "command-query" "keydown" (Event-key-set no-event "Enter"))
-                           (Fire "text-0" "input" (Event-value-set no-event "draft notes")))
-                     (lambda ()
-                       (finished (run-reactor (begin-session initial)
-                                              (list (Connect))
-                                              (ann update-session
-                                                   (Fn Session (Option Msg) → Session ! mut completion output-port dom fetch))
-                                              session-view
-                                              session-window
-                                              snapshot
-                                              (lambda (model) (unit))
-                                              (lambda (model) (unit)))))))))
-             (for-each write-line (ref-get requests))
-             ;; The new envelope retains tab order; the original wire record
-             ;; upgrades to one tab per pane and keeps the same unsaved draft.
-             (recovered (serialize (kept (● result first))))
-             (recovered (serialize (● (kept (● result first)) previous)))
-             (match (buffer-at (● result first) "lib/notes.txt")
-               ((Some buffer) (write-line (● buffer text)))
-               ((None) (panic "file navigation did not finish"))))))))
+(define main
+  (lambda ()
+    (dispatch-local
+     (once (lambda ()
+             (let ((events (ref #f)) (requests (ref (ann (Nil) (List String)))))
+               (let ((result
+                      (handle fetch
+                          ((request (lambda (method url headers body)
+                                      (ref-set! requests (append (ref-get requests) (list url)))
+                                      (Ok (Reply 200
+                                                 (cond ((string=? url "/api/project")
+                                                        "{\"name\":\"test\",\"directory\":\"/test\",\"files\":[\"main.sld\",\"lib/notes.txt\"],\"directories\":[\"lib\"]}")
+                                                       ((string=? url "/api/file?path=main.sld")
+                                                        "{\"text\":\"main\",\"revision\":\"main\"}")
+                                                       ((string=? url
+                                                                  "/api/file?path=lib%2Fnotes.txt")
+                                                        "{\"text\":\"notes\",\"revision\":\"notes\"}")
+                                                       (else (panic url)))))))
+                           (stream-open (lambda (url kinds) (Stream 1)))
+                           (stream-next (lambda (stream)
+                                          (if (ref-get events) (None)
+                                              (begin
+                                                (ref-set! events #t)
+                                                (Some (StreamEvent "open" ""))))))
+                           (stream-close (lambda (stream) (unit))))
+                        (with-memory-dom
+                         (list (FireWindow "keydown"
+                                           (Event-modifiers-set (Event-key-set no-event "p")
+                                                                meta-key))
+                               (Fire "command-query" "input" (Event-value-set no-event "lnote"))
+                               (Fire "command-query" "keydown" (Event-key-set no-event "Enter"))
+                               (Fire "text-0" "input" (Event-value-set no-event "draft notes")))
+                         (lambda ()
+                           (finished (run-reactor (begin-session initial)
+                                                  (list (Connect))
+                                                  (ann update-session
+                                                       (Fn Session
+                                                           (Option Msg)
+                                                           →
+                                                           Session
+                                                           ! mut completion output-port dom fetch))
+                                                  session-view
+                                                  session-window
+                                                  snapshot
+                                                  (lambda (model) (unit))
+                                                  (lambda (model) (unit)))))))))
+                 (for-each write-line (ref-get requests))
+                 ;; The new envelope retains tab order; the original wire record
+                 ;; upgrades to one tab per pane and keeps the same unsaved draft.
+                 (recovered (serialize (kept (● result first))))
+                 (recovered (serialize (● (kept (● result first)) previous)))
+                 (match (buffer-at (● result first) "lib/notes.txt")
+                   ((Some buffer) (write-line (● buffer text)))
+                   ((None) (panic "file navigation did not finish"))))))))
+    (unit)))

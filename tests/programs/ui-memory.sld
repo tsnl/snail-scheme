@@ -105,18 +105,21 @@
         (clicked "reverse")
         (clicked "remove-1")))
 
-(dispatch-local
- (once (lambda ()
-         (let ((result
-                (with-memory-dom script
-                                 (lambda ()
-                                   (run-ui (Model (Nil) "" 0 0)
-                                           (Nil)
-                                           update
-                                           view
-                                           (lambda (model) (Nil))
-                                           (lambda (model) (unit))
-                                           checkpoint)))))
-           (write-line (string-append "saved " (show (● (● result first) saved))))
-           (write-line (document->html (● result second)))
-           (for-each write-line (document-trace (● result second)))))))
+(define main
+  (lambda ()
+    (dispatch-local
+     (once (lambda ()
+             (let ((result
+                    (with-memory-dom script
+                                     (lambda ()
+                                       (run-ui (Model (Nil) "" 0 0)
+                                               (Nil)
+                                               update
+                                               view
+                                               (lambda (model) (Nil))
+                                               (lambda (model) (unit))
+                                               checkpoint)))))
+               (write-line (string-append "saved " (show (● (● result first) saved))))
+               (write-line (document->html (● result second)))
+               (for-each write-line (document-trace (● result second)))))))
+    (unit)))

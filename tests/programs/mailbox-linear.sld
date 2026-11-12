@@ -23,7 +23,10 @@
     (call-once (mailbox-receive mailbox))
     (consume mailbox (- count 1))))
 
-(let ((mailbox (make-mailbox)))
-  (dispatch-local (once (lambda () (consume mailbox 2))))
-  (dispatch-local (once (lambda () (produce mailbox))))
-  (write-line "main returns"))
+(define main
+  (lambda ()
+    (let ((mailbox (make-mailbox)))
+      (dispatch-local (once (lambda () (consume mailbox 2))))
+      (dispatch-local (once (lambda () (produce mailbox))))
+      (write-line "main returns"))
+    (unit)))

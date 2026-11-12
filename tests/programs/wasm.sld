@@ -20,7 +20,6 @@
         10 9 1 7 0 32 1 32 2 124 11))
 
 (define path "build/tests/adder.wasm")
-(write-file path (list->string (map i32->char adder)))
 
 (define (use-adder (module Module)) (→ Unit) (! wasm output-port)
   (match (module-export module "add")
@@ -35,14 +34,6 @@
        (newline)))
     ((Err error) (write-line (load-error-message error)))))
 
-(match (load-module "adder" path)
-  ((Ok module)
-   (use-adder module)
-   (match (module-export module "subtract")
-     ((Ok _) (write-line "subtract is exported"))
-     ((Err error) (write-line (load-error-message error)))))
-  ((Err error) (write-line (load-error-message error))))
-
 ;; Failures are values: a name linked already, a file that is missing, one
 ;; that is not a module, and a module that imports the runtime's memory as
 ;; a function.
@@ -54,14 +45,26 @@
         6 109 101 109 111 114 121 0 0))
 
 (define text-path "build/tests/adder.txt")
-(write-file text-path "not a module")
+
 (define mislinked-path "build/tests/mislinked.wasm")
-(write-file mislinked-path (list->string (map i32->char mislinked)))
-(for-each (lambda (entry)
-            (match (load-module (● entry first) (● entry second))
-              ((Ok _) (write-line "loaded"))
-              ((Err error) (write-line (load-error-message error)))))
-          (list (Pair "adder" path)
-                (Pair "missing" "build/tests/missing.wasm")
-                (Pair "text" text-path)
-                (Pair "mislinked" mislinked-path)))
+
+(define (main) (→ Unit) (! fs output-port wasm)
+  (write-file path (list->string (map i32->char adder)))
+  (match (load-module "adder" path)
+    ((Ok module)
+     (use-adder module)
+     (match (module-export module "subtract")
+       ((Ok _) (write-line "subtract is exported"))
+       ((Err error) (write-line (load-error-message error)))))
+    ((Err error) (write-line (load-error-message error))))
+  (write-file text-path "not a module")
+  (write-file mislinked-path (list->string (map i32->char mislinked)))
+  (for-each (lambda (entry)
+              (match (load-module (● entry first) (● entry second))
+                ((Ok _) (write-line "loaded"))
+                ((Err error) (write-line (load-error-message error)))))
+            (list (Pair "adder" path)
+                  (Pair "missing" "build/tests/missing.wasm")
+                  (Pair "text" text-path)
+                  (Pair "mislinked" mislinked-path)))
+  (unit))

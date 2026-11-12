@@ -9,4 +9,7 @@
   (default
     ((now (lambda () (write-line "now") 0)))))
 
-(now)
+(define main
+  (lambda ()
+    (now)
+    (unit)))

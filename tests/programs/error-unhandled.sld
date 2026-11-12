@@ -4,4 +4,7 @@
 (effect Ask
   ((ask (Fn → I64))))
 
-(ask)
+(define main
+  (lambda ()
+    (ask)
+    (unit)))

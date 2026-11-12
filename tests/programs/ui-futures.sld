@@ -46,15 +46,18 @@
 (define (checkpoint (saved String)) (→ Unit) (! tasks)
   (yield))
 
-(match (with-memory-dom (list (Hide) (Hide))
-                        (lambda () (run-reactor (Model "idle" (None)) (list (Start))
-                                                update
-                                                view
-                                                window
-                                                snapshot
-                                                (lambda (saved) (unit))
-                                                checkpoint)))
-  ((Pair model document)
-   (write-line (● model text))
-   (write-line (document->html document))
-   (drop model)))
+(define main
+  (lambda ()
+    (match (with-memory-dom (list (Hide) (Hide))
+                            (lambda () (run-reactor (Model "idle" (None)) (list (Start))
+                                                    update
+                                                    view
+                                                    window
+                                                    snapshot
+                                                    (lambda (saved) (unit))
+                                                    checkpoint)))
+      ((Pair model document)
+       (write-line (● model text))
+       (write-line (document->html document))
+       (drop model)))
+    (unit)))

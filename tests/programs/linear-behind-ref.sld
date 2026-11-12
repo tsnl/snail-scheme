@@ -20,7 +20,10 @@
        ((None) (write-line "gone")))
      (run-chain next))))
 
-(let* ((chain (Link (ref (Some "one")) (Link (ref (Some "two")) (End))))
-       (again chain))
-  (run-chain chain)
-  (run-chain again))
+(define main
+  (lambda ()
+    (let* ((chain (Link (ref (Some "one")) (Link (ref (Some "two")) (End))))
+           (again chain))
+      (run-chain chain)
+      (run-chain again))
+    (unit)))

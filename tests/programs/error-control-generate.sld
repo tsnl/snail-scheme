@@ -11,4 +11,7 @@
                   (lambda (value resume) (drop resume) (vector-generate 0 (lambda (index) index)))))
     (vector-generate count (lambda (index) (if (< index 3) (* index index) (abort index))))))
 
-(squares 4)
+(define main
+  (lambda ()
+    (squares 4)
+    (unit)))

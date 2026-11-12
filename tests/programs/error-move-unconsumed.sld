@@ -6,5 +6,8 @@
   ((id I64))
   (deriving Move))
 
-(let ((token (Token 1)))
-  (unit))
+(define main
+  (lambda ()
+    (let ((token (Token 1)))
+      (unit))
+    (unit)))

@@ -11,9 +11,12 @@
 (define (inspect (token (Borrow Token)) (ignored Unit)) (→ I64)
   (● token number))
 
-(let ((token (Token 1)))
-  (handle Pause
-      ((pause (lambda (resume) (resume (unit)))))
-    (with-borrow (borrowed token)
-                 (inspect borrowed (pause))))
-  (drop token))
+(define main
+  (lambda ()
+    (let ((token (Token 1)))
+      (handle Pause
+          ((pause (lambda (resume) (resume (unit)))))
+        (with-borrow (borrowed token)
+                     (inspect borrowed (pause))))
+      (drop token))
+    (unit)))

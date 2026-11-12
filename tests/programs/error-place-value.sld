@@ -10,4 +10,7 @@
 (define (tries (read (Fn Task → I64))) (→ (Fn Task → I64))
   read)
 
-(tries (lambda (record) (● record tries)))
+(define main
+  (lambda ()
+    (tries (lambda (record) (● record tries)))
+    (unit)))

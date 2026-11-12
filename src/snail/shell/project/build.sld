@@ -115,7 +115,11 @@
     ;; supplies every input a phase needs before it runs, so a compile that
     ;; asks for one names a need the planner missed.
 
-    (define (compiled (work (Fn → T ! compile e))) (→ T) (! building e) (∀ T e) (⊨ (Copy T))
+    (define (compiled (work (Fn → T ! compile e)))
+      (→ T)
+      (! building e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
       (match (compiling work)
         ((Ok value) value)
         ((Err (Failed diagnostics)) (absurd (stop (CompileFailure diagnostics))))
@@ -1251,7 +1255,7 @@
       (→ Unit)
       (! building)
       (∀ T)
-      (⊨ (Copy T))
+      (⊨ (Copy T) (Drop (!) T))
       (match result
         ((Ok _) (unit))
         ((Err error) (fail-build (string-append failure ": " (show error))))))

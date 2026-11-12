@@ -9,4 +9,7 @@
 
 (define boxed (→ Any) (type-convert (lambda () (unit)) Any))
 
-(display (type-test boxed (Fn → Unit ! Log)))
+(define main
+  (lambda ()
+    (display (type-test boxed (Fn → Unit ! Log)))
+    (unit)))

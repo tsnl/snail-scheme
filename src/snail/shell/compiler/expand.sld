@@ -673,9 +673,12 @@
                                               loc))))
                     loc)
               (Form (list (Ident "recipe" (None) loc) (Atom (DString recipe) loc)) loc)
-              (Form (list write-library
-                          (Form (list (Ident "lambda" (None) loc) (Form (Nil) loc) expression) loc))
-                    loc))))
+              (Form (list (Ident "define" (None) loc) (Ident "main" (None) loc)
+                          (Form (list (Ident "lambda" (None) loc) (Form (Nil) loc)
+                                      (Form (list write-library
+                                                  (Form (list (Ident "lambda" (None) loc)
+                                                              (Form (Nil) loc) expression) loc))
+                                            loc)) loc)) loc))))
 
     ;; ---- Sources ----
 
@@ -911,49 +914,19 @@
       (→ Context)
       (! fs compile generator)
       (let* ((cx (expand-top-level cx env forms))
-             (cx (if (string=? (● cx prefix) "main") (with-one-body cx) cx)))
+             (cx (if (string=? (● cx prefix) "main") (with-entry cx) cx)))
         (Context-program-set cx
                              (program-with-library (● cx program)
                                                    (● cx prefix)
                                                    (● cx items)))))
 
-    ;; A program's statements are one body, a function of no arguments the
-    ;; one statement left calls, which runs after the definitions are
-    ;; initialized, in their order. A function, so a yield in a statement
-    ;; saves the rest of the program as a frame when the body runs as the
-    ;; program's first task ((snail shell task)'s `start-main`). `items`
-    ;; are newest first.
-
-    (define (with-one-body (cx Context)) (→ Context)
-      (let ((items (● cx items))
-            (statements (reverse (concatenate (map (lambda (item)
-                                                     (match item
-                                                       ((Do value) (list value))
-                                                       (_ (Nil))))
-                                                   (● cx items))))))
-        (match statements
-          ((Nil) cx)
-          ((Cons first rest)
-           (let ((name (string-append (● cx prefix) ":%body")) (loc (● first loc)))
-             (add-value (Context-items-set cx
-                                           (Cons
-                                            (Do (expr (App (expr (Var name (Nil) (Nil)) loc) (Nil))
-                                                      loc))
-                                            (Cons (Define name
-                                                    (expr (Lambda (Nil) (sequence first rest) #f)
-                                                          loc))
-                                                  (filter (lambda (item)
-                                                            (match item
-                                                              ((Do _) #f)
-                                                              (_ #t)))
-                                                          items))))
-                        name
-                        (Defined (None) (None) #t)))))))
-
-    (define (sequence (first Expr) (rest (List Expr))) (→ Expr)
-      (match rest
-        ((Nil) first)
-        ((Cons next more) (expr (Seq first (sequence next more)) (● first loc)))))
+    ;; Only the root program's own main is an entry. An imported function
+    ;; called main remains an ordinary function, with no startup behavior.
+    (define (with-entry (cx Context)) (→ Context)
+      (match (find (lambda (item)
+                     (match item ((Define "main:main" _) #t) (_ #f))) (● cx items))
+        ((Some (Define name value)) (add-item cx (Entry name (● value loc))))
+        (_ cx)))
 
     ;; Each declaration is a section of imports, exports or definitions, or a
     ;; `cond-expand` choosing more declarations.
@@ -2008,10 +1981,8 @@
              (_ (panic "internal error: unparsed definition"))))
           (("expose") (Pair (list (lambda (cx) (add-item cx (expose-item cx env form)))) cx))
           (("expression")
-           (Pair (list (lambda (cx)
-                         (expanding cx ((value (expand-expr env form)))
-                                    (add-item cx (Do (scope-instance-value cx env value))))))
-                 cx))
+           (compile-error (syntax-loc form)
+                          "top-level expressions are not allowed; put runtime work in main"))
           (else (Pair (Nil) cx)))))
 
     ;; `(expose name "symbol")` exports a top-level function to the host;
@@ -4955,7 +4926,7 @@
                       (module (string-append directory "/sample/docs.sld"))
                       (directories (list directory library)))
                   (write-file source
-                              "(import (prefix (sample docs) renamed-)) (renamed-Entry \"ok\")")
+                              "(import (snail core forms) (prefix (sample docs) renamed-)) (define example (renamed-Entry \"ok\"))")
                   (write-file module (annotation-library "original"))
                   (let* ((first (expand-program directories
                                                 annotation-generator
@@ -5051,7 +5022,7 @@
                                                                                    0)
                                                                          "/sample/made.sld")))
                                                         ")")
-                                         "(write-generated-library (lambda () (unit)))")))))
+                                         "(define main (lambda () (write-generated-library (lambda () (unit)))))")))))
 
       (define test-library-closure
         (lambda (directories)
@@ -5113,7 +5084,7 @@
                 (write-file (string-append root "/sample/linked.sld")
                             "(define-library (sample linked) (export pixel) (import (snail core forms)) (begin (define pixel (link-handle \"data/./x/../pixel.bin\"))))")
                 (let ((expansion (link-expansion root
-                                                 "(import (snail core forms) (sample linked)) (define notes (link-handle \"notes.txt\")) (link-handle \"notes.txt\") (link-handle \"copy.txt\")")))
+                                                 "(import (snail core forms) (sample linked)) (define notes (link-handle \"notes.txt\")) (define other (link-handle \"notes.txt\")) (define copy (link-handle \"copy.txt\"))")))
                   (expect (map (lambda (record) (● record digest)) (program-links expansion))
                           (list "3f8d7379e2f0f7d0c845a06f7b67ef80cacce0c686254aced769c1698f3fe59a"
                                 "ab5aa97074c454a0632057e704220d9a6678fbf773a0a5806fc09b8173b07309"))
@@ -5144,9 +5115,9 @@
                                             (lambda ()
                                               (link-expansion root
                                                               (string-append
-                                                               "(import (snail core forms)) (link-handle \""
+                                                               "(import (snail core forms)) (define linked (link-handle \""
                                                                path
-                                                               "\")"))))))
+                                                               "\"))"))))))
                               (if message
                                   (substring message
                                              (+ (string-contains message
@@ -5162,7 +5133,7 @@
       (define test-primitives
         (lambda (root library) (create-directory* root)
                 (write-file (string-append root "/main.sld")
-                            "(import (snail core primitive)) (unit)")
+                            "(import (snail core forms) (snail core primitive)) (define (main) (→ Unit) (unit))")
                 (let ((program (● (expand-program (list root library)
                                                   (lambda (loading forms)
                                                     (panic "unexpected producer"))
@@ -5175,7 +5146,7 @@
                           (list (list "A" "e")
                                 "(Fn I64 (Fn I64 → A ! e) → (Vector A) ! e)"))
                   (expect (primitive-scheme program "array-ref")
-                          (list (list "A") "(Fn (Array A) I64 → A ! mut)"))
+                          (list (list "A") "(Fn (Array A) I64 → A)"))
                   (expect (primitive-scheme program "inherit-handlers")
                           (list (list "A" "e")
                                 "(Fn (FnOnce → A ! e) → (FnOnce → A ! host) ! e)"))
@@ -5196,7 +5167,7 @@
                              "(define-library (sample shape) (export Shape) (import (snail core base))"
                              " (begin (struct Shape ((side I64)) (deriving Serialize Deserialize))))"))
                 (write-file (string-append root "/main.sld")
-                            "(import (snail core base) (sample shape)) (Shape 2)")
+                            "(import (snail core base) (sample shape)) (define example (Shape 2))")
                 (let* ((expand (lambda (predecessor)
                                  (expand-program (list root library)
                                                  (lambda (loading forms)
@@ -5242,7 +5213,7 @@
                          "(define-library (sample shape) (export Shape) (import (snail core base))"
                          " (begin (struct Shape ((side I64)) (deriving Serialize))))"))
             (write-file (string-append root "/main.sld")
-                        "(import (snail core base) (sample shape)) (Shape 2)")
+                        "(import (snail core base) (sample shape)) (define example (Shape 2))")
             (let* ((first (expand wire empty-expansion))
                    (second (expand (marked "1") first))
                    (third (expand (marked "2") second))

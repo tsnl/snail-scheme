@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
-import {createWasi, instantiate, linkProgram, runProgram, programExports} from '../../host/browser/load.mjs';
+import {createWasi, instantiate, linkProgram, programExports} from '../../host/browser/load.mjs';
 
 let program, api, constructors, memory, number = 42;
 const seen = [], errors = [];
@@ -30,13 +30,12 @@ if (filename.endsWith('.json')) {
   api = programExports(program);
   constructors = program.linked.get('boundary.value').exports;
   memory = program.runtime.exports.memory;
-  runProgram(program);
+
 } else {
   const instance = await instantiate(await WebAssembly.compile(await readFile(filename)), {...wasi.getImportObject(), ...host});
   wasi.initialize(instance);
   api = constructors = instance.exports;
   memory = api.memory;
-  api.main();
 }
 assert.equal(api.echo(null), null);
 assert.equal(api.value(null), -1n);

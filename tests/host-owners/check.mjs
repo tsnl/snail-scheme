@@ -8,7 +8,6 @@ const instance = await instantiate(await WebAssembly.compile(await readFile(proc
 });
 wasi.initialize(instance);
 const api = instance.exports;
-api.main();
 const owner = api.create(42n), alias = api.alias(owner), pair = api.duplicate(owner);
 for (let i = 0; i < 3; i++) {
   assert.equal(api.read(owner), 42n);

@@ -6,5 +6,5 @@
   (f 1))
 
 (define (indirect) (→ I64)
-  (let ((g (fn (x) → (* x 3))))
+  (let ((g (fn (x) (* x 3))))
     (run g)))

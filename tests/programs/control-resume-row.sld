@@ -29,17 +29,19 @@
   (yield 2)
   (unit))
 
-;; Each handler prints the lines it is given under its own name. Dropping a
-;; resumption performs its row too, so `rest` is dropped under the second
-;; handler, not outside it.
-(match (handle Log ((log (lambda (line) (write-line (string-append "first: " line)))))
-         (start counter))
-  ((Yielded value next)
-   (write-line (string-append "got " (show value)))
-   (handle Log ((log (lambda (line) (write-line (string-append "second: " line)))))
-     (match (next 10)
-       ((Yielded value rest)
-        (drop rest)
-        (write-line (string-append "got " (show value))))
-       ((Done) (write-line "done")))))
-  ((Done) (write-line "done at once")))
+(define (main) (→ Unit) (! output-port)
+  ;; Each handler prints the lines it is given under its own name. Dropping a
+  ;; resumption performs its row too, so `rest` is dropped under the second
+  ;; handler, not outside it.
+  (match (handle Log ((log (lambda (line) (write-line (string-append "first: " line)))))
+           (start counter))
+    ((Yielded value next)
+     (write-line (string-append "got " (show value)))
+     (handle Log ((log (lambda (line) (write-line (string-append "second: " line)))))
+       (match (next 10)
+         ((Yielded value rest)
+          (drop rest)
+          (write-line (string-append "got " (show value))))
+         ((Done) (write-line "done")))))
+    ((Done) (write-line "done at once")))
+  (unit))

@@ -78,7 +78,6 @@ try {
   }
   api = programEntry(program, 'main').exports;
   const modules = program.names ? program.names.map(name => program.linked.get(name)) : [program.runtime];
-  for (const module of modules) module.exports.main();
 
   const listener = api.listener(await invoke('open').done), port = api.port(listener);
   const client = api.connection(await invoke('dial', port).done);

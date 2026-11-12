@@ -8,6 +8,9 @@
 (define (inspect (borrowed (Borrow Token))) (→ I64)
   (● borrowed number))
 
-(let ((token (Token 1)))
-  (inspect token)
-  (drop token))
+(define main
+  (lambda ()
+    (let ((token (Token 1)))
+      (inspect token)
+      (drop token))
+    (unit)))

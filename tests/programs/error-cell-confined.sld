@@ -6,4 +6,7 @@
 (define (reset (cell (Ref I64))) (→ Unit)
   (set! (ref-get cell) 0))
 
-(reset (ref 3))
+(define main
+  (lambda ()
+    (reset (ref 3))
+    (unit)))

@@ -67,7 +67,7 @@
 
     ;; The encoder and its buffer are local to this call.
 
-    (define (serialize (value T)) (→ Bytes) (∀ T) (⊨ (Serialize T) (Copy T))
+    (define (serialize (value T)) (→ Bytes) (∀ T) (⊨ (Serialize T) (Copy T) (Drop (!) T))
       (unsafe-total
        (lambda ()
          (let ((encoder (Encoder (make-array 64 (ann 0 U8)) 0)))
@@ -195,24 +195,24 @@
                                                                 (decode-unsigned decoder)))))))))
 
     (instance (Serialize (Vector T))
-      (⊨ (Serialize T) (Copy T))
+      (⊨ (Serialize T) (Copy T) (Drop (!) T))
       (define encode
         (lambda (value encoder) (encode-unsigned encoder (vector-length value))
                 (vector-for-each (lambda (item) (encode item encoder)) value))))
 
     (instance (Deserialize (Vector T))
-      (⊨ (Deserialize T) (Copy T))
+      (⊨ (Deserialize T) (Copy T) (Drop (!) T))
       (define decode
         (lambda (decoder) (decode-elements decoder (decode-unsigned decoder) decode))))
 
     (instance (Serialize (List T))
-      (⊨ (Serialize T) (Copy T))
+      (⊨ (Serialize T) (Copy T) (Drop (!) T))
       (define encode
         (lambda (value encoder) (encode-unsigned encoder (length value))
                 (for-each (lambda (item) (encode item encoder)) value))))
 
     (instance (Deserialize (List T))
-      (⊨ (Deserialize T) (Copy T))
+      (⊨ (Deserialize T) (Copy T) (Drop (!) T))
       (define decode
         (lambda (decoder)
           (vector->list (decode-elements decoder (decode-unsigned decoder) decode)))))
@@ -226,7 +226,7 @@
       (→ (Vector T))
       (! mut)
       (∀ T)
-      (⊨ (Copy T))
+      (⊨ (Copy T) (Drop (!) T))
       (vector-generate count (lambda (index) (decode-one decoder))))
 
     (instance (Serialize (Option T))

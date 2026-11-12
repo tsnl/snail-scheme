@@ -279,14 +279,14 @@
 
     ;; ---- Mutable storage ----
 
-    (primitive make-array (∀ (A) (⊨ (Copy A)) (Fn I64 A → (Array A) ! mut)))
+    (primitive make-array (∀ (A) (⊨ (Copy A)) (Fn I64 A → (Array A))))
     (primitive array-length (∀ (A) (⊨ (Copy A)) (Fn (Array A) → I64)))
-    (primitive array-ref (∀ (A) (⊨ (Copy A)) (Fn (Array A) I64 → A ! mut)))
+    (primitive array-ref (∀ (A) (⊨ (Copy A)) (Fn (Array A) I64 → A)))
     (primitive array-set! (∀ (A) (⊨ (Copy A)) (Fn (Array A) I64 A → Unit ! mut)))
     (primitive array->vector
-               (∀ (A) (⊨ (Copy A)) (Fn (Array A) → (Vector A) ! mut)))
+               (∀ (A) (⊨ (Copy A)) (Fn (Array A) → (Vector A))))
     (primitive vector->array
-               (∀ (A) (⊨ (Copy A)) (Fn (Vector A) → (Array A) ! mut)))
+               (∀ (A) (⊨ (Copy A)) (Fn (Vector A) → (Array A))))
     (primitive array-copy!
                (∀ (A)
                   (⊨ (Copy A))

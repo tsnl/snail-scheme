@@ -37,6 +37,7 @@
               (drop resume)
               -1)))
     (use-after-ask)))
+
 ;; ANCHOR_END: cancelled
 
 ;; A once lambda whose row allows `audit` may capture the handle; dropping
@@ -46,8 +47,10 @@
     (let ((work (once (lambda () (drop handle)))))
       (drop work))))
 
-(handle audit
-    ((note (lambda (text) (write-line text))))
-  (write-line (show (cancelled)))
-  (unrun)
-  (write-line "done"))
+(define (main) (→ Unit) (! output-port)
+  (handle audit
+      ((note (lambda (text) (write-line text))))
+    (write-line (show (cancelled)))
+    (unrun)
+    (write-line "done"))
+  (unit))

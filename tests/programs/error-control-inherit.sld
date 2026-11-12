@@ -7,6 +7,10 @@
 (effect Stop
   ((ctl stop (Fn → Unit))))
 
-(drop
- (handle Stop ((stop (lambda (resume) (drop resume) (inherit-handlers (once (lambda () (unit)))))))
-   (inherit-handlers (once (lambda () (stop))))))
+(define main
+  (lambda ()
+    (drop
+     (handle Stop ((stop
+                    (lambda (resume) (drop resume) (inherit-handlers (once (lambda () (unit)))))))
+       (inherit-handlers (once (lambda () (stop))))))
+    (unit)))

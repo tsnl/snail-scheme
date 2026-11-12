@@ -132,32 +132,36 @@
 (define (clicked (target String)) (→ Cue)
   (Fire target "click" no-event))
 
-(dispatch-local
- (once (lambda ()
-         (let ((result
-                (with-memory-dom (list (Fire "text" "input" (Event-value-set no-event "(car x)"))
-                                       (clicked "indent")
-                                       (FireWindow "keydown"
-                                                   (Event-modifiers-set (Event-key-set no-event "s")
-                                                                        control-key))
-                                       (clicked "late")
-                                       (clicked "hide")
-                                       (FireWindow "online" no-event))
-                                 (lambda ()
-                                   (run-ui (Model "" #t (Nil))
-                                           (list (Begin))
-                                           update
-                                           view
-                                           window
-                                           (lambda (model) (unit))
-                                           (lambda (model) (unit)))))))
-           (write-line (string-append "text: " (● (● result first) text)))
-           (for-each write-line (● (● result first) log))
-           (write-line (document->html (● result second)))
-           (for-each write-line
-                     (filter (lambda (line)
-                               (not (or (starts-with? "create" line)
-                                        (starts-with? "insert " line)
-                                        (starts-with? "listen" line)
-                                        (starts-with? "set-attribute" line))))
-                             (document-trace (● result second))))))))
+(define main
+  (lambda ()
+    (dispatch-local
+     (once (lambda ()
+             (let ((result
+                    (with-memory-dom
+                     (list (Fire "text" "input" (Event-value-set no-event "(car x)"))
+                           (clicked "indent")
+                           (FireWindow "keydown"
+                                       (Event-modifiers-set (Event-key-set no-event "s")
+                                                            control-key))
+                           (clicked "late")
+                           (clicked "hide")
+                           (FireWindow "online" no-event))
+                     (lambda ()
+                       (run-ui (Model "" #t (Nil))
+                               (list (Begin))
+                               update
+                               view
+                               window
+                               (lambda (model) (unit))
+                               (lambda (model) (unit)))))))
+               (write-line (string-append "text: " (● (● result first) text)))
+               (for-each write-line (● (● result first) log))
+               (write-line (document->html (● result second)))
+               (for-each write-line
+                         (filter (lambda (line)
+                                   (not (or (starts-with? "create" line)
+                                            (starts-with? "insert " line)
+                                            (starts-with? "listen" line)
+                                            (starts-with? "set-attribute" line))))
+                                 (document-trace (● result second))))))))
+    (unit)))

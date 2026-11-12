@@ -38,8 +38,6 @@
 (define (show-all (values (List I64))) (→ Unit) (! output-port)
   (write-line (string-join (map show values) " ")))
 
-(show-all (collect (lambda () (walk tree 1))))
-
 ;; Yields inside `if`, inside a `match` clause, and in a let's value.
 (define (classify (items (List I64))) (→ I64) (! Gen)
   (match items
@@ -47,8 +45,6 @@
     ((Cons item rest)
      (let ((here (if (< item 0) (begin (yield (- 0 item)) 1) 0)))
        (+ here (classify rest))))))
-
-(show-all (collect (lambda () (classify (list 1 -2 3 -4 -5)))))
 
 ;; Operands around a yield run in order: `f`'s yield and its value come
 ;; first, then the bare yield, then `g`'s.
@@ -63,22 +59,6 @@
   (yield (* x 10))
   (+ x 300))
 
-(show-all (collect (lambda () (add3 (f 1) (begin (yield 2) 200) (g 3)))))
-
-;; A yield in the middle of a let's value, whose own frames end where the
-;; value does; the let's body runs on what they produce. After an earlier
-;; yield, the same shape runs again within the frame that yield saved.
-(show-all (collect (lambda ()
-                     (let ((inner (let ((x (f 4))) (yield x) (* x 2))))
-                       (yield inner)
-                       (+ inner 1)))))
-
-(show-all (collect (lambda ()
-                     (yield 1)
-                     (let ((inner (let ((x (f 5))) (yield x) (* x 2))))
-                       (yield inner)
-                       (+ inner 1)))))
-
 ;; Locals of other representations live across a yield too: a float,
 ;; boxed in the frame, and a `FnOnce`, moved into it and called once the
 ;; body resumes.
@@ -89,15 +69,6 @@
      (let ((half (/ (i64->f64 item) 2.0)))
        (yield item)
        (+ half (halves rest))))))
-
-(write-line
- (show (handle Gen ((yield (lambda (value resume) (resume (unit))))) (halves (list 1 2 4)))))
-
-(show-all (handle Gen ((yield (lambda (value resume) (Cons value (resume (unit))))))
-            (let ((after (once (lambda () (write-line "after the yield")))))
-              (yield 1)
-              (after)
-              (list 2))))
 
 ;; The handler can stop resuming, dropping the rest of the walk: the
 ;; values up to the first above the limit.
@@ -111,4 +82,28 @@
     (body)
     (Nil)))
 
-(show-all (until-above 20 (lambda () (walk tree 1))))
+(define (main) (→ Unit) (! output-port)
+  (show-all (collect (lambda () (walk tree 1))))
+  (show-all (collect (lambda () (classify (list 1 -2 3 -4 -5)))))
+  (show-all (collect (lambda () (add3 (f 1) (begin (yield 2) 200) (g 3)))))
+  ;; A yield in the middle of a let's value, whose own frames end where the
+  ;; value does; the let's body runs on what they produce. After an earlier
+  ;; yield, the same shape runs again within the frame that yield saved.
+  (show-all (collect (lambda ()
+                       (let ((inner (let ((x (f 4))) (yield x) (* x 2))))
+                         (yield inner)
+                         (+ inner 1)))))
+  (show-all (collect (lambda ()
+                       (yield 1)
+                       (let ((inner (let ((x (f 5))) (yield x) (* x 2))))
+                         (yield inner)
+                         (+ inner 1)))))
+  (write-line
+   (show (handle Gen ((yield (lambda (value resume) (resume (unit))))) (halves (list 1 2 4)))))
+  (show-all (handle Gen ((yield (lambda (value resume) (Cons value (resume (unit))))))
+              (let ((after (once (lambda () (write-line "after the yield")))))
+                (yield 1)
+                (after)
+                (list 2))))
+  (show-all (until-above 20 (lambda () (walk tree 1))))
+  (unit))

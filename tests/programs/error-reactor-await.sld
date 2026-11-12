@@ -16,9 +16,12 @@
 (define (window (model (Borrow I64))) (→ (List (Attribute I64)))
   (Nil))
 
-(drop (with-memory-dom (Nil)
-                       (lambda ()
-                         (run-reactor 0 (list 1) update view window
-                                      (lambda (model) (unit))
-                                      (lambda (saved) (unit))
-                                      (lambda (saved) (unit))))))
+(define main
+  (lambda ()
+    (drop (with-memory-dom (Nil)
+                           (lambda ()
+                             (run-reactor 0 (list 1) update view window
+                                          (lambda (model) (unit))
+                                          (lambda (saved) (unit))
+                                          (lambda (saved) (unit))))))
+    (unit)))

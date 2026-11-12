@@ -7,7 +7,7 @@ import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
 import {screenImports} from '../host/browser/host.mjs';
 import {createRuntime, applicationEntry} from '../host/browser/runtime.mjs';
-import {createWasi, linkProgram, relinkProgram, runProgram} from '../host/browser/load.mjs';
+import {createWasi, linkProgram, relinkProgram} from '../host/browser/load.mjs';
 import {startDevelopment} from './development-service.mjs';
 
 const root = process.argv[2];
@@ -35,7 +35,7 @@ async function linkPage(build) {
   const wasi = createWasi({print: (fd, line) => console.log(line)});
   page.program = await linkProgram(build.read, build.manifest, wasi,
     {...page.runtime.imports, 'snail.runtime.browser.screen': screen});
-  runProgram(page.program);
+
   await page.runtime.start(applicationEntry(page.program)).ready.promise;
   return page;
 }

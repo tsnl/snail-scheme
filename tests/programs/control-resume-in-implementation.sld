@@ -47,17 +47,19 @@
      (show-step (handle Log ((log (lambda (line) (write-line (string-append "finishing: " line)))))
                   (next (unit)))))))
 
-;; The first step under one log, the second inside the runner's
-;; implementation, and the rest under another.
-(let ((first (handle Log ((log (lambda (line) (write-line (string-append "start: " line)))))
-               (start (lambda () (count-from 1 3))))))
-  (match first
-    ((Yielded value next)
-     (write-line (string-append "got " (show value)))
-     (show-step
-      (handle Log ((log (lambda (line) (write-line (string-append "outside the runner: " line)))))
-        (handle Runner ((run-step (lambda (rest) (rest (unit)))))
-          (handle Log ((log (lambda (line)
-                              (write-line (string-append "where run-step is performed: " line)))))
-            (run-step next))))))
-    ((Done) (write-line "done"))))
+(define (main) (→ Unit) (! output-port)
+  ;; The first step under one log, the second inside the runner's
+  ;; implementation, and the rest under another.
+  (let ((first (handle Log ((log (lambda (line) (write-line (string-append "start: " line)))))
+                 (start (lambda () (count-from 1 3))))))
+    (match first
+      ((Yielded value next)
+       (write-line (string-append "got " (show value)))
+       (show-step
+        (handle Log ((log (lambda (line) (write-line (string-append "outside the runner: " line)))))
+          (handle Runner ((run-step (lambda (rest) (rest (unit)))))
+            (handle Log ((log (lambda (line)
+                                (write-line (string-append "where run-step is performed: " line)))))
+              (run-step next))))))
+      ((Done) (write-line "done"))))
+  (unit))

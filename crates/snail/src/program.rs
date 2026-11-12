@@ -59,12 +59,10 @@ pub struct Host {
 }
 
 /// A program ready to start: the instance holding the runtime, whose
-/// memory the program's code shares; its export that closes the program's
-/// resources; and the instances whose mains run, in program order.
+/// memory the program's code shares, and its resource cleanup export.
 pub struct Linked {
     pub runtime: Instance,
     pub close: &'static str,
-    pub mains: Vec<Instance>,
 }
 
 pub fn run(path: &str, arguments: &[String]) -> u8 {
@@ -144,26 +142,19 @@ fn close(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<i32> {
     Ok(if children != 0 { children as i32 } else { own })
 }
 
-// The program's main answers the status, unless a task traps after it;
-// the engine's first task runs each of the program's and keeps the last
-// one's result as `engine:status`, and its store reads files at once, so
-// the engine's first turn runs that task whole. A program that links the
-// scheduler has its definitions initialized by `main:init` and its body
-// run as the first task by `tasks:start-main`.
+// A source program has one explicit main. The engine links a program in
+// its first turn and schedules that main under the same owned scheduler.
 fn start(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<u8> {
-    let mut status = 0;
-    if engine_entry(&*store) {
+    let status = if engine_entry(&*store) {
         entry_call(&mut *store, "engine:start", &[])?;
         entry_task(&mut *store, "turn", &[Val::I64(now())])?;
-        status = u8::try_from(entry_call(&mut *store, "engine:status", &[])?).unwrap_or(1);
+        u8::try_from(entry_call(&mut *store, "engine:status", &[])?).unwrap_or(1)
     } else {
-        for instance in &program.mains {
-            match main_status(&mut *store, instance) {
-                Ok(result) => status = result,
-                Err(error) => return exit_status(Err(error)),
-            }
+        match main_status(&mut *store, &program.runtime) {
+            Ok(result) => result,
+            Err(error) => return exit_status(Err(error)),
         }
-    }
+    };
     match drive(store) {
         Ok(true) => Ok(1),
         Ok(false) => Ok(status),
@@ -179,7 +170,6 @@ fn main_status(
 ) -> wasmtime::Result<u8> {
     if store.as_context().data().entry.is_some() {
         if let Some(body) = instance.get_func(&mut store, "main:body") {
-            call::<i32>(&mut store, instance, "main:init")?;
             entry_call(&mut store, "tasks:start-main", &[Val::FuncRef(Some(body))])?;
             return Ok(0);
         }
@@ -439,7 +429,6 @@ fn link_module(
     Ok(Linked {
         runtime: instance,
         close: "close-resources",
-        mains: vec![instance],
     })
 }
 

@@ -7,4 +7,7 @@
 (struct Point
   ((x I64)))
 
-(write-line (show (Point-x (Point 1))))
+(define main
+  (lambda ()
+    (write-line (show (Point-x (Point 1))))
+    (unit)))

@@ -3,14 +3,19 @@
  (snail core io)
  (prefix (sample geometry) geo:))
 
-(display (geo:distance-squared (geo:Point 0 0) (geo:Point 3 4)))
-(newline)
 (define temporary (ref 1))
+
 (define other (ref 2))
-(geo:swap! temporary other)
-(display (ref-get temporary))
-(newline)
-(display (ref-get other))
-(newline)
-(match (geo:Point 5 6)
-  ((geo:Point x y) (display (+ x y)) (newline)))
+
+(define main
+  (lambda ()
+    (display (geo:distance-squared (geo:Point 0 0) (geo:Point 3 4)))
+    (newline)
+    (geo:swap! temporary other)
+    (display (ref-get temporary))
+    (newline)
+    (display (ref-get other))
+    (newline)
+    (match (geo:Point 5 6)
+      ((geo:Point x y) (display (+ x y)) (newline)))
+    (unit)))

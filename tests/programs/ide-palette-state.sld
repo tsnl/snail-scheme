@@ -149,12 +149,15 @@
     (check (no-outcome? ((● write second) (palette-cancel writing)))
            "cancelled creation cannot navigate")))
 
-(dispatch-local
- (once (lambda ()
-         (handle fetch
-             ((request (lambda (method url headers body) (panic "unexpected request")))
-              (stream-open (lambda (url kinds) (panic "stream")))
-              (stream-next (lambda (stream) (panic "stream")))
-              (stream-close (lambda (stream) (panic "stream"))))
-           (with-memory-dom (Nil) run))
-         (unit))))
+(define main
+  (lambda ()
+    (dispatch-local
+     (once (lambda ()
+             (handle fetch
+                 ((request (lambda (method url headers body) (panic "unexpected request")))
+                  (stream-open (lambda (url kinds) (panic "stream")))
+                  (stream-next (lambda (stream) (panic "stream")))
+                  (stream-close (lambda (stream) (panic "stream"))))
+               (with-memory-dom (Nil) run))
+             (unit))))
+    (unit)))

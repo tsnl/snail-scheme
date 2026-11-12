@@ -21,9 +21,12 @@
     ((Cons cell _) (Some cell))
     ((Nil) (None))))
 
-(display (sum (list 1 2 3 4)))
-(newline)
-(display (noisy-sum (list 5 6)))
-(newline)
-(display (match (first-cell (list (ref 7))) ((Some cell) (ref-get cell)) ((None) 0)))
-(newline)
+(define main
+  (lambda ()
+    (display (sum (list 1 2 3 4)))
+    (newline)
+    (display (noisy-sum (list 5 6)))
+    (newline)
+    (display (match (first-cell (list (ref 7))) ((Some cell) (ref-get cell)) ((None) 0)))
+    (newline)
+    (unit)))

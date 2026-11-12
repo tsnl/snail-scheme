@@ -23,10 +23,6 @@
 (define (run (items (List I64))) (→ String) (! output-port)
   (handle Fail ((fail (lambda (message) (string-append "failed: " message))))
     (show (total items))))
-;; ANCHOR_END: fail
-
-(write-line (run (list 1 2 3)))
-(write-line (run (list 1 -2 3)))
 
 ;; A failure inside a resumed computation: the generator's rest runs from
 ;; its frames after each `emit`, and fails there, past the Emit handler.
@@ -47,5 +43,11 @@
   (handle Fail ((fail (lambda (message) (string-append "failed: " message))))
     (show (sum-emitted items))))
 
-(write-line (run-emitted (list 4 5 6)))
-(write-line (run-emitted (list 4 -5 6)))
+(define (main) (→ Unit) (! output-port)
+  ;; ANCHOR_END: fail
+
+  (write-line (run (list 1 2 3)))
+  (write-line (run (list 1 -2 3)))
+  (write-line (run-emitted (list 4 5 6)))
+  (write-line (run-emitted (list 4 -5 6)))
+  (unit))

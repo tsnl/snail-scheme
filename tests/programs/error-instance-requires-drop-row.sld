@@ -28,6 +28,9 @@
 (define (demo) (→ Unit) (! log)
   (release (Some (Handle "h"))))
 
-(handle log
-    ((say (lambda (text) (write-line text))))
-  (demo))
+(define main
+  (lambda ()
+    (handle log
+        ((say (lambda (text) (write-line text))))
+      (demo))
+    (unit)))

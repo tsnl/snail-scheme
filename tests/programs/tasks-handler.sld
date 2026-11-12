@@ -28,8 +28,11 @@
     (sleep 100)
     (countdown name (- count 1))))
 
-;; The same function under the logical clock, at once, and under the
-;; scheduler, in real time, once main returns.
-(logical (lambda () (countdown "logical" 2)))
-(dispatch-local (once (lambda () (countdown "real" 2))))
-(write-line "main returns")
+(define main
+  (lambda ()
+    ;; The same function under the logical clock, at once, and under the
+    ;; scheduler, in real time, once main returns.
+    (logical (lambda () (countdown "logical" 2)))
+    (dispatch-local (once (lambda () (countdown "real" 2))))
+    (write-line "main returns")
+    (unit)))

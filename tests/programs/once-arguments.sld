@@ -15,20 +15,9 @@
           (drop token)
           (+ amount value))))
 
-(let ((work (offset (Token "called") 4)))
-  (write-line (show (work 5))))
-(drop (offset (Token "dropped") 100))
-
-;; Several arguments and an owned argument retain their original types.
-(let ((work (once (lambda (first last) (string-append first last)))))
-  (write-line (work "left" "right")))
-
 (define (consume-job (job (FnOnce → Unit ! output-port))) (→ I64) (! output-port)
   (job)
   7)
-
-(let ((work (once consume-job)))
-  (write-line (show (work (once (lambda () (write-line "argument")))))))
 
 (effect Pause
   ((ctl pause (Fn → I64))))
@@ -39,14 +28,23 @@
             (drop token)
             (+ value answer)))))
 
-(write-line
- (show
-  (handle Pause ((pause (lambda (resume) (resume 10))))
-    (let ((work (suspended (Token "resumed"))))
-      (work 5)))))
-
-(write-line
- (show
-  (handle Pause ((pause (lambda (resume) (drop resume) -1)))
-    (let ((work (suspended (Token "abandoned"))))
-      (work 5)))))
+(define (main) (→ Unit) (! output-port)
+  (let ((work (offset (Token "called") 4)))
+    (write-line (show (work 5))))
+  (drop (offset (Token "dropped") 100))
+  ;; Several arguments and an owned argument retain their original types.
+  (let ((work (once (lambda (first last) (string-append first last)))))
+    (write-line (work "left" "right")))
+  (let ((work (once consume-job)))
+    (write-line (show (work (once (lambda () (write-line "argument")))))))
+  (write-line
+   (show
+    (handle Pause ((pause (lambda (resume) (resume 10))))
+      (let ((work (suspended (Token "resumed"))))
+        (work 5)))))
+  (write-line
+   (show
+    (handle Pause ((pause (lambda (resume) (drop resume) -1)))
+      (let ((work (suspended (Token "abandoned"))))
+        (work 5)))))
+  (unit))

@@ -7,12 +7,13 @@
 (struct Holder
   ((work (FnOnce → Unit ! output-port))))
 
-(match (Holder (once (lambda () (write-line "a"))))
-  ((Holder work)
-   (drop work)
-   (write-line "first")))
-
-(match (Holder (once (lambda () (write-line "b"))))
-  ((Holder work)
-   (drop work)
-   (write-line "second")))
+(define (main) (→ Unit) (! output-port)
+  (match (Holder (once (lambda () (write-line "a"))))
+    ((Holder work)
+     (drop work)
+     (write-line "first")))
+  (match (Holder (once (lambda () (write-line "b"))))
+    ((Holder work)
+     (drop work)
+     (write-line "second")))
+  (unit))

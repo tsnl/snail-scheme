@@ -13,4 +13,7 @@
     (write-line (string-append (pick "x" "y") (show (pick 1 2))))
     "done"))
 
-(write-line (choose))
+(define main
+  (lambda ()
+    (write-line (choose))
+    (unit)))

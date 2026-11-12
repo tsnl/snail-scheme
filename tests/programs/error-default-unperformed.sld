@@ -12,4 +12,7 @@
   (default
     ((sleep-until (lambda (deadline) deadline)))))
 
-(unit)
+(define main
+  (lambda ()
+    (unit)
+    (unit)))

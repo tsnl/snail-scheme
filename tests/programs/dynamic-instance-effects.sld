@@ -21,9 +21,11 @@
 
 (define (describe (value Any)) (→ String) (! log dyn-cast) (read-value value "fallback"))
 
-(handle dyn-cast
-    ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
-  (handle log
-      ((message (lambda (text) (write-line (string-append "logged: " text)))))
-    (write-line (describe 42))
-    (write-line (describe "hello"))))
+(define (main) (→ Unit) (! output-port)
+  (handle dyn-cast
+      ((conversion-failed (lambda (_) (write-line "unexpected conversion failure"))))
+    (handle log
+        ((message (lambda (text) (write-line (string-append "logged: " text)))))
+      (write-line (describe 42))
+      (write-line (describe "hello"))))
+  (unit))

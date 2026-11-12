@@ -43,21 +43,23 @@
 (define (labelled (name String) (line String)) (→ Unit) (! output-port)
   (write-line (string-append name ": " line)))
 
-(handle Io
-    ((fetch (lambda (ticket)
-              (log (string-append "fetch in task " (show (task-id))))
-              (let ((answer (await ticket)))
-                (log (string-append "fetch resumed in task " (show (task-id))))
-                (await (+ answer 1))))))
-  (let ((first (handle Log ((log (lambda (line) (labelled "the first log" line))))
-                 (start 1 (once (lambda () (fetch 1)))))))
-    (handle Log ((log (lambda (line) (labelled "the second log" line))))
-      (match first
-        ((Waiting ticket next)
-         ;; Task 1's first wait is answered inside task 2.
-         (write-line (show (finish (start 2 (once (lambda ()
-                                                    (log (string-append "task "
-                                                                        (show (task-id))
-                                                                        " resumes task 1"))
-                                                    (finish (next (* ticket 10))))))))))
-        ((Done value) (write-line (show value)))))))
+(define (main) (→ Unit) (! output-port)
+  (handle Io
+      ((fetch (lambda (ticket)
+                (log (string-append "fetch in task " (show (task-id))))
+                (let ((answer (await ticket)))
+                  (log (string-append "fetch resumed in task " (show (task-id))))
+                  (await (+ answer 1))))))
+    (let ((first (handle Log ((log (lambda (line) (labelled "the first log" line))))
+                   (start 1 (once (lambda () (fetch 1)))))))
+      (handle Log ((log (lambda (line) (labelled "the second log" line))))
+        (match first
+          ((Waiting ticket next)
+           ;; Task 1's first wait is answered inside task 2.
+           (write-line (show (finish (start 2 (once (lambda ()
+                                                      (log (string-append "task "
+                                                                          (show (task-id))
+                                                                          " resumes task 1"))
+                                                      (finish (next (* ticket 10))))))))))
+          ((Done value) (write-line (show value)))))))
+  (unit))

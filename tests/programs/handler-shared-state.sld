@@ -8,34 +8,40 @@
 ;; ordinary closures are, since they cannot capture a one-shot value.
 (effect Counter ((tick (Fn → I64))))
 
-(let* ((state (ref (ann 1 I64)))
-       (callback (lambda () (ref-get state)))
-       (alias callback))
-  (display (handle Counter ((tick alias)) (tick)))
-  (newline))
-
 ;; ANCHOR: counter
 (define counter (ref (ann 10 I64)))
+
 (define count-up
   (lambda () (ref-set! counter (+ (ref-get counter) 1))
           (ref-get counter)))
-(display (handle Counter ((tick count-up)) (+ (tick) (tick))))
-;; ANCHOR_END: counter
-(newline)
-
-(let ((state (ref (ann 3 I64))))
-  (display (handle Counter ((tick (lambda () (let ((value (ref-get state))) value)))) (tick)))
-  (newline))
 
 (struct Number
   ((value I64)))
+
 (typeclass (Read T) (: read-number (Fn T → I64 ! mut)))
+
 (define reading (ref (ann 4 I64)))
+
 (instance (Read Number) (define read-number (lambda (value) (+ (● value value) (ref-get reading)))))
-(display (handle Counter ((tick (lambda () (read-number (Number 1))))) (tick)))
-(newline)
 
 (define (apply-handler (callback (Fn → I64 ! mut))) (→ I64) (! mut)
   (handle Counter ((tick callback)) (tick)))
-(display (apply-handler (lambda () (ref-get reading))))
-(newline)
+
+(define main
+  (lambda ()
+    (let* ((state (ref (ann 1 I64)))
+           (callback (lambda () (ref-get state)))
+           (alias callback))
+      (display (handle Counter ((tick alias)) (tick)))
+      (newline))
+    (display (handle Counter ((tick count-up)) (+ (tick) (tick))))
+    ;; ANCHOR_END: counter
+    (newline)
+    (let ((state (ref (ann 3 I64))))
+      (display (handle Counter ((tick (lambda () (let ((value (ref-get state))) value)))) (tick)))
+      (newline))
+    (display (handle Counter ((tick (lambda () (read-number (Number 1))))) (tick)))
+    (newline)
+    (display (apply-handler (lambda () (ref-get reading))))
+    (newline)
+    (unit)))

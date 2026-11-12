@@ -9,10 +9,13 @@
   (Deeper ((value T)
            (rest (Nest (Pair T T))))))
 
-(let ((work (once (lambda () (unit))))
-      (nest (Deeper 1 (Flat))))
-  (match nest
-    ((Flat) (unit))
-    ((Deeper value rest) (unit)))
-  (call-once work)
-  (call-once work))
+(define main
+  (lambda ()
+    (let ((work (once (lambda () (unit))))
+          (nest (Deeper 1 (Flat))))
+      (match nest
+        ((Flat) (unit))
+        ((Deeper value rest) (unit)))
+      (call-once work)
+      (call-once work))
+    (unit)))

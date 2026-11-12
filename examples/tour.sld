@@ -18,11 +18,6 @@
 (define (square (n I64)) (→ I64)
   (* n n))
 
-(write-line (string-append "seven squared is " (i64->string (square 7))))
-
-;; Nothing converts implicitly: an I64 becomes an F64 only when asked.
-(write-line (f64->string (/ (i64->f64 answer) 8.0)))
-
 ;; ---- Control ----
 
 ;; `if` always has both branches. `cond`, `case`, `when` and `unless` are
@@ -32,27 +27,17 @@
         ((= n 0) "zero")
         (else "positive")))
 
-(write-line (sign -3))
-
 ;; A named `let` is a loop. A call in tail position never grows the stack.
 (define (sum-to (n I64)) (→ I64)
   (let loop ((i 1)
              (total 0))
     (if (> i n) total (loop (+ i 1) (+ total i)))))
 
-(display (sum-to 100))
-(newline)
-
 ;; ---- Lists and functions ----
 
 ;; A list holds values of one type and never changes. Functions are values,
 ;; and `lambda` makes one.
 (define numbers (→ (List I64)) (list 1 2 3 4 5))
-
-(write (map square (filter (lambda (n) (= (remainder n 2) 1)) numbers)))
-(newline)
-(display (fold-left + 0 numbers))
-(newline)
 
 ;; ---- Data ----
 
@@ -77,19 +62,10 @@
     ((Circle _ radius) (* 3 (square radius)))
     ((Rectangle _ width height) (* width height))))
 
-(write (map area (list (Circle (Point 0 0) 2) (Rectangle (Point 1 1) 3 4))))
-(newline)
-
 ;; There is no null and no exception: absence is an Option, and failure a
 ;; Result, both ordinary enums.
 (define (divide (n I64) (d I64)) (→ (Result I64 String))
   (if (= d 0) (Err "division by zero") (Ok (quotient n d))))
-
-(for-each (lambda (d)
-            (match (divide 10 d)
-              ((Ok quotient) (write-line (i64->string quotient)))
-              ((Err reason) (write-line reason))))
-          (list 2 0))
 
 ;; ---- Generics and typeclasses ----
 
@@ -112,9 +88,6 @@
 (define (describe-all (items (List T))) (→ String) (∀ T) (⊨ (Describe T))
   (string-join (map describe items) " "))
 
-(write-line (describe-all (list (Point 1 2) (Point 3 4))))
-(write-line (describe-all (list #t #f)))
-
 ;; ---- Mutation ----
 
 ;; A struct is a value. One a program changes lives in a cell, `Ref`, and
@@ -127,12 +100,6 @@
 (define (bump! (counter (Ref Counter))) (→ Unit) (! mut)
   (set! (● (ref-get counter) count) (+ (● (ref-get counter) count) 1)))
 
-(let ((clicks (ref (Counter 0))))
-  (bump! clicks)
-  (bump! clicks)
-  (display (● (ref-get clicks) count))
-  (newline))
-
 ;; ---- Effects ----
 
 ;; An effect declares operations, and a handler implements them for the
@@ -143,10 +110,6 @@
 
 (define (greet) (→ String) (! Ask)
   (string-append "hello, " (ask)))
-
-(write-line (handle Ask
-                ((ask (lambda () "world")))
-              (greet)))
 
 ;; A `ctl` operation need not return. Its implementation receives
 ;; `resume`, the rest of the handled code, and calls it at most once:
@@ -159,19 +122,6 @@
     (emit n)
     (count-down (- n 1))))
 
-(write (handle Emit
-           ((emit (lambda (value resume) (Cons value (resume (unit))))))
-         (count-down 3)
-         (Nil)))
-(newline)
-
-;; ---- Ownership ----
-
-;; `once` makes work that runs at most once, and the checker proves an
-;; owned value is used exactly once: called, passed on or dropped.
-(let ((job (once (lambda () (write-line "ran once")))))
-  (call-once job))
-
 ;; ---- Macros ----
 
 ;; Macros are Scheme's `syntax-rules`, and hygienic: `swap!`'s own
@@ -182,11 +132,48 @@
                (ref-set! a (ref-get b))
                (ref-set! b temporary)))))
 
-(let ((left (ref "left"))
-      (right (ref "right")))
-  (swap! left right)
-  (write-line (string-append (ref-get left) " " (ref-get right))))
+(define main
+  (lambda ()
+    (write-line (string-append "seven squared is " (i64->string (square 7))))
+    ;; Nothing converts implicitly: an I64 becomes an F64 only when asked.
+    (write-line (f64->string (/ (i64->f64 answer) 8.0)))
+    (write-line (sign -3))
+    (display (sum-to 100))
+    (newline)
+    (write (map square (filter (lambda (n) (= (remainder n 2) 1)) numbers)))
+    (newline)
+    (display (fold-left + 0 numbers))
+    (newline)
+    (write (map area (list (Circle (Point 0 0) 2) (Rectangle (Point 1 1) 3 4))))
+    (newline)
+    (for-each (lambda (d)
+                (match (divide 10 d)
+                  ((Ok quotient) (write-line (i64->string quotient)))
+                  ((Err reason) (write-line reason))))
+              (list 2 0))
+    (write-line (describe-all (list (Point 1 2) (Point 3 4))))
+    (write-line (describe-all (list #t #f)))
+    (let ((clicks (ref (Counter 0))))
+      (bump! clicks)
+      (bump! clicks)
+      (display (● (ref-get clicks) count))
+      (newline))
+    (write-line (handle Ask
+                    ((ask (lambda () "world")))
+                  (greet)))
+    (write (handle Emit
+               ((emit (lambda (value resume) (Cons value (resume (unit))))))
+             (count-down 3)
+             (Nil)))
+    (newline)
+    ;; ---- Ownership ----
 
-;; From here: the chapters on types, effects and ownership say what each
-;; form means, and the tutorials that follow are small programs that use
-;; them.
+    ;; `once` makes work that runs at most once, and the checker proves an
+    ;; owned value is used exactly once: called, passed on or dropped.
+    (let ((job (once (lambda () (write-line "ran once")))))
+      (call-once job))
+    (let ((left (ref "left"))
+          (right (ref "right")))
+      (swap! left right)
+      (write-line (string-append (ref-get left) " " (ref-get right))))
+    (unit)))

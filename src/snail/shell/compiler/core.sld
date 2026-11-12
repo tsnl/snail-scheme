@@ -114,7 +114,7 @@
    Define
    Define-name
    Define-value
-   Do
+   Entry
    Expose
    item-definitions
    Program
@@ -966,16 +966,18 @@
         ((TFun _ _ (TRow labels _)) (filter (lambda (label) (not (string=? label effect))) labels))
         (_ (Nil))))
 
-    ;; Top-level items run in order when the program starts. An exposed
-    ;; function is exported to the host under `symbol`; a `dynamic` one is
+    ;; Definitions contain functions or compile-time values. Entry names the
+    ;; root program's optional main; libraries have no startup phase. An
+    ;; exposed function is exported under `symbol`; a `dynamic` one is
     ;; exported instead for programs that load it while they run, behind a
     ;; wrapper that takes and returns Any values, beside its signature.
     (enum Item
       (Define
         ((name String)
          (value Expr)))
-      (Do
-       ((expr Expr)))
+      (Entry
+       ((name String)
+        (loc Loc)))
       (Expose
        ((name String)
         (symbol String)

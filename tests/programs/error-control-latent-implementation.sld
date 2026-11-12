@@ -19,4 +19,7 @@
       (handle Ask ((ask (lambda () (abort 0))))
         (+ (ask) 1)))))
 
-(answer)
+(define main
+  (lambda ()
+    (answer)
+    (unit)))

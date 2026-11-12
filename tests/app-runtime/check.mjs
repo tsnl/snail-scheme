@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {applicationEntry, createEventQueue, createRuntime, FRAME, HIDDEN, RELOAD} from '../../host/browser/runtime.mjs';
 import {screenImports} from '../../host/browser/host.mjs';
-import {createWasi, instantiate, linkProgram, runProgram} from '../../host/browser/load.mjs';
+import {createWasi, instantiate, linkProgram} from '../../host/browser/load.mjs';
 
 const path = resolve(process.argv[2]);
 const turn = () => new Promise(setImmediate);
@@ -80,10 +80,10 @@ async function application(options = {}) {
   let program;
   if (path.endsWith('.json')) {
     program = await linkProgram(file => readFile(resolve(dirname(path), file)), path, wasi, imports);
-    runProgram(program);
+
   } else {
     program = await instantiate(await WebAssembly.compile(await readFile(path)), {...wasi.getImportObject(), ...imports});
-    wasi.initialize(program); program.exports.main();
+    wasi.initialize(program);
   }
   const entry = applicationEntry(program);
   // Handlers are evidence on each task's own stack, so nothing dynamic

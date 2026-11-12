@@ -196,7 +196,6 @@
          (when (linear-type? program (scheme-vars schemes name) (● value type))
            (compile-error (● value loc) "a linear value cannot be a global"))
          (check-expression-types program (item-copy schemes item) value))
-        ((Do value) (check-expression-types program (Nil) value))
         (_ (unit))))
 
     ;; A global's own type variables. A polymorphic global's initializer
@@ -1022,5 +1021,4 @@
     (define (check-item (path Path) (item Item)) (→ Unit) (! compile)
       (match item
         ((Define _ value) (check path value) (unit))
-        ((Do value) (check-discardable path value) (check path value) (unit))
         (_ (unit))))))

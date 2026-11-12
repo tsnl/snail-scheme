@@ -16,16 +16,6 @@
 
 (define (bump! (counter (Ref Counter))) (→ Unit) (! mut)
   (set! (● (ref-get counter) count) (+ (● (ref-get counter) count) 1)))
-;; ANCHOR_END: counter
-
-;; Two names for one cell see the same writes.
-(let* ((counter (ref (Counter "clicks" 0)))
-       (same counter))
-  (bump! counter)
-  (bump! same)
-  (write-line (string-append (● (ref-get counter) name) " " (show (● (ref-get counter) count))))
-  (write-line (show (replace! (● (ref-get same) count) 10)))
-  (write-line (show (● (ref-get counter) count))))
 
 ;; A place reaches through nested structs to one slot of the cell.
 (struct Point
@@ -36,20 +26,32 @@
   ((home Point)
    (last Point)))
 
-(let ((cursor (ref (Cursor (Point 0 0) (Point 1 1)))))
-  (set! (● (ref-get cursor) last x) 5)
-  (set! (● (ref-get cursor) home) (Point 2 3))
-  (write-line (string-append (show (● (ref-get cursor) home y))
-                             " "
-                             (show (● (ref-get cursor) last x))
-                             " "
-                             (show (● (ref-get cursor) last y))))
-  (match (replace! (● (ref-get cursor) home) (Point 9 9))
-    ((Point x y) (write-line (string-append (show x) "," (show y)))))
-  (write-line (show (● (ref-get cursor) home x))))
+(define main
+  (lambda ()
+    ;; ANCHOR_END: counter
 
-;; A cell of a number is written whole; `ref-set!` is `set!` of the content.
-(let ((cell (ref 41)))
-  (set! (ref-get cell) (+ (ref-get cell) 1))
-  (ref-set! cell (+ (ref-get cell) 1))
-  (write-line (show (ref-get cell))))
+    ;; Two names for one cell see the same writes.
+    (let* ((counter (ref (Counter "clicks" 0)))
+           (same counter))
+      (bump! counter)
+      (bump! same)
+      (write-line (string-append (● (ref-get counter) name) " " (show (● (ref-get counter) count))))
+      (write-line (show (replace! (● (ref-get same) count) 10)))
+      (write-line (show (● (ref-get counter) count))))
+    (let ((cursor (ref (Cursor (Point 0 0) (Point 1 1)))))
+      (set! (● (ref-get cursor) last x) 5)
+      (set! (● (ref-get cursor) home) (Point 2 3))
+      (write-line (string-append (show (● (ref-get cursor) home y))
+                                 " "
+                                 (show (● (ref-get cursor) last x))
+                                 " "
+                                 (show (● (ref-get cursor) last y))))
+      (match (replace! (● (ref-get cursor) home) (Point 9 9))
+        ((Point x y) (write-line (string-append (show x) "," (show y)))))
+      (write-line (show (● (ref-get cursor) home x))))
+    ;; A cell of a number is written whole; `ref-set!` is `set!` of the content.
+    (let ((cell (ref 41)))
+      (set! (ref-get cell) (+ (ref-get cell) 1))
+      (ref-set! cell (+ (ref-get cell) 1))
+      (write-line (show (ref-get cell))))
+    (unit)))

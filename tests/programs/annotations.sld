@@ -15,9 +15,11 @@
   (annotations (doc "Return the agent's display name.")
                (doc "This does not run an operation."))
   (lambda (agent) (● agent name)))
+
 ;; ANCHOR_END: annotations
 
 (type AgentName String (annotations (doc "A human-readable name.")))
+
 (enum Outcome
   (Ready ((agent Agent (annotations (doc "The initialized agent."))))
          (annotations (doc "Initialization succeeded.")))
@@ -27,6 +29,7 @@
 (typeclass (Named T)
   (: name-of (Fn T → String) (annotations (doc "Return this value's name.")))
   (annotations (doc "Values with a human-readable name.")))
+
 (instance (Named Agent)
   (define name-of (lambda (agent) (● agent name))))
 
@@ -36,19 +39,23 @@
   (annotations (doc "The source of names.")))
 
 (define constant (→ I64) (annotations (doc "A documented constant.")) 7)
+
 (define-syntax documented-value
   (syntax-rules ()
     ((_ name value)
      (begin
        (define name (→ I64) (annotations (doc "Emitted by a macro.")) value)))))
+
 (documented-value generated 9)
 
 ;; Macro arguments remain syntax until a macro emits a declaration slot.
 (define-syntax ignore
   (syntax-rules () ((_ any) (unit))))
-(ignore (annotations (unknown "Not compiler metadata.")))
 
-(write-line (describe-agent (Agent "Ada" 0)))
-(write-line (name-of (Ready-agent (Ready (Agent "Lin" 1)))))
-(write-line (show (● (Agent-steps-set (Agent "Ada" 0) 3) steps)))
-(write-line (show (+ constant generated)))
+(define (main) (→ Unit) (! output-port)
+  (ignore (annotations (unknown "Not compiler metadata.")))
+  (write-line (describe-agent (Agent "Ada" 0)))
+  (write-line (name-of (Ready-agent (Ready (Agent "Lin" 1)))))
+  (write-line (show (● (Agent-steps-set (Agent "Ada" 0) 3) steps)))
+  (write-line (show (+ constant generated)))
+  (unit))

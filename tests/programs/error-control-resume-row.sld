@@ -25,6 +25,7 @@
                         (Yielded v resume))))
     (body)
     (Done)))
+
 ;; ANCHOR_END: step
 
 (define (counter) (→ Unit) (! Gen)
@@ -32,11 +33,14 @@
   (yield 2)
   (unit))
 
-;; With no Log handler around `next`, the second yield would log to none.
-(match (handle Log ((log (lambda (line) (write-line line)))) (start counter))
-  ((Yielded value next)
-   (write-line (string-append "got " (show value)))
-   (match (next 10)
-     ((Yielded value _) (write-line (string-append "got " (show value))))
-     ((Done) (write-line "done"))))
-  ((Done) (write-line "done at once")))
+(define main
+  (lambda ()
+    ;; With no Log handler around `next`, the second yield would log to none.
+    (match (handle Log ((log (lambda (line) (write-line line)))) (start counter))
+      ((Yielded value next)
+       (write-line (string-append "got " (show value)))
+       (match (next 10)
+         ((Yielded value _) (write-line (string-append "got " (show value))))
+         ((Done) (write-line "done"))))
+      ((Done) (write-line "done at once")))
+    (unit)))

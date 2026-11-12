@@ -18,4 +18,7 @@
 (define (peek (store S) (name String)) (→ String) (∀ S) (⊨ (Store (!) S))
   (fetch-object store name))
 
-(write-line (peek (Directory "assets") "hero"))
+(define main
+  (lambda ()
+    (write-line (peek (Directory "assets") "hero"))
+    (unit)))

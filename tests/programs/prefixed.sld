@@ -14,4 +14,7 @@
                                                  "/"
                                                  (b:show (b:● pair right))))))
 
-(write-line (b:show (Pair2 3 4)))
+(define main
+  (lambda ()
+    (write-line (b:show (Pair2 3 4)))
+    (unit)))

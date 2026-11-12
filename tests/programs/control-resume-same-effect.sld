@@ -41,4 +41,6 @@
      (write-line (string-append "first handler: " (show value)))
      (drain (under-second next)))))
 
-(drain (start (lambda () (count 1 3))))
+(define (main) (→ Unit) (! output-port)
+  (drain (start (lambda () (count 1 3))))
+  (unit))

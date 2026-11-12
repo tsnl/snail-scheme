@@ -21,6 +21,8 @@
   (action)
   (action))
 
-(announce 41)
-(announce #t)
-(twice (lambda () (announce (next 1))))
+(define (main) (→ Unit) (! output-port)
+  (announce 41)
+  (announce #t)
+  (twice (lambda () (announce (next 1))))
+  (unit))

@@ -87,7 +87,6 @@
         ((Define name value)
          (let ((state (new-lifetime declarations value)))
            (Define name (● (lower-function state value #t) first))))
-        ((Do value) (Do (● (lower (new-lifetime declarations value) value) first)))
         (_ item)))
 
     (define (new-lifetime (declarations Declarations) (value Expr)) (→ Lifetime)

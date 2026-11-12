@@ -442,7 +442,10 @@
               (build-and-publish job description (● job target))
               (write-line (string-append (● job project) "/build/" (● job target))))))))))
 
-(match (command-line)
-  ((Cons cli (Cons root (Cons runtime (Cons "dev" arguments))))
-   (develop (dev-setup cli root runtime arguments)))
-  (arguments (invoke (request arguments))))
+(define main
+  (lambda ()
+    (match (command-line)
+      ((Cons cli (Cons root (Cons runtime (Cons "dev" arguments))))
+       (develop (dev-setup cli root runtime arguments)))
+      (arguments (invoke (request arguments))))
+    (unit)))

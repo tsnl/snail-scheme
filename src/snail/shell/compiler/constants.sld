@@ -822,7 +822,6 @@
     (define (rewrite-item (state State) (item Item)) (→ Item)
       (match item
         ((Define name value) (Define name (rewrite-references state value)))
-        ((Do value) (Do (rewrite-references state value)))
         (_ item)))
 
     (define (rewrite-references (state State) (expr Expr)) (→ Expr)

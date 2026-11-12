@@ -38,6 +38,9 @@
   (release-copy "text")
   (release (ann (None) (Option Handle))))
 
-(handle log
-    ((say (lambda (text) (write-line text))))
-  (demo))
+(define main
+  (lambda ()
+    (handle log
+        ((say (lambda (text) (write-line text))))
+      (demo))
+    (unit)))

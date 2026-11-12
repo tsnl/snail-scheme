@@ -1,5 +1,10 @@
 (import
  (snail core base)
  (snail shell task))
+
 (effect Missing ((missing (Fn → Unit))))
-(dispatch-local (once (lambda () (missing))))
+
+(define main
+  (lambda ()
+    (dispatch-local (once (lambda () (missing))))
+    (unit)))

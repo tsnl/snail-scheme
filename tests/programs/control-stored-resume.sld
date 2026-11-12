@@ -54,11 +54,6 @@
      (write-line (string-append "got " (show value)))
      (alternate other (next (unit))))))
 
-(match (begin-both)
-  ((Pair-of-steps left right)
-   (handle Log ((log (lambda (line) (write-line (string-append "second log: " line)))))
-     (alternate left right))))
-
 ;; A control effect in the resumed part: the generator asks for a scale
 ;; with a control operation, which the handler in scope where it is
 ;; resumed answers. The node of the generator's handler takes the
@@ -88,4 +83,10 @@
      (write-line (string-append "gave " (show value)))
      (drain (handle Ask ((ask (lambda (resume) (resume scale)))) (next (unit))) (* scale 10)))))
 
-(drain (handle Ask ((ask (lambda (resume) (resume 1)))) (scaled 3)) 2)
+(define (main) (→ Unit) (! output-port)
+  (match (begin-both)
+    ((Pair-of-steps left right)
+     (handle Log ((log (lambda (line) (write-line (string-append "second log: " line)))))
+       (alternate left right))))
+  (drain (handle Ask ((ask (lambda (resume) (resume 1)))) (scaled 3)) 2)
+  (unit))

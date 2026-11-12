@@ -20,28 +20,10 @@
 
     ;; ---- Checker state ----
 
-    ;; The checker is plain data, threaded through the pass: a step takes one
-    ;; and hands back the one it learned in. Its fields fall into two kinds.
-    ;;
-    ;; Scope, which a sub-check may replace and which the caller gets back
-    ;; unchanged: `program`, `locals` mapping unique local names to
-    ;; monomorphic types, `givens` the requirements of the annotated
-    ;; definition being checked and `copy` the type variables it declares
-    ;; ω, `confining` the row variable of a function body whose type
-    ;; forbids `mut`, so calls in that body may mutate, and `signed` the
-    ;; row variable of a function body checked against its signature, so
-    ;; calls in that body record what they perform.
-    ;;
-    ;; What it has learned, which flows forward out of every sub-check:
-    ;; `counter` numbering metavariables and evidence holes, `solution`,
-    ;; `schemes` holding inferred schemes and the provisional types of the
-    ;; group being inferred, `pending` recording constraints newest first
-    ;; with their number in `pending-count` — they are decided once, when the
-    ;; whole program has been checked — `open` naming the definitions whose
-    ;; types may still contain metavariables, `discharged` recording whether
-    ;; a call in a confining body mutated, `confined` holding the functions
-    ;; that did, to be checked once their types are final, and `performed`
-    ;; the effects that calls in the `signed` body performed.
+    ;; Scope holds the names and class requirements visible at this point.
+    ;; Learning holds the substitutions and obligations accumulated so far.
+    ;; A signed body's row identity records which declared effects it uses;
+    ;; nested lambdas restore the enclosing body's record on return.
     (struct Checker
       ((program Program)
        (locals (Table Type))
@@ -49,7 +31,6 @@
        (copy (List String))
        (instances (List String))
        (resolving (List Constraint))
-       (confining (Option I64))
        (signed (Option I64))
        (counter I64)
        (solution Solution)
@@ -57,8 +38,6 @@
        (pending (List Wanted))
        (pending-count I64)
        (open (List String))
-       (discharged Bool)
-       (confined (List Expr))
        (performed (List String))))
 
     ;; A sequence of steps that each take the checker and hand it back,
@@ -91,7 +70,6 @@
                (● outer copy)
                (● outer instances)
                (● outer resolving)
-               (● outer confining)
                (● outer signed)
                (● inner counter)
                (● inner solution)
@@ -99,8 +77,6 @@
                (● inner pending)
                (● inner pending-count)
                (● inner open)
-               (● inner discharged)
-               (● inner confined)
                (● inner performed)))
 
     ;; What checking has learned: each metavariable's identity to the type it
@@ -372,36 +348,27 @@
     ;; Calls require inclusion, not row equality: e fits console + e for every
     ;; substitution of e. A shared tail proves inclusion when its known labels
     ;; fit. Otherwise inference opens closed latent rows before unification.
-    ;; In a confining body, `mut` is discharged before either check.
 
     (define (perform (ck Checker) (latent Type) (row Type) (loc Loc)) (→ Checker) (! compile)
-      (let ((flat (flatten-row (solution ck) latent)))
-        (learning ck ((labels (performed-labels row (● flat first)))
-                      (then
-                       (record-performed row (append labels (tail-variable (● flat second))))))
-                  (let ((context (flatten-row (solution ck) row)))
-                    (if (and (same-tail? (● flat second) (● context second))
-                             (null? (label-difference labels (● context first))))
-                        ck
-                        (learning ck ((tail (row-tail (● flat second)))
-                                      (included (unify? (TRow (label-union labels (● context first))
-                                                              (Some tail))
-                                                        row)))
-                                  (if included
-                                      ck
-                                      (compile-error loc
-                                                     (string-append
-                                                      "this performs effects its context does not allow:"
-                                                      (labels->string
-                                                       (append labels
-                                                               (tail-variable
-                                                                (● flat second)))))))))))))
+      (let* ((flat (flatten-row (solution ck) latent))
+             (labels (● flat first))
+             (ck (record-performed ck row (append labels (tail-variable (● flat second)))))
+             (context (flatten-row (solution ck) row)))
+        (if (and (same-tail? (● flat second) (● context second))
+                 (null? (label-difference labels (● context first))))
+            ck
+            (learning ck ((tail (row-tail (● flat second)))
+                          (included (unify? (TRow (label-union labels (● context first))
+                                                  (Some tail)) row)))
+                      (if included ck
+                          (compile-error loc
+                                         (string-append
+                                          "this performs effects its context does not allow:"
+                                          (labels->string
+                                           (append labels (tail-variable (● flat second)))))))))))
 
-    ;; In a confining body `mut` is discharged before the row is compared.
 
-    (define (performed-labels (ck Checker) (row Type) (labels (List String)))
-      (→ (Pair (List String) Checker))
-      (if (confining-row? ck row) (discharge-mut ck labels) (Pair labels ck)))
+
 
     ;; A latent row's own tail, or a fresh one when it is closed.
 
@@ -410,12 +377,9 @@
         ((Some tail) (Pair tail ck))
         ((None) (fresh-meta ck))))
 
-    (define (discharge-mut (ck Checker) (labels (List String))) (→ (Pair (List String) Checker))
-      (Pair (filter (lambda (label) (not (string=? label "mut"))) labels)
-            (if (member? "mut" labels) (Checker-discharged-set ck #t) ck)))
 
-    (define (confining-row? (ck Checker) (row Type)) (→ Bool)
-      (row-variable? (● ck confining) row))
+
+
 
     ;; Whether `row` is the row variable that `variable` names, if any.
 
@@ -675,9 +639,7 @@
         ((Pair value done) (Pair value (resumed ck done)))))
 
     ;; Checks an expression against a known type: a lambda's parameters and
-    ;; body row come from the type; anything else is inferred. A body whose
-    ;; row forbids `mut` may still mutate storage it allocates; the function
-    ;; is confined once its types are final.
+    ;; body row come from the type; anything else is inferred.
 
     (define (check-value (ck Checker) (expr Expr) (type Type) (row Type))
       (→ (Pair Expr Checker))
@@ -737,53 +699,32 @@
     ;; A lambda checked against its type. The body's row is a variable bound
     ;; to the type's row, so `perform` can recognize it: calls in this body,
     ;; but not in lambdas inside it, record in `performed` what they
-    ;; perform. A body whose row forbids `mut` is checked as confining; if a
-    ;; call in it did mutate, the function goes to `confined` and the flag
-    ;; is cleared for the next one.
+    ;; perform. Writes always charge mut, including writes to fresh objects.
 
-    (define (check-lambda (ck Checker)
-                          (expr Expr)
-                          (params (List String))
-                          (body Expr)
-                          (captures? Bool)
-                          (type Type)
-                          (param-types (List Type))
-                          (result Type)
-                          (body-row Type))
-      (→ (Pair Expr Checker))
-      (! compile)
+    (define (check-lambda (ck Checker) (expr Expr) (params (List String))
+                          (body Expr) (captures? Bool) (type Type) (param-types (List Type))
+                          (result Type) (body-row Type))
+      (→ (Pair Expr Checker)) (! compile)
       (let ((outer ck))
-        (learning ck ((then (Checker-discharged-set #f))
-                      (row (fresh-meta))
+        (learning ck ((row (fresh-meta))
                       (then (unify row body-row (● expr loc)))
                       (body
                        (within (signed-body (bind-locals ck params param-types) row)
                                (lambda (inner)
-                                 (match (if (forbids-mut? (solution inner) body-row)
-                                            (check-confining-body inner body result row)
-                                            (check-value inner body result row))
-                                   ((Pair body inner)
-                                    (match (fit inner result body row (● body loc))
-                                      ((Pair body inner)
-                                       (Pair body
-                                             (cleanup-lambda inner
-                                                             params
-                                                             param-types
-                                                             body
-                                                             row))))))))))
-                  (let* ((value (Expr (Lambda params body captures?) type (● expr loc)))
-                         (done (if (● ck discharged)
-                                   (Checker-confined-set ck (Cons value (● ck confined))) ck)))
-                    (Pair value (finish-lambda-scope outer done))))))
+                                 (learning inner ((body (check-result body result row))
+                                                  (then
+                                                   (cleanup-lambda params param-types body row)))
+                                           (Pair body inner))))))
+                  (Pair (Expr (Lambda params body captures?) type (● expr loc))
+                        (finish-lambda-scope outer ck)))))
 
     ;; A nested function's effects do not replace what its enclosing body
-    ;; already performed. Its own confinement proof remains in `confined`.
+    ;; already performed.
 
     (define (finish-lambda-scope (outer Checker) (done Checker)) (→ Checker)
-      (let ((done (Checker-discharged-set done (● outer discharged))))
-        (match (● outer signed)
-          ((Some _) (Checker-performed-set done (● outer performed)))
-          ((None) done))))
+      (match (● outer signed)
+        ((Some _) (Checker-performed-set done (● outer performed)))
+        ((None) done)))
 
     ;; The scope of a body checked against its signature, whose row
     ;; variable is `row`: nothing is performed in it yet.
@@ -791,26 +732,16 @@
     (define (signed-body (ck Checker) (row Type)) (→ Checker)
       (Checker-performed-set (Checker-signed-set ck (Some (meta-number row))) (Nil)))
 
-    ;; `perform` recognizes the body's row variable and lets calls in this
-    ;; body, but not in lambdas inside it, mutate. `confining` is scope, so
-    ;; the caller gets its own back.
 
-    (define (check-confining-body (ck Checker) (body Expr) (type Type) (row Type))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (within ck (Checker-confining-set ck (Some (meta-number row)))
-              (lambda (inner) (check-value inner body type row))))
+
 
     (define (meta-number (meta Type)) (→ I64)
       (match meta
         ((TVar id) id)
         (_ -1)))
 
-    ;; A row forbids `mut` unless it lists it or is open to more labels.
 
-    (define (forbids-mut? (solution Solution) (row Type)) (→ Bool)
-      (let ((flat (flatten-row solution row)))
-        (not (or (member? "mut" (● flat first)) (meta-tail? (● flat second))))))
+
 
     (define (infer-app (ck Checker) (callee Expr) (args (List Expr)) (row Type) (loc Loc))
       (→ (Pair Expr Checker))
@@ -1861,7 +1792,7 @@
          (let ((type (resolve-type (solution ck) type))
                (class (● constraint class))
                (program (program-of ck)))
-           (when (has-meta? (solution ck) type)
+           (unless (lifecycle-input-known? ck class type)
              (compile-error loc (ambiguous-constraint ck constraint)))
            (match (lifecycle-rows program class copy givens type)
              ((Ok rows)
@@ -1946,11 +1877,22 @@
         ((WantClass constraint _ _ _ _ _)
          (let ((class (● constraint class)))
            (and (determined-class? ck class)
-                (not (any? (lambda (type) (has-meta? (solution ck) type))
-                           (type-arguments (program-class (program-of ck) class)
-                                           (● constraint types)))))))
+                (every? (lambda (type) (lifecycle-input-known? ck class type))
+                        (type-arguments (program-class (program-of ck) class)
+                                        (● constraint types))))))
         ((WantCleanup type _ _ _ _ _ _) (disposal-known? (resolve-type (solution ck) type)))
         (_ #f)))
+
+    ;; Callable destruction depends on its effect row, never its arguments
+    ;; or result. A handler's answer may still be unknown when it drops its
+    ;; resumption; waiting for that answer would close the call row too soon.
+    (define (lifecycle-input-known? (ck Checker) (class String) (type Type)) (→ Bool)
+      (let ((type (resolve-type (solution ck) type)))
+        (if (string=? class drop-class)
+            (match (fn-arrow type)
+              ((TFun _ _ row) (not (has-meta? (solution ck) row)))
+              (_ (not (has-meta? (solution ck) type))))
+            (not (has-meta? (solution ck) type)))))
 
     ;; Field selections and associated outputs improve together: each
     ;; established output can determine another selection's receiver.
@@ -2223,136 +2165,7 @@
                (map (lambda (arg) (zonk-pattern solution arg)) args)
                (zonk solution type)))))
 
-    ;; ---- Confined mutation ----
-
-    ;; A function whose type forbids `mut` may still mutate storage that it
-    ;; allocates, as long as none of that storage outlives the call. That holds
-    ;; when nothing the function can reach from outside, its parameters, its
-    ;; result or a name it reads, can hold mutable storage: then the only
-    ;; storage it can mutate is its own, and none of it escapes. Effect
-    ;; operations count as names it reads, so storage cannot leave through an
-    ;; operation's arguments either, and since implementations return exactly
-    ;; once, nothing resumes the function twice. Primitives, constructors and
-    ;; field operations act only on their arguments, so a function may always
-    ;; use them. Only functions whose bodies did mutate are checked.
-
-    (define (check-confined (typed Typed) (function Expr)) (→ Unit) (! compile)
-      (match (Pair (● function term) (fn-arrow (● function type)))
-        ((Pair (Lambda params _ _) (TFun param-types result _))
-         (let ((program (● typed program)))
-           (for-each (lambda (pair)
-                       (when (holds-storage? program (● pair second))
-                         (confinement-error function
-                                            (string-append "its parameter "
-                                                           (local-name (● pair first))
-                                                           ", a "
-                                                           (type->string (● pair second)) ","))))
-                     (zip params param-types))
-           (when (holds-storage? program result)
-             (confinement-error function
-                                (string-append "its result, a " (type->string result) ",")))
-           (for-each (lambda (read) (check-outside-read typed read)) (outside-reads function))))
-        (_ (unit))))
-
-    (define (confinement-error (function Expr) (culprit String)) (→ Unit) (! compile)
-      (compile-error (● function loc)
-                     (string-append
-                      "this function's type does not allow mut, so it may mutate only storage it allocates, but "
-                      culprit " could hold storage from outside")))
-
-    ;; A local of an enclosing definition is judged by its type; a global by
-    ;; its declared or inferred type, since instantiating a row variable can
-    ;; only bring in effects the function itself performs.
-
-    (define (check-outside-read (typed Typed) (read Expr)) (→ Unit) (! compile)
-      (match (● read term)
-        ((Var name _ _)
-         (when (reaches-storage? typed name (● read type))
-           (compile-error (● read loc)
-                          (string-append
-                           "this function's type does not allow mut, so it may mutate only storage it allocates, but "
-                           (short-name name) " could hold storage from outside"))))
-        (_ (unit))))
-
-    (define (reaches-storage? (typed Typed) (name String) (type Type)) (→ Bool)
-      (let ((program (● typed program)))
-        (match (program-value program name)
-          ((Some (Primitive _)) #f)
-          ((Some (Constructor _ _)) #f)
-          ((Some (Accessor _ _ _)) #f)
-          ((Some (Replacer _ _ _)) #f)
-          ((Some (Setter _ _ _)) #f)
-          ((Some (Swapper _ _ _)) #f)
-          ((Some value)
-           (and (not (primitive-alias? typed name))
-                (holds-storage? program (global-type typed name value))))
-          ((None) (holds-storage? program type)))))
-
-    ;; A definition that is another name for a primitive, as the array
-    ;; operations in (snail core base) are, acts only on its arguments too.
-    ;; The program's items hold every library's definitions, so the alias
-    ;; is found from any library that reads it.
-
-    (define (primitive-alias? (typed Typed) (name String)) (→ Bool)
-      (let ((program (● typed program)))
-        (any? (lambda (item)
-                (match item
-                  ((Define defined value)
-                   (and (string=? defined name)
-                        (match (● value term)
-                          ((Var target _ _)
-                           (match (program-value program target)
-                             ((Some (Primitive _)) #t)
-                             (_ #f)))
-                          (_ #f))))
-                  (_ #f)))
-              (program-items program))))
-
-    (define (global-type (typed Typed) (name String) (value Value)) (→ Type)
-      (match (table-ref (● typed schemes) name)
-        ((Some scheme) (● scheme type))
-        ((None)
-         (match (value-scheme value)
-           ((Some scheme) (● scheme type))
-           ((None) (panic (string-append "internal error: no type for " name)))))))
-
-    ;; Whether a value of the type can hold or reach mutable storage: an
-    ;; `Array`, an `Any` that may hide one, data with a mutable field, a
-    ;; `Ref` among them, or with a field of such a type, or a function that
-    ;; may perform `mut`. Code cannot use a value of a type variable as
-    ;; storage, so type variables hold none.
-
-    (define (holds-storage? (program Program) (type Type)) (→ Bool)
-      (holds-storage-within? program type (Nil)))
-
-    (define (holds-storage-within? (program Program) (type Type) (visiting (List String))) (→ Bool)
-      (match type
-        ((TCon name args)
-         (or (member? name (list "Array" "Any" "Rc" "WeakRc"))
-             (any? (lambda (arg) (holds-storage-within? program arg visiting)) args)
-             (and (not (member? name visiting))
-                  (fields-hold-storage? program name (Cons name visiting)))))
-        ((TFun params result row)
-         (or (row-mutates? row)
-             (any? (lambda (part) (holds-storage-within? program part visiting))
-                   (Cons result params))))
-        (_ #f)))
-
-    ;; A function that performs `host` may run anything the host
-    ;; implements, mutation among it.
-
-    (define (row-mutates? (row Type)) (→ Bool)
-      (match row
-        ((TRow labels _) (or (member? "mut" labels) (member? "host" labels)))
-        (_ #f)))
-
-    ;; Builtin types other than `Array` and `Any` have no fields.
-
-    (define (fields-hold-storage? (program Program) (name String) (visiting (List String))) (→ Bool)
-      (and #t
-           (not (any? (lambda (entry) (string=? (● entry first) name)) builtin-types))
-           (any? (lambda (case) (not (null? (● case fields))))
-                 (● (program-type program name) cases))))
+    ;; ---- Free variables ----
 
     ;; The variable reads in `expr` of names it does not bind. Names are
     ;; unique, so a name bound anywhere inside is bound at all its reads.
@@ -2398,7 +2211,6 @@
     (define (check-places-item (program Program) (item Item)) (→ Unit) (! compile)
       (match item
         ((Define _ value) (check-places program value))
-        ((Do value) (check-places program value))
         (_ (unit))))
 
     (define (check-places (program Program) (expr Expr)) (→ Unit) (! compile)
@@ -2457,7 +2269,6 @@
     (define (check-closed-item (program Program) (item Item)) (→ Unit) (! compile)
       (match item
         ((Define _ value) (check-closed program (Nil) value))
-        ((Do value) (check-closed program (Nil) value))
         (_ (unit))))
 
     ;; `own` is the name a `let` binds the closure to, if it does.
@@ -2505,7 +2316,6 @@
     (define (check-conversions (program Program) (item Item)) (→ Unit) (! compile)
       (match item
         ((Define _ value) (check-expression-conversions program value))
-        ((Do value) (check-expression-conversions program value))
         (_ (unit))))
 
     (define (check-expression-conversions (program Program) (expr Expr)) (→ Unit) (! compile)
@@ -3191,12 +3001,15 @@
     ;; under the handler of every effect declared `around-main`, so the
     ;; body may perform those besides what the host implements.
 
-    (define (check-statement (ck Checker) (expr Expr)) (→ (Pair Item Checker)) (! compile)
-      (learning ck ((row (fresh-meta))
-                    (value (infer expr row))
-                    (then (infer-cleanup (Nil) (Nil) value row))
-                    (then (check-body-effects row (● value loc))))
-                (Pair (Do value) ck)))
+    (define (check-entry (ck Checker) (name String) (loc Loc)) (→ Checker) (! compile)
+      (match (global-scheme ck name)
+        ((Some (Scheme (Nil) (Nil) _ type))
+         (match (resolve-type (solution ck) type)
+           ((TFun (Nil) (TCon "Unit" (Nil)) row) (check-body-effects ck row loc))
+           (_
+            (compile-error loc "main must be a function taking no arguments and returning Unit"))))
+        (_ (compile-error loc
+                          "main must be a monomorphic function taking no arguments and returning Unit"))))
 
     (define (check-body-effects (ck Checker) (row Type) (loc Loc)) (→ Checker) (! compile)
       (check-effects-with ck row loc (lambda (effect) (● effect around-main))))
@@ -3327,14 +3140,11 @@
                          (Nil)
                          (Nil)
                          (None)
-                         (None)
                          0
                          empty-solution
                          schemes
                          (Nil)
                          0
-                         (Nil)
-                         #f
                          (Nil)
                          (Nil))))
         (learning ck ((typed (check-items items))
@@ -3347,23 +3157,18 @@
                     (for-each (lambda (item) (check-conversions program item)) (● result items))
                     (let ((result
                            (Typed-items-set result (lower-conversions (● result items)))))
-                      (check-final result
-                                   (map (lambda (function) (zonk-expr (solution ck) function))
-                                        (● ck confined)))
+                      (check-final result)
                       result)))))
 
-    ;; The checks of a library whose types are final. Each item's, and each
-    ;; confining function's, are its own, so the library fails with what
-    ;; every one found, in source order.
+    ;; Check each item at its final types and report failures in source order.
 
-    (define (check-final (typed Typed) (confined (List Expr))) (→ Unit) (! compile)
+    (define (check-final (typed Typed)) (→ Unit) (! compile)
       (let ((program (● typed program)) (schemes (● typed schemes)))
         (check-owned-fields program)
         (fail-if-found
          (in-source-order
-          (append (failures-of (lambda (item) (check-final-item program schemes item))
-                               (● typed items))
-                  (failures-of (lambda (function) (check-confined typed function)) confined))))))
+          (failures-of (lambda (item) (check-final-item program schemes item))
+                       (● typed items))))))
 
     (define (check-final-item (program Program) (schemes (Table Scheme)) (item Item))
       (→ Unit)
@@ -3376,6 +3181,7 @@
       (fold-left (lambda (ck item)
                    (match item
                      ((Expose name _ dynamic loc) (check-exposed ck name dynamic loc))
+                     ((Entry name loc) (check-entry ck name loc))
                      (_ ck)))
                  ck items))
 
@@ -3394,7 +3200,10 @@
       (→ (Pair (List Item) Checker))
       (! compile)
       (let* ((exposed (concatenate (map (lambda (item)
-                                          (match item ((Expose name _ _ _) (list name)) (_ (Nil))))
+                                          (match item
+                                            ((Expose name _ _ _) (list name))
+                                            ((Entry name _) (list name))
+                                            (_ (Nil))))
                                         items)))
              (groups (each-recovered (Recovered ck (Nil) (Nil) (Nil))
                                      group-references
@@ -3425,8 +3234,8 @@
     (define (item-references (item Item)) (→ (List String))
       (match item
         ((Define name value) (Cons name (expr-references value)))
-        ((Do value) (expr-references value))
-        ((Expose name _ _ _) (list name))))
+        ((Expose name _ _ _) (list name))
+        ((Entry name _) (list name))))
 
     (define (unannotated-groups (ck Checker) (items (List Item))) (→ (List (List Item)))
       (definition-groups
@@ -3448,13 +3257,11 @@
             (match (annotated-scheme (program-of ck) name)
               ((Some scheme) (check-annotated ck item scheme))
               ((None) (panic "internal error: unchecked definition"))))))
-        ((Do expr) (check-statement ck expr))
-        ((Expose _ _ _ _) (Pair item ck))))
+        (_ (Pair item ck))))
 
     (define (zonk-item (solution Solution) (item Item)) (→ Item)
       (match item
         ((Define name value) (Define name (zonk-expr solution value)))
-        ((Do value) (Do (zonk-expr solution value)))
         (_ item)))
 
     ;; Inferred schemes with their remaining metavariables defaulted, and the

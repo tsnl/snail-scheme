@@ -4,4 +4,8 @@
 (define (accept (function (Fn I64 → I64))) (→ I64) (function 1))
 
 (define (dynamic (value Any)) (→ Any) value)
-(accept dynamic)
+
+(define main
+  (lambda ()
+    (accept dynamic)
+    (unit)))

@@ -9,6 +9,9 @@
   (! wasm)
   (plugin-function plugin "twice"))
 
-(match (load-plugin "plugin/modules.json")
-  ((Ok plugin) (twice plugin) (unit))
-  ((Err _) (unit)))
+(define main
+  (lambda ()
+    (match (load-plugin "plugin/modules.json")
+      ((Ok plugin) (twice plugin) (unit))
+      ((Err _) (unit)))
+    (unit)))

@@ -16,4 +16,7 @@
     (run (lambda () (write-line (string-append "got " (show (yield 1))))))
     42))
 
-(write-line (show (go)))
+(define main
+  (lambda ()
+    (write-line (show (go)))
+    (unit)))

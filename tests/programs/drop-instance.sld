@@ -16,6 +16,7 @@
   (define drop
     (lambda (handle) (match handle
                        ((Handle name) (say (string-append "released " name)))))))
+
 ;; ANCHOR_END: handle
 
 ;; A token is linear by its declaration, and holds nothing to release.
@@ -39,6 +40,8 @@
   (drop (once (lambda () (say "never called"))))
   (say "done"))
 
-(handle log
-    ((say (lambda (text) (write-line text))))
-  (demo))
+(define (main) (→ Unit) (! output-port)
+  (handle log
+      ((say (lambda (text) (write-line text))))
+    (demo))
+  (unit))

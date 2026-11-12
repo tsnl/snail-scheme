@@ -25,23 +25,6 @@
   (handle Fail ((fail (lambda (message resume) (write-line message) (resume default))))
     (number text)))
 
-(display (parse-with "123" 0))
-(newline)
-(display (parse-with "1x3y" 9))
-(newline)
-
-;; Of two handlers of one effect, the inner one catches the body's `fail`.
-;; Its implementation runs outside it, so its own `fail` reaches the outer
-;; handler, which resumes it; the inner one then resumes the body.
-(display (handle Fail ((fail (lambda (message resume)
-                               (write-line (string-append "outer: " message))
-                               (resume 100))))
-           (handle Fail ((fail (lambda (message resume)
-                                 (write-line (string-append "inner: " message))
-                                 (+ 1 (resume (fail (string-append "again " message)))))))
-             (+ (fail "boom") 1))))
-(newline)
-
 ;; The resumed part of the body performs `log`, a control operation of a
 ;; handler outside the one that resumed it: the yield leaves the resumed
 ;; frames, the inner handler and its implementation, reaches the log's
@@ -57,9 +40,27 @@
                 (lambda (line resume) (write-line (string-append "log: " line)) (resume (unit)))))
     (body)))
 
-(display (logged (lambda ()
-                   (handle Fail ((fail (lambda (message resume)
-                                         (log (string-append "recovering from " message))
-                                         (* 2 (resume 5)))))
-                     (+ (checked "4z") (checked "7"))))))
-(newline)
+(define main
+  (lambda ()
+    (display (parse-with "123" 0))
+    (newline)
+    (display (parse-with "1x3y" 9))
+    (newline)
+    ;; Of two handlers of one effect, the inner one catches the body's `fail`.
+    ;; Its implementation runs outside it, so its own `fail` reaches the outer
+    ;; handler, which resumes it; the inner one then resumes the body.
+    (display (handle Fail ((fail (lambda (message resume)
+                                   (write-line (string-append "outer: " message))
+                                   (resume 100))))
+               (handle Fail ((fail (lambda (message resume)
+                                     (write-line (string-append "inner: " message))
+                                     (+ 1 (resume (fail (string-append "again " message)))))))
+                 (+ (fail "boom") 1))))
+    (newline)
+    (display (logged (lambda ()
+                       (handle Fail ((fail (lambda (message resume)
+                                             (log (string-append "recovering from " message))
+                                             (* 2 (resume 5)))))
+                         (+ (checked "4z") (checked "7"))))))
+    (newline)
+    (unit)))

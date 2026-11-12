@@ -3044,7 +3044,6 @@
       (let ((m (new-module (Declarations (Program-items-set program (Nil))
                                          (None) (control-effects program) empty-table))))
         (yielding m)
-        (emit-main! m (Nil) (Nil))
         (module-wat m)))
 
     (define (yielding? (m Module)) (→ Wat) (! mut)
@@ -4879,9 +4878,8 @@
 
     ;; ---- Modules ----
 
-    ;; The prepared input separates executable functions, ordered global
-    ;; initializers and statements. Every function builder sees the same
-    ;; fixed declarations; none can request another source specialization.
+    ;; The prepared input contains functions, explicit host exports and an
+    ;; optional program entry. Every builder sees the same fixed declarations.
 
     (define (emit-module (prepared Prepared)) (→ Wat) (! mut)
       (let ((m (new-module (● prepared declarations))))
@@ -4890,7 +4888,8 @@
                       ((Define name value) (emit-function! m name value))
                       (_ (panic "internal error: a prepared function must be a definition"))))
                   (● prepared definitions))
-        (emit-main! m (● prepared initializers) (● prepared statements))
+        (for-each (lambda (item) (emit-exposure! m item)) (● prepared exposed))
+        (match (● prepared entry) ((Some name) (emit-main! m name)) (_ (unit)))
         (for-each (lambda (name) (export-definition! m name)) (● prepared exported))
         (module-wat m)))
 
@@ -4905,15 +4904,15 @@
           (None)
           (Some (declaration-callees (● m declarations)))))
 
-    (define (emit-main! (m Module) (initializers (List Item)) (statements (List Item)))
-      (→ Unit)
-      (! mut)
-      (let* ((init (Fn-evidence-set (new-fn m) (evidence-none m)))
-             (body (new-fn m))
-             (body-code (concatenate (map (lambda (item) (main-item-code m body item)) statements)))
-             (init-code
-              (concatenate (map (lambda (item) (main-item-code m init item)) initializers))))
-        (finish-main! m init body init-code body-code)))
+    (define (emit-main! (m Module) (name String)) (→ Unit) (! mut)
+      (push-function! m "$main.body"
+                      (wat "func" (id "$main.body") (wat "export" (wat-string "main:body"))
+                           (evidence-param m) (wat "result" (Word "i32"))
+                           (wat "return_call" (id (wasm-id name)) (wat "local.get" (id "$ev")))))
+      (push-function! m "$main"
+                      (wat "func" (id "$main") (wat "export" (wat-string "main"))
+                           (wat "result" (Word "i32"))
+                           (wat "return_call" (id "$main.body") (evidence-none m)))))
 
     (define (export-definition! (m Module) (name String)) (→ Unit) (! mut)
       (match (definition-of m name)
@@ -4967,63 +4966,11 @@
       (⊨ (Copy A) (Drop e A))
       (list-sort (lambda (a b) (string<? (● a first) (● b first))) entries))
 
-    ;; A module's `main` initializes its definitions and runs its body, a
-    ;; program's statements, and answers 0. The two are exported apart as
-    ;; well: `main:init` runs the initializers, and `main:body`, which
-    ;; takes the evidence, runs the body under the handlers it is given,
-    ;; which is how a program's body runs as its first task, under the
-    ;; scheduler's handler of `tasks` ((snail shell task)'s `start-main`).
-
-    (define (finish-main! (m Module)
-                          (init Fn)
-                          (body Fn)
-                          (initializers (List Wat))
-                          (statements (List Wat)))
-      (→ Unit)
-      (! mut)
-      (push-function! m "$main.init"
-                      (main-part m init "$main.init" "main:init" #f initializers))
-      (push-function! m "$main.body"
-                      (main-part m body "$main.body" "main:body" #t statements))
-      (push-function! m "$main"
-                      (wat "func" (Word "$main") (wat "export" (wat-string "main"))
-                           (wat "result" (Word "i32"))
-                           (wat "drop" (wat "call" (id "$main.init")))
-                           (wat "call" (id "$main.body") (evidence-none m)))))
-
-    ;; Finalize a main function from the instructions emitted item by item.
-
-    (define (main-part (m Module)
-                       (fn Fn)
-                       (name String)
-                       (symbol String)
-                       (evidence? Bool)
-                       (code (List Wat)))
-      (→ Wat)
-      (! mut)
-      (wat* "func"
-            (concatenate (list (list (Word name) (wat "export" (wat-string symbol)))
-                               (if evidence? (list (evidence-param m)) (Nil))
-                               (list (wat "result" (Word "i32")))
-                               (reverse (● (● fn state) locals))
-                               code
-                               (list (wat "i32.const" (int 0)))))))
-
-    ;; A value becomes a mutable global set at startup; a statement runs and
-    ;; its value is dropped; an exposed function is exported, behind the
-    ;; wrapper the host or a loading program calls.
-
-    (define (main-item-code (m Module) (fn Fn) (item Item)) (→ (List Wat)) (! mut)
+    ;; Host exposures are adapters around ordinary functions. Counted
+    ;; results transfer a credit with an explicit companion for its release.
+    (define (emit-exposure! (m Module) (item Item)) (→ Unit) (! mut)
       (match item
-        ((Define name value)
-         (if (lambda-expr? value)
-             (Nil)
-             (let ((r (rep m (● value type))))
-               (push! (● m globals)
-                      (wat "global" (id (wasm-id name)) (wat "mut" (nullable r)) (default-value r)))
-               (list (wat "global.set" (id (wasm-id name)) (emit1 fn value))))))
-        ((Do expr) (list (wat "drop" (emit1 fn expr))))
-        ((Expose name symbol dynamic loc)
+        ((Expose name symbol dynamic _)
          (match (definition-of m name)
            ((Some definition)
             (unless (● definition function?)
@@ -5035,8 +4982,8 @@
                          (wat "export" (wat-string symbol)
                               (wat "func" (id (exposed-function m name (● definition type))))))
                   (export-result-release! m name symbol (● definition type)))))
-           ((None) (panic "internal error: an exposed function has no definition")))
-         (Nil))))
+           ((None) (panic "internal error: an exposed function has no definition"))))
+        (_ (panic "internal error: expected a host exposure"))))
 
     )
 

@@ -14,6 +14,7 @@
 ;; Writes to the output-port, and its type says so.
 (define (report (label String) (n I64)) (→ Unit) (! output-port)
   (write-line (string-append label " " (show n))))
+
 ;; ANCHOR_END: rows
 
 ;; ANCHOR: inferred
@@ -21,7 +22,6 @@
 (define report-square
   (lambda (n) (report "squared" (square n))))
 
-(report-square 7)
 ;; ANCHOR_END: inferred
 
 ;; ANCHOR: polymorphic
@@ -32,7 +32,6 @@
       (action i)
       (loop (+ i 1)))))
 
-(repeat 3 report-square)
 ;; ANCHOR_END: polymorphic
 
 ;; ANCHOR: local
@@ -42,5 +41,9 @@
     (repeat count (lambda (i) (ref-set! total (+ (ref-get total) (square i)))))
     (ref-get total)))
 
-(report "sum" (sum-of-squares 3))
-;; ANCHOR_END: local
+(define main
+  (lambda ()
+    (report-square 7)
+    (repeat 3 report-square)
+    (report "sum" (sum-of-squares 3))
+    (unit)))

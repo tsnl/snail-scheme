@@ -24,7 +24,10 @@
             (yield)
             (write-line text)))))
 
-(let* ((model (Model "after the loan"))
-       (task (with-borrow (borrowed model) (work borrowed))))
-  (drop model)
-  (task))
+(define main
+  (lambda ()
+    (let* ((model (Model "after the loan"))
+           (task (with-borrow (borrowed model) (work borrowed))))
+      (drop model)
+      (task))
+    (unit)))

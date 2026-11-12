@@ -5,5 +5,8 @@
 (struct Job
   ((work (FnOnce → Unit))))
 
-(match (Job (once (lambda () (unit))))
-  ((Job _) (unit)))
+(define main
+  (lambda ()
+    (match (Job (once (lambda () (unit))))
+      ((Job _) (unit)))
+    (unit)))

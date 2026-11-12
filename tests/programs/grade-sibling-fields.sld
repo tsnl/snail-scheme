@@ -18,12 +18,6 @@
     ((Some text) (write-line text))
     ((None) (write-line "nothing to run"))))
 
-(match (share (Shared (ref 0) (ref (Some "ran once"))))
-  ((Pair first second)
-   (run-current first)
-   (run-current second)
-   (write-line (string-append "asked " (show (ref-get (● first count))) " times"))))
-
 (struct Handle
   ((name String)))
 
@@ -44,4 +38,12 @@
   ((handle (Option Handle))
    (token (Option Token))))
 
-(drop (Two (Some (Handle "h")) (Some (Token 1))))
+(define main
+  (lambda ()
+    (match (share (Shared (ref 0) (ref (Some "ran once"))))
+      ((Pair first second)
+       (run-current first)
+       (run-current second)
+       (write-line (string-append "asked " (show (ref-get (● first count))) " times"))))
+    (drop (Two (Some (Handle "h")) (Some (Token 1))))
+    (unit)))

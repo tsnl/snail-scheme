@@ -83,6 +83,9 @@
                                    (string-append "broken on seeds "
                                                   (string-join (map show broken) " ")))))))
 
-(check "an extractor and a turret are ready before the first attack" ready-for-first-attack?)
-(check "an undefended hub falls before tick 1000" undefended-falls?)
-(check "a hub ringed with turrets holds through tick 3000" defended-holds?)
+(define main
+  (lambda ()
+    (check "an extractor and a turret are ready before the first attack" ready-for-first-attack?)
+    (check "an undefended hub falls before tick 1000" undefended-falls?)
+    (check "a hub ringed with turrets holds through tick 3000" defended-holds?)
+    (unit)))

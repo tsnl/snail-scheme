@@ -13,9 +13,12 @@
   (let ((cell (● model count)))
     (ref-set! cell (+ 1 (ref-get cell)))))
 
-(let ((model (Model (ref 0) (once (lambda () (unit))))))
-  (with-borrow (read model) (bump read) (bump read))
-  (match model
-    ((Model count work)
-     (work)
-     (write-line (show (ref-get count))))))
+(define main
+  (lambda ()
+    (let ((model (Model (ref 0) (once (lambda () (unit))))))
+      (with-borrow (read model) (bump read) (bump read))
+      (match model
+        ((Model count work)
+         (work)
+         (write-line (show (ref-get count))))))
+    (unit)))

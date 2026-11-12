@@ -1,4 +1,8 @@
 (import
  (snail core base))
-(let ((cell (ref (once (lambda () (unit))))))
-  (call-once (ref-get cell)))
+
+(define main
+  (lambda ()
+    (let ((cell (ref (once (lambda () (unit))))))
+      (call-once (ref-get cell)))
+    (unit)))

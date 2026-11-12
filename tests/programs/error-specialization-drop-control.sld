@@ -25,5 +25,8 @@
     (match resource
       ((Resource name) (write-line name)))))
 
-(handle Pause ((pause (lambda (resume) (drop resume))))
-  (work))
+(define main
+  (lambda ()
+    (handle Pause ((pause (lambda (resume) (drop resume))))
+      (work))
+    (unit)))

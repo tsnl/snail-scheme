@@ -34,6 +34,7 @@
 
 (define (fetch-twice (store S) (name String)) (→ String) (! e) (∀ e S) (⊨ (Store e S) (Copy S))
   (string-append (fetch-object store name) " / " (fetch-object store name)))
+
 ;; ANCHOR_END: store
 
 ;; A table's reads are total, so a total function may make them.
@@ -73,6 +74,7 @@
     (lambda (logged name) (say (string-append "fetching " name))
             (match logged
               ((Logged inner) (fetch-object inner name))))))
+
 ;; ANCHOR_END: logged
 
 ;; The log is printed here; what the inner store performs passes through.
@@ -81,10 +83,14 @@
       ((say (lambda (line) (write-line (string-append "log: " line)))))
     (body)))
 
-(write-line (fetch-twice (Directory "assets") "hero"))
-(write-line (from-table (Table (list (Pair "hero" "held"))) "hero"))
-(write-line (peek (Table (list (Pair "villain" "kept"))) "villain"))
-(write-line (answering (lambda () (fetch-asked (Table (list (Pair "a" "A") (Pair "b" "B"))) ask))))
-(write-line (answering (lambda () (fetch-asked (Directory "d") ask))))
-(write-line (logging (lambda () (fetch-twice (Logged (Table (list (Pair "a" "b")))) "a"))))
-(write-line (logging (lambda () (fetch-object (Logged (Directory "pack")) "villain"))))
+(define main
+  (lambda ()
+    (write-line (fetch-twice (Directory "assets") "hero"))
+    (write-line (from-table (Table (list (Pair "hero" "held"))) "hero"))
+    (write-line (peek (Table (list (Pair "villain" "kept"))) "villain"))
+    (write-line
+     (answering (lambda () (fetch-asked (Table (list (Pair "a" "A") (Pair "b" "B"))) ask))))
+    (write-line (answering (lambda () (fetch-asked (Directory "d") ask))))
+    (write-line (logging (lambda () (fetch-twice (Logged (Table (list (Pair "a" "b")))) "a"))))
+    (write-line (logging (lambda () (fetch-object (Logged (Directory "pack")) "villain"))))
+    (unit)))

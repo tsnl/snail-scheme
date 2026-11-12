@@ -18,5 +18,8 @@
     ((Some work) (call-once work))
     ((None) (unit))))
 
-(match (twice (Some (once (lambda () (write-line "ran")))))
-  ((Pair x y) (run x) (run y)))
+(define main
+  (lambda ()
+    (match (twice (Some (once (lambda () (write-line "ran")))))
+      ((Pair x y) (run x) (run y)))
+    (unit)))

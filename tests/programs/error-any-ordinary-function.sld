@@ -13,4 +13,7 @@
 
 (define quiet (→ (Fn → Unit)) (type-convert boxed (Fn → Unit)))
 
-(quiet)
+(define main
+  (lambda ()
+    (quiet)
+    (unit)))

@@ -12,4 +12,7 @@
 (define (forget (value T)) (→ Unit) (∀ T)
   (unit))
 
-(duplicate (fine 1))
+(define main
+  (lambda ()
+    (duplicate (fine 1))
+    (unit)))

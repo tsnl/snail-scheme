@@ -30,17 +30,19 @@
   (match child
     ((Child name) name)))
 
-(let ((model (Model "ready" 2 (Some (Child "nested")) (once (lambda () (unit))))))
-  (write-line (with-borrow (read model) (describe read)))
-  (write-line (with-borrow (read model) (describe read)))
-  (match model
-    ((Model _ _ pending work)
-     (work)
-     (drop pending))))
-
-(let ((model (Model "idle" 0 (None) (once (lambda () (unit))))))
-  (write-line (with-borrow (read model) (describe read)))
-  (match model
-    ((Model _ _ pending work)
-     (work)
-     (drop pending))))
+(define main
+  (lambda ()
+    (let ((model (Model "ready" 2 (Some (Child "nested")) (once (lambda () (unit))))))
+      (write-line (with-borrow (read model) (describe read)))
+      (write-line (with-borrow (read model) (describe read)))
+      (match model
+        ((Model _ _ pending work)
+         (work)
+         (drop pending))))
+    (let ((model (Model "idle" 0 (None) (once (lambda () (unit))))))
+      (write-line (with-borrow (read model) (describe read)))
+      (match model
+        ((Model _ _ pending work)
+         (work)
+         (drop pending))))
+    (unit)))

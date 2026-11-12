@@ -86,6 +86,7 @@
 (define (input (text String))
   (→ Cue)
   (Fire "command-query" "input" (Event-value-set no-event text)))
+
 (define enter (→ Cue) (Fire "command-query" "keydown" (Event-key-set no-event "Enter")))
 
 (define (verify-focus (result (Pair Node Document))) (→ Unit)
@@ -163,4 +164,7 @@
       (write-line (if delayed-read "obsolete failure cannot reveal cached coordinates"
                       "queued reveal cannot steal focus after a split")))))
 
-(dispatch-local (once (lambda () (run #t) (run #f))))
+(define main
+  (lambda ()
+    (dispatch-local (once (lambda () (run #t) (run #f))))
+    (unit)))

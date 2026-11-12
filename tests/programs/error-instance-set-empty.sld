@@ -1,4 +1,7 @@
 (import
  (snail core base))
 
-(with-instances (missing))
+(define main
+  (lambda ()
+    (with-instances (missing))
+    (unit)))

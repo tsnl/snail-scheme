@@ -6,5 +6,8 @@
 (effect Fail
   ((ctl fail (Fn String → Never))))
 
-(handle Fail ((fail (lambda (message resume) 0)))
-  (absurd (fail "no")))
+(define main
+  (lambda ()
+    (handle Fail ((fail (lambda (message resume) 0)))
+      (absurd (fail "no")))
+    (unit)))

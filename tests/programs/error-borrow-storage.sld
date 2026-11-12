@@ -5,7 +5,10 @@
   ((number I64))
   (deriving Move))
 
-(let ((token (Token 1)))
-  (with-borrow (borrowed token)
-               (let ((stored (ref borrowed))) (unit)))
-  (drop token))
+(define main
+  (lambda ()
+    (let ((token (Token 1)))
+      (with-borrow (borrowed token)
+                   (let ((stored (ref borrowed))) (unit)))
+      (drop token))
+    (unit)))

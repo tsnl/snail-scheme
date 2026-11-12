@@ -4,4 +4,8 @@
 ;; The host reads one String or Bytes argument, staged just before the call,
 ;; so a host function may take one only last.
 (extern greet "snail.test" "greet" (Fn String I64 → Unit))
-(greet "hello" 1)
+
+(define main
+  (lambda ()
+    (greet "hello" 1)
+    (unit)))

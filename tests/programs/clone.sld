@@ -25,6 +25,7 @@
                        ((Ticket seat)
                         (say (string-append "copied seat " (i64->string seat)))
                         (Pair (Ticket seat) (Ticket (+ seat 100))))))))
+
 ;; ANCHOR_END: ticket
 
 ;; A generic wrapper's instance copies what it holds in the row `e` of its
@@ -73,6 +74,9 @@
     ((Pair (Tagged first x) (Tagged second y))
      (write-line (string-append first " " (i64->string x) ", " second " " (i64->string y))))))
 
-(handle log
-    ((say (lambda (text) (write-line text))))
-  (demo))
+(define main
+  (lambda ()
+    (handle log
+        ((say (lambda (text) (write-line text))))
+      (demo))
+    (unit)))

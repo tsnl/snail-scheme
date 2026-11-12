@@ -45,10 +45,6 @@
 
 (define result (→ (Pair String Document)) (with-memory-dom (Nil) build))
 
-(write-line (● result first))
-(write-line (document->html (● result second)))
-(for-each write-line (document-trace (● result second)))
-
 (define removed (→ Document)
   (● (with-memory-dom (Nil) (lambda ()
                               (let ((outer (create-element "div"))
@@ -60,4 +56,10 @@
                                              (create-text "after")
                                              (None))))) second))
 
-(write-line (document->html removed))
+(define main
+  (lambda ()
+    (write-line (● result first))
+    (write-line (document->html (● result second)))
+    (for-each write-line (document-trace (● result second)))
+    (write-line (document->html removed))
+    (unit)))

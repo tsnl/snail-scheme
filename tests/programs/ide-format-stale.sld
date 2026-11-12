@@ -61,7 +61,11 @@
                                          (run-reactor (begin-session initial)
                                                       (list (Open "main.sld"))
                                                       (ann update-session
-                                                           (Fn Session (Option Msg) → Session ! mut completion output-port dom fetch))
+                                                           (Fn Session
+                                                               (Option Msg)
+                                                               →
+                                                               Session
+                                                               ! mut completion output-port dom fetch))
                                                       session-view session-window snapshot
                                                       (lambda (model) (unit))
                                                       (lambda (model) (unit)))))) first))
@@ -72,11 +76,18 @@
                                             (list (DispatchCommand "format-buffer"))
                                             (ann (lambda (model msg)
                                                    (race-update changed-path injected model msg))
-                                                 (Fn Session (Option Msg) → Session ! mut completion output-port dom fetch))
+                                                 (Fn Session
+                                                     (Option Msg)
+                                                     →
+                                                     Session
+                                                     ! mut completion output-port dom fetch))
                                             session-view session-window snapshot
                                             (lambda (model) (unit)) (lambda (model) (unit))))
                          (report-editor)))
       (unless (ref-get injected) (panic "the formatting race was not exercised"))
       (unit))))
 
-(dispatch-local (once (lambda () (run #f) (run #t))))
+(define main
+  (lambda ()
+    (dispatch-local (once (lambda () (run #f) (run #t))))
+    (unit)))

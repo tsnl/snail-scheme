@@ -6,4 +6,7 @@
   ((x I64)
    (y I64)))
 
-(make-array 2 (Point 1 2))
+(define main
+  (lambda ()
+    (make-array 2 (Point 1 2))
+    (unit)))

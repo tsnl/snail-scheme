@@ -213,7 +213,7 @@
       ;; A session rebuilds only what an edit changed: a body edit under a
       ;; signature recompiles its library alone, and an edit to what
       ;; importers see recompiles them too. The libraries use only
-      ;; primitives, so the session runs quickly on Chibi. The sources are
+      ;; primitives, so the session runs quickly on Chez. The sources are
       ;; written into `directory`; `library` holds the standard libraries,
       ;; (snail core primitive) among them.
       (define test-session
@@ -223,7 +223,7 @@
                                       (write-file (string-append directory "/sample/b.sld")
                                                   sample-b)
                                       (write-file main
-                                                  "(import (snail core forms) (snail core primitive) (sample b)) (four)")
+                                                  "(import (snail core forms) (snail core primitive) (sample b)) (define (main) (→ Unit) (four) (unit))")
                                       (let* ((first
                                               (build-session (make-session (list directory library))
                                                              main
@@ -278,7 +278,7 @@
                                                         ")))")))
                                       (write-file file (source "(i64-add x 1)"))
                                       (write-file main
-                                                  "(import (snail core forms) (snail core primitive) (sample policy)) (value (ann 2 I64))")
+                                                  "(import (snail core forms) (snail core primitive) (sample policy)) (define (main) (→ Unit) (value (ann 2 I64)) (unit))")
                                       (let ((first
                                              (build-session (make-session (list directory library))
                                                             main no-generation no-inputs)))
@@ -303,12 +303,14 @@
                                                    "(import (snail core forms) (snail core primitive)) "
                                                    "(begin (define (identity (x A)) (→ A) (∀ A) x)))"))
                                       (write-file main
-                                                  (string-append source "(identity (ann 1 I64))"))
+                                                  (string-append source
+                                                                 "(define (main) (→ Unit) (identity (ann 1 I64)) (unit))"))
                                       (let ((first
                                              (build-session (make-session (list directory library))
                                                             main no-generation no-inputs)))
                                         (write-file main
-                                                    (string-append source "(identity (ann 2 I32))"))
+                                                    (string-append source
+                                                                   "(define (main) (→ Unit) (identity (ann 2 I32)) (unit))"))
                                         (let ((warm (build-session (● first second)
                                                                    main
                                                                    no-generation
@@ -348,7 +350,7 @@
             (write-file module (source before))
             (write-file main (string-append
                               "(import (snail core base) (only (snail core primitive) i64-add) (sample headers)) "
-                              call))
+                              "(define (main) (→ Unit) " call " (unit))"))
             (let ((first (build-session (make-session (list directory library))
                                         main no-generation no-inputs)))
               (write-file module (source after))
@@ -356,7 +358,8 @@
                 (expect (compiled-names warm)
                         (if specialized? (list "sample.headers" "main") (list "sample.headers")))
                 (expect (any? (lambda (module)
-                                (and (string=? (● module name) (if specialized? "main" "sample.headers"))
+                                (and (string=? (● module name)
+                                               (if specialized? "main" "sample.headers"))
                                      (string-contains (● module text) "(i64.const 2)") #t))
                               (● warm first)) #t))))))
 
@@ -369,7 +372,7 @@
                                       (write-artifact-source directory
                                                              "(artifact-bundle \"client\")")
                                       (write-file main
-                                                  "(import (snail core base) (sample assets)) (bundle)")
+                                                  "(import (snail core base) (sample assets)) (define (main) (→ Unit) (bundle) (unit))")
                                       (let* ((inputs (supply-artifact no-inputs "client" files))
                                              (first
                                               (build-session (make-session (list directory library))
@@ -412,9 +415,9 @@
                                       (write-file (string-append directory "/sample/linked.sld")
                                                   (string-append
                                                    "(define-library (sample linked) (export data) (import (snail core forms) (snail core primitive)) "
-                                                   "(begin (define data (→ I32) (link-handle \"./data.bin\"))))"))
+                                                   "(begin (define (data) (→ I32) (link-handle \"./data.bin\"))))"))
                                       (write-file main
-                                                  "(import (snail core forms) (snail core primitive) (sample linked)) data")
+                                                  "(import (snail core forms) (snail core primitive) (sample linked)) (define (main) (→ Unit) (data) (unit))")
                                       (let* ((first
                                               (build-session (make-session (list directory library))
                                                              main
@@ -457,7 +460,7 @@
                                                    "(define-library (sample host) (export now) (import (snail core forms) (snail core primitive)) "
                                                    "(begin (extern now \"sample.host\" \"now\" (Fn → I64))))"))
                                       (write-file main
-                                                  "(import (snail core forms) (snail core primitive) (sample host)) (now)")
+                                                  "(import (snail core forms) (snail core primitive) (sample host)) (define (main) (→ Unit) (now) (unit))")
                                       (let ((built (● (build-session
                                                        (make-session (list directory library))
                                                        main

@@ -22,15 +22,18 @@
       ((log (lambda (message) (write-line (string-append "log: " message)))))
     (action)))
 
-(display (loudly (lambda () (work 21))))
-(newline)
-(display (quietly (lambda () (work 5))))
-(newline)
-(display (handle Counter
-             ((tick (lambda () 2)))
-           (+ (tick) (+ (tick) (tick)))))
-(newline)
-(loudly (lambda ()
-          (handle Log
-              ((log (lambda (message) (log (string-append "outer sees " message)))))
-            (log "inner"))))
+(define main
+  (lambda ()
+    (display (loudly (lambda () (work 21))))
+    (newline)
+    (display (quietly (lambda () (work 5))))
+    (newline)
+    (display (handle Counter
+                 ((tick (lambda () 2)))
+               (+ (tick) (+ (tick) (tick)))))
+    (newline)
+    (loudly (lambda ()
+              (handle Log
+                  ((log (lambda (message) (log (string-append "outer sees " message)))))
+                (log "inner"))))
+    (unit)))

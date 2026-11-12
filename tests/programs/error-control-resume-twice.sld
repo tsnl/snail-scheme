@@ -9,4 +9,7 @@
   (handle Choose ((choose (lambda (resume) (append (resume #t) (resume #f)))))
     (list (choose))))
 
-(both)
+(define main
+  (lambda ()
+    (both)
+    (unit)))

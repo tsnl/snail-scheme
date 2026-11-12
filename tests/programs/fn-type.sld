@@ -16,11 +16,12 @@
 
 (define buttons (→ (List Button))
   (list (Button "named" shout)
-        (Button "fn" (fn (count) → (string-append "a fn saw " (i64->string count))))))
+        (Button "fn" (fn (count) (string-append "a fn saw " (i64->string count))))))
 
 ;; Calling an Fn calls its code.
 (define (press (button Button) (count I64)) (→ String)
   ((● button on-press) count))
+
 ;; ANCHOR_END: fn-type
 
 ;; A signature or an annotation also gives a function the type Fn.
@@ -52,8 +53,10 @@
     (check 3)
     -1))
 
-(for-each (lambda (button) (write-line (press button 3))) buttons)
-(for-each (lambda (n) (write-line (i64->string n)))
-          (apply-all (list twice (ann (fn (x) → (+ x 1)) (fn I64 → I64))) 10))
-(log-with write-line)
-(write-line (string-append "stopped at " (i64->string (until-stop stop-at-two))))
+(define (main) (→ Unit) (! output-port)
+  (for-each (lambda (button) (write-line (press button 3))) buttons)
+  (for-each (lambda (n) (write-line (i64->string n)))
+            (apply-all (list twice (ann (fn (x) (+ x 1)) (fn I64 → I64))) 10))
+  (log-with write-line)
+  (write-line (string-append "stopped at " (i64->string (until-stop stop-at-two))))
+  (unit))

@@ -1,6 +1,6 @@
 // One loader and replacement transaction for every browser application.
 // Engines supply device imports and reset their presentation before each run.
-import {createWasi, instantiate, linkedFileImports, linkProgram, relinkProgram, runMain, runProgram} from './load.mjs';
+import {createWasi, instantiate, linkedFileImports, linkProgram, relinkProgram} from './load.mjs';
 import {applicationEntry, HIDDEN} from './runtime.mjs';
 
 export const running = [];
@@ -24,7 +24,6 @@ async function instantiateApplication(application, url) {
   const linked = linkedFileImports(fetchRead(url), module, () => application.runtime.execution.tasks);
   const instance = await instantiate(module, {...wasi.getImportObject(), ...application.imports, ...linked});
   wasi.initialize(instance);
-  runMain(instance.exports);
   application.program = instance;
 }
 
@@ -32,7 +31,6 @@ async function linkApplication(application, manifest, read) {
   const wasi = createWasi({print: printer(application)});
   application.program = await linkProgram(read, manifest, wasi, application.imports,
                                           () => application.runtime.execution.tasks);
-  runProgram(application.program);
 }
 
 // Only a cold restoration failure before boot may discard saved bytes.

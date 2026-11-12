@@ -19,6 +19,7 @@
 
 (define (wait-for (deadline I64)) (→ I64) (! Async)
   (await deadline))
+
 ;; ANCHOR_END: clock
 
 (enum Task
@@ -45,10 +46,11 @@
      (write-line (string-append "waiting until " (show deadline)))
      (drive (next deadline)))))
 
-(drive (start job))
-
-;; A handler replaces the defaults: this clock never waits.
-(drive (handle Clock
-           ((now (lambda () 0))
-            (sleep-until (lambda (deadline) (+ deadline 100))))
-         (start job)))
+(define (main) (→ Unit) (! Clock output-port)
+  (drive (start job))
+  ;; A handler replaces the defaults: this clock never waits.
+  (drive (handle Clock
+             ((now (lambda () 0))
+              (sleep-until (lambda (deadline) (+ deadline 100))))
+           (start job)))
+  (unit))

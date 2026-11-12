@@ -22,13 +22,12 @@
       ((yield (lambda (value resume) (Cons value (resume (unit))))))
     (body)
     (Nil)))
+
 ;; ANCHOR_END: collect
 
 (define (show-all (values (List I64))) (→ Unit) (! output-port)
   (write-line (string-join (map show values) " ")))
 
-;; ANCHOR: run-collect
-(show-all (collect (lambda () (range 1 5))))
 ;; ANCHOR_END: run-collect
 
 ;; ANCHOR: first-above
@@ -44,8 +43,6 @@
     (body)
     -1))
 
-(write-line (repr (first-above 3 (lambda () (range 1 5)))))
-(write-line (repr (first-above 9 (lambda () (range 1 5)))))
 ;; ANCHOR_END: first-above
 
 ;; ANCHOR: step
@@ -74,5 +71,10 @@
     ((Yielded value next)
      (Cons value (interleave other (next (unit)))))))
 
-(show-all (interleave (start (lambda () (range 1 3))) (start (lambda () (range 10 14)))))
-;; ANCHOR_END: step
+(define (main) (→ Unit) (! output-port)
+  ;; ANCHOR: run-collect
+  (show-all (collect (lambda () (range 1 5))))
+  (write-line (repr (first-above 3 (lambda () (range 1 5)))))
+  (write-line (repr (first-above 9 (lambda () (range 1 5)))))
+  (show-all (interleave (start (lambda () (range 1 3))) (start (lambda () (range 10 14)))))
+  (unit))

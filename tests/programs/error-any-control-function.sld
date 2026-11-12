@@ -15,8 +15,11 @@
 
 (define hidden (→ (Fn → I64)) (type-convert boxed (Fn → I64)))
 
-(display (handle Gen ((yield (lambda (v resume) (+ 1000 (resume (* v 10))))))
-           (let ((a (hidden)))
-             (write-line (string-append "a = " (show a)))
-             (+ a 5))))
-(newline)
+(define main
+  (lambda ()
+    (display (handle Gen ((yield (lambda (v resume) (+ 1000 (resume (* v 10))))))
+               (let ((a (hidden)))
+                 (write-line (string-append "a = " (show a)))
+                 (+ a 5))))
+    (newline)
+    (unit)))

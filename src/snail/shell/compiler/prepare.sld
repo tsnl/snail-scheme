@@ -41,14 +41,13 @@
 
     ;; ---- Prepared code ----
 
-    ;; Fixed declarations and the concrete subset consumed by emission.
-    ;; Initializers already have source execution order. No recipe, source
-    ;; body cache or worklist crosses this boundary.
+    ;; Fixed declarations and concrete functions consumed by emission.
+    ;; No initializer, source body cache or worklist crosses this boundary.
     (struct Prepared
       ((declarations Declarations)
        (definitions (List Item))
-       (initializers (List Item))
-       (statements (List Item))
+       (entry (Option String))
+       (exposed (List Item))
        (exported (List String))))
 
     (define (prepare-program (typed Typed)) (→ Prepared) (! compile)
@@ -60,32 +59,30 @@
       (prepare input (Some owner) items))
 
     (define (prepare (input Specialization) (owner (Option String)) (items (List Item)))
-      (→ Prepared)
-      (! compile)
+      (→ Prepared) (! compile)
       (match (start-specialization (new-state input owner) items)
         ((Pair exported state)
-         (match (specialize-statements state items)
-           ((Pair statements state)
-            (let ((lowered (prepare-batches state 0 statements (Nil))))
-              (prepared (● lowered state) (● lowered items) exported)))))))
+         (let* ((roots (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items))
+                (lowered (prepare-batches state roots (Nil))))
+           (prepared (● lowered state) (● lowered items) exported)))))
 
     ;; Close each newly discovered graph before checking its original bodies.
     ;; Cleanup adds new definitions without changing an old body or contract,
     ;; so old checks remain valid. A new check may still inspect an old body
     ;; under a different context; only construction, never that answer, is cached.
 
-    (define (prepare-batches (state State) (count I64) (roots (List Item)) (done (List Item)))
+    (define (prepare-batches (state State) (roots (List Item)) (done (List Item)))
       (→ Lowered) (! compile)
       (match (complete-specializations state)
         ((Pair definitions state)
          (let ((items (append roots definitions)))
            (if (null? items)
-               (Lowered (reverse done) count state)
-               (let ((lowered (prepare-batch state count items)))
-                 (prepare-batches (● lowered state) (● lowered count) (Nil)
+               (Lowered (reverse done) state)
+               (let ((lowered (prepare-batch state items)))
+                 (prepare-batches (● lowered state) (Nil)
                                   (append (reverse (● lowered items)) done))))))))
 
-    (define (prepare-batch (state State) (count I64) (items (List Item))) (→ Lowered) (! compile)
+    (define (prepare-batch (state State) (items (List Item))) (→ Lowered) (! compile)
       (match (fold-constants state items)
         ((Pair items state)
          (let ((callees (specialization-callees state)))
@@ -93,7 +90,7 @@
            (let* ((declarations (constant-declarations (specialization-declarations state)))
                   (items (map (lambda (item) (lower-lifetimes declarations item)) items))
                   (lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
-                                      (Lowered (Nil) count state) items)))
+                                      (Lowered (Nil) state) items)))
              (Lowered-items-set lowered (reverse (● lowered items))))))))
 
 
@@ -102,8 +99,10 @@
       (Prepared (constant-declarations (specialization-declarations state))
                 (filter (lambda (item)
                           (match item ((Define _ value) (lambda-expr? value)) (_ #f))) items)
-                (Nil)
-                (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items)
+                (match (find (lambda (item) (match item ((Entry _ _) #t) (_ #f))) items)
+                  ((Some (Entry name _)) (Some name))
+                  (_ (None)))
+                (filter (lambda (item) (match item ((Expose _ _ _ _) #t) (_ #f))) items)
                 exported))
 
     ;; ---- Yields ----
@@ -632,29 +631,26 @@
     ;; ---- Lowering a batch ----
 
     ;; A batch owns its normalized items and the requests cleanup discovers.
-    ;; The counter is shared by main's statements and global initializers;
-    ;; each function starts its own numbering in control-item.
     (struct Lowered
       ((items (List Item))
-       (count I64)
        (state State)))
 
     (define (lower-item (lowered Lowered) (callees Callees) (item Item)) (→ Lowered)
-      (match (control-item (● lowered count) callees item)
-        ((Pair item count)
-         (match (lower-droppers (● lowered state) callees item)
-           ((Pair item state)
-            (Lowered (Cons item (● lowered items)) count state))))))
+      (match (lower-droppers (● lowered state) callees (control-item callees item))
+        ((Pair item state) (Lowered (Cons item (● lowered items)) state))))
 
     (define (check-exposure (callees Callees) (item Item)) (→ Unit) (! compile)
       (match item
-        ((Expose name _ _ loc)
-         (match (table-ref (● (● callees declarations) bindings) name)
-           ((Some binding)
-            (unless (● binding function?)
-              (compile-error loc "an exposed function must be defined with lambda")))
-           ((None) (panic "internal error: an exposed function has no binding"))))
+        ((Expose name _ _ loc) (check-entry-function callees name loc))
+        ((Entry name loc) (check-entry-function callees name loc))
         (_ (unit))))
+
+    (define (check-entry-function (callees Callees) (name String) (loc Loc)) (→ Unit) (! compile)
+      (match (table-ref (● (● callees declarations) bindings) name)
+        ((Some binding)
+         (unless (● binding function?)
+           (compile-error loc "an entry must be defined as a function")))
+        ((None) (panic "internal error: an entry has no binding"))))
 
     ;; ---- Droppers ----
 
@@ -713,11 +709,6 @@
          (if (needs-droppers? callees value)
              (match (droppers callees drops (Nil) value)
                ((Pair value types) (Pair (Define name value) types)))
-             (Pair item (Nil))))
-        ((Do value)
-         (if (needs-droppers? callees value)
-             (match (droppers callees drops (Nil) value)
-               ((Pair value types) (Pair (Do value) types)))
              (Pair item (Nil))))
         (_ (Pair item (Nil)))))
 
@@ -1022,19 +1013,12 @@
                         (TFun (Nil) unit-type empty-row)
                         loc)))))
 
-    ;; Temporaries are numbered within the Wasm function they land in: a
-    ;; function's definition counts from zero, while the statements and the
-    ;; other definitions' values all run in `main`, and share one count.
+    ;; Each function numbers its own temporaries from zero.
 
-    (define (control-item (count I64) (callees Callees) (item Item)) (→ (Pair Item I64))
+    (define (control-item (callees Callees) (item Item)) (→ Item)
       (match item
-        ((Define name value)
-         (if (lambda-expr? value)
-             (Pair (Define name (● (control-expr 0 callees value) first)) count)
-             (naming count ((value (control-expr callees value)))
-                     (Pair (Define name value) count))))
-        ((Do expr) (naming count ((expr (control-expr callees expr))) (Pair (Do expr) count)))
-        (_ (Pair item count))))
+        ((Define name value) (Define name (● (control-expr 0 callees value) first)))
+        (_ item)))
 
     (define (control-expr (count I64) (callees Callees) (expr Expr)) (→ (Pair Expr I64))
       (if (yield-free? callees expr) (Pair expr count) (normal count callees expr)))
@@ -1044,7 +1028,6 @@
       (unless (null? (callees-control callees))
         (match item
           ((Define _ value) (check-restrictions callees value))
-          ((Do expr) (check-restrictions callees expr))
           (_ (unit)))))
 
     )

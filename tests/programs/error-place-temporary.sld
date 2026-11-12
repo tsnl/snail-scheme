@@ -7,4 +7,7 @@
   ((work (FnOnce → Unit))
    (tries I64)))
 
-(● (Task (once (lambda () (unit))) 0) tries)
+(define main
+  (lambda ()
+    (● (Task (once (lambda () (unit))) 0) tries)
+    (unit)))

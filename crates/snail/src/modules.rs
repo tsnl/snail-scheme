@@ -786,9 +786,6 @@ fn instantiate(mut caller: Caller<'_, Host>, namespace: i32, module: i32) -> was
         .data_mut()
         .loading
         .add_instance(namespace, name, instance)?;
-    if instance.get_func(&mut caller, "main").is_some() {
-        run_export(&mut caller, &instance, "main")?;
-    }
     Ok(handle)
 }
 

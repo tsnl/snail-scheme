@@ -22,7 +22,7 @@
   (import
    (snail core base)
    (snail core io)
-   (only (snail shell task) tasks dispatch-local)
+   (only (snail shell task) tasks)
    (only (snail shell resource) resource))
   (begin
 
@@ -122,12 +122,11 @@
     ;; driver names as the producer's argument. The expression runs in a
     ;; task, so it may read the files its recipe links with `read-resource`.
 
-    (define (write-generated-library (library (Fn → Syntax ! fs resource tasks)))
-      (→ Unit)
-      (! mut fs resource)
+    (define (write-generated-library (library (FnOnce → Syntax ! fs resource tasks)))
+      (→ Unit) (! fs resource tasks)
       (match (command-line)
-        ((Cons _ (Cons path _))
-         (dispatch-local (once (lambda () (write-bytes path (syntax->bytes (library)))))))
-        (_ (panic "a producer writes its library to the path given as its argument"))))
+        ((Cons _ (Cons path _)) (write-bytes path (syntax->bytes (library))))
+        (_ (drop library)
+           (panic "a producer writes its library to the path given as its argument"))))
 
     ))

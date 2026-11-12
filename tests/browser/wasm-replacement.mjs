@@ -27,7 +27,6 @@ try {
   const instance = await instantiate(module, {...wasi.getImportObject(), ...program.host});
   program.runtime = instance;
   wasi.initialize(instance);
-  instance.exports.main();
 } catch (error) { document.body.dataset.error = String(error); }
 document.body.dataset.finished = 'true';
 </script>`;

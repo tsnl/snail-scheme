@@ -19,14 +19,6 @@
 (define (second-log (line String)) (→ Unit) (! output-port)
   (write-line (string-append "second log: " line)))
 
-;; ANCHOR: thunk
-;; A thunk closed under the first log runs under the second, and logs to
-;; the first.
-(let ((work (handle Log ((log first-log))
-              (inherit-handlers (once (lambda () (log "a thunk")))))))
-  (handle Log ((log second-log))
-    (log "before the thunk")
-    (work)))
 ;; ANCHOR_END: thunk
 
 ;; A resumption is a procedure of one argument. Stored and resumed later
@@ -47,6 +39,7 @@
   (handle Gen ((yield (lambda (value resume) (Yielded value (inherit-handlers-1 resume)))))
     (body)
     (Done)))
+
 ;; ANCHOR_END: resume
 
 (define (count-to (value I64) (last I64)) (→ Unit) (! Gen Log)
@@ -62,8 +55,18 @@
      (write-line (string-append "got " (show value)))
      (drain (next (unit))))))
 
-(let ((step (handle Log ((log first-log))
-              (start (lambda () (count-to 1 2))))))
-  (handle Log ((log second-log))
-    (log "draining")
-    (drain step)))
+(define (main) (→ Unit) (! host output-port)
+  ;; ANCHOR: thunk
+  ;; A thunk closed under the first log runs under the second, and logs to
+  ;; the first.
+  (let ((work (handle Log ((log first-log))
+                (inherit-handlers (once (lambda () (log "a thunk")))))))
+    (handle Log ((log second-log))
+      (log "before the thunk")
+      (work)))
+  (let ((step (handle Log ((log first-log))
+                (start (lambda () (count-to 1 2))))))
+    (handle Log ((log second-log))
+      (log "draining")
+      (drain step)))
+  (unit))

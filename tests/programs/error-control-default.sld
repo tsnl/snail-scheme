@@ -7,4 +7,7 @@
   ((ctl next (Fn I64 → Unit)))
   (default ((next (lambda (n) (unit))))))
 
-(unit)
+(define main
+  (lambda ()
+    (unit)
+    (unit)))

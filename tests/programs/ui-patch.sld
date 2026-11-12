@@ -48,20 +48,23 @@
 (define (item (name String)) (→ (Html Msg))
   (Element "li" (list (Keyed name)) (list (Text name))))
 
-(dispatch-local
- (once (lambda ()
-         (let ((result (with-memory-dom (list (Fire "next" "click" no-event)
-                                              (Fire "next" "click" no-event)
-                                              (Fire "next" "click" no-event)
-                                              (Fire "next" "click" no-event))
-                                        (lambda ()
-                                          (run-ui 0
-                                                  (Nil)
-                                                  update
-                                                  view
-                                                  (lambda (step) (Nil))
-                                                  (lambda (step) (unit))
-                                                  (lambda (step) (unit)))))))
-           (write-line (string-append "step " (show (● result first))))
-           (write-line (document->html (● result second)))
-           (for-each write-line (document-trace (● result second)))))))
+(define main
+  (lambda ()
+    (dispatch-local
+     (once (lambda ()
+             (let ((result (with-memory-dom (list (Fire "next" "click" no-event)
+                                                  (Fire "next" "click" no-event)
+                                                  (Fire "next" "click" no-event)
+                                                  (Fire "next" "click" no-event))
+                                            (lambda ()
+                                              (run-ui 0
+                                                      (Nil)
+                                                      update
+                                                      view
+                                                      (lambda (step) (Nil))
+                                                      (lambda (step) (unit))
+                                                      (lambda (step) (unit)))))))
+               (write-line (string-append "step " (show (● result first))))
+               (write-line (document->html (● result second)))
+               (for-each write-line (document-trace (● result second)))))))
+    (unit)))

@@ -48,4 +48,7 @@
            ((Done) (write-line "done")))))
       ((Done) (write-line "done at once")))))
 
-(run)
+(define main
+  (lambda ()
+    (run)
+    (unit)))

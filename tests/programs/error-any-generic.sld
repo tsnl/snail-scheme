@@ -12,4 +12,7 @@
 
 (define (noisy) (→ Unit) (! Log) (log "hi"))
 
-((ann (type-convert (box noisy) (Fn → Unit)) (Fn → Unit)))
+(define main
+  (lambda ()
+    ((ann (type-convert (box noisy) (Fn → Unit)) (Fn → Unit)))
+    (unit)))

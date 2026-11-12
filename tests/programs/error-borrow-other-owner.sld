@@ -8,9 +8,12 @@
 (define (consume (token Token)) (→ Unit)
   (match token ((Token _) (unit))))
 
-(let ((token (Token 1)) (other (Token 2)))
-  (with-borrow (borrowed token)
-               (consume other)
-               (● borrowed number))
-  (consume other)
-  (drop token))
+(define main
+  (lambda ()
+    (let ((token (Token 1)) (other (Token 2)))
+      (with-borrow (borrowed token)
+                   (consume other)
+                   (● borrowed number))
+      (consume other)
+      (drop token))
+    (unit)))

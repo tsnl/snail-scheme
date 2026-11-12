@@ -772,7 +772,7 @@
 
     (define (mut-vector-ref (vector (MutVector A)) (index I64))
       (→ A)
-      (! mut e)
+      (! e)
       (∀ A e)
       (⊨ (Copy A) (Drop e A))
       (array-ref (mut-vector-items vector index) index))
@@ -831,7 +831,7 @@
 
     (define (mut-vector->vector (vector (MutVector A)))
       (→ (Vector A))
-      (! mut e)
+      (! e)
       (∀ A e)
       (⊨ (Copy A) (Drop e A))
       (match (● vector items)

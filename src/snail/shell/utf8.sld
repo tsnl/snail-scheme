@@ -78,15 +78,16 @@
     ;; that length, local to this call, holds them all.
 
     (define (utf8->string (bytes Bytes)) (→ (Result String Utf8Error))
-      (let ((chars (make-array (vector-length bytes) #\space)))
-        (let loop ((index 0) (count 0))
-          (if (= index (vector-length bytes))
-              (Ok (vector->string (subvector (array->vector chars) 0 count)))
-              (match (sequence-at bytes index)
-                ((None) (Err (Utf8Error index)))
-                ((Some decoded)
-                 (array-set! chars count (● decoded first))
-                 (loop (● decoded second) (+ count 1))))))))
+      (unsafe-total (lambda ()
+                      (let ((chars (make-array (vector-length bytes) #\space)))
+                        (let loop ((index 0) (count 0))
+                          (if (= index (vector-length bytes))
+                              (Ok (vector->string (subvector (array->vector chars) 0 count)))
+                              (match (sequence-at bytes index)
+                                ((None) (Err (Utf8Error index)))
+                                ((Some decoded)
+                                 (array-set! chars count (● decoded first))
+                                 (loop (● decoded second) (+ count 1))))))))))
 
     ;; ---- Encoding ----
 
@@ -127,16 +128,22 @@
     ;; exact length, local to this call.
 
     (define (string->utf8 (text String)) (→ Bytes)
-      (let* ((codes (vector-map scalar (string->vector text)))
-             (bytes
-              (make-array (vector-fold (lambda (total code) (+ total (encoded-width code))) 0 codes)
-                          (ann 0 U8))))
-        (let loop ((index 0) (offset 0))
-          (if (= index (vector-length codes))
-              (array->vector bytes)
-              (let* ((code (vector-ref codes index)) (width (encoded-width code)))
-                (do ((position 0 (+ position 1))) ((= position width))
-                  (array-set! bytes (+ offset position) (encoded-byte code width position)))
-                (loop (+ index 1) (+ offset width)))))))
+      (unsafe-total (lambda ()
+                      (let* ((codes (vector-map scalar (string->vector text)))
+                             (bytes
+                              (make-array
+                               (vector-fold (lambda (total code) (+ total (encoded-width code)))
+                                            0
+                                            codes)
+                               (ann 0 U8))))
+                        (let loop ((index 0) (offset 0))
+                          (if (= index (vector-length codes))
+                              (array->vector bytes)
+                              (let* ((code (vector-ref codes index)) (width (encoded-width code)))
+                                (do ((position 0 (+ position 1))) ((= position width))
+                                  (array-set! bytes
+                                              (+ offset position)
+                                              (encoded-byte code width position)))
+                                (loop (+ index 1) (+ offset width)))))))))
 
     ))

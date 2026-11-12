@@ -16,12 +16,7 @@
                (log (string-append "adding " (show price)))
                (+ sum price))
              0 prices))
-;; ANCHOR_END: declare
 
-;; ANCHOR: handle
-(write-line (show (handle Log
-                      ((log (lambda (message) (write-line message))))
-                    (total (list 3 4)))))
 ;; ANCHOR_END: handle
 
 ;; ANCHOR: quietly
@@ -34,9 +29,6 @@
 ;; Total: the handler has removed Log.
 (define (quiet-total (prices (List I64))) (→ I64)
   (quietly (lambda () (total prices))))
-;; ANCHOR_END: quietly
-
-(write-line (show (quiet-total (list 1 2 3))))
 
 ;; ANCHOR: indented
 ;; Indents what `action` logs: each implementation passes the line on to
@@ -46,11 +38,6 @@
       ((log (lambda (message) (log (string-append "  " message)))))
     (action)))
 
-(handle Log
-    ((log (lambda (message) (write-line message))))
-  (log "order")
-  (indented (lambda ()
-              (log (string-append "total " (show (total (list 3 4))))))))
 ;; ANCHOR_END: indented
 
 ;; ANCHOR: files
@@ -72,12 +59,7 @@
   (handle Files
       ((load (lambda (name) (if (string=? name "greeting.txt") "hello" ""))))
     (action)))
-;; ANCHOR_END: files
 
-;; ANCHOR: run-files
-(write-file "build/greeting.txt" "bonjour")
-(write-line (from-disk (lambda () (greeting "disk"))))
-(write-line (from-memory (lambda () (greeting "memory"))))
 ;; ANCHOR_END: run-files
 
 ;; ANCHOR: default
@@ -91,9 +73,31 @@
   (when (<= level (verbosity))
     (write-line message)))
 
-(note 1 "shown by default")
-(note 2 "hidden by default")
-(handle Verbosity
-    ((verbosity (lambda () 2)))
-  (note 2 "shown when verbose"))
-;; ANCHOR_END: default
+(define main
+  (lambda ()
+    ;; ANCHOR_END: declare
+
+    ;; ANCHOR: handle
+    (write-line (show (handle Log
+                          ((log (lambda (message) (write-line message))))
+                        (total (list 3 4)))))
+    ;; ANCHOR_END: quietly
+
+    (write-line (show (quiet-total (list 1 2 3))))
+    (handle Log
+        ((log (lambda (message) (write-line message))))
+      (log "order")
+      (indented (lambda ()
+                  (log (string-append "total " (show (total (list 3 4))))))))
+    ;; ANCHOR_END: files
+
+    ;; ANCHOR: run-files
+    (write-file "build/greeting.txt" "bonjour")
+    (write-line (from-disk (lambda () (greeting "disk"))))
+    (write-line (from-memory (lambda () (greeting "memory"))))
+    (note 1 "shown by default")
+    (note 2 "hidden by default")
+    (handle Verbosity
+        ((verbosity (lambda () 2)))
+      (note 2 "shown when verbose"))
+    (unit)))

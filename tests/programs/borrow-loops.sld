@@ -14,7 +14,10 @@
 
 (define read (→ (Fn (Borrow Model) → String)) (lambda (r) (● r title)))
 
-(let ((model (Model "abcd" (once (lambda () (unit))))))
-  (write-line (show (with-borrow (b model) (count-to b 3))))
-  (write-line (with-borrow (b model) (read b)))
-  (drop model))
+(define main
+  (lambda ()
+    (let ((model (Model "abcd" (once (lambda () (unit))))))
+      (write-line (show (with-borrow (b model) (count-to b 3))))
+      (write-line (with-borrow (b model) (read b)))
+      (drop model))
+    (unit)))

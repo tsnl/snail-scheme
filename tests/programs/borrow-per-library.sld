@@ -6,8 +6,11 @@
 (define (inspect (model (Borrow Model))) (→ String)
   (title model))
 
-(let ((model (make-model "across libraries")))
-  (with-borrow (borrowed model)
-               (write-line (inspect borrowed))
-               (write-line (title borrowed)))
-  (drop model))
+(define main
+  (lambda ()
+    (let ((model (make-model "across libraries")))
+      (with-borrow (borrowed model)
+                   (write-line (inspect borrowed))
+                   (write-line (title borrowed)))
+      (drop model))
+    (unit)))

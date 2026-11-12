@@ -11,6 +11,9 @@
 (effect Io
   ((fetch (Fn I64 → I64 ! Async))))
 
-(handle Io
-    ((fetch (lambda (ticket) (await ticket))))
-  (write-line (show (fetch 10))))
+(define main
+  (lambda ()
+    (handle Io
+        ((fetch (lambda (ticket) (await ticket))))
+      (write-line (show (fetch 10))))
+    (unit)))

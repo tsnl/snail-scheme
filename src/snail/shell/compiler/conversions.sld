@@ -288,8 +288,6 @@
       (match item
         ((Define name value)
          (lowering count ((value (lower-expr value))) (Pair (Define name value) count)))
-        ((Do value)
-         (lowering count ((value (lower-expr value))) (Pair (Do value) count)))
         (_ (Pair item count))))
 
     (define (lower-conversions (items (List Item))) (→ (List Item))

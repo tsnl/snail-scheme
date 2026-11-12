@@ -10,4 +10,7 @@
 (effect Gen
   ((ctl yield (Fn I64 → Unit ! Abort))))
 
-(unit)
+(define main
+  (lambda ()
+    (unit)
+    (unit)))

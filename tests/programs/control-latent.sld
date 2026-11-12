@@ -14,6 +14,7 @@
 
 (effect Io
   ((fetch (Fn I64 → I64 ! Async))))
+
 ;; ANCHOR_END: effects
 
 ;; ANCHOR: tasks
@@ -39,6 +40,7 @@
   (let ((answer (fetch first)))
     (write-line (string-append "fetched " (show answer)))
     (+ answer (fetch (+ first 1)))))
+
 ;; ANCHOR_END: tasks
 
 ;; Answers each wait with ten times its ticket, alternating between the
@@ -59,14 +61,6 @@
      (write-line (string-append "waiting on " (show ticket)))
      (drive (next (* ticket 10))))))
 
-;; ANCHOR: io
-;; Io's handler is outside both tasks' handlers, yet its fetch asks the
-;; performing task for its id and waits on that task's scheduler.
-(handle Io
-    ((fetch (lambda (ticket)
-              (write-line (string-append "task " (show (task-id)) " fetches " (show ticket)))
-              (+ (await ticket) 1))))
-  (alternate (start 1 (lambda () (job 10))) (start 2 (lambda () (job 20)))))
 ;; ANCHOR_END: io
 
 ;; ANCHOR: notes
@@ -78,9 +72,18 @@
 (effect Notes
   ((note (Fn String → Unit ! Log))))
 
-(handle Log ((log (lambda (line) (write-line (string-append "outer log: " line)))))
-  (handle Notes ((note (lambda (text) (log (string-append "note " text)))))
-    (log "before")
-    (handle Log ((log (lambda (line) (write-line (string-append "inner log: " line)))))
-      (note "inside"))))
-;; ANCHOR_END: notes
+(define (main) (→ Unit) (! output-port)
+  ;; ANCHOR: io
+  ;; Io's handler is outside both tasks' handlers, yet its fetch asks the
+  ;; performing task for its id and waits on that task's scheduler.
+  (handle Io
+      ((fetch (lambda (ticket)
+                (write-line (string-append "task " (show (task-id)) " fetches " (show ticket)))
+                (+ (await ticket) 1))))
+    (alternate (start 1 (lambda () (job 10))) (start 2 (lambda () (job 20)))))
+  (handle Log ((log (lambda (line) (write-line (string-append "outer log: " line)))))
+    (handle Notes ((note (lambda (text) (log (string-append "note " text)))))
+      (log "before")
+      (handle Log ((log (lambda (line) (write-line (string-append "inner log: " line)))))
+        (note "inside"))))
+  (unit))

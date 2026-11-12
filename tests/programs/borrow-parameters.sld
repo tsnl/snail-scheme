@@ -23,12 +23,15 @@
   (let ((text (● model title)))
     (lambda () text)))
 
-(let ((model (Model "ready" (once (lambda () (write-line "finished"))))))
-  (let ((read (with-borrow (borrowed model)
-                           (let ((alias borrowed))
-                             (write-line (title alias))
-                             (write-line (forward borrowed (● (identity (Reader title)) read)))
-                             (callback alias)))))
-    (match model
-      ((Model _ work) (work)))
-    (write-line (read))))
+(define main
+  (lambda ()
+    (let ((model (Model "ready" (once (lambda () (write-line "finished"))))))
+      (let ((read (with-borrow (borrowed model)
+                               (let ((alias borrowed))
+                                 (write-line (title alias))
+                                 (write-line (forward borrowed (● (identity (Reader title)) read)))
+                                 (callback alias)))))
+        (match model
+          ((Model _ work) (work)))
+        (write-line (read))))
+    (unit)))

@@ -16,7 +16,6 @@
    constant-binding?
    constant-body
    start-specialization
-   specialize-statements
    complete-specializations
    request-drops
    control-effects)
@@ -959,10 +958,8 @@
                       (filter (lambda (effect) (not (null? (● effect control))))
                               (table-values (● program effects))))))
 
-    ;; A library exports every monomorphic definition. A whole program only
-    ;; needs functions reached by its statements, exposures, and initializers.
-    ;; Initializers are roots even when their values are never used.
-
+    ;; Library modules export monomorphic functions. Whole programs keep
+    ;; only functions reached from main or an explicitly exposed function.
     (define (start-specialization (state State) (items (List Item))) (→ (Pair (List String) State))
       (specializing state ((exports (each root-item items)))
                     (Pair (concatenate exports) state)))
@@ -970,25 +967,17 @@
     (define (root-item (state State) (item Item)) (→ (Pair (List String) State))
       (match item
         ((Expose name _ _ _) (Pair (Nil) (requested state name)))
+        ((Entry name _) (Pair (Nil) (requested state name)))
         ((Define name value)
          (if (and (null? (● (scheme-of state name) vars)) (lambda-expr? value))
              (match (● state owner)
                ((Some _) (Pair (list name) (requested state name)))
-               ((None) (Pair (Nil) (if (lambda-expr? value) state (requested state name)))))
-             (Pair (Nil) state)))
-        (_ (Pair (Nil) state))))
+               ((None) (Pair (Nil) state)))
+             (Pair (Nil) state)))))
 
-    (define (specialize-statements (state State) (items (List Item))) (→ (Pair (List Item) State))
-      (each state specialize-statement
-            (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items)))
 
-    (define (specialize-statement (state State) (item Item)) (→ (Pair Item State))
-      (match item
-        ((Do expr)
-         (specializing state
-                       ((value (copy-expr (Instantiation (Nil) (Nil) (● state control)) expr)))
-                       (Pair (Do value) state)))
-        (_ (Pair item state))))
+
+
 
     ;; Frame cleanup asks for ordinary definitions or derived glue. Those
     ;; requests join the very same queue as calls discovered in a body.

@@ -42,5 +42,7 @@
                       ((Primary value) (to-hex value))
                       ((Rgb value) (to-hex value))))))
 
-(for-each (lambda (color) (write-line (to-hex color)))
-          (list (Primary (Red)) (Rgb (Vec3 255 160 0)) (Primary (Blue))))
+(define (main) (→ Unit) (! output-port)
+  (for-each (lambda (color) (write-line (to-hex color)))
+            (list (Primary (Red)) (Rgb (Vec3 255 160 0)) (Primary (Blue))))
+  (unit))

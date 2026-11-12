@@ -34,9 +34,6 @@
     (walk wanted tree)
     -1))
 
-(write-line (string-append "first above 6: " (show (first-where (lambda (value) (> value 6))))))
-(write-line (string-append "first above 20: " (show (first-where (lambda (value) (> value 20))))))
-
 ;; Operands that ran before the operation keep their effects; the call
 ;; they were for never happens.
 (define (sum (tree Tree)) (→ I64) (! Found)
@@ -44,11 +41,6 @@
     ((Leaf) 0)
     ((Node left value right)
      (+ (sum left) (+ (if (= value 12) (begin (found value) 0) value) (sum right))))))
-
-(write-line (string-append "sum: "
-                           (show (handle Found ((found
-                                                 (lambda (value resume) (drop resume) (- 0 value))))
-                                   (sum tree)))))
 
 ;; A `FnOnce` held across the operation is dropped with the frame that held
 ;; it, and never runs.
@@ -59,5 +51,16 @@
       (cleanup)
       0)))
 
-(write-line (string-append "guarded: " (show (guarded (list 1 2 3)))))
-(write-line (string-append "guarded: " (show (guarded (list 1 -2 3)))))
+(define (main) (→ Unit) (! output-port)
+  (write-line (string-append "first above 6: " (show (first-where (lambda (value) (> value 6))))))
+  (write-line
+   (string-append "first above 20: " (show (first-where (lambda (value) (> value 20))))))
+  (write-line (string-append "sum: "
+                             (show (handle Found ((found
+                                                   (lambda (value resume)
+                                                     (drop resume)
+                                                     (- 0 value))))
+                                     (sum tree)))))
+  (write-line (string-append "guarded: " (show (guarded (list 1 2 3)))))
+  (write-line (string-append "guarded: " (show (guarded (list 1 -2 3)))))
+  (unit))

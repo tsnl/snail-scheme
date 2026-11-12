@@ -17,12 +17,13 @@
 
 (define (choose) (→ I64) (! Value) (value))
 
-(display (announce (lambda () 7)))
-(newline)
-(display (handle Value
-             ((value (lambda () 42)))
-           (with-value choose)))
-(newline)
-
-;; An inferred callback row remains constrained by its concrete effects.
-(announce (lambda () (write-line "effect retained")))
+(define (main) (→ Unit) (! output-port)
+  (display (announce (lambda () 7)))
+  (newline)
+  (display (handle Value
+               ((value (lambda () 42)))
+             (with-value choose)))
+  (newline)
+  ;; An inferred callback row remains constrained by its concrete effects.
+  (announce (lambda () (write-line "effect retained")))
+  (unit))
