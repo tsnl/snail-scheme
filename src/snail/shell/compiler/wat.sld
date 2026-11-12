@@ -115,12 +115,29 @@
     ;; Wasm strings are UTF-8 bytes; anything beyond printable ASCII is escaped.
     (: wat-string (impl (Fn String -> Wat)))
     (define (wat-string text)
-      (Word (string-append "\"" (string-concatenate (map escape-char (string->list text))) "\"")))
+      (Word (string-append "\"" (string-concatenate (quoted-pieces text)) "\"")))
+
+    ;; Type keys are mostly ASCII. Keep entire unchanged spans instead of
+    ;; allocating one string and one list cell for every printable character.
+    (: quoted-pieces (impl (Fn String -> (List String))))
+    (define (quoted-pieces text)
+      (let ((limit (string-length text)))
+        (let loop ((start 0) (index 0) (pieces (Nil)))
+          (cond ((= index limit) (reverse (Cons (substring text start index) pieces)))
+                ((plain-character? (string-ref text index)) (loop start (+ index 1) pieces))
+                (else (loop (+ index 1) (+ index 1)
+                            (Cons (escape-char (string-ref text index))
+                                  (Cons (substring text start index) pieces))))))))
+
+    (: plain-character? (impl (Fn Char -> Bool)))
+    (define (plain-character? c)
+      (let ((code (char->integer c)))
+        (and (>= code 32) (< code 127) (not (= code 34)) (not (= code 92)))))
 
     (: escape-char (impl (Fn Char -> String)))
     (define (escape-char c)
       (let ((code (char->integer c)))
-        (if (and (>= code 32) (< code 127) (not (= code 34)) (not (= code 92)))
+        (if (plain-character? c)
             (list->string (list c))
             (string-concatenate (map (lambda (byte)
                                        (string-append "\\"
