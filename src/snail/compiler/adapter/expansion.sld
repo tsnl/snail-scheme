@@ -28,6 +28,15 @@
 ;; through the instances and the order of the libraries, which places the
 ;; implicit libraries where the first one derives.
 ;;
+;; When both succeed, the program (snail compiler adapter program) makes
+;; of the new compilation, which milestone A hands the old checker, is
+;; compared with the old expansion's too, table by table, in the old
+;; expansion's names: its values, data types, classes, effects and each
+;; class's instances in order; its runs, and each item of each run in the
+;; normal form, with what the normal form leaves out but both hold, each
+;; node's place, whether each function may capture and each annotation's
+;; type; the files each library links; and each case's TypeId.
+;;
 ;; The normal form is a text in which each local is numbered in the order
 ;; it is bound, each macro-written global is its name marked as written
 ;; by an expansion, without the expansion's number, each field function is
@@ -42,6 +51,7 @@
 ;; afresh, and statements of a library.
 (define-library (snail compiler adapter expansion)
   (export
+   Expansions
    expansion-comparison)
   (import
    (snail core base)
@@ -102,11 +112,28 @@
    (snail compiler integrate sha256)
    (only (snail compiler adapter outline) feedback-text)
    (only (snail compiler adapter load) old-expansion-with)
+   (only (snail compiler declare known) Known Scanned)
+   (only (snail compiler declare identities) case-type-id)
    (only (snail compiler adapter declaration)
          old-name
          old-type
          normal-type-text
+         name-text
+         tops-data
          declaration-differences)
+   (prefix (only (snail compiler adapter declaration)
+                 value-text
+                 data-text
+                 class-text
+                 effect-text
+                 instance-text)
+           normal-)
+   (only (snail compiler adapter expressions) active-sets)
+   (only (snail compiler adapter program)
+         AdaptedLibrary
+         adapted-program
+         program-body
+         scoped)
    (prefix (only (snail shell compiler read)
                  Loc
                  Datum
@@ -132,9 +159,11 @@
                  Constructor
                  Value
                  Defined
+                 Case
                  case-type-id
                  class-instances
                  Expr
+                 Term
                  Lit
                  Var
                  Lambda
@@ -157,6 +186,8 @@
                  PCon
                  Item
                  Define
+                 Do
+                 Expose
                  Program
                  Foreign
                  Import
@@ -164,26 +195,37 @@
                  library-items
                  program-items)
            old:)
-   (prefix (only (snail shell compiler expand) ExpandedProgram library-links) old:)
+   (prefix (only (snail shell compiler expand) ExpandedProgram LinkedFile library-links) old:)
    (prefix (only (snail shell compiler inputs) Inputs no-inputs supply-artifact) old:))
   (begin
 
     ;; ---- Programs ----
 
-    ;; What the program at `path` finds: a kind, and what it says.
-    ;; Producers' outputs are read from `generated`.
-    (: expansion-comparison
-       (impl (Fn (List String) String String -> (Pair String String) ! fs)))
+    ;; What the program at `path` finds, each a kind and what it says: how
+    ;; its expansion compares, and, when both compilers expand it, how the
+    ;; program the adapter makes of the new compilation compares with the
+    ;; old expansion's. Producers' outputs are read from `generated`.
+    (struct Expansions
+      ((expansion (Pair String String))
+       (adapted (Pair String String))))
+
+    (: expansion-comparison (impl (Fn (List String) String String -> Expansions ! fs)))
     (define (expansion-comparison directories generated path)
       (let ((supplied (supplied-expansion directories generated path (Nil))))
         (match (::first supplied)
           ((Err feedback)
            (match (load-program directories generated path)
              ((Err _)
-              (Pair "not compared" (string-append "it does not load: " (feedback-text feedback))))
+              (unadapted
+               (Pair "not compared" (string-append "it does not load: " (feedback-text feedback)))))
              ((Ok _) (outcomes (::first supplied) (old-expansion-for directories path supplied)))))
-          ((Ok (WaitingForProducers _)) (Pair "not compared" "it reaches a generated library"))
+          ((Ok (WaitingForProducers _))
+           (unadapted (Pair "not compared" "it reaches a generated library")))
           (new (outcomes new (old-expansion-for directories path supplied))))))
+
+    (: unadapted (impl (Fn (Pair String String) -> Expansions)))
+    (define (unadapted expansion)
+      (Expansions expansion (Pair "not compared" "")))
 
     (: old-expansion-for
        (impl
@@ -260,17 +302,20 @@
        (impl (Fn (Result ProgramCompilation (List Feedback))
                  (Pair (Result old:ExpandedProgram old:Stop) (List String))
                  ->
-                 (Pair String String))))
+                 Expansions)))
     (define (outcomes new supplied)
-      (outcomes-with new (::first supplied) (::second supplied)))
+      (match (Pair new (::first supplied))
+        ((Pair (Ok (CompiledAll files)) (Ok expanded))
+         (Expansions (expansions-comparison files expanded (::second supplied))
+                     (adapted-comparison files expanded)))
+        (_ (unadapted (outcomes-with new (::first supplied))))))
 
     (: outcomes-with
        (impl (Fn (Result ProgramCompilation (List Feedback))
                  (Result old:ExpandedProgram old:Stop)
-                 (List String)
                  ->
                  (Pair String String))))
-    (define (outcomes-with new old targets)
+    (define (outcomes-with new old)
       (match (Pair new old)
         ((Pair (Err feedback) (Err (old:Failed diagnostics)))
          (failures feedback (old:diagnostics->list diagnostics)))
@@ -283,8 +328,7 @@
                (old-problem-text (first-old (old:diagnostics->list diagnostics)))))
         ((Pair (Ok _) (Err (old:Requested _)))
          (Pair "not compared" "the old compiler asks for an input"))
-        ((Pair (Ok (CompiledAll files)) (Ok expanded))
-         (expansions-comparison files expanded targets))
+        ((Pair (Ok (CompiledAll _)) (Ok _)) (Pair "expand alike" ""))
         ((Pair (Ok (WaitingForProducers _)) _)
          (Pair "not compared" "it reaches a generated library"))
         ((Pair (Ok (WaitingForTargets _)) _) (Pair "not compared" "it waits for a target"))))
@@ -584,7 +628,7 @@
                                         (map old-head-text
                                              (filter (lambda (instance)
                                                        (string=?
-                                                        (old-global-text (::class instance))
+                                                        (name-text (::class instance))
                                                         class))
                                                      old)))))
                 (if (same-texts? new old-heads)
@@ -724,7 +768,7 @@
 
     (: old-head-text (impl (Fn old:Instance -> String)))
     (define (old-head-text instance)
-      (form-text (old-global-text (::class instance)) (map old-type-text (::types instance))))
+      (form-text (name-text (::class instance)) (map old-type-text (::types instance))))
 
     ;; Its variables, requirements and methods.
     (: instance-text (impl (Fn Context Instance -> String)))
@@ -773,7 +817,7 @@
                        ((old:Define name _) (string=? name global))
                        (_ #f)))
                    items)
-        ((Some (old:Define _ value)) (::text (old-text value (Naming (Nil) 0))))
+        ((Some (old:Define _ value)) (::text (old-text empty-table value (Naming (Nil) 0))))
         (_ (string-append "no definition of " global))))
 
     (: requirement-text (impl (Fn Requirement -> String)))
@@ -785,7 +829,7 @@
 
     (: old-requirement-text (impl (Fn old:Constraint -> String)))
     (define (old-requirement-text constraint)
-      (form-text (old-global-text (::class constraint)) (map old-type-text (::types constraint))))
+      (form-text (name-text (::class constraint)) (map old-type-text (::types constraint))))
 
     ;; A type's normal name: a builtin of (snail core forms) is its name
     ;; alone, as the old compiler names it, and a variable is marked.
@@ -806,8 +850,8 @@
     (: old-type-text (impl (Fn old:Type -> String)))
     (define (old-type-text type)
       (match type
-        ((old:TCon name (Nil)) (old-global-text name))
-        ((old:TCon name arguments) (form-text (old-global-text name) (map old-type-text arguments)))
+        ((old:TCon name (Nil)) (name-text name))
+        ((old:TCon name arguments) (form-text (name-text name) (map old-type-text arguments)))
         ((old:TRigid name) (string-append "'" name))
         (_ "?")))
 
@@ -886,37 +930,10 @@
           ((Defined _ tops _ _) (tops-definitions names tops (Nil)))
           ((Program tops _)
            (append (tops-definitions names tops (Nil))
-                   (match (sequenced (program-statements tops (Nil)))
-                     ((Some expr)
-                      (list (Pair "main:%body"
-                                  (::text (new-text names
-                                                    (Lambda (Nil) expr (Loc "" 0 0))
-                                                    (Naming (Nil) 0))))))
+                   (match (program-body tops)
+                     ((Some body)
+                      (list (Pair "main:%body" (::text (new-text names body (Naming (Nil) 0))))))
                      ((None) (Nil))))))))
-
-    ;; A program's statements, gathered into its body as the old
-    ;; `with-one-body` gathers them: in the order written, each under the
-    ;; sets of the scopes around it, innermost first.
-    (: program-statements (impl (Fn (List Top) (List Global) -> (List Expr))))
-    (define (program-statements tops sets)
-      (concatenate
-       (map (lambda (top)
-              (match top
-                ((Statement expr)
-                 (list (if (null? sets) expr (WithInstances sets expr (Loc "" 0 0)))))
-                ((InstanceScope own inner _)
-                 (program-statements inner (delete-duplicates same-global-text? (append own sets))))
-                (_ (Nil))))
-            tops)))
-
-    (: sequenced (impl (Fn (List Expr) -> (Option Expr))))
-    (define (sequenced statements)
-      (match statements
-        ((Nil) (None))
-        ((Cons first rest)
-         (Some (match (sequenced rest)
-                 ((Some more) (Seq first more (Loc "" 0 0)))
-                 ((None) first))))))
 
     (: tops-definitions
        (impl
@@ -932,24 +949,9 @@
       (match top
         ((Define global value _ _ _)
          (list (Pair (global-text global)
-                     (::text (new-text names (scoped (scoped value sets) sets) (Naming (Nil) 0))))))
-        ((InstanceScope own tops _)
-         (tops-definitions names tops (delete-duplicates same-global-text? (append own sets))))
+                     (::text (new-text names (scoped sets (scoped sets value)) (Naming (Nil) 0))))))
+        ((InstanceScope own tops _) (tops-definitions names tops (active-sets own sets)))
         (_ (Nil))))
-
-    (: same-global-text? (impl (Fn Global Global -> Bool)))
-    (define (same-global-text? global other)
-      (string=? (global-text global) (global-text other)))
-
-    (: scoped (impl (Fn Expr (List Global) -> Expr)))
-    (define (scoped value sets)
-      (if (null? sets)
-          value
-          (match value
-            ((Lambda parameters body loc) (Lambda parameters (WithInstances sets body loc) loc))
-            ((ClosedLambda parameters body loc)
-             (ClosedLambda parameters (WithInstances sets body loc) loc))
-            (_ (WithInstances sets value (Loc "" 0 0))))))
 
     ;; ---- Names ----
 
@@ -976,7 +978,7 @@
         ((TopGlobal global)
          (match (find (lambda (entry) (same-global? (::first entry) global))
                       (append (::handles names) (::implementations names)))
-           ((Some entry) (old-global-text (::second entry)))
+           ((Some entry) (name-text (::second entry)))
            ((None) (global-text global))))
         ((FieldFunction case label role)
          (string-append (global-text case) "-" label (role-suffix role)))))
@@ -995,25 +997,359 @@
         ((Setter) "-set!")
         ((Swapper) "-replace!")))
 
-    ;; An old global's name, with each expansion's number dropped from its
-    ;; marks: `name%m.12` is `name%`.
-    (: old-global-text (impl (Fn String -> String)))
-    (define (old-global-text name)
-      (list->string (unmarked (string->list name))))
+    ;; ---- Adapted programs ----
 
-    (: unmarked (impl (Fn (List Char) -> (List Char))))
-    (define (unmarked chars)
-      (match chars
-        ((Nil) (Nil))
-        ((Cons #\% (Cons #\m (Cons #\. rest)))
-         (Cons #\% (unmarked (drop-digits rest))))
-        ((Cons char rest) (Cons char (unmarked rest)))))
+    ;; The program the adapter makes of the libraries the new passes
+    ;; compiled, beside the old expansion's program, table by table: the
+    ;; values, data types, classes, effects and instances, in the old
+    ;; expansion's names; the libraries' runs and each run's items, in
+    ;; order; the files each library links; and each case's TypeId, the
+    ;; old compiler's of the adapted program beside the one `declare`
+    ;; writes. Metadata is not compared, since the adapter writes none.
+    (: adapted-comparison
+       (impl (Fn (List CompiledFile) old:ExpandedProgram -> (Pair String String))))
+    (define (adapted-comparison files expanded)
+      (let* ((adapted (adapted-program files))
+             (new (::program adapted))
+             (old (::program expanded))
+             (renaming (fresh-renaming files new old))
+             (implementations (implementation-table old)))
+        (match (concatenate
+                (list (ordered-difference "the values"
+                                          (value-texts renaming implementations new)
+                                          (value-texts empty-table implementations old))
+                      (ordered-difference "the data types"
+                                          (sorted-texts
+                                           (map normal-data-text (table-values (::types new))))
+                                          (sorted-texts
+                                           (map normal-data-text (table-values (::types old)))))
+                      (ordered-difference "the classes"
+                                          (sorted-texts
+                                           (map normal-class-text (table-values (::classes new))))
+                                          (sorted-texts
+                                           (map normal-class-text (table-values (::classes old)))))
+                      (ordered-difference "the effects"
+                                          (sorted-texts
+                                           (map normal-effect-text (table-values (::effects new))))
+                                          (sorted-texts
+                                           (map normal-effect-text (table-values (::effects old)))))
+                      (ordered-difference "the instances"
+                                          (instances-texts renaming new)
+                                          (instances-texts empty-table old))
+                      (runs-differences renaming new old)
+                      (ordered-difference "the files linked"
+                                          (map adapted-links-text (::libraries adapted))
+                                          (old-links-texts expanded))
+                      (type-id-differences files new)))
+          ((Nil) (Pair "adapt alike" ""))
+          (found (Pair "adaptations differ" (string-join found "; "))))))
 
-    (: drop-digits (impl (Fn (List Char) -> (List Char))))
-    (define (drop-digits chars)
-      (match chars
-        ((Cons char rest) (if (char-numeric? char) (drop-digits rest) chars))
-        ((Nil) (Nil))))
+    ;; Where two lists of texts first part, in order.
+    (: ordered-difference (impl (Fn String (List String) (List String) -> (List String))))
+    (define (ordered-difference what new old)
+      (match (first-parting new old)
+        ((Some pair)
+         (list (string-append what " differ: new " (::first pair) "; old " (::second pair))))
+        ((None) (Nil))))
+
+    (: first-parting (impl (Fn (List String) (List String) -> (Option (Pair String String)))))
+    (define (first-parting new old)
+      (match (Pair new old)
+        ((Pair (Nil) (Nil)) (None))
+        ((Pair (Cons text more) (Cons other others))
+         (if (string=? text other) (first-parting more others) (Some (Pair text other))))
+        ((Pair (Cons text _) (Nil)) (Some (Pair text "nothing")))
+        ((Pair (Nil) (Cons other _)) (Some (Pair "nothing" other)))))
+
+    ;; ---- Fresh names ----
+
+    ;; The old expansion's name of each value the adapted program names
+    ;; afresh: each instance and its implementations, paired with the old
+    ;; instance in its place among its class's; each default, by its
+    ;; effect and operation; and each linked file's handle, by its path.
+    ;; A class's instances or an effect's defaults the two programs do not
+    ;; hold alike are left as they are, which the tables report.
+    (: fresh-renaming
+       (impl (Fn (List CompiledFile) old:Program old:Program -> (Table String))))
+    (define (fresh-renaming files new old)
+      (fold-left (lambda (table pair) (table-set table (::first pair) (::second pair)))
+                 empty-table
+                 (concatenate (list (instance-renaming new old)
+                                    (default-renaming new old)
+                                    (concatenate (map (lambda (file)
+                                                        (map (lambda (handle)
+                                                               (Pair (old-name (::first handle))
+                                                                     (::second handle)))
+                                                             (handle-names (::dispatched file))))
+                                                      files))))))
+
+    ;; A table keyed by the normal form of its names, which a macro-written
+    ;; name has in both programs.
+    (: normal-keys (All (T) (requires (Copy T)) (impl (Fn (Table T) -> (Table T)))))
+    (define (normal-keys table)
+      (fold-left (lambda (normal key)
+                   (match (table-ref table key)
+                     ((Some value) (table-set normal (name-text key) value))
+                     ((None) normal)))
+                 empty-table
+                 (list-sort string<? (table-keys table))))
+
+    (: instance-renaming (impl (Fn old:Program old:Program -> (List (Pair String String)))))
+    (define (instance-renaming new old)
+      (let ((theirs (normal-keys (::instances old))))
+        (concatenate
+         (map (lambda (class)
+                (let ((ours (old:class-instances new class))
+                      (others (match (table-ref theirs (name-text class))
+                                ((Some found) found)
+                                ((None) (Nil)))))
+                  (if (= (length ours) (length others))
+                      (concatenate (map paired-names (zip ours others)))
+                      (Nil))))
+              (list-sort string<? (table-keys (::instances new)))))))
+
+    ;; An instance's name and its implementations', beside the old one's.
+    (: paired-names (impl (Fn (Pair old:Instance old:Instance) -> (List (Pair String String)))))
+    (define (paired-names pair)
+      (let ((ours (::methods (::first pair)))
+            (others (::methods (::second pair))))
+        (Cons (Pair (::name (::first pair)) (::name (::second pair)))
+              (if (= (length ours) (length others))
+                  (map (lambda (methods)
+                         (Pair (::second (::first methods)) (::second (::second methods))))
+                       (zip ours others))
+                  (Nil)))))
+
+    (: default-renaming (impl (Fn old:Program old:Program -> (List (Pair String String)))))
+    (define (default-renaming new old)
+      (let ((theirs (normal-keys (::effects old))))
+        (concatenate
+         (map (lambda (name)
+                (match (Pair (table-ref (::effects new) name) (table-ref theirs (name-text name)))
+                  ((Pair (Some ours) (Some others))
+                   (concatenate (map (lambda (default) (paired-default default (::defaults others)))
+                                     (::defaults ours))))
+                  (_ (Nil))))
+              (list-sort string<? (table-keys (::effects new)))))))
+
+    ;; A default, by its operation's name and its own, beside the old
+    ;; default of the operation.
+    (: paired-default
+       (impl (Fn (Pair String String) (List (Pair String String)) -> (List (Pair String String)))))
+    (define (paired-default default others)
+      (match (find
+              (lambda (other) (string=? (name-text (::first other)) (name-text (::first default))))
+              others)
+        ((Some found) (list (Pair (::second default) (::second found))))
+        ((None) (Nil))))
+
+    ;; Every implementation of an instance the old program holds, by its
+    ;; name.
+    (: implementation-table (impl (Fn old:Program -> (Table Bool))))
+    (define (implementation-table program)
+      (fold-left (lambda (table name) (table-set table name #t))
+                 empty-table
+                 (concatenate (map (lambda (class)
+                                     (concatenate (map (lambda (instance)
+                                                         (map ::second (::methods instance)))
+                                                       (old:class-instances program class))))
+                                   (list-sort string<? (table-keys (::instances program)))))))
+
+    ;; ---- Tables ----
+
+    ;; A table's values, as texts in order.
+    (: sorted-texts (impl (Fn (List String) -> (List String))))
+    (define (sorted-texts texts)
+      (list-sort string<? texts))
+
+    ;; Each value by its name in the old expansion's names. An
+    ;; implementation is not compared by whether it is a function, which
+    ;; the old expander marks a dispatched one and the adapter none, and
+    ;; which is read only of a value a program names; a signature is
+    ;; compared by its place.
+    (: value-texts (impl (Fn (Table String) (Table Bool) old:Program -> (List String))))
+    (define (value-texts renaming implementations program)
+      (list-sort string<?
+                 (map (lambda (name)
+                        (let ((old-name (renamed renaming name)))
+                          (form-text (name-text old-name)
+                                     (list (adapted-value-text
+                                            (match (table-ref implementations old-name)
+                                              ((Some _) #t)
+                                              ((None) #f))
+                                            (table-ref (::values program) name))))))
+                      (table-keys (::values program)))))
+
+    (: adapted-value-text (impl (Fn Bool (Option old:Value) -> String)))
+    (define (adapted-value-text implementation? value)
+      (match value
+        ((Some (old:Defined scheme signature function?))
+         (form-text (normal-value-text
+                     (old:Defined scheme signature (and function? (not implementation?))))
+                    (match signature
+                      ((Some loc) (list (old-loc-text loc)))
+                      ((None) (Nil)))))
+        ((Some other) (normal-value-text other))
+        ((None) "none")))
+
+    ;; Each class's instances in order, the classes by name: each by its
+    ;; name and its implementations', in the old expansion's names.
+    (: instances-texts (impl (Fn (Table String) old:Program -> (List String))))
+    (define (instances-texts renaming program)
+      (let ((instances (normal-keys (::instances program))))
+        (map (lambda (class)
+               (form-text class
+                          (map (lambda (instance)
+                                 (form-text (name-text (renamed renaming (::name instance)))
+                                            (list (normal-instance-text instance (Nil))
+                                                  (form-text ""
+                                                             (map (lambda (method)
+                                                                    (name-text
+                                                                     (renamed renaming
+                                                                              (::second method))))
+                                                                  (::methods instance))))))
+                               (match (table-ref instances class)
+                                 ((Some found) found)
+                                 ((None) (Nil))))))
+             (list-sort string<? (table-keys instances)))))
+
+    ;; ---- Runs ----
+
+    ;; The libraries that record a run, each with its count, in program
+    ;; order; then, library by library, each item of its run, in order.
+    (: runs-differences (impl (Fn (Table String) old:Program old:Program -> (List String))))
+    (define (runs-differences renaming new old)
+      (let ((ours (old:library-items new (old:program-items new)))
+            (theirs (old:library-items old (old:program-items old))))
+        (match (ordered-difference "the runs" (map run-text ours) (map run-text theirs))
+          ((Nil)
+           (concatenate (map (lambda (pair)
+                               (ordered-difference (string-append (::first (::first pair))
+                                                                  ": the items")
+                                                   (map (lambda (item) (item-text renaming item))
+                                                        (::second (::first pair)))
+                                                   (map (lambda (item) (item-text empty-table item))
+                                                        (::second (::second pair)))))
+                             (zip ours theirs))))
+          (found found))))
+
+    (: run-text (impl (Fn (Pair String (List old:Item)) -> String)))
+    (define (run-text run)
+      (string-append (::first run) " " (i64->string (length (::second run)))))
+
+    ;; An item in the normal form, with what the normal form leaves out of
+    ;; its expression.
+    (: item-text (impl (Fn (Table String) old:Item -> String)))
+    (define (item-text renaming item)
+      (match item
+        ((old:Define name value)
+         (form-text "define"
+                    (list (name-text (renamed renaming name)) (exact-text renaming value))))
+        ((old:Do value) (form-text "do" (list (exact-text renaming value))))
+        ((old:Expose name symbol dynamic? loc)
+         (form-text "expose"
+                    (list (name-text (renamed renaming name))
+                          symbol
+                          (if dynamic? "dynamic" "-")
+                          (old-loc-text loc))))))
+
+    (: exact-text (impl (Fn (Table String) old:Expr -> String)))
+    (define (exact-text renaming value)
+      (form-text (::text (old-text renaming value (Naming (Nil) 0))) (expr-details value)))
+
+    ;; What the normal form leaves out of an old expression, node by node
+    ;; in order: its place, whether a function may capture, and an
+    ;; annotation's type.
+    (: expr-details (impl (Fn old:Expr -> (List String))))
+    (define (expr-details expr)
+      (Cons (string-append (old-loc-text (::loc expr)) (term-detail (::term expr)))
+            (concatenate (map expr-details (term-children (::term expr))))))
+
+    (: term-detail (impl (Fn old:Term -> String)))
+    (define (term-detail term)
+      (match term
+        ((old:Lambda _ _ captures?) (if captures? "/lambda" "/fn"))
+        ((old:Ann _ type) (string-append "/" (normal-type-text type)))
+        (_ "")))
+
+    (: term-children (impl (Fn old:Term -> (List old:Expr))))
+    (define (term-children term)
+      (match term
+        ((old:Lit _) (Nil))
+        ((old:Var _ _ _) (Nil))
+        ((old:Lambda _ body _) (list body))
+        ((old:App callee arguments) (Cons callee arguments))
+        ((old:If test consequent alternative) (list test consequent alternative))
+        ((old:Seq first rest) (list first rest))
+        ((old:Let _ value body) (list value body))
+        ((old:Match scrutinee clauses) (Cons scrutinee (map ::body clauses)))
+        ((old:ScopedInstances _ body) (list body))
+        ((old:Ann value _) (list value))
+        ((old:Handle _ implementations body) (append (map ::second implementations) (list body)))
+        ((old:Convert value _) (list value))
+        ((old:TryConvert value _) (list value))
+        ((old:TypeTest value _) (list value))))
+
+    (: old-loc-text (impl (Fn old:Loc -> String)))
+    (define (old-loc-text loc)
+      (string-append (::file loc) ":" (i64->string (::line loc)) ":" (i64->string (::column loc))))
+
+    ;; ---- Links and TypeIds ----
+
+    (: adapted-links-text (impl (Fn AdaptedLibrary -> String)))
+    (define (adapted-links-text library)
+      (form-text (::key library) (map linked-text (::links library))))
+
+    ;; The files each library the old expansion records links, in program
+    ;; order.
+    (: old-links-texts (impl (Fn old:ExpandedProgram -> (List String))))
+    (define (old-links-texts expanded)
+      (map (lambda (run)
+             (form-text (::first run) (map linked-text (old:library-links expanded (::first run)))))
+           (reverse (::libraries (::program expanded)))))
+
+    (: linked-text (impl (Fn old:LinkedFile -> String)))
+    (define (linked-text linked)
+      (string-append (::digest linked) "@" (::path linked)))
+
+    ;; Each case's TypeId as the old compiler computes it of the adapted
+    ;; program, beside the one `declare` writes, which knows every library
+    ;; compiled.
+    (: type-id-differences (impl (Fn (List CompiledFile) old:Program -> (List String))))
+    (define (type-id-differences files program)
+      (concatenate
+       (map (lambda (file)
+              (let ((known (Known (::library file)
+                                  (Scanned empty-table empty-table)
+                                  (::declarations file)
+                                  (map ::declarations files))))
+                (concatenate
+                 (map (lambda (data)
+                        (concatenate
+                         (map (lambda (case) (type-id-difference known program data case))
+                              (::cases data))))
+                      (tops-data (library-tops (::dispatched file)))))))
+            files)))
+
+    (: type-id-difference (impl (Fn Known old:Program Data DataCase -> (List String))))
+    (define (type-id-difference known program data case)
+      (let ((name (old-name (::global case)))
+            (id (case-type-id known data case)))
+        (match (adapted-case program (old-name (::global data)) name)
+          ((Some found)
+           (if (= (old:case-type-id program found) id)
+               (Nil)
+               (list (string-append "the TypeId of " name " differs: declared "
+                                    (i64->string id)
+                                    "; old "
+                                    (i64->string (old:case-type-id program found))))))
+          ((None) (list (string-append "the adapted program holds no case " name))))))
+
+    (: adapted-case (impl (Fn old:Program String String -> (Option old:Case))))
+    (define (adapted-case program data name)
+      (match (table-ref (::types program) data)
+        ((Some found) (find (lambda (case) (string=? (::name case) name)) (::cases found)))
+        ((None) (None))))
 
     ;; ---- Normal forms ----
 
@@ -1231,20 +1567,25 @@
       (concatenate (map (lambda (item)
                           (match item
                             ((old:Define name value)
-                             (list (Pair (old-global-text name)
-                                         (::text (old-text value (Naming (Nil) 0))))))
+                             (list (Pair (name-text name)
+                                         (::text (old-text empty-table value (Naming (Nil) 0))))))
                             (_ (Nil))))
                         items)))
 
-    (: old-texts (impl (Fn (List old:Expr) Naming -> (Pair (List String) Naming))))
-    (define (old-texts exprs naming)
+    ;; The normal form of an old expression. `renaming` gives, for a
+    ;; global the program names afresh, the name the old expansion gives
+    ;; it, so the adapted program's expressions are written in the old
+    ;; expansion's names; the old expansion's own are written with none.
+    (: old-texts
+       (impl (Fn (Table String) (List old:Expr) Naming -> (Pair (List String) Naming))))
+    (define (old-texts renaming exprs naming)
       (let loop ((exprs exprs)
                  (naming naming)
                  (texts (Nil)))
         (match exprs
           ((Nil) (Pair (reverse texts) naming))
           ((Cons expr rest)
-           (let ((rendered (old-text expr naming)))
+           (let ((rendered (old-text renaming expr naming)))
              (loop rest (::naming rendered) (Cons (::text rendered) texts)))))))
 
     (: old-binders (impl (Fn (List String) Naming -> (Pair (List String) Naming))))
@@ -1261,52 +1602,59 @@
     ;; A name bound is a local; any other with `:` is a global, and any
     ;; other a free local. The locals of a dispatched method are named
     ;; for their implementation, with its colon.
-    (: old-name-text (impl (Fn Naming String -> String)))
-    (define (old-name-text naming name)
+    (: old-name-text (impl (Fn (Table String) Naming String -> String)))
+    (define (old-name-text renaming naming name)
       (cond ((any? (lambda (entry) (string=? (::first entry) name)) (::locals naming))
              (named naming name))
-            ((any? (lambda (char) (char=? char #\:)) (string->list name)) (old-global-text name))
+            ((any? (lambda (char) (char=? char #\:)) (string->list name))
+             (name-text (renamed renaming name)))
             (else (named naming name))))
 
-    (: old-text (impl (Fn old:Expr Naming -> Rendered)))
-    (define (old-text expr naming)
+    (: renamed (impl (Fn (Table String) String -> String)))
+    (define (renamed renaming name)
+      (match (table-ref renaming name)
+        ((Some other) other)
+        ((None) name)))
+
+    (: old-text (impl (Fn (Table String) old:Expr Naming -> Rendered)))
+    (define (old-text renaming expr naming)
       (match (::term expr)
         ((old:Lit datum) (Rendered (old-datum-text datum) naming))
         ((old:Var name _ _)
          (if (string=? (substring name 0 (min 2 (string-length name))) "::")
              (Rendered name naming)
-             (Rendered (old-name-text naming name) naming)))
+             (Rendered (old-name-text renaming naming name) naming)))
         ((old:Lambda parameters body _)
          (let* ((binders (old-binders parameters naming))
-                (rendered (old-text body (::second binders))))
+                (rendered (old-text renaming body (::second binders))))
            (Rendered (form-text "lambda" (list (form-text "" (::first binders)) (::text rendered)))
                      (::naming rendered))))
-        ((old:App callee arguments) (old-sequence "call" (Cons callee arguments) naming))
+        ((old:App callee arguments) (old-sequence renaming "call" (Cons callee arguments) naming))
         ((old:If test consequent alternative)
-         (old-sequence "if" (list test consequent alternative) naming))
-        ((old:Seq first rest) (old-sequence "seq" (list first rest) naming))
+         (old-sequence renaming "if" (list test consequent alternative) naming))
+        ((old:Seq first rest) (old-sequence renaming "seq" (list first rest) naming))
         ((old:Let name value body)
          (let* ((binder (bound naming name))
-                (value-text (old-text value (::naming binder)))
-                (body-text (old-text body (::naming value-text))))
+                (value-text (old-text renaming value (::naming binder)))
+                (body-text (old-text renaming body (::naming value-text))))
            (Rendered (form-text "let" (list (::text binder) (::text value-text) (::text body-text)))
                      (::naming body-text))))
         ((old:Match scrutinee clauses)
-         (let* ((value (old-text scrutinee naming))
-                (rendered (old-clauses clauses (::naming value))))
+         (let* ((value (old-text renaming scrutinee naming))
+                (rendered (old-clauses renaming clauses (::naming value))))
            (Rendered (form-text "match" (Cons (::text value) (::first rendered)))
                      (::second rendered))))
         ((old:ScopedInstances sets body)
-         (let ((rendered (old-text body naming)))
+         (let ((rendered (old-text renaming body naming)))
            (Rendered (form-text "with-instances"
-                                (list (form-text "" (map old-global-text sets)) (::text rendered)))
+                                (list (form-text "" (map name-text sets)) (::text rendered)))
                      (::naming rendered))))
-        ((old:Ann value _) (old-wrapped "ann" value naming))
+        ((old:Ann value _) (old-wrapped renaming "ann" value naming))
         ((old:Handle effect implementations body)
-         (let* ((values (old-texts (map ::second implementations) naming))
-                (body-text (old-text body (::second values))))
+         (let* ((values (old-texts renaming (map ::second implementations) naming))
+                (body-text (old-text renaming body (::second values))))
            (Rendered (form-text "handle"
-                                (Cons (old-global-text effect)
+                                (Cons (name-text effect)
                                       (append (map (lambda (pair)
                                                      (form-text (::first pair)
                                                                 (list (::second pair))))
@@ -1317,13 +1665,13 @@
                                                         (::first values)))
                                               (list (::text body-text)))))
                      (::naming body-text))))
-        ((old:Convert value type) (old-converted "convert" value type naming))
-        ((old:TryConvert value type) (old-converted "try-convert" value type naming))
-        ((old:TypeTest value type) (old-converted "type-test" value type naming))))
+        ((old:Convert value type) (old-converted renaming "convert" value type naming))
+        ((old:TryConvert value type) (old-converted renaming "try-convert" value type naming))
+        ((old:TypeTest value type) (old-converted renaming "type-test" value type naming))))
 
-    (: old-converted (impl (Fn String old:Expr old:Type Naming -> Rendered)))
-    (define (old-converted head value type naming)
-      (let ((rendered (old-text value naming)))
+    (: old-converted (impl (Fn (Table String) String old:Expr old:Type Naming -> Rendered)))
+    (define (old-converted renaming head value type naming)
+      (let ((rendered (old-text renaming value naming)))
         (Rendered (form-text head (list (::text rendered) (normal-type-text type)))
                   (::naming rendered))))
 
@@ -1331,21 +1679,22 @@
     (: short-name (impl (Fn String -> String)))
     (define (short-name name)
       (match (string-index-of name ":")
-        ((Some index) (old-global-text (substring name (+ index 1) (string-length name))))
+        ((Some index) (name-text (substring name (+ index 1) (string-length name))))
         ((None) name)))
 
-    (: old-sequence (impl (Fn String (List old:Expr) Naming -> Rendered)))
-    (define (old-sequence head exprs naming)
-      (let ((rendered (old-texts exprs naming)))
+    (: old-sequence (impl (Fn (Table String) String (List old:Expr) Naming -> Rendered)))
+    (define (old-sequence renaming head exprs naming)
+      (let ((rendered (old-texts renaming exprs naming)))
         (Rendered (form-text head (::first rendered)) (::second rendered))))
 
-    (: old-wrapped (impl (Fn String old:Expr Naming -> Rendered)))
-    (define (old-wrapped head value naming)
-      (let ((rendered (old-text value naming)))
+    (: old-wrapped (impl (Fn (Table String) String old:Expr Naming -> Rendered)))
+    (define (old-wrapped renaming head value naming)
+      (let ((rendered (old-text renaming value naming)))
         (Rendered (form-text head (list (::text rendered))) (::naming rendered))))
 
-    (: old-clauses (impl (Fn (List old:Clause) Naming -> (Pair (List String) Naming))))
-    (define (old-clauses clauses naming)
+    (: old-clauses
+       (impl (Fn (Table String) (List old:Clause) Naming -> (Pair (List String) Naming))))
+    (define (old-clauses renaming clauses naming)
       (let loop ((clauses clauses)
                  (naming naming)
                  (texts (Nil)))
@@ -1353,7 +1702,7 @@
           ((Nil) (Pair (reverse texts) naming))
           ((Cons clause rest)
            (let* ((pattern (old-pattern (::pattern clause) naming))
-                  (body (old-text (::body clause) (::naming pattern))))
+                  (body (old-text renaming (::body clause) (::naming pattern))))
              (loop rest
                    (::naming body)
                    (Cons (form-text (::text pattern) (list (::text body))) texts)))))))
@@ -1369,7 +1718,7 @@
                     (naming naming)
                     (texts (Nil)))
            (match arguments
-             ((Nil) (Rendered (form-text (old-global-text constructor) (reverse texts)) naming))
+             ((Nil) (Rendered (form-text (name-text constructor) (reverse texts)) naming))
              ((Cons argument rest)
               (let ((rendered (old-pattern argument naming)))
                 (loop rest (::naming rendered) (Cons (::text rendered) texts)))))))))

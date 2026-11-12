@@ -1263,6 +1263,36 @@ problem when the old compiler reports one at each of several scopes. It
 also compares the integrator's SHA-256 with the old one, compiled, as
 `make test-compiler` does on Chibi.
 
+For milestone A, `adapter/program.sld` makes the old `Program` of every
+library the integrator compiled, in its order, as the old expander makes
+it, and, for each library that records a run of items, the files it
+links; it reads no file and performs no `compile`. Each entity is
+converted by `adapter/declaration.sld`, each expression by
+`adapter/expressions.sld`, and each place, literal and problem by
+`adapter/source.sld`. A Global is spelled as `declare/spellings.sld`
+spells it, so the old compiler computes the TypeId of a case from the
+adapted program as `declare` does. A local is `name.number`, unique in
+its library, where the old expander numbers locals across the program;
+the old analyses need a local's name unique only in its function. A
+program's statements are gathered into `main:%body` as `with-one-body`
+gathers them; `adapter/program.sld`'s `program-body` and `scoped` are the
+gathering and the scoping the expansion comparison uses too. No
+implementation or default is marked a function, where the old expander
+marks a dispatched implementation one, since the mark is read only of a
+value a program names; metadata is left empty, since nothing past the old
+expander reads it; and the primitive library records no run. For every
+program both compilers expand, `make compare-compiler` compares the
+adapted program with the old expansion's, table by table, in the old
+expansion's names, each instance and implementation named as the old
+instance in its place among its class's, each default by its operation and
+each linked file's handle by its path: the values, with each signature's
+place, but whether an implementation is a function; the data types,
+classes and effects; each class's instances, in order; the runs, and each
+item of each run in the normal form, with each node's place, whether each
+function may capture and each annotation's type; the files each library
+links; and each case's TypeId, the old compiler's of the adapted program
+beside `declare`'s.
+
 For generated libraries, `make compare-compiler` loads every suite program
 with no producer's output, and compares the producers each waits for with
 the generated libraries the old `library-closure` reaches, keyed and

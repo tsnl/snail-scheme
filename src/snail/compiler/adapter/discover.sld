@@ -26,7 +26,8 @@
    (snail compiler integrate load)
    (snail compiler integrate discover)
    (only (snail compiler adapter outline) feedback-text)
-   (only (snail compiler adapter read) feedback->old feedback-difference)
+   (only (snail compiler adapter read) feedback-difference)
+   (only (snail compiler adapter source) feedback->old)
    (prefix (only (snail shell compiler read)
                  diagnostics->list
                  diagnostics->string

@@ -46,6 +46,7 @@
    (snail compiler outline imports)
    (snail compiler outline names)
    (snail compiler adapter read)
+   (snail compiler adapter source)
    (prefix (only (snail shell compiler read)
                  Loc
                  Syntax
