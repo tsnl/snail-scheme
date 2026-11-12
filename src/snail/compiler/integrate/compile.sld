@@ -5,10 +5,12 @@
 ;; reports it: expanded, handed the offers of the libraries its imports
 ;; reach; bound, as (snail compiler integrate bind) says, with the files of
 ;; the targets the caller supplied; derived, handed the offers of the
-;; implicit libraries; and declared, handed what the libraries its imports
+;; implicit libraries; declared, handed what the libraries its imports
 ;; reach offer its declaration, and, when it derives an instance, what
 ;; (snail shell wire) and the libraries wire's imports reach offer, since
-;; a derived instance names wire's classes. The first library that
+;; a derived instance names wire's classes; and dispatched, handed the
+;; same offers and the listing of every library compiled before it, in
+;; order, since instances are global. The first library that
 ;; derives an instance, by a `deriving` clause naming Serialize or
 ;; Deserialize, needs the implicit libraries, (snail core primitive) and
 ;; (snail shell wire), with what they import: they are loaded then, if no
@@ -20,8 +22,8 @@
 ;; did not supply, which it waits for. The integrator keeps, of each
 ;; library, what it offers the expansion and the declaration of the
 ;; libraries that import it; the files the build must place beside the
-;; program for it, which it asks of the library bound; and its latest
-;; tree, the library declared.
+;; program for it, which it asks of the library bound; its latest tree,
+;; the library dispatched; and its listing, every instance it declares.
 (define-library (snail compiler integrate compile)
   (export
    CompiledFile
@@ -46,9 +48,11 @@
    (snail compiler bind pass)
    (snail compiler bind placed)
    (snail compiler derive pass)
-   (only (snail compiler declare language) Declared)
    (only (snail compiler declare offer) DeclaredLibrary Declarations)
    (snail compiler declare pass)
+   (only (snail compiler dispatch language) Dispatched)
+   (only (snail compiler dispatch listing) Listed library-instances)
+   (snail compiler dispatch pass)
    (snail compiler integrate walk)
    (snail compiler integrate load)
    (snail compiler integrate bind))
@@ -58,15 +62,17 @@
 
     ;; One library's file, its name, the libraries it imports, what it
     ;; offers their expansion, the files to place beside the program for
-    ;; it, the library declared, and what it offers their declaration.
+    ;; it, the library dispatched, what it offers their declaration, and
+    ;; its instances.
     (struct CompiledFile
       ((file String)
        (library LibraryName)
        (imports (List LibraryName))
        (offer Offer)
        (placed (List Placed))
-       (declared Declared)
-       (declarations Declarations)))
+       (dispatched Dispatched)
+       (declarations Declarations)
+       (listing (List Listed))))
 
     ;; Every library compiled, in order; or the generated libraries the
     ;; program waits for, before anything is compiled; or the targets the
@@ -141,8 +147,8 @@
              (declared-run targets outlined imports expansion earlier implicit?))
             ((Waiting _) (Ok before))))))
 
-    ;; The run with the library bound, derived and declared after
-    ;; `earlier`, or waiting for the targets it asks for.
+    ;; The run with the library bound, derived, declared and dispatched
+    ;; after `earlier`, or waiting for the targets it asks for.
     (: declared-run
        (impl
         (Fn (Table (List TargetFile)) Outlined (List LibraryName) Expansion (List CompiledFile) Bool
@@ -154,20 +160,26 @@
         (match outcome
           ((WantsTargets requests) (Ok (Waiting requests)))
           ((BoundLibrary bound)
-           (result-let* ((derived (derive bound (implicit-offers earlier)))
-                         (declared (declare derived
-                                            (closure-declarations earlier
-                                                                  (declaration-imports expansion
-                                                                                       imports)))))
-             (Ok (Running (Cons (CompiledFile (::file outlined)
-                                              (outlined-name outlined)
-                                              imports
-                                              (::offer expansion)
-                                              (placed-files bound)
-                                              (::declared declared)
-                                              (::declarations declared))
-                                earlier)
-                          implicit?)))))))
+           (let ((closure (closure-declarations earlier (declaration-imports expansion imports))))
+             (result-let* ((derived (derive bound (implicit-offers earlier)))
+                           (declared (declare derived closure))
+                           (dispatched (dispatch (::declared declared) closure (listings earlier))))
+               (Ok (Running (Cons (CompiledFile (::file outlined)
+                                                (outlined-name outlined)
+                                                imports
+                                                (::offer expansion)
+                                                (placed-files bound)
+                                                dispatched
+                                                (::declarations declared)
+                                                (library-instances dispatched))
+                                  earlier)
+                            implicit?))))))))
+
+    ;; Every instance of the libraries done, `done` latest first, in the
+    ;; program's order.
+    (: listings (impl (Fn (List CompiledFile) -> (List Listed))))
+    (define (listings done)
+      (concatenate (map ::listing (reverse done))))
 
     ;; The libraries whose closure a library's declaration is handed: its
     ;; imports, and (snail shell wire) when it derives an instance.
@@ -238,7 +250,7 @@
     (define (outlined-name outlined)
       (match (::outline outlined)
         ((Written (Defined name _ _ _ _)) name)
-        ((Written (Program _ _ _ _)) (list "main"))
+        ((Written (Program _ _ _ _)) program-library)
         ((Generated name _ _ _) name)))
 
     ;; The offers of the libraries `imports` reach, each once, in the
@@ -281,9 +293,9 @@
     (import
      (only (chibi filesystem) create-directory*)
      (prefix (snail compiler expand language) expanded-)
-     (prefix
-      (only (snail compiler declare language) Program LinkImport TopData TopInstance Call TopRef)
-      declared-)
+     (prefix (only (snail compiler declare language) Call TopRef) declared-)
+     (prefix (only (snail compiler dispatch language) Program LinkImport TopData TopInstance)
+             dispatched-)
      (snail stage0 testing))
     (begin
       ;; Files are written under `directory`, which the runner supplies.
@@ -318,17 +330,18 @@
           ((Ok (CompiledAll files))
            (expect (map ::library files)
                    (list (list "sample" "lib") (list "sample" "user") (list "main")))
-           (expect (::declared (list-ref files 2))
-                   (declared-Program (list)
-                                     (Some (declared-TopRef (expanded-TopGlobal
-                                                             (expanded-Global (list "sample" "user")
-                                                                              "y"
-                                                                              0))
-                                                            (Loc
-                                                             (string-append directory "/main.sld")
-                                                             2
-                                                             1)))
-                                     1)))
+           (expect (::dispatched (list-ref files 2))
+                   (dispatched-Program (list)
+                                       (Some (declared-TopRef (expanded-TopGlobal
+                                                               (expanded-Global
+                                                                (list "sample" "user")
+                                                                "y"
+                                                                0))
+                                                              (Loc
+                                                               (string-append directory "/main.sld")
+                                                               2
+                                                               1)))
+                                       1)))
           (other (expect other "a compiled program")))
         (test-bound directory)
         (test-derived directory)
@@ -360,13 +373,13 @@
                      (list
                       (Placed "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
                               (string-append directory "/data/x.txt"))))
-             (expect (::declared (list-ref files 0))
-                     (declared-Program
-                      (list (declared-LinkImport handle
-                                                 (list "data" "x.txt")
-                                                 "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-                                                 (string-append directory "/data/x.txt")
-                                                 (Loc main 2 14)))
+             (expect (::dispatched (list-ref files 0))
+                     (dispatched-Program
+                      (list (dispatched-LinkImport handle
+                                                   (list "data" "x.txt")
+                                                   "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+                                                   (string-append directory "/data/x.txt")
+                                                   (Loc main 2 14)))
                       (Some
                        (declared-Call (declared-TopRef (expanded-TopGlobal handle) use) (list) use))
                       2))))
@@ -374,7 +387,9 @@
 
       ;; A library that derives brings the implicit libraries in before it
       ;; is bound, and is derived with their offers: its struct is followed
-      ;; by the instance, which is declared with wire's offer of its class.
+      ;; by the instance, which is declared with wire's offer of its class;
+      ;; the library's listing holds the instance alone, since the struct
+      ;; has no field.
       (define (test-derived directory)
         (match (compiled-at directory "deriving.sld")
           ((Ok (CompiledAll files))
@@ -382,16 +397,17 @@
                    (list (list "snail" "core" "primitive")
                          (list "snail" "shell" "wire")
                          (list "main")))
-           (match (::declared (list-ref files 2))
-             ((declared-Program (Cons (declared-TopData data)
-                                      (Cons (declared-TopInstance instance) (Nil)))
-                                (None)
-                                _)
+           (match (::dispatched (list-ref files 2))
+             ((dispatched-Program (Cons (dispatched-TopData data)
+                                        (Cons (dispatched-TopInstance instance) (Nil)))
+                                  (None)
+                                  _)
               (expect (::class instance)
                       (expanded-ClassGlobal (expanded-Global (list "snail" "shell" "wire")
                                                              "Serialize"
                                                              0))))
-             (other (expect other "a struct and its derived instance"))))
+             (other (expect other "a struct and its derived instance")))
+           (expect (length (::listing (list-ref files 2))) 1))
           (other (expect other "a program that derives an instance"))))
 
       (define (compiled-at directory file)

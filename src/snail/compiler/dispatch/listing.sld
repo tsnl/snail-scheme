@@ -44,6 +44,7 @@
    listed-copied
    listed-set
    selecting-types
+   instance-selecting-types
    same-class?
    active?)
   (import
@@ -159,11 +160,20 @@
     ;; row.
     (: selecting-types (impl (Fn Listed -> (List Type))))
     (define (selecting-types listed)
+      (no-rows (listed-types listed)))
+
+    ;; An instance node's, as `selecting-types` reads it when it is listed.
+    (: instance-selecting-types (impl (Fn Instance -> (List Type))))
+    (define (instance-selecting-types instance)
+      (no-rows (::types instance)))
+
+    (: no-rows (impl (Fn (List Type) -> (List Type))))
+    (define (no-rows types)
       (filter (lambda (type)
                 (match type
                   ((Row _) #f)
                   (_ #t)))
-              (listed-types listed)))
+              types))
 
     ;; A class is one Global, or one label's field class.
     (: same-class? (impl (Fn ClassRef ClassRef -> Bool)))

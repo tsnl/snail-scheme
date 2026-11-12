@@ -27,7 +27,9 @@
    Fixed
    MethodShape
    clause-domain
-   method-shape)
+   method-shape
+   ground?
+   concrete?)
   (import
    (snail core base)
    (only (snail compiler expand language) ClassRef Dyn FnContract)
@@ -86,15 +88,20 @@
     (: targets-problem (impl (Fn (List declared-Type) -> (Option String))))
     (define (targets-problem targets)
       (cond ((null? targets) (Some "dispatch needs at least one concrete type"))
-            ((not
-              (every? (lambda (target) (and (ground? target) (not (any-type? target)))) targets))
+            ((not (every? concrete? targets))
              (Some "dispatch accepts concrete types, not Any or type variables"))
             ((not (= (length targets) (length (delete-duplicates same-type? targets))))
              (Some "dispatch repeats a concrete type"))
             (else (None))))
 
-    ;; A type with no variable, and no row that ends with one: what a
-    ;; value can be recovered as.
+    ;; A type a value can be recovered as, as a clause's targets and a
+    ;; `dynamic-instances` form's pairs must be: ground, and not Any itself.
+    (: concrete? (impl (Fn declared-Type -> Bool)))
+    (define (concrete? type)
+      (and (ground? type) (not (any-type? type))))
+
+    ;; A type with no variable, and no row that ends with one, as the old
+    ;; compiler's `ground-type?` says.
     (: ground? (impl (Fn declared-Type -> Bool)))
     (define (ground? type)
       (match type

@@ -22,7 +22,6 @@
          MemberName
          PathName)
    (snail compiler declare language)
-   (snail compiler declare equality)
    (snail compiler declare membership))
   (begin
 
@@ -61,13 +60,6 @@
                    members)
         ((Some member) (Some (string-append "instance is missing a method: " (member-name member))))
         ((None) (None))))
-
-    (: same-member? (impl (Fn Member Member -> Bool)))
-    (define (same-member? member other)
-      (match (Pair member other)
-        ((Pair (ClassMethod global) (ClassMethod other-global)) (same-global? global other-global))
-        ((Pair (FieldReader label) (FieldReader other-label)) (string=? label other-label))
-        (_ #f)))
 
     ;; ---- Operations ----
 
