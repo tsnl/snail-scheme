@@ -88,8 +88,8 @@
     ;; A loan starts only as a let's initializer. That let is its lexical
     ;; region: ownership checks the whole body and forbids a borrowed result.
     ;; The prelude exposes with-borrow instead of this raw operation.
-    
-    
+
+
 
     ;; ---- Counted ownership ----
 
@@ -101,6 +101,8 @@
     ;; Lifetime lowering inserts these operations after types are concrete.
     ;; They are deliberately absent from this library's exports.
     (primitive constant-array (∀ (T) (Fn → (Vector T))))
+    (primitive current-closure (∀ (T) (Fn → T)))
+    (primitive pattern-retain (∀ (T) (Fn T → T)))
     (primitive retain (∀ (T) (Fn T → T)))
     (primitive release (∀ (T) (Fn T → Unit)))
     (primitive rc-new (∀ (T D) (Fn T D → (Rc T))))

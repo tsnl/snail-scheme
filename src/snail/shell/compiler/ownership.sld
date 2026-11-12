@@ -46,7 +46,7 @@
                                 (linear-type? program copy arg))
                        (compile-error loc
                                       (explain-type program copy arg
-                                       "an Array or Vector element must be Copy; use Rc to share a linear value")))
+                                                    "an Array or Vector element must be Copy; use Rc to share a linear value")))
                      (check-type program copy arg loc)) args))
         ((TFun params result _)
          (for-each (lambda (part) (check-type program copy part loc)) (Cons result params)))
@@ -55,7 +55,7 @@
     ;; A borrowed value is allowed only as a local or explicit parameter.
     ;; Its target is owned: there are no nested or stored Borrow values.
 
-    
+
 
     ;; A message about a value of a linear type, with the Copy that would
     ;; have made the type unrestricted, if one would.
@@ -130,7 +130,7 @@
     ;; Only introduction and direct immutable projections may produce a
     ;; Borrow. They are compiler operations, never borrow-returning helpers.
 
-    
+
 
     ;; ---- Paths ----
 
@@ -161,7 +161,7 @@
     (define (live? (path Path) (name String)) (→ Bool)
       (any? (lambda (owner) (string=? (● owner name) name)) (● path live)))
 
-    
+
 
     ;; The same for a value on this path, under its definition's Copy.
 
@@ -307,7 +307,10 @@
          (check path value))
         ((Pair (Var "prim:once" _ _) (Cons value (Nil)))
          (if (lambda-expr? value)
-             (check-lambda path (Expr (● value term) (TCon "FnOnce" (list (● value type))) (● value loc)))
+             (check-lambda path
+                           (Expr (● value term)
+                                 (TCon "FnOnce" (list (● value type)))
+                                 (● value loc)))
              (check path value)))
         ((Pair (Var "prim:panic" _ _) _) (Path-returns-set (check-all path args) #f))
         ((Pair (Var "prim:set!" _ _) (Cons place (Cons value (Nil))))
@@ -335,24 +338,24 @@
     (define (check-ordinary-call (path Path) (callee Expr) (args (List Expr))) (→ Path) (! compile)
       (check-yield-holds (check-all path (Cons callee args)) callee))
 
-    
 
-    
+
+
 
     ;; The receiver stays owned by its lexical scope. Its loan lasts through
     ;; argument evaluation and the call, so the existing continuation rule
     ;; also refuses suspension that could outlive this owner. FnMut forbids
     ;; another use of the loaned root while its exclusive call is prepared.
 
-    
+
 
     ;; Only a local or a path of immutable fields is a lendable place.
     ;; Mutable content can be replaced through an alias while later
     ;; arguments run, so it must first be read into an owned local.
 
-    
 
-    
+
+
 
     ;; The references that move ownership into an expression. Field reads
     ;; borrow their place; a replacement consumes its record. Control uses
@@ -361,16 +364,24 @@
     (define (consumed-references (program Program) (expr Expr)) (→ (List String))
       (match (● expr term)
         ((Var name _ _) (list name))
+        ;; Retaining observes a slot; the result becomes another owner.
+        ;; Pattern acquisition consumes its temporary pattern binding.
+        ((App (Expr (Var "prim:retain" _ _) _ _) _) (Nil))
         ;; Checking may inspect cleanup before deferred selections are resolved.
         ;; Reading a field observes its receiver, just as a direct accessor does.
         ((FieldRead _ _ _) (Nil))
         ((Lambda params body _)
-         (filter (lambda (name) (not (member? name params))) (expr-references body)))
+         (let ((types (expr-reference-types body)))
+           (filter (lambda (name)
+                     (and (not (member? name params))
+                          (match (table-ref types name)
+                            ((Some type) (linear-type? program (Nil) type))
+                            ((None) #f)))) (expr-references body))))
         ((App (Expr (Var "prim:set!" _ _) _ _) (Cons _ (Cons value (Nil))))
          (consumed-references program value))
         ((App (Expr (Var "prim:replace!" _ _) _ _) (Cons _ (Cons value (Nil))))
          (consumed-references program value))
-        
+
         ((App callee (Cons record rest))
          (match (field-operation (Path program (Nil) (Nil) (Nil) #t (None)) callee)
            ((Some (Replacer _ _ _)) (consumed-children program expr))
@@ -506,7 +517,7 @@
 
     (define (callee-may-yield? (path Path) (callee Expr)) (→ Bool)
       (match (● callee term)
-        
+
         ((Ann inner _) (callee-may-yield? path inner))
         ((Var name types evidence)
          (match (program-value (● path program) name)
@@ -573,16 +584,16 @@
     ;; Fn -> FnOnce adaptation still calls through a receiver loan. Owning
     ;; the adapter is not a proof that a suspended loan can outlive it.
 
-    
 
-    
 
-    
+
+
+
 
     ;; Any and host code cannot enforce lexical scope. Check a foreign
     ;; reference, not just its calls, so aliasing cannot hide the boundary.
 
-    
+
 
     (define (has-body? (value Value)) (→ Bool)
       (match value
@@ -681,8 +692,9 @@
         (_ (unit))))
 
     (define (linear-read-advice (case Case) (index I64)) (→ String)
-      (string-append "reading a field would duplicate its linear content; destructure its owner or swap it out with "
-                     (swapper-name case index)))
+      (string-append
+       "reading a field would duplicate its linear content; destructure its owner or swap it out with "
+       (swapper-name case index)))
 
     (define (swapper-name (case Case) (index I64)) (→ String)
       (string-append (short-name (● case name))
@@ -764,7 +776,7 @@
     ;; Shared captured owners are read-only. An FnMut body gets exclusive
     ;; access to its captures without gaining permission to move them out.
 
-    
+
 
     ;; The place rule: a field operation reads or writes its record where it
     ;; is, so a linear local it is applied to stays live. A linear record
@@ -801,7 +813,7 @@
           ((Pair #f (Cons owner _))
            (compile-error loc
                           (explain path (● owner type)
-                           "a reusable procedure cannot capture a linear value; wrap it in Rc or use FnOnce")))
+                                   "a reusable procedure cannot capture a linear value; wrap it in Rc or use FnOnce")))
           (_ (unit)))
         (for-each (lambda (owner) (check-capture path owner (● expr type) loc)) captured)
         (check-closure-body path expr captured once?)
@@ -815,7 +827,8 @@
       (! compile)
       (match (Pair (● expr term) (fn-arrow (● expr type)))
         ((Pair (Lambda params body _) (TFun types _ row))
-         (let* ((empty (Path (● path program) (● path copy) (● path constraints) (Nil) #t (Some row)))
+         (let* ((empty
+                 (Path (● path program) (● path copy) (● path constraints) (Nil) #t (Some row)))
                 (start
                  (fold-left
                   (lambda (inner pair) (bind inner (● pair first) (● pair second)))
@@ -887,7 +900,12 @@
       (! compile)
       (check-owned-types program schemes item)
       (check-item
-       (Path program (item-copy schemes item) (item-constraints schemes item) (Nil) #t (item-row schemes item))
+       (Path program
+             (item-copy schemes item)
+             (item-constraints schemes item)
+             (Nil)
+             #t
+             (item-row schemes item))
        item))
 
     ;; A definition's row bounds the drops its frames may run; a statement's

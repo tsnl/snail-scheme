@@ -80,6 +80,7 @@
    PCon
    lambda-expr?
    expr-references
+   expr-reference-types
    expr-children
    DataType
    DataType-owned?-set
@@ -190,9 +191,9 @@
     ;; locals and signatures through checking; only representation lowering
     ;; uses its target. Lexical ownership checking proves where it may live.
 
-    
 
-    
+
+
 
     ;; The signature a callable holds, including `(fn A → B ! e)` code; any
     ;; other type is its own.
@@ -209,21 +210,21 @@
     ;; are the owned environment. Generic instantiation substitutes both.
     ;; These compiler names cannot be written as source type constructors.
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
 
     ;; This implication is about receiver access, never Copy or purity.
 
-    
+
 
     (define (callable-kind (type Type)) (→ (Option String))
       (match type
@@ -243,7 +244,7 @@
     ;; It remains attached through specialization: a FnOnce requirement
     ;; consumes its receiver even when the concrete value also implements Fn.
 
-    
+
 
     ;; The row of an operation on a mutable field, which reads or writes
     ;; storage and nothing else.
@@ -384,7 +385,7 @@
         ((TVar id) (string-append "?" (i64->string id)))
         ((TRigid name) name)))
 
-    
+
 
     (define (arrow->string (kind String) (params (List Type)) (result Type) (row Type)) (→ String)
       (string-append "(" kind (types->string params) " → " (type->string result)
@@ -744,6 +745,16 @@
                 found
                 (Pair (table-set seen name #t) (Cons name names))))))
         (_ (fold-left collect-references found (expr-children expr)))))
+
+    ;; Local names are unique after resolution. Closure layouts and control
+    ;; ownership use the type carried by each resolved read.
+    (define (expr-reference-types (expr Expr)) (→ (Table Type))
+      (collect-reference-types empty-table expr))
+
+    (define (collect-reference-types (found (Table Type)) (expr Expr)) (→ (Table Type))
+      (match (● expr term)
+        ((Var name _ _) (table-set found name (● expr type)))
+        (_ (fold-left collect-reference-types found (expr-children expr)))))
 
     ;; ---- Declared entities ----
 

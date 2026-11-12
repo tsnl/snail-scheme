@@ -35,7 +35,8 @@
    (only (snail shell compiler check) Typed)
    (only (snail shell compiler ownership) consumed-references)
    (snail shell compiler specialize)
-   (snail shell compiler constants))
+   (snail shell compiler constants)
+   (snail shell compiler lifetimes))
   (begin
 
     ;; ---- Prepared code ----
@@ -89,11 +90,11 @@
         ((Pair items state)
          (let ((callees (specialization-callees state)))
            (for-each (lambda (item) (check-item callees item)) items)
-           (if (null? (● state control))
-               (Lowered items count state)
-               (let ((lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
-                                         (Lowered (Nil) count state) items)))
-                 (Lowered-items-set lowered (reverse (● lowered items)))))))))
+           (let* ((declarations (constant-declarations (specialization-declarations state)))
+                  (items (map (lambda (item) (lower-lifetimes declarations item)) items))
+                  (lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
+                                      (Lowered (Nil) count state) items)))
+             (Lowered-items-set lowered (reverse (● lowered items))))))))
 
 
 
@@ -856,7 +857,7 @@
            (match (droppers callees drops (Cons (Pair name (● value type)) after) body)
              ((Pair body more)
               (let ((live (if (null? (yields callees value)) (Nil)
-                              (linear-locals callees after))))
+                              (owned-locals callees after))))
                 (Pair (Expr (Let name (with-dropper drops value live) body)
                             (● expr type) (● expr loc))
                       (append (map (lambda (record) (● record second)) live)
@@ -912,7 +913,7 @@
       (→ (Pair Expr (List Type)))
       (let* ((after (remaining-scope callees scope original))
              (live (if (null? (yields callees value)) (Nil)
-                       (linear-locals callees after))))
+                       (owned-locals callees after))))
         (if (null? live) (Pair value types)
             (let* ((name
                     (string-append "control:abandoned."
@@ -951,6 +952,12 @@
       (filter (lambda (entry)
                 (linear-type? (callees-program callees) (Nil) (● entry second)))
               scope))
+
+    (define (owned-locals (callees Callees) (scope (List (Pair String Type))))
+      (→ (List (Pair String Type)))
+      (filter (lambda (entry)
+                (let ((program (callees-program callees)) (type (● entry second)))
+                  (or (linear-type? program (Nil) type) (shared-type? program type)))) scope))
 
     ;; The value marked with the dropper of `live`, once every drop is known.
 
