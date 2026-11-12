@@ -15,5 +15,5 @@
 (write-line (show (+ (parse "1/2") (parse "0.25"))))
 (write-line (show (number-divide (parse "10") (parse "4"))))
 (write-line (show (< (parse "1/3") (parse "0.34"))))
-(write-line (show (string->number "abc")))
+(write-line (repr (string->number "abc")))
 (write-line (show (number-integer? (parse "8/4"))))

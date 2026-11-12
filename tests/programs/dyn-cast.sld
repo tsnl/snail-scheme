@@ -48,11 +48,10 @@
   (write-line (show (type-convert (type-convert (ann 8 I64) Any) I64))))
 
 ;; An interactive client gets a report and a failure value, and can run
-;; another evaluation. Capture console output so origins remain portable.
+;; another evaluation. Capture output-port output so origins remain portable.
 (let ((reported (ref 0)))
-  (handle console
-      ((console-write (lambda (_) (ref-set! reported (+ 1 (ref-get reported)))))
-       (console-read (lambda () -1)))
+  (handle output-port
+      ((write-string (lambda (_) (ref-set! reported (+ 1 (ref-get reported))))))
     (run-dynamic (lambda () (integer "bad"))))
   (write-line (show (> (ref-get reported) 0))))
 (write-line (show (match (run-dynamic (lambda () (integer 43)))

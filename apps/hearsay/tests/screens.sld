@@ -50,7 +50,7 @@
     ((Dialog dismiss) "dialog")
     ((Banner) "banner")))
 
-(define (show-batches (frame Frame)) (→ Unit) (! console)
+(define (show-batches (frame Frame)) (→ Unit) (! output-port)
   (match frame
     ((Frame camera light background motion batches pictures)
      (write-line (string-append "batches: "
@@ -61,7 +61,7 @@
                                                   batches)
                                              " "))))))
 
-(define (show-panel (panel Panel)) (→ Unit) (! console)
+(define (show-panel (panel Panel)) (→ Unit) (! output-port)
   (match panel
     ((Panel key place widgets)
      (write-line (string-append "-- " key ", " (place-name place)))
@@ -73,7 +73,9 @@
    shell
    presses))
 
-(define (step (shell Shell) (title String) (presses (List (Pair I32 I32)))) (→ Shell) (! console)
+(define (step (shell Shell) (title String) (presses (List (Pair I32 I32))))
+  (→ Shell)
+  (! output-port)
   (let ((shell (click shell presses)))
     (write-line (string-append "==== " title))
     (show-batches (view-shell shell (lambda (path) (None))))

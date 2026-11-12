@@ -21,7 +21,7 @@
   (fold-left (lambda (total c) (+ (* total 10) (digit c))) 0 (string->list text)))
 
 ;; Each bad digit counts as the default, and parsing goes on.
-(define (parse-with (text String) (default I64)) (→ I64) (! console)
+(define (parse-with (text String) (default I64)) (→ I64) (! output-port)
   (handle Fail ((fail (lambda (message resume) (write-line message) (resume default))))
     (number text)))
 
@@ -52,7 +52,7 @@
     (log (string-append "value " (show value)))
     value))
 
-(define (logged (body (dyn (Fn → I64 ! Log)))) (→ I64) (! console)
+(define (logged (body (dyn (Fn → I64 ! Log)))) (→ I64) (! output-port)
   (handle Log ((log
                 (lambda (line resume) (write-line (string-append "log: " line)) (resume (unit)))))
     (body)))

@@ -10,6 +10,9 @@
    (snail shell datum))
   (begin
 
+    (instance (Repr Any)
+      (define repr datum->string))
+
     (define (datum->string (datum Any)) (→ String)
       (string-concatenate (datum-text datum #t)))
 
@@ -22,8 +25,8 @@
       (match-any datum
                  ((Null _) (list "()"))
                  ((Bool value) (list (if value "#t" "#f")))
-                 ((Char char) (if write? (list (character-name char)) (list (make-string 1 char))))
-                 ((String text) (if write? (list (quoted text)) (list text)))
+                 ((Char char) (list (if write? (repr char) (show char))))
+                 ((String text) (list (if write? (repr text) text)))
                  ((Symbol (Symbol name)) (list name))
                  ((SchemePair (SchemePair head tail))
                   (Cons "(" (append (datum-text head write?) (list-tail-text tail write?))))
@@ -52,22 +55,5 @@
              (concatenate (map-indexed (lambda (index item) (if (= index 0) item (Cons " " item)))
                                        items))
              (list ")"))))
-
-    (define (character-name (char Char)) (→ String)
-      (cond ((= char #\space) "#\\space")
-            ((= char #\newline) "#\\newline")
-            ((= char #\tab) "#\\tab")
-            (else (string-append "#\\" (make-string 1 char)))))
-
-    (define (quoted (text String)) (→ String)
-      (string-append "\"" (string-concatenate (map escaped (string->list text))) "\""))
-
-    (define (escaped (char Char)) (→ String)
-      (cond ((= char #\") "\\\"")
-            ((= char #\\) "\\\\")
-            ((= char #\newline) "\\n")
-            ((= char #\return) "\\r")
-            ((= char #\tab) "\\t")
-            (else (make-string 1 char))))
 
     ))

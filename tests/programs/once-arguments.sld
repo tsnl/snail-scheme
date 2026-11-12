@@ -5,12 +5,12 @@
 (struct Token
   ((label String)))
 
-(instance (Drop (! console) Token)
+(instance (Drop (! output-port) Token)
   (define drop
     (lambda (token) (match token
                       ((Token label) (write-line label))))))
 
-(define (offset (token Token) (amount I64)) (→ (dyn (FnOnce I64 → I64 ! console)))
+(define (offset (token Token) (amount I64)) (→ (dyn (FnOnce I64 → I64 ! output-port)))
   (once (lambda (value)
           (drop token)
           (+ amount value))))
@@ -23,7 +23,7 @@
 (let ((work (once (lambda (first last) (string-append first last)))))
   (write-line (work "left" "right")))
 
-(define (consume-job (job (dyn (FnOnce → Unit ! console)))) (→ I64) (! console)
+(define (consume-job (job (dyn (FnOnce → Unit ! output-port)))) (→ I64) (! output-port)
   (job)
   7)
 
@@ -33,7 +33,7 @@
 (effect Pause
   ((ctl pause (dyn (Fn → I64)))))
 
-(define (suspended (token Token)) (→ (dyn (FnOnce I64 → I64 ! Pause console)))
+(define (suspended (token Token)) (→ (dyn (FnOnce I64 → I64 ! Pause output-port)))
   (once (lambda (value)
           (let ((answer (pause)))
             (drop token)

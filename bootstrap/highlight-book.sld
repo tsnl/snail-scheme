@@ -212,7 +212,7 @@
 
 ;; ---- The invocation ----
 
-(define (read-input (lines (List String))) (→ String) (! console)
+(define (read-input (lines (List String))) (→ String) (! input-port)
   (match (read-line)
     ((None) (string-join (reverse lines) "\n"))
     ((Some line) (read-input (Cons line lines)))))

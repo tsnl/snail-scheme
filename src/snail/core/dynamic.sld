@@ -36,7 +36,7 @@
 
     (define (run-dynamic (work (dyn (Fn → A ! dyn-cast e))))
       (→ (Result A CastError))
-      (! console e)
+      (! output-port e)
       (∀ A e)
       (match (try-dynamic work)
         ((Ok value) (Ok value))

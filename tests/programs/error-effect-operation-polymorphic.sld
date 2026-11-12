@@ -8,7 +8,7 @@
 (effect Pick
   ((pick (∀ (A) (dyn (Fn A A → A))))))
 
-(define (choose) (→ String) (! console)
+(define (choose) (→ String) (! output-port)
   (handle Pick ((pick (lambda (a b) b)))
     (write-line (string-append (pick "x" "y") (show (pick 1 2))))
     "done"))

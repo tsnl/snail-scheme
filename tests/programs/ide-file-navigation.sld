@@ -19,7 +19,7 @@
   (match session
     ((Session ide pending) (drop pending) ide)))
 
-(define (recovered (bytes Bytes)) (→ Unit) (! console)
+(define (recovered (bytes Bytes)) (→ Unit) (! output-port)
   (let ((model (restored (read-recovery bytes))))
     (write-line (string-join (● (list-ref (● model panes) 0) tabs) ","))
     (match (buffer-at model "lib/notes.txt")
@@ -61,7 +61,7 @@
                                                    (dyn (Fn Session
                                                             (Option Msg)
                                                             → Session
-                                                            ! mut completion console dom fetch)))
+                                                            ! mut completion output-port dom fetch)))
                                               session-view
                                               session-window
                                               snapshot

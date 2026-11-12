@@ -12,7 +12,7 @@
   (syntax-rules ()
     ((_) (bundle "does-not-exist"))))
 
-(define (print-bytes (bytes Bytes)) (→ Unit) (! console)
+(define (print-bytes (bytes Bytes)) (→ Unit) (! output-port)
   (vector-for-each (lambda (byte) (display (u8->i32 byte)) (display ",")) bytes)
   (newline))
 

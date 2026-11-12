@@ -18,7 +18,7 @@
   (fold-left (lambda (total c) (+ (* total 10) (digit c))) 0 (string->list text)))
 
 ;; The handler's answer is a default, after reporting the message.
-(define (parse-or (text String) (default I64)) (→ I64) (! console)
+(define (parse-or (text String) (default I64)) (→ I64) (! output-port)
   (handle Raise ((raise (lambda (message resume) (drop resume) (write-line message) default)))
     (number text)))
 

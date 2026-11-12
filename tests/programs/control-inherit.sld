@@ -13,10 +13,10 @@
 (effect Log
   ((log (dyn (Fn String → Unit)))))
 
-(define (first-log (line String)) (→ Unit) (! console)
+(define (first-log (line String)) (→ Unit) (! output-port)
   (write-line (string-append "first log: " line)))
 
-(define (second-log (line String)) (→ Unit) (! console)
+(define (second-log (line String)) (→ Unit) (! output-port)
   (write-line (string-append "second log: " line)))
 
 ;; ANCHOR: thunk
@@ -55,7 +55,7 @@
     (yield value)
     (count-to (+ value 1) last)))
 
-(define (drain (step Step)) (→ Unit) (! console host)
+(define (drain (step Step)) (→ Unit) (! output-port host)
   (match step
     ((Done) (write-line "done"))
     ((Yielded value next)

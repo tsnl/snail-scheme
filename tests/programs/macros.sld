@@ -29,7 +29,7 @@
 (define (twice (if (dyn (Fn I64 → I64))) (x I64)) (→ I64)
   (if (if x)))
 
-(display (pairs (1 2 3) (4) 5))
+(write (pairs (1 2 3) (4) 5))
 (newline)
 (write-line (pick else))
 (write-line (let ((else 1)) (pick else)))

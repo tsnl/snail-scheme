@@ -60,7 +60,7 @@
 (define reloading (→ Reloading)
   (Reloading (at "host") (at "reload.wasm")))
 
-(define (show-response (label String) (response Response)) (→ Unit) (! console)
+(define (show-response (label String) (response Response)) (→ Unit) (! output-port)
   (write-line (string-append label
                              " -> "
                              (show (● response status))
@@ -75,7 +75,7 @@
                                ((Ok text) text)
                                ((Err _) "not text")))))
 
-(define (request (label String) (path (List String))) (→ Unit) (! fs console)
+(define (request (label String) (path (List String))) (→ Unit) (! fs output-port)
   (show-response label (bundle-response "/site/" reloading builds path)))
 
 (request "/" (Nil))

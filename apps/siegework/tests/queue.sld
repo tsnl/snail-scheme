@@ -12,7 +12,7 @@
 (define (run (world World) (ticks I64)) (→ World)
   (if (= ticks 0) world (run (advance world) (- ticks 1))))
 
-(define (order (world World) (action Action)) (→ World) (! console)
+(define (order (world World) (action Action)) (→ World) (! output-port)
   (match (act world action)
     ((Ok world) world)
     ((Err rejection)
@@ -37,7 +37,7 @@
                    (show (● work duration))
                    (if (● task active) " active" ""))))
 
-(define (report (world World)) (→ Unit) (! console)
+(define (report (world World)) (→ Unit) (! output-port)
   (write-line
    (string-append "tick " (show (● world tick)) ", energy " (show (● world energy))
                   ", slots " (show (● (● world hub) slots)) ": "

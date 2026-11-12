@@ -40,7 +40,7 @@
     ((Done value) value)
     ((Waiting ticket next) (finish (next ticket)))))
 
-(define (labelled (name String) (line String)) (→ Unit) (! console)
+(define (labelled (name String) (line String)) (→ Unit) (! output-port)
   (write-line (string-append name ": " line)))
 
 (handle Io

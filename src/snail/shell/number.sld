@@ -130,6 +130,9 @@
     (instance (Show (!) Number)
       (define show number->string))
 
+    (instance (Repr Number)
+      (define repr number->string))
+
     ;; Exact integers and ratios are parsed here; the runtime parses reals,
     ;; such as decimals, exponents and infinities, with correct rounding.
 

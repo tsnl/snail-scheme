@@ -43,5 +43,5 @@
 (newline)
 (display (● (Vec3-y-set (Vec3 1 2 3) 20) y))
 (newline)
-(display (map area (list (Dot) (Circle 1) (Rectangle 2 5))))
+(write (map area (list (Dot) (Circle 1) (Rectangle 2 5))))
 (newline)

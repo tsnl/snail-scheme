@@ -1,5 +1,5 @@
 (import
  (snail core base))
 
-(instance (Show (!) (List I64))
-  (define show (lambda (items) "numbers")))
+(instance (Repr (List I64))
+  (define repr (lambda (items) "numbers")))
