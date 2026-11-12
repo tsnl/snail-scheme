@@ -16,11 +16,8 @@
    named-operation)
   (import
    (snail core base)
-   (only (snail compiler expand language)
-         Global
-         MethodName
-         MemberName
-         PathName)
+   (only (snail compiler expand language) MethodName MemberName PathName)
+   (only (snail compiler names globals) Global)
    (snail compiler declare language)
    (snail compiler declare membership))
   (begin
@@ -89,7 +86,7 @@
      test-members)
     (import
      (snail compiler source)
-     (only (snail compiler expand language) Label ClassGlobal FieldClass)
+     (only (snail compiler names globals) ClassGlobal FieldClass Label)
      (snail stage0 testing))
     (begin
       (define (test-members)

@@ -14,8 +14,8 @@
    reference-problem)
   (import
    (snail core base)
-   (only (snail compiler outline names) same-library?)
-   (only (snail compiler expand language) TopValue TopGlobal FieldFunction Replacer)
+   (snail compiler names libraries)
+   (only (snail compiler names globals) TopValue TopGlobal FieldFunction Replacer)
    (snail compiler declare language)
    (snail compiler declare known))
   (begin
@@ -70,9 +70,9 @@
     (import
      (snail core table)
      (snail compiler source)
-     (only (snail compiler expand language) Global Accessor)
+     (only (snail compiler names globals) Local Global Accessor)
      (snail compiler declare offer)
-     (snail compiler declare forms)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-owned)

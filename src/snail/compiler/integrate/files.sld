@@ -14,7 +14,7 @@
    (snail core table)
    (snail core io)
    (snail compiler source)
-   (snail compiler outline language))
+   (snail compiler names libraries))
   (begin
 
     ;; ---- Sources ----

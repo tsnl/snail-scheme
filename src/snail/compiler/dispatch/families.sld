@@ -20,15 +20,16 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler expand language) Global Local TopGlobal ClassRef ClassGlobal FieldClass)
    (prefix (snail compiler declare language) declared-)
    (only (snail compiler declare equality) same-type?)
+   (only (snail compiler names globals) Local TopGlobal ClassRef ClassGlobal FieldClass)
    (only (snail compiler declare membership) member-name)
    (only (snail compiler dispatch language) Instance)
    (snail compiler dispatch runtime)
+   (only (snail compiler builtins base) unsupported-instance-case dyn-cast-effect)
    (snail compiler dispatch known)
    (snail compiler dispatch binary)
-   (snail compiler dispatch state)
+   (snail compiler names numbering)
    (snail compiler dispatch conversions))
   (begin
 
@@ -43,10 +44,10 @@
                  -> (Result (Pair (List Instance) Numbering) (List Feedback)))))
     (define (family-instances state class class-ref pairs sources loc)
       (result-let* ((checked (checked-families class class-ref pairs sources loc)))
-        (Ok (numbering-map state
-                           (lambda (state family)
-                             (written-family state class-ref (::first checked) family loc))
-                           (::second checked)))))
+        (Ok (map-with-state state
+                            (lambda (state family)
+                              (written-family state class-ref (::first checked) family loc))
+                            (::second checked)))))
 
     ;; The class, the domain, each pair's case in order, then each head.
     (: checked-families
@@ -92,13 +93,13 @@
     (: written-family
        (impl (Fn Numbering ClassRef BinaryClass Family Loc -> (Pair Instance Numbering))))
     (define (written-family state class binary family loc)
-      (numbering-let* ((global state (fresh-global state "dynamic"))
-                       (methods state
-                                (numbering-map state
-                                               (lambda (state entry)
-                                                 (written-method state family entry loc))
-                                               (zip (iota (length (::members binary)))
-                                                    (::members binary)))))
+      (state-let* ((global state (fresh-global state "dynamic"))
+                   (methods state
+                            (map-with-state state
+                                            (lambda (state entry)
+                                              (written-method state family entry loc))
+                                            (zip (iota (length (::members binary)))
+                                                 (::members binary)))))
         (Pair (Instance global
                         class
                         (Nil)
@@ -134,10 +135,10 @@
        (impl (Fn Numbering Family (Pair I64 declared-Member) Loc
                  -> (Pair declared-InstanceMethod Numbering))))
     (define (written-method state family entry loc)
-      (numbering-let* ((implementation state (fresh-global state (member-name (::second entry))))
-                       (left state (fresh-local state "left"))
-                       (right state (fresh-local state "right"))
-                       (branches state (numbering-map state case-branch (::cases family))))
+      (state-let* ((implementation state (fresh-global state (member-name (::second entry))))
+                   (left state (fresh-local state "left"))
+                   (right state (fresh-local state "right"))
+                   (branches state (map-with-state state case-branch (::cases family))))
         (let ((generating (Generating family (::second entry) (::first entry) left right loc)))
           (Pair (declared-InstanceMethod (::second entry)
                                          implementation
@@ -149,8 +150,8 @@
 
     (: case-branch (impl (Fn Numbering Case -> (Pair Branch Numbering))))
     (define (case-branch state case)
-      (numbering-let* ((left state (fresh-local state "left"))
-                       (right state (fresh-local state "right")))
+      (state-let* ((left state (fresh-local state "left"))
+                   (right state (fresh-local state "right")))
         (Pair (Branch case left right) state)))
 
     ;; Each case in turn, then the failure.
@@ -279,9 +280,11 @@
     (export
      test-families)
     (import
-     (only (snail compiler expand language) Label Text Integer Dyn FnContract)
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler expand language) Dyn FnContract)
+     (only (snail compiler names libraries) forms-library)
      (only (snail compiler declare equality) effect-set)
+     (only (snail compiler names globals) Global Label)
+     (only (snail compiler literals constant) Integer Text)
      (snail stage0 testing))
     (begin
       (define (test-families)

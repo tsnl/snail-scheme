@@ -37,6 +37,7 @@
    (snail compiler declare language)
    (snail compiler declare known)
    (snail compiler declare equality)
+   (only (snail compiler names globals) Global ClassRef ClassGlobal)
    (snail compiler declare requirements)
    (snail compiler declare projections)
    (snail compiler declare callables))
@@ -114,7 +115,7 @@
     (: applied-type
        (impl
         (Fn Converting
-            expanded-Global
+            Global
             String
             (List expanded-TypeExpr)
             Loc
@@ -132,7 +133,7 @@
     (: projection-type
        (impl
         (Fn Converting
-            expanded-Global
+            Global
             String
             (List expanded-TypeExpr)
             Loc
@@ -141,7 +142,7 @@
     (define (projection-type converting class output arguments loc)
       (let ((scope (::scope converting)))
         (result-let* ((types (types-of converting arguments)))
-          (match (projected (class-shape (::known scope) (expanded-ClassGlobal class))
+          (match (projected (class-shape (::known scope) (ClassGlobal class))
                             class
                             output
                             types
@@ -248,7 +249,7 @@
     (: class-requirement
        (impl
         (Fn Required
-            expanded-ClassRef
+            ClassRef
             (List expanded-TypeExpr)
             (List expanded-Equation)
             Loc
@@ -321,17 +322,10 @@
      test-types)
     (import
      (snail core table)
-     (only (snail compiler expand language)
-           Global
-           ClassGlobal
-           FieldClass
-           Label
-           Impl
-           Dyn
-           FnContract
-           FnMutContract)
+     (only (snail compiler expand language) Impl Dyn FnContract FnMutContract)
+     (only (snail compiler names globals) FieldClass Label)
      (snail compiler declare offer)
-     (snail compiler declare forms)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-types)

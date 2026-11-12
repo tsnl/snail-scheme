@@ -11,7 +11,8 @@
   (import
    (snail core base)
    (snail compiler source)
-   (prefix (snail compiler read language) syntax-)
+   (only (snail compiler literals datum) Datum)
+   (prefix (snail compiler literals datum) datum-)
    (prefix (only (snail shell compiler read)
                  Loc
                  Datum
@@ -39,14 +40,14 @@
 
     ;; The old language has room for one more literal, the unit value,
     ;; which no reader writes.
-    (: datum->old (impl (Fn syntax-Datum -> old:Datum)))
+    (: datum->old (impl (Fn Datum -> old:Datum)))
     (define (datum->old datum)
       (match datum
-        ((syntax-Integer integer) (old:DInt integer))
-        ((syntax-Float text) (old:DFloat text))
-        ((syntax-Text text) (old:DString text))
-        ((syntax-Character character) (old:DChar character))
-        ((syntax-ByteVector bytes) (old:DBytes bytes))
-        ((syntax-Boolean boolean) (old:DBool boolean))))
+        ((datum-Integer integer) (old:DInt integer))
+        ((datum-Float text) (old:DFloat text))
+        ((datum-Text text) (old:DString text))
+        ((datum-Character character) (old:DChar character))
+        ((datum-ByteVector bytes) (old:DBytes bytes))
+        ((datum-Boolean boolean) (old:DBool boolean))))
 
     ))

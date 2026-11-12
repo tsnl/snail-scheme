@@ -36,13 +36,12 @@
   (import
    (snail core base)
    (snail core table)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler outline names) same-library?)
-   (only (snail compiler expand language) Global ClassRef ClassGlobal FieldClass)
+   (snail compiler names libraries)
    (snail compiler declare language)
    (snail compiler declare offer)
-   (snail compiler declare forms)
+   (only (snail compiler builtins forms) builtin-arity)
    (snail compiler declare equality)
+   (only (snail compiler names globals) Global ClassRef ClassGlobal FieldClass same-global?)
    (only (snail compiler declare schemes) field-class-parameters)
    (only (snail compiler declare misplaced-rows) instance-noun-of))
   (begin
@@ -380,7 +379,7 @@
      test-known)
     (import
      (snail compiler source)
-     (only (snail compiler expand language) Label)
+     (only (snail compiler names globals) Label)
      (snail stage0 testing))
     (begin
       (define (test-known)

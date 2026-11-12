@@ -38,13 +38,14 @@
    (snail compiler source)
    (snail compiler read pass)
    (prefix (snail compiler read language) syntax-)
+   (prefix (snail compiler literals datum) datum-)
    (snail compiler read location)
    (snail compiler include paths)
    (snail compiler include pass)
    (snail compiler outline language)
    (snail compiler outline pass)
    (snail compiler outline imports)
-   (snail compiler outline names)
+   (snail compiler names libraries)
    (snail compiler adapter read)
    (snail compiler adapter source)
    (prefix (only (snail shell compiler read)
@@ -197,7 +198,7 @@
       (match parts
         ((Nil) (Some (Nil)))
         ((Cons (syntax-Ident name _) rest) (name-after name (plain-name rest)))
-        ((Cons (syntax-Atom (syntax-Integer integer) _) rest)
+        ((Cons (syntax-Atom (datum-Integer integer) _) rest)
          (name-after (i64->string integer) (plain-name rest)))
         (_ (None))))
 
@@ -391,8 +392,9 @@
     ;; Each import set's library beside the old walk from that set alone.
     ;; The walk searches no directory, so it reports the first library it
     ;; would read as missing, where the whole set is written, or reads
-    ;; nothing for the compiler's own (snail core forms). Where each set and
-    ;; name is written is compared with the sets themselves.
+    ;; nothing for the compiler's own (snail core forms), or refuses (main),
+    ;; the program's own name. Where each set and name is written is
+    ;; compared with the sets themselves.
     (: walks-difference (impl (Fn (List Imported) (List old:Syntax) -> (Option String) ! fs)))
     (define (walks-difference imported specs)
       (if (= (length imported) (length specs))
@@ -410,11 +412,14 @@
 
     (: walk-stops (impl (Fn Imported old:Syntax -> (List old:SourceDiagnostic))))
     (define (walk-stops imported spec)
-      (if (same-library? (::library imported) (list "snail" "core" "forms"))
-          (Nil)
-          (list (old:SourceDiagnostic (old:syntax-loc spec)
-                                      (::message (missing-library (::library imported)
-                                                                  (::loc imported)))))))
+      (cond ((same-library? (::library imported) forms-library) (Nil))
+            ((same-library? (::library imported) program-library)
+             (list (old:SourceDiagnostic (old:syntax-loc spec)
+                                         "the library name main is the program's own")))
+            (else
+             (list (old:SourceDiagnostic (old:syntax-loc spec)
+                                         (::message (missing-library (::library imported)
+                                                                     (::loc imported))))))))
 
     ;; What the old compiler says of a library it cannot find.
     (: missing-library (impl (Fn LibraryName Loc -> Feedback)))

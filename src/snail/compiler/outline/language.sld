@@ -16,7 +16,8 @@
 ;; declarations are joined into imports, exports and body, each in the
 ;; order written, with every `cond-expand` decided; and that every import
 ;; set and export is well formed. A library name is its parts in order,
-;; with an integer part as its decimal text. A Library is what `expand`
+;; with an integer part as its decimal text, as the vocabulary (snail
+;; compiler names libraries) holds it. A Library is what `expand`
 ;; takes: a file with a body, written by hand or printed by a producer. A
 ;; generated library is not one, since its body is what its producer will
 ;; print; the integrator outlines that output as a Library before anything
@@ -27,7 +28,6 @@
 ;; a producer program's.
 (define-library (snail compiler outline language)
   (export
-   LibraryName
    Outline
    Written
    Generated
@@ -46,13 +46,11 @@
   (import
    (snail core base)
    (snail compiler source)
-   (snail compiler read language))
+   (snail compiler read language)
+   (snail compiler names libraries))
   (begin
 
     ;; ---- Libraries ----
-
-    ;; `(snail core base)` is ("snail" "core" "base").
-    (type LibraryName (List String))
 
     ;; A file outlined: a library or program with a body to expand, or a
     ;; generated library, at its `generate-library` form.

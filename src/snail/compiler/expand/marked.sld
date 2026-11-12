@@ -44,9 +44,9 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler read language) Datum)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler expand language) Local))
+   (only (snail compiler literals datum) Datum)
+   (snail compiler names libraries)
+   (only (snail compiler names globals) Local))
   (begin
 
     ;; ---- Syntax ----

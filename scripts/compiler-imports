@@ -12,6 +12,9 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 ;; section are exempt. A library is known by its name:
 ;;
 ;;   (snail compiler source)          what every pass shares
+;;   (snail compiler VOCABULARY ...)  a vocabulary: values and logic that
+;;                                    flow through many passes, named by
+;;                                    its folder, as `vocabularies` lists
 ;;   (snail compiler integrate ...)   the integrator, one library per job
 ;;   (snail compiler adapter ...)     the bridge to the old compiler
 ;;   (snail compiler PASS language)   a pass's language
@@ -36,6 +39,27 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
  (only (chibi pathname) path-directory)
  (only (srfi 1) filter append-map)
  (only (srfi 132) list-sort))
+
+;; ---- Vocabularies ----
+
+;; The vocabularies in the order of the layout in passes.md, by folder. A
+;; vocabulary reads only the vocabularies before it and its own folder, so
+;; the vocabularies a pass may read are a chain no pass's folder is part
+;; of. `types`, `typer` and `declarations` are named before their folders
+;; exist, so that a library there is known as a vocabulary from the first.
+(define vocabularies
+  '(names
+    literals
+    builtins
+    types
+    typer
+    declarations))
+
+(define (vocabulary-index vocabulary)
+  (let loop ((vocabularies vocabularies) (index 0))
+    (cond ((null? vocabularies) #f)
+          ((eq? (car vocabularies) vocabulary) index)
+          (else (loop (cdr vocabularies) (+ index 1))))))
 
 ;; ---- Passes ----
 
@@ -93,19 +117,28 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 ;; ---- Kinds ----
 
 ;; What a library is, as a list whose head says what kind: (source),
-;; (integrator), (adapter), (language PASS), (language PASS PART) for a
+;; (vocabulary NAME), (integrator), (adapter), (language PASS), (language
+;; PASS PART) for a
 ;; pass's other languages, (pass PASS), (query PASS),
 ;; (rule PASS), (core NAME) for one of (snail core ...), (old) for the old
 ;; compiler, (unknown) for a library of the new tree that the layout does
 ;; not name, and (other) for anything else.
 (define (library-kind root name)
   (cond ((equal? name '(snail compiler source)) '(source))
+        ((vocabulary-name? name) (list 'vocabulary (caddr name)))
         ((prefix? '(snail compiler integrate) name) '(integrator))
         ((prefix? '(snail compiler adapter) name) '(adapter))
         ((prefix? '(snail compiler) name) (pass-library-kind root name))
         ((and (prefix? '(snail core) name) (= (length name) 3)) (list 'core (caddr name)))
         ((prefix? '(snail shell compiler) name) '(old))
         (else '(other))))
+
+;; A library in a vocabulary's folder: (snail compiler VOCABULARY PART).
+(define (vocabulary-name? name)
+  (and (prefix? '(snail compiler) name)
+       (= (length name) 4)
+       (vocabulary-index (caddr name))
+       #t))
 
 ;; A library in a pass's folder: (snail compiler PASS ...).
 (define (pass-library-kind root name)
@@ -142,6 +175,7 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 (define (refusal importer imported)
   (case (car importer)
     ((source) (unless-allowed (equal? imported '(core base)) "source.sld imports only (snail core base)"))
+    ((vocabulary) (vocabulary-refusal (cadr importer) imported))
     ((language) (language-refusal importer imported))
     ((pass rule query) (pass-refusal (cadr importer) imported))
     ((integrator) (integrator-refusal imported))
@@ -151,44 +185,56 @@ exec "${CHIBI:-chibi-scheme}" "$0" "$@"
 (define (unless-allowed allowed? reason)
   (if allowed? #f reason))
 
-;; A language reads only the shared libraries and earlier languages, and
-;; a pass's other languages the pass's languages.
-(define (language-refusal importer imported)
+;; A vocabulary reads the core a pass may, (snail compiler source), its
+;; own folder and the vocabularies before it, and nothing of any pass.
+(define (vocabulary-refusal vocabulary imported)
   (case (car imported)
     ((source) #f)
+    ((core) (core-refusal imported))
+    ((vocabulary)
+     (unless-allowed (<= (vocabulary-index (cadr imported)) (vocabulary-index vocabulary))
+                     "a vocabulary imports only its own folder and the vocabularies before it"))
+    (else "a vocabulary imports only (snail core base), (snail core table), (snail compiler source) and earlier vocabularies")))
+
+;; A language reads only the shared libraries, the vocabularies and earlier
+;; languages, and a pass's other languages the pass's languages.
+(define (language-refusal importer imported)
+  (case (car imported)
+    ((source vocabulary) #f)
     ((core) (core-refusal imported))
     ((language) (unless-allowed (or (earlier? (cadr imported) (cadr importer))
                                     (and (pair? (cddr importer))
                                          (eq? (cadr imported) (cadr importer))))
                                 "a language imports only the languages of earlier passes"))
-    (else "a language imports only (snail core base), (snail core table), (snail compiler source) and earlier languages")))
+    (else "a language imports only (snail core base), (snail core table), (snail compiler source), vocabularies and earlier languages")))
 
 ;; A pass's libraries, its pass.sld, rules and queries, read the shared
-;; libraries, their own folder, and the languages and queries of earlier
-;; passes, but never another pass's rules or any pass.sld.
+;; libraries, the vocabularies, their own folder, and the languages and
+;; queries of earlier passes, but never another pass's rules or any
+;; pass.sld.
 (define (pass-refusal pass imported)
   (case (car imported)
-    ((source) #f)
+    ((source vocabulary) #f)
     ((core) (core-refusal imported))
     ((language query)
      (unless-allowed (not (earlier? pass (cadr imported)))
                      "a pass's libraries read only the languages and queries of their own and earlier passes"))
     ((rule) (unless-allowed (eq? (cadr imported) pass) "only a pass's own folder imports its rules"))
     ((pass) "only the integrator imports a pass.sld")
-    (else "a pass's libraries import only the core, (snail compiler source), languages and queries")))
+    (else "a pass's libraries import only the core, (snail compiler source), vocabularies, languages and queries")))
 
 (define (integrator-refusal imported)
   (case (car imported)
-    ((source language pass query integrator) #f)
+    ((source vocabulary language pass query integrator) #f)
     ((core) (unless-allowed (member (cadr imported) '(base table io))
                             "the integrator imports only (snail core base), (snail core table) and (snail core io) of the core"))
-    (else "the integrator imports only the core, passes, languages, queries and itself")))
+    (else "the integrator imports only the core, vocabularies, passes, languages, queries and itself")))
 
 ;; The adapter knows both compilers, and compares them on files, which it
 ;; reads and writes as the old functions it calls do.
 (define (adapter-refusal imported)
   (case (car imported)
-    ((source language pass query rule adapter old core integrator) #f)
+    ((source vocabulary language pass query rule adapter old core integrator) #f)
     (else "the adapter imports only the core, the new tree and the old compiler")))
 
 ;; Only the integrator imports (snail core io).

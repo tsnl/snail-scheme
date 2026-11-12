@@ -25,15 +25,14 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler outline names) program-library)
-   (only (snail compiler expand language) Global ClassRef)
+   (snail compiler names libraries)
+   (only (snail compiler names globals) Global ClassRef)
    (prefix (snail compiler declare language) declared-)
    (only (snail compiler declare offer) Declarations)
    (snail compiler dispatch language)
    (snail compiler dispatch listing)
    (snail compiler dispatch known)
-   (snail compiler dispatch state)
+   (snail compiler names numbering)
    (snail compiler dispatch clauses)
    (snail compiler dispatch families))
   (begin
@@ -254,8 +253,10 @@
      test-dispatch-pass)
     (import
      (snail core table)
-     (only (snail compiler expand language) Global Label ClassGlobal Integer Dyn FnContract)
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler expand language) Dyn FnContract)
+     (only (snail compiler names globals) ClassGlobal Label)
+     (only (snail compiler literals constant) Integer)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-dispatch-pass)

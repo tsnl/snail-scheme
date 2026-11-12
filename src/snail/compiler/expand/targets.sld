@@ -36,6 +36,8 @@
     (export
      test-targets)
     (import
+     (only (snail compiler names globals) Global TopGlobal)
+     (only (snail compiler literals constant) UnitValue)
      (snail stage0 testing))
     (begin
       (define (test-targets)

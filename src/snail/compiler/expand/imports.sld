@@ -134,7 +134,9 @@
      test-imports)
     (import
      (snail compiler expand language)
+     (only (snail compiler names globals) Global TopGlobal)
      (snail compiler expand forms)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-imports)

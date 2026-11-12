@@ -32,13 +32,14 @@
    concrete?)
   (import
    (snail core base)
-   (only (snail compiler expand language) ClassRef Dyn FnContract)
+   (only (snail compiler expand language) Dyn FnContract)
    (prefix (snail compiler declare language) declared-)
    (only (snail compiler declare equality) same-type? same-variable?)
-   (only (snail compiler declare forms) instance-lifecycle)
+   (only (snail compiler names globals) ClassRef)
    (only (snail compiler declare schemes) class-variables substituted)
    (snail compiler dispatch known)
-   (snail compiler dispatch runtime))
+   (snail compiler dispatch runtime)
+   (only (snail compiler builtins base) instance-lifecycle dyn-cast-effect))
   (begin
 
     ;; ---- Domains ----
@@ -218,8 +219,10 @@
      test-domains)
     (import
      (snail compiler source)
-     (only (snail compiler expand language) Global Label ClassGlobal FnMutContract)
-     (only (snail compiler declare forms) forms-library drop-class)
+     (only (snail compiler expand language) FnMutContract)
+     (only (snail compiler names globals) Global ClassGlobal Label)
+     (only (snail compiler names libraries) forms-library)
+     (only (snail compiler builtins base) drop-class)
      (snail stage0 testing))
     (begin
       (define (test-domains)

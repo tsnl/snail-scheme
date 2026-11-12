@@ -34,6 +34,7 @@
    (snail compiler declare known)
    (snail compiler declare state)
    (snail compiler declare equality)
+   (only (snail compiler names globals) Global TopValue TopGlobal FieldFunction same-global?)
    (snail compiler declare requirements)
    (snail compiler declare callables)
    (snail compiler declare host)
@@ -49,7 +50,7 @@
       ((written (Table (List WrittenSignature)))))
 
     (struct WrittenSignature
-      ((target expanded-Global)
+      ((target Global)
        (signed Signed)
        (annotations (List expanded-Annotation))))
 
@@ -80,30 +81,30 @@
         (_ (Ok signatures))))
 
     (: with-signature
-       (impl (Fn Signatures expanded-TopValue Signed (List expanded-Annotation) -> Signatures)))
+       (impl (Fn Signatures TopValue Signed (List expanded-Annotation) -> Signatures)))
     (define (with-signature signatures target signed annotations)
       (match target
-        ((expanded-TopGlobal global)
+        ((TopGlobal global)
          (Signatures (by-name (::written signatures)
                               (::name global)
                               (WrittenSignature global signed annotations))))
-        ((expanded-FieldFunction _ _ _) signatures)))
+        ((FieldFunction _ _ _) signatures)))
 
-    (: written-for (impl (Fn Signatures expanded-Global -> (List WrittenSignature))))
+    (: written-for (impl (Fn Signatures Global -> (List WrittenSignature))))
     (define (written-for signatures global)
       (match (table-ref (::written signatures) (::name global))
         ((Some written) (filter (lambda (entry) (same-global? (::target entry) global)) written))
         ((None) (Nil))))
 
     ;; The last signature written for `global`, if any.
-    (: signed (impl (Fn Signatures expanded-Global -> (Option Signed))))
+    (: signed (impl (Fn Signatures Global -> (Option Signed))))
     (define (signed signatures global)
       (match (reverse (written-for signatures global))
         ((Cons last _) (Some (::signed last)))
         ((Nil) (None))))
 
     ;; The annotations of every signature written for `global`, in order.
-    (: signature-annotations (impl (Fn Signatures expanded-Global -> (List expanded-Annotation))))
+    (: signature-annotations (impl (Fn Signatures Global -> (List expanded-Annotation))))
     (define (signature-annotations signatures global)
       (concatenate (map ::annotations (written-for signatures global))))
 
@@ -121,7 +122,7 @@
     (: declared-definition
        (impl (Fn Known
                  Signatures
-                 expanded-Global
+                 Global
                  bound-Expr
                  Loc
                  ->
@@ -148,7 +149,7 @@
     (: declared-extern
        (impl (Fn Known
                  Signatures
-                 expanded-Global
+                 Global
                  String
                  String
                  expanded-TypeExpr
@@ -171,7 +172,7 @@
     ;; compiler's own.
     (: declared-primitive
        (impl
-        (Fn Known expanded-Global expanded-PrimitiveType Loc -> (Result Top (List Feedback)))))
+        (Fn Known Global expanded-PrimitiveType Loc -> (Result Top (List Feedback)))))
     (define (declared-primitive known global type loc)
       (match type
         ((expanded-PrimitiveScheme scheme)
@@ -189,7 +190,9 @@
      test-values)
     (import
      (snail compiler declare offer)
-     (snail compiler declare forms)
+     (only (snail compiler names libraries) forms-library)
+     (only (snail compiler names globals) Replacer ClassGlobal)
+     (only (snail compiler literals constant) UnitValue)
      (snail stage0 testing))
     (begin
       (define (test-values)
@@ -205,10 +208,10 @@
       (define main (list "main"))
 
       (define (global name)
-        (expanded-Global main name 0))
+        (Global main name 0))
 
       (define (builtin name)
-        (expanded-Global forms-library name 0))
+        (Global forms-library name 0))
 
       ;; (main) scans the class (Show a) with the output Out.
       (define known
@@ -230,7 +233,7 @@
         (expanded-Documentation text loc))
 
       (define (signature name type line notes)
-        (derived-Signature (expanded-TopGlobal (global name)) (written type line) notes (at line)))
+        (derived-Signature (TopGlobal (global name)) (written type line) notes (at line)))
 
       (define i64 (Con (builtin "I64") (list)))
 
@@ -244,12 +247,12 @@
                             (list (signature "x" (applied "I64" 3) 3 (list (note "second"))))
                             loc)
                            (derived-Signature
-                            (expanded-FieldFunction (global "P") "x" (expanded-Replacer))
+                            (FieldFunction (global "P") "x" (Replacer))
                             (written (applied "I64" 4) 4)
                             (list (note "field"))
                             (at 4))
                            (derived-Define (global "x")
-                                           (bound-Literal (expanded-UnitValue) loc)
+                                           (bound-Literal (UnitValue) loc)
                                            loc)))
                (result (declared-signatures known tops)))
           (match result
@@ -313,11 +316,11 @@
       (define (store-signatures row)
         (match (declared-signatures
                 store-known
-                (list (derived-Signature (expanded-TopGlobal (global "f"))
+                (list (derived-Signature (TopGlobal (global "f"))
                                          (expanded-Scheme
                                           (list "S")
                                           (list (expanded-ClassRequirement
-                                                 (expanded-ClassGlobal store)
+                                                 (ClassGlobal store)
                                                  (list row (expanded-Variable "S" loc))
                                                  (list)
                                                  (at 3)))
@@ -333,7 +336,7 @@
       ;; the definition's body checks it again, at the signature, before
       ;; its value, which is then never looked at.
       (define (test-definitions)
-        (let ((bad-value (bound-Ann (bound-Literal (expanded-UnitValue) (at 4))
+        (let ((bad-value (bound-Ann (bound-Literal (UnitValue) (at 4))
                                     (expanded-Applied (builtin "Array") "Array" (list) (at 5))
                                     (at 4)))
               (closed (expanded-Row (expanded-Effects (list) (None)) loc)))
@@ -352,10 +355,10 @@
           (expect (declared-definition complete-known
                                        (store-signatures closed)
                                        (global "f")
-                                       (bound-Literal (expanded-UnitValue) (at 4))
+                                       (bound-Literal (UnitValue) (at 4))
                                        (at 4))
                   (Ok (Define (global "f")
-                        (Literal (expanded-UnitValue) (at 4))
+                        (Literal (UnitValue) (at 4))
                         (signed (store-signatures closed) (global "f"))
                         (list)
                         (at 4))))
@@ -363,10 +366,10 @@
           (expect (declared-definition complete-known
                                        (store-signatures closed)
                                        (global "g")
-                                       (bound-Literal (expanded-UnitValue) (at 6))
+                                       (bound-Literal (UnitValue) (at 6))
                                        (at 6))
                   (Ok (Define (global "g")
-                        (Literal (expanded-UnitValue) (at 6))
+                        (Literal (UnitValue) (at 6))
                         (None)
                         (list)
                         (at 6))))))
@@ -434,7 +437,7 @@
 
       ;; A primitive's scheme is operational; callable-once stays.
       (define (test-primitives)
-        (let ((once (expanded-Global (list "prim") "once" 0))
+        (let ((once (Global (list "prim") "once" 0))
               (code (expanded-Code
                      (expanded-Arrow (list) (applied "Unit" 1) (expanded-Effects (list) (None)))
                      loc)))

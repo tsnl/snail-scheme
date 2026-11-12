@@ -23,8 +23,7 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler expand language) Global)
-   (only (snail compiler declare equality) same-global?)
+   (only (snail compiler names globals) Global same-global?)
    (prefix (snail compiler dispatch language) dispatched-)
    (only (snail compiler dispatch listing)
          Listed
@@ -135,9 +134,10 @@
     (export
      test-cohere)
     (import
-     (only (snail compiler expand language) ClassGlobal FieldClass Dyn FnContract)
+     (only (snail compiler expand language) Dyn FnContract)
+     (only (snail compiler names globals) ClassGlobal FieldClass)
      (prefix (snail compiler declare language) declared-)
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-cohere)

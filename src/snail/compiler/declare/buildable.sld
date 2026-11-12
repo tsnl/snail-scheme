@@ -16,10 +16,10 @@
    struct-problem)
   (import
    (snail core base)
-   (only (snail compiler expand language) Global)
    (snail compiler declare language)
    (snail compiler declare known)
    (snail compiler declare equality)
+   (only (snail compiler names globals) Global same-global?)
    (snail compiler declare schemes))
   (begin
 
@@ -84,7 +84,7 @@
      (snail compiler source)
      (only (snail compiler expand language) Dyn FnContract)
      (snail compiler declare offer)
-     (snail compiler declare forms)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-buildable)

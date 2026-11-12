@@ -15,13 +15,14 @@
    (snail compiler source)
    (prefix (snail compiler read language) syntax-)
    (prefix (snail compiler outline language) outline-)
-   (only (snail compiler outline names) same-library? program-library)
+   (snail compiler names libraries)
    (snail compiler expand language)
    (snail compiler expand marked)
    (snail compiler expand offer)
    (snail compiler expand forms)
    (snail compiler expand scopes)
-   (snail compiler expand state)
+   (only (snail compiler names globals) Global TopGlobal)
+   (only (snail compiler names numbering) Numbering)
    (snail compiler expand imports)
    (snail compiler expand types)
    (snail compiler expand declaration-shapes)
@@ -47,7 +48,7 @@
                                         (top-level scopes body))))
               (expansion library expanded))))))
 
-    (: library-name (impl (Fn outline-Library -> outline-LibraryName)))
+    (: library-name (impl (Fn outline-Library -> LibraryName)))
     (define (library-name library)
       (match library
         ((outline-Defined name _ _ _ _) name)
@@ -108,20 +109,24 @@
 
     ;; The numbers a library hands out start at 1: 0 is the serial of a
     ;; name the source wrote.
-    (: first-numbers Expanding)
-    (define first-numbers
-      (Expanding 1))
+    (: first-number I64)
+    (define first-number
+      1)
 
     ;; The scan and the declarations stop at their first problem; the
     ;; bodies report every one.
     (: top-level (impl (Fn Scopes (List Marked) -> (Result TopExpansion (List Feedback)))))
     (define (top-level scopes body)
-      (expanding-let* ((scan state (scan-forms first-numbers scopes (Nil) body))
-                       (signed state
-                               (unchanged state
-                                          (checked-signatures (::scopes scan) (::items scan))))
-                       (declared state
-                                 (unchanged state (declared-items (::scopes scan) (::items scan)))))
+      (result-state-let* ((scan state (scan-forms (Numbering (::library scopes) first-number)
+                                                  scopes
+                                                  (Nil)
+                                                  body))
+                          (signed state
+                                  (unchanged state
+                                             (checked-signatures (::scopes scan) (::items scan))))
+                          (declared state
+                                    (unchanged state
+                                               (declared-items (::scopes scan) (::items scan)))))
         (let ((bodies (expanded-bodies state (::scopes scan) declared)))
           (if (null? (::feedback bodies))
               (Ok (TopExpansion (::tops bodies)
@@ -130,10 +135,6 @@
               (Err (::feedback bodies))))))
 
     ;; ---- Primitives ----
-
-    (: primitive-library outline-LibraryName)
-    (define primitive-library
-      (list "snail" "core" "primitive"))
 
     ;; Each form of (snail core primitive) is `(primitive name type)`,
     ;; which binds `name` to a Global of the library ("prim"); the first
@@ -145,7 +146,7 @@
                  (forms forms)
                  (tops (Nil)))
         (match forms
-          ((Nil) (Ok (TopExpansion (reverse tops) (::next first-numbers) scopes)))
+          ((Nil) (Ok (TopExpansion (reverse tops) first-number scopes)))
           ((Cons form rest)
            (result-let* ((declared (primitive scopes form)))
              (loop (::second declared) rest (Cons (::first declared) tops)))))))
@@ -155,7 +156,7 @@
       (if (primitive-form? scopes form)
           (result-let* ((parts (refused (primitive-form form)))
                         (global
-                         (Ok (Global (list "prim") (::name (::identifier (::name parts))) 0)))
+                         (Ok (Global prim-library (::name (::identifier (::name parts))) 0)))
                         (bound (bind scopes
                                      (::identifier (::name parts))
                                      (::loc (::name parts))
@@ -194,6 +195,8 @@
      test-expand)
     (import
      (only (scheme base) pair? symbol? symbol->string string? exact-integer? boolean?)
+     (prefix (snail compiler literals datum) datum-)
+     (only (snail compiler literals constant) Integer)
      (snail stage0 testing))
     (begin
       (define (test-expand)
@@ -207,11 +210,11 @@
         (cond ((or (null? datum) (pair? datum)) (syntax-Form (map syntax datum) loc))
               ((symbol? datum) (syntax-Ident (symbol->string datum) loc))
               ((string? datum) (syntax-Text-form datum))
-              ((exact-integer? datum) (syntax-Atom (syntax-Integer datum) loc))
+              ((exact-integer? datum) (syntax-Atom (datum-Integer datum) loc))
               (else (panic "no syntax for this datum"))))
 
       (define (syntax-Text-form text)
-        (syntax-Atom (syntax-Text text) loc))
+        (syntax-Atom (datum-Text text) loc))
 
       (define forms-import
         (outline-Whole forms-library loc))

@@ -42,6 +42,7 @@
      test-paths)
     (import
      (snail compiler source)
+     (snail compiler literals datum)
      (snail stage0 testing))
     (begin
       (define (test-paths)

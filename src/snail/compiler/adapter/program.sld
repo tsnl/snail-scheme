@@ -39,9 +39,7 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler outline names) same-library? library-key program-library)
-   (only (snail compiler expand language) Global FieldFunction Accessor ClassRef FieldClass)
+   (snail compiler names libraries)
    (only (snail compiler declare language)
          Expr
          Lambda
@@ -61,8 +59,13 @@
          PrimitiveType
          PrimitiveScheme
          CallableOnce)
-   (only (snail compiler declare equality) same-global?)
-   (only (snail compiler declare forms) forms-library)
+   (only (snail compiler names globals)
+         Global
+         FieldFunction
+         Accessor
+         ClassRef
+         FieldClass
+         same-global?)
    (only (snail compiler declare schemes) default-scheme)
    (snail compiler dispatch language)
    (only (snail compiler dispatch listing) Listed ListedInstance FieldInstance)
@@ -151,10 +154,6 @@
       (AdaptedLibrary (library-key (::library file))
                       (map (lambda (placed) (old:LinkedFile (::digest placed) (::file placed)))
                            (::placed file))))
-
-    (: primitive-library LibraryName)
-    (define primitive-library
-      (list "snail" "core" "primitive"))
 
     ;; Whether the library records a run of items: all but the primitive
     ;; library, as the old expander decides by its name.
@@ -525,7 +524,9 @@
      test-program)
     (import
      (snail core table)
-     (only (snail compiler expand language) Local Integer Boolean ClassGlobal Dyn FnContract)
+     (only (snail compiler expand language) Dyn FnContract)
+     (only (snail compiler names globals) Local ClassGlobal)
+     (only (snail compiler literals constant) Integer Boolean)
      (only (snail compiler expand offer) Offer TopScope)
      (only (snail compiler declare language)
            Literal

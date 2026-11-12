@@ -18,12 +18,10 @@
   (import
    (snail core base)
    (snail core table)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler outline names) same-library?)
-   (only (snail compiler expand language) Global ClassRef ClassGlobal FieldClass)
+   (snail compiler names libraries)
    (prefix (snail compiler declare language) declared-)
    (only (snail compiler declare offer) Declarations)
-   (only (snail compiler declare equality) same-global?)
+   (only (snail compiler names globals) Global ClassRef ClassGlobal FieldClass same-global?)
    (only (snail compiler declare schemes) field-class-parameters)
    (only (snail compiler declare membership) member-schemes))
   (begin
@@ -142,8 +140,8 @@
      test-known)
     (import
      (snail compiler source)
-     (only (snail compiler expand language) Label)
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler names globals) Label)
+     (only (snail compiler names libraries) forms-library)
      (only (snail compiler declare schemes) field-reader-scheme)
      (snail stage0 testing))
     (begin

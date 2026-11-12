@@ -49,7 +49,6 @@
    active?)
   (import
    (snail core base)
-   (only (snail compiler expand language) Global ClassRef ClassGlobal FieldClass)
    (only (snail compiler declare language)
          Data
          DataField
@@ -60,7 +59,7 @@
          Written
          TypeVariable
          Requirement)
-   (only (snail compiler declare equality) same-global?)
+   (only (snail compiler names globals) Global ClassRef ClassGlobal FieldClass same-global?)
    (only (snail compiler declare schemes) pure-struct?)
    (snail compiler dispatch language))
   (begin
@@ -208,8 +207,8 @@
            InstanceMethod
            ClassMethod
            Literal)
-     (only (snail compiler expand language) UnitValue)
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler literals constant) UnitValue)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-listing)

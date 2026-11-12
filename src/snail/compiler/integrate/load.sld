@@ -25,7 +25,7 @@
    (snail compiler include pass)
    (snail compiler outline language)
    (snail compiler outline pass)
-   (only (snail compiler outline names) written-name)
+   (snail compiler names libraries)
    (snail compiler integrate files)
    (snail compiler integrate walk))
   (begin
@@ -132,7 +132,7 @@
            close-port)
      (only (scheme file) open-binary-output-file delete-file)
      (only (chibi filesystem) create-directory* delete-file-hierarchy)
-     (only (snail compiler outline names) same-library?)
+     (only (snail compiler literals datum) ByteVector)
      (snail stage0 testing))
     (begin
       ;; Files are written under `directory`, which the runner supplies.

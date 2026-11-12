@@ -51,8 +51,6 @@
 ;;   Clause      ::= Clause Pattern Expr
 ;;   Implementation ::= Implementation Label Expr
 ;;   Pattern     ::= Wild | Bind Local | Equals Datum | Destructure TopValue Pattern*
-;;   Constant    ::= Integer integer | Float text | Text text | Character character
-;;                 | ByteVector bytes | Boolean boolean | UnitValue    no Loc
 ;;
 ;;   TypeExpr    ::= Applied Global written TypeExpr* | Variable name
 ;;                 | Projection Global member TypeExpr*
@@ -66,14 +64,12 @@
 ;;   Requirement ::= CopyRequirement variable
 ;;                 | ClassRequirement ClassRef TypeExpr* Equation*
 ;;                 | CallableRequirement Contract TypeExpr Arrow
-;;   ClassRef    ::= ClassGlobal Global | FieldClass label           no Loc
 ;;   Equation    ::= Equation Label TypeExpr                         no Loc but its label's
 ;;
-;;   Local       ::= Local name number                               no Loc
-;;   Global      ::= Global library name serial                      no Loc
-;;   TopValue    ::= TopGlobal Global | FieldFunction Global label FieldRole   no Loc
-;;   FieldRole   ::= Accessor | Replacer | Setter | Swapper          no Loc
-;;   Label       ::= Label name
+;; The names are the vocabulary's, (snail compiler names globals): Local,
+;; Global, TopValue, FieldRole, ClassRef and Label; and so are the
+;; literals, Constant, (snail compiler literals constant), and Datum,
+;; (snail compiler literals datum).
 ;;
 ;; Over the Library it comes from, Expanded guarantees:
 ;;
@@ -195,14 +191,6 @@
    Bind
    Equals
    Destructure
-   Constant
-   Integer
-   Float
-   Text
-   Character
-   ByteVector
-   Boolean
-   UnitValue
    TypeExpr
    Applied
    Variable
@@ -226,26 +214,14 @@
    CopyRequirement
    ClassRequirement
    CallableRequirement
-   ClassRef
-   ClassGlobal
-   FieldClass
-   Equation
-   Local
-   Global
-   TopValue
-   TopGlobal
-   FieldFunction
-   FieldRole
-   Accessor
-   Replacer
-   Setter
-   Swapper
-   Label)
+   Equation)
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler read language) Datum)
-   (only (snail compiler outline language) LibraryName))
+   (only (snail compiler literals datum) Datum)
+   (only (snail compiler literals constant) Constant)
+   (snail compiler names libraries)
+   (only (snail compiler names globals) Global Local TopValue ClassRef Label))
   (begin
 
     ;; ---- Libraries ----
@@ -617,26 +593,6 @@
         (arguments (List Pattern))
         (loc Loc))))
 
-    ;; ---- Constants ----
-
-    ;; An expression's literal value: a Datum of Syntax, under the same
-    ;; names, or the unit value, which an `if` without an alternative has
-    ;; and no literal writes.
-    (enum Constant
-      (Integer
-       ((integer I64)))
-      (Float
-       ((text String)))
-      (Text
-       ((text String)))
-      (Character
-       ((character Char)))
-      (ByteVector
-       ((bytes Bytes)))
-      (Boolean
-       ((boolean Bool)))
-      (UnitValue))
-
     ;; ---- Types ----
 
     ;; A type is at its form or identifier. An Applied type is a declared
@@ -731,59 +687,9 @@
         (arrow Arrow)
         (loc Loc))))
 
-    ;; A declared class, or the field class of a label, written `::label`,
-    ;; which every label has.
-    (enum ClassRef
-      (ClassGlobal
-       ((global Global)))
-      (FieldClass
-       ((label String))))
-
     ;; `(type Output type)`, in an instance or a requirement.
     (struct Equation
       ((label Label)
        (type TypeExpr)))
-
-    ;; ---- Names ----
-
-    ;; A local is the name written at its binder, numbered within the
-    ;; library, so two locals are one when their numbers are.
-    (struct Local
-      ((name String)
-       (number I64)))
-
-    ;; A value, type, class, effect or instance set a library's top level
-    ;; defines. `serial` is 0 for a name the library writes; a name a
-    ;; macro's template wrote has a serial of its own, unique in the
-    ;; library, since two expansions may write it.
-    (struct Global
-      ((library LibraryName)
-       (name String)
-       (serial I64)))
-
-    ;; A top-level value: a Global, or one of the functions a field of the
-    ;; case whose constructor is `case` declares. An enum case's field has
-    ;; an Accessor, `Case-field`; a struct's mutable field an Accessor, a
-    ;; Setter and a Swapper, `Name-field`, `Name-field-set!` and
-    ;; `Name-field-replace!`; and a field of a struct without one a
-    ;; Replacer, `Name-field-set`.
-    (enum TopValue
-      (TopGlobal
-       ((global Global)))
-      (FieldFunction
-       ((case Global)
-        (label String)
-        (role FieldRole))))
-
-    (enum FieldRole
-      (Accessor)
-      (Replacer)
-      (Setter)
-      (Swapper))
-
-    ;; A member's name as written, where it is written.
-    (struct Label
-      ((name String)
-       (loc Loc)))
 
     ))

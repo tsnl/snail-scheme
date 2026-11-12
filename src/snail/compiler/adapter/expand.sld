@@ -12,7 +12,9 @@
    (snail compiler expand language)
    (snail compiler expand offer)
    (snail compiler expand forms)
+   (only (snail compiler names libraries) forms-library)
    (snail compiler expand scopes)
+   (only (snail compiler names globals) Global)
    (prefix (only (snail shell compiler core) core-keywords builtin-types) old:))
   (begin
 

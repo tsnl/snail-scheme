@@ -21,9 +21,9 @@
    defaults-problem)
   (import
    (snail core base)
-   (only (snail compiler expand language) Global)
    (snail compiler declare language)
-   (snail compiler declare equality))
+   (snail compiler declare equality)
+   (only (snail compiler names globals) Global same-global?))
   (begin
 
     ;; ---- Operations ----

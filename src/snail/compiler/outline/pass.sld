@@ -18,9 +18,10 @@
    (snail core base)
    (snail compiler source)
    (prefix (snail compiler read language) syntax-)
+   (prefix (snail compiler literals datum) datum-)
    (snail compiler read location)
    (snail compiler outline language)
-   (only (snail compiler outline names) same-library?))
+   (snail compiler names libraries))
   (begin
 
     ;; ---- Files ----
@@ -83,7 +84,7 @@
     (: declared-name
        (impl (Fn LibraryName syntax-Syntax Loc -> (Result LibraryName (List Feedback)))))
     (define (declared-name wanted declared loc)
-      (if (same-library? wanted (list "prim"))
+      (if (same-library? wanted prim-library)
           (fail loc "the prim library name is reserved for compiler primitives")
           (result-let* ((name (library-name declared)))
             (if (same-library? name wanted)
@@ -101,7 +102,7 @@
     (define (name-part part)
       (match part
         ((syntax-Ident name _) (Ok name))
-        ((syntax-Atom (syntax-Integer integer) _) (Ok (i64->string integer)))
+        ((syntax-Atom (datum-Integer integer) _) (Ok (i64->string integer)))
         (_ (fail (syntax-loc part) "expected a library name part"))))
 
     ;; ---- Declarations ----
@@ -228,7 +229,7 @@
     (: loading-key (impl (Fn syntax-Syntax -> (Result String (List Feedback)))))
     (define (loading-key key)
       (match key
-        ((syntax-Atom (syntax-Text text) _) (Ok text))
+        ((syntax-Atom (datum-Text text) _) (Ok text))
         (_ (fail (syntax-loc key) "expected a library key string"))))
 
     ;; The program after any `generating` form: its leading `import` forms,
@@ -261,7 +262,7 @@
     (define (with-recipe loading imports body)
       (match body
         ((Cons (syntax-Form (Cons (syntax-Ident "recipe" _)
-                                  (Cons (syntax-Atom (syntax-Text file) _) (Nil)))
+                                  (Cons (syntax-Atom (datum-Text file) _) (Nil)))
                             _)
                rest)
          (if (null? loading)
@@ -338,9 +339,9 @@
                (let ((items (numbered-list datum (+ next 1))))
                  (Pair (syntax-Form (::first items) (node next)) (::second items))))
               ((symbol? datum) (leaf (syntax-Ident (symbol->string datum) (node next))))
-              ((string? datum) (leaf (syntax-Atom (syntax-Text datum) (node next))))
-              ((exact-integer? datum) (leaf (syntax-Atom (syntax-Integer datum) (node next))))
-              ((boolean? datum) (leaf (syntax-Atom (syntax-Boolean datum) (node next))))
+              ((string? datum) (leaf (syntax-Atom (datum-Text datum) (node next))))
+              ((exact-integer? datum) (leaf (syntax-Atom (datum-Integer datum) (node next))))
+              ((boolean? datum) (leaf (syntax-Atom (datum-Boolean datum) (node next))))
               (else (panic "no syntax for this datum"))))
 
       ;; The file "a.sld" read as the library `name`, or as a program.

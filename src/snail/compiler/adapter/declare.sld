@@ -1,15 +1,14 @@
-;; The pass `declare` beside the old expander, as far as it is built. Its
-;; types part is judged by its own tests until whole libraries are
-;; declared; what can be compared now is what it knows of (snail core
-;; forms), the builtin types and their arities, which the old expander
-;; takes from src/snail/shell/compiler/core.sld's `builtin-types`, but for
-;; `fn`, which the new front end reads as code.
+;; What the new front end knows of (snail core forms) beside the old
+;; expander: the builtin types and their arities, (snail compiler builtins
+;; forms)'s, by which `declare` checks a type's arguments, and which the
+;; old expander takes from src/snail/shell/compiler/core.sld's
+;; `builtin-types`, but for `fn`, which the new front end reads as code.
 (define-library (snail compiler adapter declare)
   (export
    builtins-difference)
   (import
    (snail core base)
-   (snail compiler declare forms)
+   (only (snail compiler builtins forms) builtin-types)
    (prefix (only (snail shell compiler core) builtin-types) old:))
   (begin
 

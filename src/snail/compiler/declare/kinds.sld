@@ -111,7 +111,8 @@
     (export
      test-kinds)
     (import
-     (only (snail compiler expand language) Global Impl Dyn FnContract FnMutContract)
+     (only (snail compiler expand language) Impl Dyn FnContract FnMutContract)
+     (only (snail compiler names globals) Global)
      (snail stage0 testing))
     (begin
       (define (test-kinds)

@@ -40,18 +40,6 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler expand language)
-         Global
-         Local
-         Constant
-         Integer
-         Float
-         Text
-         Character
-         ByteVector
-         Boolean
-         UnitValue
-         FieldClass)
    (only (snail compiler declare language)
          Expr
          Literal
@@ -85,8 +73,17 @@
          Scheme
          Requirement
          ClassRequirement)
-   (only (snail compiler declare equality) same-global?)
-   (only (snail compiler declare forms) forms-library)
+   (only (snail compiler names globals) Local Global FieldClass same-global?)
+   (only (snail compiler literals constant)
+         Constant
+         Integer
+         Float
+         Text
+         Character
+         ByteVector
+         Boolean
+         UnitValue)
+   (only (snail compiler names libraries) forms-library)
    (only (snail compiler adapter declaration) old-name old-value-name old-type)
    (only (snail compiler adapter source) loc->old datum->old)
    (prefix (only (snail shell compiler read) Datum DInt DFloat DString DChar DBytes DBool DUnit)
@@ -130,18 +127,6 @@
        (next I64)
        (labels (List String))))
 
-    ;; `(converting-let* ((name state step) ...) body ...)` evaluates each
-    ;; step in order, with the scope of `let*`. A step takes the state and
-    ;; returns its value with the new state, as a Pair: each binding names
-    ;; the value and the new state, which the steps after it and the body
-    ;; see. Both names are the use's, the only ones stage 0's `match` binds.
-    (define-syntax converting-let*
-      (syntax-rules ()
-        ((_ () body ...) (begin body ...))
-        ((_ ((name state step) more ...) body ...)
-         (match step
-           ((Pair name state) (converting-let* (more ...) body ...))))))
-
     (: with-labels (impl (Fn Converting (List String) -> Converting)))
     (define (with-labels state labels)
       (Converting-labels-set state (append labels (::labels state))))
@@ -153,7 +138,7 @@
     (: top-level-expr
        (impl (Fn Converting (List Global) Expr -> (Pair old:Expr Converting))))
     (define (top-level-expr state around value)
-      (converting-let* ((converted state (old-expr state around value)))
+      (state-let* ((converted state (old-expr state around value)))
         (Pair (match (::term converted)
                 ((old:Lambda parameters body _)
                  (old:Expr (old:Lambda parameters body #f) (::type converted) (::loc converted)))
@@ -193,49 +178,49 @@
         ((TopRef value loc) (Pair (reference (old-value-name value) loc) state))
         ((Path labels loc) (path (with-labels state labels) labels loc))
         ((PathApply labels record loc)
-         (converting-let* ((value state (old-expr state around record)))
+         (state-let* ((value state (old-expr state around record)))
            (Pair (applied-path labels value loc) (with-labels state labels))))
         ((Lambda parameters body loc) (old-lambda state around parameters body #t loc))
         ((ClosedLambda parameters body loc) (old-lambda state around parameters body #f loc))
         ((Call callee arguments loc)
-         (converting-let* ((callee state (old-expr state around callee))
-                           (arguments state (old-exprs state around arguments)))
+         (state-let* ((callee state (old-expr state around callee))
+                      (arguments state (old-exprs state around arguments)))
            (Pair (at (old:App callee arguments) loc) state)))
         ((If test consequent alternative loc)
-         (converting-let* ((test state (old-expr state around test))
-                           (consequent state (old-expr state around consequent))
-                           (alternative state (old-expr state around alternative)))
+         (state-let* ((test state (old-expr state around test))
+                      (consequent state (old-expr state around consequent))
+                      (alternative state (old-expr state around alternative)))
            (Pair (at (old:If test consequent alternative) loc) state)))
         ((Seq first rest loc)
-         (converting-let* ((first state (old-expr state around first))
-                           (rest state (old-expr state around rest)))
+         (state-let* ((first state (old-expr state around first))
+                      (rest state (old-expr state around rest)))
            (Pair (at (old:Seq first rest) loc) state)))
         ((Let local signature value body loc)
-         (converting-let* ((value state (old-expr state around value))
-                           (body state (old-expr state around body)))
+         (state-let* ((value state (old-expr state around value))
+                      (body state (old-expr state around body)))
            (Pair (at (old:Let (old-local-name state local) (signed value signature) body) loc)
                  (with-labels state (signature-labels signature)))))
         ((Match scrutinee clauses loc)
-         (converting-let* ((scrutinee state (old-expr state around scrutinee))
-                           (clauses state (old-clauses state around clauses)))
+         (state-let* ((scrutinee state (old-expr state around scrutinee))
+                      (clauses state (old-clauses state around clauses)))
            (Pair (at (old:Match scrutinee clauses) loc) state)))
         ((Handle effect implementations body loc)
          (old-handle state around effect implementations body loc))
         ((WithInstances sets body loc)
          (let ((active (active-sets sets around)))
-           (converting-let* ((body state (old-expr state active body)))
+           (state-let* ((body state (old-expr state active body)))
              (Pair (at (old:ScopedInstances (map old-name active) body) loc) state))))
         ((Ann value type loc)
-         (converting-let* ((value state (old-expr state around value)))
+         (state-let* ((value state (old-expr state around value)))
            (Pair (at (old:Ann value (old-type type)) loc) state)))
         ((Convert value type loc)
-         (converting-let* ((value state (old-expr state around value)))
+         (state-let* ((value state (old-expr state around value)))
            (Pair (at (old:Convert value (old-type type)) loc) state)))
         ((TryConvert value type loc)
-         (converting-let* ((value state (old-expr state around value)))
+         (state-let* ((value state (old-expr state around value)))
            (Pair (at (old:TryConvert value (old-type type)) loc) state)))
         ((TypeTest value type loc)
-         (converting-let* ((value state (old-expr state around value)))
+         (state-let* ((value state (old-expr state around value)))
            (Pair (at (old:TypeTest value (old-type type)) loc) state)))
         ((CaseId _ id loc)
          (Pair (at (old:Ann (at (old:Lit (old:DInt id)) loc)
@@ -247,14 +232,7 @@
     (: old-exprs
        (impl (Fn Converting (List Global) (List Expr) -> (Pair (List old:Expr) Converting))))
     (define (old-exprs state around exprs)
-      (let loop ((state state)
-                 (exprs exprs)
-                 (converted (Nil)))
-        (match exprs
-          ((Nil) (Pair (reverse converted) state))
-          ((Cons expr rest)
-           (converting-let* ((value state (old-expr state around expr)))
-             (loop state rest (Cons value converted)))))))
+      (map-with-state state (lambda (state expr) (old-expr state around expr)) exprs))
 
     (: old-constant (impl (Fn Constant -> old:Datum)))
     (define (old-constant constant)
@@ -271,7 +249,7 @@
        (impl
         (Fn Converting (List Global) (List Local) Expr Bool Loc -> (Pair old:Expr Converting))))
     (define (old-lambda state around parameters body captures? loc)
-      (converting-let* ((body state (old-expr state around body)))
+      (state-let* ((body state (old-expr state around body)))
         (Pair (at (old:Lambda (map (lambda (local) (old-local-name state local)) parameters)
                               body
                               captures?)
@@ -312,8 +290,8 @@
                  ->
                  (Pair old:Expr Converting))))
     (define (old-handle state around effect implementations body loc)
-      (converting-let* ((values state (old-exprs state around (map ::value implementations)))
-                        (body state (old-expr state around body)))
+      (state-let* ((values state (old-exprs state around (map ::value implementations)))
+                   (body state (old-expr state around body)))
         (Pair (at (old:Handle (old-name effect)
                               (map (lambda (pair)
                                      (Pair (old-name (::operation (::first pair))) (::second pair)))
@@ -359,7 +337,7 @@
         (match clauses
           ((Nil) (Pair (reverse converted) state))
           ((Cons clause rest)
-           (converting-let* ((body state (old-expr state around (::body clause))))
+           (state-let* ((body state (old-expr state around (::body clause))))
              (loop state
                    rest
                    (Cons (old:Clause (old-pattern state (::pattern clause)) body) converted)))))))
@@ -410,8 +388,8 @@
     (export
      test-expressions)
     (import
-     (only (snail compiler expand language) TopGlobal FieldFunction Accessor)
-     (prefix (only (snail compiler read language) Integer) syntax-)
+     (only (snail compiler names globals) TopGlobal FieldFunction Accessor)
+     (prefix (only (snail compiler literals datum) Integer) datum-)
      (prefix (only (snail shell compiler read) Loc) old:)
      (prefix (only (snail shell compiler core) TCon) old:)
      (snail stage0 testing))
@@ -475,7 +453,7 @@
                                                                inner)
                                                   (Literal (Boolean #t) inner)
                                                   inner)
-                                          (Clause (Equals (syntax-Integer 2) inner)
+                                          (Clause (Equals (datum-Integer 2) inner)
                                                   (Literal (Boolean #f) inner)
                                                   inner))
                                     loc))

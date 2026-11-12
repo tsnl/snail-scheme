@@ -49,8 +49,9 @@
   (import
    (snail core base)
    (snail core table)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler expand language) Expanded Global TopValue)
+   (snail compiler names libraries)
+   (only (snail compiler expand language) Expanded)
+   (only (snail compiler names globals) Global TopValue)
    (only (snail compiler expand marked) Marked Identifier Macro))
   (begin
 

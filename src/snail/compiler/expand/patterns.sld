@@ -13,12 +13,13 @@
   (import
    (snail core base)
    (snail compiler source)
-   (prefix (snail compiler read language) syntax-)
+   (prefix (snail compiler literals datum) datum-)
    (snail compiler expand language)
    (snail compiler expand marked)
    (snail compiler expand offer)
    (snail compiler expand scopes)
-   (snail compiler expand state))
+   (only (snail compiler names globals) Local TopValue TopGlobal)
+   (only (snail compiler names numbering) Numbering fresh-local))
   (begin
 
     ;; ---- Variables ----
@@ -66,31 +67,33 @@
     ;; variables are found to be distinct.
     (: expand-pattern
        (impl
-        (Fn Expanding Scopes Env Marked -> (Result (Pair Patterned Expanding) (List Feedback)))))
+        (Fn Numbering Scopes Env Marked -> (Result (Pair Patterned Numbering) (List Feedback)))))
     (define (expand-pattern state scopes env syntax)
-      (expanding-let* ((variables state (unchanged state (pattern-variables syntax))))
+      (result-state-let* ((variables state (unchanged state (pattern-variables syntax))))
         (pattern-of state scopes env syntax)))
 
     ;; A constructor is resolved before the patterns it is applied to.
     (: pattern-of
        (impl
-        (Fn Expanding Scopes Env Marked -> (Result (Pair Patterned Expanding) (List Feedback)))))
+        (Fn Numbering Scopes Env Marked -> (Result (Pair Patterned Numbering) (List Feedback)))))
     (define (pattern-of state scopes env syntax)
       (match syntax
         ((Ident (Identifier "_" _) loc) (Ok (Pair (Patterned (Wild loc) (Nil)) state)))
         ((Ident identifier loc)
-         (expanding-let* ((number state (fresh state)))
-           (let ((local (Local (::name identifier) number)))
-             (Ok (Pair (Patterned (Bind local loc) (list (Frame identifier (LocalValue local))))
-                       state)))))
-        ((Atom (syntax-ByteVector _) loc) (fail loc "a byte vector cannot be a pattern"))
+         (state-let* ((local state (fresh-local state (::name identifier))))
+           (Ok (Pair (Patterned (Bind local loc) (list (Frame identifier (LocalValue local))))
+                     state))))
+        ((Atom (datum-ByteVector _) loc) (fail loc "a byte vector cannot be a pattern"))
         ((Atom datum loc) (Ok (Pair (Patterned (Equals datum loc) (Nil)) state)))
         ((Form (Cons head arguments) _)
-         (expanding-let* ((constructor state (unchanged state (constructor-of scopes env head)))
-                          (parts state (expanding-map state
-                                                      (lambda (state argument)
-                                                        (pattern-of state scopes env argument))
-                                                      arguments)))
+         (result-state-let* ((constructor state (unchanged state (constructor-of scopes env head)))
+                             (parts state (map-results-with-state state
+                                                                  (lambda (state argument)
+                                                                    (pattern-of state
+                                                                                scopes
+                                                                                env
+                                                                                argument))
+                                                                  arguments)))
            (Ok (Pair (Patterned (Destructure constructor (map ::pattern parts) (marked-loc head))
                                 (concatenate (map ::frames parts)))
                      state))))
@@ -123,6 +126,7 @@
     (import
      (only (scheme base) pair? symbol? symbol->string string? exact-integer? boolean?)
      (snail core table)
+     (only (snail compiler names globals) Global FieldFunction Accessor)
      (snail stage0 testing))
     (begin
       (define (test-patterns)
@@ -140,8 +144,8 @@
       (define (marked datum)
         (cond ((or (null? datum) (pair? datum)) (Form (map marked datum) loc))
               ((symbol? datum) (Ident (plain (symbol->string datum)) loc))
-              ((string? datum) (Atom (syntax-Text datum) loc))
-              ((exact-integer? datum) (Atom (syntax-Integer datum) loc))
+              ((string? datum) (Atom (datum-Text datum) loc))
+              ((exact-integer? datum) (Atom (datum-Integer datum) loc))
               (else (panic "no syntax for this datum"))))
 
       (define (plain name)
@@ -201,7 +205,7 @@
       ;; state.
       (define (test-expansion)
         (define (expanded syntax)
-          (match (expand-pattern (Expanding 2) scopes env syntax)
+          (match (expand-pattern (Numbering main 2) scopes env syntax)
             ((Ok (Pair patterned _)) (Ok patterned))
             ((Err feedback) (Err feedback))))
         (define (frame name number)
@@ -209,8 +213,8 @@
         (expect (expanded (marked '_)) (Ok (Patterned (Wild loc) (list))))
         (expect (expanded (marked 'a))
                 (Ok (Patterned (Bind (Local "a" 2) loc) (list (frame "a" 2)))))
-        (expect (expanded (marked 5)) (Ok (Patterned (Equals (syntax-Integer 5) loc) (list))))
-        (expect (expanded (Atom (syntax-ByteVector (list->vector (list 1))) (at 2)))
+        (expect (expanded (marked 5)) (Ok (Patterned (Equals (datum-Integer 5) loc) (list))))
+        (expect (expanded (Atom (datum-ByteVector (list->vector (list 1))) (at 2)))
                 (fail (at 2) "a byte vector cannot be a pattern"))
         (expect (expanded (marked '(Some (Point a _) b)))
                 (Ok (Patterned (Destructure (TopGlobal (global "Some"))
@@ -225,7 +229,7 @@
                 (Ok (Patterned (Destructure (TopGlobal (global "Some")) (list) loc) (list))))
         (expect (expanded (marked '())) (fail loc "expected a pattern"))
         (expect (expanded (Form (list (marked 'Missing)
-                                      (Atom (syntax-ByteVector (list->vector (list 1))) (at 2)))
+                                      (Atom (datum-ByteVector (list->vector (list 1))) (at 2)))
                                 loc))
                 (fail loc "not a constructor: Missing"))
         (expect
@@ -241,7 +245,7 @@
         (expect (constructor-of scopes env (marked 'y)) (fail loc "not a constructor: y"))
         (expect (constructor-of scopes env (marked 'Missing))
                 (fail loc "not a constructor: Missing"))
-        (expect (constructor-of scopes env (Atom (syntax-Integer 1) (at 3)))
+        (expect (constructor-of scopes env (Atom (datum-Integer 1) (at 3)))
                 (fail (at 3) "expected a constructor"))
         (expect (constructor-of scopes env (marked '(Some))) (fail loc "expected a constructor")))))
    (else)))

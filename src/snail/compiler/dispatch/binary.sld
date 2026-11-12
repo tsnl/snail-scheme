@@ -39,9 +39,10 @@
    family-problem)
   (import
    (snail core base)
-   (only (snail compiler expand language) Global Dyn FnContract)
+   (only (snail compiler expand language) Dyn FnContract)
    (prefix (snail compiler declare language) declared-)
    (only (snail compiler declare equality) same-type? same-types? effect-set)
+   (only (snail compiler names globals) Global)
    (only (snail compiler declare schemes) substituted)
    (only (snail compiler declare membership) same-member?)
    (only (snail compiler declare misplaced-rows) misplaced-row-problem)
@@ -49,6 +50,7 @@
    (only (snail compiler dispatch listing) instance-selecting-types)
    (only (snail compiler dispatch matching) matched-types)
    (snail compiler dispatch runtime)
+   (only (snail compiler builtins base) dyn-cast-effect)
    (snail compiler dispatch known)
    (only (snail compiler dispatch domains) ground? concrete?))
   (begin
@@ -343,8 +345,9 @@
      test-binary)
     (import
      (snail compiler source)
-     (only (snail compiler expand language) Label ClassGlobal Integer)
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler names globals) ClassGlobal Label)
+     (only (snail compiler literals constant) Integer)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-binary)

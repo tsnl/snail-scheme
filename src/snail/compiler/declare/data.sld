@@ -19,6 +19,7 @@
    (snail core base)
    (snail compiler source)
    (prefix (snail compiler expand language) expanded-)
+   (only (snail compiler names globals) Global)
    (snail compiler declare language)
    (snail compiler declare known)
    (snail compiler declare types)
@@ -32,7 +33,7 @@
     (: struct-data
        (impl (Fn Known
                  Signatures
-                 expanded-Global
+                 Global
                  (List String)
                  (List expanded-Field)
                  Bool
@@ -70,7 +71,7 @@
     (: enum-data
        (impl (Fn Known
                  Signatures
-                 expanded-Global
+                 Global
                  (List String)
                  (List expanded-Case)
                  Bool
@@ -123,7 +124,8 @@
      (snail core table)
      (prefix (only (snail compiler derive language) Signature) derived-)
      (snail compiler declare offer)
-     (snail compiler declare forms)
+     (only (snail compiler names libraries) forms-library)
+     (only (snail compiler names globals) TopGlobal)
      (snail stage0 testing))
     (begin
       (define (test-data)
@@ -137,7 +139,7 @@
       (define main (list "main"))
 
       (define (global name)
-        (expanded-Global main name 0))
+        (Global main name 0))
 
       ;; (main) scans (Box a), (Tree a) and the class (Show a) with output
       ;; Out.
@@ -158,12 +160,12 @@
           ((Err _) (panic "no signatures"))))
 
       (define (i64-at line)
-        (expanded-Applied (expanded-Global forms-library "I64" 0) "I64" (list) (at line)))
+        (expanded-Applied (Global forms-library "I64" 0) "I64" (list) (at line)))
 
       (define (box-of argument line)
         (expanded-Applied (global "Box") "Box" (list argument) (at line)))
 
-      (define i64 (Con (expanded-Global forms-library "I64" 0) (list)))
+      (define i64 (Con (Global forms-library "I64" 0) (list)))
 
       (define (note text)
         (expanded-Documentation text loc))
@@ -304,7 +306,7 @@
 
       ;; A signature for the value `name`, of the type (Tree I64).
       (define (signature-of name)
-        (derived-Signature (expanded-TopGlobal (global name))
+        (derived-Signature (TopGlobal (global name))
                            (expanded-Scheme (list)
                                             (list)
                                             (expanded-Applied (global "Tree")

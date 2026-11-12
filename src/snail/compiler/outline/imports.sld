@@ -10,6 +10,7 @@
   (import
    (snail core base)
    (snail compiler source)
+   (snail compiler names libraries)
    (snail compiler outline language))
   (begin
 

@@ -34,8 +34,8 @@
   (import
    (snail core base)
    (snail core table)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler expand language) Global)
+   (snail compiler names libraries)
+   (only (snail compiler names globals) Global)
    (only (snail compiler declare language) Declared Data Class Operation))
   (begin
 

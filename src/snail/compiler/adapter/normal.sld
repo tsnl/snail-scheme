@@ -37,9 +37,11 @@
   (import
    (snail core base)
    (snail core table)
-   (prefix (snail compiler read language) syntax-)
-   (only (snail compiler outline names) library-key)
-   (only (snail compiler expand language)
+   (only (snail compiler literals datum) Datum)
+   (prefix (snail compiler literals datum) datum-)
+   (snail compiler names libraries)
+   (only (snail compiler names globals)
+         Local
          Global
          TopValue
          TopGlobal
@@ -48,8 +50,8 @@
          Accessor
          Replacer
          Setter
-         Swapper
-         Local
+         Swapper)
+   (only (snail compiler literals constant)
          Constant
          Integer
          Float
@@ -389,15 +391,15 @@
         ((Boolean value) (if value "#t" "#f"))
         ((UnitValue) "unit")))
 
-    (: datum-text (impl (Fn syntax-Datum -> String)))
+    (: datum-text (impl (Fn Datum -> String)))
     (define (datum-text datum)
       (match datum
-        ((syntax-Integer value) (string-append "i:" (i64->string value)))
-        ((syntax-Float text) (string-append "f:" text))
-        ((syntax-Text text) (string-append "s:" text))
-        ((syntax-Character char) (string-append "c:" (i64->string (char->integer char))))
-        ((syntax-ByteVector bytes) (string-append "b:" (bytes-text bytes)))
-        ((syntax-Boolean value) (if value "#t" "#f"))))
+        ((datum-Integer value) (string-append "i:" (i64->string value)))
+        ((datum-Float text) (string-append "f:" text))
+        ((datum-Text text) (string-append "s:" text))
+        ((datum-Character char) (string-append "c:" (i64->string (char->integer char))))
+        ((datum-ByteVector bytes) (string-append "b:" (bytes-text bytes)))
+        ((datum-Boolean value) (if value "#t" "#f"))))
 
     ;; A byte vector by its length and its digest, so two of one length
     ;; but other bytes differ.

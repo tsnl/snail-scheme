@@ -238,18 +238,11 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler read language) Datum)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler expand language)
-         Constant
-         Local
-         Global
-         TopValue
-         Label
-         Annotation
-         ClassRef
-         Former
-         Contract))
+   (only (snail compiler literals datum) Datum)
+   (snail compiler names libraries)
+   (only (snail compiler expand language) Annotation Former Contract)
+   (only (snail compiler names globals) Local Global TopValue ClassRef Label)
+   (only (snail compiler literals constant) Constant))
   (begin
 
     ;; ---- Libraries ----

@@ -64,7 +64,7 @@
   (import
    (snail core base)
    (snail compiler source)
-   (prefix (snail compiler read language) syntax-)
+   (prefix (snail compiler literals datum) datum-)
    (snail compiler expand language)
    (snail compiler expand marked)
    (only (snail compiler expand scopes) marked-loc))
@@ -174,7 +174,7 @@
     (: annotation (impl (Fn Marked -> (Result Annotation Malformed))))
     (define (annotation form)
       (match form
-        ((Form (Cons head (Cons (Atom (syntax-Text text) _) (Nil))) loc)
+        ((Form (Cons head (Cons (Atom (datum-Text text) _) (Nil))) loc)
          (if (word? "doc" head) (Ok (Documentation text loc)) (unknown-annotation head loc)))
         ((Form (Cons (Ident identifier _) _) loc)
          (if (string=? (::name identifier) "doc")
@@ -575,8 +575,8 @@
       (match form
         ((Form (Cons _
                      (Cons _
-                           (Cons (Atom (syntax-Text module) _)
-                                 (Cons (Atom (syntax-Text symbol) _) (Cons type (Nil))))))
+                           (Cons (Atom (datum-Text module) _)
+                                 (Cons (Atom (datum-Text symbol) _) (Cons type (Nil))))))
                _)
          (Ok (ExternForm module symbol type)))
         (_
@@ -594,7 +594,7 @@
     (: expose-form (impl (Fn Marked -> (Result ExposeForm Malformed))))
     (define (expose-form form)
       (match form
-        ((Form (Cons _ (Cons name (Cons (Atom (syntax-Text symbol) _) flags))) loc)
+        ((Form (Cons _ (Cons name (Cons (Atom (datum-Text symbol) _) flags))) loc)
          (result-let* ((exposed (named name "a function name")))
            (Ok (ExposeForm exposed symbol flags loc))))
         (_ (Err (Malformed (marked-loc form) expose-usage)))))
@@ -682,8 +682,8 @@
       (define (marked datum)
         (cond ((or (null? datum) (pair? datum)) (Form (map marked datum) loc))
               ((symbol? datum) (Ident (Identifier (symbol->string datum) (Nil)) loc))
-              ((string? datum) (Atom (syntax-Text datum) loc))
-              ((exact-integer? datum) (Atom (syntax-Integer datum) loc))
+              ((string? datum) (Atom (datum-Text datum) loc))
+              ((exact-integer? datum) (Atom (datum-Integer datum) loc))
               (else (panic "no syntax for this datum"))))
 
       (define (plain name)

@@ -18,6 +18,7 @@
    (snail core base)
    (snail compiler source)
    (snail compiler read language)
+   (snail compiler literals datum)
    (snail compiler read lexemes)
    (snail compiler read lines)
    (snail compiler read literals))

@@ -27,7 +27,8 @@
 ;; the old compiler. Two definitions of one method are both kept, in
 ;; order, as the old compiler keeps them. A method's value is a body,
 ;; declared with the library's other bodies, once every declaration is
-;; reached.
+;; reached. What is known where the instance is is read, and only the
+;; numbering is threaded.
 (define-library (snail compiler declare instances)
   (export
    DeclaredInstance
@@ -40,14 +41,17 @@
    (snail core base)
    (snail compiler source)
    (prefix (snail compiler expand language) expanded-)
+   (only (snail compiler names globals) Global ClassRef ClassGlobal FieldClass)
    (prefix (snail compiler bind language) bound-)
    (snail compiler declare language)
+   (only (snail compiler names numbering) Numbering fresh-global)
    (snail compiler declare known)
    (snail compiler declare state)
    (snail compiler declare requirements)
    (snail compiler declare heads)
    (snail compiler declare determination)
-   (snail compiler declare forms)
+   (only (snail compiler names libraries) forms-library)
+   (only (snail compiler builtins base) drop-class instance-lifecycle)
    (snail compiler declare lifecycle)
    (snail compiler declare members)
    (snail compiler declare membership)
@@ -66,40 +70,43 @@
 
     (struct PendingMethod
       ((member Member)
-       (implementation expanded-Global)
+       (implementation Global)
        (value bound-Expr)
        (loc Loc)))
 
     ;; `in-set?` says that the instance is written in a named instance
     ;; set, `(define-instance-set ...)`; one in an instance scope is not.
     (: declared-instance
-       (impl (Fn Declaring
+       (impl (Fn Numbering
+                 Known
                  bound-Instance
                  Bool
                  ->
-                 (Result (Pair DeclaredInstance Declaring) (List Feedback)))))
-    (define (declared-instance state instance in-set?)
-      (let* ((known (::known state))
-             (shape (class-shape known (::class instance)))
-             (loc (::loc instance)))
-        (declaring-let* ((required state
-                                   (unchanged state
-                                              (declared-requirements (Scope known (Nil))
-                                                                     (::variables instance)
-                                                                     (::requirements instance))))
-                         (types state
-                                (unchanged state
-                                           (declared-types (::scope required) (::types instance))))
-                         (outputs state
-                                  (unchanged state
-                                             (instance-outputs (::scope required)
-                                                               shape
-                                                               (::equations instance)
-                                                               loc)))
-                         (head state
-                               (unchanged state (checked (head-problem shape (length types)) loc)))
-                         (global state (fresh-global state (class-name (::class instance))))
-                         (body state (declared-body state instance)))
+                 (Result (Pair DeclaredInstance Numbering) (List Feedback)))))
+    (define (declared-instance numbering known instance in-set?)
+      (let ((shape (class-shape known (::class instance)))
+            (loc (::loc instance)))
+        (result-state-let* ((required numbering
+                                      (unchanged numbering
+                                                 (declared-requirements (Scope known (Nil))
+                                                                        (::variables instance)
+                                                                        (::requirements instance))))
+                            (types numbering
+                                   (unchanged numbering
+                                              (declared-types (::scope required)
+                                                              (::types instance))))
+                            (outputs numbering
+                                     (unchanged numbering
+                                                (instance-outputs (::scope required)
+                                                                  shape
+                                                                  (::equations instance)
+                                                                  loc)))
+                            (head numbering
+                                  (unchanged numbering
+                                             (checked (head-problem shape (length types)) loc)))
+                            (global numbering
+                                    (Ok (fresh-global numbering (class-name (::class instance)))))
+                            (body numbering (declared-body numbering known instance)))
           (let ((declared (Instance global
                                     (::class instance)
                                     (::variables required)
@@ -109,17 +116,16 @@
                                     (::copied required)
                                     (::first body)
                                     loc)))
-            (declaring-let* ((head state
-                                   (unchanged state (checked-head known shape in-set? declared))))
-              (Ok (Pair (DeclaredInstance declared (::second body)) state)))))))
+            (result-let* ((head (checked-head known shape in-set? declared)))
+              (Ok (Pair (DeclaredInstance declared (::second body)) numbering)))))))
 
     ;; An instance is named for its class: a declared class's name, or a
     ;; field class's label.
-    (: class-name (impl (Fn expanded-ClassRef -> String)))
+    (: class-name (impl (Fn ClassRef -> String)))
     (define (class-name class)
       (match class
-        ((expanded-ClassGlobal global) (::name global))
-        ((expanded-FieldClass label) label)))
+        ((ClassGlobal global) (::name global))
+        ((FieldClass label) label)))
 
     ;; The type each equation gives its output, in the class's order, once
     ;; the equations give each output exactly once.
@@ -166,59 +172,59 @@
 
     ;; The instance's body, and the methods whose values wait.
     (: declared-body
-       (impl (Fn Declaring
+       (impl (Fn Numbering
+                 Known
                  bound-Instance
                  ->
-                 (Result (Pair (Pair InstanceBody (List PendingMethod)) Declaring)
+                 (Result (Pair (Pair InstanceBody (List PendingMethod)) Numbering)
                          (List Feedback)))))
-    (define (declared-body state instance)
+    (define (declared-body numbering known instance)
       (match (::body instance)
         ((bound-Dispatch types loc)
-         (declaring-let* ((declared state
-                                    (unchanged state
-                                               (declared-types (Scope (::known state) (Nil))
-                                                               types))))
-           (Ok (Pair (Pair (Dispatch declared loc) (Nil)) state))))
+         (result-let* ((declared (declared-types (Scope known (Nil)) types)))
+           (Ok (Pair (Pair (Dispatch declared loc) (Nil)) numbering))))
         ((bound-Methods methods)
-         (let ((members (class-members (::class instance)
-                                       (known-methods (::known state) (::class instance)))))
-           (declaring-let* ((pending state
-                                     (declaring-map state
-                                                    (lambda (state method)
-                                                      (pending-method state members method))
-                                                    methods))
-                            (complete state
-                                      (unchanged state
-                                                 (checked
-                                                  (missing-member members (map ::member pending))
-                                                  (::loc instance)))))
-             (Ok (Pair (Pair (Methods (Nil)) pending) state)))))))
+         (let ((members
+                (class-members (::class instance) (known-methods known (::class instance)))))
+           (result-state-let* ((pending numbering
+                                        (map-results-with-state numbering
+                                                                (lambda (numbering method)
+                                                                  (pending-method numbering
+                                                                                  members
+                                                                                  method))
+                                                                methods))
+                               (complete numbering
+                                         (unchanged numbering
+                                                    (checked
+                                                     (missing-member members (map ::member pending))
+                                                     (::loc instance)))))
+             (Ok (Pair (Pair (Methods (Nil)) pending) numbering)))))))
 
     ;; A declared class's methods as known where the instance is; a field
     ;; class has none of its own.
-    (: known-methods (impl (Fn Known expanded-ClassRef -> (List Method))))
+    (: known-methods (impl (Fn Known ClassRef -> (List Method))))
     (define (known-methods known class)
       (match class
-        ((expanded-ClassGlobal global)
+        ((ClassGlobal global)
          (match (known-class known global)
            ((Some declared) (::methods declared))
            ((None) (Nil))))
-        ((expanded-FieldClass _) (Nil))))
+        ((FieldClass _) (Nil))))
 
     ;; A definition's member, refused at its name, and its implementation's
     ;; Global.
     (: pending-method
-       (impl (Fn Declaring
+       (impl (Fn Numbering
                  (List Member)
                  bound-InstanceMethod
                  ->
-                 (Result (Pair PendingMethod Declaring) (List Feedback)))))
-    (define (pending-method state members method)
+                 (Result (Pair PendingMethod Numbering) (List Feedback)))))
+    (define (pending-method numbering members method)
       (let ((loc (method-loc (::name method))))
         (match (named-member members (::name method))
           ((Ok member)
-           (declaring-let* ((implementation state (fresh-global state (member-name member))))
-             (Ok (Pair (PendingMethod member implementation (::value method) loc) state))))
+           (state-let* ((implementation numbering (fresh-global numbering (member-name member))))
+             (Ok (Pair (PendingMethod member implementation (::value method) loc) numbering))))
           ((Err message) (fail loc message)))))
 
     (: method-loc (impl (Fn expanded-MethodName -> Loc)))
@@ -258,7 +264,7 @@
     ;; nothing is in scope. The instances it stands for are `dispatch`'s.
     (: declared-dynamic
        (impl (Fn Known
-                 expanded-ClassRef
+                 ClassRef
                  (List (List expanded-TypeExpr))
                  Loc
                  ->
@@ -278,7 +284,8 @@
      test-instances)
     (import
      (snail core table)
-     (only (snail compiler expand language) Label)
+     (only (snail compiler names globals) Label)
+     (only (snail compiler literals constant) UnitValue)
      (snail compiler declare offer)
      (snail stage0 testing))
     (begin
@@ -297,7 +304,7 @@
       (define lib (list "lib"))
 
       (define (global library name)
-        (expanded-Global library name 0))
+        (Global library name 0))
 
       (define op (global lib "Op"))
       (define show (global lib "Show"))
@@ -336,12 +343,12 @@
                                    empty-table))))
 
       (define (i64-at line)
-        (expanded-Applied (expanded-Global forms-library "I64" 0) "I64" (list) (at line)))
+        (expanded-Applied (Global forms-library "I64" 0) "I64" (list) (at line)))
 
-      (define i64 (Con (expanded-Global forms-library "I64" 0) (list)))
+      (define i64 (Con (Global forms-library "I64" 0) (list)))
 
       (define (unit-at line)
-        (bound-Literal (expanded-UnitValue) (at line)))
+        (bound-Literal (UnitValue) (at line)))
 
       (define (definition name line)
         (bound-InstanceMethod (expanded-MemberName (Label name (at line))) (unit-at line)))
@@ -350,7 +357,7 @@
         (expanded-Equation (Label name loc) type))
 
       (define (instance class types equations methods)
-        (bound-Instance (expanded-ClassGlobal class)
+        (bound-Instance (ClassGlobal class)
                         (list "t")
                         types
                         (list)
@@ -358,12 +365,21 @@
                         (bound-Methods methods)
                         (at 9)))
 
-      ;; An instance written at the top level, in no named instance set.
-      (define (declared-top state written)
-        (declared-instance state written #f))
+      (define (numbered next)
+        (Numbering main next))
 
-      (define (declared state written)
-        (match (declared-top state written)
+      ;; An instance written at the top level, in no named instance set,
+      ;; where `known` is known.
+      (define (declared-top numbering written)
+        (declared-instance numbering known written #f))
+
+      (define (declared numbering written)
+        (match (declared-top numbering written)
+          ((Ok (Pair found next)) (Pair found (::next next)))
+          ((Err feedback) (Err feedback))))
+
+      (define (head-declared numbering written)
+        (match (declared-instance numbering head-known written #f)
           ((Ok (Pair found next)) (Pair found (::next next)))
           ((Err feedback) (Err feedback))))
 
@@ -371,7 +387,7 @@
       ;; equations are counted before their types are converted, and the
       ;; head after.
       (define (test-heads)
-        (let ((state (Declaring 5 known)))
+        (let ((state (numbered 5)))
           (match (declared state
                            (instance op
                              (list (expanded-Variable "t" loc) (i64-at 2))
@@ -379,13 +395,13 @@
                              (list (definition "op" 4))))
             ((Pair found next)
              (expect next 7)
-             (expect (::global (::instance found)) (expanded-Global main "Op" 5))
+             (expect (::global (::instance found)) (Global main "Op" 5))
              (expect (::types (::instance found)) (list (Var (Written "t")) i64))
              (expect (::outputs (::instance found)) (list i64))
              (expect (::variables (::instance found)) (list (Written "t")))
              (expect (::methods found)
                      (list (PendingMethod (ClassMethod (global lib "op"))
-                                          (expanded-Global main "op" 6)
+                                          (Global main "op" 6)
                                           (unit-at 4)
                                           (at 4)))))
             (other (expect other "an instance")))
@@ -401,7 +417,7 @@
                                   (list (expanded-Variable "t" loc))
                                   (list (equation "Output"
                                                   (expanded-Applied
-                                                   (expanded-Global forms-library "Array" 0)
+                                                   (Global forms-library "Array" 0)
                                                    "Array"
                                                    (list)
                                                    (at 5))))
@@ -418,7 +434,7 @@
       ;; Each definition names a method, refused at its name; both of two
       ;; definitions of one method are kept; every method is implemented.
       (define (test-methods)
-        (let ((state (Declaring 1 known)))
+        (let ((state (numbered 1)))
           (expect (declared-top state
                                 (instance show
                                   (list (expanded-Variable "t" loc))
@@ -440,9 +456,9 @@
                                    (definition "width" 4))))
             ((Pair found next)
              (expect (map ::implementation (::methods found))
-                     (list (expanded-Global main "width" 2)
-                           (expanded-Global main "show" 3)
-                           (expanded-Global main "width" 4)))
+                     (list (Global main "width" 2)
+                           (Global main "show" 3)
+                           (Global main "width" 4)))
              (expect next 5))
             (other (expect other "an instance")))))
 
@@ -450,7 +466,7 @@
       ;; method yet, so a definition is refused and none is missing; a field
       ;; class's one method is its label's path.
       (define (test-order)
-        (let ((state (Declaring 1 known)))
+        (let ((state (numbered 1)))
           (expect (declared-top state
                                 (instance later
                                   (list (expanded-Variable "t" loc))
@@ -464,7 +480,7 @@
                                         (list))))
                   2)
           (match (declared state
-                           (bound-Instance (expanded-FieldClass "x")
+                           (bound-Instance (FieldClass "x")
                                            (list "r")
                                            (list (expanded-Variable "r" loc) (i64-at 2))
                                            (list)
@@ -476,18 +492,18 @@
                                                    (unit-at 3))))
                                            (at 9)))
             ((Pair found next)
-             (expect (::global (::instance found)) (expanded-Global main "x" 1))
+             (expect (::global (::instance found)) (Global main "x" 1))
              (expect (map ::member (::methods found)) (list (FieldReader "x")))
-             (expect (map ::implementation (::methods found)) (list (expanded-Global main "x" 2))))
+             (expect (map ::implementation (::methods found)) (list (Global main "x" 2))))
             (other (expect other "a field instance")))))
 
       ;; A dispatch clause's types and a dynamic instance's pairs, converted.
       (define (test-dynamic)
-        (match (declared (Declaring 1 known)
-                         (bound-Instance (expanded-ClassGlobal show)
+        (match (declared (numbered 1)
+                         (bound-Instance (ClassGlobal show)
                                          (list)
                                          (list
-                                          (expanded-Applied (expanded-Global forms-library "Any" 0)
+                                          (expanded-Applied (Global forms-library "Any" 0)
                                                             "Any"
                                                             (list)
                                                             loc))
@@ -501,10 +517,10 @@
            (expect next 2))
           (other (expect other "a dispatch instance")))
         (expect (declared-dynamic known
-                                  (expanded-ClassGlobal show)
+                                  (ClassGlobal show)
                                   (list (list (i64-at 1) (i64-at 1)))
                                   loc)
-                (Ok (DynamicInstances (expanded-ClassGlobal show) (list (list i64 i64)) loc))))
+                (Ok (DynamicInstances (ClassGlobal show) (list (list i64 i64)) loc))))
 
       ;; (snail core base) offers Drop and Pair; (main) scans Handle and
       ;; declares (Store e S), e a row, with the output Out and the method
@@ -562,7 +578,7 @@
                           (at line)))
 
       (define (drop-instance types methods)
-        (bound-Instance (expanded-ClassGlobal drop-class)
+        (bound-Instance (ClassGlobal drop-class)
                         (list "A" "B" "e")
                         types
                         (list)
@@ -571,7 +587,7 @@
                         (at 9)))
 
       (define (lifecycle-declared types methods in-set?)
-        (declared-instance (Declaring 1 head-known) (drop-instance types methods) in-set?))
+        (declared-instance (numbered 1) head-known (drop-instance types methods) in-set?))
 
       (define dropping (list (definition "drop" 2)))
 
@@ -582,9 +598,9 @@
       ;; the set, the outputs, the rows, and the type last. Each is refused
       ;; at the instance.
       (define (test-head-order)
-        (expect (::second (declared (Declaring 1 head-known)
-                                    (drop-instance (list (row-at 1 (None)) (handle-at 1))
-                                                   dropping)))
+        (expect (::second (head-declared (numbered 1)
+                                         (drop-instance (list (row-at 1 (None)) (handle-at 1))
+                                                        dropping)))
                 3)
         (expect (lifecycle-declared (list (row-at 1 (None)) (pair-at 1)) (list) #t)
                 (fail (at 9) "instance is missing a method: drop"))
@@ -593,15 +609,18 @@
                       "a Drop instance gives each of the class's parameters, as in (Drop e T)"))
         (expect (lifecycle-declared (list (row-at 1 (None)) (pair-at 1)) dropping #t)
                 (fail (at 9) "lifecycle instances cannot belong to a named instance set"))
-        (expect (declared-top (Declaring 1 head-known)
-                              (bound-Instance (expanded-ClassGlobal store)
-                                              (list "e")
-                                              (list (row-at 1 (Some (expanded-Variable "e" (at 1))))
+        (expect (declared-instance (numbered 1)
+                                   head-known
+                                   (bound-Instance (ClassGlobal store)
+                                                   (list "e")
+                                                   (list
+                                                    (row-at 1 (Some (expanded-Variable "e" (at 1))))
                                                     (i64-at 1))
-                                              (list)
-                                              (list (equation "Out" (i64-at 2)))
-                                              (bound-Methods (list (definition "fetch" 3)))
-                                              (at 9)))
+                                                   (list)
+                                                   (list (equation "Out" (i64-at 2)))
+                                                   (bound-Methods (list (definition "fetch" 3)))
+                                                   (at 9))
+                                   #f)
                 (fail (at 9)
                       "instance outputs must be determined by its inputs and earlier requirements"))
         (expect (lifecycle-declared (list (expanded-Variable "e" (at 1)) (pair-at 1)) dropping #f)

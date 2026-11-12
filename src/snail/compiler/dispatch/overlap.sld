@@ -37,9 +37,10 @@
    overlap-problem)
   (import
    (snail core base)
-   (only (snail compiler expand language) Global ClassRef Dyn FnContract)
+   (only (snail compiler expand language) Dyn FnContract)
    (only (snail compiler declare language) Type Con Callable Code Row Var)
-   (only (snail compiler declare equality) same-global? same-former? same-contract?)
+   (only (snail compiler declare equality) same-former? same-contract?)
+   (only (snail compiler names globals) Global ClassRef same-global?)
    (snail compiler dispatch listing))
   (begin
 
@@ -145,12 +146,8 @@
      test-overlap)
     (import
      (snail compiler source)
-     (only (snail compiler expand language)
-           ClassGlobal
-           FieldClass
-           Impl
-           FnMutContract
-           FnOnceContract)
+     (only (snail compiler expand language) Impl FnMutContract FnOnceContract)
+     (only (snail compiler names globals) ClassGlobal FieldClass)
      (only (snail compiler declare language)
            Data
            DataCase
@@ -159,7 +156,7 @@
            Arrow
            Effects
            Written)
-     (only (snail compiler declare forms) forms-library)
+     (only (snail compiler names libraries) forms-library)
      (snail compiler dispatch language)
      (snail stage0 testing))
     (begin

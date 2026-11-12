@@ -42,7 +42,7 @@
    (snail compiler read location)
    (snail compiler outline language)
    (snail compiler outline imports)
-   (snail compiler outline names)
+   (snail compiler names libraries)
    (snail compiler outline producer)
    (only (snail compiler expand offer) Offered Offer))
   (begin
@@ -245,7 +245,7 @@
 
     (: import-decision (impl (Fn Walk LibraryName -> Decision)))
     (define (import-decision walk name)
-      (cond ((same-library? name (list "snail" "core" "forms")) (SkipImport))
+      (cond ((same-library? name forms-library) (SkipImport))
             ((same-library? name program-library) (ProgramImport))
             ((loading? walk name) (ImportCycle))
             ((or (any? (lambda (file) (same-library? (loaded-name file) name)) (::finished walk))

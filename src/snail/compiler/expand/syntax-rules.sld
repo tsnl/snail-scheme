@@ -36,7 +36,8 @@
   (import
    (snail core base)
    (snail compiler source)
-   (prefix (snail compiler read language) syntax-)
+   (only (snail compiler literals datum) Datum)
+   (prefix (snail compiler literals datum) datum-)
    (snail compiler expand marked)
    (snail compiler expand scopes))
   (begin
@@ -292,15 +293,15 @@
 
     ;; ---- Atoms ----
 
-    (: same-datum? (impl (Fn syntax-Datum syntax-Datum -> Bool)))
+    (: same-datum? (impl (Fn Datum Datum -> Bool)))
     (define (same-datum? datum other)
       (match (Pair datum other)
-        ((Pair (syntax-Integer a) (syntax-Integer b)) (= a b))
-        ((Pair (syntax-Float a) (syntax-Float b)) (string=? a b))
-        ((Pair (syntax-Text a) (syntax-Text b)) (string=? a b))
-        ((Pair (syntax-Character a) (syntax-Character b)) (char=? a b))
-        ((Pair (syntax-ByteVector a) (syntax-ByteVector b)) (same-bytes? a b))
-        ((Pair (syntax-Boolean a) (syntax-Boolean b)) (if a b (not b)))
+        ((Pair (datum-Integer a) (datum-Integer b)) (= a b))
+        ((Pair (datum-Float a) (datum-Float b)) (string=? a b))
+        ((Pair (datum-Text a) (datum-Text b)) (string=? a b))
+        ((Pair (datum-Character a) (datum-Character b)) (char=? a b))
+        ((Pair (datum-ByteVector a) (datum-ByteVector b)) (same-bytes? a b))
+        ((Pair (datum-Boolean a) (datum-Boolean b)) (if a b (not b)))
         (_ #f)))
 
     (: same-bytes? (impl (Fn Bytes Bytes -> Bool)))
@@ -323,6 +324,7 @@
      (only (scheme base) pair? symbol? symbol->string string? exact-integer? boolean?)
      (snail core table)
      (snail compiler expand language)
+     (only (snail compiler names globals) Local Global TopGlobal)
      (snail compiler expand offer)
      (snail stage0 testing))
     (begin
@@ -344,9 +346,9 @@
       (define (marked datum)
         (cond ((or (null? datum) (pair? datum)) (Form (map marked datum) loc))
               ((symbol? datum) (Ident (Identifier (symbol->string datum) (Nil)) loc))
-              ((string? datum) (Atom (syntax-Text datum) loc))
-              ((exact-integer? datum) (Atom (syntax-Integer datum) loc))
-              ((boolean? datum) (Atom (syntax-Boolean datum) loc))
+              ((string? datum) (Atom (datum-Text datum) loc))
+              ((exact-integer? datum) (Atom (datum-Integer datum) loc))
+              ((boolean? datum) (Atom (datum-Boolean datum) loc))
               (else (panic "no syntax for this datum"))))
 
       (define (plain name)
@@ -391,7 +393,7 @@
         (expect (macro-shape (marked '(define-syntax m))) not-syntax-rules)
         (expect (macro-shape (marked '(define-syntax m (syntax-rules ()) extra))) not-syntax-rules)
         (expect (macro-shape (Form (list (marked 'define-syntax)
-                                         (Atom (syntax-Integer 1) (Loc "t.sld" 2 2))
+                                         (Atom (datum-Integer 1) (Loc "t.sld" 2 2))
                                          (marked '(syntax-rules ())))
                                    loc))
                 (MalformedMacro (Loc "t.sld" 2 2) "expected a macro name")))
@@ -471,7 +473,7 @@
       ;; literals before it; then it is the answer, even past a mismatch in
       ;; another repetition.
       (define (test-bad-literals)
-        (let ((bad (Atom (syntax-Integer 5) (Loc "t.sld" 3 3))))
+        (let ((bad (Atom (datum-Integer 5) (Loc "t.sld" 3 3))))
           (define (with-bad pattern use)
             (match-rule (Matcher (list (marked 'else) bad) scopes top top)
                         (map marked pattern)

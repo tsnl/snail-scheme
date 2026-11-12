@@ -1,13 +1,12 @@
-;; Query: when two Globals, and two types, are the same; and the one order
-;; of a row's effects, which makes the same set of effects the same list. A
-;; type is a value, so two types are the same exactly when they are equal
-;; part by part: a row's labels are compared as the lists they are, which
-;; the order makes the sets they stand for, and its tail as written, as
-;; the old compiler's `type=?` compares a row's.
+;; Query: when two types are the same; and a row's effects as a set, in
+;; the one order of Globals, (snail compiler names globals), which makes
+;; the same set of effects the same list. A type is a value, so two types
+;; are the same exactly when they are equal part by part: a row's labels
+;; are compared as the lists they are, which the order makes the sets
+;; they stand for, and its tail as written, as the old compiler's `type=?`
+;; compares a row's.
 (define-library (snail compiler declare equality)
   (export
-   same-global?
-   global<?
    effect-set
    same-type?
    same-types?
@@ -17,10 +16,7 @@
    same-contract?)
   (import
    (snail core base)
-   (only (snail compiler outline language) LibraryName)
-   (only (snail compiler outline names) same-library?)
    (only (snail compiler expand language)
-         Global
          Former
          Impl
          Dyn
@@ -28,37 +24,9 @@
          FnContract
          FnMutContract
          FnOnceContract)
+   (only (snail compiler names globals) Global same-global? global<?)
    (snail compiler declare language))
   (begin
-
-    ;; ---- Globals ----
-
-    (: same-global? (impl (Fn Global Global -> Bool)))
-    (define (same-global? global other)
-      (and (same-library? (::library global) (::library other))
-           (string=? (::name global) (::name other))
-           (= (::serial global) (::serial other))))
-
-    ;; Globals in order: by library, its parts compared in turn, a name
-    ;; before any longer name it begins; then by name; then by serial.
-    (: global<? (impl (Fn Global Global -> Bool)))
-    (define (global<? global other)
-      (cond ((library<? (::library global) (::library other)) #t)
-            ((library<? (::library other) (::library global)) #f)
-            ((string<? (::name global) (::name other)) #t)
-            ((string<? (::name other) (::name global)) #f)
-            (else (< (::serial global) (::serial other)))))
-
-    (: library<? (impl (Fn LibraryName LibraryName -> Bool)))
-    (define (library<? name other)
-      (match (Pair name other)
-        ((Pair (Nil) (Nil)) #f)
-        ((Pair (Nil) _) #t)
-        ((Pair _ (Nil)) #f)
-        ((Pair (Cons part rest) (Cons other-part other-rest))
-         (cond ((string<? part other-part) #t)
-               ((string<? other-part part) #f)
-               (else (library<? rest other-rest))))))
 
     ;; ---- Effects ----
 
@@ -154,7 +122,6 @@
      (snail stage0 testing))
     (begin
       (define (test-equality)
-        (test-order)
         (test-effect-sets)
         (test-types))
 
@@ -164,19 +131,6 @@
       (define io (global (list "main") "io" 0))
       (define log (global (list "main") "log" 0))
       (define mut (global (list "snail" "core" "forms") "mut" 0))
-
-      ;; By library, then name, then serial; a library before any longer
-      ;; one it begins.
-      (define (test-order)
-        (expect (global<? (global (list "a") "z" 0) (global (list "b") "a" 0)) #t)
-        (expect (global<? (global (list "a") "x" 0) (global (list "a" "b") "a" 0)) #t)
-        (expect (global<? (global (list "a" "b") "a" 0) (global (list "a") "x" 0)) #f)
-        (expect (global<? (global (list "a") "x" 0) (global (list "a") "y" 0)) #t)
-        (expect (global<? (global (list "a") "x" 2) (global (list "a") "x" 1)) #f)
-        (expect (global<? (global (list "a") "x" 1) (global (list "a") "x" 2)) #t)
-        (expect (global<? io io) #f)
-        (expect (same-global? io (global (list "main") "io" 0)) #t)
-        (expect (same-global? io (global (list "main") "io" 1)) #f))
 
       ;; Each effect once, in order, whatever order the row wrote.
       (define (test-effect-sets)

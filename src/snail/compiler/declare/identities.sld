@@ -15,17 +15,12 @@
   (import
    (snail core base)
    (only (snail compiler source) fnv-1a)
-   (only (snail compiler expand language)
-         Global
-         Impl
-         Dyn
-         FnContract
-         FnMutContract
-         FnOnceContract)
+   (only (snail compiler expand language) Impl Dyn FnContract FnMutContract FnOnceContract)
    (snail compiler declare language)
    (snail compiler declare known)
    (snail compiler declare equality)
-   (snail compiler declare spellings))
+   (only (snail compiler names globals) Global same-global?)
+   (only (snail compiler names spellings) global-spelling))
   (begin
 
     ;; ---- Identities ----
@@ -121,7 +116,7 @@
      (snail core table)
      (snail compiler source)
      (snail compiler declare offer)
-     (snail compiler declare forms)
+     (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-identities)

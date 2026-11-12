@@ -130,8 +130,8 @@
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler read language) Datum)
-   (only (snail compiler outline language) LibraryName)
+   (only (snail compiler literals datum) Datum)
+   (snail compiler names libraries)
    (only (snail compiler expand language)
          Field
          Case
@@ -141,16 +141,12 @@
          Operation
          PrimitiveType
          Annotation
-         Constant
          TypeExpr
          Scheme
          Requirement
-         ClassRef
-         Equation
-         Local
-         Global
-         TopValue
-         Label))
+         Equation)
+   (only (snail compiler names globals) Local Global TopValue ClassRef Label)
+   (only (snail compiler literals constant) Constant))
   (begin
 
     ;; ---- Libraries ----
