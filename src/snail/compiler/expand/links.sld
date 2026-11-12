@@ -70,7 +70,7 @@
                        loc))
 
       ;; A library whose definition links a file inside a request for the
-      ;; files of "site", twice, and whose program body asks again.
+      ;; files of "site", twice, and whose statement calls g.
       (define library
         (Defined a
           (list (Define (global "x") (Lambda (list) (Call files (list files) loc) loc) loc)

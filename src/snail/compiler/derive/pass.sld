@@ -33,9 +33,9 @@
           ((bound-Defined name tops first-unused loc)
            (result-let* ((walked (derived-tops names tops first-unused)))
              (Ok (Defined name (::tops walked) (::next walked) loc))))
-          ((bound-Program tops body first-unused)
+          ((bound-Program tops first-unused)
            (result-let* ((walked (derived-tops names tops first-unused)))
-             (Ok (Program (::tops walked) body (::next walked))))))))
+             (Ok (Program (::tops walked) (::next walked))))))))
 
     ;; The tops derived, and the first number they leave unused.
     (struct Walked
@@ -274,9 +274,7 @@
       (define (test-problems)
         (let ((body-only (offer-of wire (list "Serialize" "encode")))
               (library (lambda (derivations)
-                         (bound-Program (list (point derivations 2) (point derivations 4))
-                                        (None)
-                                        0))))
+                         (bound-Program (list (point derivations 2) (point derivations 4)) 0))))
           (expect (derive (library (list (expanded-DeriveSerialize (at 2))))
                           (list primitive body-only))
                   (Err (list (Feedback (at 2) "unbound identifier encode-case-id")

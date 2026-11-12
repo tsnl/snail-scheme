@@ -62,7 +62,7 @@
     (define (library-name expanded)
       (match expanded
         ((expanded-Defined name _ _ _) name)
-        ((expanded-Program _ _ _) program-library)))
+        ((expanded-Program _ _) program-library)))
 
     ;; ---- The walk ----
 
@@ -79,11 +79,11 @@
            (numbering-let* ((bound state
                                    (bound-tops (first-numbering site first-unused) site tops)))
              (Defined name (append (link-imports site) bound) (::next state) loc))))
-        ((expanded-Program tops body first-unused)
+        ((expanded-Program tops first-unused)
          (let ((site (found-site name links targets first-unused)))
-           (numbering-let* ((bound state (bound-tops (first-numbering site first-unused) site tops))
-                            (bound-body state (bound-option state site body)))
-             (Program (append (link-imports site) bound) bound-body (::next state)))))))
+           (numbering-let* ((bound state
+                                   (bound-tops (first-numbering site first-unused) site tops)))
+             (Program (append (link-imports site) bound) (::next state)))))))
 
     ;; ---- What was found ----
 
@@ -317,15 +317,6 @@
     (define (bound-exprs state site exprs)
       (numbering-map state (lambda (state expr) (bound-expr state site expr)) exprs))
 
-    (: bound-option
-       (impl (Fn Numbering Site (Option expanded-Expr) -> (Pair (Option Expr) Numbering))))
-    (define (bound-option state site expr)
-      (match expr
-        ((Some value)
-         (numbering-let* ((value state (bound-expr state site value)))
-           (Pair (Some value) state)))
-        ((None) (Pair (None) state))))
-
     ;; The pattern's locals are bound before the body that names them.
     (: bound-clause (impl (Fn Numbering Site expanded-Clause -> (Pair Clause Numbering))))
     (define (bound-clause state site clause)
@@ -494,7 +485,7 @@
       ;; ---- Cases ----
 
       ;; Declarations that hold no expression are as they were; every
-      ;; expression is bound wherever it is, a program's body too, and
+      ;; expression is bound wherever it is, a program's statement too, and
       ;; nothing is numbered.
       (define (test-declarations)
         (let* ((value (expanded-Literal (expanded-Integer 1) (at 9)))
@@ -559,9 +550,11 @@
                                    (at 6)))
                      5
                      (at 1))))
-          (expect (bind (expanded-Program (list) (Some (expanded-LocalRef (local "y" 2) (at 3))) 3)
+          (expect (bind (expanded-Program
+                         (list (expanded-Statement (expanded-LocalRef (local "y" 2) (at 3))))
+                         3)
                         no-supply)
-                  (bound-as (Program (list) (Some (LocalRef (local "y" 2) (at 3))) 3)))))
+                  (bound-as (Program (list (Statement (LocalRef (local "y" 2) (at 3)))) 3)))))
 
       ;; Each linked file is declared first, once, with the next serial,
       ;; where the library first writes it; each use of it calls its

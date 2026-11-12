@@ -1,22 +1,25 @@
 ;; The comparisons of the new compiler with the old that load or expand
 ;; whole programs, too slow on Chibi for `make test-compiler`, so compiled,
-;; and the one that needs a producer's encoder, which stage 0 cannot load:
-;; `make compare-compiler` runs this from the repository's root, with
-;; every tracked library as its arguments. Each suite's programs load with
-;; the directories tests/run.scm gives that suite, and no producer's
-;; output: how far each loads is counted, and the libraries of each that
-;; loads completely are compared, in order, with the old expansion's;
-;; the producers each waits for are compared with the generated libraries
-;; the old closure walk reaches, as (snail compiler adapter load) says;
-;; then each program that loads completely is taken through the new
-;; passes, `read` to `cohere`, and compared with the old expansion as
-;; (snail compiler adapter expansion) says, and its targets discovered
-;; beside the old discovery, as (snail compiler adapter discover) says.
-;; Then every tracked library's forms, encoded as a producer encodes
-;; them, and the malformed outputs of (snail compiler adapter read), are
-;; decoded by both compilers. Last, the SHA-256 the integrator names
-;; linked files by is compared with the old one compiled, as
-;; tests/compiler.scm compares them on Chibi.
+;; and those that read every tracked library or need a producer's
+;; encoder, which stage 0 cannot load: `make compare-compiler` runs this
+;; from the repository's root, with every tracked library as its
+;; arguments. Each suite's programs load with the directories
+;; tests/run.scm gives that suite, and no producer's output, since the
+;; suite keeps none: how far each loads is counted, and the libraries of
+;; each that loads completely are compared, in order, with the old
+;; expansion's; the producers each waits for are compared with the
+;; generated libraries the old closure walk reaches, as (snail compiler
+;; adapter load) says; then each program that loads completely is taken
+;; through the new passes, `read` to `cohere`, and compared with the old
+;; expansion as (snail compiler adapter expansion) says, and its targets
+;; discovered beside the old discovery, as (snail compiler adapter
+;; discover) says, as are that library's cases. Then every tracked
+;; library's forms, and the unusual texts of (snail compiler adapter
+;; read), are written as text by both compilers; and those forms, encoded
+;; as a producer encodes them, and the malformed outputs of (snail
+;; compiler adapter read), are decoded by both. Last, the SHA-256 the
+;; integrator names linked files by is compared with the old one
+;; compiled, as tests/compiler.scm compares them on Chibi.
 (import
  (snail core base)
  (snail core io)
@@ -230,7 +233,6 @@
         "only the new fails"
         "fail differently"
         "discoveries differ"
-        "known: a program's statements"
         "not compared"))
 
 ;; A program only the old discovery refuses is one whose problem a pass
@@ -282,28 +284,52 @@
 (define (case-kind finding)
   (::first (::second finding)))
 
+;; The cases not discovered alike.
+(: unlike-cases
+   (impl
+    (Fn (List (Pair String (Pair String String))) -> (List (Pair String (Pair String String))))))
+(define (unlike-cases found)
+  (filter (lambda (finding) (not (string=? (case-kind finding) "discover alike"))) found))
+
 ;; A line for each case not discovered alike, and a line counting them.
 (: case-lines (impl (Fn (List (Pair String (Pair String String))) -> (List String))))
 (define (case-lines found)
-  (let ((unlike
-         (filter (lambda (finding) (not (string=? (case-kind finding) "discover alike"))) found))
-        (known
-         (filter (lambda (finding) (string=? (case-kind finding) "known: a program's statements"))
-                 found)))
-    (append (map (lambda (finding)
-                   (string-append (::first finding)
-                                  ": discovery: "
-                                  (case-kind finding)
-                                  ": "
-                                  (::second (::second finding))))
-                 unlike)
-            (list (string-append "compared the discovery of "
-                                 (i64->string (length found))
-                                 " cases with the old: "
-                                 (i64->string (length unlike))
-                                 " differ, "
-                                 (i64->string (length known))
-                                 " of them by a program's statements")))))
+  (append (map (lambda (finding)
+                 (string-append (::first finding)
+                                ": discovery: "
+                                (case-kind finding)
+                                ": "
+                                (::second (::second finding))))
+               (unlike-cases found))
+          (list (string-append "compared the discovery of "
+                               (i64->string (length found))
+                               " cases with the old: "
+                               (i64->string (length (unlike-cases found)))
+                               " differ"))))
+
+;; ---- Written text ----
+
+;; The tracked libraries' forms and the unusual texts, written: a line for
+;; each form whose text the new compiler writes otherwise than the old,
+;; and a line counting them.
+(: written-findings (impl (Fn (List String) -> (List String) ! fs)))
+(define (written-findings paths)
+  (let ((differences
+         (append (concatenate (map (lambda (path)
+                                     (match (written-difference path (read-file path))
+                                       ((Some difference)
+                                        (list (string-append path ": " difference)))
+                                       ((None) (Nil))))
+                                   paths))
+                 (written-differences))))
+    (append differences
+            (list (string-append "compared the text of Syntax on "
+                                 (i64->string (length paths))
+                                 " libraries and "
+                                 (i64->string (length unusual-texts))
+                                 " texts: "
+                                 (i64->string (length differences))
+                                 " differences")))))
 
 ;; ---- Producers' outputs ----
 
@@ -420,12 +446,10 @@
                                           ", ")))
   (let ((cases (discovery-case-findings)))
     (for-each write-line (case-lines cases))
-    (if (any? (lambda (finding)
-                (not (member? (case-kind finding)
-                              (list "discover alike" "known: a program's statements"))))
-              cases)
-        (panic "the discoveries of the cases differ")
-        (unit)))
+    (if (null? (unlike-cases cases)) (unit) (panic "the discoveries of the cases differ")))
+  (let ((written (written-findings tracked)))
+    (for-each write-line written)
+    (if (> (length written) 1) (panic "the written texts differ") (unit)))
   (let ((outputs (output-findings tracked)))
     (for-each write-line outputs)
     (if (> (length outputs) 1) (panic "the decoders differ") (unit)))

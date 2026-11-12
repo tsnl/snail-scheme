@@ -80,9 +80,7 @@
                (link-loc (at main 20))
                (global (expanded-Global (list "main") "x" 0))
                (program (lambda (value)
-                          (expanded-Program (list (expanded-Define global value (at main 1)))
-                                            (None)
-                                            3)))
+                          (expanded-Program (list (expanded-Define global value (at main 1))) 3)))
                (linking (program (expanded-LinkedFile (list "data" "x.txt") link-loc (at main 10))))
                (missing (program (expanded-LinkedFile (list "absent.bin") link-loc (at main 10))))
                (requesting (program (expanded-ArtifactFiles "site"
@@ -134,6 +132,5 @@
                                            (list)
                                            (at main 10))
                                (at main 1)))
-           (None)
            4)))))
    (else)))

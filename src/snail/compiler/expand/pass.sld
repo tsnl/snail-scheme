@@ -5,7 +5,7 @@
 ;; body of (snail core primitive) holds only primitive declarations; any
 ;; other's is scanned, its signatures and declarations expanded, then its
 ;; bodies, as (snail compiler expand declarations) says. A program has no
-;; exports, and its statements are its body.
+;; exports, and its statements stay among its tops, as a library's do.
 (define-library (snail compiler expand pass)
   (export
    expand)
@@ -44,7 +44,7 @@
                 (body (map written (library-body library))))
             (result-let* ((expanded (if (same-library? name primitive-library)
                                         (primitives scopes body)
-                                        (top-level scopes body (program? library)))))
+                                        (top-level scopes body))))
               (expansion library expanded))))))
 
     (: library-name (impl (Fn outline-Library -> outline-LibraryName)))
@@ -65,14 +65,8 @@
         ((outline-Defined _ _ _ body _) body)
         ((outline-Program _ _ _ body) body)))
 
-    (: program? (impl (Fn outline-Library -> Bool)))
-    (define (program? library)
-      (match library
-        ((outline-Defined _ _ _ _ _) #f)
-        ((outline-Program _ _ _ _) #t)))
-
-    ;; The library expanded, and its offer: a program's body, a library's
-    ;; exports.
+    ;; The library expanded, and its offer: a library's exports, and a
+    ;; program's none.
     (: expansion
        (impl (Fn outline-Library TopExpansion -> (Result Expansion (List Feedback)))))
     (define (expansion library expanded)
@@ -87,9 +81,7 @@
                               loc)
                             (Offer exported (::top scopes))))))
           ((outline-Program _ _ _ _)
-           (Ok (Expansion (Program (::tops expanded)
-                                   (::body expanded)
-                                   (::first-unused-number expanded))
+           (Ok (Expansion (Program (::tops expanded) (::first-unused-number expanded))
                           (Offer (Nil) (::top scopes))))))))
 
     ;; An export means what its identifier means at the top level, defined
@@ -107,11 +99,10 @@
 
     ;; ---- The top level ----
 
-    ;; A top level's declarations, a program's body, the first number the
-    ;; expansion did not hand out, and the scopes with the names it bound.
+    ;; A top level's declarations, the first number the expansion did not
+    ;; hand out, and the scopes with the names it bound.
     (struct TopExpansion
       ((tops (List Top))
-       (body (Option Expr))
        (first-unused-number I64)
        (scopes Scopes)))
 
@@ -123,31 +114,20 @@
 
     ;; The scan and the declarations stop at their first problem; the
     ;; bodies report every one.
-    (: top-level (impl (Fn Scopes (List Marked) Bool -> (Result TopExpansion (List Feedback)))))
-    (define (top-level scopes body program?)
+    (: top-level (impl (Fn Scopes (List Marked) -> (Result TopExpansion (List Feedback)))))
+    (define (top-level scopes body)
       (expanding-let* ((scan state (scan-forms first-numbers scopes (Nil) body))
                        (signed state
                                (unchanged state
                                           (checked-signatures (::scopes scan) (::items scan))))
                        (declared state
                                  (unchanged state (declared-items (::scopes scan) (::items scan)))))
-        (let ((bodies (expanded-bodies state (::scopes scan) declared program?)))
+        (let ((bodies (expanded-bodies state (::scopes scan) declared)))
           (if (null? (::feedback bodies))
               (Ok (TopExpansion (::tops bodies)
-                                (sequenced (::statements bodies))
                                 (::next (::state bodies))
                                 (::scopes scan)))
               (Err (::feedback bodies))))))
-
-    ;; A program's statements, in order, as one expression.
-    (: sequenced (impl (Fn (List Expr) -> (Option Expr))))
-    (define (sequenced statements)
-      (match statements
-        ((Nil) (None))
-        ((Cons first rest)
-         (Some (match (sequenced rest)
-                 ((Some more) (Seq first more (expr-loc first)))
-                 ((None) first))))))
 
     ;; ---- Primitives ----
 
@@ -165,7 +145,7 @@
                  (forms forms)
                  (tops (Nil)))
         (match forms
-          ((Nil) (Ok (TopExpansion (reverse tops) (None) (::next first-numbers) scopes)))
+          ((Nil) (Ok (TopExpansion (reverse tops) (::next first-numbers) scopes)))
           ((Cons form rest)
            (result-let* ((declared (primitive scopes form)))
              (loop (::second declared) rest (Cons (::first declared) tops)))))))
@@ -276,22 +256,23 @@
           ((Ok expansion)
            (match (::expanded expansion)
              ((Defined _ _ first-unused _) (expect first-unused 4))
-             ((Program _ _ _) (expect "a library" "a program"))))
+             ((Program _ _) (expect "a library" "a program"))))
           ((Err feedback) (expect feedback (list)))))
 
-      ;; A program's statements are its body, in order.
+      ;; A program's statements stay among its tops, where they are
+      ;; written.
       (define (test-programs)
         (match (expand
                 (outline-Program (list) (None) (list forms-import) (map syntax '(1 (define x 2) x)))
                 (list))
           ((Ok expansion)
            (expect (::expanded expansion)
-                   (Program
-                    (list (Define (Global (list "main") "x" 0) (Literal (Integer 2) loc) loc))
-                    (Some (Seq (Literal (Integer 1) loc)
-                               (TopRef (TopGlobal (Global (list "main") "x" 0)) loc)
-                               loc))
-                    1)))
+                   (Program (list (Statement (Literal (Integer 1) loc))
+                                  (Define (Global (list "main") "x" 0)
+                                    (Literal (Integer 2) loc)
+                                    loc)
+                                  (Statement (TopRef (TopGlobal (Global (list "main") "x" 0)) loc)))
+                            1)))
           ((Err feedback) (expect feedback (list)))))
 
       (define (test-primitives)

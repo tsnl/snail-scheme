@@ -6,7 +6,7 @@
 ;; expand marked)'s.
 ;;
 ;;   Expanded    ::= Defined library Top* first-unused-number
-;;                 | Program Top* Expr? first-unused-number          no Loc
+;;                 | Program Top* first-unused-number                no Loc
 ;;   Top         ::= Define Global Expr
 ;;                 | Signature TopValue Scheme Annotation*
 ;;                 | Statement Expr                                  no Loc but its expression's
@@ -107,9 +107,11 @@
 ;;   is written over its alias's parameters alone, so an AliasParameter
 ;;   names a parameter of the innermost Aliased around it, and its index is
 ;;   below that alias's count of arguments. No other type names an alias.
-;; - Declarations come in the order written once macros are run. A
-;;   program's statements are its body, each under the instance sets in
-;;   scope where it was written; a library's stay statements.
+;; - Declarations come in the order written once macros are run, a
+;;   statement among them where it is written, inside the instance scopes
+;;   around it, in a program as in a library. Gathering a program's
+;;   statements into the one body that runs once every definition is
+;;   initialized is a lowering, which no pass here makes.
 ;; - An `if` has its alternative: one written without has the unit value
 ;;   there, which no Datum writes, so Expanded's expressions have constants
 ;;   of their own. A pattern's literal stays the Datum written.
@@ -249,10 +251,10 @@
     ;; ---- Libraries ----
 
     ;; A library is at its `define-library` form. A program is the library
-    ;; ("main"), whose Globals name that library; its statements, in order,
-    ;; are its body, which runs once every definition is initialized, so no
-    ;; Statement is among its tops. Either holds the first number its
-    ;; library has not used, from which a later pass numbers its locals.
+    ;; ("main"), whose Globals name that library, and its statements are
+    ;; among its tops, where they are written, as a library's are. Either
+    ;; holds the first number its library has not used, from which a later
+    ;; pass numbers its locals.
     (enum Expanded
       (Defined
         ((name LibraryName)
@@ -261,7 +263,6 @@
          (loc Loc)))
       (Program
        ((tops (List Top))
-        (body (Option Expr))
         (first-unused-number I64))))
 
     ;; ---- Declarations ----

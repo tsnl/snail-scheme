@@ -65,6 +65,5 @@
         (Program (list (Statement (linked (list "x.bin") "lib/main.sld"))
                        (Statement (linked (list "x.bin") "other/m.sld"))
                        (Statement (linked (list "x.bin") "lib/main.sld")))
-                 (None)
                  1))))
    (else)))

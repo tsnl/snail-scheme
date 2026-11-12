@@ -5,7 +5,7 @@
 ;; `declare` writes, (snail compiler declare offer).
 ;;
 ;;   Declared    ::= Defined library Top* first-unused-number
-;;                 | Program Top* Expr? first-unused-number          no Loc
+;;                 | Program Top* first-unused-number                no Loc
 ;;   Top         ::= LinkImport Global name* digest file
 ;;                 | Define Global Expr Signed? Annotation*
 ;;                 | Statement Expr                                  no Loc but its expression's
@@ -265,7 +265,6 @@
          (loc Loc)))
       (Program
        ((tops (List Top))
-        (body (Option Expr))
         (first-unused-number I64))))
 
     ;; ---- Declarations ----

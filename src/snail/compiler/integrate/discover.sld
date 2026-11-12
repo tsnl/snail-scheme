@@ -48,41 +48,21 @@
     (define (same-target? request other)
       (string=? (::target request) (::target other)))
 
-    ;; A library expanded: its name, the libraries it imports, and what it
-    ;; offers their expansion.
-    (struct ExpandedFile
-      ((library LibraryName)
-       (imports (List LibraryName))
-       (offer Offer)))
-
     ;; The requests of each of `files` in turn, after `requests`, the
     ;; libraries `done` expanded, latest first.
     (: requests-of
-       (impl (Fn (List LoadedFile) (List ExpandedFile) (List TargetRequest)
+       (impl (Fn (List LoadedFile) (List OfferingLibrary) (List TargetRequest)
                  -> (Result (List TargetRequest) (List Feedback)))))
     (define (requests-of files done requests)
       (match files
         ((Nil) (Ok requests))
         ((Cons loaded rest)
          (let ((imports (map ::library (library-imports (::library loaded)))))
-           (result-let* ((expansion (expand (::library loaded) (closure-offers done imports))))
+           (result-let* ((expansion (expand (::library loaded) (reached-offers done imports))))
              (requests-of rest
-                          (Cons (ExpandedFile (loaded-name loaded) imports (::offer expansion))
+                          (Cons (OfferingLibrary (loaded-name loaded) imports (::offer expansion))
                                 done)
                           (append requests (requested-targets (::expanded expansion)))))))))
-
-    ;; The offers of the libraries `imports` reach, as the compile hands
-    ;; them to the library's expansion.
-    (: closure-offers (impl (Fn (List ExpandedFile) (List LibraryName) -> (List Offered))))
-    (define (closure-offers done imports)
-      (concatenate
-       (map (lambda (name)
-              (match (find (lambda (file) (same-library? (::library file) name)) done)
-                ((Some file) (list (Offered name (::offer file))))
-                ((None) (Nil))))
-            (reached-libraries
-             (map (lambda (file) (Importer (::library file) (::imports file))) done)
-             imports))))
 
     )
 

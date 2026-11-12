@@ -3,7 +3,7 @@
 ;; another target's files.
 ;;
 ;;   Bound       ::= Defined library Top* first-unused-number
-;;                 | Program Top* Expr? first-unused-number          no Loc
+;;                 | Program Top* first-unused-number                no Loc
 ;;   Top         ::= LinkImport Global name* digest file
 ;;                 | Define Global Expr
 ;;                 | Signature TopValue Scheme Annotation*
@@ -165,7 +165,6 @@
          (loc Loc)))
       (Program
        ((tops (List Top))
-        (body (Option Expr))
         (first-unused-number I64))))
 
     ;; ---- Declarations ----

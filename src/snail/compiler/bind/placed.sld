@@ -29,7 +29,7 @@
     (define (bound-tops bound)
       (match bound
         ((Defined _ tops _ _) tops)
-        ((Program tops _ _) tops)))
+        ((Program tops _) tops)))
 
     ;; A library's LinkImports are among its own tops, never inside an
     ;; InstanceScope.
@@ -62,7 +62,6 @@
                                   (Define (expanded-Global (list "main") "x" 0)
                                     (Literal (expanded-UnitValue) loc)
                                     loc))
-                            (None)
                             4))
                   (list (Placed "aa" "a.txt") (Placed "bb" "b.txt")))
           (expect (placed-files (Defined (list "a") (list) 1 loc)) (list))))))

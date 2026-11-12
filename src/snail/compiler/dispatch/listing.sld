@@ -80,7 +80,7 @@
     (define (library-instances library)
       (match library
         ((Defined _ tops _ _) (tops-instances tops))
-        ((Program tops _ _) (tops-instances tops))))
+        ((Program tops _) (tops-instances tops))))
 
     ;; The instances `tops` declare, in order, those of a set in that set.
     (: tops-instances (impl (Fn (List Top) -> (List Listed))))
@@ -295,7 +295,7 @@
                         (FieldInstance point (field "x" #f))
                         (FieldInstance point (field "y" #f))
                         (ListedInstance scoped (None))))
-          (expect (library-instances (Program (list (TopInstance plain)) (None) 900))
+          (expect (library-instances (Program (list (TopInstance plain)) 900))
                   (list (ListedInstance plain (None))))))
 
       ;; What each kind of entry gives: a field instance is its struct at

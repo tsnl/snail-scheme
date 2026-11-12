@@ -263,12 +263,15 @@
 
     ;; ---- Closures ----
 
-    ;; The offers of the libraries `imports` reach, each once, in the
-    ;; order first reached. Every one is done, since loading put each
-    ;; library after those it imports; (snail core forms) has no file.
+    ;; The offers of the libraries `imports` reach, as `reached-offers`
+    ;; says. Every one is done, since loading put each library after those
+    ;; it imports; (snail core forms) has no file.
     (: closure-offers (impl (Fn (List CompiledFile) (List LibraryName) -> (List Offered))))
     (define (closure-offers done imports)
-      (map (lambda (file) (Offered (::library file) (::offer file))) (closure-files done imports)))
+      (reached-offers
+       (map (lambda (file) (OfferingLibrary (::library file) (::imports file) (::offer file)))
+            done)
+       imports))
 
     ;; What the libraries `imports` reach offer their importers'
     ;; declaration, each once.
@@ -302,8 +305,9 @@
      (only (chibi filesystem) create-directory* delete-file-hierarchy)
      (prefix (snail compiler expand language) expanded-)
      (prefix (only (snail compiler declare language) Call TopRef) declared-)
-     (prefix (only (snail compiler dispatch language) Program LinkImport TopData TopInstance)
-             dispatched-)
+     (prefix
+      (only (snail compiler dispatch language) Program LinkImport TopData TopInstance Statement)
+      dispatched-)
      (snail stage0 testing))
     (begin
       ;; Files are written under `directory`, which the runner supplies.
@@ -349,16 +353,17 @@
            (expect (map ::library files)
                    (list (list "sample" "lib") (list "sample" "user") (list "main")))
            (expect (::dispatched (list-ref files 2))
-                   (dispatched-Program (list)
-                                       (Some (declared-TopRef (expanded-TopGlobal
-                                                               (expanded-Global
-                                                                (list "sample" "user")
-                                                                "y"
-                                                                0))
-                                                              (Loc
-                                                               (string-append directory "/main.sld")
-                                                               2
-                                                               1)))
+                   (dispatched-Program (list (dispatched-Statement
+                                              (declared-TopRef (expanded-TopGlobal
+                                                                (expanded-Global
+                                                                 (list "sample" "user")
+                                                                 "y"
+                                                                 0))
+                                                               (Loc
+                                                                (string-append directory
+                                                                               "/main.sld")
+                                                                2
+                                                                1))))
                                        1)))
           (other (expect other "a compiled program")))
         (test-bound directory)
@@ -402,9 +407,11 @@
                                                    (list "data" "x.txt")
                                                    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
                                                    (string-append directory "/data/x.txt")
-                                                   (Loc main 2 14)))
-                      (Some
-                       (declared-Call (declared-TopRef (expanded-TopGlobal handle) use) (list) use))
+                                                   (Loc main 2 14))
+                            (dispatched-Statement
+                             (declared-Call (declared-TopRef (expanded-TopGlobal handle) use)
+                                            (list)
+                                            use)))
                       2))))
           (other (expect other "a program that links a file"))))
 
@@ -423,7 +430,6 @@
            (match (::dispatched (list-ref files 2))
              ((dispatched-Program (Cons (dispatched-TopData data)
                                         (Cons (dispatched-TopInstance instance) (Nil)))
-                                  (None)
                                   _)
               (expect (::class instance)
                       (expanded-ClassGlobal (expanded-Global (list "snail" "shell" "wire")
