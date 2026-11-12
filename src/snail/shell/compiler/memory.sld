@@ -365,17 +365,19 @@
         ((Some value) value)
         (_ (panic (string-append "internal error: unknown local " name)))))
 
+    ;; Objects do not move, so a pointer value stays valid across collection.
+    ;; Keep it in a Wasm local and mirror assignments into its root cell. This
+    ;; caches variable values only; mutable fields are still loaded normally.
     (: read-local (impl (Fn MemoryFunction String -> Wat)))
     (define (read-local fn name)
-      (match (table-ref (::local-roots fn) name)
-        ((Some slot) (wat "i32.load" (root-address slot)))
-        (_ (get-local (local-name fn name)))))
+      (get-local (local-name fn name)))
 
     (: write-local (impl (Fn MemoryFunction String Wat Bool -> Wat)))
     (define (write-local fn name value tee?)
       (match (table-ref (::local-roots fn) name)
         ((Some slot)
-         (let* ((store (wat "i32.store" (root-address slot) value)))
+         (let* ((store (wat "i32.store" (root-address slot)
+                            (wat "local.tee" (Word (local-name fn name)) value))))
            (if tee? (wat "block" (wat "result" (Word "i32")) store (read-local fn name)) store)))
         (_ (wat (if tee? "local.tee" "local.set") (Word (local-name fn name)) value))))
 
@@ -815,16 +817,7 @@
                                         (pick "type" (parts function))
                                         (pick "param" (local-declarations fn function))
                                         (result-annotation result)
-                                        (filter (lambda (local)
-                                                  (not (and (::framed? fn) (managed? module
-                                                                                     (lookup
-                                                                                      (::local-types
-                                                                                       fn)
-                                                                                      (word
-                                                                                       (at (parts
-                                                                                            local)
-                                                                                           0)))))))
-                                                (pick "local" (local-declarations fn function)))
+                                        (pick "local" (local-declarations fn function))
                                         (list (wat "local" (Word "$lm.frame") (Word "i32")))
                                         (scratch-locals)
                                         (reverse (ref-get (::locals fn)))
