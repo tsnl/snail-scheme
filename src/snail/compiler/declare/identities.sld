@@ -14,6 +14,7 @@
    case-type-id)
   (import
    (snail core base)
+   (only (snail compiler source) fnv-1a)
    (only (snail compiler expand language)
          Global
          Impl
@@ -35,20 +36,12 @@
     (define (case-type-id known data case)
       (type-id (case-schema known data case (Nil))))
 
-    ;; A hash as a signed 32-bit value, which Wasm's i32 holds.
+    ;; The hash, (snail compiler source)'s FNV-1a, as a signed 32-bit
+    ;; value, which Wasm's i32 holds.
     (: type-id (impl (Fn String -> I64)))
     (define (type-id text)
       (let ((hash (fnv-1a text)))
         (if (>= hash 2147483648) (- hash 4294967296) hash)))
-
-    ;; FNV-1a over the code points, as an unsigned 32-bit value. The
-    ;; product stays below 2^56, so it never overflows I64.
-    (: fnv-1a (impl (Fn String -> I64)))
-    (define (fnv-1a text)
-      (fold-left (lambda (hash char)
-                   (i64-and (* (i64-xor hash (char->integer char)) 16777619) 4294967295))
-                 2166136261
-                 (string->list text)))
 
     ;; ---- Schemas ----
 

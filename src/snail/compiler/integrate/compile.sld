@@ -1,7 +1,7 @@
-;; Compiling a loaded program: each library in the order loading found
-;; them, each after every library it imports, the program last. Each is
-;; taken through the passes before the next starts, so a problem is
-;; reported for the earliest library that has one, as the old compiler
+;; Compiling a program: loaded, then each library in the order loading
+;; found them, each after every library it imports, the program last.
+;; Each is taken through the passes before the next starts, so a problem
+;; is reported for the earliest library that has one, as the old compiler
 ;; reports it: expanded, handed the offers of the libraries its imports
 ;; reach; bound, as (snail compiler integrate bind) says, with the files of
 ;; the targets the caller supplied; derived, handed the offers of the
@@ -17,22 +17,22 @@
 ;; loaded then, if no library loaded them, and compiled after that
 ;; library's expansion and before it is bound, where the old compiler
 ;; loads them, as it reaches the clause. A program that reaches a
-;; generated library is not compiled, since its producer has not yet
-;; printed the library's body, and one stops at the first library that
-;; asks for a target the caller did not supply, which it waits for. The
-;; integrator keeps, of each library, what it offers the expansion and the
-;; declaration of the libraries that import it; the files the build must
-;; place beside the program for it, which it asks of the library bound;
-;; its latest tree, the library dispatched; and its listing, every
-;; instance it declares.
+;; generated library whose producer's output is not there is not
+;; compiled: it waits for the producers, all of them, before anything is
+;; compiled. One stops at the first library that asks for a target the
+;; caller did not supply, which it waits for. The integrator keeps, of
+;; each library, what it offers the expansion and the declaration of the
+;; libraries that import it; the files the build must place beside the
+;; program for it, which it asks of the library bound; its latest tree,
+;; the library dispatched; and its listing, every instance it declares.
 (define-library (snail compiler integrate compile)
   (export
    CompiledFile
    ProgramCompilation
    CompiledAll
-   WaitingForLibraries
+   WaitingForProducers
    WaitingForTargets
-   compile-loaded)
+   compile-program)
   (import
    (snail core base)
    (snail core table)
@@ -76,92 +76,106 @@
        (declarations Declarations)
        (listing (List Listed))))
 
-    ;; Every library compiled, in order; or the generated libraries the
-    ;; program waits for, before anything is compiled; or the targets the
-    ;; first library that asks for one it was not supplied waits for.
+    ;; Every library compiled, in order; or the producers of the generated
+    ;; libraries whose outputs are not there, in the order reached, before
+    ;; anything is compiled; or the targets the first library that asks
+    ;; for one it was not supplied waits for.
     (enum ProgramCompilation
       (CompiledAll
        ((files (List CompiledFile))))
-      (WaitingForLibraries
-       ((libraries (List LibraryName))))
+      (WaitingForProducers
+       ((producers (List Producer))))
       (WaitingForTargets
        ((requests (List TargetRequest)))))
 
-    ;; `targets` holds the files of each target the caller supplies, by
-    ;; target.
-    (: compile-loaded
-       (impl (Fn (List String) (Table (List TargetFile)) Loaded
+    ;; What the caller supplies a compile: the directories libraries are
+    ;; found in, in order; the directory each producer's output is read
+    ;; from, GENERATED/KEY.syntax; and the files of each target it has
+    ;; made, by target.
+    (struct Build
+      ((directories (List String))
+       (generated String)
+       (targets (Table (List TargetFile)))))
+
+    ;; The program at `path`, compiled.
+    (: compile-program
+       (impl (Fn (List String) String (Table (List TargetFile)) String
                  -> (Result ProgramCompilation (List Feedback))
                  !
                  fs)))
-    (define (compile-loaded directories targets loaded)
-      (match (::waiting loaded)
-        ((Cons _ _) (Ok (WaitingForLibraries (::waiting loaded))))
-        ((Nil)
-         (result-let* ((run
-                        (compiled-files directories targets (::files loaded) (Running (Nil) #f))))
-           (Ok (match run
-                 ((Running done _) (CompiledAll (reverse done)))
-                 ((Waiting requests) (WaitingForTargets requests))))))))
+    (define (compile-program directories generated targets path)
+      (result-let* ((loaded (load-program directories generated path)))
+        (match loaded
+          ((Unproduced producers) (Ok (WaitingForProducers producers)))
+          ((Complete files)
+           (result-let* ((run (compiled-files (Build directories generated targets)
+                                              files
+                                              (Running (Nil) #f))))
+             (Ok (match run
+                   ((Running done _) (CompiledAll (reverse done)))
+                   ((StoppedForProducers producers) (WaitingForProducers producers))
+                   ((StoppedForTargets requests) (WaitingForTargets requests)))))))))
 
     ;; ---- The loop ----
 
     ;; How far the loop is: the files done, latest first, and whether the
-    ;; implicit libraries are in; or the targets the library it stopped
-    ;; at waits for.
+    ;; implicit libraries are in; or the producers the implicit libraries
+    ;; wait for, when loading them reaches one; or the targets the library
+    ;; it stopped at waits for.
     (enum Run
       (Running
        ((done (List CompiledFile))
         (implicit? Bool)))
-      (Waiting
+      (StoppedForProducers
+       ((producers (List Producer))))
+      (StoppedForTargets
        ((requests (List TargetRequest)))))
 
     ;; `run` with each of `files` compiled in turn. A library the implicit
     ;; libraries brought in early is not compiled again where loading put
     ;; it.
     (: compiled-files
-       (impl (Fn (List String) (Table (List TargetFile)) (List Outlined) Run
-                 -> (Result Run (List Feedback))
-                 !
-                 fs)))
-    (define (compiled-files directories targets files run)
+       (impl (Fn Build (List LoadedFile) Run -> (Result Run (List Feedback)) ! fs)))
+    (define (compiled-files build files run)
       (match (Pair files run)
-        ((Pair (Cons outlined rest) (Running done implicit?))
-         (if (compiled? done outlined)
-             (compiled-files directories targets rest run)
-             (result-let* ((next (library-run directories targets outlined done implicit?)))
-               (compiled-files directories targets rest next))))
+        ((Pair (Cons loaded rest) (Running done implicit?))
+         (if (compiled? done loaded)
+             (compiled-files build rest run)
+             (result-let* ((next (library-run build loaded done implicit?)))
+               (compiled-files build rest next))))
         (_ (Ok run))))
 
     ;; One library expanded; then the implicit libraries, when it is the
     ;; first to derive; then the library bound, derived, declared,
     ;; dispatched and cohered.
     (: library-run
-       (impl (Fn (List String) (Table (List TargetFile)) Outlined (List CompiledFile) Bool
-                 -> (Result Run (List Feedback))
-                 !
-                 fs)))
-    (define (library-run directories targets outlined done implicit?)
-      (let ((imports (map ::library (imported-libraries (::outline outlined)))))
-        (result-let* ((expansion (library-expansion done outlined imports))
-                      (before (implicit-before directories targets expansion done implicit?)))
+       (impl (Fn Build LoadedFile (List CompiledFile) Bool -> (Result Run (List Feedback)) ! fs)))
+    (define (library-run build loaded done implicit?)
+      (let ((imports (map ::library (library-imports (::library loaded)))))
+        (result-let* ((expansion (expand (::library loaded) (closure-offers done imports)))
+                      (before (implicit-before build expansion done implicit?)))
           (match before
             ((Running earlier implicit?)
-             (declared-run targets outlined imports expansion earlier implicit?))
-            ((Waiting _) (Ok before))))))
+             (declared-run (::targets build) loaded imports expansion earlier implicit?))
+            (_ (Ok before))))))
 
     ;; The run with the library bound, derived, declared, dispatched and
     ;; cohered after `earlier`, or waiting for the targets it asks for.
     (: declared-run
        (impl
-        (Fn (Table (List TargetFile)) Outlined (List LibraryName) Expansion (List CompiledFile) Bool
+        (Fn (Table (List TargetFile))
+            LoadedFile
+            (List LibraryName)
+            Expansion
+            (List CompiledFile)
+            Bool
             -> (Result Run (List Feedback))
             !
             fs)))
-    (define (declared-run targets outlined imports expansion earlier implicit?)
-      (result-let* ((outcome (bind-expanded outlined (::expanded expansion) targets)))
+    (define (declared-run targets loaded imports expansion earlier implicit?)
+      (result-let* ((outcome (bind-expanded loaded (::expanded expansion) targets)))
         (match outcome
-          ((WantsTargets requests) (Ok (Waiting requests)))
+          ((WantsTargets requests) (Ok (StoppedForTargets requests)))
           ((BoundLibrary bound)
            (let ((closure (closure-declarations earlier (declaration-imports expansion imports)))
                  (instances (listings earlier)))
@@ -169,8 +183,8 @@
                            (declared (declare derived closure))
                            (dispatched (dispatch (::declared declared) closure instances))
                            (cohered (cohere dispatched instances)))
-               (Ok (Running (Cons (CompiledFile (::file outlined)
-                                                (outlined-name outlined)
+               (Ok (Running (Cons (CompiledFile (::file loaded)
+                                                (loaded-name loaded)
                                                 imports
                                                 (::offer expansion)
                                                 (placed-files bound)
@@ -195,21 +209,24 @@
         ((None) imports)))
 
     ;; `done` with the implicit libraries, when the library `expansion`
-    ;; holds is the first to derive.
+    ;; holds is the first to derive. They load with nothing loading, since
+    ;; no library they reach is generated.
     (: implicit-before
-       (impl (Fn (List String) (Table (List TargetFile)) Expansion (List CompiledFile) Bool
-                 -> (Result Run (List Feedback))
-                 !
-                 fs)))
-    (define (implicit-before directories targets expansion done implicit?)
+       (impl (Fn Build Expansion (List CompiledFile) Bool -> (Result Run (List Feedback)) ! fs)))
+    (define (implicit-before build expansion done implicit?)
       (match (if implicit? (None) (first-derivation (::expanded expansion)))
         ((Some loc)
-         (result-let* ((loaded (load-libraries directories implicit-libraries loc)))
-           (compiled-files directories
-                           targets
-                           (filter (lambda (outlined) (not (compiled? done outlined)))
-                                   (::files loaded))
-                           (Running done #t))))
+         (result-let* ((loaded
+                        (load-libraries (::directories build)
+                                        (::generated build)
+                                        implicit-libraries
+                                        loc)))
+           (match loaded
+             ((Complete files)
+              (compiled-files build
+                              (filter (lambda (file) (not (compiled? done file))) files)
+                              (Running done #t)))
+             ((Unproduced producers) (Ok (StoppedForProducers producers))))))
         ((None) (Ok (Running done implicit?)))))
 
     (: wire-library LibraryName)
@@ -229,63 +246,47 @@
     (: implicit-offers (impl (Fn (List CompiledFile) -> (List Offered))))
     (define (implicit-offers done)
       (concatenate (map (lambda (name)
-                          (match (find (lambda (file) (same-library? (::library file) name)) done)
+                          (match (compiled-named done name)
                             ((Some file) (list (Offered name (::offer file))))
                             ((None) (Nil))))
                         implicit-libraries)))
 
-    (: compiled? (impl (Fn (List CompiledFile) Outlined -> Bool)))
-    (define (compiled? done outlined)
-      (any? (lambda (file) (same-library? (::library file) (outlined-name outlined))) done))
+    (: compiled? (impl (Fn (List CompiledFile) LoadedFile -> Bool)))
+    (define (compiled? done loaded)
+      (match (compiled-named done (loaded-name loaded))
+        ((Some _) #t)
+        ((None) #f)))
 
-    ;; ---- One library ----
+    (: compiled-named (impl (Fn (List CompiledFile) LibraryName -> (Option CompiledFile))))
+    (define (compiled-named done name)
+      (find (lambda (file) (same-library? (::library file) name)) done))
 
-    (: library-expansion
-       (impl
-        (Fn (List CompiledFile) Outlined (List LibraryName) -> (Result Expansion (List Feedback)))))
-    (define (library-expansion done outlined imports)
-      (match (::outline outlined)
-        ((Written library) (expand library (closure-offers done imports)))
-        ((Generated name _ _ loc)
-         (fail loc
-               (string-append "a generated library is expanded once printed: "
-                              (written-name name))))))
-
-    (: outlined-name (impl (Fn Outlined -> LibraryName)))
-    (define (outlined-name outlined)
-      (match (::outline outlined)
-        ((Written (Defined name _ _ _ _)) name)
-        ((Written (Program _ _ _ _)) program-library)
-        ((Generated name _ _ _) name)))
+    ;; ---- Closures ----
 
     ;; The offers of the libraries `imports` reach, each once, in the
     ;; order first reached. Every one is done, since loading put each
     ;; library after those it imports; (snail core forms) has no file.
     (: closure-offers (impl (Fn (List CompiledFile) (List LibraryName) -> (List Offered))))
     (define (closure-offers done imports)
-      (map (lambda (file) (Offered (::library file) (::offer file)))
-           (reached done imports (Nil))))
+      (map (lambda (file) (Offered (::library file) (::offer file))) (closure-files done imports)))
 
     ;; What the libraries `imports` reach offer their importers'
     ;; declaration, each once.
     (: closure-declarations
        (impl (Fn (List CompiledFile) (List LibraryName) -> (List Declarations))))
     (define (closure-declarations done imports)
-      (map ::declarations (reached done imports (Nil))))
+      (map ::declarations (closure-files done imports)))
 
-    (: reached
-       (impl
-        (Fn (List CompiledFile) (List LibraryName) (List CompiledFile) -> (List CompiledFile))))
-    (define (reached done names found)
-      (match names
-        ((Nil) found)
-        ((Cons name rest)
-         (if (any? (lambda (file) (same-library? (::library file) name)) found)
-             (reached done rest found)
-             (match (find (lambda (file) (same-library? (::library file) name)) done)
-               ((Some file)
-                (reached done rest (reached done (::imports file) (append found (list file)))))
-               ((None) (reached done rest found)))))))
+    (: closure-files (impl (Fn (List CompiledFile) (List LibraryName) -> (List CompiledFile))))
+    (define (closure-files done imports)
+      (concatenate (map (lambda (name)
+                          (match (compiled-named done name)
+                            ((Some file) (list file))
+                            ((None) (Nil))))
+                        (reached-libraries
+                         (map (lambda (file) (Importer (::library file) (::imports file)))
+                              done)
+                         imports))))
 
     )
 
@@ -294,9 +295,11 @@
   (cond-expand
    (snail-tests
     (export
-     test-compile-loaded)
+     test-compile)
     (import
-     (only (chibi filesystem) create-directory*)
+     (only (scheme base) apply bytevector write-bytevector close-port)
+     (only (scheme file) open-binary-output-file)
+     (only (chibi filesystem) create-directory* delete-file-hierarchy)
      (prefix (snail compiler expand language) expanded-)
      (prefix (only (snail compiler declare language) Call TopRef) declared-)
      (prefix (only (snail compiler dispatch language) Program LinkImport TopData TopInstance)
@@ -304,8 +307,12 @@
      (snail stage0 testing))
     (begin
       ;; Files are written under `directory`, which the runner supplies.
-      (define (test-compile-loaded directory)
+      (define (test-compile directory)
         (create-directory* (string-append directory "/sample"))
+        (if (file-exists? (string-append directory "/generated"))
+            (delete-file-hierarchy (string-append directory "/generated"))
+            (unit))
+        (create-directory* (string-append directory "/generated"))
         (create-directory* (string-append directory "/data"))
         (create-directory* (string-append directory "/snail/core"))
         (create-directory* (string-append directory "/snail/shell"))
@@ -328,7 +335,9 @@
                (Pair "deriving.sld"
                      "(import (snail core forms))\n(struct Unit-like () (deriving Serialize))")
                (Pair "data/x.txt" "abc")
-               (Pair "waiting.sld" "(import (sample made))")
+               (Pair "waiting.sld" "(import (sample made) (sample broken))\nm")
+               (Pair "sample/broken.sld" "(define-library (sample broken) (begin (bogus)))")
+               (Pair "using.sld" "(import (sample made))\nm")
                (Pair "asking.sld" "(import (sample asks))")
                (Pair "missing.sld" "(import (snail core forms))\n(link-handle \"data/y.txt\")")
                (Pair "sample/probes.sld"
@@ -354,9 +363,7 @@
           (other (expect other "a compiled program")))
         (test-bound directory)
         (test-derived directory)
-        (match (compiled-at directory "waiting.sld")
-          ((Ok (WaitingForLibraries libraries)) (expect libraries (list (list "sample" "made"))))
-          (other (expect other "a program waiting for (sample made)")))
+        (test-generated directory)
         (match (compiled-at directory "asking.sld")
           ((Ok (WaitingForTargets requests))
            (expect (map ::target requests) (list "site")))
@@ -426,8 +433,46 @@
            (expect (length (::listing (list-ref files 2))) 1))
           (other (expect other "a program that derives an instance"))))
 
+      ;; A program that reaches a generated library whose output is not
+      ;; there waits for its producer before anything is compiled, even a
+      ;; library with a problem; once the output is there, the library it
+      ;; declares is compiled in its place, in its recipe's file.
+      (define (test-generated directory)
+        (match (compiled-at directory "waiting.sld")
+          ((Ok (WaitingForProducers (Cons producer (Nil))))
+           (expect (::library producer) (list "sample" "made"))
+           (expect (::loading producer) (list "sample.made"))
+           ;; (define-library (sample made) (export m) (import (snail core
+           ;; forms)) (begin (define m 7))), as a producer encodes it.
+           (write-output directory
+                         producer
+                         (list 0 5
+                               1 14 100 101 102 105 110 101 45 108 105 98 114 97 114 121
+                               0 2 1 6 115 97 109 112 108 101 1 4 109 97 100 101
+                               0 2 1 6 101 120 112 111 114 116 1 1 109
+                               0 2 1 6 105 109 112 111 114 116
+                               0 3 1 5 115 110 97 105 108 1 4 99 111 114 101 1 5 102 111 114 109 115
+                               0 2 1 5 98 101 103 105 110
+                               0 3 1 6 100 101 102 105 110 101 1 1 109 2 1 55))
+           (match (compiled-at directory "using.sld")
+             ((Ok (CompiledAll files))
+              (expect (map (lambda (file) (Pair (::file file) (::library file))) files)
+                      (list
+                       (Pair (string-append directory "/sample/made.sld") (list "sample" "made"))
+                       (Pair (string-append directory "/using.sld") (list "main")))))
+             (other (expect other "a program whose generated library is compiled"))))
+          (other (expect other "a program waiting for (sample made)"))))
+
+      ;; Writes `codes` as the output of `producer`, as its producer would.
+      (define (write-output directory producer codes)
+        (let ((port (open-binary-output-file
+                     (string-append directory "/generated/" (::key producer) ".syntax"))))
+          (write-bytevector (apply bytevector codes) port)
+          (close-port port)))
+
       (define (compiled-at directory file)
-        (match (load-program (list directory) (string-append directory "/" file))
-          ((Ok loaded) (compile-loaded (list directory) empty-table loaded))
-          ((Err feedback) (Err feedback))))))
+        (compile-program (list directory)
+                         (string-append directory "/generated")
+                         empty-table
+                         (string-append directory "/" file)))))
    (else)))
