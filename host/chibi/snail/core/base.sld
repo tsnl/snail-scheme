@@ -240,6 +240,7 @@
    ::tag
    ::target
    ::targets
+   ::temporary-roots?
    ::term
    ::text
    ::top-count
@@ -467,6 +468,7 @@
     (define (::tag value) (field-of value (quote tag)))
     (define (::target value) (field-of value (quote target)))
     (define (::targets value) (field-of value (quote targets)))
+    (define (::temporary-roots? value) (field-of value (quote temporary-roots?)))
     (define (::term value) (field-of value (quote term)))
     (define (::text value) (field-of value (quote text)))
     (define (::top-count value) (field-of value (quote top-count)))
