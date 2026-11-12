@@ -44,8 +44,8 @@
     (body)
     -1))
 
-(write-line (show (first-above 3 (lambda () (range 1 5)))))
-(write-line (show (first-above 9 (lambda () (range 1 5)))))
+(write-line (repr (first-above 3 (lambda () (range 1 5)))))
+(write-line (repr (first-above 9 (lambda () (range 1 5)))))
 ;; ANCHOR_END: first-above
 
 ;; ANCHOR: step

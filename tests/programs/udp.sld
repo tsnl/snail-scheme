@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (except (snail core io) write)
+ (rename (snail core io) (write write-value))
  (only (snail shell task) dispatch-local)
  (snail shell socket))
 
@@ -29,7 +29,7 @@
            (display (require (send first peer #u8(0 255 128 1))))
            (newline)
            (let ((packet (require (receive second 4))))
-             (display (vector->list (● packet bytes)))
+             (write-value (vector->list (● packet bytes)))
              (newline)
              (display (and (string=? (Endpoint-address (● packet peer)) "127.0.0.1")
                            (= (Endpoint-port (● packet peer)) (● first port))))
@@ -51,7 +51,7 @@
            (match (send first peer (vector-generate 65508 (lambda (_) (i32->u8 0))))
              ((Err error) (write-line (● error code)))
              ((Ok _) (panic "an oversized datagram was sent")))
-           (display (vector->list (● (require (receive second 1)) bytes)))
+           (write-value (vector->list (● (require (receive second 1)) bytes)))
            (newline)
            (require (close-udp first))
            (require (close-udp first))

@@ -49,7 +49,7 @@
 ;; and `lambda` makes one.
 (define numbers (→ (List I64)) (list 1 2 3 4 5))
 
-(display (map square (filter (lambda (n) (= (remainder n 2) 1)) numbers)))
+(write (map square (filter (lambda (n) (= (remainder n 2) 1)) numbers)))
 (newline)
 (display (fold-left + 0 numbers))
 (newline)
@@ -77,7 +77,7 @@
     ((Circle _ radius) (* 3 (square radius)))
     ((Rectangle _ width height) (* width height))))
 
-(display (map area (list (Circle (Point 0 0) 2) (Rectangle (Point 1 1) 3 4))))
+(write (map area (list (Circle (Point 0 0) 2) (Rectangle (Point 1 1) 3 4))))
 (newline)
 
 ;; There is no null and no exception: absence is an Option, and failure a
@@ -159,10 +159,10 @@
     (emit n)
     (count-down (- n 1))))
 
-(display (handle Emit
-             ((emit (lambda (value resume) (Cons value (resume (unit))))))
-           (count-down 3)
-           (Nil)))
+(write (handle Emit
+           ((emit (lambda (value resume) (Cons value (resume (unit))))))
+         (count-down 3)
+         (Nil)))
 (newline)
 
 ;; ---- Ownership ----

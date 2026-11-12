@@ -1023,19 +1023,6 @@
     (instance (Show (!) Unit)
       (define show (lambda (value) "()")))
 
-    (instance (Show (! e) (List T))
-      (⊨ (Show e T))
-      (define show
-        (lambda (items)
-          (string-append "(" (string-append (string-join (map show items) " ") ")")))))
-
-    (instance (Show (! e) (Option T))
-      (⊨ (Show e T))
-      (define show
-        (lambda (value) (match value
-                          ((Some x) (string-append "(Some " (string-append (show x) ")")))
-                          ((None) "(None)")))))
-
     (instance (Show (!) F64)
       (define show f64->string))
 

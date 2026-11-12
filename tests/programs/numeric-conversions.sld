@@ -9,9 +9,9 @@
     (_ (panic "expected a real"))))
 
 ;; Each parse replaces only its private result. Failure and NaN differ.
-(write-line (show (string->number "12.5")))
-(write-line (show (string->number "invalid")))
-(write-line (show (string->number "-2.5e1")))
+(write-line (repr (string->number "12.5")))
+(write-line (repr (string->number "invalid")))
+(write-line (repr (string->number "-2.5e1")))
 (write-line (show (= (real "+nan.0") (real "+nan.0"))))
 (write-line (show (f64->bits (real "-0.0"))))
 (write-line (show (f64->bits (real "4.9406564584124654e-324"))))

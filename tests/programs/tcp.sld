@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (except (snail core io) write)
+ (rename (snail core io) (write write-value))
  (snail shell task)
  (snail shell socket))
 
@@ -29,7 +29,7 @@
            (require (close-listener listener))
            (display (require (write client #u8(0 255 128 1))))
            (newline)
-           (display (vector->list (receive-four server)))
+           (write-value (vector->list (receive-four server)))
            (newline)
            ;; A read takes 1 to 65,536 bytes, and a grace is not negative.
            (for-each (lambda (maximum)

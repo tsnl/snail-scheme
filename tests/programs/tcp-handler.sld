@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (except (snail core io) write)
+ (rename (snail core io) (write write-value))
  (snail shell task)
  (snail shell socket))
 
@@ -53,7 +53,7 @@
               (once (lambda ()
                       (require (write connection #u8(7 8)))
                       (match (require (read connection 2))
-                        ((Some bytes) (display (vector->list bytes)))
+                        ((Some bytes) (write-value (vector->list bytes)))
                         ((None) (panic "unexpected EOF")))
                       (newline)
                       (require (finish-connection connection 250))))))))))

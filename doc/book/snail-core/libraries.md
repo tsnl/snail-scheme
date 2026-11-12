@@ -136,7 +136,9 @@ same operation. Stage 0 supplies the corresponding stable sort on Chibi.
 
 ## Console output
 
-`(display value)` prints the text chosen by its `Show` instance.
+`(display value)` prints the text chosen by its `Show` instance. Scalars have
+standard instances; containers such as `Option`, lists, vectors, `Result`
+and `Pair` require an explicit presentation instance.
 `(write value)` prints its `Repr` representation: strings keep quotes and
 escapes, characters use `#\` notation, and containers represent their
 elements recursively. Both perform `console` and append no newline;
@@ -145,10 +147,15 @@ The socket library has its own `write`; import `(except (snail core io) write)`
 when only the socket operation is needed, or rename one of them.
 
 ```scheme
-(display (Some "hello")) ; prints (Some hello)
+(display "hello")        ; prints hello
 (write (Some "hello"))   ; prints (Some "hello")
 (write (list "a" "b"))   ; prints ("a" "b")
 ```
+
+`(display (Some "hello"))` is a compile error without an explicit `Show`
+instance. Use `write` for the container's representation, or match and
+display its contents to choose the presentation. This prevents a string's
+quotes from disappearing inside a container's printed notation.
 
 `(repr value)` returns the same representation as a `String`, without
 effects. `(snail core base)` supplies `Repr` instances for numeric scalars,

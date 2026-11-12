@@ -6,7 +6,7 @@
   (list (lambda (value) (+ value 1))
         (lambda (value) (* value 2))))
 
-(write-line (show (map (lambda (function) (function 5)) handlers)))
+(write-line (repr (map (lambda (function) (function 5)) handlers)))
 
 ;; A first-class constructor preserves argument count, too.
 (let ((to-once once))

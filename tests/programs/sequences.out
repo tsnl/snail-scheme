@@ -10,6 +10,6 @@ ell
 olleh
 #t
 a-b-c
-(x y)
+("x" "y")
 65
 (Some 2)
