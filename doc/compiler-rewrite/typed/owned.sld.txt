@@ -1,0 +1,255 @@
+;; DRAFT (build/typed-design): not compiled, not on any load path.
+;;
+;; Owned, the tree `borrow-check` writes, the last before specialization:
+;; a typed library whose conversions are tests and boxes, whose lambdas are
+;; closures with their captures or code, whose writes name places, and
+;; whose every read of a local is a use or a loan. `confine` reads it and
+;; writes nothing; milestone B's adapter rebuilds the old checked `Typed`
+;; from it; milestone C's `specialize` reads it.
+;;
+;;   Owned       ::= Owned library Top* first-unused-number          no Loc
+;;   Top         ::= Define Global Expr Scheme Origin Annotation*
+;;                 | Statement Expr                                  no Loc but its expression's
+;;                 | Expose TopValue symbol dynamic?
+;;
+;;   Expr        ::= Expr Term Type
+;;   Term        ::= Literal Constant | Use Local | Lend Local
+;;                 | TopRef TopValue Type* Evidence*
+;;                 | Closure Local* Local* Expr confined? | Code Local* Expr confined?
+;;                 | Call Expr Expr* Invocation? | If Expr Expr Expr | Seq Expr Expr
+;;                 | Let Local Expr Expr | Match Expr Clause* | Handle Global Implementation* Expr
+;;                 | Erase Expr | Box Expr | Unbox Expr | TypeTest Expr Type
+;;                 | Assign Place Expr Type* | Swap Place Expr Type*
+;;                 | CaseId Global id                                no Loc: the Expr's
+;;   Place       ::= Slot Link Expr | Within Link Place
+;;   Link        ::= Link Expr Global index Type
+;;   Clause      ::= Clause Pattern Expr
+;;   Implementation ::= Implementation Global Expr
+;;
+;; Typed's rules are reused, (snail compiler settle language): Type and
+;; every rule under it, Scheme, Requirement, Evidence, InstanceRef, Plan,
+;; Invocation, Origin, Pattern and Shape. No pass after `settle` writes a
+;; new form of them; each reads them through `settle/types.sld`. (That this
+;; reuse is allowed is open question 2 of design.md.) Every other rule is
+;; Expanded's: Constant, Local, Global, TopValue, Annotation.
+;;
+;; Over the Placed library it comes from, Owned guarantees:
+;;
+;; - Each read of a local is a Use or a Lend. A Lend is the root of a
+;;   loan: the owner a `with-borrow` names, directly or as the local an
+;;   immutable field path is read from, and the receiver of a call that
+;;   borrows it (FnMut, or a shared receiver). Every other read is a Use:
+;;   a move of a linear value, a copy of an unrestricted one.
+;; - Every check of `borrow-check` holds (inventory.md B1-B7): each linear
+;;   local is used once on every path that returns, alternatives agree,
+;;   every scope's linear locals are consumed; a borrowed owner is not
+;;   moved, a borrow does not escape, no closure captures one, no call
+;;   that may yield runs while one is active; field operations neither
+;;   duplicate nor discard linear content; drops that may run fit the row
+;;   of who runs them; no linear value is a global, crosses Any or is
+;;   discarded.
+;;
+;; From the passes between Typed and Placed, which Owned keeps:
+;;
+;; - `convert`: no Convert or TryConvert. Each conversion to Any is a Box;
+;;   each from Any is a Let of the Any to a local of its own, and an If
+;;   whose test is a TypeTest of it and whose branches are its Unbox and a
+;;   failure: a call of `conversion-failed` with its CastError under a
+;;   clause-less Match, or, for `try-convert`, the Unbox under `Ok` and
+;;   the CastError under `Err`; a conversion to Any of an Any, or between
+;;   equal types, is the value. Every Any boundary was checked (V1).
+;; - `close`: no Lambda or ClosedLambda. A lambda is a Closure: the locals
+;;   around it its body reads, in order of first read, but the local a
+;;   `let` binds it to, which it reads from itself; then its parameters. A
+;;   ClosedLambda, which a definition's lambda value is too, is Code, and
+;;   reads no local around it but that let's (L1).
+;; - `place`: no call of `set!` or `replace!` remains. Each is an Assign or
+;;   a Swap of its place and its value, with the types the primitive was
+;;   instantiated at. A place is a mutable field of a record, reached by
+;;   its Link, whose record is an ordinary expression (`Slot`); or an
+;;   immutable field of a struct within a place (`Within`), as the old
+;;   check follows links inward to the first mutable field. A Link is the
+;;   read as typed: its reader, a struct accessor's TopRef or a field
+;;   reader's with the struct's instance as evidence; the struct's case;
+;;   the field's index; the read's type, at the read's place. Every link
+;;   is a struct's own stored field (W1).
+;; - `confine` finds the Closures and Code marked `confined?`.
+(define-library (snail compiler borrow-check language)
+  (export
+   Owned
+   Top
+   Define
+   Statement
+   Expose
+   Expr
+   Term
+   Literal
+   Use
+   Lend
+   TopRef
+   Closure
+   Code
+   Call
+   If
+   Seq
+   Let
+   Match
+   Handle
+   Erase
+   Box
+   Unbox
+   TypeTest
+   Assign
+   Swap
+   CaseId
+   Place
+   Slot
+   Within
+   Link
+   Clause
+   Implementation)
+  (import
+   (snail core base)
+   (snail compiler source)
+   (only (snail compiler outline language) LibraryName)
+   (only (snail compiler expand language)
+         Constant
+         Local
+         Global
+         TopValue
+         Annotation)
+   (only (snail compiler settle language)
+         Type
+         Scheme
+         Evidence
+         Invocation
+         Origin
+         Pattern))
+  (begin
+
+    ;; ---- Libraries ----
+
+    (struct Owned
+      ((library LibraryName)
+       (tops (List Top))
+       (first-unused-number I64)))
+
+    ;; ---- Code ----
+
+    (enum Top
+      (Define
+        ((global Global)
+         (value Expr)
+         (scheme Scheme)
+         (origin Origin)
+         (annotations (List Annotation))
+         (loc Loc)))
+      (Statement
+       ((expr Expr)))
+      (Expose
+       ((target TopValue)
+        (symbol String)
+        (dynamic? Bool)
+        (loc Loc))))
+
+    ;; ---- Expressions ----
+
+    (struct Expr
+      ((term Term)
+       (type Type)
+       (loc Loc)))
+
+    (enum Term
+      (Literal
+       ((constant Constant)))
+      (Use
+       ((local Local)))
+      (Lend
+       ((local Local)))
+      (TopRef
+       ((value TopValue)
+        (types (List Type))
+        (evidence (List Evidence))))
+      (Closure
+       ((captures (List Local))
+        (parameters (List Local))
+        (body Expr)
+        (confined? Bool)))
+      (Code
+       ((parameters (List Local))
+        (body Expr)
+        (confined? Bool)))
+      (Call
+       ((callee Expr)
+        (arguments (List Expr))
+        (invocation (Option Invocation))))
+      (If
+       ((test Expr)
+        (consequent Expr)
+        (alternative Expr)))
+      (Seq
+       ((first Expr)
+        (rest Expr)))
+      (Let
+       ((local Local)
+        (value Expr)
+        (body Expr)))
+      (Match
+       ((scrutinee Expr)
+        (clauses (List Clause))))
+      (Handle
+       ((effect Global)
+        (implementations (List Implementation))
+        (body Expr)))
+      (Erase
+       ((expr Expr)))
+      ;; A value of the inner type held as Any; the node's type is Any.
+      (Box
+       ((expr Expr)))
+      ;; An Any that a TypeTest of the target has accepted; the node's
+      ;; type is the target.
+      (Unbox
+       ((expr Expr)))
+      (TypeTest
+       ((expr Expr)
+        (target Type)))
+      (Assign
+       ((place Place)
+        (value Expr)
+        (types (List Type))))
+      (Swap
+       ((place Place)
+        (value Expr)
+        (types (List Type))))
+      (CaseId
+       ((case Global)
+        (id I64))))
+
+    ;; ---- Places ----
+
+    (enum Place
+      (Slot
+       ((link Link)
+        (record Expr)))
+      (Within
+       ((link Link)
+        (place Place))))
+
+    (struct Link
+      ((reader Expr)
+       (case Global)
+       (index I64)
+       (type Type)
+       (loc Loc)))
+
+    (struct Clause
+      ((pattern Pattern)
+       (body Expr)
+       (loc Loc)))
+
+    (struct Implementation
+      ((operation Global)
+       (value Expr)
+       (loc Loc)))
+
+    ))

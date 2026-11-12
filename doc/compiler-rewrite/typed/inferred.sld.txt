@@ -1,0 +1,490 @@
+;; DRAFT (build/typed-design): not compiled, not on any load path.
+;;
+;; Inferred, the tree `infer` writes: a dispatched library's code, each
+;; node with its type as inference left it, the constraints it left open,
+;; and what it decided of its unknowns.
+;;
+;;   Inferred    ::= Inferred library Top* Pending* Solution first-unused-number   no Loc
+;;   Top         ::= Define Global Expr Scheme Origin Annotation*
+;;                 | Statement Expr                                  no Loc but its expression's
+;;                 | Expose TopValue symbol dynamic?
+;;   Origin      ::= Signed Loc | Unsigned | Implements Global Member
+;;                 | DefaultOf Global | Body                         no Loc but Signed's
+;;
+;;   Expr        ::= Expr Term Type
+;;   Term        ::= Literal Constant | LocalRef Local | TopRef TopValue Type* Evidence*
+;;                 | Lambda Local* Expr confined? | ClosedLambda Local* Expr confined?
+;;                 | Call Expr Expr* Invocation? | If Expr Expr Expr | Seq Expr Expr
+;;                 | Let Local Expr Expr | Match Expr Clause* | Handle Global Implementation* Expr
+;;                 | Erase Expr | Convert Expr Type | TryConvert Expr Type
+;;                 | TypeTest Expr Type | CaseId Global id                no Loc: the Expr's
+;;   Invocation  ::= Invocation Contract Arrow                       no Loc
+;;   Clause      ::= Clause Pattern Expr
+;;   Implementation ::= Implementation Global Expr
+;;   Pattern     ::= Pattern Shape Type
+;;   Shape       ::= Wild | Bind Local | Equals Datum | Destructure TopValue Pattern*   no Loc: the Pattern's
+;;
+;;   Type        ::= Con Global Type* | Callable Former Contract Arrow | Code Arrow
+;;                 | Closure Contract Identity Arrow Type* | Row Effects
+;;                 | Var TypeVariable | Unknown number              no Loc
+;;   Identity    ::= AtLambda Loc number | OfLocal Local | OfGlobal Global
+;;   Arrow       ::= Arrow Type* Type Effects                        no Loc
+;;   Effects     ::= Effects Global* Type?                           no Loc
+;;   TypeVariable ::= Written name | Associated number label | CallableArgument number
+;;                  | Own TypeVariable | Generalized number          no Loc
+;;   Scheme      ::= Scheme TypeVariable* Requirement* TypeVariable* Type   no Loc
+;;   Requirement ::= ClassRequirement ClassRef Type*
+;;                 | CallableRequirement Contract Type Arrow         no Loc
+;;
+;;   Evidence    ::= FromInstance InstanceRef Type* Evidence* | Given number
+;;                 | Derived Plan? | Hole number                    no Loc
+;;   InstanceRef ::= DeclaredInstance Global | FieldInstance Global label   no Loc
+;;   Plan        ::= Trivial | Implemented Global | Glue | Refused reason   no Loc
+;;
+;;   Pending     ::= WantClass number Requirement Scope
+;;                 | WantLiteral number Constant
+;;                 | WantCopy Type Scope
+;;   Scope       ::= Scope Requirement* TypeVariable* Global*        no Loc
+;;   Solution    ::= Solution (number -> Type)* (number -> Evidence)* next-number   no Loc
+;;
+;; Every other rule is Expanded's, (snail compiler expand language):
+;; Constant, Local, Global, TopValue, Annotation, ClassRef, Former and
+;; Contract; Member is Declared's; Datum is Syntax's. Data, classes,
+;; effects, instances, externs and primitives stay in the Dispatched tree
+;; and its offers, which `infer` reads and does not copy.
+;;
+;; Over the Dispatched library it comes from, Inferred guarantees:
+;;
+;; - The code is the old checker's items, in the order the milestone-A
+;;   adapter hands them to it: each top in order, an instance's method
+;;   implementations at the instance, an effect's defaults at the effect,
+;;   and a program's body last. A top-level `with-instances` is gone; the
+;;   definitions inside it are in its place.
+;; - Each definition carries its scheme: a signed one's as written, an
+;;   `impl` signature's type being the closure the definition identifies;
+;;   a method implementation's and a default's from `declare/schemes.sld`;
+;;   an unsigned one's as its group generalized it, which may still name
+;;   unknowns the group's constraints hold; the body's likewise. The body
+;;   is a nullary ClosedLambda of a Global numbered from the library's
+;;   first unused number, and one Statement calls it, at the body's place.
+;; - Every node has a type. Every use of a global has its instantiation:
+;;   a type for each of its scheme's variables and evidence for each of
+;;   its requirements, a Hole until found. A definition's lambda value is
+;;   a ClosedLambda, as the old expander marks it. A lambda whose body
+;;   mutated although its row forbids `mut` is `confined?`.
+;; - No Path, PathApply, WithInstances or Ann remains, nor a Let's
+;;   signature: a path is calls of its labels' field readers, a closed
+;;   lambda for a path value; a signature or `ann` is checked and gone.
+;;   An Erase is a concrete closure stored where a dyn callable is
+;;   expected; a call through a concrete closure, a rigid variable or an
+;;   FnMut records the contract chosen. A Convert stands at each Any
+;;   boundary inference found, besides those written.
+;; - Every check of phase I in `inventory.md` holds: unification, row
+;;   inclusion, the calls' at-call solving and cleanup charges, host
+;;   effects, performed effects, the clause-less match.
+;; - Pending holds every constraint not decided at its node, in the order
+;;   raised. The Solution holds what was decided: an unknown's type, a
+;;   hole's evidence. Unknowns, holes and lambda identities share one
+;;   counter, `next-number`, allocated in the old checker's order.
+(define-library (snail compiler infer language)
+  (export
+   Inferred
+   Top
+   Define
+   Statement
+   Expose
+   Origin
+   Signed
+   Unsigned
+   Implements
+   DefaultOf
+   Body
+   Expr
+   Term
+   Literal
+   LocalRef
+   TopRef
+   Lambda
+   ClosedLambda
+   Call
+   If
+   Seq
+   Let
+   Match
+   Handle
+   Erase
+   Convert
+   TryConvert
+   TypeTest
+   CaseId
+   Invocation
+   Clause
+   Implementation
+   Pattern
+   Shape
+   Wild
+   Bind
+   Equals
+   Destructure
+   Type
+   Con
+   Callable
+   Code
+   Closure
+   Row
+   Var
+   Unknown
+   Identity
+   AtLambda
+   OfLocal
+   OfGlobal
+   Arrow
+   Effects
+   TypeVariable
+   Written
+   Associated
+   CallableArgument
+   Own
+   Generalized
+   Scheme
+   Requirement
+   ClassRequirement
+   CallableRequirement
+   Evidence
+   FromInstance
+   Given
+   Derived
+   Hole
+   InstanceRef
+   DeclaredInstance
+   FieldInstance
+   Plan
+   Trivial
+   Implemented
+   Glue
+   Refused
+   Pending
+   WantClass
+   WantLiteral
+   WantCopy
+   Scope
+   Solution)
+  (import
+   (snail core base)
+   (snail core table)
+   (snail compiler source)
+   (only (snail compiler read language) Datum)
+   (only (snail compiler outline language) LibraryName)
+   (only (snail compiler expand language)
+         Constant
+         Local
+         Global
+         TopValue
+         Annotation
+         ClassRef
+         Former
+         Contract)
+   (only (snail compiler declare language) Member))
+  (begin
+
+    ;; ---- Libraries ----
+
+    ;; A program's library is `main`, as `declare` numbers its Globals.
+    (struct Inferred
+      ((library LibraryName)
+       (tops (List Top))
+       (pending (List Pending))
+       (solution Solution)
+       (first-unused-number I64)))
+
+    ;; ---- Code ----
+
+    ;; Only what the old checker's items are: definitions, statements,
+    ;; exposures.
+    (enum Top
+      (Define
+        ((global Global)
+         (value Expr)
+         (scheme Scheme)
+         (origin Origin)
+         (annotations (List Annotation))
+         (loc Loc)))
+      (Statement
+       ((expr Expr)))
+      (Expose
+       ((target TopValue)
+        (symbol String)
+        (dynamic? Bool)
+        (loc Loc))))
+
+    ;; Where a definition comes from, which decides how it is checked: a
+    ;; signature, at its `(:` form, which the performed check reports at;
+    ;; none; an instance's implementation of a member; an effect's default
+    ;; for an operation; a program's body.
+    (enum Origin
+      (Signed
+       ((loc Loc)))
+      (Unsigned)
+      (Implements
+       ((instance Global)
+        (member Member)))
+      (DefaultOf
+       ((operation Global)))
+      (Body))
+
+    ;; ---- Expressions ----
+
+    (struct Expr
+      ((term Term)
+       (type Type)
+       (loc Loc)))
+
+    (enum Term
+      (Literal
+       ((constant Constant)))
+      (LocalRef
+       ((local Local)))
+      ;; The types are the scheme's variables', in its order; the
+      ;; evidence its requirements', in its order.
+      (TopRef
+       ((value TopValue)
+        (types (List Type))
+        (evidence (List Evidence))))
+      (Lambda
+       ((parameters (List Local))
+        (body Expr)
+        (confined? Bool)))
+      (ClosedLambda
+       ((parameters (List Local))
+        (body Expr)
+        (confined? Bool)))
+      (Call
+       ((callee Expr)
+        (arguments (List Expr))
+        (invocation (Option Invocation))))
+      (If
+       ((test Expr)
+        (consequent Expr)
+        (alternative Expr)))
+      (Seq
+       ((first Expr)
+        (rest Expr)))
+      (Let
+       ((local Local)
+        (value Expr)
+        (body Expr)))
+      (Match
+       ((scrutinee Expr)
+        (clauses (List Clause))))
+      (Handle
+       ((effect Global)
+        (implementations (List Implementation))
+        (body Expr)))
+      ;; A concrete closure where a dyn callable is expected: the node's
+      ;; type is the dyn callable.
+      (Erase
+       ((expr Expr)))
+      (Convert
+       ((expr Expr)
+        (target Type)))
+      (TryConvert
+       ((expr Expr)
+        (target Type)))
+      (TypeTest
+       ((expr Expr)
+        (target Type)))
+      (CaseId
+       ((case Global)
+        (id I64))))
+
+    ;; The receiver contract a call through a callable chose, and the
+    ;; signature it calls at: the old `$invoke` annotation.
+    (struct Invocation
+      ((contract Contract)
+       (signature Arrow)))
+
+    (struct Clause
+      ((pattern Pattern)
+       (body Expr)
+       (loc Loc)))
+
+    ;; A handler's implementation of the operation it names.
+    (struct Implementation
+      ((operation Global)
+       (value Expr)
+       (loc Loc)))
+
+    ;; ---- Patterns ----
+
+    (struct Pattern
+      ((shape Shape)
+       (type Type)
+       (loc Loc)))
+
+    (enum Shape
+      (Wild)
+      (Bind
+       ((local Local)))
+      (Equals
+       ((datum Datum)))
+      (Destructure
+       ((constructor TopValue)
+        (arguments (List Pattern)))))
+
+    ;; ---- Types ----
+
+    ;; As Declared's, with a concrete closure, the type of one lambda,
+    ;; and an unknown, numbered by the solution's counter. A Closure is
+    ;; the old `$callable.KIND:ID` type: the kind its contract gives, its
+    ;; identity, its arrow, and the types of the locals around it its body
+    ;; reads, in the order of the old `capture-types`.
+    (enum Type
+      (Con
+       ((type Global)
+        (arguments (List Type))))
+      (Callable
+       ((former Former)
+        (contract Contract)
+        (arrow Arrow)))
+      (Code
+       ((arrow Arrow)))
+      (Closure
+       ((contract Contract)
+        (identity Identity)
+        (arrow Arrow)
+        (captures (List Type))))
+      (Row
+       ((effects Effects)))
+      (Var
+       ((variable TypeVariable)))
+      (Unknown
+       ((number I64))))
+
+    ;; A lambda's place and the counter's number when it was inferred; the
+    ;; local a `let` binds it to; the definition it is the value of. Its
+    ;; Loc is data, compared as a value, never reported.
+    (enum Identity
+      (AtLambda
+       ((loc Loc)
+        (number I64)))
+      (OfLocal
+       ((local Local)))
+      (OfGlobal
+       ((global Global))))
+
+    (struct Arrow
+      ((parameters (List Type))
+       (result Type)
+       (effects Effects)))
+
+    ;; A row's tail may be an Unknown: an open row.
+    (struct Effects
+      ((labels (List Global))
+       (tail (Option Type))))
+
+    ;; Declared's, with the variables a group's generalization introduces,
+    ;; numbered from 1 in order of first occurrence, as the old `t1 ...`.
+    (enum TypeVariable
+      (Written
+       ((name String)))
+      (Associated
+       ((number I64)
+        (label String)))
+      (CallableArgument
+       ((number I64)))
+      (Own
+       ((variable TypeVariable)))
+      (Generalized
+       ((number I64))))
+
+    (struct Scheme
+      ((variables (List TypeVariable))
+       (requirements (List Requirement))
+       (copied (List TypeVariable))
+       (type Type)))
+
+    (enum Requirement
+      (ClassRequirement
+       ((class ClassRef)
+        (types (List Type))))
+      (CallableRequirement
+       ((contract Contract)
+        (receiver Type)
+        (arrow Arrow))))
+
+    ;; ---- Evidence ----
+
+    ;; An instance applied at its variables' types, with the evidence of
+    ;; its requirements; the n-th given of the enclosing signature; what
+    ;; the compiler derives from a representation, a callable's, an
+    ;; Unboxed type's, or a lifecycle plan, None for a type variable whose
+    ;; plan the caller charged (core.sld 740); a hole the solution fills.
+    (enum Evidence
+      (FromInstance
+       ((instance InstanceRef)
+        (types (List Type))
+        (requirements (List Evidence))))
+      (Given
+       ((number I64)))
+      (Derived
+       ((plan (Option Plan))))
+      (Hole
+       ((number I64))))
+
+    ;; A declared instance, or the instance a struct's field implies of its
+    ;; label's field class, as the listing has it.
+    (enum InstanceRef
+      (DeclaredInstance
+       ((global Global)))
+      (FieldInstance
+       ((data Global)
+        (label String))))
+
+    ;; What a drop or a clone runs (the old `Plan`, core.sld 755).
+    (enum Plan
+      (Trivial)
+      (Implemented
+       ((instance Global)))
+      (Glue)
+      (Refused
+       ((reason String))))
+
+    ;; ---- Constraints ----
+
+    ;; A requirement of a use, whose evidence is the hole `hole`; a numeric
+    ;; literal whose type is the unknown `unknown`; a type a scheme's Copy
+    ;; variable was instantiated at. Each at the use or literal.
+    (enum Pending
+      (WantClass
+       ((hole I64)
+        (requirement Requirement)
+        (scope Scope)
+        (loc Loc)))
+      (WantLiteral
+       ((unknown I64)
+        (constant Constant)
+        (loc Loc)))
+      (WantCopy
+       ((type Type)
+        (scope Scope)
+        (loc Loc))))
+
+    ;; What was in force where a constraint was raised: the enclosing
+    ;; signature's requirements, whose evidence is `Given n`; the variables
+    ;; it says Copy; the instance sets of every enclosing `with-instances`,
+    ;; each once.
+    (struct Scope
+      ((givens (List Requirement))
+       (copied (List TypeVariable))
+       (sets (List Global))))
+
+    ;; ---- Solution ----
+
+    ;; Each table is keyed by a number's text and only looked up, never
+    ;; listed, so no answer depends on the order of keys.
+    (struct Solution
+      ((types (Table Type))
+       (evidence (Table Evidence))
+       (next-number I64)))
+
+    ))
