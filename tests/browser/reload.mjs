@@ -160,6 +160,9 @@ try {
   assert.equal(await text('count'), '1', 'and kept its state');
   if (screenshot) await browser.screenshot(screenshot);
   console.log('reload: the page kept its state across modules');
+} catch (error) {
+  console.error('reload failure:', {notice: await notice(), status: await service.status()});
+  throw error;
 } finally {
   browser.close();
   await service.stop();

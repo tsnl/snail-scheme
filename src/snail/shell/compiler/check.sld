@@ -2578,6 +2578,9 @@
                               (handled (List String)) (row Type))
       (→ Checker) (! compile)
       (match (● value term)
+        ;; The resolved fatal primitive produces no result owner. Its
+        ;; operands were already visited by infer-cleanup; retain their effects.
+        ((App (Expr (Var "prim:panic" _ _) _ _) _) ck)
         ((Var name _ _)
          (if (or (any? (lambda (entry) (string=? name (● entry first))) scope)
                  (match (program-value (program-of ck) name) ((Some _) #t) (_ #f))) ck
