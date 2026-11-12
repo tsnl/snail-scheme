@@ -4,7 +4,7 @@
 (define-library (snail shell task)
   (export
    tasks yield sleep await ticket current-scheduler
-   Scheduler WeakScheduler make-scheduler dispatch-in
+   Scheduler WeakScheduler make-scheduler dispatch-in start-main
    dispatch-local dispatch-task through-host wake-task!
    tasks-turn tasks-wake! tasks-close! tasks-running tasks-live
    Mailbox make-mailbox mailbox-post mailbox-receive mailbox-try-receive)

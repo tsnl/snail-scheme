@@ -24,9 +24,11 @@
 
     ;; ---- Resources ----
 
-    ;; The handle the host gave the file when it linked the module.
+    ;; The constant stores code for a linker symbol, not a runtime handle.
+    ;; Calling it resolves this instance's handle when the resource is read;
+    ;; constructing a Resource is completely evaluable at compile time.
     (struct LinkedResource
-      ((handle I32)))
+      ((handle (fn → I32))))
 
     (type Resource LinkedResource)
 
@@ -34,7 +36,7 @@
     ;; constructs a Resource where the user cannot name its constructor.
     (define-syntax link-file
       (syntax-rules ()
-        ((_ path) (LinkedResource (link-handle path)))))
+        ((_ path) (LinkedResource (fn () (link-handle path))))))
 
     ;; ---- Reading ----
 
@@ -58,6 +60,6 @@
     ;; The file's bytes, as they were when the host first read them.
 
     (define (read-resource (linked Resource)) (→ Bytes) (! resource tasks)
-      (resource-bytes (● linked handle)))
+      (resource-bytes ((● linked handle))))
 
     ))

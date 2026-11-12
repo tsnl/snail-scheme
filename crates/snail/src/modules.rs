@@ -692,18 +692,7 @@ fn define_linking(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
             call_with(&mut caller, &function, argument)
         },
     )?;
-    linker.func_wrap(
-        "snail.runtime.wasm",
-        "call-with-function",
-        |mut caller: Caller<'_, Host>, handle: i32, callee: Option<Func>| {
-            let instance = caller.data().loading.instance(handle)?;
-            let name = caller.data_mut().loading.take_name()?;
-            let function = instance
-                .get_func(&mut caller, &name)
-                .ok_or_else(|| format_err!("the instance exports no function {name}"))?;
-            call_values(&mut caller, &function, &[Val::FuncRef(callee)])
-        },
-    )?;
+
     Ok(())
 }
 

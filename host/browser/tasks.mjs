@@ -20,6 +20,8 @@ export function taskExports(program) {
 }
 
 const engineTasks = exports => ({
+  ...exports,
+  'tasks:dispose': exports['engine:close'],
   'tasks:create': exports['engine:create'], 'tasks:create:release-result': exports['engine:create:release-result'],
   'tasks:turn': exports['engine:turn'], 'tasks:wake': exports['engine:wake'], 'tasks:close': exports['engine:close-tasks'],
   'tasks:running': exports['engine:running'], 'tasks:live': exports['engine:live'],
@@ -31,7 +33,7 @@ const engineTasks = exports => ({
 // and drops every task.
 export function createTasks(exports, {reportError = () => {}} = {}) {
   const outcomes = new Map(), controller = new AbortController();
-  let outstanding = 0, resting = null, scheduler = null, owner = null, active = 0, closed = false;
+  let outstanding = 0, resting = null, scheduler = null, owner = null, active = 0, closed = false, disposing = false, closeStatus = 0;
   const settled = [];
 
   // The run owns one returned credit. Each Wasm entry retains its arguments;
@@ -44,14 +46,14 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
     return scheduler;
   }
   function enter(name, ...args) {
-    if (closed) throw new Error('the task scheduler has closed');
+    if (closed && !(disposing && name.startsWith('resource:'))) throw new Error('the task scheduler has closed');
     const api = context();
     if (!api) return null;
     active++;
     try { return api[name](owner, ...args); }
     finally {
       active--;
-      if (!active) {
+      if (!active && !disposing) {
         if (closed) release();
         else while (settled.length) settle(...settled.shift());
       }
@@ -60,9 +62,15 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
   function release() {
     if (owner === null) return;
     const value = owner;
-    owner = null; // Reentry cannot consume this ownership credit twice.
-    try { scheduler['tasks:close'](value); }
-    finally { scheduler['tasks:create:release-result'](value); }
+    disposing = true;
+    try {
+      scheduler['tasks:close'](value);
+      closeStatus = Number(scheduler['tasks:dispose']?.(value) ?? 0);
+    } finally {
+      owner = null; // Consume the credit before invoking its release companion.
+      try { scheduler['tasks:create:release-result'](value); }
+      finally { disposing = false; }
+    }
   }
 
   // ---- Completions ----
@@ -96,6 +104,8 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
 
   return {
     signal: controller.signal,
+    call: enter,
+    get closeStatus() { return closeStatus; },
     get owner() { if (closed) throw new Error('the task scheduler has closed'); context(); return owner; },
     startMain(body) { enter('tasks:start-main', body); },
     running() { return owner === null ? 0 : Number(scheduler['tasks:running'](owner)); },

@@ -57,8 +57,7 @@
    loading-program
    name-instance
    replace-instances
-   run-export
-   run-export-with)
+   run-export)
   (import
    (snail core base)
    (prefix (snail runtime wasm) host-)
@@ -90,8 +89,7 @@
     ;; loaded module may import. `name-instance` puts an instance in the
     ;; program's namespace under the staged name, where `instantiate` and
     ;; later loads see it; `call-export` calls an export of no argument or
-    ;; one I64, such as `main` or `tasks:turn`, for its result, and
-    ;; `call-with-function` one of a Funcref, such as `tasks:start-main`.
+    ;; one I64, such as `main`, for its result.
     (effect wasm
       ((argument-character (Fn Char → Unit))
        (argument-end (Fn → Unit))
@@ -114,8 +112,7 @@
        (prepare-names (Fn → Unit))
        (provide-instance (Fn I32 → Bool))
        (replace-names (Fn → Bool))
-       (call-export (Fn I32 I64 → I64))
-       (call-with-function (Fn I32 Funcref → I64)))
+       (call-export (Fn I32 I64 → I64)))
       (default ((argument-character host-argument-character)
                 (argument-end host-argument-end)
                 (compile host-compile)
@@ -137,8 +134,7 @@
                 (prepare-names host-prepare-names)
                 (provide-instance host-provide-instance)
                 (replace-names host-replace-names)
-                (call-export host-call-export)
-                (call-with-function host-call-with-function))))
+                (call-export host-call-export))))
 
     (define (send-argument (text String)) (→ Unit) (! wasm)
       (let loop ((index 0))
@@ -479,18 +475,6 @@
           (begin (send-argument name) (Ok (call-export (● instance handle) argument)))
           (Err (MissingExport name))))
 
-    ;; Calls the function the instance exports as `name` with `function`,
-    ;; such as a scheduler's `tasks:start-main` with a program's body.
-
-    (define (run-export-with (instance Module) (name String) (function Funcref))
-      (→ (Result I64 LoadError))
-      (! wasm)
-      (send-argument name)
-      (if (exports-function? (● instance handle))
-          (begin (send-argument name)
-                 (Ok (call-with-function (● instance handle) function)))
-          (Err (MissingExport name))))
-
     ;; ---- Plugin functions ----
 
     ;; The function the plugin exposes as `name` with `dynamic`, at the type
@@ -503,7 +487,7 @@
       (→ (Result A LoadError))
       (! wasm)
       (∀ A)
-      (⊨ (Copy A))
+      (⊨ (Copy A) (Drop (!) A))
       (let ((program (● plugin program)))
         (match (Pair (module-export program name)
                      (module-export program (string-append name ":signature")))
@@ -523,7 +507,7 @@
     (define (checked-function (name String) (function Funcref) (signature (Vector I64)))
       (→ (Result A LoadError))
       (∀ A)
-      (⊨ (Copy A))
+      (⊨ (Copy A) (Drop (!) A))
       (match (vector->list
               (dynamic-cast function (lambda (expected) (same-signature? signature expected))))
         ((Cons typed _) (Ok typed))

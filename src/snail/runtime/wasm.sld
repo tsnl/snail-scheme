@@ -27,8 +27,7 @@
    prepare-names
    provide-instance
    replace-names
-   call-export
-   call-with-function)
+   call-export)
   (import
    (snail core base)
    (only (snail core forms) Funcref))
@@ -55,7 +54,4 @@
     (extern provide-instance "snail.runtime.wasm" "provide-instance" (Fn I32 → Bool))
     (extern replace-names "snail.runtime.wasm" "replace-names" (Fn → Bool))
     (extern call-export "snail.runtime.wasm" "call-export" (Fn I32 I64 → I64))
-    (extern call-with-function
-            "snail.runtime.wasm"
-            "call-with-function"
-            (Fn I32 Funcref → I64))))
+    ))

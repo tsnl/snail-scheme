@@ -92,6 +92,7 @@ async function run(filename, arguments_) {
   try {
     program = await loadProgram(resolve(filename), wasi, host, () => tasks);
     program.wasi = () => freshWasi();
+    program.entry = tasks;
     status = resultStatus(runInitializers(program, tasks));
     await tasks.drive().catch(report);
     if (failed) status = 1;
@@ -106,7 +107,7 @@ async function run(filename, arguments_) {
     finally {
       clearInterval(keepAlive);
       if (program) {
-        const closed = [program.exports['engine:close']?.() ?? 0, program.exports['close-resources']()];
+        const closed = [tasks.closeStatus, program.exports['close-resources']()];
         if (closed.some(result => result !== 0) && status === 0) status = 1;
       }
     }
@@ -142,10 +143,10 @@ function engineModule() {
 // outlive the program's main invocation: its tasks run once every main
 // has returned.
 function runInitializers(program, tasks) {
-  const result = runMain(program.exports, tasks);
-  if (!program.exports['engine:status']) return result;
-  program.exports['engine:turn'](BigInt(Date.now()));
-  return Number(program.exports['engine:status']());
+  if (!program.exports['engine:start']) return runMain(program.exports, tasks);
+  tasks.call('engine:start');
+  tasks.call('tasks:turn', BigInt(Date.now()));
+  return Number(tasks.call('engine:status'));
 }
 
 // ---- The program on the main thread ----

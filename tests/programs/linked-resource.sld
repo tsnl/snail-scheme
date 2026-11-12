@@ -1,0 +1,12 @@
+(import
+ (snail core base)
+ (snail core io)
+ (snail shell task)
+ (snail shell resource))
+(define asset (→ Resource) (link-file "linked-resource.txt"))
+(write-line "before")
+(let ((bytes (read-resource asset)))
+  (display (vector-length bytes)) (newline)
+  (display (u8->i32 (vector-ref bytes 0))) (newline))
+(sleep 1)
+(write-line "after")

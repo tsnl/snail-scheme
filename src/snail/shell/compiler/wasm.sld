@@ -3012,9 +3012,10 @@
                                           (wat "mut" (wat "ref" (Word "null") (id frames)))))))))))
 
     ;; The global holding the record, null while nothing yields. A whole
-    ;; program declares it. A library's module imports it from the control
-    ;; module, which a library build links first, so every module of a
-    ;; program shares one.
+    ;; program declares and exports it. A library imports it from the control
+    ;; module, which a library build links first. A loading engine supplies
+    ;; its own control module, so yields cross into loaded program code under
+    ;; the same scheduler and evidence protocol.
 
     (define (yielding (m Module)) (→ String) (! mut)
       (let ((type (wat "mut" (wat "ref" (Word "null") (id (yield-type m))))))
@@ -3030,7 +3031,9 @@
            (unless (table-contains? (● m helpers) "yielding")
              (put! (● m helpers) "yielding" "$yielding")
              (push! (● m globals)
-                    (wat "global" (id "$yielding") type (wat "ref.null" (id "$yield")))))
+                    (wat "global" (id "$yielding") type (wat "ref.null" (id "$yield"))))
+             (push! (● m exports)
+                    (wat "export" (wat-string "yielding") (wat "global" (id "$yielding")))))
            "$yielding"))))
 
     ;; The module a library build links first when its program has control
@@ -3040,8 +3043,7 @@
     (define (emit-control-module (program Program)) (→ Wat) (! mut)
       (let ((m (new-module (Declarations (Program-items-set program (Nil))
                                          (None) (control-effects program) empty-table))))
-        (push! (● m exports)
-               (wat "export" (wat-string "yielding") (wat "global" (id (yielding m)))))
+        (yielding m)
         (emit-main! m (Nil) (Nil))
         (module-wat m)))
 

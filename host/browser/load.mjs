@@ -352,6 +352,11 @@ export function wasmImports(program, memory = () => (program().loader ?? program
       return (pointer, length) => link.instance.exports['snail:report-error'](pointer, length);
     }
     if (from === LOADING) return (loaded ??= wasmImports(program, () => program().runtime.exports.memory))[name];
+    if (from === 'snail.runtime.resource' && program().entry) {
+      // Import wrappers observe the session's one owning record. They never
+      // acquire a persistent credit that would form a cycle through modules.
+      return (...args) => program().entry.call(`resource:${name}`, ...args);
+    }
     return program().host[from]?.[name];
   }
   return {
@@ -426,10 +431,7 @@ export function wasmImports(program, memory = () => (program().loader ?? program
       const result = instance(handle).exports[strings.take()[0]](argument);
       return typeof result === 'bigint' ? result : BigInt(result ?? 0);
     },
-    'call-with-function'(handle, callee) {
-      const result = instance(handle).exports[strings.take()[0]](callee);
-      return typeof result === 'bigint' ? result : BigInt(result ?? 0);
-    },
+
   };
 }
 
