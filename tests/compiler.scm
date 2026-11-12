@@ -2,11 +2,11 @@
 ;; that has logic tests itself, with inputs built by hand. Given the
 ;; repository's root, it then compares the new passes with the old compiler
 ;; over every tracked library and the adapters' texts: the readers, the
-;; outlines, then loading's problems, then the offer of (snail core forms)
-;; and the builtin types `declare` knows, then the SHA-256 the integrator
-;; names linked files by. `make
-;; test-compiler` runs it all; the comparisons that expand whole programs
-;; are tests/compare-compiler.sld.
+;; text each writes of what it read, the outlines, then loading's
+;; problems, then the offer of (snail core forms) and the builtin types
+;; `declare` knows, then the SHA-256 the integrator names linked files by.
+;; `make test-compiler` runs it all; the comparisons that expand whole
+;; programs, or need a producer's encoder, are tests/compare-compiler.sld.
 ;;
 ;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/compiler.scm [ROOT]
 (import
@@ -25,12 +25,14 @@
  (only (snail compiler read literals) test-literals)
  (only (snail compiler read pass) test-read)
  (only (snail compiler read location) test-location)
+ (only (snail compiler read written) test-written)
  (only (snail compiler include inclusion) test-inclusion)
  (only (snail compiler include paths) test-paths)
  (only (snail compiler include pass) test-include)
  (only (snail compiler outline pass) test-outline)
  (only (snail compiler outline imports) test-imports)
  (only (snail compiler outline names) test-names)
+ (only (snail compiler outline producer) test-producer)
  (rename (only (snail compiler expand forms) test-forms) (test-forms test-expand-forms))
  (only (snail compiler expand scopes) test-scopes)
  (rename (only (snail compiler expand imports) test-imports) (test-imports test-expand-imports))
@@ -111,13 +113,16 @@
  (only (snail compiler integrate walk) test-walk)
  (only (snail compiler integrate load) test-load)
  (only (snail compiler integrate bind) test-bind-expanded)
- (only (snail compiler integrate compile) test-compile-loaded)
+ (only (snail compiler integrate compile) test-compile)
+ (only (snail compiler integrate discover) test-discover)
  (only (snail compiler adapter read)
        read-difference
        malformed-texts
        unusual-texts
        misread-texts
-       text-differences)
+       text-differences
+       written-difference
+       written-differences)
  (only (snail compiler adapter outline)
        Agreed
        Differed
@@ -145,12 +150,14 @@
   (test-literals)
   (test-read)
   (test-location)
+  (test-written)
   (test-inclusion)
   (test-paths)
   (test-include)
   (test-outline)
   (test-imports)
   (test-names)
+  (test-producer)
   (test-expand-forms)
   (test-scopes)
   (test-expand-imports)
@@ -228,7 +235,8 @@
   (test-walk)
   (test-load (string-append root "/build/test-compiler/load"))
   (test-bind-expanded (string-append root "/build/test-compiler/bind"))
-  (test-compile-loaded (string-append root "/build/test-compiler/compile"))
+  (test-compile (string-append root "/build/test-compiler/compile"))
+  (test-discover (string-append root "/build/test-compiler/discover"))
   (report "the new compiler's unit tests passed"))
 
 ;; ---- Reader comparison ----
@@ -273,6 +281,31 @@
                            (number->string (+ (length malformed-texts)
                                               (length unusual-texts)
                                               (length misread-texts)))
+                           " texts: "
+                           (number->string (length differences))
+                           " differences"))
+    (null? differences)))
+
+;; ---- Written text comparison ----
+
+;; The forms whose text the new compiler writes otherwise than the old, in
+;; the tracked libraries, one line each.
+(define (written-library-differences root files)
+  (let loop ((files files) (found '()))
+    (if (null? files)
+        (reverse found)
+        (match (written-difference (car files) (file-text (string-append root "/" (car files))))
+          ((None) (loop (cdr files) found))
+          ((Some difference)
+           (loop (cdr files) (cons (string-append (car files) ": " difference) found)))))))
+
+(define (compare-written root files)
+  (let ((differences (append (written-library-differences root files) (written-differences))))
+    (for-each report differences)
+    (report (string-append "compared the text of Syntax on "
+                           (number->string (length files))
+                           " libraries and "
+                           (number->string (length unusual-texts))
                            " texts: "
                            (number->string (length differences))
                            " differences"))
@@ -393,10 +426,11 @@
     (let* ((root (cadr arguments))
            (files (tracked-libraries root))
            (readers (compare-readers root files))
+           (written (compare-written root files))
            (outlines (compare-outlines root files))
            (loads (compare-loads root))
            (forms (compare-forms))
            (builtins (compare-builtins))
            (digests (compare-digests)))
-      (unless (and readers outlines loads forms builtins digests)
+      (unless (and readers written outlines loads forms builtins digests)
         (exit 1)))))

@@ -3,9 +3,14 @@
 ;; and in what order; this reads each file it asks for with `read`, then
 ;; `include`, with the bytes of the files `included-paths` names, then
 ;; `outline`, as the library it was found by. A library is found in the
-;; first search directory that holds its file. Loading stops at the first
-;; problem, whose feedback is the old expander's: what reading a file,
-;; finding a library or following an import reports.
+;; first search directory that holds its file. A generated library's
+;; output is read from the directory the caller names for producers'
+;; outputs, under the key the walk names, with `read-generated` at its
+;; recipe's expression, then included and outlined in the recipe's file
+;; as the library generated, as the old `output-library-file` reads it;
+;; when it is not there, the walk is told so. Loading stops at the first
+;; problem, whose feedback is the old expander's: what reading a file or
+;; an output, finding a library or following an import reports.
 (define-library (snail compiler integrate load)
   (export
    load-program
@@ -14,6 +19,7 @@
    (snail core base)
    (snail core io)
    (snail compiler source)
+   (snail compiler read language)
    (snail compiler read pass)
    (snail compiler include paths)
    (snail compiler include pass)
@@ -27,35 +33,45 @@
     ;; ---- Programs ----
 
     ;; The program at `path` and the libraries its imports reach, found in
-    ;; `directories`.
-    (: load-program (impl (Fn (List String) String -> (Result Loaded (List Feedback)) ! fs)))
-    (define (load-program directories path)
+    ;; `directories`, with producers' outputs in `generated`.
+    (: load-program
+       (impl (Fn (List String) String String -> (Result Loaded (List Feedback)) ! fs)))
+    (define (load-program directories generated path)
       (result-let* ((program (outlined-file path (AsProgram))))
-        (loaded-walk directories (start-walk program))))
+        (loaded-walk directories generated (start-walk directories program))))
 
     ;; The libraries `names` reach, each wanted at `loc`, loaded as a
     ;; program importing them would load them, without the program.
     (: load-libraries
-       (impl (Fn (List String) (List LibraryName) Loc -> (Result Loaded (List Feedback)) ! fs)))
-    (define (load-libraries directories names loc)
+       (impl
+        (Fn (List String) String (List LibraryName) Loc -> (Result Loaded (List Feedback)) ! fs)))
+    (define (load-libraries directories generated names loc)
       (let ((wanting (Outlined ""
                                (Written (Program (Nil)
                                                  (None)
                                                  (map (lambda (name) (Whole name loc)) names)
                                                  (Nil))))))
-        (result-let* ((loaded (loaded-walk directories (start-walk wanting))))
-          (Ok (Loaded
-               (filter (lambda (outlined) (not (string=? (::file outlined) ""))) (::files loaded))
-               (::waiting loaded))))))
+        (result-let* ((loaded (loaded-walk directories generated (start-walk directories wanting))))
+          (Ok (match loaded
+                ((Complete files)
+                 (Complete (filter (lambda (file) (not (string=? (::file file) ""))) files)))
+                ((Unproduced producers) (Unproduced producers)))))))
 
-    (: loaded-walk (impl (Fn (List String) Walk -> (Result Loaded (List Feedback)) ! fs)))
-    (define (loaded-walk directories walk)
+    (: loaded-walk
+       (impl (Fn (List String) String Walk -> (Result Loaded (List Feedback)) ! fs)))
+    (define (loaded-walk directories generated walk)
       (match (next-step walk)
         ((Done loaded) (Ok loaded))
         ((Stopped feedback) (Err feedback))
         ((ReadLibrary library loc next)
          (result-let* ((outlined (library-outline directories library loc)))
-           (loaded-walk directories (entered next outlined))))))
+           (loaded-walk directories generated (entered next outlined))))
+        ((ReadOutput producer file loc next)
+         (match (produced-output generated (::key producer))
+           ((Some bytes)
+            (result-let* ((output (output-outline (::library producer) file loc bytes)))
+              (loaded-walk directories generated (entered next output))))
+           ((None) (loaded-walk directories generated (unproduced next producer)))))))
 
     ;; ---- Files ----
 
@@ -72,8 +88,24 @@
     (: outlined-file (impl (Fn String Reading -> (Result Outlined (List Feedback)) ! fs)))
     (define (outlined-file path reading)
       (result-let* ((text (source-text path))
-                    (forms (read path text))
-                    (included (include forms (existing-files (included-paths forms))))
+                    (forms (read path text)))
+        (outlined-forms path reading forms)))
+
+    ;; The library `name` that a producer's output declares, as if it
+    ;; were written at `loc` in the recipe's file, `file`: so the files it
+    ;; includes are beside the recipe, and a problem with its form is
+    ;; where the recipe's would be.
+    (: output-outline
+       (impl (Fn LibraryName String Loc Bytes -> (Result Outlined (List Feedback)) ! fs)))
+    (define (output-outline name file loc bytes)
+      (result-let* ((form (read-generated bytes loc)))
+        (outlined-forms file (AsLibrary name) (list form))))
+
+    ;; `forms`, the contents of `path`, with their inclusions and outlined.
+    (: outlined-forms
+       (impl (Fn String Reading (List Syntax) -> (Result Outlined (List Feedback)) ! fs)))
+    (define (outlined-forms path reading forms)
+      (result-let* ((included (include forms (existing-files (included-paths forms))))
                     (file-outline (outline reading path included)))
         (Ok (Outlined path file-outline))))
 
@@ -86,31 +118,63 @@
     (export
      test-load)
     (import
-     (only (chibi filesystem) create-directory*)
-     (snail compiler read language)
+     (only (scheme base)
+           pair?
+           symbol?
+           symbol->string
+           string?
+           exact-integer?
+           boolean?
+           number->string
+           apply
+           bytevector
+           write-bytevector
+           close-port)
+     (only (scheme file) open-binary-output-file delete-file)
+     (only (chibi filesystem) create-directory* delete-file-hierarchy)
+     (only (snail compiler outline names) same-library?)
      (snail stage0 testing))
     (begin
       ;; Files are written under `directory`, which the runner supplies.
+      ;; The outputs of an earlier run are removed first, since a test asks
+      ;; for an output before it writes one.
       (define (test-load directory)
         (create-directory* (string-append directory "/sample"))
+        (if (file-exists? (generated-in directory))
+            (delete-file-hierarchy (generated-in directory))
+            (unit))
+        (create-directory* (generated-in directory))
         (test-loaded directory)
-        (test-problems directory))
+        (test-problems directory)
+        (test-outputs directory)
+        (test-output-problems directory))
 
       (define (write-files directory files)
         (for-each
          (lambda (file) (write-file (string-append directory "/" (::first file)) (::second file)))
          files))
 
+      (define (in directory file)
+        (string-append directory "/" file))
+
+      (define (generated-in directory)
+        (in directory "generated"))
+
+      (define (load-at directory file)
+        (load-program (list directory) (generated-in directory) (in directory file)))
+
       (define (files-of loaded)
         (match loaded
-          ((Ok result) (Ok (Pair (map ::file (::files result)) (::waiting result))))
+          ((Ok (Complete files)) (Ok (map ::file files)))
+          ((Ok (Unproduced producers)) (Ok (map ::library producers)))
           ((Err feedback) (Err feedback))))
 
+      ;; ---- Programs ----
+
       ;; Libraries come after what they import, each once, with their
-      ;; inclusions; a generated library is where it is reached.
+      ;; inclusions; a generated library whose output is not there makes
+      ;; the program wait.
       (define (test-loaded directory)
-        (define (in file)
-          (string-append directory "/" file))
         (write-files directory
                      (list (Pair "sample/a.sld"
                                  "(define-library (sample a) (import (sample c))\n  (begin (include-bytes \"a.bin\")))")
@@ -122,28 +186,23 @@
                                  "(generate-library (sample made) (import (sample a)) (unit))")
                            (Pair "main.sld" "(import (sample a) (sample b) (sample a))\n(f)")
                            (Pair "producer.sld" "(import (sample made) (sample c))")))
-        (expect (files-of (load-program (list directory) (in "main.sld")))
-                (Ok (Pair (list (in "sample/c.sld")
-                                (in "sample/a.sld")
-                                (in "sample/b.sld")
-                                (in "main.sld"))
-                          (list))))
-        (match (load-program (list directory) (in "main.sld"))
-          ((Ok result)
-           (match (::outline (list-ref (::files result) 1))
-             ((Written (Defined _ _ _ (Cons (Atom (ByteVector bytes) _) (Nil)) _))
+        (expect (files-of (load-at directory "main.sld"))
+                (Ok (list (in directory "sample/c.sld")
+                          (in directory "sample/a.sld")
+                          (in directory "sample/b.sld")
+                          (in directory "main.sld"))))
+        (match (load-at directory "main.sld")
+          ((Ok (Complete files))
+           (match (::library (list-ref files 1))
+             ((Defined _ _ _ (Cons (Atom (ByteVector bytes) _) (Nil)) _)
               (expect bytes (list->vector (list 65 66))))
              (other (expect other "sample a with its bytes"))))
-          ((Err feedback) (expect feedback "a loaded program")))
-        (expect (files-of (load-program (list directory) (in "producer.sld")))
-                (Ok (Pair (list (in "sample/made.sld") (in "sample/c.sld") (in "producer.sld"))
-                          (list (list "sample" "made"))))))
+          (other (expect other "a loaded program")))
+        (expect (files-of (load-at directory "producer.sld")) (Ok (list (list "sample" "made")))))
 
       ;; A missing program or library, a cycle, and a problem in a
       ;; library's header each stop loading where the old expander does.
       (define (test-problems directory)
-        (define (in file)
-          (string-append directory "/" file))
         (write-files directory
                      (list (Pair "missing.sld" "(import (sample c) (prefix (sample gone) p:))")
                            (Pair "sample/self.sld"
@@ -152,16 +211,125 @@
                            (Pair "sample/wrong.sld" "(define-library (sample other))")
                            (Pair "wrong.sld" "(import (sample wrong))")
                            (Pair "keyed.sld" "(generating \"sample.c\")\n(import (sample c))")))
-        (expect (load-program (list directory) (in "absent.sld"))
-                (fail (Loc (in "absent.sld") 0 0) "no such file or directory"))
-        (expect (load-program (list directory) (in "missing.sld"))
-                (fail (Loc (in "missing.sld") 1 28) "library not found: (sample gone)"))
-        (expect (load-program (list) (in "missing.sld"))
-                (fail (Loc (in "missing.sld") 1 9) "library not found: (sample c)"))
-        (expect (load-program (list directory) (in "self.sld"))
-                (fail (Loc (in "sample/self.sld") 1 39) "library import cycle through sample.self"))
-        (expect (load-program (list directory) (in "wrong.sld"))
-                (fail (Loc (in "sample/wrong.sld") 1 1) "library name does not match its path"))
-        (expect (load-program (list directory) (in "keyed.sld"))
-                (fail (Loc (in "keyed.sld") 2 9) "library import cycle through sample.c")))))
+        (expect (load-at directory "absent.sld")
+                (fail (Loc (in directory "absent.sld") 0 0) "no such file or directory"))
+        (expect (load-at directory "missing.sld")
+                (fail (Loc (in directory "missing.sld") 1 28) "library not found: (sample gone)"))
+        (expect (load-program (list) (generated-in directory) (in directory "missing.sld"))
+                (fail (Loc (in directory "missing.sld") 1 9) "library not found: (sample c)"))
+        (expect (load-at directory "self.sld")
+                (fail (Loc (in directory "sample/self.sld") 1 39)
+                      "library import cycle through sample.self"))
+        (expect (load-at directory "wrong.sld")
+                (fail (Loc (in directory "sample/wrong.sld") 1 1)
+                      "library name does not match its path"))
+        (expect (load-at directory "keyed.sld")
+                (fail (Loc (in directory "keyed.sld") 2 9)
+                      "library import cycle through sample.c")))
+
+      ;; ---- Outputs ----
+
+      ;; The bytes a producer writes for `datum`, a list of symbols,
+      ;; strings, integers and booleans, as (snail shell syntax) encodes
+      ;; it; every count and code here is below 128.
+      (define (encoded datum)
+        (cond ((or (null? datum) (pair? datum))
+               (Cons 0 (Cons (length datum) (concatenate (map encoded datum)))))
+              ((symbol? datum) (Cons 1 (text-codes (symbol->string datum))))
+              ((exact-integer? datum) (Cons 2 (text-codes (number->string datum))))
+              ((string? datum) (Cons 3 (text-codes datum)))
+              ((boolean? datum) (list (if datum 6 5)))
+              (else (panic "no encoding for this datum"))))
+
+      (define (text-codes text)
+        (Cons (string-length text) (map char->integer (string->list text))))
+
+      ;; The producer of the generated library `name` that loading `main`
+      ;; waits for.
+      (define (producer-of directory main name)
+        (match (load-at directory main)
+          ((Ok (Unproduced producers))
+           (match (find (lambda (producer) (same-library? (::library producer) name)) producers)
+             ((Some producer) producer)
+             ((None) (panic "no such producer"))))
+          (_ (panic "the program waits for no producer"))))
+
+      ;; Writes `codes` as the output of `producer`, as its producer would.
+      (define (produce! directory producer codes)
+        (let ((path (in (generated-in directory) (string-append (::key producer) ".syntax"))))
+          (if (file-exists? path) (delete-file path) (unit))
+          (let ((port (open-binary-output-file path)))
+            (write-bytevector (apply bytevector codes) port)
+            (close-port port))))
+
+      ;; A producer waited for says what to print, with what was loading;
+      ;; once its output is there, the output stands in the library's
+      ;; place, in the recipe's file, with the files it includes beside the
+      ;; recipe, and its imports load before it.
+      (define (test-outputs directory)
+        (write-files directory
+                     (list (Pair "sample/gen.sld"
+                                 "(generate-library (sample gen)\n  (import (sample c))\n  (make))")
+                           (Pair "sample/g.bin" "G")
+                           (Pair "outputs.sld" "(import (sample gen))")))
+        (let ((producer (producer-of directory "outputs.sld" (list "sample" "gen"))))
+          (expect (::loading producer) (list "sample.gen"))
+          (expect (::text producer)
+                  (string-append "(generating \"sample.gen\")\n"
+                                 "(import (sample c) (only (snail shell syntax) write-generated-library))\n"
+                                 "(recipe \"" (in directory "sample/gen.sld") "\")\n"
+                                 "(write-generated-library (lambda () (make)))"))
+          ;; A reader includes any `include-bytes` form it reads, even a
+          ;; quoted one, so this one is built.
+          (produce! directory
+                    producer
+                    (encoded (list 'define-library
+                                   '(sample gen)
+                                   '(import
+                                     (sample c))
+                                   '(export g)
+                                   (list 'begin (list 'define 'g (list 'include-bytes "g.bin"))))))
+          (expect (files-of (load-at directory "outputs.sld"))
+                  (Ok (list (in directory "sample/c.sld")
+                            (in directory "sample/gen.sld")
+                            (in directory "outputs.sld"))))
+          (match (load-at directory "outputs.sld")
+            ((Ok (Complete files))
+             (match (::library (list-ref files 1))
+               ((Defined name
+                  (Cons (Whole (Cons "sample" (Cons "c" (Nil))) loc) (Nil))
+                  _
+                  (Cons (Form (Cons _ (Cons _ (Cons (Atom (ByteVector bytes) _) (Nil)))) _) (Nil))
+                  _)
+                (expect (Pair name loc)
+                        (Pair (list "sample" "gen") (Loc (in directory "sample/gen.sld") 3 3)))
+                (expect bytes (list->vector (list 71))))
+               (other (expect other "the output of (sample gen)"))))
+            (other (expect other "a loaded program")))))
+
+      ;; An output is refused as the old `output-library-file` refuses it:
+      ;; one form that declares another library, at the recipe's
+      ;; expression, or none, at the start of the recipe's file; and its
+      ;; bytes are refused as the old decoder refuses them. An output that
+      ;; imports its library is a cycle.
+      (define (test-output-problems directory)
+        (write-files directory
+                     (list (Pair "sample/bad.sld" "(generate-library (sample bad) (import) (make))")
+                           (Pair "bad.sld" "(import (sample bad))")))
+        (let ((producer (producer-of directory "bad.sld" (list "sample" "bad")))
+              (expression (Loc (in directory "sample/bad.sld") 1 41)))
+          (produce! directory producer (encoded '(define-library (sample other))))
+          (expect (load-at directory "bad.sld")
+                  (fail expression "library name does not match its path"))
+          (produce! directory producer (encoded 7))
+          (expect (load-at directory "bad.sld")
+                  (fail (Loc (in directory "sample/bad.sld") 1 1)
+                        "expected exactly one define-library or generate-library form"))
+          (produce! directory producer (list 0 2 5))
+          (expect (load-at directory "bad.sld")
+                  (fail expression "malformed generated syntax: it ends early"))
+          (produce! directory producer (encoded '(define-library (sample bad) (import
+                                                                               (sample bad)))))
+          (expect (load-at directory "bad.sld")
+                  (fail expression "library import cycle through sample.bad"))))))
    (else)))

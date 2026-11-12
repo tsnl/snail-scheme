@@ -1,7 +1,7 @@
 ;; What every pass shares: where a piece of source is, what a pass says
-;; about it, and how to sequence steps that can fail. A pass
-;; returns its output or the feedback that stopped it, so every pass is a
-;; function of its input.
+;; about it, how to sequence steps that can fail, and the one hash that
+;; names things by their text. A pass returns its output or the feedback
+;; that stopped it, so every pass is a function of its input.
 (define-library (snail compiler source)
   (export
    Loc
@@ -9,7 +9,8 @@
    Feedback
    fail
    result-let*
-   map-results)
+   map-results
+   fnv-1a)
   (import
    (snail core base))
   (begin
@@ -104,6 +105,19 @@
            (result-let* ((value (step item)))
              (loop rest (Cons value mapped)))))))
 
+    ;; ---- Hashes ----
+
+    ;; FNV-1a over the code points, as an unsigned 32-bit value: a case's
+    ;; TypeId hashes its schema, and a producer's key its program. Both
+    ;; must be the old compiler's numbers, so this is its `fnv-1a`. The
+    ;; product stays below 2^56, so it never overflows I64 on either host.
+    (: fnv-1a (impl (Fn String -> I64)))
+    (define (fnv-1a text)
+      (fold-left (lambda (hash char)
+                   (i64-and (* (i64-xor hash (char->integer char)) 16777619) 4294967295))
+                 2166136261
+                 (string->list text)))
+
     )
 
   ;; ---- Tests ----
@@ -119,7 +133,8 @@
         (test-beside)
         (test-fail)
         (test-result-let*)
-        (test-map-results))
+        (test-map-results)
+        (test-fnv-1a))
 
       (define (test-beside)
         (expect (beside "lib/sample/blob.sld" "data/blob.bin") "lib/sample/data/blob.bin")
@@ -160,5 +175,13 @@
                 (else (fail (Loc "t.sld" 1 number) "odd"))))
         (expect (map-results halved (list)) (Ok (list)))
         (expect (map-results halved (list 4 2 8)) (Ok (list 2 1 4)))
-        (expect (map-results halved (list 2 3 5 0)) (fail (Loc "t.sld" 1 3) "odd")))))
+        (expect (map-results halved (list 2 3 5 0)) (fail (Loc "t.sld" 1 3) "odd")))
+
+      ;; The published FNV-1a values of "" and "a", and a code point past
+      ;; a byte, which hashes as one step.
+      (define (test-fnv-1a)
+        (expect (fnv-1a "") 2166136261)
+        (expect (fnv-1a "a") 3826002220)
+        (expect (fnv-1a "λ")
+                (i64-and (* (i64-xor 2166136261 955) 16777619) 4294967295)))))
    (else)))

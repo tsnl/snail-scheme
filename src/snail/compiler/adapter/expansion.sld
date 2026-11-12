@@ -170,22 +170,29 @@
     ;; ---- Programs ----
 
     ;; What the program at `path` finds: a kind, and what it says.
+    ;; Producers' outputs are read from `generated`.
     (: expansion-comparison
-       (impl (Fn (List String) String -> (Pair String String) ! fs)))
-    (define (expansion-comparison directories path)
-      (match (load-program directories path)
-        ((Err feedback)
-         (Pair "not compared" (string-append "it does not load: " (feedback-text feedback))))
-        ((Ok loaded)
-         (let ((supplied (supplied-expansion directories loaded (Nil))))
-           (match (::first supplied)
-             ((Ok (WaitingForLibraries _)) (Pair "not compared" "it reaches a generated library"))
-             (new
-              (outcomes new
-                        (old-expansion-with directories
-                                            (old-inputs (::second supplied))
-                                            path)
-                        (map ::target (::second supplied)))))))))
+       (impl (Fn (List String) String String -> (Pair String String) ! fs)))
+    (define (expansion-comparison directories generated path)
+      (let ((supplied (supplied-expansion directories generated path (Nil))))
+        (match (::first supplied)
+          ((Err feedback)
+           (match (load-program directories generated path)
+             ((Err _)
+              (Pair "not compared" (string-append "it does not load: " (feedback-text feedback))))
+             ((Ok _) (outcomes (::first supplied) (old-expansion-for directories path supplied)))))
+          ((Ok (WaitingForProducers _)) (Pair "not compared" "it reaches a generated library"))
+          (new (outcomes new (old-expansion-for directories path supplied))))))
+
+    (: old-expansion-for
+       (impl
+        (Fn (List String) String (Pair (Result ProgramCompilation (List Feedback)) (List Supplied))
+            -> (Pair (Result old:ExpandedProgram old:Stop) (List String))
+            !
+            fs)))
+    (define (old-expansion-for directories path supplied)
+      (Pair (old-expansion-with directories (old-inputs (::second supplied)) path)
+            (map ::target (::second supplied))))
 
     ;; ---- Targets ----
 
@@ -199,15 +206,16 @@
     ;; library that asks for a target not supplied, so the targets are
     ;; supplied a library at a time.
     (: supplied-expansion
-       (impl (Fn (List String) Loaded (List Supplied)
+       (impl (Fn (List String) String String (List Supplied)
                  -> (Pair (Result ProgramCompilation (List Feedback)) (List Supplied))
                  !
                  fs)))
-    (define (supplied-expansion directories loaded supplied)
-      (match (compile-loaded directories (target-table supplied) loaded)
+    (define (supplied-expansion directories generated path supplied)
+      (match (compile-program directories generated (target-table supplied) path)
         ((Ok (WaitingForTargets requests))
          (supplied-expansion directories
-                             loaded
+                             generated
+                             path
                              (append supplied
                                      (map (lambda (request)
                                             (Supplied (::target request)
@@ -245,14 +253,23 @@
 
     ;; ---- Outcomes ----
 
-    ;; `targets` names each target the new expansion was supplied.
+    ;; `old` is the old expansion and the targets the new expansion was
+    ;; supplied, which the old one was too.
     (: outcomes
+       (impl (Fn (Result ProgramCompilation (List Feedback))
+                 (Pair (Result old:ExpandedProgram old:Stop) (List String))
+                 ->
+                 (Pair String String))))
+    (define (outcomes new supplied)
+      (outcomes-with new (::first supplied) (::second supplied)))
+
+    (: outcomes-with
        (impl (Fn (Result ProgramCompilation (List Feedback))
                  (Result old:ExpandedProgram old:Stop)
                  (List String)
                  ->
                  (Pair String String))))
-    (define (outcomes new old targets)
+    (define (outcomes-with new old targets)
       (match (Pair new old)
         ((Pair (Err feedback) (Err (old:Failed diagnostics)))
          (failures feedback (old:diagnostics->list diagnostics)))
@@ -267,7 +284,7 @@
          (Pair "not compared" "the old compiler asks for an input"))
         ((Pair (Ok (CompiledAll files)) (Ok expanded))
          (expansions-comparison files expanded targets))
-        ((Pair (Ok (WaitingForLibraries _)) _)
+        ((Pair (Ok (WaitingForProducers _)) _)
          (Pair "not compared" "it reaches a generated library"))
         ((Pair (Ok (WaitingForTargets _)) _) (Pair "not compared" "it waits for a target"))))
 

@@ -2,13 +2,15 @@
 ;; character `#\` names, an integer token's value, and a byte of a
 ;; `#u8(...)`. The lexemes have found where each literal ends; these rules
 ;; decide what it means. Each answers the value, or the problem with the
-;; text, which the reader places at the literal.
+;; text, which the reader places at the literal. Which codes name a
+;; character is decided here too, for a producer's output as for text.
 (define-library (snail compiler read literals)
   (export
    string-value
    character-value
    integer-value
-   byte-value)
+   byte-value
+   scalar-code?)
   (import
    (snail core base)
    (snail compiler source)
@@ -103,13 +105,19 @@
     (: largest-scalar I64)
     (define largest-scalar 1114111)
 
-    ;; A scalar value is a code from 0 to 10FFFF that is no surrogate, from
-    ;; D800 to DFFF: only these name a character on every host.
     (: scalar-char (impl (Fn I64 -> (Result Char String))))
     (define (scalar-char code)
-      (if (or (> code largest-scalar) (and (<= 55296 code) (<= code 57343)))
-          (Err invalid-hex)
-          (Ok (integer->char code))))
+      (if (scalar-code? code)
+          (Ok (integer->char code))
+          (Err invalid-hex)))
+
+    ;; A scalar value is a code from 0 to 10FFFF that is no surrogate, from
+    ;; D800 to DFFF: only these name a character on every host.
+    (: scalar-code? (impl (Fn I64 -> Bool)))
+    (define (scalar-code? code)
+      (and (>= code 0)
+           (<= code largest-scalar)
+           (not (and (<= 55296 code) (<= code 57343)))))
 
     (: hex-digit (impl (Fn Char -> (Option I64))))
     (define (hex-digit c)
@@ -258,7 +266,9 @@
         (expect (character-value "x10FFFF") (Ok (integer->char 1114111)))
         (expect (character-value "x0000000000000000000041") (Ok #\A))
         (expect-invalid-hex character-value
-                            (list "xD800" "xDBFF" "x110000" "x1000000000000000041")))
+                            (list "xD800" "xDBFF" "x110000" "x1000000000000000041"))
+        (expect (map scalar-code? (list 0 55295 55296 57343 57344 1114111 1114112 -1))
+                (list #t #t #f #f #t #t #f #f)))
 
       ;; `decode` finds each of `texts` an invalid hexadecimal escape. The
       ;; text is part of what is compared, so a failure names it.

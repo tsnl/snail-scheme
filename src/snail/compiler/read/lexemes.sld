@@ -32,7 +32,8 @@
    FloatToken
    NameToken
    InvalidToken
-   token-kind)
+   token-kind
+   number-kind)
   (import
    (snail core base))
   (begin
@@ -206,7 +207,8 @@
     ;; ---- Numbers ----
 
     ;; An optionally signed decimal integer, or a decimal float with a point
-    ;; or an exponent. Any other text is a name, as `-`, `...` and `1+` are.
+    ;; or an exponent. Any other text is a name, as `-`, `...`, `1+` and
+    ;; the empty text are. A producer's number is read by this alone.
     (: number-kind (impl (Fn String -> TokenKind)))
     (define (number-kind text)
       (let ((magnitude (unsigned text)))
@@ -372,7 +374,9 @@
       (define (test-numbers)
         (expect-kind (IntegerToken) (list "0" "42" "-7" "+7" "007"))
         (expect-kind (FloatToken) (list "1.5" ".5" "1." "-.5" "1e9" "1E9" "2.5e-3" "1e+3"))
-        (expect-kind (NameToken) (list "-" "+" "..." "1+" "1.2.3" "1e" "1e-" "e5" "1x" ".e5" "-a")))
+        (expect-kind (NameToken) (list "-" "+" "..." "1+" "1.2.3" "1e" "1e-" "e5" "1x" ".e5" "-a"))
+        (expect (number-kind "") (NameToken))
+        (expect (number-kind "#t") (NameToken)))
 
       ;; The character classes are ASCII's on both hosts. Only space, tab,
       ;; newline and return are whitespace, so a no-break space (U+00A0),

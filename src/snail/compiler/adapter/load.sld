@@ -1,6 +1,7 @@
 ;; Loading beside the old compiler, for as long as both exist. The old
 ;; compiler loads a library as its expander reaches the library's import,
-;; so its loading is judged against `expand-program`, in two ways.
+;; so its loading is judged against `expand-program`, in two ways, and the
+;; producers it waits for against the old closure walk's.
 ;;
 ;; - The cases below, which each stop loading at one problem: the first
 ;;   problem the old expander reports is the loader's. tests/compiler.scm
@@ -8,6 +9,11 @@
 ;; - The order of a program's libraries beside the order the old expansion
 ;;   records them in, which tests/compare-compiler.sld runs, compiled, over
 ;;   the suites' programs.
+;; - The producers loading waits for, beside the generated libraries the
+;;   old `library-closure` reaches, which the old planner keys and prints
+;;   as the old expander would: by library, key, the text printed and the
+;;   libraries loading. tests/compare-compiler.sld runs it over the same
+;;   programs.
 ;;
 ;; The comparisons read and write files, as the old functions they call do.
 (define-library (snail compiler adapter load)
@@ -21,6 +27,11 @@
    OtherOrder
    UncomparedOrder
    order-comparison
+   ProducerComparison
+   ProducersAlike
+   ProducersDiffer
+   UncomparedProducers
+   producer-comparison
    old-expansion
    old-expansion-with)
   (import
@@ -45,11 +56,19 @@
    (prefix (only (snail shell compiler expand)
                  ExpandedProgram
                  expand-program
-                 empty-expansion)
+                 empty-expansion
+                 Reached
+                 library-closure
+                 program-imports)
            old:)
    (prefix (only (snail shell compiler inputs)
                  Inputs
-                 no-inputs)
+                 no-inputs
+                 producer-text
+                 producer-key
+                 print-producer
+                 generating-stack
+                 read-source-file)
            old:))
   (begin
 
@@ -124,7 +143,8 @@
         (match (::text load-case)
           ((Some text) (write-file main text))
           ((None) (unit)))
-        (match (Pair (load-program (list directory) main) (old-expansion (list directory) main))
+        (match (Pair (load-program (list directory) (string-append directory "/generated") main)
+                     (old-expansion (list directory) main))
           ((Pair (Err feedback) (Err stop)) (stop-comparison feedback stop))
           ((Pair (Err feedback) (Ok _)) (only-new-stops feedback))
           ((Pair (Ok _) (Err stop)) (only-old-stops stop))
@@ -144,16 +164,16 @@
       (UncomparedOrder
        ((reason String))))
 
-    (: order-comparison (impl (Fn (List String) String -> OrderComparison ! fs)))
-    (define (order-comparison directories path)
-      (match (load-program directories path)
+    ;; Producers' outputs are read from `generated`.
+    (: order-comparison (impl (Fn (List String) String String -> OrderComparison ! fs)))
+    (define (order-comparison directories generated path)
+      (match (load-program directories generated path)
         ((Err feedback)
          (UncomparedOrder (string-append "it does not load: " (feedback-text feedback))))
-        ((Ok loaded)
-         (match (::waiting loaded)
-           ((Cons _ _) (UncomparedOrder "it reaches a generated library"))
-           ((Nil)
-            (expanded-order (map file-key (::files loaded)) (old-expansion directories path)))))))
+        ((Ok (Unproduced _)) (UncomparedOrder "it reaches a generated library"))
+        ((Ok (Complete files))
+         (expanded-order (map (lambda (file) (library-key (loaded-name file))) files)
+                         (old-expansion directories path)))))
 
     (: expanded-order
        (impl (Fn (List String) (Result old:ExpandedProgram old:Stop) -> OrderComparison)))
@@ -165,15 +185,6 @@
          (UncomparedOrder (string-append "the old compiler does not expand it: "
                                          (old:diagnostics->string diagnostics))))
         ((Err (old:Requested _)) (UncomparedOrder "the old compiler asks for an input"))))
-
-    ;; A file by the old compiler's name for its library, the program's
-    ;; being `main`.
-    (: file-key (impl (Fn Outlined -> String)))
-    (define (file-key outlined)
-      (match (::outline outlined)
-        ((Written (Defined name _ _ _ _)) (library-key name))
-        ((Written (Program _ _ _ _)) (library-key program-library))
-        ((Generated name _ _ _) (library-key name))))
 
     ;; Two differences are known. The old expansion records no run for the
     ;; primitive library, whose body declares and defines nothing, so it
@@ -216,5 +227,98 @@
     (define (same-keys? keys others)
       (and (= (length keys) (length others))
            (every? (lambda (pair) (string=? (::first pair) (::second pair))) (zip keys others))))
+
+    ;; ---- Producers ----
+
+    ;; How the producers a program waits for come beside the generated
+    ;; libraries the old closure walk reaches: alike, with how many there
+    ;; are; or the first difference; or why they cannot be compared.
+    (enum ProducerComparison
+      (ProducersAlike
+       ((count I64)))
+      (ProducersDiffer
+       ((difference String)))
+      (UncomparedProducers
+       ((reason String))))
+
+    ;; A producer as the old compiler prints it: the library's key, the
+    ;; producer's key, the text it prints as KEY.sld and the libraries
+    ;; loading. The text is read back from where `print-producer` wrote it,
+    ;; under `printed`, so it is the old text exactly.
+    (struct OldProducer
+      ((library String)
+       (key String)
+       (text String)
+       (loading (List String))))
+
+    (: producer-comparison
+       (impl (Fn (List String) String String String -> ProducerComparison ! fs)))
+    (define (producer-comparison directories generated printed path)
+      (match (Pair (load-program directories generated path)
+                   (old:compiling (lambda () (old-producers directories printed path))))
+        ((Pair (Err feedback) _)
+         (UncomparedProducers (string-append "it does not load: " (feedback-text feedback))))
+        ((Pair _ (Err _)) (UncomparedProducers "the old closure walk stops"))
+        ((Pair (Ok (Complete _)) (Ok olds)) (producers-comparison (Nil) olds))
+        ((Pair (Ok (Unproduced producers)) (Ok olds)) (producers-comparison producers olds))))
+
+    ;; The generated libraries the old closure walk reaches from the
+    ;; program at `path`, with no producer's output supplied.
+    (: old-producers (impl (Fn (List String) String String -> (List OldProducer) ! fs old:compile)))
+    (define (old-producers directories printed path)
+      (let ((source (old:generating-stack (old:read-source-file path))))
+        (map (lambda (reached) (old-producer directories printed reached))
+             (old:library-closure directories
+                                  old:no-inputs
+                                  (::first source)
+                                  (old:program-imports (::second source))))))
+
+    (: old-producer (impl (Fn (List String) String old:Reached -> OldProducer ! fs)))
+    (define (old-producer directories printed reached)
+      (let* ((key (old:producer-key (old:producer-text directories (::forms reached))))
+             (file (string-append printed "/" key ".sld")))
+        (old:print-producer file (::loading reached) (::forms reached))
+        (OldProducer (string-join (::library reached) ".")
+                     key
+                     (read-file file)
+                     (::loading reached))))
+
+    (: producers-comparison (impl (Fn (List Producer) (List OldProducer) -> ProducerComparison)))
+    (define (producers-comparison news olds)
+      (if (= (length news) (length olds))
+          (match (find-difference
+                  (map (lambda (pair) (producer-difference (::first pair) (::second pair)))
+                       (zip news olds)))
+            ((Some difference) (ProducersDiffer difference))
+            ((None) (ProducersAlike (length news))))
+          (ProducersDiffer (string-append "the new compiler waits for "
+                                          (i64->string (length news))
+                                          " producers, the old reaches "
+                                          (i64->string (length olds))))))
+
+    (: find-difference (impl (Fn (List (Option String)) -> (Option String))))
+    (define (find-difference differences)
+      (match differences
+        ((Nil) (None))
+        ((Cons (Some difference) _) (Some difference))
+        ((Cons (None) rest) (find-difference rest))))
+
+    (: producer-difference (impl (Fn Producer OldProducer -> (Option String))))
+    (define (producer-difference new old)
+      (let ((library (library-key (::library new))))
+        (cond ((not (string=? library (::library old)))
+               (Some (string-append "the new compiler waits for " library ", the old reaches "
+                                    (::library old))))
+              ((not (string=? (::key new) (::key old)))
+               (Some (string-append library ": the new key is " (::key new) ", the old "
+                                    (::key old))))
+              ((not (string=? (::text new) (::text old)))
+               (Some (string-append library ": the producers print otherwise, new "
+                                    (::text new) "; old " (::text old))))
+              ((not (same-keys? (::loading new) (::loading old)))
+               (Some (string-append library ": the libraries loading differ: new "
+                                    (string-join (::loading new) " ") "; old "
+                                    (string-join (::loading old) " "))))
+              (else (None)))))
 
     ))

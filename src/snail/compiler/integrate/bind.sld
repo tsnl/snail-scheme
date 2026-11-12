@@ -12,7 +12,7 @@
    (snail core table)
    (snail core io)
    (snail compiler source)
-   (only (snail compiler outline language) Written Program)
+   (only (snail compiler outline language) Program)
    (only (snail compiler expand language) Expanded)
    (snail compiler bind supply)
    (snail compiler bind linked)
@@ -22,24 +22,24 @@
    (snail compiler integrate walk))
   (begin
 
-    ;; `expanded`, the library read from `outlined`, bound with the files
-    ;; of the targets `targets` holds, by target.
+    ;; `expanded`, the library `loaded` holds, bound with the files of the
+    ;; targets `targets` holds, by target.
     (: bind-expanded
-       (impl (Fn Outlined Expanded (Table (List TargetFile))
+       (impl (Fn LoadedFile Expanded (Table (List TargetFile))
                  -> (Result BindOutcome (List Feedback))
                  !
                  fs)))
-    (define (bind-expanded outlined expanded targets)
-      (let* ((printed (printed-copy outlined))
+    (define (bind-expanded loaded expanded targets)
+      (let* ((printed (printed-copy loaded))
              (files (named-files printed expanded)))
         (bind expanded (Supply printed (digests files (existing-files files)) targets))))
 
     ;; A producer program's printed copy, and the recipe it was printed
     ;; from, as its outline records them.
-    (: printed-copy (impl (Fn Outlined -> (Option PrintedCopy))))
-    (define (printed-copy outlined)
-      (match (::outline outlined)
-        ((Written (Program _ (Some recipe) _ _)) (Some (PrintedCopy (::file outlined) recipe)))
+    (: printed-copy (impl (Fn LoadedFile -> (Option PrintedCopy))))
+    (define (printed-copy loaded)
+      (match (::library loaded)
+        ((Program _ (Some recipe) _ _) (Some (PrintedCopy (::file loaded) recipe)))
         (_ (None))))
 
     ;; The digest of each of `files` that `contents` holds, by file.
@@ -93,11 +93,11 @@
                                                             (expanded-Literal (expanded-UnitValue)
                                                                               (at main 32))
                                                             (at main 29))))
-               (printed (Outlined main
-                                  (Written (Program (list "k")
-                                                    (Some (string-append directory "/recipe/r.sld"))
-                                                    (list)
-                                                    (list))))))
+               (printed (LoadedFile main
+                                    (Program (list "k")
+                                             (Some (string-append directory "/recipe/r.sld"))
+                                             (list)
+                                             (list)))))
           (expect (bind-expanded (program-file main) linking empty-table)
                   (Ok (BoundLibrary (bound-program linking-digest
                                                    (string-append directory "/data/x.txt")
@@ -122,7 +122,7 @@
         (Loc file 1 column))
 
       (define (program-file name)
-        (Outlined name (Written (Program (list) (None) (list) (list)))))
+        (LoadedFile name (Program (list) (None) (list) (list))))
 
       ;; The program `linking` bound, its file found at `file`.
       (define (bound-program digest file main)

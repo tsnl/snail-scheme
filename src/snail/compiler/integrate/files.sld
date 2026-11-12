@@ -1,13 +1,14 @@
 ;; The integrator's reads of the file system: a source's text, where a
-;; library's file is, and the bytes of the files a source includes or a
-;; library links. These are the compiler's only functions that perform
-;; `fs`, and each answers what it found as data, so the decisions about it
-;; are made elsewhere.
+;; library's file is, the bytes of the files a source includes or a
+;; library links, and the output a producer wrote. These are the
+;; compiler's only functions that perform `fs`, and each answers what it
+;; found as data, so the decisions about it are made elsewhere.
 (define-library (snail compiler integrate files)
   (export
    source-text
    library-file
-   existing-files)
+   existing-files
+   produced-output)
   (import
    (snail core base)
    (snail core table)
@@ -51,6 +52,15 @@
                  empty-table
                  paths))
 
+    ;; ---- Producers' outputs ----
+
+    ;; The bytes the producer with `key` wrote, GENERATED/KEY.syntax in the
+    ;; directory `generated` that the caller names, if they are there.
+    (: produced-output (impl (Fn String String -> (Option Bytes) ! fs)))
+    (define (produced-output generated key)
+      (let ((path (string-append generated "/" key ".syntax")))
+        (if (file-exists? path) (Some (read-bytes path)) (None))))
+
     )
 
   ;; ---- Tests ----
@@ -73,6 +83,7 @@
           (write-file (string-append second "/sample/a.sld") "second a")
           (write-file (string-append second "/sample/b.sld") "second b")
           (write-file (string-append first "/blob.bin") "AB")
+          (write-file (string-append first "/12.syntax") "AB")
           (expect (library-path "dir" (list "snail" "core" "base")) "dir/snail/core/base.sld")
           (expect (library-file (list first second) (list "sample" "a"))
                   (Some (string-append first "/sample/a.sld")))
@@ -87,5 +98,8 @@
                                         (string-append first "/missing.bin")))
                   (table-set empty-table
                              (string-append first "/blob.bin")
-                             (list->vector (list 65 66))))))))
+                             (list->vector (list 65 66))))
+          (expect (produced-output first "12") (Some (list->vector (list 65 66))))
+          (expect (produced-output first "13") (None))
+          (expect (produced-output (string-append first "/absent") "12") (None))))))
    (else)))

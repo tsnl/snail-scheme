@@ -5,7 +5,8 @@
 (define-library (snail compiler outline imports)
   (export
    Imported
-   imported-libraries)
+   imported-libraries
+   library-imports)
   (import
    (snail core base)
    (snail compiler source)
@@ -26,9 +27,14 @@
     (: imported-libraries (impl (Fn Outline -> (List Imported))))
     (define (imported-libraries outline)
       (match outline
-        ((Written (Defined _ imports _ _ _)) (map imported imports))
-        ((Written (Program _ _ imports _)) (map imported imports))
+        ((Written library) (library-imports library))
         ((Generated _ _ _ _) (Nil))))
+
+    (: library-imports (impl (Fn Library -> (List Imported))))
+    (define (library-imports library)
+      (match library
+        ((Defined _ imports _ _ _) (map imported imports))
+        ((Program _ _ imports _) (map imported imports))))
 
     (: imported (impl (Fn Import -> Imported)))
     (define (imported import)

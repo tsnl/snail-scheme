@@ -1,14 +1,22 @@
 ;; The comparisons of the new compiler with the old that load or expand
-;; whole programs, too slow on Chibi for `make test-compiler`, so compiled:
-;; `make compare-compiler` runs this from the repository's root. Each
-;; suite's programs load with the directories tests/run.scm gives that
-;; suite: how far each loads is counted, and the libraries of each that
+;; whole programs, too slow on Chibi for `make test-compiler`, so compiled,
+;; and the one that needs a producer's encoder, which stage 0 cannot load:
+;; `make compare-compiler` runs this from the repository's root, with
+;; every tracked library as its arguments. Each suite's programs load with
+;; the directories tests/run.scm gives that suite, and no producer's
+;; output: how far each loads is counted, and the libraries of each that
 ;; loads completely are compared, in order, with the old expansion's;
-;; then each such program is taken through the new passes, `read` to
-;; `cohere`, and compared with the old expansion as (snail compiler
-;; adapter expansion) says. Last, the SHA-256 the integrator names linked
-;; files by is compared with the old one compiled, as tests/compiler.scm
-;; compares them on Chibi.
+;; the producers each waits for are compared with the generated libraries
+;; the old closure walk reaches, as (snail compiler adapter load) says;
+;; then each program that loads completely is taken through the new
+;; passes, `read` to `cohere`, and compared with the old expansion as
+;; (snail compiler adapter expansion) says, and its targets discovered
+;; beside the old discovery, as (snail compiler adapter discover) says.
+;; Then every tracked library's forms, encoded as a producer encodes
+;; them, and the malformed outputs of (snail compiler adapter read), are
+;; decoded by both compilers. Last, the SHA-256 the integrator names
+;; linked files by is compared with the old one compiled, as
+;; tests/compiler.scm compares them on Chibi.
 (import
  (snail core base)
  (snail core io)
@@ -16,10 +24,40 @@
  (snail compiler outline names)
  (snail compiler integrate walk)
  (snail compiler integrate load)
+ (snail compiler adapter read)
  (snail compiler adapter outline)
  (snail compiler adapter load)
  (snail compiler adapter expansion)
- (snail compiler adapter sha256))
+ (snail compiler adapter discover)
+ (snail compiler adapter sha256)
+ (snail shell syntax)
+ (prefix (only (snail shell compiler read)
+               Syntax
+               Atom
+               Ident
+               Form
+               Datum
+               DInt
+               DFloat
+               DString
+               DChar
+               DBytes
+               DBool
+               DUnit
+               read-text
+               compiling)
+         old:))
+
+;; ---- Scratch ----
+
+;; No producer's output is in `generated`, which need not exist, so a
+;; program that reaches a generated library waits for its producer; the
+;; old producers are printed in `printed`.
+(: generated String)
+(define generated "build/compare-compiler/generated")
+
+(: printed String)
+(define printed "build/compare-compiler/printed")
 
 ;; ---- Suites ----
 
@@ -54,19 +92,26 @@
 
 ;; ---- Findings ----
 
-;; One program's findings: how far it loads, and how its order compares.
+;; One program's findings: how far it loads, how its order compares, how
+;; its producers compare, how its expansion compares, and how its
+;; discovery compares.
 (struct Finding
   ((path String)
    (load String)
    (order OrderComparison)
-   (expansion (Pair String String))))
+   (producers ProducerComparison)
+   (expansion (Pair String String))
+   (discovery (Pair String String))))
 
 (: program-finding (impl (Fn Suite String -> Finding ! fs)))
 (define (program-finding suite path)
-  (Finding path
-           (load-summary (load-program (::libraries suite) path))
-           (order-comparison (::libraries suite) path)
-           (expansion-comparison (::libraries suite) path)))
+  (let ((directories (::libraries suite)))
+    (Finding path
+             (load-summary (load-program directories generated path))
+             (order-comparison directories generated path)
+             (producer-comparison directories generated printed path)
+             (expansion-comparison directories generated path)
+             (discovery-comparison directories generated path))))
 
 ;; The kinds of expansion finding, the ones that need no word first.
 (: expansion-kinds (List String))
@@ -100,10 +145,12 @@
 (: load-summary (impl (Fn (Result Loaded (List Feedback)) -> String)))
 (define (load-summary result)
   (match result
-    ((Ok loaded)
-     (match (::waiting loaded)
-       ((Nil) "complete")
-       (waiting (string-append "generated: " (string-join (map written-name waiting) " ")))))
+    ((Ok (Complete _)) "complete")
+    ((Ok (Unproduced producers))
+     (string-append "generated: "
+                    (string-join (map (lambda (producer) (written-name (::library producer)))
+                                      producers)
+                                 " ")))
     ((Err feedback) (string-append "failed: " (feedback-text feedback)))))
 
 (: starts-with? (impl (Fn String String -> Bool)))
@@ -142,7 +189,188 @@
                  " "
                  kind))
 
+;; ---- Producers ----
+
+(: producer-line (impl (Fn Finding -> (List String))))
+(define (producer-line finding)
+  (match (::producers finding)
+    ((ProducersAlike _) (Nil))
+    ((ProducersDiffer difference)
+     (list (string-append (::path finding) ": PRODUCERS DIFFER: " difference)))
+    ((UncomparedProducers reason)
+     (list (string-append (::path finding) ": producers not compared: " reason)))))
+
+;; The programs that wait for a producer, and how many producers they
+;; wait for in all.
+(: producer-counts (impl (Fn (List Finding) -> (Pair I64 I64))))
+(define (producer-counts findings)
+  (fold-left (lambda (counts finding)
+               (match (::producers finding)
+                 ((ProducersAlike count)
+                  (if (> count 0)
+                      (Pair (+ (::first counts) 1) (+ (::second counts) count))
+                      counts))
+                 (_ counts)))
+             (Pair 0 0)
+             findings))
+
+(: producers-differ? (impl (Fn Finding -> Bool)))
+(define (producers-differ? finding)
+  (match (::producers finding)
+    ((ProducersDiffer _) #t)
+    (_ #f)))
+
+;; ---- Discovery ----
+
+(: discovery-kinds (List String))
+(define discovery-kinds
+  (list "discover alike"
+        "fail alike"
+        "only the old fails"
+        "only the new fails"
+        "fail differently"
+        "discoveries differ"
+        "known: a program's statements"
+        "not compared"))
+
+;; A program only the old discovery refuses is one whose problem a pass
+;; after `expand` finds, so the new compile must refuse it alike.
+(: discovery-line (impl (Fn Finding -> (List String))))
+(define (discovery-line finding)
+  (let ((kind (::first (::discovery finding))))
+    (cond ((member? kind (list "discover alike" "fail alike")) (Nil))
+          ((and (string=? kind "only the old fails") (later-refusal? finding)) (Nil))
+          (else (list (string-append (::path finding)
+                                     ": discovery: "
+                                     kind
+                                     ": "
+                                     (::second (::discovery finding))))))))
+
+(: later-refusal? (impl (Fn Finding -> Bool)))
+(define (later-refusal? finding)
+  (member? (::first (::expansion finding)) (list "fail alike" "fail alike, several problems")))
+
+(: discovery-wrong? (impl (Fn Finding -> Bool)))
+(define (discovery-wrong? finding)
+  (let ((kind (::first (::discovery finding))))
+    (or (member? kind (list "only the new fails" "fail differently" "discoveries differ"))
+        (and (string=? kind "only the old fails") (not (later-refusal? finding))))))
+
+(: discovery-count (impl (Fn (List Finding) String -> String)))
+(define (discovery-count findings kind)
+  (string-append (i64->string (length (filter (lambda (finding)
+                                                (string=? (::first (::discovery finding)) kind))
+                                              findings)))
+                 " "
+                 kind))
+
+;; The discovery cases of (snail compiler adapter discover), each written
+;; in build/compare-compiler/discovery/, its libraries found there and in
+;; src, by its program's name, with what discovery finds of it.
+(: discovery-case-findings (impl (Fn -> (List (Pair String (Pair String String))) ! fs)))
+(define (discovery-case-findings)
+  (let ((directory "build/compare-compiler/discovery"))
+    (match (make-directories (string-append directory "/sample"))
+      ((Ok _)
+       (map (lambda (discovery-case)
+              (Pair (::main discovery-case)
+                    (discovery-case-comparison directory (list "src") generated discovery-case)))
+            discovery-cases))
+      ((Err _) (panic (string-append "cannot make " directory))))))
+
+(: case-kind (impl (Fn (Pair String (Pair String String)) -> String)))
+(define (case-kind finding)
+  (::first (::second finding)))
+
+;; A line for each case not discovered alike, and a line counting them.
+(: case-lines (impl (Fn (List (Pair String (Pair String String))) -> (List String))))
+(define (case-lines found)
+  (let ((unlike
+         (filter (lambda (finding) (not (string=? (case-kind finding) "discover alike"))) found))
+        (known
+         (filter (lambda (finding) (string=? (case-kind finding) "known: a program's statements"))
+                 found)))
+    (append (map (lambda (finding)
+                   (string-append (::first finding)
+                                  ": discovery: "
+                                  (case-kind finding)
+                                  ": "
+                                  (::second (::second finding))))
+                 unlike)
+            (list (string-append "compared the discovery of "
+                                 (i64->string (length found))
+                                 " cases with the old: "
+                                 (i64->string (length unlike))
+                                 " differ, "
+                                 (i64->string (length known))
+                                 " of them by a program's statements")))))
+
+;; ---- Producers' outputs ----
+
+;; A form the old reader read, as a recipe would return it to its
+;; producer. The reader writes no unit datum.
+(: recipe-syntax (impl (Fn old:Syntax -> Syntax)))
+(define (recipe-syntax syntax)
+  (match syntax
+    ((old:Form items _) (ListSyntax (map recipe-syntax items)))
+    ((old:Ident name _ _) (SymbolSyntax name))
+    ((old:Atom datum _) (datum-syntax datum))))
+
+(: datum-syntax (impl (Fn old:Datum -> Syntax)))
+(define (datum-syntax datum)
+  (match datum
+    ((old:DInt value) (IntegerSyntax value))
+    ((old:DFloat text) (FloatSyntax text))
+    ((old:DString value) (StringSyntax value))
+    ((old:DChar value) (CharSyntax value))
+    ((old:DBytes value) (BytesSyntax value))
+    ((old:DBool value) (BooleanSyntax value))
+    ((old:DUnit) (ListSyntax (list (SymbolSyntax "unit"))))))
+
+;; Each form of the library at `path` that the decoders make otherwise of,
+;; once a producer has encoded it, and how many forms were decoded.
+(: library-output-differences (impl (Fn String -> (Pair I64 (List String)) ! fs)))
+(define (library-output-differences path)
+  (match (old:compiling (lambda () (old:read-text (read-file path) path)))
+    ((Ok forms)
+     (Pair (length forms)
+           (concatenate (map (lambda (form)
+                               (match (output-difference (syntax->bytes (recipe-syntax form))
+                                                         (Loc path 1 1))
+                                 ((Some difference) (list (string-append path ": " difference)))
+                                 ((None) (Nil))))
+                             forms))))
+    ((Err _) (Pair 0 (Nil)))))
+
+;; The tracked libraries' forms and the malformed outputs, decoded: a line
+;; for each difference, and a line counting them.
+(: output-findings (impl (Fn (List String) -> (List String) ! fs)))
+(define (output-findings paths)
+  (let* ((found (map library-output-differences paths))
+         (differences (append (concatenate (map ::second found)) (output-differences))))
+    (append differences
+            (list (string-append "compared the decoding of producers' outputs on "
+                                 (i64->string (fold-left + 0 (map ::first found)))
+                                 " forms of "
+                                 (i64->string (length paths))
+                                 " libraries and "
+                                 (i64->string (length malformed-outputs))
+                                 " malformed outputs: "
+                                 (i64->string (length differences))
+                                 " differences")))))
+
 ;; ---- Main ----
+
+;; The tracked libraries, which the Makefile names as the arguments.
+(: tracked (List String))
+(define tracked
+  (match (command-line)
+    ((Cons _ paths) paths)
+    ((Nil) (Nil))))
+
+(match (make-directories printed)
+  ((Ok _) (unit))
+  ((Err _) (panic (string-append "cannot make " printed))))
 
 (let* ((findings (concatenate (map (lambda (suite)
                                      (map (lambda (path) (program-finding suite path))
@@ -171,11 +399,36 @@
                                                      "other differences"
                                                      "not compared"))
                                           ", ")))
+  (for-each write-line (concatenate (map producer-line findings)))
+  (let ((counts (producer-counts findings)))
+    (write-line (string-append "compared their producers with the old: "
+                               (i64->string (::second counts))
+                               " producers of "
+                               (i64->string (::first counts))
+                               " programs alike, "
+                               (i64->string (length (filter producers-differ? findings)))
+                               " programs differ")))
   (for-each write-line (concatenate (map expansion-line findings)))
   (write-line (string-append "compared their expansion with the old: "
                              (string-join (map (lambda (kind) (expansion-count findings kind))
                                                expansion-kinds)
                                           ", ")))
+  (for-each write-line (concatenate (map discovery-line findings)))
+  (write-line (string-append "compared their discovery with the old: "
+                             (string-join (map (lambda (kind) (discovery-count findings kind))
+                                               discovery-kinds)
+                                          ", ")))
+  (let ((cases (discovery-case-findings)))
+    (for-each write-line (case-lines cases))
+    (if (any? (lambda (finding)
+                (not (member? (case-kind finding)
+                              (list "discover alike" "known: a program's statements"))))
+              cases)
+        (panic "the discoveries of the cases differ")
+        (unit)))
+  (let ((outputs (output-findings tracked)))
+    (for-each write-line outputs)
+    (if (> (length outputs) 1) (panic "the decoders differ") (unit)))
   (if (any? (lambda (finding)
               (member? (::first (::expansion finding))
                        (list "fail alike first, several problems differ"
@@ -189,6 +442,8 @@
             findings)
       (panic "the orders differ")
       (unit))
+  (if (any? producers-differ? findings) (panic "the producers differ") (unit))
+  (if (any? discovery-wrong? findings) (panic "the discoveries differ") (unit))
   (match (digest-difference)
     ((None) (write-line "compared the new SHA-256 with the old: no differences"))
     ((Some difference) (panic (string-append "the SHA-256 differs: " difference)))))

@@ -35,9 +35,10 @@ test-compiler:
 	"$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/compiler.scm "$(CURDIR)"
 
 # The comparisons with the old compiler that load or expand whole programs,
-# compiled, since on Chibi they would take many minutes.
+# compiled, since on Chibi they would take many minutes, and the decoding
+# of every tracked library as a producer encodes it.
 compare-compiler:
-	./scripts/snail-tool run tests/compare-compiler.sld
+	./scripts/snail-tool run tests/compare-compiler.sld $$(git ls-files -- '*.sld')
 
 # The suite with every compile on the native executable's wasmtime instead of
 # Node, plus the check that both engines emit the same text.

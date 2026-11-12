@@ -13,7 +13,7 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 
 | Pass | Unit | Reads | Writes | The one thing it does | Status |
 | --- | --- | --- | --- | --- | --- |
-| `read` | file | text | Syntax | Text becomes located forms. | implemented |
+| `read` | file | text, or a producer's output | Syntax | Text, or the bytes a producer wrote, becomes located forms. | implemented |
 | `include` | file | Syntax | Syntax | Each `include-bytes` form becomes the bytes of its file. | implemented |
 | `outline` | file | Syntax | Outline | The header is parsed: name, imports, exports. The body stays Syntax. | implemented |
 | `expand` | library | Outline, Offer | Expanded, Offer | Macros run, every name is resolved, every core form is parsed. | implemented |
@@ -74,10 +74,11 @@ only checks, as `cohere` and `confine` do, writes nothing.
 
 ```text
 src/snail/compiler/
-  source.sld              (snail compiler source): Loc, beside, Feedback, result-let*, map-results
+  source.sld              (snail compiler source): Loc, beside, Feedback, result-let*, map-results, fnv-1a
   read/
     language.sld          (snail compiler read language): the Syntax language
-    pass.sld              (snail compiler read pass): the function `read`
+    pass.sld              (snail compiler read pass): the function `read`, and `read-generated` for a producer's output
+    written.sld           query: Syntax as the text the reader reads back
     ...                   rules and queries of this pass, one library each
   include/
     pass.sld              (snail compiler include pass): writes Syntax, so no language.sld
@@ -85,6 +86,7 @@ src/snail/compiler/
   outline/
     language.sld
     pass.sld
+    producer.sld          query: a generated library's producer program, its text and its key
   expand/
     language.sld          Expanded, the tree it writes
     offer.sld             Offer, what a library offers its importers' expansion
@@ -175,11 +177,12 @@ src/snail/compiler/
   ...
   integrate/              the integrator: one library per job
     files.sld             (snail compiler integrate files): every read of the file system
-    walk.sld              (snail compiler integrate walk): what to load next, and in what order
-    load.sld              (snail compiler integrate load): a program and the libraries it reaches
+    walk.sld              (snail compiler integrate walk): what to load next, in what order, and which generated libraries wait for their producers
+    load.sld              (snail compiler integrate load): a program and the libraries it reaches, a producer's output in its library's place
     sha256.sld            (snail compiler integrate sha256): the digest a linked file is named by
     bind.sld              (snail compiler integrate bind): one library's linked files read, then bound
-    compile.sld           (snail compiler integrate compile): each loaded library expanded, bound, derived, declared, dispatched and cohered, in order
+    compile.sld           (snail compiler integrate compile): each loaded library expanded, bound, derived, declared, dispatched and cohered, in order, or what the program waits for
+    discover.sld          (snail compiler integrate discover): the targets a program asks for, which a build makes first
 ```
 
 Each pass is a folder. `language.sld` holds the language the pass writes:
@@ -195,7 +198,9 @@ expressions, patterns and the top level are each a part. It also writes two
 languages, the tree in
 `language.sld` and, in `offer.sld`, what a library offers the expansion of
 the libraries that import it, and works in a third, `marked.sld`'s, which
-macros read and write.
+macros read and write. `read` has two entries, since a file's forms come
+to it two ways: `read`, from the text written, and `read-generated`, from
+the bytes a producer wrote, which no reader of text could read.
 
 The import rule keeps the folders apart, and `scripts/compiler-imports
 --check` enforces it:
@@ -303,6 +308,20 @@ Datum  ::= Integer integer | Float text | Text text | Character character
          | ByteVector bytes | Boolean boolean
 ```
 
+A producer's output is Syntax too. `read-generated` decodes the bytes a
+producer wrote, as the old `decode-syntax` does: one form, a tag byte then
+its contents, a list, symbol, number, string, character, `#f`, `#t` or
+bytes, with counts and scalars' codes seven bits to a byte. A number's
+text is read as the reader reads a literal, and nothing follows the form.
+The bytes say nowhere where a form is, so every node is at the Loc the
+integrator hands it, the recipe's expression, and so is a problem, which
+is "malformed generated syntax: " and what is wrong, in the old words.
+
+The query `read/written.sld` writes Syntax as text the reader reads back,
+character for character as the old `syntax->string` does: a form's items
+joined by one space, a string's `"`, `\` and newline escaped and nothing
+else. A producer's text, which its key hashes, is written with it.
+
 ### Outline, written by `outline` (implemented)
 
 A library's file holds one library, under the name it was found by. Its
@@ -318,6 +337,19 @@ A `Library` is what `expand` takes: a defined library or a program, each
 with a body. A generated library is not one, since its body is what its
 producer will print; the integrator outlines that output as a `Library`
 before anything expands it.
+
+The query `outline/producer.sld` answers a generated library's producer
+program, as the old `producer` writes it: the recipe's imports and
+`(only (snail shell syntax) write-generated-library)`, then
+`(recipe "FILE")`, then `(write-generated-library (lambda () EXPRESSION))`,
+the imports and expression where the recipe writes them and every other
+form at the recipe. Its text is the forms one to a line. Its key is the
+decimal `fnv-1a` of the directories libraries are found in, each as a
+string literal, joined by spaces, a newline, then that text: the old
+`producer-text` and `producer-key`, so a key names the same files for both
+compilers. A producer is printed as `(generating "a.b" ...)`, the
+libraries loading as it was reached, innermost first, on the first line,
+which the key does not cover, then its text.
 
 ```text
 Outline    ::= Written Library                    no Loc
@@ -639,6 +671,35 @@ derives expands and before it is bound. Of each library the integrator
 keeps its offer; the files to place beside the program, which it asks
 `placed-files` once the library is bound; and its latest tree, the
 library derived. It stops at the first library that waits for targets.
+
+A generated library waits for its producer instead. Its caller names the
+directory a producer's output is read from, and the walk asks for
+`GENERATED/KEY.syntax` under the producer's key. When the file is there,
+`read-generated` decodes it at the recipe's expression; it is included
+and outlined in the recipe's file, must declare the library the recipe
+names ("library name does not match its path", at the expression), and
+stands in that library's place, its imports loading before it. When it
+is not there, the library waits and loading goes on past it, its
+importers counting it loaded. Once loading is done, `compile-program`
+answers every producer that waits, `WaitingForProducers`, in the order
+reached, each with its library, its key, the text to print as
+`GENERATED/KEY.sld` and the libraries loading, and compiles nothing. The
+caller runs each producer, writes what it printed as `KEY.syntax`, and
+compiles again, from nothing: a key names an output, not something
+kept. A program that waits for no producer is compiled, and answers
+`CompiledAll`, or `WaitingForTargets` at the first library that asks for
+a target its caller did not supply.
+
+A second entry, `discover-targets`, answers the targets a program asks
+for, which a project build makes before it compiles the program, as the
+old `discover-artifacts` answers them for the planner. It loads the
+program, as a compile does, and expands each library in order, handed the
+offers of those its imports reach, and answers `requested-targets` of
+each, each target once at its first request. It binds nothing, so nothing
+waits for a target, and derives nothing, since a derived instance adds no
+name to an offer. The planner discovers once every producer has run, so a
+producer that waits is the caller's mistake: "internal error: discovery
+reached a producer whose output was not supplied", at the program.
 
 ### Derived, written by `derive` (implemented)
 
@@ -1196,6 +1257,23 @@ problem when the old compiler reports one at each of several scopes. It
 also compares the integrator's SHA-256 with the old one, compiled, as
 `make test-compiler` does on Chibi.
 
+For generated libraries, `make compare-compiler` loads every suite program
+with no producer's output, and compares the producers each waits for with
+the generated libraries the old `library-closure` reaches, keyed and
+printed by the old planner's functions: by library, key, printed text and
+the libraries loading. A program that reaches one is expanded by neither,
+since a producer's output exists only while a build runs it. For every
+program that loads completely, it compares the targets `discover-targets`
+answers with the old `discover-artifacts`, by name and first place, as
+the old planner keeps them, or a failure by its first problem; a program
+only the old discovery refuses must be one the new compile refuses alike.
+Few suite programs ask for a target, so literal cases are compared too.
+It decodes every tracked library's forms, encoded as
+`write-generated-library` encodes them, and a list of malformed outputs,
+with both decoders. `make test-compiler` compares the text
+`read/written.sld` writes of every tracked library's forms, and of the
+readers' unusual texts, with the old `syntax->string`.
+
 The language the compiler accepts does not change during the replacement,
 so every existing program stays an oracle. Where the new front end
 knowingly differs from the old compiler, the difference is listed here,
@@ -1227,6 +1305,26 @@ one line each, with its reason:
 - `bind` asks for every target a library was not supplied at once; the
   old compiler asks for one at a time, since it stops where it first
   reaches one, and asking once saves its caller a build per target.
+- A compile answers every producer a program waits for at once, before it
+  compiles any library; the old compiler asks for one at a time, where
+  its expansion reaches it, so a problem in a library loaded before a
+  generated one is reported only once the producers have run.
+- The implicit libraries a deriving clause needs are loaded with nothing
+  loading, so a producer they reached would be printed without the
+  libraries that led to them; the old expander loads them inside the
+  library that derives. None of them reaches a generated library.
+- In a program, `discover-targets` asks for the targets of the definitions
+  before those of the statements, where the old discovery asks in the
+  order written, since Expanded makes a program's statements its body;
+  the first place of a target asked for in both can differ too. None of
+  the programs `make compare-compiler` discovers asks for a target in a
+  statement before a definition that asks for one.
+- `discover-targets` asks for a target requested inside another
+  request's `file` or `prepend` expression, which the old discovery never
+  expands, having no file; the new one has expanded them already.
+- `discover-targets` answers a program whose problem a pass after
+  `expand` finds, where the old discovery, a whole old expansion, fails
+  with that problem; the compile that follows then fails alike.
 - `bind` reports two links that clash only when the library otherwise
   expands; the old expander reports it beside the problems of the other
   bodies, since it checks links while it expands each body, and the new
