@@ -8,22 +8,23 @@
 ;; implicit libraries; declared, handed what the libraries its imports
 ;; reach offer its declaration, and, when it derives an instance, what
 ;; (snail shell wire) and the libraries wire's imports reach offer, since
-;; a derived instance names wire's classes; and dispatched, handed the
-;; same offers and the listing of every library compiled before it, in
-;; order, since instances are global. The first library that
-;; derives an instance, by a `deriving` clause naming Serialize or
-;; Deserialize, needs the implicit libraries, (snail core primitive) and
-;; (snail shell wire), with what they import: they are loaded then, if no
-;; library loaded them, and compiled after that library's expansion and
-;; before it is bound, where the old compiler loads them, as it reaches
-;; the clause. A program that reaches a generated library is not
-;; compiled, since its producer has not yet printed the library's body,
-;; and one stops at the first library that asks for a target the caller
-;; did not supply, which it waits for. The integrator keeps, of each
-;; library, what it offers the expansion and the declaration of the
-;; libraries that import it; the files the build must place beside the
-;; program for it, which it asks of the library bound; its latest tree,
-;; the library dispatched; and its listing, every instance it declares.
+;; a derived instance names wire's classes; dispatched, handed the same
+;; offers and the listing of every library compiled before it, in order,
+;; since instances are global; and cohered, handed that listing too. The
+;; first library that derives an instance, by a `deriving` clause naming
+;; Serialize or Deserialize, needs the implicit libraries, (snail core
+;; primitive) and (snail shell wire), with what they import: they are
+;; loaded then, if no library loaded them, and compiled after that
+;; library's expansion and before it is bound, where the old compiler
+;; loads them, as it reaches the clause. A program that reaches a
+;; generated library is not compiled, since its producer has not yet
+;; printed the library's body, and one stops at the first library that
+;; asks for a target the caller did not supply, which it waits for. The
+;; integrator keeps, of each library, what it offers the expansion and the
+;; declaration of the libraries that import it; the files the build must
+;; place beside the program for it, which it asks of the library bound;
+;; its latest tree, the library dispatched; and its listing, every
+;; instance it declares.
 (define-library (snail compiler integrate compile)
   (export
    CompiledFile
@@ -53,6 +54,7 @@
    (only (snail compiler dispatch language) Dispatched)
    (only (snail compiler dispatch listing) Listed library-instances)
    (snail compiler dispatch pass)
+   (snail compiler cohere pass)
    (snail compiler integrate walk)
    (snail compiler integrate load)
    (snail compiler integrate bind))
@@ -132,7 +134,8 @@
         (_ (Ok run))))
 
     ;; One library expanded; then the implicit libraries, when it is the
-    ;; first to derive; then the library bound, derived and declared.
+    ;; first to derive; then the library bound, derived, declared,
+    ;; dispatched and cohered.
     (: library-run
        (impl (Fn (List String) (Table (List TargetFile)) Outlined (List CompiledFile) Bool
                  -> (Result Run (List Feedback))
@@ -147,8 +150,8 @@
              (declared-run targets outlined imports expansion earlier implicit?))
             ((Waiting _) (Ok before))))))
 
-    ;; The run with the library bound, derived, declared and dispatched
-    ;; after `earlier`, or waiting for the targets it asks for.
+    ;; The run with the library bound, derived, declared, dispatched and
+    ;; cohered after `earlier`, or waiting for the targets it asks for.
     (: declared-run
        (impl
         (Fn (Table (List TargetFile)) Outlined (List LibraryName) Expansion (List CompiledFile) Bool
@@ -160,10 +163,12 @@
         (match outcome
           ((WantsTargets requests) (Ok (Waiting requests)))
           ((BoundLibrary bound)
-           (let ((closure (closure-declarations earlier (declaration-imports expansion imports))))
+           (let ((closure (closure-declarations earlier (declaration-imports expansion imports)))
+                 (instances (listings earlier)))
              (result-let* ((derived (derive bound (implicit-offers earlier)))
                            (declared (declare derived closure))
-                           (dispatched (dispatch (::declared declared) closure (listings earlier))))
+                           (dispatched (dispatch (::declared declared) closure instances))
+                           (cohered (cohere dispatched instances)))
                (Ok (Running (Cons (CompiledFile (::file outlined)
                                                 (outlined-name outlined)
                                                 imports
@@ -325,7 +330,11 @@
                (Pair "data/x.txt" "abc")
                (Pair "waiting.sld" "(import (sample made))")
                (Pair "asking.sld" "(import (sample asks))")
-               (Pair "missing.sld" "(import (snail core forms))\n(link-handle \"data/y.txt\")")))
+               (Pair "missing.sld" "(import (snail core forms))\n(link-handle \"data/y.txt\")")
+               (Pair "sample/probes.sld"
+                     "(define-library (sample probes) (import (snail core forms)) (export Probe probe)\n  (begin (typeclass (Probe T) (: probe (impl (Fn T -> I64)))) (instance (Probe I64) (define (probe x) 1))))")
+               (Pair "overlapping.sld"
+                     "(import (snail core forms) (sample probes))\n(instance (Probe I64) (define (probe x) 2))")))
         (match (compiled-at directory "main.sld")
           ((Ok (CompiledAll files))
            (expect (map ::library files)
@@ -358,7 +367,14 @@
                    (string-append "the library main links data/y.txt, but there is no file at "
                                   directory
                                   "/data/y.txt")))
-          (other (expect other "a program whose linked file is missing"))))
+          (other (expect other "a program whose linked file is missing")))
+        ;; Each library is cohered with the instances of those before it.
+        (match (compiled-at directory "overlapping.sld")
+          ((Err (Cons feedback (Nil)))
+           (expect feedback
+                   (Feedback (Loc (string-append directory "/overlapping.sld") 2 1)
+                             "this instance overlaps another instance of the class on its input types")))
+          (other (expect other "a program whose instance overlaps an earlier library's"))))
 
       ;; Each library is bound once it expands: the program's linked file
       ;; is its handle's import, and its statement a call of the handle;
