@@ -709,6 +709,11 @@ pub extern "C" fn test_type(address: usize, expected: u32, nullable: u32) -> u32
         return u32::from(nullable != 0);
     }
     let tag = unsafe { (address as *const u32).read() };
+    // Most casts recover an exact closure or data layout. Its canonical tag
+    // proves that case without borrowing the registry or walking its parents.
+    if tag != 0 && tag == expected {
+        return 1;
+    }
     TYPES.with_borrow(|types| u32::from(subtype(types, tag, expected)))
 }
 
