@@ -27,14 +27,14 @@
 
 ;; Yields once to a second handler, which announces and resumes it, then
 ;; resumes the generator under that handler.
-(define (under-second (next (dyn (FnOnce Unit → Step)))) (→ Step) (! console)
+(define (under-second (next (dyn (FnOnce Unit → Step)))) (→ Step) (! output-port)
   (handle Gen ((yield (lambda (value resume)
                         (write-line (string-append "second handler: " (show value)))
                         (resume (unit)))))
     (yield 0)
     (next (unit))))
 
-(define (drain (step Step)) (→ Unit) (! console)
+(define (drain (step Step)) (→ Unit) (! output-port)
   (match step
     ((Done) (write-line "done"))
     ((Yielded value next)

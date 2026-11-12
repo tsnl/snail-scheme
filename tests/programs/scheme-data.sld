@@ -5,7 +5,7 @@
  (snail shell read)
  (snail shell write))
 
-(define (round-trip (text String)) (→ Unit) (! console)
+(define (round-trip (text String)) (→ Unit) (! output-port)
   (match (read-datums text)
     ((Ok data) (for-each (lambda (datum) (write datum) (newline)) data))
     ((Err message) (write-line (string-append "error: " message)))))

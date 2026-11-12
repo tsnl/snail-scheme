@@ -34,18 +34,18 @@
 
 ;; An imported function is code too, and an Fn performs what its row says
 ;; under the handlers where it is called.
-(define (log-with (logger (fn String → Unit ! console))) (→ Unit) (! console)
+(define (log-with (logger (fn String → Unit ! output-port))) (→ Unit) (! output-port)
   (logger "logged through an Fn"))
 
 ;; A call through an Fn may yield to a control handler.
 (effect Stop
   ((ctl stop (dyn (Fn I64 → Unit)))))
 
-(define (stop-at-two (n I64)) (→ Unit) (! Stop console)
+(define (stop-at-two (n I64)) (→ Unit) (! Stop output-port)
   (write-line (string-append "checked " (i64->string n)))
   (when (= n 2) (stop n)))
 
-(define (until-stop (check (fn I64 → Unit ! Stop console))) (→ I64) (! console)
+(define (until-stop (check (fn I64 → Unit ! Stop output-port))) (→ I64) (! output-port)
   (handle Stop ((stop (lambda (value resume) (drop resume) value)))
     (check 1)
     (check 2)

@@ -45,11 +45,11 @@
     ((MemoryImport) "memory")
     ((GlobalImport) "global")))
 
-(define (show-import (import Import)) (→ Unit) (! console)
+(define (show-import (import Import)) (→ Unit) (! output-port)
   (write-line (string-append (● import from) " " (● import name) " "
                              (kind-name (● import kind)))))
 
-(define (show-run (instance Module) (name String)) (→ Unit) (! wasm console)
+(define (show-run (instance Module) (name String)) (→ Unit) (! wasm output-port)
   (match (run-export instance name 0)
     ((Ok answer) (write-line (string-append name " answers " (show answer))))
     ((Err error) (write-line (load-error-message error)))))

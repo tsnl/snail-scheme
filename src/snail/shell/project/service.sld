@@ -208,7 +208,7 @@
 
     (define (develop (setup Setup))
       (→ Unit)
-      (! mut tcp process fs modes hints console signals clock)
+      (! mut tcp process fs modes hints output-port signals clock)
       (dispatch-local (once (lambda () (start setup)))))
 
     ;; Listens, starts the resident, announces the editor's URL and the
@@ -216,7 +216,7 @@
 
     (define (start (setup Setup))
       (→ Unit)
-      (! mut tasks tcp process fs modes hints console signals clock)
+      (! mut tasks tcp process fs modes hints output-port signals clock)
       (let* ((listener (listening setup))
              (applications (applications-listening (● setup port)))
              (setup (Setup-port-set setup (● listener port)))

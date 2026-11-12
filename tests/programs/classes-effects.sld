@@ -21,7 +21,7 @@
 (struct Table
   ((objects (List (Pair String String)))))
 
-(instance (Store (! console) Directory)
+(instance (Store (! output-port) Directory)
   (define fetch-object
     (lambda (directory name) (write-line (string-append "reading " (● directory root) "/" name))
             (string-append "the bytes of " name))))
@@ -76,7 +76,7 @@
 ;; ANCHOR_END: logged
 
 ;; The log is printed here; what the inner store performs passes through.
-(define (logging (body (dyn (Fn → String ! log e)))) (→ String) (! console e) (∀ e)
+(define (logging (body (dyn (Fn → String ! log e)))) (→ String) (! output-port e) (∀ e)
   (handle log
       ((say (lambda (line) (write-line (string-append "log: " line)))))
     (body)))

@@ -330,12 +330,12 @@
                                '("dev" "check"))
                        (expect (● (car (● printed runs)) arguments) '("" "--port" "8080"))))
                 (match (car (● (parse-project
-                                "((build-target app (program (entry ((example console) Printer)))))"
+                                "((build-target app (program (entry ((example output-port) Printer)))))"
                                 "typed.datum") builds))
                   ((ProgramTarget program)
                    (match (● program entry)
                      ((ApplicationEntry library name)
-                      (expect library '("example" "console"))
+                      (expect library '("example" "output-port"))
                       (expect name "Printer"))
                      (_ (expect "source" "application"))))
                   (_ (expect "missing application" "application")))

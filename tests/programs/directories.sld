@@ -19,7 +19,7 @@
 (define (done (value Unit)) (→ String)
   "")
 
-(define (report (label String) (text String)) (→ Unit) (! console)
+(define (report (label String) (text String)) (→ Unit) (! output-port)
   (write-line (string-append label " -> " text)))
 
 (define (kind-name (kind FileKind)) (→ String)

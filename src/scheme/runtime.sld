@@ -102,12 +102,14 @@
 
     ;; ---- Calls ----
 
-    (define (call (procedure Any) (arguments (List Any))) (→ Any) (! console mut dyn-cast)
+    (define (call (procedure Any) (arguments (List Any))) (→ Any) (! output-port mut dyn-cast)
       ((● (type-convert procedure Procedure) call) arguments))
 
     ;; Generated scripts fail at the current evaluation. A caller using call
     ;; directly can instead recover with its own dyn-cast handler.
-    (define (scheme-evaluate (work (dyn (Fn → Any ! console mut dyn-cast)))) (→ Any) (! console mut)
+    (define (scheme-evaluate (work (dyn (Fn → Any ! output-port mut dyn-cast))))
+      (→ Any)
+      (! output-port mut)
       (handle dyn-cast
           ((conversion-failed (lambda (error) (panic (cast-error->string error)))))
         (work)))

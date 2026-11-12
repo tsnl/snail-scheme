@@ -6,7 +6,7 @@
 (remove-tree root)
 (make-directories root)
 
-(define (report (result (Result Unit FileError))) (→ Unit) (! console)
+(define (report (result (Result Unit FileError))) (→ Unit) (! output-port)
   (write-line (match result ((Ok _) "created") ((Err (AlreadyExists)) "exists") (_ "failed"))))
 
 (report (write-text-file (string-append root "/new.txt") "" (CreateNew)))

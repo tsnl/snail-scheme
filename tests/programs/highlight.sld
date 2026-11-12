@@ -39,7 +39,7 @@
           (tiles? rest (● token end) end)))
     ((Nil) (= index end))))
 
-(define (show-tokens (text String)) (→ Unit) (! console)
+(define (show-tokens (text String)) (→ Unit) (! output-port)
   (let* ((chars (string->vector text)) (tokens (highlight-tokens text)))
     (unless (and (tiles? tokens 0 (vector-length chars))
                  (string=?
@@ -56,7 +56,7 @@
                                                  tokens)
                                             " ")))))
 
-(define (show-reading (text String)) (→ Unit) (! console)
+(define (show-reading (text String)) (→ Unit) (! output-port)
   (show-tokens text)
   (write-line (string-append "  read: " (reading text))))
 

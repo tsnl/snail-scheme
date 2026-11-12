@@ -27,7 +27,7 @@
     (type Output F64)
     (define subtract (lambda (a b) (+ (i64->f64 a) b)))))
 
-(define (ordered (label String) (value Any)) (→ Any) (! console) (write-line label) value)
+(define (ordered (label String) (value Any)) (→ Any) (! output-port) (write-line label) value)
 
 (with-instances (erased alternate)
                 (handle dyn-cast ((conversion-failed (lambda (error)

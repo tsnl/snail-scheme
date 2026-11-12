@@ -13,7 +13,7 @@
   (yield)
   (mailbox-post mailbox (string-append name " 2")))
 
-(define (consume (mailbox (Mailbox String)) (count I64)) (→ Unit) (! console mut tasks)
+(define (consume (mailbox (Mailbox String)) (count I64)) (→ Unit) (! output-port mut tasks)
   (when (> count 0)
     (write-line (string-append "received " (mailbox-receive mailbox)))
     (consume mailbox (- count 1))))

@@ -3,7 +3,7 @@
  (snail core io)
  (sample representation))
 
-(define (line (value T)) (→ Unit) (! console) (∀ T) (⊨ (Repr T))
+(define (line (value T)) (→ Unit) (! output-port) (∀ T) (⊨ (Repr T))
   (write value)
   (newline))
 
@@ -67,13 +67,12 @@
 (line (Batch (list->vector (list "one" "two"))))
 (line (Secret "private"))
 
-;; A representation is pure, and write uses the active console handler.
+;; A representation is pure, and write uses the active output-port handler.
 (define represented (→ String) (repr (Some "pure")))
 (write-line represented)
 (let ((output (ref "")))
-  (handle console
-      ((console-write (lambda (char)
-                        (ref-set! output (string-append (ref-get output) (make-string 1 char)))))
-       (console-read (lambda () -1)))
+  (handle output-port
+      ((write-string (lambda (text)
+                       (ref-set! output (string-append (ref-get output) text)))))
     (write (Some "captured")))
   (write-line (ref-get output)))

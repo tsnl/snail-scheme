@@ -123,13 +123,13 @@ example(`(foo alpha beta gamma delta epsilon) ; fits: the comment does not count
 (define message
   "a string much longer than forty columns cannot break")
 `, 40);
-example(`(define (run (config Config) (args (List String))) (→ Status) (! fs console) (status config args))
+example(`(define (run (config Config) (args (List String))) (→ Status) (! fs output-port) (status config args))
 (bytes #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))
 (display "one") (display "two") (display "three")
 `, `(define (run (config Config)
              (args (List String)))
   (→ Status)
-  (! fs console)
+  (! fs output-port)
   (status config args))
 (bytes
  #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))

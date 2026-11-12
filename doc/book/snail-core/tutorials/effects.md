@@ -17,12 +17,12 @@ This function adds output around an action while preserving the action's row:
 
 ```scheme
 
-(define (announce (action (dyn (Fn → A ! e)))) (→ A) (! console e) (∀ A e)
+(define (announce (action (dyn (Fn → A ! e)))) (→ A) (! output-port e) (∀ A e)
   (write-line "calling")
   (action))
 ```
 
-The call to `action` uses `e`, which fits the surrounding `console e` for any
+The call to `action` uses `e`, which fits the surrounding `output-port e` for any
 substitution of `e`. Extra permissions do not authorize effects absent from the
 context, and unrelated quantified tails are not interchangeable. Function-type
 equality still compares complete rows; this inclusion rule applies when calling.

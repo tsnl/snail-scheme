@@ -4,7 +4,7 @@
 
 ;; Effects are erased before the signature is written, so the program
 ;; that loads a dynamic export could not check them.
-(define (greet (name String)) (→ Unit) (! console)
+(define (greet (name String)) (→ Unit) (! output-port)
   (write-line name))
 
 (expose greet "greet" dynamic)

@@ -7,7 +7,7 @@
   (deriving Repr))
 
 ;; The later Drop declaration makes this an owner, even with scalar fields.
-(instance (Drop (! console) Handle)
+(instance (Drop (! output-port) Handle)
   (define drop (lambda (handle) (match handle ((Handle id) (display id))))))
 
 (write (Handle 1))

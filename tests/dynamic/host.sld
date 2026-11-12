@@ -11,7 +11,7 @@
  (snail shell wasm)
  (project))
 
-(define (run-cell (file String)) (→ Unit) (! wasm fs console)
+(define (run-cell (file String)) (→ Unit) (! wasm fs output-port)
   (match (load-module "cell" file)
     ((Ok cell)
      (match (module-export cell "cell:run")
@@ -26,7 +26,7 @@
 
 (define project (→ Project) (Project "Atlas" "Ada" (list 3 5 5)))
 
-(define (summarize-with (manifest String) (name String)) (→ Unit) (! wasm fs console)
+(define (summarize-with (manifest String) (name String)) (→ Unit) (! wasm fs output-port)
   (match (load-plugin manifest)
     ((Ok plugin)
      (match (summarizer plugin name)

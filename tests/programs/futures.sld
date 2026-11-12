@@ -6,7 +6,7 @@
 (struct Resource
   ((name String)))
 
-(instance (Drop (! console) Resource)
+(instance (Drop (! output-port) Resource)
   (define drop
     (lambda (resource) (match resource
                          ((Resource name) (write-line (string-append "released " name)))))))

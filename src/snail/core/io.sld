@@ -1,12 +1,12 @@
-;; Console text, files, directories and the clock. The host implements
-;; `console`, `fs` and `clock` by default; a handler can replace any of
-;; them, for example to capture output or to serve files from memory in a
-;; test.
+;; Current input and output ports, files, directories and the clock. Input
+;; and output are independent effects: handlers choose their streams, and
+;; their defaults use standard input and output. The host also supplies
+;; defaults for `fs` and `clock`.
 (define-library (snail core io)
   (export
-   console
-   console-write
-   console-read
+   input-port
+   output-port
+   read-char
    write-char
    write-string
    newline
@@ -61,53 +61,55 @@
    (snail core base))
   (begin
 
-    ;; ---- Console effect ----
+    ;; ---- Current port effects ----
 
-    (effect console
-      ((console-write (dyn (Fn Char → Unit)))
-       (console-read (dyn (Fn → I32))))
-      (default ((console-write support-console-write) (console-read support-console-read))))
+    (effect input-port
+      ((read-char (dyn (Fn → (Option Char)))))
+      (default ((read-char read-standard-char))))
 
-    (extern support-console-write
-            "snail.core.support"
-            "snail:io/console-write"
-            (impl (Fn Char → Unit)))
-    (extern support-console-read "snail.core.support" "snail:io/console-read" (impl (Fn → I32)))
+    (effect output-port
+      ((write-string (dyn (Fn String → Unit))))
+      (default ((write-string write-standard-string))))
+
+    ;; The runtime reserves -3 for borrowed stdin and -2 for borrowed stdout.
+    ;; Reading stdin flushes pending stdout first. Only the foreign boundary
+    ;; uses -1 for EOF; handlers and callers exchange Option Char.
+    (define (read-standard-char) (→ (Option Char))
+      (let ((code (support-port-read -3)))
+        (if (= code -1) (None) (Some (i32->char code)))))
+
+    (define (write-standard-string (text String)) (→ Unit)
+      (support-port-write -2 text))
 
     ;; ---- Text input ----
 
-    ;; The next line of standard input without its newline, or None at the
+    ;; The next line of the current input without its newline, or None at the
     ;; end of input.
 
-    (define (read-line) (→ (Option String)) (! console)
+    (define (read-line) (→ (Option String)) (! input-port)
       (let loop ((chars (Nil)))
-        (let ((code (console-read)))
-          (cond ((and (= code -1) (null? chars)) (None))
-                ((or (= code -1) (= code 10)) (Some (list->string (reverse chars))))
-                (else (loop (Cons (i32->char code) chars)))))))
+        (match (read-char)
+          ((None) (if (null? chars) (None) (Some (list->string (reverse chars)))))
+          ((Some char)
+           (if (= char #\newline)
+               (Some (list->string (reverse chars)))
+               (loop (Cons char chars)))))))
 
     ;; ---- Text output ----
 
-    (define (write-char (char Char)) (→ Unit) (! console)
-      (console-write char))
+    (define (write-char (char Char)) (→ Unit) (! output-port)
+      (write-string (make-string 1 char)))
 
-    (define (write-string (text String)) (→ Unit) (! console)
-      (let loop ((index 0))
-        (when (< index (string-length text))
-          (console-write (string-ref text index))
-          (loop (+ index 1)))))
+    (define (newline) (→ Unit) (! output-port)
+      (write-string "\n"))
 
-    (define (newline) (→ Unit) (! console)
-      (console-write #\newline))
+    (define (write-line (text String)) (→ Unit) (! output-port)
+      (write-string (string-append text "\n")))
 
-    (define (write-line (text String)) (→ Unit) (! console)
-      (write-string text)
-      (newline))
-
-    (define (display (value T)) (→ Unit) (! console e) (∀ T e) (⊨ (Show e T))
+    (define (display (value T)) (→ Unit) (! output-port e) (∀ T e) (⊨ (Show e T))
       (write-string (show value)))
 
-    (define (write (value T)) (→ Unit) (! console) (∀ T) (⊨ (Repr T))
+    (define (write (value T)) (→ Unit) (! output-port) (∀ T) (⊨ (Repr T))
       (write-string (repr value)))
 
     ;; ---- Files ----

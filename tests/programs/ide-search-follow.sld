@@ -26,7 +26,7 @@
               (completed (Ref I64))
               (reads (Ref I64))
               (commands (List Command)))
-  (→ (List (dyn (FnOnce → Delivery ! mut console tasks dom fetch))))
+  (→ (List (dyn (FnOnce → Delivery ! mut output-port tasks dom fetch))))
   (match commands
     ((Nil) (Nil))
     ((Cons (Command work _) rest)
@@ -62,7 +62,7 @@
                      (model Model)
                      (message Delivery))
   (→ (Pair Model
-           (List (dyn (FnOnce → Delivery ! mut console tasks dom fetch)))))
+           (List (dyn (FnOnce → Delivery ! mut output-port tasks dom fetch)))))
   (match message
     ((Input message)
      (match (update (● model ide) message)
@@ -97,7 +97,7 @@
       ((Some line) (unless (string=? line expected) (panic "old task stole focus")))
       ((None) (panic "no focus")))))
 
-(define (run (delayed-read Bool)) (→ Unit) (! mut console tasks)
+(define (run (delayed-read Bool)) (→ Unit) (! mut output-port tasks)
   (let ((reads (ref 0))
         (answers (ref 0))
         (completed (ref 0))

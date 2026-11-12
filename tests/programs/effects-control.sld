@@ -24,7 +24,7 @@
     (Nil)))
 ;; ANCHOR_END: collect
 
-(define (show-all (values (List I64))) (→ Unit) (! console)
+(define (show-all (values (List I64))) (→ Unit) (! output-port)
   (write-line (string-join (map show values) " ")))
 
 ;; ANCHOR: run-collect

@@ -16,7 +16,7 @@
     ((Exited code) (string-append "exited " (show code)))
     ((Signaled name) (string-append "signaled " name))))
 
-(define (report (result (Result Captured ProcessError))) (→ Unit) (! console)
+(define (report (result (Result Captured ProcessError))) (→ Unit) (! output-port)
   (match result
     ((Ok captured)
      (write-line (exit-text (● captured exit)))
