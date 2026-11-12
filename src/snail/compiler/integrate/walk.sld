@@ -11,7 +11,8 @@
 ;; stands in its place and whose imports are visited next, or says the
 ;; output is not there yet, and the library waits for its producer while
 ;; loading goes on past it. Last, once every library is loaded, the walk
-;; decides which of them a library's imports reach.
+;; decides which of them a library's imports reach, and so the offers a
+;; library's expansion is handed.
 (define-library (snail compiler integrate walk)
   (export
    Outlined
@@ -32,7 +33,9 @@
    entered
    unproduced
    Importer
-   reached-libraries)
+   reached-libraries
+   OfferingLibrary
+   reached-offers)
   (import
    (snail core base)
    (snail compiler source)
@@ -40,7 +43,8 @@
    (snail compiler outline language)
    (snail compiler outline imports)
    (snail compiler outline names)
-   (snail compiler outline producer))
+   (snail compiler outline producer)
+   (only (snail compiler expand offer) Offered Offer))
   (begin
 
     ;; ---- Loaded programs ----
@@ -304,6 +308,28 @@
                           (reaching importers (::imports importer) (append found (list name)))))
                ((None) (reaching importers rest found)))))))
 
+    ;; A library expanded: its name, the libraries it imports, and what it
+    ;; offers their expansion.
+    (struct OfferingLibrary
+      ((library LibraryName)
+       (imports (List LibraryName))
+       (offer Offer)))
+
+    ;; The offers of the libraries `imports` reach among `libraries`, each
+    ;; once, in the order `reached-libraries` reaches them: what the
+    ;; expansion of a library with those imports is handed.
+    (: reached-offers (impl (Fn (List OfferingLibrary) (List LibraryName) -> (List Offered))))
+    (define (reached-offers libraries imports)
+      (concatenate
+       (map (lambda (name)
+              (match (find (lambda (library) (same-library? (::library library) name)) libraries)
+                ((Some library) (list (Offered name (::offer library))))
+                ((None) (Nil))))
+            (reached-libraries
+             (map (lambda (library) (Importer (::library library) (::imports library)))
+                  libraries)
+             imports))))
+
     )
 
   ;; ---- Tests ----
@@ -313,7 +339,9 @@
     (export
      test-walk)
     (import
+     (snail core table)
      (only (snail compiler read language) Ident Form)
+     (only (snail compiler expand offer) TopScope)
      (snail stage0 testing))
     (begin
       (define (test-walk)
@@ -557,5 +585,16 @@
           (expect (reached-libraries importers (list b a)) (list b c d a))
           (expect (reached-libraries importers (list forms a b)) (list a c d b))
           (expect (reached-libraries importers (list)) (list))
-          (expect (reached-libraries (list) (list a)) (list))))))
+          (expect (reached-libraries (list) (list a)) (list))
+          (expect (map ::library
+                       (reached-offers (map (lambda (importer)
+                                              (OfferingLibrary (::library importer)
+                                                               (::imports importer)
+                                                               no-offer))
+                                            importers)
+                                       (list forms b a)))
+                  (list b c d a))))
+
+      (define no-offer
+        (Offer (list) (TopScope empty-table empty-table)))))
    (else)))

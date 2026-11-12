@@ -32,12 +32,12 @@
     (define (declare derived imported)
       (match derived
         ((derived-Defined name tops first-unused loc)
-         (result-let* ((walked (declared-tops name tops (None) first-unused imported)))
+         (result-let* ((walked (declared-tops name tops first-unused imported)))
            (Ok (DeclaredLibrary (Defined name (::tops walked) (::next (::state walked)) loc)
                                 (offered walked)))))
-        ((derived-Program tops body first-unused)
-         (result-let* ((walked (declared-tops program-library tops body first-unused imported)))
-           (Ok (DeclaredLibrary (Program (::tops walked) (::body walked) (::next (::state walked)))
+        ((derived-Program tops first-unused)
+         (result-let* ((walked (declared-tops program-library tops first-unused imported)))
+           (Ok (DeclaredLibrary (Program (::tops walked) (::next (::state walked)))
                                 (offered walked)))))))
 
     (: offered (impl (Fn Walked -> Declarations)))
@@ -140,23 +140,26 @@
                      (Some (list (OfferedEffect (expanded-Global lib "io" 0) (list read-op)))))))
           (other (expect other "a declared library"))))
 
-      ;; A program's body is declared after its tops.
+      ;; A program's statements are declared where they are written, as a
+      ;; library's are.
       (define (test-programs)
-        (expect (declare (derived-Program (list)
-                                          (Some (bound-CaseId
-                                                 (expanded-TopGlobal (expanded-Global (list "main")
-                                                                                      "f"
-                                                                                      0))
-                                                 loc
-                                                 loc))
+        (expect (declare (derived-Program (list (derived-Statement
+                                                 (bound-CaseId
+                                                  (expanded-TopGlobal (expanded-Global (list "main")
+                                                                                       "f"
+                                                                                       0))
+                                                  loc
+                                                  loc)))
                                           1)
                          (list))
                 (fail loc "not a constructor"))
-        (match (declare (derived-Program (list) (Some (bound-Literal (expanded-UnitValue) loc)) 1)
-                        (list))
+        (match (declare
+                (derived-Program (list (derived-Statement (bound-Literal (expanded-UnitValue) loc)))
+                                 1)
+                (list))
           ((Ok declared)
            (expect (::declared declared)
-                   (Program (list) (Some (Literal (expanded-UnitValue) loc)) 1))
+                   (Program (list (Statement (Literal (expanded-UnitValue) loc))) 1))
            (expect (::library (::declarations declared)) (list "main")))
           (other (expect other "a declared program"))))))
    (else)))

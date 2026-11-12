@@ -269,7 +269,6 @@
    ::printed
    ::problems
    ::program
-   ::program?
    ::public
    ::reached
    ::read
@@ -591,7 +590,6 @@
     (define (::printed value) (field-of value (quote printed)))
     (define (::problems value) (field-of value (quote problems)))
     (define (::program value) (field-of value (quote program)))
-    (define (::program? value) (field-of value (quote program?)))
     (define (::public value) (field-of value (quote public)))
     (define (::reached value) (field-of value (quote reached)))
     (define (::read value) (field-of value (quote read)))

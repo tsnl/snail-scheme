@@ -11,8 +11,8 @@
 ;; What needs a declaration's content is left to `declare`: whether a
 ;; method or an operation a label names exists, how many types a class
 ;; takes, what a dispatch clause covers, whether a struct can be built,
-;; and the rules of host functions and operation types. A program's
-;; statements leave its tops to become its body.
+;; and the rules of host functions and operation types. A statement stays
+;; where it is written, in a program as in a library.
 (define-library (snail compiler expand declarations)
   (export
    checked-signatures
@@ -539,33 +539,24 @@
 
     ;; ---- Bodies ----
 
-    ;; What the bodies have made so far: the tops, latest first; a
-    ;; program's statements, latest first; the feedback of every body that
-    ;; failed, in order; and the numbers handed out.
+    ;; What the bodies have made so far: the tops, latest first; the
+    ;; feedback of every body that failed, in order; and the numbers handed
+    ;; out.
     (struct Bodies
       ((tops (List Top))
-       (statements (List Expr))
        (feedback (List Feedback))
        (state Expanding)))
 
-    ;; Where a body is: the scopes, the sets of each `with-instances`
-    ;; around it, innermost first, and whether its statements are a
-    ;; program's body.
+    ;; Where a body is: the scopes, and the sets of each `with-instances`
+    ;; around it, innermost first.
     (struct Place
       ((scopes Scopes)
-       (sets (List WrittenSets))
-       (program? Bool)))
+       (sets (List WrittenSets))))
 
-    (: expanded-bodies
-       (impl (Fn Expanding Scopes (List Declared) Bool -> Bodies)))
-    (define (expanded-bodies state scopes declared program?)
-      (let ((bodies (items-bodies (Bodies (Nil) (Nil) (Nil) state)
-                                  (Place scopes (Nil) program?)
-                                  declared)))
-        (Bodies (reverse (::tops bodies))
-                (reverse (::statements bodies))
-                (::feedback bodies)
-                (::state bodies))))
+    (: expanded-bodies (impl (Fn Expanding Scopes (List Declared) -> Bodies)))
+    (define (expanded-bodies state scopes declared)
+      (let ((bodies (items-bodies (Bodies (Nil) (Nil) state) (Place scopes (Nil)) declared)))
+        (Bodies (reverse (::tops bodies)) (::feedback bodies) (::state bodies))))
 
     (: items-bodies (impl (Fn Bodies Place (List Declared) -> Bodies)))
     (define (items-bodies bodies place declared)
@@ -573,15 +564,12 @@
 
     (: with-top (impl (Fn Bodies Top Expanding -> Bodies)))
     (define (with-top bodies top state)
-      (Bodies (Cons top (::tops bodies)) (::statements bodies) (::feedback bodies) state))
+      (Bodies (Cons top (::tops bodies)) (::feedback bodies) state))
 
     ;; A body that failed leaves the numbers as they were.
     (: with-feedback (impl (Fn Bodies (List Feedback) -> Bodies)))
     (define (with-feedback bodies feedback)
-      (Bodies (::tops bodies)
-              (::statements bodies)
-              (append (::feedback bodies) feedback)
-              (::state bodies)))
+      (Bodies (::tops bodies) (append (::feedback bodies) feedback) (::state bodies)))
 
     (: attempted (impl (Fn Bodies (Result (Pair Top Expanding) (List Feedback)) -> Bodies)))
     (define (attempted bodies result)
@@ -628,24 +616,17 @@
                        (sets state (unchanged state (enclosing-sets place))))
         (Ok (Pair (Define global expanded loc) state))))
 
-    ;; A library's statement stays where it is written; a program's joins
-    ;; its body, under the sets in scope where it was written.
+    ;; A statement stays where it is written, inside the scopes around it,
+    ;; whose sets are resolved once it is expanded, as a definition's are.
     (: statement-body (impl (Fn Bodies Place Marked -> Bodies)))
     (define (statement-body bodies place form)
-      (match (expanding-let* ((expanded state
-                                        (expand-expression (::state bodies) (site-of place) form))
-                              (sets state (unchanged state (enclosing-sets place))))
-               (Ok (Pair (Pair expanded sets) state)))
-        ((Ok (Pair (Pair expanded sets) state))
-         (if (::program? place)
-             (Bodies (::tops bodies)
-                     (Cons
-                      (if (null? sets) expanded (WithInstances sets expanded (expr-loc expanded)))
-                      (::statements bodies))
-                     (::feedback bodies)
-                     state)
-             (with-top bodies (Statement expanded) state)))
-        ((Err feedback) (with-feedback bodies feedback))))
+      (attempted bodies
+                 (expanding-let* ((expanded state
+                                            (expand-expression (::state bodies)
+                                                               (site-of place)
+                                                               form))
+                                  (sets state (unchanged state (enclosing-sets place))))
+                   (Ok (Pair (Statement expanded) state)))))
 
     ;; `(expose name "symbol")`, whose name is a top-level value.
     (: exposed (impl (Fn Place (Result ExposeForm Malformed) -> (Result Top (List Feedback)))))
@@ -676,7 +657,7 @@
           ((Cons method rest)
            (match (defined-value (::state bodies) (site-of place) (::value method) (::loc method))
              ((Ok (Pair value state))
-              (loop (Bodies (::tops bodies) (::statements bodies) (::feedback bodies) state)
+              (loop (Bodies (::tops bodies) (::feedback bodies) state)
                     rest
                     (Cons (InstanceMethod (::name method) value) done)))
              ((Err feedback) (loop (with-feedback bodies feedback) rest done)))))))
@@ -706,7 +687,7 @@
           ((Cons default rest)
            (match (default-value (::state bodies) place default)
              ((Ok (Pair value state))
-              (loop (Bodies (::tops bodies) (::statements bodies) (::feedback bodies) state)
+              (loop (Bodies (::tops bodies) (::feedback bodies) state)
                     rest
                     (Cons value done)))
              ((Err feedback) (loop (with-feedback bodies feedback) rest done)))))))
@@ -744,7 +725,7 @@
     (: scope-bodies (impl (Fn Bodies Place (List Marked) (List Declared) Loc -> Bodies)))
     (define (scope-bodies bodies place sets items loc)
       (let* ((written (WrittenSets sets (top-env (::scopes place))))
-             (inner (Place (::scopes place) (Cons written (::sets place)) (::program? place)))
+             (inner (Place (::scopes place) (Cons written (::sets place))))
              (resolved (result-let* ((own (instance-sets (::scopes place) written))
                                      (outer (enclosing-sets place)))
                          (Ok (delete-duplicates same-global? own))))
@@ -752,7 +733,7 @@
                         ((Ok _) bodies)
                         ((Err feedback) (with-feedback bodies feedback))))
              (held (items-bodies
-                    (Bodies (Nil) (::statements checked) (::feedback checked) (::state checked))
+                    (Bodies (Nil) (::feedback checked) (::state checked))
                     inner
                     items)))
         (Bodies (Cons (InstanceScope (match resolved
@@ -761,7 +742,6 @@
                                      (reverse (::tops held))
                                      loc)
                       (::tops bodies))
-                (::statements held)
                 (::feedback held)
                 (::state held))))
 
@@ -838,7 +818,7 @@
            (match (result-let* ((signed (checked-signatures (::scopes scan) (::items scan))))
                     (declared-items (::scopes scan) (::items scan)))
              ((Ok declared)
-              (let ((bodies (expanded-bodies state (::scopes scan) declared #f)))
+              (let ((bodies (expanded-bodies state (::scopes scan) declared)))
                 (if (null? (::feedback bodies)) (Ok (::tops bodies)) (Err (::feedback bodies)))))
              ((Err feedback) (Err feedback))))
           ((Err feedback) (Err feedback))))

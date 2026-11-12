@@ -16,7 +16,7 @@
     (define (first-derivation expanded)
       (match expanded
         ((Defined _ tops _ _) (tops-derivation tops))
-        ((Program tops _ _) (tops-derivation tops))))
+        ((Program tops _) (tops-derivation tops))))
 
     (: tops-derivation (impl (Fn (List Top) -> (Option Loc))))
     (define (tops-derivation tops)
@@ -64,7 +64,6 @@
         (expect (first-derivation
                  (Program
                   (list (InstanceScope (list) (list (data (list (DeriveSerialize loc)))) loc))
-                  (None)
                   1))
                 (Some (Loc "t.sld" 4 1))))
 

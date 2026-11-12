@@ -460,7 +460,7 @@
     (define (library-tops library)
       (match library
         ((Defined _ tops _ _) tops)
-        ((Program tops _ _) tops)))
+        ((Program tops _) tops)))
 
     ;; Whether an old name is of the library `key`: it starts with the
     ;; key and a colon.

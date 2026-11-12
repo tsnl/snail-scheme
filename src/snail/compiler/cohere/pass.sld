@@ -53,7 +53,7 @@
     (define (library-tops library)
       (match library
         ((dispatched-Defined _ tops _ _) tops)
-        ((dispatched-Program tops _ _) tops)))
+        ((dispatched-Program tops _) tops)))
 
     ;; ---- Instances ----
 
@@ -213,9 +213,7 @@
                 (refused-at (list 8)))
         (expect (cohere (library (list (top-probe function 6) (top-probe i64 8))) (list))
                 coheres)
-        (expect (cohere (dispatched-Program (list (top-probe i64 6) (top-probe function 8))
-                                            (None)
-                                            0)
+        (expect (cohere (dispatched-Program (list (top-probe i64 6) (top-probe function 8)) 0)
                         (list))
                 (refused-at (list 8))))
 

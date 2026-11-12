@@ -13,10 +13,10 @@
 ;;    first problem stops the library.
 ;; 5. Each body, in order, is declared, once every declaration is
 ;;    reached: a definition's signature checked again and then its value,
-;;    a library's statement, each method of an instance and each default
-;;    of an effect; then a program's body. A body that fails leaves the
-;;    numbers as they were, and the bodies after it are declared all the
-;;    same, so every body's problem is returned, in order.
+;;    a statement, each method of an instance and each default of an
+;;    effect. A body that fails leaves the numbers as they were, and the
+;;    bodies after it are declared all the same, so every body's problem
+;;    is returned, in order.
 (define-library (snail compiler declare top)
   (export
    Walked
@@ -45,12 +45,11 @@
 
     ;; ---- The top level ----
 
-    ;; The library's tops declared, its program's body, if it is a program,
-    ;; and the state the bodies leave: the next number, and what is known
-    ;; once every declaration is reached, which the library offers.
+    ;; The library's tops declared, and the state the bodies leave: the
+    ;; next number, and what is known once every declaration is reached,
+    ;; which the library offers.
     (struct Walked
       ((tops (List Top))
-       (body (Option Expr))
        (state Declaring)))
 
     ;; `imported` holds what each library in the import closure offers.
@@ -63,12 +62,11 @@
     (: declared-tops
        (impl (Fn LibraryName
                  (List derived-Top)
-                 (Option bound-Expr)
                  I64
                  (List Declarations)
                  ->
                  (Result Walked (List Feedback)))))
-    (define (declared-tops library tops body first-unused imported)
+    (define (declared-tops library tops first-unused imported)
       (let* ((known (Known library
                            (scanned-tops (Scanned empty-table empty-table) tops)
                            (Declarations library empty-table empty-table empty-table)
@@ -79,7 +77,7 @@
                       (buildable (buildable-items (::known (::second reached)) (::first reached))))
           (let* ((items (with-dropped buildable (dropped-types buildable)))
                  (state (with-known (::second reached) (fold-left known-with-item known items))))
-            (walked-bodies (items-bodies (Bodies (Nil) (Nil) state) signatures items) body)))))
+            (walked-bodies (items-bodies (Bodies (Nil) (Nil) state) signatures items))))))
 
     ;; ---- Scan ----
 
@@ -406,22 +404,12 @@
     (define (with-state bodies state)
       (Bodies (::tops bodies) (::feedback bodies) state))
 
-    ;; The program's body, the last body, and then the whole library, or
-    ;; every body's problems.
-    (: walked-bodies (impl (Fn Bodies (Option bound-Expr) -> (Result Walked (List Feedback)))))
-    (define (walked-bodies bodies body)
-      (let ((tops (reverse (::tops bodies)))
-            (state (::state bodies)))
-        (match body
-          ((Some expr)
-           (match (declared-expr (::known state) expr)
-             ((Ok declared) (finished (::feedback bodies) (Walked tops (Some declared) state)))
-             ((Err feedback) (Err (append (::feedback bodies) feedback)))))
-          ((None) (finished (::feedback bodies) (Walked tops (None) state))))))
-
-    (: finished (impl (Fn (List Feedback) Walked -> (Result Walked (List Feedback)))))
-    (define (finished feedback walked)
-      (if (null? feedback) (Ok walked) (Err feedback)))
+    ;; The whole library, or every body's problems.
+    (: walked-bodies (impl (Fn Bodies -> (Result Walked (List Feedback)))))
+    (define (walked-bodies bodies)
+      (if (null? (::feedback bodies))
+          (Ok (Walked (reverse (::tops bodies)) (::state bodies)))
+          (Err (::feedback bodies))))
 
     (: items-bodies (impl (Fn Bodies Signatures (List Reached) -> Bodies)))
     (define (items-bodies bodies signatures items)
@@ -531,8 +519,8 @@
       (define (unit-at line)
         (bound-Literal (expanded-UnitValue) (at line)))
 
-      (define (walk tops body)
-        (declared-tops main tops body 10 (list)))
+      (define (walk tops)
+        (declared-tops main tops 10 (list)))
 
       (define (box-struct line)
         (derived-Struct (global "Box")
@@ -583,9 +571,9 @@
       ;; before its class finds no method there; and the first problem in
       ;; a declaration is the library's only one.
       (define (test-order)
-        (expect (walk (list (show-instance 3) show-class) (None))
+        (expect (walk (list (show-instance 3) show-class))
                 (fail (at 3) "not a method of this class: show"))
-        (match (walk (list show-class (show-instance 3)) (None))
+        (match (walk (list show-class (show-instance 3)))
           ((Ok walked)
            (expect (length (::tops walked)) 2)
            (expect (::next (::state walked)) 12)
@@ -617,8 +605,7 @@
                                             (at 4))
                             (derived-Define (global "x")
                                             (bound-Ann (unit-at 5) (i64-at 5) (at 5))
-                                            (at 5)))
-                      (None))
+                                            (at 5))))
                 (fail (at 4) "wrong number of type arguments: Box")))
 
       ;; A Drop instance written before its type makes it moved, in the
@@ -635,7 +622,6 @@
                                      loc))))
           (match (declared-tops main
                                 (list drop (box-struct 2))
-                                (None)
                                 1
                                 (list (Declarations (list "snail" "core" "base")
                                                     empty-table
@@ -686,15 +672,13 @@
         (expect (walk (list (box-struct 1)
                             (derived-Define (global "x") (bad-at 2) (at 2))
                             (self-struct "A" 3)
-                            (self-struct "B" 4))
-                      (None))
+                            (self-struct "B" 4)))
                 (fail (at 3)
                       "the struct A can never be built: each of its values would contain another"))
         (expect (walk (list (derived-InstanceScope (list (global "set"))
                                                    (list (box-struct 1) (self-struct "B" 4))
                                                    loc)
-                            (self-struct "A" 5))
-                      (None))
+                            (self-struct "A" 5)))
                 (fail (at 4)
                       "the struct B can never be built: each of its values would contain another")))
 
@@ -759,9 +743,9 @@
       ;; signature, before its value, and the bodies after it are declared
       ;; all the same (error-class-row-requires-row.sld).
       (define (test-rows)
-        (expect (walk (list (store-class 1) (uses-class 2)) (None))
+        (expect (walk (list (store-class 1) (uses-class 2)))
                 (fail (at 52) "a constraint gives the class's row parameter e a row"))
-        (expect (match (walk (list (uses-class 2) (store-class 3)) (None))
+        (expect (match (walk (list (uses-class 2) (store-class 3)))
                   ((Ok walked) (length (::tops walked)))
                   (other other))
                 2)
@@ -776,14 +760,16 @@
                               signature
                               (derived-Define (global "f") (bad-at 6) (at 6))
                               (store-class 7)
-                              (derived-Define (global "g") (bad-at 8) (at 8)))
-                        (None))
+                              (derived-Define (global "g") (bad-at 8) (at 8))))
                   (Err
                    (list (Feedback (at 4) "a constraint gives the class's row parameter e a row")
                          (Feedback (at 8) "wrong number of type arguments: Box"))))))
 
-      ;; Every body's problem, in order, the program's body last; a body
-      ;; that fails leaves the numbers as they were.
+      ;; Every body's problem, in order, a statement's where it is written
+      ;; among the definitions, as the old compiler reports those of
+      ;; `(ann 1 (Box I64))`, `(define y (ann 2 (Box I64)))` and `(ann 3
+      ;; (Box I64))` written one to a line; a body that fails leaves the
+      ;; numbers as they were.
       (define (test-bodies)
         (let ((bad (lambda (line)
                      (bound-Ann (unit-at line)
@@ -792,23 +778,23 @@
                                                   (list (i64-at line))
                                                   (at line))
                                 (at line)))))
-          (expect (walk (list (box-struct 1)
-                              (derived-Define (global "y") (bad 3) (at 3))
-                              (derived-Define (global "z") (unit-at 4) (at 4))
-                              (derived-Define (global "w") (bad 5) (at 5)))
-                        (Some (bad 6)))
-                  (Err (list (Feedback (at 3) "wrong number of type arguments: Box")
-                             (Feedback (at 5) "wrong number of type arguments: Box")
-                             (Feedback (at 6) "wrong number of type arguments: Box"))))
-          (match (walk (list (derived-Define (global "z") (unit-at 4) (at 4))) (Some (unit-at 6)))
+          (expect (walk (list (box-struct 4)
+                              (derived-Statement (bad 7))
+                              (derived-Define (global "y") (bad 8) (at 8))
+                              (derived-Statement (bad 9))))
+                  (Err (list (Feedback (at 7) "wrong number of type arguments: Box")
+                             (Feedback (at 8) "wrong number of type arguments: Box")
+                             (Feedback (at 9) "wrong number of type arguments: Box"))))
+          (match (walk (list (derived-Statement (unit-at 3))
+                             (derived-Define (global "z") (unit-at 4) (at 4))))
             ((Ok walked)
              (expect (::tops walked)
-                     (list (Define (global "z")
+                     (list (Statement (Literal (expanded-UnitValue) (at 3)))
+                           (Define (global "z")
                              (Literal (expanded-UnitValue) (at 4))
                              (None)
                              (list)
                              (at 4))))
-             (expect (::body walked) (Some (Literal (expanded-UnitValue) (at 6))))
              (expect (::next (::state walked)) 10))
             (other (expect other "a program")))))))
    (else)))

@@ -1,7 +1,6 @@
 ;; Query: every expression of an expanded library, each before the
 ;; expressions inside it, in the order written: the values of its
-;; definitions, statements, instance methods and effect defaults, and a
-;; program's body.
+;; definitions, statements, instance methods and effect defaults.
 (define-library (snail compiler expand subexpressions)
   (export
    library-expressions)
@@ -16,11 +15,7 @@
     (define (library-expressions expanded)
       (match expanded
         ((Defined _ tops _ _) (tops-expressions tops))
-        ((Program tops body _)
-         (append (tops-expressions tops)
-                 (match body
-                   ((Some expr) (expressions expr))
-                   ((None) (Nil)))))))
+        ((Program tops _) (tops-expressions tops))))
 
     (: tops-expressions (impl (Fn (List Top) -> (List Expr))))
     (define (tops-expressions tops)
@@ -117,7 +112,7 @@
                        loc))
 
       ;; A library whose definition links a file inside a request for the
-      ;; files of "site", twice, and whose program body asks again.
+      ;; files of "site", twice, and whose statement calls g.
       (define library
         (Defined a
           (list (Define (global "x") (Lambda (list) (Call files (list files) loc) loc) loc)

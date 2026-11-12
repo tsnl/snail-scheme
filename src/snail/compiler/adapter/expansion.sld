@@ -9,7 +9,8 @@
 ;; those programs are named apart, with whether every problem agrees. When
 ;; both succeed, each library the old expansion records is compared: the
 ;; names it exports, in order; its written top-level definitions, in
-;; order; and each one's value in a normal form, as is a program's body;
+;; order; and each one's value in a normal form, as is a program's body,
+;; its statements gathered as the old expander gathers them;
 ;; the files it links, each LinkImport beside the old value of its handle,
 ;; and the files the build must place beside the program, beside the old
 ;; `library-links`; each instance `derive` wrote, beside the old instance
@@ -480,7 +481,7 @@
     (define (library-tops library)
       (match library
         ((Defined _ tops _ _) tops)
-        ((Program tops _ _) tops)))
+        ((Program tops _) tops)))
 
     ;; The old expander's name for the handle of a file a library links.
     (: handle-name (impl (Fn String (List String) -> String)))
@@ -883,15 +884,39 @@
       (let ((names (Context (handle-names library) (Nil))))
         (match library
           ((Defined _ tops _ _) (tops-definitions names tops (Nil)))
-          ((Program tops body _)
+          ((Program tops _)
            (append (tops-definitions names tops (Nil))
-                   (match body
+                   (match (sequenced (program-statements tops (Nil)))
                      ((Some expr)
                       (list (Pair "main:%body"
                                   (::text (new-text names
                                                     (Lambda (Nil) expr (Loc "" 0 0))
                                                     (Naming (Nil) 0))))))
                      ((None) (Nil))))))))
+
+    ;; A program's statements, gathered into its body as the old
+    ;; `with-one-body` gathers them: in the order written, each under the
+    ;; sets of the scopes around it, innermost first.
+    (: program-statements (impl (Fn (List Top) (List Global) -> (List Expr))))
+    (define (program-statements tops sets)
+      (concatenate
+       (map (lambda (top)
+              (match top
+                ((Statement expr)
+                 (list (if (null? sets) expr (WithInstances sets expr (Loc "" 0 0)))))
+                ((InstanceScope own inner _)
+                 (program-statements inner (delete-duplicates same-global-text? (append own sets))))
+                (_ (Nil))))
+            tops)))
+
+    (: sequenced (impl (Fn (List Expr) -> (Option Expr))))
+    (define (sequenced statements)
+      (match statements
+        ((Nil) (None))
+        ((Cons first rest)
+         (Some (match (sequenced rest)
+                 ((Some more) (Seq first more (Loc "" 0 0)))
+                 ((None) first))))))
 
     (: tops-definitions
        (impl

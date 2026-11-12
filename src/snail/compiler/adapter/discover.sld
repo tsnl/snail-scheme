@@ -6,9 +6,8 @@
 ;; old expansion, which makes the checks `expand` leaves to later passes,
 ;; so a program the old discovery refuses for one of those is discovered
 ;; by the new one; the comparison names it apart, for the caller to check
-;; against what the new compile reports. A program whose statements ask
-;; in another order is named apart too, as `requests-comparison` says. A
-;; program that reaches a generated library is not compared: the old
+;; against what the new compile reports. A program that reaches a
+;; generated library is not compared: the old
 ;; discovery stops at the first producer whose output was not supplied,
 ;; and runs none. Few suite programs ask for a target, so the cases below
 ;; are compared too, each written in a directory of its own.
@@ -51,20 +50,18 @@
          (Pair "not compared" (string-append "it does not load: " (feedback-text feedback))))
         ((Ok (Unproduced _)) (Pair "not compared" "it reaches a generated library"))
         ((Ok (Complete _))
-         (outcomes path
-                   (discover-targets directories generated path)
+         (outcomes (discover-targets directories generated path)
                    (old:compiling
                     (lambda () (old:discover-artifacts directories old:no-inputs path)))))))
 
     (: outcomes
-       (impl (Fn String
-                 (Result (List TargetRequest) (List Feedback))
+       (impl (Fn (Result (List TargetRequest) (List Feedback))
                  (Result (List old:ArtifactUse) old:Stop)
                  ->
                  (Pair String String))))
-    (define (outcomes path new old)
+    (define (outcomes new old)
       (match (Pair new old)
-        ((Pair (Ok requests) (Ok uses)) (requests-comparison path requests (first-uses uses)))
+        ((Pair (Ok requests) (Ok uses)) (requests-comparison requests (first-uses uses)))
         ((Pair (Err feedback) (Err (old:Failed diagnostics)))
          (match (feedback-difference (map feedback->old feedback)
                                      (old:diagnostics->list diagnostics))
@@ -164,38 +161,14 @@
 
     ;; ---- Targets ----
 
-    ;; A program's statements are its body in Expanded, apart from its
-    ;; definitions, so the new discovery asks for a program's targets in
-    ;; its definitions before those in its statements, where the old asks
-    ;; in the order written. That is a known difference when it is the
-    ;; only one: the same targets at the same places, and those asked for
-    ;; outside the program's file in the same order.
     (: requests-comparison
-       (impl (Fn String (List TargetRequest) (List old:ArtifactUse) -> (Pair String String))))
-    (define (requests-comparison path requests uses)
-      (let* ((new (map (lambda (request) (Pair (::file (::loc request)) (request-text request)))
-                       requests))
-             (old (map (lambda (use) (Pair (::file (::loc use)) (use-text use))) uses))
-             (found (string-append "new: " (placed-text new) "; old: " (placed-text old))))
-        (cond
-         ((string=? (placed-text new) (placed-text old)) (Pair "discover alike" (placed-text new)))
-         ((program-order? path new old) (Pair "known: a program's statements" found))
-         (else (Pair "discoveries differ" found)))))
-
-    (: program-order?
-       (impl (Fn String (List (Pair String String)) (List (Pair String String)) -> Bool)))
-    (define (program-order? path new old)
-      (let ((elsewhere (lambda (requests)
-                         (placed-text
-                          (filter (lambda (request) (not (string=? (::first request) path)))
-                                  requests)))))
-        (and (= (length new) (length old))
-             (every? (lambda (request) (member? (::second request) (map ::second old))) new)
-             (string=? (elsewhere new) (elsewhere old)))))
-
-    (: placed-text (impl (Fn (List (Pair String String)) -> String)))
-    (define (placed-text requests)
-      (string-join (map ::second requests) "; "))
+       (impl (Fn (List TargetRequest) (List old:ArtifactUse) -> (Pair String String))))
+    (define (requests-comparison requests uses)
+      (let ((new (string-join (map request-text requests) "; "))
+            (old (string-join (map use-text uses) "; ")))
+        (if (string=? new old)
+            (Pair "discover alike" new)
+            (Pair "discoveries differ" (string-append "new: " new "; old: " old)))))
 
     (: request-text (impl (Fn TargetRequest -> String)))
     (define (request-text request)

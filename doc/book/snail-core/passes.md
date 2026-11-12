@@ -38,7 +38,7 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 | backend | module | Prepared | Wasm | Still to be divided into passes. | planned |
 
 A *file* is one source file. A *library* is one `define-library`, or a
-program's body, which is the library `main`. A *module* is one WebAssembly
+program, which is the library `main`. A *module* is one WebAssembly
 module: a whole program, or one library in a development build.
 
 ## Words
@@ -177,7 +177,7 @@ src/snail/compiler/
   ...
   integrate/              the integrator: one library per job
     files.sld             (snail compiler integrate files): every read of the file system
-    walk.sld              (snail compiler integrate walk): what to load next, in what order, and which generated libraries wait for their producers
+    walk.sld              (snail compiler integrate walk): what to load next, in what order, which generated libraries wait for their producers, and the offers an import list reaches
     load.sld              (snail compiler integrate load): a program and the libraries it reaches, a producer's output in its library's place
     sha256.sld            (snail compiler integrate sha256): the digest a linked file is named by
     bind.sld              (snail compiler integrate bind): one library's linked files read, then bound
@@ -398,13 +398,17 @@ the body does not use, and then the body in the alias's own scope, where no
 requirement of the use is in scope. An `if` has its alternative, the unit
 value when none is written, which no `Datum` writes, so Expanded's
 expressions have constants of their own; a pattern's literal stays the
-`Datum` written. A program's statements are its body, each under the
-instance sets in scope where it was written. A tree node is at the place
-the old expander's messages name.
+`Datum` written. A program's statements are among its tops, where they
+are written, inside the instance scopes around them, as a library's are.
+Once it has expanded each, the old expander gathers them into one body,
+a function of no arguments that the program's one remaining statement
+calls once every definition is initialized. Gathering is a lowering, and
+no pass of the front end makes it, so every pass meets a program's
+statement where a library's would be. A tree node is at the place the old expander's messages name.
 
 ```text
 Expanded    ::= Defined library Top* first-unused-number
-              | Program Top* Expr? first-unused-number          no Loc
+              | Program Top* first-unused-number                no Loc
 Top         ::= Define Global Expr
               | Signature TopValue Scheme Annotation*
               | Statement Expr                                  no Loc but its expression's
@@ -595,7 +599,7 @@ hold an expression or a pattern, and reuses Expanded's for the rest:
 
 ```text
 Bound       ::= Defined library Top* first-unused-number
-              | Program Top* Expr? first-unused-number          no Loc
+              | Program Top* first-unused-number                no Loc
 Top         ::= LinkImport Global name* digest file
               | Define Global Expr
               | Signature TopValue Scheme Annotation*
@@ -751,7 +755,7 @@ Derived declares afresh the rules `derive` looks inside, the roots and
 
 ```text
 Derived     ::= Defined library Top* first-unused-number
-              | Program Top* Expr? first-unused-number          no Loc
+              | Program Top* first-unused-number                no Loc
 Top         ::= LinkImport Global name* digest file
               | Define Global Expr
               | Signature TopValue Scheme Annotation*
@@ -844,7 +848,7 @@ the last signature written for it.
 
 ```text
 Declared    ::= Defined library Top* first-unused-number
-              | Program Top* Expr? first-unused-number          no Loc
+              | Program Top* first-unused-number                no Loc
 Top         ::= LinkImport Global name* digest file
               | Define Global Expr Signed? Annotation*
               | Statement Expr                                  no Loc but its expression's
@@ -1054,7 +1058,7 @@ Declared's for the rest.
 
 ```text
 Dispatched  ::= Defined library Top* first-unused-number
-              | Program Top* Expr? first-unused-number          no Loc
+              | Program Top* first-unused-number                no Loc
 Top         ::= LinkImport Global name* digest file
               | Define Global Expr Signed? Annotation*
               | Statement Expr                                  no Loc but its expression's
@@ -1226,7 +1230,9 @@ succeed or both fail; failures by their first problem, message and
 place, and every problem when the old expander reports several;
 successes library by library, in order, by their exports, their written
 definitions and each one's value in a normal form, in which a `case-id`
-is the TypeId `declare` gives its case, by each linked file's import and
+is the TypeId `declare` gives its case, and a program's body, its
+statements gathered as the old `with-one-body` gathers them, since no new
+pass gathers them, by each linked file's import and
 the files to place beside the program, by each derived instance beside
 the old instance of its class and types, its variables, requirements and
 method compared up to the renaming of locals, in the old order of each
@@ -1268,11 +1274,11 @@ answers with the old `discover-artifacts`, by name and first place, as
 the old planner keeps them, or a failure by its first problem; a program
 only the old discovery refuses must be one the new compile refuses alike.
 Few suite programs ask for a target, so literal cases are compared too.
-It decodes every tracked library's forms, encoded as
+It compares the text `read/written.sld` writes of every tracked
+library's forms, and of the readers' unusual texts, with the old
+`syntax->string`; and decodes those forms, encoded as
 `write-generated-library` encodes them, and a list of malformed outputs,
-with both decoders. `make test-compiler` compares the text
-`read/written.sld` writes of every tracked library's forms, and of the
-readers' unusual texts, with the old `syntax->string`.
+with both decoders.
 
 The language the compiler accepts does not change during the replacement,
 so every existing program stays an oracle. Where the new front end
@@ -1313,12 +1319,6 @@ one line each, with its reason:
   loading, so a producer they reached would be printed without the
   libraries that led to them; the old expander loads them inside the
   library that derives. None of them reaches a generated library.
-- In a program, `discover-targets` asks for the targets of the definitions
-  before those of the statements, where the old discovery asks in the
-  order written, since Expanded makes a program's statements its body;
-  the first place of a target asked for in both can differ too. None of
-  the programs `make compare-compiler` discovers asks for a target in a
-  statement before a definition that asks for one.
 - `discover-targets` asks for a target requested inside another
   request's `file` or `prepend` expression, which the old discovery never
   expands, having no file; the new one has expanded them already.
@@ -1347,11 +1347,6 @@ one line each, with its reason:
   keyword or a macro, is refused as syntax used as a value; the old
   expander would expand the form it writes there, and `derive` writes
   nodes, not syntax.
-- In a program, `declare` reports the first problem among its statements,
-  where the old compiler reports one for each statement, and reports it
-  after the problems of the definitions written after them: Expanded
-  makes a program's statements its body, one expression, which is
-  declared after the library's other bodies.
 - A method definition names a declared class's method by the method's
   whole name, so a method whose name holds a `:` is implemented under that
   name, where the old compiler asks for the text after its last colon.

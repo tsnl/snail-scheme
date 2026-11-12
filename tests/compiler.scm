@@ -2,11 +2,11 @@
 ;; that has logic tests itself, with inputs built by hand. Given the
 ;; repository's root, it then compares the new passes with the old compiler
 ;; over every tracked library and the adapters' texts: the readers, the
-;; text each writes of what it read, the outlines, then loading's
-;; problems, then the offer of (snail core forms) and the builtin types
-;; `declare` knows, then the SHA-256 the integrator names linked files by.
-;; `make test-compiler` runs it all; the comparisons that expand whole
-;; programs, or need a producer's encoder, are tests/compare-compiler.sld.
+;; outlines, then loading's problems, then the offer of (snail core forms)
+;; and the builtin types `declare` knows, then the SHA-256 the integrator
+;; names linked files by. `make test-compiler` runs it all; the
+;; comparisons that expand whole programs, need a producer's encoder, or
+;; write every tracked library's text, are tests/compare-compiler.sld.
 ;;
 ;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/compiler.scm [ROOT]
 (import
@@ -120,9 +120,7 @@
        malformed-texts
        unusual-texts
        misread-texts
-       text-differences
-       written-difference
-       written-differences)
+       text-differences)
  (only (snail compiler adapter outline)
        Agreed
        Differed
@@ -286,31 +284,6 @@
                            " differences"))
     (null? differences)))
 
-;; ---- Written text comparison ----
-
-;; The forms whose text the new compiler writes otherwise than the old, in
-;; the tracked libraries, one line each.
-(define (written-library-differences root files)
-  (let loop ((files files) (found '()))
-    (if (null? files)
-        (reverse found)
-        (match (written-difference (car files) (file-text (string-append root "/" (car files))))
-          ((None) (loop (cdr files) found))
-          ((Some difference)
-           (loop (cdr files) (cons (string-append (car files) ": " difference) found)))))))
-
-(define (compare-written root files)
-  (let ((differences (append (written-library-differences root files) (written-differences))))
-    (for-each report differences)
-    (report (string-append "compared the text of Syntax on "
-                           (number->string (length files))
-                           " libraries and "
-                           (number->string (length unusual-texts))
-                           " texts: "
-                           (number->string (length differences))
-                           " differences"))
-    (null? differences)))
-
 ;; ---- Outline comparison ----
 
 ;; What comparing each item found, other than agreement: a pair of
@@ -426,11 +399,10 @@
     (let* ((root (cadr arguments))
            (files (tracked-libraries root))
            (readers (compare-readers root files))
-           (written (compare-written root files))
            (outlines (compare-outlines root files))
            (loads (compare-loads root))
            (forms (compare-forms))
            (builtins (compare-builtins))
            (digests (compare-digests)))
-      (unless (and readers written outlines loads forms builtins digests)
+      (unless (and readers outlines loads forms builtins digests)
         (exit 1)))))

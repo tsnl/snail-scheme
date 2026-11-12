@@ -51,9 +51,9 @@
         ((declared-Defined name tops first-unused loc)
          (result-let* ((walked (library-tops name tops first-unused imported earlier)))
            (Ok (Defined name (::first walked) (::next (::second walked)) loc))))
-        ((declared-Program tops body first-unused)
+        ((declared-Program tops first-unused)
          (result-let* ((walked (library-tops program-library tops first-unused imported earlier)))
-           (Ok (Program (::first walked) body (::next (::second walked))))))))
+           (Ok (Program (::first walked) (::next (::second walked))))))))
 
     ;; ---- Walking ----
 
