@@ -118,6 +118,7 @@
  (rename (only (snail compiler adapter expressions) test-expressions)
          (test-expressions test-adapter-expressions))
  (only (snail compiler adapter program) test-program)
+ (rename (only (snail compiler adapter compile) test-compile) (test-compile test-adapter-compile))
  (only (snail compiler adapter read)
        read-difference
        malformed-texts
@@ -240,6 +241,7 @@
   (test-discover (string-append root "/build/test-compiler/discover"))
   (test-adapter-expressions)
   (test-program)
+  (test-adapter-compile (string-append root "/build/test-compiler/adapter"))
   (report "the new compiler's unit tests passed"))
 
 ;; ---- Reader comparison ----

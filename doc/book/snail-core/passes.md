@@ -1272,17 +1272,38 @@ converted by `adapter/declaration.sld`, each expression by
 `adapter/source.sld`. A Global is spelled as `declare/spellings.sld`
 spells it, so the old compiler computes the TypeId of a case from the
 adapted program as `declare` does. A local is `name.number`, unique in
-its library, where the old expander numbers locals across the program;
-the old analyses need a local's name unique only in its function. A
-program's statements are gathered into `main:%body` as `with-one-body`
-gathers them; `adapter/program.sld`'s `program-body` and `scoped` are the
-gathering and the scoping the expansion comparison uses too. No
+the program, as the old expander's are: a library's locals are numbered
+after those of the libraries before it, since the old checker names the
+type of a closure a `let` binds for its local, and that type can reach a
+scheme another library sees. The statements of a library whose key is
+`main`, a program's or a library named `(main)`, are gathered into
+`main:%body` as `with-one-body` gathers them, since the old expander
+decides by the key; `adapter/program.sld`'s `program-body` and `scoped`
+are the gathering and the scoping the expansion comparison uses too. An
+operation's scheme puts its own effect before its latent row's labels, as
+the old expander writes it, out of the sorted order the old core keeps a
+row's labels in, since the old checker's answers depend on that order. No
 implementation or default is marked a function, where the old expander
 marks a dispatched implementation one, since the mark is read only of a
 value a program names; metadata is left empty, since nothing past the old
-expander reads it; and the primitive library records no run. For every
-program both compilers expand, `make compare-compiler` compares the
-adapted program with the old expansion's, table by table, in the old
+expander reads it; and the primitive library records no run.
+
+`adapter/compile.sld`'s `adapted-compile` is the entry the old facade
+will call in the old expander's place. It is given the directories, the
+directory producers' outputs are read from and printed to, the build's
+old `Inputs` and the program's path, and answers the adapted program; or
+every request the compile waits for at once, a `GenerateInput` for each
+producer whose output is not there, with the text to print as
+`GENERATED/KEY.sld`, or an `ArtifactInput` for each target the first
+library that asks for one was not supplied; or it performs the old `fail`
+with the compile's problems, converted, in order. The integrator reads a
+producer's output only from `GENERATED/KEY.syntax`, so each output the
+`Inputs` supply is written there first, under its key; the old lookup
+also compares the producer's text, which a key stands for in the new
+compiler.
+
+For every program both compilers expand, `make compare-compiler` compares
+the adapted program with the old expansion's, table by table, in the old
 expansion's names, each instance and implementation named as the old
 instance in its place among its class's, each default by its operation and
 each linked file's handle by its path: the values, with each signature's
@@ -1291,7 +1312,18 @@ classes and effects; each class's instances, in order; the runs, and each
 item of each run in the normal form, with each node's place, whether each
 function may capture and each annotation's type; the files each library
 links; and each case's TypeId, the old compiler's of the adapted program
-beside `declare`'s.
+beside `declare`'s. A node's type and a variable's instantiation are not
+compared before checking: the checker infers each node from its term, and
+the old expander gives a few nodes of a dispatched method the types they
+will have. It then runs the old checker on both programs: both succeed or
+both fail; failures by every problem, message and place, in order, as
+written, so a message that spells a name the adapter makes afresh would
+show; successes by each definition's scheme and each library's checked
+items in the normal form, with each node's place and type, each
+variable's instantiation, types and evidence, and each pattern's type. A
+concrete closure's type names the definition, local or place that made
+it, with a number each compiler draws from its own counter, which is
+dropped.
 
 For generated libraries, `make compare-compiler` loads every suite program
 with no producer's output, and compares the producers each waits for with

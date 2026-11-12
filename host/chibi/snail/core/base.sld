@@ -56,6 +56,7 @@
    ::artifact-uses
    ::artifacts
    ::b
+   ::base
    ::bindings
    ::body
    ::body-key
@@ -379,6 +380,7 @@
     (define (::artifact-uses value) (field-of value (quote artifact-uses)))
     (define (::artifacts value) (field-of value (quote artifacts)))
     (define (::b value) (field-of value (quote b)))
+    (define (::base value) (field-of value (quote base)))
     (define (::bindings value) (field-of value (quote bindings)))
     (define (::body value) (field-of value (quote body)))
     (define (::body-key value) (field-of value (quote body-key)))

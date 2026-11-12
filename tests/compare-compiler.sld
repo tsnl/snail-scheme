@@ -12,7 +12,8 @@
 ;; adapter load) says; then each program that loads completely is taken
 ;; through the new passes, `read` to `cohere`, and compared with the old
 ;; expansion as (snail compiler adapter expansion) says, as is the
-;; program (snail compiler adapter program) makes of it, and its targets
+;; program (snail compiler adapter program) makes of it, and the old
+;; checker's answers for the two programs, and its targets
 ;; discovered beside the old discovery, as (snail compiler adapter
 ;; discover) says, as are that library's cases. Then every tracked
 ;; library's forms, and the unusual texts of (snail compiler adapter
@@ -98,8 +99,8 @@
 
 ;; One program's findings: how far it loads, how its order compares, how
 ;; its producers compare, how its expansion compares, how the program
-;; the adapter makes of it compares with the old expansion's, and how its
-;; discovery compares.
+;; the adapter makes of it compares with the old expansion's, how the old
+;; checker's answers for the two compare, and how its discovery compares.
 (struct Finding
   ((path String)
    (load String)
@@ -107,6 +108,7 @@
    (producers ProducerComparison)
    (expansion (Pair String String))
    (adapted (Pair String String))
+   (checked (Pair String String))
    (discovery (Pair String String))))
 
 (: program-finding (impl (Fn Suite String -> Finding ! fs)))
@@ -119,6 +121,7 @@
              (producer-comparison directories generated printed path)
              (::expansion expansions)
              (::adapted expansions)
+             (::checked expansions)
              (discovery-comparison directories generated path))))
 
 ;; The kinds of expansion finding, the ones that need no word first.
@@ -153,6 +156,40 @@
 (define (adapted-count findings kind)
   (string-append (i64->string (length (filter (lambda (finding)
                                                 (string=? (::first (::adapted finding)) kind))
+                                              findings)))
+                 " "
+                 kind))
+
+;; The kinds of check finding; those but "check alike", "fail alike" and
+;; "not compared" are differences.
+(: check-kinds (List String))
+(define check-kinds
+  (list "check alike"
+        "fail alike"
+        "fail differently"
+        "only the adapted fails"
+        "only the old fails"
+        "checks differ"
+        "not compared"))
+
+(: check-differs? (impl (Fn Finding -> Bool)))
+(define (check-differs? finding)
+  (not (member? (::first (::checked finding)) (list "check alike" "fail alike" "not compared"))))
+
+(: check-line (impl (Fn Finding -> (List String))))
+(define (check-line finding)
+  (if (check-differs? finding)
+      (list (string-append (::path finding)
+                           ": "
+                           (::first (::checked finding))
+                           ": "
+                           (::second (::checked finding))))
+      (Nil)))
+
+(: check-count (impl (Fn (List Finding) String -> String)))
+(define (check-count findings kind)
+  (string-append (i64->string (length (filter (lambda (finding)
+                                                (string=? (::first (::checked finding)) kind))
                                               findings)))
                  " "
                  kind))
@@ -467,6 +504,12 @@
                                                      "adaptations differ"
                                                      "not compared"))
                                           ", ")))
+  (for-each write-line (concatenate (map check-line findings)))
+  (write-line
+   (string-append "compared the old checker on the programs adapted and the old expansions': "
+                  (string-join (map (lambda (kind) (check-count findings kind))
+                                    check-kinds)
+                               ", ")))
   (for-each write-line (concatenate (map discovery-line findings)))
   (write-line (string-append "compared their discovery with the old: "
                              (string-join (map (lambda (kind) (discovery-count findings kind))
@@ -494,6 +537,7 @@
             findings)
       (panic "the programs adapted differ")
       (unit))
+  (if (any? check-differs? findings) (panic "the old checker's answers differ") (unit))
   (if (any? (lambda (finding) (string=? (order-kind (::order finding)) "other differences"))
             findings)
       (panic "the orders differ")

@@ -44,6 +44,7 @@
    declared-values
    normal-type-text
    name-text
+   scheme-text
    data-text
    class-text
    effect-text
@@ -613,13 +614,33 @@
          (map (lambda (operation)
                 (Pair (old-name (::global operation))
                       (old:Operation (old-name (::global effect))
-                                     (old-scheme (operation-scheme (::global effect) operation)))))
+                                     (old-operation-scheme (::global effect) operation))))
               (::operations effect)))
         ((Extern global module symbol type _ _)
          (list (Pair (old-name global)
                      (old:Foreign (old:Import module symbol)
                                   (old-scheme (Scheme (Nil) (Nil) (Nil) type))))))
         (_ (Nil))))
+
+    ;; An operation's scheme, `operation-scheme`'s, as the old expander
+    ;; writes it: its latent row's labels with its own effect before them,
+    ;; out of the order in which (snail shell compiler core) keeps a row's
+    ;; labels, sorted. The old checker inserts labels into a row as into a
+    ;; sorted list, so its answers depend on that order: for a performance
+    ;; whose latent row names an effect before the operation's own, a row
+    ;; with that effect twice. The comparisons compare a row's labels
+    ;; sorted, so they see no difference here.
+    (: old-operation-scheme (impl (Fn Global Operation -> old:Scheme)))
+    (define (old-operation-scheme effect operation)
+      (old:Scheme (Nil)
+                  (Nil)
+                  (Nil)
+                  (old:TFun (map old-type (::parameters operation))
+                            (old-type (::result operation))
+                            (old:TRow (Cons (old-name effect)
+                                            (old:label-union (Nil)
+                                                             (map old-name (::latent operation))))
+                                      (None)))))
 
     (: function-value? (impl (Fn Expr -> Bool)))
     (define (function-value? value)
