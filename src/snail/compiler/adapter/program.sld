@@ -19,12 +19,14 @@
 ;;   the order its tops are written: each definition, statement and
 ;;   exposure, and each instance's methods and effect's defaults at their
 ;;   declaration. A definition under instance scopes is scoped twice, as
-;;   the old expander scopes it, a statement once. A program's statements
-;;   are instead one body, `main:%body`, a function of no arguments,
-;;   defined after every other item, and one statement calls it, as the
-;;   old `with-one-body` gathers them; `program-body` is that gathering,
-;;   which the comparison of expansions shares. The primitive library
-;;   records no run, since the backend implements all it declares.
+;;   the old expander scopes it, a statement once. The statements of a
+;;   library whose key is `main` are instead one body, `main:%body`, a
+;;   function of no arguments, defined after every other item, and one
+;;   statement calls it, as the old `with-one-body` gathers them; the old
+;;   expander decides by the key, so a library named `(main)` is gathered
+;;   as a program is. `program-body` is that gathering, which the
+;;   comparison of expansions shares. The primitive library records no
+;;   run, since the backend implements all it declares.
 ;;
 ;; Metadata is left empty: nothing past the old expander reads it.
 (define-library (snail compiler adapter program)
@@ -132,10 +134,17 @@
     ;; `files` are every library compiled, in the integrator's order.
     (: adapted-program (impl (Fn (List CompiledFile) -> AdaptedProgram)))
     (define (adapted-program files)
-      (AdaptedProgram (fold-left (lambda (program file) (with-library files program file))
-                                 old:empty-program
-                                 files)
+      (AdaptedProgram (::program (fold-left (lambda (joined file) (with-library files joined file))
+                                            (Joined old:empty-program 0)
+                                            files))
                       (map adapted-library (filter recorded? files))))
+
+    ;; The program with the libraries added so far, and the first number
+    ;; none of their locals has, which the next library's are numbered
+    ;; from.
+    (struct Joined
+      ((program old:Program)
+       (next I64)))
 
     (: adapted-library (impl (Fn CompiledFile -> AdaptedLibrary)))
     (define (adapted-library file)
@@ -164,31 +173,37 @@
        (converting Converting)))
 
     ;; What a library's walk reads: every library compiled, whose classes
-    ;; an instance may implement, and whether the library is a program,
-    ;; whose statements are gathered.
+    ;; an instance may implement, and whether the library's statements are
+    ;; gathered, as those of a library whose key is `main` are.
     (struct Walk
       ((files (List CompiledFile))
        (gathering? Bool)))
 
-    ;; One library's additions to `program`: its tops in order, a
+    ;; One library's additions to the program: its tops in order, a
     ;; program's body, the instances of its listing, the field class of
     ;; each label it names, and then its run.
-    (: with-library (impl (Fn (List CompiledFile) old:Program CompiledFile -> old:Program)))
-    (define (with-library files program file)
+    (: with-library (impl (Fn (List CompiledFile) Joined CompiledFile -> Joined)))
+    (define (with-library files joined file)
       (let* ((root (::dispatched file))
-             (walk (Walk files (program-root? root)))
+             (base (::next joined))
+             (walk (Walk files (same-library? (::library file) program-library)))
              (walked (fold-left (lambda (adding top) (with-top walk (Nil) adding top))
-                                (Adding program (Nil) (Converting (first-unused root) (Nil)))
+                                (Adding (::program joined)
+                                        (Nil)
+                                        (Converting base (+ base (first-unused root)) (Nil)))
                                 (root-tops root)))
-             (done (with-body walked root))
+             (done (with-body walk walked (root-tops root)))
              (listed (fold-left with-listed (::program done) (::listing file)))
              (labelled
               (fold-left (lambda (program label) (old:program-with-field-class program label))
                          listed
                          (::labels (::converting done)))))
-        (if (recorded? file)
-            (old:program-with-library labelled (library-key (::library file)) (::items done))
-            labelled)))
+        (Joined (if (recorded? file)
+                    (old:program-with-library labelled
+                                              (library-key (::library file))
+                                              (::items done))
+                    labelled)
+                (::next (::converting done)))))
 
     (: root-tops (impl (Fn Dispatched -> (List Top))))
     (define (root-tops root)
@@ -201,12 +216,6 @@
       (match root
         ((Defined _ _ number _) number)
         ((Program _ number) number)))
-
-    (: program-root? (impl (Fn Dispatched -> Bool)))
-    (define (program-root? root)
-      (match root
-        ((Defined _ _ _ _) #f)
-        ((Program _ _) #t)))
 
     ;; ---- Additions ----
 
@@ -441,13 +450,11 @@
 
     ;; ---- A program's body ----
 
-    ;; The program's statements, gathered, defined as `main:%body`, and
+    ;; The statements of a library gathered, defined as `main:%body`, and
     ;; called by the one statement left, which is at the first statement.
-    (: with-body (impl (Fn Adding Dispatched -> Adding)))
-    (define (with-body adding root)
-      (match (match root
-               ((Program tops _) (program-body tops))
-               ((Defined _ _ _ _) (None)))
+    (: with-body (impl (Fn Walk Adding (List Top) -> Adding)))
+    (define (with-body walk adding tops)
+      (match (if (::gathering? walk) (program-body tops) (None))
         ((Some body)
          (match (converted adding (Nil) body)
            ((Pair value adding)
@@ -553,6 +560,8 @@
       (define (test-program)
         (test-library)
         (test-statements)
+        (test-main-library)
+        (test-numbers)
         (test-primitives))
 
       (define main (list "main"))
@@ -712,6 +721,62 @@
                         (old:Do (old-at 2
                                         (old:App (old-at 2 (old:Var "main:%body" (list) (list)))
                                                  (list))))))))
+
+      ;; A library named (main) is gathered as a program is, since the old
+      ;; expander gathers by the key; a library of another name keeps its
+      ;; statement where it is.
+      (define (test-main-library)
+        (let ((gathered (lambda (library)
+                          (old:program-items
+                           (::program
+                            (adapted-program
+                             (list (compiled library
+                                             (Defined library
+                                               (list (Statement (Literal (Integer 1) (loc 2))))
+                                               0
+                                               (loc 1))))))))))
+          (expect (gathered main)
+                  (list (old:Define "main:%body"
+                                    (old-at 2
+                                            (old:Lambda (list)
+                                                        (old-at 2 (old:Lit (old:DInt 1)))
+                                                        #f)))
+                        (old:Do (old-at 2
+                                        (old:App (old-at 2 (old:Var "main:%body" (list) (list)))
+                                                 (list))))))
+          (expect (gathered shapes) (list (old:Do (old-at 2 (old:Lit (old:DInt 1))))))))
+
+      ;; Each library's locals are numbered after those of the libraries
+      ;; before it, its paths' parameters among them: the first library
+      ;; numbers 3 locals and makes a path, so the second's start at 4.
+      (define (test-numbers)
+        (let* ((x (Local "x" 0))
+               (first (Defined shapes
+                        (list (Define (global shapes "get")
+                                (Path (list "a" "b") (loc 2))
+                                (None)
+                                (list)
+                                (loc 2)))
+                        3
+                        (loc 1)))
+               (second (Program (list (Define (global main "f")
+                                        (Lambda (list x) (LocalRef x (loc 3)) (loc 3))
+                                        (None)
+                                        (list)
+                                        (loc 3)))
+                                1))
+               (items (old:program-items
+                       (::program (adapted-program (list (compiled shapes first)
+                                                         (compiled main second)))))))
+          (expect (map (lambda (item)
+                         (match item
+                           ((old:Define _ value)
+                            (match (::term value)
+                              ((old:Lambda parameters _ _) parameters)
+                              (_ (list))))
+                           (_ (list))))
+                       items)
+                  (list (list "path.3") (list "x.4")))))
 
       ;; The primitive library's values are `prim:`, and it records no run.
       (define (test-primitives)

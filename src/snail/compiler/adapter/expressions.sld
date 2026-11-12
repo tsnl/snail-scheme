@@ -4,10 +4,13 @@
 ;; type `unchecked`, which the checker replaces; a variable records no
 ;; instantiation yet.
 ;;
-;; - A local is `name.number`: its number is unique in its library, and
-;;   the old compiler's analyses need a local's name unique only in the
-;;   function it is bound in. The old `local-name` drops the text after
-;;   the last dot, so a message names it as written.
+;; - A local is `name.number`, unique in the program, as the old
+;;   expander's locals are: a library's locals are numbered after those of
+;;   the libraries before it. The old checker names the type of a closure
+;;   a `let` binds for its local, and such a type can reach a scheme that
+;;   another library sees, so two locals of one name and number in two
+;;   libraries would give two closures one type. The old `local-name`
+;;   drops the text after the last dot, so a message names it as written.
 ;; - A path of one label is its field class's reader, `::label`; a longer
 ;;   one is a function of a parameter of its own, which reads each label
 ;;   in turn, numbered from where the library's numbers stop, as the old
@@ -119,10 +122,12 @@
     ;; ---- Converting ----
 
     ;; What converting a library's expressions hands on, from one to the
-    ;; next: the first number no local of the library has, and the labels
-    ;; the expressions name, newest first, once or more each.
+    ;; next: the number the library's locals are numbered from in the
+    ;; program, the first number in the program no local has, and the
+    ;; labels the expressions name, newest first, once or more each.
     (struct Converting
-      ((next I64)
+      ((base I64)
+       (next I64)
        (labels (List String))))
 
     ;; `(converting-let* ((name state step) ...) body ...)` evaluates each
@@ -139,7 +144,7 @@
 
     (: with-labels (impl (Fn Converting (List String) -> Converting)))
     (define (with-labels state labels)
-      (Converting (::next state) (append labels (::labels state))))
+      (Converting-labels-set state (append labels (::labels state))))
 
     ;; ---- Top-level values ----
 
@@ -171,16 +176,20 @@
     (define (reference name loc)
       (at (old:Var name (Nil) (Nil)) loc))
 
-    (: old-local-name (impl (Fn Local -> String)))
-    (define (old-local-name local)
-      (string-append (::name local) "." (i64->string (::number local))))
+    (: old-local-name (impl (Fn Converting Local -> String)))
+    (define (old-local-name state local)
+      (local-text (::name local) (+ (::base state) (::number local))))
+
+    (: local-text (impl (Fn String I64 -> String)))
+    (define (local-text name number)
+      (string-append name "." (i64->string number)))
 
     ;; `expr`, with the sets `around` active where it is.
     (: old-expr (impl (Fn Converting (List Global) Expr -> (Pair old:Expr Converting))))
     (define (old-expr state around expr)
       (match expr
         ((Literal constant loc) (Pair (at (old:Lit (old-constant constant)) loc) state))
-        ((LocalRef local loc) (Pair (reference (old-local-name local) loc) state))
+        ((LocalRef local loc) (Pair (reference (old-local-name state local) loc) state))
         ((TopRef value loc) (Pair (reference (old-value-name value) loc) state))
         ((Path labels loc) (path (with-labels state labels) labels loc))
         ((PathApply labels record loc)
@@ -204,7 +213,7 @@
         ((Let local signature value body loc)
          (converting-let* ((value state (old-expr state around value))
                            (body state (old-expr state around body)))
-           (Pair (at (old:Let (old-local-name local) (signed value signature) body) loc)
+           (Pair (at (old:Let (old-local-name state local) (signed value signature) body) loc)
                  (with-labels state (signature-labels signature)))))
         ((Match scrutinee clauses loc)
          (converting-let* ((scrutinee state (old-expr state around scrutinee))
@@ -263,7 +272,11 @@
         (Fn Converting (List Global) (List Local) Expr Bool Loc -> (Pair old:Expr Converting))))
     (define (old-lambda state around parameters body captures? loc)
       (converting-let* ((body state (old-expr state around body)))
-        (Pair (at (old:Lambda (map old-local-name parameters) body captures?) loc) state)))
+        (Pair (at (old:Lambda (map (lambda (local) (old-local-name state local)) parameters)
+                              body
+                              captures?)
+                  loc)
+              state)))
 
     ;; A local definition's value, annotated with its signature's type at
     ;; the value's place.
@@ -317,12 +330,12 @@
     (define (path state labels loc)
       (match labels
         ((Cons label (Nil)) (Pair (field-reader label loc) state))
-        (_ (let ((parameter (old-local-name (Local "path" (::next state)))))
+        (_ (let ((parameter (local-text "path" (::next state))))
              (Pair (at (old:Lambda (list parameter)
                                    (applied-path labels (reference parameter loc) loc)
                                    #t)
                        loc)
-                   (Converting (+ (::next state) 1) (::labels state)))))))
+                   (Converting-next-set state (+ (::next state) 1)))))))
 
     ;; `value` read by each label in turn.
     (: applied-path (impl (Fn (List String) old:Expr Loc -> old:Expr)))
@@ -349,17 +362,19 @@
            (converting-let* ((body state (old-expr state around (::body clause))))
              (loop state
                    rest
-                   (Cons (old:Clause (old-pattern (::pattern clause)) body) converted)))))))
+                   (Cons (old:Clause (old-pattern state (::pattern clause)) body) converted)))))))
 
     ;; A pattern has no place in the old language.
-    (: old-pattern (impl (Fn Pattern -> old:Pattern)))
-    (define (old-pattern pattern)
+    (: old-pattern (impl (Fn Converting Pattern -> old:Pattern)))
+    (define (old-pattern state pattern)
       (match pattern
         ((Wild _) (old:PWild old:unchecked))
-        ((Bind local _) (old:PVar (old-local-name local) old:unchecked))
+        ((Bind local _) (old:PVar (old-local-name state local) old:unchecked))
         ((Equals datum _) (old:PLit (datum->old datum) old:unchecked))
         ((Destructure constructor arguments _)
-         (old:PCon (old-value-name constructor) (map old-pattern arguments) old:unchecked))))
+         (old:PCon (old-value-name constructor)
+                   (map (lambda (argument) (old-pattern state argument)) arguments)
+                   old:unchecked))))
 
     ;; ---- Places ----
 
@@ -403,6 +418,7 @@
     (begin
       (define (test-expressions)
         (test-forms)
+        (test-numbers)
         (test-paths)
         (test-scopes)
         (test-top-level))
@@ -412,7 +428,7 @@
       (define old-loc (old:Loc "t.sld" 3 5))
       (define old-inner (old:Loc "t.sld" 3 9))
       (define main (list "main"))
-      (define state (Converting 40 (list)))
+      (define state (Converting 0 40 (list)))
 
       (define (old at-loc term)
         (old:Expr term old:unchecked at-loc))
@@ -490,13 +506,36 @@
                                    (old old-inner (old:Var "x.3" (list) (list)))
                                    #f)))))
 
+      ;; A library's locals are numbered after the locals of the libraries
+      ;; before it, and a path's parameter takes the next number free in
+      ;; the program.
+      (define (test-numbers)
+        (let ((later (Converting 100 140 (list))))
+          (expect (::first (old-expr later (list) (LocalRef (Local "x" 3) loc)))
+                  (old old-loc (old:Var "x.103" (list) (list))))
+          (expect (old-expr later (list) (Path (list "a" "b") loc))
+                  (Pair (old old-loc
+                             (old:Lambda
+                              (list "path.140")
+                              (old old-loc
+                                   (old:App (old old-loc (old:Var "::b" (list) (list)))
+                                            (list (old old-loc
+                                                       (old:App (old old-loc
+                                                                     (old:Var "::a" (list) (list)))
+                                                                (list (old old-loc
+                                                                           (old:Var "path.140"
+                                                                                    (list)
+                                                                                    (list)))))))))
+                              #t))
+                        (Converting 100 141 (list "a" "b"))))))
+
       ;; A path of one label reads it; of more, it is a function of a
       ;; parameter numbered where the library's numbers stop. Each label
       ;; is handed on, for its field class.
       (define (test-paths)
         (let ((reader (lambda (label) (old old-loc (old:Var label (list) (list))))))
           (expect (old-expr state (list) (Path (list "x") loc))
-                  (Pair (reader "::x") (Converting 40 (list "x"))))
+                  (Pair (reader "::x") (Converting 0 40 (list "x"))))
           (expect (old-expr state (list) (Path (list "a" "b") loc))
                   (Pair (old old-loc
                              (old:Lambda (list "path.40")
@@ -507,12 +546,12 @@
                                                                            (list
                                                                             (reader "path.40")))))))
                                          #t))
-                        (Converting 41 (list "a" "b"))))
+                        (Converting 0 41 (list "a" "b"))))
           (expect (old-expr state (list) (PathApply (list "a") (LocalRef (Local "r" 2) inner) loc))
                   (Pair (old old-loc
                              (old:App (reader "::a")
                                       (list (old old-inner (old:Var "r.2" (list) (list))))))
-                        (Converting 40 (list "a"))))
+                        (Converting 0 40 (list "a"))))
           (expect (::second (old-expr state
                                       (list)
                                       (Let (Local "f" 1)
@@ -525,7 +564,7 @@
                                            (Literal (Integer 1) inner)
                                            (Literal (Integer 2) inner)
                                            loc)))
-                  (Converting 40 (list "count")))))
+                  (Converting 0 40 (list "count")))))
 
       ;; A `with-instances` holds its own sets, then those around, each
       ;; once; its body is converted with them all around.

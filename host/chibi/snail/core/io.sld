@@ -4,6 +4,7 @@
    read-file
    read-bytes
    write-file
+   write-bytes
    file-exists?
    command-line
    write-string
@@ -38,6 +39,13 @@
               (loop (cons chunk chunks))))))
     (define (write-file path text)
       (call-with-output-file path (lambda (port) (scheme-write-string text port))))
+
+    ;; Bytes to a binary file, replacing it.
+    (define (write-bytes path bytes)
+      (call-with-port (open-binary-output-file path)
+        (lambda (port)
+          (do ((index 0 (+ index 1))) ((= index (vector-length bytes)))
+            (write-u8 (vector-ref bytes index) port)))))
 
     (define (write-string text) (scheme-write-string text))
 
