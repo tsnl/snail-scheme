@@ -191,7 +191,7 @@
         (if (member? (head tree) (list "call" "return_call"))
             (Cons (word (at (parts tree) 0)) nested) nested)))
 
-    (: collection-point? (impl (Fn (Table Wat) Wat -> Bool)))
+    (: collection-point? (impl (Fn (Table Bool) Wat -> Bool)))
     (define (collection-point? local tree)
       (let ((op (head tree)))
         (or (string-prefix? "struct.new" op) (string-prefix? "array.new" op)
@@ -225,7 +225,9 @@
 
     (: noncollecting-functions (impl (Fn (List Wat) -> (Table Bool))))
     (define (noncollecting-functions fields)
-      (let* ((functions (pick "func" fields)) (local (declarations "func" functions))
+      (let* ((functions (pick "func" fields))
+             (local (fold-left (lambda (names fn) (table-set names (member-name fn) #t))
+                               empty-table functions))
              (seeds (map member-name (filter (lambda (fn) (collection-point? local fn)) functions)))
              (collecting (collecting-callers (reverse-calls functions) seeds empty-table)))
         (fold-left (lambda (safe function)
@@ -292,6 +294,7 @@
     (struct MemoryFunction
       ((module MemoryModule)
        (framed? Bool)
+       (temporary-roots? Bool)
        (local-types (Table Wat))
        (local-names (Table String))
        (local-roots (Table I64))
@@ -399,14 +402,15 @@
            (if (member? (head operand)
                         (list "i32.const" "i64.const" "f32.const" "f64.const" "ref.null"))
                (loop rest stores (Cons (lower-operation fn operand) reads))
-               (if (and (::framed? fn) (managed? (::module fn) (expression-type fn operand)))
-                   (let* ((value (lower-expression fn operand)) (slot (- (ref-get (::slots fn)) 1)))
-                     (loop rest (Cons (wat "drop" value) stores)
-                           (Cons (wat "i32.load" (root-address slot)) reads)))
-                   (let* ((local (fresh-local fn (expression-type fn operand)))
-                          (value (lower-expression fn operand)))
-                     (loop rest (Cons (wat "local.set" (Word local) value) stores)
-                           (Cons (get-local local) reads)))))))))
+               (if
+                (and (::temporary-roots? fn) (managed? (::module fn) (expression-type fn operand)))
+                (let* ((value (lower-expression fn operand)) (slot (- (ref-get (::slots fn)) 1)))
+                  (loop rest (Cons (wat "drop" value) stores)
+                        (Cons (wat "i32.load" (root-address slot)) reads)))
+                (let* ((local (fresh-local fn (expression-type fn operand)))
+                       (value (lower-expression fn operand)))
+                  (loop rest (Cons (wat "local.set" (Word local) value) stores)
+                        (Cons (get-local local) reads)))))))))
 
     ;; ---- Expression types ----
 
@@ -457,12 +461,18 @@
 
     (: lower-expression (impl (Fn MemoryFunction Wat -> Wat ! mut)))
     (define (lower-expression fn tree)
-      (if (not (::framed? fn)) (lower-operation fn tree)
+      (if (not (::temporary-roots? fn)) (lower-operation fn tree)
           (lower-rooted-expression fn tree)))
 
+    ;; A subtree with no collecting call needs no temporary publications inside
+    ;; it. Its final reference still gets a root: the next sibling may collect.
+    ;; Persistent local assignments and function exits retain their frame rules.
     (: lower-rooted-expression (impl (Fn MemoryFunction Wat -> Wat ! mut)))
     (define (lower-rooted-expression fn tree)
-      (let* ((first (ref-get (::slots fn))) (value (lower-operation fn tree))
+      (let* ((first (ref-get (::slots fn)))
+             (inner (if (collection-point? (::noncollecting (::module fn)) tree) fn
+                        (MemoryFunction-temporary-roots?-set fn #f)))
+             (value (lower-operation inner tree))
              (end (ref-get (::slots fn))) (type (expression-type fn tree)))
         (cond ((managed? (::module fn) type) (root-result fn value first end))
               ((or (= first end)
@@ -758,6 +768,7 @@
              (slot (if (and (::framed? fn) (managed? (::module fn) type)) (root-slot fn) -1)))
         (MemoryFunction (::module fn)
                         (::framed? fn)
+                        (::temporary-roots? fn)
                         (table-set (table-set (::local-types fn) name type) number type)
                         (table-set (table-set (::local-names fn) name name) number name)
                         (if (< slot 0) (::local-roots fn)
@@ -771,6 +782,7 @@
               (append (pick "param" (parts function)) (pick "local" (parts function)))))
         (fold-left (lambda (fn index) (bind-function-local fn (at declarations index) index))
                    (MemoryFunction module
+                                   framed?
                                    framed?
                                    empty-table
                                    empty-table
