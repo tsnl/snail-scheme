@@ -1,5 +1,13 @@
 # Linear-memory runtime and collector experiments
 
+**Archived failed experiment, 2026-11-12.** Snail retains WasmGC. The custom
+collector, root protocol, host integration and allocation analysis added more
+implementation and maintenance cost than the measured benefits justified.
+This chapter records the unmerged experimental branches, not the supported
+backend. See [#749](https://github.com/tsnl/snail-scheme/issues/749) for the
+decision and archived pull requests. Final validation was stopped with the
+experiment; the branches are not claimed to pass every merge gate.
+
 The compiler lowers its managed values into wasm32 linear memory. The runtime
 uses a nonmoving conservative collector. This chapter describes that contract
 and the separate experiments started on 2026-11-11. The microbenchmarks below
@@ -223,6 +231,44 @@ collection time entirely would leave most of V8's gap: tracing alone cannot
 explain the results. Allocation, root-frame maintenance, checked addressing,
 indirect calls and engine optimization remain relevant.
 
+## Compiler and application measurements
+
+The frozen compiler, naive migration and five-optimization compiler compiled
+the same Siegework test source, with the same absolute library paths. Median
+seconds across three fresh V8 processes, with engine compilation separated
+from executing the compiler:
+
+| Compiler | Engine compilation | Compiler execution | Compiler bytes | Peak process RSS, KiB |
+| --- | ---: | ---: | ---: | ---: |
+| Frozen WasmGC | 1.858 | 0.258 | 2,819,228 | 214,072 |
+| Naive linear memory | 8.080 | 7.053 | 12,961,686 | 467,636 |
+| Five optimizations, before placement | 5.239 | 5.087 | 9,758,894 | 341,896 |
+
+This measures the user-visible compiler regression, including additional
+lowering work and larger output. It does not isolate collector cost: the
+frozen compiler emits WasmGC while the migrated compiler emits linear memory.
+The separate profiled optimized run spent 4.198 of 6.116 seconds collecting,
+about 69%, across 155 collections; its longest observed pause was 105 ms.
+Instrumentation is enabled only for that diagnostic run.
+
+The resulting application executes Siegework's deterministic 6,000-tick test.
+All 18 outputs match its checked-in expected output. These are **cold total
+process times**, including engine compilation, initialization and execution,
+with normal engine tiering, rather than warmed loop measurements:
+
+| Backend | Node seconds | Wasmtime seconds | Linked bytes | Node / Wasmtime peak RSS, KiB |
+| --- | ---: | ---: | ---: | ---: |
+| WasmGC | 0.15 | 1.74 | 425,352 | 92,704 / 43,604 |
+| Naive linear memory | 1.21 | 1.95 | 1,391,509 | 87,992 / 52,808 |
+| Five optimizations, before placement | 1.04 | 1.33 | 1,034,268 | 85,200 / 46,128 |
+
+The runtime improvement depends strongly on the engine; the optimized cold
+application is faster on Wasmtime and substantially slower on V8. Three fresh
+processes per variant and engine alternate their order. Raw records, checksums,
+commands and artifact hashes are in `results/2026-11-12-real/` under
+`tests/linear-gc/`. Reproduce compiler invocations with `programs/compiler.mjs`
+and cold application runs with `programs/cold.mjs`.
+
 ## Allocation placement on a control-flow graph
 
 `allocation.sld` owns a backend-independent graph of values, copies, object
@@ -272,6 +318,88 @@ instances use zero heap allocations, while 100 overlapping instances use 100.
 A live container retains its previous child and forces the same promotion.
 `linear-memory-placement.sld` covers frame payload tracing, branches, escaping
 closures, returns and tail arguments under forced collection on both engines.
+
+The first placement build moves 721 construction sites in the compiler itself
+to frames. The six smaller runtime workloads have no eligible sites: their
+linked artifact is byte-identical to the preceding stage. Their 1–3% timing
+differences are noise, not a placement speedup (`results/2026-11-12-cfg/`).
+
+To isolate placement, compile the **same new compiler source** with the
+five-optimization code generator, which keeps every object on the heap, and
+with the new placement code generator. Both resulting compilers execute the
+new analysis and emit byte-identical Siegework output. The paired medians are:
+
+| Operation | Heap-only compiler | Frame-placement compiler | Change |
+| --- | ---: | ---: | ---: |
+| Compile Siegework, including emission | 6.094 s | 5.951 s | 2.3% less time |
+| Check and describe its schema, without emission | 1.811 s | 1.808 s | No meaningful timing change |
+
+Separate profiling counts 36,094,134 versus 34,344,845 heap allocations for
+compilation (4.8% fewer), and 13,566,392 versus 12,484,259 for schema checking
+(8.0% fewer). Requested bytes fall by 5.5% and 9.0%, respectively. These are
+modest gains under the current call and return contracts. Raw records are in
+`results/2026-11-12-cfg-paired/`. The pre-placement compiler's earlier 5.087-s
+result runs an older algorithm without the new analysis, so it cannot be used
+as a placement-only ablation: the analysis itself adds compiler work.
+
+An additional experiment omitted scalar instructions from the graph and
+restricted liveness to values reaching local allocations. Siegework output
+remained byte-identical, but the WasmGC-hosted compiler stayed near 0.385 s and
+the linear-hosted compiler changed from 5.552 to 5.676 s in a separate paired
+sample. Heap allocation count fell by only 0.07%. That change is not retained;
+its samples are in `results/2026-11-12-graph-pruning/`.
+
+Hosting the exact new compiler source on WasmGC supplies another controlled
+comparison. Its output is byte-identical to the self-hosted linear compiler's,
+including in frontend-only schema mode:
+
+| Operation | WasmGC host | Linear-memory host | Ratio |
+| --- | ---: | ---: | ---: |
+| Compile Siegework | 0.410 s | 5.907 s | 14.4× |
+| Check and describe its schema | 0.159 s | 1.918 s | 12.1× |
+
+These exclude engine startup and come from a separate three-process sample,
+`results/2026-11-12-cfg-compiler/`. Both hosts execute the same compiler
+algorithm. The WasmGC-hosted copy is useful for iteration; the linear compiler
+also reproduces its own emitted text exactly. This separates development host
+choice from the representation of the programs it produces.
+
+## What the performance ceiling can tell us
+
+A simple model holds the allocation schedule and all non-GC work fixed. In
+the profiled placement compiler, collection occupies 3.973 of 6.023 seconds.
+Making that collection time zero would leave about 2.05 seconds, a 2.9×
+speedup within that model. This is not a prediction of an implementable
+collector, and instrumentation and changed allocation schedules limit its
+precision. It still leaves substantial work beyond tracing.
+
+Two intentionally incorrect controls investigate root maintenance. First
+disable collection; then additionally remove generated roots and frames.
+Their allocation sites and workloads stay fixed. Median milliseconds per
+batch below are **V8 / Wasmtime**, from paired fresh processes:
+
+| Workload | No collection, roots retained | No collection or roots |
+| --- | ---: | ---: |
+| Lists | 2.149 / 2.269 | 1.264 / 1.328 |
+| Arrays | 4.188 / 5.030 | 2.069 / 2.491 |
+| Closures | 0.585 / 0.705 | 0.319 / 0.391 |
+| Effects | 0.829 / 0.941 | 0.570 / 0.610 |
+
+Checksums match, and all diagnostic collection counters are zero. These
+controls consume about 1.47 GiB on V8 and 1.41 GiB on Wasmtime because dead
+objects are never reclaimed, versus tens of MiB in the safe runtime workload.
+Removing collection alone sometimes makes execution slower. Code layout and
+engine optimization also matter: a V8 loop whose inner calls were already
+frameless changes between controls. Therefore the differences cannot all be
+attributed to shadow stores, and the controls are not strict lower bounds.
+See `programs/controls.md` and `results/2026-11-12-controls/`.
+
+The data support a near-WasmGC scalar-computation floor, meaningful remaining
+root and allocation costs, and expensive collection in compiler workloads.
+They do not establish a single defensible bound for *all* future optimizations.
+Borrowing summaries, caller-owned return storage, allocation elimination and
+precise or generational tracing change different parts of the cost model and
+must be measured rather than multiplying unrelated speedup estimates.
 
 ## The existing Immix implementation
 

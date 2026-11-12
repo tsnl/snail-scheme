@@ -1,0 +1,31 @@
+{
+  "variant": "reference-graph",
+  "mode": "wat",
+  "profiling": true,
+  "source": "/tmp/snail-linear-memory-gc-20261111/apps/siegework/tests/siege.sld",
+  "node": "v26.8.1",
+  "v8": "14.6.202.34-node.28",
+  "flags": [
+    "--no-warnings",
+    "--no-liftoff",
+    "--no-wasm-lazy-compilation"
+  ],
+  "compiler_sha256": "92b011d21c732339d93db8a5f1acd0c44901fd62a3f0aaa4f07e4855f36e26d6",
+  "compiler_bytes": 9935717,
+  "output_bytes": 4352418,
+  "output_sha256": "03cbfb2db71da5c9576564a949f4cd5d95b42c1a41ff98954827d6cf85f83340",
+  "compile_ms": 5228.805865,
+  "initialize_ms": 7.945485999999619,
+  "execute_ms": 5588.160464,
+  "linear_memory_bytes": 136052736,
+  "max_rss_kib": 313876,
+  "stats": {
+    "collections": "151",
+    "heap-bytes": "102611364",
+    "root-words": "1",
+    "profile-allocations": "34320977",
+    "profile-bytes": "928703932",
+    "pause-ns": "3609441100",
+    "longest-pause-ns": "94864069"
+  }
+}
