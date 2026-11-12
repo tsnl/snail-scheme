@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {createWasi, instantiate, linkProgram, runProgram, programExports} from '../../host/browser/load.mjs';
 import {hostExports, retireProgram} from '../../host/browser/memory.mjs';
+import './wasi-addresses.mjs';
 
 let program, api, constructors, memory, gc, number = 42;
 const seen = [], errors = [];
