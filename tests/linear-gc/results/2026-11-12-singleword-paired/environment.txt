@@ -1,0 +1,4 @@
+v26.8.1
+wasm-opt version 132
+9743092effa49b7fc193ca13befde35a4ae8146302a71ab5e7db21825e81da89  /tmp/linear-cast-bench.wasm
+2cdbf1c042b640b83718bb876cce24b59d2de8561a278cef57bb32f17af7871b  /tmp/linear-singleword-bench.wasm

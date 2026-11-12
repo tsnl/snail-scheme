@@ -1,0 +1,177 @@
+{
+  "variant": "linear-singleword",
+  "node": "v26.8.1",
+  "v8": "14.6.202.34-node.28",
+  "cpu": "Intel(R) Core(TM) Ultra 7 270K Plus",
+  "flags": [
+    "--no-warnings",
+    "--no-liftoff",
+    "--no-wasm-lazy-compilation"
+  ],
+  "sha256": "2cdbf1c042b640b83718bb876cce24b59d2de8561a278cef57bb32f17af7871b",
+  "wasm_bytes": 302595,
+  "compile_ms": 221.70506400000002,
+  "initialize_ms": 0.7426920000000052,
+  "samples": 9,
+  "calls_per_sample": 32,
+  "warmup_calls": 32,
+  "max_rss_kib": 94212,
+  "workloads": [
+    {
+      "name": "arithmetic",
+      "count": 1000000,
+      "checksum": "3134814395574376036",
+      "samples_ms": [
+        0.57536275,
+        0.57519265625,
+        0.5760785,
+        0.57679915625,
+        0.577733,
+        0.5768911875,
+        0.57585503125,
+        0.57667925,
+        0.5757334375
+      ],
+      "median_ms": 0.5760785,
+      "profile": {
+        "profile-allocations": "0",
+        "profile-bytes": "0",
+        "pause-ns": "0",
+        "longest-pause-ns": "0",
+        "collections": 0,
+        "batches": 9
+      },
+      "linear_memory_bytes": 1376256
+    },
+    {
+      "name": "rooted-calls",
+      "count": 300000,
+      "checksum": "24448",
+      "samples_ms": [
+        0.39029840625,
+        0.3974755,
+        0.39157084375,
+        0.3945279375,
+        0.4033075,
+        0.39046440625,
+        0.39950575,
+        0.39313984375,
+        0.39822409375
+      ],
+      "median_ms": 0.3945279375,
+      "profile": {
+        "profile-allocations": "18",
+        "profile-bytes": "324",
+        "pause-ns": "0",
+        "longest-pause-ns": "0",
+        "collections": 0,
+        "batches": 9
+      },
+      "linear_memory_bytes": 1376256
+    },
+    {
+      "name": "lists",
+      "count": 50000,
+      "checksum": "1249975000",
+      "samples_ms": [
+        2.29629334375,
+        2.363805375,
+        2.2898350625,
+        2.190892625,
+        2.29193009375,
+        2.2567356875,
+        2.15011603125,
+        2.15015896875,
+        2.1419165
+      ],
+      "median_ms": 2.2567356875,
+      "profile": {
+        "profile-allocations": "450000",
+        "profile-bytes": "12600000",
+        "pause-ns": "4256153",
+        "longest-pause-ns": "1482084",
+        "collections": 3,
+        "batches": 9
+      },
+      "linear_memory_bytes": 8388608
+    },
+    {
+      "name": "arrays",
+      "count": 100000,
+      "checksum": "5000250000",
+      "samples_ms": [
+        3.80522128125,
+        3.72504771875,
+        3.7084906875,
+        3.69747890625,
+        3.6428276875,
+        3.7148994375,
+        3.78265903125,
+        3.73843440625,
+        3.825269
+      ],
+      "median_ms": 3.72504771875,
+      "profile": {
+        "profile-allocations": "36",
+        "profile-bytes": "14400576",
+        "pause-ns": "1314572",
+        "longest-pause-ns": "660884",
+        "collections": 4,
+        "batches": 9
+      },
+      "linear_memory_bytes": 8388608
+    },
+    {
+      "name": "closures",
+      "count": 10000,
+      "checksum": "50025000",
+      "samples_ms": [
+        0.49011665625,
+        0.48324184375,
+        0.48362615625,
+        0.48408840625,
+        0.513360625,
+        0.480843125,
+        0.47715384375,
+        0.48589746875,
+        0.4731313125
+      ],
+      "median_ms": 0.48362615625,
+      "profile": {
+        "profile-allocations": "90018",
+        "profile-bytes": "2520288",
+        "pause-ns": "363542",
+        "longest-pause-ns": "363542",
+        "collections": 1,
+        "batches": 9
+      },
+      "linear_memory_bytes": 8388608
+    },
+    {
+      "name": "effects",
+      "count": 2000,
+      "checksum": "2001000",
+      "samples_ms": [
+        0.60201659375,
+        0.60862165625,
+        0.60398196875,
+        0.6036351875,
+        0.60746628125,
+        0.61496815625,
+        0.6044833125,
+        0.61716415625,
+        0.601789125
+      ],
+      "median_ms": 0.6044833125,
+      "profile": {
+        "profile-allocations": "252018",
+        "profile-bytes": "4896288",
+        "pause-ns": "222652",
+        "longest-pause-ns": "112172",
+        "collections": 2,
+        "batches": 9
+      },
+      "linear_memory_bytes": 8388608
+    }
+  ]
+}

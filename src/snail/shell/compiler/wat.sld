@@ -3,7 +3,7 @@
 (define-library (snail shell compiler wat)
   (export
    Wat Word Node wat wat* int wat->string field->string wat->text
-   wat-string escape-char hex-digit utf-8-bytes fill parse-wat backend-sort)
+   wat-string escape-char hex-digit utf-8-bytes utf-8-length fill parse-wat backend-sort)
   (import
    (snail core base))
   (begin
@@ -148,6 +148,17 @@
     (: hex-digit (impl (Fn I64 -> String)))
     (define (hex-digit value)
       (substring "0123456789abcdef" value (+ value 1)))
+
+    ;; Layout-key lengths need no intermediate character or byte lists.
+    (: utf-8-length (impl (Fn String -> I64)))
+    (define (utf-8-length text)
+      (let ((limit (string-length text)))
+        (let loop ((index 0) (bytes 0))
+          (if (= index limit) bytes
+              (let ((code (char->integer (string-ref text index))))
+                (loop (+ index 1)
+                      (+ bytes (cond ((< code 128) 1) ((< code 2048) 2)
+                                     ((< code 65536) 3) (else 4)))))))))
 
     (: utf-8-bytes (impl (Fn I64 -> (List I64))))
     (define (utf-8-bytes code)

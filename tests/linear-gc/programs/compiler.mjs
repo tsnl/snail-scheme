@@ -6,6 +6,7 @@ import {mkdirSync, mkdtempSync, readFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
+import {exiting} from '../../../host/native/wasi.mjs';
 
 const parameters = process.argv.slice(2), profiling = parameters[0] === '--profile';
 if (profiling) parameters.shift();
@@ -18,8 +19,8 @@ try {
   const bytes = readFileSync(filename), start = performance.now();
   const module = new WebAssembly.Module(bytes), compile_ms = performance.now() - start;
   assert.ok(WebAssembly.Module.imports(module).every(imported => imported.module === 'wasi_snapshot_preview1'));
-  const wasi = new WASI({version: 'preview1', args: [filename, 'wat', source, output, scratch, ...directories.map(path => resolve(path))],
-    env: {SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}});
+  const wasi = exiting(new WASI({version: 'preview1', args: [filename, 'wat', source, output, scratch, ...directories.map(path => resolve(path))],
+    env: {SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}}));
   const instantiateStart = performance.now();
   const instance = new WebAssembly.Instance(module, wasi.getImportObject());
   wasi.initialize(instance);

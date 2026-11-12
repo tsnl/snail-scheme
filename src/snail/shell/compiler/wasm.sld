@@ -4455,6 +4455,8 @@
      (snail stage0 testing))
     (begin
       (define (test-wasm)
+        (expect (utf-8-length "") 0)
+        (expect (utf-8-length "Aé漢🙂\n") 11)
         (expect (mangle "a b,c(d)") "a_b~c<d>")
         (expect (fill "(call {f} {x})" (list (Pair "f" "$g") (Pair "x" "1"))) "(call $g 1)")
         (expect (wat->string (wat "module"

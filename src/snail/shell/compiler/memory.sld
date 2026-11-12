@@ -338,8 +338,10 @@
     ;; are outside the range too. Abrupt branches skip cleanup, conservatively.
     (: clear-temporaries (impl (Fn I64 I64 -> (List Wat))))
     (define (clear-temporaries first end)
-      (if (= first end) (Nil)
-          (list (wat "memory.fill" (root-address first) (c32 0) (c32 (* 4 (- end first)))))))
+      (cond ((= first end) (Nil))
+            ((= end (+ first 1)) (list (wat "i32.store" (root-address first) (c32 0))))
+            (else (list (wat "memory.fill" (root-address first) (c32 0)
+                             (c32 (* 4 (- end first))))))))
 
     (: consume-temporaries (impl (Fn Wat Wat I64 I64 -> Wat)))
     (define (consume-temporaries value type first end)
@@ -938,8 +940,7 @@
              (renaming (numbered-names "$dependency." dependencies
                                        (numbered-names "$member." names empty-table)))
              (text (wat->text (replace-words renaming group)))
-             (bytes (length (concatenate (map (lambda (c) (utf-8-bytes (char->integer c)))
-                                              (string->list text)))))
+             (bytes (utf-8-length text))
              (segment (string-append "$lm.types." (i64->string index))))
         (MemorySetup (map (lambda (name) (global-i32 (tag-id name))) names)
                      (concatenate (list (list (wat "memory.init" (Word segment)
