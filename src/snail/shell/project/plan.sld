@@ -547,9 +547,9 @@
    (snail-tests
     (export test-plan)
     (import
-     (only (scheme base) error)
-     (only (chibi filesystem) create-directory*)
-     (only (chibi string) string-contains string-split)
+     (only (chezscheme) error)
+     (only (snail stage0 system) create-directory*)
+     (only (snail stage0 system) string-contains string-split)
      (snail stage0 testing)
      (only (snail shell compiler inputs) no-inputs supply-generated printed-producer-text))
     (begin
@@ -678,7 +678,7 @@
         (lambda (wave)
           (match (find (lambda (entry) (match (● entry second) ((ProducePhase _) #t) (_ #f))) wave)
             ((Some (Pair _ (ProducePhase producer))) producer)
-            (_ (error "no producer in the wave")))))
+            (_ (error 'plan "no producer in the wave")))))
 
       (define project-targets
         (lambda (directory library)

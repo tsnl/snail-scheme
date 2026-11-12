@@ -34,7 +34,8 @@
    (snail shell compiler capabilities)
    (only (snail shell compiler check) Typed)
    (only (snail shell compiler ownership) consumed-references)
-   (snail shell compiler specialize))
+   (snail shell compiler specialize)
+   (snail shell compiler constants))
   (begin
 
     ;; ---- Prepared code ----
@@ -73,8 +74,7 @@
     ;; under a different context; only construction, never that answer, is cached.
 
     (define (prepare-batches (state State) (count I64) (roots (List Item)) (done (List Item)))
-      (→ Lowered)
-      (! compile)
+      (→ Lowered) (! compile)
       (match (complete-specializations state)
         ((Pair definitions state)
          (let ((items (append roots definitions)))
@@ -85,19 +85,23 @@
                                   (append (reverse (● lowered items)) done))))))))
 
     (define (prepare-batch (state State) (count I64) (items (List Item))) (→ Lowered) (! compile)
-      (let ((callees (specialization-callees state)))
-        (for-each (lambda (item) (check-item callees item)) items)
-        (if (null? (● state control))
-            (Lowered items count state)
-            (let ((lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
-                                      (Lowered (Nil) count state) items)))
-              (Lowered-items-set lowered (reverse (● lowered items)))))))
+      (match (fold-constants state items)
+        ((Pair items state)
+         (let ((callees (specialization-callees state)))
+           (for-each (lambda (item) (check-item callees item)) items)
+           (if (null? (● state control))
+               (Lowered items count state)
+               (let ((lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
+                                         (Lowered (Nil) count state) items)))
+                 (Lowered-items-set lowered (reverse (● lowered items)))))))))
+
+
 
     (define (prepared (state State) (items (List Item)) (exported (List String))) (→ Prepared)
-      (Prepared (specialization-declarations state)
+      (Prepared (constant-declarations (specialization-declarations state))
                 (filter (lambda (item)
                           (match item ((Define _ value) (lambda-expr? value)) (_ #f))) items)
-                (order-initializers state items)
+                (Nil)
                 (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items)
                 exported))
 
@@ -1044,7 +1048,7 @@
    (snail-tests
     (export test-prepare)
     (import
-     (only (scheme base) eq?)
+     (only (chezscheme) eq?)
      (snail stage0 testing))
     (begin
       (define test-prepare

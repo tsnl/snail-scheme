@@ -311,9 +311,9 @@
              (check path value)))
         ((Pair (Var "prim:panic" _ _) _) (Path-returns-set (check-all path args) #f))
         ((Pair (Var "prim:set!" _ _) (Cons place (Cons value (Nil))))
-         (check (check-place-root path place) value))
+         (check-place-write path place value))
         ((Pair (Var "prim:replace!" _ _) (Cons place (Cons value (Nil))))
-         (check (check-place-root path place) value))
+         (check-place-write path place value))
         ((Pair (Var _ _ _) (Cons record rest))
          (match (field-operation path callee)
            ((Some operation)
@@ -707,16 +707,21 @@
                                    "apply a field operation to a linear record by name; as a value it would consume the record"))))
         (_ (unit))))
 
-    ;; A chain of field reads, `(● s from x)` or `(● r live)`,
-    ;; copies one value, the last field, out of the record at its root:
-    ;; the fields along the way are addressed, not read, so their grades
-    ;; do not matter, and only the outermost read's result is checked. The
-    ;; root is the record of the innermost read.
+    ;; Each intermediate field is an ordinary value. A linear field cannot
+    ;; be followed through an alias: another write could remove and finalize
+    ;; it while the incoming expression runs. Move it out with replace!
+    ;; first. A named linear root remains available in its own scope.
 
     (define (check-chain (path Path) (record Expr)) (→ Path) (! compile)
-      (match (chain-record path record)
-        ((Some inner) (check-chain path inner))
-        ((None) (check-place path record))))
+      (match (● record term)
+        ((Ann inner _) (check-chain path inner))
+        ((App callee (Cons inner (Nil)))
+         (match (field-operation path callee)
+           ((Some (Accessor case index scheme))
+            (check-field-grades path (Accessor case index scheme) (● callee type) (● record loc))
+            (check-chain path inner))
+           (_ (check-place path record))))
+        (_ (check-place path record))))
 
     ;; The record a field read reads from, when an expression is one.
 
@@ -732,11 +737,29 @@
     ;; A written place is addressed down to the cell it is in, whose
     ;; expression is checked; the checker proved the links are fields.
 
-    (define (check-place-root (path Path) (place Expr)) (→ Path) (! compile)
-      (check-chain path place))
+    (define (check-place-write (path Path) (place Expr) (value Expr)) (→ Path) (! compile)
+      (match (chain-record path place)
+        ((Some record) (check-field-write path record (list value)))
+        ((None) (panic "internal error: a written place is a field"))))
 
     (define (check-field-write (path Path) (record Expr) (args (List Expr))) (→ Path) (! compile)
-      (check-all (check-chain path record) args))
+      (let ((after (check-all (check-chain path record) args)))
+        (require-place-live after record)
+        after))
+
+    ;; The incoming value may consume other owners, but the receiver must
+    ;; still exist when the write happens. This is an exactly-once check,
+    ;; not a loan: Copy receivers may be freely aliased and mutated.
+    (define (require-place-live (path Path) (record Expr)) (→ Unit) (! compile)
+      (match (chain-record path record)
+        ((Some inner) (require-place-live path inner))
+        ((None)
+         (match (● record term)
+           ((Ann inner _) (require-place-live path inner))
+           ((Var name _ _)
+            (when (linear? path (● record type))
+              (require-live path (Owner name (● record type)) (● record loc))))
+           (_ (unit))))))
 
     ;; Shared captured owners are read-only. An FnMut body gets exclusive
     ;; access to its captures without gaining permission to move them out.

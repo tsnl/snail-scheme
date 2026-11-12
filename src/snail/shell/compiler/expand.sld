@@ -4881,8 +4881,8 @@
    (snail-tests
     (export test-expand)
     (import
-     (only (chibi filesystem) create-directory*)
-     (only (chibi string) string-contains string-cursor->index)
+     (only (snail stage0 system) create-directory*)
+     (only (snail stage0 system) string-contains)
      (snail stage0 testing)
      (only (snail shell compiler inputs) no-inputs supply-generated))
     (begin
@@ -5006,8 +5006,8 @@
                                  "(struct Other ((value I64 (annotations (doc \"A different field.\")))))\n"
                                  "(enum Readiness (Waiting (annotations (doc \"No value yet.\"))))\n"
                                  "(define count (→ I64) (annotations (doc \"An inline definition.\")) 0)\n"
-                                 "(typeclass (Named T) (: label (dyn (Fn T → String)) (annotations (doc \"Name this value.\"))))\n"
-                                 "(effect names ((read-name (dyn (Fn Unit → String)) (annotations (doc \"Read a name.\")))))\n"
+                                 "(typeclass (Named T) (: label (Fn T → String) (annotations (doc \"Name this value.\"))))\n"
+                                 "(effect names ((read-name (Fn Unit → String) (annotations (doc \"Read a name.\")))))\n"
                                  "))")))
 
       ;; A producer names its recipe after its imports, as the path the
@@ -5136,9 +5136,8 @@
                                                                "\")"))))))
                               (if message
                                   (substring message
-                                             (+ (string-cursor->index message
-                                                                      (string-contains message
-                                                                                       ": "))
+                                             (+ (string-contains message
+                                                                                       ": ")
                                                 2)
                                              (string-length message))
                                   "accepted"))))
@@ -5158,15 +5157,15 @@
                                                   (string-append root "/main.sld")
                                                   empty-expansion) program)))
                   (expect (primitive-scheme program "vector-ref")
-                          (list (list "A") "(dyn (Fn (Vector A) I64 → A))"))
+                          (list (list "A") "(Fn (Vector A) I64 → A)"))
                   (expect (primitive-scheme program "vector-generate")
                           (list (list "A" "e")
-                                "(dyn (Fn I64 (dyn (Fn I64 → A ! e)) → (Vector A) ! e))"))
+                                "(Fn I64 (Fn I64 → A ! e) → (Vector A) ! e)"))
                   (expect (primitive-scheme program "array-ref")
-                          (list (list "A") "(dyn (Fn (Array A) I64 → A ! mut))"))
+                          (list (list "A") "(Fn (Array A) I64 → A ! mut)"))
                   (expect (primitive-scheme program "inherit-handlers")
                           (list (list "A" "e")
-                                "(dyn (Fn (dyn (FnOnce → A ! e)) → (dyn (FnOnce → A ! host)) ! e))"))
+                                "(Fn (FnOnce → A ! e) → (FnOnce → A ! host) ! e)"))
                   (expect (map (lambda (record) (● record first))
                                (library-items program (program-items program)))
                           (list "main")))))

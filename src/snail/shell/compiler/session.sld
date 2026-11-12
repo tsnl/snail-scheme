@@ -203,9 +203,9 @@
    (snail-tests
     (export test-session)
     (import
-     (only (chibi filesystem) create-directory*)
-     (only (chibi string) string-contains)
-     (only (scheme file) delete-file)
+     (only (snail stage0 system) create-directory*)
+     (only (snail stage0 system) string-contains)
+     (only (chezscheme) delete-file)
      (snail stage0 testing)
      (only (snail shell compiler inputs) supply-artifact))
     (begin
@@ -271,7 +271,7 @@
                                         (lambda (body) (string-append
                                                         "(define-library (sample policy) (export Value value) "
                                                         "(import (snail core forms) (snail core primitive)) (begin "
-                                                        "(typeclass (Value A) (: value (impl (Fn A → I64)))) "
+                                                        "(typeclass (Value A) (: value (Fn A → I64))) "
                                                         "(instance (Value I64) (define value (lambda (x) (helper x)))) "
                                                         "(define (helper (x I64)) (→ I64) "
                                                         body
@@ -322,21 +322,21 @@
                                            (map (lambda (record) (● record text))
                                                 (● cold first))))))))
 
-      ;; Quantification can be written inside a value's type, or introduced
-      ;; by an impl argument. Both bodies are specialized in their importers.
+      ;; Polymorphic bodies specialize in their importers. An ordinary FnOnce
+      ;; parameter stays monomorphic, so editing its body only rebuilds its library.
       (define test-header-interfaces
         (lambda (directory library)
           (test-header-edit directory library
-                            "(define apply (→ (∀ (A) (impl (Fn A → A)))) (lambda (x) x))"
-                            "(define apply (→ (∀ (A) (impl (Fn A → A)))) (lambda (x) (begin (i64-add 1 2) x)))"
-                            "(apply (ann 3 I64))")
+                            "(define apply (→ (∀ (A) (Fn A → A))) (lambda (x) x))"
+                            "(define apply (→ (∀ (A) (Fn A → A))) (lambda (x) (begin (i64-add 1 2) x)))"
+                            "(apply (ann 3 I64))" #t)
           (test-header-edit directory library
-                            "(define (apply (f (impl (FnOnce I64 → I64)))) (→ I64) (f 1))"
-                            "(define (apply (f (impl (FnOnce I64 → I64)))) (→ I64) (f 2))"
-                            "(apply (lambda (x) (i64-add x 1)))")))
+                            "(define (apply (f (FnOnce I64 → I64))) (→ I64) (f 1))"
+                            "(define (apply (f (FnOnce I64 → I64))) (→ I64) (f 2))"
+                            "(apply (lambda (x) (i64-add x 1)))" #f)))
 
       (define test-header-edit
-        (lambda (directory library before after call)
+        (lambda (directory library before after call specialized?)
           (let ((main (string-append directory "/headers.sld"))
                 (module (string-append directory "/sample/headers.sld")))
             (define source
@@ -353,9 +353,10 @@
                                         main no-generation no-inputs)))
               (write-file module (source after))
               (let ((warm (build-session (● first second) main no-generation no-inputs)))
-                (expect (compiled-names warm) (list "sample.headers" "main"))
+                (expect (compiled-names warm)
+                        (if specialized? (list "sample.headers" "main") (list "sample.headers")))
                 (expect (any? (lambda (module)
-                                (and (string=? (● module name) "main")
+                                (and (string=? (● module name) (if specialized? "main" "sample.headers"))
                                      (string-contains (● module text) "(i64.const 2)") #t))
                               (● warm first)) #t))))))
 
@@ -454,7 +455,7 @@
                                       (write-file (string-append directory "/sample/host.sld")
                                                   (string-append
                                                    "(define-library (sample host) (export now) (import (snail core forms) (snail core primitive)) "
-                                                   "(begin (extern now \"sample.host\" \"now\" (impl (Fn → I64)))))"))
+                                                   "(begin (extern now \"sample.host\" \"now\" (Fn → I64))))"))
                                       (write-file main
                                                   "(import (snail core forms) (snail core primitive) (sample host)) (now)")
                                       (let ((built (● (build-session

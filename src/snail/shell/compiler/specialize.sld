@@ -11,8 +11,10 @@
    Binding
    new-state
    specialization-declarations
+   specialization-program
    specialization-definitions
-   order-initializers
+   constant-binding?
+   constant-body
    start-specialization
    specialize-statements
    complete-specializations
@@ -75,7 +77,7 @@
        (body Body)))
 
     (enum Body
-      (Source
+      (SourceRecipe
        ((name String)
         (types (List Type))
         (evidence (List Evidence))))
@@ -168,7 +170,7 @@
                     (reserve state spec
                              (Definition
                                (ground (instantiation state name types evidence) (● value type))
-                               (lambda-expr? value) (Source name types evidence))))))))
+                               (lambda-expr? value) (SourceRecipe name types evidence))))))))
 
     ;; All executable work, including recursive glue, uses this reservation
     ;; rule and this queue. Merely looking up a binding never generates code.
@@ -216,7 +218,7 @@
     (define (complete-definition (state State) (name String) (definition Definition) (value Expr))
       (→ State)
       (let ((body (match (● definition body)
-                    ((Source origin _ _) (SourceBody origin value))
+                    ((SourceRecipe origin _ _) (SourceBody origin value))
                     (_ (GlueBody)))))
         (State-bindings-set state
                             (table-set (● state bindings) name
@@ -224,7 +226,7 @@
 
     (define (instantiate-body (state State) (body Body)) (→ (Pair Expr State))
       (match body
-        ((Source name types evidence)
+        ((SourceRecipe name types evidence)
          (copy-expr state (instantiation state name types evidence) (definition state name)))
         ((DropGlue method subject loc) (drop-function state method subject loc))
         ((CloneGlue method subject loc) (clone-function state method subject loc))
@@ -263,36 +265,21 @@
                      (_ (panic "internal error: analysis requires completed definitions"))))
                  empty-table (table-keys (● state bindings))))
 
-    ;; Group concrete initializers by the source definition they came from,
-    ;; then follow checked source order. Within one definition, retain the
-    ;; specialization discovery order. Functions and glue have no startup work.
+    ;; Constants keep their checked value types until preparation turns
+    ;; their uses into calls to fresh-value factories. Interpreting an
+    ;; imported function requests its body without changing its runtime
+    ;; import; dependencies discovered while doing so join the usual queue.
+    (define (constant-binding? (state State) (name String)) (→ Bool)
+      (match (table-ref (● state bindings) name)
+        ((Some binding) (not (● binding function?)))
+        ((None) #f)))
 
-    (define (order-initializers (state State) (items (List Item))) (→ (List Item))
-      (let ((groups (fold-right (lambda (item groups) (group-initializer state groups item))
-                                empty-table items)))
-        (concatenate
-         (map (lambda (item)
-                (match item
-                  ((Define name _) (initializers-at groups name))
-                  (_ (Nil))))
-              (● (● (● state input) typed) items)))))
-
-    (define (group-initializer (state State) (groups (Table (List Item))) (item Item))
-      (→ (Table (List Item)))
-      (match item
-        ((Define name value)
-         (if (lambda-expr? value)
-             groups
-             (match (● (binding-of state name) body)
-               ((SourceBody origin _)
-                (table-set groups origin (Cons item (initializers-at groups origin))))
-               (_ (panic "internal error: an initializer must have a source definition")))))
-        (_ groups)))
-
-    (define (initializers-at (groups (Table (List Item))) (name String)) (→ (List Item))
-      (match (table-ref groups name)
-        ((Some items) items)
-        ((None) (Nil))))
+    (define (constant-body (state State) (name String)) (→ (Pair Expr State))
+      (match (● (binding-of state name) body)
+        ((SourceBody _ value) (Pair value state))
+        ((Imported) (instantiate-body state (SourceRecipe name (Nil) (Nil))))
+        ((GlueBody) (panic "internal error: cleanup cannot run during constant evaluation"))
+        (recipe (instantiate-body state recipe))))
 
     ;; ---- Copying ----
 
@@ -891,17 +878,26 @@
       (let ((value (definition state name)))
         (match (● value term)
           ((Var _ _ _)
-           (let ((scheme (scheme-of state name)))
-             (copy-expr state
-                        (Instantiation (zip (● scheme vars) types)
-                                       evidence
-                                       (● state control))
-                        value)))
+           (if (alias-cycle? state name (Nil))
+               (specializing state ((spec (request name types evidence)))
+                 (Pair (Expr (Var spec (Nil) (Nil)) type loc) state))
+               (let ((scheme (scheme-of state name)))
+                 (copy-expr state
+                            (Instantiation (zip (● scheme vars) types)
+                                           evidence
+                                           (● state control))
+                            value))))
           (_ (if (external? state name types)
                  (Pair (Expr (Var name (Nil) (Nil)) type loc)
                        (import-definition state name value))
                  (specializing state ((spec (request name types evidence)))
                                (Pair (Expr (Var spec (Nil) (Nil)) type loc) state)))))))
+
+    (define (alias-cycle? (state State) (name String) (seen (List String))) (→ Bool)
+      (or (member? name seen)
+          (match (table-ref (● (● state input) definitions) name)
+            ((Some (Expr (Var target _ _) _ _)) (alias-cycle? state target (Cons name seen)))
+            (_ #f))))
 
     ;; Imports and emitted definitions share one identity table. In
     ;; particular, exposing an imported function must not enqueue a local
@@ -918,7 +914,8 @@
 
     (define (external? (state State) (name String) (types (List Type))) (→ Bool)
       (match (● state owner)
-        ((Some owner) (and (null? types) (not (string=? (name-owner name) owner))))
+        ((Some owner) (and (null? types) (lambda-expr? (definition state name))
+                           (not (string=? (name-owner name) owner))))
         ((None) #f)))
 
     ;; ---- Roots and cleanup requests ----
@@ -948,7 +945,7 @@
       (match item
         ((Expose name _ _ _) (Pair (Nil) (requested state name)))
         ((Define name value)
-         (if (and (null? (● (scheme-of state name) vars)) (not (alias-expr? value)))
+         (if (and (null? (● (scheme-of state name) vars)) (lambda-expr? value))
              (match (● state owner)
                ((Some _) (Pair (list name) (requested state name)))
                ((None) (Pair (Nil) (if (lambda-expr? value) state (requested state name)))))

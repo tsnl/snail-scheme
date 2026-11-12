@@ -293,8 +293,8 @@
    (snail-tests
     (export test-project)
     (import
-     (only (scheme base) car cdr)
-     (only (chibi string) string-contains)
+     (only (chezscheme) car cdr)
+     (only (snail stage0 system) string-contains)
      (snail stage0 testing))
     (begin
       (define project-error

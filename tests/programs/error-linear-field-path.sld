@@ -1,0 +1,6 @@
+(import (snail core base))
+(struct Token ((id I64)) (deriving Move))
+(struct Owner ((token Token)))
+(let ((owner (Owner (Token 1))))
+  (set! (● owner token id) 2)
+  (drop owner))

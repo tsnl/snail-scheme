@@ -33,8 +33,6 @@
   (import
    (snail core base)
    (snail core table)
-   (snail shell datum)
-   (snail shell write)
    (only (snail shell task) tasks yield)
    (snail shell dom))
   (begin
@@ -111,7 +109,7 @@
       (Document-lines-set document (Cons (string-join words " ") (● document lines))))
 
     (define (quoted (text String)) (→ String)
-      (datum->string (ann text Any)))
+      (repr text))
 
     ;; ---- Operations ----
 

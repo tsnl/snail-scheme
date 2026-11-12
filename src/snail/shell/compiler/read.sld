@@ -845,7 +845,7 @@
      test-read
      compile-failure)
     (import
-     (only (scheme base) car)
+     (only (chezscheme) car)
      (snail stage0 testing))
     (begin
       ;; The located message of the source error `work` stops with, or #f

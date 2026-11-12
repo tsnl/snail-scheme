@@ -2791,6 +2791,9 @@
 
     (define (host-effects (ck Checker) (results (List (Pair Expr Type)))) (→ Checker) (! compile)
       (fold-left (lambda (ck result)
+                   (unless (total? (solution ck) (● result second))
+                     (compile-error (● (● result first) loc)
+                                    "a top-level value must be effect-free; put runtime work in a function"))
                    (check-host-effects ck (● result second) (● (● result first) loc)))
                  ck results))
 
@@ -2821,6 +2824,8 @@
                     (then (unify (scheme-type ck (Define-name definition))
                                  (● value type)
                                  (● value loc))))
+                (unless (total? (solution ck) row)
+                  (compile-error (● value loc) "a top-level value must be effect-free; put runtime work in a function"))
                 (Pair (Pair value row) ck)))
 
     (define (infer-definition-value (ck Checker) (value Expr) (type Type) (row Type))
@@ -2980,9 +2985,9 @@
                     (value (fit (● scheme type) value row (● value loc)))
                     (then (infer-cleanup (Nil) (Nil) value row))
                     (then (check-host-effects row (● value loc))))
-                (when (and (not (null? (● scheme vars))) (not (total? (solution ck) row)))
+                (unless (total? (solution ck) row)
                   (compile-error (● value loc)
-                                 "a polymorphic definition must have a total initializer"))
+                                 "a top-level value must be effect-free; put runtime work in a function"))
                 (check-performed ck definition scheme)
                 (Pair (Define (Define-name definition) value) ck)))
 

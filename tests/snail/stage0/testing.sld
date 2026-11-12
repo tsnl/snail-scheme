@@ -4,9 +4,8 @@
    expect
    generated-library-bytes)
   (import
-   (scheme base)
-   (scheme read)
-   (scheme write))
+   (chezscheme)
+   (snail stage0 system))
   (begin
 
     (define (expect actual expected)
@@ -14,7 +13,7 @@
         (let ((port (current-error-port)))
           (display "expected: " port) (write expected port) (newline port)
           (display "actual:   " port) (write actual port) (newline port)
-          (error "unit test failed" actual expected))))
+          (error 'test "unit test failed" actual expected))))
 
     ;; The bytes a producer writes for the library `text` holds, in the
     ;; encoding src/snail/shell/syntax.sld defines: lists, symbols, strings
@@ -26,9 +25,9 @@
       (cond ((list? datum)
              (append (list 0) (encoded-count (length datum)) (apply append (map encoded datum))))
             ((symbol? datum) (encoded-text 1 (symbol->string datum)))
-            ((exact-integer? datum) (encoded-text 2 (number->string datum)))
+            ((and (integer? datum) (exact? datum)) (encoded-text 2 (number->string datum)))
             ((string? datum) (encoded-text 3 datum))
-            (else (error "no generated encoding for" datum))))
+            (else (error 'test "no generated encoding for" datum))))
 
     (define (encoded-text tag text)
       (append (list tag) (encoded-count (string-length text))

@@ -3,23 +3,14 @@
 ;; each line of NAME.err in its diagnostics, in order. Then the Siegework package is built
 ;; and driven headlessly, and the in-process assembler assembles a program.
 ;; Programs compile, link and run in parallel. With the compiler's source
-;; on Chibi, compiles stay serial to bound its heap use. Finally
+;; on Chez, compiles stay serial to bound its heap use. Finally
 ;; representative programs run again as modules linked when they run.
 ;;
-;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/run.scm ROOT [NAME ...]
+;;   scheme --script host/chez/load.scm ROOT test [NAME ...]
 (import
- (scheme base)
- (scheme cxr)
- (scheme file)
- (scheme process-context)
- (scheme write)
- (chibi filesystem)
- (only (chibi pathname) path-directory)
- (chibi process)
+ (chezscheme)
+ (except (snail stage0 system) error-text)
  (snail stage0 process)
- (only (chibi string) string-contains string-cursor->index string-split string-suffix?)
- (srfi 1)
- (only (srfi 132) list-sort)
  (snail stage0 build)
  (only (snail stage0 forms) test-forms)
  (only (snail shell compiler read) test-read)
@@ -40,19 +31,16 @@
 ;; ---- Cases ----
 
 (define (case-names directory)
-  (list-sort string<? (filter-map (lambda (file)
+  (list-sort string<? (filter values (map (lambda (file)
                                     (and (string-suffix? ".sld" file)
-                                         (substring file 0 (- (string-length file) 4))))
-                                  (directory-files directory))))
+                                         (substring file 0 (- (string-length file) 4)))) (directory-list directory)))))
 
 (define (error-text failure)
-  (let ((port (open-output-string)))
-    (if (error-object? failure)
-        (begin (write-string (error-object-message failure) port)
-               (for-each (lambda (irritant) (write-string " " port) (write irritant port))
-                         (error-object-irritants failure)))
-        (write failure port))
-    (get-output-string port)))
+  (if (message-condition? failure)
+      (if (format-condition? failure)
+          (apply format (condition-message failure) (condition-irritants failure))
+          (condition-message failure))
+      (format "~s" failure)))
 
 (define (trim-newline text)
   (let ((length (string-length text)))
@@ -66,12 +54,12 @@
 
 ;; ---- Programs ----
 
-;; A source compile on Chibi needs a large heap. The compiled compiler can
+;; A source compile on Chez needs a large heap. The compiled compiler can
 ;; run in each check's child, with its own scratch and output files.
-(define chibi-compiler? (equal? (get-environment-variable "SNAIL_STAGE0") "chibi"))
+(define source-compiler? (equal? (getenv "SNAIL_STAGE0") "chez"))
 
 ;; What a program prints, its standard output then its standard error, on
-;; the host `program-command` chooses (host/chibi/snail/stage0/build.sld).
+;; the host `program-command` chooses (host/chez/snail/stage0/build.sld).
 (define (run-wasm root program . arguments)
   (let ((result (capture-process (append (program-command root program) arguments))))
     (string-append (car result) (without-backtrace (cadr result)))))
@@ -81,7 +69,7 @@
 ;; message.
 (define (without-backtrace text)
   (let ((cursor (string-contains text "error while executing at wasm backtrace:\n")))
-    (if cursor (substring text 0 (string-cursor->index text cursor)) text)))
+    (if cursor (substring text 0 cursor) text)))
 
 ;; Compiles a case. A case that expects a diagnostic is decided here; any
 ;; other becomes the check that links its program, places the files it
@@ -113,7 +101,7 @@
       (let ((cursor (string-contains text (car parts))))
         (and cursor
              (contains-in-order?
-              (substring text (+ (string-cursor->index text cursor) (string-length (car parts))))
+              (substring text (+ cursor (string-length (car parts))) (string-length text))
               (cdr parts))))))
 
 (define (check-output root compiled program name expected-output)
@@ -136,7 +124,7 @@
                         (case-names directory))))
     (create-directory* build)
     (map (lambda (name)
-           (if chibi-compiler?
+           (if source-compiler?
                (compile-case root directories directory build name)
                (lambda () (check-case root directories directory build name))))
          names)))
@@ -267,7 +255,7 @@
       (substring text start (text-index text ")" start)))))
 
 (define (text-index text pattern from)
-  (cond ((> (+ from (string-length pattern)) (string-length text)) (error "not found" pattern))
+  (cond ((> (+ from (string-length pattern)) (string-length text)) (error 'test "not found" pattern))
         ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
         (else (text-index text pattern (+ from 1)))))
 
@@ -337,26 +325,15 @@
            (report "compiler run" "a panic must exit with status 1" (cadr panicked)))
           ((not (= (caddr trapped) 512))
            (report "compiler run" "a trap must be status 2" (cadr trapped)))
-          (else (check-scheme-script root)))))
+          (else #t))))
 
-;; The generated script installs its own dyn-cast boundary. A bad cast
-;; becomes a diagnostic and failure status, and no later expression runs.
-(define (check-scheme-script root)
-  (let ((result (capture-process
-                 (list (path-join root "scripts/snail-tool") "run"
-                       "-I" (path-join root "tests/programs/lib")
-                       (path-join root "tests/scheme-any-script-error/main.sld")))))
-    (or (and (= (caddr result) 256)
-             (string-contains (cadr result) "dyn-cast: type mismatch")
-             (not (string-contains (car result) "unreachable")))
-        (report "Scheme script" "conversion failure did not abort the script"
-                (string-append (car result) (cadr result))))))
+
 
 (define (tool-run root command program)
   (capture-process
    (list (path-join root "scripts/snail-tool") command (path-join root program))))
 
-;; The compiled compiler and its source on Chibi must emit the same text
+;; The compiled compiler and its source on Chez must emit the same text
 ;; for the same program; `make bootstrap` checks the compiler itself. The
 ;; control programs reach the backend of control effects too: its A-normal
 ;; form, frames, rebasing and latent forwarding.
@@ -365,17 +342,17 @@
     "tests/programs/control-stored-resume.sld"))
 
 (define (check-host-agreement root)
-  (every (lambda (program) (check-host-agreement-on root program)) host-agreement-programs))
+  (for-all (lambda (program) (check-host-agreement-on root program)) host-agreement-programs))
 
 (define (check-host-agreement-on root program)
   (let* ((tool (path-join root "scripts/snail-tool"))
          (source (path-join root program))
          (compiled (capture-process (list tool "wat" source)))
-         (interpreted (capture-process (list "env" "SNAIL_STAGE0=chibi" tool "wat" source))))
+         (interpreted (capture-process (list "env" "SNAIL_STAGE0=chez" tool "wat" source))))
     (cond ((not (zero? (caddr compiled)))
            (report "host agreement" "the compiled compiler failed" (cadr compiled)))
           ((not (zero? (caddr interpreted)))
-           (report "host agreement" "the source on Chibi failed" (cadr interpreted)))
+           (report "host agreement" "the source on Chez failed" (cadr interpreted)))
           ((not (equal? (car compiled) (car interpreted)))
            (report "host agreement"
                    (string-append "the two hosts emit different text for " program)
@@ -501,7 +478,7 @@
         (report "native TCP" "failed" (string-append (car result) (cadr result))))))
 
 (define (check-udp root)
-  (every (lambda (flags)
+  (for-all (lambda (flags)
            (let ((result (capture-process (append (list "node" "--no-warnings")
                                                   flags
                                                   (list (path-join root "tests/udp.mjs"))))))
@@ -614,7 +591,6 @@
   '(("examples" "fibonacci")
     ("examples" "effects")
     ("examples" "colors")
-    ("examples" "scheme-fibonacci")
     ("tests/programs" "closures")
     ("tests/programs" "classes-advanced")
     ("tests/programs" "data")
@@ -694,7 +670,7 @@
                               (lambda () (run-linked-socket-boundary root))
                               (lambda () (run-linked-async-files root))
                               (lambda () (run-dynamic-loading root))))))
-    (if chibi-compiler?
+    (if source-compiler?
         (map (lambda (check) (check)) checks)
         (run-checks checks))))
 
@@ -746,40 +722,30 @@
 
 ;; ---- Checks in parallel ----
 
-;; A check owns its output files, and each compile has private scratch, so
-;; checks run in child processes, `jobs` at a time. With the source compiler
-;; on Chibi, run-suite compiles first, leaving only linking and execution
-;; for these children. A child reports its failure and exits with its result.
+;; A worker claims one index under the mutex and owns that result slot.
+;; Compiles and linked programs execute in child processes with private files.
 (define jobs 8)
 
 (define (run-checks cases)
-  (let ((results (list->vector cases)))
-    (let loop ((pending (filter (lambda (index) (procedure? (vector-ref results index)))
-                                (iota (vector-length results))))
-               (running '()))
-      (cond ((and (pair? pending) (< (length running) jobs))
-             (loop (cdr pending)
-                   (cons (cons (start-check (vector-ref results (car pending))) (car pending))
-                         running)))
-            ((pair? running)
-             (let* ((done (waitpid -1 0)) (entry (assv (car done) running)))
-               (vector-set! results (cdr entry) (zero? (cadr done)))
-               (loop pending (delete entry running))))
-            (else (vector->list results))))))
-
-;; Ports are flushed before the fork so no buffered text is written twice,
-;; and the child exits without unwinding into the parent's continuation.
-(define (start-check check)
-  (flush-output-port (current-output-port))
-  (flush-output-port (current-error-port))
-  (let ((pid (fork)))
-    (if (zero? pid)
-        (let ((passed
-               (guard (failure (#t (report "check" "raised" (error-text failure)))) (check))))
-          (flush-output-port (current-output-port))
-          (flush-output-port (current-error-port))
-          (emergency-exit (if passed 0 1)))
-        pid)))
+  (let* ([results (list->vector cases)] [next 0] [remaining jobs]
+         [lock (make-mutex)] [done (make-condition)])
+    (define (claim)
+      (with-mutex lock
+        (and (< next (vector-length results))
+             (let ([index next]) (set! next (+ next 1)) index))))
+    (define (worker)
+      (let loop ([index (claim)])
+        (when index
+          (let ([check (vector-ref results index)])
+            (when (procedure? check)
+              (vector-set! results index
+                (guard (failure [else (report "check" "raised" (error-text failure))]) (check)))))
+          (loop (claim))))
+      (with-mutex lock (set! remaining (- remaining 1)) (condition-signal done)))
+    (do ([i 0 (+ i 1)]) [(= i jobs)] (fork-thread worker))
+    (with-mutex lock
+      (let wait () (unless (= remaining 0) (condition-wait done lock) (wait))))
+    (vector->list results)))
 
 ;; ---- Suite ----
 
@@ -850,7 +816,7 @@
                           (if (null? selected)
                               (run-linked-cases root)
                               '())))
-         (failures (count not results)))
+         (failures (length (filter not results))))
     (display (string-append (number->string (- (length results) failures))
                             "/"
                             (number->string (length results))

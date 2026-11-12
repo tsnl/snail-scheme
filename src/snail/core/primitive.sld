@@ -100,6 +100,7 @@
 
     ;; Lifetime lowering inserts these operations after types are concrete.
     ;; They are deliberately absent from this library's exports.
+    (primitive constant-array (∀ (T) (Fn → (Vector T))))
     (primitive retain (∀ (T) (Fn T → T)))
     (primitive release (∀ (T) (Fn T → Unit)))
     (primitive rc-new (∀ (T D) (Fn T D → (Rc T))))

@@ -342,6 +342,7 @@
                (("F64") (Scalar "f64"))
                (("String") (Reference (array-type m (Scalar "i32"))))
                (("Any") (Reference (any-type m)))
+               (("Rc" "WeakRc") (Reference (rc-type m (first-type args))))
                (("Funcref") (Scalar "funcref"))
                (("Array" "Vector") (Reference (array-type m (element-rep m (first-type args)))))
                (("FnOnce") (rep m (first-type args)))
@@ -376,7 +377,7 @@
       (push! (● m types) definition)
       type)
 
-    (define (known-type (m Module) (key String)) (→ (Option String)) 
+    (define (known-type (m Module) (key String)) (→ (Option String))
       (table-ref (● m type-ids) key))
 
     (define (array-type (m Module) (element Rep)) (→ String) (! mut)
@@ -443,7 +444,7 @@
 
     ;; Every closure subtype shares its base's code type.
 
-    (define (code-type (m Module) (closure String)) (→ String) 
+    (define (code-type (m Module) (closure String)) (→ String)
       (match (known-type m (string-append "code:" closure))
         ((Some code) code)
         ((None) (panic "internal error: closure without a code type"))))
@@ -573,16 +574,16 @@
     ;; Temporaries and labels are numbered within their function, so a name
     ;; depends on nothing outside the body it appears in.
 
-    (define (local-id (fn → Fn) (prefix String)) (→ String) (! mut)
+    (define (local-id (fn Fn) (prefix String)) (→ String) (! mut)
       (let ((count (+ (● (● fn state) names) 1)))
         (set! (● (● fn state) names) count)
         (wasm-id (string-append prefix "." (i64->string count)))))
 
-    (define (bind-local! (fn → Fn) (name String) (read Wat) (rep Rep)) (→ Unit) (! mut)
+    (define (bind-local! (fn Fn) (name String) (read Wat) (rep Rep)) (→ Unit) (! mut)
       (put! (● (● fn state) access) name read)
       (put! (● (● fn state) reps) name rep))
 
-    (define (declare-local! (fn → Fn) (name String) (rep Rep)) (→ String) (! mut)
+    (define (declare-local! (fn Fn) (name String) (rep Rep)) (→ String) (! mut)
       (let ((local (wasm-id name)))
         (push! (● (● fn state) locals) (wat "local" (id local) (rep->wat rep)))
         (bind-local! fn name (wat "local.get" (id local)) rep)
@@ -590,33 +591,33 @@
 
     ;; A temporary takes any value type, including a nullable reference.
 
-    (define (declare-temp! (fn → Fn) (type Wat)) (→ String) (! mut)
+    (define (declare-temp! (fn Fn) (type Wat)) (→ String) (! mut)
       (let ((local (local-id fn "tmp")))
         (push! (● (● fn state) locals) (wat "local" (id local) type))
         local))
 
-    (define (local-access (fn → Fn) (name String)) (→ (Option Wat)) 
+    (define (local-access (fn Fn) (name String)) (→ (Option Wat))
       (table-ref (● (● fn state) access) name))
 
-    (define (local? (fn → Fn) (name String)) (→ Bool) 
+    (define (local? (fn Fn) (name String)) (→ Bool)
       (table-contains? (● (● fn state) access) name))
 
-    (define (fn-rep (fn → Fn) (type Type)) (→ Rep) (! mut)
+    (define (fn-rep (fn Fn) (type Type)) (→ Rep) (! mut)
       (rep (● fn module) type))
 
     ;; A function definition: its name, parameters and result, the locals it
     ;; declared, then the body.
 
-    (define (function-wat (fn → Fn) (name String) (params (List Wat)) (result Rep) (body (List Wat)))
+    (define (function-wat (fn Fn) (name String) (params (List Wat)) (result Rep) (body (List Wat)))
       (→ Wat)
-      
+
       (wat* "func"
             (Cons (id name)
                   (append params
                           (Cons (wat "result" (rep->wat result))
                                 (append (reverse (● (● fn state) locals)) body))))))
 
-    (define (bind-params! (fn → Fn) (params (List String)) (reps (List Rep))) (→ Unit) (! mut)
+    (define (bind-params! (fn Fn) (params (List String)) (reps (List Rep))) (→ Unit) (! mut)
       (for-each (lambda (pair)
                   (bind-local! fn
                                (● pair first)
@@ -632,7 +633,7 @@
     (define (emit-function! (m Module) (name String) (function Expr)) (→ Unit) (! mut)
       (match (● function term)
         ((Lambda params body _)
-         (let* ((fn → (Fn-exit-set (new-fn m) (function-exit (● function type))))
+         (let* ((fn (Fn-exit-set (new-fn m) (function-exit (● function type))))
                 (signature (function-signature m (● function type)))
                 (reps (● signature first)))
            (bind-params! fn params reps)
@@ -649,7 +650,7 @@
 
     ;; A list of instructions that leave one value on the stack.
 
-    (define (emit (fn → Fn) (expr Expr) (tail? Bool)) (→ (List Wat)) (! mut)
+    (define (emit (fn Fn) (expr Expr) (tail? Bool)) (→ (List Wat)) (! mut)
       (let ((type (● expr type)))
         (match (● expr term)
           ((Lit value) (list (literal fn value type)))
@@ -680,18 +681,18 @@
 
     ;; One instruction, wrapping a sequence in a block when needed.
 
-    (define (emit1 (fn → Fn) (expr Expr)) (→ Wat) (! mut)
+    (define (emit1 (fn Fn) (expr Expr)) (→ Wat) (! mut)
       (emit1-tail fn expr #f))
 
-    (define (emit1-tail (fn → Fn) (expr Expr) (tail? Bool)) (→ Wat) (! mut)
+    (define (emit1-tail (fn Fn) (expr Expr) (tail? Bool)) (→ Wat) (! mut)
       (match (emit fn expr tail?)
         ((Cons single (Nil)) single)
         (code (wat* "block" (Cons (wat "result" (rep->wat (fn-rep fn (● expr type)))) code)))))
 
-    (define (emit-args (fn → Fn) (args (List Expr))) (→ (List Wat)) (! mut)
+    (define (emit-args (fn Fn) (args (List Expr))) (→ (List Wat)) (! mut)
       (map (lambda (arg) (emit1 fn arg)) args))
 
-    (define (literal (fn → Fn) (value Datum) (type Type)) (→ Wat) (! mut)
+    (define (literal (fn Fn) (value Datum) (type Type)) (→ Wat) (! mut)
       (match value
         ((DBool true?) (wat "i32.const" (int (if true? 1 0))))
         ((DChar c) (wat "i32.const" (int (char->integer c))))
@@ -769,7 +770,7 @@
     ;; control pass marks such a value with the dropper of the frame saved
     ;; there (`with-dropper`), which the frame takes.
 
-    (define (emit-let (fn → Fn) (name String) (marked Expr) (body Expr) (tail? Bool))
+    (define (emit-let (fn Fn) (name String) (marked Expr) (body Expr) (tail? Bool))
       (→ (List Wat))
       (! mut)
       (match (dropper-of marked)
@@ -796,7 +797,7 @@
     ;; A global function or operation used as a value becomes a closure, and
     ;; a global function at type fn a reference to its code.
 
-    (define (variable (fn → Fn) (name String) (type Type)) (→ Wat) (! mut)
+    (define (variable (fn Fn) (name String) (type Type)) (→ Wat) (! mut)
       (let ((m (● fn module)))
         (match (local-access fn name)
           ((Some access) access)
@@ -884,7 +885,7 @@
     ;; established (`check-closed`), so it is always one global, and at type
     ;; Fn it is no closure but its code (`code-reference`).
 
-    (define (closure (fn → Fn) (function Expr) (self (Option String))) (→ Wat) (! mut)
+    (define (closure (fn Fn) (function Expr) (self (Option String))) (→ Wat) (! mut)
       (let ((captured (filter (lambda (name) (and (not (self-name? self name)) (local? fn name)))
                               (expr-references function))))
         (match (Pair captured (● function term))
@@ -922,7 +923,7 @@
                                        (dropper-null))))
                       (wat "global.get" (id global)))))))
 
-    (define (closure-with-captures (fn → Fn)
+    (define (closure-with-captures (fn Fn)
                                    (function Expr)
                                    (self (Option String))
                                    (captured (List String)))
@@ -959,7 +960,7 @@
                                                               (wat "field" (rep->wat r)))
                                                             reps)))))))))))
 
-    (define (capture-rep (fn → Fn) (name String)) (→ Rep) 
+    (define (capture-rep (fn Fn) (name String)) (→ Rep)
       (match (table-ref (● (● fn state) reps) name)
         ((Some rep) rep)
         ((None) (panic (string-append "internal error: no representation for " name)))))
@@ -976,7 +977,7 @@
          (let* ((signature (function-signature m (● function type)))
                 (reps (● signature first))
                 (base (closure-type m reps (● signature second)))
-                (fn → (Fn-exit-set (lambda-fn m self "$lambda.self" base)
+                (fn (Fn-exit-set (lambda-fn m self "$lambda.self" base)
                                  (function-exit (● function type)))))
            (bind-params! fn params reps)
            (let* ((loads (capture-loads fn captured closure)) (code (emit fn body #t))
@@ -1021,14 +1022,14 @@
       (! mut)
       (match self
         ((Some name)
-         (let ((fn → (Fn-self-set (new-fn m) (Some (Pair name function-id)))))
+         (let ((fn (Fn-self-set (new-fn m) (Some (Pair name function-id)))))
            (bind-local! fn name (wat "local.get" (Word "$closure")) (Reference base))
            fn))
         ((None) (new-fn m))))
 
     ;; On entry, each captured variable is copied from the closure to a local.
 
-    (define (capture-loads (fn → Fn) (captured (List (Pair String Rep))) (closure String))
+    (define (capture-loads (fn Fn) (captured (List (Pair String Rep))) (closure String))
       (→ (List Wat))
       (! mut)
       (map-indexed (lambda (index entry)
@@ -1065,7 +1066,7 @@
          (let* ((signature (function-signature m (● function type)))
                 (reps (● signature first))
                 (own (funcref-type m reps (● signature second)))
-                (fn → (Fn-exit-set (new-fn m) (function-exit (● function type)))))
+                (fn (Fn-exit-set (new-fn m) (function-exit (● function type)))))
            (match self
              ((Some name)
               (bind-local! fn name (wat "ref.func" (Word "$lambda.self")) (Reference own)))
@@ -1082,7 +1083,7 @@
     ;; The callee is evaluated once, first, into a temporary unless it is
     ;; already a variable read, as a closure is.
 
-    (define (code-call (fn → Fn) (callee Expr) (args (List Expr)) (tail? Bool)) (→ (List Wat)) (! mut)
+    (define (code-call (fn Fn) (callee Expr) (args (List Expr)) (tail? Bool)) (→ (List Wat)) (! mut)
       (let* ((m (● fn module))
              (signature (function-signature m (● callee type)))
              (own (funcref-type m (● signature first) (● signature second)))
@@ -1102,11 +1103,11 @@
     (define (call-op (tail? Bool)) (→ String)
       (if tail? "return_call" "call"))
 
-    (define (emit-call (fn → Fn) (expr Expr) (callee Expr) (args (List Expr)) (tail? Bool))
+    (define (emit-call (fn Fn) (expr Expr) (callee Expr) (args (List Expr)) (tail? Bool))
       (→ (List Wat))
       (! mut)
       (match (● callee term)
-        
+
         ((Var name _ _)
          (match (● fn self)
            ((Some (Pair own function-id))
@@ -1119,7 +1120,7 @@
            ((None) (named-call fn expr callee name args tail?))))
         (_ (closure-call fn callee args tail?))))
 
-    (define (named-call (fn → Fn)
+    (define (named-call (fn Fn)
                         (expr Expr)
                         (callee Expr)
                         (name String)
@@ -1138,7 +1139,7 @@
                  (closure-call fn callee args tail?)))
             ((None) (builtin-call fn expr name args)))))
 
-    (define (builtin-call (fn → Fn) (expr Expr) (name String) (args (List Expr)))
+    (define (builtin-call (fn Fn) (expr Expr) (name String) (args (List Expr)))
       (→ (List Wat))
       (! mut)
       (let ((m (● fn module)))
@@ -1171,14 +1172,14 @@
     ;; variable read. Calling a FnOnce calls the closure it is; the
     ;; ownership check has proved nothing calls it again.
 
-    (define (closure-call (fn → Fn) (callee Expr) (args (List Expr)) (tail? Bool))
+    (define (closure-call (fn Fn) (callee Expr) (args (List Expr)) (tail? Bool))
       (→ (List Wat))
       (! mut)
       (if (fn-type? (● callee type))
           (code-call fn callee args tail?)
           (value-call fn callee args tail?)))
 
-    (define (value-call (fn → Fn) (callee Expr) (args (List Expr)) (tail? Bool))
+    (define (value-call (fn Fn) (callee Expr) (args (List Expr)) (tail? Bool))
       (→ (List Wat))
       (! mut)
       (let* ((m (● fn module))
@@ -1202,7 +1203,7 @@
 
     (define (closure-call-wat (m Module) (base String) (read Wat) (args (List Wat)) (tail? Bool))
       (→ Wat)
-      
+
       (wat* (if tail? "return_call_ref" "call_ref")
             (Cons (id (code-type m base))
                   (Cons read (append args (list (wat "struct.get" (id base) (int 0) read)))))))
@@ -1217,7 +1218,7 @@
     ;; The program value a callee names, when it is neither a local nor a
     ;; definition.
 
-    (define (builtin-of (fn → Fn) (callee Expr)) (→ (Option Value)) 
+    (define (builtin-of (fn Fn) (callee Expr)) (→ (Option Value))
       (match (● callee term)
         ((Var name _ _)
          (if (local? fn name)
@@ -1228,14 +1229,14 @@
         (_ (None))))
 
     ;; Arguments become fields in source order. Nested records stay references.
-    (define (construct (fn → Fn) (case Case) (type Type) (args (List Expr))) (→ Wat) (! mut)
+    (define (construct (fn Fn) (case Case) (type Type) (args (List Expr))) (→ Wat) (! mut)
       (construct-slots fn case type (map (lambda (arg) (emit1 fn arg)) args)))
 
     ;; Tag enums are i32 constants; field-less cases of other enums are shared
     ;; immutable globals of the base type, so constructing them allocates
     ;; nothing. `slots` contains one value per declared field.
 
-    (define (construct-slots (fn → Fn) (case Case) (type Type) (slots (List Wat))) (→ Wat) (! mut)
+    (define (construct-slots (fn Fn) (case Case) (type Type) (slots (List Wat))) (→ Wat) (! mut)
       (let* ((m (● fn module)) (name (● case type)))
         (cond ((tag-enum? m name) (wat "i32.const" (int (● case tag))))
               ((not (● (data-type-of m name) enum?))
@@ -1259,30 +1260,181 @@
                                        (wat "i32.const" (int (● case tag))))))
                       (wat "global.get" (id global)))))))
 
+    ;; ---- Counted owners ----
+
+    ;; WasmGC owns storage. This header owns deterministic cleanup: positive
+    ;; counts are live, zero is dead, and -1 marks an immortal code constant.
+    ;; The last release marks an owner dead before entering user cleanup.
+    (define (owner-type (m Module)) (→ String) (! mut)
+      (match (known-type m "owner")
+        ((Some type) type)
+        ((None)
+         (put! (● m type-ids) "owner" "$owner")
+         (register-type! m "owner.drop" "$owner.drop"
+                         (wat "type" (Word "$owner.drop")
+                              (wat "func" (wat "param" (wat "ref" (Word "$owner")))
+                                   (wat "param" (evidence-ref m)) (wat "result" (Word "i32")))))
+         (register-type! m "owner" "$owner"
+                         (wat "type" (Word "$owner")
+                              (wat "sub" (wat* "struct" (owner-fields))))))))
+
+    (define (owner-fields) (→ (List Wat))
+      (list (wat "field" (wat "mut" (Word "i64")))
+            (wat "field" (wat "ref" (Word "$owner.drop")))))
+
+    (define (retain-helper (m Module)) (→ String) (! mut)
+      (owner-type m)
+      (template-helper! m "retain" ""
+        "(func {id} (param $owner (ref $owner)) (result (ref $owner))
+  (local $count i64)
+  (local.set $count (struct.get $owner 0 (local.get $owner)))
+  (if (i64.ne (local.get $count) (i64.const -1))
+    (then
+      (if (i32.or (i64.le_s (local.get $count) (i64.const 0))
+                  (i64.eq (local.get $count) (i64.const 9223372036854775807))) (then unreachable))
+      (struct.set $owner 0 (local.get $owner) (i64.add (local.get $count) (i64.const 1)))))
+  (local.get $owner))" (Nil)))
+
+    (define (release-helper (m Module)) (→ String) (! mut)
+      (owner-type m)
+      (template-helper! m "release" ""
+        "(func {id} (param $owner (ref $owner)) (param $ev (ref {evidence})) (result i32)
+  (local $count i64)
+  (local.set $count (struct.get $owner 0 (local.get $owner)))
+  (if (i64.ne (local.get $count) (i64.const -1))
+    (then
+      (if (i64.le_s (local.get $count) (i64.const 0)) (then unreachable))
+      (local.set $count (i64.sub (local.get $count) (i64.const 1)))
+      (struct.set $owner 0 (local.get $owner) (local.get $count))
+      (if (i64.eqz (local.get $count))
+        (then (drop (call_ref $owner.drop (local.get $owner) (local.get $ev)
+                       (struct.get $owner 1 (local.get $owner))))))))
+  (i32.const 0))" (list (Pair "evidence" (evidence-type m)))))
+
+    ;; Rc and WeakRc share a GC control cell. A weak reference contributes
+    ;; no strong count. Clearing the payload makes a dead weak cell harmless
+    ;; even when it remains reachable after its resource has been finalized.
+    (define (rc-type (m Module) (payload Type)) (→ String) (! mut)
+      (let ((key (string-append "rc." (type-key payload))))
+        (match (known-type m key)
+          ((Some type) type)
+          ((None)
+           (let ((name (wasm-id key)))
+             (owner-type m)
+             (put! (● m type-ids) key name)
+             (put! (● m type-ids) (string-append "counted:" name) name)
+             (register-type! m key name
+               (wat "type" (id name)
+                    (wat "sub" (Word "final") (id (owner-type m))
+                         (wat* "struct"
+                               (append (owner-fields)
+                                       (list (wat "field" (wat "mut" (nullable (rep m payload))))
+                                             (wat "field" (wat "ref" (id (rc-finalizer-type m payload)))))))))))))))
+
+    (define (rc-finalizer-type (m Module) (payload Type)) (→ String) (! mut)
+      (closure-type m (list (rep m payload)) (Scalar "i32")))
+
+    (define (rc-payload (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
+      (let* ((payload (first-type (type-args type)))
+             (read (wat "struct.get" (id (rc-type m payload)) (int 2) value)))
+        (match (rep m payload) ((Reference _) (wat "ref.as_non_null" read)) (_ read))))
+
+    (define (type-args (type Type)) (→ (List Type))
+      (match type ((TCon _ args) args) (_ (panic "internal error: expected a named type"))))
+
+    (define (rc-destructor (m Module) (payload Type)) (→ String) (! mut)
+      (let* ((holder (rc-type m payload)) (finalizer (rc-finalizer-type m payload))
+             (read (wat "local.get" (Word "$cell"))))
+        (helper! m "rc-drop" holder
+          (lambda (name)
+            (wat "func" (id name) (wat "type" (Word "$owner.drop"))
+                 (wat "param" (Word "$owner") (wat "ref" (id (owner-type m))))
+                 (evidence-param m) (wat "result" (Word "i32"))
+                 (wat "local" (Word "$cell") (wat "ref" (id holder)))
+                 (wat "local" (Word "$value") (nullable (rep m payload)))
+                 (wat "local" (Word "$finalizer") (wat "ref" (id finalizer)))
+                 (wat "local.set" (Word "$cell")
+                      (wat "ref.cast" (wat "ref" (id holder)) (wat "local.get" (Word "$owner"))))
+                 (wat "local.set" (Word "$value") (wat "struct.get" (id holder) (int 2) read))
+                 (wat "struct.set" (id holder) (int 2) read (default-value (rep m payload)))
+                 (wat "local.set" (Word "$finalizer") (wat "struct.get" (id holder) (int 3) read))
+                 (closure-call-wat m finalizer (wat "local.get" (Word "$finalizer"))
+                   (list (wat "local.get" (Word "$ev"))
+                         (match (rep m payload)
+                           ((Reference _) (wat "ref.as_non_null" (wat "local.get" (Word "$value"))))
+                           (_ (wat "local.get" (Word "$value"))))) #f))))))
+
+    (define (new-rc (m Module) (type Type) (payload Wat) (finalizer Wat)) (→ Wat) (! mut)
+      (let ((content (first-type (type-args type))))
+        (wat "struct.new" (id (rc-type m content))
+             (wat "i64.const" (int 1)) (code-of m (rc-destructor m content)) payload finalizer)))
+
+    (define (counted-value? (m Module) (type Type)) (→ Bool) (! mut)
+      (and (shared-type? (program-of m) type)
+           (match (rep m type)
+             ((Reference name)
+              (match (known-type m (string-append "counted:" name)) ((Some _) #t) ((None) #f)))
+             (_ #f))))
+
+    (define (retain-value (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
+      (if (counted-value? m type)
+          (wat "ref.cast" (rep->wat (rep m type)) (wat "call" (id (retain-helper m)) value)) value))
+
+    (define (release-value (m Module) (type Type) (value Wat) (evidence Wat)) (→ Wat) (! mut)
+      (if (counted-value? m type) (wat "call" (id (release-helper m)) value evidence)
+          (wat "block" (wat "result" (Word "i32")) (wat "drop" value) (wat "i32.const" (int 0)))))
+
+    (define (upgrade-weak (fn Fn) (type Type) (value Wat)) (→ Wat) (! mut)
+      (let* ((m (● fn module)) (strong (first-type (type-args type)))
+             (temp (declare-temp! fn (rep->wat (rep m strong))))
+             (read (wat "local.get" (id temp))))
+        (wat "block" (wat "result" (rep->wat (rep m type)))
+             (wat "local.set" (id temp) value)
+             (wat "if" (wat "result" (rep->wat (rep m type)))
+                  (wat "i64.gt_s" (wat "struct.get" (id (owner-type m)) (int 0) read)
+                       (wat "i64.const" (int 0)))
+                  (wat "then" (construct-slots fn (option-case m #t) type
+                                                (list (retain-value m strong read))))
+                  (wat "else" (construct-slots fn (option-case m #f) type (Nil)))))))
+
+    ;; Rc automatically projects into its stable payload. Following another
+    ;; ordinary field is still a separate source-level read and ownership
+    ;; operation; these helpers only remove Rc control cells from the path.
+    (define (record-type (type Type)) (→ Type)
+      (match type ((TCon "Rc" (Cons content (Nil))) (record-type content)) (_ type)))
+
+    (define (record-value (fn Fn) (value Expr)) (→ Wat) (! mut)
+      (record-through (● fn module) (● value type) (emit1 fn value)))
+
+    (define (record-through (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
+      (match type
+        ((TCon "Rc" (Cons content (Nil))) (record-through m content (rc-payload m type value)))
+        (_ value)))
+
     ;; ---- Fields ----
 
     ;; A projection follows one reference and reads one declared field. Enum
     ;; accessors first establish the case subtype, whose fields follow its tag.
-    (define (field-access (fn → Fn) (case Case) (index I64) (value Expr)) (→ Wat) (! mut)
-      (let* ((m (● fn module)) (type (● value type)))
+    (define (field-access (fn Fn) (case Case) (index I64) (value Expr)) (→ Wat) (! mut)
+      (let* ((m (● fn module)) (type (record-type (● value type))))
         (if (● (data-type-of m (● case type)) enum?)
             (let ((holder (case-type m type case)))
               (wat "struct.get" (id holder) (int (+ index 1))
-                   (wat "ref.cast" (wat "ref" (id holder)) (emit1 fn value))))
-            (wat "struct.get" (id (data-type m type)) (int index) (emit1 fn value)))))
+                   (wat "ref.cast" (wat "ref" (id holder)) (record-value fn value))))
+            (wat "struct.get" (id (data-type m type)) (int index) (record-value fn value)))))
 
     ;; Wasm evaluates the receiver before the incoming value, each once.
-    (define (set-field (fn → Fn) (case Case) (index I64) (record Expr) (content Expr))
+    (define (set-field (fn Fn) (case Case) (index I64) (record Expr) (content Expr))
       (→ (List Wat)) (! mut)
-      (list (wat "struct.set" (id (data-type (● fn module) (● record type)))
-                 (int index) (emit1 fn record) (emit1 fn content))))
+      (list (wat "struct.set" (id (data-type (● fn module) (record-type (● record type))))
+                 (int index) (record-value fn record) (emit1 fn content))))
 
-    (define (swap-field (fn → Fn) (case Case) (index I64) (record Expr) (content Expr))
+    (define (swap-field (fn Fn) (case Case) (index I64) (record Expr) (content Expr))
       (→ Wat) (! mut)
       (let ((m (● fn module)))
-        (wat "call" (id (swap-helper m (data-type m (● record type)) index
+        (wat "call" (id (swap-helper m (data-type m (record-type (● record type))) index
                                     (rep m (● content type))))
-             (emit1 fn record) (emit1 fn content))))
+             (record-value fn record) (emit1 fn content))))
 
     ;; Checking has resolved a place to an actual mutable field. The target
     ;; expression may itself follow any number of ordinary object references.
@@ -1291,7 +1443,7 @@
        (index I64)
        (record Expr)))
 
-    (define (place-field (fn → Fn) (place Expr)) (→ FieldTarget) (! mut)
+    (define (place-field (fn Fn) (place Expr)) (→ FieldTarget) (! mut)
       (match (● place term)
         ((Ann inner _) (place-field fn inner))
         ((App callee (Cons record (Nil)))
@@ -1300,11 +1452,11 @@
            (_ (panic "internal error: a place reads a field"))))
         (_ (panic "internal error: a place reads a field"))))
 
-    (define (place-write (fn → Fn) (place Expr) (value Expr)) (→ (List Wat)) (! mut)
+    (define (place-write (fn Fn) (place Expr) (value Expr)) (→ (List Wat)) (! mut)
       (let ((target (place-field fn place)))
         (set-field fn (● target case) (● target index) (● target record) value)))
 
-    (define (place-swap (fn → Fn) (place Expr) (value Expr)) (→ Wat) (! mut)
+    (define (place-swap (fn Fn) (place Expr) (value Expr)) (→ Wat) (! mut)
       (let ((target (place-field fn place)))
         (swap-field fn (● target case) (● target index) (● target record) value)))
 
@@ -1334,7 +1486,7 @@
     ;; A pure replacement consumes its record. Its established uniqueness
     ;; permits reuse; otherwise the new object shares unchanged field values.
     ;; Evaluate both operands before reading the remaining fields.
-    (define (replace-field (fn → Fn) (case Case) (index I64) (value Expr) (replacement Expr))
+    (define (replace-field (fn Fn) (case Case) (index I64) (value Expr) (replacement Expr))
       (→ Wat) (! mut)
       (let* ((m (● fn module)) (type (● value type)) (holder (data-type m type))
              (owner (declare-temp! fn (rep->wat (Reference holder))))
@@ -1431,7 +1583,7 @@
         ((Some case) case)
         ((None) (panic "internal error: missing Option case"))))
 
-    (define (import-handover (fn → Fn) (type Type) (value Wat)) (→ Wat) (! mut)
+    (define (import-handover (fn Fn) (type Type) (value Wat)) (→ Wat) (! mut)
       (if (optional-any-type? type)
           (let ((m (● fn module)))
             (wat "if" (wat "result" (rep->wat (rep m type))) (wat "ref.is_null" value)
@@ -1443,7 +1595,7 @@
                                        (list (wat "ref.as_non_null" value))))))
           value))
 
-    (define (export-handover (fn → Fn) (type Type) (value Wat)) (→ Wat) (! mut)
+    (define (export-handover (fn Fn) (type Type) (value Wat)) (→ Wat) (! mut)
       (if (optional-any-type? type)
           (let* ((m (● fn module)) (temp (declare-temp! fn (rep->wat (rep m type))))
                  (read (wat "local.get" (id temp))) (some (case-type m type (option-case m #t))))
@@ -1470,7 +1622,7 @@
     (define (handover-wrapper! (m Module) (name String) (params (List Type)) (result Type))
       (→ String)
       (! mut)
-      (let* ((fn → (new-fn m))
+      (let* ((fn (new-fn m))
              (wrapper (wasm-id (string-append "exposed." name)))
              (names
               (map (lambda (i) (string-append "$arg." (i64->string i))) (iota (length params))))
@@ -1530,7 +1682,7 @@
     ;; Clauses are tried in order. Each clause is a block that its failing
     ;; tests branch out of; a matching clause branches to `done` with its value.
 
-    (define (emit-match (fn → Fn) (expr Expr) (scrutinee Expr) (clauses (List Clause)) (tail? Bool))
+    (define (emit-match (fn Fn) (expr Expr) (scrutinee Expr) (clauses (List Clause)) (tail? Bool))
       (→ (List Wat))
       (! mut)
       (let* ((value (declare-temp! fn (rep->wat (fn-rep fn (● scrutinee type)))))
@@ -1547,7 +1699,7 @@
 
     ;; The pattern declares the locals its body reads.
 
-    (define (clause-block (fn → Fn) (clause Clause) (value String) (done String) (tail? Bool))
+    (define (clause-block (fn Fn) (clause Clause) (value String) (done String) (tail? Bool))
       (→ Wat)
       (! mut)
       (let* ((next (local-id fn "clause"))
@@ -1556,7 +1708,7 @@
              (body (emit1-tail fn (● clause body) tail?)))
         (wat* "block" (Cons (id next) (append tests (list (wat "br" (id done) body)))))))
 
-    (define (pattern-code (fn → Fn) (pattern Pattern) (value Wat) (fail String))
+    (define (pattern-code (fn Fn) (pattern Pattern) (value Wat) (fail String))
       (→ (List Wat))
       (! mut)
       (match pattern
@@ -1568,7 +1720,7 @@
         ((PCon constructor args type)
          (constructor-pattern-code fn constructor args type value fail))))
 
-    (define (literal-differs (fn → Fn) (literal-value Datum) (type Type) (scrutinee Wat))
+    (define (literal-differs (fn Fn) (literal-value Datum) (type Type) (scrutinee Wat))
       (→ Wat)
       (! mut)
       (let ((constant (literal fn literal-value type)))
@@ -1578,7 +1730,7 @@
            (wat "i32.eqz"
                 (wat "call" (id (string-equal-helper (● fn module))) scrutinee constant))))))
 
-    (define (constructor-pattern-code (fn → Fn)
+    (define (constructor-pattern-code (fn Fn)
                                       (constructor String)
                                       (args (List Pattern))
                                       (type Type)
@@ -1623,7 +1775,7 @@
 
     ;; Patterns read each selected field once. A nested pattern follows the
     ;; reference in that field; no enclosing object layout is involved.
-    (define (fields-code (fn → Fn) (holder String) (offset I64) (case Case)
+    (define (fields-code (fn Fn) (holder String) (offset I64) (case Case)
                          (type Type) (args (List Pattern)) (value Wat) (fail String))
       (→ (List Wat)) (! mut)
       (let ((types (case-field-types (● fn module) type case)))
@@ -1636,7 +1788,7 @@
                                                (list-ref types index) arg fail)))
                       args))))
 
-    (define (slot-pattern-code (fn → Fn) (field Wat) (type Type) (arg Pattern) (fail String))
+    (define (slot-pattern-code (fn Fn) (field Wat) (type Type) (arg Pattern) (fail String))
       (→ (List Wat))
       (! mut)
       (match arg
@@ -1682,7 +1834,7 @@
     ;; and TypeIds leave rows out, which is exact only because the checker
     ;; refuses a conversion whose types hold a function with effects.
 
-    (define (emit-convert (fn → Fn) (inner Expr) (target Type) (loc Loc)) (→ (List Wat)) (! mut)
+    (define (emit-convert (fn Fn) (inner Expr) (target Type) (loc Loc)) (→ (List Wat)) (! mut)
       (let ((source (● inner type)) (m (● fn module)))
         (cond ((string=? (type-key source) (type-key target)) (emit fn inner #f))
               ((match (● inner term)
@@ -1706,7 +1858,7 @@
                ((Scalar _) (wat "struct.new" (id (held-type m r)) value))
                ((Reference _) value)))))
 
-    (define (from-any (fn → Fn) (type Type) (value Wat)) (→ Wat) (! mut)
+    (define (from-any (fn Fn) (type Type) (value Wat)) (→ Wat) (! mut)
       (let* ((m (● fn module))
              (r (fn-rep fn type))
              (held (wat "ref.cast" (wat "ref" (id (held-type m r)))
@@ -1719,7 +1871,7 @@
     ;; value has the type's representation, which `ref.test` checks without
     ;; trapping.
 
-    (define (type-test (fn → Fn) (inner Expr) (type Type)) (→ Wat) (! mut)
+    (define (type-test (fn Fn) (inner Expr) (type Type)) (→ Wat) (! mut)
       (let* ((m (● fn module)) (any (declare-temp! fn (rep->wat (Reference (any-type m)))))
              (field (lambda (index)
                       (wat "struct.get" (Word "$any") (int index) (wat "local.get" (id any))))))
@@ -1900,7 +2052,7 @@
     (define (dynamic-wrapper! (m Module) (name String) (type Type)) (→ String) (! mut)
       (match (fn-arrow type)
         ((TFun params result _)
-         (let* ((fn → (new-fn m)) (wrapper (wasm-id (string-append "dynamic-export." name)))
+         (let* ((fn (new-fn m)) (wrapper (wasm-id (string-append "dynamic-export." name)))
                 (names (map (lambda (index) (string-append "$any." (i64->string index)))
                             (iota (length params))))
                 (args (map (lambda (pair)
@@ -1944,7 +2096,7 @@
     ;; Funcref in a closure of that type, in a vector of one; otherwise the
     ;; vector is empty. Both operands are evaluated first, in order.
 
-    (define (dynamic-cast (fn → Fn) (type Type) (policy-type Type) (reference Wat) (policy Wat))
+    (define (dynamic-cast (fn Fn) (type Type) (policy-type Type) (reference Wat) (policy Wat))
       (→ Wat)
       (! mut)
       (let* ((m (● fn module))
@@ -2002,7 +2154,7 @@
       (helper! m "dynamic-call" (type-key type)
                (lambda (function-id)
                  (push! (● m declared) function-id)
-                 (let ((fn → (new-fn m)) (signature (function-signature m type)))
+                 (let ((fn (new-fn m)) (signature (function-signature m type)))
                    (function-wat fn function-id
                                  (append (list (wat "type" (id (code-type m base)))
                                                (wat "param" (wat "ref" (id base)))
@@ -2014,7 +2166,7 @@
     ;; The export takes the evidence, local 1, then an Any for each of the
     ;; parameters that follow it.
 
-    (define (dynamic-call (fn → Fn) (type Type) (holder String)) (→ Wat) (! mut)
+    (define (dynamic-call (fn Fn) (type Type) (holder String)) (→ Wat) (! mut)
       (match type
         ((TFun params result _)
          (let* ((m (● fn module)) (export (dynamic-type m (length params)))
@@ -2127,7 +2279,7 @@
     ;; runs with the new node as its evidence. A handle of a control effect
     ;; also catches the yields aimed at its node (see Control).
 
-    (define (emit-handle (fn → Fn)
+    (define (emit-handle (fn Fn)
                          (expr Expr)
                          (effect String)
                          (implementations (List (Pair String Expr)))
@@ -2138,7 +2290,7 @@
           (emit-returning-handle fn expr effect implementations body)
           (emit-control-handle fn expr effect implementations body)))
 
-    (define (emit-returning-handle (fn → Fn)
+    (define (emit-returning-handle (fn Fn)
                                    (expr Expr)
                                    (effect String)
                                    (implementations (List (Pair String Expr)))
@@ -2152,7 +2304,7 @@
     ;; A new evidence node in a local: the local's name, and the instruction
     ;; that sets it to the node holding the handler.
 
-    (define (install-handler (fn → Fn) (effect String) (implementations (List (Pair String Expr))))
+    (define (install-handler (fn Fn) (effect String) (implementations (List (Pair String Expr))))
       (→ (Pair String Wat))
       (! mut)
       (let* ((m (● fn module)) (type-id (handler-type m effect)) (node (local-id fn "ev"))
@@ -2421,7 +2573,7 @@
                 (wat "ref.as_non_null" (wat "global.get" (id (yielding m)))))
            node))
 
-    (define (may-yield? (fn → Fn) (value Expr)) (→ Bool)
+    (define (may-yield? (fn Fn) (value Expr)) (→ Bool)
       (match (module-callees (● fn module))
         ((Some callees) (not (null? (yields callees value))))
         ((None) #f)))
@@ -2434,7 +2586,7 @@
     ;; A yield that nothing can resume saves nothing, so its test only
     ;; leaves, and the body follows in the same function.
 
-    (define (let-rest (fn → Fn)
+    (define (let-rest (fn Fn)
                       (name String)
                       (value Expr)
                       (dropper (Option Expr))
@@ -2456,7 +2608,7 @@
     ;; No resumption will own this scope. Drop its live values before
     ;; leaving its handlers; the dropper cannot itself perform control.
 
-    (define (abort-drops (fn → Fn) (dropper (Option Expr))) (→ (List Wat)) (! mut)
+    (define (abort-drops (fn Fn) (dropper (Option Expr))) (→ (List Wat)) (! mut)
       (match dropper
         ((Some thunk)
          (list (wat "drop"
@@ -2468,7 +2620,7 @@
     ;; operations answers Never, so its handler is handed no `resume`, and
     ;; nothing will run what follows the yield.
 
-    (define (aborts? (fn → Fn) (value Expr)) (→ Bool)
+    (define (aborts? (fn Fn) (value Expr)) (→ Bool)
       (let ((m (● fn module)))
         (match (module-callees m)
           ((Some callees)
@@ -2478,11 +2630,11 @@
                    (yields callees value)))
           ((None) #f))))
 
-    (define (yield-test (fn → Fn) (saved Wat) (loc Loc)) (→ (List Wat)) (! mut)
+    (define (yield-test (fn Fn) (saved Wat) (loc Loc)) (→ (List Wat)) (! mut)
       (let* ((m (● fn module)) (exit (leave fn loc)))
         (list (wat "if" (yielding? m) (wat "then" (wat "call" (id (push-helper m)) saved) exit)))))
 
-    (define (continue-in-frame (fn → Fn)
+    (define (continue-in-frame (fn Fn)
                                (name String)
                                (value Expr)
                                (dropper (Option Expr))
@@ -2507,7 +2659,7 @@
     ;; A let's value that holds yield points of its own is a block they
     ;; leave, so that the let's own test then saves the let's body too.
 
-    (define (emit-let-value (fn → Fn) (value Expr)) (→ Wat) (! mut)
+    (define (emit-let-value (fn Fn) (value Expr)) (→ Wat) (! mut)
       (match (module-callees (● fn module))
         ((Some callees)
          (if (holds-yield-point? callees value)
@@ -2519,7 +2671,7 @@
              (emit1 fn value)))
         ((None) (emit1 fn value))))
 
-    (define (leave (fn → Fn) (loc Loc)) (→ Wat) (! mut)
+    (define (leave (fn Fn) (loc Loc)) (→ Wat) (! mut)
       (match (● fn exit)
         ((Some (ToCaller result)) (wat "return" (placeholder (● fn module) result loc)))
         ((Some (ToBlock label result))
@@ -2580,7 +2732,7 @@
     ;; its body, the dropper of the linear locals among those the body
     ;; reads, those locals, moved, then the evidence.
 
-    (define (frame (fn → Fn) (name String) (value Expr) (dropper (Option Expr)) (body Expr))
+    (define (frame (fn Fn) (name String) (value Expr) (dropper (Option Expr)) (body Expr))
       (→ Wat)
       (! mut)
       (let* ((m (● fn module))
@@ -2706,7 +2858,7 @@
             ((Reference representation)
              (match type
                ((TCon "FnOnce" (Cons procedure (Nil))) (placeholder-value m procedure seen loc))
-               
+
                ((TCon "fn" _) (code-of m (unreachable-code-of m type representation)))
                ((TCon "Any" _)
                 (wat "struct.new"
@@ -2816,7 +2968,7 @@
     ;; placeholder as the handle's value, and the record set for its caller,
     ;; with the handle saved as a frame of its own (see Resuming).
 
-    (define (emit-control-handle (fn → Fn)
+    (define (emit-control-handle (fn Fn)
                                  (expr Expr)
                                  (effect String)
                                  (implementations (List (Pair String Expr)))
@@ -2831,7 +2983,7 @@
 
     ;; The body's value, or the implementation's when the handle catches.
 
-    (define (handled-body (fn → Fn)
+    (define (handled-body (fn Fn)
                           (expr Expr)
                           (info Effect)
                           (node String)
@@ -3549,7 +3701,7 @@
     ;; with (see Resuming). Nothing yields through it: control.sld refuses a
     ;; procedure that may yield to a control effect.
 
-    (define (inherited (fn → Fn) (type Type) (procedure Wat)) (→ Wat) (! mut)
+    (define (inherited (fn Fn) (type Type) (procedure Wat)) (→ Wat) (! mut)
       (match type
         ((TCon "FnOnce" (Cons procedure-type (Nil)))
          (let* ((m (● fn module))
@@ -3571,7 +3723,7 @@
     ;; original dropper, not its owner closure, so cleanup never retains
     ;; the managed wrapper whose resources it releases.
 
-    (define (inherited-dropper (fn → Fn) (base String) (procedure Wat)) (→ Wat) (! mut)
+    (define (inherited-dropper (fn Fn) (base String) (procedure Wat)) (→ Wat) (! mut)
       (let* ((m (● fn module))
              (signature (Pair (Nil) (Scalar "i32")))
              (saved (declare-temp! fn (dropper-ref))))
@@ -3704,7 +3856,7 @@
     (define (index (value Wat)) (→ Wat)
       (wat "i32.wrap_i64" value))
 
-    (define (emit-primitive (fn → Fn) (name String) (args (List Expr)) (type Type))
+    (define (emit-primitive (fn Fn) (name String) (args (List Expr)) (type Type))
       (→ (List Wat))
       (! mut)
       (let ((operation (substring name 5 (string-length name))))
@@ -3720,7 +3872,7 @@
 
     ;; Strings and character vectors share one representation.
 
-    (define (special-primitive (fn → Fn)
+    (define (special-primitive (fn Fn)
                                (operation String)
                                (args (List Expr))
                                (code (List Wat))
@@ -3732,11 +3884,19 @@
              (arg (lambda (n) (list-ref code n)))
              (sequence (lambda (t) (reference-type (rep m t)))))
         (case operation
+          (("constant-array")
+           (list (wat* "array.new_fixed" (Cons (id (sequence type)) (Cons (int (length code)) code)))))
+          (("rc-new") (list (new-rc m type (arg 0) (arg 1))))
+          (("rc-get") (list (rc-payload m (first-type types) (arg 0))))
+          (("rc-downgrade") (list (arg 0)))
+          (("weak-rc-upgrade") (list (upgrade-weak fn type (arg 0))))
+          (("retain") (list (retain-value m (first-type types) (arg 0))))
+          (("release") (list (release-value m (first-type types) (arg 0) (● fn evidence))))
           (("unit") (list (wat "i32.const" (int 0))))
           (("once") (list (arg 0)))
           (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0) (● fn evidence))))
           (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
-          (("discard") (list (wat "drop" (arg 0)) (wat "i32.const" (int 0))))
+          (("discard") (list (release-value m (first-type types) (arg 0) (● fn evidence))))
           (("drop-once") (drop-once fn (first-arg args) (arg 0)))
           (("once-dropping") (list (once-dropping fn (first-arg args) (arg 0) (arg 1))))
           (("with-dropper") (panic "internal error: a dropper marks only a let's value"))
@@ -3810,7 +3970,7 @@
     ;; under the dropper's caller's handlers: what it performs is within the
     ;; FnOnce's row, which the checker charged where the drop is written.
 
-    (define (drop-once (fn → Fn) (value Expr) (code Wat)) (→ (List Wat)) (! mut)
+    (define (drop-once (fn Fn) (value Expr) (code Wat)) (→ (List Wat)) (! mut)
       (let* ((m (● fn module))
              (base (reference-type (fn-rep fn (● value type))))
              (closure (declare-temp! fn (wat "ref" (id base))))
@@ -3839,7 +3999,7 @@
     ;; `once` of a lambda with linear captures: the closure, with the
     ;; dropper of its captures stored beside its code.
 
-    (define (once-dropping (fn → Fn) (value Expr) (closure Wat) (dropper Wat)) (→ Wat) (! mut)
+    (define (once-dropping (fn Fn) (value Expr) (closure Wat) (dropper Wat)) (→ Wat) (! mut)
       (let* ((base (reference-type (fn-rep fn (● value type))))
              (temp (declare-temp! fn (wat "ref" (id base)))))
         (wat "block"
@@ -4169,7 +4329,7 @@
     ;; order they were emitted in. Only the types constrain their order, and
     ;; `type-groups` settles it.
 
-    (define (module-wat (m Module)) (→ Wat) 
+    (define (module-wat (m Module)) (→ Wat)
       (let ((declared
              (list-sort string<? (delete-duplicates string=? (● m declared)))))
         (wat* "module"
@@ -4229,7 +4389,7 @@
     ;; Finalize a main function from the instructions emitted item by item.
 
     (define (main-part (m Module)
-                       (fn → Fn)
+                       (fn Fn)
                        (name String)
                        (symbol String)
                        (evidence? Bool)
@@ -4248,7 +4408,7 @@
     ;; its value is dropped; an exposed function is exported, behind the
     ;; wrapper the host or a loading program calls.
 
-    (define (main-item-code (m Module) (fn → Fn) (item Item)) (→ (List Wat)) (! mut)
+    (define (main-item-code (m Module) (fn Fn) (item Item)) (→ (List Wat)) (! mut)
       (match item
         ((Define name value)
          (if (lambda-expr? value)
