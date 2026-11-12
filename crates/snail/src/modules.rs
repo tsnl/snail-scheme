@@ -23,6 +23,7 @@ use wasmtime::{Trap, bail, format_err};
 
 use crate::engine::run_export;
 use crate::program::{Host, NODE_ONLY};
+use crate::roots::Checkpoint;
 
 // ---- The manifest ----
 
@@ -316,7 +317,7 @@ impl Loading {
         self.loader = Some(loader);
     }
 
-    fn runtime(&self) -> wasmtime::Result<Instance> {
+    pub(crate) fn runtime(&self) -> wasmtime::Result<Instance> {
         self.runtime
             .ok_or_else(|| format_err!("the program is not linked yet"))
     }
@@ -496,7 +497,7 @@ pub fn define_loading(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
         |mut caller: Caller<'_, Host>, handle: i32| {
             let instance = caller.data().loading.instance(handle)?;
             let name = caller.data_mut().loading.take_name()?;
-            Ok(instance.get_func(&mut caller, &name))
+            exported_handle(&mut caller, instance, &name)
         },
     )?;
     define_linking(linker)
@@ -641,7 +642,7 @@ fn define_linking(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
             if prepared.providers.len() != prepared.imports.len() {
                 return Ok(LINK_FAILED);
             }
-            let instance = match Instance::new(&mut caller, &prepared.module, &prepared.providers) {
+            let instance = match new_instance(&mut caller, &prepared.module, &prepared.providers) {
                 Ok(instance) => instance,
                 Err(error) if error.downcast_ref::<Trap>().is_some() => return Err(error),
                 Err(_) => return Ok(LINK_FAILED),
@@ -689,28 +690,125 @@ fn define_linking(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
             let function = instance
                 .get_func(&mut caller, &name)
                 .ok_or_else(|| format_err!("the instance exports no function {name}"))?;
-            call_with(&mut caller, &function, argument)
+            call_with(&mut caller, instance, &function, argument)
         },
     )?;
     linker.func_wrap(
         "snail.runtime.wasm",
         "call-with-function",
-        |mut caller: Caller<'_, Host>, handle: i32, callee: Option<Func>| {
+        |mut caller: Caller<'_, Host>, handle: i32, callee: i32| {
             let instance = caller.data().loading.instance(handle)?;
             let name = caller.data_mut().loading.take_name()?;
             let function = instance
                 .get_func(&mut caller, &name)
                 .ok_or_else(|| format_err!("the instance exports no function {name}"))?;
-            call_values(&mut caller, &function, &[Val::FuncRef(callee)])
+            let source = calling_runtime(&mut caller)?;
+            let target = caller.data().loading.runtime()?;
+            let callee = transfer_code(&mut caller, source, target, callee)?;
+            call_values(&mut caller, instance, &function, &[Val::I32(callee)])
         },
     )?;
     Ok(())
+}
+
+// A compiled export already has a managed code handle in its own runtime.
+// Raw Wasm exports get a descriptor in the current runtime, with the unsafe
+// foreign ABI marker. The caller roots the returned pointer before collecting.
+fn exported_handle(
+    caller: &mut Caller<'_, Host>,
+    instance: Instance,
+    name: &str,
+) -> wasmtime::Result<i32> {
+    let runtime = calling_runtime(caller)?;
+    let owner = caller.data().loading.runtime()?;
+    if same_memory(caller, runtime, owner)?
+        && let Some(handle) = instance.get_func(&mut *caller, &format!("snail:code/{name}"))
+    {
+        return handle.typed::<(), i32>(&*caller)?.call(&mut *caller, ());
+    }
+    let function = instance
+        .get_func(&mut *caller, name)
+        .ok_or_else(|| format_err!("the instance exports no function {name}"))?;
+    install_code(caller, runtime, function)
+}
+
+fn calling_runtime(caller: &mut Caller<'_, Host>) -> wasmtime::Result<Instance> {
+    if caller.get_export("snail:gc/code-new").is_some()
+        && let Some(loader) = caller.data().loading.loader
+    {
+        return Ok(loader);
+    }
+    caller.data().loading.runtime()
+}
+
+fn same_memory(caller: &mut Caller<'_, Host>, a: Instance, b: Instance) -> wasmtime::Result<bool> {
+    let a = a
+        .get_memory(&mut *caller, "memory")
+        .ok_or_else(|| format_err!("missing runtime memory"))?;
+    let b = b
+        .get_memory(&mut *caller, "memory")
+        .ok_or_else(|| format_err!("missing runtime memory"))?;
+    Ok(a.data_ptr(&*caller) == b.data_ptr(&*caller))
+}
+
+// The engine forwards a function to the program's scheduler. Transfer the
+// code reference itself, never its pointer in a different runtime's heap.
+fn transfer_code(
+    caller: &mut Caller<'_, Host>,
+    source: Instance,
+    target: Instance,
+    address: i32,
+) -> wasmtime::Result<i32> {
+    if same_memory(caller, source, target)? {
+        return Ok(address);
+    }
+    let memory = source
+        .get_memory(&mut *caller, "memory")
+        .ok_or_else(|| format_err!("missing runtime memory"))?;
+    let mut bytes = [0; 4];
+    memory.read(&*caller, address as u32 as usize + 8, &mut bytes)?;
+    let table = source
+        .get_table(&mut *caller, "__indirect_function_table")
+        .ok_or_else(|| format_err!("missing code table"))?;
+    let Some(wasmtime::Ref::Func(Some(function))) =
+        table.get(&mut *caller, u32::from_le_bytes(bytes) as u64)
+    else {
+        bail!("invalid managed code handle");
+    };
+    install_code(caller, target, function)
+}
+
+fn install_code(
+    caller: &mut Caller<'_, Host>,
+    runtime: Instance,
+    function: Func,
+) -> wasmtime::Result<i32> {
+    let table = runtime
+        .get_table(&mut *caller, "__indirect_function_table")
+        .ok_or_else(|| format_err!("the runtime exports no function table"))?;
+    let free = runtime
+        .get_typed_func::<(), i32>(&mut *caller, "snail:gc/free-code")?
+        .call(&mut *caller, ())?;
+    let index = if free == 0 {
+        table.grow(&mut *caller, 1, wasmtime::Ref::Func(Some(function)))? as i32
+    } else {
+        table.set(
+            &mut *caller,
+            free as u64,
+            wasmtime::Ref::Func(Some(function)),
+        )?;
+        free
+    };
+    runtime
+        .get_typed_func::<(i32, i32, i32), i32>(&mut *caller, "snail:gc/code-new")?
+        .call(&mut *caller, (index, 0, 0))
 }
 
 // Calls a function of no parameter, or one i32 or i64, with `argument`,
 // answering its first result widened to i64, or 0 when it has none.
 fn call_with(
     caller: &mut Caller<'_, Host>,
+    instance: Instance,
     function: &Func,
     argument: i64,
 ) -> wasmtime::Result<i64> {
@@ -723,18 +821,30 @@ fn call_with(
             other => bail!("an export called with one argument takes {other}, not an integer"),
         })
         .collect::<wasmtime::Result<_>>()?;
-    call_values(caller, function, &arguments)
+    call_values(caller, instance, function, &arguments)
 }
 
 // Calls a function with `arguments`, answering its first result widened to
 // i64, or 0 when it has none.
 fn call_values(
     caller: &mut Caller<'_, Host>,
+    instance: Instance,
     function: &Func,
     arguments: &[Val],
 ) -> wasmtime::Result<i64> {
     let mut results = vec![Val::I32(0); function.ty(&*caller).results().len()];
-    function.call(&mut *caller, arguments, &mut results)?;
+    let runtime = if instance
+        .get_func(&mut *caller, "snail:gc/checkpoint")
+        .is_some()
+    {
+        instance
+    } else {
+        caller.data().loading.runtime().unwrap_or(instance)
+    };
+    let roots = Checkpoint::capture(&mut *caller, &runtime)?;
+    let called = function.call(&mut *caller, arguments, &mut results);
+    roots.restore(&mut *caller)?;
+    called?;
     Ok(match results.first() {
         Some(Val::I32(result)) => i64::from(*result),
         Some(Val::I64(result)) => *result,
@@ -813,11 +923,47 @@ fn link_loaded(
     let Ok(imports) = resolve(&mut *caller, namespace, module, &[]) else {
         return Ok(None);
     };
-    match Instance::new(&mut *caller, module, &imports) {
+    match new_instance(caller, module, &imports) {
         Ok(instance) => Ok(Some(instance)),
         Err(error) if error.downcast_ref::<Trap>().is_some() => Err(error),
         Err(_) => Ok(None),
     }
+}
+
+fn new_instance(
+    caller: &mut Caller<'_, Host>,
+    module: &Module,
+    imports: &[Extern],
+) -> wasmtime::Result<Instance> {
+    let runtime = caller.data().loading.runtime().ok();
+    let roots = runtime
+        .map(|instance| Checkpoint::capture(&mut *caller, &instance))
+        .transpose()?;
+    let mark = runtime
+        .and_then(|instance| {
+            instance
+                .get_typed_func::<(), i32>(&mut *caller, "snail:gc/module-checkpoint")
+                .ok()
+        })
+        .map(|read| read.call(&mut *caller, ()))
+        .transpose()?;
+    let linked = Instance::new(&mut *caller, module, imports);
+    if let Some(roots) = roots {
+        roots.restore(&mut *caller)?;
+    }
+    if linked.is_err()
+        && let (Some(runtime), Some(mark)) = (runtime, mark)
+    {
+        runtime
+            .get_typed_func::<i32, ()>(&mut *caller, "snail:gc/rollback-modules")?
+            .call(&mut *caller, mark)?;
+        if let Ok(read) = runtime.get_typed_func::<(), i32>(&mut *caller, "snail:gc/abi-error")
+            && read.call(&mut *caller, ())? != 0
+        {
+            bail!("incompatible Snail reference layout");
+        }
+    }
+    linked
 }
 
 // ---- Tests ----

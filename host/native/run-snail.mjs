@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {WASI} from 'node:wasi';
 import {commandImports, instantiate, linkedFileImports, runMain, wasmImports} from '../browser/load.mjs';
 import {createTasks, taskExports} from '../browser/tasks.mjs';
+import {hostExports, instantiateManaged} from '../browser/memory.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
 import {socketImports} from './socket-imports.mjs';
@@ -124,9 +125,10 @@ async function loadProgram(filename, wasi, host, tasks) {
   const program = {runtime: null, exports: null, host, linked: new Map()};
   const engine = filename.endsWith('.json');
   const instance = await (engine ? instantiate(module, {...wasi.getImportObject(), ...host})
-    : WebAssembly.instantiate(module, {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)}));
+    : instantiateManaged(module, {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)}));
   wasi.initialize(instance);
-  Object.assign(program, {runtime: instance, exports: instance.exports, loader: engine ? instance : null});
+  if (process.env.SNAIL_GC_STRESS) instance.exports['snail:gc/stress']?.(1);
+  Object.assign(program, {runtime: instance, exports: hostExports(instance.exports), loader: engine ? instance : null});
   return program;
 }
 

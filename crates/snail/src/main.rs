@@ -28,6 +28,7 @@ mod engine;
 mod links;
 mod modules;
 mod program;
+mod roots;
 
 // ---- Command line ----
 

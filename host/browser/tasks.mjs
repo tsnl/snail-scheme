@@ -1,3 +1,4 @@
+import {hostExports} from './memory.mjs';
 // The host side of (snail shell task). The scheduler is Snail-Core's; a
 // host drives it a turn at a time and completes the host operations its
 // tasks wait on. A task takes a ticket, starts the operation through a
@@ -13,8 +14,9 @@
 // through its `engine:` exports, which this names as (snail shell task)
 // does.
 export function taskExports(program) {
-  const exports = program.names ? program.linked.get('snail.shell.task')?.exports
+  const raw = program.names ? program.linked.get('snail.shell.task')?.exports
     : program.exports ?? program.runtime.exports;
+  const exports = raw && hostExports(raw, program.runtime?.exports);
   if (exports?.['engine:turn']) return engineTasks(exports);
   return exports?.['tasks:turn'] ? exports : null;
 }

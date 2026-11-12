@@ -158,7 +158,9 @@ compiler, which saves each compile about 0.7 s. The file belongs to one
 wasmtime version, configuration and CPU, so it is a build output and is
 never committed.
 
-The engine is opt-in because it is slow. Wasmtime's one working collector,
+The measurements below describe the previous WasmGC backend and explain the
+original opt-in default. The current linear-memory collector is measured in
+[the runtime chapter](../runtimes/linear-memory.md). Wasmtime's WasmGC collector,
 deferred reference counting, collects whenever its list of possible stack
 roots doubles past 1,024 entries, a constant in the code Cranelift
 generates. Each collection walks every global of a GC type, resolving its

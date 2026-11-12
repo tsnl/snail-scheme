@@ -19,6 +19,8 @@
   (import
    (snail core base)
    (snail core table)
+   (snail shell compiler wat)
+   (snail shell compiler memory)
    (snail shell compiler read)
    (snail shell compiler core)
    (snail shell compiler capabilities)
@@ -30,134 +32,10 @@
          holds-yield-point?))
   (begin
 
-    ;; ---- Text ----
-
-    ;; A WAT S-expression is a word, such as a keyword, identifier, number,
-    ;; string literal or a preformatted helper, or a parenthesized node.
-    (enum Wat
-      (Word
-       ((text String)))
-      (Node
-       ((items (List Wat)))))
-
-    ;; `(wat "i32.add" a b)` is the node `(i32.add a b)`.
-    (define-syntax wat
-      (syntax-rules ()
-        ((_ head item ...) (Node (list (Word head) item ...)))))
-
-    ;; A node whose items after the head form a list.
-    (: wat* (impl (Fn String (List Wat) -> Wat)))
-    (define (wat* head items)
-      (Node (Cons (Word head) items)))
-
-    (: int (impl (Fn I64 -> Wat)))
-    (define (int n)
-      (Word (i64->string n)))
-
-    ;; Top-level module fields and function instructions start new lines.
-    (: wat->string (impl (Fn Wat -> String)))
-    (define (wat->string module)
-      (match module
-        ((Node (Cons _ fields))
-         (string-concatenate
-          (reverse (Cons ")\n"
-                         (fold-left (lambda (pieces field) (write-field field (Cons "\n  " pieces)))
-                                    (list "(module")
-                                    fields)))))
-        (_ (panic "internal error: not a module"))))
-
-    (: field->string (impl (Fn Wat -> String)))
-    (define (field->string field)
-      (string-concatenate (reverse (write-field field (Nil)))))
-
-    (: write-field (impl (Fn Wat (List String) -> (List String))))
-    (define (write-field field pieces)
-      (match field
-        ((Node (Cons (Word head) parts))
-         (if (or (string=? head "func") (string=? head "rec"))
-             (Cons ")"
-                   (fold-left (lambda (pieces part)
-                                (write-wat part
-                                           (Cons (if (own-line? head part) "\n    " " ") pieces)))
-                              (Cons head (Cons "(" pieces)) parts))
-             (write-wat field pieces)))
-        (_ (write-wat field pieces))))
-
-    (: own-line? (impl (Fn String Wat -> Bool)))
-    (define (own-line? head part)
-      (match part
-        ((Node (Cons (Word inner) _))
-         (or (string=? head "rec")
-             (not (member? inner (list "type" "param" "result" "local" "export")))))
-        (_ #f)))
-
-    ;; Pieces accumulate in reverse.
-    (: write-wat (impl (Fn Wat (List String) -> (List String))))
-    (define (write-wat wat pieces)
-      (match wat
-        ((Word text) (Cons text pieces))
-        ((Node (Nil)) (Cons "()" pieces))
-        ((Node (Cons first rest))
-         (Cons ")"
-               (fold-left (lambda (pieces item) (write-wat item (Cons " " pieces)))
-                          (write-wat first (Cons "(" pieces))
-                          rest)))))
-
-    ;; Wasm strings are UTF-8 bytes; anything beyond printable ASCII is escaped.
-    (: wat-string (impl (Fn String -> Wat)))
-    (define (wat-string text)
-      (Word (string-append "\"" (string-concatenate (map escape-char (string->list text))) "\"")))
-
-    (: escape-char (impl (Fn Char -> String)))
-    (define (escape-char c)
-      (let ((code (char->integer c)))
-        (if (and (>= code 32) (< code 127) (not (= code 34)) (not (= code 92)))
-            (list->string (list c))
-            (string-concatenate (map (lambda (byte)
-                                       (string-append "\\"
-                                                      (hex-digit (quotient byte 16))
-                                                      (hex-digit (remainder byte 16))))
-                                     (utf-8-bytes code))))))
-
-    (: hex-digit (impl (Fn I64 -> String)))
-    (define (hex-digit value)
-      (substring "0123456789abcdef" value (+ value 1)))
-
-    (: utf-8-bytes (impl (Fn I64 -> (List I64))))
-    (define (utf-8-bytes code)
-      (cond ((< code 128) (list code))
-            ((< code 2048) (list (+ 192 (quotient code 64)) (+ 128 (remainder code 64))))
-            ((< code 65536)
-             (list (+ 224 (quotient code 4096))
-                   (+ 128 (remainder (quotient code 64) 64))
-                   (+ 128 (remainder code 64))))
-            (else (list (+ 240 (quotient code 262144)) (+ 128 (remainder (quotient code 4096) 64))
-                        (+ 128 (remainder (quotient code 64) 64)) (+ 128 (remainder code 64))))))
-
-    ;; Fills each `{name}` in a template of fixed WAT text.
-    (: fill (impl (Fn String (List (Pair String String)) -> String)))
-    (define (fill template bindings)
-      (let loop ((chars (string->list template)) (pieces (Nil)))
-        (match chars
-          ((Nil) (string-concatenate (reverse pieces)))
-          ((Cons #\{ rest)
-           (let ((name (list->string (take-until rest #\}))))
-             (match (assoc-ref bindings name)
-               ((Some value) (loop (list-drop rest (+ (string-length name) 1)) (Cons value pieces)))
-               ((None) (loop rest (Cons "{" pieces))))))
-          ((Cons c rest) (loop rest (Cons (list->string (list c)) pieces))))))
-
-    (: take-until (impl (Fn (List Char) Char -> (List Char))))
-    (define (take-until chars stop)
-      (let loop ((chars chars) (taken (Nil)))
-        (match chars
-          ((Cons c rest) (if (char=? c stop) (reverse taken) (loop rest (Cons c taken))))
-          ((Nil) (reverse taken)))))
-
     ;; ---- Module state ----
 
-    ;; GC types are registered on first use. Functions are kept as text,
-    ;; other fields as trees. `memo` caches closures for global functions, singletons and
+    ;; Logical GC types are registered on first use. All fields remain trees
+    ;; through physical lowering. `memo` caches global closures, singletons and
     ;; string literals; `helpers` caches imports and helper functions by key.
     ;; `declarations` is fixed metadata: it holds no source bodies, recipes
     ;; or pending work. Only the Wasm output builders change during emission.
@@ -167,7 +45,7 @@
        (types (Ref (List Wat)))
        (imports (Ref (List Wat)))
        (globals (Ref (List Wat)))
-       (functions (Ref (List (Pair String String))))
+       (functions (Ref (List (Pair String Wat))))
        (declared (Ref (List String)))
        (exports (Ref (List Wat)))
        (data (Ref (List Wat)))
@@ -183,12 +61,13 @@
     (define (put! cell key value)
       (ref-set! cell (table-set (ref-get cell) key value)))
 
-    ;; A function is written out as soon as it is emitted. The module's
-    ;; functions are most of its text, and holding their trees until the end
-    ;; made every collection copy them.
+    ;; Fixed templates join the same instruction tree as emitted expressions.
+    ;; Physical lowering must see every instruction that can hold a root;
+    ;; it renders each function after assigning its layouts and root frame.
     (: push-function! (impl (Fn Module String Wat -> Unit ! mut)))
     (define (push-function! m name function)
-      (push! (::functions m) (Pair name (field->string function))))
+      (push! (::functions m)
+             (Pair name (match function ((Word text) (parse-wat text)) (_ function)))))
 
     (: memoize! (impl (Fn Module String (dyn (Fn -> Wat ! mut)) -> Wat ! mut)))
     (define (memoize! m key make)
@@ -2744,7 +2623,7 @@
         (push! (::exports m)
                (wat "export" (wat-string "yielding") (wat "global" (id (yielding m)))))
         (emit-main! m (Nil) (Nil))
-        (module-wat m)))
+        (lower-memory (module-wat m))))
 
     (: yielding? (impl (Fn Module -> Wat ! mut)))
     (define (yielding? m)
@@ -4171,7 +4050,7 @@
                prefix
                key
                (lambda (function-id)
-                 (Word (fill template (Cons (Pair "id" function-id) bindings))))))
+                 (parse-wat (fill template (Cons (Pair "id" function-id) bindings))))))
 
     (: append-helper (impl (Fn Module String -> String ! mut)))
     (define (append-helper m array)
@@ -4347,10 +4226,6 @@
                                 (Pair "character" character)
                                 (Pair "raise" raise)))))
 
-    (: wat->text (impl (Fn Wat -> String)))
-    (define (wat->text wat)
-      (string-concatenate (reverse (write-wat wat (Nil)))))
-
     ;; ---- Type groups ----
 
     ;; Two modules share a GC type only when both declare it in identical
@@ -4366,7 +4241,7 @@
       (let* ((named (fold-left (lambda (table definition)
                                  (table-set table (type-definition-name definition) definition))
                                empty-table definitions))
-             (names (list->vector (list-sort string<? (map type-definition-name definitions))))
+             (names (list->vector (backend-sort string<? (map type-definition-name definitions))))
              (numbers
               (fold-left (lambda (table index) (table-set table (vector-ref names index) index))
                          empty-table
@@ -4387,12 +4262,12 @@
     (: type-edges (impl (Fn (Table Wat) (Table I64) String -> (List I64))))
     (define (type-edges named numbers name)
       (map (lambda (word) (table-number numbers word))
-           (list-sort string<? (delete-duplicates string=?
-                                                  (filter (lambda (word)
-                                                            (and (not (string=? word name))
-                                                                 (table-contains? numbers word)))
-                                                          (wat-words
-                                                           (table-ref-or-wat named name)))))))
+           (backend-sort string<? (delete-duplicates string=?
+                                                     (filter (lambda (word)
+                                                               (and (not (string=? word name))
+                                                                    (table-contains? numbers word)))
+                                                             (wat-words
+                                                              (table-ref-or-wat named name)))))))
 
     (: table-number (impl (Fn (Table I64) String -> I64)))
     (define (table-number table key)
@@ -4417,7 +4292,8 @@
       (match group
         ((Cons name (Nil)) (table-ref-or-wat named name))
         (_ (wat* "rec"
-                 (map (lambda (name) (table-ref-or-wat named name)) (list-sort string<? group))))))
+                 (map (lambda (name) (table-ref-or-wat named name))
+                      (backend-sort string<? group))))))
 
     ;; ---- Modules ----
 
@@ -4434,7 +4310,7 @@
                   (::definitions prepared))
         (emit-main! m (::initializers prepared) (::statements prepared))
         (for-each (lambda (name) (export-definition! m name)) (::exported prepared))
-        (module-wat m)))
+        (lower-memory (module-wat m))))
 
     (: new-module (impl (Fn Declarations -> Module)))
     (define (new-module declarations)
@@ -4479,7 +4355,7 @@
     (: module-wat (impl (Fn Module -> Wat ! mut)))
     (define (module-wat m)
       (let ((declared
-             (list-sort string<? (delete-duplicates string=? (ref-get (::declared m))))))
+             (backend-sort string<? (delete-duplicates string=? (ref-get (::declared m))))))
         (wat* "module"
               (concatenate
                (list (type-groups (reverse (ref-get (::types m))))
@@ -4495,7 +4371,7 @@
                                      (Cons (Word "declare")
                                            (Cons (Word "func") (map id declared))))))
                      (sorted-declarations (ref-get (::exports m)))
-                     (map (lambda (entry) (Word (::second entry)))
+                     (map (lambda (entry) (::second entry))
                           (sort-named (ref-get (::functions m))))
                      (sorted-declarations (ref-get (::data m))))))))
 
@@ -4508,7 +4384,7 @@
     (: sort-named
        (All (A) (requires (Copy A)) (impl (Fn (List (Pair String A)) -> (List (Pair String A))))))
     (define (sort-named entries)
-      (list-sort (lambda (a b) (string<? (::first a) (::first b))) entries))
+      (backend-sort (lambda (a b) (string<? (::first a) (::first b))) entries))
 
     ;; A module's `main` initializes its definitions and runs its body, a
     ;; program's statements, and answers 0. The two are exported apart as

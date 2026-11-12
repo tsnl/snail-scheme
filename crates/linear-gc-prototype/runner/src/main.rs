@@ -1,6 +1,7 @@
 //! Emit fixtures, execute correctness regressions, then time Wasm-to-Wasm calls.
 
 mod modules;
+mod programs;
 
 use serde_json::{Value, json};
 use std::{env, fs, path::Path, time::Instant};
@@ -212,6 +213,23 @@ fn emit(directory: &Path) -> Result<()> {
 
 fn main() -> Result<()> {
     let args: Vec<_> = env::args().collect();
+    if args.get(1).is_some_and(|arg| arg == "program") {
+        std::thread::Builder::new()
+            .stack_size(96 << 20)
+            .spawn(move || {
+                programs::run(
+                    &args[2],
+                    args.get(3).map(String::as_str).unwrap_or("unnamed"),
+                )
+                .unwrap_or_else(|error| {
+                    eprintln!("{error}");
+                    std::process::exit(1);
+                });
+            })?
+            .join()
+            .expect("benchmark thread");
+        return Ok(());
+    }
     let directory = Path::new(
         args.get(2)
             .ok_or("usage: linear-gc-runner emit|check|bench DIRECTORY")?,

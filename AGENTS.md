@@ -3,7 +3,7 @@
 `CLAUDE.md` is a symlink to this file; edit `AGENTS.md`.
 
 Make the implementation educational to read. Follow the program from located
-syntax through resolved IR, WasmGC, and the Rust scalar services.
+syntax through resolved IR, logical Wasm types, linear memory, and the Rust runtime.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
 - A language on Snail-Core is a set of libraries that expand into it: Scheme is
@@ -108,7 +108,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   explanation and refactoring of newly written modules. Keep backend cleanup
   within those modules; preserve the structure of the landed frontend.
 - Keep GC and slot-lifetime invariants beside the code that relies on them.
-  Wasm engines trace managed references. Rust scalar providers own external resources
+  The runtime traces explicit roots and managed linear-memory extents. Rust scalar providers own external resources
   behind explicit handles. Resource cleanup must not retain its managed wrapper.
 - Chibi is stage 0 of the bootstrap: it must keep running the compiler's
   source, so the compiler avoids behavior the two hosts would disagree on,

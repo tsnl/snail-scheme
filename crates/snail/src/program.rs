@@ -44,6 +44,7 @@ use crate::async_files;
 use crate::engine::{call, engine, exit_status, is_precompiled, load, report, wasi};
 use crate::links::{self, Files};
 use crate::modules::{self, Loading, Manifest};
+use crate::roots::Checkpoint;
 
 // ---- Running ----
 
@@ -96,6 +97,11 @@ fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
     };
     let mut store = Store::new(&engine, host);
     let program = link_module(&mut store, &mut linker, &payload.module)?;
+    if std::env::var_os("SNAIL_GC_STRESS").is_some()
+        && let Some(stress) = program.runtime.get_func(&mut store, "snail:gc/stress")
+    {
+        stress.typed::<i32, ()>(&store)?.call(&mut store, 1)?;
+    }
     let ran = start(&mut store, &program);
     let closed = close(&mut store, &program);
     settle(ran, closed)
@@ -173,7 +179,13 @@ fn main_status(mut store: impl AsContextMut, instance: &Instance) -> wasmtime::R
     let (main, arguments) = match (start, body, init) {
         (Some(start), Some(body), Some(init)) => {
             init.call(&mut store, &[], &mut [Val::I32(0)])?;
-            (start, vec![Val::FuncRef(Some(body))])
+            let argument =
+                if let Some(handle) = instance.get_func(&mut store, "snail:code/main:body") {
+                    Val::I32(handle.typed::<(), i32>(&store)?.call(&mut store, ())?)
+                } else {
+                    Val::FuncRef(Some(body))
+                };
+            (start, vec![argument])
         }
         _ => (main, Vec::new()),
     };
@@ -237,7 +249,16 @@ fn drive(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<bool> {
     let wake = task_export::<i64, i32>(store, program, "tasks:wake");
     let mut failed = false;
     loop {
+        let roots = Checkpoint::capture(&mut *store, &program.runtime)?;
+        let loaded = store.data().loading.runtime().ok();
+        let loaded_roots = loaded
+            .map(|runtime| Checkpoint::capture(&mut *store, &runtime))
+            .transpose()?;
         let answer = turn.call(&mut *store, now());
+        if let Some(roots) = loaded_roots {
+            roots.restore(&mut *store)?;
+        }
+        roots.restore(&mut *store)?;
         let waking = store.data_mut().files.take_waking();
         let file_reads = store.data_mut().async_files.collect()?;
         let has_completions = !waking.is_empty() || !file_reads.is_empty();

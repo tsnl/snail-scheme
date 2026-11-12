@@ -10,6 +10,7 @@
 #[cfg(feature = "assembler")]
 pub mod assembler;
 mod datum;
+mod gc;
 mod host;
 mod io;
 mod math;

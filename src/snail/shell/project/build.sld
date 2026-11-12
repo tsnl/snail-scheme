@@ -912,6 +912,7 @@
       (list "host.mjs"
             "application.mjs"
             "runtime.mjs"
+            "memory.mjs"
             "tasks.mjs"
             "entry.mjs"
             "renderer.mjs"

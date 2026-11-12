@@ -1,3 +1,4 @@
+import {callingRuntime, hostExports, installCode, instantiateManaged, managedValue, rawExports, retireProgram, transferCode} from './memory.mjs';
 // The JavaScript side of running Snail-Core, the same in Node and in a browser:
 // the WASI a module that opens no files needs, the files a program links,
 // linking a program compiled one library at a time and relinking it from a
@@ -75,7 +76,7 @@ export function createWasi({args = [], print}) {
 // createWasi's are: each missing WASI function answers ENOSYS. Any other
 // missing import still fails to link.
 export function instantiate(module, imports) {
-  return WebAssembly.instantiate(module, withStubs(module, imports, ['wasi_snapshot_preview1'], () => () => ENOSYS));
+  return Promise.resolve(instantiateManaged(module, withStubs(module, imports, ['wasi_snapshot_preview1'], () => () => ENOSYS)));
 }
 
 // The imports with each missing function of the modules named in `stubbed`
@@ -190,23 +191,24 @@ export async function linkProgram(read, manifest, wasi, host, tasks = noTasks) {
 export function runProgram(program, names = program.names) {
   let status = 0;
   for (const name of names) {
-    const exports = program.linked.get(name).exports;
+    const exports = hostExports(program.linked.get(name).exports, program.runtime.exports);
     status = name === program.names.at(-1) ? runProgramMain(program, exports) : exports.main();
   }
   return status;
 }
 
 function runProgramMain(program, exports) {
-  const tasks = program.linked.get('snail.shell.task')?.exports;
+  const raw = program.linked.get('snail.shell.task')?.exports;
+  const tasks = raw && hostExports(raw, program.runtime.exports);
   if (!tasks?.['tasks:start-main'] || !exports['main:body']) return exports.main();
   const status = exports['main:init']();
-  tasks['tasks:start-main'](exports['main:body']);
+  tasks['tasks:start-main'](functionHandle(exports, 'main:body', program.runtime.exports));
   return status;
 }
 
 // What the program's own module, the last, exports.
 export function programExports(program) {
-  return program.linked.get(program.names.at(-1)).exports;
+  return hostExports(program.linked.get(program.names.at(-1)).exports, program.runtime.exports);
 }
 
 const compileObject = async (object, {digest}) => WebAssembly.compile(await object(digest));
@@ -239,7 +241,9 @@ async function linkModules(program, modules) {
   if (reserved) throw new Error(`no library may be linked as ${reserved.name}, which the host provides`);
   program.links = linkImports(objectReader(program.read, program.store), modules.map(entry => entry.module), program.files);
   const libraries = new Set(['snail.core.support', ...program.linked.keys(), ...modules.map(entry => entry.name)]);
-  for (const {name, module} of modules) program.linked.set(name, await WebAssembly.instantiate(module, moduleImports(program, libraries, module)));
+  for (const {name, module} of modules) {
+    program.linked.set(name, instantiateManaged(module, moduleImports(program, libraries, module), program.runtime.exports));
+  }
 }
 
 // A module sees the runtime, the modules linked before it under their
@@ -275,9 +279,11 @@ export async function relinkProgram(program, from, manifest, read) {
   const kept = modules.slice(0, start).map(entry => [entry.name, program.linked.get(entry.name)]);
   const next = {...program, read, manifest, store, linked: new Map(kept), names: modules.map(entry => entry.name)};
   const relinked = await compileModules(objectReader(read, store), modules.slice(start));
-  await linkModules(next, relinked);
-  runProgram(next, relinked.map(entry => entry.name));
-  return next;
+  try {
+    await linkModules(next, relinked);
+    runProgram(next, relinked.map(entry => entry.name));
+    return next;
+  } catch (error) { retireProgram(next, program); throw error; }
 }
 
 // ---- Loading while the program runs ----
@@ -367,11 +373,12 @@ export function wasmImports(program, memory = () => (program().loader ?? program
       const instance = linkedInstance(handle === 0 ? program() : {...program(), linked, links: {}, files: []}, modules[module]);
       if (!instance) return LINK_FAILED;
       linked.set(name, instance);
-      instance.exports.main?.();
+      hostExports(instance.exports, program().runtime.exports).main?.();
       return instances.push(instance) - 1;
     },
     'has-export': handle => typeof instance(handle).exports[strings.take()[0]] === 'function',
-    'export-function': handle => instance(handle).exports[strings.take()[0]],
+    'export-function': handle => functionHandle(instance(handle).exports, strings.take()[0],
+      callingRuntime() ?? program().runtime.exports, program().runtime.exports),
     'import-count': module => WebAssembly.Module.imports(modules[module]).length,
     'import-at'(module, index) {
       const entry = WebAssembly.Module.imports(modules[module])[index];
@@ -392,7 +399,7 @@ export function wasmImports(program, memory = () => (program().loader ?? program
       const link = prepared, {module, imports, object, bound, wasi} = link;
       prepared = null;
       if (bound !== imports.length) return LINK_FAILED;
-      try { link.instance = new WebAssembly.Instance(module, object); }
+      try { link.instance = instantiateManaged(module, object, program().runtime?.exports); }
       catch (error) { if (error instanceof WebAssembly.LinkError || error instanceof TypeError) return LINK_FAILED; throw error; }
       if (wasi) wasi.initialize(link.instance);
       else link.instance.exports._initialize?.();
@@ -423,11 +430,12 @@ export function wasmImports(program, memory = () => (program().loader ?? program
       return 1;
     },
     'call-export'(handle, argument) {
-      const result = instance(handle).exports[strings.take()[0]](argument);
+      const result = hostExports(instance(handle).exports, program().runtime.exports)[strings.take()[0]](argument);
       return typeof result === 'bigint' ? result : BigInt(result ?? 0);
     },
     'call-with-function'(handle, callee) {
-      const result = instance(handle).exports[strings.take()[0]](callee);
+      const runtime = program().runtime.exports;
+      const result = hostExports(instance(handle).exports, runtime)[strings.take()[0]](transferCode(runtime, callee));
       return typeof result === 'bigint' ? result : BigInt(result ?? 0);
     },
   };
@@ -438,18 +446,29 @@ export function wasmImports(program, memory = () => (program().loader ?? program
 // as the first task by `tasks:start-main`, so its statements may yield;
 // any other module's `main` does both at once. Answers main's result.
 export function runMain(exports) {
+  exports = hostExports(exports);
   if (exports['tasks:start-main'] && exports['main:body']) {
     const status = exports['main:init']();
-    exports['tasks:start-main'](exports['main:body']);
+    exports['tasks:start-main'](functionHandle(exports, 'main:body'));
     return status;
   }
   return exports.main();
 }
 
+// Compiled code exports its managed handle beside each callable entry point.
+// Keeping the Wasm-function fallback lets the loader still inspect raw Wasm.
+export function functionHandle(exports, name, runtime = exports, owner = runtime) {
+  exports = rawExports(exports); runtime = rawExports(runtime); owner = rawExports(owner);
+  if (runtime === owner && exports[`snail:code/${name}`]) return managedValue(runtime, exports[`snail:code/${name}`]());
+  const fn = exports[name];
+  if (!runtime['snail:gc/code-new']) return fn;
+  return installCode(runtime, fn);
+}
+
 // An instance of the module, linked as a module of `program` is, or null
 // if an import has no provider of its type.
 function linkedInstance(program, module) {
-  try { return new WebAssembly.Instance(module, moduleImports(program, new Set(['snail.core.support', ...program.linked.keys()]), module)); }
+  try { return instantiateManaged(module, moduleImports(program, new Set(['snail.core.support', ...program.linked.keys()]), module), program.runtime.exports); }
   catch (error) { if (error instanceof WebAssembly.LinkError || error instanceof TypeError) return null; throw error; }
 }
 

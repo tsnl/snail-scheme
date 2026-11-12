@@ -18,6 +18,7 @@ const expected = await readFile(join(root, 'tests/programs/wasm-replacement.out'
 const page = `<!doctype html><title>Namespace publication</title><pre></pre>
 <script type="module">
 import {createWasi, instantiate, wasmImports} from './load.mjs';
+import {hostExports} from './memory.mjs';
 const output = document.querySelector('pre');
 try {
   const wasi = createWasi({print: (fd, line) => { output.textContent += line + '\\n'; }});
@@ -27,13 +28,14 @@ try {
   const instance = await instantiate(module, {...wasi.getImportObject(), ...program.host});
   program.runtime = instance;
   wasi.initialize(instance);
-  instance.exports.main();
+  hostExports(instance.exports).main();
 } catch (error) { document.body.dataset.error = String(error); }
 document.body.dataset.finished = 'true';
 </script>`;
 const files = new Map([
   ['/', ['text/html', Buffer.from(page)]],
   ['/load.mjs', ['text/javascript', await readFile(join(root, 'host/browser/load.mjs'))]],
+  ['/memory.mjs', ['text/javascript', await readFile(join(root, 'host/browser/memory.mjs'))]],
   ['/test.wasm', ['application/wasm', await readFile(binary)]],
 ]);
 const server = createServer((request, response) => {
