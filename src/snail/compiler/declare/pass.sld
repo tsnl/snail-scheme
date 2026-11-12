@@ -11,6 +11,7 @@
   (import
    (snail core base)
    (snail compiler source)
+   (only (snail compiler outline names) program-library)
    (prefix (snail compiler derive language) derived-)
    (snail compiler declare language)
    (snail compiler declare offer)
@@ -35,7 +36,7 @@
            (Ok (DeclaredLibrary (Defined name (::tops walked) (::next (::state walked)) loc)
                                 (offered walked)))))
         ((derived-Program tops body first-unused)
-         (result-let* ((walked (declared-tops (list "main") tops body first-unused imported)))
+         (result-let* ((walked (declared-tops program-library tops body first-unused imported)))
            (Ok (DeclaredLibrary (Program (::tops walked) (::body walked) (::next (::state walked)))
                                 (offered walked)))))))
 

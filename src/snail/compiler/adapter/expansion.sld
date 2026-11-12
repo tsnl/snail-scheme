@@ -1,5 +1,5 @@
-;; Whole programs compiled by the new passes, expanded, bound, derived
-;; and declared, beside the old expander, which tests/compare-compiler.sld
+;; Whole programs compiled by the new passes, expanded, bound, derived,
+;; declared and dispatched, beside the old expander, which tests/compare-compiler.sld
 ;; runs, compiled, over the suites' programs that load completely. A
 ;; program that asks for a target's files is supplied stand-in files for
 ;; each target it asks for, the same to both. Both succeed or both fail.
@@ -14,8 +14,12 @@
 ;; `library-links`; each instance `derive` wrote, beside the old instance
 ;; of its class and types, by its variables, its requirements and its
 ;; method's value in the normal form, and the derived instances of each
-;; class in the old order; and its entities, as (snail compiler adapter
-;; declaration) compares them. And the targets the program asks for,
+;; class in the old order; each instance whose methods the old expander
+;; marks as dispatched, a dispatch clause's or one `dynamic-instances`
+;; generates, beside the instance in its place in the library's listing,
+;; by its head and each method's value in the normal form; and its
+;; entities, as (snail compiler adapter declaration) compares them. And
+;; the targets the program asks for,
 ;; which the stand-in files were supplied for, are compared with those the
 ;; old expansion records of its libraries. The integrator keeps no
 ;; library's Expanded tree, so whether a library derives is compared
@@ -27,10 +31,13 @@
 ;; by an expansion, without the expansion's number, each field function is
 ;; its name, a linked file's handle is the old expander's name for it,
 ;; `library:%link path`, and a `case-id` is the TypeId `declare` gives its
-;; case, beside the number the old expander writes. It leaves out types,
-;; whether a function may capture, the methods of an instance a library
-;; writes and effect defaults, which the old expander names afresh, and
-;; statements of a library.
+;; case, beside the number the old expander writes. A conversion keeps its
+;; type, since the type is what it does; a dispatched method's call of an
+;; instance's implementation names it as the old expander does, by the
+;; implementation in the old instance in the same place. It leaves out
+;; other types, whether a function may capture, the methods of an instance
+;; a library writes and effect defaults, which the old expander names
+;; afresh, and statements of a library.
 (define-library (snail compiler adapter expansion)
   (export
    expansion-comparison)
@@ -66,7 +73,26 @@
          FieldClass)
    (only (snail compiler expand offer) Offer Export)
    (snail compiler bind supply)
-   (snail compiler declare language)
+   (except (snail compiler declare language)
+           Defined
+           Program
+           Top
+           LinkImport
+           Define
+           Statement
+           Expose
+           TopData
+           Alias
+           TopClass
+           TopInstance
+           InstanceSet
+           InstanceScope
+           Extern
+           TopEffect
+           Primitive
+           Instance)
+   (snail compiler dispatch language)
+   (only (snail compiler dispatch listing) Listed ListedInstance FieldInstance listed-class)
    (only (snail compiler bind placed) Placed)
    (snail compiler integrate walk)
    (snail compiler integrate load)
@@ -74,7 +100,11 @@
    (snail compiler integrate sha256)
    (only (snail compiler adapter outline) feedback-text)
    (only (snail compiler adapter load) old-expansion-with)
-   (only (snail compiler adapter declaration) declaration-differences)
+   (only (snail compiler adapter declaration)
+         old-name
+         old-type
+         normal-type-text
+         declaration-differences)
    (prefix (only (snail shell compiler read)
                  Loc
                  Datum
@@ -99,6 +129,7 @@
                  Instance
                  Constructor
                  Value
+                 Defined
                  case-type-id
                  class-instances
                  Expr
@@ -310,6 +341,7 @@
     (define (expansions-comparison files expanded targets)
       (let* ((program (::program expanded))
              (old-libraries (old:library-items program (old:program-items program)))
+             (implementations (implementation-names files program))
              (differences (concatenate
                            (map (lambda (file)
                                   (match (find (lambda (entry)
@@ -326,6 +358,10 @@
                                             (instance-differences file
                                                                   program
                                                                   (::second entry))
+                                            (dispatched-differences file
+                                                                    program
+                                                                    (::second entry)
+                                                                    implementations)
                                             (declaration-differences files file program))))
                                     ((None) (Nil))))
                                 files))))
@@ -395,7 +431,7 @@
              (old (map (lambda (linked) (string-append (::digest linked) " at " (::path linked)))
                        (old:library-links expanded key))))
         (append (concatenate (map (lambda (top) (import-difference key (::program expanded) top))
-                                  (library-tops (::declared file))))
+                                  (library-tops (::dispatched file))))
                 (if (same-texts? new old)
                     (Nil)
                     (list (string-append key ": the files to place differ: new "
@@ -422,7 +458,7 @@
              (_ (list (string-append name " is no linked file's import in the old"))))))
         (_ (Nil))))
 
-    (: library-tops (impl (Fn Declared -> (List Top))))
+    (: library-tops (impl (Fn Dispatched -> (List Top))))
     (define (library-tops library)
       (match library
         ((Defined _ tops _ _) tops)
@@ -434,7 +470,7 @@
       (string-append key ":%link " (string-join path "/")))
 
     ;; Each handle a library's LinkImports declare, with its old name.
-    (: handle-names (impl (Fn Declared -> (List (Pair Global String)))))
+    (: handle-names (impl (Fn Dispatched -> (List (Pair Global String)))))
     (define (handle-names library)
       (concatenate (map (lambda (top)
                           (match top
@@ -455,8 +491,8 @@
        (impl (Fn CompiledFile old:Program (List old:Item) -> (List String))))
     (define (instance-differences file program items)
       (let* ((key (file-key file))
-             (names (Context (handle-names (::declared file))))
-             (tops (library-tops (::declared file)))
+             (names (Context (handle-names (::dispatched file)) (Nil)))
+             (tops (library-tops (::dispatched file)))
              (derived (derived-instances tops))
              (old (library-instances program key)))
         (concatenate
@@ -539,6 +575,121 @@
                                          "; old " (string-join old-heads ", "))))))
             (list "snail.shell.wire:Serialize" "snail.shell.wire:Deserialize"))))
 
+    ;; ---- Dispatched instances ----
+
+    ;; The library's listing beside the old instances of each class it
+    ;; lists that the library declares, in place; a class whose instances
+    ;; are not as many is left out, which (snail compiler adapter
+    ;; declaration) reports.
+    (: paired-instances (impl (Fn CompiledFile old:Program -> (List (Pair Listed old:Instance)))))
+    (define (paired-instances file program)
+      (let* ((key (file-key file))
+             (classes (delete-duplicates string=? (map listed-key (::listing file)))))
+        (concatenate
+         (map (lambda (class)
+                (let ((new (filter (lambda (entry) (string=? (listed-key entry) class))
+                                   (::listing file)))
+                      (old (filter (lambda (instance) (of-library? key (::name instance)))
+                                   (old:class-instances program class))))
+                  (if (= (length new) (length old))
+                      (zip new old)
+                      (Nil))))
+              classes))))
+
+    ;; The old program's name of an entry's class, which keys its
+    ;; instances.
+    (: listed-key (impl (Fn Listed -> String)))
+    (define (listed-key entry)
+      (match (listed-class entry)
+        ((ClassGlobal global) (old-name global))
+        ((FieldClass label) (string-append "::" label))))
+
+    (: of-library? (impl (Fn String String -> Bool)))
+    (define (of-library? key name)
+      (match (string-index-of name ":")
+        ((Some index) (and (> index 0) (string=? (substring name 0 index) key)))
+        ((None) #f)))
+
+    ;; Each implementation of every library's instances, by the old name
+    ;; of the implementation in the old instance in its place.
+    (: implementation-names
+       (impl (Fn (List CompiledFile) old:Program -> (List (Pair Global String)))))
+    (define (implementation-names files program)
+      (concatenate
+       (map (lambda (file)
+              (concatenate (map (lambda (pair)
+                                  (match (::first pair)
+                                    ((ListedInstance instance _)
+                                     (if (= (length (::methods instance))
+                                            (length (::methods (::second pair))))
+                                         (map (lambda (methods)
+                                                (Pair (::implementation (::first methods))
+                                                      (::second (::second methods))))
+                                              (zip (::methods instance)
+                                                   (::methods (::second pair))))
+                                         (Nil)))
+                                    ((FieldInstance _ _) (Nil))))
+                                (paired-instances file program))))
+            files)))
+
+    ;; Each instance the old expander's dispatch wrote the methods of,
+    ;; beside the instance in its place: their heads, and each method's
+    ;; value in the normal form.
+    (: dispatched-differences
+       (impl
+        (Fn CompiledFile old:Program (List old:Item) (List (Pair Global String)) -> (List String))))
+    (define (dispatched-differences file program items implementations)
+      (let ((names (Context (handle-names (::dispatched file)) implementations)))
+        (concatenate (map (lambda (pair)
+                            (match (::first pair)
+                              ((ListedInstance instance _)
+                               (if (old-dispatched? program (::second pair))
+                                   (dispatched-difference names items instance (::second pair))
+                                   (Nil)))
+                              ((FieldInstance _ _) (Nil))))
+                          (paired-instances file program)))))
+
+    ;; Whether the old expander wrote the instance's methods: their
+    ;; values are marked as functions, which only `dispatch-instance-method`
+    ;; and `install-generated-instance` do.
+    (: old-dispatched? (impl (Fn old:Program old:Instance -> Bool)))
+    (define (old-dispatched? program instance)
+      (and (not (null? (::methods instance)))
+           (every? (lambda (method)
+                     (match (table-ref (::values program) (::second method))
+                       ((Some (old:Defined _ _ function?)) function?)
+                       (_ #f)))
+                   (::methods instance))))
+
+    (: dispatched-difference
+       (impl (Fn Context (List old:Item) Instance old:Instance -> (List String))))
+    (define (dispatched-difference names items instance old)
+      (let ((new-text (form-text (form-text (class-text instance)
+                                            (map type-text
+                                                 (append (::types instance) (::outputs instance))))
+                                 (map (lambda (method) (method-text names method))
+                                      (::methods instance))))
+            (old-text (form-text (old-head-text old)
+                                 (map (lambda (method)
+                                        (form-text (old-member-text (::first method))
+                                                   (list
+                                                    (old-method-text items (::second method)))))
+                                      (::methods old)))))
+        (if (string=? new-text old-text)
+            (Nil)
+            (list (string-append "the dispatched instance " (old-head-text old) " differs: new "
+                                 new-text
+                                 "; old "
+                                 old-text)))))
+
+    ;; A member's name within its class, as `member-text` writes it: a
+    ;; field class's reader is its path.
+    (: old-member-text (impl (Fn String -> String)))
+    (define (old-member-text name)
+      (if (string=? (substring name 0 (min 2 (string-length name))) "::")
+          name
+          (short-name name)))
+
     ;; ---- Instance texts ----
 
     ;; An instance's class and types, which find the old one.
@@ -562,16 +713,14 @@
       (form-text "instance"
                  (list (form-text "" (map variable-text (::variables instance)))
                        (form-text "" (map requirement-text (::requirements instance)))
-                       (form-text "" (match (::body instance)
-                                       ((Methods methods)
-                                        (map (lambda (method)
-                                               (form-text (member-text (::member method))
-                                                          (list (::text (new-text names
-                                                                                  (::value method)
-                                                                                  (Naming (Nil)
-                                                                                          0))))))
-                                             methods))
-                                       ((Dispatch _ _) (list "dispatch")))))))
+                       (form-text "" (map (lambda (method) (method-text names method))
+                                          (::methods instance))))))
+
+    ;; A method by the member it implements and its value's normal form.
+    (: method-text (impl (Fn Context InstanceMethod -> String)))
+    (define (method-text names method)
+      (form-text (member-text (::member method))
+                 (list (::text (new-text names (::value method) (Naming (Nil) 0))))))
 
     ;; The member a method implements, by its name within its class.
     (: member-text (impl (Fn Member -> String)))
@@ -650,7 +799,7 @@
     (define (library-differences file items old-exported program)
       (let* ((key (file-key file))
              (exported (map ::name (::exports (::offer file))))
-             (new (written-definitions (::declared file)))
+             (new (written-definitions (::dispatched file)))
              (new-names (map ::first new))
              (old (filter (lambda (entry)
                             (or (member? (::first entry) new-names)
@@ -711,9 +860,9 @@
     ;; Each written definition, by its normal name, with its value's
     ;; normal form; a program's body is `main:%body`, a function of
     ;; nothing.
-    (: written-definitions (impl (Fn Declared -> (List (Pair String String)))))
+    (: written-definitions (impl (Fn Dispatched -> (List (Pair String String)))))
     (define (written-definitions library)
-      (let ((names (Context (handle-names library))))
+      (let ((names (Context (handle-names library) (Nil))))
         (match library
           ((Defined _ tops _ _) (tops-definitions names tops (Nil)))
           ((Program tops body _)
@@ -769,18 +918,22 @@
                      (if (= (::serial global) 0) "" "%")))
 
     ;; What the normal form of a new expression needs besides the
-    ;; expression: the old expander's name for each linked file's handle.
+    ;; expression: the old expander's name for each linked file's handle,
+    ;; and, for a dispatched method's, for each instance's implementations.
     (struct Context
-      ((handles (List (Pair Global String)))))
+      ((handles (List (Pair Global String)))
+       (implementations (List (Pair Global String)))))
 
-    ;; A value's normal name: a linked file's handle is the old
-    ;; expander's name for it.
+    ;; A value's normal name: a linked file's handle, and an instance's
+    ;; implementation where the context names them, are the old
+    ;; expander's names for them.
     (: top-value-text (impl (Fn Context TopValue -> String)))
     (define (top-value-text names value)
       (match value
         ((TopGlobal global)
-         (match (find (lambda (entry) (same-global? (::first entry) global)) (::handles names))
-           ((Some entry) (::second entry))
+         (match (find (lambda (entry) (same-global? (::first entry) global))
+                      (append (::handles names) (::implementations names)))
+           ((Some entry) (old-global-text (::second entry)))
            ((None) (global-text global))))
         ((FieldFunction case label role)
          (string-append (global-text case) "-" label (role-suffix role)))))
@@ -933,9 +1086,9 @@
                                 (list (form-text "" (map global-text sets)) (::text rendered)))
                      (::naming rendered))))
         ((Ann value _ _) (wrapped-text names "ann" value naming))
-        ((Convert value _ _) (wrapped-text names "convert" value naming))
-        ((TryConvert value _ _) (wrapped-text names "try-convert" value naming))
-        ((TypeTest value _ _) (wrapped-text names "type-test" value naming))
+        ((Convert value type _) (converted-text names "convert" value type naming))
+        ((TryConvert value type _) (converted-text names "try-convert" value type naming))
+        ((TypeTest value type _) (converted-text names "type-test" value type naming))
         ((CaseId _ id _)
          (Rendered (form-text "ann" (list (string-append "i:" (i64->string id)))) naming))))
 
@@ -962,6 +1115,12 @@
     (define (wrapped-text names head value naming)
       (let ((rendered (new-text names value naming)))
         (Rendered (form-text head (list (::text rendered))) (::naming rendered))))
+
+    (: converted-text (impl (Fn Context String Expr Type Naming -> Rendered)))
+    (define (converted-text names head value type naming)
+      (let ((rendered (new-text names value naming)))
+        (Rendered (form-text head (list (::text rendered) (normal-type-text (old-type type))))
+                  (::naming rendered))))
 
     (: clauses-text
        (impl (Fn Context (List Clause) Naming -> (Pair (List String) Naming))))
@@ -1056,12 +1215,15 @@
            (let ((rendered (bound naming name)))
              (loop rest (::naming rendered) (Cons (::text rendered) texts)))))))
 
-    ;; A name with `:` is a global, and any other a local.
+    ;; A name bound is a local; any other with `:` is a global, and any
+    ;; other a free local. The locals of a dispatched method are named
+    ;; for their implementation, with its colon.
     (: old-name-text (impl (Fn Naming String -> String)))
     (define (old-name-text naming name)
-      (if (any? (lambda (char) (char=? char #\:)) (string->list name))
-          (old-global-text name)
-          (named naming name)))
+      (cond ((any? (lambda (entry) (string=? (::first entry) name)) (::locals naming))
+             (named naming name))
+            ((any? (lambda (char) (char=? char #\:)) (string->list name)) (old-global-text name))
+            (else (named naming name))))
 
     (: old-text (impl (Fn old:Expr Naming -> Rendered)))
     (define (old-text expr naming)
@@ -1112,9 +1274,15 @@
                                                         (::first values)))
                                               (list (::text body-text)))))
                      (::naming body-text))))
-        ((old:Convert value _) (old-wrapped "convert" value naming))
-        ((old:TryConvert value _) (old-wrapped "try-convert" value naming))
-        ((old:TypeTest value _) (old-wrapped "type-test" value naming))))
+        ((old:Convert value type) (old-converted "convert" value type naming))
+        ((old:TryConvert value type) (old-converted "try-convert" value type naming))
+        ((old:TypeTest value type) (old-converted "type-test" value type naming))))
+
+    (: old-converted (impl (Fn String old:Expr old:Type Naming -> Rendered)))
+    (define (old-converted head value type naming)
+      (let ((rendered (old-text value naming)))
+        (Rendered (form-text head (list (::text rendered) (normal-type-text type)))
+                  (::naming rendered))))
 
     ;; An operation's name within its effect: what follows the library.
     (: short-name (impl (Fn String -> String)))

@@ -22,6 +22,7 @@
    (snail core base)
    (snail compiler source)
    (only (snail compiler outline language) LibraryName)
+   (only (snail compiler outline names) program-library)
    (prefix (snail compiler expand language) expanded-)
    (snail compiler expand links)
    (snail compiler expand targets)
@@ -43,7 +44,8 @@
 
     ;; What the library needs is found in the old expander's order: first
     ;; the targets it asks for, all of them; then the files it links, a
-    ;; clash before a missing file. A program's globals are in ("main").
+    ;; clash before a missing file. A program's globals are in
+    ;; `program-library`.
     (: bind (impl (Fn expanded-Expanded Supply -> (Result BindOutcome (List Feedback)))))
     (define (bind expanded supply)
       (let ((name (library-name expanded)))
@@ -60,7 +62,7 @@
     (define (library-name expanded)
       (match expanded
         ((expanded-Defined name _ _ _) name)
-        ((expanded-Program _ _ _) (list "main"))))
+        ((expanded-Program _ _ _) program-library)))
 
     ;; ---- The walk ----
 

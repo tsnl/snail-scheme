@@ -15,7 +15,7 @@
    (snail compiler source)
    (prefix (snail compiler read language) syntax-)
    (prefix (snail compiler outline language) outline-)
-   (only (snail compiler outline names) same-library?)
+   (only (snail compiler outline names) same-library? program-library)
    (snail compiler expand language)
    (snail compiler expand marked)
    (snail compiler expand offer)
@@ -51,7 +51,7 @@
     (define (library-name library)
       (match library
         ((outline-Defined name _ _ _ _) name)
-        ((outline-Program _ _ _ _) (list "main"))))
+        ((outline-Program _ _ _ _) program-library)))
 
     (: library-imports (impl (Fn outline-Library -> (List outline-Import))))
     (define (library-imports library)

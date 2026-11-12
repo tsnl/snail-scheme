@@ -43,7 +43,8 @@
    (snail compiler declare offer)
    (snail compiler declare forms)
    (snail compiler declare equality)
-   (only (snail compiler declare schemes) field-class-parameters))
+   (only (snail compiler declare schemes) field-class-parameters)
+   (only (snail compiler declare misplaced-rows) instance-noun-of))
   (begin
 
     ;; ---- What is known ----
@@ -164,11 +165,11 @@
 
     ;; ---- The class in messages ----
 
-    ;; The name a message gives an instance of the class: `a NAME
-    ;; instance`.
+    ;; The name a message gives an instance of the class, as
+    ;; (snail compiler declare misplaced-rows) writes it.
     (: instance-noun (impl (Fn ClassShape -> String)))
     (define (instance-noun shape)
-      (string-append "a " (::name shape) " instance"))
+      (instance-noun-of (::name shape)))
 
     ;; The class applied to its parameters, its outputs last, as messages
     ;; spell it: `(Op e A B Output)`.

@@ -3,16 +3,19 @@
 ;; methods, as far as they are known where the instance is; a field class
 ;; `::label` has one, the reader of the field, whose own scheme is
 ;; `(Fn R -> T)`. `declare` names an instance's written methods by them, and
-;; `dispatch` the methods it writes, so both name an implementation alike.
+;; `dispatch` the methods it writes, so both name an implementation alike;
+;; and a member is the same member by its Global or its label.
 (define-library (snail compiler declare membership)
   (export
    member-schemes
    class-members
+   same-member?
    member-name)
   (import
    (snail core base)
    (only (snail compiler expand language) ClassRef ClassGlobal FieldClass)
    (snail compiler declare language)
+   (only (snail compiler declare equality) same-global?)
    (only (snail compiler declare schemes) field-reader-scheme))
   (begin
 
@@ -30,6 +33,14 @@
     (: class-members (impl (Fn ClassRef (List Method) -> (List Member))))
     (define (class-members class methods)
       (map ::first (member-schemes class methods)))
+
+    ;; A method is one Global, and a field class's reader one label's.
+    (: same-member? (impl (Fn Member Member -> Bool)))
+    (define (same-member? member other)
+      (match (Pair member other)
+        ((Pair (ClassMethod global) (ClassMethod other-global)) (same-global? global other-global))
+        ((Pair (FieldReader label) (FieldReader other-label)) (string=? label other-label))
+        (_ #f)))
 
     ;; The name a member goes by, in messages and in the Global of its
     ;; implementation: a method's own, or a field class's label.
@@ -63,6 +74,12 @@
           (expect (member-schemes (FieldClass "x") (list))
                   (list (Pair (FieldReader "x") field-reader-scheme)))
           (expect (class-members (FieldClass "x") (list show)) (list (FieldReader "x")))
+          (expect (same-member? (ClassMethod (Global (list "main") "show" 0))
+                                (ClassMethod (Global (list "main") "show" 0)))
+                  #t)
+          (expect (same-member? (ClassMethod (Global (list "main") "show" 0)) (FieldReader "show"))
+                  #f)
+          (expect (same-member? (FieldReader "x") (FieldReader "y")) #f)
           (expect (map member-name
                        (list (ClassMethod (Global (list "main") "show" 4)) (FieldReader "x")))
                   (list "show" "x"))))))

@@ -18,12 +18,13 @@
 ;; effects, with each default by its operation; and every value it
 ;; declares by its kind and scheme, but those the old compiler names
 ;; afresh, an implementation, a default, a generated dispatch method, and
-;; a linked file's handle. Then, class by class, its instances in the old
-;; order, written and implied by a struct's fields, by their heads,
+;; a linked file's handle. Then, class by class, its listing, as
+;; (snail compiler dispatch listing) lists the library dispatched, beside
+;; the old program's instances of the class the library declares, in the
+;; old order: written, derived, written with a dispatch clause, generated
+;; by `dynamic-instances` and implied by a struct's fields, by their heads,
 ;; variables, requirements, sets, the members their methods implement and
-;; each implementation's scheme; the instances `dynamic-instances`
-;; generates, and a dispatch clause's methods, are `dispatch`'s, still to
-;; come.
+;; each implementation's scheme.
 (define-library (snail compiler adapter declaration)
   (export
    old-name
@@ -33,6 +34,7 @@
    old-class
    old-effect
    old-instance
+   normal-type-text
    declaration-differences)
   (import
    (snail core base)
@@ -58,11 +60,31 @@
          FnContract
          FnMutContract
          FnOnceContract)
-   (snail compiler declare language)
+   (except (snail compiler declare language)
+           Defined
+           Program
+           Top
+           LinkImport
+           Define
+           Statement
+           Expose
+           TopData
+           Alias
+           TopClass
+           TopInstance
+           InstanceSet
+           InstanceScope
+           Extern
+           TopEffect
+           Primitive
+           Instance)
+   (prefix (only (snail compiler declare language) Instance) declared-)
    (snail compiler declare offer)
    (snail compiler declare forms)
    (snail compiler declare equality)
    (snail compiler declare schemes)
+   (snail compiler dispatch language)
+   (snail compiler dispatch listing)
    (only (snail compiler integrate compile) CompiledFile)
    (prefix (only (snail shell compiler read) Loc) old:)
    (prefix (only (snail shell compiler core)
@@ -244,13 +266,10 @@
                     (map old-type (append (::types instance) (::outputs instance)))
                     (map old-constraint (::requirements instance))
                     (map old-variable (::copied instance))
-                    (match (::body instance)
-                      ((Methods methods)
-                       (map (lambda (method)
-                              (Pair (member-name (::member method))
-                                    (old-name (::implementation method))))
-                            methods))
-                      ((Dispatch _ _) (Nil)))
+                    (map (lambda (method)
+                           (Pair (member-name (::member method))
+                                 (old-name (::implementation method))))
+                         (::methods instance))
                     (match set
                       ((Some global) (Some (old-name global)))
                       ((None) (None)))))
@@ -288,6 +307,12 @@
     (: names-text (impl (Fn (List String) -> String)))
     (define (names-text names)
       (form "" (map name-text names)))
+
+    ;; A type as both compilers' trees are compared by it, (snail compiler
+    ;; adapter expansion)'s normal form among them.
+    (: normal-type-text (impl (Fn old:Type -> String)))
+    (define (normal-type-text type)
+      (type-text type))
 
     (: type-text (impl (Fn old:Type -> String)))
     (define (type-text type)
@@ -406,7 +431,7 @@
        (impl (Fn (List CompiledFile) CompiledFile old:Program -> (List String))))
     (define (declaration-differences files file program)
       (let* ((key (library-key (::library file)))
-             (tops (library-tops (::declared file))))
+             (tops (library-tops (::dispatched file))))
         (concatenate
          (list (listed-difference key
                                   "data types"
@@ -429,9 +454,9 @@
                                        (filter (lambda (effect) (in-library? key (::name effect)))
                                                (table-values (::effects program)))))
                (listed-difference key "values" (new-values tops) (old-values program key))
-               (instance-differences files key tops program)))))
+               (instance-differences files key (::listing file) program)))))
 
-    (: library-tops (impl (Fn Declared -> (List Top))))
+    (: library-tops (impl (Fn Dispatched -> (List Top))))
     (define (library-tops library)
       (match library
         ((Defined _ tops _ _) tops)
@@ -629,51 +654,12 @@
 
     ;; ---- Instances ----
 
-    ;; An instance as the old program lists it: written, in its set if it
-    ;; is in one, or implied by a field of a struct with no mutable field,
-    ;; where the struct is declared.
-    (enum Listed
-      (WrittenInstance
-       ((instance Instance)
-        (set (Option Global))))
-      (ImpliedInstance
-       ((data Data)
-        (field DataField))))
-
-    (: listed-instances (impl (Fn (List Top) -> (List Listed))))
-    (define (listed-instances tops)
-      (concatenate
-       (map (lambda (top)
-              (match top
-                ((TopInstance instance) (list (WrittenInstance instance (None))))
-                ((InstanceSet global members _)
-                 (concatenate (map (lambda (member)
-                                     (match member
-                                       ((SetInstance instance)
-                                        (list (WrittenInstance instance (Some global))))
-                                       ((DynamicInstances _ _ _) (Nil))))
-                                   members)))
-                ((TopData data) (implied-instances data))
-                (_ (Nil))))
-            (flat-tops tops))))
-
-    (: implied-instances (impl (Fn Data -> (List Listed))))
-    (define (implied-instances data)
-      (match (Pair (::kind data) (::cases data))
-        ((Pair (StructData) (Cons case (Nil)))
-         (if (any? ::mutable? (::fields case))
-             (Nil)
-             (map (lambda (field) (ImpliedInstance data field)) (::fields case))))
-        (_ (Nil))))
-
-    ;; Class by class, the library's instances in order, beside the old
-    ;; program's instances of the class the library declares, but those
-    ;; `dynamic-instances` generates, named afresh for `dynamic`.
+    ;; Class by class, the library's listing in order, beside the old
+    ;; program's instances of the class the library declares.
     (: instance-differences
-       (impl (Fn (List CompiledFile) String (List Top) old:Program -> (List String))))
-    (define (instance-differences files key tops program)
-      (let* ((listed
-              (map (lambda (entry) (Pair (listed-class entry) entry)) (listed-instances tops)))
+       (impl (Fn (List CompiledFile) String (List Listed) old:Program -> (List String))))
+    (define (instance-differences files key listing program)
+      (let* ((listed (map (lambda (entry) (Pair (listed-class-name entry) entry)) listing))
              (classes (delete-duplicates string=? (map ::first listed))))
         (concatenate
          (map (lambda (class)
@@ -684,19 +670,13 @@
                                   (map ::second
                                        (filter (lambda (entry) (string=? (::first entry) class))
                                                listed))
-                                  (written-instances program key class)))
+                                  (library-class-instances program key class)))
               (append classes (old-only-classes program key classes))))))
 
-    (: written-instances (impl (Fn old:Program String String -> (List old:Instance))))
-    (define (written-instances program key class)
-      (filter (lambda (instance) (written-in? key (::name instance)))
+    (: library-class-instances (impl (Fn old:Program String String -> (List old:Instance))))
+    (define (library-class-instances program key class)
+      (filter (lambda (instance) (in-library? key (::name instance)))
               (old:class-instances program class)))
-
-    (: written-in? (impl (Fn String String -> Bool)))
-    (define (written-in? key name)
-      (and (in-library? key name)
-           (not
-            (string-prefix? "dynamic." (list->string (drop-through-colon (string->list name)))))))
 
     (: string-prefix? (impl (Fn String String -> Bool)))
     (define (string-prefix? prefix text)
@@ -729,28 +709,25 @@
                                  (string-join old-texts ", "))))))
 
     ;; The classes the old program has instances of that the library
-    ;; writes, but which `declare` lists none of.
+    ;; declares, but which the listing has none of.
     (: old-only-classes (impl (Fn old:Program String (List String) -> (List String))))
     (define (old-only-classes program key classes)
       (list-sort string<?
                  (filter (lambda (class)
                            (and (not (member? class classes))
-                                (not (null? (written-instances program key class)))))
+                                (not (null? (library-class-instances program key class)))))
                          (table-keys (::instances program)))))
 
-    (: listed-class (impl (Fn Listed -> String)))
-    (define (listed-class entry)
-      (match entry
-        ((WrittenInstance instance _) (old-class-name (::class instance)))
-        ((ImpliedInstance _ field) (string-append "::" (::label field)))))
+    (: listed-class-name (impl (Fn Listed -> String)))
+    (define (listed-class-name entry)
+      (old-class-name (listed-class entry)))
 
-    ;; An instance's text; a dispatch clause's methods are still to come.
     (: listed-text (impl (Fn (List CompiledFile) Listed -> String)))
     (define (listed-text files entry)
       (match entry
-        ((WrittenInstance instance set)
+        ((ListedInstance instance set)
          (instance-text (old-instance instance set) (implementation-texts files instance)))
-        ((ImpliedInstance data field)
+        ((FieldInstance data field)
          (let ((self (Con (::global data)
                           (map (lambda (name) (Var (Written name))) (::parameters data))))
                (class (string-append "::" (::label field))))
@@ -764,19 +741,30 @@
                                         (None))
                           (list "accessor"))))))
 
-    ;; Each implementation's scheme, the member's at the instance's head.
+    ;; Each implementation's scheme, the member's at the instance's head,
+    ;; which `implementation-scheme` reads off the instance as declared.
     (: implementation-texts (impl (Fn (List CompiledFile) Instance -> (List String))))
     (define (implementation-texts files instance)
-      (match (::body instance)
-        ((Dispatch _ _) (Nil))
-        ((Methods methods)
-         (map (lambda (method)
-                (match (member-class files (::class instance) (::member method))
-                  ((Some found)
-                   (scheme-text
-                    (old-scheme (implementation-scheme (::first found) (::second found) instance))))
-                  ((None) "no class")))
-              methods))))
+      (map (lambda (method)
+             (match (member-class files (::class instance) (::member method))
+               ((Some found)
+                (scheme-text (old-scheme (implementation-scheme (::first found)
+                                                                (::second found)
+                                                                (as-declared instance)))))
+               ((None) "no class")))
+           (::methods instance)))
+
+    (: as-declared (impl (Fn Instance -> declared-Instance)))
+    (define (as-declared instance)
+      (declared-Instance (::global instance)
+                         (::class instance)
+                         (::variables instance)
+                         (::types instance)
+                         (::outputs instance)
+                         (::requirements instance)
+                         (::copied instance)
+                         (Methods (::methods instance))
+                         (::loc instance)))
 
     ;; The class an instance implements, and the method a member names: a
     ;; declared class's, or the one method of a field class, `(::label R
@@ -807,34 +795,21 @@
            ((None) (None))))
         ((None) (None))))
 
-    ;; The old instance's text beside the one `declare` lists in its
+    ;; The old instance's text beside the one the listing has in its
     ;; place: each implementation's scheme as the old program holds it; an
     ;; implied field instance's implementation is its field's accessor,
-    ;; compared with the library's values; and a dispatch clause's methods
-    ;; are left out.
+    ;; compared with the library's values.
     (: old-instance-text (impl (Fn old:Program Listed old:Instance -> String)))
     (define (old-instance-text program listed instance)
       (match listed
-        ((ImpliedInstance _ _)
+        ((FieldInstance _ _)
          (instance-text instance (map (lambda (method) "accessor") (::methods instance))))
-        ((WrittenInstance written _)
-         (match (::body written)
-           ((Dispatch _ _)
-            (instance-text (old:Instance (::name instance)
-                                         (::class instance)
-                                         (::vars instance)
-                                         (::types instance)
-                                         (::requires instance)
-                                         (::copy instance)
-                                         (Nil)
-                                         (::set instance))
-                           (Nil)))
-           ((Methods _)
-            (instance-text instance
-                           (map (lambda (method)
-                                  (match (table-ref (::values program) (::second method))
-                                    ((Some (old:Defined (Some scheme) _ _)) (scheme-text scheme))
-                                    (_ "no scheme")))
-                                (::methods instance))))))))
+        ((ListedInstance _ _)
+         (instance-text instance
+                        (map (lambda (method)
+                               (match (table-ref (::values program) (::second method))
+                                 ((Some (old:Defined (Some scheme) _ _)) (scheme-text scheme))
+                                 (_ "no scheme")))
+                             (::methods instance))))))
 
     ))

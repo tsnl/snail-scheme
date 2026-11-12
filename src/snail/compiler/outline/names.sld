@@ -2,10 +2,13 @@
 ;; holds as its parts. Two names are the same library when their parts
 ;; are; a name is written as its parts in parentheses; and the old
 ;; compiler knows a library by its parts joined with dots, in its keys
-;; and messages.
+;; and messages. A program is no library, but its Globals need one, so
+;; every pass names them of one library, ("main"), as the old compiler
+;; names a program's definitions `main:name`.
 (define-library (snail compiler outline names)
   (export
    same-library?
+   program-library
    library-key
    written-name)
   (import
@@ -24,6 +27,11 @@
            ((Cons other-part other-rest)
             (and (string=? part other-part) (same-library? rest other-rest)))
            ((Nil) #f)))))
+
+    ;; The library a program's Globals are of.
+    (: program-library LibraryName)
+    (define program-library
+      (list "main"))
 
     ;; `(snail core base)` is "snail.core.base". The dotted text names no
     ;; library uniquely, since (a.b) and (a b) share it, so no decision
@@ -58,6 +66,7 @@
         (expect (library-key (list "snail" "core" "base")) "snail.core.base")
         (expect (library-key (list "a.b")) (library-key (list "a" "b")))
         (expect (library-key (list)) "")
+        (expect (library-key program-library) "main")
         (expect (written-name (list "sample" "1")) "(sample 1)")
         (expect (written-name (list)) "()"))))
    (else)))

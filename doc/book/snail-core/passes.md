@@ -20,7 +20,7 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 | `bind` | library | Expanded, Supply | Bound | Linked files and requests for other targets become what the build supplied. | implemented |
 | `derive` | library | Bound, Offer | Derived | `deriving` clauses become instance declarations. | implemented |
 | `declare` | library | Derived | Declared | Written types become types; declarations become entities. | implemented |
-| `dispatch` | library | Declared, Declarations, listings | Dispatched | Dispatch clauses and `dynamic-instances` forms become instances with methods. | in progress |
+| `dispatch` | library | Declared, Declarations, listings | Dispatched | Dispatch clauses and `dynamic-instances` forms become instances with methods. | implemented |
 | `cohere` | library | Dispatched | nothing | No two instances that can be in scope together overlap on their input types. | planned |
 | `infer` | library | Dispatched | Inferred | Every node gets a type, with unknowns; constraints are recorded. | planned |
 | `solve` | library | Inferred | Solved | Every recorded constraint is decided. | planned |
@@ -129,6 +129,7 @@ src/snail/compiler/
     forms.sld             query: the builtin types of (snail core forms), with their arities, and the lifecycle classes
     spellings.sld         query: how a Global is spelled in the texts a running program holds
     membership.sld        query: the members an instance of a class implements, and the name each goes by
+    misplaced-rows.sld    query: the refusal of a head that gives a type parameter a row
     known.sld             rule: what is known of types and classes where a type is written
     requirements.sld      rule: what a class requirement gives its class
     projections.sld       rule: the type a projection stands for
@@ -162,9 +163,11 @@ src/snail/compiler/
     runtime.sld           rule: the Globals of the runtime the generated code names
     known.sld             rule: what is known of a class where an instance names it
     domains.sld           rule: what a dispatch clause covers, and what each method of its class must be
+    binary.sld            rule: a binary class, each domain pair's case, the heads, and each head's cases, output and row
     state.sld             the numbers it hands out, numbering-let* and numbering-map
     conversions.sld       part: the recovery of a typed value from Any, and the CastError that fails it
     clauses.sld           part: a dispatch clause's methods
+    families.sld          part: the instances a `dynamic-instances` form generates
     pass.sld              (snail compiler dispatch pass): the function `dispatch`
   ...
   integrate/              the integrator: one library per job
@@ -173,7 +176,7 @@ src/snail/compiler/
     load.sld              (snail compiler integrate load): a program and the libraries it reaches
     sha256.sld            (snail compiler integrate sha256): the digest a linked file is named by
     bind.sld              (snail compiler integrate bind): one library's linked files read, then bound
-    compile.sld           (snail compiler integrate compile): each loaded library expanded, bound, derived and declared, in order
+    compile.sld           (snail compiler integrate compile): each loaded library expanded, bound, derived, declared and dispatched, in order
 ```
 
 Each pass is a folder. `language.sld` holds the language the pass writes:
@@ -944,9 +947,16 @@ which only `text.sld` writes. Who wrote an instance's methods is not kept:
 the old compiler marks a dispatched method `function?`, and reads the mark
 only for a value a program names, which no dispatched method is.
 
-`dispatch` walks a library's declarations in the order written, so a
-class of the library is known, with its methods, from its declaration on,
-and before that only its shape. A dispatch clause's domain is checked
+`dispatch` is handed the Declared library; the Declarations of its import
+closure, which give an imported class's parameters, outputs and methods;
+and the listings of every library compiled before it, in the program's
+order, whether or not it imports them, since instances are global. It
+walks the library's declarations in the order written, so a class of
+the library is known, with its methods, from its declaration on, and
+before that only its shape, every parameter a type and no method; and
+it lists each instance as it is written or generated, so a form sees the
+earlier libraries' instances, then the library's own before it. A
+dispatch clause's domain is checked
 first, each refusal at its instance: a ground head with exactly one `Any`
 and a class no lifecycle class; at least one target; each ground and none
 `Any`; none repeated. A domain's refusal is the library's only problem,
@@ -958,6 +968,22 @@ instance, and the walk goes on, so a library fails with every method's
 problem in the order written. Each method's implementation Global is
 numbered first, then the lambda's parameters, then each target's locals
 in turn, from the root's first unused number on.
+
+A `dynamic-instances` form's checks each stop the library, at the form,
+in this order: its class as known there is binary, one row parameter,
+two type parameters, one output and a method at least; each method in
+order has no requirement of its own and is a function, then is of type
+`(dyn (Fn A B -> Output ! e))`; the domain is a pair at least, none
+repeated; each pair in order is two concrete types with exactly one
+source, an instance of the class active where the form is, in no set,
+in the form's or in one a scope around the form's set activates, whose
+selecting types the pair matches, with no requirements, and an output
+and a row that are ground at the match, the row closed; and no head
+gives a type parameter a row, the refusal `declare` makes of a written
+head, which `declare/misplaced-rows.sld` writes for both. Each head's
+instance is numbered in turn: its Global, named `dynamic`, then each
+method's implementation, its two parameters, and two locals for each
+case.
 
 Dispatched declares afresh the roots, `Top` and `Instance`, and reuses
 Declared's for the rest.
@@ -1105,7 +1131,17 @@ their heads, variables, requirements, sets, the members their methods
 implement and each implementation's scheme. A name a macro's template
 wrote is compared by the name written, and a row's effects as a set. A
 program `declare` refuses is compared as a failure is, by its first
-problem, message and place, or every problem of its bodies. It also compares the integrator's
+problem, message and place, or every problem of its bodies. For
+`dispatch`, each library's listing is compared with the old program's
+instance tables in that way, the instances a dispatch clause or a
+`dynamic-instances` form wrote among them, with their implementations'
+schemes; and each instance whose methods the old program marks as
+dispatched is compared with the instance in its place in the listing, by
+its head and each method's value in the normal form, up to the renaming
+of locals: the types of its conversions, the source implementation each
+call names, by the old instance in the same place, and the texts of its
+`CastError`s, compared as written. A conversion's type is part of the
+normal form for every definition. It also compares the integrator's
 SHA-256 with the old one, compiled, as `make test-compiler` does on
 Chibi.
 
@@ -1197,6 +1233,19 @@ one line each, with its reason:
   the stamp of the macro's use, `Box%m.12`; and a type whose name holds a
   colon is spelled by its whole name, where the old spells the text after
   the last colon. No program in the repository dispatches over either.
+- An instance's selecting types are its head's types that are no row. For
+  an instance written before its class in its library, which gives a type
+  to a parameter the class later makes a row, the old compiler drops that
+  type by the class as it is when it looks, and the new keeps it; so
+  such an instance is no `dynamic-instances` source for a pair, where the
+  old compiler refuses its row as not closed. Such an instance implements
+  no method. No program in the repository writes one.
+- `declare`'s problems come before `dispatch`'s, and `dispatch`'s before
+  `cohere`'s: a dispatch clause's domain is checked after the instance's
+  head, where the old compiler checks it first; and an instance that
+  overlaps another, or a generated head that does and also gives a type
+  parameter a row, is refused for its domain or its row, where the old
+  compiler reports the overlap first.
 
 The integrator compiles everything on each build. Reuse between builds, which
 the old session provided, returns with the incremental work that follows the

@@ -172,7 +172,7 @@
     (define (file-key outlined)
       (match (::outline outlined)
         ((Written (Defined name _ _ _ _)) (library-key name))
-        ((Written (Program _ _ _ _)) "main")
+        ((Written (Program _ _ _ _)) (library-key program-library))
         ((Generated name _ _ _) (library-key name))))
 
     ;; Two differences are known. The old expansion records no run for the

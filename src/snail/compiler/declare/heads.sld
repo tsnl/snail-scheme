@@ -37,6 +37,7 @@
    (snail compiler declare equality)
    (snail compiler declare kinds)
    (only (snail compiler declare forms) Lifecycle)
+   (only (snail compiler declare misplaced-rows) misplaced-row-problem)
    (snail compiler declare lifecycle))
   (begin
 
@@ -112,19 +113,19 @@
              ((Some message) (Some message))
              ((None) (loop rest)))))))
 
-    ;; A row for a row parameter, its labels checked; a type for any other.
+    ;; A row for a row parameter, its labels checked; a type for any other,
+    ;; as (snail compiler declare misplaced-rows) refuses a row there.
     (: argument-problem
        (impl (Fn Known (Option Lifecycle) ClassShape ClassParameter Type -> (Option String))))
     (define (argument-problem known lifecycle shape parameter type)
-      (match (Pair parameter type)
-        ((Pair (RowParameter _) (Row effects)) (labels-problem known lifecycle (::labels effects)))
-        ((Pair (TypeParameter name) (Row _))
-         (Some (string-append (instance-noun shape)
-                              " gives its type parameter "
-                              name
-                              " a row, not a type")))
-        ((Pair (RowParameter _) _) (Some (row-usage lifecycle shape)))
-        ((Pair (TypeParameter _) _) (None))))
+      (match (misplaced-row-problem (::name shape) parameter type)
+        ((Some message) (Some message))
+        ((None)
+         (match (Pair parameter type)
+           ((Pair (RowParameter _) (Row effects))
+            (labels-problem known lifecycle (::labels effects)))
+           ((Pair (RowParameter _) _) (Some (row-usage lifecycle shape)))
+           ((Pair (TypeParameter _) _) (None))))))
 
     ;; The first label a drop or a clone may not perform, in the row's
     ;; order; an instance of any other class may perform each.

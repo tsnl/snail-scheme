@@ -65,6 +65,7 @@
    ::builds
    ::bytes
    ::call
+   ::case
    ::case-id-equal
    ::cases
    ::chars
@@ -105,7 +106,9 @@
    ::directories
    ::directory
    ::discharged
+   ::dispatched
    ::drop?
+   ::earlier
    ::edges
    ::effect
    ::effects
@@ -131,6 +134,7 @@
    ::external?
    ::f
    ::failed
+   ::family
    ::feedback
    ::field
    ::fields
@@ -156,12 +160,14 @@
    ::globals
    ::handle
    ::handles
+   ::head
    ::helpers
    ::holder
    ::home
    ::id
    ::identifier
    ::implementation
+   ::implementations
    ::imported
    ::imports
    ::index
@@ -184,6 +190,7 @@
    ::labels
    ::last
    ::latent
+   ::left
    ::lets
    ::libraries
    ::library
@@ -192,6 +199,7 @@
    ::lines
    ::link
    ::links
+   ::listing
    ::literals
    ::live
    ::loading
@@ -276,8 +284,10 @@
    ::result
    ::resumes
    ::returns
+   ::right
    ::roots
    ::row
+   ::row-index
    ::rows
    ::rules
    ::runs
@@ -377,6 +387,7 @@
     (define (::builds value) (field-of value (quote builds)))
     (define (::bytes value) (field-of value (quote bytes)))
     (define (::call value) (field-of value (quote call)))
+    (define (::case value) (field-of value (quote case)))
     (define (::case-id-equal value) (field-of value (quote case-id-equal)))
     (define (::cases value) (field-of value (quote cases)))
     (define (::chars value) (field-of value (quote chars)))
@@ -417,7 +428,9 @@
     (define (::directories value) (field-of value (quote directories)))
     (define (::directory value) (field-of value (quote directory)))
     (define (::discharged value) (field-of value (quote discharged)))
+    (define (::dispatched value) (field-of value (quote dispatched)))
     (define (::drop? value) (field-of value (quote drop?)))
+    (define (::earlier value) (field-of value (quote earlier)))
     (define (::edges value) (field-of value (quote edges)))
     (define (::effect value) (field-of value (quote effect)))
     (define (::effects value) (field-of value (quote effects)))
@@ -443,6 +456,7 @@
     (define (::external? value) (field-of value (quote external?)))
     (define (::f value) (field-of value (quote f)))
     (define (::failed value) (field-of value (quote failed)))
+    (define (::family value) (field-of value (quote family)))
     (define (::feedback value) (field-of value (quote feedback)))
     (define (::field value) (field-of value (quote field)))
     (define (::fields value) (field-of value (quote fields)))
@@ -468,12 +482,14 @@
     (define (::globals value) (field-of value (quote globals)))
     (define (::handle value) (field-of value (quote handle)))
     (define (::handles value) (field-of value (quote handles)))
+    (define (::head value) (field-of value (quote head)))
     (define (::helpers value) (field-of value (quote helpers)))
     (define (::holder value) (field-of value (quote holder)))
     (define (::home value) (field-of value (quote home)))
     (define (::id value) (field-of value (quote id)))
     (define (::identifier value) (field-of value (quote identifier)))
     (define (::implementation value) (field-of value (quote implementation)))
+    (define (::implementations value) (field-of value (quote implementations)))
     (define (::imported value) (field-of value (quote imported)))
     (define (::imports value) (field-of value (quote imports)))
     (define (::index value) (field-of value (quote index)))
@@ -496,6 +512,7 @@
     (define (::labels value) (field-of value (quote labels)))
     (define (::last value) (field-of value (quote last)))
     (define (::latent value) (field-of value (quote latent)))
+    (define (::left value) (field-of value (quote left)))
     (define (::lets value) (field-of value (quote lets)))
     (define (::libraries value) (field-of value (quote libraries)))
     (define (::library value) (field-of value (quote library)))
@@ -504,6 +521,7 @@
     (define (::lines value) (field-of value (quote lines)))
     (define (::link value) (field-of value (quote link)))
     (define (::links value) (field-of value (quote links)))
+    (define (::listing value) (field-of value (quote listing)))
     (define (::literals value) (field-of value (quote literals)))
     (define (::live value) (field-of value (quote live)))
     (define (::loading value) (field-of value (quote loading)))
@@ -588,8 +606,10 @@
     (define (::result value) (field-of value (quote result)))
     (define (::resumes value) (field-of value (quote resumes)))
     (define (::returns value) (field-of value (quote returns)))
+    (define (::right value) (field-of value (quote right)))
     (define (::roots value) (field-of value (quote roots)))
     (define (::row value) (field-of value (quote row)))
+    (define (::row-index value) (field-of value (quote row-index)))
     (define (::rows value) (field-of value (quote rows)))
     (define (::rules value) (field-of value (quote rules)))
     (define (::runs value) (field-of value (quote runs)))
