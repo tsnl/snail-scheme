@@ -994,6 +994,19 @@
         ((Some type) type)
         ((None) (panic (string-append "internal error: untyped capture " name)))))
 
+    ;; Once the last child is released this destructor has no work left.
+    ;; Tail dispatch keeps lists and chains of counted wrappers off the stack.
+    (define (tail-release (call Wat)) (→ Wat)
+      (match call
+        ((Node (Cons (Word "call") arguments)) (wat* "return_call" arguments))
+        (_ (wat "return" call))))
+
+    (define (release-sequence (calls (List Wat))) (→ (List Wat))
+      (match calls
+        ((Nil) (list (wat "return" (wat "i32.const" (int 0)))))
+        ((Cons last (Nil)) (list (tail-release last)))
+        ((Cons first rest) (Cons (wat "drop" first) (release-sequence rest)))))
+
     (define (capture-destructor (m Module) (holder String) (types (List Type))) (→ String) (! mut)
       (helper! m "capture-drop" (string-append holder ":" (string-join (map type-key types) ","))
                (lambda (name)
@@ -1003,18 +1016,23 @@
                    (wat* "func"
                          (append (list (id name) (wat "type" (Word "$owner.drop"))
                                        (wat "param" (Word "$owner") (wat "ref" (id (owner-type m))))
-                                       (evidence-param m) (wat "result" (Word "i32")))
-                                 (append (map-indexed
-                                          (lambda (index type)
-                                            (wat "drop" (release-value m type
-                                                                       (wat "struct.get"
-                                                                            (id holder)
-                                                                            (int (+ index 4))
-                                                                            read)
-                                                                       evidence)))
-                                          types)
-                                         (list (disarm-dropper m holder read evidence)
-                                               (wat "i32.const" (int 0))))))))))
+                                       (evidence-param m) (wat "result" (Word "i32"))
+                                       (disarm-dropper m holder read evidence))
+                                 (release-sequence
+                                  (capture-releases m holder types read evidence))))))))
+
+    (define (capture-releases (m Module)
+                              (holder String)
+                              (types (List Type))
+                              (read Wat)
+                              (evidence Wat))
+      (→ (List Wat)) (! mut)
+      (map (lambda (field)
+             (release-value m (● field second)
+                            (wat "struct.get" (id holder) (int (+ (● field first) 4)) read)
+                            evidence))
+           (filter (lambda (field) (shared-type? (program-of m) (● field second)))
+                   (zip (iota (length types)) types))))
 
     ;; Moving a dropper out clears its slot before any release can call user
     ;; code. Entering a closure transfers its linear captures into the call,
@@ -1415,19 +1433,14 @@
       (let* ((enum? (● (data-type-of m (type-name type)) enum?))
              (holder (if enum? (case-type m type case) (data-type m type)))
              (read (if enum? (wat "ref.cast" (wat "ref" (id holder)) record) record))
-             (offset (+ (data-offset m type) (if enum? 1 0))))
-        (concatenate
-         (map-indexed (lambda (index type)
-                        (if (shared-type? (program-of m) type)
-                            (list (wat "drop"
-                                       (release-value m
-                                                      type
-                                                      (wat "struct.get"
-                                                           (id holder)
-                                                           (int (+ index offset))
-                                                           read)
-                                                      (wat "local.get" (Word "$ev"))))) (Nil)))
-                      (case-field-types m type case)))))
+             (offset (+ (data-offset m type) (if enum? 1 0)))
+             (fields (filter (lambda (field) (shared-type? (program-of m) (● field second)))
+                             (zip (iota (length (● case fields))) (case-field-types m type case)))))
+        (release-sequence
+         (map (lambda (field)
+                (release-value m (● field second)
+                               (wat "struct.get" (id holder) (int (+ offset (● field first))) read)
+                               (wat "local.get" (Word "$ev")))) fields))))
 
     (define (owner-type (m Module)) (→ String) (! mut)
       (match (known-type m "owner")
@@ -1471,8 +1484,8 @@
       (local.set $count (i64.sub (local.get $count) (i64.const 1)))
       (struct.set $owner 0 (local.get $owner) (local.get $count))
       (if (i64.eqz (local.get $count))
-        (then (drop (call_ref $owner.drop (local.get $owner) (local.get $ev)
-                       (struct.get $owner 1 (local.get $owner))))))))
+        (then (return_call_ref $owner.drop (local.get $owner) (local.get $ev)
+                (struct.get $owner 1 (local.get $owner)))))))
   (i32.const 0))" (list (Pair "evidence" (evidence-type m)))))
 
     ;; Rc and WeakRc share a GC control cell. A weak reference contributes
@@ -1539,7 +1552,7 @@
                                                   ((Reference _)
                                                    (wat "ref.as_non_null"
                                                         (wat "local.get" (Word "$value"))))
-                                                  (_ (wat "local.get" (Word "$value"))))) #f))))))
+                                                  (_ (wat "local.get" (Word "$value"))))) #t))))))
 
     (define (new-rc (m Module) (type Type) (payload Wat) (finalizer Wat)) (→ Wat) (! mut)
       (let ((content (first-type (type-args type))))
@@ -1662,6 +1675,8 @@
   (local $index i32)
   (block $done (loop $next
     (br_if $done (i32.ge_u (local.get $index) (array.len (local.get $array))))
+    (if (i32.eq (i32.add (local.get $index) (i32.const 1)) (array.len (local.get $array)))
+      (then (return_call {release} (array.get {array} (local.get $array) (local.get $index)) (local.get $ev))))
     (drop (call {release} (array.get {array} (local.get $array) (local.get $index)) (local.get $ev)))
     (local.set $index (i32.add (local.get $index) (i32.const 1))) (br $next)))
   (i32.const 0))"
@@ -1676,7 +1691,7 @@
                    (wat "func" (id name) (wat "type" (Word "$owner.drop"))
                         (wat "param" (Word "$owner") (wat "ref" (id (owner-type m))))
                         (evidence-param m) (wat "result" (Word "i32"))
-                        (wat "call" (id (array-release-helper m element))
+                        (wat "return_call" (id (array-release-helper m element))
                              (wat "struct.get" (id holder) (int 2)
                                   (wat "ref.cast"
                                        (wat "ref" (id holder))
@@ -2233,13 +2248,14 @@
                  (wat "func" (id name) (wat "type" (Word "$owner.drop"))
                       (wat "param" (Word "$owner") (wat "ref" (id (owner-type m))))
                       (evidence-param m) (wat "result" (Word "i32"))
-                      (release-value m type
-                                     (wat "ref.cast" (rep->wat (rep m type))
-                                          (wat "struct.get" (id (any-type m)) (int 3)
-                                               (wat "ref.cast"
-                                                    (wat "ref" (id (any-type m)))
-                                                    (wat "local.get" (Word "$owner")))))
-                                     (wat "local.get" (Word "$ev")))))))
+                      (tail-release (release-value m type
+                                                   (wat "ref.cast" (rep->wat (rep m type))
+                                                        (wat "struct.get" (id (any-type m)) (int 3)
+                                                             (wat "ref.cast"
+                                                                  (wat "ref" (id (any-type m)))
+                                                                  (wat "local.get"
+                                                                       (Word "$owner")))))
+                                                   (wat "local.get" (Word "$ev"))))))))
 
     ;; An Any holds a value of `type` when its TypeId is the type's and its
     ;; value has the type's representation, which `ref.test` checks without
@@ -2635,16 +2651,9 @@
                                                                 (wat "local.get"
                                                                      (Word "$outside"))))))
                                         (● info operations))
-                           (list (wat "if"
-                                      (wat "i32.eqz"
-                                           (wat "ref.is_null" (wat "local.get" (Word "$outside"))))
-                                      (wat "then" (wat "drop" (wat "call" (id (release-helper m))
-                                                                   (wat "ref.as_non_null"
-                                                                        (wat "local.get"
-                                                                             (Word "$outside")))
-                                                                   (wat "local.get"
-                                                                        (Word "$ev"))))))
-                                 (wat "i32.const" (int 0))))))))))
+                           (list (wat "return_call" (id (release-helper m))
+                                      (wat "ref.as_non_null" (wat "local.get" (Word "$outside")))
+                                      (wat "local.get" (Word "$ev")))))))))))
 
     ;; A continuation keeps its handled node, while its outer context comes
     ;; from the resume site. Installing a context containing that same node
