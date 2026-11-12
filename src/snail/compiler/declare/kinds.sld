@@ -23,7 +23,8 @@
   (import
    (snail core base)
    (snail compiler declare language)
-   (snail compiler declare equality))
+   (snail compiler types type)
+   (snail compiler types equality))
   (begin
 
     ;; ---- Parameters ----
@@ -111,7 +112,6 @@
     (export
      test-kinds)
     (import
-     (only (snail compiler expand language) Impl Dyn FnContract FnMutContract)
      (only (snail compiler names globals) Global)
      (snail stage0 testing))
     (begin

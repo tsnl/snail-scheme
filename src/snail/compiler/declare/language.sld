@@ -57,19 +57,11 @@
 ;;   Implementation ::= Implementation Global Expr
 ;;   Pattern     ::= Wild | Bind Local | Equals Datum | Destructure TopValue Pattern*
 ;;
-;;   Type        ::= Con Global Type* | Callable Former Contract Arrow | Code Arrow
-;;                 | Row Effects | Var TypeVariable                  no Loc
-;;   Arrow       ::= Arrow Type* Type Effects                        no Loc
-;;   Effects     ::= Effects Global* Type?                           no Loc
-;;   TypeVariable ::= Written name | Associated number label
-;;                  | CallableArgument number | Own TypeVariable     no Loc
-;;   Scheme      ::= Scheme TypeVariable* Requirement* TypeVariable* Type   no Loc
-;;   Requirement ::= ClassRequirement ClassRef Type*
-;;                 | CallableRequirement Contract Type Arrow         no Loc
-;;
-;; Every other rule is Expanded's, (snail compiler expand language):
-;; Constant, Local, Global, TopValue, FieldRole, Label, Annotation, ClassRef,
-;; Former and Contract; and Datum is Syntax's.
+;; Annotation is Expanded's, (snail compiler expand language). The types
+;; are the vocabulary's: Type, Arrow, Effects, TypeVariable, Former and
+;; Contract are (snail compiler types type)'s, and Scheme and Requirement
+;; (snail compiler types scheme)'s. So are the names, (snail compiler
+;; names globals), and the literals, Constant and Datum.
 ;;
 ;; Over the Derived library it comes from, Declared guarantees:
 ;;
@@ -217,32 +209,17 @@
    Wild
    Bind
    Equals
-   Destructure
-   Type
-   Con
-   Callable
-   Code
-   Row
-   Var
-   Arrow
-   Effects
-   TypeVariable
-   Written
-   Associated
-   CallableArgument
-   Own
-   Scheme
-   Requirement
-   ClassRequirement
-   CallableRequirement)
+   Destructure)
   (import
    (snail core base)
    (snail compiler source)
    (only (snail compiler literals datum) Datum)
    (snail compiler names libraries)
-   (only (snail compiler expand language) Annotation Former Contract)
+   (only (snail compiler expand language) Annotation)
    (only (snail compiler names globals) Local Global TopValue ClassRef Label)
-   (only (snail compiler literals constant) Constant))
+   (only (snail compiler literals constant) Constant)
+   (only (snail compiler types type) Type TypeVariable)
+   (only (snail compiler types scheme) Scheme Requirement))
   (begin
 
     ;; ---- Libraries ----
@@ -614,74 +591,5 @@
        ((constructor TopValue)
         (arguments (List Pattern))
         (loc Loc))))
-
-    ;; ---- Types ----
-
-    ;; A declared or builtin type at its arguments. `(impl (Fn ...))` and
-    ;; `(dyn (FnMut ...))` are Callables; `(dyn (Fn ...))` is a Callable
-    ;; too, which the old compiler writes as its bare arrow. `(fn ...)` is
-    ;; Code. A Row is `(! effect ... tail)` as a type argument, as `e` in
-    ;; `(Store (! io) S)`.
-    (enum Type
-      (Con
-       ((type Global)
-        (arguments (List Type))))
-      (Callable
-       ((former Former)
-        (contract Contract)
-        (arrow Arrow)))
-      (Code
-       ((arrow Arrow)))
-      (Row
-       ((effects Effects)))
-      (Var
-       ((variable TypeVariable))))
-
-    (struct Arrow
-      ((parameters (List Type))
-       (result Type)
-       (effects Effects)))
-
-    ;; A set of effects, each once, in the order of their Globals, and the
-    ;; type the row ends with, as written.
-    (struct Effects
-      ((labels (List Global))
-       (tail (Option Type))))
-
-    ;; A variable the source names; an output the requirement at position
-    ;; `number` of the scheme that introduces it leaves unwritten; the type
-    ;; the caller chooses for an `impl` parameter, the variable at position
-    ;; `number` of the scheme that introduces it; or, in the scheme of an
-    ;; instance's implementation of a method, one of the method's own
-    ;; variables, kept apart from the instance's. None is ever a name the
-    ;; compiler joined.
-    (enum TypeVariable
-      (Written
-       ((name String)))
-      (Associated
-       ((number I64)
-        (label String)))
-      (CallableArgument
-       ((number I64)))
-      (Own
-       ((variable TypeVariable))))
-
-    (struct Scheme
-      ((variables (List TypeVariable))
-       (requirements (List Requirement))
-       (copied (List TypeVariable))
-       (type Type)))
-
-    ;; A class at each of its parameters, its outputs last; or one of the
-    ;; compiler's callable classes, at a receiver and an arrow, whose
-    ;; evidence the compiler finds from the receiver's representation.
-    (enum Requirement
-      (ClassRequirement
-       ((class ClassRef)
-        (types (List Type))))
-      (CallableRequirement
-       ((contract Contract)
-        (receiver Type)
-        (arrow Arrow))))
 
     ))

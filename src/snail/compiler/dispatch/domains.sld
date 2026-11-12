@@ -32,13 +32,27 @@
    concrete?)
   (import
    (snail core base)
-   (only (snail compiler expand language) Dyn FnContract)
    (prefix (snail compiler declare language) declared-)
-   (only (snail compiler declare equality) same-type? same-variable?)
+   (only (snail compiler types equality) same-type? same-variable?)
    (only (snail compiler names globals) ClassRef)
-   (only (snail compiler declare schemes) class-variables substituted)
+   (only (snail compiler declare schemes) class-variables)
+   (only (snail compiler types type)
+         Type
+         Con
+         Callable
+         Code
+         Row
+         Var
+         Arrow
+         Effects
+         TypeVariable
+         Written
+         Dyn
+         FnContract)
+   (only (snail compiler types scheme) Scheme ClassRequirement)
+   (only (snail compiler types substitution) substituted)
    (snail compiler dispatch known)
-   (snail compiler dispatch runtime)
+   (snail compiler types builtins)
    (only (snail compiler builtins base) instance-lifecycle dyn-cast-effect))
   (begin
 
@@ -47,16 +61,16 @@
     ;; The class's parameter the clause erases, the others at the head's
     ;; types, and the targets, in the order written.
     (struct Domain
-      ((erased declared-TypeVariable)
-       (fixed (List (Pair declared-TypeVariable declared-Type)))
-       (targets (List declared-Type))))
+      ((erased TypeVariable)
+       (fixed (List (Pair TypeVariable Type)))
+       (targets (List Type))))
 
     ;; `instance` is the clause's, written for `class` as known there, and
     ;; `targets` the clause's types. Declared gives the instance's head
     ;; exactly the class's parameters and outputs as known where it is
     ;; written, which is `class`, so they pair up.
     (: clause-domain
-       (impl (Fn KnownClass declared-Instance (List declared-Type) -> (Result Domain String))))
+       (impl (Fn KnownClass declared-Instance (List Type) -> (Result Domain String))))
     (define (clause-domain class instance targets)
       (let ((head (zip (class-variables (::parameters class) (::outputs class))
                        (append (::types instance) (::outputs instance)))))
@@ -86,7 +100,7 @@
         ((Some _) #t)
         ((None) #f)))
 
-    (: targets-problem (impl (Fn (List declared-Type) -> (Option String))))
+    (: targets-problem (impl (Fn (List Type) -> (Option String))))
     (define (targets-problem targets)
       (cond ((null? targets) (Some "dispatch needs at least one concrete type"))
             ((not (every? concrete? targets))
@@ -97,28 +111,28 @@
 
     ;; A type a value can be recovered as, as a clause's targets and a
     ;; `dynamic-instances` form's pairs must be: ground, and not Any itself.
-    (: concrete? (impl (Fn declared-Type -> Bool)))
+    (: concrete? (impl (Fn Type -> Bool)))
     (define (concrete? type)
       (and (ground? type) (not (any-type? type))))
 
     ;; A type with no variable, and no row that ends with one, as the old
     ;; compiler's `ground-type?` says.
-    (: ground? (impl (Fn declared-Type -> Bool)))
+    (: ground? (impl (Fn Type -> Bool)))
     (define (ground? type)
       (match type
-        ((declared-Con _ arguments) (every? ground? arguments))
-        ((declared-Callable _ _ arrow) (ground-arrow? arrow))
-        ((declared-Code arrow) (ground-arrow? arrow))
-        ((declared-Row effects) (closed? effects))
-        ((declared-Var _) #f)))
+        ((Con _ arguments) (every? ground? arguments))
+        ((Callable _ _ arrow) (ground-arrow? arrow))
+        ((Code arrow) (ground-arrow? arrow))
+        ((Row effects) (closed? effects))
+        ((Var _) #f)))
 
-    (: ground-arrow? (impl (Fn declared-Arrow -> Bool)))
+    (: ground-arrow? (impl (Fn Arrow -> Bool)))
     (define (ground-arrow? arrow)
       (and (every? ground? (::parameters arrow))
            (ground? (::result arrow))
            (closed? (::effects arrow))))
 
-    (: closed? (impl (Fn declared-Effects -> Bool)))
+    (: closed? (impl (Fn Effects -> Bool)))
     (define (closed? effects)
       (match (::tail effects)
         ((None) #t)
@@ -142,7 +156,7 @@
 
     ;; `own` is the method's own scheme, over the class's parameters and
     ;; outputs.
-    (: method-shape (impl (Fn Domain declared-Scheme -> (Result MethodShape String))))
+    (: method-shape (impl (Fn Domain Scheme -> (Result MethodShape String))))
     (define (method-shape domain own)
       (cond ((not (null? (::requirements own)))
              (Err "dispatch does not support methods with additional class requirements"))
@@ -150,12 +164,12 @@
              (Err "dispatch does not support independently polymorphic methods"))
             (else
              (match (substituted (::fixed domain) (::type own))
-               ((declared-Callable (Dyn) (FnContract) arrow)
+               ((Callable (Dyn) (FnContract) arrow)
                 (arrow-shape (::erased domain) (::parameters arrow) (::result arrow)))
                (_ (Err "dispatch needs function methods"))))))
 
     (: arrow-shape
-       (impl (Fn declared-TypeVariable (List declared-Type) declared-Type
+       (impl (Fn TypeVariable (List Type) Type
                  -> (Result MethodShape String))))
     (define (arrow-shape erased parameters result)
       (let ((positions (map (lambda (type) (position erased type)) (Cons result parameters))))
@@ -170,40 +184,40 @@
 
     ;; The position a part of the method's type is, if it is one: the
     ;; erased parameter whole, or a type that does not mention it.
-    (: position (impl (Fn declared-TypeVariable declared-Type -> (Option Position))))
+    (: position (impl (Fn TypeVariable Type -> (Option Position))))
     (define (position erased type)
       (cond ((erased? erased type) (Some (Erased)))
             ((mentions? erased type) (None))
             (else (Some (Fixed)))))
 
-    (: whole (impl (Fn declared-TypeVariable declared-Type -> Position)))
+    (: whole (impl (Fn TypeVariable Type -> Position)))
     (define (whole erased type)
       (if (erased? erased type) (Erased) (Fixed)))
 
-    (: erased? (impl (Fn declared-TypeVariable declared-Type -> Bool)))
+    (: erased? (impl (Fn TypeVariable Type -> Bool)))
     (define (erased? erased type)
-      (same-type? type (declared-Var erased)))
+      (same-type? type (Var erased)))
 
     ;; Whether `type` mentions the erased parameter anywhere the old
     ;; compiler's `mentions?` looks: a type's arguments, a callable's or
     ;; code's parameters, result and row, and a row's tail.
-    (: mentions? (impl (Fn declared-TypeVariable declared-Type -> Bool)))
+    (: mentions? (impl (Fn TypeVariable Type -> Bool)))
     (define (mentions? erased type)
       (match type
-        ((declared-Var variable) (same-variable? variable erased))
-        ((declared-Con _ arguments)
+        ((Var variable) (same-variable? variable erased))
+        ((Con _ arguments)
          (any? (lambda (argument) (mentions? erased argument)) arguments))
-        ((declared-Callable _ _ arrow) (arrow-mentions? erased arrow))
-        ((declared-Code arrow) (arrow-mentions? erased arrow))
-        ((declared-Row effects) (tail-mentions? erased effects))))
+        ((Callable _ _ arrow) (arrow-mentions? erased arrow))
+        ((Code arrow) (arrow-mentions? erased arrow))
+        ((Row effects) (tail-mentions? erased effects))))
 
-    (: arrow-mentions? (impl (Fn declared-TypeVariable declared-Arrow -> Bool)))
+    (: arrow-mentions? (impl (Fn TypeVariable Arrow -> Bool)))
     (define (arrow-mentions? erased arrow)
       (or (tail-mentions? erased (::effects arrow))
           (mentions? erased (::result arrow))
           (any? (lambda (parameter) (mentions? erased parameter)) (::parameters arrow))))
 
-    (: tail-mentions? (impl (Fn declared-TypeVariable declared-Effects -> Bool)))
+    (: tail-mentions? (impl (Fn TypeVariable Effects -> Bool)))
     (define (tail-mentions? erased effects)
       (match (::tail effects)
         ((Some tail) (mentions? erased tail))
@@ -219,7 +233,7 @@
      test-domains)
     (import
      (snail compiler source)
-     (only (snail compiler expand language) FnMutContract)
+     (only (snail compiler types type) FnMutContract)
      (only (snail compiler names globals) Global ClassGlobal Label)
      (only (snail compiler names libraries) forms-library)
      (only (snail compiler builtins base) drop-class)
@@ -236,16 +250,16 @@
       (define base (list "snail" "core" "base"))
 
       (define (builtin name)
-        (declared-Con (Global forms-library name 0) (list)))
+        (Con (Global forms-library name 0) (list)))
 
       (define i64 (builtin "I64"))
       (define f64 (builtin "F64"))
-      (define t (declared-Written "T"))
-      (define e (declared-Written "e"))
-      (define dyn-cast-row (declared-Row (declared-Effects (list dyn-cast-effect) (None))))
+      (define t (Written "T"))
+      (define e (Written "e"))
+      (define dyn-cast-row (Row (Effects (list dyn-cast-effect) (None))))
 
       (define (list-of type)
-        (declared-Con (Global base "List" 0) (list type)))
+        (Con (Global base "List" 0) (list type)))
 
       ;; (Num e T), whose e is a row.
       (define num
@@ -285,7 +299,7 @@
                                (instance num-class
                                  (list e)
                                  (list)
-                                 (list (declared-Var e) any-type)
+                                 (list (Var e) any-type)
                                  (list))
                                (list i64))
                 (Err "dispatch needs a ground instance head with exactly one Any type argument"))
@@ -298,7 +312,7 @@
                                  (list i64)
                                  (list any-type))
                                (list i64))
-                (Ok (Domain (declared-Written "Out") (list (Pair t i64)) (list i64))))
+                (Ok (Domain (Written "Out") (list (Pair t i64)) (list i64))))
         (expect (clause-domain num
                                (instance (ClassGlobal drop-class)
                                  (list)
@@ -317,9 +331,9 @@
           (expect (domain (list)) (Err "dispatch needs at least one concrete type"))
           (expect (domain (list any-type))
                   (Err "dispatch accepts concrete types, not Any or type variables"))
-          (expect (domain (list (list-of (declared-Var t))))
+          (expect (domain (list (list-of (Var t))))
                   (Err "dispatch accepts concrete types, not Any or type variables"))
-          (expect (domain (list (declared-Row (declared-Effects (list) (Some (declared-Var e))))))
+          (expect (domain (list (Row (Effects (list) (Some (Var e))))))
                   (Err "dispatch accepts concrete types, not Any or type variables"))
           (expect (domain (list i64 i64)) (Err "dispatch repeats a concrete type"))
           (expect (domain (list i64 any-type i64))
@@ -329,45 +343,45 @@
                    (Domain t (list (Pair e dyn-cast-row)) (list i64 (list-of i64) dyn-cast-row))))))
 
       (define (function parameters result)
-        (declared-Callable (Dyn)
-                           (FnContract)
-                           (declared-Arrow parameters
-                                           result
-                                           (declared-Effects (list) (Some (declared-Var e))))))
+        (Callable (Dyn)
+                  (FnContract)
+                  (Arrow parameters
+                         result
+                         (Effects (list) (Some (Var e))))))
 
       (define num-domain (Domain t (list (Pair e dyn-cast-row)) (list i64 f64)))
 
       (define (own variables requirements type)
-        (declared-Scheme variables requirements (list) type))
+        (Scheme variables requirements (list) type))
 
       ;; A method of its own requirements is refused before one of its own
       ;; variables; a method that is no function after that.
       (define (test-requirements)
         (expect (method-shape num-domain
-                              (own (list (declared-Written "b"))
-                                   (list (declared-ClassRequirement num-class
-                                                                    (list dyn-cast-row
-                                                                          (declared-Var
-                                                                           (declared-Written
-                                                                            "b")))))
-                                   (function (list (declared-Var t)) (declared-Var t))))
+                              (own (list (Written "b"))
+                                   (list (ClassRequirement num-class
+                                                           (list dyn-cast-row
+                                                                 (Var
+                                                                  (Written
+                                                                   "b")))))
+                                   (function (list (Var t)) (Var t))))
                 (Err "dispatch does not support methods with additional class requirements"))
         (expect (method-shape num-domain
-                              (own (list (declared-Written "b"))
+                              (own (list (Written "b"))
                                    (list)
-                                   (function (list (declared-Var t)) (declared-Var t))))
+                                   (function (list (Var t)) (Var t))))
                 (Err "dispatch does not support independently polymorphic methods"))
         (expect (method-shape num-domain
                               (own (list)
                                    (list)
-                                   (declared-Callable (Dyn)
-                                                      (FnMutContract)
-                                                      (declared-Arrow (list (declared-Var t))
-                                                                      i64
-                                                                      (declared-Effects (list)
-                                                                                        (None))))))
+                                   (Callable (Dyn)
+                                             (FnMutContract)
+                                             (Arrow (list (Var t))
+                                                    i64
+                                                    (Effects (list)
+                                                             (None))))))
                 (Err "dispatch needs function methods"))
-        (expect (method-shape num-domain (own (list) (list) (declared-Var t)))
+        (expect (method-shape num-domain (own (list) (list) (Var t)))
                 (Err "dispatch needs function methods")))
 
       ;; The result and each parameter whole or apart from the erased
@@ -376,16 +390,16 @@
       (define (test-positions)
         (let ((shape (lambda (parameters result)
                        (method-shape num-domain (own (list) (list) (function parameters result))))))
-          (expect (shape (list (declared-Var t) (declared-Var t)) (declared-Var t))
+          (expect (shape (list (Var t) (Var t)) (Var t))
                   (Ok (MethodShape (list (Erased) (Erased)) 0 (Erased))))
-          (expect (shape (list i64 (declared-Var t)) (builtin "String"))
+          (expect (shape (list i64 (Var t)) (builtin "String"))
                   (Ok (MethodShape (list (Fixed) (Erased)) 1 (Fixed))))
-          (expect (shape (list (list-of (declared-Var t))) (builtin "String"))
+          (expect (shape (list (list-of (Var t))) (builtin "String"))
                   (Err "dispatch needs the erased class type as a whole parameter or result"))
-          (expect (shape (list (builtin "String")) (declared-Var t))
+          (expect (shape (list (builtin "String")) (Var t))
                   (Err "each dispatched method needs an argument of its erased class type"))
-          (expect (shape (list (builtin "String")) (list-of (declared-Var t)))
+          (expect (shape (list (builtin "String")) (list-of (Var t)))
                   (Err "dispatch needs the erased class type as a whole parameter or result"))
-          (expect (shape (list (function (list (declared-Var t)) i64) (declared-Var t)) i64)
+          (expect (shape (list (function (list (Var t)) i64) (Var t)) i64)
                   (Err "dispatch needs the erased class type as a whole parameter or result"))))))
    (else)))

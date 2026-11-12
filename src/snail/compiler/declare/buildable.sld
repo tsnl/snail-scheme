@@ -18,9 +18,11 @@
    (snail core base)
    (snail compiler declare language)
    (snail compiler declare known)
-   (snail compiler declare equality)
+   (snail compiler types equality)
    (only (snail compiler names globals) Global same-global?)
-   (snail compiler declare schemes))
+   (snail compiler declare schemes)
+   (snail compiler types type)
+   (only (snail compiler types substitution) substituted))
   (begin
 
     ;; ---- Structs ----
@@ -82,7 +84,6 @@
     (import
      (snail core table)
      (snail compiler source)
-     (only (snail compiler expand language) Dyn FnContract)
      (snail compiler declare offer)
      (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))

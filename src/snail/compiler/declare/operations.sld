@@ -22,7 +22,9 @@
   (import
    (snail core base)
    (snail compiler declare language)
-   (snail compiler declare equality)
+   (snail compiler types type)
+   (snail compiler types scheme)
+   (snail compiler types equality)
    (only (snail compiler names globals) Global same-global?))
   (begin
 
@@ -92,7 +94,6 @@
      test-operations)
     (import
      (snail compiler source)
-     (only (snail compiler expand language) Dyn FnContract)
      (snail stage0 testing))
     (begin
       (define (test-operations)

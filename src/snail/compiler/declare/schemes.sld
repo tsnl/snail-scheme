@@ -23,11 +23,10 @@
 ;;   `(Own variable)`. A row ending with a parameter the head gives a row
 ;;   becomes the one row they make, as the old compiler substitutes it.
 ;;
-;; And a type with its variables bound, as the old compiler's `substitute`
-;; makes it, which the schemes above are made with, as is a struct's field
-;; at its type's arguments; and whether a struct has no mutable field,
-;; which gives its fields replacers and each the instance of its label's
-;; field class that reads it.
+;; The schemes are made with the vocabulary's substitution, (snail
+;; compiler types substitution). And whether a struct has no mutable
+;; field, which gives its fields replacers and each the instance of its
+;; label's field class that reads it.
 (define-library (snail compiler declare schemes)
   (export
    constructor-scheme
@@ -39,14 +38,17 @@
    method-scheme
    operation-scheme
    default-scheme
-   implementation-scheme
-   substituted)
+   implementation-scheme)
   (import
    (snail core base)
-   (only (snail compiler expand language) Dyn FnContract)
    (snail compiler declare language)
+   (snail compiler types type)
+   (snail compiler types scheme)
    (only (snail compiler names libraries) forms-library)
-   (snail compiler declare equality)
+   (only (snail compiler builtins forms) mut-global)
+   (only (snail compiler types builtins) unit-type)
+   (snail compiler types equality)
+   (only (snail compiler types substitution) substituted substituted-requirement)
    (only (snail compiler names globals)
          Global
          FieldRole
@@ -75,10 +77,6 @@
     (define (constructor-scheme data case)
       (data-scheme data (function (map ::type (::fields case)) (self-type data) (Nil))))
 
-    (: mut-effect Global)
-    (define mut-effect
-      (Global forms-library "mut" 0))
-
     ;; The functions a field has, each with its scheme, in the old
     ;; compiler's order.
     (: field-schemes (impl (Fn Data DataCase DataField -> (List (Pair FieldRole Scheme)))))
@@ -90,17 +88,17 @@
                                           (function (list self)
                                                     type
                                                     (if (::mutable? field)
-                                                        (list mut-effect)
+                                                        (list mut-global)
                                                         (Nil)))))))
         (cond ((::mutable? field)
                (list accessor
                      (Pair (Setter)
                            (data-scheme data
                                         (function (list self type)
-                                                  (Con (Global forms-library "Unit" 0) (Nil))
-                                                  (list mut-effect))))
+                                                  unit-type
+                                                  (list mut-global))))
                      (Pair (Swapper)
-                           (data-scheme data (function (list self type) type (list mut-effect))))))
+                           (data-scheme data (function (list self type) type (list mut-global))))))
               ((pure-struct? data case)
                (list accessor
                      (Pair (Replacer) (data-scheme data (function (list self type) self (Nil))))))
@@ -183,51 +181,6 @@
                 (append (::copied instance) (map Own (::copied own)))
                 (substituted bindings (::type own)))))
 
-    (: substituted (impl (Fn (List (Pair TypeVariable Type)) Type -> Type)))
-    (define (substituted bindings type)
-      (match type
-        ((Var variable) (bound-to bindings variable type))
-        ((Con global arguments)
-         (Con global (map (lambda (argument) (substituted bindings argument)) arguments)))
-        ((Callable former contract arrow)
-         (Callable former contract (substituted-arrow bindings arrow)))
-        ((Code arrow) (Code (substituted-arrow bindings arrow)))
-        ((Row effects) (Row (substituted-effects bindings effects)))))
-
-    (: bound-to (impl (Fn (List (Pair TypeVariable Type)) TypeVariable Type -> Type)))
-    (define (bound-to bindings variable type)
-      (match (find (lambda (binding) (same-variable? (::first binding) variable)) bindings)
-        ((Some binding) (::second binding))
-        ((None) type)))
-
-    (: substituted-arrow (impl (Fn (List (Pair TypeVariable Type)) Arrow -> Arrow)))
-    (define (substituted-arrow bindings arrow)
-      (Arrow (map (lambda (parameter) (substituted bindings parameter)) (::parameters arrow))
-             (substituted bindings (::result arrow))
-             (substituted-effects bindings (::effects arrow))))
-
-    ;; A tail that becomes a row joins its labels.
-    (: substituted-effects (impl (Fn (List (Pair TypeVariable Type)) Effects -> Effects)))
-    (define (substituted-effects bindings effects)
-      (match (::tail effects)
-        ((None) effects)
-        ((Some tail)
-         (match (substituted bindings tail)
-           ((Row (Effects labels rest))
-            (Effects (effect-set (append (::labels effects) labels)) rest))
-           (other (Effects (::labels effects) (Some other)))))))
-
-    (: substituted-requirement
-       (impl (Fn (List (Pair TypeVariable Type)) Requirement -> Requirement)))
-    (define (substituted-requirement bindings requirement)
-      (match requirement
-        ((ClassRequirement class types)
-         (ClassRequirement class (map (lambda (type) (substituted bindings type)) types)))
-        ((CallableRequirement contract receiver arrow)
-         (CallableRequirement contract
-                              (substituted bindings receiver)
-                              (substituted-arrow bindings arrow)))))
-
     )
 
   ;; ---- Tests ----
@@ -284,7 +237,7 @@
                   (Scheme (list (Written "a"))
                           (list)
                           (list)
-                          (fn (list cell-type) (var "a") (list mut-effect))))
+                          (fn (list cell-type) (var "a") (list mut-global))))
           (expect (field-schemes point point-case x)
                   (list
                    (Pair (Accessor) (Scheme (list) (list) (list) (fn (list point-type) i64 (list))))

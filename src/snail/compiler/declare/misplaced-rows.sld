@@ -13,7 +13,8 @@
    misplaced-row-problem)
   (import
    (snail core base)
-   (only (snail compiler declare language) ClassParameter TypeParameter RowParameter Type Row))
+   (only (snail compiler declare language) ClassParameter TypeParameter RowParameter)
+   (only (snail compiler types type) Type Row))
   (begin
 
     ;; ---- Messages ----
@@ -45,7 +46,7 @@
      test-misplaced-rows)
     (import
      (only (snail compiler names globals) Global)
-     (only (snail compiler declare language) Con Effects)
+     (only (snail compiler types type) Con Effects)
      (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin

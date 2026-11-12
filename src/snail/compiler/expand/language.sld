@@ -58,8 +58,6 @@
 ;;                 | Aliased Global TypeExpr* TypeExpr | AliasParameter index
 ;;   Arrow       ::= Arrow TypeExpr* TypeExpr Effects                no Loc
 ;;   Effects     ::= Effects Global* TypeExpr?                       no Loc
-;;   Former      ::= Impl | Dyn                                      no Loc
-;;   Contract    ::= FnContract | FnMutContract | FnOnceContract     no Loc
 ;;   Scheme      ::= Scheme variable* Requirement* TypeExpr
 ;;   Requirement ::= CopyRequirement variable
 ;;                 | ClassRequirement ClassRef TypeExpr* Equation*
@@ -69,7 +67,8 @@
 ;; The names are the vocabulary's, (snail compiler names globals): Local,
 ;; Global, TopValue, FieldRole, ClassRef and Label; and so are the
 ;; literals, Constant, (snail compiler literals constant), and Datum,
-;; (snail compiler literals datum).
+;; (snail compiler literals datum), and a callable's Former and Contract,
+;; (snail compiler types type), which a written type and a type share.
 ;;
 ;; Over the Library it comes from, Expanded guarantees:
 ;;
@@ -202,13 +201,6 @@
    AliasParameter
    Arrow
    Effects
-   Former
-   Impl
-   Dyn
-   Contract
-   FnContract
-   FnMutContract
-   FnOnceContract
    Scheme
    Requirement
    CopyRequirement
@@ -221,7 +213,8 @@
    (only (snail compiler literals datum) Datum)
    (only (snail compiler literals constant) Constant)
    (snail compiler names libraries)
-   (only (snail compiler names globals) Global Local TopValue ClassRef Label))
+   (only (snail compiler names globals) Global Local TopValue ClassRef Label)
+   (only (snail compiler types type) Former Contract))
   (begin
 
     ;; ---- Libraries ----
@@ -651,15 +644,6 @@
     (struct Effects
       ((labels (List Global))
        (tail (Option TypeExpr))))
-
-    (enum Former
-      (Impl)
-      (Dyn))
-
-    (enum Contract
-      (FnContract)
-      (FnMutContract)
-      (FnOnceContract))
 
     ;; `(All (variable ...) (requires requirement ...) type)`, or a type
     ;; alone, which quantifies nothing.

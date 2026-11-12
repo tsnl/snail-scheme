@@ -10,9 +10,10 @@
   (import
    (snail core base)
    (snail compiler declare language)
+   (snail compiler types type)
    (only (snail compiler names libraries) forms-library)
-   (only (snail compiler builtins forms) string-type vector-type u8-type)
-   (snail compiler declare equality)
+   (only (snail compiler builtins forms) string-global vector-global u8-global)
+   (snail compiler types equality)
    (only (snail compiler names globals) same-global?))
   (begin
 
@@ -40,9 +41,9 @@
     (: buffer? (impl (Fn Type -> Bool)))
     (define (buffer? type)
       (match type
-        ((Con global (Nil)) (same-global? global string-type))
+        ((Con global (Nil)) (same-global? global string-global))
         ((Con global (Cons (Con element (Nil)) (Nil)))
-         (and (same-global? global vector-type) (same-global? element u8-type)))
+         (and (same-global? global vector-global) (same-global? element u8-global)))
         (_ #f)))
 
     )
@@ -54,13 +55,12 @@
     (export
      test-host)
     (import
-     (only (snail compiler expand language) Dyn FnContract)
      (only (snail compiler names globals) Global)
      (snail stage0 testing))
     (begin
       (define (test-host)
-        (let* ((text (Con string-type (list)))
-               (bytes (Con vector-type (list (Con u8-type (list)))))
+        (let* ((text (Con string-global (list)))
+               (bytes (Con vector-global (list (Con u8-global (list)))))
                (i64 (Con (Global forms-library "I64" 0) (list)))
                (unit-type (Con (Global forms-library "Unit" 0) (list)))
                (host (lambda (parameters)
@@ -78,7 +78,7 @@
           (expect (host-problem (host (list text text))) (Some last))
           ;; A Vector of another element, and a String of another library,
           ;; are no buffers.
-          (expect (host-problem (host (list (Con vector-type (list i64)) i64))) (None))
+          (expect (host-problem (host (list (Con vector-global (list i64)) i64))) (None))
           (expect (host-problem (host (list (Con (Global (list "main") "String" 0) (list)) i64)))
                   (None))
           (expect (host-problem i64) (None))))))

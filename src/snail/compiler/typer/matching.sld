@@ -1,8 +1,8 @@
-;; Query: one-way matching of an instance's head against types, as the old
+;; One-way matching of an instance's head against types, as the old
 ;; compiler's `match-types` (src/snail/shell/compiler/core.sld) matches
 ;; them: only the instance's own variables bind, the types they are matched
 ;; with are never looked into for variables, and a match is the bindings
-;; it makes, which `substituted` of (snail compiler declare schemes)
+;; it makes, which `substituted` of (snail compiler types substitution)
 ;; applies. `dispatch` matches a source instance to a domain pair with it,
 ;; and `solve` will choose an instance with it.
 ;;
@@ -15,21 +15,13 @@
 ;;   code matches code: their parameters and results, the result first,
 ;;   but never their effects.
 ;; - A row matches nothing, not even itself.
-(define-library (snail compiler dispatch matching)
+(define-library (snail compiler typer matching)
   (export
    matched-types)
   (import
    (snail core base)
-   (only (snail compiler declare language)
-         Type
-         Con
-         Callable
-         Code
-         Row
-         Var
-         Arrow
-         TypeVariable)
-   (only (snail compiler declare equality)
+   (only (snail compiler types type) Type Con Callable Code Row Var Arrow TypeVariable)
+   (only (snail compiler types equality)
          same-type?
          same-variable?
          variable-among?
@@ -137,9 +129,8 @@
     (export
      test-matching)
     (import
-     (only (snail compiler expand language) Impl Dyn FnContract FnMutContract)
+     (only (snail compiler types type) Effects Written Impl Dyn FnContract FnMutContract)
      (only (snail compiler names globals) Global)
-     (only (snail compiler declare language) Effects Written)
      (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin

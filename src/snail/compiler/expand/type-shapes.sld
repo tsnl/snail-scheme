@@ -42,6 +42,14 @@
    (snail compiler source)
    (snail compiler names libraries)
    (snail compiler expand language)
+   (only (snail compiler types type)
+         Former
+         Impl
+         Dyn
+         Contract
+         FnContract
+         FnMutContract
+         FnOnceContract)
    (snail compiler expand marked)
    (only (snail compiler expand scopes) marked-loc)
    (only (snail compiler names globals) Global))

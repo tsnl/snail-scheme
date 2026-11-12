@@ -4,7 +4,7 @@
 ;; with the old program's, which (snail compiler adapter expansion) runs
 ;; for every program both compilers expand.
 ;;
-;; A Global is the old compiler's unique name, as (snail compiler declare
+;; A Global is the old compiler's unique name, as (snail compiler names
 ;; spellings) spells it, the one spelling of a name: its library's parts
 ;; joined by dots, a colon and its name, or a builtin's name alone; one a
 ;; macro's template wrote is `name%serial`, where the old compiler's
@@ -57,14 +57,6 @@
    (snail core table)
    (snail compiler source)
    (snail compiler names libraries)
-   (only (snail compiler expand language)
-         Former
-         Impl
-         Dyn
-         Contract
-         FnContract
-         FnMutContract
-         FnOnceContract)
    (except (snail compiler declare language)
            Defined
            Program
@@ -86,7 +78,7 @@
    (prefix (only (snail compiler declare language) Instance) declared-)
    (snail compiler declare offer)
    (only (snail compiler names spellings) global-spelling)
-   (snail compiler declare equality)
+   (snail compiler types equality)
    (only (snail compiler names globals)
          Global
          TopValue
@@ -102,6 +94,8 @@
          FieldClass
          same-global?)
    (snail compiler declare schemes)
+   (snail compiler types type)
+   (snail compiler types scheme)
    (snail compiler dispatch language)
    (snail compiler dispatch listing)
    (only (snail compiler integrate compile) CompiledFile)

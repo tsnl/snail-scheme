@@ -40,9 +40,11 @@
    (snail compiler declare language)
    (snail compiler declare offer)
    (only (snail compiler builtins forms) builtin-arity)
-   (snail compiler declare equality)
+   (snail compiler types equality)
    (only (snail compiler names globals) Global ClassRef ClassGlobal FieldClass same-global?)
    (only (snail compiler declare schemes) field-class-parameters)
+   (snail compiler types type)
+   (snail compiler types scheme)
    (only (snail compiler declare misplaced-rows) instance-noun-of))
   (begin
 

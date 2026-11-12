@@ -49,18 +49,11 @@
    active?)
   (import
    (snail core base)
-   (only (snail compiler declare language)
-         Data
-         DataField
-         Type
-         Con
-         Row
-         Var
-         Written
-         TypeVariable
-         Requirement)
+   (only (snail compiler declare language) Data DataField)
    (only (snail compiler names globals) Global ClassRef ClassGlobal FieldClass same-global?)
    (only (snail compiler declare schemes) pure-struct?)
+   (only (snail compiler types type) Type Con Row Var TypeVariable Written)
+   (only (snail compiler types scheme) Requirement)
    (snail compiler dispatch language))
   (begin
 
@@ -203,10 +196,10 @@
            DataCase
            StructData
            EnumData
-           Effects
            InstanceMethod
            ClassMethod
            Literal)
+     (only (snail compiler types type) Effects)
      (only (snail compiler literals constant) UnitValue)
      (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))

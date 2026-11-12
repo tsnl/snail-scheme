@@ -21,11 +21,13 @@
    (snail core base)
    (snail compiler source)
    (prefix (snail compiler declare language) declared-)
-   (only (snail compiler declare equality) same-type?)
+   (only (snail compiler types type) Type Con Callable Row Var Arrow Effects Written)
+   (only (snail compiler types scheme) Scheme)
+   (only (snail compiler types equality) same-type?)
    (only (snail compiler names globals) Local TopGlobal ClassRef ClassGlobal FieldClass)
    (only (snail compiler declare membership) member-name)
    (only (snail compiler dispatch language) Instance)
-   (snail compiler dispatch runtime)
+   (snail compiler types builtins)
    (only (snail compiler builtins base) unsupported-instance-case dyn-cast-effect)
    (snail compiler dispatch known)
    (snail compiler dispatch binary)
@@ -40,7 +42,7 @@
     ;; class active there, written or generated before it, in the
     ;; program's order; or the form's problem.
     (: family-instances
-       (impl (Fn Numbering KnownClass ClassRef (List (List declared-Type)) (List Instance) Loc
+       (impl (Fn Numbering KnownClass ClassRef (List (List Type)) (List Instance) Loc
                  -> (Result (Pair (List Instance) Numbering) (List Feedback)))))
     (define (family-instances state class class-ref pairs sources loc)
       (result-let* ((checked (checked-families class class-ref pairs sources loc)))
@@ -51,7 +53,7 @@
 
     ;; The class, the domain, each pair's case in order, then each head.
     (: checked-families
-       (impl (Fn KnownClass ClassRef (List (List declared-Type)) (List Instance) Loc
+       (impl (Fn KnownClass ClassRef (List (List Type)) (List Instance) Loc
                  -> (Result (Pair BinaryClass (List Family)) (List Feedback)))))
     (define (checked-families class class-ref pairs sources loc)
       (result-let* ((binary (at loc (binary-class class)))
@@ -280,9 +282,9 @@
     (export
      test-families)
     (import
-     (only (snail compiler expand language) Dyn FnContract)
+     (only (snail compiler types type) Dyn FnContract)
      (only (snail compiler names libraries) forms-library)
-     (only (snail compiler declare equality) effect-set)
+     (only (snail compiler types equality) effect-set)
      (only (snail compiler names globals) Global Label)
      (only (snail compiler literals constant) Integer Text)
      (snail stage0 testing))
@@ -296,11 +298,11 @@
       (define base (list "snail" "core" "base"))
 
       (define (builtin name)
-        (declared-Con (Global forms-library name 0) (list)))
+        (Con (Global forms-library name 0) (list)))
 
       (define i64 (builtin "I64"))
       (define f64 (builtin "F64"))
-      (define (var name) (declared-Var (declared-Written name)))
+      (define (var name) (Var (Written name)))
       (define subtract (Global main "subtract" 0))
       (define log (Global main "log" 0))
       (define class-ref (ClassGlobal (Global main "Subtract" 0)))
@@ -312,21 +314,21 @@
                           (declared-TypeParameter "B"))
                     (list (declared-Output (Label "Output" loc) (list)))
                     (list (Pair (declared-ClassMethod subtract)
-                                (declared-Scheme (list)
-                                                 (list)
-                                                 (list)
-                                                 (declared-Callable
-                                                  (Dyn)
-                                                  (FnContract)
-                                                  (declared-Arrow (list (var "A") (var "B"))
-                                                                  (var "Output")
-                                                                  (declared-Effects (list)
-                                                                                    (Some
-                                                                                     (var
-                                                                                      "e"))))))))))
+                                (Scheme (list)
+                                        (list)
+                                        (list)
+                                        (Callable
+                                         (Dyn)
+                                         (FnContract)
+                                         (Arrow (list (var "A") (var "B"))
+                                                (var "Output")
+                                                (Effects (list)
+                                                         (Some
+                                                          (var
+                                                           "e"))))))))))
 
       (define (row labels)
-        (declared-Row (declared-Effects labels (None))))
+        (Row (Effects labels (None))))
 
       ;; tests/programs/binary-dispatch.sld's sources, in the set `ordinary`.
       (define (source serial labels a b output)
@@ -578,7 +580,7 @@
                            (list (list (row (list)) i64))
                            (list (Instance (Global main "Subtract" 9)
                                            class-ref
-                                           (list (declared-Written "a"))
+                                           (list (Written "a"))
                                            (list (row (list)) (var "a") i64)
                                            (list i64)
                                            (list)

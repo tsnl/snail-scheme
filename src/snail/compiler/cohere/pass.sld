@@ -134,9 +134,9 @@
     (export
      test-cohere)
     (import
-     (only (snail compiler expand language) Dyn FnContract)
      (only (snail compiler names globals) ClassGlobal FieldClass)
      (prefix (snail compiler declare language) declared-)
+     (only (snail compiler types type) Con Callable Row Arrow Effects Dyn FnContract)
      (only (snail compiler names libraries) forms-library)
      (snail stage0 testing))
     (begin
@@ -159,7 +159,7 @@
         (Loc "probe.sld" line 1))
 
       (define (builtin name)
-        (declared-Con (Global forms-library name 0) (list)))
+        (Con (Global forms-library name 0) (list)))
 
       (define i64 (builtin "I64"))
       (define f64 (builtin "F64"))
@@ -167,9 +167,9 @@
 
       ;; `(dyn (Fn I64 -> I64))`
       (define function
-        (declared-Callable (Dyn)
-                           (FnContract)
-                           (declared-Arrow (list i64) i64 (declared-Effects (list) (None)))))
+        (Callable (Dyn)
+                  (FnContract)
+                  (Arrow (list i64) i64 (Effects (list) (None)))))
 
       (define (instance library class serial types line)
         (dispatched-Instance (Global library (::name class) serial)
@@ -276,7 +276,7 @@
         (dispatched-TopInstance (dispatched-Instance (Global main "x" line)
                                                      (FieldClass "x")
                                                      (list)
-                                                     (list (declared-Con point-global (list)) i64)
+                                                     (list (Con point-global (list)) i64)
                                                      (list)
                                                      (list)
                                                      (list)
@@ -299,7 +299,7 @@
         (dispatched-Instance (Global main "dynamic" serial)
                              (ClassGlobal (Global main "Op" 0))
                              (list)
-                             (list (declared-Row (declared-Effects (list) (None))) left right)
+                             (list (Row (Effects (list) (None))) left right)
                              (list i64)
                              (list)
                              (list)

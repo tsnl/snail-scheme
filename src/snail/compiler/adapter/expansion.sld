@@ -77,6 +77,8 @@
            TopEffect
            Primitive
            Instance)
+   (only (snail compiler types type) Type Con Var TypeVariable Written)
+   (only (snail compiler types scheme) Requirement ClassRequirement)
    (snail compiler dispatch language)
    (only (snail compiler dispatch listing) Listed ListedInstance FieldInstance listed-class)
    (only (snail compiler bind placed) Placed)

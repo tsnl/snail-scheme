@@ -28,6 +28,8 @@
    (snail compiler names libraries)
    (only (snail compiler names globals) Global ClassRef)
    (prefix (snail compiler declare language) declared-)
+   (only (snail compiler types type) Con Callable Row Var Arrow Effects Written)
+   (only (snail compiler types scheme) Scheme)
    (only (snail compiler declare offer) Declarations)
    (snail compiler dispatch language)
    (snail compiler dispatch listing)
@@ -253,7 +255,7 @@
      test-dispatch-pass)
     (import
      (snail core table)
-     (only (snail compiler expand language) Dyn FnContract)
+     (only (snail compiler types type) Dyn FnContract)
      (only (snail compiler names globals) ClassGlobal Label)
      (only (snail compiler literals constant) Integer)
      (only (snail compiler names libraries) forms-library)
@@ -273,10 +275,10 @@
         (Loc "probe.sld" line 1))
 
       (define (builtin name)
-        (declared-Con (Global forms-library name 0) (list)))
+        (Con (Global forms-library name 0) (list)))
 
       (define any-type (builtin "Any"))
-      (define t (declared-Var (declared-Written "T")))
+      (define t (Var (Written "T")))
 
       ;; `(typeclass (Name T) (: method (impl (Fn parameter ... -> result))) ...)`
       ;; at `line`, each method's own scheme its operational one.
@@ -286,17 +288,17 @@
                         (list)
                         (map (lambda (method)
                                (declared-Method (Global main (::first method) 0)
-                                                (declared-Scheme (list)
-                                                                 (list)
-                                                                 (list)
-                                                                 (declared-Callable
-                                                                  (Dyn)
-                                                                  (FnContract)
-                                                                  (declared-Arrow
-                                                                   (::first (::second method))
-                                                                   (::second (::second method))
-                                                                   (declared-Effects (list)
-                                                                                     (None)))))
+                                                (Scheme (list)
+                                                        (list)
+                                                        (list)
+                                                        (Callable
+                                                         (Dyn)
+                                                         (FnContract)
+                                                         (Arrow
+                                                          (::first (::second method))
+                                                          (::second (::second method))
+                                                          (Effects (list)
+                                                                   (None)))))
                                                 (list)
                                                 (at line)))
                              methods)
@@ -347,7 +349,7 @@
                                                     9
                                                     (list (Pair "read-value"
                                                                 (signature
-                                                                 (list (declared-Con
+                                                                 (list (Con
                                                                         (Global (list "snail"
                                                                                       "core"
                                                                                       "base")
@@ -446,7 +448,7 @@
       (define lib (list "lib"))
 
       (define (var name)
-        (declared-Var (declared-Written name)))
+        (Var (Written name)))
 
       ;; (typeclass (Op e A B) (type Output) (: op (impl (Fn A B -> Output ! e)))) in `library`.
       (define (op-class library line)
@@ -456,18 +458,18 @@
                               (declared-TypeParameter "B"))
                         (list (declared-Output (Label "Output" (at line)) (list)))
                         (list (declared-Method (Global library "op" 0)
-                                               (declared-Scheme (list)
-                                                                (list)
-                                                                (list)
-                                                                (declared-Callable
-                                                                 (Dyn)
-                                                                 (FnContract)
-                                                                 (declared-Arrow
-                                                                  (list (var "A") (var "B"))
-                                                                  (var "Output")
-                                                                  (declared-Effects
-                                                                   (list)
-                                                                   (Some (var "e"))))))
+                                               (Scheme (list)
+                                                       (list)
+                                                       (list)
+                                                       (Callable
+                                                        (Dyn)
+                                                        (FnContract)
+                                                        (Arrow
+                                                         (list (var "A") (var "B"))
+                                                         (var "Output")
+                                                         (Effects
+                                                          (list)
+                                                          (Some (var "e"))))))
                                                (list)
                                                (at line)))
                         (list)
@@ -479,7 +481,7 @@
         (declared-Instance (Global main "Op" serial)
                            (ClassGlobal (Global library "Op" 0))
                            (list)
-                           (list (declared-Row (declared-Effects (list) (None))) type type)
+                           (list (Row (Effects (list) (None))) type type)
                            (list type)
                            (list)
                            (list)

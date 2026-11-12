@@ -47,9 +47,6 @@
          Seq
          WithInstances
          Signed
-         Scheme
-         Type
-         Con
          Data
          Class
          Effect
@@ -67,6 +64,9 @@
          FieldClass
          same-global?)
    (only (snail compiler declare schemes) default-scheme)
+   (only (snail compiler types type) Type Con)
+   (only (snail compiler types builtins) i32-type)
+   (only (snail compiler types scheme) Scheme)
    (snail compiler dispatch language)
    (only (snail compiler dispatch listing) Listed ListedInstance FieldInstance)
    (only (snail compiler bind placed) Placed)
@@ -425,10 +425,6 @@
       (old:Foreign (old:Import "snail.runtime.link" digest)
                    (old:mono-scheme (old:TFun (Nil) (old-type i32-type) old:empty-row))))
 
-    (: i32-type Type)
-    (define i32-type
-      (Con (Global forms-library "I32" 0) (Nil)))
-
     ;; A primitive's operational scheme; or `callable-once`, the signature
     ;; of `once`, which the old expander writes over a variable standing
     ;; for an arrow, `Signature`, which no Declared type writes.
@@ -524,7 +520,6 @@
      test-program)
     (import
      (snail core table)
-     (only (snail compiler expand language) Dyn FnContract)
      (only (snail compiler names globals) Local ClassGlobal)
      (only (snail compiler literals constant) Integer Boolean)
      (only (snail compiler expand offer) Offer TopScope)
@@ -532,17 +527,13 @@
            Literal
            LocalRef
            Path
-           Callable
-           Arrow
-           Effects
-           Var
-           Written
            StructData
            DataCase
            DataField
            TypeParameter
            Method
            ClassMethod)
+     (only (snail compiler types type) Callable Var Arrow Effects Written Dyn FnContract)
      (only (snail compiler declare offer) Declarations)
      (only (snail compiler dispatch listing) library-instances)
      (prefix (only (snail shell compiler read) Loc DInt DBool) old:)

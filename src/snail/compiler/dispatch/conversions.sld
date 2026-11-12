@@ -45,7 +45,9 @@
          cast-error-case
          argument-mismatch-case
          conversion-failed-operation)
-   (snail compiler dispatch text))
+   (snail compiler dispatch text)
+   (only (snail compiler types type) Type Con)
+   (only (snail compiler types text) type-text))
   (begin
 
     ;; ---- Recoveries ----
@@ -54,7 +56,7 @@
     ;; a `target`, and else `failure`.
     (: recovered
        (impl
-        (Fn declared-Expr declared-Type Local declared-Expr declared-Expr Loc -> declared-Expr)))
+        (Fn declared-Expr Type Local declared-Expr declared-Expr Loc -> declared-Expr)))
     (define (recovered value target local success failure loc)
       (declared-Match (declared-TryConvert value target loc)
                       (list (declared-Clause (ok-pattern local loc) success loc)
@@ -65,7 +67,7 @@
     ;; `left` and `right` hold as a `left-target` and a `right-target`,
     ;; when both do, and else `failure`.
     (: recovered-both
-       (impl (Fn declared-Expr declared-Type Local declared-Expr declared-Type Local declared-Expr
+       (impl (Fn declared-Expr Type Local declared-Expr Type Local declared-Expr
                  declared-Expr Loc
                  -> declared-Expr)))
     (define (recovered-both left
@@ -102,7 +104,7 @@
     ;; `index` of a call of `member` was `value`.
     (: cast-failure
        (impl
-        (Fn Global (List declared-Type) declared-Expr declared-Member I64 Loc -> declared-Expr)))
+        (Fn Global (List Type) declared-Expr declared-Member I64 Loc -> declared-Expr)))
     (define (cast-failure reason expected value member index loc)
       (declared-Match (called conversion-failed-operation
                               (list (called cast-error-case
@@ -150,7 +152,7 @@
         (test-failure))
 
       (define loc (Loc "t.sld" 4 1))
-      (define i64 (declared-Con (Global forms-library "I64" 0) (list)))
+      (define i64 (Con (Global forms-library "I64" 0) (list)))
       (define value (declared-LocalRef (Local "argument" 1) loc))
 
       (define (top global)
@@ -175,7 +177,7 @@
       ;; Read off `recover-pair`: one Pair of two tries, matched at once.
       (define (test-both)
         (let ((right (declared-LocalRef (Local "argument" 2) loc))
-              (f64 (declared-Con (Global forms-library "F64" 0) (list)))
+              (f64 (Con (Global forms-library "F64" 0) (list)))
               (ok (lambda (number)
                     (declared-Destructure (TopGlobal ok-case)
                                           (list (declared-Bind (Local "case" number) loc))

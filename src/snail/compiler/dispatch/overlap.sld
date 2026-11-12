@@ -27,7 +27,7 @@
 ;; does not overlap it (tests/programs/error-asymmetric-overlap.sld and
 ;; asymmetric-overlap.sld). A repeated variable is not unified: `(Pair a a)`
 ;; overlaps `(Pair I64 F64)`. The rule is sound for one-way matching
-;; (snail compiler dispatch matching), by which an instance is chosen: when
+;; (snail compiler typer matching), by which an instance is chosen: when
 ;; some types match both heads, each head overlaps the other, so an
 ;; instance that overlaps none before it is never chosen beside one.
 (define-library (snail compiler dispatch overlap)
@@ -37,9 +37,8 @@
    overlap-problem)
   (import
    (snail core base)
-   (only (snail compiler expand language) Dyn FnContract)
-   (only (snail compiler declare language) Type Con Callable Code Row Var)
-   (only (snail compiler declare equality) same-former? same-contract?)
+   (only (snail compiler types type) Type Con Callable Code Row Var Dyn FnContract)
+   (only (snail compiler types equality) same-former? same-contract?)
    (only (snail compiler names globals) Global ClassRef same-global?)
    (snail compiler dispatch listing))
   (begin
@@ -146,16 +145,9 @@
      test-overlap)
     (import
      (snail compiler source)
-     (only (snail compiler expand language) Impl FnMutContract FnOnceContract)
      (only (snail compiler names globals) ClassGlobal FieldClass)
-     (only (snail compiler declare language)
-           Data
-           DataCase
-           DataField
-           StructData
-           Arrow
-           Effects
-           Written)
+     (only (snail compiler declare language) Data DataCase DataField StructData)
+     (only (snail compiler types type) Arrow Effects Written Impl FnMutContract FnOnceContract)
      (only (snail compiler names libraries) forms-library)
      (snail compiler dispatch language)
      (snail stage0 testing))
