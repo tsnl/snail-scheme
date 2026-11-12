@@ -30,6 +30,7 @@ if (memory) {
   const wasi = new WASI({version: 'preview1', args: [], env: {}, preopens: {}});
   const {instance} = await WebAssembly.instantiate(bytes, wasi.getImportObject());
   wasi.initialize(instance);
+  assert.equal(instance.exports.main(), 0);
   for (let repeat = 0; repeat < 4; ++repeat) {
     globalThis.gc();
     assert.equal(instance.exports[name](count), expected(count));
@@ -44,6 +45,7 @@ for (const [name, file] of [['baseline', baseline], ['current', current]]) {
   const wasi = new WASI({version: 'preview1', args: [], env: {}, preopens: {}});
   const {instance} = await WebAssembly.instantiate(bytes, wasi.getImportObject());
   wasi.initialize(instance);
+  assert.equal(instance.exports.main(), 0);
   modules.push({name, bytes: bytes.length, exports: instance.exports});
 }
 console.log(JSON.stringify({node: process.version, v8: process.versions.v8,

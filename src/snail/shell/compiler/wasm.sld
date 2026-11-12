@@ -561,9 +561,9 @@
     ;; ---- Functions ----
 
     ;; `access` maps each visible local name to the instruction that reads it,
-    ;; and `reps` to its representation. In a recursive lambda, `self` pairs
-    ;; its scoped aliases with its Wasm function, so ownership staging does
-    ;; not hide the proven direct target of a recursive call.
+    ;; and `reps` to its representation. A closure's `self` records exact
+    ;; aliases of the incoming closure, its code and its ownership layout.
+    ;; Fresh function and control-frame contexts inherit none of those facts.
     ;; `exit` is where a yield leaves the code being emitted (see Control).
     (struct FnState
       ((locals (List Wat))
@@ -574,9 +574,14 @@
     (struct Fn
       ((module Module)
        (state FnState)
-       (self (Option (Pair (List String) String)))
+       (self (Option Self))
        (evidence Wat)
        (exit (Option Exit))))
+
+    (struct Self
+      ((names (List String))
+       (code String)
+       (counted? Bool)))
 
     ;; Context replacements share this function's output builder while
     ;; changing only immutable control and evidence metadata.
@@ -949,11 +954,8 @@
              (base (closure-type m (● signature first) (● signature second)))
              (reps (map (lambda (name) (capture-rep fn name)) captured))
              (subtype (capture-type m base reps))
-             (types (expr-reference-types function))
-             (fields (map (lambda (name) (reference-type-of types name)) captured))
-             (counted? (any? (lambda (type)
-                               (or (shared-type? (program-of m) type)
-                                   (linear-type? (program-of m) (Nil) type))) fields))
+             (fields (capture-types function captured))
+             (counted? (counted-captures? m fields))
              (code (lambda-function! m function self (zip captured reps) subtype)))
         (wat* "struct.new"
               (Cons (id subtype)
@@ -966,6 +968,15 @@
                                                                          (● entry first)
                                                                          unchecked)))
                                  (zip captured fields)))))))
+
+    (define (capture-types (function Expr) (captured (List String))) (→ (List Type))
+      (let ((types (expr-reference-types function)))
+        (map (lambda (name) (reference-type-of types name)) captured)))
+
+    (define (counted-captures? (m Module) (fields (List Type))) (→ Bool)
+      (any? (lambda (type)
+              (or (shared-type? (program-of m) type)
+                  (linear-type? (program-of m) (Nil) type))) fields))
 
     ;; The captures extend the base struct with their fields. Closures with
     ;; one base and one list of representations share the subtype.
@@ -1088,7 +1099,11 @@
          (let* ((signature (function-signature m (● function type)))
                 (reps (● signature first))
                 (base (closure-type m reps (● signature second)))
-                (fn (Fn-exit-set (lambda-fn m self "$lambda.self" base)
+                (counted? (counted-captures? m
+                                             (capture-types function
+                                                            (map (lambda (field) (● field first))
+                                                                 captured))))
+                (fn (Fn-exit-set (lambda-fn m self "$lambda.self" base counted?)
                                  (function-exit (● function type)))))
            (bind-params! fn params reps)
            (let* ((loads (capture-loads fn captured closure)) (code (emit fn body #t))
@@ -1101,12 +1116,15 @@
                                               (Cons (evidence-param m) (param-wats params reps))))
                                        (● signature second)
                                        (append loads
-                                               (Cons (disarm-dropper m
-                                                                     base
-                                                                     (wat "local.get"
-                                                                          (Word "$closure"))
-                                                                     (wat "local.get" (Word "$ev")))
-                                                     code)))))
+                                               (if counted?
+                                                   (Cons (disarm-dropper m
+                                                                         base
+                                                                         (wat "local.get"
+                                                                              (Word "$closure"))
+                                                                         (wat "local.get"
+                                                                              (Word "$ev")))
+                                                         code)
+                                                   code)))))
              (lambda-id m "lambda" draft 0))))
         (_ (panic "internal error: not a lambda"))))
 
@@ -1135,15 +1153,16 @@
 
     ;; A recursive lambda reads its own name as its closure.
 
-    (define (lambda-fn (m Module) (self (Option String)) (function-id String) (base String))
+    (define (lambda-fn (m Module) (self (Option String)) (function-id String) (base String)
+                       (counted? Bool))
       (→ Fn)
       (! mut)
-      (match self
-        ((Some name)
-         (let ((fn (Fn-self-set (new-fn m) (Some (Pair (list name) function-id)))))
-           (bind-local! fn name (wat "local.get" (Word "$closure")) (Reference base))
-           fn))
-        ((None) (new-fn m))))
+      (let* ((names (match self ((Some name) (list name)) ((None) (Nil))))
+             (fn (Fn-self-set (new-fn m) (Some (Self names function-id counted?)))))
+        (match self
+          ((Some name) (bind-local! fn name (wat "local.get" (Word "$closure")) (Reference base)))
+          ((None) (unit)))
+        fn))
 
     ;; On entry, each captured variable is copied from the closure to a local.
 
@@ -1225,12 +1244,16 @@
 
     ;; Resolved locals are immutable. A direct alias or retain keeps the same
     ;; recursive entry point; other expressions establish no such proof. Emit
-    ;; the actual callee operand below, preserving every ownership operation.
+    ;; the actual callee operand below, preserving its operand evaluation.
     (define (self-target (fn Fn) (callee Expr)) (→ (Option String))
       (match (● callee term)
         ((Var name _ _)
          (match (● fn self)
-           ((Some (Pair names target)) (if (member? name names) (Some target) (None)))
+           ((Some self) (if (member? name (● self names)) (Some (● self code)) (None)))
+           ((None) (None))))
+        ((App (Expr (Var "prim:current-closure" _ _) _ _) (Nil))
+         (match (● fn self)
+           ((Some self) (Some (● self code)))
            ((None) (None))))
         ((App operation (Cons value (Nil)))
          (match (● operation term)
@@ -1242,9 +1265,16 @@
     ;; frame contexts start with no inherited proof about their caller.
     (define (bind-self (fn Fn) (name String) (value Expr)) (→ Fn)
       (match (Pair (● fn self) (self-target fn value))
-        ((Pair (Some (Pair names target)) (Some _))
-         (Fn-self-set fn (Some (Pair (Cons name names) target))))
+        ((Pair (Some self) (Some _))
+         (Fn-self-set fn (Some (Self-names-set self (Cons name (● self names))))))
         (_ fn)))
+
+    ;; Only exact aliases qualify, not other closures with the same code.
+    ;; The layout cannot acquire a cancellation dropper without linear captures.
+    (define (uncounted-self? (fn Fn) (value Expr)) (→ Bool)
+      (match (Pair (● fn self) (self-target fn value))
+        ((Pair (Some self) (Some _)) (not (● self counted?)))
+        (_ #f)))
 
     (define (emit-call (fn Fn) (expr Expr) (callee Expr) (args (List Expr)) (tail? Bool))
       (→ (List Wat)) (! mut)
@@ -1605,7 +1635,10 @@
 
     (define (release-value (m Module) (type Type) (value Wat) (evidence Wat)) (→ Wat) (! mut)
       (if (counted-value? m type) (wat "call" (id (release-helper m)) value evidence)
-          (wat "block" (wat "result" (Word "i32")) (wat "drop" value) (wat "i32.const" (int 0)))))
+          (discard-value value)))
+
+    (define (discard-value (value Wat)) (→ Wat)
+      (wat "block" (wat "result" (Word "i32")) (wat "drop" value) (wat "i32.const" (int 0))))
 
     (define (upgrade-weak (fn Fn) (type Type) (value Wat)) (→ Wat) (! mut)
       (let* ((m (● fn module)) (strong (first-type (type-args type)))
@@ -4748,13 +4781,16 @@
           (("rc-downgrade") (list (arg 0)))
           (("weak-rc-upgrade") (list (upgrade-weak fn type (arg 0))))
           (("current-closure") (list (wat "local.get" (Word "$closure"))))
-          (("retain" "pattern-retain") (list (retain-value m (first-type types) (arg 0))))
-          (("release") (list (release-value m (first-type types) (arg 0) (● fn evidence))))
+          (("retain" "pattern-retain")
+           (list (if (uncounted-self? fn (first-arg args)) (arg 0)
+                     (retain-value m (first-type types) (arg 0)))))
+          (("release" "discard")
+           (list (if (uncounted-self? fn (first-arg args)) (discard-value (arg 0))
+                     (release-value m (first-type types) (arg 0) (● fn evidence)))))
           (("unit") (list (wat "i32.const" (int 0))))
           (("once") (list (arg 0)))
           (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0) (● fn evidence))))
           (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
-          (("discard") (list (release-value m (first-type types) (arg 0) (● fn evidence))))
           (("drop-once") (drop-once fn (first-arg args) (arg 0)))
           (("once-dropping") (list (once-dropping fn (first-arg args) (arg 0) (arg 1))))
           (("with-dropper") (panic "internal error: a dropper marks only a let's value"))
