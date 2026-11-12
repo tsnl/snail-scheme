@@ -1,9 +1,9 @@
 ;; Query: every instance a dispatched library declares, in the order the
 ;; old compiler enters them into its program, and what the passes that
 ;; compare or choose instances read of one. Instances are global: the
-;; integrator keeps this listing of each library, and hands `dispatch`,
-;; and later `cohere` and `solve`, the listings of every library before
-;; the one they work on, in the program's order, whether or not it imports
+;; integrator keeps this listing of each library, and hands `dispatch` and
+;; `cohere`, and later `solve`, the listings of every library before the
+;; one they work on, in the program's order, whether or not it imports
 ;; them.
 ;;
 ;;   Listed ::= ListedInstance Instance set?          no Loc but its instance's

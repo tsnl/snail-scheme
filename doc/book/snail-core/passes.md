@@ -21,7 +21,7 @@ outline: read it top to bottom to follow a program from text to WebAssembly.
 | `derive` | library | Bound, Offer | Derived | `deriving` clauses become instance declarations. | implemented |
 | `declare` | library | Derived | Declared | Written types become types; declarations become entities. | implemented |
 | `dispatch` | library | Declared, Declarations, listings | Dispatched | Dispatch clauses and `dynamic-instances` forms become instances with methods. | implemented |
-| `cohere` | library | Dispatched | nothing | No two instances that can be in scope together overlap on their input types. | planned |
+| `cohere` | library | Dispatched, listings | nothing | No two instances that can be active together overlap on their selecting types. | implemented |
 | `infer` | library | Dispatched | Inferred | Every node gets a type, with unknowns; constraints are recorded. | planned |
 | `solve` | library | Inferred | Solved | Every recorded constraint is decided. | planned |
 | `settle` | library | Solved | Typed | Every unknown is replaced. | planned |
@@ -68,7 +68,7 @@ module: a whole program, or one library in a development build.
 
 Passes are not strictly a chain: a pass may read more than one earlier
 language, as `expand` reads Outline and the Syntax inside it. A pass that
-only checks, as `confine` does, writes nothing.
+only checks, as `cohere` and `confine` do, writes nothing.
 
 ## Where the code lives
 
@@ -159,6 +159,7 @@ src/snail/compiler/
     language.sld          Dispatched, the tree it writes
     listing.sld           query: every instance a library declares, and what is read of one
     matching.sld          query: one-way matching of an instance's head
+    overlap.sld           query: when one instance overlaps another, and whether two active under some sets do
     text.sld              query: the texts the generated code holds: a type, a place, a method
     runtime.sld           rule: the Globals of the runtime the generated code names
     known.sld             rule: what is known of a class where an instance names it
@@ -169,6 +170,8 @@ src/snail/compiler/
     clauses.sld           part: a dispatch clause's methods
     families.sld          part: the instances a `dynamic-instances` form generates
     pass.sld              (snail compiler dispatch pass): the function `dispatch`
+  cohere/
+    pass.sld              (snail compiler cohere pass): writes nothing, so no language.sld
   ...
   integrate/              the integrator: one library per job
     files.sld             (snail compiler integrate files): every read of the file system
@@ -176,7 +179,7 @@ src/snail/compiler/
     load.sld              (snail compiler integrate load): a program and the libraries it reaches
     sha256.sld            (snail compiler integrate sha256): the digest a linked file is named by
     bind.sld              (snail compiler integrate bind): one library's linked files read, then bound
-    compile.sld           (snail compiler integrate compile): each loaded library expanded, bound, derived, declared and dispatched, in order
+    compile.sld           (snail compiler integrate compile): each loaded library expanded, bound, derived, declared, dispatched and cohered, in order
 ```
 
 Each pass is a folder. `language.sld` holds the language the pass writes:
@@ -1031,6 +1034,52 @@ old `match-types` does: only the instance's variables bind, a callable
 matches a callable of its kind and code matches code by parameters and
 result, never by effects, and a row matches nothing.
 
+`overlap.sld` says when one instance overlaps another, as the old
+`head-overlaps?` does: they are of one class, and their selecting types
+are as many, each of the first's overlapping the second's at its
+position. A data type overlaps the same type whose arguments it overlaps,
+and a variable; a callable other than `dyn (Fn ...)`, a callable of its
+former and contract whatever its arrow, and a variable; code, code and a
+variable; and `dyn (Fn ...)`, a variable or a row overlaps anything, since
+the old compiler writes `dyn (Fn ...)` as a function type and every other
+callable as a type applied to one. So the relation is asymmetric: `(Probe
+(dyn (Fn I64 -> I64)))` overlaps `(Probe I64)`, and not the reverse. A
+repeated variable is not unified. It also says whether two of some
+instances that are active under some sets overlap, either asked about the
+other, as the old `check-active-instances` asks at a scope; the checks of
+a `with-instances` expression and of a definition under scopes, which the
+old checker makes, will ask it too.
+
+### `cohere`, which writes nothing (implemented)
+
+`cohere` is handed the dispatched library and the listings of every
+library compiled before it, in the program's order, and lists the
+library's own instances itself. It answers `(Result Unit (List
+Feedback))`, and every problem is the old one, "this instance overlaps
+another instance of the class on its input types". It makes the old
+compiler's two checks, in its order.
+
+First, each instance of the library's listing, written, derived or
+generated, in order, is asked whether it overlaps an instance of its class
+before it, of the earlier libraries or of its own, that is in its set, or
+in none when it is in none. The first that does is the library's only
+problem, at the instance; a generated one is at its form. An instance
+sees only those before it, since the old compiler compares each as it
+declares it: a struct's field instance, listed at the struct, is compared
+with an instance of the field's class written after the struct, not with
+one written before it, and it is never the one asked about, since it
+joins its class without being compared. Two sets are compared apart,
+though a scope may activate both, and the instances of a set nothing
+activates are compared.
+
+Then, when no instance overlaps, each instance scope in order, a scope
+before those it holds, is asked whether two instances active under its
+sets and those of the scopes around it overlap, among the earlier
+libraries' instances and all of the library's own, those written after
+the scope too, since the old compiler checks a scope once every
+declaration is reached. Each scope where two do is a problem, at the
+scope, and every one is reported.
+
 ### Typed, written by `settle` (sketch)
 
 Every node has a type and every use of a global its instantiation.
@@ -1100,7 +1149,7 @@ which read and write files as the old functions they call do.
 
 | Milestone | New passes | The adapter hands the old compiler |
 | --- | --- | --- |
-| A | `read` to `dispatch` | an expanded `Program` |
+| A | `read` to `cohere` | an expanded `Program` |
 | B | `infer` to `confine` | a checked `Typed` |
 | C | `specialize` to `clean` | a `Prepared` module |
 | D | the backend | nothing: the adapter and the old passes are deleted |
@@ -1141,9 +1190,11 @@ its head and each method's value in the normal form, up to the renaming
 of locals: the types of its conversions, the source implementation each
 call names, by the old instance in the same place, and the texts of its
 `CastError`s, compared as written. A conversion's type is part of the
-normal form for every definition. It also compares the integrator's
-SHA-256 with the old one, compiled, as `make test-compiler` does on
-Chibi.
+normal form for every definition. A program `cohere` refuses is compared
+as a failure is, by its first problem, message and place, or every
+problem when the old compiler reports one at each of several scopes. It
+also compares the integrator's SHA-256 with the old one, compiled, as
+`make test-compiler` does on Chibi.
 
 The language the compiler accepts does not change during the replacement,
 so every existing program stays an oracle. Where the new front end
@@ -1238,14 +1289,26 @@ one line each, with its reason:
   to a parameter the class later makes a row, the old compiler drops that
   type by the class as it is when it looks, and the new keeps it; so
   such an instance is no `dynamic-instances` source for a pair, where the
-  old compiler refuses its row as not closed. Such an instance implements
-  no method. No program in the repository writes one.
+  old compiler refuses its row as not closed; and `cohere` compares that
+  type, which the old compiler drops when it compares the instance with
+  one written after the class or at a scope, so the old compiler may
+  refuse an instance or a scope that `cohere` accepts, never the reverse,
+  as it refuses `(instance (Late (!) I64))` after `(instance (Late I64
+  I64))` and `(typeclass (Late e A) (: late (impl (Fn A -> I64 ! e))))`.
+  Such an instance implements no method. No program in the repository
+  writes one.
 - `declare`'s problems come before `dispatch`'s, and `dispatch`'s before
-  `cohere`'s: a dispatch clause's domain is checked after the instance's
-  head, where the old compiler checks it first; and an instance that
-  overlaps another, or a generated head that does and also gives a type
-  parameter a row, is refused for its domain or its row, where the old
-  compiler reports the overlap first.
+  `cohere`'s, which runs only once both accept the library: a dispatch
+  clause's domain is checked after the instance's head, where the old
+  compiler checks it first; an instance that overlaps one before it is
+  reported only when the library has no other problem, where the old
+  compiler reports it unless a declaration before it has a problem, and
+  then checks nothing more; and a scope under which two instances
+  overlap is reported only when the library has no other problem, where
+  the old compiler reports it beside the problems of the library's
+  bodies, in order. So an instance that overlaps another, or a generated
+  head that does and also gives a type parameter a row, is refused for
+  its domain or its row, where the old compiler reports the overlap.
 
 The integrator compiles everything on each build. Reuse between builds, which
 the old session provided, returns with the incremental work that follows the

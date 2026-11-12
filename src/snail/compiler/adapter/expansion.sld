@@ -1,8 +1,9 @@
 ;; Whole programs compiled by the new passes, expanded, bound, derived,
-;; declared and dispatched, beside the old expander, which tests/compare-compiler.sld
-;; runs, compiled, over the suites' programs that load completely. A
-;; program that asks for a target's files is supplied stand-in files for
-;; each target it asks for, the same to both. Both succeed or both fail.
+;; declared, dispatched and cohered, beside the old expander, which
+;; tests/compare-compiler.sld runs, compiled, over the suites' programs
+;; that load completely. A program that asks for a target's files is
+;; supplied stand-in files for each target it asks for, the same to both.
+;; Both succeed or both fail.
 ;; When both fail, the first problem each reports is compared, message and
 ;; place; the old expander reports several when several bodies fail, and
 ;; those programs are named apart, with whether every problem agrees. When
