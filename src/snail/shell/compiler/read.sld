@@ -275,7 +275,7 @@
       (→ (List SourceDiagnostic))
       (! compile e)
       (∀ A e)
-      (⊨ (Copy A))
+      (⊨ (Copy A) (Drop e A))
       (concatenate (map (lambda (item)
                           (match (recovering (lambda () (check item)))
                             ((Ok _) (Nil))

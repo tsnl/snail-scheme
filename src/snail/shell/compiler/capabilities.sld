@@ -48,15 +48,15 @@
         ((Pair _ (None)) (None))
         ((Pair (TCon name args) _)
          (match (fold-left (lambda (found arg) (first-order-search program arg found))
-                               entered
-                               args)
-               ((Some names)
-                (cond ((member? name (list "Any" "Funcref")) (None))
-                      ((or (member? name names)
-                           (any? (lambda (entry) (string=? name (● entry first))) builtin-types))
-                       (Some names))
-                      (else (first-order-fields program name args (Cons name names)))))
-               ((None) (None))))
+                           entered
+                           args)
+           ((Some names)
+            (cond ((member? name (list "Any" "Funcref")) (None))
+                  ((or (member? name names)
+                       (any? (lambda (entry) (string=? name (● entry first))) builtin-types))
+                   (Some names))
+                  (else (first-order-fields program name args (Cons name names)))))
+           ((None) (None))))
         ((Pair (TRow _ _) _) entered)
         (_ (None))))
 
@@ -441,7 +441,7 @@
     ;; `(Option Token)`.
     (struct RowSearch
       ((rows (List Type))
-       (keys (List String))
+       (keys (List Type))
        (names (List String))))
 
     (define (lifecycle-rows (program Program)
@@ -454,27 +454,26 @@
         ((Ok found) (Ok (reverse (● found rows))))
         ((Err message) (Err message))))
 
-    (define (lifecycle-search (program Program)
-                              (class String)
-                              (copy (List String))
-                              (givens (List Constraint))
-                              (type Type)
+    (define (lifecycle-search (program Program) (class String) (copy (List String))
+                              (givens (List Constraint)) (type Type)
                               (progress (Result RowSearch String)))
       (→ (Result RowSearch String))
       (match (Pair type progress)
         ((Pair _ (Err message)) (Err message))
         ((Pair (TRigid name) (Ok found))
-         (cond ((member? name copy) progress)
-               (else (match (given-row givens class name)
-                       ((Some row)
-                        (Ok (RowSearch-rows-set found (Cons row (● found rows)))))
-                       ((None) (Err (missing-requirement class name)))))))
+         (if (and (not (string=? class drop-class)) (member? name copy)) progress
+             (match (given-row givens class name)
+               ((Some row) (Ok (RowSearch-rows-set found (Cons row (● found rows)))))
+               ((None) (Err (missing-requirement class name))))))
         ((Pair _ (Ok found))
-         (match (lifecycle-plan program class copy type)
-           ((Trivial) (trivial-rows program class copy type found))
-           ((Implemented instance) (instance-search program class copy givens type instance found))
-           ((Glue) (glue-search program class copy givens type found))
-           ((Refused reason) (Err reason))))))
+         (if (string=? class drop-class)
+             (drop-search program copy givens type found)
+             (match (lifecycle-plan program class copy type)
+               ((Trivial) (Ok found))
+               ((Implemented instance)
+                (instance-search program class copy givens type instance found))
+               ((Glue) (glue-search program class copy givens type found))
+               ((Refused reason) (Err reason)))))))
 
     ;; A drop that runs nothing performs nothing, except a FnOnce's:
     ;; dropping one unrun drops what it captured, whose drops its own row
@@ -482,18 +481,26 @@
     ;; `(dyn (FnOnce A → B ! e))` performs `e`, less its control effects, which no
     ;; drop performs.
 
-    (define (trivial-rows (program Program)
-                          (class String)
-                          (copy (List String))
-                          (type Type)
-                          (found RowSearch))
+    (define (drop-search (program Program) (copy (List String))
+                         (givens (List Constraint)) (type Type) (found RowSearch))
       (→ (Result RowSearch String))
-      (match (callable-arrow type)
-        ((Some (TFun _ _ row))
-         (if (and (string=? class drop-class) (linear-type? program copy type))
-             (Ok (RowSearch-rows-set found
-                                     (Cons (without-control program row) (● found rows))))
-             (Ok found)))
+      (match type
+        ((TFun _ _ row)
+         (Ok (RowSearch-rows-set found (Cons (without-control program row) (● found rows)))))
+        ((TCon "FnOnce" (Cons signature (Nil))) (drop-search program copy givens signature found))
+        ((TCon "Rc" (Cons inner (Nil)))
+         (lifecycle-search program drop-class copy givens inner
+                           (Ok (RowSearch-rows-set found (Cons mut-row (● found rows))))))
+        ((TCon name args)
+         (cond ((member? name (list "Array" "Vector"))
+                (fold-left (lambda (progress arg)
+                             (lifecycle-search program drop-class copy givens arg progress))
+                           (Ok found) args))
+               ((any? (lambda (entry) (string=? name (● entry first))) builtin-types) (Ok found))
+               (else (match (lifecycle-instance program drop-class name)
+                       ((Some instance)
+                        (instance-search program drop-class copy givens type instance found))
+                       ((None) (glue-search program drop-class copy givens type found))))))
         (_ (Ok found))))
 
     (define (without-control (program Program) (row Type)) (→ Type)
@@ -577,9 +584,20 @@
                          (type Type)
                          (found RowSearch))
       (→ (Result RowSearch String))
-      (let ((name (type-name type)) (key (type-key type)))
-        (cond ((member? key (● found keys)) (Ok found))
-              ((member? name (● found names)) (Err (nonregular-glue class type)))
+      (let ((name (type-name type)) (key type))
+        (cond ((any? (lambda (seen) (type=? key seen)) (● found keys)) (Ok found))
+              ((member? name (● found names))
+               (if (string=? class drop-class)
+                   (match type
+                     ((TCon _ args)
+                      (fold-left (lambda (progress arg)
+                                   (match (Pair arg progress)
+                                     ((Pair (TRow _ _) (Ok inner))
+                                      (Ok (RowSearch-rows-set inner (Cons arg (● inner rows)))))
+                                     (_ (lifecycle-search program class copy givens arg progress))))
+                                 (Ok found) args))
+                     (_ (Ok found)))
+                   (Err (nonregular-glue class type))))
               (else
                (match (glue-fields-search program
                                           class
@@ -594,18 +612,18 @@
 
     ;; Glue performs what dropping or cloning each field it reaches does.
 
-    (define (glue-fields-search (program Program)
-                                (class String)
-                                (copy (List String))
-                                (givens (List Constraint))
-                                (type Type)
-                                (found RowSearch))
+    (define (glue-fields-search (program Program) (class String) (copy (List String))
+                                (givens (List Constraint)) (type Type) (found RowSearch))
       (→ (Result RowSearch String))
       (fold-left (lambda (progress field)
-                   (lifecycle-search program class copy givens (● field second) progress))
+                   (lifecycle-search program class copy givens field progress))
                  (Ok found)
-                 (concatenate (map (lambda (case) (glue-fields program copy type case))
-                                   (● (program-type program (type-name type)) cases)))))
+                 (concatenate
+                  (map (lambda (case)
+                         (if (string=? class drop-class) (field-types program type case)
+                             (map (lambda (field) (● field second))
+                                  (glue-fields program copy type case))))
+                       (● (program-type program (type-name type)) cases)))))
 
     ;; A declaration met again at other arguments would need glue for every
     ;; depth, so it needs an instance instead.

@@ -204,10 +204,7 @@
     ;; libraries of the build before, which this one replays where their
     ;; declarations and their imports' interfaces are unchanged, and a
     ;; one-off compile has none; `directories` are searched for libraries;
-    ;; `generate` runs a producer program the build did not supply for
-    ;; `generate-library`, given the libraries loading when it was reached,
-    ;; and returns the bytes of the syntax it writes; the driver supplies it,
-    ;; because running a program means compiling one; `inputs` holds what
+    ;; `inputs` holds what
     ;; the build supplies in memory: completed targets' files and producers'
     ;; outputs; and `recipe`, in a producer program, is the recipe its
     ;; printed copy stands for.
@@ -238,7 +235,6 @@
     (struct Context
       ((predecessor (Table Expanded))
        (directories (List String))
-       (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
        (inputs Inputs)
        (recipe (Option Recipe))
        (prefix String)
@@ -267,7 +263,6 @@
     (define (resumed (outer Context) (inner Context)) (→ Context)
       (Context (● outer predecessor)
                (● outer directories)
-               (● outer generate)
                (● outer inputs)
                (● outer recipe)
                (● outer prefix)
@@ -311,7 +306,7 @@
       (→ (Pair (List B) Context))
       (! e)
       (∀ A B e)
-      (⊨ (Copy B))
+      (⊨ (Copy B) (Drop e B))
       (let ((done (fold-left (lambda (done item)
                                (match (step (● done second) item)
                                  ((Pair value cx) (Pair (Cons value (● done first)) cx))))
@@ -411,14 +406,12 @@
       (ExpandedProgram empty-program empty-table 0 0 empty-table empty-table 0))
 
     (define (new-context (directories (List String))
-                         (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                          (inputs Inputs)
                          (artifacts ArtifactSource)
                          (predecessor ExpandedProgram))
       (→ Context)
       (Context (● predecessor libraries)
                directories
-               generate
                inputs
                (None)
                ""
@@ -558,7 +551,7 @@
 
     (define (load-library (cx Context) (name (List String)) (loc Loc))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (let ((key (string-join name ".")))
         (cond ((builtin-library? key) (Pair (core-library) cx))
               ((member? key (● cx loading))
@@ -573,7 +566,7 @@
 
     (define (read-library (cx Context) (name (List String)) (loc Loc))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (let ((path (library-path (● cx directories) name loc)))
         (expand-library-file cx name (file-library name (read-source path) path))))
 
@@ -642,7 +635,7 @@
 
     (define (expand-library-file (cx Context) (name (List String)) (file LibraryFile))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (match file
         ((DefinedLibrary sections)
          (expand-sections (Context-prefix-set cx (string-join name ".")) sections))
@@ -650,14 +643,17 @@
          (expand-library-file cx name (output-library-file name (generated-bytes cx forms) loc)))))
 
     ;; What a producer wrote: the output the build supplied for it, or else
-    ;; what the driver's provider makes of it. The producer is compiled while
-    ;; this library loads, so the provider is given the loading stack, which
-    ;; `load-library` began with this library's key.
+    ;; what the driver's handler produces. The context owns only plain data;
+    ;; generator policy belongs to this invocation's handler. A request keeps
+    ;; the exact loading stack, so recursive compilation still detects cycles.
 
-    (define (generated-bytes (cx Context) (forms (List Syntax))) (→ Bytes) (! fs compile)
+    (effect generator
+      ((run-generator (Fn (List String) (List Syntax) → Bytes ! fs compile))))
+
+    (define (generated-bytes (cx Context) (forms (List Syntax))) (→ Bytes) (! generator fs compile)
       (match (generated-output (● cx inputs) (producer-text (● cx directories) forms))
         ((Some bytes) bytes)
-        ((None) ((● cx generate) (● cx loading) forms))))
+        ((None) (run-generator (● cx loading) forms))))
 
     ;; The producer imports what the recipe imports, names the recipe's
     ;; file, and writes the syntax its expression returns, a
@@ -876,7 +872,7 @@
 
     (define (expand-sections (cx Context) (sections (List (Pair String (List Syntax)))))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((env (import-env (section-items sections "import"))))
                  (let* ((key (sections-key cx sections))
                         (cx (Context-derives-set
@@ -897,7 +893,7 @@
                                  (sections (List (Pair String (List Syntax))))
                                  (env Env))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (let* ((forms (section-items sections "begin"))
              (cx (if (primitive-library? cx)
                      (fold-left (lambda (cx form) (declare-primitive cx env form)) cx forms)
@@ -913,7 +909,7 @@
 
     (define (expand-library-run (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
-      (! fs compile)
+      (! fs compile generator)
       (let* ((cx (expand-top-level cx env forms))
              (cx (if (string=? (● cx prefix) "main") (with-one-body cx) cx)))
         (Context-program-set cx
@@ -1016,10 +1012,11 @@
                             (predecessor ExpandedProgram))
       (→ ExpandedProgram)
       (! fs compile)
-      (expanded-program
-       (expand-source (new-context directories generate inputs (Supplied) predecessor) path)))
+      (handle generator ((run-generator generate))
+        (expanded-program
+         (expand-source (new-context directories inputs (Supplied) predecessor) path))))
 
-    (define (expand-source (cx Context) (path String)) (→ Context) (! fs compile)
+    (define (expand-source (cx Context) (path String)) (→ Context) (! fs compile generator)
       (let* ((source (generating-stack (read-source path)))
              (parts (program-parts (● source second)))
              (body (producer-body path (● source first) (● parts second)))
@@ -1183,14 +1180,14 @@
     (define (discover-artifacts (directories (List String)) (inputs Inputs) (path String))
       (→ (List ArtifactUse))
       (! fs compile)
-      (match (● (expand-source (new-context directories
-                                            unsupplied-producer
-                                            inputs
-                                            (Discovering (Nil))
-                                            empty-expansion)
-                               path) artifacts)
-        ((Discovering uses) (reverse uses))
-        ((Supplied) (Nil))))
+      (handle generator ((run-generator unsupplied-producer))
+        (match (● (expand-source (new-context directories
+                                              inputs
+                                              (Discovering (Nil))
+                                              empty-expansion)
+                                 path) artifacts)
+          ((Discovering uses) (reverse uses))
+          ((Supplied) (Nil)))))
 
     (define (unsupplied-producer (loading (List String)) (forms (List Syntax))) (→ Bytes)
       (panic "internal error: discovery reached a producer whose output was not supplied"))
@@ -1229,7 +1226,7 @@
 
     (define (replayable (cx Context) (key String))
       (→ (Pair (Option Expanded) Context))
-      (! fs compile)
+      (! fs compile generator)
       (match (table-ref (● cx predecessor) (● cx prefix))
         ((Some entry)
          (if (string=? (● entry key) key)
@@ -1251,7 +1248,7 @@
 
     (define (derived-as-before? (cx Context) (entry Expanded))
       (→ (Pair Bool Context))
-      (! fs compile)
+      (! fs compile generator)
       (match (● entry derives)
         ((Some derivation)
          (let ((cx (● (deriving-scope cx (● derivation loc)) second)))
@@ -1266,7 +1263,9 @@
     ;; `program-with` unions persistent tables, so a replayed library's
     ;; values alias the ones it produced before rather than being rebuilt.
 
-    (define (replay (cx Context) (entry Expanded)) (→ (Pair Exports Context)) (! fs compile)
+    (define (replay (cx Context) (entry Expanded))
+      (→ (Pair Exports Context))
+      (! fs compile generator)
       (let ((cx (match (● entry derives)
                   ((Some derivation) (● (deriving-scope cx (● derivation loc)) second))
                   ((None) cx))))
@@ -1290,7 +1289,7 @@
                              (env Env)
                              (key String))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((exports (expand-library-body sections env)))
                  (let* ((uses (● cx artifact-uses))
                         (derivation (derivation-of cx))
@@ -1496,7 +1495,9 @@
     ;; A top level over the bindings the specs provide, each loaded and
     ;; merged in turn.
 
-    (define (import-env (cx Context) (specs (List Syntax))) (→ (Pair Env Context)) (! fs compile)
+    (define (import-env (cx Context) (specs (List Syntax)))
+      (→ (Pair Env Context))
+      (! fs compile generator)
       (let loop ((cx cx) (specs specs) (imports empty-table))
         (match specs
           ((Nil) (new-top cx imports))
@@ -1521,7 +1522,9 @@
 
     ;; The (name . binding) entries an import set provides.
 
-    (define (import-set (cx Context) (spec Syntax)) (→ (Pair Exports Context)) (! fs compile)
+    (define (import-set (cx Context) (spec Syntax))
+      (→ (Pair Exports Context))
+      (! fs compile generator)
       (match spec
         ((Form (Cons (Ident "only" _ _) (Cons inner idents)) _)
          (let ((names (ident-names idents)))
@@ -1559,7 +1562,7 @@
 
     (define (checked-import-set (cx Context) (spec Syntax) (idents (List Syntax)))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((entries (import-set spec)))
                  (for-each (lambda (ident)
                              (match (assoc-ref entries (Ident-name ident))
@@ -1741,7 +1744,9 @@
       (→ Syntax)
       (let ((arguments (map (lambda (record) (● record second)) parameters))
             (performs (if (null? effects) (Nil) (Cons (Ident "!" (None) loc) effects))))
-        (Form (Cons (Ident "Fn" (None) loc) (append arguments (Cons (Ident "→" (None) loc) (Cons result performs)))) loc)))
+        (Form (Cons (Ident "Fn" (None) loc)
+                    (append arguments (Cons (Ident "→" (None) loc) (Cons result performs))))
+              loc)))
 
     (define (definition-scope (cx Context) (env Env) (definition Definition)) (→ Env) (! compile)
       (let* ((header (● definition header)) (variables (● header variables))
@@ -1768,7 +1773,7 @@
 
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms)))
                  (let* ((pending (concatenate scanned))
                         (signatures
@@ -1827,7 +1832,7 @@
 
     (define (scan-top-level (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((form (expand-head env form)))
                  (let* ((parsed (declaration-annotations cx env form)) (bare (● parsed first))
                         (owner (if (null? (● parsed second)) (None)
@@ -1862,7 +1867,7 @@
 
     (define (scan-top-level-form (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
-      (! fs compile)
+      (! fs compile generator)
       (match (head-binding cx env form)
         ((Some (Core "begin"))
          (expanding cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
@@ -1900,7 +1905,7 @@
 
     (define (scan-instance-set (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
-      (! fs compile)
+      (! fs compile generator)
       (match (form-tail form)
         ((Cons name declarations)
          (let* ((name (expect-ident name "an instance set name")) (id (unique-name cx name))
@@ -1960,7 +1965,7 @@
 
     (define (scan-declared (cx Context) (env Env) (keyword String) (form Syntax))
       (→ (Pair (List Pending) Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((then (scan-declaration env keyword form)))
                  (if (or (string=? keyword "struct") (string=? keyword "enum"))
                      (expanding cx ((derived (derived-instances form (string=? keyword "enum")))
@@ -2498,14 +2503,23 @@
              (type (● field type))
              (name (string-append (● case name) "-" (● field name)))
              (program (program-with-value program name
-                       (Accessor case index (field-scheme params (list self) type empty-row)))))
+                                          (Accessor case
+                                                    index
+                                                    (field-scheme params
+                                                                  (list self)
+                                                                  type
+                                                                  empty-row)))))
         (if struct?
             (program-with-value
              (program-with-value
               (program-with-value program (string-append name "-set")
-               (Replacer case index (field-scheme params (list self type) self empty-row)))
+                                  (Replacer case
+                                            index
+                                            (field-scheme params (list self type) self empty-row)))
               (string-append name "-set!")
-              (Setter case index (field-scheme params (list self type) (TCon "Unit" (Nil)) mut-row)))
+              (Setter case
+                      index
+                      (field-scheme params (list self type) (TCon "Unit" (Nil)) mut-row)))
              (string-append name "-replace!")
              (Swapper case index (field-scheme params (list self type) type mut-row)))
             program)))
@@ -3575,11 +3589,11 @@
     ;; The outer impl belongs to this definition; checking gives it the
     ;; definition's concrete identity. Results and storage use explicit dyn.
 
-    
 
-    
 
-    
+
+
+
 
     (define (resolve-requirements (cx Context)
                                   (env Env)
@@ -3631,7 +3645,7 @@
            (_ (compile-error loc "expected a typeclass constraint"))))
         (_ (compile-error (syntax-loc syntax) "expected (Class type ...)"))))
 
-    
+
 
     ;; The constraint of a class at resolved types, checked against the
     ;; class's parameters.
@@ -3718,7 +3732,7 @@
          (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
         (_ (compile-error loc "expected a type application"))))
 
-    
+
 
     (define (resolve-type-name (cx Context) (env Env) (ident Syntax) (args (List Syntax)) (loc Loc))
       (→ Type)
@@ -3816,7 +3830,7 @@
         (_ (compile-error loc
                           "expected one result type after →, optionally followed by ! effects"))))
 
-    
+
 
     (define (resolve-row (cx Context) (env Env) (items (List Syntax)) (loc Loc))
       (→ Type)
@@ -4281,7 +4295,7 @@
 
     (define (derived-instances (cx Context) (form Syntax) (enum? Bool))
       (→ (Pair (List Syntax) Context))
-      (! fs compile)
+      (! fs compile generator)
       (let* ((head (declaration-head form)) (loc (syntax-loc form))
              (cases (if enum?
                         (map (lambda (form)
@@ -4305,7 +4319,7 @@
     ;; every later one. The library notes the declaration at `loc`, so that
     ;; replaying it loads them too.
 
-    (define (deriving-scope (cx Context) (loc Loc)) (→ (Pair I64 Context)) (! fs compile)
+    (define (deriving-scope (cx Context) (loc Loc)) (→ (Pair I64 Context)) (! fs compile generator)
       (let ((cx (Context-derives-set cx (Some loc))))
         (match (● cx deriving)
           ((Some scope) (Pair scope cx))
@@ -4384,7 +4398,7 @@
     ;; Constructor notation is ordinary pure code, with no runtime reflection.
     (define (repr-instance (cx Context) (head Syntax) (cases (List (Pair Syntax I64))) (loc Loc))
       (→ (Pair Syntax Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((scope (deriving-scope loc)))
                  (let* ((d (Deriver scope loc)) (value (w d "value"))
                         (body (f d (Cons (w d "match")
@@ -4414,7 +4428,7 @@
                                 (cases (List (Pair Syntax I64)))
                                 (loc Loc))
       (→ (Pair Syntax Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((scope (deriving-scope loc)))
                  (let* ((d (Deriver scope loc)) (value (w d "value")) (encoder (w d "encoder")))
                    (Pair (f d (append (instance-head d "Serialize" head)
@@ -4447,7 +4461,7 @@
                                   (cases (List (Pair Syntax I64)))
                                   (loc Loc))
       (→ (Pair Syntax Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((scope (deriving-scope loc)))
                  (let* ((d (Deriver scope loc)) (decoder (w d "decoder")) (id (w d "id")))
                    (Pair (f d (append (instance-head d "Deserialize" head)
@@ -4924,8 +4938,7 @@
 
       (define callable-signature
         (lambda (text)
-          (let* ((cx (new-context (Nil) (lambda (loading forms) (panic "unexpected producer"))
-                                  no-inputs (Supplied) empty-expansion))
+          (let* ((cx (new-context (Nil) no-inputs (Supplied) empty-expansion))
                  (imports (fold-left (lambda (table entry)
                                        (table-set table (● entry first) (● entry second)))
                                      empty-table (core-library)))
@@ -5137,7 +5150,7 @@
                               (if message
                                   (substring message
                                              (+ (string-contains message
-                                                                                       ": ")
+                                                                 ": ")
                                                 2)
                                              (string-length message))
                                   "accepted"))))

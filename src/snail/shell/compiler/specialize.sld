@@ -134,8 +134,9 @@
 
     (define (each (state State) (step (Fn State A → (Pair B State))) (items (List A)))
       (→ (Pair (List B) State))
-      (∀ A B)
-      (⊨ (Copy B))
+      (! e)
+      (∀ A B e)
+      (⊨ (Copy B) (Drop e B))
       (let ((done (fold-left (lambda (done item)
                                (match (step (● done second) item)
                                  ((Pair value state) (Pair (Cons value (● done first)) state))))
@@ -352,32 +353,32 @@
           (term (specializing state ((copied (copy-term inst term)))
                               (Pair (Expr copied type loc) state))))))
 
-    
+
 
     ;; A first-class once constructor uses the same adaptation as a direct
     ;; use, including owned shared environments and bare code pointers.
 
-    
+
 
     ;; A consuming requirement may be instantiated by a shared callable.
     ;; Its body borrows the environment, so this call owns and releases the
     ;; environment after the answer, including cleanup on an aborted call.
 
-    
 
-    
+
+
 
     (define (local-value (name String) (type Type) (loc Loc)) (→ Expr)
       (Expr (Var name (Nil) (Nil)) type loc))
 
-    
 
-    
+
+
 
     ;; `once` and dyn FnOnce storage use the same adapter when they take a
     ;; shared owner. The ordinary once dropper releases it if never called.
 
-    
+
 
     ;; A counted owner keeps the finalizer selected for its concrete
     ;; payload. Requesting it here uses the same registry as explicit drop.
@@ -389,7 +390,8 @@
                        (let* ((finalizer (● drop second))
                               (type (TFun (list (● value type) (● finalizer type))
                                           (TCon "Rc" (list (● value type))) empty-row))
-                              (constructor (Expr (Var "prim:rc-new" (Nil) (Nil)) type (● callee loc))))
+                              (constructor
+                               (Expr (Var "prim:rc-new" (Nil) (Nil)) type (● callee loc))))
                          (Pair (App constructor (list value finalizer)) state))))
         (_ (Pair (App callee args) state))))
 
@@ -844,17 +846,41 @@
     (define (operation-reference (state State) (effect String) (name String) (type Type) (loc Loc))
       (→ (Pair Expr State))
       (Pair (Expr (Var name (Nil) (Nil)) type loc)
-            (match (assoc-ref
-                    (● (program-effect (specialization-program state) effect) defaults)
-                    name)
-              ((Some function)
-               (● (definition-reference state
-                    function
-                    (Nil)
-                    (Nil)
-                    (● (scheme-of state function) type)
-                    loc) second))
-              (_ state))))
+            (reach-operations state (list name) (Nil) loc)))
+
+    ;; Forwarding a latent effect constructs closures for every operation of
+    ;; that effect. Their defaults are reachable even if source names none of
+    ;; those operations directly. Follow the same finite graph as emission.
+    (define (reach-operations (state State) (pending (List String)) (seen (List String)) (loc Loc))
+      (→ State)
+      (match pending
+        ((Nil) state)
+        ((Cons name rest)
+         (if (member? name seen) (reach-operations state rest seen loc)
+             (match (program-value (specialization-program state) name)
+               ((Some (Operation effect scheme))
+                (let* ((state (reach-default state effect name loc))
+                       (forwarded
+                        (forwarded-operations (specialization-program state) effect scheme)))
+                  (reach-operations state (append forwarded rest) (Cons name seen) loc)))
+               (_ (panic "internal error: forwarding names an operation")))))))
+
+    (define (reach-default (state State) (effect String) (operation String) (loc Loc)) (→ State)
+      (match (assoc-ref (● (program-effect (specialization-program state) effect) defaults)
+                        operation)
+        ((Some function)
+         (●
+          (definition-reference state function (Nil) (Nil) (● (scheme-of state function) type) loc)
+          second))
+        ((None) state)))
+
+    (define (forwarded-operations (program Program) (effect String) (scheme Scheme))
+      (→ (List String))
+      (concatenate
+       (map (lambda (label)
+              (match (table-ref (● program effects) label)
+                ((Some info) (● info operations))
+                ((None) (Nil)))) (operation-latent effect scheme))))
 
     (define (instance-method (state State) (instance String) (method String)) (→ String)
       (match (table-ref (● (● state input) instances) instance)
@@ -880,7 +906,7 @@
           ((Var _ _ _)
            (if (alias-cycle? state name (Nil))
                (specializing state ((spec (request name types evidence)))
-                 (Pair (Expr (Var spec (Nil) (Nil)) type loc) state))
+                             (Pair (Expr (Var spec (Nil) (Nil)) type loc) state))
                (let ((scheme (scheme-of state name)))
                  (copy-expr state
                             (Instantiation (zip (● scheme vars) types)

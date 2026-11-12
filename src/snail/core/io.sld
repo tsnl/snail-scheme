@@ -272,7 +272,11 @@
     ;; cell.
     (define chunk-size 4096)
 
-    (define (drain (next (Fn → (Option T) ! e))) (→ (Vector T)) (! e) (∀ T e) (⊨ (Copy T))
+    (define (drain (next (Fn → (Option T) ! e)))
+      (→ (Vector T))
+      (! e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
       (let loop ((chunks (Nil)))
         (let ((chunk (next-chunk next)))
           (if (< (vector-length chunk) chunk-size)
@@ -285,7 +289,7 @@
       (→ (Vector T))
       (! e)
       (∀ T e)
-      (⊨ (Copy T))
+      (⊨ (Copy T) (Drop e T))
       (let loop ((items (Nil)) (count 0))
         (if (= count chunk-size)
             (list->vector (reverse items))

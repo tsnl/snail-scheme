@@ -4915,8 +4915,9 @@
 
     (define (sort-named (entries (List (Pair String A))))
       (→ (List (Pair String A)))
-      (∀ A)
-      (⊨ (Copy A))
+      (! e)
+      (∀ A e)
+      (⊨ (Copy A) (Drop e A))
       (list-sort (lambda (a b) (string<? (● a first) (● b first))) entries))
 
     ;; A module's `main` initializes its definitions and runs its body, a

@@ -6,7 +6,7 @@
 (instance (Drop (! output-port) Resource)
   (define (drop (resource Resource)) (→ Unit) (! output-port)
     (match resource ((Resource value) (display value) (newline)))))
-(define (make-reader) (→ (Fn → I64))
+(define (make-reader) (→ (Fn → I64 ! mut output-port))
   (let ((resource (rc (Resource 8))))
     (lambda () (● resource value))))
 (let ((reader (make-reader)))

@@ -44,7 +44,11 @@
     (define (below (hash I64) (bit I64)) (→ I64)
       (i64-and hash (- bit 1)))
 
-    (define (table-ref (table (Table V)) (key String)) (→ (Option V)) (∀ V) (⊨ (Copy V))
+    (define (table-ref (table (Table V)) (key String))
+      (→ (Option V))
+      (! e)
+      (∀ V e)
+      (⊨ (Copy V) (Drop e V))
       (let ((hash (string-hash key)))
         (let loop ((table table))
           (match table
@@ -52,12 +56,20 @@
             ((Leaf leaf-hash entries) (if (= leaf-hash hash) (assoc-ref entries key) (None)))
             ((Branch _ bit zero one) (loop (if (= (i64-and hash bit) 0) zero one)))))))
 
-    (define (table-contains? (table (Table V)) (key String)) (→ Bool) (∀ V) (⊨ (Copy V))
+    (define (table-contains? (table (Table V)) (key String))
+      (→ Bool)
+      (! e)
+      (∀ V e)
+      (⊨ (Copy V) (Drop e V))
       (match (table-ref table key)
         ((Some _) #t)
         ((None) #f)))
 
-    (define (table-set (table (Table V)) (key String) (value V)) (→ (Table V)) (∀ V) (⊨ (Copy V))
+    (define (table-set (table (Table V)) (key String) (value V))
+      (→ (Table V))
+      (! e)
+      (∀ V e)
+      (⊨ (Copy V) (Drop e V))
       (let ((hash (string-hash key)))
         (let insert ((table table))
           (match table
@@ -86,21 +98,34 @@
 
     ;; Entries in trie order, which depends only on the keys.
 
-    (define (table-fold (f (Fn A (Pair String V) → A)) (initial A) (table (Table V)))
+    (define (table-fold (f (Fn A (Pair String V) → A ! e)) (initial A) (table (Table V)))
       (→ A)
-      (∀ V A)
+      (! e)
+      (∀ V A e)
       (match table
         ((Empty) initial)
         ((Leaf _ entries) (fold-left f initial entries))
         ((Branch _ _ zero one) (table-fold f (table-fold f initial zero) one))))
 
-    (define (table-count (table (Table V))) (→ I64) (∀ V) (⊨ (Copy V))
+    (define (table-count (table (Table V)))
+      (→ I64)
+      (! e)
+      (∀ V e)
+      (⊨ (Copy V) (Drop e V))
       (table-fold (lambda (count entry) (+ count 1)) 0 table))
 
-    (define (table-keys (table (Table V))) (→ (List String)) (∀ V) (⊨ (Copy V))
+    (define (table-keys (table (Table V)))
+      (→ (List String))
+      (! e)
+      (∀ V e)
+      (⊨ (Copy V) (Drop e V))
       (reverse (table-fold (lambda (keys entry) (Cons (● entry first) keys)) (Nil) table)))
 
-    (define (table-values (table (Table V))) (→ (List V)) (∀ V) (⊨ (Copy V))
+    (define (table-values (table (Table V)))
+      (→ (List V))
+      (! e)
+      (∀ V e)
+      (⊨ (Copy V) (Drop e V))
       (reverse (table-fold (lambda (values entry) (Cons (● entry second) values)) (Nil) table)))
 
     ))

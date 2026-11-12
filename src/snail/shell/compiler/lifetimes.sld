@@ -10,6 +10,7 @@
    (snail shell compiler read)
    (snail shell compiler core)
    (snail shell compiler capabilities)
+   (snail shell compiler ownership)
    (snail shell compiler specialize))
   (begin
 
@@ -214,7 +215,7 @@
                (lowering state ((clauses (finish-clauses clauses owners tail?)))
                          (Pair (rebuild (Match value clauses)) state)))
               ((App callee args)
-               (if (and tail? (ordinary-call? state callee))
+               (if (and tail? (ordinary-call? (● state program) callee))
                    (tail-transfer state expr callee args owners)
                    (finish-result state expr owners)))
               (_ (finish-result state expr owners))))))
@@ -237,14 +238,7 @@
                     (rest (finish-clauses rest owners tail?)))
                    (Pair (Cons (Clause (● clause pattern) body) rest) state)))))
 
-    (define (ordinary-call? (state Lifetime) (callee Expr)) (→ Bool)
-      (match (● callee term)
-        ((Var name _ _)
-         (match (program-value (● state program) name)
-           ((Some (Defined _ _ _)) #t)
-           ((Some _) #f)
-           ((None) #t)))
-        (_ #t)))
+
 
     (struct Named
       ((reads (List Expr))
@@ -297,46 +291,15 @@
            (lowering state ((callee (lower callee)) (args (lower-all args)))
                      (lower-observation state expr callee args operation))))))
 
-    (define (observes? (operation (Option Value)) (callee Expr) (index I64)) (→ Bool)
-      (match operation
-        ((Some (Accessor _ _ _)) #t)
-        ((Some (Setter _ _ _)) (= index 0))
-        ((Some (Swapper _ _ _)) (= index 0))
-        ((Some (Replacer _ _ _)) (= index 0))
-        ((Some (Primitive _))
-         (match (● callee term)
-           ((Var name _ _)
-            (and (not (member? name
-                               (list "prim:unsafe-total"
-                                     "prim:inherit-handlers"
-                                     "prim:inherit-handlers-1"
-                                     "prim:once"
-                                     "prim:call-once"
-                                     "prim:drop-once"
-                                     "prim:discard"
-                                     "prim:rc-new"
-                                     "prim:constant-array"
-                                     "prim:retain"
-                                     "prim:release")))
-                 (not (and (= index 2) (member? name (list "prim:array-set!" "prim:vector-set"))))))
-           (_ #f)))
-        ((Some (Foreign _ _)) #t)
-        (_ #f)))
 
-    (define (alias-result? (operation (Option Value)) (callee Expr)) (→ Bool)
-      (match operation
-        ((Some (Accessor _ _ _)) #t)
-        ((Some (Primitive _))
-         (match (● callee term)
-           ((Var name _ _) (member? name (list "prim:rc-get" "prim:array-ref" "prim:vector-ref")))
-           (_ #f)))
-        (_ #f)))
+
+
 
     (define (lower-observation (state Lifetime) (expr Expr) (callee Expr) (args (List Expr))
                                (operation (Option Value)))
       (→ (Pair Expr Lifetime))
       (let ((released (map-indexed (lambda (index value)
-                                     (and (observes? operation callee index)
+                                     (and (observes-argument? operation callee index)
                                           (shared? state (● value type))))
                                    args)))
         (if (not (any? (lambda (value) value) released))

@@ -16,7 +16,11 @@
   (export
    check-owned-fields
    check-item-ownership
-   consumed-references)
+   consumed-references
+   observes-argument?
+   alias-result?
+   ordinary-call?
+   surviving-references)
   (import
    (snail core base)
    (snail core table)
@@ -26,6 +30,106 @@
   (begin
 
     (define no-loc (→ Loc) (Loc "ownership" 0 0))
+
+
+    ;; ---- Shared call ownership ----
+
+    ;; Ordinary calls and constructors consume their operands. Observation
+    ;; keeps an owned operand until the result has acquired any shared alias.
+    (define (observes-argument? (operation (Option Value)) (callee Expr) (index I64)) (→ Bool)
+      (match operation
+        ((Some (Accessor _ _ _)) #t)
+        ((Some (Setter _ _ _)) (= index 0))
+        ((Some (Swapper _ _ _)) (= index 0))
+        ((Some (Replacer _ _ _)) (= index 0))
+        ((Some (Primitive _))
+         (match (● callee term)
+           ((Var name _ _)
+            (and (not (member? name
+                               (list "prim:unsafe-total"
+                                     "prim:inherit-handlers"
+                                     "prim:inherit-handlers-1"
+                                     "prim:once" "prim:call-once" "prim:drop-once" "prim:discard"
+                                     "prim:rc" "prim:rc-new" "prim:set!" "prim:replace!"
+                                     "prim:constant-array" "prim:retain" "prim:release")))
+                 (not (and (= index 2) (member? name (list "prim:array-set!" "prim:vector-set"))))))
+           (_ #f)))
+        ((Some (Foreign _ _)) #t)
+        (_ #f)))
+
+    (define (alias-result? (operation (Option Value)) (callee Expr)) (→ Bool)
+      (match operation
+        ((Some (Accessor _ _ _)) #t)
+        ((Some (Primitive _))
+         (match (● callee term)
+           ((Var name _ _) (member? name (list "prim:rc-get" "prim:array-ref" "prim:vector-ref")))
+           (_ #f)))
+        (_ #f)))
+
+    (define (ordinary-call? (program Program) (callee Expr)) (→ Bool)
+      (match (● callee term)
+        ((Var name _ _)
+         (match (program-value program name)
+           ((Some (Defined _ _ _)) #t)
+           ((Some _) #f)
+           ((None) #t)))
+        ((Ann inner _) (ordinary-call? program inner))
+        (_ #t)))
+
+    ;; ---- Owners surviving an exit ----
+
+    ;; These are exact local identities, not heap reachability. Bindings and
+    ;; closure captures cannot be reassigned. A directly returned constructor
+    ;; is still private, but a previously bound mutable record is not: its
+    ;; fields may have changed. No user call promises an alias in its result.
+    (define (surviving-references (program Program) (expr Expr) (tail? Bool)) (→ (List String))
+      (match (● expr term)
+        ((Var name _ _) (list name))
+        ((Convert inner _) (surviving-references program inner #f))
+        ((Ann inner _) (surviving-references program inner tail?))
+        ((Lambda _ _ _) (expr-references expr))
+        ((Let name value body)
+         (let ((names (surviving-references program body tail?)))
+           (if (member? name names)
+               (label-union (label-difference names (list name)) (stable-aliases program value))
+               names)))
+        ((Seq _ rest) (surviving-references program rest tail?))
+        ((If _ yes no)
+         (intersection (surviving-references program yes tail?)
+                       (surviving-references program no tail?)))
+        ((Match _ clauses)
+         (match clauses
+           ((Nil) (Nil))
+           ((Cons first rest)
+            (fold-left (lambda (names clause)
+                         (intersection names (surviving-references program (● clause body) tail?)))
+                       (surviving-references program (● first body) tail?) rest))))
+        ((App callee args)
+         (if (and tail? (ordinary-call? program callee))
+             (surviving-operands program (Cons callee args))
+             (match (● callee term)
+               ((Var name _ _)
+                (match (program-value program name)
+                  ((Some (Constructor _ _)) (surviving-operands program args))
+                  (_ (if (member? name (list "prim:rc" "prim:rc-new" "prim:once"
+                                             "prim:inherit-handlers" "prim:inherit-handlers-1"))
+                         (surviving-operands program args) (Nil)))))
+               (_ (Nil)))))
+        (_ (Nil))))
+
+    (define (surviving-operands (program Program) (args (List Expr))) (→ (List String))
+      (fold-left (lambda (names arg) (label-union names (surviving-references program arg #f)))
+                 (Nil) args))
+
+    (define (stable-aliases (program Program) (value Expr)) (→ (List String))
+      (match (● value term)
+        ((Var name _ _) (list name))
+        ((Lambda _ _ _) (expr-references value))
+        ((Ann inner _) (stable-aliases program inner))
+        (_ (Nil))))
+
+    (define (intersection (left (List String)) (right (List String))) (→ (List String))
+      (filter (lambda (name) (member? name right)) left))
 
     ;; ---- Representable ownership ----
 
@@ -569,15 +673,14 @@
                      (check-type (● path program) (● path copy) type (● expr loc))) types)
          (when (and (has-body? value) (callee-may-yield? path expr))
            (for-each (lambda (type)
-                       (when (linear? path type)
-                         (check-drop-rows path
-                                          type
-                                          (Some row)
-                                          (string-append (short-name name)
-                                                         " may hold a "
-                                                         (type->string type)
-                                                         " across a yield")
-                                          (● expr loc))))
+                       (check-drop-rows path
+                                        type
+                                        (Some row)
+                                        (string-append (short-name name)
+                                                       " may hold a "
+                                                       (type->string type)
+                                                       " across a yield")
+                                        (● expr loc)))
                      types)))
         (_ (unit))))
 

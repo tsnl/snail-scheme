@@ -152,6 +152,14 @@
         (copy (List String))
         (instances (List String))
         (loc Loc)))
+      (WantCleanup
+       ((type Type)
+        (row Type)
+        (handled (List String))
+        (givens (List Constraint))
+        (copy (List String))
+        (shared-only? Bool)
+        (loc Loc)))
       (WantLiteral
        ((value Datum)
         (type Type)
@@ -376,7 +384,9 @@
                              (null? (label-difference labels (● context first))))
                         ck
                         (learning ck ((tail (row-tail (● flat second)))
-                                      (included (unify? (TRow labels (Some tail)) row)))
+                                      (included (unify? (TRow (label-union labels (● context first))
+                                                              (Some tail))
+                                                        row)))
                                   (if included
                                       ck
                                       (compile-error loc
@@ -502,7 +512,7 @@
       (→ (Pair (List B) Checker))
       (! e)
       (∀ A B e)
-      (⊨ (Copy B))
+      (⊨ (Copy B) (Drop e B))
       (let ((done (fold-left (lambda (done item)
                                (match (step (● done second) item)
                                  ((Pair value ck) (Pair (Cons value (● done first)) ck))))
@@ -627,7 +637,11 @@
         (check-active-instances (program-of ck) sets loc)
         (Checker-instances-set ck sets)))
 
-    (define (infer-lambda (ck Checker) (params (List String)) (body Expr) (captures? Bool) (loc Loc))
+    (define (infer-lambda (ck Checker)
+                          (params (List String))
+                          (body Expr)
+                          (captures? Bool)
+                          (loc Loc))
       (→ (Pair Expr Checker)) (! compile)
       (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params)))
                 (infer-lambda-at ck params body captures? types loc)))
@@ -699,7 +713,8 @@
         ((Pair _ (TCon "fn" (Cons arrow (Nil))))
          (learning ck ((value (check-value expr arrow row)))
                    (fit ck type value row (● value loc))))
-        ((Pair (Lambda params body captures?) (TCon "FnOnce" (Cons (TFun types result effects) (Nil))))
+        ((Pair (Lambda params body captures?)
+               (TCon "FnOnce" (Cons (TFun types result effects) (Nil))))
          (check-lambda ck expr params body captures? type types result effects))
         (_ (infer ck expr row))))
 
@@ -707,7 +722,7 @@
     ;; class requirement before its body is checked. Its identity stays
     ;; concrete; only an explicit dyn field chooses erased storage.
 
-    
+
 
     (define (check-result (ck Checker) (expr Expr) (type Type) (row Type))
       (→ (Pair Expr Checker))
@@ -715,9 +730,9 @@
       (learning ck ((expr (check-value expr type row)))
                 (fit ck type expr row (● expr loc))))
 
-    
 
-    
+
+
 
     ;; A lambda checked against its type. The body's row is a variable bound
     ;; to the type's row, so `perform` can recognize it: calls in this body,
@@ -818,8 +833,8 @@
                       (latent (fresh-meta))
                       (args (unify-call (● callee type) args result latent row loc))
                       (then (improve-types before))
-                      (then (perform latent row loc))
-                      (then (solve-found-rows before row)))
+                      (then (solve-found-rows before row))
+                      (then (perform latent row loc)))
                   (Pair (Expr (App callee args) result loc) ck))))
 
     ;; Matching result constructors carry an explicit storage boundary
@@ -864,15 +879,15 @@
     ;; A literal once body consumes its captures. Giving that lambda the
     ;; actual FnOnce identity removes a special ownership-checking mode.
 
-    
+
 
     ;; An immutable accessor reads through a Borrow without changing
     ;; it into an owner. Copy fields leave as owned values; linear fields
     ;; remain borrowed. Ordinary function calls never unwrap Borrow.
 
-    
 
-    
+
+
 
     ;; Arguments are compared one by one, so a mismatch names its argument,
     ;; and each meets its parameter's type (`fit`), which may give it the
@@ -906,7 +921,12 @@
                        (then (unify callee-result result loc))
                        (then (unify row latent loc)))
                    (Pair args ck)))
-        ((TVar _) (Pair args (unify ck callee-type (TFun (map (lambda (record) (● record type)) args) result latent) loc)))
+        ((TVar _)
+         (Pair args
+               (unify ck
+                      callee-type
+                      (TFun (map (lambda (record) (● record type)) args) result latent)
+                      loc)))
         ;; Calling a `FnOnce` calls the procedure it holds; ownership consumes
         ;; it. Calling an `Fn` calls the code it is.
         ((TCon "FnOnce" (Cons procedure (Nil)))
@@ -919,11 +939,11 @@
     ;; callable's contract comes from its requirement, not from Copy and not
     ;; from a particular implementation that may later instantiate it.
 
-    
 
-    
 
-    
+
+
+
 
     ;; Concrete arguments constrain shared type variables before an Any
     ;; can instantiate one. This changes inference order, never evaluation
@@ -993,9 +1013,9 @@
             (Pair (Expr (● expr term) expected (● expr loc))
                   (unify ck arrow (fn-arrow (● expr type)) loc)))))
 
-    
 
-    
+
+
 
     ;; A numeric literal's variable is already constrained to a number.
     ;; Keep that constraint across an Any boundary: ordinary literal
@@ -1086,14 +1106,14 @@
     (define (infer-let-value (ck Checker) (name String) (type Type) (value Expr) (row Type))
       (→ (Pair Expr Checker)) (! compile)
       (if (lambda-expr? value)
-          (within ck (bind-local ck name type) (lambda (inner) (infer inner value row)))
+          (within ck (bind-local ck name type) (lambda (inner) (check-value inner value type row)))
           (infer ck value row)))
 
     ;; The inline `impl` contract determines the recursive closure's receiver
     ;; kind and arrow. Check the body at that concrete identity, then prove it
     ;; implements the declared contract.
 
-    
+
 
     (define (infer-local-lambda (ck Checker) (value Expr) (type Type))
       (→ (Pair Expr Checker))
@@ -1353,14 +1373,14 @@
     ;; A mutable field is read through its accessor, which performs `mut`,
     ;; so a pattern can only skip it.
 
-    
+
 
     ;; A constructor pattern on a borrow binds its fields as field reads
     ;; through a borrow do: a Copy field as an owned value, a linear field
     ;; as a borrow. The pattern's own type is the referent's, which names
     ;; the struct the emitter reads. Mutable positions are already wildcards.
 
-    
+
 
     ;; A constructor pattern's fields, checked in order into one scope:
     ;; names are unique, so the fields' locals simply join.
@@ -1610,6 +1630,11 @@
                                  ((WantClass constraint hole givens copy sets loc)
                                   (resumed ck (solve-class (Checker-instances-set ck sets)
                                                            constraint hole givens copy loc)))
+                                 ((WantCleanup type row handled givens copy shared-only? loc)
+                                  (resumed ck
+                                           (charge-disposal
+                                            (Checker-copy-set (Checker-givens-set ck givens) copy)
+                                            type handled row loc shared-only? #f)))
                                  (_ ck)))
                              ck pending))))
 
@@ -1907,6 +1932,13 @@
                                                     (Some context)
                                                     loc)))
                 (Pair (Cons want kept) ck)))
+           ((WantCleanup type row handled givens copy shared-only? loc)
+            (if (known-class-inputs? ck want)
+                (Pair kept (resumed ck
+                                    (charge-disposal
+                                     (Checker-copy-set (Checker-givens-set ck givens) copy)
+                                     type handled row loc shared-only? #f)))
+                (Pair (Cons want kept) ck)))
            (_ (Pair (Cons want kept) ck))))))
 
     (define (known-class-inputs? (ck Checker) (want Wanted)) (→ Bool)
@@ -1917,6 +1949,7 @@
                 (not (any? (lambda (type) (has-meta? (solution ck) type))
                            (type-arguments (program-class (program-of ck) class)
                                            (● constraint types)))))))
+        ((WantCleanup type _ _ _ _ _ _) (disposal-known? (resolve-type (solution ck) type)))
         (_ #f)))
 
     ;; Field selections and associated outputs improve together: each
@@ -1955,11 +1988,13 @@
          (let ((class (program-class (program-of ck) (● constraint class))))
            (if (and (not (null? (● class outputs))) (known-class-inputs? ck want))
                (resumed ck (● (determined-source (Checker-instances-set ck sets) class
-                                  (map (lambda (type) (resolve-type (solution ck) type))
-                                       (● constraint types)) givens copy loc) second)) ck)))
+                                                 (map
+                                                  (lambda (type) (resolve-type (solution ck) type))
+                                                  (● constraint types)) givens copy loc) second))
+               ck)))
         (_ ck)))
 
-    
+
 
     ;; Evidence from the enclosing definition's requirements, or from the
     ;; unique instance whose head matches. None while the types are ambiguous.
@@ -1973,7 +2008,7 @@
               ((Some evidence) (Some (Pair evidence ck)))
               ((None) (Some (instance-evidence ck (● constraint class) types givens copy loc)))))))
 
-    
+
 
     (define (given-evidence (class String) (types (List Type)) (givens (List Constraint)))
       (→ (Option Evidence))
@@ -2293,7 +2328,7 @@
     (define (holds-storage-within? (program Program) (type Type) (visiting (List String))) (→ Bool)
       (match type
         ((TCon name args)
-         (or (member? name (list "Array" "Any"))
+         (or (member? name (list "Array" "Any" "Rc" "WeakRc"))
              (any? (lambda (arg) (holds-storage-within? program arg visiting)) args)
              (and (not (member? name visiting))
                   (fields-hold-storage? program name (Cons name visiting)))))
@@ -2467,30 +2502,46 @@
     ;; Any never holds a function with effects and the rows a TypeId leaves
     ;; out are empty.
 
-    (define (check-conversions (item Item)) (→ Unit) (! compile)
+    (define (check-conversions (program Program) (item Item)) (→ Unit) (! compile)
       (match item
-        ((Define _ value) (check-expression-conversions value))
-        ((Do value) (check-expression-conversions value))
+        ((Define _ value) (check-expression-conversions program value))
+        ((Do value) (check-expression-conversions program value))
         (_ (unit))))
 
-    (define (check-expression-conversions (expr Expr)) (→ Unit) (! compile)
+    (define (check-expression-conversions (program Program) (expr Expr)) (→ Unit) (! compile)
       (match (● expr term)
         ((Convert inner target)
+         (refuse-hidden-disposal program (● inner type) (● expr loc))
+         (refuse-hidden-disposal program target (● expr loc))
          (refuse-hidden-effects "type-convert" (● inner type) (● expr loc))
          (refuse-hidden-effects "type-convert" target (● expr loc))
          (refuse-function-reference "type-convert" (● inner type) (● expr loc))
          (refuse-function-reference "type-convert" target (● expr loc))
          (check-through-any (● inner type) target (● expr loc)))
         ((TryConvert inner target)
+         (refuse-hidden-disposal program target (● expr loc))
          (refuse-hidden-effects "try-convert" target (● expr loc))
          (refuse-function-reference "try-convert" target (● expr loc))
          (check-through-any (● inner type) target (● expr loc)))
         ((TypeTest _ target)
          (unit)
+         (refuse-hidden-disposal program target (● expr loc))
          (refuse-hidden-effects "type-test" target (● expr loc))
          (refuse-function-reference "type-test" target (● expr loc)))
         (_ (unit)))
-      (for-each check-expression-conversions (expr-children expr)))
+      (for-each (lambda (child) (check-expression-conversions program child)) (expr-children expr)))
+
+
+    (define (refuse-hidden-disposal (program Program) (type Type) (loc Loc)) (→ Unit) (! compile)
+      (match (lifecycle-rows program drop-class (Nil) (Nil) type)
+        ((Ok rows)
+         (unless (every? (lambda (row)
+                           (let ((flat (flatten-row empty-solution row)))
+                             (and (null? (● flat first))
+                                  (match (● flat second) ((None) #t) (_ #f))))) rows)
+           (compile-error loc "Any cannot hide disposal effects; keep this value's static type")))
+        ((Err _)
+         (compile-error loc "Any requires a value whose disposal is known to be effect-free"))))
 
     ;; A conversion changes nothing, or boxes into Any, or checks a value out
     ;; of it: there is no other representation change for it to make.
@@ -2546,12 +2597,13 @@
       (→ (List (Pair String Type)))
       (let ((names (consumed-references (program-of ck) expr)))
         (filter (lambda (entry)
-                  (if taken? (member? (● entry first) names)
-                      (not (member? (● entry first) names)))) scope)))
+                  (let ((moved?
+                         (and (linear? ck (● entry second)) (member? (● entry first) names))))
+                    (if taken? (member? (● entry first) names) (not moved?)))) scope)))
 
     (define (cleanup-row (ck Checker) (callee Expr)) (→ Type)
       (match (● callee term)
-        
+
         ((Ann inner _) (cleanup-row ck inner))
         ((Var name types evidence)
          (match (program-value (program-of ck) name)
@@ -2643,25 +2695,116 @@
                  (Nil)
                  exprs))
 
-    (define (charge-cleanup (ck Checker)
-                            (scope (List (Pair String Type)))
-                            (handled (List String))
-                            (row Type)
-                            (loc Loc))
-      (→ Checker)
-      (! compile)
+    (define (charge-cleanup (ck Checker) (scope (List (Pair String Type)))
+                            (handled (List String)) (row Type) (loc Loc))
+      (→ Checker) (! compile)
       (fold-left (lambda (ck entry)
-                   (let ((type (resolve-type (solution ck) (● entry second))))
-                     (if (or (has-meta? (solution ck) type) (not (linear? ck type))) ck
-                         (match (lifecycle-rows (program-of ck) drop-class
-                                                (● ck copy) (● ck givens) type)
-                           ((Ok rows)
-                            (fold-left (lambda (ck drop-row)
-                                         (let ((flat (flatten-row (solution ck) drop-row)))
-                                           (perform ck
-                                                    (TRow
-                                                     (label-difference (● flat first) handled)
-                                                     (● flat second)) row loc))) ck rows))
+                   (charge-disposal ck (● entry second) handled row loc #f #t)) ck scope))
+
+
+    ;; A callable's row bounds destruction of its immutable captures as well
+    ;; as invocation. Its argument and result types do not affect that bound.
+    (define (disposal-known? (type Type)) (→ Bool)
+      (match type
+        ((TVar _) #f)
+        ((TFun _ _ _) #t)
+        ((TCon _ args) (every? disposal-known? args))
+        (_ #t)))
+
+    (define (charge-disposal (ck Checker) (type Type) (handled (List String)) (row Type)
+                             (loc Loc) (shared-only? Bool) (defer? Bool))
+      (→ Checker) (! compile)
+      (let ((type (resolve-type (solution ck) type)))
+        (cond ((not (disposal-known? type))
+               (if defer?
+                   (want ck
+                         (WantCleanup type row handled (● ck givens) (● ck copy) shared-only? loc))
+                   (compile-error loc
+                                  "the disposal effects of this value are ambiguous; add a type annotation")))
+              ((and shared-only? (linear? ck type)) ck)
+              (else
+               (match (lifecycle-rows (program-of ck) drop-class (● ck copy) (● ck givens) type)
+                 ((Err problem) (compile-error loc problem))
+                 ((Ok rows)
+                  (fold-left (lambda (ck drop-row)
+                               (let ((flat (flatten-row (solution ck) drop-row)))
+                                 (perform ck (TRow (label-difference (● flat first) handled)
+                                                   (● flat second)) row loc))) ck rows)))))))
+
+    ;; A local's owner is released at its lexical exit. A direct outgoing
+    ;; reference, immutable capture, or private result field keeps it alive.
+    (define (charge-exit (ck Checker) (owners (List (Pair String Type))) (body Expr)
+                         (handled (List String)) (row Type) (tail? Bool))
+      (→ Checker) (! compile)
+      (let ((survivors (surviving-references (program-of ck) body tail?)))
+        (fold-left (lambda (ck owner)
+                     (if (member? (● owner first) survivors) ck
+                         (charge-disposal ck (● owner second) handled row (● body loc) #t #t)))
+                   ck owners)))
+
+    ;; Temporary observation/discard cannot finalize a local whose own
+    ;; lexical reference remains live. A fresh closure's captures also have
+    ;; their original owners here. Unknown call results carry only a type.
+    (define (charge-temporary (ck Checker) (scope (List (Pair String Type))) (value Expr)
+                              (handled (List String)) (row Type))
+      (→ Checker) (! compile)
+      (match (● value term)
+        ((Var name _ _)
+         (if (or (any? (lambda (entry) (string=? name (● entry first))) scope)
+                 (match (program-value (program-of ck) name) ((Some _) #t) (_ #f))) ck
+                 (charge-disposal ck (● value type) handled row (● value loc) #t #t)))
+        ((Lambda _ _ _) ck)
+        ((Ann inner _) (charge-temporary ck scope inner handled row))
+        (_ (charge-disposal ck (● value type) handled row (● value loc) #t #t))))
+
+    (define (cleanup-operation (ck Checker) (callee Expr)) (→ (Option Value))
+      (match (● callee term)
+        ((Var name _ _) (program-value (program-of ck) name))
+        ((Ann inner _) (cleanup-operation ck inner))
+        (_ (None))))
+
+    ;; A replacement discards the old field; a swap returns it. The receiver
+    ;; itself remains held across evaluation of the incoming expression.
+    (define (cleanup-write (ck Checker) (callee Expr) (args (List Expr))
+                           (handled (List String)) (row Type) (loc Loc))
+      (→ Checker) (! compile)
+      (match (Pair (● callee term) args)
+        ((Pair (Var "prim:set!" _ _) (Cons place _))
+         (charge-disposal ck (● place type) handled row loc #t #t))
+        ((Pair (Var "prim:array-copy!" _ _) (Cons destination _))
+         (charge-disposal ck (● destination type) handled row loc #t #t))
+        (_ (match (cleanup-operation ck callee)
+             ((Some (Setter _ _ _))
+              (charge-disposal ck (● (list-ref args 1) type) handled row loc #t #t))
+             (_ (match (Pair (● callee term) args)
+                  ((Pair (Var "prim:array-set!" _ _) (Cons _ (Cons _ (Cons value _))))
+                   (charge-disposal ck (● value type) handled row loc #t #t))
+                  (_ ck)))))))
+
+    (define (cleanup-observation (ck Checker) (scope (List (Pair String Type)))
+                                 (callee Expr)
+                                 (args (List Expr))
+                                 (handled (List String))
+                                 (row Type))
+      (→ Checker) (! compile)
+      (let ((operation (cleanup-operation ck callee)))
+        (fold-left (lambda (ck entry)
+                     (if (observes-argument? operation callee (● entry first))
+                         (charge-temporary ck scope (● entry second) handled row) ck))
+                   ck (zip (iota (length args)) args))))
+
+    (define (charge-exceptional (ck Checker) (scope (List (Pair String Type)))
+                                (handled (List String)) (row Type) (loc Loc))
+      (→ Checker) (! compile)
+      (fold-left (lambda (ck owner)
+                   (let ((type (resolve-type (solution ck) (● owner second))))
+                     (if (not (disposal-known? type)) ck
+                         (match (lifecycle-rows (program-of ck)
+                                                drop-class
+                                                (● ck copy)
+                                                (● ck givens)
+                                                type)
+                           ((Ok _) (charge-disposal ck type handled row loc #f #f))
                            ((Err _) ck))))) ck scope))
 
     ;; Earlier operands remain owned while later operands run. They are
@@ -2689,73 +2832,78 @@
         ((PCon _ args _) (concatenate (map cleanup-pattern args)))
         (_ (Nil))))
 
-    (define (infer-cleanup (ck Checker)
-                           (scope (List (Pair String Type)))
-                           (handled (List String))
-                           (expr Expr)
-                           (row Type))
-      (→ Checker)
-      (! compile)
+    (define (infer-cleanup (ck Checker) (scope (List (Pair String Type)))
+                           (handled (List String)) (expr Expr) (row Type))
+      (→ Checker) (! compile)
+      (infer-cleanup-at ck scope handled expr row #f))
+
+
+    (define (infer-cleanup-at (ck Checker) (scope (List (Pair String Type)))
+                              (handled (List String)) (expr Expr) (row Type) (tail? Bool))
+      (→ Checker) (! compile)
       (match (● expr term)
         ((Lambda _ _ _) ck)
         ((Let name value body)
-         (let ((ck (infer-cleanup ck scope handled value row)))
-           (infer-cleanup ck (Cons (Pair name (● value type)) (cleanup-scope ck scope value #f))
-                          handled body row)))
+         (let* ((ck (infer-cleanup ck scope handled value row))
+                (owner (Pair name (● value type)))
+                (ck (infer-cleanup-at ck (Cons owner (cleanup-scope ck scope value #f))
+                                      handled body row tail?)))
+           (charge-exit ck (list owner) body handled row tail?)))
         ((Seq first rest)
-         (infer-cleanup (infer-cleanup ck scope handled first row)
-                        (cleanup-scope ck scope first #f) handled rest row))
+         (let* ((ck (infer-cleanup ck scope handled first row))
+                (ck (charge-temporary ck scope first handled row)))
+           (infer-cleanup-at ck (cleanup-scope ck scope first #f) handled rest row tail?)))
         ((If test then otherwise)
          (let* ((ck (infer-cleanup ck scope handled test row))
                 (after (cleanup-scope ck scope test #f)))
-           (infer-cleanup (infer-cleanup ck after handled then row) after handled otherwise row)))
+           (infer-cleanup-at (infer-cleanup-at ck after handled then row tail?)
+                             after handled otherwise row tail?)))
         ((Match value clauses)
          (let* ((ck (infer-cleanup ck scope handled value row))
+                (ck (charge-temporary ck scope value handled row))
                 (after (cleanup-scope ck scope value #f)))
            (fold-left (lambda (ck clause)
-                        (infer-cleanup ck (append (cleanup-pattern (● clause pattern)) after)
-                                       handled (● clause body) row)) ck clauses)))
+                        (let* ((owners (cleanup-pattern (● clause pattern)))
+                               (body (● clause body))
+                               (ck
+                                (infer-cleanup-at ck (append owners after) handled body row tail?)))
+                          (charge-exit ck owners body handled row tail?))) ck clauses)))
         ((Handle effect implementations body)
-         (let* ((ck (cleanup-operands ck
-                                      scope
-                                      handled
-                                      (map (lambda (record) (● record second)) implementations)
-                                      row))
-                (ck (infer-cleanup ck
-                                   (cleanup-scope ck scope body #t)
-                                   (Cons effect handled)
-                                   body
-                                   row)))
+         (let* ((values (map (lambda (entry) (● entry second)) implementations))
+                (ck (cleanup-operands ck scope handled values row))
+                (ck
+                 (infer-cleanup ck (cleanup-scope ck scope body #t) (Cons effect handled) body row))
+                (ck (fold-left (lambda (ck value) (charge-temporary ck scope value handled row))
+                               ck
+                               values)))
            (if (null? (cleanup-yields ck expr)) ck
-               (charge-cleanup ck (cleanup-scope ck scope expr #f) handled row (● expr loc)))))
+               (charge-exceptional ck (cleanup-scope ck scope expr #f) handled row (● expr loc)))))
         ((App callee args)
-         (let ((ck (cleanup-operands ck scope handled (Cons callee args) row)))
+         (let* ((ck (cleanup-operands ck scope handled (Cons callee args) row))
+                (ck (cleanup-observation ck scope callee args handled row))
+                (ck (cleanup-write ck callee args handled row (● expr loc))))
            (if (null? (cleanup-control ck (cleanup-row ck callee))) ck
-               (charge-cleanup ck (cleanup-scope ck scope expr #f) handled row (● expr loc)))))
+               (charge-exceptional ck (cleanup-scope ck scope expr #f) handled row (● expr loc)))))
         ((Convert inner _)
          (let ((ck (infer-cleanup ck scope handled inner row)))
            (if (null? (cleanup-yields ck expr)) ck
-               (charge-cleanup ck (cleanup-scope ck scope inner #f) handled row (● expr loc)))))
+               (charge-exceptional ck (cleanup-scope ck scope inner #f) handled row (● expr loc)))))
         (_ (fold-left (lambda (ck child) (infer-cleanup ck scope handled child row))
                       ck (expr-children expr)))))
 
-    (define (cleanup-lambda (ck Checker)
-                            (params (List String))
-                            (types (List Type))
-                            (body Expr)
-                            (row Type))
-      (→ Checker)
-      (! compile)
-      ;; A locally caught yield can still drop owners whose cleanup effects
-      ;; escape the handler, so inspect the body even when no yield escapes.
-      (let ((captured (concatenate
-                       (map (lambda (name)
-                              (match (table-ref (● ck locals) name)
-                                ((Some type)
-                                 (if (member? name params) (Nil) (list (Pair name type))))
-                                ((None) (Nil))))
-                            (expr-references body)))))
-        (infer-cleanup ck (append (zip params types) captured) (Nil) body row)))
+    (define (cleanup-lambda (ck Checker) (params (List String)) (types (List Type))
+                            (body Expr) (row Type))
+      (→ Checker) (! compile)
+      (let* ((captured
+              (concatenate
+               (map (lambda (name)
+                      (match (table-ref (● ck locals) name)
+                        ((Some type) (if (member? name params) (Nil) (list (Pair name type))))
+                        ((None) (Nil)))) (expr-references body))))
+             (owners (zip params types))
+             (ck (charge-cleanup ck captured (Nil) row (● body loc)))
+             (ck (infer-cleanup-at ck (append owners captured) (Nil) body row #t)))
+        (charge-exit ck owners body (Nil) row #t)))
 
     ;; ---- Definitions ----
 
@@ -2825,7 +2973,8 @@
                                  (● value type)
                                  (● value loc))))
                 (unless (total? (solution ck) row)
-                  (compile-error (● value loc) "a top-level value must be effect-free; put runtime work in a function"))
+                  (compile-error (● value loc)
+                                 "a top-level value must be effect-free; put runtime work in a function"))
                 (Pair (Pair value row) ck)))
 
     (define (infer-definition-value (ck Checker) (value Expr) (type Type) (row Type))
@@ -2925,6 +3074,8 @@
         ((WantClass constraint _ _ _ _ _)
          (concatenate
           (map (lambda (type) (free-metas solution type)) (● constraint types))))
+        ((WantCleanup type row _ _ _ _ _)
+         (append (free-metas solution type) (free-metas solution row)))
         ((WantLiteral _ type _) (free-metas solution type))
         ((WantCopy _ _ _) (Nil))))
 
@@ -3178,7 +3329,7 @@
                          (Typed program
                                 (map (lambda (item) (zonk-item (solution ck) item)) typed)
                                 (final-schemes ck items))))
-                    (for-each check-conversions (● result items))
+                    (for-each (lambda (item) (check-conversions program item)) (● result items))
                     (let ((result
                            (Typed-items-set result (lower-conversions (● result items)))))
                       (check-final result
@@ -3321,7 +3472,7 @@
         ((Some (Defined (Some scheme) _ _)) (Some scheme))
         (_ (None))))
 
-    
+
 
     ;; Where a definition's own signature was written, if it has one.
 
@@ -3356,9 +3507,9 @@
                             (step (Fn Checker A → (Pair B Checker) ! compile))
                             (items (List A)))
       (→ (Recovered B))
-      (! compile)
-      (∀ A B)
-      (⊨ (Copy A) (Copy B))
+      (! compile e)
+      (∀ A B e)
+      (⊨ (Copy A) (Copy B) (Drop e B) (Drop e A))
       (let ((done (fold-left (lambda (done item) (recover done references names step item))
                              start
                              items)))
@@ -3370,9 +3521,9 @@
                      (step (Fn Checker A → (Pair B Checker) ! compile))
                      (item A))
       (→ (Recovered B))
-      (! compile)
-      (∀ A B)
-      (⊨ (Copy A) (Copy B))
+      (! compile e)
+      (∀ A B e)
+      (⊨ (Copy A) (Copy B) (Drop e B) (Drop e A))
       (let ((failed (● done failed)))
         (if (any? (lambda (name) (member? name failed)) (references item))
             (Recovered-failed-set done (append (names item) failed))

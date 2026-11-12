@@ -7,7 +7,7 @@
   (define (drop (resource Resource)) (→ Unit) (! output-port)
     (match resource ((Resource value) (display value) (newline)))))
 (effect Pause ((ctl pause (Fn → Unit))))
-(define (work) (→ Unit) (! Pause output-port)
+(define (work) (→ Unit) (! Pause mut output-port)
   (let ((resource (rc (Resource 7))))
     (pause)
     (display (● resource value)) (newline) (unit)))

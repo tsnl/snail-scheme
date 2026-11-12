@@ -9,10 +9,11 @@
   (define (drop (resource Resource)) (→ Unit) (! output-port)
     (match resource ((Resource value) (display value) (newline)))))
 (effect ReadValue ((read-value (Fn → I64))))
-(define (job) (→ (FnOnce → Unit ! host)) (! output-port)
+(define (job) (→ (FnOnce → Unit ! host)) (! mut output-port)
   (handle ReadValue
       ((read-value
-        (let ((resource (rc (Resource 12)))) (ann (lambda () (● resource value)) (Fn → I64)))))
+        (let ((resource (rc (Resource 12))))
+          (ann (lambda () (● resource value)) (Fn → I64 ! mut output-port)))))
     (inherit-handlers (once (lambda () (display (read-value)) (newline))))))
 (let ((work (job)))
   (display 20) (newline)

@@ -1209,7 +1209,11 @@
                  (owned (● program metadata) owner)
                  (take (● program items) count) (take (● program libraries) 1))))
 
-    (define (owned (table (Table V)) (owner String)) (→ (Table V)) (∀ V) (⊨ (Copy V))
+    (define (owned (table (Table V)) (owner String))
+      (→ (Table V))
+      (! e)
+      (∀ V e)
+      (⊨ (Copy V) (Drop e V))
       (fold-left (lambda (result key)
                    (match (table-ref table key)
                      ((Some value)
@@ -1256,7 +1260,11 @@
     ;; `table` with every entry of `additions`, which win where both have a
     ;; key.
 
-    (define (table-union (table (Table V)) (additions (Table V))) (→ (Table V)) (∀ V) (⊨ (Copy V))
+    (define (table-union (table (Table V)) (additions (Table V)))
+      (→ (Table V))
+      (! e)
+      (∀ V e)
+      (⊨ (Copy V) (Drop e V))
       (fold-left (lambda (result key)
                    (match (table-ref additions key)
                      ((Some value) (table-set result key value))
