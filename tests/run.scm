@@ -2,10 +2,10 @@
 ;; program NAME.sld must print NAME.out exactly, or fail to compile with
 ;; each line of NAME.err in its diagnostics, in order. Then the Siegework package is built
 ;; and driven headlessly, and the in-process assembler assembles a program.
-;; Programs compile, link and run in parallel. With the compiler's source
+;; Programs compile, link and run serially by default. With the compiler's source
 ;; on Chibi, compiles stay serial to bound its heap use. Finally
 ;; representative programs run again as modules linked when they run.
-;; Set SNAIL_TEST_JOBS=1 to run those checks serially on a memory-limited host.
+;; SNAIL_TEST_JOBS opts into more concurrent checks when memory permits.
 ;;
 ;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/run.scm ROOT [NAME ...]
 (import
@@ -748,7 +748,7 @@
 ;; on Chibi, run-suite compiles first, leaving only linking and execution
 ;; for these children. A child reports its failure and exits with its result.
 (define jobs
-  (let ((count (string->number (or (get-environment-variable "SNAIL_TEST_JOBS") "8"))))
+  (let ((count (string->number (or (get-environment-variable "SNAIL_TEST_JOBS") "1"))))
     (if (and (integer? count) (exact? count) (> count 0)) count
         (error "SNAIL_TEST_JOBS must be a positive integer"))))
 

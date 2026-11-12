@@ -87,6 +87,21 @@ The driver repeats this whenever the compiler's source changes, so a pinned
 Wasm build bootstraps without Chibi. Chibi remains the host of the first
 bootstrap and of `make test-chibi`.
 
+Checks run serially by default because compiler instances can use substantial
+memory. `SNAIL_TEST_JOBS` opts into more concurrent checks. Chibi's initial heaps
+are controlled separately: `HEAP` for the test runner, `SNAIL_HEAP` for the build
+driver and `SNAIL_STAGE0_HEAP` for source compilation. These are initial sizes,
+not memory limits. On Linux, a systemd scope can cap the whole build and its
+children; for example, a constrained local run uses:
+
+```sh
+systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 \
+  env SNAIL_HEAP=256M SNAIL_STAGE0_HEAP=1G SNAIL_TEST_JOBS=1 \
+  make HEAP=256M test
+```
+
+Run bootstrap, tests and benchmarks one at a time when memory is limited.
+
 ## The native executable
 
 `crates/snail` builds `build/snail`, a native executable that embeds
