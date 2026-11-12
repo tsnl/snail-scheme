@@ -4,15 +4,14 @@
 ;; tests/compiler.scm runs over every tracked library and over the texts
 ;; below; and what the two make of a producer's output, which
 ;; tests/compare-compiler.sld runs over every tracked library's forms as a
-;; producer encodes them, and over the outputs below. The conversions and
-;; the comparisons of syntax and feedback serve the later passes'
-;; comparisons too. Only this folder knows both compilers, and it goes
-;; when the old one does.
+;; producer encodes them, and over the outputs below. The conversion of
+;; syntax and the comparisons of syntax and feedback serve the later
+;; passes' comparisons too; places, literals and problems are converted
+;; by (snail compiler adapter source). Only this folder knows both
+;; compilers, and it goes when the old one does.
 (define-library (snail compiler adapter read)
   (export
    syntax->old
-   loc->old
-   feedback->old
    items-difference
    feedback-difference
    read-difference
@@ -31,6 +30,7 @@
    (snail compiler read pass)
    (snail compiler read written)
    (prefix (snail compiler read language) syntax-)
+   (snail compiler adapter source)
    (prefix (snail shell compiler read) old:))
   (begin
 
@@ -44,24 +44,6 @@
         ((syntax-Atom datum loc) (old:Atom (datum->old datum) (loc->old loc)))
         ((syntax-Ident name loc) (old:Ident name (None) (loc->old loc)))
         ((syntax-Form items loc) (old:Form (map syntax->old items) (loc->old loc)))))
-
-    (: datum->old (impl (Fn syntax-Datum -> old:Datum)))
-    (define (datum->old datum)
-      (match datum
-        ((syntax-Integer integer) (old:DInt integer))
-        ((syntax-Float text) (old:DFloat text))
-        ((syntax-Text text) (old:DString text))
-        ((syntax-Character character) (old:DChar character))
-        ((syntax-ByteVector bytes) (old:DBytes bytes))
-        ((syntax-Boolean boolean) (old:DBool boolean))))
-
-    (: loc->old (impl (Fn Loc -> old:Loc)))
-    (define (loc->old loc)
-      (old:Loc (::file loc) (::line loc) (::column loc)))
-
-    (: feedback->old (impl (Fn Feedback -> old:SourceDiagnostic)))
-    (define (feedback->old feedback)
-      (old:SourceDiagnostic (loc->old (::loc feedback)) (::message feedback)))
 
     ;; ---- Comparing readings ----
 

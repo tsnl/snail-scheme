@@ -11,7 +11,8 @@
 ;; generated libraries the old closure walk reaches, as (snail compiler
 ;; adapter load) says; then each program that loads completely is taken
 ;; through the new passes, `read` to `cohere`, and compared with the old
-;; expansion as (snail compiler adapter expansion) says, and its targets
+;; expansion as (snail compiler adapter expansion) says, as is the
+;; program (snail compiler adapter program) makes of it, and its targets
 ;; discovered beside the old discovery, as (snail compiler adapter
 ;; discover) says, as are that library's cases. Then every tracked
 ;; library's forms, and the unusual texts of (snail compiler adapter
@@ -96,7 +97,8 @@
 ;; ---- Findings ----
 
 ;; One program's findings: how far it loads, how its order compares, how
-;; its producers compare, how its expansion compares, and how its
+;; its producers compare, how its expansion compares, how the program
+;; the adapter makes of it compares with the old expansion's, and how its
 ;; discovery compares.
 (struct Finding
   ((path String)
@@ -104,16 +106,19 @@
    (order OrderComparison)
    (producers ProducerComparison)
    (expansion (Pair String String))
+   (adapted (Pair String String))
    (discovery (Pair String String))))
 
 (: program-finding (impl (Fn Suite String -> Finding ! fs)))
 (define (program-finding suite path)
-  (let ((directories (::libraries suite)))
+  (let ((directories (::libraries suite))
+        (expansions (expansion-comparison (::libraries suite) generated path)))
     (Finding path
              (load-summary (load-program directories generated path))
              (order-comparison directories generated path)
              (producer-comparison directories generated printed path)
-             (expansion-comparison directories generated path)
+             (::expansion expansions)
+             (::adapted expansions)
              (discovery-comparison directories generated path))))
 
 ;; The kinds of expansion finding, the ones that need no word first.
@@ -135,6 +140,22 @@
     (if (or (string=? kind "expand alike") (string=? kind "fail alike"))
         (Nil)
         (list (string-append (::path finding) ": " kind ": " (::second (::expansion finding)))))))
+
+;; A program whose adapted program is compared and differs.
+(: adapted-line (impl (Fn Finding -> (List String))))
+(define (adapted-line finding)
+  (if (string=? (::first (::adapted finding)) "adaptations differ")
+      (list
+       (string-append (::path finding) ": adaptations differ: " (::second (::adapted finding))))
+      (Nil)))
+
+(: adapted-count (impl (Fn (List Finding) String -> String)))
+(define (adapted-count findings kind)
+  (string-append (i64->string (length (filter (lambda (finding)
+                                                (string=? (::first (::adapted finding)) kind))
+                                              findings)))
+                 " "
+                 kind))
 
 (: expansion-count (impl (Fn (List Finding) String -> String)))
 (define (expansion-count findings kind)
@@ -439,6 +460,13 @@
                              (string-join (map (lambda (kind) (expansion-count findings kind))
                                                expansion-kinds)
                                           ", ")))
+  (for-each write-line (concatenate (map adapted-line findings)))
+  (write-line (string-append "compared the programs adapted with the old expansions': "
+                             (string-join (map (lambda (kind) (adapted-count findings kind))
+                                               (list "adapt alike"
+                                                     "adaptations differ"
+                                                     "not compared"))
+                                          ", ")))
   (for-each write-line (concatenate (map discovery-line findings)))
   (write-line (string-append "compared their discovery with the old: "
                              (string-join (map (lambda (kind) (discovery-count findings kind))
@@ -461,6 +489,10 @@
                              "expansions differ")))
             findings)
       (panic "the expansions differ")
+      (unit))
+  (if (any? (lambda (finding) (string=? (::first (::adapted finding)) "adaptations differ"))
+            findings)
+      (panic "the programs adapted differ")
       (unit))
   (if (any? (lambda (finding) (string=? (order-kind (::order finding)) "other differences"))
             findings)

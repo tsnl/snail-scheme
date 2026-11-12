@@ -4,13 +4,18 @@
 ;; with the old program's, which (snail compiler adapter expansion) runs
 ;; for every program both compilers expand.
 ;;
-;; A Global is the old compiler's unique name: its library's parts joined
-;; by dots, a colon and its name, or a builtin's name alone; one a macro's
-;; template wrote is `name%m.serial`, in the form of the old compiler's
-;; marked names, whose stamp no new pass has. The texts compared drop the
-;; number after each `%m.`, so a macro-written name is compared by the
-;; name written. A row's labels are compared as a set, since the old
-;; compiler writes an operation's own effect first.
+;; A Global is the old compiler's unique name, as (snail compiler declare
+;; spellings) spells it, the one spelling of a name: its library's parts
+;; joined by dots, a colon and its name, or a builtin's name alone; one a
+;; macro's template wrote is `name%serial`, where the old compiler's
+;; marked name holds its mark's stamp, `name%m.stamp`, which no new pass
+;; has. So a case's TypeId, which the old compiler computes from the names
+;; of the program it is handed, is the one `declare` writes. A primitive's
+;; Global is of the library ("prim"), so it is `prim:name`, as the old
+;; compiler names it. The texts compared drop the number after each `%`
+;; and each `%m.`, so a macro-written name is compared by the name
+;; written. A row's labels are compared as a set, since the old compiler
+;; writes an operation's own effect first.
 ;;
 ;; For each library, the comparison holds, sorted by name: its data types,
 ;; with whether each is owned, which deriving Move or a Drop instance
@@ -28,13 +33,23 @@
 (define-library (snail compiler adapter declaration)
   (export
    old-name
+   old-value-name
    old-type
    old-scheme
    old-data
    old-class
    old-effect
    old-instance
+   old-implementation-scheme
+   declared-values
    normal-type-text
+   name-text
+   data-text
+   class-text
+   effect-text
+   instance-text
+   value-text
+   tops-data
    declaration-differences)
   (import
    (snail core base)
@@ -43,6 +58,7 @@
    (only (snail compiler outline names) same-library? library-key)
    (only (snail compiler expand language)
          Global
+         TopValue
          TopGlobal
          FieldFunction
          FieldRole
@@ -83,9 +99,11 @@
    (snail compiler declare forms)
    (snail compiler declare equality)
    (snail compiler declare schemes)
+   (only (snail compiler declare spellings) global-spelling)
    (snail compiler dispatch language)
    (snail compiler dispatch listing)
    (only (snail compiler integrate compile) CompiledFile)
+   (only (snail compiler adapter source) loc->old)
    (prefix (only (snail shell compiler read) Loc) old:)
    (prefix (only (snail shell compiler core)
                  Type
@@ -116,6 +134,7 @@
                  Foreign
                  Program
                  label-union
+                 field-class-name
                  class-instances)
            old:))
   (begin
@@ -124,22 +143,34 @@
 
     (: old-name (impl (Fn Global -> String)))
     (define (old-name global)
-      (cond ((and (same-library? (::library global) forms-library) (= (::serial global) 0))
-             (::name global))
-            ((= (::serial global) 0)
-             (string-append (library-key (::library global)) ":" (::name global)))
-            (else
-             (string-append (library-key (::library global))
-                            ":"
-                            (::name global)
-                            "%m."
-                            (i64->string (::serial global))))))
+      (global-spelling global))
 
+    ;; A top-level value: a Global, or a field function, named for its
+    ;; case, a dash and its label, with its role's suffix, as the old
+    ;; compiler binds it.
+    (: old-value-name (impl (Fn TopValue -> String)))
+    (define (old-value-name value)
+      (match value
+        ((TopGlobal global) (old-name global))
+        ((FieldFunction case label role) (field-function-name case label role))))
+
+    (: field-function-name (impl (Fn Global String FieldRole -> String)))
+    (define (field-function-name case label role)
+      (string-append (old-name case)
+                     "-"
+                     label
+                     (match role
+                       ((Accessor) "")
+                       ((Replacer) "-set")
+                       ((Setter) "-set!")
+                       ((Swapper) "-replace!"))))
+
+    ;; A field class is its label's, `::label`, of no library.
     (: old-class-name (impl (Fn ClassRef -> String)))
     (define (old-class-name class)
       (match class
         ((ClassGlobal global) (old-name global))
-        ((FieldClass label) (string-append "::" label))))
+        ((FieldClass label) (old:field-class-name label))))
 
     (: old-variable (impl (Fn TypeVariable -> String)))
     (define (old-variable variable)
@@ -278,11 +309,26 @@
     (define (member-name member)
       (match member
         ((ClassMethod global) (old-name global))
-        ((FieldReader label) (string-append "::" label))))
+        ((FieldReader label) (old:field-class-name label))))
+
+    ;; The scheme of an instance's implementation of one of its methods,
+    ;; the member's at the instance's head, which `implementation-scheme`
+    ;; reads off the instance as declared; none when `files`, every
+    ;; library compiled, declare no such class or method.
+    (: old-implementation-scheme
+       (impl (Fn (List CompiledFile) Instance InstanceMethod -> (Option old:Scheme))))
+    (define (old-implementation-scheme files instance method)
+      (match (member-class files (::class instance) (::member method))
+        ((Some found)
+         (Some (old-scheme (implementation-scheme (::first found)
+                                                  (::second found)
+                                                  (as-declared instance)))))
+        ((None) (None))))
 
     ;; ---- Texts ----
 
-    ;; A name with each `%m.` mark's number dropped.
+    ;; A name with the number of each `%m.` mark of the old compiler's,
+    ;; and each serial `%` of the new compiler's, dropped.
     (: name-text (impl (Fn String -> String)))
     (define (name-text name)
       (list->string (unmarked (string->list name))))
@@ -292,6 +338,10 @@
       (match chars
         ((Nil) (Nil))
         ((Cons #\% (Cons #\m (Cons #\. rest))) (Cons #\% (unmarked (drop-digits rest))))
+        ((Cons #\% (Cons digit rest))
+         (if (char-numeric? digit)
+             (Cons #\% (unmarked (drop-digits rest)))
+             (Cons #\% (unmarked (Cons digit rest)))))
         ((Cons char rest) (Cons char (unmarked rest)))))
 
     (: drop-digits (impl (Fn (List Char) -> (List Char))))
@@ -453,7 +503,7 @@
                                   (map effect-text
                                        (filter (lambda (effect) (in-library? key (::name effect)))
                                                (table-values (::effects program)))))
-               (listed-difference key "values" (new-values tops) (old-values program key))
+               (listed-difference key "values" (new-values tops) (program-values program key))
                (instance-differences files key (::listing file) program)))))
 
     (: library-tops (impl (Fn Dispatched -> (List Top))))
@@ -533,10 +583,15 @@
     (: new-values (impl (Fn (List Top) -> (List String))))
     (define (new-values tops)
       (map (lambda (entry) (form (name-text (::first entry)) (list (value-text (::second entry)))))
-           (concatenate (map top-values (flat-tops tops)))))
+           (concatenate (map declared-values (flat-tops tops)))))
 
-    (: top-values (impl (Fn Top -> (List (Pair String old:Value)))))
-    (define (top-values top)
+    ;; The values a top declares, by their old names, but those the old
+    ;; compiler names afresh: a definition, with its signature's scheme
+    ;; and where the signature is, and whether its value is a function;
+    ;; a data type's constructors and field functions; a class's methods;
+    ;; an effect's operations; and an extern.
+    (: declared-values (impl (Fn Top -> (List (Pair String old:Value)))))
+    (define (declared-values top)
       (match top
         ((Define global value signature _ _)
          (list (Pair (old-name global)
@@ -544,7 +599,7 @@
                                     ((Some signed) (Some (old-scheme (::scheme signed))))
                                     ((None) (None)))
                                   (match signature
-                                    ((Some signed) (Some (old-loc (::loc signed))))
+                                    ((Some signed) (Some (loc->old (::loc signed))))
                                     ((None) (None)))
                                   (function-value? value)))))
         ((TopData data) (data-values data))
@@ -565,10 +620,6 @@
                      (old:Foreign (old:Import module symbol)
                                   (old-scheme (Scheme (Nil) (Nil) (Nil) type))))))
         (_ (Nil))))
-
-    (: old-loc (impl (Fn Loc -> old:Loc)))
-    (define (old-loc loc)
-      (old:Loc (::file loc) (::line loc) (::column loc)))
 
     (: function-value? (impl (Fn Expr -> Bool)))
     (define (function-value? value)
@@ -601,26 +652,23 @@
     (: field-values
        (impl (Fn Data DataCase old:Case I64 DataField -> (List (Pair String old:Value)))))
     (define (field-values data case old-case index field)
-      (let ((accessor (string-append (old-name (::global case)) "-" (::label field))))
-        (map (lambda (role)
-               (let ((scheme (old-scheme (::second role))))
-                 (match (::first role)
-                   ((Accessor) (Pair accessor (old:Accessor old-case index scheme)))
-                   ((Replacer)
-                    (Pair (string-append accessor "-set") (old:Replacer old-case index scheme)))
-                   ((Setter)
-                    (Pair (string-append accessor "-set!") (old:Setter old-case index scheme)))
-                   ((Swapper)
-                    (Pair (string-append accessor "-replace!")
-                          (old:Swapper old-case index scheme))))))
-             (field-schemes data case field))))
+      (map (lambda (role)
+             (let ((name (field-function-name (::global case) (::label field) (::first role)))
+                   (scheme (old-scheme (::second role))))
+               (Pair name
+                     (match (::first role)
+                       ((Accessor) (old:Accessor old-case index scheme))
+                       ((Replacer) (old:Replacer old-case index scheme))
+                       ((Setter) (old:Setter old-case index scheme))
+                       ((Swapper) (old:Swapper old-case index scheme))))))
+           (field-schemes data case field)))
 
     ;; The old program's values of the library, but those it names
     ;; afresh: a name with a dot and a digit after its library, such as an
     ;; implementation's `show.12`, a program's body, `%body`, and a linked
     ;; file's handle, `%link path`.
-    (: old-values (impl (Fn old:Program String -> (List String))))
-    (define (old-values program key)
+    (: program-values (impl (Fn old:Program String -> (List String))))
+    (define (program-values program key)
       (concatenate (map (lambda (name)
                           (if (or (not (in-library? key name)) (fresh-name? name))
                               (Nil)
@@ -730,7 +778,7 @@
         ((FieldInstance data field)
          (let ((self (Con (::global data)
                           (map (lambda (name) (Var (Written name))) (::parameters data))))
-               (class (string-append "::" (::label field))))
+               (class (old:field-class-name (::label field))))
            (instance-text (old:Instance ""
                                         class
                                         (::parameters data)
@@ -746,11 +794,8 @@
     (: implementation-texts (impl (Fn (List CompiledFile) Instance -> (List String))))
     (define (implementation-texts files instance)
       (map (lambda (method)
-             (match (member-class files (::class instance) (::member method))
-               ((Some found)
-                (scheme-text (old-scheme (implementation-scheme (::first found)
-                                                                (::second found)
-                                                                (as-declared instance)))))
+             (match (old-implementation-scheme files instance method)
+               ((Some scheme) (scheme-text scheme))
                ((None) "no class")))
            (::methods instance)))
 

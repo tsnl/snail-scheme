@@ -115,6 +115,9 @@
  (only (snail compiler integrate bind) test-bind-expanded)
  (only (snail compiler integrate compile) test-compile)
  (only (snail compiler integrate discover) test-discover)
+ (rename (only (snail compiler adapter expressions) test-expressions)
+         (test-expressions test-adapter-expressions))
+ (only (snail compiler adapter program) test-program)
  (only (snail compiler adapter read)
        read-difference
        malformed-texts
@@ -235,6 +238,8 @@
   (test-bind-expanded (string-append root "/build/test-compiler/bind"))
   (test-compile (string-append root "/build/test-compiler/compile"))
   (test-discover (string-append root "/build/test-compiler/discover"))
+  (test-adapter-expressions)
+  (test-program)
   (report "the new compiler's unit tests passed"))
 
 ;; ---- Reader comparison ----

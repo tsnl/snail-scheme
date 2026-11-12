@@ -84,6 +84,7 @@
    ::constructors
    ::control
    ::control?
+   ::converting
    ::copied
    ::copy
    ::count
@@ -153,6 +154,7 @@
    ::from
    ::function?
    ::functions
+   ::gathering?
    ::generate
    ::generated
    ::givens
@@ -405,6 +407,7 @@
     (define (::constructors value) (field-of value (quote constructors)))
     (define (::control value) (field-of value (quote control)))
     (define (::control? value) (field-of value (quote control?)))
+    (define (::converting value) (field-of value (quote converting)))
     (define (::copied value) (field-of value (quote copied)))
     (define (::copy value) (field-of value (quote copy)))
     (define (::count value) (field-of value (quote count)))
@@ -474,6 +477,7 @@
     (define (::from value) (field-of value (quote from)))
     (define (::function? value) (field-of value (quote function?)))
     (define (::functions value) (field-of value (quote functions)))
+    (define (::gathering? value) (field-of value (quote gathering?)))
     (define (::generate value) (field-of value (quote generate)))
     (define (::generated value) (field-of value (quote generated)))
     (define (::givens value) (field-of value (quote givens)))
