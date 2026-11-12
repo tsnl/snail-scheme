@@ -11,37 +11,25 @@
 ;; exactly that class's label.
 (define-library (snail compiler declare members)
   (export
-   class-members
    named-member
    missing-member
-   member-name
    named-operation)
   (import
    (snail core base)
    (only (snail compiler expand language)
          Global
-         ClassRef
-         ClassGlobal
-         FieldClass
          MethodName
          MemberName
          PathName)
    (snail compiler declare language)
-   (snail compiler declare equality))
+   (snail compiler declare equality)
+   (snail compiler declare membership))
   (begin
 
     ;; ---- Methods ----
 
-    ;; The members an instance of `class` implements: a declared class's
-    ;; methods, `methods`, as far as they are known where the instance is,
-    ;; or the one reader of a field class.
-    (: class-members (impl (Fn ClassRef (List Method) -> (List Member))))
-    (define (class-members class methods)
-      (match class
-        ((ClassGlobal _) (map (lambda (method) (ClassMethod (::global method))) methods))
-        ((FieldClass label) (list (FieldReader label)))))
-
-    ;; The member a method definition's name names among `members`, or the
+    ;; The member a method definition's name names among `members`, those
+    ;; (snail compiler declare membership) says the class has, or the
     ;; old compiler's refusal, which spells the name as written.
     (: named-member (impl (Fn (List Member) MethodName -> (Result Member String))))
     (define (named-member members name)
@@ -81,14 +69,6 @@
         ((Pair (FieldReader label) (FieldReader other-label)) (string=? label other-label))
         (_ #f)))
 
-    ;; The name a member goes by, in messages and in the Global of its
-    ;; implementation: a method's own, or a field class's label.
-    (: member-name (impl (Fn Member -> String)))
-    (define (member-name member)
-      (match member
-        ((ClassMethod global) (::name global))
-        ((FieldReader label) label)))
-
     ;; ---- Operations ----
 
     ;; The operation of an effect a default or a handler's clause names
@@ -117,7 +97,7 @@
      test-members)
     (import
      (snail compiler source)
-     (only (snail compiler expand language) Label)
+     (only (snail compiler expand language) Label ClassGlobal FieldClass)
      (snail stage0 testing))
     (begin
       (define (test-members)

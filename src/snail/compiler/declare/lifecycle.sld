@@ -17,10 +17,6 @@
 ;; apart.
 (define-library (snail compiler declare lifecycle)
   (export
-   Lifecycle
-   Dropping
-   Cloning
-   instance-lifecycle
    set-problem
    control-problem
    lifecycle-usage
@@ -32,33 +28,12 @@
    (snail core base)
    (only (snail compiler outline language) LibraryName)
    (only (snail compiler outline names) same-library?)
-   (only (snail compiler expand language) Global ClassRef ClassGlobal FieldClass Dyn FnContract)
+   (only (snail compiler expand language) Global ClassGlobal FieldClass Dyn FnContract)
    (snail compiler declare language)
    (snail compiler declare known)
    (snail compiler declare forms)
    (snail compiler declare equality))
   (begin
-
-    ;; ---- Lifecycle classes ----
-
-    (enum Lifecycle
-      (Dropping)
-      (Cloning))
-
-    (: instance-lifecycle (impl (Fn ClassRef -> (Option Lifecycle))))
-    (define (instance-lifecycle class)
-      (match class
-        ((ClassGlobal global)
-         (cond ((same-global? global drop-class) (Some (Dropping)))
-               ((same-global? global clone-class) (Some (Cloning)))
-               (else (None))))
-        ((FieldClass _) (None))))
-
-    (: lifecycle-class (impl (Fn Lifecycle -> Global)))
-    (define (lifecycle-class lifecycle)
-      (match lifecycle
-        ((Dropping) drop-class)
-        ((Cloning) clone-class)))
 
     ;; ---- Sets ----
 
@@ -255,7 +230,6 @@
      (snail stage0 testing))
     (begin
       (define (test-lifecycle)
-        (test-classes)
         (test-sets)
         (test-control)
         (test-requirements)
@@ -279,12 +253,6 @@
 
       (define (drop-of types)
         (ClassRequirement (ClassGlobal drop-class) types))
-
-      (define (test-classes)
-        (expect (instance-lifecycle (ClassGlobal drop-class)) (Some (Dropping)))
-        (expect (instance-lifecycle (ClassGlobal clone-class)) (Some (Cloning)))
-        (expect (instance-lifecycle (ClassGlobal (Global base "Show" 0))) (None))
-        (expect (instance-lifecycle (FieldClass "x")) (None)))
 
       ;; Read off error-instance-set-lifecycle.sld.
       (define (test-sets)

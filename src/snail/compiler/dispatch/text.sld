@@ -3,34 +3,22 @@
 ;; raises: each type it expected as the old compiler writes a type
 ;; (`type->string`, src/snail/shell/compiler/core.sld), the place as it
 ;; writes a Loc (`loc->string`, src/snail/shell/compiler/read.sld), and the
-;; method as its unique name.
-;;
-;; This query builds texts from names, which no decision may do. These
-;; texts are display, as a message is: the running program shows them and
-;; compares them, and the compiler never reads one back. A Global is
-;; spelled as the old compiler's unique name: its library's parts joined
-;; by dots, a colon and its name; a builtin of (snail core forms) by its
-;; name alone. A type is spelled by its short name, the name alone. A
-;; Global a macro's template wrote has a serial of its own, and the old
-;; name holds the stamp of the macro's use, which no new pass has, so it is
-;; spelled `name%serial`, as (snail compiler declare identities) spells it
-;; in a TypeId's schema. The old short name is the text after the last
-;; colon of the unique name; a name is data here, so a name that holds a
-;; colon is spelled whole.
+;; method as its unique name. These texts are display, as a message is:
+;; the running program shows them and compares them, and the compiler
+;; never reads one back. Each Global in them is spelled as (snail compiler
+;; declare spellings) says, a type by its short spelling.
 ;;
 ;; A row's effects are written in the order of their unique names, as the
 ;; old compiler keeps a row's labels, which is not always the order of
 ;; their Globals that Declared keeps them in.
 (define-library (snail compiler dispatch text)
   (export
-   global-text
    type-text
    place-text
    member-text)
   (import
    (snail core base)
    (snail compiler source)
-   (only (snail compiler outline names) same-library? library-key)
    (only (snail compiler expand language)
          Global
          Former
@@ -57,31 +45,17 @@
          Member
          ClassMethod
          FieldReader)
-   (only (snail compiler declare forms) forms-library))
+   (snail compiler declare spellings))
   (begin
 
     ;; ---- Names ----
-
-    ;; A Global as the old compiler's unique name spells it.
-    (: global-text (impl (Fn Global -> String)))
-    (define (global-text global)
-      (if (and (same-library? (::library global) forms-library) (= (::serial global) 0))
-          (::name global)
-          (string-append (library-key (::library global)) ":" (short-text global))))
-
-    ;; A Global by its name within its library.
-    (: short-text (impl (Fn Global -> String)))
-    (define (short-text global)
-      (if (= (::serial global) 0)
-          (::name global)
-          (string-append (::name global) "%" (i64->string (::serial global)))))
 
     ;; The method a dispatched call names: a class's method by its unique
     ;; name, or a field class's reader by its label's path.
     (: member-text (impl (Fn Member -> String)))
     (define (member-text member)
       (match member
-        ((ClassMethod global) (global-text global))
+        ((ClassMethod global) (global-spelling global))
         ((FieldReader label) (string-append "::" label))))
 
     ;; ---- Places ----
@@ -102,9 +76,9 @@
     (: type-text (impl (Fn Type -> String)))
     (define (type-text type)
       (match type
-        ((Con global (Nil)) (short-text global))
+        ((Con global (Nil)) (short-spelling global))
         ((Con global arguments)
-         (string-append "(" (short-text global) (types-text arguments) ")"))
+         (string-append "(" (short-spelling global) (types-text arguments) ")"))
         ((Callable former contract arrow)
          (string-append "("
                         (former-text former)
@@ -167,14 +141,16 @@
     (: labels-text (impl (Fn (List Global) -> String)))
     (define (labels-text labels)
       (string-concatenate
-       (map (lambda (global) (string-append " " (short-text global)))
-            (list-sort (lambda (global other) (string<? (global-text global) (global-text other)))
-                       (distinct-globals labels)))))
+       (map (lambda (global) (string-append " " (short-spelling global)))
+            (list-sort
+             (lambda (global other) (string<? (global-spelling global) (global-spelling other)))
+             (distinct-globals labels)))))
 
     (: distinct-globals (impl (Fn (List Global) -> (List Global))))
     (define (distinct-globals labels)
-      (delete-duplicates (lambda (global other) (string=? (global-text global) (global-text other)))
-                         labels))
+      (delete-duplicates
+       (lambda (global other) (string=? (global-spelling global) (global-spelling other)))
+       labels))
 
     ;; A variable as the old compiler names the rigid variable it is.
     (: variable-text (impl (Fn TypeVariable -> String)))
@@ -194,6 +170,7 @@
     (export
      test-text)
     (import
+     (only (snail compiler declare forms) forms-library)
      (snail stage0 testing))
     (begin
       (define (test-text)
@@ -219,12 +196,10 @@
       (define (function former contract parameters effects)
         (Callable former contract (Arrow parameters i64 effects)))
 
-      ;; A unique name, a builtin's name alone, and a serial's spelling; a
-      ;; field class's reader by its path.
+      ;; A class's method by its unique name, a field class's reader by its
+      ;; path.
       (define (test-names)
-        (expect (global-text (Global base "+" 0)) "snail.core.base:+")
-        (expect (global-text (Global forms-library "I64" 0)) "I64")
-        (expect (global-text (Global main "combine" 4)) "main:combine%4")
+        (expect (member-text (ClassMethod (Global main "combine" 4))) "main:combine%4")
         (expect (member-text (ClassMethod (Global main "combine" 0))) "main:combine")
         (expect (member-text (FieldReader "x")) "::x"))
 
