@@ -841,28 +841,28 @@
       (string-ref "0123456789abcdef" value))
 
     ;; A let whose value may yield tests for the yield before its body. The
-    ;; control pass marks such a value with the dropper of the frame saved
-    ;; there (`with-dropper`), which the frame takes.
+    ;; control pass marks such a value with the cleanup of the frame saved
+    ;; there (`with-cleanup`), emitted as its cancellation entry.
 
     (define (emit-let (fn Fn) (name String) (marked Expr) (body Expr) (tail? Bool))
       (→ (List Wat))
       (! mut)
-      (match (dropper-of marked)
-        ((Pair value dropper)
+      (match (cleanup-of marked)
+        ((Pair value cleanup)
          (let* ((code (if (and (lambda-expr? value) (member? name (expr-references value)))
                           (closure fn value (Some name))
                           (emit-let-value fn value)))
                 (local (declare-local! fn name (fn-rep fn (● value type)))))
            (Cons (wat "local.set" (id local) code)
-                 (let-rest (bind-self fn name value) name value dropper body tail?))))))
+                 (let-rest (bind-self fn name value) name value cleanup body tail?))))))
 
-    ;; A let's value and the dropper it was marked with, if any.
+    ;; A let's value and its unevaluated cancellation code, if any.
 
-    (define (dropper-of (marked Expr)) (→ (Pair Expr (Option Expr)))
+    (define (cleanup-of (marked Expr)) (→ (Pair Expr (Option Expr)))
       (match (● marked term)
-        ((App callee (Cons value (Cons dropper (Nil))))
+        ((App callee (Cons value (Cons cleanup (Nil))))
          (match (● callee term)
-           ((Var "prim:with-dropper" _ _) (Pair value (Some dropper)))
+           ((Var "prim:with-cleanup" _ _) (Pair value (Some cleanup)))
            (_ (Pair marked (None)))))
         (_ (Pair marked (None)))))
 
@@ -1047,15 +1047,16 @@
                                                                                   reps))))))))))
 
     ;; Source closures own shared captures until their last activation or
-    ;; stored alias leaves. A frame has its own transfer protocol and keeps
-    ;; the smaller code/dropper prefix.
+    ;; stored alias leaves. A frame transfers one environment into either
+    ;; resume or cancellation code; it owns no separate cleanup closure.
     (define (closure-fields (m Module) (base String)) (→ (List Wat)) (! mut)
-      (append (if (string=? base "$frame") (Nil) (owner-fields))
-              (append (list (wat "field" (ref-wat (code-type m base)))
-                            (wat "field" (wat "mut" (dropper-ref))))
-                      (if (string=? base "$frame")
-                          (list (wat "field" (wat "mut" (evidence-ref m))))
-                          (Nil)))))
+      (if (string=? base "$frame")
+          (list (wat "field" (ref-wat (code-type m base)))
+                (wat "field" (ref-wat (code-type m base)))
+                (wat "field" (wat "mut" (evidence-ref m))))
+          (append (owner-fields)
+                  (list (wat "field" (ref-wat (code-type m base)))
+                        (wat "field" (wat "mut" (dropper-ref)))))))
 
     (define (capture-offset (m Module) (type String)) (→ I64)
       (match (known-type m (string-append "capture-offset:" type))
@@ -1122,13 +1123,12 @@
       (template-helper! m "disarm" holder
                         "(func {id} (param $closure (ref null {holder})) (param $ev (ref null {evidence})) (result i32)
   (local $dropper (ref null {dropper}))
-  (local.set $dropper (struct.get {holder} {slot} (local.get $closure)))
-  (struct.set {holder} {slot} (local.get $closure) (ref.null {dropper}))
+  (local.set $dropper (struct.get {holder} 3 (local.get $closure)))
+  (struct.set {holder} 3 (local.get $closure) (ref.null {dropper}))
   (if (i32.eqz (ref.is_null (local.get $dropper)))
     (then (drop (call {release} (local.get $dropper) (local.get $ev)))))
   (i32.const 0))"
-                        (list (Pair "slot" (if (= (capture-offset m holder) 3) "1" "3"))
-                              (Pair "holder" holder)
+                        (list (Pair "holder" holder)
                               (Pair "evidence" (evidence-type m))
                               (Pair "dropper" (dropper-type m))
                               (Pair "release" (release-helper m)))))
@@ -3156,8 +3156,8 @@
 
 
 
-    ;; Handled frames contain another owned continuation. Its dropper shares
-    ;; that continuation object, so updating it establishes both execution and
+    ;; Handled frames contain another owned continuation. Both entries read
+    ;; that same object, so updating it establishes both execution and
     ;; cancellation contexts together. Source values in captures stay intact.
     (define (activate-continuation (m Module)) (→ String) (! mut)
       (activation-type m)
@@ -3645,7 +3645,7 @@
     (define (let-rest (fn Fn)
                       (name String)
                       (value Expr)
-                      (dropper (Option Expr))
+                      (cleanup (Option Expr))
                       (body Expr)
                       (tail? Bool))
       (→ (List Wat))
@@ -3653,23 +3653,20 @@
       (cond ((not (may-yield? fn value)) (emit fn body tail?))
             ((aborts? fn value)
              (Cons (wat "if" (yielding? (● fn module))
-                        (wat* "then" (append (abort-drops fn dropper)
+                        (wat* "then" (append (abort-drops fn cleanup)
                                              (list (leave fn)))))
                    (emit fn body tail?)))
             ((match (● fn exit) ((Some (ToRunner)) #t) (_ #f))
-             (continue-in-frame fn name value dropper body))
-            (else (let ((test (yield-test fn (frame fn name value dropper body))))
+             (continue-in-frame fn name value cleanup body))
+            (else (let ((test (yield-test fn (frame fn name value cleanup body))))
                     (append test (emit fn body tail?))))))
 
     ;; No resumption will own this scope. Drop its live values before
-    ;; leaving its handlers; the dropper cannot itself perform control.
+    ;; leaving its handlers; cleanup cannot itself perform control.
 
-    (define (abort-drops (fn Fn) (dropper (Option Expr))) (→ (List Wat)) (! mut)
-      (match dropper
-        ((Some thunk)
-         (list (wat "drop"
-                    (wat* "block" (Cons (wat "result" (Word "i32"))
-                                        (closure-call fn thunk (Nil) #f))))))
+    (define (abort-drops (fn Fn) (cleanup (Option Expr))) (→ (List Wat)) (! mut)
+      (match cleanup
+        ((Some body) (list (wat "drop" (emit1 fn body))))
         ((None) (Nil))))
 
     ;; Whether every effect `value` may yield to aborts: each of its control
@@ -3693,13 +3690,13 @@
     (define (continue-in-frame (fn Fn)
                                (name String)
                                (value Expr)
-                               (dropper (Option Expr))
+                               (cleanup (Option Expr))
                                (body Expr))
       (→ (List Wat)) (! mut)
       (let* ((m (● fn module)) (base (frame-type m))
              (temp (declare-temp! fn (ref-wat base)))
              (saved (wat "local.get" (id temp)))
-             (set (wat "local.set" (id temp) (frame fn name value dropper body)))
+             (set (wat "local.set" (id temp) (frame fn name value cleanup body)))
              (test (yield-test fn saved))
              (argument (box-value m (● value type) (variable fn name unchecked))))
         (Cons set (append test (list (wat "return_call" (id (frame-runner m)) saved argument))))))
@@ -3732,26 +3729,24 @@
     ;; A frame is a closure over the rest of a function at a yield point:
     ;; the body of a let whose value yielded. Its code takes the frame and
     ;; the let's value and returns the body's, each boxed when a scalar, so
-    ;; one code type serves every frame. It holds the live locals the body
-    ;; reads and, last, the evidence the body runs under, whose nodes reach
+    ;; one code type serves both entries of every frame. It holds evidence
+    ;; and the locals needed by execution or cleanup; that evidence reaches
     ;; the handler the yield is aimed at. Outside join functions a frame is
     ;; built only on the path that leaves, so the fast path allocates none.
 
-    ;; The runner consumes one saved frame. Its cancellation thunk holds
-    ;; backup owners; disarming it leaves the original owners for the code.
+    ;; The runner consumes one saved frame, detached from its continuation
+    ;; before entry. Only this path or cancellation can take its owners.
     ;; Evidence stays alive through that execution, including its releases.
     (define (frame-runner (m Module)) (→ String) (! mut)
       (template-helper! m "frame-run" ""
                         "(func {id} (param $frame (ref null {frame})) (param $value anyref) (result anyref)
   (local $ev (ref null {evidence}))
   (local.set $ev (struct.get {frame} 2 (local.get $frame)))
-  (drop (call {disarm} (local.get $frame) (local.get $ev)))
   (local.set $value (call_ref {code} (local.get $frame) (local.get $value) (struct.get {frame} 0 (local.get $frame))))
   (drop (call {release} (local.get $ev) (local.get $ev)))
   (local.get $value))"
                         (list (Pair "frame" (frame-type m)) (Pair "evidence" (evidence-type m))
                               (Pair "code" (code-type m (frame-type m)))
-                              (Pair "disarm" (disarm-helper m (frame-type m)))
                               (Pair "release" (release-helper m)))))
 
     (define (frame-type (m Module)) (→ String) (! mut)
@@ -3764,7 +3759,6 @@
                          (wat "type" (id "$frame.code")
                               (wat "func" (wat "param" (ref-wat "$frame"))
                                    (wat "param" (Word "anyref")) (wat "result" (Word "anyref")))))
-         (dropper-type m)
          (register-type! m "frame" "$frame"
                          (wat "type"
                               (id "$frame")
@@ -3787,14 +3781,19 @@
                                      (wat "field" (ref-wat "$frames")))))))))
 
     ;; The frame of the let binding `name` to `value`: the join function of
-    ;; its body, the dropper of the linear locals among those the body
-    ;; reads, those locals, moved, then the evidence.
+    ;; its body, cancellation code, retained evidence, and one environment
+    ;; shared by both entries. Cleanup-only owners must be captured too:
+    ;; a Never continuation need not mention the owners it abandons.
 
-    (define (frame (fn Fn) (name String) (value Expr) (dropper (Option Expr)) (body Expr))
+    (define (frame (fn Fn) (name String) (value Expr) (cleanup (Option Expr)) (body Expr))
       (→ Wat) (! mut)
       (let* ((m (● fn module))
              (captured (filter (lambda (local) (and (not (string=? local name)) (local? fn local)))
-                               (expr-references body)))
+                               (delete-duplicates string=?
+                                                  (append (expr-references body)
+                                                          (match cleanup
+                                                            ((Some code) (expr-references code))
+                                                            ((None) (Nil)))))))
              (entries (map (lambda (local) (Pair local (capture-rep fn local))) captured))
              (type
               (capture-type m (frame-type m) (map (lambda (record) (● record second)) entries)))
@@ -3802,9 +3801,7 @@
               (emit-join! (Fn-exit-set (new-fn m) (Some (ToRunner))) name value body entries type)))
         (wat* "struct.new"
               (append (list (id type) (wat "ref.func" (id join))
-                            (match dropper
-                              ((Some thunk) (closure fn thunk (None)))
-                              ((None) (dropper-null)))
+                            (wat "ref.func" (id (emit-cancel! m cleanup entries type)))
                             (retain-evidence m (● fn evidence)))
                       (map (lambda (local) (variable fn local unchecked)) captured)))))
 
@@ -3825,15 +3822,8 @@
                         (type String))
       (→ String)
       (! mut)
-      (push! (● (● join state) locals) (wat "local" (Word "$ev") (evidence-ref (● join module))))
       (let* ((m (● join module))
-             (frame (wat "ref.cast"
-                         (ref-wat type)
-                         (wat "local.get" (Word "$closure"))))
-             (evidence (wat "local.set"
-                            (Word "$ev")
-                            (wat "struct.get" (id type) (int 2) frame)))
-             (loads (capture-loads join entries type))
+             (loads (frame-loads join entries type))
              (local (declare-local! join name (fn-rep join (● value type))))
              (argument (wat "local.set"
                             (id local)
@@ -3841,11 +3831,29 @@
              (result (box-value m (● body type) (emit1 join body))))
         (lambda-id m
                    "join"
-                   (join-wat join (Cons evidence (append loads
-                                                         (list 
-                                                          argument
-                                                          result))))
+                   (join-wat join (append loads (list argument result)))
                    0)))
+
+    (define (emit-cancel! (m Module) (cleanup (Option Expr))
+                          (entries (List (Pair String Rep))) (type String))
+      (→ String) (! mut)
+      (let* ((cancel (new-fn m))
+             (code (match cleanup
+                     ((Some body)
+                      (let ((loads (frame-loads cancel entries type)))
+                        (append loads (list (wat "drop" (emit1 cancel body))))))
+                     ((None) (Nil)))))
+        (lambda-id m "cancel"
+                   (join-wat cancel (append code (list (wat "ref.null" (Word "any"))))) 0)))
+
+    ;; Both entries read the same captures and the frame's current evidence,
+    ;; which activation may have renewed before resume or cancellation.
+    (define (frame-loads (fn Fn) (entries (List (Pair String Rep))) (type String))
+      (→ (List Wat)) (! mut)
+      (push! (● (● fn state) locals) (wat "local" (Word "$ev") (evidence-ref (● fn module))))
+      (let ((frame (wat "ref.cast" (ref-wat type) (wat "local.get" (Word "$closure")))))
+        (Cons (wat "local.set" (Word "$ev") (wat "struct.get" (id type) (int 2) frame))
+              (capture-loads fn entries type))))
 
     (define (join-wat (join Fn) (code (List Wat))) (→ Wat) (! mut)
       (let* ((m (● join module)) (frame (frame-type m)))
@@ -4131,7 +4139,7 @@
     ;; that handle has returned. A handle that any other yield leaves, at
     ;; its site or resumed, becomes one frame holding the continuation
     ;; inside it, so resuming the outer computation enters the handle again
-    ;; too. Dropping `resume` detaches those frames and runs their droppers
+    ;; too. Dropping `resume` detaches those frames and runs their cleanup
     ;; under the drop site's evidence before releasing the continuation.
 
     (define (continuation-type (m Module)) (→ String) (! mut)
@@ -4187,23 +4195,21 @@
       (template-helper! m "cancel-continuation" ""
                         "(func {id} (param $continuation (ref null {continuation})) (param $ev (ref null {evidence})) (result i32)
   (local $frames (ref null {frames}))
-  (local $dropper (ref null {base}))
+  (local $frame (ref null {frame}))
   (local.set $frames (struct.get {continuation} 0 (local.get $continuation)))
   (struct.set {continuation} 0 (local.get $continuation) (ref.null {frames}))
   (block $done
     (loop $next
       (br_if $done (ref.is_null (local.get $frames)))
-      (local.set $dropper (struct.get {frame} 1 (struct.get {frames} 0 (local.get $frames))))
-      (struct.set {frame} 1 (struct.get {frames} 0 (local.get $frames)) (ref.null {base}))
-      (if (i32.eqz (ref.is_null (local.get $dropper)))
-        (then (drop (call {invoke} (local.get $dropper) (struct.get {frame} 2 (struct.get {frames} 0 (local.get $frames)))))))
-      (drop (call {release} (struct.get {frame} 2 (struct.get {frames} 0 (local.get $frames))) (local.get $ev)))
+      (local.set $frame (struct.get {frames} 0 (local.get $frames)))
       (local.set $frames (struct.get {frames} 1 (local.get $frames)))
+      (drop (call_ref {code} (local.get $frame) (ref.null any) (struct.get {frame} 1 (local.get $frame))))
+      (drop (call {release} (struct.get {frame} 2 (local.get $frame)) (local.get $ev)))
       (br $next)))
   (return_call {release} (struct.get {continuation} 1 (local.get $continuation)) (local.get $ev)))"
                         (list (Pair "release" (release-helper m))
-                              (Pair "invoke" (dropper-call-helper m))
-                              (Pair "base" (dropper-type m)) (Pair "evidence" (evidence-type m))
+                              (Pair "code" (code-type m (frame-type m)))
+                              (Pair "evidence" (evidence-type m))
                               (Pair "continuation" (continuation-type m))
                               (Pair "frames" (frames-type m))
                               (Pair "frame" (frame-type m)))))
@@ -4358,23 +4364,28 @@
     ;; Enter its cancellation path just as `handled-code` enters its code:
     ;; under the current outside of that node. Keep that outside alive
     ;; independently while finalizers run and may rebase other continuations.
-    (define (handled-dropper-code (m Module)) (→ String) (! mut)
+    (define (handled-cancel-code (m Module)) (→ String) (! mut)
       (helper! m "drop" "handled"
                (lambda (function-id)
                  (push! (● m declared) function-id)
                  (Word
                   (fill
-                   "(func {id} (type {code}) (param $closure (ref null {base})) (param $ev (ref null {evidence})) (result i32)
+                   "(func {id} (type {code}) (param $frame (ref null {frame})) (param $value anyref) (result anyref)
+  (local $continuation (ref null {continuation}))
+  (local $ev (ref null {evidence}))
   (local $outside (ref null {evidence}))
+  (local.set $ev (struct.get {frame} 2 (local.get $frame)))
+  (local.set $continuation (struct.get {handled} 3 (ref.cast (ref null {handled}) (local.get $frame))))
   (local.set $outside (ref.cast (ref null {evidence}) (call {retain}
     (struct.get {evidence} 4
-      (struct.get {continuation} 1 (struct.get {holder} 4 (ref.cast (ref null {holder}) (local.get $closure))))))))
-  (drop (call {cancel} (struct.get {holder} 4 (ref.cast (ref null {holder}) (local.get $closure))) (local.get $outside)))
-  (return_call {release} (local.get $outside) (local.get $ev)))"
-                   (list (Pair "id" function-id) (Pair "code" (code-type m (dropper-type m)))
-                         (Pair "base" (dropper-type m)) (Pair "evidence" (evidence-type m))
+      (struct.get {continuation} 1 (local.get $continuation))))))
+  (drop (call {cancel} (local.get $continuation) (local.get $outside)))
+  (drop (call {release} (local.get $outside) (local.get $ev)))
+  (ref.null any))"
+                   (list (Pair "id" function-id) (Pair "code" (code-type m (frame-type m)))
+                         (Pair "frame" (frame-type m)) (Pair "evidence" (evidence-type m))
                          (Pair "continuation" (continuation-type m))
-                         (Pair "holder" (resume-dropper-type m))
+                         (Pair "handled" (handled-type m))
                          (Pair "retain" (retain-helper m)) (Pair "release" (release-helper m))
                          (Pair "cancel" (cancel-continuation-helper m))))))))
 
@@ -4393,11 +4404,10 @@
   (local.set $continuation (struct.new {continuation} (call {reverse} (struct.get {yield} 3 (local.get $record))) (local.get $node)))
   (struct.set {yield} 3 (local.get $record)
     (struct.new {frames}
-      (struct.new {handled} (local.get $code) (struct.new {holder} (i64.const 1) (ref.func {noop}) (ref.func {dropcode}) (ref.null {dropper}) (local.get $continuation))
+      (struct.new {handled} (local.get $code) (ref.func {cancel})
         (ref.cast (ref null {evidence}) (call {retain} (local.get $node))) (local.get $continuation))
       (ref.null {frames}))))"
                         (list (Pair "retain" (retain-helper m))
-                              (Pair "noop" (owner-noop m))
                               (Pair "evidence" (evidence-type m))
                               (Pair "code" (code-type m (frame-type m)))
                               (Pair "yield" (yield-type m))
@@ -4406,9 +4416,7 @@
                               (Pair "handled" (handled-type m))
                               (Pair "continuation" (continuation-type m))
                               (Pair "reverse" (reverse-helper m))
-                              (Pair "holder" (resume-dropper-type m))
-                              (Pair "dropcode" (handled-dropper-code m))
-                              (Pair "dropper" (dropper-type m)))))
+                              (Pair "cancel" (handled-cancel-code m)))))
 
     ;; Runs an activated continuation and takes the frames out, so that neither the continuation nor
     ;; `resume` holds them while they run. Then each frame runs in turn,
@@ -4958,7 +4966,7 @@
           (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
           (("drop-once") (drop-once fn (first-arg args) (arg 0)))
           (("once-dropping") (list (once-dropping fn (first-arg args) (arg 0) (arg 1))))
-          (("with-dropper") (panic "internal error: a dropper marks only a let's value"))
+          (("with-cleanup") (panic "internal error: cleanup marks only a let's value"))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
           (("dynamic-cast") (list (dynamic-cast fn type (list-ref types 1) (arg 0) (arg 1))))
