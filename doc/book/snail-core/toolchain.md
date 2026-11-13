@@ -17,6 +17,15 @@ compiler-generated WAT; it does not provide project publication guarantees.
 Source-level `run` uses a private build directory by default and removes it when
 the process finishes.
 
+Compiler invocations and project build failures print one console card per
+source error, preserving its file, line and column before the message. The pure
+`(snail shell console)` library draws the cards; `(snail shell diagnostic)`
+adapts the compiler's structured diagnostics. Cards use Unicode box drawing
+with an open right edge so long lines and wide characters need no display-width
+calculation. They contain no ANSI escapes, so redirected output stays readable.
+The compiler's plain diagnostic strings and the editor's structured reports
+are unchanged.
+
 Compiler contributors also have `build/snail`, which Cargo builds from
 `crates/snail`: a native executable that embeds wasmtime. Its subcommands
 are internal to the driver and the tests:

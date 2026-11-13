@@ -24,6 +24,8 @@
  (only (snail shell task) tasks)
  (only (snail shell socket) tcp)
  (only (snail shell watch) hints)
+ (snail shell console)
+ (snail shell diagnostic)
  (only (snail shell compiler read)
        Loc
        SourceDiagnostic
@@ -152,7 +154,7 @@
                         (● job mode)
                         (scratch job)
                         ".snail-")
-    ((Err failure) (panic (failure->string failure)))
+    ((Err failure) (panic (failure->console failure)))
     ((Ok candidate)
      (match (publish-project candidate)
        ((Err message) (panic message))
@@ -160,6 +162,12 @@
 
 (define (scratch (job Job)) (→ String)
   (string-append (● (● job tools) root) "/build/snail-run"))
+
+(define (failure->console (failure Failure)) (→ String)
+  (string-append "build failed\n\n"
+                 (match failure
+                   ((CompileFailure diagnostics) (diagnostics->console diagnostics))
+                   ((BuildFailure message) (console-card "error" message)))))
 
 (define (generation-of (candidate Candidate) (target String)) (→ String)
   (match (find (lambda (output) (string=? (● output name) target))
@@ -494,7 +502,7 @@
     ((Development) (serve (new Resident (job job) (held (None)))))
     (_
      (match (read-project (● job project))
-       ((Err failure) (panic (failure->string failure)))
+       ((Err failure) (panic (failure->console failure)))
        ((Ok description)
         (if (● job run?)
             (run-target job description)

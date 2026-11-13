@@ -329,8 +329,8 @@
       (path-join root "build/compiler/snailc.wasm"))
 
     ;; The compiled compiler, rebuilt when it is older than its own source:
-    ;; its entry program, its modules, the three libraries it imports, and
-    ;; the primitives they are built on.
+    ;; its entry program, its modules, the terminal presentation helpers,
+    ;; the three core libraries it imports, and their primitives.
     (define (current-compiler root)
       (rebuild-if-stale! root (compiler-path root)
                          (map (lambda (path) (path-join root path))
@@ -339,6 +339,8 @@
                                 "bootstrap/compile.sld"
                                 "src/snail/shell/compiler.sld"
                                 "src/snail/shell/compiler"
+                                "src/snail/shell/console.sld"
+                                "src/snail/shell/diagnostic.sld"
                                 "src/snail/core/base.sld"
                                 "src/snail/core/table.sld"
                                 "src/snail/core/io.sld"
