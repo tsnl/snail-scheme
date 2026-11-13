@@ -2,9 +2,8 @@
  (snail core base)
  (snail core io))
 
-;; A function left by a yield returns a placeholder of its result type,
-;; which no caller reads: each representation has one. The handler's
-;; result is what the program sees.
+;; A function left by a yield returns zero or null for its inactive result,
+;; which no caller reads. The handler's result is what the program sees.
 (effect Abort
   ((ctl abort (Fn I64 → I64))))
 

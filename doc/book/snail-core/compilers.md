@@ -158,6 +158,14 @@ of the expression. `with-dropper` records which live owners belong to that
 suspended scope. A one-shot closure carries the cleanup for captures not
 transferred into its body.
 
+Cleanup uses one rewriting traversal of each body. It requests a concrete `Drop`
+reference when it encounters an owned capture and builds the cleanup thunk
+immediately. The specialization registry reserves the name and signature;
+later batches build the requested body. Branches share the same initial
+lexical scope while threading that registry, so requests deduplicate without
+mixing ownership between paths. There is no preliminary type collection or
+second traversal to resolve missing cleanup entries.
+
 Some execution boundaries cannot propagate a yield: raw Wasm loops used by
 sequence generators, arbitrary `unsafe-total` thunks, or work closed over
 handlers whose delimiters may already have returned. Preparation inspects
@@ -208,6 +216,15 @@ and replaceable backing array. The active prefix owns its scalar or reference
 elements; spare reference slots are null. Growth replaces the backing array,
 and pop clears its removed slot. Source code cannot name that storage or its
 capacity. There is no inline struct flattening or reconstruction on field writes.
+
+Completed source references are non-null. Internal Wasm storage and signatures
+admit null so uninitialized slots and suspended results need no fabricated
+source value. A control return leaves zero or null; its caller checks the yield
+record before reading, retaining or releasing the result. Tail calls forward
+that outcome directly. Normal construction and initialization establish when
+a slot contains a source value. Host handovers retain their non-null contracts
+except for the explicit nullable `Option Any` encoding, and dynamic type tests
+still reject null. Linked modules must use the same internal calling convention.
 
 A shared object that contains counted ownership has an owner header and a
 destructor. Copying its reference retains that owner; the final release
