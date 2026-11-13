@@ -69,8 +69,8 @@ the old owner. Replacing an optional work item with `None` is a useful pattern.
 
 `Name-field-set` is a pure replacement operation. It returns another record;
 when its input is linear, it transfers that record's other fields to the result.
-`Name-field-set!` mutates a field, and `Name-field-replace!` also returns the
-previous value. The `!` distinguishes mutation from a pure replacement.
+Use `set!` or `replace!` on a `●` path for mutation. There are no generated
+mutable setters or swappers.
 
 ## Reference-counted ownership
 
@@ -230,7 +230,8 @@ and a finalizer. The count and cleanup fields are its ownership header, in
 the same GC object. A struct payload occupies a reference slot; structs are
 never inlined. `WeakRc` uses the same cell without contributing to the strong
 count. WasmGC keeps the cell alive while weak references exist, so no weak
-count is needed. The last strong release finalizes and clears the payload. Closures, dynamic boxes
-and aggregate containers receive counts only where their representations need
+count is needed. The last strong release clears the payload slot before running
+its finalizer. Closures, dynamic boxes and aggregate containers receive counts
+only where their representations need
 to keep counted content alive. WasmGC traces their memory; explicit ownership
 controls external resource lifetimes.
