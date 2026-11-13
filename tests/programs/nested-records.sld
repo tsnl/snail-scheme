@@ -61,7 +61,7 @@
    (clicks I64)
    (last Point)))
 
-;; A call that may yield leaves with a placeholder of its type, here a
+;; A call that may yield leaves an inactive result, here null for a
 ;; Segment, before the frames resume.
 (effect Ask
   ((ctl ask (Fn → I64))))

@@ -8,7 +8,7 @@
 ;; which is the code itself. The program writes the module itself: each of
 ;; its bytes is below 128, so its text is its binary. Its function takes
 ;; the evidence first, as a Snail Scheme function does.
-;; The bytes encode the current recursive owner/evidence ABI. Evidence
+;; The bytes encode the nullable internal reference ABI. Evidence
 ;; includes the owner header and the forwarding/copy links used by resumptions;
 ;; an older three-field evidence type is not interchangeable with this one.
 ;; The only function is (param evidence i64 i64) -> i64 and adds locals 1 and 2.
@@ -28,14 +28,14 @@
         4
         96
         3
-        100
+        99
         3
-        100
+        99
         3
         99
         3
         1
-        100
+        99
         3
         80
         0
@@ -43,14 +43,14 @@
         2
         126
         1
-        100
+        99
         2
         0
         96
         2
-        100
+        99
         1
-        100
+        99
         3
         1
         127
@@ -61,7 +61,7 @@
         7
         126
         1
-        100
+        99
         2
         0
         127
@@ -79,7 +79,7 @@
         0
         96
         3
-        100
+        99
         3
         126
         126
