@@ -52,7 +52,7 @@
 ;; Each row of the map: . open, # rock, ~ water, = ice, H the hub, N a
 ;; nest, * a crystal.
 (define (map-row (land Land) (y I64)) (→ String)
-  (list->string (map (lambda (x) (cell-char land (Cell x y))) (iota map-size))))
+  (list->string (map (lambda (x) (cell-char land (Cell x y))) (iota (map-size)))))
 
 (define (cell-char (land Land) (cell Cell)) (→ Char)
   (cond ((cell=? cell (● land hub)) #\H)
@@ -93,7 +93,7 @@
 
 (define (show-map (land Land)) (→ Unit) (! output-port)
   (write-line (string-append (biome-name (● land biome)) ", seed " (show (● land seed)) ":"))
-  (for-each (lambda (y) (write-line (map-row land y))) (iota map-size))
+  (for-each (lambda (y) (write-line (map-row land y))) (iota (map-size)))
   (write-line (string-append "walking steps from the hub to each nest: " (nest-distances land))))
 
 (define (first-of (biome Biome) (seed I64)) (→ Land)
@@ -102,28 +102,28 @@
         land
         (first-of biome (+ seed 1)))))
 
-(define main
-  (lambda ()
-    (for-each describe (list 1 2 3 4 5 6 7 8))
-    (let ((lands (map (lambda (i) (new-land (+ i 1))) (iota 64))))
-      (write-line (string-append "biomes on seeds 1 to 64: "
-                                 (string-join (map (lambda (b) (biome-count lands b))
-                                                   (list (Meadow) (Desert) (Tundra) (Archipelago)))
-                                              ", ")))
-      (write-line (string-append "seeds where a nest cannot walk in or a crystal cannot be wired: "
-                                 (let ((broken
-                                        (filter (lambda (land) (not (playable? land))) lands)))
-                                   (if (null? broken)
-                                       "none"
-                                       (string-join
-                                        (map (lambda (land) (show (● land seed))) broken)
-                                        " "))))))
-    (for-each (lambda (biome) (show-map (first-of biome 1)))
-              (list (Meadow) (Desert) (Tundra) (Archipelago)))
-    (write-line (string-append "line (0,0)-(3,1): "
-                               (string-join (map cell-text (line-cells (Cell 0 0) (Cell 3 1)))
-                                            " ")))
-    (write-line (string-append "line (0,0)-(2,2): "
-                               (string-join (map cell-text (line-cells (Cell 0 0) (Cell 2 2)))
-                                            " ")))
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  (for-each describe (list 1 2 3 4 5 6 7 8))
+  (let ((lands (map (lambda (i) (new-land (+ i 1))) (iota 64))))
+    (write-line (string-append "biomes on seeds 1 to 64: "
+                               (string-join (map (lambda (b) (biome-count lands b))
+                                                 (list (Meadow) (Desert) (Tundra) (Archipelago)))
+                                            ", ")))
+    (write-line (string-append "seeds where a nest cannot walk in or a crystal cannot be wired: "
+                               (let ((broken
+                                      (filter (lambda (land) (not (playable? land))) lands)))
+                                 (if (null? broken)
+                                     "none"
+                                     (string-join
+                                      (map (lambda (land) (show (● land seed))) broken)
+                                      " "))))))
+  (for-each (lambda (biome) (show-map (first-of biome 1)))
+            (list (Meadow) (Desert) (Tundra) (Archipelago)))
+  (write-line (string-append "line (0,0)-(3,1): "
+                             (string-join (map cell-text (line-cells (Cell 0 0) (Cell 3 1)))
+                                          " ")))
+  (write-line (string-append "line (0,0)-(2,2): "
+                             (string-join (map cell-text (line-cells (Cell 0 0) (Cell 2 2)))
+                                          " ")))
+  (unit))

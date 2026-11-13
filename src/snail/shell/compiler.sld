@@ -1,8 +1,7 @@
 ;; The compiler's passes in order, from a program's source path to
-;; WebAssembly text, or to the schemas of its wire types. In a one-off
-;; compile each pass's output is the next pass's only input; a session,
-;; (snail shell compiler session), also keeps what each library became in the
-;; build before. The typed driver serves both compiler entries: Chez runs
+;; WebAssembly text, or to the schemas of its wire types. Every invocation
+;; reads, checks and emits the whole program afresh. The typed driver serves
+;; both compiler entries: Chez runs
 ;; the source as stage 0, and Node runs the compiler compiled to Wasm.
 (define-library (snail shell compiler)
   (export
@@ -17,13 +16,13 @@
    (snail core base)
    (snail core io)
    (snail shell compiler read)
-   (only (snail shell compiler inputs) Inputs)
+   (only (snail shell compiler inputs) Inputs no-inputs)
    (snail shell compiler core)
    (snail shell compiler expand)
    (snail shell compiler check)
    (snail shell compiler prepare)
-   (snail shell compiler wasm)
-   (snail shell compiler session))
+   (only (snail shell compiler specialize) control-effects prepare-specialization)
+   (snail shell compiler wasm))
   (begin
 
     ;; The front of every compile: the program a source path reads, expanded.
@@ -41,6 +40,11 @@
 
     ;; A program compiled to one module: its text, and the files it links,
     ;; which ship beside it.
+    (struct Built
+      ((name String)
+       (text String)
+       (links (List LinkedFile))))
+
     (struct WholeProgram
       ((text String)
        (links (List LinkedFile))))
@@ -58,8 +62,7 @@
 
     ;; One module of text per library, and one for the program, in program
     ;; order: each comes after the modules it imports from, with the files
-    ;; its library links. This is a session's build with nothing kept from
-    ;; before.
+    ;; its library links. Every library is checked and emitted in this build.
 
     (define (source->modules (directories (List String))
                              (source String)
@@ -67,7 +70,19 @@
                              (inputs Inputs))
       (→ (List Built))
       (! mut fs compile)
-      (● (build-session (make-session directories) source generate inputs) first))
+      (let* ((expanded (source->expanded directories source generate inputs))
+             (typed (check-program (● expanded program)))
+             (input (prepare-specialization typed)))
+        (append (if (null? (control-effects (● typed program))) (Nil)
+                    (list (Built "snail.core.control"
+                                 (wat->string (emit-control-module (● typed program))) (Nil))))
+                (map (lambda (library)
+                       (Built (● library first)
+                              (wat->string (emit-module (prepare-library input (● library first)
+                                                                         (● library second))))
+                              (library-links expanded (● library first))))
+                     (filter (lambda (library) (not (null? (● library second))))
+                             (library-items (● typed program) (● typed items)))))))
 
     (define (source->schemas (directories (List String))
                              (source String)

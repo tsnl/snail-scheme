@@ -14,7 +14,7 @@
     ((Some value) (json->string value))
     ((None) "nothing")))
 
-(define written (→ (List Json))
+(define (written) (→ (List Json))
   (list (JsonNull)
         (JsonInteger -9223372036854775808)
         (JsonString "quote \" backslash \\ tab\tend λ 😀")
@@ -23,7 +23,7 @@
         (JsonObject (list (Pair "a" (JsonBool #t)) (Pair "a" (JsonBool #f))))))
 
 (define (main) (→ Unit) (! output-port)
-  (for-each (lambda (value) (write-line (read-back (json->string value)))) written)
+  (for-each (lambda (value) (write-line (read-back (json->string value)))) (written))
   (for-each (lambda (text) (write-line (read-back text)))
             (list
              " { \"runtime\" : \"runtime.wasm\" ,\n \"modules\" : [ {\"name\": \"main\", \"file\": \"main.wasm\"} ] } "

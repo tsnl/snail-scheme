@@ -1,4 +1,4 @@
-// `snail dev` keeps successful compiler sessions while its attempts are
+// `snail dev` rebuilds every target while its attempts are
 // accepted, superseded or fail, observed from outside
 // (tests/development-service.mjs): /api/status names each published target's
 // generation, its digest and how many libraries it compiled, and the
@@ -12,6 +12,8 @@ import fs from 'node:fs';
 import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
 import {startDevelopment} from './development-service.mjs';
+
+const modules = output => JSON.parse(fs.readFileSync(join(output.directory, 'modules.json'), 'utf8')).modules.length;
 
 const root = process.argv[2], parent = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-development-')));
 const project = join(parent, 'project'), gate = join(parent, 'gate');
@@ -84,7 +86,7 @@ async function throughTheService() {
     // Build again and hold the attempt in its producer: client's generation
     // exists, but build/client still names the first. Rewriting a source
     // unchanged supersedes the attempt, which removes what it made; the
-    // attempt after it reuses every session, with no path into those
+    // attempt after it rebuilds every target, with no path into those
     // generations, and only its generation paths differ from the first's.
     const beforeHold = outputs();
     fs.rmSync(gate);
@@ -111,7 +113,7 @@ async function throughTheService() {
     assert.equal(fs.realpathSync(join(project, 'build/server')), target(reused, 'server').directory);
     for (const output of reused.published.targets) {
       const earlier = target(first, output.name);
-      assert.equal(output.compiled, 0, 'unchanged compilation evidence is reused');
+      assert.equal(output.compiled, modules(output), 'every module is rebuilt');
       assert.match(output.digest, /^[0-9a-f]{64}$/);
       assert.equal(output.digest, earlier.digest, 'identity excludes generation paths');
       assert.notEqual(output.directory, earlier.directory);
@@ -120,7 +122,7 @@ async function throughTheService() {
     // A public file's path is packaged, not compiled.
     fs.renameSync(join(project, 'client-public/nested/notes.txt'), join(project, 'client-public/nested/renamed.txt'));
     const renamed = await service.rebuilt();
-    assert.equal(target(renamed, 'client').compiled, 0, 'public paths do not affect compilation');
+    assert.equal(target(renamed, 'client').compiled, modules(target(renamed, 'client')), 'public changes rebuild every module');
     assert.notEqual(target(renamed, 'client').digest, target(first, 'client').digest, 'public paths affect output identity');
 
     // The consumer fails after client compiled. Nothing is published, and the
@@ -135,8 +137,8 @@ async function throughTheService() {
     assert.deepEqual(outputs(), beforeFailure, 'failed traversal removes every private generation');
     write('server.sld', source);
     const repaired = await service.rebuilt();
-    assert.equal(target(repaired, 'client').compiled, 0, 'a successful dependency session survives consumer failure');
-    assert.notEqual(target(repaired, 'client').digest, target(first, 'client').digest, 'cached work can differ from accepted output');
+    assert.equal(target(repaired, 'client').compiled, modules(target(repaired, 'client')), 'recovery rebuilds dependencies afresh');
+    assert.notEqual(target(repaired, 'client').digest, target(first, 'client').digest, 'only accepted output determines the running generation');
     assert.match(execute(target(repaired, 'server').directory), /90,0,255,/);
     // The publication before the latest stays readable; older ones no run
     // runs from are reclaimed.
@@ -145,11 +147,11 @@ async function throughTheService() {
       assert.equal(fs.existsSync(output.directory), false, `${basename(output.directory)} is reclaimed`);
     }
 
-    // Library-root changes recreate a target's Session. Public settings do not
+    // Library roots and public settings are reread for every build. They do not
     // participate in that decision; the compiler checks artifact bytes itself.
     const description = libraries => `((build-target server (program (entry "main.sld") (library-roots ("${libraries}")))))`;
-    const library = value => `(define-library (sample message) (export message) (import (snail core base)) (begin (define message (→ String) "${value}")))`;
-    write('main.sld', '(import (snail core base) (snail core io) (sample message)) (define (main) (→ Unit) (! output-port) (write-line message))');
+    const library = value => `(define-library (sample message) (export message) (import (snail core base)) (begin (define (message) (→ String) "${value}")))`;
+    write('main.sld', '(import (snail core base) (snail core io) (sample message)) (define (main) (→ Unit) (! output-port) (write-line (message)))');
     write('one/sample/message.sld', library('one'));
     write('two/sample/message.sld', library('two'));
     for (const name of ['one', 'two']) {
@@ -163,7 +165,7 @@ async function throughTheService() {
     write('two/sample/message.sld', `(generate-library (sample message)
       (import (snail core base) (snail core io) (snail shell syntax))
       (library-syntax (list "sample" "message") (list "message") (list (list "snail" "core" "base"))
-        (list (form "define" (list (SymbolSyntax "message")
+        (list (form "define" (list (form "message" (Nil))
           (form "→" (list (SymbolSyntax "String")))
           (StringSyntax (read-file "${project}/message.txt")))))))`);
     assert.equal(execute(target(await service.rebuilt(), 'server').directory), 'generated first\n');
@@ -173,8 +175,8 @@ async function throughTheService() {
     // The manifest owns library names; content filenames need not repeat them
     // and exceed the filesystem limit for an otherwise valid source filename.
     const longName = 'x'.repeat(200);
-    write(`two/${longName}.sld`, `(define-library (${longName}) (export message) (import (snail core base)) (begin (define message (→ String) "long name")))`);
-    write('main.sld', `(import (snail core base) (snail core io) (${longName})) (define (main) (→ Unit) (! output-port) (write-line message))`);
+    write(`two/${longName}.sld`, `(define-library (${longName}) (export message) (import (snail core base)) (begin (define (message) (→ String) "long name")))`);
+    write('main.sld', `(import (snail core base) (snail core io) (${longName})) (define (main) (→ Unit) (! output-port) (write-line (message)))`);
     assert.equal(execute(target(await service.rebuilt(), 'server').directory), 'long name\n');
 
     // A save that renames a new file over the source, as `sed -i` and many

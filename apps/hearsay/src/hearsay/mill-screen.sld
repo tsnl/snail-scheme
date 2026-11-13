@@ -57,10 +57,10 @@
     ;; scaled to fill the middle of the screen between the HUD's columns.
     ;; Its extent on the ground, with room above the top ring for heads and
     ;; pips:
-    (define town-left -10.2)
-    (define town-right 10.2)
-    (define town-top -11.4)
-    (define town-bottom 6.0)
+    (define (town-left) (→ F32) -10.2)
+    (define (town-right) (→ F32) 10.2)
+    (define (town-top) (→ F32) -11.4)
+    (define (town-bottom) (→ F32) 6.0)
 
     ;; The pixels each HUD column takes from a side of the screen: a panel's
     ;; 300 and its margin, or a fifth of a narrow screen, where they overlap
@@ -74,28 +74,28 @@
              (across (max 120.0 (- width (* 2.0 (hud-column width)))))
              (down (max 120.0 (- height 24.0)))
              (pixels-per-unit
-              (min (/ across (- town-right town-left)) (/ down (- town-bottom town-top))))
-             (x (/ (+ town-left town-right) 2.0)) (z (/ (+ town-top town-bottom) 2.0)))
+              (min (/ across (- (town-right) (town-left))) (/ down (- (town-bottom) (town-top)))))
+             (x (/ (+ (town-left) (town-right)) 2.0)) (z (/ (+ (town-top) (town-bottom)) 2.0)))
         (Camera (Vec3 x 40.0 z) (Vec3 x 0.0 z) (Orthographic (/ height pixels-per-unit)))))
 
-    (define sunlight (Light (Vec3 0.0 1.0 0.0) 0.0 1.0))
+    (define (sunlight) (→ Light) (Light (Vec3 0.0 1.0 0.0) 0.0 1.0))
 
     ;; Audiences sit on a triangle, each person on a ring of radius 2.8.
     (define (person-point (person I64)) (→ Vec3)
       (let* ((audience (audience-of person))
              (cx (list-ref (list -6.3 6.3 0.0) audience))
              (cz (list-ref (list 2.4 2.4 -6.2) audience))
-             (angle (* (i64->f64 (remainder person 8)) (/ pi 4.0))))
+             (angle (* (i64->f64 (remainder person 8)) (/ (pi) 4.0))))
         (Vec3 (f64->f32 (+ cx (* 2.8 (cos angle)))) 0.0 (f64->f32 (+ cz (* 2.8 (sin angle)))))))
 
     ;; A figure's cell is `figure-size` units square. Its feet stand at the
     ;; middle of its base, a little above the cell's bottom edge, and its
     ;; body fills about the middle half of the cell's width.
-    (define figure-size 2.0)
-    (define feet-offset 0.35)
+    (define (figure-size) (→ F32) 2.0)
+    (define (feet-offset) (→ F32) 0.35)
 
     ;; Everyone faces the viewer, down the map.
-    (define toward-viewer (Vec3 0.0 0.0 1.0))
+    (define (toward-viewer) (→ Vec3) (Vec3 0.0 0.0 1.0))
 
     ;; The person whose figure or base is under the pointer, the one nearest
     ;; the bottom of the map when figures overlap.
@@ -115,32 +115,35 @@
                           (Some person)
                           best))
                     (None)
-                    (iota person-count)))
+                    (iota (person-count))))
         ((None) (None))))
 
     (define (over? (point Vec3) (person I64)) (→ Bool)
       (let* ((at (person-point person))
              (across (abs (- (● point x) (● at x))))
              (down (- (● point z) (● at z))))
-        (and (< across (* 0.32 figure-size)) (< down 0.7) (> down (negate (* 0.85 figure-size))))))
+        (and (< across (* 0.32 (figure-size)))
+             (< down 0.7)
+             (> down (negate (* 0.85 (figure-size)))))))
 
     ;; ---- Actions ----
 
     ;; Buttons 1 to 5 are the deeds in order, 6 pays, 7 and 8 lie, 9 lies
     ;; low, 10 restarts, and 100 + p chooses person p.
-    (define action-deed 1)
-    (define action-pay 6)
-    (define action-lie-reliable 7)
-    (define action-lie-harmless 8)
-    (define action-wait 9)
-    (define action-restart 10)
-    (define action-choose 100)
+    (define (action-deed) (→ I32) 1)
+    (define (action-pay) (→ I32) 6)
+    (define (action-lie-reliable) (→ I32) 7)
+    (define (action-lie-harmless) (→ I32) 8)
+    (define (action-wait) (→ I32) 9)
+    (define (action-restart) (→ I32) 10)
+    (define (action-choose) (→ I32) 100)
 
     (define (person-action (action I32) (person I64)) (→ Action)
-      (cond ((< action action-pay) (Do (list-ref deeds (i32->i64 (- action action-deed))) person))
-            ((= action action-pay) (Pay person))
-            ((= action action-lie-reliable) (Mislead (Reliable) person))
-            (else (Mislead (Harmless) person))))
+      (cond
+       ((< action (action-pay)) (Do (list-ref (deeds) (i32->i64 (- action (action-deed)))) person))
+       ((= action (action-pay)) (Pay person))
+       ((= action (action-lie-reliable)) (Mislead (Reliable) person))
+       (else (Mislead (Harmless) person))))
 
     ;; Takes the shift, or shows why it cannot be taken.
     (define (act (screen MillScreen) (action Action)) (→ MillScreen)
@@ -161,15 +164,15 @@
     (define (press (screen MillScreen) (action I32)) (→ MillScreen)
       (cond ((guide-action? action)
              (MillScreen-guide-set screen
-                                   (turn-guide (● screen guide) guide-pages action)))
-            ((>= action action-choose)
-             (MillScreen-selected-set screen (Some (i32->i64 (- action action-choose)))))
-            ((= action action-restart)
+                                   (turn-guide (● screen guide) (guide-pages) action)))
+            ((>= action (action-choose))
+             (MillScreen-selected-set screen (Some (i32->i64 (- action (action-choose))))))
+            ((= action (action-restart))
              (new-mill-screen (● (● screen mill) scenario)
                               (+ (● screen version) 1)
                               (● screen width)
                               (● screen height)))
-            ((= action action-wait) (act screen (Wait)))
+            ((= action (action-wait)) (act screen (Wait)))
             (else (match (● screen selected)
                     ((Some person) (act screen (person-action action person)))
                     ((None) (MillScreen-message-set screen (list "Click a person first.")))))))
@@ -194,7 +197,7 @@
     (define (flat (thing Item)) (→ Item)
       (Item-glow-set thing 1.0))
 
-    (define dark (rgb 70 78 92))
+    (define (dark) (→ I32) (rgb 70 78 92))
 
     ;; A thin box from a to b on the ground. A box's length runs along x, and
     ;; the renderer turns x toward (cos yaw, -sin yaw).
@@ -204,11 +207,11 @@
          (item (Box) (Vec3 (* 0.5 (+ (● a x) (● b x))) 0.0 (* 0.5 (+ (● a z) (● b z))))
                (Vec3 (sqrt (+ (* dx dx) (* dz dz))) 0.01 0.08)
                (f64->f32 (atan2 (f32->f64 (negate dz)) (f32->f64 dx)))
-               dark))))
+               (dark)))))
 
     (define (tie-items) (→ (List Item))
       (map (lambda (tie) (segment (person-point (● tie first)) (person-point (● tie second))))
-           ties))
+           (ties)))
 
     (define (audience-color (audience I64)) (→ I32)
       (list-ref (list (rgb 220 160 60) (rgb 60 170 180) (rgb 160 120 220)) audience))
@@ -253,13 +256,13 @@
     (define (person-items (screen MillScreen) (person I64)) (→ (List Item))
       (let* ((mill (● screen mill)) (at (person-point person)) (size (base-size person))
              (fresh? (member? person (● screen fresh)))
-             (layer (+ 0.1 (* 0.01 (- (● at z) town-top)))))
+             (layer (+ 0.1 (* 0.01 (- (● at z) (town-top))))))
         (concatenate
          (list (list (hexagon person size 0.03 (audience-color (audience-of person)))
                      (pose-flat (walk-book (person-picture person)) (if fresh? (Stroll) (Stand))
-                                (Vec3 (● at x) layer (+ (● at z) feet-offset))
-                                toward-viewer
-                                figure-size
+                                (Vec3 (● at x) layer (+ (● at z) (feet-offset)))
+                                (toward-viewer)
+                                (figure-size)
                                 (camera-of screen)))
                (pips mill person (Dangerous) (Harmless) (rgb 225 70 60) (rgb 140 190 245) -1.0)
                (pips mill person (Reliable) (Unreliable) (rgb 90 205 110) (rgb 245 150 40) 1.0)
@@ -287,15 +290,15 @@
     ;; `art` gives the bytes of each sheet the cast wears.
     (define (view-mill-screen (screen MillScreen) (art (Fn String → (Option Source))))
       (→ Frame)
-      (Frame (camera-of screen) sunlight backdrop 1.0
+      (Frame (camera-of screen) (sunlight) (backdrop) 1.0
              (list (Batch 0 0 (Solid) tie-items)
                    (Batch 1 (i64->i32 (● screen version)) (Solid)
                           (lambda ()
                             (concatenate (map (lambda (person) (person-items screen person))
-                                              (iota person-count)))))
+                                              (iota (person-count))))))
                    (Batch 2 (marker-version screen) (Solid) (lambda () (marker-items screen))))
              (map (lambda (person) (walk-picture art (person-picture person) (resident person)))
-                  (iota person-count))))
+                  (iota (person-count)))))
 
     ;; ---- Status ----
 
@@ -347,7 +350,7 @@
     ;; Docks.
     (define (duty-text (chosen (Option I64))) (→ String)
       (match chosen
-        ((Some person) (if (= (audience-of person) docks)
+        ((Some person) (if (= (audience-of person) (docks))
                            (string-append "Rough up or threaten "
                                           (first-name person)
                                           ": this shift you must.")
@@ -416,39 +419,44 @@
 
     (define (move-buttons (screen MillScreen)) (→ (List Widget))
       (append (map-indexed (lambda (index deed)
-                             (let ((number (+ action-deed (i64->i32 index))))
+                             (let ((number (+ (action-deed) (i64->i32 index))))
                                (move-button screen
                                             (string-append "deed-" (show index))
                                             (deed-name deed)
                                             (deed-effect deed)
                                             number
                                             (toward-chosen screen number))))
-                           deeds)
+                           (deeds))
               (list (move-button screen
                                  "pay"
                                  "Pay to forget"
                                  "2 coins"
-                                 action-pay
-                                 (toward-chosen screen action-pay))
+                                 (action-pay)
+                                 (toward-chosen screen (action-pay)))
                     (move-button screen
                                  "lie-reliable"
                                  "Lie: you are reliable"
                                  "reliable 1"
-                                 action-lie-reliable
-                                 (toward-chosen screen action-lie-reliable))
+                                 (action-lie-reliable)
+                                 (toward-chosen screen (action-lie-reliable)))
                     (move-button screen
                                  "lie-harmless"
                                  "Lie: you are harmless"
                                  "harmless 1"
-                                 action-lie-harmless
-                                 (toward-chosen screen action-lie-harmless))
-                    (move-button screen "wait" "Lie low" "do nothing" action-wait (Some (Wait))))))
+                                 (action-lie-harmless)
+                                 (toward-chosen screen (action-lie-harmless)))
+                    (move-button screen
+                                 "wait"
+                                 "Lie low"
+                                 "do nothing"
+                                 (action-wait)
+                                 (Some (Wait))))))
 
     (define (action-panel (screen MillScreen)) (→ Panel)
       (Panel "actions" (At (TopLeft) 0)
              (append (Cons (section-heading "moves" "Your move: one per shift")
                            (if (mill-over? (● screen mill)) (Nil) (move-buttons screen)))
-                     (list (button "restart" "Restart" action-restart)))))
+                     (list (button "restart" "Restart" (action-restart))))))
 
     ;; ---- People ----
 
@@ -488,7 +496,7 @@
                    (map (lambda (tie)
                           (button (string-append "choose-" (show tie))
                                   (first-name tie)
-                                  (+ action-choose (i64->i32 tie))))
+                                  (+ (action-choose) (i64->i32 tie))))
                         (neighbors person))))))
 
     ;; ---- Beliefs and outlook ----
@@ -509,7 +517,7 @@
                                                   ((Nil) "nothing yet")
                                                   (beliefs
                                                    (string-join (map belief-text beliefs) ", "))))))
-                        audiences))))
+                        (audiences)))))
 
     ;; What would change if you lay low, and what could come back to bite.
     (define (outlook-panel (screen MillScreen)) (→ Panel)
@@ -527,7 +535,7 @@
                                 (line-labels "liability" (liabilities mill)))))))
 
     ;; The colors of the pips and rings on the map.
-    (define key-panel
+    (define (key-panel) (→ Panel)
       (Panel "key" (At (TopRight) 0)
              (list (label "chip-dangerous" "dangerous")
                    (label "chip-harmless" "harmless")
@@ -538,7 +546,7 @@
 
     ;; ---- Guide ----
 
-    (define guide-pages (→ (List Page))
+    (define (guide-pages) (→ (List Page))
       (list (Page "What this experiment tests"
                   (list
                    "The rumor mill asks one question: is steering what people believe fun, and can you predict it? If it is not, nothing else in Hearsay will save it."
@@ -579,9 +587,9 @@
                    (action-panel screen)
                    (last-panel screen)
                    (audience-panel screen)
-                   key-panel
+                   (key-panel)
                    (person-panel screen)
                    (outlook-panel screen))
-             (guide-panels "Rumor mill" guide-pages (● screen guide)))))
+             (guide-panels "Rumor mill" (guide-pages) (● screen guide)))))
 
     ))

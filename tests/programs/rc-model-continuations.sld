@@ -5,7 +5,10 @@
 
 (struct Model
   ((title String))
-  (deriving Move))
+  )
+(instance (Drop (!) Model)
+  (define (drop (value Model)) (→ Unit)
+    (match value ((Model _) (unit)))))
 
 ;; A suspended closure owns a counted copy of its model. Dropping the
 ;; caller's copy before it runs cannot invalidate that capture.
@@ -14,10 +17,10 @@
           (yield)
           (write-line (● model title)))))
 
-(define main
-  (lambda ()
-    (let* ((model (rc (Model "after the owner")))
-           (task (work model)))
-      (drop model)
-      (task))
-    (unit)))
+(define (main) (→ Unit) (! mut output-port tasks)
+
+  (let* ((model (rc (Model "after the owner")))
+         (task (work model)))
+    (drop model)
+    (task))
+  (unit))

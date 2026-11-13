@@ -14,22 +14,51 @@
 ;; (module
 ;;   (func (export "one") (result i32) (i32.const 1))
 ;;   (global (export "limit") i32 (i32.const 7)))
-(define one-bytes (→ Bytes)
+(define (one-bytes) (→ Bytes)
   #u8(0 97 115 109 1 0 0 0 1 5 1 96 0 1 127 3 2 1 0 6 6 1 127 0 65 7 11 7 15 2 3 111 110 101 0 0
         5 108 105 109 105 116 3 0 10 6 1 4 0 65 1 11))
 
 ;; (module
 ;;   (import "one" "one" (func $one (result i32)))
 ;;   (import "one" "limit" (global $limit i32))
-;;   (import "snail.runtime.wasm" "namespace" (func $namespace (result i32)))
+;;   (import "snail.runtime.wasm" "link-prepared" (func $link (result i32)))
 ;;   (import "host" "missing" (func $missing (result i32)))
 ;;   (func (export "main") (result i32)
 ;;     (i32.add (call $one) (i32.add (global.get $limit) (i32.const 34))))
 ;;   (func (export "fail") (result i32) (call $missing)))
-(define two-bytes (→ Bytes)
-  #u8(0 97 115 109 1 0 0 0 1 5 1 96 0 1 127 2 70 4 3 111 110 101 5 108 105 109 105 116 3 127 0 3
+(define (two-bytes) (→ Bytes)
+  #u8(0 97 115 109 1 0 0 0 1 5 1 96 0 1 127 2 74 4 3 111 110 101 5 108 105 109 105 116 3 127 0 3
         111 110 101 3 111 110 101 0 0 18 115 110 97 105 108 46 114 117 110 116 105 109 101 46 119
-        97 115 109 9 110 97 109 101 115 112 97 99 101 0 0 4 104 111 115 116 7 109 105 115 115 105
+        97
+        115
+        109
+        13
+        108
+        105
+        110
+        107
+        45
+        112
+        114
+        101
+        112
+        97
+        114
+        101
+        100
+        0
+        0
+        4
+        104
+        111
+        115
+        116
+        7
+        109
+        105
+        115
+        115
+        105
         110 103 0 0 3 3 2 0 0 7 15 2 4 109 97 105 110 0 3 4 102 97 105 108 0 4 10 17 2 10 0 16 0
         35 0 65 34 106 106 11 4 0 16 2 11))
 
@@ -58,7 +87,7 @@
   (list (ExportOf one "limit") (ExportOf one export) (HostProvided) missing))
 
 (define (main) (→ Unit) (! output-port wasm)
-  (let ((one (compiled "one" one-bytes)) (two (compiled "two" two-bytes)))
+  (let ((one (compiled "one" (one-bytes))) (two (compiled "two" (two-bytes))))
     (write-line (string-append "one imports " (show (length (module-imports one)))))
     (for-each show-import (module-imports two))
     (match (link-module "one" one (Nil))
@@ -68,8 +97,8 @@
           (show-run linked-two "main")
           (show-run linked-two "fail")
           (show-run linked-two "absent")
-          (write-line (if (name-instance linked-two "two") "named two" "two is taken"))
-          (write-line (if (name-instance linked-two "two") "named two" "two is taken")))
+
+          )
          ((Err error) (write-line (load-error-message error))))
        (match (link-module "two again" two (providers linked-one "nothing" (Unprovided)))
          ((Ok _) (write-line "linked without its provider"))

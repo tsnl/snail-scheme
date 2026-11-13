@@ -14,15 +14,15 @@
 ;; out of a build; the reload client's files; nothing built yet; and the
 ;; events a page hears. Each line is a request and the response's status, type and
 ;; body, or an event.
-(define root "build/tests/project-bundle")
+(define (root) (→ String) "build/tests/project-bundle")
 
 (define (at (name String)) (→ String)
-  (string-append root "/" name))
+  (string-append (root) "/" name))
 
 (define (put (name String) (text String)) (→ Unit) (! fs)
   (write-file (at name) text))
 
-(define builds (→ (List BuildDirectory))
+(define (builds) (→ (List BuildDirectory))
   (list (BuildDirectory 4
                         (at "g4")
                         (list (Pair "index.html" "i4")
@@ -31,12 +31,12 @@
                         120)
         (BuildDirectory 3 (at "g3") (list (Pair "index.html" "i3")) 90)))
 
-(define latest (→ BuildDirectory)
-  (match builds
+(define (latest) (→ BuildDirectory)
+  (match (builds)
     ((Cons build _) build)
     ((Nil) (panic "no build"))))
 
-(define reloading (→ Reloading)
+(define (reloading) (→ Reloading)
   (Reloading (at "host") (at "reload.wasm")))
 
 (define (show-response (label String) (response Response)) (→ Unit) (! output-port)
@@ -55,10 +55,10 @@
                                ((Err _) "not text")))))
 
 (define (request (label String) (path (List String))) (→ Unit) (! fs output-port)
-  (show-response label (bundle-response "/site/" reloading builds path)))
+  (show-response label (bundle-response "/site/" (reloading) (builds) path)))
 
 (define (main) (→ Unit) (! fs output-port)
-  (remove-tree root)
+  (remove-tree (root))
   (make-directories (at "g3/modules"))
   (make-directories (at "g4/modules"))
   (make-directories (at "g4/nested"))
@@ -100,11 +100,11 @@
   (request "/.snail/reload.mjs" (list ".snail" "reload.mjs"))
   (request "/.snail/reload.wasm" (list ".snail" "reload.wasm"))
   (request "/.snail/style.css" (list ".snail" "style.css"))
-  (show-response "/ before a build" (bundle-response "/site/" reloading (Nil) (Nil)))
+  (show-response "/ before a build" (bundle-response "/site/" (reloading) (Nil) (Nil)))
   (show-response "/.snail/reload.mjs before a build"
-                 (bundle-response "/site/" reloading (Nil) (list ".snail" "reload.mjs")))
+                 (bundle-response "/site/" (reloading) (Nil) (list ".snail" "reload.mjs")))
   (write-line (bundle-event "/site/" (BuildUnderway) (None)))
-  (write-line (bundle-event "/site/" (BuildPublished) (Some latest)))
-  (write-line (bundle-event "/site/" (BuildFailed "a \"quoted\" message") (Some latest)))
-  (remove-tree root)
+  (write-line (bundle-event "/site/" (BuildPublished) (Some (latest))))
+  (write-line (bundle-event "/site/" (BuildFailed "a \"quoted\" message") (Some (latest))))
+  (remove-tree (root))
   (unit))

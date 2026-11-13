@@ -6,9 +6,9 @@
   ((label String)))
 
 (instance (Drop (! output-port) Token)
-  (define drop
-    (lambda (token) (match token
-                      ((Token label) (write-line label))))))
+  (define (drop (token Token)) (→ Unit) (! output-port)
+    (match token
+      ((Token label) (write-line label)))))
 
 (define (offset (token Token) (amount I64)) (→ (FnOnce I64 → I64 ! output-port))
   (once (lambda (value)

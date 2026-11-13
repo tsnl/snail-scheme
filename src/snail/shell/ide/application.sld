@@ -46,7 +46,7 @@
 
     ;; Offsets count scalars, as the dom effect's do.
 
-    (define newline-text (→ String) (make-string 1 #\newline))
+    (define (newline-text) (→ String) (make-string 1 #\newline))
 
     (define (starts-with? (text String) (prefix String)) (→ Bool)
       (and (>= (string-length text) (string-length prefix))
@@ -120,7 +120,7 @@
     ;; Lines `first` to `last` of a text, counting from 0, as one text.
 
     (define (lines-between (text String) (first I64) (last I64)) (→ String)
-      (string-join (take (list-tail (lines-of text) first) (+ (- last first) 1)) newline-text))
+      (string-join (take (list-tail (lines-of text) first) (+ (- last first) 1)) (newline-text)))
 
     ;; The text a field shows, which keeps only newlines of a file's line
     ;; ends.
@@ -246,11 +246,11 @@
       (let* ((start (trailing-start text from))
              (skip (indentation text to))
              (joined (string-append (substring text 0 start)
-                                    newline-text
+                                    (newline-text)
                                     (substring text (+ to skip) (string-length text))))
              (indent (line-indentation joined (+ start 1)))
              (caret (+ (+ start 1) indent)))
-        (Change start (+ to skip) (string-append newline-text (spaces indent)) caret caret)))
+        (Change start (+ to skip) (string-append (newline-text) (spaces indent)) caret caret)))
 
     ;; Where the spaces and tabs just before `index` start.
 
@@ -421,7 +421,7 @@
        (width F64)
        (height F64)))
 
-    (define whole (→ Area)
+    (define (whole) (→ Area)
       (Area 0.0 0.0 1.0 1.0))
 
     ;; The two parts of `area` a split in `direction` at `ratio` makes.
@@ -468,7 +468,7 @@
                   (append (divisions first one) (divisions second other))))))))
 
     (define (division-of (layout Layout) (split I64)) (→ (Option Division))
-      (find (lambda (division) (= (● division split) split)) (divisions layout whole)))
+      (find (lambda (division) (= (● division split) split)) (divisions layout (whole))))
 
     ;; The layout with split `split` dividing at `ratio`, kept to a tenth of
     ;; the room either side.
@@ -664,7 +664,7 @@
        (editor String)
        (refreshing Bool)))
 
-    (define initial (→ Ide)
+    (define (initial) (→ Ide)
       (Ide (Project "" "" (Nil) (Nil))
            0
            (Nil)
@@ -677,7 +677,7 @@
            #t
            220.0
            (None)
-           palette-initial
+           (palette-initial)
            #t
            (Status "Connecting…" "starting" "")
            (None)
@@ -899,7 +899,7 @@
       ((ide Ide)
        (pending (Rc PendingWork))))
 
-    (define interrupted-request (→ Failure)
+    (define (interrupted-request) (→ Failure)
       (Failure 0 "Request interrupted; its server-side outcome may be unknown."))
 
     (define (begin-session (ide Ide)) (→ Session)
@@ -1046,8 +1046,8 @@
     ;; The service's event stream: the compiler's status, the run targets'
     ;; processes, a sign that files changed, and each dropped connection.
 
-    (define event-kinds (→ (List String))
-      (list event-kind "open" "error"))
+    (define (event-kinds) (→ (List String))
+      (list (event-kind) "open" "error"))
 
     ;; Connecting closes the stream before, so none of its events, sent or
     ;; not, is heard again.
@@ -1060,7 +1060,7 @@
                                      (match old
                                        ((Some stream) (stream-close stream))
                                        ((None) (unit)))
-                                     (let ((stream (stream-open "/api/events" event-kinds)))
+                                     (let ((stream (stream-open "/api/events" (event-kinds))))
                                        (command-result
                                         (lambda (current) (connected current stream))))))
                              stay)))))
@@ -1086,7 +1086,7 @@
       (then (Pair model (list (hear stream)))
             (lambda (model)
               (cond ((string=? (● event kind) "open") (reconnected model))
-                    ((string=? (● event kind) event-kind)
+                    ((string=? (● event kind) (event-kind))
                      (match (read-event (● event data))
                        ((Some state) (then (received model state) refresh-if-needed))
                        ((None)
@@ -1178,7 +1178,7 @@
                                                                          sequence
                                                                          reply))))))
                                      (lambda (current)
-                                       (listed current sequence (Err interrupted-request))))))))))
+                                       (listed current sequence (Err (interrupted-request)))))))))))
 
     ;; Only the latest listing counts. The first nonempty project listing
     ;; opens main.sld or its first file; explicit closes never reopen a file.
@@ -1319,7 +1319,7 @@
                                 (focus-node field)
                                 (select-range field (i64->i32 offset) (i64->i32 offset))
                                 (scrolled-to pane
-                                             (* line-height
+                                             (* (line-height)
                                                 (i64->f64
                                                  (max 0 (- (count-lines text 0 offset) 4))))))))
                            ((None) (unit)))
@@ -1359,7 +1359,7 @@
                                                                           asked
                                                                           reply))))))
                                     (lambda (current)
-                                      (answered current asked (Err interrupted-request)))))))))
+                                      (answered current asked (Err (interrupted-request))))))))))
         ((None) (Pair model (followed model path follow
                                       (● (● model palette) generation) (None))))))
 
@@ -1474,8 +1474,8 @@
 
     ;; The keys Tab and Enter, which a Scheme source's field hears.
 
-    (define editing-chords (→ (List Chord))
-      (list (Chord "Tab" 0) (Chord "Tab" shift-key) (Chord "Enter" 0)))
+    (define (editing-chords) (→ (List Chord))
+      (list (Chord "Tab" 0) (Chord "Tab" (shift-key)) (Chord "Enter" 0)))
 
     ;; ---- Saving ----
 
@@ -1504,7 +1504,7 @@
                                        (lambda (current)
                                          (saved current
                                                 (● buffer path)
-                                                (Err interrupted-request)))))))))
+                                                (Err (interrupted-request))))))))))
            ((None) (stay model))))
         ((None) (stay model))))
 
@@ -1534,7 +1534,7 @@
     ;; field did not take it.
 
     (define (formatted-in (pane EditorPane) (path String) (text String)) (→ String) (! dom)
-      (let* ((shown (display-text text)) (formatted (format-source shown format-width)))
+      (let* ((shown (display-text text)) (formatted (format-source shown (format-width))))
         (if (or (string=? shown formatted) (not (reformatted pane path shown formatted)))
             text
             formatted)))
@@ -1590,7 +1590,7 @@
                (Pair (buffer-set model (Buffer-failure-set buffer ""))
                      (list (Command (once (lambda ()
                                             (let* ((shown (display-text (● buffer text)))
-                                                   (formatted (format-source shown format-width)))
+                                                   (formatted (format-source shown (format-width))))
                                               (let ((taken (or (string=? shown formatted)
                                                                (reformatted pane
                                                                             path
@@ -1789,10 +1789,10 @@
     (define (primary-chords (key String) (extra I32)) (→ (List Chord))
       (concatenate
        (map (lambda (spelling)
-              (map (lambda (held) (Chord spelling (+ held extra))) (list control-key meta-key)))
+              (map (lambda (held) (Chord spelling (+ held extra))) (list (control-key) (meta-key))))
             (delete-duplicates string=? (list (string-upcase key) (string-downcase key))))))
 
-    (define commands (→ (command-Registry (Fn Ide → Step)))
+    (define (commands) (→ (command-Registry (Fn Ide → Step)))
       (match (command-register
               (ann (list->vector (list (command-Command "command-palette"
                                                         (lambda (model)
@@ -1851,15 +1851,16 @@
     (define (bound-chords (name String) (chords (List Chord))) (→ (List shortcut-Binding))
       (map (lambda (chord) (shortcut-Binding chord name)) chords))
 
-    (define shortcuts (→ shortcut-Shortcuts)
+    (define (shortcuts) (→ shortcut-Shortcuts)
       (match (shortcut-register
-              (vector-map (lambda (record) (● record name)) (● commands commands))
+              (vector-map (lambda (record) (● record name)) (● (commands) commands))
               (list->vector (concatenate (list (bound-chords "command-palette"
                                                              (Cons (Chord "F1" 0)
-                                                                   (primary-chords "P" shift-key)))
+                                                                   (primary-chords "P"
+                                                                                   (shift-key))))
                                                (bound-chords "go-to-file" (primary-chords "p" 0))
                                                (bound-chords "search-project"
-                                                             (primary-chords "F" shift-key))
+                                                             (primary-chords "F" (shift-key)))
                                                (bound-chords "search-buffer" (primary-chords "f" 0))
                                                (bound-chords "new-file" (Nil))
                                                (bound-chords "new-directory" (Nil))
@@ -1868,22 +1869,23 @@
                                                (bound-chords "save-buffer" (primary-chords "s" 0))
                                                (bound-chords "format-buffer"
                                                              (list
-                                                              (Chord "F" (+ alt-key shift-key))))
+                                                              (Chord "F"
+                                                                     (+ (alt-key) (shift-key)))))
                                                (bound-chords "refresh-ide" (Nil))
                                                (bound-chords "reload-buffer" (Nil))
                                                (bound-chords "build-project" (Nil))
                                                (bound-chords "toggle-files" (primary-chords "b" 0))
                                                (bound-chords "split-right" (primary-chords "\\" 0))
                                                (bound-chords "split-down"
-                                                             (primary-chords "|" shift-key))
+                                                             (primary-chords "|" (shift-key)))
                                                (bound-chords "close-editor"
-                                                             (Cons (Chord "w" alt-key)
+                                                             (Cons (Chord "w" (alt-key))
                                                                    (primary-chords "w" 0)))))))
         ((Ok shortcuts) shortcuts)
         ((Err message) (panic message))))
 
     (define (run-command (model Ide) (name String)) (→ Step)
-      (match (command-named commands name)
+      (match (command-named (commands) name)
         ((Some run) (if (and (string=? name "search-buffer") (palette-finding? (● model palette)))
                         (run model) (invoked model run)))
         ((None) (stay model))))
@@ -1891,7 +1893,7 @@
     (define (shortcut (model Ide) (key String) (modifiers I32)) (→ Step)
       (if (and (palette-finding? (● model palette)) (string=? key "Escape") (= modifiers 0))
           (palette-message model (palette-Dismiss))
-          (match (shortcut-matching shortcuts (Chord key modifiers))
+          (match (shortcut-matching (shortcuts) (Chord key modifiers))
             ((Some name) (update model (DispatchCommand name)))
             ((None) (stay model)))))
 
@@ -1930,7 +1932,7 @@
     (define (palette-context (model Ide)) (→ palette-Context)
       (palette-Context
        (map (lambda (name) (palette-Entry name (command-keys name)))
-            (vector->list (vector-map (lambda (record) (● record name)) (● commands commands))))
+            (vector->list (vector-map (lambda (record) (● record name)) (● (commands) commands))))
        (file-choices model)))
 
     (define (palette-message (model Ide) (message palette-Message)) (→ Step)
@@ -2013,7 +2015,7 @@
                                                                   (● hit column)))))
                                 (select-range field (i64->i32 offset) (i64->i32 (+ offset size)))
                                 (scrolled-to pane
-                                             (* line-height
+                                             (* (line-height)
                                                 (i64->f64 (max 0 (- (● hit line) 5))))))))
                            ((None) (unit)))
                          (command-result stay))) stay)))
@@ -2103,7 +2105,7 @@
                                      (controlled current
                                                  action
                                                  target
-                                                 (Err interrupted-request))))))))))
+                                                 (Err (interrupted-request)))))))))))
 
     (define (controlled (model Ide) (action String) (target String) (result (Result Json Failure)))
       (→ Step)
@@ -2128,14 +2130,14 @@
 
     ;; Lines are 20 pixels high, as ide.css's `--code` sets them.
 
-    (define line-height (→ F64) 20.0)
+    (define (line-height) (→ F64) 20.0)
 
     ;; The highlight layer draws from ten lines above the scroll 160 lines,
     ;; more than a pane shows, in runs of one class each. The highlighter reads
     ;; them from the start of their top-level form, as Emacs resynchronizes.
 
     (define (highlight-view (text String) (scroll F64) (scheme Bool)) (→ (Html Msg))
-      (let* ((first (max 0 (- (f64->i64 (floor (/ scroll line-height))) 10)))
+      (let* ((first (max 0 (- (f64->i64 (floor (/ scroll (line-height)))) 10)))
              (start (line-offset text (+ first 1)))
              (end (line-offset text (+ first 161))))
         (Element "pre"
@@ -2308,14 +2310,14 @@
         string=?
         (map (lambda (binding) (chord-label (● binding chord)))
              (filter (lambda (binding) (string=? name (● binding name)))
-                     (vector->list (● shortcuts bindings)))))
+                     (vector->list (● (shortcuts) bindings)))))
        " / "))
 
     (define (chord-label (chord Chord)) (→ String)
-      (string-append (if (= 0 (i32-and (● chord modifiers) control-key)) "" "Ctrl+")
-                     (if (= 0 (i32-and (● chord modifiers) meta-key)) "" "⌘+")
-                     (if (= 0 (i32-and (● chord modifiers) alt-key)) "" "Alt+")
-                     (if (= 0 (i32-and (● chord modifiers) shift-key)) "" "Shift+")
+      (string-append (if (= 0 (i32-and (● chord modifiers) (control-key))) "" "Ctrl+")
+                     (if (= 0 (i32-and (● chord modifiers) (meta-key))) "" "⌘+")
+                     (if (= 0 (i32-and (● chord modifiers) (alt-key))) "" "Alt+")
+                     (if (= 0 (i32-and (● chord modifiers) (shift-key))) "" "Shift+")
                      (string-upcase (● chord key))))
 
     (define (layout-view (model Ide)) (→ (Html Msg))
@@ -2472,15 +2474,15 @@
     ;; others, so each keeps its field, with its caret and undo history.
 
     (define (panes-view (model Ide)) (→ (List (Html Msg)))
-      (let ((areas (pane-areas (● model layout) whole)))
+      (let ((areas (pane-areas (● model layout) (whole))))
         (append (map (lambda (pane)
                        (pane-view model
                                   (● pane id)
                                   (match (assoc-ref areas (● pane id))
                                     ((Some area) area)
-                                    ((None) whole))))
+                                    ((None) (whole)))))
                      (● model panes))
-                (map divider-view (divisions (● model layout) whole)))))
+                (map divider-view (divisions (● model layout) (whole))))))
 
     (define (percent (fraction F64)) (→ String)
       (string-append (f64->string (* fraction 100.0)) "%"))
@@ -2606,7 +2608,7 @@
                                                (list (Text (string-join
                                                             (map (lambda (line) (show (+ line 1)))
                                                                  (iota lines))
-                                                            newline-text))))))
+                                                            (newline-text)))))))
                        (Element "div"
                                 (list (Attr "class" "code"))
                                 (list (highlight-view text (● pane scroll) scheme)
@@ -2647,7 +2649,7 @@
                        (if scheme
                            (list (On "keydown"
                                      (list (Key) (Value) (Selection))
-                                     (Chords editing-chords)
+                                     (Chords (editing-chords))
                                      (lambda (event)
                                        (Pressed id
                                                 (● event key)
@@ -2833,7 +2835,7 @@
                         (Chords (append (if (palette-finding? (● model palette))
                                             (list (Chord "Escape" 0))
                                             (Nil))
-                                        (shortcut-chords shortcuts)))
+                                        (shortcut-chords (shortcuts))))
                         (lambda (event) (Shortcut (● event key) (● event modifiers))))
                     (On "online" (Nil) (Allow) (lambda (event) (Connect)))
                     (On "snail-refresh-failed" (Nil) (Allow) (lambda (event) (RefreshFailed))))
@@ -2887,7 +2889,7 @@
     ;; Both shapes use the same draft payload; only tab membership is new.
 
     (define (read-recovery (bytes Bytes)) (→ TabbedRecovery)
-      (if (case-id=? (recovery-tag bytes) (recovery-tag (serialize (● (kept initial) previous))))
+      (if (case-id=? (recovery-tag bytes) (recovery-tag (serialize (● (kept (initial)) previous))))
           (TabbedRecovery (deserialize bytes) (Nil))
           (deserialize bytes)))
 
@@ -2913,7 +2915,7 @@
       (let ((save (● saved previous)))
         (unless (= (● save version) 1)
           (panic "unsupported IDE recovery version; saved drafts are retained"))
-        (let* ((model (Ide-buffers-set initial (map restored-buffer (● save drafts))))
+        (let* ((model (Ide-buffers-set (initial) (map restored-buffer (● save drafts))))
                (model (Ide-auto-open-set model #f))
                (model (Ide-panes-set model
                                      (map (lambda (pane) (restored-pane pane (● saved tabs)))

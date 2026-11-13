@@ -32,14 +32,14 @@
                      (invariant (Fn S → (Option String)))
                      (depth I64))
       (→ (Option (Violation S M)))
-      (∀ S M)
+      (∀ (S M))
       (⊨ (Serialize S) (Copy S) (Drop (!) S) (Copy M) (Drop (!) M))
       (search (list (Visit initial (Nil)))
               moves
               step
               invariant
               depth
-              (table-set empty-table (state-key initial) #t)))
+              (table-set (empty-table) (state-key initial) #t)))
 
     ;; Checks one frontier, then the states its moves reach for the first
     ;; time. `seen` holds every state reached so far.
@@ -51,7 +51,7 @@
                     (depth I64)
                     (seen (Table Bool)))
       (→ (Option (Violation S M)))
-      (∀ S M)
+      (∀ (S M))
       (⊨ (Serialize S) (Copy M) (Drop (!) M) (Copy S) (Drop (!) S))
       (match (first-violation frontier invariant)
         ((Some violation) (Some violation))
@@ -64,7 +64,7 @@
     (define (first-violation (frontier (List (Visit S M)))
                              (invariant (Fn S → (Option String))))
       (→ (Option (Violation S M)))
-      (∀ S M)
+      (∀ (S M))
       (⊨ (Copy M) (Drop (!) M) (Copy S) (Drop (!) S))
       (match frontier
         ((Nil) (None))
@@ -82,7 +82,7 @@
                         (step (Fn S M → S))
                         (seen (Table Bool)))
       (→ (Pair (List (Visit S M)) (Table Bool)))
-      (∀ S M)
+      (∀ (S M))
       (⊨ (Serialize S) (Copy M) (Drop (!) M) (Copy S) (Drop (!) S))
       (match (fold-left (lambda (found visit)
                           (fold-left (lambda (found move)
@@ -102,7 +102,7 @@
 
     ;; The encoding as text, one character per byte, to key the table.
 
-    (define (state-key (state S)) (→ String) (∀ S) (⊨ (Serialize S) (Copy S) (Drop (!) S))
+    (define (state-key (state S)) (→ String) (∀ (S)) (⊨ (Serialize S) (Copy S) (Drop (!) S))
       (let ((bytes (serialize state)))
         (string-generate (vector-length bytes)
                          (lambda (index) (i32->char (u8->i32 (vector-ref bytes index)))))))

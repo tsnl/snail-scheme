@@ -175,7 +175,7 @@ try {
   // answered from the compiler's thread would therefore deadlock here rather
   // than answer late, so the deadline distinguishes wedged from slow.
   assert.equal(spawnSync('mkfifo', [pipe]).status, 0);
-  fs.writeFileSync(source, '(import (snail core base) (snail core io) (slow)) (define (main) (→ Unit) (! output-port) (write-line message))');
+  fs.writeFileSync(source, '(import (snail core base) (snail core io) (slow)) (define (main) (→ Unit) (! output-port) (write-line (message)))');
   await service.until(() => {
     try { writer = fs.openSync(pipe, fs.constants.O_WRONLY | fs.constants.O_NONBLOCK); return true; }
     catch (error) { if (error.code === 'ENXIO') return false; throw error; }
@@ -186,7 +186,7 @@ try {
   assert.equal((await service.get('/api/file?path=slow.sld')).status, 400);
   const during = await read();
   assert.equal((await save(during.revision, program('edited during compilation'))).status, 200);
-  fs.writeFileSync(writer, '(define-library (slow) (export message) (import (snail core base)) (begin (define message (→ String) "blocked")))');
+  fs.writeFileSync(writer, '(define-library (slow) (export message) (import (snail core base)) (begin (define (message) (→ String) "blocked")))');
   fs.closeSync(writer); writer = null;
   const [unblocked] = (await service.settled(blocked.id)).published.targets;
   assert.equal(unblocked.directory, fs.realpathSync(join(project, 'build/main')));

@@ -12,8 +12,7 @@
    (chezscheme)
    (only (snail core base) Some None))
 
-
-  (define empty-table '())
+  (define (empty-table) '())
 
   (define (below hash bit) (bitwise-and hash (- bit 1)))
 
@@ -86,6 +85,5 @@
 
   (define (table-values table)
     (reverse (table-fold (lambda (values entry) (cons (cdr entry) values)) '() table)))
-
 
   )

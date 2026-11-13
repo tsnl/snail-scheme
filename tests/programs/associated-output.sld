@@ -4,22 +4,24 @@
 
 (typeclass (Add e A B)
   (type Output)
-  (: add (Fn A B → Output ! e)))
+  (declare (add (left A) (right B)) (→ Output) (! e)))
 
 (instance (Add (!) I64 F64)
   (type Output F64)
-  (define add (lambda (a b) (+ (i64->f64 a) b))))
+  (define (add (a I64) (b F64)) (→ F64)
+    (+ (i64->f64 a) b)))
 
 (instance (Add (!) I64 I64)
   (type Output I64)
-  (define add (lambda (a b) (+ a b))))
+  (define (add (a I64) (b I64)) (→ I64)
+    (+ a b)))
 
-(define (sum (a A) (b B)) (→ (Add.Output e A B)) (! e) (∀ A B e) (⊨ (Add e A B)) (add a b))
+(define (sum (a A) (b B)) (→ (Add.Output e A B)) (! e) (∀ (A B e)) (⊨ (Add e A B)) (add a b))
 
 (define (twice (a A))
   (→ A)
   (! e)
-  (∀ A e)
+  (∀ (A e))
   (⊨ (Copy A) (Drop e A) (Add e A A (type Output A)))
   (add a a))
 
@@ -29,30 +31,34 @@
 
 (typeclass (Extract T)
   (type Output)
-  (: extract (Fn T → Output)))
+  (declare (extract (value T)) (→ Output)))
 
 (instance (Extract (Box A))
   (type Output A)
-  (define extract (lambda (value) (match value ((Box value) value)))))
+  (define (extract (value (Box A))) (→ A)
+    (match value ((Box value) value))))
 
 (instance (Add (! e) (Box A) B)
   (⊨ (Extract (Box A)) (Add e (Extract.Output (Box A)) B))
   (type Output (Add.Output e (Extract.Output (Box A)) B))
-  (define add (lambda (a b) (add (extract a) b))))
+  (define (add (a (Box A)) (b B)) (→ (Add.Output e (Extract.Output (Box A)) B)) (! e)
+    (add (extract a) b)))
 
 ;; Recursion that makes its input smaller is permitted.
 (typeclass (Flatten A)
   (type Output)
-  (: flatten (Fn A → Output)))
+  (declare (flatten (value A)) (→ Output)))
 
 (instance (Flatten I64)
   (type Output I64)
-  (define flatten (lambda (value) value)))
+  (define (flatten (value I64)) (→ I64)
+    value))
 
 (instance (Flatten (Box A))
   (⊨ (Flatten A))
   (type Output (Flatten.Output A))
-  (define flatten (lambda (value) (match value ((Box inner) (flatten inner))))))
+  (define (flatten (value (Box A))) (→ (Flatten.Output A))
+    (match value ((Box inner) (flatten inner)))))
 
 ;; Class variables introduced by a macro retain their lexical marks.
 (define-syntax define-identity-class
@@ -60,24 +66,25 @@
     ((_ class method)
      (typeclass (class A)
        (type Output)
-       (: method (Fn A → Output))))))
+       (declare (method (value A)) (→ Output))))))
 
 (define-identity-class Identity identity)
 
 (instance (Identity I64)
   (type Output I64)
-  (define identity (lambda (value) value)))
+  (define (identity (value I64)) (→ I64)
+    value))
 
-(define main
-  (lambda ()
-    (display (sum (ann 1 I64) 2.5))
-    (newline)
-    (display (twice (ann 7 I64)))
-    (newline)
-    (display (sum (Box (ann 4 I64)) 0.5))
-    (newline)
-    (display (flatten (Box (Box (ann 9 I64)))))
-    (newline)
-    (display (identity (ann 11 I64)))
-    (newline)
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  (display (sum (ann 1 I64) 2.5))
+  (newline)
+  (display (twice (ann 7 I64)))
+  (newline)
+  (display (sum (Box (ann 4 I64)) 0.5))
+  (newline)
+  (display (flatten (Box (Box (ann 9 I64)))))
+  (newline)
+  (display (identity (ann 11 I64)))
+  (newline)
+  (unit))

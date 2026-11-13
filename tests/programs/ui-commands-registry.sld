@@ -7,7 +7,7 @@
 
 (define (add (value I64)) (→ I64) (+ value 1))
 
-(define entries (→ (Vector (command-Command (Fn I64 → I64))))
+(define (entries) (→ (Vector (command-Command (Fn I64 → I64))))
   (list->vector (list (command-Command "add" add)
                       (command-Command "double" (lambda (value) (* value 2))))))
 
@@ -15,22 +15,22 @@
   (match command ((Some run) (run value)) ((None) -1)))
 
 (define (main) (→ Unit) (! output-port)
-  (match (command-register entries)
+  (match (command-register (entries))
     ((Ok registry)
      (write-line (show (invoke (command-named registry "add") 4)))
      (write-line (show (invoke (command-named registry "double") 4)))
-     (match (shortcut-register (vector-map (lambda (record) (● record name)) entries)
+     (match (shortcut-register (vector-map (lambda (record) (● record name)) (entries))
                                (list->vector
-                                (list (shortcut-Binding (Chord "a" control-key) "add"))))
+                                (list (shortcut-Binding (Chord "a" (control-key)) "add"))))
        ((Ok shortcuts)
-        (write-line (show (match (shortcut-matching shortcuts (Chord "a" control-key))
+        (write-line (show (match (shortcut-matching shortcuts (Chord "a" (control-key)))
                             ((Some name) (invoke (command-named registry name) 4)) ((None) -1))))
-        (write-line (show (match (shortcut-matching shortcuts (Chord "a" meta-key))
+        (write-line (show (match (shortcut-matching shortcuts (Chord "a" (meta-key)))
                             ((Some _) #f) ((None) #t)))))
        ((Err message) (panic message))))
     ((Err message) (panic message)))
   (match (command-register
-          (vector-append entries (list->vector (list (command-Command "add" add)))))
+          (vector-append (entries) (list->vector (list (command-Command "add" add)))))
     ((Ok _) (panic "accepted a duplicate command"))
     ((Err message) (write-line message)))
   (for-each

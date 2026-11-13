@@ -16,7 +16,7 @@
    (snail core base))
   (begin
 
-    (define pi 3.141592653589793)
+    (define (pi) (→ F64) 3.141592653589793)
 
     (extern sin "snail.core.support" "snail:math/sin" (Fn F64 → F64))
     (extern cos "snail.core.support" "snail:math/cos" (Fn F64 → F64))

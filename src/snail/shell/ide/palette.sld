@@ -102,7 +102,7 @@
        (outcome (Option Outcome))
        (commands (List Command))))
 
-    (define initial (→ State) (State 0 (None)))
+    (define (initial) (→ State) (State 0 (None)))
 
     (define (visible? (state State)) (→ Bool)
       (match (● state panel) ((Some _) #t) ((None) #f)))
@@ -217,7 +217,7 @@
                  ((and (finding? state) (or (string=? key "Enter")
                                             (string=? key "ArrowUp")
                                             (string=? key "ArrowDown")))
-                  (find-next state context (or (string=? key "ArrowUp") (= modifiers shift-key))))
+                  (find-next state context (or (string=? key "ArrowUp") (= modifiers (shift-key)))))
                  ((and (string=? key "Enter") (> count 0))
                   (update state context
                           (Pick (● state generation)
@@ -225,7 +225,7 @@
                                    action))))
                  ((string=? key "Enter") (stay state))
                  (else
-                  (let* ((back (or (string=? key "ArrowUp") (= modifiers shift-key)))
+                  (let* ((back (or (string=? key "ArrowUp") (= modifiers (shift-key))))
                          (at (max 0 (min (- count 1) (+ (● panel selected) (if back -1 1))))))
                     (stay (State-panel-set state (Some (Panel-selected-set panel at)))))))))))
 
@@ -269,7 +269,7 @@
              (stay state)))
         (_ (stay state))))
 
-    (define interrupted-request (→ Failure)
+    (define (interrupted-request) (→ Failure)
       (Failure 0 "Request interrupted; its server-side outcome may be unknown."))
 
     (define (search-interrupted (state State) (generation I64)) (→ Step)
@@ -277,7 +277,7 @@
         ((Some (Panel (Searching (Search source _)) _ _))
          (if (= generation (● state generation))
              (stay
-              (mode-set state (Searching (Search source (Finished (Err interrupted-request))))))
+              (mode-set state (Searching (Search source (Finished (Err (interrupted-request)))))))
              (stay state)))
         (_ (stay state))))
 
@@ -307,7 +307,9 @@
                                               (lambda (current)
                                                 (created current generation result)))))
                                     (lambda (current)
-                                      (created current generation (Err interrupted-request)))))))))
+                                      (created current
+                                               generation
+                                               (Err (interrupted-request))))))))))
         (_ (stay state))))
 
     ;; Closing does not undo a write. Its watcher event still updates the file
@@ -391,7 +393,7 @@
            (list (Element "section"
                           (list (Attr "id" "find-widget") (Attr "class" "find-widget")
                                 (Attr "role" "search") (Attr "aria-label" "Find in current file")
-                                (On "keydown" (list (Key)) (Chords find-chords)
+                                (On "keydown" (list (Key)) (Chords (find-chords))
                                     (lambda (event)
                                       (KeyPressed (● event key) (● event modifiers)))))
                           (list (find-input panel)
@@ -438,8 +440,8 @@
             ((Searching (Search _ (Finished (Err failure)))) (● failure message))
             (_ "Searching…"))))
 
-    (define find-chords (→ (List Chord))
-      (list (Chord "Enter" 0) (Chord "Enter" shift-key) (Chord "Escape" 0)
+    (define (find-chords) (→ (List Chord))
+      (list (Chord "Enter" 0) (Chord "Enter" (shift-key)) (Chord "Escape" 0)
             (Chord "ArrowUp" 0) (Chord "ArrowDown" 0)))
 
     (define (view (state State) (context Context)) (→ (List (Html Message)))
@@ -498,7 +500,7 @@
                      (StringProperty "value" (● panel query))
                      (On "input" (list (Value)) (Allow)
                          (lambda (event) (Query (● event value))))
-                     (On "keydown" (list (Key)) (Chords panel-chords)
+                     (On "keydown" (list (Key)) (Chords (panel-chords))
                          (lambda (event) (KeyPressed (● event key) (● event modifiers)))))
                (Nil)))
 
@@ -579,7 +581,7 @@
     (define (limit-notice (limited Bool)) (→ String)
       (if limited " · Results limited; narrow your query" ""))
 
-    (define panel-chords (→ (List Chord))
-      (Cons (Chord "Tab" shift-key)
+    (define (panel-chords) (→ (List Chord))
+      (Cons (Chord "Tab" (shift-key))
             (map (lambda (key) (Chord key 0)) (list "ArrowUp" "ArrowDown" "Enter" "Escape" "Tab"))))
     ))

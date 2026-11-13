@@ -117,9 +117,11 @@
     (define-page-state Save)
 
     (instance (Application (! mut host completion events storage tasks page) FuturesApplication)
-      (define start
-        (lambda (entry)
-          (run-page (lambda () (Save (Showing "idle") 0)) serialize deserialize present))))
+      (define (start (entry (Entry FuturesApplication)))
+        (→ Unit)
+        (! mut host completion events storage tasks page)
+
+        (run-page (lambda () (Save (Showing "idle") 0)) serialize deserialize present)))
 
     ;; Save is detached recovery data. The model shares an explicit pending
     ;; owner; returning from the loop cancels it even if another alias remains.

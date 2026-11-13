@@ -3,5 +3,5 @@
 
 (define (identity (value T))
   (→ T)
-  (∀ T T)
+  (∀ (T T))
   value)

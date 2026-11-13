@@ -7,7 +7,7 @@
  (snail shell http)
  (snail shell http exchange))
 
-(define (require (result (Result T SocketError))) (→ T) (∀ T)
+(define (require (result (Result T SocketError))) (→ T) (∀ (T))
   (match result ((Ok value) value) ((Err error) (panic (● error code)))))
 
 (define (ascii (text String)) (→ Bytes)

@@ -18,7 +18,7 @@
   ((value I64)
    (offset CounterState)))
 
-(typeclass (Read T) (: read-number (Fn T → I64)))
+(typeclass (Read T) (declare (read-number (value T)) (→ I64)))
 (instance (Read Number)
   (define (read-number (value Number)) (→ I64)
     (+ (● value value) (● value offset value))))

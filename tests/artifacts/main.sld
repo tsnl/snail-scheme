@@ -31,7 +31,7 @@
     (let ((ArtifactBundle "shadow") (ArtifactFile "shadow") (Cons "shadow") (Nil "shadow"))
       (print-bundle (bundle "client")))
     (print-bundle (admin))
-    (print-bundle generated-bundle)
+    (print-bundle (generated-bundle))
     (print-bundle (client-bundle))
     (print-bundle (generic-bundle "another specialization"))
     (unit)))

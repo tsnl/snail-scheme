@@ -4,4 +4,4 @@
 
 (typeclass (Bad A)
   (type (Output B))
-  (: bad (Fn A → A)))
+  (declare (bad (value A)) (→ A)))

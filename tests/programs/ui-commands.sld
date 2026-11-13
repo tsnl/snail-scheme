@@ -120,7 +120,7 @@
   (list (On "online" (Nil) (Allow) (lambda (event) (Online)))
         (On "keydown"
             (list (Key))
-            (Chords (list (Chord "s" control-key)))
+            (Chords (list (Chord "s" (control-key))))
             (lambda (event) (Save)))))
 
 (define (began) (→ Msg)
@@ -131,21 +131,21 @@
        (string=? (substring line 0 (string-length prefix)) prefix)))
 
 (define (clicked (target String)) (→ Cue)
-  (Fire target "click" no-event))
+  (Fire target "click" (no-event)))
 
 (define (main) (→ Unit) (! host mut output-port tasks)
   (dispatch-local
    (once (lambda ()
            (let ((result
                   (with-memory-dom
-                   (list (Fire "text" "input" (Event-value-set no-event "(car x)"))
+                   (list (Fire "text" "input" (Event-value-set (no-event) "(car x)"))
                          (clicked "indent")
                          (FireWindow "keydown"
-                                     (Event-modifiers-set (Event-key-set no-event "s")
-                                                          control-key))
+                                     (Event-modifiers-set (Event-key-set (no-event) "s")
+                                                          (control-key)))
                          (clicked "late")
                          (clicked "hide")
-                         (FireWindow "online" no-event))
+                         (FireWindow "online" (no-event)))
                    (lambda ()
                      (run-ui (Model "" #t (Nil))
                              (list (Begin))

@@ -1,0 +1,34 @@
+(import
+ (snail core base)
+ (snail core io))
+
+(define (overflow) (→ I64) (+ 9223372036854775807 1))
+
+(define (multiply) (→ I64) (* 9223372036854775807 9223372036854775807))
+
+(define (shift) (→ I64) (i64-shift-right/logical -1 1))
+
+(define (real) (→ F64) (/ 1.0 10.0))
+
+(define (single) (→ F32) (/ (ann 1.0 F32) (ann 10.0 F32)))
+
+(define (zero) (→ F64) (ceiling -0.5))
+
+(define (nan) (→ F64) (sqrt -1.0))
+
+(define (main) (→ Unit) (! output-port)
+  (display (overflow))
+  (newline)
+  (display (multiply))
+  (newline)
+  (display (shift))
+  (newline)
+  (display (f64->bits (real)))
+  (newline)
+  (display (f32->bits (single)))
+  (newline)
+  (display (f64->bits (zero)))
+  (newline)
+  (display (= (nan) (nan)))
+  (newline)
+  (unit))

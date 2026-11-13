@@ -23,12 +23,12 @@
     ((Cons cell _) (Some cell))
     ((Nil) (None))))
 
-(define main
-  (lambda ()
-    (display (sum (list 1 2 3 4)))
-    (newline)
-    (display (noisy-sum (list 5 6)))
-    (newline)
-    (display (match (first-total (list (Total 7))) ((Some cell) (● cell value)) ((None) 0)))
-    (newline)
-    (unit)))
+(define (main) (→ Unit) (! mut output-port)
+
+  (display (sum (list 1 2 3 4)))
+  (newline)
+  (display (noisy-sum (list 5 6)))
+  (newline)
+  (display (match (first-total (list (Total 7))) ((Some cell) (● cell value)) ((None) 0)))
+  (newline)
+  (unit))

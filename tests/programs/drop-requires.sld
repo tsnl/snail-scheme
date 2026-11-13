@@ -16,9 +16,9 @@
   ((name String)))
 
 (instance (Drop (! audit) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (note (string-append "closed " name)))))))
+  (define (drop (handle Handle)) (→ Unit) (! audit)
+    (match handle
+      ((Handle name) (note (string-append "closed " name))))))
 
 ;; ANCHOR: labelled
 (struct (Labelled A)
@@ -27,16 +27,16 @@
 
 (instance (Drop (! log e) (Labelled A))
   (⊨ (Drop e A))
-  (define drop
-    (lambda (labelled) (match labelled
-                         ((Labelled label item)
-                          (say (string-append "releasing " label))
-                          (drop item))))))
+  (define (drop (labelled (Labelled A))) (→ Unit) (! log e)
+    (match labelled
+      ((Labelled label item)
+       (say (string-append "releasing " label))
+       (drop item)))))
 
 ;; ANCHOR_END: labelled
 
 ;; A generic drop of a labelled box performs `log` and its item's row.
-(define (release (labelled (Labelled A))) (→ Unit) (! log e) (∀ A e) (⊨ (Drop e A))
+(define (release (labelled (Labelled A))) (→ Unit) (! log e) (∀ (A e)) (⊨ (Drop e A))
   (drop labelled))
 
 (define (demo) (→ Unit) (! log audit)
@@ -49,11 +49,11 @@
   (release (Labelled "generic" (Handle "e")))
   (say "done"))
 
-(define main
-  (lambda ()
-    (handle log
-        ((say (lambda (text) (write-line text))))
-      (handle audit
-          ((note (lambda (text) (write-line (string-append "  " text)))))
-        (demo)))
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  (handle log
+      ((say (lambda (text) (write-line text))))
+    (handle audit
+        ((note (lambda (text) (write-line (string-append "  " text)))))
+      (demo)))
+  (unit))

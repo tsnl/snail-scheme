@@ -40,12 +40,11 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   linear. `WeakRc` observes that ownership without retaining the payload.
   There are no source borrows or borrow checker. The ownership pass checks
   exact-once use and inserts retain/release for shared owners.
-- Top-level value initializers must be effect-free. They run lazily at runtime,
-  once per defining module instance, and all reads share the cached result.
-  Reentrant initialization panics; ordinary recursive functions need no guard.
-  The cache owns its value for the instance's lifetime; each counted read
-  retains a caller credit. No mutex is needed for non-shared WasmGC values.
-  Keep typed define headers and `(Fn ... → ...)` / `(FnOnce ... → ...)`.
+- Top-level definitions bind functions. Values are local to functions or
+  explicit state objects; there are no lazy global caches or initialization
+  guards. Preserve typed define headers and `(Fn ... → ...)` / `(FnOnce ... → ...)`.
+  A direct lambda definition remains function code with an inferred type,
+  used by generated application entries to determine their effect rows.
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, ownership, effects and foreign boundaries
@@ -155,20 +154,18 @@ Iterate on applications with `./snail dev .`, left running; `make ide`
 opens this same root project for the whole repository. The root
 `project.datum` names the `siegework` and `hearsay` browser targets. It serves
 the browser editor at `http://127.0.0.1:8000/` and each browser target at
-`http://127.0.0.1:8001/TARGET/`, rebuilds only the libraries an edit reaches,
-reusing checked code and Wasm when their content keys match, and relinks them
+`http://127.0.0.1:8001/TARGET/`, rebuilds every configured target from scratch, and relinks changed modules
 into each open page while keeping the running state; point `tests/browser/page.mjs` at the
 target's URL to see an edit land. Each build first runs the producers of the
 `generate-library` recipes it reaches, so Hearsay serves too; its producers run every time. The book's
 [application model](doc/book/snail-core/applications.md) gives the reload
 rules; what matters when writing code:
 
-- A replaced module starts with empty lazy caches. Only the application's
-  state crosses a relink, as it is while its type is unchanged and through
-  `save` and `restore` otherwise, so keep what should survive an edit in the
-  Save. Escaped old closures still see their original module's caches.
+- The application's state crosses a relink, as it is while its type is unchanged
+  and through `save` and `restore` otherwise. Keep what should survive an edit
+  in Save. Escaped closures can retain old code.
 - Libraries are checked one at a time, so an importer's use never decides a
-  definition's type: give constants their signatures.
+  definition's type: give exported functions typed headers.
 - A program runs as a project's `run-target`, restarted from each accepted
   build; the editor's Applications panel starts and stops it. Save writes
   disk; the shared watcher drives compiler and editor updates, and an edit to

@@ -84,8 +84,8 @@ try {
   // A stopped root extracts its save without presenting or replaying its
   // startup messages. Only starting the repaired application increments it.
   const trap = '      (when (string=? (● model draft) "trap") (panic "document update trap"))\n';
-  await edit('(define interface-messages (lambda (model) (list (Load))))',
-    '(define interface-messages (lambda (model) (list (Added (+ (● model added) 1)))))',
+  await edit('(define (interface-messages (model Notes)) (→ (List Message))\n        (list (Load)))',
+    '(define (interface-messages (model Notes)) (→ (List Message))\n        (list (Added (+ (● model added) 1))))',
     '(define (view (model Notes)) (→ (Html Message))\n', '(define (view (model Notes)) (→ (Html Message))\n' + trap,
     '(Text "Add note")', '(Text "Trap test")');
   await until(async () => await button() === 'Trap test', 'the recovery test application');
@@ -100,8 +100,8 @@ try {
   assert.equal(await notes(), 'milk,eggs,tea');
   // If encoding fails before refresh obtains bytes, its stopped checkpoint
   // remains the recovery source for a repaired application.
-  const save = '(define interface-save (lambda (model) (serialize (save model))))';
-  const failedSave = '(define interface-save (lambda (model) (panic "save encoding trap")))';
+  const save = '(define (interface-save (model Notes)) (→ Bytes)\n        (serialize (save model)))';
+  const failedSave = '(define (interface-save (model Notes)) (→ Bytes)\n        (panic "save encoding trap"))';
   await edit(save, failedSave, '(Text "Recovered")', '(Text "Save trap")');
   await until(async () => await button() === 'Save trap', 'the failing save application');
   await browser.evaluate(`import(new URL('application.mjs', document.baseURI).href).then(({running}) => running[0].refresh())`);

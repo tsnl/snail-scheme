@@ -14,9 +14,9 @@
       ((count I64))
       (deriving Serialize Deserialize))
 
-    (define greeting (→ String) "hello")
+    (define (greeting) (→ String) "hello")
 
-    (define add-action (→ I32) 1)
+    (define (add-action) (→ I32) 1)
 
     (define (start (seed I32) (width I32) (height I32)) (→ Counter)
       (Counter 0 width height))
@@ -44,9 +44,9 @@
 
     (define (panels (counter Counter)) (→ (List Panel))
       (list (Panel "counter" (At (TopLeft) 0)
-                   (list (label "greeting" greeting)
+                   (list (label "greeting" (greeting))
                          (label "count" (i64->string (● counter count)))
-                         (button "add" "Add" add-action)))))
+                         (button "add" "Add" (add-action))))))
 
     (define (save (counter Counter)) (→ Save)
       (Save (● counter count)))
@@ -59,9 +59,15 @@
     (define-page-state Counter)
 
     (instance (Scene Counter)
-      (define scene-initialize (lambda (seed width height) (start seed width height)))
-      (define scene-update (lambda (state input) (step state input)))
-      (define scene-view (lambda (state) (draw state)))
-      (define scene-hud (lambda (state) (panels state)))
-      (define scene-save (lambda (state) (serialize (save state))))
-      (define scene-restore (lambda (bytes) (restore (deserialize bytes)))))))
+      (define (scene-initialize (seed I32) (width I32) (height I32)) (→ Counter)
+        (start seed width height))
+      (define (scene-update (state Counter) (input Input)) (→ Counter)
+        (step state input))
+      (define (scene-view (state Counter)) (→ Frame)
+        (draw state))
+      (define (scene-hud (state Counter)) (→ (List Panel))
+        (panels state))
+      (define (scene-save (state Counter)) (→ Bytes)
+        (serialize (save state)))
+      (define (scene-restore (bytes Bytes)) (→ Counter)
+        (restore (deserialize bytes))))))

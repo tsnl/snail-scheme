@@ -12,18 +12,18 @@
   ((name String)))
 
 (instance (Drop (! log) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (say (string-append "released " name)))))))
+  (define (drop (handle Handle)) (→ Unit) (! log)
+    (match handle
+      ((Handle name) (say (string-append "released " name))))))
 
 (struct (Wrapper A)
   ((item A)))
 
 (instance (Drop (! log) (Wrapper A))
   (⊨ (Copy A))
-  (define drop
-    (lambda (wrapper) (match wrapper
-                        ((Wrapper item) (drop (Pair item item)))))))
+  (define (drop (wrapper (Wrapper A))) (→ Unit) (! log)
+    (match wrapper
+      ((Wrapper item) (drop (Pair item item))))))
 
 (define (demo) (→ Unit) (! log)
   (drop (Wrapper (Handle "h"))))

@@ -10,10 +10,10 @@
  (snail core io)
  (snail shell format))
 
-(define source
+(define (source) (→ String)
   "(define (f x)\n(let loop ((i 0) (acc (Nil)))\n(if (< i x)\n(loop (+ i 1)\n(Cons i acc))\nacc)))\n(import (snail core base) (snail core io)\n(only (snail core table) empty-table))\n(struct Point ((x F64) (y F64)) (deriving Show))\n(match value\n((Some x) (display x))\n(_ (unit)))\n(handle output-port\n((write-string (lambda (c) (unit))))\n(display \"a\nb\")\n(display #\\())\n(foo bar\nbaz\nqux)\n(foo\nbar\nbaz)\n;;; three semicolons stay\n   ;;; even indented\n(let* ((a 1)\n(b 2))\n(+ a b))\n")
 
-(define long
+(define (long) (→ String)
   (string-append
    "(define (f x) (let* ((a (foo x)) (b (bar a)) (c (baz b))) (+ a b c)))\n"
    "(define (make-thing alpha beta gamma delta) (list alpha beta))\n"
@@ -28,14 +28,12 @@
    "(bytes #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))\n"
    "(display \"one\") (display \"two\") (display \"three\")\n"))
 
-
-
 ;; Binding bodies dedent both on format and when the editor indents one line.
-(define result-bindings "(result-let* ((a (Ok 1)))\n(Ok a))\n")
+(define (result-bindings) (→ String) "(result-let* ((a (Ok 1)))\n(Ok a))\n")
 
 (define (main) (→ Unit) (! output-port)
-  (define broken (format-source long 40))
-  (write-string (format-source source format-width))
+  (define broken (format-source (long) 40))
+  (write-string (format-source (source) (format-width)))
   (write-string broken)
   ;; Formatting what formatting made changes nothing.
   (write-line (if (string=? broken (format-source broken 40))
@@ -43,8 +41,8 @@
                   "not idempotent"))
   ;; Reindenting only the second line leaves the third as it was.
   (write-string (indent-lines "(foo bar\nbaz\n  qux)\n" 1 1))
-  (write-string (format-source result-bindings format-width))
-  (write-string (indent-lines result-bindings 1 1))
+  (write-string (format-source (result-bindings) (format-width)))
+  (write-string (indent-lines (result-bindings) 1 1))
   ;; The editor's line indentation uses the naming convention too, without
   ;; knowing these macros. Names that only contain `let` remain ordinary calls.
   (for-each (lambda (name)

@@ -3,7 +3,7 @@
  (snail core io)
  (snail shell artifact))
 
-(define bundle (artifact-bundle "client"))
+(define (bundle) (→ ArtifactBundle) (artifact-bundle "client"))
 
 (define main
   (lambda ()
@@ -13,5 +13,5 @@
                 (vector-for-each (lambda (byte) (display (u8->i32 byte)) (display ","))
                                  (● file bytes))
                 (newline))
-              (● bundle files))
+              (● (bundle) files))
     (unit)))

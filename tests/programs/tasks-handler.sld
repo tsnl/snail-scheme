@@ -1,5 +1,6 @@
 (import
  (snail core base)
+ (only (snail core forms) host)
  (snail core io)
  (snail shell task))
 
@@ -32,11 +33,11 @@
     (sleep 100)
     (countdown name (- count 1))))
 
-(define main
-  (lambda ()
-    ;; The same function under the logical clock, at once, and under the
-    ;; scheduler, in real time, once main returns.
-    (logical (lambda () (countdown "logical" 2)))
-    (dispatch-local (once (lambda () (countdown "real" 2))))
-    (write-line "main returns")
-    (unit)))
+(define (main) (→ Unit) (! host mut output-port tasks)
+
+  ;; The same function under the logical clock, at once, and under the
+  ;; scheduler, in real time, once main returns.
+  (logical (lambda () (countdown "logical" 2)))
+  (dispatch-local (once (lambda () (countdown "real" 2))))
+  (write-line "main returns")
+  (unit))

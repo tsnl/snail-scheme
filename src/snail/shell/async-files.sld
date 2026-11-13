@@ -40,8 +40,8 @@
       ((id I64)))
 
     (instance (Drop (! mut) Request)
-      (define drop
-        (lambda (request) (match request ((Request id) (host-cancel id))))))
+      (define (drop (request Request)) (→ Unit) (! mut)
+        (match request ((Request id) (host-cancel id)))))
 
     (define (native-read (path String) (maximum I32)) (→ (Result Bytes FileError)) (! mut tasks)
       (let ((ticket (ticket)))

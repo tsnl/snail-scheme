@@ -17,6 +17,6 @@
       (handle Log ((log-value (lambda (value)
                                 (display (+ 100 (● (vector-ref items 0) value)))
                                 (newline)
-                                (vector-push! items (rc (Resource 3))))))
+                                (set! (● (vector-ref items 0) value) 3))))
         (vector-set! items 0 (rc (Resource 2))))
       (display (vector-length items)) (newline))))

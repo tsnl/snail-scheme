@@ -6,9 +6,9 @@ mutable heap objects; primitive values stay unboxed. `Rc` and `WeakRc`
 provide counted resource lifetime without source borrows. Functions use
 `Fn` and `FnOnce` type formers with the Unicode `→` separator.
 
-Top-level values initialize lazily at runtime. Their initializers must be
-effect-free; each module instance evaluates once and shares the cached result,
-including mutable objects. Reentrant initialization panics.
+Top-level definitions bind functions. Construct values inside those functions
+and pass shared state explicitly. There are no global value initializers or
+implicit caches. Vectors have a fixed length and mutable elements.
 
 This is one language, with no R7RS compatibility layer, `call/cc` or
 `dynamic-wind`. The compiler emits WasmGC and compiles itself; a small Chez
@@ -29,7 +29,7 @@ The chapters describe implemented behavior and mark proposed toolchain changes:
 - [Projects and targets](projects.md): inert descriptions, output directories
   and embedded artifact bundles.
 - [Compiler architecture](compilers.md): the passes, bootstrap, linking and
-  incremental compilation.
+  complete rebuilds.
 - [Application model](applications.md): interactive applications in the
   browser.
 - [Development toolchain](toolchain.md): building one library at a time,

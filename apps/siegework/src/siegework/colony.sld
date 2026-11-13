@@ -175,7 +175,7 @@
             ((Some nest) (> (● nest health) 0))
             ((None) #f))))
 
-    (define (null-option? (option (Option T))) (→ Bool) (∀ T) (⊨ (Copy T) (Drop (!) T))
+    (define (null-option? (option (Option T))) (→ Bool) (∀ (T)) (⊨ (Copy T) (Drop (!) T))
       (match option
         ((Some _) #f)
         ((None) #t)))
@@ -264,12 +264,12 @@
       (match owner
         ((OfHub) (let ((slots (● (● world hub) slots)))
                    (cond ((not (null-option? (● (● world hub) work))) (Err (Busy)))
-                         ((>= slots maximum-slots) (Err (MaximumLevel)))
+                         ((>= slots (maximum-slots)) (Err (MaximumLevel)))
                          (else (Ok (new-work world (slot-cost slots) (slot-duration slots)))))))
         ((OfBuilding b) (let ((level (● b level)) (kind (● b kind)))
                           (cond ((not (built? b)) (Err (Unfinished)))
                                 ((not (null-option? (● b work))) (Err (Busy)))
-                                ((>= level maximum-level) (Err (MaximumLevel)))
+                                ((>= level (maximum-level)) (Err (MaximumLevel)))
                                 (else (Ok (new-work world
                                                     (raise-cost kind level)
                                                     (raise-duration kind level)))))))))
@@ -313,15 +313,15 @@
     ;; Repair restores the hub to full health, at one energy for each two
     ;; health it lacks.
     (define (repair (world World)) (→ (Result World Rejection))
-      (let* ((hub (● world hub)) (missing (- hub-health (● hub health))))
+      (let* ((hub (● world hub)) (missing (- (hub-health) (● hub health))))
         (if (= missing 0)
             (Err (FullHealth))
             (pay world
                  (repair-price hub)
-                 (lambda (world) (World-hub-set world (Hub-health-set hub hub-health)))))))
+                 (lambda (world) (World-hub-set world (Hub-health-set hub (hub-health))))))))
 
     (define (repair-price (hub Hub)) (→ I64)
-      (quotient (+ (- hub-health (● hub health)) 1) 2))
+      (quotient (+ (- (hub-health) (● hub health)) 1) 2))
 
     ;; ---- Work ----
 
@@ -423,7 +423,7 @@
 
     ;; ---- Lists ----
 
-    (define (filter-map (f (Fn A → (Option B))) (items (List A))) (→ (List B)) (∀ A B)
+    (define (filter-map (f (Fn A → (Option B))) (items (List A))) (→ (List B)) (∀ (A B))
       (fold-right
        (lambda (item kept) (match (f item) ((Some value) (Cons value kept)) ((None) kept)))
        (Nil)
@@ -432,13 +432,13 @@
     ;; Stable, for the handful of queued works.
     (define (insertion-sort (before? (Fn T T → Bool)) (items (List T)))
       (→ (List T))
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (fold-left (lambda (sorted item) (insert before? item sorted)) (Nil) items))
 
     (define (insert (before? (Fn T T → Bool)) (item T) (sorted (List T)))
       (→ (List T))
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (match sorted
         ((Nil) (list item))

@@ -5,8 +5,6 @@
 (define-library (snail shell compiler expand)
   (export
    ExpandedProgram
-   library-key
-   instance-interfaces
    expand-program
    ArtifactUse
    discover-artifacts
@@ -26,7 +24,6 @@
    (snail core table)
    (snail core io)
    (snail shell compiler read)
-   (snail shell compiler annotations)
    (only (snail shell compiler inputs)
          ArtifactFiles
          Inputs
@@ -37,7 +34,6 @@
          read-source-file)
    (snail shell compiler core)
    (snail shell compiler capabilities)
-   (snail shell compiler dynamic)
    (snail shell compiler sha256))
   (begin
 
@@ -64,8 +60,7 @@
        ((type Type)))
       (ClassName
        ((name String)))
-      (InstanceSet
-       ((name String)))
+
       (Associated
        ((class String)
         (member String)))
@@ -90,7 +85,7 @@
         ((Alias name _ _ _) name)
         ((TypeVar _) "%type-variable")
         ((ClassName name) name)
-        ((InstanceSet name) name)
+
         ((Associated class member) (string-append class "." member))
         ((EffectName name) name)
         ((Core name) (string-append "%core " name))
@@ -108,12 +103,7 @@
        ((key String)
         (binding Binding)
         (rest Env)))
-      (InstanceScope
-       ((sets (List Syntax))
-        (rest Env)))
-      (InstanceOwner
-       ((name String)
-        (rest Env)))
+
       (EvidenceScope
        ((constraints (List Constraint))
         (rest Env)))
@@ -140,8 +130,7 @@
       (let ((key (ident-key ident)))
         (let lookup ((env env))
           (match env
-            ((InstanceScope _ rest) (lookup rest))
-            ((InstanceOwner _ rest) (lookup rest))
+
             ((EvidenceScope _ rest) (lookup rest))
             ((Frame other binding rest) (if (string=? other key) (Some binding) (lookup rest)))
             ((Top top imports)
@@ -214,15 +203,14 @@
     ;; is part of an import cycle; `aliases` the type aliases whose bodies
     ;; are being resolved, innermost first, so an alias that refers to itself
     ;; is caught; and what the library itself uses and makes, newest first:
-    ;; `artifact-uses`, the targets whose files it embeds, `links`, the
+    ;; `links`, the files it links, and
     ;; files its `link-handle` uses name, `items`, the items its body has
     ;; added so far, which join the program as one run when the body is
-    ;; done, and `derives`, a declaration it derived instances for, if any,
-    ;; which needs the implicit libraries.
+    ;; done.
     ;;
     ;; What the build has learned, which flows forward out of every library:
     ;; `program` is the program built so far, and `expanded` holds each
-    ;; library this build has expanded, with its exports and content key. `artifacts` says where an `artifact-files` use finds its
+    ;; library this build has expanded, with its exports and linked files. `artifacts` says where an `artifact-files` use finds its
     ;; files; a discovery records there each use it reaches. `counter`
     ;; numbers fresh names. `scopes` holds the environments that marks refer
     ;; to, by number, and `scope-count` is the next number; `tops` holds
@@ -236,10 +224,8 @@
        (prefix String)
        (loading (List String))
        (aliases (List String))
-       (artifact-uses (List ArtifactUse))
        (links (List LinkUse))
        (items (List Item))
-       (derives (Option Loc))
        (program Program)
        (expanded (Table Expanded))
        (artifacts ArtifactSource)
@@ -263,10 +249,8 @@
                (● outer prefix)
                (● outer loading)
                (● outer aliases)
-               (● outer artifact-uses)
                (● outer links)
                (● outer items)
-               (● outer derives)
                (● inner program)
                (● inner expanded)
                (● inner artifacts)
@@ -300,7 +284,7 @@
     (define (each (cx Context) (step (Fn Context A → (Pair B Context) ! e)) (items (List A)))
       (→ (Pair (List B) Context))
       (! e)
-      (∀ A B e)
+      (∀ (A B e))
       (⊨ (Copy B) (Drop e B))
       (let ((done (fold-left (lambda (done item)
                                (match (step (● done second) item)
@@ -314,8 +298,7 @@
     ;; embedded.
     (struct ArtifactUse
       ((name String)
-       (loc Loc)
-       (files ArtifactFiles)))
+       (loc Loc)))
 
     ;; A file a library links rather than embeds, which the build places
     ;; beside the payload: `digest`, the SHA-256 of its bytes in hex, is the
@@ -355,27 +338,24 @@
            ((None) (request-input (ArtifactInput name loc)))))
         ((Discovering uses)
          (Pair (Nil)
-               (Context-artifacts-set cx (Discovering (Cons (ArtifactUse name loc (Nil)) uses)))))))
+               (Context-artifacts-set cx (Discovering (Cons (ArtifactUse name loc) uses)))))))
 
-    ;; Expansion is fresh for each build. Only semantic content keys,
-    ;; exports used by this build's imports, and linked files survive it.
+    ;; Exports and linked files of a library already expanded in this build.
+    ;; The next build starts with an empty table.
     (struct Expanded
-      ((interface String)
-       (exports Exports)
+      ((exports Exports)
        (links (List LinkedFile))))
 
     (struct ExpandedProgram
       ((program Program)
        (libraries (Table Expanded))))
 
-
-
     (define (new-context (directories (List String))
                          (inputs Inputs)
                          (artifacts ArtifactSource))
       (→ Context)
-      (Context directories inputs (None) "" (Nil) (Nil) (Nil) (Nil) (Nil) (None)
-               empty-program empty-table artifacts 0 empty-table 0 empty-table 0 (None)))
+      (Context directories inputs (None) "" (Nil) (Nil) (Nil) (Nil)
+               (empty-program) (empty-table) artifacts 0 (empty-table) 0 (empty-table) 0 (None)))
 
     (define (expanded-program (cx Context)) (→ ExpandedProgram)
       (ExpandedProgram (● cx program) (● cx expanded)))
@@ -419,26 +399,42 @@
     (define (top-definitions (cx Context) (top String)) (→ (Table Binding))
       (match (table-ref (● cx tops) top)
         ((Some definitions) definitions)
-        ((None) empty-table)))
+        ((None) (empty-table))))
 
     ;; Binds a name at a top level, once.
 
     (define (bind-top (cx Context) (env Env) (ident Syntax) (binding Binding))
       (→ Context)
       (! compile)
-      (match env
-        ((InstanceScope _ rest) (bind-top cx rest ident binding))
-        ((InstanceOwner _ rest) (bind-top cx rest ident binding))
-        ((Top top _)
-         (let ((definitions (top-definitions cx top)))
-           (when (table-contains? definitions (ident-key ident))
-             (compile-error (syntax-loc ident)
-                            (string-append "duplicate top-level definition " (Ident-name ident))))
-           (Context-tops-set cx
-                             (table-set (● cx tops)
-                                        top
-                                        (table-set definitions (ident-key ident) binding)))))
-        (_ (panic "internal error: not a top level"))))
+      (match ident
+        ((Ident identifier-name _ _)
+         (match env
+
+           ((Top top _)
+            (let ((definitions (top-definitions
+                                cx
+                                top)))
+              (when (table-contains?
+                     definitions
+                     (ident-key ident))
+                (compile-error
+                 (syntax-loc ident)
+                 (string-append
+                  "duplicate top-level definition "
+                  identifier-name)))
+              (Context-tops-set cx
+                                (table-set
+                                 (● cx tops)
+                                 top
+                                 (table-set
+                                  definitions
+                                  (ident-key
+                                   ident)
+                                  binding)))))
+           (_
+            (panic
+             "internal error: not a top level"))))
+        (_ (panic "internal error: expected Ident"))))
 
     ;; ---- The core library ----
 
@@ -451,12 +447,11 @@
     ;; among them, is a file.
 
     (define (core-library) (→ Exports)
-      (append (map (lambda (name) (Pair name (Core name))) core-keywords)
+      (append (map (lambda (name) (Pair name (Core name))) (core-keywords))
               (append (map (lambda (entry)
                              (Pair (● entry first)
                                    (TypeName (● entry first) (● entry second) (None))))
-                           (filter (lambda (entry) (not (string=? (● entry first) "fn")))
-                                   builtin-types))
+                           (builtin-types))
                       (list (Pair "mut" (EffectName "mut")) (Pair "host" (EffectName "host"))))))
 
     (define (builtin-library? (key String)) (→ Bool)
@@ -507,7 +502,7 @@
       (→ (Pair Exports Context))
       (! fs compile generator)
       (let ((path (library-path (● cx directories) name loc)))
-        (expand-library-file cx name (file-library name (read-source path) path))))
+        (expand-library-file cx name (file-library name (read-source-file path) path))))
 
     ;; Where a library's source is: the first search directory holding it.
 
@@ -543,7 +538,7 @@
 
     (define (file-library (name (List String)) (forms (List Syntax)) (path String))
       (→ LibraryFile)
-      (! fs compile)
+      (! compile)
       (match forms
         ((Cons (Form (Cons (Ident "define-library" _ _) (Cons declared declarations)) loc) (Nil))
          (check-library-name declared name loc)
@@ -556,7 +551,7 @@
                (Nil))
          (check-library-name declared name loc)
          (GeneratedLibrary
-          (producer path (map with-included-bytes imports) (with-included-bytes expression) loc)
+          (producer path imports expression loc)
           (syntax-loc expression)))
         (_ (compile-error (Loc path 1 1)
                           "expected exactly one define-library or generate-library form"))))
@@ -566,8 +561,8 @@
 
     (define (output-library-file (name (List String)) (bytes Bytes) (loc Loc))
       (→ LibraryFile)
-      (! fs compile)
-      (file-library name (list (with-included-bytes (decode-syntax bytes loc))) (● loc file)))
+      (! compile)
+      (file-library name (list (decode-syntax bytes loc)) (● loc file)))
 
     ;; A defined library expands its sections; a generated one expands the
     ;; library its producer's output declares.
@@ -621,29 +616,6 @@
 
     ;; ---- Sources ----
 
-    ;; A source file's forms. `(include-bytes "path")` is another spelling
-    ;; of a byte vector literal, which reads as `#u8(...)` holding the bytes
-    ;; of the file at `path`, relative to the file the form is written in.
-
-    (define (read-source (path String)) (→ (List Syntax)) (! fs compile)
-      (map with-included-bytes (read-source-file path)))
-
-    (define (with-included-bytes (syntax Syntax)) (→ Syntax) (! fs compile)
-      (match syntax
-        ((Form (Cons (Ident "include-bytes" _ _) args) loc)
-         (Atom (DBytes (included-bytes args loc)) loc))
-        ((Form items loc) (Form (map with-included-bytes items) loc))
-        (_ syntax)))
-
-    (define (included-bytes (args (List Syntax)) (loc Loc)) (→ Bytes) (! fs compile)
-      (match args
-        ((Cons (Atom (DString path) _) (Nil))
-         (let ((resolved (beside (● loc file) path)))
-           (if (file-exists? resolved)
-               (read-bytes resolved)
-               (compile-error loc (string-append "no file to include at " resolved)))))
-        (_ (compile-error loc "expected (include-bytes \"path\")"))))
-
     ;; `path` in the directory holding `file`, unless it is absolute.
 
     (define (beside (file String) (path String)) (→ String)
@@ -660,8 +632,8 @@
     ;; `(link-handle "path")` names a file the library links, which
     ;; `link-file` in (snail shell resource) wraps: it ships beside the
     ;; payload instead of in it, and the program gets a handle rather than
-    ;; the bytes. The path is relative to the file it is written in, as
-    ;; `include-bytes`'s is, and may not leave that file's directory. The
+    ;; the bytes. The path is relative to the file it is written in and
+    ;; may not leave that file's directory. The
     ;; form is a call to a global of the library's, which `bind-links`
     ;; binds, once the body has expanded, to an import from
     ;; "snail.runtime.link" named for the file's digest: the module records
@@ -768,22 +740,10 @@
 
     (define (link-import (file LinkedFile)) (→ Value)
       (Foreign (Import "snail.runtime.link" (● file digest))
-               (mono-scheme (TFun (Nil) (TCon "I32" (Nil)) empty-row))))
+               (mono-scheme (TFun (Nil) (TCon "I32" (Nil)) (empty-row)))))
 
     (define (file-digest (path String)) (→ String) (! fs)
       (bytes->hex (sha256 (read-bytes path))))
-
-    ;; The digests enter the library's keys: its module names them, and so
-    ;; does an importer's that specializes a generic function calling one
-    ;; of its handles.
-
-    (define (links-stamp (files (List LinkedFile))) (→ String)
-      (if (null? files)
-          ""
-          (string-append " links-"
-                         (i64->string
-                          (fnv-1a (string-join (map (lambda (record) (● record digest)) files)
-                                               " "))))))
 
     ;; The files a library links, as the build expanded it, in the order
     ;; its uses were reached.
@@ -802,18 +762,13 @@
 
     ;; Load imports once per build, then expand current declarations. What
     ;; this library uses and makes starts empty after its imports have loaded.
-    ;; Checked code and Wasm may be reused later, under completed content keys.
 
     (define (expand-sections (cx Context) (sections (List (Pair String (List Syntax)))))
       (→ (Pair Exports Context))
       (! fs compile generator)
       (expanding cx ((env (import-env (section-items sections "import"))))
-                 (let* ((key (sections-key cx sections))
-                        (cx (Context-derives-set
-                             (Context-items-set (Context-links-set
-                                                 (Context-artifact-uses-set cx (Nil)) (Nil)) (Nil))
-                             (None))))
-                   (expand-recorded cx sections env key))))
+                 (let ((cx (Context-items-set (Context-links-set cx (Nil)) (Nil))))
+                   (expand-recorded cx sections env))))
 
     ;; The primitive library's body is its declarations, which add no items,
     ;; so it records no run and has no module.
@@ -915,7 +870,7 @@
          (expand-source (new-context directories inputs (Supplied)) path))))
 
     (define (expand-source (cx Context) (path String)) (→ Context) (! fs compile generator)
-      (let* ((source (generating-stack (read-source path)))
+      (let* ((source (generating-stack (read-source-file path)))
              (parts (program-parts (● source second)))
              (body (producer-body path (● source first) (● parts second)))
              (cx (Context-recipe-set
@@ -1000,10 +955,10 @@
                              (imports (List Syntax)))
       (→ (List Reached))
       (! fs compile)
-      (let* ((walk (walk-imports (Walk directories inputs empty-table (Nil)) loading imports))
+      (let* ((walk (walk-imports (Walk directories inputs (empty-table) (Nil)) loading imports))
              (walk (fold-left (lambda (walk name) (walk-implicit walk loading name))
                               walk
-                              implicit-libraries)))
+                              (implicit-libraries))))
         (reverse (● walk reached))))
 
     (define (walk-imports (walk Walk) (loading (List String)) (specs (List Syntax)))
@@ -1089,179 +1044,24 @@
     (define (unsupplied-producer (loading (List String)) (forms (List Syntax))) (→ Bytes)
       (panic "internal error: discovery reached a producer whose output was not supplied"))
 
-    ;; ---- Expansion fingerprints ----
-
-    ;; Artifacts may change without any source edit. Their stamp is content,
-    ;; never a fresh-name counter: expansion restarts those counters each build.
-    (define (artifact-stamp (uses (List ArtifactUse))) (→ String)
-      (i64->string (fnv-1a (string-join (map artifact-key uses) "\n"))))
-
-    (define (artifact-key (use ArtifactUse)) (→ String)
-      (string-append (datum->string (DString (● use name))) " "
-                     (string-join
-                      (map (lambda (file)
-                             (string-append (datum->string (DString (● file first))) " "
-                                            (syntax->key (Atom (DBytes (● file second))
-                                                               (● use loc)))))
-                           (● use files)) " ")))
-
+    ;; Publish this library's exports and links to the rest of this build.
     (define (expand-recorded (cx Context)
                              (sections (List (Pair String (List Syntax))))
-                             (env Env) (key String))
-      (→ (Pair Exports Context))
-      (! fs compile generator)
+                             (env Env))
+      (→ (Pair Exports Context)) (! fs compile generator)
       (expanding cx ((exports (expand-library-body sections env))
                      (links (bind-links (reverse (● cx links)))))
                  (Pair exports
-                       (record cx (Expanded
-                                   (string-append (interface-hash cx key)
-                                                  (derivation-key cx)
-                                                  " artifacts-"
-                                                  (artifact-stamp (● cx artifact-uses))
-                                                  (links-stamp links))
-                                   exports links)))))
-
-    ;; Derived code depends on the implicit libraries loaded at the deriving
-    ;; clause, even when the source did not import those libraries explicitly.
-    (define (derivation-key (cx Context)) (→ String)
-      (match (● cx derives)
-        ((Some _) (string-append " derived " (implicit-interfaces cx)))
-        ((None) "")))
-
-    ;; The declarations introduced by this library, for its identity key.
-
-    (define (library-delta (cx Context)) (→ Program)
-      (if (primitive-library? cx)
-          (primitive-delta (● cx program))
-          (program-delta (● cx program) (● cx prefix))))
-
-    (define (record (cx Context) (entry Expanded)) (→ Context)
-      (Context-expanded-set cx (table-set (● cx expanded) (● cx prefix) entry)))
-
-    ;; ---- Build keys ----
-
-    ;; A library's build key: the canonical text of its declarations, with
-    ;; the interfaces of its imports.
-
-    (define (sections-key (cx Context) (sections (List (Pair String (List Syntax)))))
-      (→ String)
-      (! compile)
-      (string-append (string-join (map (lambda (section)
-                                         (string-append (● section first)
-                                                        " "
-                                                        (forms-text (● section second))))
-                                       sections)
-                                  "\n")
-                     "\n" (imports-interfaces cx sections)))
-
-    (define (forms-text (forms (List Syntax))) (→ String)
-      (string-join (map syntax->key forms) "\n"))
-
-    ;; Syntax as text that keys a build. A byte vector shows only its length
-    ;; and a hash of its bytes, so a library that embeds megabytes keys on a
-    ;; few characters.
-
-    (define (syntax->key (syntax Syntax)) (→ String)
-      (match syntax
-        ((Atom (DBytes value) _)
-         (string-append "#u8<"
-                        (i64->string (vector-length value))
-                        ":"
-                        (i64->string (bytes-hash value))
-                        ">"))
-        ((Atom value _) (datum->string value))
-        ((Ident name _ _) name)
-        ((Form items _) (string-append "(" (string-join (map syntax->key items) " ") ")"))))
-
-    ;; FNV-1a over bytes, as `fnv-1a` hashes text.
-
-    (define (bytes-hash (bytes Bytes)) (→ I64)
-      (vector-fold (lambda (hash byte) (fnv-step hash (i32->i64 (u8->i32 byte)))) fnv-offset bytes))
-
-    ;; Each imported library's interface, as this build expanded it; the
-    ;; compiler's own libraries never change.
-
-    (define (imports-interfaces (cx Context) (sections (List (Pair String (List Syntax)))))
-      (→ String)
-      (! compile)
-      (string-join (map (lambda (spec)
-                          (library-interface cx
-                                             (string-join (library-name (spec-library spec)) ".")))
-                        (section-items sections "import"))
-                   " "))
-
-    ;; The implicit libraries' interfaces, as this build expanded them.
-
-    (define (implicit-interfaces (cx Context)) (→ String)
-      (string-join (map (lambda (name) (library-interface cx (string-join name ".")))
-                        implicit-libraries)
-                   " "))
-
-    (define (library-interface (cx Context) (name String)) (→ String)
-      (match (table-ref (● cx expanded) name)
-        ((Some entry) (● entry interface))
-        ((None) "builtin")))
-
-    ;; Checking sees the final program's instances, including sibling
-    ;; providers outside a library's imports. Their implementations and
-    ;; imports enter every checked-code key. Named policies participate too.
-    ;; Expansion itself always uses the current program, so it caches no
-    ;; choices made under a partially loaded instance environment.
-    (define (instance-interfaces (program Program) (libraries (Table Expanded))) (→ String)
-      (let ((owners (list-sort string<?
-                               (delete-duplicates string=?
-                                                  (map (lambda (instance)
-                                                         (name-owner (● instance name)))
-                                                       (concatenate
-                                                        (table-values (● program instances))))))))
-        (string-join (map (lambda (owner)
-                            (string-append owner " "
-                                           (match (table-ref libraries owner)
-                                             ((Some entry) (● entry interface))
-                                             ((None)
-                                              (panic
-                                               "internal error: an instance provider was not expanded")))))
-                          owners)
-                     "\n")))
-
-    ;; The key a build expanded a library under. Anything made from the
-    ;; library's expansion, such as its checked items, stays valid while its
-    ;; completed interface key is unchanged, including its own fresh names.
-
-    (define (library-key (expansion ExpandedProgram) (name String)) (→ String)
-      (match (table-ref (● expansion libraries) name)
-        ((Some entry) (● entry interface))
-        ((None) "")))
+                       (Context-expanded-set cx
+                                             (table-set (● cx expanded)
+                                                        (● cx prefix)
+                                                        (Expanded exports links))))))
 
     (define (spec-library (spec Syntax)) (→ Syntax)
       (match spec
         ((Form (Cons (Ident keyword _ _) (Cons inner _)) _)
          (if (member? keyword (list "only" "except" "prefix" "rename")) (spec-library inner) spec))
         (_ spec)))
-
-    ;; Conservative content keys include every implementation body and its
-    ;; transitive imports, even when only a monomorphic body changed. The final
-    ;; counter certifies local-name stability when an earlier library changes;
-    ;; global declaration identities certify generated types and imports.
-    (define (interface-hash (cx Context) (key String)) (→ String)
-      (i64->string (fnv-1a (string-append key "\n" (i64->string (● cx counter))
-                                          "\n" (library-identities cx)))))
-
-    ;; Instance methods and macro-introduced globals have fresh names after
-    ;; expansion. Importers must not retain checked evidence or Wasm imports
-    ;; naming the previous expansion, even if only a signed body changed.
-
-    (define (library-identities (cx Context)) (→ String)
-      (let ((delta (library-delta cx)))
-        (string-join
-         (list-sort string<?
-                    (concatenate (list (table-keys (● delta values))
-                                       (table-keys (● delta types))
-                                       (table-keys (● delta classes))
-                                       (table-keys (● delta effects))
-                                       (map (lambda (record) (● record name))
-                                            (concatenate (table-values (● delta instances)))))))
-         "\n")))
 
     ;; ---- Imports and exports ----
 
@@ -1271,7 +1071,7 @@
     (define (import-env (cx Context) (specs (List Syntax)))
       (→ (Pair Env Context))
       (! fs compile generator)
-      (let loop ((cx cx) (specs specs) (imports empty-table))
+      (let loop ((cx cx) (specs specs) (imports (empty-table)))
         (match specs
           ((Nil) (new-top cx imports))
           ((Cons spec rest)
@@ -1338,17 +1138,25 @@
       (! fs compile generator)
       (expanding cx ((entries (import-set spec)))
                  (for-each (lambda (ident)
-                             (match (assoc-ref entries (Ident-name ident))
-                               ((Some _) (unit))
-                               ((None) (compile-error (syntax-loc ident)
-                                                      (string-append
-                                                       "import names an identifier the library does not export: "
-                                                       (Ident-name ident))))))
+                             (match ident
+                               ((Ident identifier-name _ _)
+                                (match (assoc-ref entries identifier-name)
+                                  ((Some _) (unit))
+                                  ((None) (compile-error (syntax-loc ident)
+                                                         (string-append
+                                                          "import names an identifier the library does not export: "
+                                                          identifier-name)))))
+                               (_ (panic "internal error: expected Ident"))))
                            idents)
                  (Pair entries cx)))
 
+    (define (expect-name (syntax Syntax) (what String)) (→ String) (! compile)
+      (match syntax
+        ((Ident name _ _) name)
+        (_ (compile-error (syntax-loc syntax) (string-append "expected " what)))))
+
     (define (ident-names (idents (List Syntax))) (→ (List String)) (! compile)
-      (map (lambda (ident) (Ident-name (expect-ident ident "an identifier"))) idents))
+      (map (lambda (ident) (expect-name ident "an identifier")) idents))
 
     (define (rename-pair (syntax Syntax)) (→ (Pair String String)) (! compile)
       (match syntax
@@ -1369,18 +1177,24 @@
     (define (defined-binding (cx Context) (env Env) (ident Syntax) (message String))
       (→ Binding)
       (! compile)
-      (match (resolve cx env (expect-ident ident "an identifier"))
-        ((Some binding) binding)
-        ((None)
-         (compile-error (syntax-loc ident) (string-append message ": " (Ident-name ident))))))
+      (match ident
+        ((Ident identifier-name _ _)
+         (match (resolve cx env (expect-ident ident "an identifier"))
+           ((Some binding) binding)
+           ((None)
+            (compile-error (syntax-loc ident) (string-append message ": " identifier-name)))))
+        (_ (panic "internal error: expected Ident"))))
 
     ;; The unique name of a top-level definition the scan bound.
 
     (define (global-binding (cx Context) (env Env) (ident Syntax)) (→ String) (! compile)
-      (match (defined-binding cx env ident "undefined name")
-        ((Global name) name)
-        (_ (compile-error (syntax-loc ident)
-                          (string-append "not a top-level definition: " (Ident-name ident))))))
+      (match ident
+        ((Ident identifier-name _ _)
+         (match (defined-binding cx env ident "undefined name")
+           ((Global name) name)
+           (_ (compile-error (syntax-loc ident)
+                             (string-append "not a top-level definition: " identifier-name)))))
+        (_ (panic "internal error: expected Ident"))))
 
     ;; ---- Top-level bodies ----
 
@@ -1391,8 +1205,7 @@
       ((result (Option Syntax))
        (effects (List Syntax))
        (variables (List Syntax))
-       (constraints (List Syntax))
-       (annotations (List Annotation))))
+       (constraints (List Syntax))))
 
     (struct Definition
       ((name Syntax)
@@ -1403,11 +1216,6 @@
 
     (define (definition-clause (form Syntax)) (→ String)
       (match form
-        ((Form (Cons (Ident "annotations" _ _) entries) _)
-         (match entries
-           ((Nil) "annotations")
-           ((Cons (Form _ _) _) "annotations")
-           (_ "")))
         ((Form (Cons (Ident name _ _) _) _)
          (if (member? name (list "→" "!" "∀" "⊨")) name ""))
         (_ "")))
@@ -1430,20 +1238,22 @@
           (("!") (DefinitionHeader-effects-set header items))
           (("∀")
            (let ((variables
-                  (map (lambda (item) (expect-ident item "a quantified variable")) items)))
+                  (match items
+                    ((Cons (Form binders _) (Nil))
+                     (map (lambda (item) (expect-ident item "a quantified variable")) binders))
+                    (_ (compile-error (syntax-loc form) "expected (∀ (variable ...))")))))
              (unless (= (length variables)
-                        (length (delete-duplicates string=? (map Ident-name variables))))
+                        (length (delete-duplicates string=? (ident-names variables))))
                (compile-error (syntax-loc form) "duplicate quantified variable"))
              (DefinitionHeader-variables-set header variables)))
           (("⊨") (DefinitionHeader-constraints-set header items))
-          (("annotations") (DefinitionHeader-annotations-set header (parse-annotations form)))
           (else (panic "internal error: definition clause")))))
 
     (define (definition-header (forms (List Syntax)))
       (→ (Pair DefinitionHeader (List Syntax)))
       (! compile)
       (let loop ((forms forms)
-                 (header (DefinitionHeader (None) (Nil) (Nil) (Nil) (Nil)))
+                 (header (DefinitionHeader (None) (Nil) (Nil) (Nil)))
                  (seen (Nil)))
         (match forms
           ((Nil) (Pair header forms))
@@ -1457,24 +1267,47 @@
                    (loop rest (definition-header-clause header name form) (Cons name seen)))))))))
 
     (define (parse-definition (form Syntax)) (→ Definition) (! compile)
+      (let ((definition (parse-definition-parts form)))
+        (when (null? (● definition body))
+          (compile-error (syntax-loc form) "a definition needs a body"))
+        (check-definition-header (● definition parameters) (● definition header)
+                                 (● definition body) (syntax-loc form))
+        definition))
+
+    ;; Definitions and method declarations have one header grammar. The caller
+    ;; decides whether a body is required or forbidden.
+    (define (parse-definition-parts (form Syntax)) (→ Definition) (! compile)
       (match (form-tail form)
         ((Cons head forms)
          (let* ((parsed (definition-header forms))
-                (header (● parsed first))
-                (body (● parsed second))
                 (parameters (match head
                               ((Form (Cons _ parameters) _)
                                (Some (map definition-parameter parameters)))
                               (_ (None)))))
-           (when (null? body) (compile-error (syntax-loc form) "a definition needs a body"))
            (for-each (lambda (item)
-                       (unless (member? (definition-clause item) (list "" "annotations"))
+                       (unless (string=? (definition-clause item) "")
                          (compile-error (syntax-loc item)
                                         "definition clauses must precede the body")))
-                     body)
-           (check-definition-header parameters header body (syntax-loc form))
-           (Definition (definition-name form) parameters header body (syntax-loc form))))
+                     (● parsed second))
+           (Definition (definition-name form) parameters (● parsed first)
+             (● parsed second) (syntax-loc form))))
         (_ (compile-error (syntax-loc form) "expected a definition"))))
+
+    (define (parse-declaration (form Syntax)) (→ Definition) (! compile)
+      (unless (match form ((Form (Cons (Ident "declare" _ _) _) _) #t) (_ #f))
+        (compile-error (syntax-loc form)
+                       "expected (declare (method (parameter Type) ...) (→ Result) ...), or (type Output)"))
+      (let ((definition (parse-definition-parts form)))
+        (unless (null? (● definition body))
+          (compile-error (syntax-loc form) "a declaration has no body"))
+        (match (● definition parameters)
+          ((None) (compile-error (syntax-loc form) "a declaration needs a function header"))
+          (_ (unit)))
+        (check-definition-header (● definition parameters)
+                                 (● definition header)
+                                 (Nil)
+                                 (syntax-loc form))
+        definition))
 
     (define (check-definition-header (parameters (Option (List (Pair Syntax Syntax))))
                                      (header DefinitionHeader)
@@ -1524,7 +1357,7 @@
     (define (definition-scope (cx Context) (env Env) (definition Definition)) (→ Env) (! compile)
       (let* ((header (● definition header)) (variables (● header variables))
              (scope (type-scope env variables)))
-        (● (resolve-requirements cx scope (map Ident-name variables) (● header constraints)) env)))
+        (● (resolve-requirements cx scope (ident-names variables) (● header constraints)) env)))
 
     ;; Pass 1 discovers every top-level name, so definitions may refer to later
     ;; ones. Signatures then resolve, needing only those names. Pass 2
@@ -1541,8 +1374,8 @@
        (env Env)
        (definition (Option Definition))))
 
-    (define declaration-keywords (→ (List String))
-      (list ":" "struct" "enum" "type" "typeclass" "instance" "extern" "effect" "expose"))
+    (define (declaration-keywords) (→ (List String))
+      (list "struct" "enum" "type" "typeclass" "instance" "extern" "effect" "expose"))
 
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
@@ -1551,7 +1384,7 @@
                  (let* ((pending (concatenate scanned))
                         (signatures
                          (fold-left (lambda (table entry) (with-signature cx table entry))
-                                    empty-table
+                                    (empty-table)
                                     pending)))
                    (expanding cx ((bodies (each (lambda (cx entry) (declare cx signatures entry))
                                                 pending)))
@@ -1599,44 +1432,17 @@
            (when (contains-itself? (● cx program) (program-type (● cx program) id))
              (compile-error (syntax-loc name)
                             (string-append "the struct "
-                                           (Ident-name name)
+                                           (match name
+                                             ((Ident identifier-name _ _)
+                                              identifier-name)
+                                             (_ (panic "internal error: expected Ident")))
                                            " can never be built: each of its values would contain another"))))
           (_ (panic "internal error: struct")))))
 
     (define (scan-top-level (cx Context) (env Env) (form Syntax))
-      (→ (Pair (List Pending) Context))
-      (! fs compile generator)
+      (→ (Pair (List Pending) Context)) (! fs compile generator)
       (expanding cx ((form (expand-head env form)))
-                 (let* ((parsed (declaration-annotations cx env form)) (bare (● parsed first))
-                        (owner (if (null? (● parsed second)) (None)
-                                   (Some (declared-name (declaration-head bare)))))
-                        (scanned (scan-top-level-form cx env bare)))
-                   (Pair (● scanned first)
-                         (match owner
-                           ((None) (● scanned second))
-                           ((Some name) (with-name-annotations (● scanned second) name
-                                                               (● parsed second))))))))
-
-    ;; Annotation slots belong to declaration grammars, never executable
-    ;; bodies or raw macro arguments. Expand a macro first; it can emit an
-    ;; annotated signature just as a handwritten declaration can.
-
-    (define (declaration-annotations (cx Context) (env Env) (form Syntax))
-      (→ (Pair Syntax (List Annotation)))
-      (! compile)
-      (match (head-binding cx env form)
-        ((Some (Core keyword))
-         (case keyword
-           ((":" "type" "effect") (split-annotations form 3))
-           (("struct" "enum" "typeclass") (split-annotations form 2))
-           (("extern") (split-annotations form 5))
-           (else (Pair form (Nil)))))
-        (_ (Pair form (Nil)))))
-
-    (define (with-name-annotations (cx Context) (ident Syntax) (annotations (List Annotation)))
-      (→ Context)
-      (Context-program-set cx (program-with-annotations (● cx program)
-                                                        (unique-name cx ident) annotations)))
+                 (scan-top-level-form cx env form)))
 
     (define (scan-top-level-form (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
@@ -1646,20 +1452,7 @@
          (expanding cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
                                        (form-tail form))))
                     (Pair (concatenate scanned) cx)))
-        ((Some (Core "with-instances"))
-         (match (form-tail form)
-           ((Cons sets body)
-            (let ((scope
-                   (InstanceScope (form-items sets "a list of instance sets") env)))
-              (expanding cx ((scanned
-                              (each (lambda (cx item) (scan-top-level cx scope item))
-                                    body)))
-                         (Pair (Cons (Pending "instance-scope" form scope (None))
-                                     (concatenate scanned))
-                               cx))))
-           (_ (compile-error (syntax-loc form)
-                             "expected (with-instances (set ...) body ...)"))))
-        ((Some (Core "define-instance-set")) (scan-instance-set cx env form))
+
         ((Some (Core "define-syntax")) (Pair (Nil) (define-top-macro cx env form)))
         ((Some (Core "primitive"))
          (compile-error (syntax-loc form)
@@ -1667,71 +1460,12 @@
         ((Some (Core "define"))
          (let* ((definition (parse-definition form)) (ident (● definition name))
                 (cx (bind-top cx env ident (Global (unique-name cx ident)))))
-           (Pair (list (Pending "define" form env (Some definition)))
-                 (if (null? (● (● definition header) annotations)) cx
-                     (with-name-annotations cx ident (● (● definition header) annotations))))))
+           (Pair (list (Pending "define" form env (Some definition))) cx)))
         ((Some (Core keyword))
-         (if (member? keyword declaration-keywords)
+         (if (member? keyword (declaration-keywords))
              (scan-declared cx env keyword form)
              (Pair (list (Pending "expression" form env (None))) cx)))
         (_ (Pair (list (Pending "expression" form env (None))) cx))))
-
-    (define (scan-instance-set (cx Context) (env Env) (form Syntax))
-      (→ (Pair (List Pending) Context))
-      (! fs compile generator)
-      (match (form-tail form)
-        ((Cons name declarations)
-         (let* ((name (expect-ident name "an instance set name")) (id (unique-name cx name))
-                (cx (bind-top cx env name (InstanceSet id))) (scope (InstanceOwner id env)))
-           (expanding cx ((scanned (each (lambda (cx declaration)
-                                           (if (core-form? cx env declaration "instance")
-                                               (scan-top-level cx scope declaration)
-                                               (match declaration
-                                                 ((Form (Cons (Ident "dynamic-instances" _ _) _) _)
-                                                  (Pair (list (Pending "dynamic-instances"
-                                                                       declaration
-                                                                       scope (None)))
-                                                        cx))
-                                                 (_ (compile-error (syntax-loc declaration)
-                                                                   "an instance set contains instance or dynamic-instances declarations")))))
-                                         declarations)))
-                      (Pair (concatenate scanned) cx))))
-        (_ (compile-error (syntax-loc form) "expected (define-instance-set name instance ...)"))))
-
-    (define (instance-owner (env Env)) (→ (Option String))
-      (match env
-        ((InstanceOwner name _) (Some name))
-        ((InstanceScope _ rest) (instance-owner rest))
-        ((EvidenceScope _ rest) (instance-owner rest))
-        ((Frame _ _ rest) (instance-owner rest))
-        ((Top _ _) (None))))
-
-    (define (active-instance-sets (cx Context) (env Env)) (→ (List String)) (! compile)
-      (match env
-        ((InstanceScope sets rest)
-         (delete-duplicates string=?
-                            (append (map (lambda (name)
-                                           (match (resolve cx
-                                                           env
-                                                           (expect-ident name "an instance set"))
-                                             ((Some (InstanceSet id)) id)
-                                             (_ (compile-error (syntax-loc name)
-                                                               "not an instance set"))))
-                                         sets)
-                                    (active-instance-sets cx rest))))
-        ((InstanceOwner name rest) (Cons name (active-instance-sets cx rest)))
-        ((EvidenceScope _ rest) (active-instance-sets cx rest))
-        ((Frame _ _ rest) (active-instance-sets cx rest))
-        ((Top _ _) (Nil))))
-
-    (define (scope-instance-value (cx Context) (env Env) (value Expr)) (→ Expr) (! compile)
-      (let ((sets (active-instance-sets cx env)))
-        (if (null? sets) value
-            (match (● value term)
-              ((Lambda params body captures?)
-               (Expr (Lambda params (expr (ScopedInstances sets body) (● body loc)) captures?)
-                     (● value type) (● value loc)))
-              (_ (expr (ScopedInstances sets value) (● value loc)))))))
 
     ;; A declaration binds its names, then the instances a struct or enum
     ;; derives are scanned after it.
@@ -1761,17 +1495,11 @@
       (! compile)
       (let ((form (● pending form)) (env (● pending env)))
         (case (● pending keyword)
-          ((":") (Pair (Nil) cx))
           (("struct") (Pair (Nil) (declare-data cx env form #f)))
           (("enum") (Pair (Nil) (declare-data cx env form #t)))
           (("typeclass") (Pair (Nil) (declare-class cx env form)))
           (("instance") (declare-instance cx env form))
-          (("dynamic-instances") (declare-dynamic-instances cx env form))
-          (("instance-scope")
-           (Pair (list (lambda (cx)
-                         (check-active-instances (● cx program) (active-instance-sets cx env)
-                                                 (syntax-loc form))
-                         cx)) cx))
+
           (("extern") (Pair (Nil) (declare-extern cx env form)))
           (("effect") (declare-effect cx env form))
           (("define")
@@ -1785,52 +1513,40 @@
                           "top-level expressions are not allowed; put runtime work in main"))
           (else (Pair (Nil) cx)))))
 
-    ;; `(expose name "symbol")` exports a top-level function to the host;
-    ;; `(expose name "symbol" dynamic)` exports it for programs that load it
-    ;; while they run, through (snail shell wasm).
-
     (define (expose-item (cx Context) (env Env) (form Syntax)) (→ Item) (! compile)
       (match form
-        ((Form (Cons _ (Cons name (Cons (Atom (DString symbol) _) flags))) loc)
+        ((Form (Cons _ (Cons name (Cons (Atom (DString symbol) _) (Nil)))) loc)
          (match (resolve cx env (expect-ident name "a function name"))
-           ((Some (Global global)) (Expose global symbol (dynamic-flag? form flags) loc))
+           ((Some (Global global)) (Expose global symbol loc))
            (_ (compile-error (syntax-loc name)
                              (string-append "only a top-level function can be exposed: "
-                                            (Ident-name name))))))
-        (_ (compile-error (syntax-loc form) expose-usage))))
+                                            (match name
+                                              ((Ident identifier-name _ _)
+                                               identifier-name)
+                                              (_ (panic "internal error: expected Ident"))))))))
+        (_ (compile-error (syntax-loc form) (expose-usage)))))
 
-    (define (dynamic-flag? (form Syntax) (flags (List Syntax))) (→ Bool) (! compile)
-      (match flags
-        ((Nil) #f)
-        ((Cons (Ident "dynamic" _ _) (Nil)) #t)
-        (_ (compile-error (syntax-loc form) expose-usage))))
-
-    (define expose-usage
-      (→ String)
-      "expected (expose name \"symbol\") or (expose name \"symbol\" dynamic)")
+    (define (expose-usage) (→ String) "expected (expose name \"symbol\")")
 
     (define (define-top-level (cx Context)
               (signatures (Table (Pair Scheme (Option Loc))))
-              (env Env)
-              (definition Definition))
-      (→ Context)
-      (! compile)
+              (env Env) (definition Definition))
+      (→ Context) (! compile)
       (let ((name (global-binding cx env (● definition name))))
         (check-signature cx (table-ref signatures name))
-        (expanding cx ((value (definition-value env definition))
-                       (then (add-value name (match (table-ref signatures name)
-                                               ((Some (Pair scheme loc))
-                                                (Defined (Some scheme) loc (lambda-expr? value)))
-                                               ((None)
-                                                (Defined (None) (None) (lambda-expr? value)))))))
-                   (add-item cx
-                             (Define name
-                               (scope-instance-value cx
-                                                     env
-                                                     (scope-instance-value cx
-                                                                           env
-                                                                           (top-level-value
-                                                                            value))))))))
+        (expanding cx ((value (definition-value env definition)))
+                   (check-global-function value)
+                   (let ((binding (match (table-ref signatures name)
+                                    ((Some (Pair scheme loc)) (Defined (Some scheme) loc ))
+                                    ((None) (Defined (None) (None) )))))
+                     (add-item (add-value cx name binding) (Define name value))))))
+
+    (define (check-global-function (value Expr)) (→ Unit) (! compile)
+      (match (● value term)
+        ((Lambda _ _) (unit))
+        ((Ann inner _) (check-global-function inner))
+        (_ (compile-error (● value loc)
+                          "top-level definitions must be functions; put values in a function or an explicit state object"))))
 
     ;; A signature's constraints, checked once every class the library
     ;; declares is in the program.
@@ -1847,16 +1563,15 @@
     (define (definition-value (cx Context) (env Env) (definition Definition))
       (→ (Pair Expr Context))
       (! compile)
-      (let ((scope (definition-scope cx env definition)))
-        (match (● definition parameters)
-          ((Some parameters)
-           (expand-lambda cx
-                          scope
-                          (map (lambda (record) (● record first)) parameters)
-                          (● definition body)
-                          #t
-                          (● definition loc)))
-          ((None) (expand-expr cx scope (list-ref (● definition body) 0))))))
+      (expand-definition-body cx (definition-scope cx env definition) definition))
+
+    (define (expand-definition-body (cx Context) (scope Env) (definition Definition))
+      (→ (Pair Expr Context)) (! compile)
+      (match (● definition parameters)
+        ((Some parameters)
+         (expand-lambda cx scope (map (lambda (record) (● record first)) parameters)
+                        (● definition body) (● definition loc)))
+        ((None) (expand-expr cx scope (list-ref (● definition body) 0)))))
 
     (define (annotated-definition-value (cx Context) (env Env) (definition Definition) (value Expr))
       (→ Expr)
@@ -1866,15 +1581,6 @@
         ((Some _)
          (expr (Ann value (● (resolve-scheme cx env (definition-type definition)) type))
                (● definition loc)))))
-
-    ;; No local is in scope where a top-level function is written, so it is
-    ;; marked as one that may not capture, and every global function is
-    ;; known to have no environment.
-
-    (define (top-level-value (value Expr)) (→ Expr)
-      (match (● value term)
-        ((Lambda params body _) (Expr (Lambda params body #f) (● value type) (● value loc)))
-        (_ value)))
 
     ;; ---- Declarations ----
 
@@ -1910,7 +1616,7 @@
                            (TypeName (unique-name cx name)
                                      (length (declared-params head))
                                      (Some (unique-name cx name))))))
-        (bind-fields cx env name (struct-fields form) #t)))
+        (bind-replacements cx env name (struct-fields form))))
 
     (define (scan-enum (cx Context) (env Env) (head Syntax) (form Syntax)) (→ Context) (! compile)
       (let* ((name (declared-name head))
@@ -1939,7 +1645,7 @@
       (! compile)
       (let* ((name (declared-name head)) (id (unique-name cx name))
              (outputs (map associated-name (filter associated-form? declarations)))
-             (params (append (map Ident-name (declared-params head)) outputs))
+             (params (append (ident-names (declared-params head)) outputs))
              (cx (bind-top cx env name (ClassName id))))
         (unless (= (length params) (length (delete-duplicates string=? params)))
           (compile-error (syntax-loc head)
@@ -1956,38 +1662,24 @@
         (_ #f)))
 
     (define (associated-identifier (form Syntax)) (→ Syntax) (! compile)
-      (match (● (split-annotations form 2) first)
+      (match form
         ((Form (Cons _ (Cons (Ident name mark loc) (Nil))) _) (Ident name mark loc))
         (_ (compile-error (syntax-loc form)
                           "expected (type Output); associated types take no parameters"))))
 
     (define (associated-name (form Syntax)) (→ String) (! compile)
-      (Ident-name (associated-identifier form)))
+      (match (associated-identifier form)
+        ((Ident identifier-name _ _)
+         identifier-name)
+        (_ (panic "internal error: expected Ident"))))
 
     (define (scan-class-member (cx Context) (env Env) (class Syntax) (form Syntax))
-      (→ Context)
-      (! compile)
-      (let* ((associated? (associated-form? form))
-             (parsed (split-annotations form (if associated? 2 3)))
-             (bare (● parsed first))
-             (name (if associated?
-                       (suffixed-ident class (string-append "." (associated-name bare))
-                                       (syntax-loc bare))
-                       (declared-name (declaration-head bare))))
-             (cx (scan-class-member-form cx env class bare)))
-        (with-name-annotations cx name (● parsed second))))
-
-    (define (scan-class-member-form (cx Context) (env Env) (class Syntax) (form Syntax))
-      (→ Context)
-      (! compile)
+      (→ Context) (! compile)
       (if (associated-form? form)
           (let* ((member (associated-name form))
                  (name (suffixed-ident class (string-append "." member) (syntax-loc form))))
             (bind-top cx env name (Associated (unique-name cx class) member)))
-          (match form
-            ((Form (Cons (Ident ":" _ _) (Cons method (Cons _ (Nil)))) _)
-             (bind-member cx env method))
-            (_ (compile-error (syntax-loc form) "expected (: method type) or (type Output)")))))
+          (bind-member cx env (● (parse-declaration form) name))))
 
     (define (scan-effect (cx Context) (env Env) (head Syntax) (rest (List Syntax)) (form Syntax))
       (→ Context)
@@ -2000,20 +1692,12 @@
                       cx (form-items operations "a list of operations")))
           (_ (compile-error (syntax-loc form) "expected (effect Name ((operation type) ...))")))))
 
-    (define (operation-form-arity (operation Syntax)) (→ I64)
-      (match operation
-        ((Form (Cons (Ident "ctl" _ _) _) _) 3)
-        (_ 2)))
-
     (define (scan-operation (cx Context) (env Env) (operation Syntax)) (→ Context) (! compile)
-      (let* ((parsed (split-annotations operation (operation-form-arity operation)))
-             (name (match (● parsed first)
-                     ((Form (Cons (Ident "ctl" _ _) (Cons name (Cons _ (Nil)))) _) name)
-                     ((Form (Cons name (Cons _ (Nil))) _) name)
-                     (_ (compile-error (syntax-loc operation)
-                                       "expected (operation type) or (ctl operation type)"))))
-             (cx (bind-member cx env name)))
-        (with-name-annotations cx name (● parsed second))))
+      (match operation
+        ((Form (Cons (Ident "ctl" _ _) (Cons name (Cons _ (Nil)))) _) (bind-member cx env name))
+        ((Form (Cons name (Cons _ (Nil))) _) (bind-member cx env name))
+        (_ (compile-error (syntax-loc operation)
+                          "expected (operation type) or (ctl operation type)"))))
 
     (define (bind-member (cx Context) (env Env) (ident Syntax)) (→ Context) (! compile)
       (let ((ident (expect-ident ident "a name")))
@@ -2021,106 +1705,60 @@
 
     (struct CaseSyntax
       ((name Syntax)
-       (fields (List Syntax))
-       (annotations (List Annotation))))
+       (fields (List Syntax))))
 
     (define (parse-case (case Syntax)) (→ CaseSyntax) (! compile)
-      (let ((parsed (split-annotations case 1)))
-        (match (● parsed first)
-          ((Form (Cons name (Nil)) _)
-           (CaseSyntax (expect-ident name "a case name") (Nil) (● parsed second)))
-          ((Form (Cons name (Cons fields (Nil))) _)
-           (CaseSyntax (expect-ident name "a case name")
-                       (form-items fields "a field list") (● parsed second)))
-          (_ (compile-error (syntax-loc case)
-                            "expected (Case), or (Case ((field type) ...)), optionally with (annotations ...)")))))
+      (match case
+        ((Form (Cons name (Nil)) _)
+         (CaseSyntax (expect-ident name "a case name") (Nil)))
+        ((Form (Cons name (Cons fields (Nil))) _)
+         (CaseSyntax (expect-ident name "a case name") (form-items fields "a field list")))
+        (_ (compile-error (syntax-loc case) "expected (Case) or (Case ((field type) ...))"))))
 
     (define (scan-case (cx Context) (env Env) (case Syntax)) (→ Context) (! compile)
-      (let* ((parsed (parse-case case)) (name (● parsed name))
-             (cx (bind-member cx env name))
-             (cx (bind-fields cx env name (● parsed fields) #f)))
-        (with-name-annotations cx name (● parsed annotations))))
+      (bind-member cx env (● (parse-case case) name)))
 
-    ;; A field is `(name type)`, optionally followed by annotations.
+    ;; A field is `(name type)`.
     ;; All fields are mutable; there is no second field grammar.
     (struct FieldSyntax
       ((name Syntax)
-       (type Syntax)
-       (annotations (List Annotation))))
+       (type Syntax)))
 
     (define (parse-field (field Syntax)) (→ FieldSyntax) (! compile)
-      (let ((parsed (split-annotations field 2)))
-        (match (● parsed first)
-          ((Form (Cons name (Cons type (Nil))) _)
-           (FieldSyntax name type (● parsed second)))
-          (_ (compile-error (syntax-loc field)
-                            "expected (field type), optionally with (annotations ...)")))))
+      (match field
+        ((Form (Cons name (Cons type (Nil))) _)
+         (FieldSyntax (expect-ident name "a field name") type))
+        (_ (compile-error (syntax-loc field) "expected (field type)"))))
 
-    ;; A field's generated names, by `field-suffixes`; a struct's
-    ;; accessor name is reserved instead of bound.
-
-    (define (bind-fields (cx Context) (env Env) (name Syntax) (fields (List Syntax)) (struct? Bool))
-      (→ Context)
-      (! compile)
-      (let ((parsed (map parse-field fields)))
-        (fold-left (lambda (cx field)
-                     (let ((cx (Context-program-set cx
-                                                    (program-with-field-annotations
-                                                     (● cx program)
-                                                     (unique-name cx name)
-                                                     (Ident-name
-                                                      (expect-ident (● field name)
-                                                                    "a field name"))
-                                                     (● field annotations)))))
-                       (fold-left (lambda (cx suffix)
-                                    (bind-member cx
-                                                 env
-                                                 (field-ident name
-                                                              (● field name)
-                                                              suffix)))
-                                  (if struct? (reserve-field-read cx env name field) cx)
-                                  (field-suffixes struct?))))
-                   cx parsed)))
-
-    ;; A struct's field is read by path, but its accessor still exists
-    ;; in the program under `Name-field` for the checker's resolved call,
-    ;; so that name is bound as syntax that refuses use: a read
-    ;; through it says to use the path, and a definition of it is a
-    ;; duplicate rather than a silent replacement of the accessor.
-
-    (define (reserve-field-read (cx Context) (env Env) (name Syntax) (field FieldSyntax))
-      (→ Context)
-      (! compile)
-      (bind-top cx env (field-ident name (● field name) "") (Core "field-read")))
-
-    (define field-read-message (→ String)
-      "a struct's field is read by path, (● s field), not through an accessor")
-
-
-
-    ;; Every field has a setter and swapper. Struct reads use nominal paths
-    ;; and offer pure replacement; enum reads name their partial case accessor.
-    (define (field-suffixes (struct? Bool)) (→ (List String))
-      (if struct? (list "-set" "-set!" "-replace!") (list "" "-set!" "-replace!")))
+    ;; Only structs bind pure replacement functions. Reads and mutations use
+    ;; resolved paths; enum fields are bound by patterns.
+    (define (bind-replacements (cx Context) (env Env) (name Syntax) (fields (List Syntax)))
+      (→ Context) (! compile)
+      (fold-left (lambda (cx field)
+                   (bind-member cx env (field-ident name (● (parse-field field) name) "-set")))
+                 cx fields))
 
     ;; A field identifier shares the mark of its type's name, so a struct a
     ;; macro introduces has accessors only that expansion sees.
 
     (define (field-ident (name Syntax) (field Syntax) (suffix String)) (→ Syntax) (! compile)
       (suffixed-ident name
-                      (string-append "-" (Ident-name (expect-ident field "a field name")) suffix)
+                      (string-append "-" (expect-name field "a field name") suffix)
                       (syntax-loc field)))
 
     ;; Generated accessors and projections inherit their declaring name's mark.
 
     (define (suffixed-ident (name Syntax) (text String) (loc Loc)) (→ Syntax)
-      (Ident (string-append (Ident-name name) text)
-             (match (Ident-mark name)
-               ((Some mark)
-                (Some (Mark (string-append (● mark key) text)
-                            (● mark original)
-                            (● mark scope))))
-               ((None) (None))) loc))
+      (match name
+        ((Ident identifier-name identifier-mark _)
+         (Ident (string-append identifier-name text)
+                (match identifier-mark
+                  ((Some mark)
+                   (Some (Mark (string-append (● mark key) text)
+                               (● mark original)
+                               (● mark scope))))
+                  ((None) (None))) loc))
+        (_ (panic "internal error: expected Ident"))))
 
     (define (declared-name (head Syntax)) (→ Syntax) (! compile)
       (match head
@@ -2164,21 +1802,13 @@
     (define (derived-classes (form Syntax)) (→ (List Syntax))
       (concatenate (map form-tail (filter deriving-clause? (form-tail form)))))
 
-    ;; `(deriving Move)` derives no instance: it makes the type linear by
-    ;; its declaration (`owned?`).
-
-    (define (move-class? (class Syntax)) (→ Bool)
-      (match class
-        ((Ident "Move" _ _) #t)
-        (_ #f)))
-
-    (define (derived-instance-classes (form Syntax)) (→ (List Syntax))
-      (filter (lambda (class) (not (move-class? class))) (derived-classes form)))
-
     ;; A type parameter scope binds each parameter to a rigid variable.
 
     (define (type-scope (env Env) (params (List Syntax))) (→ Env)
-      (fold-left (lambda (scope param) (extend scope param (TypeVar (TRigid (Ident-name param)))))
+      (fold-left (lambda (scope param) (match param
+                                         ((Ident identifier-name _ _)
+                                          (extend scope param (TypeVar (TRigid identifier-name))))
+                                         (_ (panic "internal error: expected Ident"))))
                  env
                  params))
 
@@ -2193,13 +1823,13 @@
              (scope (type-scope env params))
              (cases (if enum?
                         (map parse-case (enum-cases form))
-                        (list (CaseSyntax (declared-name head) (struct-fields form) (Nil)))))
+                        (list (CaseSyntax (declared-name head) (struct-fields form)))))
              (data (DataType id
-                             (map Ident-name params)
+                             (ident-names params)
                              (map-indexed (lambda (tag case) (resolve-case cx scope case id tag))
                                           cases)
                              enum?
-                             (any? move-class? (derived-classes form)))))
+                             #f)))
         (Context-program-set cx
                              (fold-left (lambda (program case)
                                           (with-case-values program data case (not enum?)))
@@ -2214,19 +1844,25 @@
 
     (define (resolve-field (cx Context) (scope Env) (field Syntax)) (→ Field) (! compile)
       (let ((parsed (parse-field field)))
-        (Field (Ident-name (expect-ident (● parsed name) "a field name"))
+        (Field (expect-name (● parsed name) "a field name")
                (resolve-type cx scope (● parsed type)))))
 
-
-
-
-
     (define (constructor-name (cx Context) (env Env) (ident Syntax)) (→ String) (! compile)
-      (match (resolve cx env ident)
-        ((Some (Global name)) name)
-        ((Some (TypeName _ _ (Some constructor))) constructor)
-        (_ (compile-error (syntax-loc ident)
-                          (string-append "not a constructor: " (Ident-name ident))))))
+      (match ident
+        ((Ident identifier-name _ _)
+         (match (resolve cx env ident)
+           ((Some (Global name)) name)
+           ((Some (TypeName _
+                            _
+                            (Some
+                             constructor)))
+            constructor)
+           (_
+            (compile-error (syntax-loc ident)
+                           (string-append
+                            "not a constructor: "
+                            identifier-name)))))
+        (_ (panic "internal error: expected Ident"))))
 
     ;; Construction and field reads are pure. Setters and swappers perform
     ;; mut; ownership decides whether overwritten content may be released.
@@ -2240,7 +1876,7 @@
                                                (TFun (map (lambda (record) (● record type))
                                                           (● case fields))
                                                      self
-                                                     empty-row)))))
+                                                     (empty-row))))))
         (fold-left (lambda (program indexed)
                      (with-field-values program
                                         data
@@ -2256,13 +1892,13 @@
       (→ Program)
       (let* ((params (● data params)) (self (TCon (● data name) (map TRigid params)))
              (type (● field type)) (name (string-append (● case name) "-" (● field name)))
-             (program (program-with-value program name
+             (program (program-with-value program (field-operation-name case index "get")
                                           (Accessor case
                                                     index
                                                     (field-scheme params
                                                                   (list self)
                                                                   type
-                                                                  empty-row))))
+                                                                  (empty-row)))))
              (program (if struct?
                           (program-with-value program (string-append name "-set")
                                               (Replacer case
@@ -2270,33 +1906,30 @@
                                                         (field-scheme params
                                                                       (list self type)
                                                                       self
-                                                                      empty-row)))
+                                                                      (empty-row))))
                           program)))
-        (program-with-value
-         (program-with-value program (string-append name "-set!")
-                             (Setter case
-                                     index
-                                     (field-scheme params
-                                                   (list self type)
-                                                   (TCon "Unit" (Nil))
-                                                   mut-row)))
-         (string-append name "-replace!")
-         (Swapper case index (field-scheme params (list self type) type mut-row)))))
+        (if (not struct?) program
+            (program-with-value
+             (program-with-value program (field-operation-name case index "set!")
+                                 (Setter case
+                                         index
+                                         (field-scheme params
+                                                       (list self type)
+                                                       (TCon "Unit" (Nil))
+                                                       (mut-row))))
+             (field-operation-name case index "replace!")
+             (Swapper case index (field-scheme params (list self type) type (mut-row)))))))
 
     (define (field-scheme (params (List String)) (arguments (List Type)) (result Type) (row Type))
       (→ Scheme)
       (Scheme params (Nil) (Nil) (TFun arguments result row)))
 
-    ;; The signatures with the one a `(: name type)` declares, and where it
-    ;; was written. A signature a macro writes is held to each expansion's
-    ;; body like any other, so a macro that cannot know the row takes it as
-    ;; an argument.
+    ;; Resolve definition headers before expanding bodies so recursive calls
+    ;; and importers see the same declared contract.
 
-    (define (with-signature (cx Context)
-                            (signatures (Table (Pair Scheme (Option Loc))))
+    (define (with-signature (cx Context) (signatures (Table (Pair Scheme (Option Loc))))
                             (pending Pending))
-      (→ (Table (Pair Scheme (Option Loc))))
-      (! compile)
+      (→ (Table (Pair Scheme (Option Loc)))) (! compile)
       (match (● pending definition)
         ((Some definition)
          (match (● (● definition header) result)
@@ -2304,13 +1937,7 @@
            ((Some _)
             (add-signature cx signatures (● pending env) (● definition name)
                            (definition-type definition) (● definition loc)))))
-        ((None)
-         (if (string=? (● pending keyword) ":")
-             (match (● pending form)
-               ((Form (Cons _ (Cons name (Cons type (Nil)))) loc)
-                (add-signature cx signatures (● pending env) name type loc))
-               (form (compile-error (syntax-loc form) "expected (: name type)")))
-             signatures))))
+        ((None) signatures)))
 
     (define (add-signature (cx Context)
                            (signatures (Table (Pair Scheme (Option Loc))))
@@ -2335,7 +1962,14 @@
              (params (append (declared-params head)
                              (map associated-identifier
                                   (filter associated-form? (list-drop (form-tail form) 1)))))
-             (self (Constraint id (map (lambda (param) (TRigid (Ident-name param))) params)))
+             (self (Constraint id (map (lambda (param) (match param
+                                                         ((Ident identifier-name
+                                                                 _
+                                                                 _)
+                                                          (TRigid identifier-name))
+                                                         (_ (panic
+                                                             "internal error: expected Ident"))))
+                                       params)))
              (scope (EvidenceScope (list self) (type-scope env params))))
         (expanding cx ((methods (each (lambda (cx signature)
                                         (declare-method cx env scope id params self signature))
@@ -2353,7 +1987,7 @@
                                                                      methods)))))))
 
     ;; The parameters the class's methods perform as rows, `e` in
-    ;; `(: fetch-object (Fn S String → String ! e))`, in order; a row's kind
+    ;; `(declare (fetch-object (store S) (key String)) (→ String) (! e))`, in order; a row's kind
     ;; is found from its use, as quantified variables are. A parameter a
     ;; method also writes as a type could not be both.
 
@@ -2396,27 +2030,18 @@
         ((TCon _ args) (concatenate (map type-names args)))
         (_ (Nil))))
 
-    (define (declare-method (cx Context)
-                            (env Env)
-                            (scope Env)
-                            (class String)
-                            (params (List Syntax))
-                            (self Constraint)
-                            (signature Syntax))
-      (→ (Pair String Context))
-      (! compile)
-      (match (● (split-annotations signature 3) first)
-        ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
-         (let ((own (operational-scheme (resolve-scheme cx scope type)))
-               (global (global-binding cx env name)))
-           (Pair global
-                 (add-value cx global
-                            (Method class
-                                    (Scheme (append (map Ident-name params) (● own vars))
-                                            (Cons self (● own constraints))
-                                            (● own copy)
-                                            (● own type)))))))
-        (_ (compile-error (syntax-loc signature) "expected (: method type)"))))
+    (define (declare-method (cx Context) (env Env) (scope Env) (class String)
+                            (params (List Syntax)) (self Constraint) (signature Syntax))
+      (→ (Pair String Context)) (! compile)
+      (let* ((definition (parse-declaration signature))
+             (own (operational-scheme (resolve-scheme cx scope (definition-type definition))))
+             (global (global-binding cx env (● definition name))))
+        (Pair global
+              (add-value cx global
+                         (Method class
+                                 (Scheme (append (ident-names params) (● own vars))
+                                         (Cons self (● own constraints))
+                                         (● own copy) (● own type)))))))
 
     ;; Returns one step per method, which expands its definition.
 
@@ -2427,130 +2052,42 @@
         ((Form (Cons _ (Cons (Form (Cons class-ident type-args) _) body)) loc)
          (let ((parts (split-requires body)))
            (expanding cx ((class (instance-class env class-ident))
-                          (instance (declared-instance env class type-args (● parts first)
+                          (declared (declared-instance env class type-args (● parts first)
                                                        (filter associated-form? (● parts second))
                                                        loc))
                           (methods
-                           (declare-instance-methods env class instance
-                                                     (filter
-                                                      (lambda (form) (not (associated-form? form)))
-                                                      (● parts second)) loc)))
+                           (each (lambda (cx definition)
+                                   (instance-method cx
+                                                    (● declared second)
+                                                    class
+                                                    (● declared first)
+                                                    definition))
+                                 (filter (lambda (form) (not (associated-form? form)))
+                                         (● parts second)))))
                       (check-instance-methods class methods loc)
-                      (check-overlap (● cx program) instance loc)
+                      (check-overlap (● cx program) (● declared first) loc)
                       (Pair (map (lambda (record) (● record expand)) methods)
                             (Context-program-set cx
                                                  (program-with-instance (instance-program cx
                                                                                           class
-                                                                                          instance
+                                                                                          (●
+                                                                                           declared
+                                                                                           first)
                                                                                           loc)
                                                                         (instance-with-methods
-                                                                         instance
+                                                                         (● declared first)
                                                                          methods)))))))
         (_
          (compile-error (syntax-loc form) "expected (instance (Class type ...) definition ...)"))))
-
-    (define (declare-dynamic-instances (cx Context) (env Env) (form Syntax))
-      (→ (Pair (List (Fn Context → Context ! compile)) Context))
-      (! compile)
-      (match (Pair (form-tail form) (instance-owner env))
-        ((Pair (Cons name domain) (Some owner))
-         (expanding cx ((class (instance-class env name))
-                        (id (fresh-global "dynamic")))
-                    (let ((generated (generate-binary-instances
-                                      (● cx program) class
-                                      (map (lambda (pair)
-                                             (map (lambda (type) (resolve-type cx env type))
-                                                  (form-items pair "a pair of concrete types")))
-                                           domain)
-                                      (active-instance-sets cx env) owner id (syntax-loc form))))
-                      (expanding cx ((bodies (each (lambda (cx generated)
-                                                     (install-generated-instance cx
-                                                                                 class
-                                                                                 generated
-                                                                                 (syntax-loc form)))
-                                                   generated)))
-                                 (Pair (concatenate bodies) cx)))))
-        (_ (compile-error (syntax-loc form)
-                          "expected (dynamic-instances Class (Left Right) ...) in an instance set"))))
-
-    (define (install-generated-instance (cx Context)
-                                        (class Class)
-                                        (generated GeneratedInstance)
-                                        (loc Loc))
-      (→ (Pair (List (Fn Context → Context ! compile)) Context))
-      (! compile)
-      (let* ((instance (● generated instance))
-             (cx (fold-left (lambda (cx method)
-                              (add-value cx (● method second)
-                                         (Defined (Some (instance-method-scheme (● cx program)
-                                                                                class
-                                                                                (● method first)
-                                                                                instance))
-                                           (None) #t)))
-                            cx (● instance methods))))
-        (check-overlap (● cx program) instance loc)
-        (Pair (map (lambda (definition) (lambda (cx) (add-item cx definition)))
-                   (● generated definitions))
-              (Context-program-set cx
-                                   (program-with-instance (instance-program cx class instance loc)
-                                                          instance)))))
 
     (define (instance-class (cx Context) (env Env) (class-ident Syntax))
       (→ (Pair Class Context)) (! compile)
       (match (resolve cx env class-ident)
         ((Some (ClassName id))
 
-
          (Pair (program-class (● cx program) id) cx))
         (_ (compile-error (syntax-loc class-ident)
                           "instance of something that is not a typeclass"))))
-
-    ;; A dispatch clause supplies ordinary methods, just as explicit
-    ;; definitions do. Its finite domain belongs to this instance's library;
-    ;; importing another instance never changes which payloads it accepts.
-
-    (define (declare-instance-methods (cx Context)
-                                      (env Env)
-                                      (class Class)
-                                      (instance Instance)
-                                      (body (List Syntax))
-                                      (loc Loc))
-      (→ (Pair (List MethodDefinition) Context))
-      (! compile)
-      (match body
-        ((Cons (Form (Cons (Ident "dispatch" _ _) types) _) (Nil))
-         (let ((dispatch (parse-dispatch class instance
-                                         (map (lambda (type) (resolve-type cx env type)) types)
-                                         loc)))
-           (each cx
-                 (lambda (cx method)
-                   (dispatch-instance-method cx class instance method dispatch loc))
-                 (● class methods))))
-        (_ (each cx
-                 (lambda (cx definition) (instance-method cx env class instance definition))
-                 body))))
-
-    (define (dispatch-instance-method (cx Context)
-                                      (class Class)
-                                      (instance Instance)
-                                      (method String)
-                                      (dispatch Dispatch)
-                                      (loc Loc))
-      (→ (Pair MethodDefinition Context))
-      (expanding cx ((global (fresh-global (short-name method)))
-                     (then (add-value global
-                                      (Defined (Some (instance-method-scheme (● cx program)
-                                                                             class method instance))
-                                        (None) #t))))
-                 (Pair (MethodDefinition method global
-                                         (lambda (cx)
-                                           (add-item cx
-                                                     (Define global
-                                                       (dispatch-method (● cx program)
-                                                                        class
-                                                                        instance
-                                                                        method dispatch loc)))))
-                       cx)))
 
     ;; The program after an instance's checks of its head, with a Drop
     ;; instance's type made linear; any other instance changes nothing.
@@ -2566,12 +2103,9 @@
                                         (string-join (Cons (short-name name) (● class params))
                                                      " ")
                                         ")")))
-        (when (and (lifecycle-class? name)
-                   (match (● instance set) ((Some _) #t) ((None) #f)))
-          (compile-error loc "lifecycle instances cannot belong to a named instance set"))
         (check-instance-determination (● cx program) class instance loc)
         (check-head-rows (● cx program) class instance loc)
-        (if (lifecycle-class? name) (lifecycle-program cx instance loc) (● cx program))))
+        (if (drop-class? name) (drop-program cx instance loc) (● cx program))))
 
     ;; Prerequisites are ordered. Inputs bind variables first; only an
     ;; earlier requirement's row or output may determine another variable.
@@ -2614,19 +2148,15 @@
                                         (append (output-arguments class types)
                                                 (row-arguments class types)))))))
 
-    ;; A lifecycle instance is for a declared type, beside it; a Drop
-    ;; instance's type is linear.
+    ;; A Drop instance is declared beside its type and makes it linear.
 
-    (define (lifecycle-program (cx Context) (instance Instance) (loc Loc)) (→ Program) (! compile)
-      (let ((program (● cx program)) (class (● instance class)))
+    (define (drop-program (cx Context) (instance Instance) (loc Loc)) (→ Program) (! compile)
+      (let ((program (● cx program)))
         (match (● instance types)
           ((Cons _ (Cons (TCon name args) (Nil)))
-           (check-lifecycle-head cx class name args loc)
-           (if (string=? class drop-class)
-               (program-with-type program (DataType-owned?-set (program-type program name) #t))
-               program))
-          (_ (compile-error loc (string-append (instance-noun class)
-                                               " names a row and a declared type"))))))
+           (check-drop-head cx name args loc)
+           (program-with-type program (DataType-owned?-set (program-type program name) #t)))
+          (_ (compile-error loc "a Drop instance names a row and a declared type")))))
 
     ;; An instance writes each row its class's methods perform in its head,
     ;; `(! label ...)`, since mono finds the instance from ground types,
@@ -2635,7 +2165,7 @@
     ;; instance's requirements, as `(Drop e A)` or `(Store e S)`, which the
     ;; types the requirement is given decide. Ordinary methods may perform
     ;; control effects; mono retains these rows in specialization keys and
-    ;; call types. Drops and clones must still run to completion.
+    ;; call types. Drops must still run to completion.
 
     (define (check-head-rows (program Program) (class Class) (instance Instance) (loc Loc))
       (→ Unit)
@@ -2647,8 +2177,8 @@
                                        (● argument second)
                                        loc))
                 (zip (● class params) (● instance types)))
-      (cond ((lifecycle-class? (● class name))
-             (check-lifecycle-requirements (● class name) instance (head-tail instance) loc))
+      (cond ((drop-class? (● class name))
+             (check-drop-requirements instance (head-tail instance) loc))
             ((not (null? (● class rows))) (check-row-requirements program class instance loc))
             (else (unit))))
 
@@ -2677,16 +2207,14 @@
       (! compile)
       (match (table-ref (● program effects) label)
         ((Some effect)
-         (when (and (lifecycle-class? class) (not (null? (● effect control))))
+         (when (and (drop-class? class) (not (null? (● effect control))))
            (compile-error loc
-                          (string-append (cond ((string=? class drop-class) "a drop")
-                                               ((string=? class clone-class) "a clone")
-                                               (else (instance-noun class)))
+                          (string-append "a drop"
                                          " cannot perform the control effect "
                                          (short-name label)))))
         ((None) (unit))))
 
-    ;; The tail of a lifecycle instance's row, its first argument.
+    ;; The tail of a Drop instance's row, its first argument.
 
     (define (head-tail (instance Instance)) (→ (Option Type))
       (match (● instance types)
@@ -2729,8 +2257,8 @@
         (_ #f)))
 
     (define (row-usage (class String)) (→ String)
-      (if (lifecycle-class? class)
-          (lifecycle-row-usage class)
+      (if (drop-class? class)
+          (drop-row-usage)
           (string-append (instance-noun class)
                          "'s rows are closed, (! label ...), or end with the row e its"
                          " requirements give a row class, as (! label ... e) with (⊨ ("
@@ -2741,34 +2269,33 @@
     ;; variables in the row its head ends with, so one row holds what all
     ;; of them perform; without one, the row is closed.
 
-    (define (check-lifecycle-requirements (class String)
-                                          (instance Instance)
-                                          (tail (Option Type))
-                                          (loc Loc))
+    (define (check-drop-requirements (instance Instance)
+                                     (tail (Option Type))
+                                     (loc Loc))
       (→ Unit)
       (! compile)
       (let ((required (● instance requires)))
         (for-each (lambda (constraint)
-                    (unless (string=? (● constraint class) class)
+                    (unless (string=? (● constraint class) (drop-class))
                       (compile-error loc
-                                     (string-append (instance-noun class)
+                                     (string-append "a Drop instance"
                                                     " can require only (Copy A) and ("
-                                                    (short-name class)
+                                                    "Drop"
                                                     " e A)")))
                     (match (Pair tail (● constraint types))
                       ((Pair (Some (TRigid name)) (Cons (TRigid row) (Cons (TRigid var) (Nil))))
                        (unless (and (string=? name row) (member? var (● instance vars)))
-                         (compile-error loc (lifecycle-row-usage class))))
-                      (_ (compile-error loc (lifecycle-row-usage class)))))
+                         (compile-error loc (drop-row-usage))))
+                      (_ (compile-error loc (drop-row-usage)))))
                   required)
         (match (Pair tail required)
-          ((Pair (Some _) (Nil)) (compile-error loc (lifecycle-row-usage class)))
+          ((Pair (Some _) (Nil)) (compile-error loc (drop-row-usage)))
           (_ (unit)))))
 
-    (define (lifecycle-row-usage (class String)) (→ String)
-      (string-append (instance-noun class)
+    (define (drop-row-usage) (→ String)
+      (string-append "a Drop instance"
                      "'s row is closed, (! label ...), or ends with the row e of its requirements ("
-                     (short-name class)
+                     "Drop"
                      " e A), as (! label ... e)"))
 
     (define (instance-noun (class String)) (→ String)
@@ -2779,16 +2306,15 @@
     ;; library alone may take the type's values apart when it has a Drop
     ;; instance.
 
-    (define (check-lifecycle-head (cx Context)
-                                  (class String)
-                                  (name String)
-                                  (args (List Type))
-                                  (loc Loc))
+    (define (check-drop-head (cx Context)
+                             (name String)
+                             (args (List Type))
+                             (loc Loc))
       (→ Unit)
       (! compile)
       (unless (string=? (name-owner name) (● cx prefix))
         (compile-error loc
-                       (string-append (instance-noun class)
+                       (string-append "a Drop instance"
                                       " is declared in the library of its type")))
       (let ((names (map (lambda (arg)
                           (match arg
@@ -2798,7 +2324,7 @@
         (unless (and (not (member? "" names))
                      (= (length (delete-duplicates string=? names)) (length names)))
           (compile-error loc
-                         (string-append (instance-noun class)
+                         (string-append "a Drop instance"
                                         " is for its type at distinct variables")))))
 
     (define (instance-with-methods (instance Instance) (methods (List MethodDefinition)))
@@ -2818,7 +2344,7 @@
                                (requires (List Syntax))
                                (equations (List Syntax))
                                (loc Loc))
-      (→ (Pair Instance Context))
+      (→ (Pair (Pair Instance Env) Context))
       (! compile)
       (let* ((vars (delete-duplicates string=?
                                       (concatenate
@@ -2835,9 +2361,9 @@
           (compile-error loc
                          "instance head gives each declared class parameter; associated types belong in its body"))
         (expanding cx ((name (fresh-global (short-name (● class name)))))
-                   (Pair (Instance name (● class name) (● requirements vars)
-                                   (append types outputs) (● requirements constraints)
-                                   (● requirements copy) (Nil) (instance-owner env))
+                   (Pair (Pair (Instance name (● class name) (● requirements vars)
+                                         (append types outputs) (● requirements constraints)
+                                         (● requirements copy) (Nil)) (● requirements env))
                          cx))))
 
     (define (instance-outputs (cx Context)
@@ -2885,46 +2411,94 @@
        (global String)
        (expand (Fn Context → Context ! compile))))
 
-    (define (instance-method (cx Context)
-                             (env Env)
-                             (class Class)
-                             (instance Instance)
-                             (definition Syntax))
-      (→ (Pair MethodDefinition Context))
-      (! compile)
+    (define (instance-method (cx Context) (env Env) (class Class)
+                             (instance Instance) (definition Syntax))
+      (→ (Pair MethodDefinition Context)) (! compile)
       (unless (core-form? cx env definition "define")
         (compile-error (syntax-loc definition) "expected a method definition"))
-      (let* ((parsed (parse-definition definition)) (ident (● parsed name))
-             (method
-              (match (find (lambda (method)
-                             (string=? (short-name method)
-                                       (Ident-name ident)))
-                           (● class methods))
-                ((Some method) method)
-                ((None)
-                 (compile-error (syntax-loc ident)
-                                (string-append "not a method of this class: "
-                                               (Ident-name ident)))))))
+      (let* ((parsed (parse-definition definition))
+             (method (instance-method-name class (● parsed name)))
+             (scheme (instance-method-scheme (● cx program) class method instance)))
         (expanding cx ((global (fresh-global (short-name method)))
-                       (then (add-value global
-                                        (Defined (Some (instance-method-scheme (● cx program)
-                                                                               class
-                                                                               method
-                                                                               instance))
-                                          (None)
-                                          #f))))
+                       (then (add-value global (Defined (Some scheme) (None) ))))
                    (Pair (MethodDefinition method global
                                            (lambda (cx)
-                                             (expanding cx ((value
-                                                             (definition-value env parsed)))
-                                                        (add-item cx
-                                                                  (Define global
-                                                                    (top-level-value
-                                                                     (annotated-definition-value cx
-                                                                                                 env
-                                                                                                 parsed
-                                                                                                 value)))))))
+                                             (expanding cx ((value (instance-method-value env
+                                                                                          instance
+                                                                                          scheme
+                                                                                          parsed)))
+                                                        (add-item cx (Define global value)))))
                          cx))))
+
+    (define (instance-method-name (class Class) (ident Syntax)) (→ String) (! compile)
+      (let ((name (expect-name ident "a method name")))
+        (match (find (lambda (method) (string=? (short-name method) name)) (● class methods))
+          ((Some method) method)
+          ((None)
+           (compile-error (syntax-loc ident)
+                          (string-append "not a method of this class: " name))))))
+
+    ;; An instance's variables and a method's quantifiers have different scopes.
+    ;; Match the method's written binders to its class signature, then resolve
+    ;; body annotations in that same scope; hidden associated outputs travel
+    ;; with the requirements that establish them.
+    (define (instance-method-value (cx Context) (env Env) (instance Instance)
+                                   (expected Scheme) (definition Definition))
+      (→ (Pair Expr Context)) (! compile)
+      (match (● (● definition header) result)
+        ((None)
+         (expanding cx ((value (definition-value env definition)))
+                    (check-global-function value)
+                    (Pair value cx)))
+        ((Some _)
+         (let* ((own (resolve-scheme cx env (definition-type definition)))
+                (names (list-drop (● expected vars) (length (● instance vars)))))
+           (unless (= (length (● own vars)) (length names))
+             (compile-error (● definition loc)
+                            "a method header must quantify its class method's variables"))
+           (let* ((substitution (zip (● own vars) (map TRigid names)))
+                  (scope (instance-method-scope env definition own substitution)))
+             (check-method-requirements own expected substitution (● definition loc))
+             (expanding cx ((value (expand-definition-body scope definition)))
+                        (check-global-function value)
+                        (Pair (expr (Ann value (substitute substitution (● own type)))
+                                    (● definition loc)) cx)))))))
+
+    ;; A written header cannot add obligations to callers of the class method.
+    (define (check-method-requirements (own Scheme) (expected Scheme)
+                                       (substitution Substitution) (loc Loc))
+      (→ Unit) (! compile)
+      (unless (and
+               (every? (lambda (name)
+                         (member? (match (substitute substitution (TRigid name))
+                                    ((TRigid name) name)
+                                    (_ (panic "internal error: method variables stay rigid")))
+                                  (● expected copy)))
+                       (● own copy))
+               (every? (lambda (required)
+                         (let ((required (substitute-constraint substitution required)))
+                           (any? (lambda (given)
+                                   (and (string=? (● required class) (● given class))
+                                        (types=? (● required types) (● given types))))
+                                 (● expected constraints))))
+                       (● own constraints)))
+        (compile-error loc "a method header cannot require more than its class and instance")))
+
+    (define (instance-method-scope (env Env) (definition Definition) (own Scheme)
+                                   (substitution Substitution))
+      (→ Env)
+      (EvidenceScope (map (lambda (constraint) (substitute-constraint substitution constraint))
+                          (● own constraints))
+                     (fold-left (lambda (scope ident)
+                                  (match ident
+                                    ((Ident name _ _)
+                                     (extend scope
+                                             ident
+                                             (TypeVar (substitute substitution (TRigid name)))))
+                                    (_
+                                     (panic
+                                      "internal error: a method type variable is an identifier"))))
+                                env (● (● definition header) variables))))
 
     (define (instance-method-scheme (program Program)
                                     (class Class)
@@ -2973,14 +2547,8 @@
     ;; the same types. A type variable in either head matches anything.
 
     (define (check-overlap (program Program) (instance Instance) (loc Loc)) (→ Unit) (! compile)
-      (check-instance-overlap
-       program instance
-       (filter (lambda (other)
-                 (match (Pair (● instance set) (● other set))
-                   ((Pair (None) (None)) #t)
-                   ((Pair (Some name) (Some other)) (string=? name other))
-                   (_ #f)))
-               (class-instances program (● instance class))) loc))
+      (check-instance-overlap program instance
+                              (class-instances program (● instance class)) loc))
 
     (define (check-instance-methods (class Class) (methods (List MethodDefinition)) (loc Loc))
       (→ Unit)
@@ -3079,7 +2647,7 @@
     (define (declare-operation (cx Context) (env Env) (effect String) (operation Syntax))
       (→ (Pair (Pair String Bool) Context))
       (! compile)
-      (match (● (split-annotations operation (operation-form-arity operation)) first)
+      (match operation
         ((Form (Cons (Ident "ctl" _ _) (Cons name (Cons type (Nil)))) _)
          (declare-operation-type cx env effect name type #t))
         ((Form (Cons name (Cons type (Nil))) _) (declare-operation-type cx env effect name type #f))
@@ -3208,7 +2776,7 @@
                           (then (add-value global
                                            (Defined (Some (default-scheme cx operation loc))
                                              (Some loc)
-                                             #f))))
+                                             ))))
                       (Pair (DefaultDefinition operation
                               global
                               (lambda (cx) (expand-default cx env global operation value loc)))
@@ -3243,7 +2811,7 @@
       (! compile)
       (expanding cx ((value (expand-expr env syntax)))
                  (match (● value term)
-                   ((Lambda _ _ _) (add-item cx (Define global (top-level-value value))))
+                   ((Lambda _ _ ) (add-item cx (Define global value)))
                    ((Var _ _ _)
                     (expanding cx ((value (eta-expand value (operation-arity cx operation) loc)))
                                (add-item cx (Define global value))))
@@ -3257,7 +2825,7 @@
                                                  (lambda (name) (expr (Var name (Nil) (Nil)) loc))
                                                  names))
                                            loc)
-                                     #f)
+                                     )
                              loc)
                        cx)))
 
@@ -3284,7 +2852,7 @@
                        "(snail core primitive) holds only primitive declarations"))
       (match form
         ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
-         (let* ((global (primitive-global (Ident-name (expect-ident name "a primitive name"))))
+         (let* ((global (primitive-global (expect-name name "a primitive name")))
                 (cx (bind-top cx env name (Global global))))
            (add-value cx global (Primitive (resolve-primitive-scheme cx env global type)))))
         (_ (compile-error (syntax-loc form) "expected (primitive name type)"))))
@@ -3298,13 +2866,13 @@
       (cond ((string=? global "prim:once")
              (let ((signature (TRigid "F")))
                (Scheme (list "F") (Nil) (Nil)
-                       (TFun (list signature) (TCon "FnOnce" (list signature)) empty-row))))
+                       (TFun (list signature) (TCon "FnOnce" (list signature)) (empty-row)))))
             ((string=? global "prim:weak-rc-upgrade")
              (let ((value (TRigid "T")))
                (Scheme (list "T") (Nil) (Nil)
                        (TFun (list (TCon "WeakRc" (list value)))
                              (TCon "snail.core.base:Option" (list (TCon "Rc" (list value))))
-                             mut-row))))
+                             (mut-row)))))
             (else (operational-scheme (resolve-scheme cx env syntax)))))
 
     ;; ---- Types ----
@@ -3332,7 +2900,7 @@
       (match syntax
         ((Form (Cons (Ident "∀" _ _) (Cons (Form params _) rest)) loc)
          (let* ((params (map (lambda (param) (expect-ident param "a type variable")) params))
-                (vars (map Ident-name params)) (scope (type-scope env params))
+                (vars (ident-names params)) (scope (type-scope env params))
                 (parts (split-requires rest))
                 (requirements (resolve-requirements cx scope vars (● parts first))))
            (match (● parts second)
@@ -3361,12 +2929,14 @@
          (Requirements-copy-set found
                                 (append (● found copy)
                                         (list (copy-variable (● found vars) args loc)))))
-        (_ (let* ((constraint (resolve-constraint cx (● found env) syntax
-                                                  (length (● found constraints))))
-                  (hidden (filter (lambda (name) (and (>= (string-length name) 12)
-                                                      (string=? (substring name 0 12)
-                                                                "$associated.")))
-                                  (concatenate (map type-names (● constraint types))))))
+        (_ (let* ((index (length (enclosing-requirements (● found env))))
+                  (prefix (string-append "$associated." (i64->string index) "."))
+                  (constraint (resolve-constraint cx (● found env) syntax index))
+                  (hidden
+                   (filter (lambda (name) (and (>= (string-length name) (string-length prefix))
+                                               (string=? (substring name 0 (string-length prefix))
+                                                         prefix)))
+                           (concatenate (map type-names (● constraint types))))))
              (Requirements (append (● found constraints) (list constraint))
                            (● found copy)
                            (delete-duplicates string=? (append (● found vars) hidden))
@@ -3393,8 +2963,6 @@
             (checked-constraint cx env id types index loc))
            (_ (compile-error loc "expected a typeclass constraint"))))
         (_ (compile-error (syntax-loc syntax) "expected (Class type ...)"))))
-
-
 
     ;; The constraint of a class at resolved types, checked against the
     ;; class's parameters.
@@ -3465,7 +3033,7 @@
         ((Ident _ _ loc) (resolve-type-name cx env syntax (Nil) loc))
         ((Form (Cons (Ident "!" _ _) labels) loc) (resolve-row cx env labels loc))
         ((Form (Cons (Ident kind _ _) items) loc)
-         (if (member? kind (list "Fn" "FnOnce" "fn"))
+         (if (member? kind (list "Fn" "FnOnce"))
              (let ((arrow (resolve-callable-arrow cx env items (Nil) loc)))
                (if (string=? kind "Fn") arrow (TCon kind (list arrow))))
              (resolve-type-application cx env syntax loc)))
@@ -3481,36 +3049,87 @@
          (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
         (_ (compile-error loc "expected a type application"))))
 
-
-
     (define (resolve-type-name (cx Context) (env Env) (ident Syntax) (args (List Syntax)) (loc Loc))
       (→ Type)
       (! compile)
-      (match (resolve cx env ident)
-        ((Some (TypeName name arity _))
-         (unless (= arity (length args))
-           (compile-error loc
-                          (string-append "wrong number of type arguments: " (Ident-name ident))))
-         (TCon name (map (lambda (arg) (resolve-type cx env arg)) args)))
-        ((Some (Associated class member))
-         (resolve-projection env class member
-                             (map (lambda (arg) (resolve-type cx env arg)) args)
-                             (program-class (● cx program) class) loc))
-        ((Some (TypeVar type))
-         (if (null? args) type (compile-error loc "a type variable takes no arguments")))
-        ((Some (Alias name params body alias-env))
-         (unless (= (length params) (length args))
-           (compile-error loc
-                          (string-append "wrong number of alias arguments: " (Ident-name ident))))
-         (when (member? name (● cx aliases))
-           (compile-error loc (string-append "type alias refers to itself: " (Ident-name ident))))
-         (let ((scope (fold-left (lambda (scope pair)
-                                   (extend scope
-                                           (● pair first)
-                                           (TypeVar (resolve-type cx env (● pair second)))))
-                                 alias-env (zip params args))))
-           (resolve-type (Context-aliases-set cx (Cons name (● cx aliases))) scope body)))
-        (_ (compile-error loc (string-append "not a type: " (Ident-name ident))))))
+      (match ident
+        ((Ident identifier-name _ _)
+         (match (resolve cx env ident)
+           ((Some (TypeName name arity _))
+            (unless (= arity (length args))
+              (compile-error loc
+                             (string-append
+                              "wrong number of type arguments: "
+                              identifier-name)))
+            (TCon name
+                  (map (lambda (arg)
+                         (resolve-type cx
+                                       env
+                                       arg))
+                       args)))
+           ((Some (Associated class member))
+            (resolve-projection env
+                                class
+                                member
+                                (map
+                                 (lambda (arg)
+                                   (resolve-type
+                                    cx
+                                    env
+                                    arg))
+                                 args)
+                                (program-class
+                                 (● cx
+                                    program)
+                                 class)
+                                loc))
+           ((Some (TypeVar type))
+            (if (null? args)
+                type
+                (compile-error loc
+                               "a type variable takes no arguments")))
+           ((Some (Alias name
+                         params
+                         body
+                         alias-env))
+            (unless (= (length params)
+                       (length args))
+              (compile-error loc
+                             (string-append
+                              "wrong number of alias arguments: "
+                              identifier-name)))
+            (when (member? name
+                           (● cx aliases))
+              (compile-error loc
+                             (string-append
+                              "type alias refers to itself: "
+                              identifier-name)))
+            (let ((scope
+                   (fold-left
+                    (lambda (scope pair)
+                      (extend scope
+                              (● pair first)
+                              (TypeVar
+                               (resolve-type
+                                cx
+                                env
+                                (● pair
+                                   second)))))
+                    alias-env
+                    (zip params args))))
+              (resolve-type
+               (Context-aliases-set cx
+                                    (Cons
+                                     name
+                                     (● cx
+                                        aliases)))
+               scope
+               body)))
+           (_ (compile-error loc
+                             (string-append
+                              "not a type: "
+                              identifier-name)))))
+        (_ (panic "internal error: expected Ident"))))
 
     (define (resolve-projection (env Env)
                                 (id String)
@@ -3537,8 +3156,7 @@
     (define (enclosing-requirements (env Env)) (→ (List Constraint))
       (match env
         ((EvidenceScope constraints rest) (append constraints (enclosing-requirements rest)))
-        ((InstanceScope _ rest) (enclosing-requirements rest))
-        ((InstanceOwner _ rest) (enclosing-requirements rest))
+
         ((Frame _ _ rest) (enclosing-requirements rest))
         ((Top _ _) (Nil))))
 
@@ -3573,13 +3191,11 @@
         ((Cons (Ident "→" _ _) _) (compile-error loc "a callable signature has only one →"))
         ((Cons (Ident "!" _ _) _)
          (compile-error loc "a callable signature needs a result before !"))
-        ((Cons result (Nil)) (TFun params (resolve-type cx env result) empty-row))
+        ((Cons result (Nil)) (TFun params (resolve-type cx env result) (empty-row)))
         ((Cons result (Cons (Ident "!" _ _) labels))
          (TFun params (resolve-type cx env result) (resolve-row cx env labels loc)))
         (_ (compile-error loc
                           "expected one result type after →, optionally followed by ! effects"))))
-
-
 
     (define (resolve-row (cx Context) (env Env) (items (List Syntax)) (loc Loc))
       (→ Type)
@@ -3595,7 +3211,12 @@
                   (TRow labels (Some type))
                   (compile-error loc "a row variable must come last")))
              (_ (compile-error (syntax-loc item)
-                               (string-append "not an effect: " (Ident-name item)))))))))
+                               (string-append "not an effect: "
+                                              (match item
+                                                ((Ident identifier-name _ _)
+                                                 identifier-name)
+                                                (_
+                                                 (panic "internal error: expected Ident")))))))))))
 
     ;; ---- Expressions ----
 
@@ -3608,7 +3229,7 @@
       (! compile)
       (match items
         ((Cons _ (Cons (Atom (DString name) _) (Cons file (Cons cons (Cons nil (Nil))))))
-         (expanding cx ((files (resolve-artifact-files name loc)))
+         (expanding cx ((files (artifact-files name loc)))
                     (expand-expr cx env (fold-right (lambda (entry rest)
                                                       (Form (list cons
                                                                   (Form (list file
@@ -3630,18 +3251,6 @@
     ;; library during deriving. Record an actual invocation once; unused
     ;; macro templates never enter this accumulator.
 
-    (define (resolve-artifact-files (cx Context) (name String) (loc Loc))
-      (→ (Pair ArtifactFiles Context))
-      (! compile)
-      (match (find (lambda (use) (string=? name (● use name))) (● cx artifact-uses))
-        ((Some use) (Pair (● use files) cx))
-        ((None)
-         (expanding cx ((files (artifact-files name loc)))
-                    (Pair files
-                          (Context-artifact-uses-set cx
-                                                     (Cons (ArtifactUse name loc files)
-                                                           (● cx artifact-uses))))))))
-
     ;; Expands macro uses at the head of a form until the head is not a macro.
 
     (define (expand-head (cx Context) (env Env) (syntax Syntax))
@@ -3654,7 +3263,7 @@
         (_ (Pair syntax cx))))
 
     (define (expr (term Term) (loc Loc)) (→ Expr)
-      (Expr term unchecked loc))
+      (Expr term (unchecked) loc))
 
     (define (expand-expr (cx Context) (env Env) (syntax Syntax)) (→ (Pair Expr Context)) (! compile)
       (expanding cx ((syntax (expand-head env syntax)))
@@ -3670,7 +3279,13 @@
       (match syntax
         ((Form (Cons head args) _)
          (match (head-binding cx env syntax)
-           ((Some (Core keyword)) (expand-core cx env keyword (Form-items syntax) loc))
+           ((Some (Core keyword)) (expand-core cx env keyword (Cons head args) loc))
+           ((Some (TypeName "Any" _ _))
+            (match args
+              ((Cons value (Nil))
+               (expanding cx ((value (expand-expr env value)))
+                          (Pair (expr (BoxAny value) loc) cx)))
+              (_ (compile-error loc "expected (Any expression)"))))
            (_ (expanding cx ((callee (expand-expr env head))
                              (arguments (expand-each env args)))
                          (Pair (expr (App callee arguments) loc) cx)))))
@@ -3682,20 +3297,47 @@
       (each cx (lambda (cx form) (expand-expr cx env form)) forms))
 
     (define (expand-reference (cx Context) (env Env) (ident Syntax) (loc Loc)) (→ Expr) (! compile)
-      (match (resolve cx env ident)
-        ((Some (Local name)) (expr (Var name (Nil) (Nil)) loc))
-        ((Some (Global name))
-         (match (program-value (● cx program) name)
-           ((Some (Replacer case _ _))
-            (check-own-library cx (● case type) loc "replace its fields"))
-           (_ (unit)))
-         (expr (Var name (Nil) (Nil)) loc))
-        ((Some (TypeName _ _ (Some constructor))) (expr (Var constructor (Nil) (Nil)) loc))
-        ((Some (TypeName _ _ (None)))
-         (compile-error loc (string-append "a type is not a value: " (Ident-name ident))))
-        ((Some (Core "field-read")) (compile-error loc field-read-message))
-        ((None) (compile-error loc (string-append "unbound identifier " (Ident-name ident))))
-        (_ (compile-error loc (string-append "syntax used as a value: " (Ident-name ident))))))
+      (match ident
+        ((Ident identifier-name _ _)
+         (match (resolve cx env ident)
+           ((Some (Local name))
+            (expr (Var name (Nil) (Nil))
+                  loc))
+           ((Some (Global name))
+            (match (program-value
+                    (● cx program)
+                    name)
+              ((Some (Replacer case _ _))
+               (check-own-library cx
+                                  (● case
+                                     type)
+                                  loc
+                                  "replace its fields"))
+              (_ (unit)))
+            (expr (Var name (Nil) (Nil))
+                  loc))
+           ((Some (TypeName _
+                            _
+                            (Some
+                             constructor)))
+            (expr
+             (Var constructor (Nil) (Nil))
+             loc))
+           ((Some (TypeName _ _ (None)))
+            (compile-error loc
+                           (string-append
+                            "a type is not a value: "
+                            identifier-name)))
+           ((None)
+            (compile-error loc
+                           (string-append
+                            "unbound identifier "
+                            identifier-name)))
+           (_ (compile-error loc
+                             (string-append
+                              "syntax used as a value: "
+                              identifier-name)))))
+        (_ (panic "internal error: expected Ident"))))
 
     ;; The receiver is expanded once. Each label selects a real struct slot;
     ;; type checking resolves the record type and any pointer traversal.
@@ -3704,7 +3346,7 @@
       (match items
         ((Cons receiver (Cons first rest))
          (let ((labels (map (lambda (label)
-                              (Ident-name (expect-ident label "a field label")))
+                              (expect-name label "a field label"))
                             (Cons first rest))))
            (expanding cx ((value (expand-expr env receiver)))
                       (Pair (fold-left (lambda (value label)
@@ -3717,19 +3359,12 @@
       (! compile)
       (case keyword
         (("●") (expand-field-read cx env (list-drop items 1) loc))
-        (("field-read") (compile-error loc field-read-message))
         (("lambda")
          (match items
            ((Cons _ (Cons params body))
-            (expand-lambda cx env (form-items params "a parameter list") body #t loc))
+            (expand-lambda cx env (form-items params "a parameter list") body  loc))
            (_ (compile-error loc "expected (lambda (parameter ...) body ...)"))))
-        ;; A function that may not capture: it reads only its parameters,
-        ;; its own locals and globals, so it has no environment.
-        (("fn")
-         (match items
-           ((Cons _ (Cons params body))
-            (expand-lambda cx env (form-items params "a parameter list") body #f loc))
-           (_ (compile-error loc "expected (fn (parameter ...) body ...)"))))
+
         (("if")
          ;; `then` is `expanding`'s own keyword, so the branches are named
          ;; otherwise.
@@ -3743,14 +3378,7 @@
             (expanding cx ((test (expand-expr env test)) (consequent (expand-expr env consequent)))
                        (Pair (expr (If test consequent (expr (Lit (DUnit)) loc)) loc) cx)))
            (_ (compile-error loc "expected (if test then [else])"))))
-        (("with-instances")
-         (match (list-tail items 1)
-           ((Cons sets body)
-            (let ((scope (InstanceScope (form-items sets "a list of instance sets") env)))
-              (expanding cx ((value (expand-body scope body loc)))
-                         (Pair (expr (ScopedInstances (active-instance-sets cx scope) value) loc)
-                               cx))))
-           (_ (compile-error loc "expected (with-instances (set ...) body ...)"))))
+
         (("begin") (expand-body cx env (list-tail items 1) loc))
         (("let") (expand-let cx env items loc))
         (("match") (expand-match cx env items loc))
@@ -3763,24 +3391,12 @@
                        (Pair (expr (Ann value (resolve-type cx env type)) loc) cx)))
            (_ (compile-error loc "expected (ann expression type)"))))
         (("handle") (expand-handle cx env items loc))
-        (("type-convert")
+        (("downcast")
          (match items
-           ((Cons _ (Cons value (Cons type (Nil))))
+           ((Cons _ (Cons type (Cons value (Nil))))
             (expanding cx ((value (expand-expr env value)))
-                       (Pair (expr (Convert value (resolve-type cx env type)) loc) cx)))
-           (_ (compile-error loc "expected (type-convert expression type)"))))
-        (("try-convert")
-         (match items
-           ((Cons _ (Cons value (Cons type (Nil))))
-            (expanding cx ((value (expand-expr env value)))
-                       (Pair (expr (TryConvert value (resolve-type cx env type)) loc) cx)))
-           (_ (compile-error loc "expected (try-convert expression type)"))))
-        (("type-test")
-         (match items
-           ((Cons _ (Cons value (Cons type (Nil))))
-            (expanding cx ((value (expand-expr env value)))
-                       (Pair (expr (TypeTest value (resolve-type cx env type)) loc) cx)))
-           (_ (compile-error loc "expected (type-test expression type)"))))
+                       (Pair (expr (Downcast value (resolve-type cx env type)) loc) cx)))
+           (_ (compile-error loc "expected (downcast type expression)"))))
         (("case-id")
          (match items
            ((Cons _ (Cons constructor (Nil)))
@@ -3800,13 +3416,13 @@
                            (env Env)
                            (params (List Syntax))
                            (body (List Syntax))
-                           (captures? Bool)
+
                            (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
       (expanding cx ((locals (bind-locals env params))
                      (body (expand-body (● locals first) body loc)))
-                 (Pair (expr (Lambda (● locals second) body captures?) loc) cx)))
+                 (Pair (expr (Lambda (● locals second) body ) loc) cx)))
 
     ;; Binds each identifier to a fresh local, in order; returns the longer
     ;; environment and the unique names.
@@ -3815,7 +3431,7 @@
       (→ (Pair (Pair Env (List String)) Context))
       (! compile)
       (expanding cx ((names (each (lambda (cx ident)
-                                    (fresh cx (Ident-name (expect-ident ident "a variable name"))))
+                                    (fresh cx (expect-name ident "a variable name")))
                                   idents)))
                  (Pair (Pair (fold-left (lambda (env bound)
                                           (extend env
@@ -3830,16 +3446,15 @@
       (→ (Pair Expr Context))
       (! compile)
       (when (null? forms) (compile-error loc "empty body"))
-      (expand-body-forms cx env forms (None) loc))
+      (expand-body-forms cx env forms  loc))
 
     ;; A local body is sequential: each definition is visible to the forms
-    ;; after it, and a function definition is also visible to itself. A
-    ;; signature annotates the definition that follows it.
+    ;; after it, and a function definition is also visible to itself.
 
     (define (expand-body-forms (cx Context)
                                (scope Env)
                                (forms (List Syntax))
-                               (signature (Option (Pair String Type)))
+
                                (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
@@ -3849,69 +3464,43 @@
          (expanding cx ((form (expand-head scope form)))
                     (match (head-binding cx scope form)
                       ((Some (Core "begin"))
-                       (expand-body-forms cx scope (append (form-tail form) rest) signature loc))
+                       (expand-body-forms cx scope (append (form-tail form) rest)  loc))
                       ((Some (Core "define-syntax"))
                        (expanding cx ((inner (define-local-macro scope form)))
-                                  (expand-body-forms cx inner rest signature loc)))
-                      ((Some (Core ":"))
-                       (expand-body-forms cx scope rest (Some (local-signature cx scope form)) loc))
+                                  (expand-body-forms cx inner rest  loc)))
+
                       ((Some (Core "define"))
-                       (expand-local-definition cx scope form rest signature loc))
+                       (expand-local-definition cx scope form rest  loc))
                       (_ (expanding cx ((value (expand-expr scope form)))
                                     (if (null? rest)
                                         (Pair value cx)
                                         (expanding cx ((more
-                                                        (expand-body-forms scope rest (None) loc)))
+                                                        (expand-body-forms scope rest  loc)))
                                                    (Pair (expr (Seq value more) (● value loc))
                                                          cx))))))))))
 
-    (define (local-signature (cx Context) (scope Env) (form Syntax))
-      (→ (Pair String Type))
-      (! compile)
-      (match form
-        ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
-         (Pair (Ident-name (expect-ident name "a name"))
-               (● (resolve-scheme cx scope type) type)))
-        (_ (compile-error (syntax-loc form) "expected (: name type)"))))
-
-    (define (expand-local-definition (cx Context)
-                                     (scope Env)
-                                     (form Syntax)
-                                     (rest (List Syntax))
-                                     (signature (Option (Pair String Type)))
-                                     (loc Loc))
-      (→ (Pair Expr Context))
-      (! compile)
+    (define (expand-local-definition (cx Context) (scope Env) (form Syntax)
+                                     (rest (List Syntax)) (loc Loc))
+      (→ (Pair Expr Context)) (! compile)
       (let* ((definition (parse-definition form)) (ident (● definition name)))
-        (expanding cx ((name (fresh (Ident-name ident))))
+        (expanding cx ((name (fresh (expect-name ident "a local name"))))
                    (let ((inner (extend scope ident (Local name)))
                          (function? (match (● definition parameters)
                                       ((Some _) #t)
                                       ((None)
-                                       (let ((value (list-ref (● definition body) 0)))
-                                         (or (core-form? cx scope value "lambda")
-                                             (core-form? cx scope value "fn")))))))
+                                       (core-form? cx
+                                                   scope
+                                                   (list-ref (● definition body) 0)
+                                                   "lambda")))))
                      (expanding cx ((value (definition-value (if function? inner scope) definition))
-                                    (body (expand-body-forms inner rest (None) loc)))
+                                    (body (expand-body-forms inner rest loc)))
                                 (Pair (expr (Let name
-                                                 (signed-value (annotated-definition-value cx
-                                                                                           scope
-                                                                                           definition
-                                                                                           value)
-                                                               signature (Ident-name ident))
+                                                 (annotated-definition-value cx
+                                                                             scope
+                                                                             definition
+                                                                             value)
                                                  body)
-                                            (syntax-loc form))
-                                      cx))))))
-
-    ;; A local definition's value, annotated with the signature before it
-    ;; when the signature names it.
-
-    (define (signed-value (value Expr) (signature (Option (Pair String Type))) (name String))
-      (→ Expr)
-      (match signature
-        ((Some (Pair signed type))
-         (if (string=? signed name) (expr (Ann value type) (● value loc)) value))
-        ((None) value)))
+                                            (syntax-loc form)) cx))))))
 
     ;; `(let ((name value) ...) body ...)` or the named-let loop form.
 
@@ -3936,19 +3525,23 @@
               (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
-      (expanding cx ((name (fresh (Ident-name ident)))
-                     (loop (expand-lambda (extend env ident (Local name))
-                                          (map binding-name bindings)
-                                          body
-                                          #t
-                                          loc))
-                     (initial
-                      (each (lambda (cx binding) (expand-expr cx env (binding-value binding)))
-                            bindings)))
-                 (Pair
-                  (expr (Let name loop (expr (App (expr (Var name (Nil) (Nil)) loc) initial) loc))
-                        loc)
-                  cx)))
+      (match ident
+        ((Ident identifier-name _ _)
+         (expanding cx ((name (fresh identifier-name))
+                        (loop (expand-lambda (extend env ident (Local name))
+                                             (map binding-name bindings)
+                                             body
+
+                                             loc))
+                        (initial
+                         (each (lambda (cx binding) (expand-expr cx env (binding-value binding)))
+                               bindings)))
+                    (Pair
+                     (expr
+                      (Let name loop (expr (App (expr (Var name (Nil) (Nil)) loc) initial) loc))
+                      loc)
+                     cx)))
+        (_ (panic "internal error: expected Ident"))))
 
     (define (expand-plain-let (cx
                                Context)
@@ -3987,7 +3580,13 @@
          (let ((id (match (resolve cx env (expect-ident effect "an effect name"))
                      ((Some (EffectName id)) id)
                      (_ (compile-error (syntax-loc effect)
-                                       (string-append "not an effect: " (Ident-name effect)))))))
+                                       (string-append "not an effect: "
+                                                      (match effect
+                                                        ((Ident identifier-name _ _)
+                                                         identifier-name)
+                                                        (_
+                                                         (panic
+                                                          "internal error: expected Ident")))))))))
            (when (member? id (list "mut" "host"))
              (compile-error (syntax-loc effect)
                             (string-append "the builtin effect "
@@ -4018,7 +3617,7 @@
       (named-operation (● (program-effect (● cx program) effect) operations) ident))
 
     (define (named-operation (operations (List String)) (ident Syntax)) (→ String) (! compile)
-      (let ((name (Ident-name (expect-ident ident "an operation name"))))
+      (let ((name (expect-name ident "an operation name")))
         (match (find (lambda (operation) (string=? (short-name operation) name)) operations)
           ((Some operation) operation)
           ((None)
@@ -4036,7 +3635,7 @@
     ;; Identifiers they introduce are marked to resolve in an environment of
     ;; the implicit libraries, whatever the declaring library imports.
 
-    (define implicit-libraries (→ (List (List String)))
+    (define (implicit-libraries) (→ (List (List String)))
       (list (list "snail" "core" "forms")
             (list "snail" "core" "primitive")
             (list "snail" "core" "base")
@@ -4060,8 +3659,8 @@
                   ((Ident "Serialize" _ _) (serialize-instance cx head cases loc))
                   ((Ident "Deserialize" _ _) (deserialize-instance cx head cases loc))
                   (_ (compile-error (syntax-loc class)
-                                    "only Move, Repr, Serialize and Deserialize can be derived"))))
-              (derived-instance-classes form))))
+                                    "only Repr, Serialize and Deserialize can be derived"))))
+              (derived-classes form))))
 
     ;; The scope derived instances resolve in, made at the build's first
     ;; deriving clause, which loads the implicit libraries, and shared by
@@ -4069,19 +3668,18 @@
     ;; each expansion loads their current declarations.
 
     (define (deriving-scope (cx Context) (loc Loc)) (→ (Pair I64 Context)) (! fs compile generator)
-      (let ((cx (Context-derives-set cx (Some loc))))
-        (match (● cx deriving)
-          ((Some scope) (Pair scope cx))
-          ((None)
-           (expanding cx ((exports
-                           (each (lambda (cx name) (load-library cx name loc)) implicit-libraries))
-                          (env (new-top (fold-left (lambda (table entry)
-                                                     (table-set table
-                                                                (● entry first)
-                                                                (● entry second)))
-                                                   empty-table (concatenate exports))))
-                          (scope (register-scope env)))
-                      (Pair scope (Context-deriving-set cx (Some scope))))))))
+      (match (● cx deriving)
+        ((Some scope) (Pair scope cx))
+        ((None)
+         (expanding cx ((exports
+                         (each (lambda (cx name) (load-library cx name loc)) (implicit-libraries)))
+                        (env (new-top (fold-left (lambda (table entry)
+                                                   (table-set table
+                                                              (● entry first)
+                                                              (● entry second)))
+                                                 (empty-table) (concatenate exports))))
+                        (scope (register-scope env)))
+                    (Pair scope (Context-deriving-set cx (Some scope)))))))
 
     ;; Deriving may inspect only Copy values. Check after all declarations,
     ;; since a later Drop instance can make a type own an external resource.
@@ -4162,7 +3760,12 @@
 
     (define (repr-case (d Deriver) (case (Pair Syntax I64))) (→ Syntax)
       (let* ((fields (field-idents d (● case second)))
-             (open (Atom (DString (string-append "(" (Ident-name (● case first)))) (● d loc)))
+             (open (Atom (DString (string-append "("
+                                                 (match (● case first)
+                                                   ((Ident identifier-name _ _)
+                                                    identifier-name)
+                                                   (_ (panic "internal error: expected Ident")))))
+                         (● d loc)))
              (space (Atom (DString " ") (● d loc)))
              (close (Atom (DString ")") (● d loc)))
              (pieces (Cons open
@@ -4298,13 +3901,25 @@
     (define (pattern-variables (syntax Syntax)) (→ (List Syntax)) (! compile)
       (let ((variables (pattern-idents syntax)))
         (for-each (lambda (variable)
-                    (when (< 1
-                             (length (filter (lambda (other)
-                                               (string=? (ident-key other) (ident-key variable)))
-                                             variables)))
-                      (compile-error (syntax-loc variable)
-                                     (string-append "pattern variable bound twice: "
-                                                    (Ident-name variable)))))
+                    (match variable
+                      ((Ident identifier-name _ _)
+                       (when (< 1
+                                (length
+                                 (filter
+                                  (lambda (other)
+                                    (string=?
+                                     (ident-key
+                                      other)
+                                     (ident-key
+                                      variable)))
+                                  variables)))
+                         (compile-error
+                          (syntax-loc
+                           variable)
+                          (string-append
+                           "pattern variable bound twice: "
+                           identifier-name))))
+                      (_ (panic "internal error: expected Ident"))))
                   variables)
         variables))
 
@@ -4322,17 +3937,17 @@
       (→ Pattern)
       (! compile)
       (match syntax
-        ((Ident "_" _ _) (PWild unchecked))
+        ((Ident "_" _ _) (PWild (unchecked)))
         ((Ident _ _ _)
          (match (resolve cx scope syntax)
-           ((Some (Local name)) (PVar name unchecked))
+           ((Some (Local name)) (PVar name (unchecked)))
            (_ (panic "internal error: unbound pattern variable"))))
         ((Atom (DBytes _) loc) (compile-error loc "a byte vector cannot be a pattern"))
-        ((Atom value _) (PLit value unchecked))
+        ((Atom value _) (PLit value (unchecked)))
         ((Form (Cons head args) _)
          (PCon (pattern-constructor cx env head)
                (map (lambda (arg) (expand-pattern cx env scope arg)) args)
-               unchecked))
+               (unchecked)))
         (_ (compile-error (syntax-loc syntax) "expected a pattern"))))
 
     (define (pattern-constructor (cx Context) (env Env) (head Syntax)) (→ String) (! compile)
@@ -4354,7 +3969,7 @@
     (define (check-own-library (cx Context) (type String) (loc Loc) (what String))
       (→ Unit)
       (! compile)
-      (match (lifecycle-instance (● cx program) drop-class type)
+      (match (drop-instance (● cx program) type)
         ((Some _)
          (unless (string=? (name-owner type) (● cx prefix))
            (compile-error loc
@@ -4474,18 +4089,30 @@
 
     (define (same-binding? (cx Context) (env Env) (input Syntax) (macro-env Env) (literal Syntax))
       (→ Bool)
-      (match input
-        ((Ident name _ _)
-         (match (resolve cx env input)
-           ((Some a)
-            (match (resolve cx macro-env literal)
-              ((Some b) (string=? (binding-identity a) (binding-identity b)))
-              ((None) #f)))
-           ((None)
-            (match (resolve cx macro-env literal)
-              ((Some _) #f)
-              ((None) (string=? name (Ident-name literal)))))))
-        (_ #f)))
+      (match literal
+        ((Ident identifier-name _ _)
+         (match input
+           ((Ident name _ _)
+            (match (resolve cx env input)
+              ((Some a)
+               (match (resolve cx
+                               macro-env
+                               literal)
+                 ((Some b)
+                  (string=?
+                   (binding-identity a)
+                   (binding-identity b)))
+                 ((None) #f)))
+              ((None)
+               (match (resolve cx
+                               macro-env
+                               literal)
+                 ((Some _) #f)
+                 ((None)
+                  (string=? name
+                            identifier-name))))))
+           (_ #f)))
+        (_ (panic "internal error: expected Ident"))))
 
     (define (match-items (cx Context)
                          (patterns (List Syntax))
@@ -4633,11 +4260,18 @@
     ;; stamp, resolved in the macro's scope.
 
     (define (rename-ident (ident Syntax) (expansion Expansion)) (→ Syntax)
-      (Ident (Ident-name ident)
-             (Some (Mark (string-append (ident-key ident) "%" (● expansion stamp))
-                         ident
-                         (● expansion scope)))
-             (● expansion loc)))
+      (match ident
+        ((Ident identifier-name _ _)
+         (Ident identifier-name
+                (Some
+                 (Mark (string-append
+                        (ident-key ident)
+                        "%"
+                        (● expansion stamp))
+                       ident
+                       (● expansion scope)))
+                (● expansion loc)))
+        (_ (panic "internal error: expected Ident"))))
 
     )
 
@@ -4670,16 +4304,15 @@
                   (test-discovery (list discover library) discover)
                   (test-links (string-append directory "/links"))
                   (test-primitives (string-append directory "/primitive") library)
-                  (test-annotation-metadata (string-append directory "/annotations") library)
                   (test-deriving-runs (string-append directory "/deriving") library)
-                  (test-deriving-key (string-append directory "/deriving-key") library))))
+                  )))
 
       (define test-callable-signatures
         (lambda () (expect (callable-signature "(→ Unit)")
-                           (TFun (Nil) (TCon "Unit" (Nil)) empty-row))
+                           (TFun (Nil) (TCon "Unit" (Nil)) (empty-row)))
                 (expect (callable-signature "(I64 (Vector String) → Bool ! mut)")
                         (TFun (list (TCon "I64" (Nil)) (TCon "Vector" (list (TCon "String" (Nil)))))
-                              (TCon "Bool" (Nil)) mut-row))
+                              (TCon "Bool" (Nil)) (mut-row)))
                 (for-each (lambda (source)
                             (expect
                              (and (compile-failure (lambda () (callable-signature source))) #t)
@@ -4690,88 +4323,13 @@
 
       (define callable-signature
         (lambda (text)
-          (let* ((cx (new-context (Nil) no-inputs (Supplied)))
+          (let* ((cx (new-context (Nil) (no-inputs) (Supplied)))
                  (imports (fold-left (lambda (table entry)
                                        (table-set table (● entry first) (● entry second)))
-                                     empty-table (core-library)))
+                                     (empty-table) (core-library)))
                  (env (● (new-top cx imports) first)))
             (match (read-text text "callable.sld")
               ((Cons (Form items loc) (Nil)) (resolve-callable-arrow cx env items (Nil) loc))))))
-
-      ;; Metadata follows canonical declarations through imports and repeated builds.
-      ;; Updating only a field's documentation does not change its wire or
-      ;; dynamic type identity, and equal field names have distinct owners.
-      (define test-annotation-metadata
-        (lambda (directory library) (create-directory* (string-append directory "/sample"))
-                (let ((source (string-append directory "/main.sld"))
-                      (module (string-append directory "/sample/docs.sld"))
-                      (directories (list directory library)))
-                  (write-file source
-                              "(import (snail core forms) (prefix (sample docs) renamed-)) (define example (renamed-Entry \"ok\"))")
-                  (write-file module (annotation-library "original"))
-                  (let* ((first (expand-program directories
-                                                annotation-generator
-                                                no-inputs
-                                                source))
-                         (repeated
-                          (expand-program directories annotation-generator no-inputs source))
-                         (program (● repeated program))
-                         (entry (program-type program "sample.docs:Entry")))
-                    (expect
-                     (annotation-documentation (program-annotations program "sample.docs:Entry"))
-                     (Some "A record.\nIts fields are mutable."))
-                    (expect (annotation-documentation
-                             (program-field-annotations program "sample.docs:Entry" "value"))
-                            (Some "original"))
-                    (expect (annotation-documentation
-                             (program-field-annotations program "sample.docs:Other" "value"))
-                            (Some "A different field."))
-                    (expect (program-annotations program "sample.docs:Entry-value") (Nil))
-                    (expect
-                     (annotation-documentation (program-annotations program "sample.docs:label"))
-                     (Some "Name this value."))
-                    (expect (annotation-documentation
-                             (program-annotations program "sample.docs:count"))
-                            (Some "An inline definition."))
-                    (expect
-                     (annotation-documentation (program-annotations program "sample.docs:Waiting"))
-                     (Some "No value yet."))
-                    (expect (annotation-documentation
-                             (program-annotations program "sample.docs:read-name"))
-                            (Some "Read a name."))
-                    (write-file module (annotation-library "updated"))
-                    (let* ((changed
-                            (expand-program directories
-                                            annotation-generator
-                                            no-inputs
-                                            source))
-                           (next (● changed program)))
-                      (expect (annotation-documentation
-                               (program-field-annotations next "sample.docs:Entry" "value"))
-                              (Some "updated"))
-                      (expect (any-type-id next (TCon "sample.docs:Entry" (Nil)))
-                              (any-type-id program (TCon "sample.docs:Entry" (Nil))))
-                      (expect (case-type-id next
-                                            (list-ref
-                                             (● (program-type next "sample.docs:Entry") cases)
-                                             0))
-                              (case-type-id program (list-ref (● entry cases) 0))))))))
-
-      (define annotation-generator
-        (lambda (loading forms) (panic "annotation fixture must not request a generator")))
-
-      (define annotation-library
-        (lambda (documentation) (string-append
-                                 "(define-library (sample docs) (export Entry) (import (snail core base)) (begin\n"
-                                 "(struct Entry ((value String (annotations (doc "
-                                 (datum->string (DString documentation))
-                                 ")))) (annotations (doc \"A record.\") (doc \"Its fields are mutable.\")))\n"
-                                 "(struct Other ((value I64 (annotations (doc \"A different field.\")))))\n"
-                                 "(enum Readiness (Waiting (annotations (doc \"No value yet.\"))))\n"
-                                 "(define count (→ I64) (annotations (doc \"An inline definition.\")) 0)\n"
-                                 "(typeclass (Named T) (: label (Fn T → String) (annotations (doc \"Name this value.\"))))\n"
-                                 "(effect names ((read-name (Fn Unit → String) (annotations (doc \"Read a name.\")))))\n"
-                                 "))")))
 
       ;; A producer names its recipe after its imports, as the path the
       ;; recipe was found at.
@@ -4781,17 +4339,20 @@
                                         (DefinedLibrary (Nil)))
                                 (expect (map syntax->string
                                              (section-items
-                                              (DefinedLibrary-sections (library-file directories
-                                                                                     (list "sample"
-                                                                                           "top")
-                                                                                     loc))
+                                              (match (library-file directories
+                                                                   (list "sample"
+                                                                         "top")
+                                                                   loc)
+                                                ((DefinedLibrary sections) sections)
+                                                (_ (panic "expected DefinedLibrary")))
                                               "import"))
                                         (list "(sample made)"))
                                 (expect (map syntax->string
-                                             (GeneratedLibrary-forms
-                                              (library-file directories
-                                                            (list "sample" "made")
-                                                            loc)))
+                                             (match (library-file directories
+                                                                  (list "sample" "made")
+                                                                  loc)
+                                               ((GeneratedLibrary forms) forms)
+                                               (_ (panic "expected GeneratedLibrary"))))
                                         (list
                                          "(import (snail core base) (sample helper) (only (snail shell syntax) write-generated-library))"
                                          (string-append "(recipe "
@@ -4806,9 +4367,9 @@
       (define test-library-closure
         (lambda (directories)
           (let* ((imports (program-imports (read-text "(import (sample top)) (unit)" "main.sld")))
-                 (cold (library-closure directories no-inputs (Nil) imports))
+                 (cold (library-closure directories (no-inputs) (Nil) imports))
                  (made (list-ref cold 0))
-                 (inputs (supply-generated no-inputs (producer-text directories (● made forms))
+                 (inputs (supply-generated (no-inputs) (producer-text directories (● made forms))
                                            (generated-library-bytes
                                             "(define-library (sample made) (export) (import (sample inner)) (begin))")))
                  (warm (library-closure directories inputs (Nil) imports)))
@@ -4825,7 +4386,7 @@
       (define closure-error
         (lambda (directories made) (let ((message (compile-failure (lambda ()
                                                                      (library-closure directories
-                                                                                      no-inputs
+                                                                                      (no-inputs)
                                                                                       (● made
                                                                                          loading)
                                                                                       (program-imports
@@ -4840,14 +4401,18 @@
       (define test-discovery
         (lambda (directories root)
           (let* ((assets (library-file directories (list "sample" "assets") (Loc "test.sld" 1 1)))
-                 (inputs (supply-generated no-inputs
+                 (inputs (supply-generated (no-inputs)
                                            (producer-text directories
-                                                          (GeneratedLibrary-forms assets))
-                                           (generated-library-bytes assets-output)))
+                                                          (match assets
+                                                            ((GeneratedLibrary forms) forms)
+                                                            (_
+                                                             (panic "expected GeneratedLibrary"))))
+                                           (generated-library-bytes (assets-output))))
                  (uses (discover-artifacts directories inputs (string-append root "/main.sld"))))
-            (expect (map (lambda (record) (● record name)) uses) (list "admin" "client"))
+            (expect (map (lambda (record) (● record name)) uses) (list "admin" "client" "client"))
             (expect (map (lambda (use) (● (● use loc) file)) uses)
                     (list (string-append root "/sample/assets.sld")
+                          (string-append root "/main.sld")
                           (string-append root "/main.sld"))))))
 
       ;; A linked path is made canonical against its library's directory,
@@ -4861,9 +4426,9 @@
                 (write-file (string-append root "/notes.txt") "notes")
                 (write-file (string-append root "/copy.txt") "notes")
                 (write-file (string-append root "/sample/linked.sld")
-                            "(define-library (sample linked) (export pixel) (import (snail core forms)) (begin (define pixel (link-handle \"data/./x/../pixel.bin\"))))")
+                            "(define-library (sample linked) (export pixel) (import (snail core forms)) (begin (define (pixel) (→ I32) (link-handle \"data/./x/../pixel.bin\"))))")
                 (let ((expansion (link-expansion root
-                                                 "(import (snail core forms) (sample linked)) (define notes (link-handle \"notes.txt\")) (define other (link-handle \"notes.txt\")) (define copy (link-handle \"copy.txt\"))")))
+                                                 "(import (snail core forms) (sample linked)) (define (notes) (→ I32) (link-handle \"notes.txt\")) (define (other) (→ I32) (link-handle \"notes.txt\")) (define (copy) (→ I32) (link-handle \"copy.txt\"))")))
                   (expect (map (lambda (record) (● record digest)) (program-links expansion))
                           (list "3f8d7379e2f0f7d0c845a06f7b67ef80cacce0c686254aced769c1698f3fe59a"
                                 "ab5aa97074c454a0632057e704220d9a6678fbf773a0a5806fc09b8173b07309"))
@@ -4885,7 +4450,7 @@
         (lambda (root body) (write-file (string-append root "/main.sld") body)
                 (expand-program (list root)
                                 (lambda (loading forms) (panic "unexpected producer"))
-                                no-inputs
+                                (no-inputs)
                                 (string-append root "/main.sld"))))
 
       (define link-error
@@ -4893,7 +4458,7 @@
                                             (lambda ()
                                               (link-expansion root
                                                               (string-append
-                                                               "(import (snail core forms)) (define linked (link-handle \""
+                                                               "(import (snail core forms)) (define (linked) (→ I32) (link-handle \""
                                                                path
                                                                "\"))"))))))
                               (if message
@@ -4915,7 +4480,7 @@
                 (let ((program (● (expand-program (list root library)
                                                   (lambda (loading forms)
                                                     (panic "unexpected producer"))
-                                                  no-inputs
+                                                  (no-inputs)
                                                   (string-append root "/main.sld")) program)))
                   (expect (primitive-scheme program "vector-ref")
                           (list (list "A") "(Fn (Vector A) I64 → A)"))
@@ -4944,12 +4509,12 @@
                              "(define-library (sample shape) (export Shape) (import (snail core base))"
                              " (begin (struct Shape ((side I64)) (deriving Serialize Deserialize))))"))
                 (write-file (string-append root "/main.sld")
-                            "(import (snail core base) (sample shape)) (define example (Shape 2))")
+                            "(import (snail core base) (sample shape)) (define (example) (→ Shape) (Shape 2))")
                 (let* ((expand (lambda ()
                                  (expand-program (list root library)
                                                  (lambda (loading forms)
                                                    (panic "unexpected producer"))
-                                                 no-inputs
+                                                 (no-inputs)
                                                  (string-append root "/main.sld"))))
                        (first (expand)))
                   (expect (every? own-run? (expansion-runs first)) #t)
@@ -4957,46 +4522,6 @@
                   (expect (deriving-order first) (list "snail.shell.wire" "sample.shape" "main"))
                   (expect (deriving-order (expand))
                           (list "snail.shell.wire" "sample.shape" "main")))))
-
-      ;; A library's derived instances hold while the implicit libraries'
-      ;; interfaces do (#546): a definition added to the wire changes its
-      ;; interface, so the library that derives is expanded under a new
-      ;; key, though its text is the same. A body edit also re-expands the
-      ;; wire's instance methods with fresh identities; derived evidence
-      ;; must follow them. An unchanged build keeps its key. The wire is a
-      ;; copy of the standard one, found first.
-      (define test-deriving-key
-        (lambda (root library)
-          (let* ((wire (read-file (string-append library "/snail/shell/wire.sld")))
-                 (end (- (string-length wire) 2))
-                 (marked (lambda (value)
-                           (string-append (substring wire 0 end)
-                                          " (begin (: wire-marker I64) (define wire-marker "
-                                          value
-                                          ")))\n")))
-                 (expand (lambda (text)
-                           (write-file (string-append root "/snail/shell/wire.sld") text)
-                           (expand-program (list root library)
-                                           (lambda (loading forms) (panic "unexpected producer"))
-                                           no-inputs
-                                           (string-append root "/main.sld"))))
-                 (key (lambda (expansion) (library-key expansion "sample.shape"))))
-            (expect (substring wire end (string-length wire)) ")\n")
-            (create-directory* (string-append root "/sample"))
-            (create-directory* (string-append root "/snail/shell"))
-            (write-file (string-append root "/sample/shape.sld")
-                        (string-append
-                         "(define-library (sample shape) (export Shape) (import (snail core base))"
-                         " (begin (struct Shape ((side I64)) (deriving Serialize))))"))
-            (write-file (string-append root "/main.sld")
-                        "(import (snail core base) (sample shape)) (define example (Shape 2))")
-            (let* ((first (expand wire))
-                   (second (expand (marked "1")))
-                   (third (expand (marked "2")))
-                   (fourth (expand (marked "2"))))
-              (expect (string=? (key first) (key second)) #f)
-              (expect (string=? (key second) (key third)) #f)
-              (expect (key fourth) (key third))))))
 
       (define expansion-runs
         (lambda (expansion) (let ((program (● expansion program)))
@@ -5026,10 +4551,10 @@
                                   (list (● scheme vars) (type->string (● scheme type))))
                                  (_ (list)))))
 
-      (define assets-output
+      (define (assets-output) (→ String)
         (string-append
          "(define-library (sample assets) (export admin-bundle) (import (snail core base) (snail shell artifact)) "
-         "(begin (: admin-bundle ArtifactBundle) (define admin-bundle (artifact-bundle \"admin\"))))"))
+         "(begin (define (admin-bundle) (→ ArtifactBundle) (artifact-bundle \"admin\"))))"))
 
       (define write-sources
         (lambda (directory) (create-directory* (string-append directory "/walk/sample"))
@@ -5047,13 +4572,13 @@
                                       "(generate-library (sample inner) (import (snail core base)) (unit))")
                                 (Pair "discover/sample/assets.sld"
                                       "(generate-library (sample assets) (import (snail core base)) (unit))")
-                                (Pair "discover/main.sld" discovery-main)))))
+                                (Pair "discover/main.sld" (discovery-main))))))
 
-      (define discovery-main
+      (define (discovery-main) (→ String)
         (string-append
          "(import (snail core base) (rename (snail shell artifact) (artifact-bundle bundle)) (sample assets))\n"
          "(define-syntax client-snapshot (syntax-rules () ((_) (bundle \"client\"))))\n"
          "(define-syntax unused (syntax-rules () ((_) (bundle \"does-not-exist\"))))\n"
-         "(define snapshot (client-snapshot))\n"
-         "(define again (client-snapshot))\n"))))
+         "(define (snapshot) (→ ArtifactBundle) (client-snapshot))\n"
+         "(define (again) (→ ArtifactBundle) (client-snapshot))\n"))))
    (else)))

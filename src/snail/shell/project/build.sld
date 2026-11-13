@@ -7,10 +7,9 @@
 ;; given those of each target it embeds, built in an earlier phase.
 ;;
 ;; A debug or release build links each program into one module. A
-;; development build compiles a target a library at a time, in the session
-;; the target's last development build left, so it compiles again only the
-;; libraries an edit reaches, and assembles each module in-process (snail
-;; shell assembler), which only the toolchain's runtime can.
+;; development build compiles every target library afresh and assembles
+;; each module in-process (snail shell assembler). The resident compiler
+;; carries no checked code or emitted modules between builds.
 ;;
 ;; The compiler, assembler and linker run in this program. Node runs
 ;; producers through `run` (snail shell process). A build that fails removes
@@ -29,7 +28,6 @@
    failure->string
    Output
    Candidate
-   Retained
    read-project
    build-project
    publish-project
@@ -48,10 +46,6 @@
          Requested
          Diagnostics
          diagnostics->string)
-   (only (snail shell compiler session)
-         Session
-         make-session
-         build-session)
    (snail shell compiler inputs)
    (snail shell project plan)
    (snail shell process)
@@ -103,10 +97,10 @@
     (effect building
       ((ctl stop (Fn Failure → Never))))
 
-    (define (fail-build (message String)) (→ A) (! building) (∀ A)
+    (define (fail-build (message String)) (→ A) (! building) (∀ (A))
       (absurd (stop (BuildFailure message))))
 
-    (define (attempt (work (Fn → T ! building e))) (→ (Result T Failure)) (! e) (∀ T e)
+    (define (attempt (work (Fn → T ! building e))) (→ (Result T Failure)) (! e) (∀ (T e))
       (handle building
           ((stop (lambda (failure) (Err failure))))
         (Ok (work))))
@@ -118,7 +112,7 @@
     (define (compiled (work (Fn → T ! compile e)))
       (→ T)
       (! building e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (match (compiling work)
         ((Ok value) value)
@@ -250,18 +244,6 @@
       ((project String)
        (outputs (List Output))))
 
-    ;; What a target's development builds carry from one to the next: the
-    ;; session its compile left, the entry and library directories it was
-    ;; made for, and each module as assembled. The two change together, so
-    ;; a module the session did not compile again has the text it had when
-    ;; it was assembled, and the build reuses its digest and bytes.
-    (struct Retained
-      ((name String)
-       (entry String)
-       (directories (List String))
-       (session Session)
-       (modules (List Assembled))))
-
     ;; A module as assembled: its library, its bytes, and their digest,
     ;; which names the object it is placed as.
     (struct Assembled
@@ -278,38 +260,23 @@
 
     ;; What a build has made so far: the inputs the next phase compiles
     ;; with, the targets built, the names of those whose files the inputs
-    ;; already hold, each target's retained session, and the failure that
-    ;; stopped the build, if one did. No phase runs after a failure, and
-    ;; the sessions the phases before it advanced stay advanced.
+    ;; already hold, and the failure that stopped this attempt, if one did.
+    ;; No phase runs after a failure.
     (struct Progress
       ((inputs Inputs)
        (generations (List Generation))
        (supplied (List String))
-       (retained (List Retained))
        (failure (Option Failure))))
 
-    ;; Builds the targets `names` of the project described by `project`, in
-    ;; its directory `directory`, naming each generation with `prefix`. The
-    ;; build works in a directory of its own in `scratch`, removed after. It
-    ;; answers what it built, and what the sessions in `retained` became:
-    ;; a failed build keeps each session it advanced.
-
-    (define (build-project (tools Tools)
-                           (directory String)
-                           (project Project)
-                           (names (List String))
-                           (mode Mode)
-                           (scratch String)
-                           (prefix String)
-                           (retained (List Retained)))
-      (→ (Pair (Result Candidate Failure) (List Retained)))
-      (! mut fs clock process)
+    ;; Build a complete candidate in private scratch. Failure preserves all
+    ;; published generations; no compiler state survives this invocation.
+    (define (build-project (tools Tools) (directory String) (project Project)
+                           (names (List String)) (mode Mode) (scratch String) (prefix String))
+      (→ (Result Candidate Failure)) (! mut fs clock process)
       (match (attempt (lambda () (fresh-scratch scratch)))
-        ((Err failure) (Pair (Err failure) retained))
+        ((Err failure) (Err failure))
         ((Ok working)
-         (let ((built (build-roots (Builder tools directory project mode working prefix)
-                                   names
-                                   (still-built project retained))))
+         (let ((built (build-roots (Builder tools directory project mode working prefix) names)))
            (remove-tree working)
            built))))
 
@@ -317,23 +284,12 @@
       (expect-done (make-directories scratch) (string-append "cannot make " scratch))
       (fresh-directory (string-append scratch "/build-") "" (monotonic-nanoseconds)))
 
-    ;; A target's session goes with the target.
-
-    (define (still-built (project Project) (retained (List Retained))) (→ (List Retained))
-      (filter (lambda (entry)
-                (match (find-target (● project builds) (● entry name))
-                  ((Some _) #t)
-                  ((None) #f)))
-              retained))
-
-    (define (build-roots (builder Builder) (names (List String)) (retained (List Retained)))
-      (→ (Pair (Result Candidate Failure) (List Retained)))
-      (! mut fs clock process)
+    (define (build-roots (builder Builder) (names (List String)))
+      (→ (Result Candidate Failure)) (! mut fs clock process)
       (match (attempt (lambda () (plan-roots builder names)))
-        ((Err failure) (Pair (Err failure) retained))
+        ((Err failure) (Err failure))
         ((Ok plan)
-         (let ((progress (run-waves builder plan (Progress no-inputs (Nil) (Nil) retained (None)))))
-           (Pair (outcome builder progress) (● progress retained))))))
+         (outcome builder (run-waves builder plan (Progress (no-inputs) (Nil) (Nil) (None)))))))
 
     (define (plan-roots (builder Builder) (names (List String))) (→ Plan) (! fs building)
       (let* ((targets (plan-targets builder))
@@ -341,7 +297,7 @@
              (roots (map (lambda (name) (root-target targets file name)) names))
              (printed (in-scratch builder "plan")))
         (expect-done (make-directories printed) (string-append "cannot make " printed))
-        (compiled (lambda () (plan-build targets roots no-inputs printed)))))
+        (compiled (lambda () (plan-build targets roots (no-inputs) printed)))))
 
     ;; A build that failed discards every generation it made.
 
@@ -520,8 +476,7 @@
     ;; ---- Targets ----
 
     ;; Builds a target into a new generation, which goes if the build of it
-    ;; fails. A development build's session advances once its modules are
-    ;; assembled, so a failure packaging the target keeps it.
+    ;; fails. A packaging failure also removes the candidate directory.
 
     (define (build-target (builder Builder) (node I64) (target Target) (progress Progress))
       (→ Progress)
@@ -529,8 +484,8 @@
       (let* ((name (● target name))
              (directory (prepare-generation builder name))
              (program (removing directory
-                                (lambda () (build-program builder node target directory progress))))
-             (progress (Progress-retained-set progress (● program retained))))
+                                (lambda ()
+                                  (build-program builder node target directory progress)))))
         (match (attempt (lambda () (package builder target directory)))
           ((Ok files)
            (Progress-generations-set progress
@@ -548,7 +503,7 @@
     (define (removing (directory String) (work (Fn → T ! building e)))
       (→ T)
       (! fs building e)
-      (∀ T e)
+      (∀ (T e))
       (match (attempt work)
         ((Ok value) value)
         ((Err failure)
@@ -556,13 +511,11 @@
          (absurd (stop failure)))))
 
     ;; What building a target's program left: how many modules it compiled
-    ;; of how many, the files it links, by their sources' paths, and the
-    ;; sessions as they are after it.
+    ;; of how many, and the files it links, by their sources' paths.
     (struct Program
       ((compiled I64)
        (modules I64)
-       (linked (List String))
-       (retained (List Retained))))
+       (linked (List String))))
 
     (define (program-output (program Program)
                             (name String)
@@ -607,8 +560,7 @@
                                       links)
                          (Program 1
                                   1
-                                  (map (lambda (record) (● record path)) links)
-                                  (● progress retained))))))))
+                                  (map (lambda (record) (● record path)) links))))))))
 
     ;; A browser target's host files and public tree; then the files the
     ;; generation holds.
@@ -625,7 +577,7 @@
     (define (in-working (builder Builder) (node I64) (work (Fn String → T ! fs e)))
       (→ T)
       (! fs e)
-      (∀ T e)
+      (∀ (T e))
       (let ((working (in-scratch builder (string-append "phase-" (show node)))))
         (make-directories working)
         (let ((result (work working)))
@@ -727,86 +679,28 @@
     ;; What a manifest says of its store: the path, relative to the
     ;; manifest, with a trailing slash.
 
-    (define shared-store (→ String) "../.snail-store/")
+    (define (shared-store) (→ String) "../.snail-store/")
 
     ;; ---- Development builds ----
 
-    ;; The target compiled in its retained session, or in a new one when
-    ;; there is none or its entry or library directories changed; then each
-    ;; module written to the generation, assembled again only when the
-    ;; session compiled it again. The session the compile left is retained
-    ;; with the modules it was assembled into.
-
-    (define (develop-program (builder Builder)
-                             (target Target)
-                             (directory String)
-                             (working String)
-                             (progress Progress))
-      (→ Program)
-      (! mut fs building)
-      (let* ((previous (retained-for (● progress retained) target))
-             (built (compiled (lambda ()
-                                (build-session (● previous session)
-                                               (● target entry)
-                                               (lambda (loading forms)
-                                                 (generated-syntax working
-                                                                   (● target directories)
-                                                                   loading
-                                                                   forms))
-                                               (● progress inputs)))))
-             (modules (assemble-modules (● built first) (● previous modules)))
-             (links (concatenate (map (lambda (record) (● record links)) (● built first)))))
-        (write-modules builder
-                       directory
-                       modules
+    ;; Every library is compiled and assembled anew. Content digests name
+    ;; published files; they do not decide whether compilation runs.
+    (define (develop-program (builder Builder) (target Target) (directory String)
+                             (working String) (progress Progress))
+      (→ Program) (! mut fs building)
+      (let* ((built (compiled (lambda ()
+                                (source->modules (● target directories) (● target entry)
+                                                 (lambda (loading forms)
+                                                   (generated-syntax working
+                                                                     (● target directories)
+                                                                     loading
+                                                                     forms))
+                                                 (● progress inputs)))))
+             (modules (map assemble-module built))
+             (links (concatenate (map (lambda (module) (● module links)) built))))
+        (write-modules builder directory modules
                        (place-links (project-store builder) (base-name directory) links))
-        (Program (length (filter (lambda (record) (● record compiled?)) (● built first)))
-                 (length modules)
-                 (map (lambda (record) (● record path)) links)
-                 (Cons (Retained (● target name)
-                                 (● target entry)
-                                 (● target directories)
-                                 (● built second)
-                                 modules)
-                       (filter
-                        (lambda (entry) (not (string=? (● entry name) (● target name))))
-                        (● progress retained))))))
-
-    (define (retained-for (retained (List Retained)) (target Target)) (→ Retained)
-      (match (find (lambda (entry)
-                     (and (string=? (● entry name) (● target name))
-                          (string=? (● entry entry) (● target entry))
-                          (same-strings? (● entry directories) (● target directories))))
-                   retained)
-        ((Some entry) entry)
-        ((None)
-         (Retained (● target name)
-                   (● target entry)
-                   (● target directories)
-                   (make-session (● target directories))
-                   (Nil)))))
-
-    (define (same-strings? (a (List String)) (b (List String))) (→ Bool)
-      (match (Pair a b)
-        ((Pair (Nil) (Nil)) #t)
-        ((Pair (Cons x a-rest) (Cons y b-rest)) (and (string=? x y) (same-strings? a-rest b-rest)))
-        (_ #f)))
-
-    ;; Each module as this build has it: as the last build assembled it when
-    ;; the session did not compile it again, which keeps its text.
-
-    (define (assemble-modules (built (List Built)) (previous (List Assembled)))
-      (→ (List Assembled))
-      (! building)
-      (map (lambda (module)
-             (match (if (● module compiled?)
-                        (None)
-                        (find (lambda (assembled)
-                                (string=? (● assembled library) (● module name)))
-                              previous))
-               ((Some assembled) assembled)
-               ((None) (assemble-module module))))
-           built))
+        (Program (length modules) (length modules) (map (lambda (file) (● file path)) links))))
 
     (define (assemble-module (module Built)) (→ Assembled) (! building)
       (let ((text (● module text)))
@@ -851,7 +745,7 @@
       (→ Json)
       (JsonObject
        (list (Pair "runtime" (object-json runtime))
-             (Pair "store" (JsonString shared-store))
+             (Pair "store" (JsonString (shared-store)))
              (Pair "modules"
                    (JsonArray (map (lambda (module)
                                      (JsonObject
@@ -949,7 +843,7 @@
 
     ;; ---- Browser packages ----
 
-    (define browser-files (→ (List String))
+    (define (browser-files) (→ (List String))
       (list "host.mjs"
             "application.mjs"
             "runtime.mjs"
@@ -967,8 +861,8 @@
     ;; tree may use none of them, so one that builds in one mode, or with
     ;; one set of linked files, builds in every other.
 
-    (define generated-names (→ (List String))
-      (append (list "program.wasm" "modules.json" "store" ".snail-target") browser-files))
+    (define (generated-names) (→ (List String))
+      (append (list "program.wasm" "modules.json" "store" ".snail-target") (browser-files)))
 
     ;; The browser host's files, then the target's public tree, if it has
     ;; one. The page is the project's own index.html; none is generated.
@@ -1011,7 +905,7 @@
                    (string-append (● (● builder tools) root) "/host/browser/" file)
                    (string-append directory "/" file)
                    (string-append "cannot copy the browser host's " file)))
-                browser-files)
+                (browser-files))
       (match (find-target (● (● builder description) builds) name)
         ((Some (BrowserTarget browser))
          (match (● browser public)
@@ -1044,7 +938,7 @@
     (define (copy-public (source String) (output String) (top? Bool)) (→ Unit) (! fs building)
       (for-each (lambda (name)
                   (let ((from (string-append source "/" name)) (to (string-append output "/" name)))
-                    (when (or (and top? (member? name generated-names))
+                    (when (or (and top? (member? name (generated-names)))
                               (exists? to)
                               (string=? name ".snail-publish"))
                       (fail-build
@@ -1108,7 +1002,7 @@
              (unmanaged output))))
         ((Some _) (unmanaged output))))
 
-    (define (unmanaged (output String)) (→ A) (! building) (∀ A)
+    (define (unmanaged (output String)) (→ A) (! building) (∀ (A))
       (fail-build (string-append "refusing to replace an unmanaged project output: " output)))
 
     ;; The files of a completed generation, each relative name with its
@@ -1256,7 +1150,7 @@
     (define (expect-done (result (Result T FileError)) (failure String))
       (→ Unit)
       (! building)
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (match result
         ((Ok _) (unit))

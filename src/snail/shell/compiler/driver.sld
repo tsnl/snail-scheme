@@ -46,14 +46,14 @@
       (let ((generate
              (lambda (loading forms) (generated-syntax generated directories loading forms))))
         (cond ((string=? mode "schema")
-               (write-file output (source->schemas directories source generate no-inputs)))
+               (write-file output (source->schemas directories source generate (no-inputs))))
               ((string=? mode "modules")
                (write-modules output
                               generated
-                              (source->modules directories source generate no-inputs)))
+                              (source->modules directories source generate (no-inputs))))
               (else (write-program output
                                    generated
-                                   (source->wat directories source generate no-inputs))))))
+                                   (source->wat directories source generate (no-inputs)))))))
 
     (define (write-program (output String) (generated String) (program WholeProgram))
       (→ Unit)

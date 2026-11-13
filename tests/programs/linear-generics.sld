@@ -4,7 +4,7 @@
 
 ;; A type variable is linear unless its definition requires (Copy A), so a
 ;; generic function that moves its arguments takes linear ones.
-(define (swap (pair (Pair A B))) (→ (Pair B A)) (∀ A B)
+(define (swap (pair (Pair A B))) (→ (Pair B A)) (∀ (A B))
   (match pair
     ((Pair a b) (Pair b a))))
 
@@ -12,7 +12,7 @@
   (once (lambda () (write-line text))))
 
 ;; A function that duplicates requires Copy, and is used at copyable types.
-(define (twice (value A)) (→ (Pair A A)) (∀ A) (⊨ (Copy A))
+(define (twice (value A)) (→ (Pair A A)) (∀ (A)) (⊨ (Copy A))
   (Pair value value))
 
 (define (main) (→ Unit) (! output-port)

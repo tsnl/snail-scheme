@@ -52,7 +52,7 @@
 
     ;; The most bytes a text file served may hold: 8 MiB.
 
-    (define text-limit (→ I64) 8388608)
+    (define (text-limit) (→ I64) 8388608)
 
     (define (revision (text String)) (→ String)
       (bytes->hex (sha256 (string->utf8 text))))
@@ -254,7 +254,7 @@
     (define (current-text (root String) (file ProjectPath))
       (→ (Result ProjectText FileRefusal))
       (! fs)
-      (match (read-text-file (absolute root file) text-limit)
+      (match (read-text-file (absolute root file) (text-limit))
         ((Ok text)
          (if (contains? text #\null)
              (Err (NotServed "text files cannot contain NUL bytes"))
@@ -287,7 +287,7 @@
 
     (define (text-problem (text String)) (→ (Option String))
       (cond ((contains? text #\null) (Some "expected well-formed text without NUL"))
-            ((> (vector-length (string->utf8 text)) text-limit)
+            ((> (vector-length (string->utf8 text)) (text-limit))
              (Some "text files may contain at most 8 MiB"))
             (else (None))))
 

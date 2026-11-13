@@ -72,7 +72,7 @@
                            (subject String)
                            (reply (Result Json Failure)))
       (→ (Result T Failure))
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (match reply
         ((Err failure) (Err failure))

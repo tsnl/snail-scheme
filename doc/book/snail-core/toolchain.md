@@ -133,9 +133,8 @@ editor Save or external writer -> disk -> disk task
 
 Save only writes disk. The disk task triggers compilation regardless of which
 application wrote the file. Manual Build also requests an attempt. Unsaved text
-never enters compilation. Each attempt starts with fresh diagnostics while
-retaining valid compiler caches; an error does not display stale diagnostics
-from the preceding attempt.
+never enters compilation. Each attempt starts with fresh compilation and diagnostics; an error does
+not display stale diagnostics from the preceding attempt.
 
 The cold commands, `snail build` and `snail run`, are a Snail program,
 `bootstrap/cli.sld`, which builds with `(snail shell project build)`: the
@@ -156,17 +155,11 @@ streams, working directory, status and signals. Development builds with the
 same program, as `snail resident PROJECT` in a child process, so synchronous
 compilation and tool IO cannot block the HTTP service or disk observation
 ([the resident builder](compilers.md#the-resident-builder)). The resident
-retains a successful compiler Session per target, even through a build that
-fails after it; changing its entry or ordered library roots starts a new
-Session. Producers run again each attempt, once each. The
-[compiler chapter](compilers.md#separate-compilation) explains reuse: a change
-to any function body currently recompiles its library and importers: the
-content keys conservatively include all implementation bodies. Each build expands current sources;
-unchanged content keys reuse checked code and Wasm. Expanded declaration
-identities and fresh-name counters enter those keys. Instance-provider edits
-invalidate every checked library because providers can be selected outside
-explicit imports.
-A cold start has no retained compiler cache.
+rebuilds all configured targets on every attempt. Producers run again, once
+each within the attempt, and every library is checked, emitted and assembled.
+The [compiler chapter](compilers.md#separate-compilation) describes this full
+build. The previously published generation remains usable until a successful
+candidate is accepted.
 
 `snail dev` is the same program's `dev`, whose service is
 `(snail shell project service)`. Its tasks each wait on one thing: the owner,
@@ -211,9 +204,7 @@ the previous project's public inputs. A reply carries the newly parsed descripti
 even after a later build failure. The service reconciles disk, tests those paths
 against the new description, and asks the resident to publish only if no observed
 input change, and no Build requested meanwhile, superseded it. Otherwise it discards and
-coalesces a successor, so the attempt that answers a Build began after it. Successful
-compiler cache entries remain useful in either case; accepted application files
-remain available after a failed build.
+coalesces a successor, so the attempt that answers a Build began after it. Accepted application files remain available after a failed or discarded build.
 
 `(snail shell development)` makes these decisions as a pure step. It is a function from the service and one event to the next
 service and the commands its host carries out in order. The events are the
@@ -232,7 +223,7 @@ its name, which is the digest of the text it was assembled from. File boundaries
 are length framed; generation directory names and publication bookkeeping are
 excluded.
 The development owner compares that digest and the run's arguments with its last
-issued launch, independently of compiler cache counters. An unchanged child keeps
+issued launch, independently of compilation work. An unchanged child keeps
 its earlier generation and build ID; explicit Restart uses the latest accepted
 generation. Paths observed through command-line arguments therefore still belong
 to the actual run. Native runner/tool changes require restarting the development
@@ -367,8 +358,7 @@ with everything else a client can observe of the session, in one value:
 started, numbered by the epoch, and what it reported. `published` is the
 build the session last accepted, `null` before the first: its epoch, and for
 each target the generation directory its `build/NAME` link names, the digest
-of that generation's files, and how many libraries that build compiled rather
-than reused. `compiler` identifies the resident builder by its process ID,
+of that generation's files, and how many library modules that build compiled. `compiler` identifies the resident builder by its process ID,
 `worker`, and is `null` once it has exited. `runs` is the stream's `runs`.
 
 The development loop's tests (`tests/project-http.mjs`,
@@ -378,7 +368,7 @@ The development loop's tests (`tests/project-http.mjs`,
 --port 0` and observe it only through the URL it prints, this snapshot, the
 event stream, the files on disk and process IDs, so nothing they check
 depends on how the service is written; `tests/development-service.mjs` is
-that client. A case about compiler sessions asks for each attempt with
+that client. A complete-rebuild case asks for each attempt with
 Build, as the editor does, and reads what each target compiled and its digest
 from the snapshot. The tests of `snail build` and `snail run` likewise see
 only the command's exit status, its output and the build directory. What
@@ -640,7 +630,7 @@ patches nor a replay log. File paths are fetched when the counter changes; they
 are not repeated with every process-output update. Each connection-open event,
 including EventSource's automatic reconnects, refreshes listings and file reads.
 Their new intent numbers reject delayed old replies. The listing itself scans
-fresh disk, rather than a cache that could predate the invalidation.
+the current disk contents.
 
 An exact repeat of a build report keeps its diagnostic observations, including
 invalidation by Save or a changed read. Run output and file counters cannot
@@ -753,4 +743,4 @@ not implemented. [Editor and debugger work](https://github.com/tsnl/snail-scheme
 tracks these extensions.
 
 [Build-tooling and package decisions](https://github.com/tsnl/snail-scheme/issues/462)
-track cold-cache reuse, producer-input observation and package installation.
+track complete rebuilds, producer-input observation and package installation.

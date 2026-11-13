@@ -29,7 +29,7 @@
    (snail shell compiler capabilities))
   (begin
 
-    (define no-loc (→ Loc) (Loc "ownership" 0 0))
+    (define (no-loc) (→ Loc) (Loc "ownership" 0 0))
 
     ;; ---- Shared call ownership ----
 
@@ -55,8 +55,7 @@
                                      "prim:rc" "prim:rc-new" "prim:set!" "prim:replace!"
                                      "prim:retain" "prim:release")))
                  (not (and (= index 2)
-                           (member? name (list "prim:vector-set!" "prim:vector-set"))))
-                 (not (and (= index 1) (string=? name "prim:vector-push!")))))
+                           (member? name (list "prim:vector-set!" "prim:vector-set"))))))
            (_ #f)))
         ((Some (Foreign _ _)) #t)
         (_ #f)))
@@ -74,7 +73,7 @@
       (match (● callee term)
         ((Var name _ _)
          (match (program-value program name)
-           ((Some (Defined _ _ _)) #t)
+           ((Some (Defined _ _ )) #t)
            ((Some _) #f)
            ((None) #t)))
         ((Ann inner _) (ordinary-call? program inner))
@@ -89,9 +88,10 @@
     (define (surviving-references (program Program) (expr Expr) (tail? Bool)) (→ (List String))
       (match (● expr term)
         ((Var name _ _) (list name))
-        ((Convert inner _) (surviving-references program inner #f))
+        ((BoxAny inner) (surviving-references program inner #f))
+        ((Downcast inner _) (surviving-references program inner #f))
         ((Ann inner _) (surviving-references program inner tail?))
-        ((Lambda _ _ _) (expr-references expr))
+        ((Lambda _ _ ) (expr-references expr))
         ((Let name value body)
          (let ((names (surviving-references program body tail?)))
            (if (member? name names)
@@ -128,7 +128,7 @@
     (define (stable-aliases (program Program) (value Expr)) (→ (List String))
       (match (● value term)
         ((Var name _ _) (list name))
-        ((Lambda _ _ _) (expr-references value))
+        ((Lambda _ _ ) (expr-references value))
         ((Ann inner _) (stable-aliases program inner))
         (_ (Nil))))
 
@@ -180,7 +180,7 @@
                                           (check-type program
                                                       (● data params)
                                                       (● field type)
-                                                      no-loc))
+                                                      (no-loc)))
                                         (● case fields)))
                             (● data cases))) (table-values (● program types))))
 
@@ -194,27 +194,8 @@
          (check-type program (item-copy schemes item) (● value type) (● value loc))
          (when (linear-type? program (scheme-vars schemes name) (● value type))
            (compile-error (● value loc) "a linear value cannot be a global"))
-         (unless (or (null? (scheme-vars schemes name)) (lambda-expr? value)
-                     (value-template? program value))
-           (compile-error (● value loc)
-                          "a polymorphic value must be a function or a literal/nullary enum template; use a function or a monomorphic lazy value"))
          (check-expression-types program (item-copy schemes item) value))
         (_ (unit))))
-
-    ;; Specializing mutable cached values in importers would create different
-    ;; state than a whole-program build. Only templates with no mutable state
-    ;; may be expanded at each type; aliases inherit their target's contract.
-    (define (value-template? (program Program) (value Expr)) (→ Bool)
-      (match (● value term)
-        ((Lit datum) (match datum ((DBytes _) #f) (_ #t)))
-        ((Var _ _ _) #t)
-        ((Ann inner _) (value-template? program inner))
-        ((App (Expr (Var name _ _) _ _) (Nil))
-         (match (program-value program name)
-           ((Some (Constructor case _))
-            (and (null? (● case fields)) (● (program-type program (● case type)) enum?)))
-           (_ #f)))
-        (_ #f)))
 
     ;; A global's own type variables are unrestricted when checking its type.
 
@@ -350,7 +331,7 @@
         (match (● expr term)
           ((Lit _) path)
           ((Var name _ _) (check-reference path expr name))
-          ((Lambda _ _ _) (check-lambda path expr))
+          ((Lambda _ _ ) (check-lambda path expr))
           ((App callee args) (check-call path callee args))
           ((If test then otherwise)
            (let ((path (check path test)))
@@ -371,14 +352,12 @@
              ;; handled abort may return even when the body does not.
              (Path-returns-set (Path-row-set (check inner body) (● path row))
                                (● path returns))))
-          ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
+
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((Ann inner _)
            (check path inner))
-          ((Convert inner target) (check-conversion path expr inner target))
-          ((TryConvert _ _)
-           (panic "internal error: try-convert must be lowered before ownership checking"))
-          ((TypeTest inner target) (check-conversion path expr inner target)))))
+          ((BoxAny inner) (check-boxing path expr inner (● inner type)))
+          ((Downcast inner target) (check-boxing path expr inner target)))))
 
     ;; The body must consume every linear owner introduced by its binding.
 
@@ -407,8 +386,7 @@
     (define (check-call (path Path) (callee Expr) (args (List Expr))) (→ Path) (! compile)
       (match (Pair (● callee term) args)
         ((Pair (Var "prim:rc" _ _) (Cons value (Nil)))
-         (match (lifecycle-rows (● path program) drop-class (● path copy)
-                                (● path constraints) (● value type))
+         (match (drop-rows (● path program) (● path copy) (● path constraints) (● value type))
            ((Err problem) (compile-error (● value loc) problem))
            ((Ok _) (unit)))
          (check path value))
@@ -457,7 +435,7 @@
         ;; Checking may inspect cleanup before deferred selections are resolved.
         ;; Reading a field observes its receiver, just as a direct accessor does.
         ((FieldRead _ _ _) (Nil))
-        ((Lambda params body _)
+        ((Lambda params body )
          (let ((types (expr-reference-types body)))
            (filter (lambda (name)
                      (and (not (member? name params))
@@ -565,7 +543,7 @@
       (match allowed
         ((Some row)
          (when (ground-type? type)
-           (match (lifecycle-rows (● path program) drop-class (● path copy) (Nil) type)
+           (match (drop-rows (● path program) (● path copy) (Nil) type)
              ((Ok rows)
               (for-each (lambda (performed)
                           (unless (row-within? performed row)
@@ -664,7 +642,7 @@
 
     (define (has-body? (value Value)) (→ Bool)
       (match value
-        ((Defined _ _ _) #t)
+        ((Defined _ _ ) #t)
         ((Method _ _) #t)
         (_ #f)))
 
@@ -762,10 +740,9 @@
        (swapper-name case index)))
 
     (define (swapper-name (case Case) (index I64)) (→ String)
-      (string-append (short-name (● case name))
-                     "-"
+      (string-append "(replace! (● owner "
                      (● (list-ref (● case fields) index) name)
-                     "-replace!"))
+                     ") replacement)"))
 
     ;; A field operation used as a value is checked as a call to it is, and
     ;; it consumes the record it is later applied to: on a linear record
@@ -886,7 +863,7 @@
       (→ Unit)
       (! compile)
       (match (Pair (● expr term) (fn-arrow (● expr type)))
-        ((Pair (Lambda params body _) (TFun types _ row))
+        ((Pair (Lambda params body ) (TFun types _ row))
          (let* ((empty
                  (Path (● path program) (● path copy) (● path constraints) (Nil) #t (Some row)))
                 (start
@@ -933,11 +910,11 @@
         ((Some (Constructor case _)) (● case fields))
         (_ (panic "internal error: a pattern names a constructor"))))
 
-    (define (check-conversion (path Path) (expr Expr) (inner Expr) (target Type))
+    (define (check-boxing (path Path) (expr Expr) (inner Expr) (target Type))
       (→ Path)
       (! compile)
       (when (or (linear? path (● inner type)) (linear? path target))
-        (compile-error (● expr loc) "a linear value cannot cross a dynamic type boundary"))
+        (compile-error (● expr loc) "Any requires a non-linear payload"))
       (check path inner))
 
     ;; A statement's value is discarded, so it cannot be linear.

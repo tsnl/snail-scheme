@@ -8,7 +8,7 @@
   ((count I64)
    (current (Option T))))
 
-(define (share (shared (Rc (Shared T)))) (→ (Pair (Rc (Shared T)) (Rc (Shared T)))) (∀ T)
+(define (share (shared (Rc (Shared T)))) (→ (Pair (Rc (Shared T)) (Rc (Shared T)))) (∀ (T))
   (Pair shared shared))
 
 (define (run-current (shared (Rc (Shared String)))) (→ Unit) (! output-port mut)
@@ -21,28 +21,28 @@
   ((name String)))
 
 (instance (Drop (! output-port) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (write-line (string-append "released " name)))))))
+  (define (drop (handle Handle)) (→ Unit) (! output-port)
+    (match handle
+      ((Handle name) (write-line (string-append "released " name))))))
 
 (struct Token
   ((id I64)))
 
 (instance (Drop (! output-port) Token)
-  (define drop
-    (lambda (token) (match token
-                      ((Token id) (write-line (string-append "released token " (show id))))))))
+  (define (drop (token Token)) (→ Unit) (! output-port)
+    (match token
+      ((Token id) (write-line (string-append "released token " (show id)))))))
 
 (struct Two
   ((handle (Option Handle))
    (token (Option Token))))
 
-(define main
-  (lambda ()
-    (match (share (rc (Shared 0 (Some "ran once"))))
-      ((Pair first second)
-       (run-current first)
-       (run-current second)
-       (write-line (string-append "asked " (show (● first count)) " times"))))
-    (drop (Two (Some (Handle "h")) (Some (Token 1))))
-    (unit)))
+(define (main) (→ Unit) (! mut output-port)
+
+  (match (share (rc (Shared 0 (Some "ran once"))))
+    ((Pair first second)
+     (run-current first)
+     (run-current second)
+     (write-line (string-append "asked " (show (● first count)) " times"))))
+  (drop (Two (Some (Handle "h")) (Some (Token 1))))
+  (unit))

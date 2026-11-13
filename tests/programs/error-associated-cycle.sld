@@ -4,21 +4,23 @@
 
 (typeclass (First A)
   (type Output)
-  (: first (Fn A → Output)))
+  (declare (first (value A)) (→ Output)))
 
 (typeclass (Second A)
   (type Output)
-  (: second (Fn A → Output)))
+  (declare (second (value A)) (→ Output)))
 
 (instance (First A)
   (⊨ (Second A))
   (type Output (Second.Output A))
-  (define first (lambda (value) (second value))))
+  (define (first (value A)) (→ (Second.Output A))
+    (second value)))
 
 (instance (Second A)
   (⊨ (First A))
   (type Output (First.Output A))
-  (define second (lambda (value) (first value))))
+  (define (second (value A)) (→ (First.Output A))
+    (first value)))
 
 (define main
   (lambda ()

@@ -12,7 +12,7 @@
   (handle Abort ((abort (lambda (value resume) (drop resume) (unit))))
     (dispatch-local (once (lambda () (abort 1) (unit))))))
 
-(define main
-  (lambda ()
-    (start)
-    (unit)))
+(define (main) (→ Unit) (! host mut tasks)
+
+  (start)
+  (unit))

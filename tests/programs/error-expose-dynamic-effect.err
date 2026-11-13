@@ -1,1 +1,0 @@
-a dynamic export cannot perform effects: the program that loads it could not check them

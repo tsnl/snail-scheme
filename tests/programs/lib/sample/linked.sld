@@ -10,10 +10,10 @@
    (snail shell resource))
   (begin
 
-    (define greeting (→ Resource) (link-file "data/greeting.txt"))
+    (define (greeting) (→ Resource) (link-file "data/greeting.txt"))
 
     (define (greeting-text) (→ String) (! resource tasks)
       (list->string
-       (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource greeting)))))
+       (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource (greeting))))))
 
     ))

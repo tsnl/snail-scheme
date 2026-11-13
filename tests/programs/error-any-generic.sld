@@ -8,11 +8,14 @@
 (effect Log
   ((log (Fn String → Unit))))
 
-(define (box (value A)) (→ Any) (∀ A) (type-convert value Any))
+(define (box (value A)) (→ Any) (∀ (A)) (Any value))
 
 (define (noisy) (→ Unit) (! Log) (log "hi"))
 
 (define main
   (lambda ()
-    ((ann (type-convert (box noisy) (Fn → Unit)) (Fn → Unit)))
+    ((ann (match (downcast (Fn → Unit) (box noisy))
+            ((Some value) value)
+            ((None) (panic "type mismatch")))
+          (Fn → Unit)))
     (unit)))

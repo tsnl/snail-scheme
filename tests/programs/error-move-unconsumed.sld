@@ -4,7 +4,10 @@
 ;; A token is linear by its declaration, so it must be used.
 (struct Token
   ((id I64))
-  (deriving Move))
+  )
+(instance (Drop (!) Token)
+  (define (drop (value Token)) (→ Unit)
+    (match value ((Token _) (unit)))))
 
 (define main
   (lambda ()

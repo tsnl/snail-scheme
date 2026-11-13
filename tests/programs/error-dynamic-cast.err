@@ -1,1 +1,0 @@
-dynamic-cast makes a function of data, not a (Fn (Fn I64 → I64) I64 → I64)

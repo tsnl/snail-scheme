@@ -116,7 +116,7 @@
     ;; Parse once into membership evidence; a truncated record is an error.
 
     (define (parse-paths (prefix String) (text String)) (→ (Result (Option IgnoreSnapshot) String))
-      (let loop ((start 0) (at 0) (paths empty-table))
+      (let loop ((start 0) (at 0) (paths (empty-table)))
         (cond ((= at (string-length text))
                (if (= start at) (Ok (Some (IgnoreSnapshot prefix paths)))
                    (Err "gitignore: truncated path record")))

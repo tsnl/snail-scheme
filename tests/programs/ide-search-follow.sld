@@ -20,8 +20,6 @@
 (struct Request
   ((issued I64)))
 
-
-
 (enum Delivery
   (Input ((message Msg)))
   (Produced ((read I64)
@@ -97,9 +95,9 @@
 
 (define (input (text String))
   (→ Cue)
-  (Fire "command-query" "input" (Event-value-set no-event text)))
+  (Fire "command-query" "input" (Event-value-set (no-event) text)))
 
-(define enter (→ Cue) (Fire "command-query" "keydown" (Event-key-set no-event "Enter")))
+(define (enter) (→ Cue) (Fire "command-query" "keydown" (Event-key-set (no-event) "Enter")))
 
 (define (verify-focus (result (Pair Node Document))) (→ Unit)
   (let ((expected (string-append "focus " (show (● (● result first) handle))))
@@ -134,15 +132,15 @@
                             (begin (set! (● state events) #t) (Some (StreamEvent "open" ""))))))
          (stream-close (lambda (stream) (unit))))
       (verify-focus (with-memory-dom
-                     (list (FireWindow "keydown" (Event-key-set no-event "F1"))
-                           (input "search-project") enter (input "needle") (Hide) enter
-                           (if delayed-read (FireWindow "online" no-event)
+                     (list (FireWindow "keydown" (Event-key-set (no-event) "F1"))
+                           (input "search-project") (enter) (input "needle") (Hide) (enter)
+                           (if delayed-read (FireWindow "online" (no-event))
                                (FireWindow "keydown"
-                                           (Event-modifiers-set (Event-key-set no-event "\\")
-                                                                control-key)))
+                                           (Event-modifiers-set (Event-key-set (no-event) "\\")
+                                                                (control-key))))
                            (Hide))
                      (lambda ()
-                       (let ((final (run-ui (Model initial 0) (list (Input (Open "notes.txt")))
+                       (let ((final (run-ui (Model (initial) 0) (list (Input (Open "notes.txt")))
                                             (lambda (model message)
                                               (update-test delayed-read
                                                            gate

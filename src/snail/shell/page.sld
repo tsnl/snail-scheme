@@ -45,11 +45,11 @@
 
     ;; ---- Events ----
 
-    (define hidden-kind (→ I32) 12)
+    (define (hidden-kind) (→ I32) 12)
 
-    (define reload-kind (→ I32) 13)
+    (define (reload-kind) (→ I32) 13)
 
-    (define save-kind (→ I32) 16)
+    (define (save-kind) (→ I32) 16)
 
     ;; Waiting for an event, like loading and storing a save below, starts
     ;; on the host and waits by ticket ((snail shell task)'s `through-host`).
@@ -106,8 +106,6 @@
     ;; return, independently of readiness and the optional checkpoint below.
     ;; Suspension or failure never sets it.
 
-
-
     (struct PageRun
       ((completed Bool)
        (incoming (Option Any))
@@ -131,32 +129,26 @@
     ;; effects in a function. Engines request this ordinary evidence rather
     ;; than weakening the compiler's Any boundary.
     (typeclass (PageState S)
-      (: pack-state (Fn S → Any))
-      (: unpack-state (Fn Any → (Option S))))
+      (declare (pack-state (state S)) (→ Any))
+      (declare (unpack-state (boxed Any)) (→ (Option S))))
 
     (define-syntax define-page-state
       (syntax-rules ()
         ((_ State)
          (instance (PageState State)
-           (define (pack-state (state State)) (→ Any) (type-convert state Any))
+           (define (pack-state (state State)) (→ Any) (Any state))
            (define (unpack-state (previous Any)) (→ (Option State))
-             (match (try-convert previous State)
-               ((Ok state) (Some state))
-               ((Err _) (None))))))))
+             (downcast State previous))))))
 
     ;; The host retains these opaque saved values across replacement.
     ;; Only a completed presentation commits; boot keeps an initial recovery
     ;; point without declaring the page ready. The host checks root
     ;; ownership before a caller can replace the checkpoint.
 
-
-
-
-
     (define (commit-page (state S))
       (→ Unit)
       (! mut events page)
-      (∀ S)
+      (∀ (S))
       (⊨ (PageState S) (Copy S) (Drop (!) S))
       (checkpoint-root)
       (set! (● (current-page) current) (Some (pack-state state))))
@@ -166,7 +158,7 @@
                           (decode (Fn Bytes → S)))
       (→ (Option (Pair S I32)))
       (! events storage tasks)
-      (∀ S)
+      (∀ (S))
       (⊨ (PageState S) (Copy S) (Drop (!) S))
       (match (load-save)
         ((Some bytes) (Some (Pair (decode bytes) 1)))
@@ -175,7 +167,7 @@
     (define (boot-page (context PageRun) (initialize (Fn → S ! events)) (decode (Fn Bytes → S)))
       (→ (Option (Pair S I32)))
       (! events storage tasks)
-      (∀ S)
+      (∀ (S))
       (⊨ (PageState S) (Copy S) (Drop (!) S))
       (match (● context incoming)
         ((Some previous)
@@ -193,7 +185,7 @@
                       (run (Fn S (Fn S → Unit ! events storage tasks) → Unit ! e)))
       (→ Unit)
       (! mut events storage tasks page e)
-      (∀ S e)
+      (∀ (S e))
       (⊨ (PageState S) (Copy S) (Drop (!) S))
       (let ((context (current-page)))
         (match (boot-page context initialize decode)
@@ -210,7 +202,7 @@
 
     (define (start-page (context PageRun) (scheduler Scheduler)
                         (work (FnOnce → Unit ! mut tasks page e)))
-      (→ I64) (! mut host e) (∀ e)
+      (→ I64) (! mut host e) (∀ (e))
       (handle page ((current-page (lambda () context)))
         (dispatch-in scheduler
                      (once (lambda ()

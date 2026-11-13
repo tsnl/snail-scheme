@@ -1,1 +1,1 @@
-an entry must be defined as a function
+top-level definitions must be functions; put values in a function or an explicit state object

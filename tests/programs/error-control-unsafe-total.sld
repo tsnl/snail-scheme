@@ -9,8 +9,8 @@
 (define (run (thunk (Fn → I64 ! Abort))) (→ I64)
   (unsafe-total thunk))
 
-(define main
-  (lambda ()
-    (handle Abort ((abort (lambda (value resume) (drop resume) value)))
-      (run (lambda () (abort 1))))
-    (unit)))
+(define (main) (→ Unit)
+
+  (handle Abort ((abort (lambda (value resume) (drop resume) value)))
+    (run (lambda () (abort 1))))
+  (unit))

@@ -50,12 +50,6 @@
       (or (table-contains? (● state globals) name)
           (match (program-value (● state program) name) ((Some _) #t) ((None) #f))))
 
-    ;; A value global is a getter, even when its result is a procedure.
-    (define (direct-function? (state Counting) (name String)) (→ Bool)
-      (match (table-ref (● state globals) name)
-        ((Some binding) (● binding function?))
-        ((None) (global? state name))))
-
     (define (fresh (state Counting) (type Type) (loc Loc)) (→ (Pair Expr Counting))
       (Pair (local (string-append "%counting." (i64->string (● state next))) type loc)
             (Counting-next-set state (+ (● state next) 1))))
@@ -70,9 +64,10 @@
       (Expr (Let (name-of name) value body) (● body type) (● value loc)))
 
     (define (intrinsic (name String) (args (List Expr)) (type Type) (loc Loc)) (→ Expr)
-      (Expr (App (local name (TFun (map (lambda (arg) (● arg type)) args) type empty-row) loc) args)
-            type
-            loc))
+      (Expr
+       (App (local name (TFun (map (lambda (arg) (● arg type)) args) type (empty-row)) loc) args)
+       type
+       loc))
 
     (define (retained (state Counting) (value Expr)) (→ Expr)
       (if (shared? state (● value type))
@@ -97,7 +92,7 @@
 
     (define (new-counting (declarations Declarations) (value Expr)) (→ Counting)
       (Counting (● declarations program) (● declarations bindings)
-                (known-types (● declarations program) empty-table value) 0))
+                (known-types (● declarations program) (empty-table) value) 0))
 
     ;; Pending releases follow result positions in the original tree. Operands
     ;; start with no pending releases; their surrounding expression owns the
@@ -137,18 +132,15 @@
       (let ((rebuild (lambda (term) (Expr term (● expr type) (● expr loc)))))
         (match (● expr term)
           ((Var name _ _) (Pair (if (global? state name) expr (retained state expr)) state))
-          ((Lambda _ _ _) (lower-function state expr #f))
+          ((Lambda _ _ ) (lower-function state expr #f))
           ((App callee args) (lower-call state expr callee args))
           ((Ann inner type)
            (lowering state ((inner (lower inner))) (Pair (rebuild (Ann inner type)) state)))
-          ((Convert inner type)
-           (lowering state ((inner (lower inner))) (Pair (rebuild (Convert inner type)) state)))
-          ((TypeTest inner type)
-           (lowering state ((inner (lower inner)) (read (fresh (● inner type) (● inner loc)))
-                            (body (finish-exit (rebuild (TypeTest read type))
-                                               (if (shared? state (● inner type)) (list read) (Nil))
-                                               #f)))
-                     (Pair (bind read inner body) state)))
+          ((BoxAny inner)
+           (lowering state ((inner (lower inner))) (Pair (rebuild (BoxAny inner)) state)))
+          ((Downcast inner type)
+           (lowering state ((inner (lower inner)))
+                     (Pair (rebuild (Downcast inner type)) state)))
           ((Handle effect implementations body)
            (lowering state
                      ((values (lower-all (map (lambda (entry) (● entry second)) implementations)))
@@ -174,7 +166,7 @@
     ;; usual. A direct top-level function has no closure argument.
     (define (lower-function (state Counting) (expr Expr) (top? Bool)) (→ (Pair Expr Counting))
       (match (Pair (● expr term) (fn-arrow (● expr type)))
-        ((Pair (Lambda params body captures?) (TFun types _ _))
+        ((Pair (Lambda params body ) (TFun types _ _))
          (let ((owners (reverse (concatenate
                                  (map (lambda (pair)
                                         (owned-local state
@@ -182,7 +174,7 @@
                                                      (● pair second)
                                                      (● expr loc)))
                                       (zip params types)))))
-               (closure? (and (not top?) (not (match (● expr type) ((TCon "fn" _) #t) (_ #f))))))
+               (closure? (not top?)))
            (if closure?
                (lowering state ((self (fresh (fn-arrow (● expr type)) (● expr loc)))
                                 (body (lower-exit body (append owners (list self)) #t)))
@@ -190,10 +182,10 @@
                                              (bind self
                                                    (intrinsic "prim:current-closure" (Nil)
                                                               (● self type) (● expr loc))
-                                                   body) captures?) (● expr type) (● expr loc))
+                                                   body) ) (● expr type) (● expr loc))
                                state))
                (lowering state ((body (lower-exit body owners #t)))
-                         (Pair (Expr (Lambda params body captures?) (● expr type) (● expr loc))
+                         (Pair (Expr (Lambda params body ) (● expr type) (● expr loc))
                                state)))))
         (_ (lower state expr))))
 
@@ -241,7 +233,7 @@
                            (args (List Expr))
                            (owners (List Expr)))
       (→ (Pair Expr Counting))
-      (let ((direct? (match (● callee term) ((Var name _ _) (direct-function? state name)) (_ #f))))
+      (let ((direct? (match (● callee term) ((Var name _ _) (global? state name)) (_ #f))))
         (lowering state ((named (name-values (if direct? args (Cons callee args)))))
                   (let* ((values (● named reads))
                          (call (if direct?
@@ -267,10 +259,6 @@
                             (_ (None)))))
            (lowering state ((callee (lower callee)) (args (lower-all args)))
                      (lower-observation state expr callee args operation))))))
-
-
-
-
 
     (define (lower-observation (state Counting) (expr Expr) (callee Expr) (args (List Expr))
                                (operation (Option Value)))
@@ -311,9 +299,9 @@
                  ((Some (Accessor case index scheme))
                   (let* ((operation
                           (if swap? (Swapper case index scheme) (Setter case index scheme)))
-                         (name (string-append name (if swap? "-replace!" "-set!")))
+                         (name (field-operation-name case index (if swap? "replace!" "set!")))
                          (callee (local name (TFun (list (● receiver type) (● incoming type))
-                                                   (● expr type) empty-row) (● expr loc))))
+                                                   (● expr type) (empty-row)) (● expr loc))))
                     (lowering state ((receiver (lower receiver)) (incoming (lower incoming)))
                               (lower-observation state
                                                  expr
@@ -419,7 +407,7 @@
                  (map-indexed
                   (lambda (index child)
                     (let* ((field (list-ref (● case fields) index))
-                           (name (string-append (● case name) "-" (● field name)))
+                           (name (field-operation-name case index "get"))
                            (access (intrinsic name (list read) (pattern-type child) (● read loc))))
                       (pattern-release state child access))) args)))
                (_ (panic "internal error: pattern has no constructor"))))

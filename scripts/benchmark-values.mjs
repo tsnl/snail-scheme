@@ -18,7 +18,6 @@ const cases = [
   ['records', 5_000_000, n => n * 3n],
   ['record_list', 300_000, n => n * (n + 1n)],
   ['vectors', 2_000_000, n => n * (n - 1n) / 2n],
-  ['grow', 1_000_000, n => n * (n - 1n) / 2n],
 ];
 // Each memory observation runs in a fresh process with just one module.
 // This is process RSS, including V8, compilation and warm-up, not live Wasm

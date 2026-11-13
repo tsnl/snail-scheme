@@ -92,10 +92,10 @@
                (list (Dial (Look "health"
                                  "health"
                                  "Hub health"
-                                 (if (< (* 10 (● hub health)) (* 3 hub-health)) (Danger) (Good))
+                                 (if (< (* 10 (● hub health)) (* 3 (hub-health))) (Danger) (Good))
                                  "")
                            (show (● hub health))
-                           (/ (i64->f32 (● hub health)) (i64->f32 hub-health)))
+                           (/ (i64->f32 (● hub health)) (i64->f32 (hub-health))))
                      (Dial (face "energy" "energy" "Energy stored in the network")
                            (show (● world energy))
                            (min 1.0 (/ (i64->f32 (● world energy)) 400.0)))
@@ -107,8 +107,8 @@
                                                 (seconds until))
                                  (if (< until 100) (Warning) (Plain)) (seconds until))
                            (string-append "T" (show tier))
-                           (/ (i64->f32 (remainder (threat-tick world) difficulty-step))
-                              (i64->f32 difficulty-step)))))))
+                           (/ (i64->f32 (remainder (threat-tick world) (difficulty-step)))
+                              (i64->f32 (difficulty-step))))))))
 
     ;; The menu, or the results once the game is decided, then turning.
     (define (controls (game Game)) (→ Panel)
@@ -182,10 +182,10 @@
     (define (upgrade-cost (world World) (cell Cell)) (→ (Option I64))
       (cond ((hub-cell? (● world hub) cell)
              (let ((slots (● (● world hub) slots)))
-               (if (< slots maximum-slots) (Some (slot-cost slots)) (None))))
+               (if (< slots (maximum-slots)) (Some (slot-cost slots)) (None))))
             (else (match (building-at world cell)
                     ((Some b)
-                     (if (and (built? b) (< (● b level) maximum-level))
+                     (if (and (built? b) (< (● b level) (maximum-level)))
                          (Some (raise-cost (● b kind) (● b level)))
                          (None)))
                     ((None) (None))))))
@@ -310,7 +310,7 @@
                                          ""
                                          "The rules and controls, in the Snail-Scheme book")
                                    "How to play"
-                                   guide-url))))
+                                   (guide-url)))))
           (Nil)))
 
     ;; The step points to the glowing crystals, then to the build button;
@@ -321,7 +321,7 @@
                 (list (Normal "Click the ") (Strong "build button") (Normal " to continue")))
           (Text (look "opening-crystal") (list (Normal "Click the ") (Strong "glowing crystal")))))
 
-    (define guide-url (→ String) "https://tsnl.github.io/snail-scheme/games/siegework.html")
+    (define (guide-url) (→ String) "https://tsnl.github.io/snail-scheme/games/siegework.html")
 
     ;; Whether the selected cell would take an extractor now.
     (define (extractor-offered? (game Game)) (→ Bool)

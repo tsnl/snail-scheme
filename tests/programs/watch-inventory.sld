@@ -8,15 +8,15 @@
 ;; is made and removed; and nothing under an excluded directory. The
 ;; edits differ in size, since two writes within one tick of the file
 ;; system's clock carry the same time.
-(define root "build/tests/watch-inventory")
+(define (root) (→ String) "build/tests/watch-inventory")
 
 (define (at (name String)) (→ String)
-  (string-append root "/" name))
+  (string-append (root) "/" name))
 
-(define excluded (→ (List String)) (list (at "build")))
+(define (excluded) (→ (List String)) (list (at "build")))
 
 (define (take (ignored Unit)) (→ Inventory) (! fs)
-  (match (inventory (list (at "src") (at "build") (at "missing")) excluded)
+  (match (inventory (list (at "src") (at "build") (at "missing")) (excluded))
     ((Ok taken) taken)
     ((Err message) (panic message))))
 
@@ -30,8 +30,9 @@
 
 ;; The changes as names under the root, in order.
 (define (changes (before Inventory) (after Inventory)) (→ String)
-  (let ((names (map (lambda (path) (substring path (+ (string-length root) 1) (string-length path)))
-                    (inventory-changes before after))))
+  (let ((names
+         (map (lambda (path) (substring path (+ (string-length (root)) 1) (string-length path)))
+              (inventory-changes before after))))
     (string-append "(" (string-join (sorted names) " ") ")")))
 
 (define (sorted (names (List String))) (→ (List String))
@@ -48,13 +49,13 @@
   after)
 
 (define (main) (→ Unit) (! fs output-port)
-  (remove-tree root)
+  (remove-tree (root))
   (make-directories (at "src/lib"))
   (make-directories (at "build"))
   (write-file (at "src/main.sld") "one")
   (write-file (at "src/lib/util.sld") "util")
   (let* ((first (take (unit)))
-         (_ (report "from nothing" empty-inventory first))
+         (_ (report "from nothing" (empty-inventory) first))
          (same (report "unchanged" first (take (unit))))
          (saved (begin
                   (save "src/main.sld" "three")
@@ -72,7 +73,7 @@
          (removed (begin
                     (remove-file (at "src/lib/util.sld"))
                     (report "removed" made (take (unit))))))
-    (report "back to nothing" removed empty-inventory)
-    (remove-tree root)
+    (report "back to nothing" removed (empty-inventory))
+    (remove-tree (root))
     (unit))
   (unit))

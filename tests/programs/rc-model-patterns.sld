@@ -4,7 +4,10 @@
 
 (struct Child
   ((name String))
-  (deriving Move))
+  )
+(instance (Drop (!) Child)
+  (define (drop (value Child)) (→ Unit)
+    (match value ((Child _) (unit)))))
 
 (struct Model
   ((title String)

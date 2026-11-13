@@ -5,12 +5,12 @@
  (snail core io)
  (snail shell syntax))
 
-(define bytes-text
-  (lambda (bytes)
-    (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list bytes)) " ")))
+(define (bytes-text (bytes (Vector U8))) (→ String)
+
+  (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list bytes)) " "))
 
 ;; (f "λ" -7 1.5 #\a #t #u8(0 200)): λ's code takes two bytes.
-(define example
+(define (example) (→ Syntax)
   (form "f"
         (list (StringSyntax "λ")
               (IntegerSyntax -7)
@@ -20,6 +20,6 @@
               (BytesSyntax (list->vector (list (i32->u8 0) (i32->u8 200)))))))
 
 (define (main) (→ Unit) (! output-port)
-  (write-line (bytes-text (syntax->bytes example)))
+  (write-line (bytes-text (syntax->bytes (example))))
   (write-line (bytes-text (syntax->bytes (FloatSyntax "2.0"))))
   (unit))

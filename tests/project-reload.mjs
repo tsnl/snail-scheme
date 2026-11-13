@@ -83,7 +83,7 @@ try {
   page.runtime.send(9, 1);
   await service.until(() => text(page, 'count') === '3', 'the old program to keep running after a failed build');
 
-  await edit('(define greeting (→ String) 5)', '(define greeting (→ String) "repaired")');
+  await edit('(define (greeting) (→ String) 5)', '(define (greeting) (→ String) "repaired")');
   await relink(page, await published(await service.settled(failed.id)));
   assert.deepEqual([text(page, 'greeting'), text(page, 'count')], ['repaired', '3']);
   console.log('project reload: incremental modules, state handover and failure recovery passed');

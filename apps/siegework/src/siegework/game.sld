@@ -154,9 +154,9 @@
                     1.0
                     0
                     0
-                    (negate turn-milliseconds))
+                    (negate (turn-milliseconds)))
               (Nil)
-              no-gestures
+              (no-gestures)
               (None)
               (None)
               (None)
@@ -166,10 +166,10 @@
     ;; ---- Time ----
 
     ;; The world advances once for each tenth of a second that passes.
-    (define tick-milliseconds (→ I64) 100)
+    (define (tick-milliseconds) (→ I64) 100)
 
     ;; The camera takes this long to turn a quarter.
-    (define turn-milliseconds (→ I64) 300)
+    (define (turn-milliseconds) (→ I64) 300)
 
     ;; The world is still while a dialog pauses it or once it is decided.
     (define (still? (game Game)) (→ Bool)
@@ -178,7 +178,7 @@
     ;; How far the world's things have moved through the current tick; a
     ;; still world holds the frame it stopped at.
     (define (world-motion (game Game)) (→ F32)
-      (min 1.0 (/ (i64->f32 (● game phase)) (i64->f32 tick-milliseconds))))
+      (min 1.0 (/ (i64->f32 (● game phase)) (i64->f32 (tick-milliseconds)))))
 
     (define (paused? (game Game)) (→ Bool)
       (match (● game menu)
@@ -197,7 +197,7 @@
               (paused? game)
               (● game left-handed)
               (View-turned-at-set (View-turned-from-set view (● view heading))
-                                  (negate turn-milliseconds)))))
+                                  (negate (turn-milliseconds))))))
 
     ;; The host reports the screen's size after restoring.
     (define (game-restore (save Save)) (→ Game)
@@ -220,7 +220,7 @@
              (from (i64->f32 (● view turned-from)))
              (to (i64->f32 (● view heading)))
              (t (clamp (/ (i64->f32 (- (● game clock) (● view turned-at)))
-                          (i64->f32 turn-milliseconds))
+                          (i64->f32 (turn-milliseconds)))
                        0.0
                        1.0)))
         (* 1.5707964 (+ from (* (- to from) (* t (* t (- 3.0 (* 2.0 t)))))))))
@@ -245,7 +245,7 @@
     ;; ground and `up` away from the viewer, within the map.
     (define (shifted (game Game) (right F32) (up F32)) (→ View)
       (let* ((view (● game view)) (angle (f32->f64 (heading-angle game)))
-             (c (f64->f32 (cos angle))) (s (f64->f32 (sin angle))) (limit (i64->f32 map-size)))
+             (c (f64->f32 (cos angle))) (s (f64->f32 (sin angle))) (limit (i64->f32 (map-size))))
         (View-z-set (View-x-set view
                                 (clamp (+ (● view x)
                                           (* 0.70710677 (- (* right (- c s)) (* up (+ c s)))))
@@ -271,8 +271,8 @@
       (let ((speed (* (* 0.009 (● (● game view) scale)) (i64->f32 milliseconds))))
         (Game-view-set game
                        (shifted game
-                                (* speed (held-axis game key-right 100 key-left 97))
-                                (* (* 2.0 speed) (held-axis game key-up 119 key-down 115))))))
+                                (* speed (held-axis game (key-right) 100 (key-left) 97))
+                                (* (* 2.0 speed) (held-axis game (key-up) 119 (key-down) 115))))))
 
     ;; Dragging moves the ground with the pointer: a pixel is 18 times the
     ;; zoom over the screen's height across, and twice that up the screen,
@@ -378,7 +378,7 @@
           (parse-code action argument)))
 
     (define (on-map? (index I32)) (→ Bool)
-      (and (<= 0 index) (< (i32->i64 index) (* map-size map-size))))
+      (and (<= 0 index) (< (i32->i64 index) (* (map-size) (map-size)))))
 
     (define (parse-code (action I32) (argument I32)) (→ (Option Command))
       (let ((cell (index-cell (i32->i64 argument))))
@@ -513,11 +513,11 @@
                                      (● game held)
                                      (Cons key (● game held))))))
         (cond (shift game)
-              ((= key key-escape) (escape game))
+              ((= key (key-escape)) (escape game))
               ((= key 112)
                (if (paused? game) (Game-menu-set game (Closed)) (perform game (OpenMenu))))
               ((match (● game menu) ((Closed) #f) (_ #t)) game)
-              ((or (= key key-enter) (= key key-space)) (Game-selected-set game (● game hover)))
+              ((or (= key (key-enter)) (= key (key-space))) (Game-selected-set game (● game hover)))
               (else (match (key-command game key)
                       ((Some command) (perform game command))
                       ((None) game))))))
@@ -539,11 +539,11 @@
               (else (Game-shown-set game (+ (● game shown) milliseconds))))))
 
     (define (catch-up (game Game) (allowed I64)) (→ Game)
-      (cond ((< (● game phase) tick-milliseconds) game)
+      (cond ((< (● game phase) (tick-milliseconds)) game)
             ((or (= allowed 0) (still? game))
-             (Game-phase-set game (min (● game phase) (- tick-milliseconds 1))))
+             (Game-phase-set game (min (● game phase) (- (tick-milliseconds) 1))))
             (else
-             (catch-up (advance-world (Game-phase-set game (- (● game phase) tick-milliseconds)))
+             (catch-up (advance-world (Game-phase-set game (- (● game phase) (tick-milliseconds))))
                        (- allowed 1)))))
 
     (define (advance-world (game Game)) (→ Game)

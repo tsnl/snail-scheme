@@ -13,19 +13,22 @@
   ((name String)))
 
 (instance (Drop (! log) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (say (string-append "released " name)))))))
+  (define (drop (handle Handle)) (→ Unit) (! log)
+    (match handle
+      ((Handle name) (say (string-append "released " name))))))
 
 ;; ANCHOR_END: handle
 
 ;; A token is linear by its declaration, and holds nothing to release.
 (struct Token
   ((id I64))
-  (deriving Move))
+  )
+(instance (Drop (!) Token)
+  (define (drop (value Token)) (→ Unit)
+    (match value ((Token _) (unit)))))
 
 ;; A generic drop needs the row of what it drops.
-(define (release-all (items (List A))) (→ Unit) (! e) (∀ A e) (⊨ (Drop e A))
+(define (release-all (items (List A))) (→ Unit) (! e) (∀ (A e)) (⊨ (Drop e A))
   (drop items))
 
 (define (demo) (→ Unit) (! log)

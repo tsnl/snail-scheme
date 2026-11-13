@@ -52,10 +52,10 @@
 (define (main) (→ Unit) (! host mut output-port tasks)
   (dispatch-local
    (once (lambda ()
-           (let ((result (with-memory-dom (list (Fire "next" "click" no-event)
-                                                (Fire "next" "click" no-event)
-                                                (Fire "next" "click" no-event)
-                                                (Fire "next" "click" no-event))
+           (let ((result (with-memory-dom (list (Fire "next" "click" (no-event))
+                                                (Fire "next" "click" (no-event))
+                                                (Fire "next" "click" (no-event))
+                                                (Fire "next" "click" (no-event)))
                                           (lambda ()
                                             (run-ui 0
                                                     (Nil)

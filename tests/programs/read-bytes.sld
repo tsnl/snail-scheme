@@ -3,12 +3,12 @@
  (snail core base)
  (snail core io))
 
-(define main
-  (lambda ()
-    (define image (read-bytes "tests/programs/data/pixel.png"))
-    (display (vector-length image))
-    (newline)
-    (display
-     (string-join (map (lambda (index) (show (u8->i32 (vector-ref image index)))) (iota 8)) " "))
-    (newline)
-    (unit)))
+(define (main) (→ Unit) (! fs output-port)
+
+  (define image (read-bytes "tests/programs/data/pixel.png"))
+  (display (vector-length image))
+  (newline)
+  (display
+   (string-join (map (lambda (index) (show (u8->i32 (vector-ref image index)))) (iota 8)) " "))
+  (newline)
+  (unit))

@@ -13,11 +13,11 @@
   ((name String)))
 
 (instance (Drop (! audit) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (note name))))))
+  (define (drop (handle Handle)) (→ Unit) (! audit)
+    (match handle
+      ((Handle name) (note name)))))
 
-(define (hold (value A) (action (Fn → Unit ! e))) (→ A) (! e) (∀ A e)
+(define (hold (value A) (action (Fn → Unit ! e))) (→ A) (! e) (∀ (A e))
   (action)
   value)
 

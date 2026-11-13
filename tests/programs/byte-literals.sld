@@ -7,7 +7,7 @@
 (define (checksum (bytes Bytes)) (→ I64)
   (vector-fold (lambda (total byte) (+ total (i32->i64 (u8->i32 byte)))) 0 bytes))
 
-(define every-byte
+(define (every-byte) (→ (Vector U8))
   #u8(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
         32
         33
@@ -238,13 +238,13 @@
   #u8(137 80 78 71 13 10 26 10))
 
 (define (main) (→ Unit) (! output-port)
-  (display (vector-length every-byte))
+  (display (vector-length (every-byte)))
   (newline)
-  (display (checksum every-byte))
+  (display (checksum (every-byte)))
   (newline)
-  (display (u8->i32 (vector-ref every-byte 34)))
+  (display (u8->i32 (vector-ref (every-byte) 34)))
   (newline)
-  (display (u8->i32 (vector-ref every-byte 92)))
+  (display (u8->i32 (vector-ref (every-byte) 92)))
   (newline)
   (display (vector-length #u8()))
   (newline)

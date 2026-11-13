@@ -5,19 +5,22 @@
 ;; An instance method has its class method's row, even when this instance
 ;; performs less of it.
 (typeclass (Announce T)
-  (: announce (Fn T → Unit ! output-port)))
+  (declare (announce (value T)) (→ Unit) (! output-port)))
 
 (instance (Announce I64)
-  (define announce (lambda (n) (write-line (i64->string n)))))
+  (define (announce (n I64)) (→ Unit) (! output-port)
+    (write-line (i64->string n))))
 
 (instance (Announce Bool)
-  (define announce (lambda (b) (unit))))
+  (define (announce (b Bool)) (→ Unit) (! output-port)
+    (unit)))
 
 ;; A definition without a signature has no declared row to compare.
-(define next (lambda (n) (+ n 1)))
+(define (next (n I64)) (→ I64)
+  (+ n 1))
 
 ;; A quantified tail is performed by calling the function that carries it.
-(define (twice (action (Fn → Unit ! e))) (→ Unit) (! e) (∀ e)
+(define (twice (action (Fn → Unit ! e))) (→ Unit) (! e) (∀ (e))
   (action)
   (action))
 

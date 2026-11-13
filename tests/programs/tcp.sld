@@ -5,7 +5,7 @@
  (snail shell task)
  (snail shell socket))
 
-(define (require (result (Result T SocketError))) (→ T) (∀ T)
+(define (require (result (Result T SocketError))) (→ T) (∀ (T))
   (match result
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
@@ -72,7 +72,7 @@
            (write-line (Endpoint-address (require (endpoint "255.255.255.255" 0))))
 
            ;; A token from a replacement handler cannot masquerade as a native handle.
-           (match (close-connection (Connection (type-convert (ann 1 I32) Any)))
+           (match (close-connection (Connection (Any (ann 1 I32))))
              ((Err error) (write-line (● error code)))
              ((Ok _) (panic "a fake token was accepted")))
 

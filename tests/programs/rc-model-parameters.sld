@@ -10,7 +10,7 @@
   (● model title))
 
 (define (forward (value T) (read (Fn T → String ! e)))
-  (→ String) (! e) (∀ T e) (⊨ (Copy T) (Drop e T))
+  (→ String) (! e) (∀ (T e)) (⊨ (Copy T) (Drop e T))
   (read value))
 
 (struct Reader

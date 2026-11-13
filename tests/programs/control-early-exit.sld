@@ -15,7 +15,7 @@
     (value I64)
     (right Tree))))
 
-(define tree (→ Tree)
+(define (tree) (→ Tree)
   (Node (Node (Leaf) 3 (Node (Leaf) 8 (Leaf))) 5 (Node (Node (Leaf) 12 (Leaf)) 7 (Leaf))))
 
 ;; An in-order walk that reports each value it passes, so the output shows
@@ -31,7 +31,7 @@
 
 (define (first-where (wanted (Fn I64 → Bool))) (→ I64) (! output-port)
   (handle Found ((found (lambda (value resume) (drop resume) value)))
-    (walk wanted tree)
+    (walk wanted (tree))
     -1))
 
 ;; Operands that ran before the operation keep their effects; the call
@@ -60,7 +60,7 @@
                                                    (lambda (value resume)
                                                      (drop resume)
                                                      (- 0 value))))
-                                     (sum tree)))))
+                                     (sum (tree))))))
   (write-line (string-append "guarded: " (show (guarded (list 1 2 3)))))
   (write-line (string-append "guarded: " (show (guarded (list 1 -2 3)))))
   (unit))

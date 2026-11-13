@@ -65,8 +65,7 @@
                   [(define define-syntax struct type)
                    (list (if (pair? (cadr form)) (caadr form) (cadr form)))]
                   [(enum) (cons (if (pair? (cadr form)) (caadr form) (cadr form))
-                                (map car (filter (lambda (case) (not (eq? (car case) 'annotations)))
-                                                 (cddr form))))]
+                                (map car (cddr form)))]
                   [(begin) (defined-names (cdr form))]
                   [else '()])) forms)))
 (define (unshadowed-import specification names)

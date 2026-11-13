@@ -57,7 +57,7 @@ try {
 
   // CRLF and an astral character before the compiler point: highlight the
   // whole multi-character literal without shifting the navigation position.
-  const number = prefix + '(define bad (if #t "😀" 12345))\n';
+  const number = prefix + '(define (bad) (→ String) (if #t "😀" 12345))\n';
   await failed(number.replace(/\n/g, '\r\n'), '12345');
   await aligned('12345');
   await browser.evaluate('document.querySelector("#diagnostics button").click()');
@@ -68,7 +68,7 @@ try {
   // Wrong argument count locates the call's opening bracket. Its display
   // includes nested calls, comments, whitespace and different syntax colors.
   const form = '(take-one\n\t(string-append "😀 ]"\n\t               (if #t "(" ")"))\n  #| ) [ #| nested |# |#\n  #;(ignored [datum])\n  "extra")';
-  await failed(prefix + `(define bad ${form})\n`, form);
+  await failed(prefix + `(define (bad) (→ String) ${form})\n`, form);
   await aligned('(take-one\n');
   await aligned('string-append');
   await aligned('"extra"');
@@ -77,7 +77,7 @@ try {
   if (screenshot) await browser.screenshot(screenshot);
 
   const longForm = form.replace('  "extra"', Array.from({length: 200}, (_, i) => `  ; continuation ${i}`).join('\n') + '\n  "extra"');
-  await failed(prefix + `(define bad ${longForm})\n`, longForm);
+  await failed(prefix + `(define (bad) (→ String) ${longForm})\n`, longForm);
   await browser.evaluate(`const editor = document.querySelector('.pane.active .editor'); editor.scrollTop = editor.scrollHeight; editor.scrollLeft = 35; editor.dispatchEvent(new Event('scroll'));`);
   await until(() => browser.evaluate('parseFloat(document.querySelector(".pane.active .highlight").style.top) > 0'), 'virtualized syntax window');
   await aligned('"extra"');

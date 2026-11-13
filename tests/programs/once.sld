@@ -25,7 +25,7 @@
 
 ;; Specializing an unrestricted parameter may retain a procedure whose
 ;; result is linear. Calling that procedure still produces one owned value.
-(define (preserve (value A)) (→ A) (∀ A) value)
+(define (preserve (value A)) (→ A) (∀ (A)) value)
 
 (define (main) (→ Unit) (! output-port)
   (let ((work (message "moved"))) (run work))

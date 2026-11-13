@@ -16,9 +16,9 @@
   ((name String)))
 
 (instance (Drop (! audit) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (note (string-append "closed " name)))))))
+  (define (drop (handle Handle)) (→ Unit) (! audit)
+    (match handle
+      ((Handle name) (note (string-append "closed " name))))))
 
 ;; ANCHOR: cancelled
 ;; The handle is live across `ask`, so the frame saved there holds it. Its

@@ -39,12 +39,12 @@ async function throughTheCommandLine() {
   // compiled and run in private compiler scratch, so the project's build
   // directory holds only the target's generation and its link.
   write('project.datum', '((build-target main (program (entry "main.sld") (library-roots (".")))))');
-  write('main.sld', '(import (snail core base) (generated flag)) (define (main) (→ Unit) (drop (ann value String)))');
+  write('main.sld', '(import (snail core base) (generated flag)) (define (main) (→ Unit) (drop (ann (value) String)))');
   write('flag.txt', 'valid');
   write('generated/flag.sld', `(generate-library (generated flag)
     (import (snail core base) (snail core io) (snail shell syntax))
     (library-syntax (list "generated" "flag") (list "value") (list (list "snail" "core" "base"))
-      (list (form "define" (list (SymbolSyntax "value")
+      (list (form "define" (list (form "value" (Nil))
         (form "→" (list (SymbolSyntax "String")))
           (if (string=? (read-file "${project}/flag.txt") "valid")
             (StringSyntax "ok") (SymbolSyntax "unknown-generated-name")))))))`);

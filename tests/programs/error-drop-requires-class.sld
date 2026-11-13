@@ -8,6 +8,6 @@
 
 (instance (Drop (!) (Box A))
   (⊨ (Show (!) A))
-  (define drop
-    (lambda (box) (match box
-                    ((Box item) (drop item))))))
+  (define (drop (box (Box A))) (→ Unit)
+    (match box
+      ((Box item) (drop item)))))

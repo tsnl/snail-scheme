@@ -10,7 +10,7 @@ instances, which will talk through queues and shared memory
 
 The **host** is the surrounding platform, such as Node or a browser. A runtime
 owns language tasks; an OS process owns its platform execution environment.
-A compiler session is cached compiler work, not an application runtime.
+The resident compiler process handles build requests independently of the application runtime.
 The [toolchain terms](../snail-core/terms.md#toolchain-terms) keep these boundaries
 distinct in the project and development design.
 

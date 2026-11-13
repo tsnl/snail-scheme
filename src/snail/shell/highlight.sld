@@ -102,8 +102,8 @@
     ;; once: (snail core base)'s derived syntax, then the words the expander
     ;; matches by name in libraries, effects and signatures, then forms of
     ;; libraries that ship with the language.
-    (define keywords (→ (List String))
-      (append core-keywords
+    (define (keywords) (→ (List String))
+      (append (core-keywords)
               (list "let*" "letrec" "cond" "case" "when" "unless" "and" "or" "do" "else"
                     "define-library"
                     "import"
@@ -117,8 +117,8 @@
                     "define-page-state" "define-record-type" "guard")))
 
     ;; A definition names what follows `(define`, `(define-syntax` or `(:`.
-    (define defining-forms (→ (List String))
-      (list "define" "define-syntax" ":"))
+    (define (defining-forms) (→ (List String))
+      (list "define" "define-syntax" "declare"))
 
     ;; ---- Tokens ----
 
@@ -196,7 +196,7 @@
       (match naming
         ((Defining) (Pair (DefinedName) (Plain)))
         ((Opened)
-         (if (member? name defining-forms)
+         (if (member? name (defining-forms))
              (Pair (Keyword) (Defining))
              (Pair (plain-name-class name) (Plain))))
         ((Plain) (Pair (plain-name-class name) (Plain)))))
@@ -204,7 +204,7 @@
     ;; A type's name starts with a capital letter.
     (define (plain-name-class (name String)) (→ Class)
       (let ((first (string-ref name 0)))
-        (cond ((member? name keywords) (Keyword))
+        (cond ((member? name (keywords)) (Keyword))
               ((and (not (char<? first #\A)) (not (char<? #\Z first))) (TypeName))
               (else (Identifier)))))
 

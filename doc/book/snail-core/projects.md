@@ -146,10 +146,10 @@ the builder still does not invent a page.
  (snail shell artifact))
 
 
-(define frontend (→ ArtifactBundle) (artifact-bundle "client"))
+(define (frontend) (→ ArtifactBundle) (artifact-bundle "client"))
 
 ;; A lookup in embedded data, without file IO or a runtime build.
-(artifact-ref frontend "index.html")
+(artifact-ref (frontend) "index.html")
 ```
 
 The name must be a literal string naming a browser target in the same project.
@@ -184,9 +184,8 @@ directories, symlinks and nonregular entries are rejected. Inventories name file
 in the completed generation directly, never through the replaceable public link.
 Repeated uses therefore see the same bytes throughout one invocation.
 
-The compiler takes immutable snapshots of those bytes. Its
-[input and cache boundary](compilers.md#compiler-inputs) compares exact evidence
-before reusing an expansion; it never rereads backing files during expansion.
-Each new project attempt regenerates producer output and obtains current
-artifacts. Successful compiler caches may survive a discarded candidate because
-they retain evidence rather than paths into its output directory.
+The compiler takes snapshots of those bytes through its
+[input boundary](compilers.md#compiler-inputs); expansion never rereads backing
+files. Each project attempt regenerates producer output, obtains current
+artifacts, and checks and emits the complete dependency closure. A discarded
+candidate contributes no state to the next compilation.

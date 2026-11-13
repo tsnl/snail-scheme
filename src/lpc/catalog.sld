@@ -93,7 +93,7 @@
       ((name String))
       (deriving Serialize Deserialize))
 
-    (define skins (→ (List Skin))
+    (define (skins) (→ (List Skin))
       (map Skin
            (list "amber"
                  "black"
@@ -117,7 +117,7 @@
                  "taupe"
                  "zombie_green")))
 
-    (define hair-styles (→ (List HairStyle))
+    (define (hair-styles) (→ (List HairStyle))
       (map HairStyle
            (list "afro"
                  "balding"
@@ -165,7 +165,7 @@
                  "twists_fade"
                  "twists_straight")))
 
-    (define hair-colors (→ (List HairColor))
+    (define (hair-colors) (→ (List HairColor))
       (map HairColor
            (list "ash"
                  "black"
@@ -191,7 +191,7 @@
                  "rose"
                  "sandy" "strawberry" "violet" "white")))
 
-    (define dyes (→ (List Dye))
+    (define (dyes) (→ (List Dye))
       (map Dye
            (list "black"
                  "blue"
@@ -230,7 +230,7 @@
       (Pregnant)
       (deriving Serialize Deserialize))
 
-    (define builds (→ (List Build))
+    (define (builds) (→ (List Build))
       (list (Male) (Female) (Teen) (Muscular) (Pregnant)))
 
     (define (build-name (build Build)) (→ String)
@@ -256,7 +256,7 @@
       (Minotaur)
       (deriving Serialize Deserialize))
 
-    (define heads (→ (List Head))
+    (define (heads) (→ (List Head))
       (list (HumanMale)
             (HumanFemale)
             (HumanMaleElderly)
@@ -294,20 +294,20 @@
        (from Rect)
        (swaps (List (Pair I32 I32)))))
 
-    (define bases "src/lpc/lpc-character-bases-v3_1")
+    (define (bases) (→ String) "src/lpc/lpc-character-bases-v3_1")
 
     (define (universal (path String)) (→ Sheet)
-      (Sheet path walk-region (Nil)))
+      (Sheet path (walk-region) (Nil)))
 
     (define (body-sheet (build Build) (skin Skin)) (→ Sheet)
       (universal
-       (string-append bases "/bodies/" (build-name build) "/universal/" (● skin name) ".png")))
+       (string-append (bases) "/bodies/" (build-name build) "/universal/" (● skin name) ".png")))
 
     ;; Each color of the head's own ramp becomes the color at the same place
     ;; in `skin`'s; a head already in that skin needs no swaps.
     (define (head-sheet (head Head) (skin Skin)) (→ Sheet)
       (let ((folder (head-folder head)))
-        (Sheet (string-append bases "/heads/" (● folder first) "/universal.png") walk-region
+        (Sheet (string-append (bases) "/heads/" (● folder first) "/universal.png") (walk-region)
                (filter (lambda (pair) (not (= (● pair first) (● pair second))))
                        (zip (ramp (● folder second)) (ramp (● skin name)))))))
 
@@ -343,7 +343,7 @@
       (Sandals)
       (deriving Serialize Deserialize))
 
-    (define garments (→ (List Garment))
+    (define (garments) (→ (List Garment))
       (list (Longsleeve)
             (Shortsleeve)
             (Blouse)
@@ -396,7 +396,7 @@
 
     ;; Male pants come from wulax's original sprites, which draw them in one
     ;; greenish color on a sheet of walking rows alone.
-    (define male-pants
+    (define (male-pants) (→ Sheet)
       (Sheet "src/lpc/lpc_entry/png/walkcycle/LEGS_pants_greenish.png" (Rect 0 0 576 256) (Nil)))
 
     ;; No pack draws teen footwear, but a teen's feet stand close enough to
@@ -416,7 +416,7 @@
     ;; This is the one place that says what each build can wear.
     (define (garment-drawing (build Build) (garment Garment)) (→ (Option Drawing))
       (match (Pair garment build)
-        ((Pair (Pants) (Male)) (Some (Single (Dye "green") male-pants)))
+        ((Pair (Pants) (Male)) (Some (Single (Dye "green") (male-pants))))
         (_ (let ((folder (garment-folder garment)) (drawn (drawn-build garment build)))
              (if (any? (lambda (other) (string=? (build-name other) (build-name drawn)))
                        (● folder second))
@@ -426,19 +426,19 @@
     ;; The dyes a build can wear a garment in, none where no pack draws it.
     (define (garment-dyes (build Build) (garment Garment)) (→ (List Dye))
       (match (garment-drawing build garment)
-        ((Some (Dyed _ _)) dyes)
+        ((Some (Dyed _ _)) (dyes))
         ((Some (Single dye _)) (list dye))
         ((None) (Nil))))
 
     ;; The builds that can wear a garment.
     (define (garment-builds (garment Garment)) (→ (List Build))
-      (filter (lambda (build) (not (null? (garment-dyes build garment)))) builds))
+      (filter (lambda (build) (not (null? (garment-dyes build garment)))) (builds)))
 
     ;; The garment in `dye` on `build`, or None where no pack draws it so.
     (define (garment-sheet (build Build) (garment Garment) (dye Dye)) (→ (Option Sheet))
       (match (garment-drawing build garment)
         ((Some (Dyed folder drawn))
-         (if (any? (lambda (other) (string=? (● other name) (● dye name))) dyes)
+         (if (any? (lambda (other) (string=? (● other name) (● dye name))) (dyes))
              (Some (universal (string-append "src/lpc/lpc-clothing-updates/spritesheets/"
                                              folder
                                              "/"

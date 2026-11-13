@@ -47,7 +47,7 @@ library. The resulting library still contains only definitions and
 compile-time declarations. Recipe inputs, failures and cycles are tracked
 by the [compiler input protocol](compilers.md#compiler-inputs).
 
-`include-bytes` and `link-file` resolve relative to the recipe's own file.
+`link-file` resolves relative to the recipe's own file.
 The first embeds a dependency as a literal; the second makes a linked resource
 available to the producer's task. Every emitted form is located at the recipe
 for diagnostics. Use `(snail shell syntax)` to construct syntax explicitly;
