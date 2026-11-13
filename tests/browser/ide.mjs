@@ -58,7 +58,7 @@ try {
   assert.ok(await type('(define greeting (→ String) 5)', '(define greeting (→ String)\n"fixed")'));
   await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('"fixed"'); t.setSelectionRange(at, at); })()`);
   await press({key: 'Tab'});
-  assert.match(await text(), /\(define greeting \(→ String\)\n  "fixed"\)/);
+  await until(async () => /\(define greeting \(→ String\)\n  "fixed"\)/.test(await text()), 'the indented line');
   // Enter trims the old line's trailing spaces and indents what follows;
   // the page undoes the complete change as typing.
   await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('"fixed"');

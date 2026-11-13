@@ -954,7 +954,7 @@
         ((TFun _ _ (TRow labels _)) (filter (lambda (label) (not (string=? label effect))) labels))
         (_ (Nil))))
 
-    ;; Definitions contain functions or compile-time values. Entry names the
+    ;; Definitions contain functions or lazy runtime values. Entry names the
     ;; root program's optional main; libraries have no startup phase. An
     ;; exposed function is exported under `symbol`; a `dynamic` one is
     ;; exported instead for programs that load it while they run, behind a

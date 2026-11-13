@@ -44,21 +44,19 @@
         ((Some (Primitive _))
          (match (● callee term)
            ((Var name _ _)
-            (if (member? name (list "prim:constant-vector-fill"))
-                (= index 0)
-                (and (not (member? name
-                                   (list "prim:unsafe-total"
-                                         "prim:inherit-handlers"
-                                         "prim:inherit-handlers-1"
-                                         "prim:once"
-                                         "prim:call-once"
-                                         "prim:drop-once"
-                                         "prim:discard"
-                                         "prim:rc" "prim:rc-new" "prim:set!" "prim:replace!"
-                                         "prim:constant-vector" "prim:retain" "prim:release")))
-                     (not (and (= index 2)
-                               (member? name (list "prim:vector-set!" "prim:vector-set"))))
-                     (not (and (= index 1) (string=? name "prim:vector-push!"))))))
+            (and (not (member? name
+                               (list "prim:unsafe-total"
+                                     "prim:inherit-handlers"
+                                     "prim:inherit-handlers-1"
+                                     "prim:once"
+                                     "prim:call-once"
+                                     "prim:drop-once"
+                                     "prim:discard"
+                                     "prim:rc" "prim:rc-new" "prim:set!" "prim:replace!"
+                                     "prim:retain" "prim:release")))
+                 (not (and (= index 2)
+                           (member? name (list "prim:vector-set!" "prim:vector-set"))))
+                 (not (and (= index 1) (string=? name "prim:vector-push!")))))
            (_ #f)))
         ((Some (Foreign _ _)) #t)
         (_ #f)))
@@ -196,11 +194,29 @@
          (check-type program (item-copy schemes item) (● value type) (● value loc))
          (when (linear-type? program (scheme-vars schemes name) (● value type))
            (compile-error (● value loc) "a linear value cannot be a global"))
+         (unless (or (null? (scheme-vars schemes name)) (lambda-expr? value)
+                     (value-template? program value))
+           (compile-error (● value loc)
+                          "a polymorphic value must be a function or a literal/nullary enum template; use a function or a monomorphic lazy value"))
          (check-expression-types program (item-copy schemes item) value))
         (_ (unit))))
 
-    ;; A global's own type variables. A polymorphic global's initializer
-    ;; is total, so it holds no value of them, and its uses may share it.
+    ;; Specializing mutable cached values in importers would create different
+    ;; state than a whole-program build. Only templates with no mutable state
+    ;; may be expanded at each type; aliases inherit their target's contract.
+    (define (value-template? (program Program) (value Expr)) (→ Bool)
+      (match (● value term)
+        ((Lit datum) (match datum ((DBytes _) #f) (_ #t)))
+        ((Var _ _ _) #t)
+        ((Ann inner _) (value-template? program inner))
+        ((App (Expr (Var name _ _) _ _) (Nil))
+         (match (program-value program name)
+           ((Some (Constructor case _))
+            (and (null? (● case fields)) (● (program-type program (● case type)) enum?)))
+           (_ #f)))
+        (_ #f)))
+
+    ;; A global's own type variables are unrestricted when checking its type.
 
     (define (scheme-vars (schemes (Table Scheme)) (name String)) (→ (List String))
       (match (table-ref schemes name)

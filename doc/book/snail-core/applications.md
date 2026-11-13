@@ -433,7 +433,10 @@ The consumed failing event is dropped; unread input remains. A cold first-frame
 failure also retains its owner so a source fix can resume it.
 A closure kept in the state can retain old code; applications storing functions
 must reconstruct them through save/restore when changing their implementation.
-Relinked module globals, including Scheme's top-level variable cells, start over.
+Replaced modules start with empty lazy value caches. Unchanged module instances
+keep their caches. Escaped old closures keep accessing their original module's
+values; retiring an instance does not run source finalizers. Keep state that
+must survive replacement in the application's Save.
 
 The reload client (`host/browser/reload.sld`, bound by `reload-client.mjs`) compares
 manifests and relinks from the first changed module. It serializes relinks and

@@ -2,26 +2,26 @@
 
 The compiler has four main phases: expand, check, prepare, and emit.
 Reading supplies located syntax. Preparation closes specialization and
-cleanup requests, evaluates constants, and produces fixed concrete code.
+cleanup requests and produces fixed concrete code.
 Emission consumes that result without revisiting source semantics.
 
 ```text
 text ──read───▶ located syntax
      ──expand─▶ resolved program   unique names, declarations, field paths
      ──check──▶ typed program      types, rows, instances, exact-once ownership
-     ──prepare▶ concrete code      constants frozen, control and cleanup explicit
+     ──prepare▶ concrete code      initializers, control and cleanup explicit
      ──emit───▶ WasmGC text ──assemble/link──▶ executable module
 ```
 
 `Prepared` contains declarations, concrete function definitions, an optional
-root entry, exports and host exposures. There is no list of runtime global
-initializers or top-level statements. A nonfunction definition becomes a
-compile-time graph template; a use constructs a fresh graph. This keeps
-mutable-by-default objects from recreating writable module globals.
+root entry, exports and host exposures. Nonfunction definitions become
+zero-argument initializer bodies, lowered through the same ownership and
+control passes as functions. Emission puts each behind a lazy cache getter;
+there is no startup initializer list or top-level statement execution.
 
 The compiler is written in Snail Scheme under `src/snail/shell/compiler/`.
 Its host boundary consists of `(snail core base)`, `(snail core table)` and
-`(snail core io)`, plus the deterministic scalar evaluator adapter.
+`(snail core io)`.
 [Chez](bootstrap.md) runs the source closure for stage zero; the normal
 compiler is itself a linked Wasm program. Most passes thread state through
 pure functions. The emitter uses a locally owned mutable `Module` to collect
@@ -99,8 +99,7 @@ and numeric-tower libraries are gone; typed code needs none of those adapters.
 
 A top-level nonfunction initializer must have an empty effect row. A handler
 can discharge an effect locally, and an intentional `unsafe-total` can hide
-private mutation, but runtime host operations are not compile-time services.
-The evaluator enforces that operational boundary during preparation.
+private mutation. The resulting initializer is compiled as ordinary runtime code.
 
 ### Ownership and lifetimes
 
@@ -166,59 +165,38 @@ concrete callees under the appropriate context and rejects unsupported
 control escape. These checks use the original bodies, before lowering has
 hidden their structure.
 
-### Compile-time evaluation
+### Lazy value initialization
 
-`constants.sld` forces a nonfunction definition only when needed. A forcing
-stack diagnoses value cycles; a recursive function remains code and is not
-on that stack. The evaluator's heap gives objects identities, so mutation,
-aliased fields, weak references and finalization behave as at runtime.
+Preparation keeps the original source classification: a function is callable
+code; a value may itself contain a callable closure. Only the emitted value
+body is wrapped as a zero-argument function. Contextual control analysis still
+sees the original body, so it distinguishes the initializer's effect row from
+the effects of invoking a returned procedure.
 
-The interpreter is an explicit machine: an action evaluates, invokes,
-returns, cancels frames or releases owners. Frames describe pending operands,
-bindings, branches, handlers and cleanup. Its prepared function bodies use
-the same retain/release operations and cancellation guards as Wasm emission.
-A locally handled effect therefore does not need a second ownership policy.
-Fuel and heap budgets bound compile-time execution.
+`wasm.sld` emits one getter and two private globals per monomorphic value:
+its cached storage and a state of uninitialized, initializing or ready. A read
+calls the getter with ordinary evidence. The getter rejects initializing,
+sets that state before running the body, stores the result, marks ready, and
+returns an owned read. Reference storage starts nullable; ready proves it is
+non-null. Initializer emission is non-tail so publication cannot be skipped by
+a tail call. No scheduler, dependency graph or synchronization is needed.
 
-Source closure recipes are retained separately from the prepared code the
-interpreter executes. Lifting uses an explicit worklist carrying lexical
-scope and pending reconstruction, so deep constructor expressions do not
-consume the host's native stack. Freezing a result reconstructs source closures with
-their evaluated captures, which then pass through normal lowering once.
-Each captured name gets its own lexical alias, even when several names share
-an object. This preserves counted ownership edges and shared cleanup order.
-Recipes also retain reverse lexical cleanup order for linear captures; synthetic
-execution parameters and reconstructed source bindings recover that order.
-Reusable closure aliases stay shared inside a frozen graph. A one-shot
-source lambda keeps the construction that establishes its linear captures;
-inserting an intermediate reusable binding would lose that evidence.
-Inherited handlers are captured when the frozen wrapper is constructed, so
-calling and dropping it use the same context.
+Publishing transfers the initializer's owner into the cache. Every returned
+counted value receives the usual retain, including the first read. The cache
+is a root for the module lifetime; collection does not run source finalizers.
+A fatal trap leaves the initializing state in place; there is no retry protocol.
+Importers call the defining instance's getter, sharing the same cache. New
+instances start empty; retained old closures may still call old getters.
 
-Each constant read copies the evaluated graph. The copy map preserves
-internal aliases and weak-to-strong relationships. An owning-reachability walk
-excludes weak-only payloads: those references become expired cells without
-constructing or finalizing the inaccessible resource. Copying reserves all
-identities before connecting edges and assigns a credit for each owning edge.
-Acyclic graphs use direct
-constructors. An explicit enter/leave worklist discovers identities in
-dependency order. Cyclic graphs allocate private record/vector shells, build
-the other nodes, then fill the shells before exposing the result. Record
-fills use ordinary case-specific setters; their placeholders are immortal
-and inert, so replacing them cannot invoke user cleanup. Private allocation
-and vector-fill primitives cannot be imported by user libraries. Byte vectors
-retain heap identity during evaluation and emit compact passive data segments;
-each materialization copies its segment into fresh mutable storage.
-Before emission, a factory budget limits objects plus field/element edges to
-512. Evaluation may compute larger intermediate graphs, but expanding them
-into nested runtime construction code would exceed recursive downstream
-passes. Oversized results get a source diagnostic recommending an ordinary
-runtime construction function, before any such syntax is emitted.
+A value-global read can initialize or panic. Control preparation therefore
+preserves it before a later yielding operand. Tail-call lowering evaluates a
+cached procedure before its arguments and outgoing-owner releases, just like
+other computed callees. Ordinary named functions keep their direct call path.
 
-The evaluator can finish a handled continuation, but an unfinished
-interpreter continuation cannot be serialized as a runtime constant. Linear
-top-level values are rejected. Functions remain the direct way to create
-runtime resources, schedulers and linear state.
+Quantified functions specialize normally. The checker permits only stateless
+literal/nullary enum templates as other quantified values; specialization
+expands those directly. Mutable generic cache instances would require a shared
+registry across separately compiled libraries, so they are deliberately absent.
 
 ### WasmGC emission
 
@@ -317,8 +295,8 @@ and again, as the development loop does, retaining checked code and Wasm:
   cannot safely stand in for the current declarations. No saved expansion,
   scope or replay log survives into another build.
 - A library's **interface** fingerprints all its declarations and imported
-  interfaces, including monomorphic function bodies: any function can
-  contribute to a compile-time value. Derived instances also depend on their
+  interfaces, conservatively including monomorphic function bodies. This may
+  rebuild more importers than necessary. Derived instances also depend on their
   implicit libraries. Artifact bytes, linked files, expanded declaration
   identities and the final fresh-name counter complete the key. The counter
   prevents cached local names from colliding after an earlier library changes.

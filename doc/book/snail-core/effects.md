@@ -687,8 +687,8 @@ a function's name, and an operation has at most one.
 A control operation has no default. An effect declared with `(around-main)`
 says the runtime supplies a delimiter around the root entry. `tasks` uses
 this facility: `main` runs as a scheduled task and can yield or wait.
-Libraries have no runtime initialization phase. Their nonfunction top-level
-values must be pure compile-time computations.
+Loading a library runs no source initializer. Its nonfunction top-level values
+have effect-free initializers, run once when first read at runtime.
 
 ## Control handlers
 

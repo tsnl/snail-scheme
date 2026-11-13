@@ -8,7 +8,7 @@ effects and ownership rules as handwritten code.
 
 A macro can generate a typed definition, including its `(→ Result)`, `!`,
 `∀`, `⊨` and documentation clauses. It cannot grant permission to perform an
-effect, hide a linear member, or introduce a runtime top-level initializer.
+effect, hide a linear member, or introduce an effectful top-level initializer.
 Generated identifiers retain their lexical context; field labels select
 stored slots of the receiver's nominal type.
 

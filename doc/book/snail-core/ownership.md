@@ -187,10 +187,9 @@ contract. For an unrestricted value it can share the value. A linear resource
 needs an explicit cloning implementation or derived cloning of its fields.
 There is no implicit deep clone when a record is assigned to another local.
 
-Compile-time constants are a separate boundary: each read materializes a fresh
-object graph. Internal aliases and mutable cycles are preserved within that
-graph. This rule prevents a constant aggregate from becoming writable global
-state; it is not the behavior of ordinary local assignment.
+Top-level lazy values follow the same sharing rule. Their initializer runs once,
+and every read observes its cached object graph. Copy a vector or construct a
+new record explicitly when a caller needs independent mutable state.
 
 ## Closures without an environment
 
@@ -219,8 +218,9 @@ elements when the last alias leaves. Primitive vectors need no owner counter.
 The lifetime pass makes ownership operations explicit after specialization.
 Reads of counted owners retain, calls transfer their owned operands, and scope
 exits release them. Control preparation then records exactly which owners a
-suspended frame must clean up. The backend and compile-time evaluator consume
-that same cleanup evidence.
+suspended frame must clean up. Ordinary functions and lazy initializers use
+that same cleanup evidence. A lazy cache owns its result for the module's
+lifetime, and each counted read retains a caller credit.
 
 The `Rc` control cell stores a strong count, payload and finalizer. A `WeakRc`
 uses the same cell without contributing to its count. Closures, dynamic boxes

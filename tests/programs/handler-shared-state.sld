@@ -3,7 +3,7 @@
  (snail core io))
 
 ;; Handler closures share explicitly supplied records. Each invocation owns
-;; its initial state; there is no writable top-level variable.
+;; its initial state without using a shared module value.
 (effect Counter ((tick (Fn → I64))))
 
 ;; ANCHOR: counter

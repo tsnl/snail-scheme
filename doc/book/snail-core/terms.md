@@ -3,9 +3,9 @@
 ## Programs and libraries
 
 A program is a file of `import` forms followed by declarations and definitions.
-Its root `main` starts runtime work. Top-level values are pure compile-time
-computations, forced lazily with cycle detection; importing a library runs no
-source initializer. A library uses `define-library` with `import`,
+Its root `main` starts runtime work. Top-level values have effect-free
+initializers evaluated lazily at runtime, once per defining module instance.
+Reads share the cached result; importing a library runs no source initializer. A library uses `define-library` with `import`,
 `export` and `begin` sections, stored at a path that matches its name:
 `(sample geometry)` lives in `sample/geometry.sld` under a search directory.
 Import sets may use `only`, `except`, `prefix` and `rename`.
