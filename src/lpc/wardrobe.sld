@@ -108,7 +108,7 @@
     ;; finds for each sheet. Its version is the character's fingerprint, so
     ;; the host composes it again only when the character changes. A sheet
     ;; whose file `art` lacks is left out.
-    (define (walk-picture (art (dyn (Fn String → (Option Source)))) (key I32) (who Character))
+    (define (walk-picture (art (Fn String → (Option Source))) (key I32) (who Character))
       (→ Picture)
       (Picture key (fingerprint who) (● walk-region width) (● walk-region height)
                (lambda ()

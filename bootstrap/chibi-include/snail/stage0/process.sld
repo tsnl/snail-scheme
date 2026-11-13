@@ -1,1 +1,0 @@
-../../../../host/chibi/snail/stage0/process.sld

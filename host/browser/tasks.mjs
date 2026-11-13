@@ -1,4 +1,4 @@
-// The host side of (snail shell task). The scheduler is Snail-Core's; a
+// The host side of (snail shell task). The scheduler is Snail Scheme's; a
 // host drives it a turn at a time and completes the host operations its
 // tasks wait on. A task takes a ticket, starts the operation through a
 // synchronous import that returns at once, awaits the ticket, and then
@@ -20,6 +20,9 @@ export function taskExports(program) {
 }
 
 const engineTasks = exports => ({
+  ...exports,
+  'tasks:dispose': exports['engine:close'],
+  'tasks:create': exports['engine:create'], 'tasks:create:release-result': exports['engine:create:release-result'],
   'tasks:turn': exports['engine:turn'], 'tasks:wake': exports['engine:wake'], 'tasks:close': exports['engine:close-tasks'],
   'tasks:running': exports['engine:running'], 'tasks:live': exports['engine:live'],
 });
@@ -30,7 +33,45 @@ const engineTasks = exports => ({
 // and drops every task.
 export function createTasks(exports, {reportError = () => {}} = {}) {
   const outcomes = new Map(), controller = new AbortController();
-  let outstanding = 0, resting = null;
+  let outstanding = 0, resting = null, scheduler = null, owner = null, active = 0, closed = false, disposing = false, closeStatus = 0;
+  const settled = [];
+
+  // The run owns one returned credit. Each Wasm entry retains its arguments;
+  // release consumes only this host credit, after queued work has closed.
+  function context() {
+    if (!scheduler) {
+      scheduler = exports();
+      if (scheduler) owner = scheduler['tasks:create']();
+    }
+    return scheduler;
+  }
+  function enter(name, ...args) {
+    if (closed && !(disposing && typeof name === 'string' && name.startsWith('resource:'))) throw new Error('the task scheduler has closed');
+    const api = context();
+    if (!api) return null;
+    active++;
+    try { return (typeof name === 'function' ? name : api[name])(owner, ...args); }
+    finally {
+      active--;
+      if (!active && !disposing) {
+        if (closed) release();
+        else while (settled.length) settle(...settled.shift());
+      }
+    }
+  }
+  function release() {
+    if (owner === null) return;
+    const value = owner;
+    disposing = true;
+    try {
+      scheduler['tasks:close'](value);
+      closeStatus = Number(scheduler['tasks:dispose']?.(value) ?? 0);
+    } finally {
+      owner = null; // Consume the credit before invoking its release companion.
+      try { scheduler['tasks:create:release-result'](value); }
+      finally { disposing = false; }
+    }
+  }
 
   // ---- Completions ----
 
@@ -38,12 +79,13 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
   // after closing, or after its task trapped, leaves its success to be
   // disposed of: an accepted connection is closed.
   function settle(ticket, outcome) {
+    if (active) { settled.push([ticket, outcome]); return; }
     outstanding--;
-    if (controller.signal.aborted || !wake(ticket)) return outcome.dispose();
+    if (closed || !wake(ticket)) return outcome.dispose();
     outcomes.set(ticket, outcome);
   }
   function wake(ticket) {
-    const woke = exports()['tasks:wake'](BigInt(ticket)) !== 0;
+    const woke = enter('tasks:wake', BigInt(ticket)) !== 0;
     if (woke) resting?.();
     return woke;
   }
@@ -62,6 +104,12 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
 
   return {
     signal: controller.signal,
+    call: enter,
+    get closeStatus() { return closeStatus; },
+    get owner() { if (closed) throw new Error('the task scheduler has closed'); context(); return owner; },
+    startMain(body) { enter('tasks:start-main', body); },
+    running() { return owner === null ? 0 : Number(scheduler['tasks:running'](owner)); },
+    live() { return owner === null ? 0 : Number(scheduler['tasks:live'](owner)); },
     // Runs `operation` with the run's AbortSignal. `deliver` builds the
     // managed result from its value when the task finishes the ticket,
     // and `dispose` releases a value that no task finished.
@@ -88,18 +136,19 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
       const outcome = outcomes.get(ticket);
       if (outcome) { outcomes.delete(ticket); outcome.dispose(); }
     },
-    // Turns until no task is live, or `stopped` holds after a turn. A trap
-    // ends only the task that ran (task.sld's `run-ready!`), so it is
-    // reported with that task's id, and the turns go on. Every task waiting
-    // on a ticket while no host operation is outstanding is a deadlock.
+    // Turns until no task is live or the caller stops. A trap is terminal:
+    // Wasm does not unwind source ownership. Close reachable queued work,
+    // but never pretend to recover owners stranded in a trapped frame.
     async drive(stopped = () => false) {
-      if (!exports()) return;
+      if (closed || !context()) return;
       for (;;) {
+        if (closed) return;
         let next;
-        try { next = Number(exports()['tasks:turn'](BigInt(Date.now()))); }
+        try { next = Number(enter('tasks:turn', BigInt(Date.now()))); }
         catch (error) {
-          reportError(error, Number(exports()['tasks:running']()));
-          next = 0;
+          reportError(error, owner === null ? 0 : Number(scheduler['tasks:running'](owner)));
+          this.close(error);
+          return;
         }
         if (next === -1 || stopped()) return;
         if (next === -2 && outstanding === 0) throw new Error('every task waits on a ticket that nothing will wake');
@@ -109,11 +158,21 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
     // Wakes the loop from its rest, so that `stopped` is asked again.
     interrupt() { resting?.(); },
     close(reason) {
+      if (closed) return;
+      closed = true;
       controller.abort(reason);
-      exports()?.['tasks:close']();
-      for (const outcome of outcomes.values()) outcome.dispose();
+      let failure;
+      try { if (!active) release(); } catch (error) { failure = error; }
+      // A source finalizer may trap. Host results still belong to this run
+      // and must be disposed even when releasing the scheduler failed.
+      outstanding -= settled.length;
+      const abandoned = [...settled.splice(0).map(([, outcome]) => outcome), ...outcomes.values()];
       outcomes.clear();
+      for (const outcome of abandoned) {
+        try { outcome.dispose(); } catch (error) { failure ??= error; }
+      }
       resting?.();
+      if (failure) throw failure;
     },
   };
 }

@@ -183,7 +183,7 @@
 
     (define (exchange (connection Connection)
                       (grace I32)
-                      (handler (dyn (Fn Request → (Result Response E) ! e))))
+                      (handler (Fn Request → (Result Response E) ! e)))
       (→ (Result Unit (ExchangeError E)))
       (! tcp tasks e)
       (∀ E e)
@@ -205,7 +205,7 @@
 
     (define (serve-one (connection Connection)
                        (grace I32)
-                       (handler (dyn (Fn Request → (Result Response E) ! e))))
+                       (handler (Fn Request → (Result Response E) ! e)))
       (→ (Result Unit (ExchangeError E)))
       (! tcp tasks e)
       (∀ E e)

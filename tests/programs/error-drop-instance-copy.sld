@@ -6,7 +6,7 @@
 ;; unrestricted, so dropping the pair is free there. Used at a Handle, it
 ;; would release one handle twice.
 (effect log
-  ((say (dyn (Fn String → Unit)))))
+  ((say (Fn String → Unit))))
 
 (struct Handle
   ((name String)))
@@ -28,6 +28,9 @@
 (define (demo) (→ Unit) (! log)
   (drop (Wrapper (Handle "h"))))
 
-(handle log
-    ((say (lambda (text) (write-line text))))
-  (demo))
+(define main
+  (lambda ()
+    (handle log
+        ((say (lambda (text) (write-line text))))
+      (demo))
+    (unit)))

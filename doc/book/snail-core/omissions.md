@@ -1,7 +1,7 @@
 # Notable omissions
 
-Snail-Core is deliberately smaller than its first plan. These parts were dropped
-because they would cost more than they give the programs Snail-Core runs today;
+Snail Scheme is deliberately smaller than its first plan. These parts were dropped
+because they would cost more than they give the programs Snail Scheme runs today;
 each can return if a program needs it.
 
 ## Cut from the plan
@@ -14,12 +14,11 @@ each can return if a program needs it.
   `(Copy A)` a definition requires ([ownership](ownership.md)); there are
   no grade variables.
 - **Checked interfaces.** Separate compilation hashes each library's
-  interface to decide what to rebuild, but stores none: the compiled
-  compiler checks Siegework, the largest program, in a fraction of a second,
-  so an interface file would add a format and its invalidation without a
-  measurable gain. Wire schemas come from the checked program.
+  interface to decide what to rebuild, but writes no interface file.
+  Development sessions retain checked code and module text in memory; a
+  cold process checks from source. Wire schemas come from the checked program.
 - **The WGSL backend.** The renderer's shaders are WGSL text that shares no
-  structs with Snail-Core code beyond fixed instance and material layouts. The
+  structs with Snail Scheme code beyond fixed instance and material layouts. The
   runtime and graphics plan proposes shaders written as S-expressions.
 - **Actor destinations.** Tasks schedule one-shot closures and share
   `Mailbox` queues, which are values, not addresses of tasks. Request/reply
@@ -40,8 +39,13 @@ each can return if a program needs it.
 - Wire TypeIds are 32 bits, and every struct and enum value carries its
   case's TypeId.
 
-Some smaller features are planned but not yet implemented: complex numbers
-and mutable pairs in the dynamic Scheme libraries, mutually recursive local
-functions, superclasses, literals at a generic numeric type, and
-overflow-checked arithmetic. The [language issue](https://github.com/tsnl/snail-scheme/issues/456)
-tracks these gaps.
+Snail Scheme deliberately omits R7RS compatibility, `call/cc`, `dynamic-wind`,
+a dynamic numeric tower, source borrows, callable classes, `dyn`, `impl`,
+`FnMut` and inline records. These are design decisions, not compatibility
+bugs waiting for implementation. Mutable top-level state is also excluded:
+compile-time values are forced lazily and read as fresh graphs.
+
+Mutually recursive local functions, class superclasses, literals at generic
+numeric types and overflow-checked arithmetic remain possible future work.
+The [roadmap](https://github.com/tsnl/snail-scheme/issues/729) tracks the
+current priorities.

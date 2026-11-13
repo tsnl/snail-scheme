@@ -7,4 +7,4 @@
   (lambda (x) (* 2 x)))
 
 (define doubled (→ (List I64))
-  (map (ann twice (dyn (Fn I64 → I64))) (list 1 2 3)))
+  (map (ann twice (Fn I64 → I64)) (list 1 2 3)))

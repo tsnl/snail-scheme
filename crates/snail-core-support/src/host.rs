@@ -1,4 +1,4 @@
-//! Buffered streams for scalar Snail-Core I/O: text by Unicode scalar, and binary
+//! Buffered streams for scalar Snail Scheme I/O: text by Unicode scalar, and binary
 //! files by byte. The owning file registry closes them explicitly; borrowed
 //! stdin/stdout remain open after invocation cleanup.
 

@@ -1,4 +1,5 @@
 (import
+ (only (snail core forms) host)
  (snail core base)
  (snail core io)
  (snail shell task)
@@ -32,7 +33,7 @@
   (Saved ((count I64))))
 
 (define (update (model Model) (message Msg))
-  (→ (Pair Model (List (dyn (FnOnce → Msg ! output-port tasks)))))
+  (→ (Pair Model (List (FnOnce → Msg ! output-port tasks))))
   (match message
     ((Typed text) (Pair (Model-draft-set model text) (Nil)))
     ((Add)
@@ -105,18 +106,20 @@
         (clicked "reverse")
         (clicked "remove-1")))
 
-(dispatch-local
- (once (lambda ()
-         (let ((result
-                (with-memory-dom script
-                                 (lambda ()
-                                   (run-ui (Model (Nil) "" 0 0)
-                                           (Nil)
-                                           update
-                                           view
-                                           (lambda (model) (Nil))
-                                           (lambda (model) (unit))
-                                           checkpoint)))))
-           (write-line (string-append "saved " (show (● (● result first) saved))))
-           (write-line (document->html (● result second)))
-           (for-each write-line (document-trace (● result second)))))))
+(define (main) (→ Unit) (! host mut output-port tasks)
+  (dispatch-local
+   (once (lambda ()
+           (let ((result
+                  (with-memory-dom script
+                                   (lambda ()
+                                     (run-ui (Model (Nil) "" 0 0)
+                                             (Nil)
+                                             (lambda (model message) (update model message))
+                                             view
+                                             (lambda (model) (Nil))
+                                             (lambda (model) (unit))
+                                             checkpoint)))))
+             (write-line (string-append "saved " (show (● (● result first) saved))))
+             (write-line (document->html (● result second)))
+             (for-each write-line (document-trace (● result second)))))))
+  (unit))

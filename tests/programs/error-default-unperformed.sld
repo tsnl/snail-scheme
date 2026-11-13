@@ -5,11 +5,14 @@
 ;; its signature's: every performer is charged that row, so a default
 ;; that never performs it would cost each of them for nothing.
 (effect Async
-  ((ctl await (dyn (Fn I64 → I64)))))
+  ((ctl await (Fn I64 → I64))))
 
 (effect Clock
-  ((sleep-until (dyn (Fn I64 → I64 ! Async))))
+  ((sleep-until (Fn I64 → I64 ! Async)))
   (default
     ((sleep-until (lambda (deadline) deadline)))))
 
-(unit)
+(define main
+  (lambda ()
+    (unit)
+    (unit)))

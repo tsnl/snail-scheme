@@ -547,9 +547,9 @@
    (snail-tests
     (export test-plan)
     (import
-     (only (scheme base) error)
-     (only (chibi filesystem) create-directory*)
-     (only (chibi string) string-contains string-split)
+     (only (chezscheme) error)
+     (only (snail stage0 system) create-directory*)
+     (only (snail stage0 system) string-contains string-split)
      (snail stage0 testing)
      (only (snail shell compiler inputs) no-inputs supply-generated printed-producer-text))
     (begin
@@ -625,7 +625,7 @@
                     "project.datum:2:2: artifact dependency cycle: client -> client")
             (write-file (string-append directory "/client.sld") (embedding "admin"))
             (write-file (string-append directory "/admin.sld")
-                        "(import (snail core base) (generated assets)) (unit)")
+                        "(import (snail core base) (generated assets)) (define (main) (→ Unit) (unit))")
             (expect (plan-error targets client scratch)
                     "project.datum:2:2: artifact dependency cycle: client -> admin -> client through the producer of (generated assets)")
             (write-file (string-append directory "/server.sld") (embedding "missing"))
@@ -657,9 +657,10 @@
 
       (define embedding
         (lambda (name)
-          (string-append "(import (snail core base) (snail shell artifact))\n(artifact-bundle \""
-                         name
-                         "\")\n")))
+          (string-append
+           "(import (snail core base) (snail shell artifact))\n(define embedded (artifact-bundle \""
+           name
+           "\"))\n")))
 
       (define step-names
         (lambda (plan)
@@ -678,7 +679,7 @@
         (lambda (wave)
           (match (find (lambda (entry) (match (● entry second) ((ProducePhase _) #t) (_ #f))) wave)
             ((Some (Pair _ (ProducePhase producer))) producer)
-            (_ (error "no producer in the wave")))))
+            (_ (error 'plan "no producer in the wave")))))
 
       (define project-targets
         (lambda (directory library)
@@ -705,10 +706,13 @@
                 (for-each (lambda (source)
                             (write-file (string-append directory "/" (● source first))
                                         (● source second)))
-                          (list (Pair "client.sld" "(import (snail core base)) (unit)")
-                                (Pair "admin.sld" "(import (snail core base)) (unit)")
+                          (list (Pair "client.sld"
+                                      "(import (snail core base)) (define (main) (→ Unit) (unit))")
+                                (Pair "admin.sld"
+                                      "(import (snail core base)) (define (main) (→ Unit) (unit))")
                                 (Pair "server.sld" server-source)
-                                (Pair "knot.sld" "(import (sample knot)) (unit)")
+                                (Pair "knot.sld"
+                                      "(import (snail core base) (sample knot)) (define (main) (→ Unit) (unit))")
                                 (Pair "lib/generated/assets.sld" assets-recipe)
                                 (Pair "lib/sample/knot.sld"
                                       "(generate-library (sample knot) (import (snail core base) (sample knot-helper)) (unit))")

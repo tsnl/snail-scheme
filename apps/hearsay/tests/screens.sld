@@ -82,27 +82,30 @@
     (for-each show-panel (shell-hud shell))
     shell))
 
-;; The ledger is the second prototype opened, so seed 5 deals it seed 7.
-;; Buttons: 9000 with argument i opens rumor-mill scenario i, 9100 opens the
-;; ledger, and 9999 is Menu. Each guide opens by itself the first time;
-;; `guide-next` turns to its next page, closing it after the last, and
-;; `guide-close` closes it. In the mill, 100 + p chooses person p, 3
-;; delivers a job and 9 lies low. In the ledger, action 3 with argument i
-;; does the i-th job, and 5 ends the round.
-(let* ((shell (new-shell 5 1280 800))
-       (shell (step shell "menu" (Nil)))
-       (shell (step shell "two faces with its guide open" (list (Pair 9000 0))))
-       (shell (step shell "two faces after delivering a job for Mo"
-                    (list (Pair guide-close 0) (Pair 112 0) (Pair 3 0) (Pair 9 0))))
-       (shell (step shell
-                    "ledger with its guide on the last page"
-                    (list (Pair 9999 0)
-                          (Pair 9100 0)
-                          (Pair guide-next 0)
-                          (Pair guide-next 0)
-                          (Pair guide-next 0)
-                          (Pair guide-next 0))))
-       (shell (step shell
-                    "ledger after doing job 2 and ending the round"
-                    (list (Pair guide-next 0) (Pair 3 1) (Pair 5 0)))))
-  (unit))
+(define main
+  (lambda ()
+    ;; The ledger is the second prototype opened, so seed 5 deals it seed 7.
+    ;; Buttons: 9000 with argument i opens rumor-mill scenario i, 9100 opens the
+    ;; ledger, and 9999 is Menu. Each guide opens by itself the first time;
+    ;; `guide-next` turns to its next page, closing it after the last, and
+    ;; `guide-close` closes it. In the mill, 100 + p chooses person p, 3
+    ;; delivers a job and 9 lies low. In the ledger, action 3 with argument i
+    ;; does the i-th job, and 5 ends the round.
+    (let* ((shell (new-shell 5 1280 800))
+           (shell (step shell "menu" (Nil)))
+           (shell (step shell "two faces with its guide open" (list (Pair 9000 0))))
+           (shell (step shell "two faces after delivering a job for Mo"
+                        (list (Pair guide-close 0) (Pair 112 0) (Pair 3 0) (Pair 9 0))))
+           (shell (step shell
+                        "ledger with its guide on the last page"
+                        (list (Pair 9999 0)
+                              (Pair 9100 0)
+                              (Pair guide-next 0)
+                              (Pair guide-next 0)
+                              (Pair guide-next 0)
+                              (Pair guide-next 0))))
+           (shell (step shell
+                        "ledger after doing job 2 and ending the round"
+                        (list (Pair guide-next 0) (Pair 3 1) (Pair 5 0)))))
+      (unit))
+    (unit)))

@@ -204,7 +204,7 @@
               (block cream middle (- 0.5 size) 0.02 size 0.12 0.06))))
 
     ;; Explored cells that `include?` picks.
-    (define (terrain-items (world World) (include? (dyn (Fn I64 → Bool)))) (→ (List Item))
+    (define (terrain-items (world World) (include? (Fn I64 → Bool))) (→ (List Item))
       (concatenate
        (map (lambda (index) (at-cell (index-cell index) (ground-parts world (index-cell index))))
             (filter
@@ -912,7 +912,7 @@
                                   (list (preview-batch game))))
                (Nil))))
 
-    (define (filter-map (f (dyn (Fn A → (Option B)))) (items (List A))) (→ (List B)) (∀ A B)
+    (define (filter-map (f (Fn A → (Option B))) (items (List A))) (→ (List B)) (∀ A B)
       (fold-right
        (lambda (item kept) (match (f item) ((Some value) (Cons value kept)) ((None) kept)))
        (Nil)

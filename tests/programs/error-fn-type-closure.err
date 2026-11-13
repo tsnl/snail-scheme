@@ -1,1 +1,1 @@
-a fn is not a closure; wrap it in a lambda
+is not a closure, and does not become one; wrap it in a lambda

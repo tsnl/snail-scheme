@@ -6,9 +6,12 @@
 (define (count (function Funcref)) (→ I64)
   (unsafe-cast function))
 
-(match (load-module "counter" "counter.wasm")
-  ((Ok module)
-   (match (module-export module "count")
-     ((Ok function) (display (count function)))
-     ((Err _) (unit))))
-  ((Err _) (unit)))
+(define main
+  (lambda ()
+    (match (load-module "counter" "counter.wasm")
+      ((Ok module)
+       (match (module-export module "count")
+         ((Ok function) (display (count function)))
+         ((Err _) (unit))))
+      ((Err _) (unit)))
+    (unit)))

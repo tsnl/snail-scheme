@@ -5,6 +5,7 @@
 (define-library (snail shell compiler capabilities)
   (export
    linear-type?
+   shared-type?
    missing-copy
    copy-declaration
    copy-refusal
@@ -46,17 +47,16 @@
       (match (Pair type entered)
         ((Pair _ (None)) (None))
         ((Pair (TCon name args) _)
-         (if (concrete-callable? type) (None)
-             (match (fold-left (lambda (found arg) (first-order-search program arg found))
-                               entered
-                               args)
-               ((Some names)
-                (cond ((member? name (list "Any" "Funcref")) (None))
-                      ((or (member? name names)
-                           (any? (lambda (entry) (string=? name (● entry first))) builtin-types))
-                       (Some names))
-                      (else (first-order-fields program name args (Cons name names)))))
-               ((None) (None)))))
+         (match (fold-left (lambda (found arg) (first-order-search program arg found))
+                           entered
+                           args)
+           ((Some names)
+            (cond ((member? name (list "Any" "Funcref")) (None))
+                  ((or (member? name names)
+                       (any? (lambda (entry) (string=? name (● entry first))) builtin-types))
+                   (Some names))
+                  (else (first-order-fields program name args (Cons name names)))))
+           ((None) (None))))
         ((Pair (TRow _ _) _) entered)
         (_ (None))))
 
@@ -71,6 +71,41 @@
                    (Some entered)
                    (concatenate (map (lambda (record) (● record fields)) (● data cases))))))
 
+    ;; ---- Shared ownership ----
+
+    ;; Copy containers own their fields once, even when the container has
+    ;; aliases. Only containers that can reach counted content need their
+    ;; own count. Linear containers already have exactly one owner.
+    (define (shared-type? (program Program) (type Type)) (→ Bool)
+      (and (not (linear-type? program (Nil) type))
+           (shared-content? program type (Nil))))
+
+    (define (shared-content? (program Program) (type Type) (seen (List String))) (→ Bool)
+      (match type
+        ((TFun _ _ _) #t)
+        ((TCon "Rc" _) #t)
+        ((TCon "Any" _) #t)
+        ((TCon "WeakRc" _) #f)
+        ((TCon "FnOnce" _) #f)
+        ((TCon "fn" _) #f)
+        ((TCon name args)
+         (cond ((member? name (list "Vector"))
+                (any? (lambda (arg) (shared-content? program arg seen)) args))
+               ((any? (lambda (entry) (string=? name (● entry first))) builtin-types) #f)
+               ((member? name seen)
+                (any? (lambda (arg) (shared-content? program arg seen)) args))
+               (else (shared-fields? program type (Cons name seen)))))
+        (_ #f)))
+
+    (define (shared-fields? (program Program) (type Type) (seen (List String))) (→ Bool)
+      (match type
+        ((TCon name _)
+         (any? (lambda (case)
+                 (any? (lambda (field) (shared-content? program field seen))
+                       (field-types program type case)))
+               (● (program-type program name) cases)))
+        (_ #f)))
+
     ;; ---- Type grades ----
 
     ;; One query's progress: whether it has found a linear field yet, and
@@ -82,7 +117,7 @@
     ;; arguments, as non-regular recursion would, has its arguments searched
     ;; as if it held them directly, which keeps the query finite. Sibling
     ;; fields that hold one declaration at different arguments, as
-    ;; `(Ref (Queue T))` and `(Ref T)` do, are not recursion, so each is
+    ;; `(Option (Queue T))` and `(Option T)` do, are not recursion, so each is
     ;; searched through its fields. Carrying the sets rather than mutating
     ;; them keeps the query a function of its arguments.
     (struct Linearity
@@ -91,11 +126,9 @@
        (names (List String))))
 
     ;; A type variable is linear unless `copy` names it, as a signature's
-    ;; `(⊨ (Copy A))` does. An owned declaration is linear, and
-    ;; immutable fields can make any record linear; ordinary arrows never
-    ;; describe owned captures. A cell, like any struct with a mutable
-    ;; field, is a shared handle whatever it holds, so a declaration that
-    ;; holds a parameter only in a `Ref` is unrestricted.
+    ;; `(⊨ (Copy A))` does. A declared destructor or any linear field makes
+    ;; an aggregate linear. Rc is the sole owning wrapper that can hold a
+    ;; linear value while remaining Copy; WeakRc has no ownership of its target.
 
     (define (linear-type? (program Program) (copy (List String)) (type Type)) (→ Bool)
       (● (linear-search program copy type (Linearity #f (Nil) (Nil))) found?))
@@ -103,15 +136,11 @@
     (define (linear-search (program Program) (copy (List String)) (type Type) (progress Linearity))
       (→ Linearity)
       (match type
-        ((TCon "Borrow" _) progress)
+        ((TCon "Rc" _) progress)
+        ((TCon "WeakRc" _) progress)
         ((TCon "FnOnce" _) (Linearity-found?-set progress #t))
-        ((TCon "FnMut" _) (Linearity-found?-set progress #t))
         ((TCon name args)
-         (if (concrete-callable? type)
-             (match (callable-kind type)
-               ((Some "FnOnce") (Linearity-found?-set progress #t))
-               (_ (linear-any program copy (callable-captures type) progress)))
-             (linear-instance program copy name args progress)))
+         (linear-instance program copy name args progress))
         ((TRigid name) (if (member? name copy) progress (Linearity-found?-set progress #t)))
         (_ progress)))
 
@@ -175,9 +204,7 @@
                          (found Linearity))
       (→ Linearity)
       (fold-left (lambda (found field)
-                   (if (● field mutable?)
-                       found
-                       (linear-next program copy (substitute bindings (● field type)) found)))
+                   (linear-next program copy (substitute bindings (● field type)) found))
                  found (● case fields)))
 
     ;; The variables a signature would have to declare Copy to make `type`
@@ -257,13 +284,10 @@
     ;;   a list of work items walks nothing.
     ;; - Implemented: a type with an instance of the class runs its method.
     ;; - Glue: other linear data is matched apart. A drop drops each linear
-    ;;   immutable field; a clone clones each, shares the others, and builds
-    ;;   the two values. A drop abandons a mutable field's content, as a
-    ;;   lost cell's is abandoned.
+    ;;   field; a clone clones each, shares the others, and builds two values.
     ;; - Refused: a FnOnce runs once, so it has no clone. Nor has, without a
     ;;   Clone instance, a type its library made linear with a Drop instance
-    ;;   or Move, whose library decides what a copy of one is, or linear data
-    ;;   with a mutable field, whose content a clone could only share.
+    ;;   or Move, whose library decides what a copy of one is.
     ;;
     ;; `Plan` is declared in core.sld, since a drop's evidence records it.
 
@@ -271,19 +295,13 @@
       (→ Plan)
       (match type
         ((TCon "FnOnce" _)
-         (if (string=? class drop-class)
-             (Trivial)
+         (if (string=? class drop-class) (Trivial)
              (Refused "a FnOnce runs once, so it has no clone")))
         ((TCon name _)
-         (if (or (concrete-callable? type) (string=? name "FnMut"))
-             (if (or (string=? class drop-class) (not (linear-type? program copy type)))
-                 (Trivial)
-                 (Refused "a callable with owned captures has no clone"))
-             (if (any? (lambda (entry) (string=? name (● entry first))) builtin-types)
-                 (Trivial)
-                 (match (lifecycle-instance program class name)
-                   ((Some instance) (Implemented instance))
-                   ((None) (data-plan program class copy type))))))
+         (if (any? (lambda (entry) (string=? name (● entry first))) builtin-types) (Trivial)
+             (match (lifecycle-instance program class name)
+               ((Some instance) (Implemented instance))
+               ((None) (data-plan program class copy type)))))
         (_ (Trivial))))
 
     ;; The plan the checker records for a drop or a clone of `type`, or None
@@ -322,10 +340,7 @@
               ((● data owned?)
                (Refused (string-append (short-name name)
                                        " is linear by its declaration, so only a Clone instance copies one")))
-              ((any? (lambda (case) (any? (lambda (record) (● record mutable?)) (● case fields)))
-                     (● data cases))
-               (Refused (string-append (short-name name)
-                                       " has a mutable field, which a clone could only share; give it a Clone instance")))
+
               (else (Glue)))))
 
     (define (type-name (type Type)) (→ String)
@@ -352,9 +367,7 @@
         ;; (control.sld, "Droppers"), so data holding one runs glue.
         ((TCon "FnOnce" _) #t)
         ((TCon name _)
-         (cond ((or (concrete-callable? type) (string=? name "FnMut"))
-                (linear-type? program copy type))
-               ((member? (type-key type) keys) #f)
+         (cond ((member? (type-key type) keys) #f)
                ((member? name names) #t)
                ((any? (lambda (entry) (string=? name (● entry first))) builtin-types) #f)
                (else (match (lifecycle-instance program drop-class name)
@@ -382,17 +395,12 @@
         (_ #f)))
 
     ;; The fields of `case` that glue drops or clones, by index, at the type
-    ;; `type` gives its declaration's parameters: the immutable linear ones.
+    ;; `type` gives its declaration's parameters: the linear ones.
 
     (define (glue-fields (program Program) (copy (List String)) (type Type) (case Case))
       (→ (List (Pair I64 Type)))
       (filter (lambda (field) (linear-type? program copy (● field second)))
-              (concatenate
-               (map-indexed (lambda (index pair)
-                              (if (● (● pair first) mutable?)
-                                  (Nil)
-                                  (list (Pair index (● pair second)))))
-                            (zip (● case fields) (field-types program type case))))))
+              (zip (iota (length (● case fields))) (field-types program type case))))
 
     ;; Each field of `case` at the type `type` gives its declaration's
     ;; parameters.
@@ -428,7 +436,7 @@
     ;; `(Option Token)`.
     (struct RowSearch
       ((rows (List Type))
-       (keys (List String))
+       (keys (List Type))
        (names (List String))))
 
     (define (lifecycle-rows (program Program)
@@ -441,46 +449,53 @@
         ((Ok found) (Ok (reverse (● found rows))))
         ((Err message) (Err message))))
 
-    (define (lifecycle-search (program Program)
-                              (class String)
-                              (copy (List String))
-                              (givens (List Constraint))
-                              (type Type)
+    (define (lifecycle-search (program Program) (class String) (copy (List String))
+                              (givens (List Constraint)) (type Type)
                               (progress (Result RowSearch String)))
       (→ (Result RowSearch String))
       (match (Pair type progress)
         ((Pair _ (Err message)) (Err message))
         ((Pair (TRigid name) (Ok found))
-         (cond ((member? name copy) progress)
-               (else (match (given-row givens class name)
-                       ((Some row)
-                        (Ok (RowSearch-rows-set found (Cons row (● found rows)))))
-                       ((None) (Err (missing-requirement class name)))))))
+         (if (and (not (string=? class drop-class)) (member? name copy)) progress
+             (match (given-row givens class name)
+               ((Some row) (Ok (RowSearch-rows-set found (Cons row (● found rows)))))
+               ((None) (Err (missing-requirement class name))))))
         ((Pair _ (Ok found))
-         (match (lifecycle-plan program class copy type)
-           ((Trivial) (trivial-rows program class copy type found))
-           ((Implemented instance) (instance-search program class copy givens type instance found))
-           ((Glue) (glue-search program class copy givens type found))
-           ((Refused reason) (Err reason))))))
+         (if (string=? class drop-class)
+             (drop-search program copy givens type found)
+             (match (lifecycle-plan program class copy type)
+               ((Trivial) (Ok found))
+               ((Implemented instance)
+                (instance-search program class copy givens type instance found))
+               ((Glue) (glue-search program class copy givens type found))
+               ((Refused reason) (Err reason)))))))
 
     ;; A drop that runs nothing performs nothing, except a FnOnce's:
     ;; dropping one unrun drops what it captured, whose drops its own row
     ;; allows (ownership.sld, "Drops that may run"), so dropping a
-    ;; `(dyn (FnOnce A → B ! e))` performs `e`, less its control effects, which no
+    ;; `(FnOnce A → B ! e)` performs `e`, less its control effects, which no
     ;; drop performs.
 
-    (define (trivial-rows (program Program)
-                          (class String)
-                          (copy (List String))
-                          (type Type)
-                          (found RowSearch))
+    (define (drop-search (program Program) (copy (List String))
+                         (givens (List Constraint)) (type Type) (found RowSearch))
       (→ (Result RowSearch String))
-      (match (callable-arrow type)
-        ((Some (TFun _ _ row))
-         (if (and (string=? class drop-class) (linear-type? program copy type))
-             (Ok (RowSearch-rows-set found
-                                     (Cons (without-control program row) (● found rows))))
-             (Ok found)))
+      (match type
+        ((TFun _ _ row)
+         (Ok (RowSearch-rows-set found (Cons (without-control program row) (● found rows)))))
+        ((TCon "FnOnce" (Cons signature (Nil))) (drop-search program copy givens signature found))
+        ((TCon "Rc" (Cons inner (Nil)))
+         (lifecycle-search program drop-class copy givens inner
+                           (Ok (RowSearch-rows-set found (Cons mut-row (● found rows))))))
+        ((TCon name args)
+         (cond ((member? name (list "Vector"))
+                (fold-left (lambda (progress arg)
+                             (lifecycle-search program drop-class copy givens arg progress))
+                           (Ok found) args))
+               ((any? (lambda (entry) (string=? name (● entry first))) builtin-types) (Ok found))
+               (else (match (lifecycle-instance program drop-class name)
+                       ((Some instance)
+                        (instance-search program drop-class copy givens type instance found))
+                       ((None) (glue-search program drop-class copy givens type found))))))
         (_ (Ok found))))
 
     (define (without-control (program Program) (row Type)) (→ Type)
@@ -564,9 +579,20 @@
                          (type Type)
                          (found RowSearch))
       (→ (Result RowSearch String))
-      (let ((name (type-name type)) (key (type-key type)))
-        (cond ((member? key (● found keys)) (Ok found))
-              ((member? name (● found names)) (Err (nonregular-glue class type)))
+      (let ((name (type-name type)) (key type))
+        (cond ((any? (lambda (seen) (type=? key seen)) (● found keys)) (Ok found))
+              ((member? name (● found names))
+               (if (string=? class drop-class)
+                   (match type
+                     ((TCon _ args)
+                      (fold-left (lambda (progress arg)
+                                   (match (Pair arg progress)
+                                     ((Pair (TRow _ _) (Ok inner))
+                                      (Ok (RowSearch-rows-set inner (Cons arg (● inner rows)))))
+                                     (_ (lifecycle-search program class copy givens arg progress))))
+                                 (Ok found) args))
+                     (_ (Ok found)))
+                   (Err (nonregular-glue class type))))
               (else
                (match (glue-fields-search program
                                           class
@@ -581,18 +607,18 @@
 
     ;; Glue performs what dropping or cloning each field it reaches does.
 
-    (define (glue-fields-search (program Program)
-                                (class String)
-                                (copy (List String))
-                                (givens (List Constraint))
-                                (type Type)
-                                (found RowSearch))
+    (define (glue-fields-search (program Program) (class String) (copy (List String))
+                                (givens (List Constraint)) (type Type) (found RowSearch))
       (→ (Result RowSearch String))
       (fold-left (lambda (progress field)
-                   (lifecycle-search program class copy givens (● field second) progress))
+                   (lifecycle-search program class copy givens field progress))
                  (Ok found)
-                 (concatenate (map (lambda (case) (glue-fields program copy type case))
-                                   (● (program-type program (type-name type)) cases)))))
+                 (concatenate
+                  (map (lambda (case)
+                         (if (string=? class drop-class) (field-types program type case)
+                             (map (lambda (field) (● field second))
+                                  (glue-fields program copy type case))))
+                       (● (program-type program (type-name type)) cases)))))
 
     ;; A declaration met again at other arguments would need glue for every
     ;; depth, so it needs an instance instead.

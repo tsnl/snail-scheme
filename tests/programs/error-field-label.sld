@@ -1,3 +1,7 @@
 (import
  (snail core base))
-(● (Pair 1 2) "first")
+
+(define main
+  (lambda ()
+    (● (Pair 1 2) "first")
+    (unit)))

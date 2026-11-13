@@ -5,12 +5,15 @@
 ;; An ordinary effect is lost the same way: through Any, a function that
 ;; logs would come back total, and run where nothing handles Log.
 (effect Log
-  ((log (dyn (Fn String → Unit)))))
+  ((log (Fn String → Unit))))
 
 (define (noisy) (→ Unit) (! Log) (log "hi"))
 
 (define boxed (→ Any) (type-convert noisy Any))
 
-(define quiet (→ (dyn (Fn → Unit))) (type-convert boxed (dyn (Fn → Unit))))
+(define quiet (→ (Fn → Unit)) (type-convert boxed (Fn → Unit)))
 
-(quiet)
+(define main
+  (lambda ()
+    (quiet)
+    (unit)))

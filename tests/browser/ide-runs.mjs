@@ -16,11 +16,11 @@ const config = includeApp => `(
   (build-target failure (program (entry "failure.sld")))
   ${includeApp ? '(run-target app (run worker))' : ''}
   (run-target crash (run failure)))`;
-const program = value => `(import (snail core base) (snail core io))\n(define greeting (→ String) ${value})\n(write-line greeting)\n`;
+const program = value => `(import (snail core base) (snail core io))\n(define greeting (→ String) ${value})\n(define (main) (→ Unit) (! output-port) (write-line greeting))\n`;
 await writeFile(join(project, 'project.datum'), config(true));
 await writeFile(join(project, 'main.sld'), program('"hello"'));
-await writeFile(join(project, 'worker.sld'), '(import (snail core base) (snail core io) (snail shell task)) (dispatch-local (once (lambda () (let loop () (write-line "<b>literal output</b>") (sleep 80) (loop)))))');
-await writeFile(join(project, 'failure.sld'), '(import (snail core base)) (panic "stderr literal")');
+await writeFile(join(project, 'worker.sld'), '(import (snail core base) (snail core io) (snail shell task)) (define (main) (→ Unit) (! output-port tasks) (let loop () (write-line "<b>literal output</b>") (sleep 80) (loop)))');
+await writeFile(join(project, 'failure.sld'), '(import (snail core base)) (define (main) (→ Unit) (panic "stderr literal"))');
 const service = await startDevelopment(root, project), browser = await openBrowser();
 const click = id => browser.evaluate(`document.getElementById(${JSON.stringify(id)}).click()`);
 const text = id => browser.evaluate(`document.getElementById(${JSON.stringify(id)}).textContent`);
@@ -130,7 +130,7 @@ try {
   if (screenshot) await browser.screenshot(screenshot);
   await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'), at = t.value.indexOf('5'); t.setSelectionRange(at, at + 1); document.execCommand('insertText', false, '6'); })()`);
   await sleep(200);
-  assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").value.includes("greeting 6")'), true);
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").value.includes("(define greeting (→ String) 6)")'), true);
   assert.equal(await browser.evaluate('window.fileReads'), 0);
   await browser.evaluate('window.fetch = window.actualFetch');
 
@@ -141,7 +141,7 @@ try {
   await browser.send('Network.emulateNetworkConditions', {offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1});
   await browser.evaluate('window.dispatchEvent(new Event("online"))');
   await until(async () => (await text('run-status')).includes('Requested: stop') && !(await disabled('run-start')), 'current run snapshot on reconnect');
-  assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").value.includes("greeting 6")'), true);
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").value.includes("(define greeting (→ String) 6)")'), true);
   await click('run-start'); await until(async () => await live() && (await run('app')).attempt.pid !== activePid, 'accepted launch during compile failure');
   finalPid = (await run('app')).attempt.pid;
   browser.close(); await sleep(100); process.kill(finalPid, 0);

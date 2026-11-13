@@ -8,12 +8,16 @@
 
 ;; ANCHOR: rows
 ;; Total: no row, so a call can only compute its result.
+(struct Total
+  ((value I64)))
+
 (define (square (n I64)) (→ I64)
   (* n n))
 
 ;; Writes to the output-port, and its type says so.
 (define (report (label String) (n I64)) (→ Unit) (! output-port)
   (write-line (string-append label " " (show n))))
+
 ;; ANCHOR_END: rows
 
 ;; ANCHOR: inferred
@@ -21,26 +25,28 @@
 (define report-square
   (lambda (n) (report "squared" (square n))))
 
-(report-square 7)
 ;; ANCHOR_END: inferred
 
 ;; ANCHOR: polymorphic
 ;; Calls `action` on 1 to `count`, performing whatever `action` performs.
-(define (repeat (count I64) (action (dyn (Fn I64 → Unit ! e)))) (→ Unit) (! e) (∀ e)
+(define (repeat (count I64) (action (Fn I64 → Unit ! e))) (→ Unit) (! e) (∀ e)
   (let loop ((i 1))
     (when (<= i count)
       (action i)
       (loop (+ i 1)))))
 
-(repeat 3 report-square)
 ;; ANCHOR_END: polymorphic
 
 ;; ANCHOR: local
-;; Mutates a cell it allocates, which nothing keeps once it returns.
-(define (sum-of-squares (count I64)) (→ I64)
-  (let ((total (ref 0)))
-    (repeat count (lambda (i) (ref-set! total (+ (ref-get total) (square i)))))
-    (ref-get total)))
+;; Mutation is explicit even when the scratch never leaves this function.
+(define (sum-of-squares (count I64)) (→ I64) (! mut)
+  (let ((total (Total 0)))
+    (repeat count (lambda (i) (set! (● total value) (+ (● total value) (square i)))))
+    (● total value)))
 
-(report "sum" (sum-of-squares 3))
-;; ANCHOR_END: local
+(define main
+  (lambda ()
+    (report-square 7)
+    (repeat 3 report-square)
+    (report "sum" (sum-of-squares 3))
+    (unit)))

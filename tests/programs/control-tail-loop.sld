@@ -10,16 +10,13 @@
 ;; next yield returns again.
 ;; ANCHOR: count-down
 (effect Tick
-  ((ctl tick (dyn (Fn I64 → I64)))))
+  ((ctl tick (Fn I64 → I64))))
 
 (define (count-down (n I64) (total I64)) (→ I64) (! Tick)
   (if (= n 0)
       total
       (count-down (- n 1) (+ total (tick n)))))
 
-(display (handle Tick ((tick (lambda (n resume) (resume (* n 2)))))
-           (count-down 100000 0)))
-(newline)
 ;; ANCHOR_END: count-down
 
 ;; The same loop with a yield only every thousandth step, which runs as an
@@ -29,6 +26,11 @@
         ((= (remainder n 1000) 0) (sparse (- n 1) (+ total (tick n))))
         (else (sparse (- n 1) (+ total 1)))))
 
-(display (handle Tick ((tick (lambda (n resume) (resume 0))))
-           (sparse 1000000 0)))
-(newline)
+(define (main) (→ Unit) (! output-port)
+  (display (handle Tick ((tick (lambda (n resume) (resume (* n 2)))))
+             (count-down 100000 0)))
+  (newline)
+  (display (handle Tick ((tick (lambda (n resume) (resume 0))))
+             (sparse 1000000 0)))
+  (newline)
+  (unit))

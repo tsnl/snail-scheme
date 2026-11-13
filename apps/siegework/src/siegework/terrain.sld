@@ -123,7 +123,7 @@
               (Cons (Site starter 2) (crystal-sites seed hub fronts ground)) fronts)))
 
     ;; The cells joined to the hub through ground that `crosses?` accepts.
-    (define (joined (ground (Vector Ground)) (hub Cell) (crosses? (dyn (Fn Ground → Bool))))
+    (define (joined (ground (Vector Ground)) (hub Cell) (crosses? (Fn Ground → Bool)))
       (→ (Vector Bool))
       (vector-map (lambda (steps) (>= steps 0))
                   (distance-field (vector-map crosses? ground) (list hub))))
@@ -148,7 +148,10 @@
       (mix (+ (mix (+ (mix (+ (* seed 64) key)) x)) (* y 65536))))
 
     ;; One of `items` chosen by the seed and a key, if there are any.
-    (define (pick (seed I64) (key I64) (items (List A))) (→ (Option A)) (∀ A) (⊨ (Copy A))
+    (define (pick (seed I64) (key I64) (items (List A)))
+      (→ (Option A))
+      (∀ A)
+      (⊨ (Copy A) (Drop (!) A))
       (if (null? items)
           (None)
           (Some (list-ref items (remainder (hash seed key 0 0) (length items))))))
@@ -325,7 +328,7 @@
     ;; Open ground the hub can wire toward, at least five cells from every
     ;; front.
     (define (site-cell? (ground (Vector Ground)) (wired (Vector Bool)) (fronts (List Cell)))
-      (→ (dyn (Fn Cell → Bool)))
+      (→ (Fn Cell → Bool))
       (lambda (cell)
         (and (match (vector-ref ground (cell-index cell)) ((Open) #t) (_ #f))
              (vector-ref wired (cell-index cell))
@@ -356,7 +359,7 @@
 
     ;; Two regions in five of the 16-cell regions hold a site yielding 2 to
     ;; 6, more than 15 cells from the hub.
-    (define (regional-sites (seed I64) (hub Cell) (site? (dyn (Fn Cell → Bool)))) (→ (List Site))
+    (define (regional-sites (seed I64) (hub Cell) (site? (Fn Cell → Bool))) (→ (List Site))
       (concatenate (map (lambda (region)
                           (let ((rx (* 16 (remainder region 5))) (ry (* 16 (quotient region 5))))
                             (if (< (remainder (hash seed 13 rx ry) 5) 2)
@@ -374,7 +377,7 @@
       (map (lambda (i) (Cell (+ rx (remainder i 16)) (+ ry (quotient i 16)))) (iota 256)))
 
     ;; Three fronts in four have a site yielding 4, 6 to 9 cells out.
-    (define (front-sites (seed I64) (fronts (List Cell)) (site? (dyn (Fn Cell → Bool))))
+    (define (front-sites (seed I64) (fronts (List Cell)) (site? (Fn Cell → Bool)))
       (→ (List Site))
       (concatenate (map-indexed (lambda (index front)
                                   (if (< (remainder (hash seed 16 index 0) 4) 3)

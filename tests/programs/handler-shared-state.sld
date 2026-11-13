@@ -2,40 +2,46 @@
  (snail core base)
  (snail core io))
 
-;; Each instance is single-threaded, so a handler may capture shared mutable
-;; state: through an alias, a global, a local cell, a method that reads a
-;; global, or a callback passed in. A handler must still be reusable, which
-;; ordinary closures are, since they cannot capture a one-shot value.
-(effect Counter ((tick (dyn (Fn → I64)))))
-
-(let* ((state (ref (ann 1 I64)))
-       (callback (lambda () (ref-get state)))
-       (alias callback))
-  (display (handle Counter ((tick alias)) (tick)))
-  (newline))
+;; Handler closures share explicitly supplied records. Each invocation owns
+;; its initial state; there is no writable top-level variable.
+(effect Counter ((tick (Fn → I64))))
 
 ;; ANCHOR: counter
-(define counter (ref (ann 10 I64)))
-(define count-up
-  (lambda () (ref-set! counter (+ (ref-get counter) 1))
-          (ref-get counter)))
-(display (handle Counter ((tick count-up)) (+ (tick) (tick))))
-;; ANCHOR_END: counter
-(newline)
+(struct CounterState
+  ((value I64)))
 
-(let ((state (ref (ann 3 I64))))
-  (display (handle Counter ((tick (lambda () (let ((value (ref-get state))) value)))) (tick)))
-  (newline))
+(define (count-up (state CounterState)) (→ I64) (! mut)
+  (set! (● state value) (+ (● state value) 1))
+  (● state value))
 
 (struct Number
-  ((value I64)))
-(typeclass (Read T) (: read-number (impl (Fn T → I64 ! mut))))
-(define reading (ref (ann 4 I64)))
-(instance (Read Number) (define read-number (lambda (value) (+ (● value value) (ref-get reading)))))
-(display (handle Counter ((tick (lambda () (read-number (Number 1))))) (tick)))
-(newline)
+  ((value I64)
+   (offset CounterState)))
 
-(define (apply-handler (callback (dyn (Fn → I64 ! mut)))) (→ I64) (! mut)
+(typeclass (Read T) (: read-number (Fn T → I64)))
+(instance (Read Number)
+  (define (read-number (value Number)) (→ I64)
+    (+ (● value value) (● value offset value))))
+
+(define (apply-handler (callback (Fn → I64))) (→ I64)
   (handle Counter ((tick callback)) (tick)))
-(display (apply-handler (lambda () (ref-get reading))))
-(newline)
+
+(define (main) (→ Unit) (! mut output-port)
+  (let* ((state (CounterState 1))
+         (callback (lambda () (● state value)))
+         (alias callback))
+    (display (handle Counter ((tick alias)) (tick)))
+    (newline))
+  (let ((counter (CounterState 10)))
+    (display (handle Counter ((tick (lambda () (count-up counter)))) (+ (tick) (tick)))))
+  ;; ANCHOR_END: counter
+  (newline)
+  (let ((state (CounterState 3)))
+    (display (handle Counter ((tick (lambda () (● state value)))) (tick)))
+    (newline))
+  (let ((reading (CounterState 4)))
+    (display (handle Counter ((tick (lambda () (read-number (Number 1 reading))))) (tick)))
+    (newline)
+    (display (apply-handler (lambda () (● reading value))))
+    (newline))
+  (unit))

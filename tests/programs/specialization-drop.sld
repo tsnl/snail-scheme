@@ -3,7 +3,7 @@
  (snail core io))
 
 (effect Pause
-  ((ctl pause (dyn (Fn → Unit)))))
+  ((ctl pause (Fn → Unit))))
 
 (struct Resource
   ((name String)))
@@ -26,8 +26,9 @@
     (match resource
       ((Resource name) (write-line (string-append "used " name))))))
 
-(handle Pause ((pause (lambda (resume) (drop resume))))
-  (work "cancelled"))
-
-(handle Pause ((pause (lambda (resume) (resume (unit)))))
-  (work "resumed"))
+(define (main) (→ Unit) (! output-port)
+  (handle Pause ((pause (lambda (resume) (drop resume))))
+    (work "cancelled"))
+  (handle Pause ((pause (lambda (resume) (resume (unit)))))
+    (work "resumed"))
+  (unit))

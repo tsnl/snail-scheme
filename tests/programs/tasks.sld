@@ -1,9 +1,10 @@
 (import
+ (only (snail core forms) host)
  (snail core base)
  (snail core io)
  (snail shell task))
 
-(effect Label ((label (dyn (Fn → String)))))
+(effect Label ((label (Fn → String))))
 
 (define (child) (→ Unit) (! output-port tasks Label)
   (write-line (string-append (label) " starts"))
@@ -12,8 +13,10 @@
   (sleep 1)
   (write-line (string-append (label) " ends")))
 
-(handle Label ((label (lambda () "first")))
-  (dispatch-local (once child)))
-(handle Label ((label (lambda () "second")))
-  (dispatch-local (once child)))
-(write-line "main returns")
+(define (main) (→ Unit) (! host mut output-port tasks)
+  (handle Label ((label (lambda () "first")))
+    (dispatch-local (once child)))
+  (handle Label ((label (lambda () "second")))
+    (dispatch-local (once child)))
+  (write-line "main returns")
+  (unit))

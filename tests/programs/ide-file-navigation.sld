@@ -1,5 +1,6 @@
 (import
  (snail core base)
+ (only (snail core forms) host)
  (snail core io)
  (snail shell task)
  (snail shell future)
@@ -10,14 +11,18 @@
  (snail shell wire)
  (snail shell ide application))
 
+(struct Requests
+  ((events Bool)
+   (requests (List String))))
+
 ;; Files are supplied by the service. Selection and fuzzy filtering run in
 ;; the IDE, and the selected path is read through the ordinary buffer flow.
-(define (snapshot (session (Borrow Session))) (→ Ide)
+(define (snapshot (session Session)) (→ Ide) (! mut host)
   (● session ide))
 
-(define (finished (session Session)) (→ Ide) (! mut)
-  (match session
-    ((Session ide pending) (drop pending) ide)))
+(define (finished (session Session)) (→ Ide) (! mut host)
+  (close-session! session)
+  (● session ide))
 
 (define (recovered (bytes Bytes)) (→ Unit) (! output-port)
   (let ((model (restored (read-recovery bytes))))
@@ -26,52 +31,53 @@
       ((Some buffer) (write-line (● buffer text)))
       ((None) (panic "draft lost during recovery")))))
 
-(dispatch-local
- (once (lambda ()
-         (let ((events (ref #f)) (requests (ref (ann (Nil) (List String)))))
-           (let ((result
-                  (handle fetch
-                      ((request (lambda (method url headers body)
-                                  (ref-set! requests (append (ref-get requests) (list url)))
-                                  (Ok (Reply 200
-                                             (cond ((string=? url "/api/project")
-                                                    "{\"name\":\"test\",\"directory\":\"/test\",\"files\":[\"main.sld\",\"lib/notes.txt\"],\"directories\":[\"lib\"]}")
-                                                   ((string=? url "/api/file?path=main.sld")
-                                                    "{\"text\":\"main\",\"revision\":\"main\"}")
-                                                   ((string=? url "/api/file?path=lib%2Fnotes.txt")
-                                                    "{\"text\":\"notes\",\"revision\":\"notes\"}")
-                                                   (else (panic url)))))))
-                       (stream-open (lambda (url kinds) (Stream 1)))
-                       (stream-next (lambda (stream)
-                                      (if (ref-get events) (None)
-                                          (begin
-                                            (ref-set! events #t)
-                                            (Some (StreamEvent "open" ""))))))
-                       (stream-close (lambda (stream) (unit))))
-                    (with-memory-dom
-                     (list (FireWindow "keydown"
-                                       (Event-modifiers-set (Event-key-set no-event "p") meta-key))
-                           (Fire "command-query" "input" (Event-value-set no-event "lnote"))
-                           (Fire "command-query" "keydown" (Event-key-set no-event "Enter"))
-                           (Fire "text-0" "input" (Event-value-set no-event "draft notes")))
-                     (lambda ()
-                       (finished (run-reactor (begin-session initial)
-                                              (list (Connect))
-                                              (ann update-session
-                                                   (dyn (Fn Session
-                                                            (Option Msg)
-                                                            → Session
-                                                            ! mut completion output-port dom fetch)))
-                                              session-view
-                                              session-window
-                                              snapshot
-                                              (lambda (model) (unit))
-                                              (lambda (model) (unit)))))))))
-             (for-each write-line (ref-get requests))
-             ;; The new envelope retains tab order; the original wire record
-             ;; upgrades to one tab per pane and keeps the same unsaved draft.
-             (recovered (serialize (kept (● result first))))
-             (recovered (serialize (● (kept (● result first)) previous)))
-             (match (buffer-at (● result first) "lib/notes.txt")
-               ((Some buffer) (write-line (● buffer text)))
-               ((None) (panic "file navigation did not finish"))))))))
+(define (main) (→ Unit) (! host mut output-port completion tasks)
+  (dispatch-local
+   (once (lambda ()
+           (let ((state (Requests #f (Nil))))
+             (let ((result
+                    (handle fetch
+                        ((request (lambda (method url headers body)
+                                    (set! (● state requests) (append (● state requests) (list url)))
+                                    (Ok (Reply 200
+                                               (cond ((string=? url "/api/project")
+                                                      "{\"name\":\"test\",\"directory\":\"/test\",\"files\":[\"main.sld\",\"lib/notes.txt\"],\"directories\":[\"lib\"]}")
+                                                     ((string=? url "/api/file?path=main.sld")
+                                                      "{\"text\":\"main\",\"revision\":\"main\"}")
+                                                     ((string=? url
+                                                                "/api/file?path=lib%2Fnotes.txt")
+                                                      "{\"text\":\"notes\",\"revision\":\"notes\"}")
+                                                     (else (panic url)))))))
+                         (stream-open (lambda (url kinds) (Stream 1)))
+                         (stream-next (lambda (stream)
+                                        (if (● state events) (None)
+                                            (begin
+                                              (set! (● state events) #t)
+                                              (Some (StreamEvent "open" ""))))))
+                         (stream-close (lambda (stream) (unit))))
+                      (with-memory-dom
+                       (list (FireWindow "keydown"
+                                         (Event-modifiers-set (Event-key-set no-event "p")
+                                                              meta-key))
+                             (Fire "command-query" "input" (Event-value-set no-event "lnote"))
+                             (Fire "command-query" "keydown" (Event-key-set no-event "Enter"))
+                             (Fire "text-0" "input" (Event-value-set no-event "draft notes")))
+                       (lambda ()
+                         (finished (run-reactor (begin-session initial)
+                                                (list (Connect))
+                                                (lambda (model message)
+                                                  (update-session model message))
+                                                (lambda (model) (session-view model))
+                                                (lambda (model) (session-window model))
+                                                (lambda (model) (snapshot model))
+                                                (lambda (model) (unit))
+                                                (lambda (model) (unit)))))))))
+               (for-each write-line (● state requests))
+               ;; The new envelope retains tab order; the original wire record
+               ;; upgrades to one tab per pane and keeps the same unsaved draft.
+               (recovered (serialize (kept (● result first))))
+               (recovered (serialize (● (kept (● result first)) previous)))
+               (match (buffer-at (● result first) "lib/notes.txt")
+                 ((Some buffer) (write-line (● buffer text)))
+                 ((None) (panic "file navigation did not finish"))))))))
+  (unit))

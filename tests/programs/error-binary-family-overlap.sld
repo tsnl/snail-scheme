@@ -4,15 +4,24 @@
 
 (typeclass (Op e A B)
   (type Output)
-  (: op (impl (Fn A B → Output ! e))))
+  (: op (Fn A B → Output ! e)))
+
 (define-instance-set sources
   (instance (Op (!) I64 I64)
     (type Output I64)
     (define op (lambda (a b) (+ a b)))))
+
 (with-instances (sources)
                 (define-instance-set dynamic
                   (dynamic-instances Op (I64 I64))))
+
 (with-instances (sources)
                 (define-instance-set other
                   (dynamic-instances Op (I64 I64))))
-(with-instances (dynamic other) (unit))
+
+(define main
+  (lambda ()
+
+
+    (with-instances (dynamic other) (unit))
+    (unit)))

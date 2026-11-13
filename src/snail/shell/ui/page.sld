@@ -17,6 +17,7 @@
    interface-restore)
   (import
    (snail core base)
+   (only (snail core forms) host)
    (snail shell application)
    (snail shell task)
    (snail shell page)
@@ -29,23 +30,24 @@
 
     ;; ---- Interfaces ----
 
-    (type (Command M) (dyn (FnOnce → M ! tasks dom fetch)))
+    (type (Command M) (FnOnce → M ! tasks dom fetch))
 
     (typeclass (Interface Model)
       (type Message)
-      (: interface-initialize (impl (Fn I32 → Model)))
-      (: interface-update (impl (Fn Model Message → (Pair Model (List (Command Message))))))
-      (: interface-view (impl (Fn Model → (Html Message))))
-      (: interface-window (impl (Fn Model → (List (Attribute Message)))))
-      (: interface-messages (impl (Fn Model → (List Message))))
-      (: interface-save (impl (Fn Model → Bytes)))
-      (: interface-restore (impl (Fn Bytes → Model))))
+      (: interface-initialize (Fn I32 → Model))
+      (: interface-update (Fn Model Message → (Pair Model (List (Command Message)))))
+      (: interface-view (Fn Model → (Html Message)))
+      (: interface-window (Fn Model → (List (Attribute Message))))
+      (: interface-messages (Fn Model → (List Message)))
+      (: interface-save (Fn Model → Bytes))
+      (: interface-restore (Fn Bytes → Model)))
 
     (struct (InterfaceApplication Model)
       ())
 
-    (instance (Application (! mut events storage tasks) (InterfaceApplication Model))
-      (⊨ (Interface Model) (PageState Model) (Copy Model))
+    (instance (Application (! mut host events storage tasks page) (InterfaceApplication Model))
+      (⊨ (Interface Model) (PageState Model) (Copy Model) (Drop (!) Model)
+         (Drop (!) (Interface.Message Model)))
       (define start
         (lambda (entry)
           (run-page (lambda () (initial-interface entry)) interface-save interface-restore
@@ -62,22 +64,23 @@
     ;; retain their narrower public contract and run under the same handlers.
 
     (define (widen-commands (commands (List (Command M))))
-      (→ (List (dyn (FnOnce → M ! mut events storage tasks dom fetch))))
+      (→ (List (FnOnce → M ! mut host page events storage tasks dom fetch)))
       (∀ M)
       (match commands
         ((Cons command rest) (Cons (once (lambda () (command))) (widen-commands rest)))
         ((Nil) (Nil))))
 
-    (define (interface-save-callback (save (dyn (Fn S → Unit ! events storage tasks))))
-      (→ (dyn (Fn S → Unit ! mut events storage tasks dom fetch)))
+    (define (interface-save-callback (save (Fn S → Unit ! events storage tasks)))
+      (→ (Fn S → Unit ! mut host page events storage tasks dom fetch))
       (∀ S)
       (lambda (model) (save model)))
 
-    (define (present-interface (model Model) (save (dyn (Fn Model → Unit ! events storage tasks))))
+    (define (present-interface (model Model) (save (Fn Model → Unit ! events storage tasks)))
       (→ Unit)
-      (! mut events storage tasks)
+      (! mut host events storage tasks page)
       (∀ Model)
-      (⊨ (Interface Model) (PageState Model) (Copy Model))
+      (⊨ (Interface Model) (PageState Model) (Copy Model) (Drop (!) Model)
+         (Drop (!) (Interface.Message Model)))
       (with-page-dom
        (lambda ()
          (with-page-fetch

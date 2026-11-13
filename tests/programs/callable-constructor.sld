@@ -1,24 +1,29 @@
 (import
  (snail core base)
  (snail core io))
+
 (struct Token
   ((label String)))
+
 (instance (Drop (! output-port) Token)
   (define drop
     (lambda (token) (match token ((Token label) (write-line label))))))
 
-(let* ((token (Token "first-class cleanup"))
-       (function (ann (lambda (value) (string-append (● token label) value))
-                      (impl (Fn String → String ! output-port))))
-       (constructor once)
-       (single (constructor function)))
-  (write-line (single " called")))
+(define (append-resource (label String)) (→ (Fn String → String ! mut output-port))
+  (let ((token (rc (Token label))))
+    (lambda (value) (string-append (● token label) value))))
 
-(let* ((token (Token "first-class abandoned"))
-       (function (ann (lambda () (● token label)) (impl (Fn → String ! output-port))))
-       (constructor once)
-       (single (constructor function)))
-  (drop single))
+(define (read-resource (label String)) (→ (Fn → String ! mut output-port))
+  (let ((token (rc (Token label))))
+    (lambda () (● token label))))
 
-(let ((single (once (ann (fn (value) (+ value 1)) (fn I64 → I64)))))
-  (write-line (show (single 4))))
+(define (main) (→ Unit) (! mut output-port)
+  (let* ((constructor once)
+         (single (constructor (append-resource "first-class cleanup"))))
+    (write-line (single " called")))
+  (let* ((constructor once)
+         (single (constructor (read-resource "first-class abandoned"))))
+    (drop single))
+  (let ((single (once (lambda (value) ((ann (fn (n) (+ n 1)) (fn I64 → I64)) value)))))
+    (write-line (show (single 4))))
+  (unit))

@@ -15,9 +15,11 @@
 (define uses-helper
   (lambda () (+ (helper #t) 1)))
 
-(write-line (show (helper #t)))
-
 (define (shout (text String)) (→ String)
   (string-append text #\!))
 
-(write-line (shout (label 2)))
+(define main
+  (lambda ()
+    (write-line (show (helper #t)))
+    (write-line (shout (label 2)))
+    (unit)))

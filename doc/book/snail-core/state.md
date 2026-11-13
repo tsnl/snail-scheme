@@ -61,13 +61,13 @@ Illustrative generated operations use existing effect syntax:
 
 ```scheme
 (effect NotesRead
-  ((paragraphs-ref (dyn (Fn EntityId → (Option Paragraph))))
-   (documents-ref (dyn (Fn EntityId → (Option Document))))))
+  ((paragraphs-ref (Fn EntityId → (Option Paragraph)))
+   (documents-ref (Fn EntityId → (Option Document)))))
 
 (effect NotesWrite
-  ((paragraphs-insert! (dyn (Fn EntityId Paragraph → Bool)))
-   (paragraphs-replace! (dyn (Fn EntityId Paragraph → Bool)))
-   (paragraphs-delete! (dyn (Fn EntityId → Bool)))))
+  ((paragraphs-insert! (Fn EntityId Paragraph → Bool))
+   (paragraphs-replace! (Fn EntityId Paragraph → Bool))
+   (paragraphs-delete! (Fn EntityId → Bool))))
 ```
 
 Insert returns false if the key exists; replace/delete return false if it is
@@ -77,8 +77,9 @@ sorting before order affects a result; storage iteration order is not an input
 to application behavior. A durable document referring to a paragraph must
 check existence and enforce deletion policy in the same write transaction.
 
-Rows are a deliberately limited data subset: scalars, text, immutable vectors,
-structs and enums composed of supported data. No procedures, mutable references,
+Rows are a deliberately limited data subset: scalars, text, vectors, structs and
+enums composed of supported data. Storage reads and writes must take independent
+snapshots rather than expose shared mutable state. No procedures, resource owners,
 opaque managed values or platform handles. Durable keys/rows additionally need
 codecs. `Serialize` serves its existing purpose; it alone is not a
 certificate for this complete storage contract. This does not add
@@ -94,12 +95,12 @@ not separate implementation declarations:
 ```scheme
 ;; notes-read contract (summary notation):
 ;; (∀ (A)
-;;   (impl (Fn (dyn (Fn → A ! NotesRead))
-;;       → (Result A StoreError) ! store)))
+;;   (Fn (Fn → A ! NotesRead)
+;;       → (Result A StoreError) ! store))
 ;; notes-write contract (summary notation):
 ;; (∀ (A E)
-;;   (impl (Fn (dyn (Fn → (Result A E) ! NotesRead NotesWrite))
-;;       → (Result A (WriteError E)) ! store)))
+;;   (Fn (Fn → (Result A E) ! NotesRead NotesWrite)
+;;       → (Result A (WriteError E)) ! store))
 ```
 
 `notes-read` binds one consistent snapshot for the whole computation, including
@@ -114,9 +115,9 @@ are absent from the action's closed effect row. Storage operations themselves
 may suspend; an unrelated application wait cannot keep a transaction open.
 
 Returned values must satisfy the structural data restriction too. No cursor,
-transaction token, borrowed row or effectful closure escapes. Static checking
-must also reject mutable hidden captures/globals, using the same kind of
-reachability checks as ordinary handler installations. The arrows above do
+transaction token, mutable storage view or effectful closure escapes. Static
+checking must also reject hidden captures that can mutate the transaction.
+The language has no writable module globals or source borrows. The arrows above do
 not, by themselves, establish those restrictions. `define-view` and named
 action declarations are possible checking boundaries; this is a compiler gap
 to settle before implementing the API.

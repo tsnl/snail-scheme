@@ -5,26 +5,38 @@
 Scalars are `U8`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
 `Any` packages an eligible dynamic value, recovered through a checked
 conversion ([dynamic values](#dynamic-values)).
-`String` is an immutable sequence of Unicode scalars. `(Vector T)` is an
-immutable sequence and `(Array T)` a mutable one whose elements are unboxed,
-`(Unboxed T)`: a scalar, a reference or a struct of one unboxed field, each one
-Wasm slot, so an array of points is refused and a struct of arrays stands in
-for it, as typed arrays do in JavaScript; `(MutVector T)` grows at its end over
-such an array. `(Ref T)` is a mutable cell, the one struct with a mutable
-field, which `(snail core base)` declares ([data](#data)). `Bytes` is `(Vector U8)`, stored packed. A byte vector literal,
-`#u8(137 80 78 71)`, compiles to a data segment of exactly its bytes, so a
-program can carry large binary data, such as images; it cannot be a
-pattern. `(include-bytes "pixel.png")` is another spelling of the literal
-holding a file's bytes, with the path relative to the file it is written
-in. It is replaced when the source is read, so a macro cannot compute the
-path, and nothing else may be named `include-bytes`. A large file is better
-linked than included: see [linked files](#linked-files).
+`String` is a sequence of Unicode scalars. `(Vector T)` is a mutable, growable
+sequence. There is one vector type, with a runtime length: no `Array`,
+`MutVector`, fixed-length type parameters, dependent lengths or immutability
+checks. Primitives occupy unboxed slots; records, enum cases and nested vectors
+occupy reference slots. Records need no special layout or `Unboxed` constraint.
+`Bytes` is an alias for `(Vector U8)`, stored packed and mutable like any vector.
 
-A callable contract is `(impl (Fn Param ... → Result))`, with an optional
-[effect row](effects.md) after `!`. `FnMut` selects exclusive access and
-`FnOnce` selects a consuming call. `dyn` names callable storage, while
-`(fn Param ... → Result)` names noncapturing code. The
-[callable classes](#callable-classes) section describes these distinctions.
+`(vector)` constructs an empty vector; `make-vector` and `vector-generate`
+construct an initial sequence. `vector-ref` reads an element and `vector-set!`
+replaces it. `vector-push!` appends, and `vector-pop!` returns `Some` of the last
+element or `None` when empty. Every alias observes writes, growth and removal.
+Indices and copy ranges are checked against the current length, not spare capacity.
+
+`vector-copy`, `subvector` and `vector-append` create fresh mutable vectors and
+copy their elements shallowly. `vector-set` is the copying replacement operation;
+`vector-copy!` overwrites a destination range and supports overlap. None freezes
+its result. `vector-for-each` and `vector-fold` check the current length at each
+step, so callback mutation can change which elements are visited. `vector-map`
+uses the initial length. String/vector conversions copy character storage in both
+directions: changing the vector cannot change the string.
+
+A byte vector literal, `#u8(137 80 78 71)`, embeds exactly those bytes.
+`(include-bytes "pixel.png")` reads bytes relative to its source file during
+reading; macros cannot compute that path. Use [linked files](#linked-files)
+for large assets that should be read on demand.
+
+A reusable closure has type `(Fn Param ... → Result)`, with an optional
+[effect row](effects.md) after `!`. A consuming closure has type
+`(FnOnce Param ... → Result)`. Lowercase `(fn Param ... → Result)` is a
+noncapturing code pointer. These are built-in type formers, with the same
+spellings in arguments, fields, collections and results; there is no `dyn`,
+`impl`, `FnMut` or callable-class hierarchy.
 A named function carries its type where it is defined. Every parameter has a
 mandatory `(name Type)` annotation, and every named function must state its result
 with `(→ Result)`. Optional effect, generic-variable, constraint and
@@ -32,18 +44,18 @@ documentation clauses follow the parameter list at the start of the
 definition, before its body:
 
 ```scheme
-(define (map-with (function F) (values (List A)))
+(define (map-with (function (Fn A → B ! e)) (values (List A)))
   (→ (List B))
   (! e)
-  (∀ A B e F)
-  (⊨ (Copy F) (Fn F A → B ! e))
+  (∀ A B e)
+  (⊨ (Copy A) (Copy B))
   (map function values))
-(define (sum (values (List T)))
+(define (sum (zero T) (values (List T)))
   (→ T)
   (! e)
   (∀ T e)
   (⊨ (Num e T))
-  (fold-left + 0 values))
+  (fold-left + zero values))
 ```
 
 Ordinary value definitions retain their initializer form and can put an
@@ -65,15 +77,53 @@ change numeric type implicitly: use `i64->i32`, `i32->f64` and the other
 conversions. Crossing an `Any` boundary checks the payload's type; it
 does not change that type. Integer arithmetic wraps.
 
-Local bindings remain monomorphic; place explicitly quantified definitions at
-the top level. Unannotated top-level functions are generalized over the type variables no
-constraint mentions. Other unannotated definitions, and functions whose
-types involve a class constraint, keep one type, which later uses in the
-same library may decide. A library is checked before the libraries that
-import it, so their uses never decide its types: `(define key-left 1)` is an
-`I64` wherever it is imported, and a value meant as an `I32` elsewhere needs
-the inline signature `(define key-left (→ I32) 1)`. Polymorphic definitions with constraints,
-and polymorphic values that are not functions, need signatures.
+Local bindings remain monomorphic. Put explicit quantifiers on reusable
+generic definitions. A library is checked before its importers, so a use in
+another library never determines an exported value's type: `(define key-left 1)`
+is `I64`; an `I32` constant needs `(define key-left (→ I32) 1)`.
+
+## Compile-time values
+
+A top-level form declares a function, type, macro, class, effect or other
+compile-time definition. Runtime expressions belong in functions. A program
+starts by calling its root `main`; importing a library executes no source
+initializers. In particular, top-level `set!`, printing, opening a resource
+and scheduling work are errors.
+
+A value definition such as `(define size (→ I64) (+ 20 22))` must be
+effect-free and fully evaluable by the compiler. Values are forced when
+needed, independently of source order. Forcing a value already being forced
+reports the cycle. Recursive function definitions remain ordinary code;
+recursion is not a constant-forcing cycle.
+
+Each read of an aggregate constant constructs a fresh object graph. Aliases
+and mutable cycles *inside* that graph are preserved. Two reads share no
+writable state, including through closure captures, vectors, `Rc` or `WeakRc`.
+For example, mutating a record obtained from `origin` below does not change
+a later read of `origin`:
+
+```scheme
+(struct Point
+  ((x I64)
+   (y I64)))
+(define origin (→ Point) (Point 0 0))
+```
+
+Effect-free initialization can call pure functions, perform local mutation
+inside a justified `unsafe-total`, and handle effects locally. The evaluator
+uses the same ownership and cleanup decisions as runtime code. It supports
+the compiler's deterministic scalar services, not arbitrary foreign calls or
+host I/O. It bounds evaluation at ten million steps and one million heap
+cells, reporting a compile error on exhaustion. Emitting a fresh runtime graph
+has a separate limit of 512 construction steps: one per object and one per
+field or element. Packed byte vectors emit as data segments, so their bytes do
+not count as individual construction steps. Larger intermediate values can still
+be computed and reduced to a small result. Use an ordinary runtime function to construct a larger
+returned graph; runtime vectors have no fixed size. This emission limit protects
+recursive compiler passes and is an implementation limit, not a type rule.
+Linear top-level values are
+rejected; a function can construct a fresh linear owner when called. An
+unfinished interpreter resumption cannot escape into a constant.
 
 ## Data
 
@@ -89,28 +139,37 @@ and polymorphic values that are not functions, need signatures.
   (Empty))
 ```
 
-A struct `Name` defines the constructor `Name` and pure replacements
-`Name-field-set`; its fields are read by path, `(● s field)`, below. A
-struct is a value: its fields are immutable,
-and a program that changes one holds it in a cell, `(Ref Name)`, and writes a
-*place*, the cell's content or a field read from it, with `set!` or
-`replace!`: `(set! (● r count) 1)`. Reading or writing a cell
-performs `mut`. `Ref` is the one struct with a mutable field, and a pattern can
-only skip its content, with `_` ([ownership](ownership.md)). An enum defines a
-constructor and partial accessors `Case-field` per case, and its fields are
-immutable. Cases are constructors, not types, and are always applied:
-`(Empty)`.
+Every struct and every enum case with fields is a heap object. Its fields
+are mutable by default; there is no per-field mutation annotation. A struct
+`Name` defines its constructor and three operations per field:
 
-A field path begins with a nominal record value and names one or more stored
-struct fields: `(● s label)` reads `label`, while `(● s from x)` reads `x`
-from the value held in `from`. Each next label is selected from the value
-produced by the preceding field. When that value is a `Ref`, selection
-traverses the reference for the next label; if the final field itself has a
-`Ref` type, the read returns that `Ref` intact. Immutable reads through a
-`Borrow` preserve the ordinary ownership rule: a Copy field is copied and a
-linear field is borrowed. Field selection has no field classes or computed
-field overloads. The receiver's nominal record type determines every field,
-so a generic receiver needs a nominal record type that exposes the path.
+| Operation | Result |
+| --- | --- |
+| `(Name-field-set record value)` | A shallow replacement record; other fields keep their existing object references. |
+| `(Name-field-set! record value)` | Updates the existing object and releases the previous field; performs `mut`. |
+| `(Name-field-replace! record value)` | Updates the object and returns the previous field; performs `mut`. |
+
+Read struct fields by path: `(● segment from x)`. Each step follows an
+ordinary object reference. Reads are pure. `(set! (● segment from x) 3)`
+and `(replace! (● segment from x) 3)` use the same resolved slots, evaluating
+the receiver and incoming value once. `Rc` transparently exposes its payload's
+struct fields. There are no field typeclasses, computed property overloads,
+or borrowed receiver types.
+
+Enum cases are constructors, not types, and are always applied: `(Empty)`.
+A case provides partial accessors such as `Circle-radius`; selecting the
+wrong case traps. `Circle-radius-set!` updates that case's field, and
+`Circle-radius-replace!` returns its previous value. These operations also
+check the case and perform `mut`. Pattern matching establishes which case
+is present. A
+field path requires a nominal struct receiver, so it cannot guess an enum
+case from a label.
+
+An aggregate containing a linear member is itself linear. A field read may
+copy an unrestricted value; taking a linear field out requires consuming the
+record by matching it or replacing the field with another owner. See
+[ownership](ownership.md) for exact-once use, mutable access through `Rc`, and
+compiler-managed finalization.
 
 ```scheme
 {{#include ../../../tests/programs/field-paths.sld:paths}}
@@ -170,7 +229,7 @@ and may require other instances:
 
 ```scheme
 (typeclass (Describe T)
-  (: describe (impl (Fn T → String))))
+  (: describe (Fn T → String)))
 
 (instance (Describe (List T))
   (⊨ (Describe T))
@@ -182,8 +241,7 @@ The checker chooses each instance when it checks a use and records that
 choice; monomorphization copies the chosen method for each type, so no
 dictionary exists at run time. Active instance heads must not overlap on their
 input parameters. User-defined classes have
-no superclasses: a signature lists every class it needs. The compiler-derived
-callable classes have the implications described below. Unbound names in an
+no superclasses: a signature lists every class it needs. Unbound names in an
 instance head are its type variables.
 
 ### Rows as parameters
@@ -241,7 +299,7 @@ A class can declare ordinary associated types. Each instance defines them:
 ```scheme
 (typeclass (Add e A B)
   (type Output)
-  (: add (impl (Fn A B → Output ! e))))
+  (: add (Fn A B → Output ! e)))
 
 (instance (Add (!) I64 F64)
   (type Output F64)
@@ -323,30 +381,16 @@ Concrete choices in a checked definition, including a returned closure,
 remain fixed when callers activate another set; generic requirements
 receive the evidence chosen by each caller. Activation itself performs no
 effects and grants no effect permission. `Drop` and `Clone` cannot be placed
-in sets, and the compiler's `Copy` and `Unboxed` rules remain unchanged.
+in sets, and the compiler's structural `Copy` rule remains unchanged.
 
-### Asymmetric arithmetic
+### Numeric libraries
 
-`(snail shell arithmetic)` supplies separate binary classes `Add`, `Sub`,
-`Mul`, and `Div`, with methods `add`, `subtract`, `multiply`, and `divide`.
-Each has an effect row, two operand types, and an associated `Output`.
-They coexist with Core's existing numeric operators.
-
-Its `arithmetic-base` set supports all ordered pairs of `Integer` and
-`Rational`, and `F64` with `F64`. Exact addition, subtraction and
-multiplication of integers return `Integer`; exact division returns
-`Rational`. Operations involving a rational return `Rational`.
-`inexact-promotion` adds both orders of `Integer`/`F64` and
-`Rational`/`F64`, returning `F64`. These explicit conversions can round;
-there is no conversion-chain search outside the selected operation.
-
-`Integer` is the existing arbitrary-precision integer type. Results never
-switch types because of their values. Core literals retain their existing
-`I64`/`F64` defaults; construct exact values with `integer-from-i64` or
-`string->integer`, and rationals with `make-rational`. Arithmetic errors
-retain the underlying libraries' behavior; they are separate from `dyn-cast`.
-Scheme uses these policies with native numeric payloads in `Any`; see
-[dynamic Scheme](macros.md). Comparison policy remains separate work.
+Primitive numeric types remain distinct. `(snail shell integer)` supplies
+arbitrary-precision integers, and `(snail shell rational)` supplies rationals.
+Their constructors and operations are ordinary typed APIs. There is no
+standard dynamic numeric tower, implicit widening, or value-dependent switch
+between integer and rational result types. Typeclasses and associated
+outputs remain available for a library that explicitly needs mixed operands.
 
 ## Effects
 
@@ -356,314 +400,42 @@ covers rows, their inference and polymorphism, local mutation, declaring
 and handling effects, control operations with a one-shot `resume`, latent
 rows and defaults.
 
-## Callable classes
+## Functions
 
-`Fn`, `FnMut`, and `FnOnce` describe how a value can be called. They are
-compiler-derived typeclasses, independent of `Copy` and of effects. Each
-callable type puts `→` before its one result and `!` before its effect row:
-
-```scheme
-(define (square (n I64)) (→ I64)
-  (* n n))
-```
-
-A definition's `impl` contract keeps its concrete implementation type.
-Anonymous lambdas also have distinct concrete types, including the types
-of their captures. Specialization retains that identity. Captured runtime
-values do not create different specializations of the same closure type.
-`define`, `lambda`, and the existing definition macros keep their meanings.
-
-| Contract | Receiver access |
-| --- | --- |
-| `Fn` | Shared access; the owner can call it again. |
-| `FnMut` | Exclusive access for the invocation; the owner can call it again. |
-| `FnOnce` | Ownership passes to the invocation; call or drop it once. |
-
-An `Fn` satisfies `FnMut` and `FnOnce`; an `FnMut` satisfies `FnOnce`.
-The reverse implications do not hold. No callable class implies `Copy`.
-A pure callable can be one-shot, and a repeatable callable can perform
-console, mutation, or control effects. A consuming call of a shared owned
-closure releases its environment when the call finishes; abandoning it
-releases the captures without calling its body.
-
-Argument-position `impl` introduces a fresh caller-chosen type with a
-callability requirement. The consumer is generic over that type:
+`Fn` is reusable and may capture unrestricted values, including mutable
+records and `Rc` owners. Copying the closure retains its shared captures;
+leaving the last owning scope releases them. Mutation and effects are
+independent of how often a closure can be called.
 
 ```scheme
-(define (run-once (function (impl (FnOnce I64 → I64))) (value I64)) (→ I64)
-  (function value))
+(define (twice (function (Fn I64 → I64)) (value I64)) (→ I64)
+  (function (function value)))
 ```
 
-An explicit type variable is useful when other requirements concern the
-same owner. The receiver type comes before the signature in a constraint:
-
-```scheme
-(define (twice (function F) (value I64))
-  (→ I64)
-  (∀ F)
-  (⊨ (Fn F I64 → I64) (Drop (!) F))
-  (let ((answer (function (function value))))
-    (drop function)
-    answer))
-```
-
-This function borrows its argument for each call, then releases it. Add
-`(Copy F)` explicitly when a consumer must duplicate or freely retain `F`.
-The standard list and vector combinators use these callable constraints,
-with an explicit `Copy` requirement on their callback. This preserves their
-existing ability to suspend under an arbitrary effect row. The compiler
-derives callable evidence for functions, lambdas, erased closures and code
-pointers. User-defined instances of these three classes
-are not supported.
-
-### Explicit callable storage
-
-Use `dyn` for fields, collections and returned values that can hold
-different implementations of the same calling contract:
+`FnOnce` is linear. Calling it transfers its captures into its body; dropping
+it without a call releases those captures. `once` converts a closure to the
+corresponding one-shot type without changing its parameters, result or row.
+A source once-lambda can move linear captures directly:
 
 ```scheme
 (struct Job
-  ((run (dyn (FnOnce I64 → Unit ! output-port)))))
+  ((run (FnOnce I64 → Unit ! output-port))))
 
-
-(define (greeting (text String)) (→ (dyn (FnOnce → Unit ! output-port)))
+(define (greeting (text String)) (→ (FnOnce → Unit ! output-port))
   (once (lambda () (write-line text))))
 ```
 
-`(dyn (Fn Args ... → Result))` preserves the existing unrestricted closure representation
-and requires `Copy` captures. `(dyn (FnMut Args ... → Result))` and
-`(dyn (FnOnce Args ... → Result))`
-are owned storage. Their capture droppers run when they are released.
-This explicit storage keeps heterogeneous jobs, future reducers, task
-queues and saved resumptions possible. The checker inserts erasure at the
-stated boundary; it does not erase every callable argument.
-
-The current `impl` forms cover definitions, lambda annotations and direct
-argument contracts. General opaque return types, nested quantified `impl`
-contracts and generic associated implementation families are not
-implemented. Use explicit `dyn` for those storage boundaries.
-
-`once` accepts any argument count and preserves the complete signature.
-An `impl FnOnce` lambda can move its captures into its body. A concrete
-`Fn` or `FnMut` lambda can own non-`Copy` captures, but its repeatable body
-may borrow them only; moving one requires a consuming contract. Ordinary
-mutable storage and its `! mut` effect remain separate from receiver access.
-
-### Receiver lifetimes and suspension
-
-A call of a non-`Copy` `Fn` borrows a named local owner or immutable field
-path. `FnMut` additionally requires exclusive receiver access through
-argument evaluation and the call. The owner remains available afterward
-and must eventually be consumed or dropped.
-
-These loans use the existing lexical lifetime rules. A borrowed receiver
-or its borrowed captures cannot remain live across a control operation;
-an unknown effect-row tail also requires that conservative check. Moving
-or capturing a borrowed owner is rejected. Mutable and lifetime-polymorphic
-borrow types are not implemented. Consuming adaptation from an owned
-shared or exclusive callable obeys this same limit; owning the adapter
-does not extend its receiver loan's lifetime.
-
-Existing `Copy` closures can still suspend, and consuming `FnOnce` values
-can still own captures across suspension. Saved resumptions remain one-shot
-and may be stored in `dyn FnOnce` values. Callability does not imply purity,
-`Copy`, or the ability to keep a receiver loan across suspension.
+An alias of a reusable closure remains callable after another alias has been
+converted with `once` and called or dropped. The wrapper owns that one counted
+reference, not every alias of the environment. A handler's `resume` is also a
+`FnOnce`; there are no source loans or borrow restrictions on storing it.
 
 ### Code pointers
 
-`(fn A → B ! e)` is the noncapturing code-pointer representation. A `fn`
-expression or a top-level function can provide it; a capturing lambda
-cannot. Code pointers satisfy the callable contracts, but retain their
-separate representation at storage and foreign boundaries. Wrap a code
-pointer in a lambda when an unrestricted `dyn Fn` closure is required.
-
-The older prefix arrow and code-pointer `Fn` spellings are rejected with
-migration diagnostics. Provider specialization, scoped capability changes
-and effect-transition types remain proposals in their own chapters; this
-migration preserves the current evidence-passing effect runtime.
-
-## Proposed places and locators
-
-**Design for review, not implemented.** A place is a concrete type; `Ref`
-is the capability implemented by places that select a value of a given
-type. Generic consumers accept `impl Ref T` and preserve the concrete
-place type for specialization. There is no conversion to a single
-concrete `Ref T`, runtime path descriptor or accessor-function dictionary.
-The names below are proposed; the implemented `Ref` above is still the
-current cell type.
-
-### Concrete places
-
-Write the internal shape schematically as `Place<Base, Path>`. `Base`
-identifies the root storage representation and `Path` describes the
-access steps at the type level. Allocating mutable storage for a `Point`
-returns a root place with an empty path. The backing storage is always
-allocated on the GC heap, including when bound to a local variable.
-
-Projection composes paths. If `p` is a root place selecting a record,
-`p.position.x` produces a concrete place type whose path identifies both
-fields. It does not first copy `position` into a temporary. The root and
-field path determine the selected type; neither the caller nor inference
-can choose a different target type for the same place type. A computed
-getter does not establish storage, and writable-field evidence must obey
-the defining library's access rules.
-
-For managed roots and paths consisting only of inline fields, the runtime
-value is just the root managed reference. All path steps are erased by specialization;
-projection allocates no locator object and installs no runtime dispatch.
-The emitted accesses use fixed field indices, as WasmGC requires
-([instruction syntax](https://webassembly.github.io/spec/core/text/instructions.html)).
-The place keeps its root alive through that reference. Replacing the root's
-content leaves a retained place selecting the same field in the new value.
-
-### Reference capability and argument sugar
-
-`Ref T` describes access to storage containing `T`. Internally its evidence
-relates a concrete place type `P` to its unique selected type `T`; write
-that relation as `(Ref P T)`. The compiler derives it from valid place
-construction and projection. User instances cannot assert arbitrary
-storage layouts. The argument-position `impl` form introduces a fresh type
-variable and its class obligation directly on this function:
-
-```scheme
-(define (zero! (target (impl (Ref I64)))) (→ Unit) (! mut)
-  (ref-set! target 0))
-```
-
-The compiler checks it with a fresh type variable `P`, constrained by
-`(Ref P I64)`, and the caller chooses `P`. Calling `zero!` on two different field paths
-specializes it for their distinct place types; both write an `I64` without
-boxing or converting either place. Each argument-position `impl` introduces
-an independent type variable. A named `P` expresses that two arguments, or
-an argument and a result, must have the same concrete place type.
-
-The capability admits reading, writing and swapping with `mut` recorded.
-Reading must satisfy the existing copying rules for the selected value.
-Managed place handles are unrestricted even though their contents have a
-separate type: duplicating a handle preserves aliasing and does not copy the
-stored object. The compiler can derive `(Copy P)` from its place evidence;
-this implication must be explicit in checking, since current user classes
-have no superclasses. Existing restrictions on shared cell contents remain:
-linear values cannot be stored there without a separate ownership and
-finalization design. This proposal does not permit moving a linear value
-out of aliased storage or silently dropping one on replacement.
-
-`impl Ref T` in an argument is static polymorphism, not an existential
-container. Different place types cannot be put in one homogeneous list or
-returned from different branches merely because they select the same `T`.
-Such code must keep its alternatives explicit or invoke the generic
-consumer within each branch. Returned or stored opaque `impl` types need
-a separate language rule; this proposal introduces no automatic erasure.
-The same principle applies to the [callable class](#callable-classes).
-
-### GC-heap storage for local variables
-
-All place-backed storage is allocated on the WasmGC heap, including
-storage for local variables. A local allocation returns the same concrete
-root place as any other allocation. Field projection composes the same
-static paths, and generic consumers use the same `impl Ref T` capability.
-Source scope does not select a different storage representation.
-
-There are no stack allocations, stack-place types or stack-borrow
-lifetimes in this design. The compiler must not replace this storage with
-Wasm locals as an allocation-elimination strategy. A Wasm local can hold
-the managed root reference; the referenced storage remains a GC object.
-Every alias retains that same root.
-
-The managed root remains valid when retained by a closure or saved
-continuation: GC follows the reference when control lowering unwinds the
-Wasm activation. Existing restrictions on storing linear values in shared
-cells still apply; managed lifetime alone is not a resource-finalization
-policy.
-
-Exact allocation syntax and automatic versus explicit reads remain open.
-Tests must establish GC-backed storage for local allocations, two aliases
-observing writes across a call, and a place retained across a suspension.
-The Place/Ref distinction is identical in each case.
-
-### Array element places
-
-A dynamic array index is runtime data. The static path records an indexing
-step, but not the index's value: `array[i]` and `array[j]` have the same
-concrete place type when their array types agree. They carry different
-indices. An indexed place therefore contains the selected array reference
-and index, while its path description still disappears during
-specialization. No specialization is generated for each numeric index.
-
-There is at most one dynamic index per place, and its indexing step is
-the leaf. Native array elements cannot contain inline struct fields, so a
-place cannot continue through fields inside an array element. Reaching
-through an element that holds an explicit reference reads that reference
-and establishes a new root. For an array of arrays, selecting `a[i][j]`
-first reads the inner array at `i`; the resulting element place retains
-only the inner array and `j`. This is a property of each resulting place,
-not a limit on the number of indexing expressions in source code. Reads
-used to obtain a new root still perform their declared effects.
-
-Evaluate the receiver and index once, check bounds when constructing the
-place, and retain the selected fixed-length array. Later reads and writes
-use that reference and index; bounds checks may be removed only when their
-validity is proved. No unchecked truncation of a source integer to a Wasm
-index is permitted. A reference stored in an element is a value: reaching
-through it requires a dereference step whose construction retains the
-selected target. Updating that element later does not retarget an already
-constructed place into the old target.
-
-Growable containers need a separate invalidation or stable-storage rule;
-a saved element place must not silently follow a reallocated buffer.
-Enum payload projection also needs a case-validity rule. Neither extension
-is implied by ordinary struct projection or fixed-array indexing.
-
-### Native array layout contract
-
-Arrays admit only element types explicitly supported by the native Wasm
-array representation. Arrays of struct values are compile-time errors,
-including single-field structs; this deliberately tightens today's
-`Unboxed` exception for a one-slot struct. The compiler must not silently
-box elements, transpose a record into several arrays, or pack heterogeneous
-fields into bytes to make such an array compile.
-
-Scalar and packed element types use their declared native storage mapping.
-Explicit managed-reference elements remain possible, with their indirection
-visible in the source type. A reference capability is not itself an element
-representation: an array of `impl Ref T` cannot erase heterogeneous place
-types. A concrete place may be an element only when its representation is
-one supported native reference; an array-element place carrying both a root
-and an index does not qualify. Source struct values remain rejected even
-when an implementation could box them into references.
-
-This guarantees the representation category and absence of hidden element
-boxing or layout conversion. Physical GC object headers, byte offsets and
-alignment are still engine choices; native WasmGC storage does not expose a
-C-compatible memory layout. Future inline aggregates would require an
-explicit extension of the array contract, not a silent change in layout.
-
-The WasmGC [post-MVP nested-data design](https://github.com/WebAssembly/gc/blob/main/proposals/gc/Post-MVP.md#nested-data-structures)
-sketches inline arrays of structs and interior references. At the time of
-this review it is not listed as an active staged proposal in the
-[proposal tracker](https://github.com/WebAssembly/proposals); the design
-must not depend on a delivery date. The active
-[Multibyte Array Access proposal](https://github.com/WebAssembly/multibyte-array-access/blob/main/proposals/multibyte-array-access/Overview.md)
-addresses wider accesses through numeric arrays, not arbitrary inline
-aggregates containing managed references.
-
-### Implementation evidence
-
-Checking must produce structured path evidence and preserve the concrete
-place type through substitution, interfaces and monomorphization. Lowering
-must consume that evidence instead of recovering writable storage from the
-syntax of a getter call. Keep root and dynamic-index evaluation order,
-GC liveness and aliasing rules beside the code that implements them.
-
-Acceptance tests must pass a root place and distinct field places to one
-generic consumer, retain a place across root replacement, and read and
-write checked array-element places with runtime indices. Rejections must
-cover computed getters used as storage, inconsistent target types,
-implicit place erasure, linear cell contents, every struct-array shape
-and indexed places used as native array elements. Execute linked Wasm and
-inspect the relevant lowering to establish that field-only places retain
-only a root and that access uses static field indices. Bootstrap and
-compiled execution must agree.
+`(fn A → B ! e)` is a noncapturing code pointer. A `fn` expression or a
+named top-level function can provide it; a capturing lambda cannot. Its
+representation remains separate at storage and foreign boundaries. Wrap a
+code pointer in a lambda when a `Fn` closure is needed.
 
 ## Foreign functions
 
@@ -676,20 +448,20 @@ arrives as its Unicode scalar count, with four bytes per scalar in staging.
 Bytes arrive as an `i32` address: a little-endian `u32` length followed by
 that many packed bytes. The host reads the current memory buffer and copies
 any bytes it retains before returning or awaiting; later calls reuse staging.
-Imports are leaves and must not call back into Snail-Core while reading staging.
+Imports are leaves and must not call back into Snail Scheme while reading staging.
 
 An exposed function passes scalars directly and managed values as opaque engine
 references. JavaScript can retain those references and pass them to synchronous
 Wasm constructors/projectors, but cannot inspect their fields or substitute a
-JavaScript object, string or typed array. Exposed `String` and `Bytes` are managed
-arrays; the staging convention above applies to calls into foreign imports.
+JavaScript object, string or typed array. Exposed `String` and `Bytes` are opaque
+managed references; the staging convention above applies to calls into foreign imports.
 Affine values, including records that contain them, cannot cross this unrestricted
 boundary. Exposed signatures remain monomorphic and their effects need host bindings.
 A function export may infer its concrete signature. Its effect row stays available
 for instance solving rather than being generalized; ordinary value-type variables
 still generalize, so an unannotated generic identity function cannot be exposed.
-The host must respect the declared Snail-Core types: Wasm representation checks do not
-prove nominal identity or permit treating immutable `Bytes` as a mutable `Array`.
+The host must respect the declared Snail Scheme types: Wasm representation checks do not
+prove nominal identity or permit treating a `String` as a `Vector Char`.
 
 An exposed `(Option Any)` crosses as `null` for `None` or the opaque `Any`
 payload for `Some`. The wrapper converts at the boundary; internal Options
@@ -817,7 +589,7 @@ An explicit finite dispatcher supplies one:
 
 ```scheme
 (typeclass (Describe e T)
-  (: describe (impl (Fn T → String ! e))))
+  (: describe (Fn T → String ! e)))
 
 ;; Declare pure instances (Describe (!) I64) and (Describe (!) String) first.
 (instance (Describe (! dyn-cast) Any)
@@ -864,10 +636,6 @@ Every finite dispatcher needs `dyn-cast` for unsupported payloads. Calls
 perform the declared row under the caller's handlers. A payload's type
 does not grant permission to perform an undeclared effect.
 
-The Scheme translator now uses these boundaries through `Any` and a nominal
-procedure wrapper with a fixed effect signature ([dynamic Scheme](macros.md)).
-This does not generalize local bindings or permit direct erasure of effectful
-function types.
 Catchable conversion failure uses the same ownership cleanup as other
 abortive effects ([cleanup](ownership.md#drops-that-may-run)).
 
@@ -906,8 +674,8 @@ normally and do not trigger another branch attempt. Every generated head's
 row contains `dyn-cast` plus the union of its eligible source rows; handlers
 or signatures must account for that whole row.
 
-The initial generator supports binary classes with one row, one associated
-output, and methods of type `(dyn (Fn A B → Output ! e))`. Independently polymorphic
+The generator supports binary classes with one row, one associated
+output, and methods of type `(Fn A B → Output ! e)`. Independently polymorphic
 methods, extra method requirements, and source-instance prerequisites are
 rejected. Both listed inputs must be ground, non-`Any` types that can cross
 the existing erasure boundary. Heterogeneous results must also support
@@ -915,10 +683,9 @@ boxing. It does not convert container elements or wrap functions.
 
 Generated heads follow the ordinary overlap rule. Separate generators for
 the same class both produce `(Any, Any)`, so activating both is an error;
-the compiler does not merge their domains. `(snail shell arithmetic dynamic)`
-exports `dynamic-arithmetic`, generated from the complete nine-pair relation
-over `Integer`, `Rational`, and `F64` for all four arithmetic classes.
-Importing that library still requires explicit activation of its set.
+the compiler does not merge their domains. No standard numeric tower or
+implicit promotion policy is installed. Prefer concrete numeric types and
+ordinary typed calls; `Integer` and `Rational` remain explicit libraries.
 
 ### Explicit dynamic values
 
@@ -945,7 +712,7 @@ right, before evaluating the following argument.
 The ordinary effect rules apply. An inferred function acquires `dyn-cast`;
 a closed signature must declare it or handle it inside the body. A function
 may declare it without being defined inside a handler. Its callers must
-handle or propagate it, and an unhandled effect at a Core entrypoint is a
+handle or propagate it, and an unhandled effect at a program entrypoint is a
 compile error. A handler for some other effect, including a user-defined
 `exn`, does not grant this permission. A handler can explicitly translate
 `dyn-cast` to another effect.
@@ -953,8 +720,9 @@ compile error. A handler for some other effect, including a user-defined
 ```scheme
 (define (integer (value Any)) (→ I64) (! dyn-cast) value)
 
-(handle dyn-cast ((conversion-failed (lambda (_) -1)))
-  (integer "not an integer"))
+(define (example) (→ I64)
+  (handle dyn-cast ((conversion-failed (lambda (_) -1)))
+    (integer "not an integer")))
 ```
 
 The handler returns a fallback for the whole handled computation; it
@@ -982,11 +750,9 @@ Errors do not retain the payload for diagnostics.
 `dyn-cast` failures as a `Result`, `cast-error->string`, and `run-dynamic`,
 which additionally reports failures through `output-port`. An interactive
 caller can use this explicit boundary once per evaluation and continue
-after an `Err`; a script decides its exit status from the result. No host
-implicitly enables `dyn-cast`. Generated Scheme scripts explicitly wrap each
-top-level evaluation with `scheme-evaluate`, which reports a failure as a
-script error. Direct runtime calls remain catchable by their caller; there
-is no interactive evaluator yet.
+after an `Err`; a script decides its exit status from the result. No host implicitly enables `dyn-cast`; a caller decides where to handle
+conversion failure. There is no dynamic Scheme compatibility layer or
+interactive evaluator.
 
 A type identity includes fields and cases: changing a struct's fields
 changes its identity, even when its name stays the same. A relinked program

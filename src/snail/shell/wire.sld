@@ -18,63 +18,45 @@
    case-id=?)
   (import
    (snail core base)
-   (except (snail core primitive)
-           string-append
-           make-array
-           array-length
-           array-ref
-           array-set!
-           array->vector
-           vector->array
-           array-copy!
-           vector-copy!))
+   (except (snail core primitive) string-append))
   (begin
 
     ;; ---- Classes ----
 
     (typeclass (Serialize T)
-      (: encode (impl (Fn T Encoder → Unit ! mut))))
+      (: encode (Fn T Encoder → Unit ! mut)))
 
     (typeclass (Deserialize T)
-      (: decode (impl (Fn Decoder → T ! mut))))
+      (: decode (Fn Decoder → T ! mut)))
 
     ;; ---- Byte streams ----
 
-    ;; The encoder doubles its array as it fills; the decoder reads forward.
+    ;; The encoder appends bytes; the decoder reads forward.
     (struct Encoder
-      ((bytes (Ref (Array U8)))
-       (size (Ref I64))))
+      ((bytes Bytes)))
 
     (struct Decoder
       ((bytes Bytes)
-       (position (Ref I64))))
+       (position I64)))
 
     (define (encode-byte (encoder Encoder) (byte U8)) (→ Unit) (! mut)
-      (let ((bytes (ref-get (● encoder bytes))) (size (ref-get (● encoder size))))
-        (when (= size (array-length bytes))
-          (let ((larger (make-array (* 2 size) (ann 0 U8))))
-            (array-copy! larger 0 bytes 0 size)
-            (ref-set! (● encoder bytes) larger)))
-        (array-set! (ref-get (● encoder bytes)) size byte)
-        (ref-set! (● encoder size) (+ size 1))))
+      (vector-push! (● encoder bytes) byte))
 
     (define (decode-byte (decoder Decoder)) (→ U8) (! mut)
-      (let ((position (ref-get (● decoder position))))
+      (let ((position (● decoder position)))
         (when (>= position (vector-length (● decoder bytes)))
           (panic "wire data ended early"))
-        (ref-set! (● decoder position) (+ position 1))
+        (set! (● decoder position) (+ position 1))
         (vector-ref (● decoder bytes) position)))
 
     ;; The encoder and its buffer are local to this call.
 
-    (define (serialize (value T)) (→ Bytes) (∀ T) (⊨ (Serialize T) (Copy T))
+    (define (serialize (value T)) (→ Bytes) (∀ T) (⊨ (Serialize T) (Copy T) (Drop (!) T))
       (unsafe-total
        (lambda ()
-         (let ((encoder (Encoder (ref (make-array 64 (ann 0 U8))) (ref 0))))
+         (let ((encoder (Encoder (vector))))
            (encode value encoder)
-           (subvector (array->vector (ref-get (● encoder bytes)))
-                      0
-                      (ref-get (● encoder size)))))))
+           (● encoder bytes)))))
 
     ;; Panics if the bytes were not written for this type. The decoder's
     ;; position is local to this call.
@@ -82,8 +64,8 @@
     (define (deserialize (bytes Bytes)) (→ T) (∀ T) (⊨ (Deserialize T))
       (unsafe-total
        (lambda ()
-         (let* ((decoder (Decoder bytes (ref 0))) (value (decode decoder)))
-           (unless (= (ref-get (● decoder position)) (vector-length bytes))
+         (let* ((decoder (Decoder bytes 0)) (value (decode decoder)))
+           (unless (= (● decoder position) (vector-length bytes))
              (panic "wire data has trailing bytes"))
            value))))
 
@@ -195,24 +177,24 @@
                                                                 (decode-unsigned decoder)))))))))
 
     (instance (Serialize (Vector T))
-      (⊨ (Serialize T) (Copy T))
+      (⊨ (Serialize T) (Copy T) (Drop (!) T))
       (define encode
         (lambda (value encoder) (encode-unsigned encoder (vector-length value))
                 (vector-for-each (lambda (item) (encode item encoder)) value))))
 
     (instance (Deserialize (Vector T))
-      (⊨ (Deserialize T) (Copy T))
+      (⊨ (Deserialize T) (Copy T) (Drop (!) T))
       (define decode
         (lambda (decoder) (decode-elements decoder (decode-unsigned decoder) decode))))
 
     (instance (Serialize (List T))
-      (⊨ (Serialize T) (Copy T))
+      (⊨ (Serialize T) (Copy T) (Drop (!) T))
       (define encode
         (lambda (value encoder) (encode-unsigned encoder (length value))
                 (for-each (lambda (item) (encode item encoder)) value))))
 
     (instance (Deserialize (List T))
-      (⊨ (Deserialize T) (Copy T))
+      (⊨ (Deserialize T) (Copy T) (Drop (!) T))
       (define decode
         (lambda (decoder)
           (vector->list (decode-elements decoder (decode-unsigned decoder) decode)))))
@@ -222,11 +204,11 @@
 
     (define (decode-elements (decoder Decoder)
                              (count I64)
-                             (decode-one (dyn (Fn Decoder → T ! mut))))
+                             (decode-one (Fn Decoder → T ! mut)))
       (→ (Vector T))
       (! mut)
       (∀ T)
-      (⊨ (Copy T))
+      (⊨ (Copy T) (Drop (!) T))
       (vector-generate count (lambda (index) (decode-one decoder))))
 
     (instance (Serialize (Option T))

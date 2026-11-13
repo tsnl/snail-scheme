@@ -22,9 +22,13 @@
     ((None) (panic "missing artifact"))))
 
 (define client (client-snapshot))
-(display (string-join (map (lambda (record) (● record path)) (● client files)) "|"))
-(newline)
-(print-bytes (required client "nested/data.bin"))
-(print-bytes producer-bytes)
-(print-bytes (required admin-bundle "admin.bin"))
-(print-bytes (required (client-snapshot) "nested/data.bin"))
+
+(define main
+  (lambda ()
+    (display (string-join (map (lambda (record) (● record path)) (● client files)) "|"))
+    (newline)
+    (print-bytes (required client "nested/data.bin"))
+    (print-bytes producer-bytes)
+    (print-bytes (required admin-bundle "admin.bin"))
+    (print-bytes (required (client-snapshot) "nested/data.bin"))
+    (unit)))

@@ -1,1 +1,1 @@
-type mismatch: expected (dyn (FnOnce I64 → Step)), found (dyn (FnOnce I64 → Step ! Log))
+type mismatch: expected (FnOnce I64 → Step), found (FnOnce I64 → Step ! Log)

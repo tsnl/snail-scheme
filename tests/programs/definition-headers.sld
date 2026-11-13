@@ -8,7 +8,7 @@
   (→ T)
   (! E)
   (∀ T E)
-  (⊨ (Num E T) (Copy T))
+  (⊨ (Num E T) (Copy T) (Drop E T))
   (annotations (doc "Add a value to itself."))
   (+ (ann value T) value))
 
@@ -17,7 +17,7 @@
   (∀ T)
   (Nil))
 
-(define (apply-one (action (impl (FnOnce I64 → I64))) (value I64))
+(define (apply-one (action (FnOnce I64 → I64)) (value I64))
   (→ I64)
   (action value))
 
@@ -41,8 +41,11 @@
   (→ I64)
   42)
 
-(write-line (i64->string (twice 21)))
-(write-line (i64->string (length (ann empty (List I64)))))
-(write-line (i64->string (apply-one (lambda (value) (+ value 1)) 41)))
-(write-line (i64->string (offset 7)))
-(write-line (i64->string (answer)))
+(define main
+  (lambda ()
+    (write-line (i64->string (twice 21)))
+    (write-line (i64->string (length (ann empty (List I64)))))
+    (write-line (i64->string (apply-one (lambda (value) (+ value 1)) 41)))
+    (write-line (i64->string (offset 7)))
+    (write-line (i64->string (answer)))
+    (unit)))

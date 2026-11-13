@@ -145,7 +145,7 @@
                            (Added count))))))))
 
     ;; Does `act` to the draft field, if the view still shows it.
-    (define (with-draft (act (dyn (Fn Node → Unit ! dom)))) (→ Unit) (! dom)
+    (define (with-draft (act (Fn Node → Unit ! dom))) (→ Unit) (! dom)
       (match (element-by-id "draft")
         ((Some node) (act node))
         ((None) (unit))))

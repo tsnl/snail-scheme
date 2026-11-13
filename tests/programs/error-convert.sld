@@ -1,4 +1,7 @@
 (import
  (snail core base))
 
-(type-convert "text" I64)
+(define main
+  (lambda ()
+    (type-convert "text" I64)
+    (unit)))

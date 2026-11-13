@@ -3,7 +3,7 @@
  (snail core io))
 
 (typeclass (Describe T)
-  (: describe (impl (Fn T → String))))
+  (: describe (Fn T → String)))
 
 (instance (Describe I64)
   (define describe (lambda (n) (string-append "int " (show n)))))
@@ -24,19 +24,22 @@
                       ((None) "nothing")
                       ((Some x) (string-append "just " (describe x)))))))
 
-(define (describe-twice (value T)) (→ String) (∀ T) (⊨ (Describe T) (Copy T))
+(define (describe-twice (value T)) (→ String) (∀ T) (⊨ (Describe T) (Copy T) (Drop (!) T))
   (string-append (describe value) (string-append " / " (describe value))))
 
 (define (sum (items (List T)) (zero T)) (→ T) (∀ T) (⊨ (Num (!) T))
   (fold-left + zero items))
 
-(write-line (describe (list 1 2 3)))
-(write-line (describe (list (Some #t) (None))))
-(write-line (describe-twice (list (list 1) (list))))
-(display (sum (list 1 2 3) 0))
-(newline)
-(display (sum (list 1.5 2.5) 0.0))
-(newline)
-(display (max 3 9))
-(newline)
-(write-line (show (< "apple" "banana")))
+(define main
+  (lambda ()
+    (write-line (describe (list 1 2 3)))
+    (write-line (describe (list (Some #t) (None))))
+    (write-line (describe-twice (list (list 1) (list))))
+    (display (sum (list 1 2 3) 0))
+    (newline)
+    (display (sum (list 1.5 2.5) 0.0))
+    (newline)
+    (display (max 3 9))
+    (newline)
+    (write-line (show (< "apple" "banana")))
+    (unit)))

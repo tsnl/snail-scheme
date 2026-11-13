@@ -57,8 +57,7 @@
    loading-program
    name-instance
    replace-instances
-   run-export
-   run-export-with)
+   run-export)
   (import
    (snail core base)
    (prefix (snail runtime wasm) host-)
@@ -90,32 +89,30 @@
     ;; loaded module may import. `name-instance` puts an instance in the
     ;; program's namespace under the staged name, where `instantiate` and
     ;; later loads see it; `call-export` calls an export of no argument or
-    ;; one I64, such as `main` or `tasks:turn`, for its result, and
-    ;; `call-with-function` one of a Funcref, such as `tasks:start-main`.
+    ;; one I64, such as `main`, for its result.
     (effect wasm
-      ((argument-character (dyn (Fn Char → Unit)))
-       (argument-end (dyn (Fn → Unit)))
-       (compile (dyn (Fn Bytes → I32)))
-       (namespace (dyn (Fn → I32)))
-       (instantiate (dyn (Fn I32 I32 → I32)))
-       (exports-function? (dyn (Fn I32 → Bool)))
-       (export-function (dyn (Fn I32 → Funcref)))
-       (import-count (dyn (Fn I32 → I32)))
-       (import-at (dyn (Fn I32 I32 → I32)))
-       (held-length (dyn (Fn I32 → I32)))
-       (held-char (dyn (Fn I32 I32 → Char)))
-       (prepare-link (dyn (Fn I32 → Unit)))
-       (provide-export (dyn (Fn I32 → Bool)))
-       (provide-host (dyn (Fn → Bool)))
-       (provide-missing (dyn (Fn → Unit)))
-       (link-prepared (dyn (Fn → I32)))
-       (provide-constant (dyn (Fn I32 → Unit)))
-       (register-instance (dyn (Fn I32 → Bool)))
-       (prepare-names (dyn (Fn → Unit)))
-       (provide-instance (dyn (Fn I32 → Bool)))
-       (replace-names (dyn (Fn → Bool)))
-       (call-export (dyn (Fn I32 I64 → I64)))
-       (call-with-function (dyn (Fn I32 Funcref → I64))))
+      ((argument-character (Fn Char → Unit))
+       (argument-end (Fn → Unit))
+       (compile (Fn Bytes → I32))
+       (namespace (Fn → I32))
+       (instantiate (Fn I32 I32 → I32))
+       (exports-function? (Fn I32 → Bool))
+       (export-function (Fn I32 → Funcref))
+       (import-count (Fn I32 → I32))
+       (import-at (Fn I32 I32 → I32))
+       (held-length (Fn I32 → I32))
+       (held-char (Fn I32 I32 → Char))
+       (prepare-link (Fn I32 → Unit))
+       (provide-export (Fn I32 → Bool))
+       (provide-host (Fn → Bool))
+       (provide-missing (Fn → Unit))
+       (link-prepared (Fn → I32))
+       (provide-constant (Fn I32 → Unit))
+       (register-instance (Fn I32 → Bool))
+       (prepare-names (Fn → Unit))
+       (provide-instance (Fn I32 → Bool))
+       (replace-names (Fn → Bool))
+       (call-export (Fn I32 I64 → I64)))
       (default ((argument-character host-argument-character)
                 (argument-end host-argument-end)
                 (compile host-compile)
@@ -137,8 +134,7 @@
                 (prepare-names host-prepare-names)
                 (provide-instance host-provide-instance)
                 (replace-names host-replace-names)
-                (call-export host-call-export)
-                (call-with-function host-call-with-function))))
+                (call-export host-call-export))))
 
     (define (send-argument (text String)) (→ Unit) (! wasm)
       (let loop ((index 0))
@@ -352,7 +348,7 @@
 
     ;; ---- Linking by hand ----
 
-    ;; What a loader written in Snail-Core, such as an engine linking a
+    ;; What a loader written in Snail Scheme, such as an engine linking a
     ;; program's modules, needs: a compiled module, its imports, and a link
     ;; against providers it chooses, one per import.
     (struct Compiled
@@ -479,18 +475,6 @@
           (begin (send-argument name) (Ok (call-export (● instance handle) argument)))
           (Err (MissingExport name))))
 
-    ;; Calls the function the instance exports as `name` with `function`,
-    ;; such as a scheduler's `tasks:start-main` with a program's body.
-
-    (define (run-export-with (instance Module) (name String) (function Funcref))
-      (→ (Result I64 LoadError))
-      (! wasm)
-      (send-argument name)
-      (if (exports-function? (● instance handle))
-          (begin (send-argument name)
-                 (Ok (call-with-function (● instance handle) function)))
-          (Err (MissingExport name))))
-
     ;; ---- Plugin functions ----
 
     ;; The function the plugin exposes as `name` with `dynamic`, at the type
@@ -503,7 +487,7 @@
       (→ (Result A LoadError))
       (! wasm)
       (∀ A)
-      (⊨ (Copy A))
+      (⊨ (Copy A) (Drop (!) A))
       (let ((program (● plugin program)))
         (match (Pair (module-export program name)
                      (module-export program (string-append name ":signature")))
@@ -518,12 +502,12 @@
     ;; its WebAssembly type is not that function's.
 
     (define (descriptor (signature Funcref)) (→ (Vector I64))
-      ((ann (unsafe-cast signature) (dyn (Fn → (Vector I64))))))
+      ((ann (unsafe-cast signature) (Fn → (Vector I64)))))
 
     (define (checked-function (name String) (function Funcref) (signature (Vector I64)))
       (→ (Result A LoadError))
       (∀ A)
-      (⊨ (Copy A))
+      (⊨ (Copy A) (Drop (!) A))
       (match (vector->list
               (dynamic-cast function (lambda (expected) (same-signature? signature expected))))
         ((Cons typed _) (Ok typed))

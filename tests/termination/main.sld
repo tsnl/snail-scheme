@@ -18,9 +18,12 @@
 (define (spin) (→ Unit)
   (spin))
 
-(if (member? "wait" (command-line))
-    (dispatch-local (once observe))
-    (dispatch-local (once (lambda () (sleep 30000)))))
-(dispatch-local (once (lambda ()
-                        (write-line "ready")
-                        (if (member? "busy" (command-line)) (spin) (unit)))))
+(define main
+  (lambda ()
+    (if (member? "wait" (command-line))
+        (dispatch-local (once observe))
+        (dispatch-local (once (lambda () (sleep 30000)))))
+    (dispatch-local (once (lambda ()
+                            (write-line "ready")
+                            (if (member? "busy" (command-line)) (spin) (unit)))))
+    (unit)))

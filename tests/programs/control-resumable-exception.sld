@@ -5,12 +5,12 @@
 ;; A resumable exception: `fail` reports a problem and asks for a value to
 ;; go on with, which the handler supplies by resuming.
 (effect Fail
-  ((ctl fail (dyn (Fn String → I64)))))
+  ((ctl fail (Fn String → I64))))
 
 ;; A log whose handler prints each line and resumes, so performing it
 ;; leaves the computation and comes back.
 (effect Log
-  ((ctl log (dyn (Fn String → Unit)))))
+  ((ctl log (Fn String → Unit))))
 
 (define (digit (c Char)) (→ I64) (! Fail)
   (if (char-numeric? c)
@@ -25,23 +25,6 @@
   (handle Fail ((fail (lambda (message resume) (write-line message) (resume default))))
     (number text)))
 
-(display (parse-with "123" 0))
-(newline)
-(display (parse-with "1x3y" 9))
-(newline)
-
-;; Of two handlers of one effect, the inner one catches the body's `fail`.
-;; Its implementation runs outside it, so its own `fail` reaches the outer
-;; handler, which resumes it; the inner one then resumes the body.
-(display (handle Fail ((fail (lambda (message resume)
-                               (write-line (string-append "outer: " message))
-                               (resume 100))))
-           (handle Fail ((fail (lambda (message resume)
-                                 (write-line (string-append "inner: " message))
-                                 (+ 1 (resume (fail (string-append "again " message)))))))
-             (+ (fail "boom") 1))))
-(newline)
-
 ;; The resumed part of the body performs `log`, a control operation of a
 ;; handler outside the one that resumed it: the yield leaves the resumed
 ;; frames, the inner handler and its implementation, reaches the log's
@@ -52,14 +35,32 @@
     (log (string-append "value " (show value)))
     value))
 
-(define (logged (body (dyn (Fn → I64 ! Log)))) (→ I64) (! output-port)
+(define (logged (body (Fn → I64 ! Log))) (→ I64) (! output-port)
   (handle Log ((log
                 (lambda (line resume) (write-line (string-append "log: " line)) (resume (unit)))))
     (body)))
 
-(display (logged (lambda ()
-                   (handle Fail ((fail (lambda (message resume)
-                                         (log (string-append "recovering from " message))
-                                         (* 2 (resume 5)))))
-                     (+ (checked "4z") (checked "7"))))))
-(newline)
+(define main
+  (lambda ()
+    (display (parse-with "123" 0))
+    (newline)
+    (display (parse-with "1x3y" 9))
+    (newline)
+    ;; Of two handlers of one effect, the inner one catches the body's `fail`.
+    ;; Its implementation runs outside it, so its own `fail` reaches the outer
+    ;; handler, which resumes it; the inner one then resumes the body.
+    (display (handle Fail ((fail (lambda (message resume)
+                                   (write-line (string-append "outer: " message))
+                                   (resume 100))))
+               (handle Fail ((fail (lambda (message resume)
+                                     (write-line (string-append "inner: " message))
+                                     (+ 1 (resume (fail (string-append "again " message)))))))
+                 (+ (fail "boom") 1))))
+    (newline)
+    (display (logged (lambda ()
+                       (handle Fail ((fail (lambda (message resume)
+                                             (log (string-append "recovering from " message))
+                                             (* 2 (resume 5)))))
+                         (+ (checked "4z") (checked "7"))))))
+    (newline)
+    (unit)))

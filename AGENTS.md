@@ -1,4 +1,4 @@
-# Working on Snail-Core
+# Working on Snail Scheme
 
 `CLAUDE.md` is a symlink to this file; edit `AGENTS.md`.
 
@@ -6,16 +6,17 @@ Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
-- A language on Snail-Core is a set of libraries that expand into it: Scheme is
-  macros and libraries over the typed language, not a second compiler.
+- Snail Scheme is a statically typed Scheme descendant. Its macros expand
+  into one typed language; it does not implement R7RS or a separate dynamic
+  Scheme compatibility layer.
   Every library that ships lives under `src/`, with paths matching library
   names and `.sld` sources: the core under `src/snail/core/`, the shell built
   on it under `src/snail/shell/` (#566),
-  Scheme's under `src/scheme/`, and the compiler among them at
-  `src/snail/shell/compiler/`, written in typed Snail-Core importing only
+  and the compiler among them at
+  `src/snail/shell/compiler/`, written in Snail Scheme importing only
   `(snail core base)`, `(snail core table)` and `(snail core io)`, so it
   compiles itself.
-  Host-specific code lives only under `host/`: `chibi/` for stage 0,
+  Host-specific code lives only under `host/`: `chez/` for stage 0,
   `native/` for Node, `browser/` for the page, `ide/` for the editor. Rust
   crates live in `crates/`. No program or library may depend on
   JavaScript: hosts beyond Node and the page, such as wasmtime and
@@ -23,18 +24,27 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   ([Runtimes](doc/book/runtimes/index.md#direction)). Surface macros expand away before checking. See
   [the language chapters](doc/book/snail-core/index.md).
 
-- Stage 0 sees `bootstrap/chibi-include/` and nothing else: one symlink per
-  library the compiler's load closure actually reaches — `host/chibi/`'s
-  stage-0 `base`, `table`, `io` and `forms`, which erase the typed forms,
-  plus the build driver, and the compiler's own directory. `src/` is not on
-  Chibi's path, so no other library can enter the bootstrap by accident and
-  `src/scheme/base.sld` cannot shadow the Scheme that runs stage 0. Reaching
-  for a library that is not symlinked fails in `make test-chibi` and
-  `make bootstrap` with `couldn't find import`; adding one is a deliberate
-  edit to that directory. The compiler reads struct fields with
-  `(● record label ...)`. Stage 0 erases the same form to registered record
-  slots and follows its Ref cells through the generic field reader in
-  `host/chibi/snail/stage0/forms.sld`.
+- Stage 0 loads an explicit library closure through `host/chez/load.scm`:
+  the host's `base`, `table`, `io` and `forms`, the build driver, and the
+  compiler's own libraries. The loader translates the library envelope to
+  native Chez libraries and erases typed forms. It rejects application
+  libraries outside that closure; adding a dependency is a deliberate edit
+  to the loader. Test support has its own allowance in test mode. The
+  compiler reads struct fields with `(● record label ...)`; stage 0 maps
+  that form to the same mutable record slots.
+
+- Every struct is a heap object and every field is mutable. Primitive
+  numbers and booleans remain unboxed. Keep ordinary compiler passes pure
+  by convention and by their effect signatures. A linear member makes its
+  aggregate linear; `Rc` alone may own a linear value without becoming
+  linear. `WeakRc` observes that ownership without retaining the payload.
+  There are no source borrows or borrow checker. The ownership pass checks
+  exact-once use and inserts retain/release for shared owners.
+- Top-level values are pure compile-time computations, forced lazily with
+  cycle detection. Each read creates a fresh mutable graph while preserving
+  aliases inside that graph. Runtime initialization belongs in functions,
+  including the root `main`; never restore writable module globals.
+  Keep typed define headers and `(Fn ... → ...)` / `(FnOnce ... → ...)`.
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, ownership, effects and foreign boundaries
@@ -68,10 +78,10 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   whose construction establishes the required invariants. Carry that evidence
   forward instead of returning a Boolean and repeatedly checking the same raw
   data. Keep unsafe assumptions explicit at the boundary that introduces them.
-- Avoid mutable state. Thread a value through the functions that change it
-  and return the new one, so a signature without `! mut` is a proof that the
-  pass is a function of its input, and a reader can never be looking at a
-  stale cell. `Ref` and `! mut` are for mutation that genuinely belongs to a
+- Prefer threading pass state through functions and returning the new value.
+  A signature without `! mut` proves that the function does not mutate its
+  arguments. Field reads are pure; callers still share mutable objects.
+  Use `! mut` for mutation that belongs to a
   boundary — the runtime, a host, a cache with one owner — not for the
   convenience of a pass that could carry its state. When threading would
   nest a function six deep, name the sequence with a local binding form, as
@@ -89,7 +99,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   Keep unit tests in a final `Tests` section of their implementation module.
   Each tested compiler module exports one `test-<module>` entry point under
   the `snail-tests` feature; test cases and helpers stay private. Test
-  Snail-Core libraries with programs and their expected output. Keep
+  Snail Scheme libraries with programs and their expected output. Keep
   integration fixtures, runners, and shared assertion support in `tests/`.
 - Target **ten lines of logic per function**. Name complete operations, not
   fragments introduced to meet a count. Exhaustive dispatch, data definitions,
@@ -108,7 +118,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 - Keep GC and slot-lifetime invariants beside the code that relies on them.
   Wasm engines trace managed references. Rust scalar providers own external resources
   behind explicit handles. Resource cleanup must not retain its managed wrapper.
-- Chibi is stage 0 of the bootstrap: it must keep running the compiler's
+- Chez is stage 0 of the bootstrap: it must keep running the compiler's
   source, so the compiler avoids behavior the two hosts would disagree on,
   such as integer overflow and the order of table keys.
 - Update the relevant [book chapter](doc/book/SUMMARY.md) when contracts or
@@ -129,9 +139,9 @@ Relevant checks are `make test`, `make check`,
 same two for `crates/snail`. Changes to the native
 executable or to how compiles and programs run must also pass
 `make test-wasmtime`. The driver rebuilds the compiled compiler whenever the
-compiler's source changes; compiler changes must also pass `make test-chibi`,
-which runs the source on Chibi, and `make bootstrap`, which rebuilds from
-Chibi alone.
+compiler's source changes; compiler changes must also pass `make test-chez`,
+which runs the source on Chez, and `make bootstrap`, which rebuilds from
+Chez alone.
 Backend changes should execute linked Wasm; compilation alone does not test
 target behavior. `(snail shell format)` is the formatter shared by the IDE
 and `scripts/format-scheme`; `make test` checks its CLI and every tracked
@@ -145,17 +155,17 @@ opens this same root project for the whole repository. The root
 `project.datum` names the `siegework` and `hearsay` browser targets. It serves
 the browser editor at `http://127.0.0.1:8000/` and each browser target at
 `http://127.0.0.1:8001/TARGET/`, rebuilds only the libraries an edit reaches,
-about 100 ms for a function body in Siegework, and relinks them into each open
-page, keeping the running state; point `tests/browser/page.mjs` at the
+reusing checked code and Wasm when their content keys match, and relinks them
+into each open page while keeping the running state; point `tests/browser/page.mjs` at the
 target's URL to see an edit land. Each build first runs the producers of the
-`generate-library` recipes it reaches, so Hearsay serves too, rebuilding in
-about 750 ms since its producers run every time. The book's
+`generate-library` recipes it reaches, so Hearsay serves too; its producers run every time. The book's
 [application model](doc/book/snail-core/applications.md) gives the reload
 rules; what matters when writing code:
 
-- Module globals start over on a relink; only the application's state
-  crosses, as it is while its type is unchanged and through `save` and
-  `restore` otherwise, so keep what should survive an edit in the Save.
+- Runtime state has an explicit application owner. Only the application's
+  state crosses a relink, as it is while its type is unchanged and through
+  `save` and `restore` otherwise, so keep what should survive an edit in the
+  Save. There are no writable module globals.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give constants their signatures.
 - A program runs as a project's `run-target`, restarted from each accepted

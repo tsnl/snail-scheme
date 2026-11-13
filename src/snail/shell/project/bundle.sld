@@ -34,8 +34,6 @@
    (snail shell http)
    (snail shell http exchange)
    (only (snail shell text) string-downcase)
-   (snail shell datum)
-   (snail shell write)
    (snail shell json)
    (snail shell json read)
    (snail shell utf8))
@@ -161,8 +159,7 @@
     (define (manifest-text (mount String) (found (Option BuildDirectory))) (→ String) (! fs)
       (match found
         ((Some build)
-         (string-append (datum->string (datum-list (list (ann (Symbol "base") Any)
-                                                         (ann (build-base mount build) Any))))
+         (string-append (string-append "(base " (repr (build-base mount build)) ")")
                         " "
                         (pairs-text "files"
                                     (filter (lambda (file)
@@ -173,12 +170,13 @@
         ((None) "(files) (modules)")))
 
     (define (pairs-text (head String) (pairs (List (Pair String String)))) (→ String)
-      (datum->string
-       (datum-list (Cons (ann (Symbol head) Any)
-                         (map string-pair-datum pairs)))))
+      (string-append "(" head
+                     (string-concatenate
+                      (map (lambda (pair) (string-append " " (string-pair-text pair))) pairs))
+                     ")"))
 
-    (define (string-pair-datum (pair (Pair String String))) (→ Any)
-      (datum-list (list (ann (● pair first) Any) (ann (● pair second) Any))))
+    (define (string-pair-text (pair (Pair String String))) (→ String)
+      (string-append "(" (repr (● pair first)) " " (repr (● pair second)) ")"))
 
     ;; Each module's library and digest, from the build's modules.json.
 
@@ -221,7 +219,7 @@
                           manifest
                           ")"))
           ((BuildFailed message)
-           (string-append "(failed " (datum->string (ann message Any)) " " manifest ")")))))
+           (string-append "(failed " (repr message) " " manifest ")")))))
 
     ;; ---- Files ----
 

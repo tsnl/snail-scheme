@@ -39,7 +39,7 @@
        (cell-width I32)
        (cell-height I32)
        (headings I64)
-       (strip (dyn (Fn M I64 → Strip)))))
+       (strip (Fn M I64 → Strip))))
 
     (define (strip-texture (book (Spritebook M)) (strip Strip)) (→ Texture) (∀ M) (⊨ (Copy M))
       (let ((width (● book cell-width)) (height (● book cell-height)))
@@ -82,7 +82,7 @@
                   (camera Camera))
       (→ Item)
       (∀ M)
-      (⊨ (Copy M))
+      (⊨ (Copy M) (Drop (!) M))
       (sprite (posed-texture book motion facing camera)
               position
               (cell-width-for book height)
@@ -99,7 +99,7 @@
                        (camera Camera))
       (→ Item)
       (∀ M)
-      (⊨ (Copy M))
+      (⊨ (Copy M) (Drop (!) M))
       (flat-sprite (posed-texture book motion facing camera)
                    position
                    (cell-width-for book height)
@@ -108,7 +108,7 @@
     (define (posed-texture (book (Spritebook M)) (motion M) (facing Vec3) (camera Camera))
       (→ Texture)
       (∀ M)
-      (⊨ (Copy M))
+      (⊨ (Copy M) (Drop (!) M))
       (strip-texture book
                      ((● book strip)
                       motion

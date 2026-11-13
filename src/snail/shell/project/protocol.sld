@@ -118,34 +118,34 @@
            ((Some name) (reading (rest ...) value))
            ((None) (None))))))
 
-    (define (field (json Json) (name String) (read (dyn (Fn Json → (Option T)))))
+    (define (field (json Json) (name String) (read (Fn Json → (Option T))))
       (→ (Option T))
       (∀ T)
-      (⊨ (Copy T))
+      (⊨ (Copy T) (Drop (!) T))
       (match (json-member json name)
         ((Some value) (read value))
         ((None) (None))))
 
-    (define (optional (read (dyn (Fn Json → (Option T)))) (json Json))
+    (define (optional (read (Fn Json → (Option T))) (json Json))
       (→ (Option (Option T)))
       (∀ T)
-      (⊨ (Copy T))
+      (⊨ (Copy T) (Drop (!) T))
       (match json
         ((JsonNull) (Some (None)))
         (_ (reading ((value (read json))) (Some value)))))
 
-    (define (items (read (dyn (Fn Json → (Option T)))) (json Json))
+    (define (items (read (Fn Json → (Option T))) (json Json))
       (→ (Option (List T)))
       (∀ T)
-      (⊨ (Copy T))
+      (⊨ (Copy T) (Drop (!) T))
       (match json
         ((JsonArray values) (read-items read values))
         (_ (None))))
 
-    (define (read-items (read (dyn (Fn Json → (Option T)))) (values (List Json)))
+    (define (read-items (read (Fn Json → (Option T))) (values (List Json)))
       (→ (Option (List T)))
       (∀ T)
-      (⊨ (Copy T))
+      (⊨ (Copy T) (Drop (!) T))
       (match values
         ((Nil) (Some (Nil)))
         ((Cons first rest)
@@ -175,7 +175,10 @@
     (define (nullable-string (text String)) (→ Json)
       (if (string=? text "") (JsonNull) (JsonString text)))
 
-    (define (maybe-json (write (dyn (Fn T → Json))) (value (Option T))) (→ Json) (∀ T) (⊨ (Copy T))
+    (define (maybe-json (write (Fn T → Json)) (value (Option T)))
+      (→ Json)
+      (∀ T)
+      (⊨ (Copy T) (Drop (!) T))
       (match value ((Some item) (write item)) ((None) (JsonNull))))
 
     (define (read-build-phase (json Json)) (→ (Option String))

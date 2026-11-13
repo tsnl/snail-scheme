@@ -1,5 +1,6 @@
 (import
  (snail core base)
+ (only (snail core forms) host)
  (snail core io)
  (snail shell task)
  (snail shell future)
@@ -11,72 +12,82 @@
 (define (check (ok Bool) (label String)) (→ Unit) (! output-port)
   (if ok (write-line label) (panic label)))
 
-(define (buffer (session (Borrow Session))) (→ Buffer)
+(define (buffer (session Session)) (→ Buffer) (! mut host)
   (match (buffer-at (● session ide) "notes.txt")
     ((Some buffer) buffer)
     ((None) (panic "missing buffer"))))
 
-(define (send (session Session) (message Msg)) (→ Session) (! mut completion dom fetch)
-  (update-session session (Some message)))
+;; A separate scheduler lets the test cancel queued producers while keeping
+;; the session alive to observe abandonment. One turn runs only work that was
+;; ready on entry, so a save can be canceled before its HTTP request starts.
+(define (step (scheduler Scheduler) (session Session) (message (Option Msg)))
+  (→ Unit) (! mut host completion dom fetch)
+  (dispatch-in scheduler (once (lambda () (drop (update-session session message)))))
+  (tasks-turn scheduler 0)
+  (unit))
 
-;; Cancel a save before it starts. The abandoned future must clear saving,
-;; preserve the draft, report the uncertain outcome and permit a new save.
-(handle fetch
-    ((request (lambda (method url headers body)
-                (if (string=? method "PUT") (panic "canceled save ran")
-                    (Ok (Reply 200 "{\"text\":\"disk\",\"revision\":\"initial\"}")))))
-     (stream-open (lambda (url kinds) (panic "unexpected stream")))
-     (stream-next (lambda (stream) (panic "unexpected stream")))
-     (stream-close (lambda (stream) (unit))))
-  (drop
-   (with-memory-dom
-    (Nil)
-    (lambda ()
-      (let ((session (send (begin-session initial) (Open "notes.txt"))))
-        (yield)
-        (let* ((session (update-session session (None)))
-               (session (send session (Typed 0 "draft")))
-               (session (send session (DispatchCommand "save-buffer"))))
-          (yield)
-          (let ((session (update-session session (None))))
-            (with-borrow (read session)
-                         (check (● (buffer read) saving) "save is pending"))
-            (tasks-close!)
-            (let ((session (update-session session (None))))
-              (with-borrow (read session)
-                           (check (not (● (buffer read) saving)) "abandonment clears saving")
-                           (check (string=? (● (buffer read) text) "draft")
-                                  "abandonment preserves draft")
-                           (check (not (string=? (● (buffer read) failure) ""))
-                                  "abandonment reports failure"))
-              (let ((session (send session (DispatchCommand "save-buffer"))))
-                (yield)
-                (let ((session (update-session session (None))))
-                  (with-borrow (read session)
-                               (check (● (buffer read) saving) "a later save can start"))
-                  (drop session)
-                  (tasks-close!)))))))))))
+(define (queue-save (scheduler Scheduler) (session Session))
+  (→ Unit) (! mut host completion dom fetch)
+  (step scheduler session (Some (DispatchCommand "save-buffer")))
+  (tasks-turn scheduler 0)
+  (step scheduler session (None)))
 
-;; Dropping the receiver withdraws UI authority, not external work. A
-;; suspended request still completes under its own task and loses its result.
-(let ((gate (make-mailbox)) (started (ref #f)) (finished (ref #f)))
-  (handle fetch
-      ((request (lambda (method url headers body)
-                  (ref-set! started #t)
-                  (mailbox-receive gate)
-                  (ref-set! finished #t)
-                  (Ok (Reply 200 "{\"text\":\"late\",\"revision\":\"late\"}"))))
-       (stream-open (lambda (url kinds) (panic "unexpected stream")))
-       (stream-next (lambda (stream) (panic "unexpected stream")))
-       (stream-close (lambda (stream) (unit))))
-    (drop
-     (with-memory-dom
-      (Nil)
-      (lambda ()
-        (let ((session (send (begin-session initial) (Open "notes.txt"))))
-          (yield)
-          (check (ref-get started) "request started")
-          (drop session)
-          (mailbox-post gate (unit))
-          (yield)
-          (check (ref-get finished) "dropped receiver leaves producer running")))))))
+(struct RequestState
+  ((started Bool)
+   (finished Bool)))
+
+(define main
+  (lambda ()
+    (handle fetch
+        ((request (lambda (method url headers body)
+                    (if (string=? method "PUT") (panic "canceled save ran")
+                        (Ok (Reply 200 "{\"text\":\"disk\",\"revision\":\"initial\"}")))))
+         (stream-open (lambda (url kinds) (panic "unexpected stream")))
+         (stream-next (lambda (stream) (panic "unexpected stream")))
+         (stream-close (lambda (stream) (unit))))
+      (drop
+       (with-memory-dom
+        (Nil)
+        (lambda ()
+          (let ((scheduler (make-scheduler)) (session (begin-session initial)))
+            (step scheduler session (Some (Open "notes.txt")))
+            (tasks-turn scheduler 0)
+            (step scheduler session (None))
+            (step scheduler session (Some (Typed 0 "draft")))
+            (queue-save scheduler session)
+            (check (● (buffer session) saving) "save is pending")
+            (tasks-close! scheduler)
+            (drop (update-session session (None)))
+            (check (not (● (buffer session) saving)) "abandonment clears saving")
+            (check (string=? (● (buffer session) text) "draft") "abandonment preserves draft")
+            (check (not (string=? (● (buffer session) failure) "")) "abandonment reports failure")
+            (let ((replacement (make-scheduler)) (alias session))
+              (queue-save replacement session)
+              (check (● (buffer session) saving) "a later save can start")
+              (close-session! alias)
+              (close-session! session)
+              (tasks-close! replacement)))))))
+    ;; Canceling reception withdraws UI authority, not the producer's work.
+    ;; A pending request still completes and drops its unobserved result.
+    (let ((gate (make-mailbox)) (request-state (RequestState #f #f)))
+      (handle fetch
+          ((request (lambda (method url headers body)
+                      (set! (● request-state started) #t)
+                      (mailbox-receive gate)
+                      (set! (● request-state finished) #t)
+                      (Ok (Reply 200 "{\"text\":\"late\",\"revision\":\"late\"}"))))
+           (stream-open (lambda (url kinds) (panic "unexpected stream")))
+           (stream-next (lambda (stream) (panic "unexpected stream")))
+           (stream-close (lambda (stream) (unit))))
+        (drop
+         (with-memory-dom
+          (Nil)
+          (lambda ()
+            (let ((session (update-session (begin-session initial) (Some (Open "notes.txt")))))
+              (yield)
+              (check (● request-state started) "request started")
+              (close-session! session)
+              (mailbox-post gate (unit))
+              (yield)
+              (check (● request-state finished) "dropped receiver leaves producer running")))))))
+    (unit)))
