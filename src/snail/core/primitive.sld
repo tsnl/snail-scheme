@@ -110,12 +110,12 @@
     (primitive once callable-once)
     (primitive call-once (∀ (e) (Fn (FnOnce → Unit ! e) → Unit ! e)))
     (primitive discard (∀ (A) (Fn A → Unit)))
-    ;; Droppers, which the control pass inserts (control.sld, "Droppers"):
-    ;; `with-dropper` marks a let's value that may yield with the dropper
-    ;; of the frame saved there, `once-dropping` builds a FnOnce carrying
+    ;; Cleanup inserted by prepare.sld: `with-cleanup` marks a let's value
+    ;; with unevaluated cancellation code for the frame saved there;
+    ;; it is not an ordinary call. `once-dropping` builds a FnOnce carrying
     ;; the dropper of what it captured, and `drop-once` drops a FnOnce
     ;; unrun, running its dropper. None is written by a program.
-    (primitive with-dropper (∀ (A) (Fn A (Fn → Unit) → A)))
+    (primitive with-cleanup (∀ (A) (Fn A Unit → A)))
     (primitive once-dropping
                (∀ (A e)
                   (Fn (Fn → A ! e) (Fn → Unit) → (FnOnce → A ! e))))

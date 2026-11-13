@@ -144,6 +144,12 @@ frames. Cleanup effects are included in its callable row, excluding control
 effects. A `Drop` implementation runs to completion and cannot itself declare
 a control effect.
 
+Cancellation releases saved scopes from inside out, with each scope's owners
+in reverse binding order. Linear values and counted owners follow the same
+ordered cleanup. A frame holds one ownership credit per captured owner, shared
+by its mutually exclusive resume and cancel paths; hidden backup references
+must not postpone a counted payload's finalizer past later cleanup actions.
+
 A generic owner that disposes of `T` declares `(Drop e T)`. The compiler resolves
 this requirement from `T`, including the effects of its fields and any user
 instance. For example, a labelled resource can add its own cleanup effect to
@@ -215,7 +221,7 @@ to its result and clears the slot; spare capacity owns nothing. A vector of
 counted elements counts aliases of the vector itself and releases its live
 elements when the last alias leaves. Primitive vectors need no owner counter.
 
-The lifetime pass makes ownership operations explicit after specialization.
+The reference-counting pass makes ownership operations explicit after specialization.
 Reads of counted owners retain, calls transfer their owned operands, and scope
 exits release them. Control preparation then records exactly which owners a
 suspended frame must clean up. Ordinary functions and lazy initializers use

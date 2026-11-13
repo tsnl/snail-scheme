@@ -466,3 +466,121 @@ formatting, book/Pages, and a clean Chez bootstrap with identical stage 1/2/3 WA
 No Chibi tests or bootstrap ran. Generic ownership checking and cancellation
 preparation remain separate: combining their distinct contracts would introduce
 an ownership-summary representation without eliminating enough machinery.
+
+## Continuation ownership follow-up
+
+The next simplification compares landed #757 (`f2235ab75`, whose tree matches
+the baseline build at `7aa479491`) with implementation `8ae0c8abb`.
+[Raw measurements](measurements/frame-ownership-20261113.json) include every
+sample, artifact/source hashes, bootstrap hashes and the regression's before/after
+output. This is a focused continuation change, not Perceus reuse analysis or a
+replacement of generic ownership checking. Existing retain/release insertion
+already provides explicit duplication and destruction for shared values.
+
+A saved frame now has one environment and two code pointers: resume and cancel.
+It captures the union of execution reads and cleanup obligations, including owners
+that a `Never` continuation does not read. Either entry consumes those owners.
+This removes the separate cancellation closure, its backup shared captures,
+frame disarming and their extra count operations. Direct abort cleanup also runs
+without constructing a closure. Ordinary source `FnOnce` closures retain their
+existing protocol; source `Rc` and `WeakRc` remain non-linear.
+
+### Observable cleanup correction
+
+The old backup references postponed counted payload finalizers past older linear
+owners. Direct cleanup follows the prepared reverse-binding order. In the new
+`frame-ownership` regression, cancelling two newer aliases of resource 2 now
+finalizes 2 before dropping older resource 1; the baseline printed 1 first.
+An older owner's weak-reference check now observes `None`, on both cancellation
+and immediate `Never` abort, where the baseline observed a live payload.
+Both versions eventually finalize the tested resources; this is an ordering fix,
+not evidence of a leak. The regression also runs an independent saved computation
+from a finalizer. Lexical ownership remains unchanged: this does not introduce
+last-use finalization.
+
+### Source and artifact footprint
+
+| Measure | #757 | This follow-up | Change |
+| --- | ---: | ---: | ---: |
+| Compiler source lines | 23,283 | 23,290 | +7 |
+| Compiler source bytes | 1,167,312 | 1,167,411 | +99 |
+| Linked compiler, including names | 2,854,162 bytes | 2,592,046 bytes | −9.18% |
+| Compiler Wasm code-section payload | 888,378 bytes | 853,663 bytes | −3.91% |
+| Compiler Wasm name-section payload | 1,642,803 bytes | 1,421,451 bytes | −13.47% |
+
+Most binary savings are names; the executable code reduction is smaller. The
+compiler source count includes comments and embedded tests, as above. It remains
+403 lines above the pre-migration baseline, while its linked binary is now 8.0%
+smaller than that baseline. The cut removes a runtime ownership protocol rather
+than a large source pass. Excluding this report and raw measurements, the change
+touches nine files, with 405 additions and 113 deletions, including its new harness,
+fixtures and book updates. The compiler modules themselves change by only seven
+net lines (`prepare.sld` −1, `wasm.sld` +8).
+
+The frame benchmark's linked binary shrinks from 188,647 to 188,185 bytes. Its
+generated WAT has 49 → 45 named function entries and 33 → 30 `struct.new` sites.
+These are static counts, not measured heap allocations. Inspection of each saved
+counted frame confirms removal of its backup closure construction and capture
+retain; its execution/cancellation path no longer releases those backup credits.
+Runtime heap usage was not measured.
+
+### Nested suspension and cancellation
+
+`tests/benchmarks/frame-ownership.sld` creates a fresh counted resource, descends
+through calls that retain it, suspends once, and either resumes or cancels the
+saved computation. Each batch checks both the returned work and exactly one
+finalizer per iteration. Timings include construction, traversal, handler
+activation and cleanup; they do not isolate a single reference-count instruction.
+
+The harness pins Node to CPU 2, warms each case ten times, then takes 21 alternating
+pairs of 1,000 iterations, with untimed explicit GC before each sample. Separate
+processes reverse module creation order and compare two instances of the same
+current binary. Primary-process medians, in milliseconds per batch:
+
+| Operation | Depth | #757 | Current |
+| --- | ---: | ---: | ---: |
+| Resume | 1 | 0.145 | 0.133 |
+| Resume | 16 | 0.382 | 0.290 |
+| Resume | 128 | 3.096 | 1.834 |
+| Cancel | 1 | 0.075 | 0.063 |
+| Cancel | 16 | 0.322 | 0.224 |
+| Cancel | 128 | 2.738 | 1.535 |
+
+Reversing creation order gives depth-128 resumption **3.095 → 2.324 ms** and
+cancellation **2.974 → 1.513 ms**. Across those processes, observed median time
+falls **25–41% for resumption** and **44–49% for cancellation**. The identical-binary
+control differs by under 0.9% at that depth. Shallow resumption's identical-binary
+medians differ by 14.5%, and absolute timings shift across processes, so its small
+apparent gain is not a reliable general result. These measurements establish a
+benefit for this deeply suspended ownership workload, not for all applications.
+
+### Compilation and unaffected workloads
+
+Three alternating fresh-process pairs compile the same current
+`bootstrap/compile.sld` and `src` inputs to WAT, pinned to CPU 2. Median wall time
+is **26.28 → 23.82 seconds (−9.36%)**; ranges are **26.28–26.64** versus
+**23.56–23.85 seconds**. Median compiler peak RSS is **668,460 → 634,416 KiB**
+(−5.09%). Each variant produces stable WAT across all three runs. This includes
+compiler startup and code generation; linking is excluded.
+
+For the value-model and Siegework benchmark fixtures, the only generated WAT
+difference is the frame type's second field: a dropper reference becomes a code
+reference. Every other part of their WAT, including all function bodies, is
+identical. Their linked sizes are 184,412 → 184,412 and 394,178 → 394,179 bytes.
+Those workloads were not retimed here; no application-wide runtime gain is claimed.
+
+Reproduce the suspension measurements with:
+
+```sh
+BENCH_CPU=2 node --no-warnings scripts/benchmark-frame-ownership.mjs \
+  BASE_ROOT BASE_ROOT/build/compiler/snailc.wasm build/compiler/snailc.wasm \
+  build/migration/frame-ownership
+```
+
+The raw file records the full compiler command and distinguishes forward,
+reversed and identical-binary positional labels. Validation passed on Node
+**599/599**, Wasmtime **600/600**, Chez source **599/599**, all **15 Chromium
+suites**, Rust **32/32** and **28/28**, formatting, book/Pages and a clean Chez
+bootstrap with identical stage 1/2/3 WAT. The expanded ordering/reentrancy fixture
+also passed directly on both engines after the full Node/Wasmtime runs. No Chibi
+commands ran. Linked modules must rebuild together for the internal frame ABI.
