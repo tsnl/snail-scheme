@@ -303,6 +303,8 @@
         (("prim:vector-generate") (Some (Restriction 1 "a vector-generate callback" (Nil))))
         (("prim:string-generate") (Some (Restriction 1 "a string-generate callback" (Nil))))
         (("prim:unsafe-total") (Some (Restriction 0 "an unsafe-total thunk" (Nil))))
+        (("prim:cache") (Some (Restriction 0 "a cache callback" (Nil))))
+        (("prim:lru-cache") (Some (Restriction 1 "an lru-cache callback" (Nil))))
         (("prim:inherit-handlers")
          (Some (Restriction 0 "a procedure given to inherit-handlers" (Nil))))
         (("prim:inherit-handlers-1")
@@ -341,6 +343,7 @@
     (define (check-restrictions (callees Callees) (expr Expr)) (→ Unit) (! compile)
       (match (● expr term)
         ((App callee args)
+         (check-cache-primitive (callees-program callees) callee)
          (match (restriction callee)
            ((Some (Restriction index what allowed))
             (refuse-labels
@@ -350,6 +353,7 @@
            ((None) (check-restrictions callees callee)))
          (for-each (lambda (arg) (check-restrictions callees arg)) args))
         ((Var _ _ _)
+         (check-cache-primitive (callees-program callees) expr)
          (match (restriction expr)
            ((Some (Restriction index what allowed))
             (refuse-labels
@@ -365,6 +369,41 @@
            (for-each (lambda (entry) (check-restrictions inside (● entry second)))
                      implementations)))
         (_ (for-each (lambda (child) (check-restrictions callees child)) (expr-children expr)))))
+
+    ;; The wrapper has exactly its callback's signature. Keys and results
+    ;; must need no cleanup: cache hits, eviction and destruction introduce
+    ;; no disposal effects beyond the captured callback's existing contract.
+    (define (check-cache-primitive (program Program) (expr Expr)) (→ Unit) (! compile)
+      (match (● expr term)
+        ((Ann inner _) (check-cache-primitive program inner))
+        ((Var name _ _)
+         (when (member? name (list "prim:cache" "prim:lru-cache"))
+           (match (● expr type)
+             ((TFun _ (TFun params result _) _)
+              (for-each (lambda (type) (check-cache-key program type (● expr loc))) params)
+              (check-cache-result program result (● expr loc)))
+             (_ (compile-error (● expr loc) "cache requires an ordinary Fn function")))))
+        (_ (unit))))
+
+    (define (check-cache-key (program Program) (type Type) (loc Loc)) (→ Unit) (! compile)
+      (match type
+        ((TCon "Funcref" _) (compile-error loc "cache keys cannot be raw Funcref values"))
+        (_ (check-cache-value program type loc))))
+
+    (define (check-cache-result (program Program) (type Type) (loc Loc)) (→ Unit) (! compile)
+      (match type
+        ((TCon "Rc" _)
+         (compile-error loc
+                        "cache and lru-cache do not support Rc results; return WeakRc instead. Dedicated weak-entry rc-cache / lru-Rc-cache wrappers are proposed, not implemented"))
+        (_ (check-cache-value program type loc))))
+
+    (define (check-cache-value (program Program) (type Type) (loc Loc)) (→ Unit) (! compile)
+      (unless (and (not (linear-type? program (Nil) type))
+                   (not (shared-type? program type)))
+        (compile-error loc
+                       (string-append
+                        "cache keys and results require plain GC values; cannot retain "
+                        (type->string type)))))
 
     ;; A restriction check reads the bodies of the definitions it reaches.
 
@@ -955,10 +994,9 @@
       (if (yield-free? callees expr) (Pair expr count) (normal count callees expr)))
 
     (define (check-item (callees Callees) (item Item)) (→ Unit) (! compile)
-      (unless (null? (callees-control callees))
-        (match item
-          ((Define _ value) (check-restrictions callees value))
-          (_ (unit)))))
+      (match item
+        ((Define _ value) (check-restrictions callees value))
+        (_ (unit))))
 
     )
 

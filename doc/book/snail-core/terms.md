@@ -64,6 +64,8 @@ those bytes as a byte literal in its generated library.
 | `(match value (pattern body ...) ...)` | Pattern matching, checked for exhaustiveness and unreachable clauses. |
 | `(declare (name (param type) ...) (→ Result) [header ...])` | Bodyless method declaration in a typeclass, with the same header as a function definition. |
 | `(ann expression type)` | Static type annotation. |
+| `(cache function)` | A closure with the same signature and a private, unbounded result cache. |
+| `(lru-cache capacity function)` | The same wrapper with a least-recently-used entry limit. |
 | `(Any expression)` | Boxes an unrestricted value with its concrete type. |
 | `(downcast Type boxed)` | Returns `Some` of the payload if its type matches, or `None`. |
 | `(struct (Name param ...) ((field type) ...))` | Record type. |
@@ -90,6 +92,102 @@ itself. Write mutually recursive helpers at the top level.
 
 Functions have fixed arity. Where Scheme uses variadic procedures, Snail Scheme
 uses macros (`list`, `string-append`) or lists.
+
+## Cached functions
+
+`cache` and `lru-cache` wrap ordinary functions, including lambdas. They preserve
+all argument types, the result type, and the effect row; they work at any fixed
+arity. The callback expression is evaluated once. Each wrapper owns a fresh
+local cache that remains alive between calls. Aliases of that wrapper share its
+cache, while two evaluations of `(cache f)` have separate caches.
+
+```scheme
+(define (make-lookup) (→ (Fn I64 → I64))
+  (cache (lambda (key) (* key key))))
+
+(define (use-lookup) (→ I64)
+  (let ((lookup (lru-cache 128 (lambda (key) (* key key)))))
+    (+ (lookup 12) (lookup 12))))
+```
+
+An unbounded cache retains successful results until its wrapper becomes
+unreachable. An LRU cache holds at most `capacity` entries; a hit moves its entry
+to the front, and insertion evicts the least recently used entry if needed.
+Capacity zero returns the original function without caching; a negative capacity
+panics when constructing the wrapper. Zero-argument functions use a single
+cached result slot.
+
+Every positional argument participates in the key. Integers, booleans, characters
+and fieldless enum cases compare by value; strings compare by content. Floating
+point keys compare their bits, so signed zeros differ and identical NaN bit
+patterns match. Other heap objects compare by identity. Mutating an object key
+does not invalidate its entry. Results are shared objects, so callers see mutations
+to a cached result.
+
+Scalar and string hashes distribute entries into growing hash buckets; collisions
+always check complete key equality. WasmGC has no portable identity hash, so
+object components contribute a constant hash. Object-only keys can therefore
+require a linear bucket search. Mixed keys still benefit from scalar and string
+components. There is no hidden identity field added to user objects.
+
+Raw `Funcref` host handles cannot be keys. Keys and results must have no
+deterministic cleanup, including through their
+fields. Linear values, `Rc`, `Any`, functions, and aggregates containing them are
+rejected. Plain mutable structs and vectors are allowed. The callback may itself
+capture counted resources: its usual closure ownership keeps them alive and
+releases them when the last wrapper owner leaves. `FnOnce` callbacks and callbacks
+that can perform control operations are rejected.
+
+A hit skips the callback body, including its effects. Ordinary closure cleanup
+still runs when an owner leaves scope. Cache only functions for which
+that behavior is intended; the type system does not prove that mutation or
+external state cannot change their answers. The private cache adds no effect to
+the function's signature. A result is stored only after a successful return.
+Reentrant calls can populate the same cache: the last successful completion for
+a key wins, and each call returns its own computed result. There is no in-progress
+entry or recursive-cycle guard. Wrapping a function does not redirect its original
+recursive references through the wrapper.
+
+**Possible follow-up, not implemented:** dedicated `rc-cache` and `lru-Rc-cache`
+wrappers could support `Rc T` results without keeping their payloads alive. Their
+maps would store only `WeakRc T`: upgrade a live hit to a strong result, or
+recompute after a dead hit. A miss holds and returns the callback's strong result
+while recording its weak reference. Periodic pruning removes dead entries, and
+bounded eviction prefers dead entries before the least recently used live entry.
+The pruning schedule and effect contract remain design work on [the roadmap](https://github.com/tsnl/snail-scheme/issues/729).
+Ordinary `cache` and `lru-cache` reject `Rc` results today; `WeakRc` results are
+allowed, and their cached weak references may become dead.
+
+A local wrapper has one monomorphic callable type. Generic factory functions can
+create fresh wrappers for different concrete types; one wrapper is never shared
+across unrelated type instantiations.
+
+### Cache performance
+
+A focused V8 benchmark measures 50,000 calls over 128 scalar keys, including each
+wrapper's creation and initial misses. On an Intel Core Ultra 7 270K Plus, two
+processes with 21 alternating-order samples each measured:
+
+| Workload | Plain function | `cache` | `lru-cache 128` |
+| --- | ---: | ---: | ---: |
+| 64-step integer calculation, repeated keys | 9.04–9.50 ms | 0.297–0.301 ms | 0.384–0.386 ms |
+| One multiplication, repeated keys | 0.142–0.143 ms | 0.274–0.276 ms | — |
+| One multiplication, 20,000 distinct keys | 0.0571–0.0573 ms | 0.427–0.428 ms | — |
+
+Caching helps when avoided work exceeds lookup and storage costs. Here the
+repeated expensive calculation is about 30–32 times faster; trivial repeated
+work costs about 1.9 times as much, and all-miss trivial work costs about 7.5 times
+as much. These are scalar-key microbenchmarks, not compiler-wide or object-key
+performance claims. The LRU capacity fits every key, so eviction pressure is not
+measured. Forced GC runs outside timing; wrapper release is included, but eventual
+collection of discarded tables is not measured. [Raw samples and artifact hashes](measurements/function-cache-20261113.json)
+include an independent-process confirmation. Reproduce after building the
+compiler:
+
+```sh
+./scripts/snail-tool compile -o build/function-cache.wasm tests/benchmarks/function-cache.sld
+taskset -c 2 node --no-warnings --expose-gc scripts/benchmark-cache.mjs build/function-cache.wasm
+```
 
 ## Proposed surface design
 

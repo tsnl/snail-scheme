@@ -4513,6 +4513,8 @@
              (sequence (lambda (t) (sequence-raw-type m t)))
              (data (lambda (n) (sequence-data m (list-ref types n) (arg n)))))
         (case operation
+          (("cache") (list (cached-function m type (wat "i64.const" (int 0)) (arg 0) #f)))
+          (("lru-cache") (list (cached-function m type (arg 0) (arg 1) #t)))
           (("rc-new") (list (new-rc m type (arg 0) (arg 1))))
           (("rc-get") (list (rc-payload m (first-type types) (arg 0))))
           (("rc-downgrade") (list (arg 0)))
@@ -4630,6 +4632,434 @@
              (wat "local.set" (id temp) closure)
              (wat "struct.set" (id base) (int 3) (wat "local.get" (id temp)) dropper)
              (wat "local.get" (id temp)))))
+
+    ;; ---- Memoized closures ----
+
+    ;; A wrapper owns its callback; entries contain only plain GC values.
+    ;; State fields: buckets, entry count, capacity (0 = unbounded), MRU, LRU.
+    ;; Entry fields: hash, bucket successor, newer, older, result, argument keys.
+    (struct CacheLayout
+      ((signature Type)
+       (base String)
+       (holder String)
+       (entry String)
+       (buckets String)
+       (state String)))
+
+    (define (cache-layout (m Module) (type Type)) (→ CacheLayout) (! mut)
+      (match type
+        ((TFun params result _)
+         (let* ((key (type-key type)) (base (reference-type (rep m type)))
+                (entry (wasm-id (string-append "cache-entry:" key)))
+                (state (wasm-id (string-append "cache-state:" key)))
+                (buckets (array-type m (Reference entry))))
+           (unless (match (known-type m entry) ((Some _) #t) (_ #f))
+             (register-type! m entry entry
+                             (wat "type" (id entry)
+                                  (wat* "struct"
+                                        (append
+                                         (list (wat "field" (Word "i64"))
+                                               (wat "field" (wat "mut" (ref-wat entry)))
+                                               (wat "field" (wat "mut" (ref-wat entry)))
+                                               (wat "field" (wat "mut" (ref-wat entry)))
+                                               (wat "field" (wat "mut" (rep->wat (rep m result)))))
+                                         (map (lambda (type) (wat "field" (rep->wat (rep m type))))
+                                              params)))))
+             (register-type! m state state
+                             (wat "type" (id state)
+                                  (wat "struct" (wat "field" (wat "mut" (ref-wat buckets)))
+                                       (wat "field" (wat "mut" (Word "i64")))
+                                       (wat "field" (Word "i64"))
+                                       (wat "field" (wat "mut" (ref-wat entry)))
+                                       (wat "field" (wat "mut" (ref-wat entry))))))
+             (unit))
+           (CacheLayout type base
+                        (capture-type m base (list (Reference base) (Reference state)))
+                        entry buckets state)))
+        (_ (panic "internal error: cache requires a function"))))
+
+    (define (cache-bindings (layout CacheLayout)) (→ (List (Pair String String)))
+      (list (Pair "entry" (● layout entry)) (Pair "state" (● layout state))
+            (Pair "buckets" (● layout buckets))))
+
+    (define (cache-keys (params (List Type))) (→ (List String))
+      (map (lambda (index) (string-append "key." (i64->string index))) (iota (length params))))
+
+    (define (cache-key-reads (params (List Type))) (→ (List Wat))
+      (map (lambda (name) (wat "local.get" (id (wasm-id name)))) (cache-keys params)))
+
+    (define (cache-key-equal (m Module) (type Type) (left Wat) (right Wat)) (→ Wat) (! mut)
+      (match type
+        ((TCon "String" _) (wat "call" (id (string-equal-helper m)) left right))
+        (_ (match (rep m type)
+             ((Reference _) (cache-reference-equal m type left right))
+             ((Scalar "f32")
+              (wat "i32.eq" (wat "i32.reinterpret_f32" left) (wat "i32.reinterpret_f32" right)))
+             ((Scalar "f64")
+              (wat "i64.eq" (wat "i64.reinterpret_f64" left) (wat "i64.reinterpret_f64" right)))
+             ((Scalar scalar) (wat (string-append scalar ".eq") left right))))))
+
+    ;; Nullary enum cases are values, even when linked modules construct
+    ;; different singleton objects. Payload cases and structs keep identity.
+    (define (cache-reference-equal (m Module) (type Type) (left Wat) (right Wat))
+      (→ Wat) (! mut)
+      (let ((identity (wat "ref.eq" left right)))
+        (match type
+          ((TCon name _)
+           (match (table-ref (● (program-of m) types) name)
+             ((Some data)
+              (if (● data enum?)
+                  (let* ((base (data-type m type))
+                         (tag (wat "struct.get" (id base) (int 0) left))
+                         (same (wat "i32.eq" tag (wat "struct.get" (id base) (int 0) right)))
+                         (empty (fold-left
+                                 (lambda (answer case)
+                                   (wat "i32.or" answer
+                                        (wat "i32.eq" tag (wat "i32.const" (int (● case tag))))))
+                                 (wat "i32.const" (int 0))
+                                 (filter (lambda (case) (null? (● case fields))) (● data cases)))))
+                    (wat "i32.or" identity (wat "i32.and" same empty)))
+                  identity))
+             ((None) identity)))
+          (_ identity))))
+
+    (define (cache-key-match (m Module) (layout CacheLayout) (params (List Type)))
+      (→ Wat) (! mut)
+      (fold-left (lambda (answer pair)
+                   (let ((index (● pair first)) (type (● pair second)))
+                     (wat "i32.and" answer
+                          (cache-key-equal m type
+                                           (wat "struct.get" (id (● layout entry)) (int (+ index 5))
+                                                (wat "local.get" (Word "$entry")))
+                                           (wat "local.get" (id (wasm-id
+                                                                 (string-append "key."
+                                                                                (i64->string
+                                                                                 index)))))))))
+                 (wat "i32.const" (int 1)) (zip (iota (length params)) params)))
+
+    ;; Managed references expose equality but no portable address hash. A
+    ;; constant component is collision-safe; other tuple components still mix.
+    (define (cache-key-hash (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
+      (match type
+        ((TCon "String" _) (wat "call" (id (cache-string-hash m)) value))
+        (_ (match (rep m type)
+             ((Reference _) (wat "i64.const" (int 0)))
+             ((Scalar "i64") value)
+             ((Scalar "f64") (wat "i64.reinterpret_f64" value))
+             ((Scalar "f32") (wat "i64.extend_i32_u" (wat "i32.reinterpret_f32" value)))
+             (_ (wat "i64.extend_i32_u" value))))))
+
+    (define (cache-hash (m Module) (params (List Type))) (→ Wat) (! mut)
+      (wat "call" (id (cache-hash-finish m))
+           (fold-left (lambda (hash pair)
+                        (wat "i64.mul" (wat "i64.xor" hash
+                                            (cache-key-hash m (● pair first) (● pair second)))
+                             (wat "i64.const" (int 1099511628211))))
+                      (wat "i64.const" (int -3750763034362895579))
+                      (zip params (cache-key-reads params)))))
+
+    ;; Bucket indices use low bits. Fold high bits down as well, so common
+    ;; floating-point values and wide integer keys do not all collide.
+    (define (cache-hash-finish (m Module)) (→ String) (! mut)
+      (template-helper! m "cache-hash-finish" ""
+                        "(func {id} (param $hash i64) (result i64)
+  (local.set $hash (i64.mul
+    (i64.xor (local.get $hash) (i64.shr_u (local.get $hash) (i64.const 32)))
+    (i64.const -7046029254386353131)))
+  (i64.xor (local.get $hash) (i64.shr_u (local.get $hash) (i64.const 32))))" (Nil)))
+
+    (define (cache-string-hash (m Module)) (→ String) (! mut)
+      (template-helper! m "cache-string-hash" ""
+                        "(func {id} (param $text (ref null $arr.i32)) (result i64)
+  (local $index i32) (local $hash i64)
+  (local.set $hash (i64.const -3750763034362895579))
+  (loop $hashing
+    (if (i32.eq (local.get $index) (array.len (local.get $text)))
+      (then (return (local.get $hash))))
+    (local.set $hash (i64.mul
+      (i64.xor (local.get $hash)
+        (i64.extend_i32_u (array.get $arr.i32 (local.get $text) (local.get $index))))
+      (i64.const 1099511628211)))
+    (local.set $index (i32.add (local.get $index) (i32.const 1)))
+    (br $hashing))
+  unreachable)" (Nil)))
+
+    (define (cache-touch (m Module) (layout CacheLayout)) (→ String) (! mut)
+      (template-helper! m "cache-touch" (● layout state)
+                        "(func {id} (param $state (ref null {state})) (param $entry (ref null {entry}))
+  (local $head (ref null {entry})) (local $newer (ref null {entry})) (local $older (ref null {entry}))
+  (if (i64.eqz (struct.get {state} 2 (local.get $state))) (then (return)))
+  (local.set $head (struct.get {state} 3 (local.get $state)))
+  (if (ref.eq (local.get $head) (local.get $entry)) (then (return)))
+  (local.set $newer (struct.get {entry} 2 (local.get $entry)))
+  (local.set $older (struct.get {entry} 3 (local.get $entry)))
+  (struct.set {entry} 3 (local.get $newer) (local.get $older))
+  (if (ref.is_null (local.get $older))
+    (then (struct.set {state} 4 (local.get $state) (local.get $newer)))
+    (else (struct.set {entry} 2 (local.get $older) (local.get $newer))))
+  (struct.set {entry} 2 (local.get $entry) (ref.null {entry}))
+  (struct.set {entry} 3 (local.get $entry) (local.get $head))
+  (struct.set {entry} 2 (local.get $head) (local.get $entry))
+  (struct.set {state} 3 (local.get $state) (local.get $entry)))"
+                        (cache-bindings layout)))
+
+    (define (cache-lookup (m Module) (layout CacheLayout) (params (List Type)))
+      (→ String) (! mut)
+      (helper! m "cache-find" (● layout state)
+               (lambda (name)
+                 (let* ((entry (● layout entry)) (buckets (● layout buckets))
+                        (read (wat "local.get" (Word "$entry")))
+                        (array (wat "struct.get" (id (● layout state)) (int 0)
+                                    (wat "local.get" (Word "$state")))))
+                   (wat* "func"
+                         (concatenate
+                          (list
+                           (list (id name) (wat "param" (Word "$state") (ref-wat (● layout state)))
+                                 (wat "param" (Word "$hash") (Word "i64")))
+                           (param-wats (cache-keys params)
+                                       (map (lambda (type) (rep m type)) params))
+                           (list
+                            (wat "result" (ref-wat entry))
+                            (wat "local" (Word "$entry") (ref-wat entry))
+                            (wat "local.set" (Word "$entry")
+                                 (wat "array.get" (id buckets) array
+                                      (wat "i32.and"
+                                           (wat "i32.wrap_i64" (wat "local.get" (Word "$hash")))
+                                           (wat "i32.sub"
+                                                (wat "array.len" array)
+                                                (wat "i32.const" (int 1))))))
+                            (wat "loop" (Word "$search")
+                                 (wat "if" (wat "ref.is_null" read)
+                                      (wat "then" (wat "return" (wat "ref.null" (id entry)))))
+                                 (wat "if"
+                                      (wat "i32.and"
+                                           (wat "i64.eq" (wat "struct.get" (id entry) (int 0) read)
+                                                (wat "local.get" (Word "$hash")))
+                                           (cache-key-match m layout params))
+                                      (wat "then"
+                                           (wat "call" (id (cache-touch m layout))
+                                                (wat "local.get" (Word "$state")) read)
+                                           (wat "return" read)))
+                                 (wat "local.set" (Word "$entry")
+                                      (wat "struct.get" (id entry) (int 1) read))
+                                 (wat "br" (Word "$search")))
+                            (wat "unreachable")))))))))
+
+    ;; Resize traverses the recency list, so changing bucket successors never
+    ;; loses unvisited entries. The state and new array remain managed roots.
+    (define (cache-grow (m Module) (layout CacheLayout)) (→ String) (! mut)
+      (template-helper! m "cache-grow" (● layout state)
+                        "(func {id} (param $state (ref null {state}))
+  (local $buckets (ref null {buckets})) (local $entry (ref null {entry}))
+  (local $size i32) (local $index i32)
+  (local.set $size (array.len (struct.get {state} 0 (local.get $state))))
+  (if (i32.ge_u (local.get $size) (i32.const 1073741824)) (then (return)))
+  (local.set $size (i32.shl (local.get $size) (i32.const 1)))
+  (local.set $buckets (array.new_default {buckets} (local.get $size)))
+  (local.set $entry (struct.get {state} 3 (local.get $state)))
+  (block $done (loop $rehash
+    (br_if $done (ref.is_null (local.get $entry)))
+    (local.set $index (i32.and (i32.wrap_i64 (struct.get {entry} 0 (local.get $entry)))
+                               (i32.sub (local.get $size) (i32.const 1))))
+    (struct.set {entry} 1 (local.get $entry)
+      (array.get {buckets} (local.get $buckets) (local.get $index)))
+    (array.set {buckets} (local.get $buckets) (local.get $index) (local.get $entry))
+    (local.set $entry (struct.get {entry} 3 (local.get $entry)))
+    (br $rehash)))
+  (struct.set {state} 0 (local.get $state) (local.get $buckets)))"
+                        (cache-bindings layout)))
+
+    (define (cache-evict (m Module) (layout CacheLayout)) (→ String) (! mut)
+      (template-helper! m "cache-evict" (● layout state)
+                        "(func {id} (param $state (ref null {state}))
+  (local $buckets (ref null {buckets})) (local $oldest (ref null {entry}))
+  (local $entry (ref null {entry})) (local $previous (ref null {entry}))
+  (local $newest (ref null {entry})) (local $index i32)
+  (local.set $buckets (struct.get {state} 0 (local.get $state)))
+  (local.set $oldest (struct.get {state} 4 (local.get $state)))
+  (local.set $index (i32.and (i32.wrap_i64 (struct.get {entry} 0 (local.get $oldest)))
+                             (i32.sub (array.len (local.get $buckets)) (i32.const 1))))
+  (local.set $entry (array.get {buckets} (local.get $buckets) (local.get $index)))
+  (block $found (loop $search
+    (br_if $found (ref.eq (local.get $entry) (local.get $oldest)))
+    (local.set $previous (local.get $entry))
+    (local.set $entry (struct.get {entry} 1 (local.get $entry)))
+    (br $search)))
+  (if (ref.is_null (local.get $previous))
+    (then (array.set {buckets} (local.get $buckets) (local.get $index)
+            (struct.get {entry} 1 (local.get $oldest))))
+    (else (struct.set {entry} 1 (local.get $previous)
+            (struct.get {entry} 1 (local.get $oldest)))))
+  (local.set $newest (struct.get {entry} 2 (local.get $oldest)))
+  (if (ref.is_null (local.get $newest))
+    (then (struct.set {state} 3 (local.get $state) (ref.null {entry})))
+    (else (struct.set {entry} 3 (local.get $newest) (ref.null {entry}))))
+  (struct.set {state} 4 (local.get $state) (local.get $newest))
+  (struct.set {state} 1 (local.get $state)
+    (i64.sub (struct.get {state} 1 (local.get $state)) (i64.const 1))))"
+                        (cache-bindings layout)))
+
+    (define (cache-insert (m Module) (layout CacheLayout)) (→ String) (! mut)
+      (template-helper! m "cache-insert" (● layout state)
+                        "(func {id} (param $state (ref null {state})) (param $entry (ref null {entry}))
+  (local $buckets (ref null {buckets})) (local $head (ref null {entry})) (local $index i32)
+  (local.set $buckets (struct.get {state} 0 (local.get $state)))
+  (local.set $index (i32.and (i32.wrap_i64 (struct.get {entry} 0 (local.get $entry)))
+                             (i32.sub (array.len (local.get $buckets)) (i32.const 1))))
+  (struct.set {entry} 1 (local.get $entry)
+    (array.get {buckets} (local.get $buckets) (local.get $index)))
+  (array.set {buckets} (local.get $buckets) (local.get $index) (local.get $entry))
+  (local.set $head (struct.get {state} 3 (local.get $state)))
+  (struct.set {entry} 3 (local.get $entry) (local.get $head))
+  (if (ref.is_null (local.get $head))
+    (then (struct.set {state} 4 (local.get $state) (local.get $entry)))
+    (else (struct.set {entry} 2 (local.get $head) (local.get $entry))))
+  (struct.set {state} 3 (local.get $state) (local.get $entry))
+  (struct.set {state} 1 (local.get $state)
+    (i64.add (struct.get {state} 1 (local.get $state)) (i64.const 1)))
+  (if (i32.and (i64.gt_s (struct.get {state} 2 (local.get $state)) (i64.const 0))
+               (i64.gt_s (struct.get {state} 1 (local.get $state))
+                         (struct.get {state} 2 (local.get $state))))
+    (then (call {evict} (local.get $state))))
+  (if (i64.gt_u (struct.get {state} 1 (local.get $state))
+                 (i64.extend_i32_u (array.len (local.get $buckets))))
+    (then (call {grow} (local.get $state)))))"
+                        (append (cache-bindings layout)
+                                (list (Pair "evict" (cache-evict m layout))
+                                      (Pair "grow" (cache-grow m layout))))))
+
+    ;; A lookup never stays live across user code: a reentrant call may
+    ;; resize or evict. Publish after success, checking again; the last
+    ;; successful completion wins, and each call returns its own result.
+    (define (cache-find-call (m Module) (layout CacheLayout) (params (List Type)))
+      (→ Wat) (! mut)
+      (let ((state (wat "local.get" (Word "$state"))))
+        (if (null? params)
+            (wat "struct.get" (id (● layout state)) (int 3) state)
+            (wat* "call" (append (list (id (cache-lookup m layout params)) state
+                                       (wat "local.get" (Word "$hash")))
+                                 (cache-key-reads params))))))
+
+    (define (cache-publish (m Module) (layout CacheLayout) (params (List Type)))
+      (→ Wat) (! mut)
+      (let* ((entry (● layout entry)) (state (wat "local.get" (Word "$state")))
+             (fresh (wat* "struct.new"
+                          (append (list (id entry) (wat "local.get" (Word "$hash"))
+                                        (wat "ref.null" (id entry)) (wat "ref.null" (id entry))
+                                        (wat "ref.null" (id entry))
+                                        (wat "local.get" (Word "$result")))
+                                  (cache-key-reads params)))))
+        (if (null? params)
+            (wat "struct.set" (id (● layout state)) (int 3) state fresh)
+            (wat "block"
+                 (wat "local.set" (Word "$entry") (cache-find-call m layout params))
+                 (wat "if" (wat "ref.is_null" (wat "local.get" (Word "$entry")))
+                      (wat "then" (wat "call" (id (cache-insert m layout)) state fresh))
+                      (wat "else" (wat "struct.set" (id entry) (int 4)
+                                       (wat "local.get" (Word "$entry"))
+                                       (wat "local.get" (Word "$result")))))))))
+
+    (define (cache-invoke (m Module) (layout CacheLayout) (params (List Type)) (result Type))
+      (→ String) (! mut)
+      (let* ((base (● layout base)) (holder (● layout holder))
+             (callback (wat "local.get" (Word "$callback")))
+             (evidence (wat "local.get" (Word "$ev"))))
+        (template-helper! m "cache-invoke" (● layout state)
+                          "(func {id} (type {code}) (param $closure (ref null {base}))
+  (param $ev (ref null {evidence})) {params} (result {result})
+  (local $self (ref null {holder})) (local $state (ref null {state}))
+  (local $entry (ref null {entry})) (local $callback (ref null {base}))
+  (local $result {result}) (local $hash i64)
+  (local.set $self (ref.cast (ref null {holder}) (local.get $closure)))
+  (local.set $state (struct.get {holder} 5 (local.get $self)))
+  (local.set $hash {hash})
+  (local.set $entry {find})
+  (if (i32.eqz (ref.is_null (local.get $entry)))
+    (then
+      (local.set $result (struct.get {entry} 4 (local.get $entry)))
+      (drop {release})
+      (return (local.get $result))))
+  (local.set $callback {retain})
+  (local.set $result {call})
+  {publish}
+  (drop {release})
+  (local.get $result))"
+                          (append (cache-bindings layout)
+                                  (list
+                                   (Pair "base" base) (Pair "holder" holder)
+                                   (Pair "code" (code-type m base))
+                                   (Pair "evidence" (evidence-type m))
+                                   (Pair "params" (string-join (map wat->text
+                                                                    (param-wats (cache-keys params)
+                                                                                (map (lambda (t)
+                                                                                       (rep m t))
+                                                                                     params)))
+                                                               " "))
+                                   (Pair "result" (wat->text (rep->wat (rep m result))))
+                                   (Pair "hash"
+                                         (wat->text (if (null? params) (wat "i64.const" (int 0))
+                                                        (cache-hash m params))))
+                                   (Pair "find" (wat->text (cache-find-call m layout params)))
+                                   (Pair "retain" (wat->text (retain-value m (● layout signature)
+                                                                           (wat "struct.get"
+                                                                                (id holder)
+                                                                                (int 4)
+                                                                                (wat "local.get"
+                                                                                     (Word
+                                                                                      "$self"))))))
+                                   (Pair "release" (wat->text (release-value m (● layout signature)
+                                                                             (wat "local.get"
+                                                                                  (Word "$closure"))
+                                                                             evidence)))
+                                   (Pair "call" (wat->text (closure-call-wat m base callback
+                                                                             (Cons evidence
+                                                                                   (cache-key-reads
+                                                                                    params))
+                                                                             #f)))
+                                   (Pair "publish" (wat->text (cache-publish m layout params))))))))
+
+    ;; The map is a captured local, never a module global. The closure's
+    ;; existing destructor releases its one callback credit; plain entries
+    ;; need no finalizers. A zero-argument cache needs only its result slot.
+    (define (cache-new (m Module) (layout CacheLayout) (params (List Type)) (result Type))
+      (→ Wat) (! mut)
+      (wat "struct.new" (id (● layout holder))
+           (wat "i64.const" (int 1))
+           (code-of m (capture-destructor m (● layout holder) (list (● layout signature))))
+           (code-of m (cache-invoke m layout params result)) (dropper-null)
+           (wat "local.get" (Word "$callback"))
+           (wat "struct.new" (id (● layout state))
+                (if (null? params) (wat "ref.null" (id (● layout buckets)))
+                    (wat "array.new_default" (id (● layout buckets)) (wat "i32.const" (int 8))))
+                (wat "i64.const" (int 0)) (wat "local.get" (Word "$capacity"))
+                (wat "ref.null" (id (● layout entry))) (wat "ref.null" (id (● layout entry))))))
+
+    (define (cached-function (m Module) (type Type) (capacity Wat) (callback Wat) (bounded? Bool))
+      (→ Wat) (! mut)
+      (match type
+        ((TFun params result _)
+         (let* ((layout (cache-layout m type)) (base (● layout base))
+                (helper (template-helper! m (if bounded? "lru-cache" "cache") (● layout state)
+                                          "(func {id} (param $capacity i64) (param $callback (ref null {base}))
+  (result (ref null {base}))
+  {capacity-check}
+  {new})"
+                                          (list (Pair "base" base)
+                                                (Pair "new"
+                                                      (wat->text
+                                                       (cache-new m layout params result)))
+                                                (Pair "capacity-check"
+                                                      (if bounded?
+                                                          (string-append
+                                                           "(if (i64.lt_s (local.get $capacity) (i64.const 0)) (then "
+                                                           (wat->text
+                                                            (wat "call" (id (panic-helper m))
+                                                                 (string-literal m
+                                                                                 "lru-cache capacity must be nonnegative")))
+                                                           " unreachable))\n(if (i64.eqz (local.get $capacity)) (then (return (local.get $callback))))")
+                                                          ""))))))
+           (wat "call" (id helper) capacity callback)))
+        (_ (panic "internal error: cache requires Fn"))))
 
     ;; ---- Runtime helpers ----
 

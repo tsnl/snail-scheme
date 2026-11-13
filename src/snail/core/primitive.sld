@@ -12,6 +12,7 @@
 (define-library (snail core primitive)
   (export
    unit panic unsafe-total unsafe-cast
+   cache lru-cache
    rc rc-get rc-downgrade weak-rc-upgrade
    once call-once inherit-handlers inherit-handlers-1
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
@@ -64,6 +65,13 @@
     (primitive panic (∀ (A) (Fn String → A)))
     (primitive unsafe-total (∀ (A e) (Fn (Fn → A ! e) → A)))
     (primitive unsafe-cast (∀ (A) (Fn Funcref → A)))
+
+    ;; ---- Memoized functions ----
+
+    ;; F stands for an entire function signature of any arity. Preparation
+    ;; checks that its keys/results need no cleanup and it cannot suspend.
+    (primitive cache (∀ (F) (Fn F → F)))
+    (primitive lru-cache (∀ (F) (Fn I64 F → F)))
 
     ;; ---- Counted ownership ----
 
