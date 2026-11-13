@@ -59,11 +59,12 @@ try {
   await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('"fixed"'); t.setSelectionRange(at, at); })()`);
   await press({key: 'Tab'});
   assert.match(await text(), /\(define greeting \(→ String\)\n  "fixed"\)/);
-  // Enter indents the new line for what follows it, and the page undoes it as typing.
+  // Enter trims the old line's trailing spaces and indents what follows;
+  // the page undoes the complete change as typing.
   await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('"fixed"');
     t.focus(); t.setSelectionRange(at, at); })()`);
   await press({key: 'Enter'});
-  await until(async () => /\(define greeting \(→ String\)\n  \n  "fixed"\)/.test(await text()), 'the indented new line');
+  await until(async () => /\(define greeting \(→ String\)\n\n  "fixed"\)/.test(await text()), 'the indented new line');
   await browser.evaluate(`document.execCommand('undo')`);
   await until(async () => /\(define greeting \(→ String\)\n  "fixed"\)/.test(await text()), 'the undone new line');
   await press({code: 'KeyS', key: 's', ctrlKey: true});
@@ -222,6 +223,9 @@ try {
   const {code, signal, stderr} = await service.stop();
   assert.deepEqual({code, signal}, {code: 0, signal: null}, stderr);
   console.log('ide: native save/build, external edits, conflicts, delayed replies, deletion, reconnect and dev shutdown');
+} catch (error) {
+  console.error('IDE failure:', {text: await text(), problem: await problem(), status: await service.status()});
+  throw error;
 } finally {
   browser.close();
   await service.stop();

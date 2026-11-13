@@ -130,7 +130,7 @@ try {
   if (screenshot) await browser.screenshot(screenshot);
   await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'), at = t.value.indexOf('5'); t.setSelectionRange(at, at + 1); document.execCommand('insertText', false, '6'); })()`);
   await sleep(200);
-  assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").value.includes("greeting 6")'), true);
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").value.includes("(define greeting (→ String) 6)")'), true);
   assert.equal(await browser.evaluate('window.fileReads'), 0);
   await browser.evaluate('window.fetch = window.actualFetch');
 
@@ -141,7 +141,7 @@ try {
   await browser.send('Network.emulateNetworkConditions', {offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1});
   await browser.evaluate('window.dispatchEvent(new Event("online"))');
   await until(async () => (await text('run-status')).includes('Requested: stop') && !(await disabled('run-start')), 'current run snapshot on reconnect');
-  assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").value.includes("greeting 6")'), true);
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").value.includes("(define greeting (→ String) 6)")'), true);
   await click('run-start'); await until(async () => await live() && (await run('app')).attempt.pid !== activePid, 'accepted launch during compile failure');
   finalPid = (await run('app')).attempt.pid;
   browser.close(); await sleep(100); process.kill(finalPid, 0);
