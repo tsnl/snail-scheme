@@ -6,7 +6,7 @@ contract:
 ```scheme
 (struct (Entry A) ())
 (typeclass (Application e A)
-  (: start (Fn (Entry A) → Unit ! e)))
+  (declare (start (entry (Entry A))) (→ Unit) (! e)))
 ```
 
 `Entry` is an empty type witness. Selecting an application does not require

@@ -10,7 +10,7 @@
   (begin
     (typeclass (Combine A B)
       (type Output)
-      (: combine (Fn A B → Output)))
+      (declare (combine (left A) (right B)) (→ Output)))
     (instance (Combine I64 I64)
       (type Output I64)
       (define combine (lambda (a b) (+ a b))))

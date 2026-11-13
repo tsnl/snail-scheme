@@ -120,7 +120,7 @@ scope when cleanup must finish before the next operation.
 
 ```scheme
 (typeclass (Drop e T)
-  (: drop (Fn T → Unit ! e)))
+  (declare (drop (value T)) (→ Unit) (! e)))
 ```
 
 The compiler derives cleanup from the concrete type, using a user instance when

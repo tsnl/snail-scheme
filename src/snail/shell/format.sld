@@ -316,7 +316,7 @@
          (Some (Special 1)))
         (("do" "receive" "syntax-case" "syntax-table-define") (Some (Special 2)))
         (("dynamic-wind") (Some (Special 3)))
-        (("scheme-define") (Some (Definition)))
+        (("scheme-define" "declare") (Some (Definition)))
         (("syntax-rules") (Some (Definition)))
         (("struct" "enum" "typeclass" "instance" "effect" "match" "guard") (Some (Special 1)))
         (("handle") (Some (Special 2)))

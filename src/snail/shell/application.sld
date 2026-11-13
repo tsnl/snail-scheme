@@ -14,4 +14,4 @@
       ())
 
     (typeclass (Application e A)
-      (: start (Fn (Entry A) → Unit ! e)))))
+      (declare (start (entry (Entry A))) (→ Unit) (! e)))))

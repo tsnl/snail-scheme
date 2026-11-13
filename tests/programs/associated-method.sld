@@ -5,7 +5,7 @@
 (struct (Box A)
   ((value A)))
 
-(typeclass (Extract A) (type Output) (: extract (Fn A → Output)))
+(typeclass (Extract A) (type Output) (declare (extract (value A)) (→ Output)))
 
 (instance (Extract I64) (type Output I64) (define extract (lambda (value) value)))
 
@@ -15,7 +15,10 @@
 
 (typeclass (Combine A)
   (type Output)
-  (: combine (∀ (B) (⊨ (Extract B)) (Fn A B → (Pair Output (Extract.Output B))))))
+  (declare (combine (left A) (right B))
+           (→ (Pair Output (Extract.Output B)))
+           (∀ (B))
+           (⊨ (Extract B))))
 
 (instance (Combine (Box A))
   (⊨ (Extract A))

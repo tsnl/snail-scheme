@@ -18,7 +18,7 @@
   (Rgb ((value (Vec3 I64)))))
 
 (typeclass (ToHex T)
-  (: to-hex (Fn T → String)))
+  (declare (to-hex (value T)) (→ String)))
 
 (define (channel-hex (value I64)) (→ String)
   (let ((digits "0123456789abcdef"))

@@ -5,7 +5,7 @@
 ;; An instance method has its class method's row, even when this instance
 ;; performs less of it.
 (typeclass (Announce T)
-  (: announce (Fn T → Unit ! output-port)))
+  (declare (announce (value T)) (→ Unit) (! output-port)))
 
 (instance (Announce I64)
   (define announce (lambda (n) (write-line (i64->string n)))))

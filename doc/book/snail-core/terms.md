@@ -56,20 +56,20 @@ those bytes as a byte literal in its generated library.
 
 | Form | Meaning |
 | --- | --- |
-| `(define name [header ...] value)`, `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Value or typed function definition. Every named function parameter has a type and every named function declares its result; optional effect, generic, constraint and annotation clauses precede the body. |
+| `(define name [header ...] value)`, `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Value or typed function definition. Every named function parameter has a type and every named function declares its result; optional effect, generic and constraint clauses precede the body. |
 | `(lambda (param ...) body ...)` | Function with a fixed number of parameters. |
 | `(if test then [else])` | `test` is `Bool`; without `else` the result is `Unit`. |
 | `(begin form ...)` | A body: definitions and expressions in order. |
 | `(let ((name value) ...) body ...)`, `(let loop ((name value) ...) body ...)` | Local bindings and loops. |
 | `(match value (pattern body ...) ...)` | Pattern matching, checked for exhaustiveness and unreachable clauses. |
-| `(: name type)` | Separate signature for a class or effect method, or a foreign declaration. Implementation signatures belong on their definitions. |
+| `(declare (name (param type) ...) (→ Result) [header ...])` | Bodyless method declaration in a typeclass, with the same header as a function definition. |
 | `(ann expression type)` | Static type annotation. |
-| `(type-convert expression type)` | Converts to or from `Any`; a downcast is checked at run time. |
-| `(type-test expression type)` | Whether an `Any` holds a value of `type`, without trapping. |
+| `(Any expression)` | Boxes an unrestricted value with its concrete type. |
+| `(downcast Type boxed)` | Returns `Some` of the payload if its type matches, or `None`. |
 | `(struct (Name param ...) ((field type) ...))` | Record type. |
 | `(enum (Name param ...) (Case [((field type) ...)]) ...)` | Tagged sum. |
 | `(type (Name param ...) type)` | Transparent alias. |
-| `(typeclass (Class param ...) (: method type) ...)` | Class of types with methods. |
+| `(typeclass (Class param ...) (declare (method ...) ...) ...)` | Class of types with methods. |
 | `(instance (Class type ...) [(⊨ constraint ...)] (define ...) ...)` | Instance. |
 | `(effect Name ((operation type) ...) [(default ((operation implementation) ...))])` | Effect with operations and optional Snail Scheme defaults, each a lambda or a function's or extern's name. `(ctl operation type)` declares a control operation, which has no default ([effects and handlers](effects.md)). |
 | `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`; a control operation's implementation also takes `resume`. |

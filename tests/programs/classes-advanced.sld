@@ -4,7 +4,7 @@
 
 ;; Two class parameters, chosen together.
 (typeclass (Convert A B)
-  (: convert (Fn A → B)))
+  (declare (convert (value A)) (→ B)))
 
 (instance (Convert I64 String)
   (define convert (lambda (n) (string-append "#" (show n)))))
@@ -14,7 +14,7 @@
 
 ;; A method with a type variable of its own.
 (typeclass (Collection C)
-  (: collect (∀ (A) (Fn C (Fn I64 → A) → (List A)))))
+  (declare (collect (left C) (right (Fn I64 → A))) (→ (List A)) (∀ (A))))
 
 (struct Range
   ((start I64)

@@ -6,7 +6,7 @@
 ;; only where A is unrestricted: used at a FnOnce, it would run the work
 ;; twice.
 (typeclass (Twice T)
-  (: twice (Fn T → (Pair T T))))
+  (declare (twice (value T)) (→ (Pair T T))))
 
 (instance (Twice (Option A))
   (⊨ (Copy A))

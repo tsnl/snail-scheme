@@ -131,8 +131,8 @@
     ;; effects in a function. Engines request this ordinary evidence rather
     ;; than weakening the compiler's Any boundary.
     (typeclass (PageState S)
-      (: pack-state (Fn S → Any))
-      (: unpack-state (Fn Any → (Option S))))
+      (declare (pack-state (state S)) (→ Any))
+      (declare (unpack-state (boxed Any)) (→ (Option S))))
 
     (define-syntax define-page-state
       (syntax-rules ()

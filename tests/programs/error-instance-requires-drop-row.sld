@@ -16,7 +16,7 @@
                        ((Handle name) (say (string-append "released " name)))))))
 
 (typeclass (Release T)
-  (: release (Fn T → Unit ! log)))
+  (declare (release (value T)) (→ Unit) (! log)))
 
 (instance (Release (Option A))
   (⊨ (Drop (!) A))

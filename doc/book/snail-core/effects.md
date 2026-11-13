@@ -237,7 +237,7 @@ Using the [built-in function types](types.md#functions):
 
 ```scheme
 (typeclass (Ask T)
-  (: ask (Fn → T)))
+  (declare (ask) (→ T)))
 
 
 (define (greet) (→ String) (! (Ask String))
@@ -261,7 +261,7 @@ A parameterized emitting capability has the same interface mechanism:
 
 ```scheme
 (typeclass (Emit T)
-  (: emit (Fn T → Unit)))
+  (declare (emit (value T)) (→ Unit)))
 
 
 (define (produce) (→ Unit) (! (Emit I64))

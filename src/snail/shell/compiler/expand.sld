@@ -1267,24 +1267,47 @@
                    (loop rest (definition-header-clause header name form) (Cons name seen)))))))))
 
     (define (parse-definition (form Syntax)) (→ Definition) (! compile)
+      (let ((definition (parse-definition-parts form)))
+        (when (null? (● definition body))
+          (compile-error (syntax-loc form) "a definition needs a body"))
+        (check-definition-header (● definition parameters) (● definition header)
+                                 (● definition body) (syntax-loc form))
+        definition))
+
+    ;; Definitions and method declarations have one header grammar. The caller
+    ;; decides whether a body is required or forbidden.
+    (define (parse-definition-parts (form Syntax)) (→ Definition) (! compile)
       (match (form-tail form)
         ((Cons head forms)
          (let* ((parsed (definition-header forms))
-                (header (● parsed first))
-                (body (● parsed second))
                 (parameters (match head
                               ((Form (Cons _ parameters) _)
                                (Some (map definition-parameter parameters)))
                               (_ (None)))))
-           (when (null? body) (compile-error (syntax-loc form) "a definition needs a body"))
            (for-each (lambda (item)
                        (unless (string=? (definition-clause item) "")
                          (compile-error (syntax-loc item)
                                         "definition clauses must precede the body")))
-                     body)
-           (check-definition-header parameters header body (syntax-loc form))
-           (Definition (definition-name form) parameters header body (syntax-loc form))))
+                     (● parsed second))
+           (Definition (definition-name form) parameters (● parsed first)
+             (● parsed second) (syntax-loc form))))
         (_ (compile-error (syntax-loc form) "expected a definition"))))
+
+    (define (parse-declaration (form Syntax)) (→ Definition) (! compile)
+      (unless (match form ((Form (Cons (Ident "declare" _ _) _) _) #t) (_ #f))
+        (compile-error (syntax-loc form)
+                       "expected (declare (method (parameter Type) ...) (→ Result) ...), or (type Output)"))
+      (let ((definition (parse-definition-parts form)))
+        (unless (null? (● definition body))
+          (compile-error (syntax-loc form) "a declaration has no body"))
+        (match (● definition parameters)
+          ((None) (compile-error (syntax-loc form) "a declaration needs a function header"))
+          (_ (unit)))
+        (check-definition-header (● definition parameters)
+                                 (● definition header)
+                                 (Nil)
+                                 (syntax-loc form))
+        definition))
 
     (define (check-definition-header (parameters (Option (List (Pair Syntax Syntax))))
                                      (header DefinitionHeader)
@@ -1352,7 +1375,7 @@
        (definition (Option Definition))))
 
     (define declaration-keywords (→ (List String))
-      (list ":" "struct" "enum" "type" "typeclass" "instance" "extern" "effect" "expose"))
+      (list "struct" "enum" "type" "typeclass" "instance" "extern" "effect" "expose"))
 
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
@@ -1472,7 +1495,6 @@
       (! compile)
       (let ((form (● pending form)) (env (● pending env)))
         (case (● pending keyword)
-          ((":") (Pair (Nil) cx))
           (("struct") (Pair (Nil) (declare-data cx env form #f)))
           (("enum") (Pair (Nil) (declare-data cx env form #t)))
           (("typeclass") (Pair (Nil) (declare-class cx env form)))
@@ -1651,16 +1673,12 @@
         (_ (panic "internal error: expected Ident"))))
 
     (define (scan-class-member (cx Context) (env Env) (class Syntax) (form Syntax))
-      (→ Context)
-      (! compile)
+      (→ Context) (! compile)
       (if (associated-form? form)
           (let* ((member (associated-name form))
                  (name (suffixed-ident class (string-append "." member) (syntax-loc form))))
             (bind-top cx env name (Associated (unique-name cx class) member)))
-          (match form
-            ((Form (Cons (Ident ":" _ _) (Cons method (Cons _ (Nil)))) _)
-             (bind-member cx env method))
-            (_ (compile-error (syntax-loc form) "expected (: method type) or (type Output)")))))
+          (bind-member cx env (● (parse-declaration form) name))))
 
     (define (scan-effect (cx Context) (env Env) (head Syntax) (rest (List Syntax)) (form Syntax))
       (→ Context)
@@ -1905,16 +1923,12 @@
       (→ Scheme)
       (Scheme params (Nil) (Nil) (TFun arguments result row)))
 
-    ;; The signatures with the one a `(: name type)` declares, and where it
-    ;; was written. A signature a macro writes is held to each expansion's
-    ;; body like any other, so a macro that cannot know the row takes it as
-    ;; an argument.
+    ;; Resolve definition headers before expanding bodies so recursive calls
+    ;; and importers see the same declared contract.
 
-    (define (with-signature (cx Context)
-                            (signatures (Table (Pair Scheme (Option Loc))))
+    (define (with-signature (cx Context) (signatures (Table (Pair Scheme (Option Loc))))
                             (pending Pending))
-      (→ (Table (Pair Scheme (Option Loc))))
-      (! compile)
+      (→ (Table (Pair Scheme (Option Loc)))) (! compile)
       (match (● pending definition)
         ((Some definition)
          (match (● (● definition header) result)
@@ -1922,13 +1936,7 @@
            ((Some _)
             (add-signature cx signatures (● pending env) (● definition name)
                            (definition-type definition) (● definition loc)))))
-        ((None)
-         (if (string=? (● pending keyword) ":")
-             (match (● pending form)
-               ((Form (Cons _ (Cons name (Cons type (Nil)))) loc)
-                (add-signature cx signatures (● pending env) name type loc))
-               (form (compile-error (syntax-loc form) "expected (: name type)")))
-             signatures))))
+        ((None) signatures)))
 
     (define (add-signature (cx Context)
                            (signatures (Table (Pair Scheme (Option Loc))))
@@ -1978,7 +1986,7 @@
                                                                      methods)))))))
 
     ;; The parameters the class's methods perform as rows, `e` in
-    ;; `(: fetch-object (Fn S String → String ! e))`, in order; a row's kind
+    ;; `(declare (fetch-object (store S) (key String)) (→ String) (! e))`, in order; a row's kind
     ;; is found from its use, as quantified variables are. A parameter a
     ;; method also writes as a type could not be both.
 
@@ -2021,27 +2029,18 @@
         ((TCon _ args) (concatenate (map type-names args)))
         (_ (Nil))))
 
-    (define (declare-method (cx Context)
-                            (env Env)
-                            (scope Env)
-                            (class String)
-                            (params (List Syntax))
-                            (self Constraint)
-                            (signature Syntax))
-      (→ (Pair String Context))
-      (! compile)
-      (match signature
-        ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
-         (let ((own (operational-scheme (resolve-scheme cx scope type)))
-               (global (global-binding cx env name)))
-           (Pair global
-                 (add-value cx global
-                            (Method class
-                                    (Scheme (append (ident-names params) (● own vars))
-                                            (Cons self (● own constraints))
-                                            (● own copy)
-                                            (● own type)))))))
-        (_ (compile-error (syntax-loc signature) "expected (: method type)"))))
+    (define (declare-method (cx Context) (env Env) (scope Env) (class String)
+                            (params (List Syntax)) (self Constraint) (signature Syntax))
+      (→ (Pair String Context)) (! compile)
+      (let* ((definition (parse-declaration signature))
+             (own (operational-scheme (resolve-scheme cx scope (definition-type definition))))
+             (global (global-binding cx env (● definition name))))
+        (Pair global
+              (add-value cx global
+                         (Method class
+                                 (Scheme (append (ident-names params) (● own vars))
+                                         (Cons self (● own constraints))
+                                         (● own copy) (● own type)))))))
 
     ;; Returns one step per method, which expands its definition.
 
@@ -3395,16 +3394,15 @@
       (→ (Pair Expr Context))
       (! compile)
       (when (null? forms) (compile-error loc "empty body"))
-      (expand-body-forms cx env forms (None) loc))
+      (expand-body-forms cx env forms  loc))
 
     ;; A local body is sequential: each definition is visible to the forms
-    ;; after it, and a function definition is also visible to itself. A
-    ;; signature annotates the definition that follows it.
+    ;; after it, and a function definition is also visible to itself.
 
     (define (expand-body-forms (cx Context)
                                (scope Env)
                                (forms (List Syntax))
-                               (signature (Option (Pair String Type)))
+
                                (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
@@ -3414,77 +3412,43 @@
          (expanding cx ((form (expand-head scope form)))
                     (match (head-binding cx scope form)
                       ((Some (Core "begin"))
-                       (expand-body-forms cx scope (append (form-tail form) rest) signature loc))
+                       (expand-body-forms cx scope (append (form-tail form) rest)  loc))
                       ((Some (Core "define-syntax"))
                        (expanding cx ((inner (define-local-macro scope form)))
-                                  (expand-body-forms cx inner rest signature loc)))
-                      ((Some (Core ":"))
-                       (expand-body-forms cx scope rest (Some (local-signature cx scope form)) loc))
+                                  (expand-body-forms cx inner rest  loc)))
+
                       ((Some (Core "define"))
-                       (expand-local-definition cx scope form rest signature loc))
+                       (expand-local-definition cx scope form rest  loc))
                       (_ (expanding cx ((value (expand-expr scope form)))
                                     (if (null? rest)
                                         (Pair value cx)
                                         (expanding cx ((more
-                                                        (expand-body-forms scope rest (None) loc)))
+                                                        (expand-body-forms scope rest  loc)))
                                                    (Pair (expr (Seq value more) (● value loc))
                                                          cx))))))))))
 
-    (define (local-signature (cx Context) (scope Env) (form Syntax))
-      (→ (Pair String Type))
-      (! compile)
-      (match form
-        ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
-         (Pair (expect-name name "a name")
-               (● (resolve-scheme cx scope type) type)))
-        (_ (compile-error (syntax-loc form) "expected (: name type)"))))
-
-    (define (expand-local-definition (cx Context)
-                                     (scope Env)
-                                     (form Syntax)
-                                     (rest (List Syntax))
-                                     (signature (Option (Pair String Type)))
-                                     (loc Loc))
-      (→ (Pair Expr Context))
-      (! compile)
+    (define (expand-local-definition (cx Context) (scope Env) (form Syntax)
+                                     (rest (List Syntax)) (loc Loc))
+      (→ (Pair Expr Context)) (! compile)
       (let* ((definition (parse-definition form)) (ident (● definition name)))
-        (expanding cx ((name (fresh (match ident
-                                      ((Ident identifier-name _ _)
-                                       identifier-name)
-                                      (_ (panic "internal error: expected Ident"))))))
+        (expanding cx ((name (fresh (expect-name ident "a local name"))))
                    (let ((inner (extend scope ident (Local name)))
                          (function? (match (● definition parameters)
                                       ((Some _) #t)
                                       ((None)
-                                       (let ((value (list-ref (● definition body) 0)))
-                                         (core-form? cx scope value "lambda"))))))
+                                       (core-form? cx
+                                                   scope
+                                                   (list-ref (● definition body) 0)
+                                                   "lambda")))))
                      (expanding cx ((value (definition-value (if function? inner scope) definition))
-                                    (body (expand-body-forms inner rest (None) loc)))
+                                    (body (expand-body-forms inner rest loc)))
                                 (Pair (expr (Let name
-                                                 (signed-value (annotated-definition-value cx
-                                                                                           scope
-                                                                                           definition
-                                                                                           value)
-                                                               signature
-                                                               (match ident
-                                                                 ((Ident identifier-name _ _)
-                                                                  identifier-name)
-                                                                 (_
-                                                                  (panic
-                                                                   "internal error: expected Ident"))))
+                                                 (annotated-definition-value cx
+                                                                             scope
+                                                                             definition
+                                                                             value)
                                                  body)
-                                            (syntax-loc form))
-                                      cx))))))
-
-    ;; A local definition's value, annotated with the signature before it
-    ;; when the signature names it.
-
-    (define (signed-value (value Expr) (signature (Option (Pair String Type))) (name String))
-      (→ Expr)
-      (match signature
-        ((Some (Pair signed type))
-         (if (string=? signed name) (expr (Ann value type) (● value loc)) value))
-        ((None) value)))
+                                            (syntax-loc form)) cx))))))
 
     ;; `(let ((name value) ...) body ...)` or the named-let loop form.
 
@@ -4538,7 +4502,7 @@
       (define assets-output
         (string-append
          "(define-library (sample assets) (export admin-bundle) (import (snail core base) (snail shell artifact)) "
-         "(begin (: admin-bundle ArtifactBundle) (define admin-bundle (artifact-bundle \"admin\"))))"))
+         "(begin (define admin-bundle (→ ArtifactBundle) (artifact-bundle \"admin\"))))"))
 
       (define write-sources
         (lambda (directory) (create-directory* (string-append directory "/walk/sample"))

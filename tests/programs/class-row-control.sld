@@ -8,7 +8,7 @@
   ((ctl next (Fn → Unit))))
 
 (typeclass (Store e S)
-  (: fetch-object (Fn S String → String ! e)))
+  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
 
 (struct Loud
   ((name String)))

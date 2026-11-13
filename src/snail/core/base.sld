@@ -3,7 +3,7 @@
 (define-library (snail core base)
   (export
    ●
-   define lambda if begin let define-syntax syntax-rules quote : struct enum type
+   define lambda if begin let define-syntax syntax-rules quote declare struct enum type
    typeclass
    instance
    match
@@ -150,30 +150,30 @@
     ;; ---- Numbers ----
 
     (typeclass (Num e T)
-      (: + (Fn T T → T ! e))
-      (: - (Fn T T → T ! e))
-      (: * (Fn T T → T ! e))
-      (: negate (Fn T → T ! e)))
+      (declare (+ (left T) (right T)) (→ T) (! e))
+      (declare (- (left T) (right T)) (→ T) (! e))
+      (declare (* (left T) (right T)) (→ T) (! e))
+      (declare (negate (value T)) (→ T) (! e)))
 
     (typeclass (Ord e T)
-      (: = (Fn T T → Bool ! e))
-      (: < (Fn T T → Bool ! e))
-      (: <= (Fn T T → Bool ! e))
-      (: > (Fn T T → Bool ! e))
-      (: >= (Fn T T → Bool ! e)))
+      (declare (= (left T) (right T)) (→ Bool) (! e))
+      (declare (< (left T) (right T)) (→ Bool) (! e))
+      (declare (<= (left T) (right T)) (→ Bool) (! e))
+      (declare (> (left T) (right T)) (→ Bool) (! e))
+      (declare (>= (left T) (right T)) (→ Bool) (! e)))
 
     (typeclass (Integral e T)
-      (: quotient (Fn T T → T ! e))
-      (: remainder (Fn T T → T ! e))
-      (: modulo (Fn T T → T ! e)))
+      (declare (quotient (numerator T) (denominator T)) (→ T) (! e))
+      (declare (remainder (numerator T) (denominator T)) (→ T) (! e))
+      (declare (modulo (numerator T) (denominator T)) (→ T) (! e)))
 
     (typeclass (Fractional e T)
-      (: / (Fn T T → T ! e))
-      (: sqrt (Fn T → T ! e))
-      (: floor (Fn T → T ! e))
-      (: ceiling (Fn T → T ! e))
-      (: round (Fn T → T ! e))
-      (: truncate (Fn T → T ! e)))
+      (declare (/ (left T) (right T)) (→ T) (! e))
+      (declare (sqrt (value T)) (→ T) (! e))
+      (declare (floor (value T)) (→ T) (! e))
+      (declare (ceiling (value T)) (→ T) (! e))
+      (declare (round (value T)) (→ T) (! e))
+      (declare (truncate (value T)) (→ T) (! e)))
 
     (instance (Num (!) U8)
       (define + (lambda (a b) (i32->u8 (i32-add (u8->i32 a) (u8->i32 b)))))
@@ -349,7 +349,7 @@
     ;; A FnOnce drops its uncalled captures. Uncounted values need no cleanup.
     ;; The Drop constraint records the effects this cleanup may perform.
     (typeclass (Drop e T)
-      (: drop (Fn T → Unit ! e)))
+      (declare (drop (value T)) (→ Unit) (! e)))
 
     ;; ---- Lists ----
 
@@ -766,7 +766,7 @@
     ;; ---- Showing values ----
 
     (typeclass (Show e T)
-      (: show (Fn T → String ! e)))
+      (declare (show (value T)) (→ String) (! e)))
 
     (define (i64->string (n I64)) (→ String)
       (cond ((= n 0) "0")
@@ -843,7 +843,7 @@
     ;; Representations are pure. Containers preserve their elements' notation,
     ;; including quotes and escapes; displaying a value still uses Show.
     (typeclass (Repr T)
-      (: repr (Fn T → String)))
+      (declare (repr (value T)) (→ String)))
 
     (instance (Repr I64)
       (define repr i64->string))

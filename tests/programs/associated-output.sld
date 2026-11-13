@@ -4,7 +4,7 @@
 
 (typeclass (Add e A B)
   (type Output)
-  (: add (Fn A B → Output ! e)))
+  (declare (add (left A) (right B)) (→ Output) (! e)))
 
 (instance (Add (!) I64 F64)
   (type Output F64)
@@ -29,7 +29,7 @@
 
 (typeclass (Extract T)
   (type Output)
-  (: extract (Fn T → Output)))
+  (declare (extract (value T)) (→ Output)))
 
 (instance (Extract (Box A))
   (type Output A)
@@ -43,7 +43,7 @@
 ;; Recursion that makes its input smaller is permitted.
 (typeclass (Flatten A)
   (type Output)
-  (: flatten (Fn A → Output)))
+  (declare (flatten (value A)) (→ Output)))
 
 (instance (Flatten I64)
   (type Output I64)
@@ -60,7 +60,7 @@
     ((_ class method)
      (typeclass (class A)
        (type Output)
-       (: method (Fn A → Output))))))
+       (declare (method (value A)) (→ Output))))))
 
 (define-identity-class Identity identity)
 

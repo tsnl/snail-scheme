@@ -3,7 +3,7 @@
  (snail core io))
 
 (typeclass (Describe T)
-  (: describe (Fn T → String)))
+  (declare (describe (value T)) (→ String)))
 
 (instance (Describe I64)
   (define describe (lambda (n) (string-append "int " (show n)))))

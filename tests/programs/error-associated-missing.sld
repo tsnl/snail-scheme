@@ -4,6 +4,6 @@
 
 (typeclass (Op e A B)
   (type Output)
-  (: op (Fn A B → Output ! e)))
+  (declare (op (left A) (right B)) (→ Output) (! e)))
 (instance (Op (!) I64 I64)
   (define op (lambda (a b) (+ a b))))

@@ -24,10 +24,10 @@
     ;; ---- Classes ----
 
     (typeclass (Serialize T)
-      (: encode (Fn T Encoder → Unit ! mut)))
+      (declare (encode (value T) (encoder Encoder)) (→ Unit) (! mut)))
 
     (typeclass (Deserialize T)
-      (: decode (Fn Decoder → T ! mut)))
+      (declare (decode (decoder Decoder)) (→ T) (! mut)))
 
     ;; ---- Byte streams ----
 

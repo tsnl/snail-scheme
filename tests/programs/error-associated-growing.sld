@@ -3,7 +3,7 @@
 
 (typeclass (Grow A)
   (type Output)
-  (: grow (Fn A → Output)))
+  (declare (grow (value A)) (→ Output)))
 
 (instance (Grow A)
   (⊨ (Grow (List A)))

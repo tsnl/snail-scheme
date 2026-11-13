@@ -1,4 +1,3 @@
 (import
  (snail core base))
-(: identity (-> I64 I64))
-(define identity (lambda (value) value))
+(define (identity (value (-> I64 I64))) (→ (-> I64 I64)) value)

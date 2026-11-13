@@ -4,7 +4,7 @@
 
 (typeclass (Op e A B)
   (type Output)
-  (: op (Fn A B → Output ! e)))
+  (declare (op (left A) (right B)) (→ Output) (! e)))
 (define (wrong (a A) (b B))
   (→ (Op.Output e A B))
   (! e)

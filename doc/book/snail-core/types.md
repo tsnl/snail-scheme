@@ -57,9 +57,9 @@ definition, before its body:
 
 Ordinary value definitions retain their initializer form and can put an
 explicit type, quantifiers or constraints in the same leading header position,
-for example `(define zero (→ I64) 0)`. Existing separate `(: name type)`
-declarations remain for class, effect and foreign signatures, which have no
-implementation body. Type-level callable signatures use the Unicode `→`;
+for example `(define zero (→ I64) 0)`. Class methods use `declare` with the same typed function header and no
+body, for example `(declare (describe (value T)) (→ String))`. A colon
+signature is not a language form. Type-level callable signatures use the Unicode `→`;
 universal quantification and requirements use `∀` and `⊨`. These are the only
 spellings: `->`, `All` and `requires` are not aliases.
 
@@ -182,7 +182,7 @@ and may require other instances:
 
 ```scheme
 (typeclass (Describe T)
-  (: describe (Fn T → String)))
+  (declare (describe (value T)) (→ String)))
 
 (instance (Describe (List T))
   (⊨ (Describe T))
@@ -251,7 +251,7 @@ A class can declare ordinary associated types. Each instance defines them:
 ```scheme
 (typeclass (Add e A B)
   (type Output)
-  (: add (Fn A B → Output ! e)))
+  (declare (add (left A) (right B)) (→ Output) (! e)))
 
 (instance (Add (!) I64 F64)
   (type Output F64)

@@ -71,7 +71,7 @@
 
 ;; A typeclass names operations, and an instance gives them for one type.
 (typeclass (Describe T)
-  (: describe (Fn T → String)))
+  (declare (describe (value T)) (→ String)))
 
 (instance (Describe Point)
   (define describe

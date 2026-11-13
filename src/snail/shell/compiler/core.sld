@@ -236,7 +236,7 @@
             "define-syntax"
             "syntax-rules"
             "quote"
-            ":"
+            "declare"
             "struct"
             "enum"
             "type"
@@ -837,7 +837,7 @@
 
     ;; What a unique value name denotes. A definition's scheme is its
     ;; signature's, or none until it is inferred, and `signature` is where
-    ;; that `(: name type)` was written; `function?` says its value is a
+    ;; its typed header was written; `function?` says its value is a
     ;; lambda, whose code can be called directly. An instance method has
     ;; its class method's scheme and no signature of its own, and like a
     ;; default no program names it. Internal field operations describe

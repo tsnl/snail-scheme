@@ -118,7 +118,7 @@
 
     ;; A definition names what follows `(define`, `(define-syntax` or `(:`.
     (define defining-forms (→ (List String))
-      (list "define" "define-syntax" ":"))
+      (list "define" "define-syntax" "declare"))
 
     ;; ---- Tokens ----
 

@@ -1,5 +1,5 @@
 (import
  (snail core base))
 
-(typeclass (Describe A) (: describe (Fn A → String)))
+(typeclass (Describe A) (declare (describe (value A)) (→ String)))
 (instance (Describe Any) (dispatch I64))

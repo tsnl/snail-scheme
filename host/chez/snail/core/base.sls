@@ -5,7 +5,7 @@
    ● test-base
    define lambda if begin let let* letrec cond case when unless and or do
    define-syntax syntax-rules quote else => _ ...
-   : type ann struct enum match effect handle
+   type ann struct enum match effect handle
    +
    -
    *

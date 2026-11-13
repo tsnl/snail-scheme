@@ -1021,12 +1021,12 @@
     ;; ---- Scene applications ----
 
     (typeclass (Scene S)
-      (: scene-initialize (Fn I32 I32 I32 → S))
-      (: scene-update (Fn S Input → S))
-      (: scene-view (Fn S → Frame))
-      (: scene-hud (Fn S → (List Panel)))
-      (: scene-save (Fn S → Bytes))
-      (: scene-restore (Fn Bytes → S)))
+      (declare (scene-initialize (width I32) (height I32) (seed I32)) (→ S))
+      (declare (scene-update (state S) (input Input)) (→ S))
+      (declare (scene-view (value S)) (→ Frame))
+      (declare (scene-hud (value S)) (→ (List Panel)))
+      (declare (scene-save (value S)) (→ Bytes))
+      (declare (scene-restore (bytes Bytes)) (→ S)))
 
     ;; This adapter supplies Application through ordinary instance evidence.
     ;; A project's selected type may be an alias for (SceneApplication Game).

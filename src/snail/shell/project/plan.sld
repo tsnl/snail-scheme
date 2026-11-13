@@ -698,7 +698,7 @@
       (define assets-output
         (string-append
          "(define-library (generated assets) (export admin-bundle) (import (snail core base) (snail shell artifact)) "
-         "(begin (: admin-bundle ArtifactBundle) (define admin-bundle (artifact-bundle \"admin\"))))"))
+         "(begin (define admin-bundle (→ ArtifactBundle) (artifact-bundle \"admin\"))))"))
 
       (define write-project
         (lambda (directory) (create-directory* (string-append directory "/lib/generated"))

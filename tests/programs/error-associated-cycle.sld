@@ -4,11 +4,11 @@
 
 (typeclass (First A)
   (type Output)
-  (: first (Fn A → Output)))
+  (declare (first (value A)) (→ Output)))
 
 (typeclass (Second A)
   (type Output)
-  (: second (Fn A → Output)))
+  (declare (second (value A)) (→ Output)))
 
 (instance (First A)
   (⊨ (Second A))
