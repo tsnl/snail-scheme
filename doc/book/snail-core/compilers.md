@@ -211,6 +211,14 @@ allowing recursive object graphs. Finite budgets diagnose expanding type or
 specialization families instead of exhausting the host. Ordinary recursive
 nominal types reuse their existing type entry.
 
+The `cache` and `lru-cache` primitives preserve a callback's complete `Fn` type.
+Preparation checks concrete key and result types for trivial cleanup and rejects
+suspending callbacks. The Wasm backend builds an ordinary closure capturing its
+callback and a private typed hash table; no module globals or new ownership
+representation are involved. Its destructor releases the callback through the
+existing closure machinery. The Chez adapter implements the same wrapper and key
+semantics. See [cached functions](terms.md#cached-functions).
+
 ### Effects, control and frames
 
 Every compiled function receives `$ev`, the evidence for handlers in scope.

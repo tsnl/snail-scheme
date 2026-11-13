@@ -18,6 +18,7 @@
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
    not unit panic unsafe-total once call-once Drop drop
+   cache lru-cache
    Num + - * negate abs
    Ord = < <= > >= min max
    Integral quotient remainder modulo
