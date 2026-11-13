@@ -16,10 +16,10 @@ check that the value has the expected case:
 ```
 
 The first three lines show two names observing one object. The last two
-show a different rule for top-level constants: each read of `cycle` gets a
-fresh graph, while the link inside each graph still points to itself.
-Top-level values therefore provide reusable data without writable global
-state. Runtime effects belong in `main` and other functions.
+show that top-level values obey the same sharing rule: `cycle` initializes
+once, and both reads see the mutation. Its link still points to itself.
+Initializers must be effect-free; ordinary effectful work belongs in `main`
+and other functions.
 
 A value with a linear member is linear itself. Use `Rc` when several owners
 must share a resource and its last release must run a finalizer; `WeakRc`

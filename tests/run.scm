@@ -198,6 +198,25 @@
     (or (not (string=? day-night night-day))
         (report "type ids" "unchanged by reordering an enum's cases" day-night))))
 
+;; Fresh module instances start with empty caches, while escaped old code
+;; still sees its own cache after a relink.
+(define (check-lazy-instances root)
+  (let* ((output (path-join root "build/tests/lazy-instances"))
+         (source (path-join root "tests/lazy-instances/main.sld"))
+         (program (string-append output ".wasm")))
+    (link-wat root (program->wat root (standard-directories root) source) program)
+    (build-modules root (standard-directories root) source output)
+    (let ((results
+           (map (lambda (file)
+                  (let ((result (capture-process
+                                 (list "node" "--no-warnings"
+                                       (path-join root "tests/lazy-instances/check.mjs") file))))
+                    (or (zero? (caddr result))
+                        (report "lazy instances" "failed"
+                                (string-append (car result) (cadr result))))))
+                (list program (path-join output "modules.json")))))
+      (for-all values results))))
+
 ;; Counted owners crossing the host boundary survive repeated calls and release
 ;; once per returned credit, including aliases and nullable Any payloads.
 (define (check-owned-boundary root name)
@@ -344,7 +363,8 @@
            (report "compiler run" "a panic must exit with status 1" (cadr panicked)))
           ((not (= (caddr trapped) 512))
            (report "compiler run" "a trap must be status 2" (cadr trapped)))
-          ((not (and (= (caddr enum-order) 512) (equal? (car enum-order) "incoming\n")))
+          ((not (and (= (caddr enum-order) 256) (equal? (car enum-order) "incoming\n")
+                     (equal? (cadr enum-order) "snail: wrong enum case\n")))
            (report "compiler run" "enum writes must evaluate both operands before checking the case"
                    (string-append (car enum-order) (cadr enum-order))))
           (else #t))))
@@ -643,6 +663,11 @@
     ("tests/programs" "control-early-exit")
     ("tests/programs" "control-per-library")
     ("tests/programs" "rc-per-library")
+    ("tests/programs" "lazy-per-library")
+    ("tests/programs" "lazy-values")
+    ("tests/programs" "lazy-read-order")
+    ("tests/programs" "lazy-function-order")
+    ("tests/programs" "lazy-owned-cache")
     ("tests/programs" "rc-model-parameters")
     ("tests/programs" "rc-model-fields")
     ("tests/programs" "rc-model-continuations")
@@ -823,6 +848,7 @@
                                   (lambda () (check-tcp root))
                                   (lambda () (check-udp root))
                                   (lambda () (check-type-ids root))
+                                  (lambda () (check-lazy-instances root))
                                   (lambda () (check-numeric-runtime root))
                                   (lambda ()
                                     (and (and (check-owned-boundary root "host-owners")

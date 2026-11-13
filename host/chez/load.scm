@@ -10,9 +10,7 @@
 (library-directories (cons (string-append root "/host/chez") (library-directories)))
 
 (import
- (only (snail stage0 system) error-text)
- (only (snail shell compiler constant-scalars) load-native-scalars!))
-(load-native-scalars! root)
+ (only (snail stage0 system) error-text))
 
 (define (joined-name name)
   (let loop ([parts name])
