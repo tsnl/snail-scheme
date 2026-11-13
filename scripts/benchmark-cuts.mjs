@@ -73,9 +73,9 @@ const report = {date: new Date().toISOString(), node: process.version, v8: proce
   cpu: cpus()[Number(cpu)]?.model, affinity: cpu, platform: process.platform, arch: process.arch,
   harness: artifact(fileURLToPath(import.meta.url)), scalar_runtime: artifact(runtime), variants: []};
 for (const variant of variants) {
+  assert.equal(run('git', ['status', '--porcelain'], variant.root).trim(), '', 'benchmark inputs must be clean');
   const entry = {name: variant.name, commit: run('git', ['rev-parse', 'HEAD'], variant.root).trim(),
     tree: run('git', ['rev-parse', 'HEAD^{tree}'], variant.root).trim(),
-    changes_sha256: hash(run('git', ['diff', 'HEAD', '--binary'], variant.root)),
     compiler: artifact(variant.compiler), artifacts: {}, sources: {}};
   variant.sources = {};
   for (const [kind, name] of Object.entries(fixtures)) {
@@ -92,11 +92,18 @@ for (const variant of variants) {
   report.variants.push(entry);
 }
 const pinnedNode = script => ['-c', cpu, 'node', '--no-warnings', '--expose-gc', join(root, 'scripts', script)];
-report.runtime = run('taskset', [...pinnedNode('benchmark-values.mjs'), variants[0].values,
-  variants[1].values, '21']).trim().split('\n').map(JSON.parse);
-report.siege = JSON.parse(run('taskset', [...pinnedNode('benchmark-siege.mjs'), variants[0].siege, variants[1].siege, '32']));
-report.nested = JSON.parse(run('taskset', [...pinnedNode('benchmark-cuts.mjs'), '--nested', variants[0].nested, variants[1].nested]));
-report.frames = JSON.parse(run('taskset', [...pinnedNode('benchmark-frame-ownership.mjs'), '--measure', variants[0].frames, variants[1].frames]));
+// Labels inside each driver are positional. Keep their origin beside every run.
+function measure(name, order) {
+  const first = order[0], second = order[1];
+  return {name, positions: {baseline: first.name, current: second.name, first: first.name, second: second.name},
+    values: run('taskset', [...pinnedNode('benchmark-values.mjs'), first.values, second.values, '21']).trim().split('\n').map(JSON.parse),
+    siege: JSON.parse(run('taskset', [...pinnedNode('benchmark-siege.mjs'), first.siege, second.siege, '32'])),
+    nested: JSON.parse(run('taskset', [...pinnedNode('benchmark-cuts.mjs'), '--nested', first.nested, second.nested])),
+    frames: JSON.parse(run('taskset', [...pinnedNode('benchmark-frame-ownership.mjs'), '--measure', first.frames, second.frames]))};
+}
+report.runtime = [measure('forward', variants), measure('reverse', [...variants].reverse()),
+  measure('identical-baseline', [variants[0], variants[0]])];
+report.nested_scope = 'Complete-revision comparison: includes input/type/location factory allocations, ownership lowering, and output-node counting; does not isolate the lowering algorithm.';
 report.memory = [];
 for (let repeat = 0; repeat < 5; ++repeat) {
   for (const variant of repeat % 2 ? [...variants].reverse() : variants) {
@@ -118,5 +125,12 @@ for (const fixture of ['values', 'siege', 'nested']) {
     }
   }
 }
+for (const variant of variants) {
+  const before = report.variants.find(entry => entry.name === variant.name);
+  assert.equal(run('git', ['status', '--porcelain'], variant.root).trim(), '', 'source tree changed during measurement');
+  assert.equal(run('git', ['rev-parse', 'HEAD'], variant.root).trim(), before.commit);
+  assert.deepEqual(artifact(variant.compiler), before.compiler, 'compiler changed during measurement');
+}
+assert.deepEqual(artifact(runtime), report.scalar_runtime, 'runtime changed during measurement');
 writeFileSync(join(output, 'results.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(join(output, 'results.json'));
