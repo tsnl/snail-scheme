@@ -363,32 +363,8 @@
           (term (specializing state ((copied (copy-term inst term)))
                               (Pair (Expr copied type loc) state))))))
 
-
-
-    ;; A first-class once constructor uses the same adaptation as a direct
-    ;; use, including owned shared environments and bare code pointers.
-
-
-
-    ;; A consuming requirement may be instantiated by a shared callable.
-    ;; Its body borrows the environment, so this call owns and releases the
-    ;; environment after the answer, including cleanup on an aborted call.
-
-
-
-
-
     (define (local-value (name String) (type Type) (loc Loc)) (→ Expr)
       (Expr (Var name (Nil) (Nil)) type loc))
-
-
-
-
-
-    ;; `once` and dyn FnOnce storage use the same adapter when they take a
-    ;; shared owner. The ordinary once dropper releases it if never called.
-
-
 
     ;; A counted owner keeps the finalizer selected for its concrete
     ;; payload. Requesting it here uses the same registry as explicit drop.

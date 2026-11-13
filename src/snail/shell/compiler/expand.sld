@@ -3345,16 +3345,6 @@
                                "expected (∀ (variable ...) [(⊨ constraint ...)] type)")))))
         (_ (mono-scheme (resolve-type cx env syntax)))))
 
-    ;; Argument-position impl introduces a caller-chosen type and evidence.
-    ;; The outer impl belongs to this definition; checking gives it the
-    ;; definition's concrete identity. Results and storage use explicit dyn.
-
-
-
-
-
-
-
     (define (resolve-requirements (cx Context)
                                   (env Env)
                                   (vars (List String))

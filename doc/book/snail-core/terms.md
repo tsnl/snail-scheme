@@ -173,7 +173,7 @@ define square(n(I64)) (→ I64)
 ```
 
 Its expansion is the parenthesized definition in
-[callable signatures](types.md#callable-classes). Sweet syntax
+[function signatures](types.md#functions). Sweet syntax
 only changes how forms are written. Dot projection and typed locators also require their own rules;
 adopting this reader does not itself specify field access.
 

@@ -13,9 +13,14 @@ for (const [name, path] of [['baseline', baseline], ['current', current]]) {
   assert.equal(instance.exports.main(), 0);
   modules.push({name, bytes: bytes.length, run: instance.exports.simulate});
 }
-const checksum = modules[0].run(count), samples = [];
+const samples = [];
+let checksum;
 for (const module of modules) {
-  for (let warm = 0; warm < 3; ++warm) assert.equal(module.run(count), checksum);
+  for (let warm = 0; warm < 3; ++warm) {
+    const result = module.run(count);
+    checksum ??= result;
+    assert.equal(result, checksum);
+  }
 }
 for (let repeat = 0; repeat < 11; ++repeat) {
   for (const module of repeat % 2 ? [...modules].reverse() : modules) {

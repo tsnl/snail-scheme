@@ -233,7 +233,7 @@ following `!` request implicit provider arguments. Dedicated `effect` and
 sugar must elaborate to this model. One typed application, such as
 `(Emit I64)`, fixes the parameters of a provider.
 
-Using the [callable classes](types.md#callable-classes):
+Using the [built-in function types](types.md#functions):
 
 ```scheme
 (typeclass (Ask T)
@@ -252,11 +252,10 @@ Using the [callable classes](types.md#callable-classes):
 
 These forms are illustrative extensions, not accepted syntax today. The
 local instance supplies an anonymous concrete provider whose `ask` method
-captures `name`. Its associated callable type is inferred from that method
-definition and checked against `impl (Fn → T)`. `greet` receives the selected
-provider as an implicit argument; compilation makes `welcome`'s supplied
-argument explicit. Its captured string is runtime data, while its method
-code and callable type are statically selected.
+captures `name`. Its method is checked against `(Fn → T)`. `greet` receives
+the selected provider as an implicit argument; compilation makes `welcome`'s
+supplied argument explicit. Its captured string is runtime data, while its
+method code is statically selected.
 
 A parameterized emitting capability has the same interface mechanism:
 

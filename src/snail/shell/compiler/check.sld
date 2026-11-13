@@ -721,9 +721,7 @@
          (check-lambda ck expr params body captures? type types result effects))
         (_ (infer ck expr row))))
 
-    ;; A generic callable argument gets its signature from the outstanding
-    ;; class requirement before its body is checked. Its identity stays
-    ;; concrete; only an explicit dyn field chooses erased storage.
+    ;; Check with the expected type before inserting any required conversion.
 
     (define (check-result (ck Checker) (expr Expr) (type Type) (row Type))
       (→ (Pair Expr Checker))
