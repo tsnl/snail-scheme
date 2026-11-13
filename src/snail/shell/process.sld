@@ -2,7 +2,7 @@
 ;; and replacing the program with a command. A handler can replace the
 ;; effect in a test. By default an operation that waits starts on the
 ;; native host and waits by ticket, as (snail shell socket)'s do. Stage 0's tool runner,
-;; host/chibi/snail/stage0/process.sld, has the same name; Chibi never sees src/.
+;; host/chez/snail/stage0/process.sls, has the same name; Chez never sees src/.
 (define-library (snail shell process)
   (export
    process spawn read-output write-input close-input send-signal wait-exit close-process run exec
@@ -79,15 +79,15 @@
     ;; standard streams, and nothing of the program runs after. It returns
     ;; only when it cannot, with why.
     (effect process
-      ((spawn (dyn (Fn Command → (Result Process ProcessError) ! tasks)))
-       (read-output (dyn (Fn Process Stream I32 → (Result (Option Bytes) ProcessError) ! tasks)))
-       (write-input (dyn (Fn Process Bytes → (Result I32 ProcessError) ! tasks)))
-       (close-input (dyn (Fn Process → (Result Unit ProcessError))))
-       (send-signal (dyn (Fn Process Signal → (Result Unit ProcessError))))
-       (wait-exit (dyn (Fn Process → (Result Exit ProcessError) ! tasks)))
-       (close-process (dyn (Fn Process → (Result Unit ProcessError))))
-       (run (dyn (Fn Command Bytes → (Result Captured ProcessError))))
-       (exec (dyn (Fn Command → ProcessError))))
+      ((spawn (Fn Command → (Result Process ProcessError) ! tasks))
+       (read-output (Fn Process Stream I32 → (Result (Option Bytes) ProcessError) ! tasks))
+       (write-input (Fn Process Bytes → (Result I32 ProcessError) ! tasks))
+       (close-input (Fn Process → (Result Unit ProcessError)))
+       (send-signal (Fn Process Signal → (Result Unit ProcessError)))
+       (wait-exit (Fn Process → (Result Exit ProcessError) ! tasks))
+       (close-process (Fn Process → (Result Unit ProcessError)))
+       (run (Fn Command Bytes → (Result Captured ProcessError)))
+       (exec (Fn Command → ProcessError)))
       (default
         ((spawn (lambda (command)
                   (match (located command)
@@ -143,7 +143,7 @@
     ;; during an orderly shutdown still ends the program at once, unless a
     ;; task waits again.
     (effect signals
-      ((termination (dyn (Fn → Signal ! tasks))))
+      ((termination (Fn → Signal ! tasks)))
       (default
         ((termination (lambda ()
                         (received-signal (through-host host-start-termination host-finish)))))))
@@ -247,13 +247,13 @@
     ;; As (snail shell socket) reads its answers, with the table in
     ;; (snail runtime native process).
 
-    (define (native (start (dyn (Fn I64 → Unit))) (success (dyn (Fn I32 → T))))
+    (define (native (start (Fn I64 → Unit)) (success (Fn I32 → T)))
       (→ (Result T ProcessError))
       (! tasks)
       (∀ T)
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 
-    (define (answered (answer I32) (success (dyn (Fn I32 → T)))) (→ (Result T ProcessError)) (∀ T)
+    (define (answered (answer I32) (success (Fn I32 → T))) (→ (Result T ProcessError)) (∀ T)
       (if (< answer 0)
           (Err (ProcessError (held-text 0)))
           (Ok (success answer))))

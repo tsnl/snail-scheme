@@ -1,4 +1,4 @@
-# Snail-Core in ten minutes
+# Snail Scheme in ten minutes
 
 The whole language at a glance, as one program: values, control, data,
 typeclasses, mutation, effects, ownership and macros, each in a few lines.

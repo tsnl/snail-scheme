@@ -12,7 +12,7 @@ const root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-project-'));
 const build = target => execute(join(root, 'snail'), ['build', project, target]);
 const output = target => join(project, 'build', target);
-const source = '(import (snail core base) (snail core io) (greeting))\n(display greeting)\n';
+const source = '(import (snail core base) (snail core io) (greeting))\n(define (main) (→ Unit) (! output-port) (display greeting))\n';
 const description = publicPath => `((build-target cli (program (entry "main.sld") (library-roots ("src"))))
  (build-target page (browser (entry "main.sld") (library-roots ("src")) (public "${publicPath}")))
  (build-target occupied (program (entry "main.sld") (library-roots ("src"))))
@@ -56,7 +56,7 @@ try {
   await assert.rejects(readFile(join(second, 'obsolete.txt')), {code: 'ENOENT'});
   assert.equal(await readFile(join(first, 'obsolete.txt'), 'utf8'), 'first generation', 'old readers keep their complete generation');
 
-  await writeFile(join(project, 'main.sld'), '(import (snail core base)) (missing-function)');
+  await writeFile(join(project, 'main.sld'), '(import (snail core base)) (define (main) (→ Unit) (missing-function))');
   await assert.rejects(build('page'));
   assert.equal(await realpath(output('page')), second, 'failed compiler attempt leaves output unchanged');
   await writeFile(join(project, 'main.sld'), source);
@@ -97,7 +97,7 @@ try {
     (begin
       (struct Printer ()) (struct Missing ()) (struct (Generic A) ())
       (instance (Application (! output-port tasks) Printer)
-        (define start (lambda (entry) (yield) (write-line "typed entry"))))))`);
+        (define (start (entry (Entry Printer))) (→ Unit) (! output-port tasks) (yield) (write-line "typed entry")))))`);
   const selected = type => `((build-target selected
     (program (entry ((typed entry) ${type})) (library-roots ("src")))))`;
   await writeFile(join(project, 'project.datum'), selected('Printer'));

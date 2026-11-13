@@ -3,4 +3,4 @@
  (snail core io))
 
 ;; An unknown rigid row cannot fit a closed set of permissions.
-(define (escape (action (dyn (Fn → A ! e)))) (→ A) (! output-port) (∀ A e) (action))
+(define (escape (action (Fn → A ! e))) (→ A) (! output-port) (∀ A e) (action))

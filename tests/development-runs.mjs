@@ -20,14 +20,15 @@ const description = (args = 'configured', includeApp = true) => `(
   ${includeApp ? `(run-target app (run main (args ("${args}"))))` : ''}
   (run-target side (run other)))`;
 const program = message => `(import (snail core base) (snail core io) (snail shell task))
-  (write-line "${message}") (for-each write-line (command-line)) (dispatch-local (once (lambda () (sleep 600000))))`;
+  (define (main) (→ Unit) (! output-port tasks)
+    (write-line "${message}") (for-each write-line (command-line)) (sleep 600000))`;
 const slow = `(generate-library (slow)
     (import (snail core base) (snail core io) (snail shell syntax))
     (library-syntax (list "slow") (list "message") (list (list "snail" "core" "base"))
       (list (form "define" (list (SymbolSyntax "message")
         (form "→" (list (SymbolSyntax "String")))
         (StringSyntax (read-file "${gate}")))))))`;
-const slowProgram = '(import (snail core base) (snail core io) (snail shell task) (slow)) (write-line message) (for-each write-line (command-line)) (dispatch-local (once (lambda () (sleep 600000))))';
+const slowProgram = '(import (snail core base) (snail core io) (snail shell task) (slow)) (define (main) (→ Unit) (! output-port tasks) (write-line message) (for-each write-line (command-line)) (sleep 600000))';
 function pipe() {
   fs.rmSync(gate, {force: true});
   assert.equal(spawnSync('mkfifo', [gate]).status, 0);
@@ -81,7 +82,7 @@ async function throughTheService() {
     assert.equal(await pid('app'), firstPid, 'an independent target change leaves this child running');
     const stableSide = await pid('side');
 
-    write('project.datum', description('new arguments')); write('main.sld', '(import (snail core base)) (missing)');
+    write('project.datum', description('new arguments')); write('main.sld', '(import (snail core base)) (define (main) (→ Unit) (missing))');
     const failed = await service.settled(accepted.id, 'failed');
     assert.equal(await pid('app'), firstPid); assert.equal(await pid('side'), stableSide);
     assert.equal((await control('stop', 'app')).status, 204); await stopped('app'); dead(firstPid);
@@ -141,7 +142,7 @@ async function throughTheService() {
     await service.until(async () => await pid('app') !== restartPid, 'a restarted app'); await ready('app', 'newest\n'); dead(restartPid);
     assert.equal((await run('app')).attempt.build, accepted.published.id);
 
-    write('main.sld', '(import (snail core base) (snail core io)) (write-line "done")');
+    write('main.sld', '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! output-port) (write-line "done"))');
     accepted = await service.settled(accepted.id); await ready('app', 'done\n'); await stopped('app');
     const exitedPid = await pid('app');
     assert.equal((await control('start', 'app')).status, 204); await delay(50);

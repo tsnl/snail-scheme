@@ -3,7 +3,10 @@
 
 ;; An abortive implementation releases `resume` explicitly, with `drop`.
 (effect Stop
-  ((ctl stop (dyn (Fn I64 → I64)))))
+  ((ctl stop (Fn I64 → I64))))
 
-(handle Stop ((stop (lambda (code resume) code)))
-  (stop 1))
+(define main
+  (lambda ()
+    (handle Stop ((stop (lambda (code resume) code)))
+      (stop 1))
+    (unit)))

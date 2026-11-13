@@ -1,1 +1,1 @@
-an Any does not record what a function performs, so type-convert cannot take (impl (Fn → Unit ! Log))
+an Any does not record what a function performs, so type-convert cannot take (Fn → Unit ! Log)

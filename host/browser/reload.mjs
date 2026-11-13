@@ -26,3 +26,5 @@ addEventListener('error', async event => {
   client.pageError([event.message, ...running.flatMap(application => application.errors)].join('\n'),
                    running.some(application => application.runtime.execution.queue.closed));
 });
+
+addEventListener('pagehide', event => { if (!event.persisted) client.close(); });

@@ -1,8 +1,8 @@
-//! Scalar file services for the Snail-Core library: text by Unicode scalar, binary
+//! Scalar file services for the Snail Scheme library: text by Unicode scalar, binary
 //! files by byte.
 //!
 //! Rust owns files, never managed values. IDs are issued once and never reused.
-//! Snail-Core closes explicitly; the invocation host calls close-all after a trap.
+//! Snail Scheme closes explicitly; the invocation host calls close-all after a trap.
 //! A trapped instance is terminal. There is no GC finalization of these files.
 //! Standard streams have reserved borrowed IDs, outside the owned-file registry.
 
@@ -145,10 +145,10 @@ fn write_character(port: &mut Port, code: u32) -> Result<(), String> {
 
 // ---- Staged text ----
 
-// Rust cannot read Snail-Core's managed strings, so a call that takes text is
-// preceded by `stage`: Snail-Core copies the scalars, four bytes each, to the address
+// Rust cannot read Snail Scheme's managed strings, so a call that takes text is
+// preceded by `stage`: Snail Scheme copies the scalars, four bytes each, to the address
 // it returns, and the call receives their count. The address is valid until
-// the next `stage`, and Snail-Core stages just before the call that reads it. The
+// the next `stage`, and Snail Scheme stages just before the call that reads it. The
 // buffer only grows, so zeroing it costs no more than the longest text.
 thread_local! {
     static STAGED: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
@@ -204,7 +204,7 @@ pub extern "C" fn console_read() -> i32 {
 
 // ---- Command-line arguments ----
 
-// The arguments never change during an invocation, so Snail-Core reads them as
+// The arguments never change during an invocation, so Snail Scheme reads them as
 // total functions: a count, then each argument one scalar at a time. The
 // environment's reads below hand their texts over the same way.
 fn scalar_count(text: &str) -> i32 {
@@ -243,7 +243,7 @@ pub extern "C" fn argument_character(index: i32, position: i32) -> u32 {
 
 // ---- Environment ----
 
-// The environment never changes during an invocation either, so Snail-Core
+// The environment never changes during an invocation either, so Snail Scheme
 // reads a variable as a total function, staging its name for each read: its
 // length, or -1 when it is unset or not Unicode, then each scalar. SNAIL_CWD
 // is the host's channel for the working directory, not the program's

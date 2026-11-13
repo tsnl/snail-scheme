@@ -1,4 +1,5 @@
 (import
+ (only (snail core forms) host)
  (snail core base)
  (snail core io)
  (snail shell task)
@@ -17,7 +18,7 @@
 (enum Msg
   (Next))
 
-(define (update (step I64) (message Msg)) (→ (Pair I64 (List (dyn (FnOnce → Msg ! tasks)))))
+(define (update (step I64) (message Msg)) (→ (Pair I64 (List (FnOnce → Msg ! tasks))))
   (Pair (+ step 1) (Nil)))
 
 (define (view (step I64)) (→ (Html Msg))
@@ -48,20 +49,22 @@
 (define (item (name String)) (→ (Html Msg))
   (Element "li" (list (Keyed name)) (list (Text name))))
 
-(dispatch-local
- (once (lambda ()
-         (let ((result (with-memory-dom (list (Fire "next" "click" no-event)
-                                              (Fire "next" "click" no-event)
-                                              (Fire "next" "click" no-event)
-                                              (Fire "next" "click" no-event))
-                                        (lambda ()
-                                          (run-ui 0
-                                                  (Nil)
-                                                  update
-                                                  view
-                                                  (lambda (step) (Nil))
-                                                  (lambda (step) (unit))
-                                                  (lambda (step) (unit)))))))
-           (write-line (string-append "step " (show (● result first))))
-           (write-line (document->html (● result second)))
-           (for-each write-line (document-trace (● result second)))))))
+(define (main) (→ Unit) (! host mut output-port tasks)
+  (dispatch-local
+   (once (lambda ()
+           (let ((result (with-memory-dom (list (Fire "next" "click" no-event)
+                                                (Fire "next" "click" no-event)
+                                                (Fire "next" "click" no-event)
+                                                (Fire "next" "click" no-event))
+                                          (lambda ()
+                                            (run-ui 0
+                                                    (Nil)
+                                                    (lambda (model message) (update model message))
+                                                    view
+                                                    (lambda (step) (Nil))
+                                                    (lambda (step) (unit))
+                                                    (lambda (step) (unit)))))))
+             (write-line (string-append "step " (show (● result first))))
+             (write-line (document->html (● result second)))
+             (for-each write-line (document-trace (● result second)))))))
+  (unit))

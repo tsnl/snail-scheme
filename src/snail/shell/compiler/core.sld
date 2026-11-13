@@ -7,24 +7,14 @@
    Type
    TCon
    TFun
-   borrow-type?
-   borrow-target
    TRow
    TVar
    TRigid
    TVar-id
    empty-row
    fn-arrow
-   callable-class?
-   callable-class
-   callable-implies?
    callable-kind
    callable-arrow
-   concrete-callable?
-   concrete-callable
-   impl-callable?
-   callable-captures
-   invocation-mode
    mut-row
    unchecked
    Constraint
@@ -33,6 +23,7 @@
    Substitution
    type->string
    type-key
+   require-type-capacity
    any-type?
    never-type?
    drop-class
@@ -90,6 +81,7 @@
    PCon
    lambda-expr?
    expr-references
+   expr-reference-types
    expr-children
    DataType
    DataType-owned?-set
@@ -123,7 +115,7 @@
    Define
    Define-name
    Define-value
-   Do
+   Entry
    Expose
    item-definitions
    Program
@@ -151,7 +143,6 @@
    program-with-effect
    program-with-library
    program-delta
-   program-with
    table-union
    program-items
    library-items
@@ -196,20 +187,6 @@
 
     (define empty-row (→ Type) (TRow (Nil) (None)))
 
-    ;; Borrow is a scoped, non-owning value type. It remains visible in
-    ;; locals and signatures through checking; only representation lowering
-    ;; uses its target. Lexical ownership checking proves where it may live.
-
-    (define (borrow-type? (type Type)) (→ Bool)
-      (match type
-        ((TCon "Borrow" (Cons _ (Nil))) #t)
-        (_ #f)))
-
-    (define (borrow-target (type Type)) (→ Type)
-      (match type
-        ((TCon "Borrow" (Cons value (Nil))) value)
-        (_ type)))
-
     ;; The signature a callable holds, including `(fn A → B ! e)` code; any
     ;; other type is its own.
 
@@ -218,60 +195,16 @@
         ((Some arrow) arrow)
         ((None) type)))
 
-    ;; ---- Callable contracts ----
+    ;; ---- Procedure types ----
 
-    ;; A concrete closure keeps its construction identity and capture types.
-    ;; Its first argument is its calling signature; the remaining arguments
-    ;; are the owned environment. Generic instantiation substitutes both.
-    ;; These compiler names cannot be written as source type constructors.
-
-    (define (concrete-callable (kind String) (identity String) (arrow Type) (captures (List Type)))
-      (→ Type)
-      (TCon (string-append "$callable." kind ":" identity) (Cons arrow captures)))
-
-    (define (concrete-callable? (type Type)) (→ Bool)
-      (match type
-        ((TCon name _)
-         (and (>= (string-length name) 10) (string=? (substring name 0 10) "$callable.")))
-        (_ #f)))
-
-    (define (impl-callable? (type Type)) (→ Bool)
-      (match type
-        ((TCon name _) (member? name (list "$impl.Fn" "$impl.FnMut" "$impl.FnOnce")))
-        (_ #f)))
-
-    (define (callable-captures (type Type)) (→ (List Type))
-      (match type
-        ((TCon _ (Cons _ captures)) (if (concrete-callable? type) captures (Nil)))
-        (_ (Nil))))
-
-    (define (callable-class (kind String)) (→ String)
-      (string-append "snail.core.base:" kind))
-
-    (define (callable-class? (name String)) (→ Bool)
-      (member? name (map callable-class (list "Fn" "FnMut" "FnOnce"))))
-
-    ;; This implication is about receiver access, never Copy or purity.
-
-    (define (callable-implies? (actual String) (required String)) (→ Bool)
-      (or (string=? actual required)
-          (string=? actual "Fn")
-          (and (string=? actual "FnMut") (string=? required "FnOnce"))))
+    ;; Fn is a reusable closure, FnOnce consumes its captures, and fn is
+    ;; capture-free code. Each contains the same argument/result/effect shape.
 
     (define (callable-kind (type Type)) (→ (Option String))
       (match type
         ((TFun _ _ _) (Some "Fn"))
-        ((TCon name _)
-         (cond ((string=? name "fn") (Some "Fn"))
-               ((member? name (list "FnMut" "FnOnce")) (Some name))
-               ((impl-callable? type)
-                (Some (substring name 6 (string-length name))))
-               ((concrete-callable? type)
-                (let ((tail (substring name 10 (string-length name))))
-                  (match (string-index tail #\:)
-                    ((Some end) (Some (substring tail 0 end)))
-                    ((None) (None)))))
-               (else (None))))
+        ((TCon "FnOnce" _) (Some "FnOnce"))
+        ((TCon "fn" _) (Some "Fn"))
         (_ (None))))
 
     (define (callable-arrow (type Type)) (→ (Option Type))
@@ -281,17 +214,7 @@
          (match (callable-kind type) ((Some _) (Some arrow)) ((None) (None))))
         (_ (None))))
 
-    ;; An invocation records the receiver operation the checker selected.
-    ;; It remains attached through specialization: a FnOnce requirement
-    ;; consumes its receiver even when the concrete value also implements Fn.
-
-    (define (invocation-mode (callee Expr)) (→ (Option String))
-      (match (● callee term)
-        ((Ann _ (TCon "$invoke" (Cons (TCon mode (Nil)) _))) (Some mode))
-        (_ (None))))
-
-    ;; The row of an operation on a mutable field, which reads or writes
-    ;; storage and nothing else.
+    ;; Writing a field changes storage; reading it has no mutation effect.
 
     (define mut-row (→ Type) (TRow (list "mut") (None)))
 
@@ -356,7 +279,8 @@
 
     (define builtin-types (→ (List (Pair String I64)))
       (list (Pair "Any" 0)
-            (Pair "Borrow" 1)
+            (Pair "Rc" 1)
+            (Pair "WeakRc" 1)
             (Pair "Funcref" 0)
             (Pair "U8" 0)
             (Pair "I32" 0)
@@ -367,10 +291,9 @@
             (Pair "Char" 0)
             (Pair "Unit" 0)
             (Pair "String" 0)
-            (Pair "Array" 1)
             (Pair "Vector" 1)
             (Pair "FnOnce" 1)
-            (Pair "FnMut" 1)
+            (Pair "Fn" 0)
             (Pair "fn" 1)))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source
@@ -416,25 +339,17 @@
         (_ #f)))
 
     (define (type->string (type Type)) (→ String)
-      (if (or (concrete-callable? type) (impl-callable? type))
-          (callable->string "impl" type)
-          (match type
-            ((TCon "FnOnce" _) (callable->string "dyn" type))
-            ((TCon "FnMut" _) (callable->string "dyn" type))
-            ((TCon "fn" (Cons (TFun params result row) (Nil)))
-             (arrow->string "fn" params result row))
-            ((TCon name (Nil)) (short-name name))
-            ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
-            ((TFun _ _ _) (callable->string "dyn" type))
-            ((TRow _ _) (string-append "{" (row->string type) " }"))
-            ((TVar id) (string-append "?" (i64->string id)))
-            ((TRigid name) name))))
-
-    (define (callable->string (former String) (type Type)) (→ String)
-      (match (Pair (callable-kind type) (callable-arrow type))
-        ((Pair (Some kind) (Some (TFun params result row)))
-         (string-append "(" former " " (arrow->string kind params result row) ")"))
-        (_ (panic "internal error: printing a callable without its signature"))))
+      (match type
+        ((TFun params result row) (arrow->string "Fn" params result row))
+        ((TCon "FnOnce" (Cons (TFun params result row) (Nil)))
+         (arrow->string "FnOnce" params result row))
+        ((TCon "fn" (Cons (TFun params result row) (Nil)))
+         (arrow->string "fn" params result row))
+        ((TCon name (Nil)) (short-name name))
+        ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
+        ((TRow _ _) (string-append "{" (row->string type) " }"))
+        ((TVar id) (string-append "?" (i64->string id)))
+        ((TRigid name) name)))
 
     (define (arrow->string (kind String) (params (List Type)) (result Type) (row Type)) (→ String)
       (string-append "(" kind (types->string params) " → " (type->string result)
@@ -506,6 +421,30 @@
     ;; A unique text for a ground type, with full names; it names
     ;; specializations and Wasm types. A row argument, as in (Task e), does
     ;; not affect representation.
+
+    ;; Specialization can grow types indefinitely under polymorphic recursion.
+    ;; Bound expanded syntax before serializing a key. Count occurrences, not
+    ;; shared object identities: Pair<T,T> writes T twice. This is a compiler
+    ;; capacity limit, not a test for whether a recursive type is regular.
+    (define (require-type-capacity (type Type)) (→ Unit)
+      (when (< (type-capacity-left type 4096) 0)
+        (panic "type expansion exceeds the compiler limit of 4096 type nodes")))
+
+    (define (type-capacity-left (type Type) (remaining I64)) (→ I64)
+      (if (<= remaining 0) -1
+          (match type
+            ((TCon _ args) (types-capacity-left args (- remaining 1)))
+            ((TFun params result row)
+             (types-capacity-left (Cons result (Cons row params)) (- remaining 1)))
+            ((TRow _ (Some tail)) (type-capacity-left tail (- remaining 1)))
+            (_ (- remaining 1)))))
+
+    (define (types-capacity-left (types (List Type)) (remaining I64)) (→ I64)
+      (if (< remaining 0) -1
+          (match types
+            ((Nil) remaining)
+            ((Cons type rest)
+             (types-capacity-left rest (type-capacity-left type remaining))))))
 
     (define (type-key (type Type)) (→ String)
       (match type
@@ -795,6 +734,16 @@
                 (Pair (table-set seen name #t) (Cons name names))))))
         (_ (fold-left collect-references found (expr-children expr)))))
 
+    ;; Local names are unique after resolution. Closure layouts and control
+    ;; ownership use the type carried by each resolved read.
+    (define (expr-reference-types (expr Expr)) (→ (Table Type))
+      (collect-reference-types empty-table expr))
+
+    (define (collect-reference-types (found (Table Type)) (expr Expr)) (→ (Table Type))
+      (match (● expr term)
+        ((Var name _ _) (table-set found name (● expr type)))
+        (_ (fold-left collect-reference-types found (expr-children expr)))))
+
     ;; ---- Declared entities ----
 
     ;; A struct is a data type with one case named after it. An `owned?`
@@ -817,8 +766,7 @@
     ;; that holds it, so a struct with one has identity.
     (struct Field
       ((name String)
-       (type Type)
-       (mutable? Bool)))
+       (type Type)))
 
     ;; Method schemes quantify the class parameters first and require the
     ;; class itself as their first constraint. `rows` are the parameters
@@ -919,7 +867,7 @@
     ;; of the handled computation as `resume`; the others return to their
     ;; caller. `defaults` maps operation names to what performs them when no
     ;; handler is in scope.
-    ;; Each default is an operation's and the global of the Snail-Core
+    ;; Each default is an operation's and the global of the Snail Scheme
     ;; function the effect's declaration defines for it, which runs under
     ;; the performer's handlers.
     ;; An effect: its operations, those among them that are control
@@ -942,8 +890,8 @@
     ;; its class method's scheme and no signature of its own, and like a
     ;; default no program names it. A field has four
     ;; operations: an Accessor reads it, `(● record field)`; a Replacer copies an
-    ;; immutable struct with it replaced, `Name-field-set`; and a mutable
-    ;; field's Setter writes it in place, `Name-field-set!`, as its Swapper
+    ;; struct with it replaced, `Name-field-set`; a Setter writes it in place,
+    ;; `Name-field-set!`, as its Swapper
     ;; does while answering the old content, `Name-field-replace!`.
     (enum Value
       (Defined
@@ -1006,16 +954,18 @@
         ((TFun _ _ (TRow labels _)) (filter (lambda (label) (not (string=? label effect))) labels))
         (_ (Nil))))
 
-    ;; Top-level items run in order when the program starts. An exposed
-    ;; function is exported to the host under `symbol`; a `dynamic` one is
+    ;; Definitions contain functions or compile-time values. Entry names the
+    ;; root program's optional main; libraries have no startup phase. An
+    ;; exposed function is exported under `symbol`; a `dynamic` one is
     ;; exported instead for programs that load it while they run, behind a
     ;; wrapper that takes and returns Any values, beside its signature.
     (enum Item
       (Define
         ((name String)
          (value Expr)))
-      (Do
-       ((expr Expr)))
+      (Entry
+       ((name String)
+        (loc Loc)))
       (Expose
        ((name String)
         (symbol String)
@@ -1234,8 +1184,8 @@
                              (Cons (Pair name (length items)) (● program libraries))))
 
     ;; What the newest library added: the globals named for it, and its run
-    ;; of items, which are the newest. A later build replays it with
-    ;; `program-with` instead of expanding the library again.
+    ;; of items, which are the newest. Expansion fingerprints these identities
+    ;; before deciding whether checked code from a previous build still applies.
 
     (define (program-delta (program Program) (owner String)) (→ Program)
       (let ((count (match (● program libraries)
@@ -1249,7 +1199,11 @@
                  (owned (● program metadata) owner)
                  (take (● program items) count) (take (● program libraries) 1))))
 
-    (define (owned (table (Table V)) (owner String)) (→ (Table V)) (∀ V) (⊨ (Copy V))
+    (define (owned (table (Table V)) (owner String))
+      (→ (Table V))
+      (! e)
+      (∀ V e)
+      (⊨ (Copy V) (Drop e V))
       (fold-left (lambda (result key)
                    (match (table-ref table key)
                      ((Some value)
@@ -1274,29 +1228,14 @@
         ((Some instances) instances)
         ((None) (Nil))))
 
-    ;; The program with a library's additions from an earlier build. Its
-    ;; globals are its own, so it replaces nothing; the order of instances
-    ;; within a class does not matter, since no two of them overlap.
-
-    (define (program-with (program Program) (delta Program)) (→ Program)
-      (Program (table-union (● program values) (● delta values))
-               (table-union (● program types) (● delta types))
-               (table-union (● program classes) (● delta classes))
-               (fold-left (lambda (table class)
-                            (table-set table
-                                       class
-                                       (append (class-list table class)
-                                               (class-list (● delta instances) class))))
-                          (● program instances) (table-keys (● delta instances)))
-               (table-union (● program effects) (● delta effects))
-               (table-union (● program metadata) (● delta metadata))
-               (append (● delta items) (● program items))
-               (append (● delta libraries) (● program libraries))))
-
     ;; `table` with every entry of `additions`, which win where both have a
     ;; key.
 
-    (define (table-union (table (Table V)) (additions (Table V))) (→ (Table V)) (∀ V) (⊨ (Copy V))
+    (define (table-union (table (Table V)) (additions (Table V)))
+      (→ (Table V))
+      (! e)
+      (∀ V e)
+      (⊨ (Copy V) (Drop e V))
       (fold-left (lambda (result key)
                    (match (table-ref additions key)
                      ((Some value) (table-set result key value))
@@ -1393,7 +1332,7 @@
                        (string-concatenate
                         (map (lambda (field)
                                (string-append (● field name)
-                                              (if (● field mutable?) " mut:" ":")
+                                              ":"
                                               (type-schema program
                                                            (● field type)
                                                            (● data params)
@@ -1578,8 +1517,8 @@
     (define (primitive-global (name String)) (→ String)
       (string-append "prim:" name))
 
-    ;; What the primitive library adds to a program, for a later build to
-    ;; replay: its values alone. It has no module, since the backend
+    ;; What the primitive library adds to a program: its values alone.
+    ;; It has no module, since the backend
     ;; implements everything it declares, so it records no run of items.
 
     (define (primitive-delta (program Program)) (→ Program)

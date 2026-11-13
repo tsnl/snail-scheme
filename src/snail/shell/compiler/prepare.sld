@@ -34,19 +34,20 @@
    (snail shell compiler capabilities)
    (only (snail shell compiler check) Typed)
    (only (snail shell compiler ownership) consumed-references)
-   (snail shell compiler specialize))
+   (snail shell compiler specialize)
+   (snail shell compiler constants)
+   (snail shell compiler lifetimes))
   (begin
 
     ;; ---- Prepared code ----
 
-    ;; Fixed declarations and the concrete subset consumed by emission.
-    ;; Initializers already have source execution order. No recipe, source
-    ;; body cache or worklist crosses this boundary.
+    ;; Fixed declarations and concrete functions consumed by emission.
+    ;; No initializer, source body cache or worklist crosses this boundary.
     (struct Prepared
       ((declarations Declarations)
        (definitions (List Item))
-       (initializers (List Item))
-       (statements (List Item))
+       (entry (Option String))
+       (exposed (List Item))
        (exported (List String))))
 
     (define (prepare-program (typed Typed)) (→ Prepared) (! compile)
@@ -58,47 +59,66 @@
       (prepare input (Some owner) items))
 
     (define (prepare (input Specialization) (owner (Option String)) (items (List Item)))
-      (→ Prepared)
-      (! compile)
+      (→ Prepared) (! compile)
       (match (start-specialization (new-state input owner) items)
         ((Pair exported state)
-         (match (specialize-statements state items)
-           ((Pair statements state)
-            (let ((lowered (prepare-batches state 0 statements (Nil))))
-              (prepared (● lowered state) (● lowered items) exported)))))))
+         (let* ((roots (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items))
+                (lowered (prepare-batches state roots (Nil))))
+           (prepared (● lowered state) (● lowered items) exported)))))
 
     ;; Close each newly discovered graph before checking its original bodies.
     ;; Cleanup adds new definitions without changing an old body or contract,
     ;; so old checks remain valid. A new check may still inspect an old body
     ;; under a different context; only construction, never that answer, is cached.
 
-    (define (prepare-batches (state State) (count I64) (roots (List Item)) (done (List Item)))
-      (→ Lowered)
-      (! compile)
+    (define (prepare-batches (state State) (roots (List Item)) (done (List Item)))
+      (→ Lowered) (! compile)
       (match (complete-specializations state)
         ((Pair definitions state)
          (let ((items (append roots definitions)))
-           (if (null? items)
-               (Lowered (reverse done) count state)
-               (let ((lowered (prepare-batch state count items)))
-                 (prepare-batches (● lowered state) (● lowered count) (Nil)
-                                  (append (reverse (● lowered items)) done))))))))
+           (if (null? items) (Lowered (reverse done) state)
+               (match (fold-constants state items prepare-constant-body)
+                 ((Pair items state)
+                  ;; Imported constant bodies and cleanup requests can open
+                  ;; the graph again. Close it before control analysis; keep
+                  ;; the newly completed bodies for the next preparation batch.
+                  (match (complete-specializations state)
+                    ((Pair discovered state)
+                     (let ((lowered (prepare-batch state items)))
+                       (prepare-batches (● lowered state) discovered
+                                        (append (reverse (● lowered items)) done))))))))))))
 
-    (define (prepare-batch (state State) (count I64) (items (List Item))) (→ Lowered) (! compile)
+    (define (prepare-batch (state State) (items (List Item))) (→ Lowered) (! compile)
       (let ((callees (specialization-callees state)))
         (for-each (lambda (item) (check-item callees item)) items)
-        (if (null? (● state control))
-            (Lowered items count state)
-            (let ((lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
-                                      (Lowered (Nil) count state) items)))
-              (Lowered-items-set lowered (reverse (● lowered items)))))))
+        (let* ((declarations (constant-declarations (specialization-declarations state)))
+               (items (map (lambda (item) (lower-lifetimes declarations item)) items))
+               (lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
+                                   (Lowered (Nil) state) items)))
+          (Lowered-items-set lowered (reverse (● lowered items))))))
+
+
+
+    ;; Constant execution consumes the same lifetime and cancellation evidence
+    ;; as Wasm. The evaluator supplies source closure recipes separately.
+    (define (prepare-constant-body (state State) (name String) (body Expr))
+      (→ (Pair Expr State)) (! compile)
+      (let* ((callees (declaration-callees (specialization-declarations state)))
+             (item (Define name body)))
+        (check-item callees item)
+        (let ((item (lower-lifetimes (specialization-declarations state) item)))
+          (match (lower-droppers state callees (control-item callees item))
+            ((Pair (Define _ value) state) (Pair value state))
+            (_ (panic "internal error: preparation changed a constant definition"))))))
 
     (define (prepared (state State) (items (List Item)) (exported (List String))) (→ Prepared)
-      (Prepared (specialization-declarations state)
+      (Prepared (constant-declarations (specialization-declarations state))
                 (filter (lambda (item)
                           (match item ((Define _ value) (lambda-expr? value)) (_ #f))) items)
-                (order-initializers state items)
-                (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items)
+                (match (find (lambda (item) (match item ((Entry _ _) #t) (_ #f))) items)
+                  ((Some (Entry name _)) (Some name))
+                  (_ (None)))
+                (filter (lambda (item) (match item ((Expose _ _ _ _) #t) (_ #f))) items)
                 exported))
 
     ;; ---- Yields ----
@@ -216,7 +236,8 @@
                               exprs))))
         (match (● expr term)
           ((Lambda _ _ _) (Nil))
-          ((App callee args) (label-union (callee-row callees callee) (all (Cons callee args))))
+          ((App callee args)
+           (label-union (application-yields callees callee args) (all (Cons callee args))))
           ((Handle effect implementations body)
            (label-union (all (map (lambda (record) (● record second)) implementations))
                         (label-union (label-difference (yields callees body) (list effect))
@@ -224,6 +245,19 @@
                                                                     effect
                                                                     implementations))))
           (_ (all (expr-children expr))))))
+
+    ;; These primitives execute a supplied callback. Its body is stronger
+    ;; evidence than a use row widened to the surrounding context. In
+    ;; particular, copying primitive array elements cannot start yielding
+    ;; merely because the caller also performs a control effect.
+    (define (application-yields (callees Callees) (callee Expr) (args (List Expr)))
+      (→ (List String))
+      (match (● callee term)
+        ((Ann inner _) (application-yields callees inner args))
+        ((Var "prim:unsafe-total" _ _) (procedure-yields callees (list-ref args 0)))
+        ((Var "prim:vector-generate" _ _) (procedure-yields callees (list-ref args 1)))
+        ((Var "prim:string-generate" _ _) (procedure-yields callees (list-ref args 1)))
+        (_ (callee-row callees callee))))
 
     (define (control-implementation-yields (callees Callees)
                                            (effect String)
@@ -261,7 +295,7 @@
 
     (define (holds-yield-point? (callees Callees) (expr Expr)) (→ Bool)
       (match (● expr term)
-        ((Lambda _ _ _) #f)
+        ((Lambda _ _ _) (match (● expr type) ((TCon "FnOnce" _) #t) (_ #f)))
         ((Let _ value body)
          (or (not (null? (yields callees value))) (holds-yield-point? callees body)))
         (_ (any? (lambda (child) (holds-yield-point? callees child)) (expr-children expr)))))
@@ -297,9 +331,7 @@
             (Pair "snail.shell.task:dispatch-task"
                   (Restriction 0 "work given to dispatch-task" (list "snail.shell.task:tasks")))
             (Pair "snail.shell.async:dispatch"
-                  (Restriction 0 "work given to dispatch" (list "snail.shell.task:tasks")))
-            (Pair "snail.shell.ui:run-reactor"
-                  (Restriction 2 "a reactor update" (Nil)))))
+                  (Restriction 0 "work given to dispatch" (list "snail.shell.task:tasks")))))
 
     (define (restriction (callee Expr)) (→ (Option Restriction))
       (match (● callee term)
@@ -522,7 +554,7 @@
     ;; `make` applied to `operand`, or, when the operand may yield, to a
     ;; temporary that a let binds to it first.
 
-    (define (named (count I64) (callees Callees) (operand Expr) (make (dyn (Fn Expr → Expr))))
+    (define (named (count I64) (callees Callees) (operand Expr) (make (Fn Expr → Expr)))
       (→ (Pair Expr I64))
       (if (null? (yields callees operand))
           (Pair (make operand) count)
@@ -627,29 +659,26 @@
     ;; ---- Lowering a batch ----
 
     ;; A batch owns its normalized items and the requests cleanup discovers.
-    ;; The counter is shared by main's statements and global initializers;
-    ;; each function starts its own numbering in control-item.
     (struct Lowered
       ((items (List Item))
-       (count I64)
        (state State)))
 
     (define (lower-item (lowered Lowered) (callees Callees) (item Item)) (→ Lowered)
-      (match (control-item (● lowered count) callees item)
-        ((Pair item count)
-         (match (lower-droppers (● lowered state) callees item)
-           ((Pair item state)
-            (Lowered (Cons item (● lowered items)) count state))))))
+      (match (lower-droppers (● lowered state) callees (control-item callees item))
+        ((Pair item state) (Lowered (Cons item (● lowered items)) state))))
 
     (define (check-exposure (callees Callees) (item Item)) (→ Unit) (! compile)
       (match item
-        ((Expose name _ _ loc)
-         (match (table-ref (● (● callees declarations) bindings) name)
-           ((Some binding)
-            (unless (● binding function?)
-              (compile-error loc "an exposed function must be defined with lambda")))
-           ((None) (panic "internal error: an exposed function has no binding"))))
+        ((Expose name _ _ loc) (check-entry-function callees name loc))
+        ((Entry name loc) (check-entry-function callees name loc))
         (_ (unit))))
+
+    (define (check-entry-function (callees Callees) (name String) (loc Loc)) (→ Unit) (! compile)
+      (match (table-ref (● (● callees declarations) bindings) name)
+        ((Some binding)
+         (unless (● binding function?)
+           (compile-error loc "an entry must be defined as a function")))
+        ((None) (panic "internal error: an entry has no binding"))))
 
     ;; ---- Droppers ----
 
@@ -697,7 +726,7 @@
     (define (holds-once? (expr Expr)) (→ Bool)
       (or (match (● expr term)
             ((App (Expr (Var "prim:once" _ _) _ _) _) #t)
-            ((Lambda _ _ _) (concrete-callable? (● expr type)))
+            ((Lambda _ _ _) (match (● expr type) ((TCon "FnOnce" _) #t) (_ #f)))
             (_ #f))
           (any? holds-once? (expr-children expr))))
 
@@ -708,11 +737,6 @@
          (if (needs-droppers? callees value)
              (match (droppers callees drops (Nil) value)
                ((Pair value types) (Pair (Define name value) types)))
-             (Pair item (Nil))))
-        ((Do value)
-         (if (needs-droppers? callees value)
-             (match (droppers callees drops (Nil) value)
-               ((Pair value types) (Pair (Do value) types)))
              (Pair item (Nil))))
         (_ (Pair item (Nil)))))
 
@@ -734,7 +758,7 @@
                             body)
              ((Pair body types)
               (let ((value (rebuild (Lambda params body captures?))))
-                (if (concrete-callable? (● expr type))
+                (if (match (● expr type) ((TCon "FnOnce" _) #t) (_ #f))
                     (dropper-lambda callees drops scope value types)
                     (Pair value types))))))
           ((App callee args) (dropper-call callees drops scope expr callee args))
@@ -852,7 +876,7 @@
            (match (droppers callees drops (Cons (Pair name (● value type)) after) body)
              ((Pair body more)
               (let ((live (if (null? (yields callees value)) (Nil)
-                              (linear-locals callees after))))
+                              (owned-locals callees after))))
                 (Pair (Expr (Let name (with-dropper drops value live) body)
                             (● expr type) (● expr loc))
                       (append (map (lambda (record) (● record second)) live)
@@ -908,7 +932,7 @@
       (→ (Pair Expr (List Type)))
       (let* ((after (remaining-scope callees scope original))
              (live (if (null? (yields callees value)) (Nil)
-                       (linear-locals callees after))))
+                       (owned-locals callees after))))
         (if (null? live) (Pair value types)
             (let* ((name
                     (string-append "control:abandoned."
@@ -947,6 +971,12 @@
       (filter (lambda (entry)
                 (linear-type? (callees-program callees) (Nil) (● entry second)))
               scope))
+
+    (define (owned-locals (callees Callees) (scope (List (Pair String Type))))
+      (→ (List (Pair String Type)))
+      (filter (lambda (entry)
+                (let ((program (callees-program callees)) (type (● entry second)))
+                  (or (linear-type? program (Nil) type) (shared-type? program type)))) scope))
 
     ;; The value marked with the dropper of `live`, once every drop is known.
 
@@ -1011,19 +1041,12 @@
                         (TFun (Nil) unit-type empty-row)
                         loc)))))
 
-    ;; Temporaries are numbered within the Wasm function they land in: a
-    ;; function's definition counts from zero, while the statements and the
-    ;; other definitions' values all run in `main`, and share one count.
+    ;; Each function numbers its own temporaries from zero.
 
-    (define (control-item (count I64) (callees Callees) (item Item)) (→ (Pair Item I64))
+    (define (control-item (callees Callees) (item Item)) (→ Item)
       (match item
-        ((Define name value)
-         (if (lambda-expr? value)
-             (Pair (Define name (● (control-expr 0 callees value) first)) count)
-             (naming count ((value (control-expr callees value)))
-                     (Pair (Define name value) count))))
-        ((Do expr) (naming count ((expr (control-expr callees expr))) (Pair (Do expr) count)))
-        (_ (Pair item count))))
+        ((Define name value) (Define name (● (control-expr 0 callees value) first)))
+        (_ item)))
 
     (define (control-expr (count I64) (callees Callees) (expr Expr)) (→ (Pair Expr I64))
       (if (yield-free? callees expr) (Pair expr count) (normal count callees expr)))
@@ -1033,7 +1056,6 @@
       (unless (null? (callees-control callees))
         (match item
           ((Define _ value) (check-restrictions callees value))
-          ((Do expr) (check-restrictions callees expr))
           (_ (unit)))))
 
     )
@@ -1044,7 +1066,7 @@
    (snail-tests
     (export test-prepare)
     (import
-     (only (scheme base) eq?)
+     (only (chezscheme) eq?)
      (snail stage0 testing))
     (begin
       (define test-prepare

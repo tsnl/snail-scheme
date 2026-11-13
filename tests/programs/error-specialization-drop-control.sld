@@ -3,10 +3,10 @@
  (snail core io))
 
 (effect Pause
-  ((ctl pause (dyn (Fn → Unit)))))
+  ((ctl pause (Fn → Unit))))
 
 (effect Stop
-  ((ctl stop (dyn (Fn → Unit)))))
+  ((ctl stop (Fn → Unit))))
 
 (struct Resource
   ((name String)))
@@ -25,5 +25,8 @@
     (match resource
       ((Resource name) (write-line name)))))
 
-(handle Pause ((pause (lambda (resume) (drop resume))))
-  (work))
+(define main
+  (lambda ()
+    (handle Pause ((pause (lambda (resume) (drop resume))))
+      (work))
+    (unit)))

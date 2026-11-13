@@ -11,14 +11,18 @@
        ((Ok checked) checked)
        ((Err _) (panic "fixture payload has the wrong type"))))))
 
-(extern note-text "snail.test" "text" (impl (Fn String → I32)))
-(extern note-bytes "snail.test" "bytes" (impl (Fn I32 Bytes → I32)))
-(extern receive-managed "snail.test" "managed" (impl (Fn → (Result Payload String))))
+(extern note-text "snail.test" "text" (Fn String → I32))
+(extern note-bytes "snail.test" "bytes" (Fn I32 Bytes → I32))
+(extern receive-managed "snail.test" "managed" (Fn → (Result Payload String)))
 
-(define checkpoint (→ (Ref Any)) (ref (type-convert (ann 42 I64) Any)))
+(struct Checkpoint
+  ((value Any)))
 
-(define (state) (→ Any) (! mut)
-  (ref-get checkpoint))
+(define (create) (→ Checkpoint) (Checkpoint (ann 42 Any)))
+(expose create "create")
+
+(define (state (checkpoint Checkpoint)) (→ Any)
+  (● checkpoint value))
 
 (define (echo (handover (Option Any))) (→ (Option Any))
   (match handover
@@ -36,6 +40,13 @@
 (define (empty) (→ I32)
   (note-bytes 0 #u8()))
 
+(define (grown) (→ I32) (! mut)
+  (let ((bytes #u8(1)))
+    (vector-push! bytes (ann 2 U8))
+    (vector-push! bytes (ann 3 U8))
+    (match (vector-pop! bytes) ((Some byte) (unit)) ((None) (panic "missing byte")))
+    (note-bytes 9 bytes)))
+
 (define (discard (handover (Option Any))) (→ Unit)
   (unit))
 
@@ -47,6 +58,7 @@
 (expose value "value")
 (expose binary "binary")
 (expose empty "empty")
+(expose grown "grown")
 (expose discard "discard")
 (expose fail "fail")
 
@@ -74,6 +86,7 @@
 ;; A concrete inferred entry closes its effect row without a handwritten
 ;; export signature. Application scaffolding relies on the same ordinary rule.
 (define inferred-entry
-  (lambda (value) (ref-set! checkpoint (type-convert (ann value I64) Any))
-          (ref-get checkpoint)))
+  (lambda (checkpoint value)
+    (Checkpoint-value-set! checkpoint (type-convert (ann value I64) Any))
+    (state checkpoint)))
 (expose inferred-entry "inferred")

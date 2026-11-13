@@ -5,7 +5,7 @@
 // state type passes the count through the save; a state and save that
 // both change keep the old program running until the developer starts
 // over; and a linked file's edit relinks the page from the module that
-// links it.
+// links it; its explicit application entry reads the new resource.
 //
 //   CHROMIUM=... node tests/browser/reload.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
@@ -87,7 +87,11 @@ try {
   await browser.navigate(base);
   await until(() => browser.evaluate('document.body.dataset.ready'), 'the stopped cold application');
   await until(async () => (await notice()).includes('application stopped'), 'the cold trap notice');
-  await edit(source, '  (panic "cold first view trap")\n', '');
+  // A rejected repair also traps when restarting the previous code. Its
+  // failed rollback must retain the same restored checkpoint for another fix.
+  await edit(source, 'cold first view trap', 'cold view still broken');
+  await until(async () => (await notice()).includes('cold view still broken'), 'the rejected cold repair');
+  await edit(source, '  (panic "cold view still broken")\n', '');
   await until(async () => await text('count') === '2' && (await notice()).startsWith('Reloaded'), 'the fixed cold application');
 
   // Hold the first IndexedDB open across a build. A corrupt save forces the
@@ -122,30 +126,59 @@ try {
   await until(async () => await text('greeting') === 'after slow startup' && await text('count') === '1', 'the retry followed by relink');
   await browser.send('Page.removeScriptToEvaluateOnNewDocument', {identifier: gate.result.identifier});
 
-  // A library links a file and, when its module starts, prints the file's
-  // text from a task, which reads it. Editing the file compiles the library
-  // again, whose module names the new bytes' digest, so the page relinks
-  // from that module, whose start reads the new file, rather than loading
-  // again.
+  // The application entry reads a file linked by a library. Editing the
+  // file compiles that library again with the new bytes' digest. Relinking
+  // invokes the entry again, which reads the changed resource.
   const banner = join(app, 'src/sample/banner.txt');
   const printed = line => browser.evaluate(`globalThis.printed.includes(${JSON.stringify(line)})`);
   await browser.evaluate(`globalThis.printed = []; const log = console.log;
     console.log = (...parts) => { globalThis.printed.push(parts.join(' ')); log(...parts); }`);
   await mkdir(join(app, 'src/sample'), {recursive: true});
   await writeFile(banner, 'linked');
-  await writeFile(join(app, 'src/sample/banner.sld'), `(define-library (sample banner) (export banner)
-    (import (snail core base) (snail core io) (only (snail shell task) tasks dispatch-local) (snail shell resource))
+  await writeFile(join(app, 'src/sample/banner.sld'), `(define-library (sample banner) (export print-banner)
+    (import (snail core base) (snail core io) (only (snail shell task) tasks) (snail shell resource))
     (begin (define banner (→ Resource) (link-file "banner.txt"))
-      (dispatch-local (once (lambda () (write-line (list->string (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource banner))))))))))`);
-  await edit(source, '(snail shell wire))', '(snail shell wire)\n   (sample banner))');
-  await until(() => printed('linked'), 'the linked file read when its module started');
+      (define (print-banner) (→ Unit) (! output-port resource tasks)
+        (write-line (list->string (map (lambda (byte) (i32->char (u8->i32 byte)))
+                                      (vector->list (read-resource banner))))))))`);
+  // Startup belongs to the explicit Application entry. Relinking calls that
+  // entry again; merely importing the library performs no source effects.
+  await edit(source, '(snail shell wire))', `(snail shell wire)
+   (snail core io)
+   (only (snail shell task) tasks)
+   (only (snail shell page) page)
+   (only (snail shell resource) resource)
+   (prefix (snail shell application) application:)
+   (sample banner))`,
+    '(type CounterApplication (SceneApplication Counter))', `(struct CounterApplication ())
+    (instance (application:Application (! mut screen events storage tasks page resource output-port) CounterApplication)
+      (define (start (entry (application:Entry CounterApplication)))
+        (→ Unit) (! mut screen events storage tasks page resource output-port)
+        (print-banner)
+        (application:start (ann (application:Entry) (application:Entry (SceneApplication Counter))))))`);
+  await until(() => printed('linked'), 'the linked file read by the explicit application entry');
   await browser.evaluate('globalThis.stayed = true');
   await writeFile(banner, 'linked again');
   await until(() => printed('linked again'), 'the linked file read again');
   assert.equal(await browser.evaluate('globalThis.stayed'), true, 'the page relinked rather than loading again');
   assert.equal(await text('count'), '1', 'and kept its state');
+
+  // An incompatible save retries initialization. If that retry's first view
+  // traps, a repair takes its checkpoint, not the new initializer's default.
+  await edit(source, '(Counter 0 width height', '(Counter 7 width height',
+    '(define (draw (counter Counter)) (→ Frame)\n', '(define (draw (counter Counter)) (→ Frame)\n  (panic "retry view trap")\n');
+  await until(async () => (await notice()).includes('retry view trap'), 'the rejected retry view');
+  await browser.evaluate(`${pageModule('storage.mjs')}.then(({storeSave}) => storeSave('counter', new Uint8Array([0])))`);
+  await browser.navigate(base);
+  await until(() => browser.evaluate('document.body.dataset.ready'), 'the stopped retry application');
+  await until(async () => (await notice()).includes('application stopped'), 'the retry trap notice');
+  await edit(source, '(Counter 7 width height', '(Counter 9 width height', '  (panic "retry view trap")\n', '');
+  await until(async () => await text('count') === '7' && (await notice()).startsWith('Reloaded'), 'the repaired retry checkpoint');
   if (screenshot) await browser.screenshot(screenshot);
   console.log('reload: the page kept its state across modules');
+} catch (error) {
+  console.error('reload failure:', {notice: await notice(), status: await service.status()});
+  throw error;
 } finally {
   browser.close();
   await service.stop();

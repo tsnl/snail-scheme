@@ -89,7 +89,7 @@
    (snail-tests
     (export test-annotations)
     (import
-     (only (scheme base) car)
+     (only (chezscheme) car)
      (snail stage0 testing))
     (begin
       (define annotation-sample

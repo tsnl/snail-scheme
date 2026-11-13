@@ -24,20 +24,26 @@
     ((Node left value right) (+ (tree-sum left) (+ value (tree-sum right))))))
 
 (define tree (Node (Node (Leaf) 1 (Leaf)) 2 (Node (Leaf) 3 (Leaf))))
+
 (define bytes (serialize tree))
-(display (vector-length bytes))
-(newline)
-(display (tree-sum (ann (deserialize bytes) (Tree I64))))
-(newline)
+
 (define shapes (list (Circle (Point 1 2) 0.5) (Polygon (list (Point 0 0) (Point 10 -4)))))
+
 (define copy (ann (deserialize (serialize shapes)) (List Shape)))
-(match copy
-  ((Cons (Circle (Point x y) r) (Cons (Polygon (Cons _ (Cons (Point px py) _))) _))
-   (write (list x y px py))
-   (newline)
-   (display r)
-   (newline))
-  (_ (write-line "mismatch")))
-(write-line (ann (deserialize (serialize "héllo")) String))
-(write (ann (deserialize (serialize (list -1 300 -70000))) (List I64)))
-(newline)
+
+(define (main) (→ Unit) (! output-port)
+  (display (vector-length bytes))
+  (newline)
+  (display (tree-sum (ann (deserialize bytes) (Tree I64))))
+  (newline)
+  (match copy
+    ((Cons (Circle (Point x y) r) (Cons (Polygon (Cons _ (Cons (Point px py) _))) _))
+     (write (list x y px py))
+     (newline)
+     (display r)
+     (newline))
+    (_ (write-line "mismatch")))
+  (write-line (ann (deserialize (serialize "héllo")) String))
+  (write (ann (deserialize (serialize (list -1 300 -70000))) (List I64)))
+  (newline)
+  (unit))

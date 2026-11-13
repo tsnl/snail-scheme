@@ -6,7 +6,7 @@
 ;; performs what copying it does. The book's ownership chapter includes
 ;; the text between ANCHOR and ANCHOR_END.
 (effect log
-  ((say (dyn (Fn String → Unit)))))
+  ((say (Fn String → Unit))))
 
 ;; ANCHOR: ticket
 ;; A ticket is linear by its Drop instance, so only its Clone instance
@@ -25,6 +25,7 @@
                        ((Ticket seat)
                         (say (string-append "copied seat " (i64->string seat)))
                         (Pair (Ticket seat) (Ticket (+ seat 100))))))))
+
 ;; ANCHOR_END: ticket
 
 ;; A generic wrapper's instance copies what it holds in the row `e` of its
@@ -73,6 +74,9 @@
     ((Pair (Tagged first x) (Tagged second y))
      (write-line (string-append first " " (i64->string x) ", " second " " (i64->string y))))))
 
-(handle log
-    ((say (lambda (text) (write-line text))))
-  (demo))
+(define main
+  (lambda ()
+    (handle log
+        ((say (lambda (text) (write-line text))))
+      (demo))
+    (unit)))

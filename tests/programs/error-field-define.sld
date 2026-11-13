@@ -10,4 +10,7 @@
 (define (Point-x (point Point)) (→ I64)
   (● point x))
 
-(write-line (show (Point-x (Point 1))))
+(define main
+  (lambda ()
+    (write-line (show (Point-x (Point 1))))
+    (unit)))

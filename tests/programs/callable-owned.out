@@ -1,14 +1,14 @@
-shared drop
 23
-exclusive drop
+shared drop
 25
+single shared drop
 one-shot drop
 7
 uncalled drop
-consumed shared
 57
-adapted shared
+consumed shared
 68
+adapted shared
 abandoned shared
-erased shared
 89
+erased shared

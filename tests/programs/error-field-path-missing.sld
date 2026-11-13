@@ -6,4 +6,7 @@
   ((x I64)
    (y I64)))
 
-(● (Point 1 2) z)
+(define main
+  (lambda ()
+    (● (Point 1 2) z)
+    (unit)))

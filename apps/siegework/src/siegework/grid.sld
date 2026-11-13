@@ -107,8 +107,8 @@
     (define (crossing-path (open (Vector Bool)) (goals (List Cell)) (start Cell)) (→ (List Cell))
       (unsafe-total
        (lambda ()
-         (let ((from (make-array (* map-size map-size) -1)))
-           (for-each (lambda (goal) (array-set! from (cell-index goal) (cell-index goal))) goals)
+         (let ((from (make-vector (* map-size map-size) -1)))
+           (for-each (lambda (goal) (vector-set! from (cell-index goal) (cell-index goal))) goals)
            (let round ((current goals) (next (Nil)))
              (match current
                ((Nil) (if (null? next)
@@ -116,14 +116,15 @@
                             (let ((closed (if (vector-ref open index)
                                               closed
                                               (Cons (index-cell index) closed))))
-                              (if (= (array-ref from index) index)
+                              (if (= (vector-ref from index) index)
                                   closed
-                                  (back (array-ref from index) closed))))
+                                  (back (vector-ref from index) closed))))
                           (round next (Nil))))
                ((Cons cell rest)
-                (let ((reached (filter (lambda (n) (= (array-ref from (cell-index n)) -1))
+                (let ((reached (filter (lambda (n) (= (vector-ref from (cell-index n)) -1))
                                        (neighbors cell))))
-                  (for-each (lambda (n) (array-set! from (cell-index n) (cell-index cell))) reached)
+                  (for-each (lambda (n) (vector-set! from (cell-index n) (cell-index cell)))
+                            reached)
                   (round
                    (append (filter (lambda (n) (vector-ref open (cell-index n))) reached) rest)
                    (append (filter (lambda (n) (not (vector-ref open (cell-index n)))) reached)
@@ -138,19 +139,19 @@
     (define (distance-field (open (Vector Bool)) (goals (List Cell))) (→ (Vector I64))
       (unsafe-total
        (lambda ()
-         (let ((distance (make-array (* map-size map-size) -1)))
-           (for-each (lambda (goal) (array-set! distance (cell-index goal) 0)) goals)
+         (let ((distance (make-vector (* map-size map-size) -1)))
+           (for-each (lambda (goal) (vector-set! distance (cell-index goal) 0)) goals)
            (let loop ((frontier goals) (next (Nil)))
              (match frontier
-               ((Nil) (if (null? next) (array->vector distance) (loop (reverse next) (Nil))))
+               ((Nil) (if (null? next) distance (loop (reverse next) (Nil))))
                ((Cons cell rest)
-                (let ((steps (+ (array-ref distance (cell-index cell)) 1)))
+                (let ((steps (+ (vector-ref distance (cell-index cell)) 1)))
                   (loop rest (fold-left (lambda (queued neighbor)
                                           (let ((index (cell-index neighbor)))
                                             (if (and (vector-ref open index)
-                                                     (= (array-ref distance index) -1))
+                                                     (= (vector-ref distance index) -1))
                                                 (begin
-                                                  (array-set! distance index steps)
+                                                  (vector-set! distance index steps)
                                                   (Cons neighbor queued))
                                                 queued)))
                                         next (neighbors cell)))))))))))

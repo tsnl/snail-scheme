@@ -15,14 +15,16 @@
 
 (define (count-down (from I64)) (→ Unit) (! output-port)
   (define step
-    (fn (n)
-      (when (> n 0)
-        (write-line (i64->string n))
-        (step (- n 1)))))
+    (fn (n) (when (> n 0)
+              (write-line (i64->string n))
+              (step (- n 1)))))
   (step from))
-;; ANCHOR_END: fn
 
-(shout "world")
-(count-down 3)
-(for-each (fn (n) (write-line (i64->string (* n n)))) (list 1 2 3))
-(call-once (once (fn () (write-line "once"))))
+(define (main) (→ Unit) (! output-port)
+  ;; ANCHOR_END: fn
+
+  (shout "world")
+  (count-down 3)
+  (for-each (fn (n) (write-line (i64->string (* n n)))) (list 1 2 3))
+  (call-once (once (fn () (write-line "once"))))
+  (unit))

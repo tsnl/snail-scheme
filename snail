@@ -3,7 +3,7 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 # The tools a command runs, a path a line, as stage 0 names them. Stage 0
 # rebuilds whichever is stale under build/lock and is the only judge of
-# which is; it starts Chibi and Cargo, so it takes most of a second even
+# which is; it starts Chez and Cargo, so it takes most of a second even
 # when nothing is. Its answer is kept in build/tools-KIND.txt, and used
 # again while every tool it names is there and no file its rule reads is
 # newer: the .sld files under src/ and the tools' own directories, the
@@ -30,9 +30,9 @@ tools() {
 }
 
 unchanged() {
-  [ -z "$(find "$root/src" "$root/bootstrap" "$root/host/ide/ide.sld" "$root/host/browser" -name '*.sld' -newer "$1" -print -quit)" ] &&
+  [ -z "$(find "$root/src" "$root/bootstrap" "$root/host/ide/ide.sld" "$root/host/browser" \( -name '*.sld' -o -name '*.sls' \) -newer "$1" -print -quit)" ] &&
     [ -z "$(find "$root/crates/snail-core-support" -path '*/target' -prune -o -newer "$1" -print -quit)" ] &&
-    [ -z "$(find "$root/rust-toolchain.toml" "$root/scripts/snail.scm" "$root/host/chibi" -newer "$1" -print -quit)" ] &&
+    [ -z "$(find "$root/rust-toolchain.toml" "$root/scripts/snail.scm" "$root/host/chez" -newer "$1" -print -quit)" ] &&
     { [ "$2" != dev-tools ] ||
       [ -z "$(find "$root/host/ide/project.datum" "$root/host/ide/public" "$root/host/browser" -newer "$1" -print -quit)" ]; }
 }

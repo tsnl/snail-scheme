@@ -7,7 +7,7 @@
 //! program runs.
 //!
 //! A per-library build is named by its modules.json, which `build-modules`
-//! in host/chibi/snail/stage0/build.sld writes beside the modules:
+//! in host/chez/snail/stage0/build.sld writes beside the modules:
 //! `{"store": STORE, "runtime": OBJECT, "modules": [{"name": LIBRARY, ...OBJECT}, ...], "files": [OBJECT, ...]}`,
 //! where an OBJECT is `{"digest": DIGEST, "size": SIZE}` naming a file of the
 //! store, the libraries in program order; `snail imports` reads it.
@@ -692,18 +692,7 @@ fn define_linking(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
             call_with(&mut caller, &function, argument)
         },
     )?;
-    linker.func_wrap(
-        "snail.runtime.wasm",
-        "call-with-function",
-        |mut caller: Caller<'_, Host>, handle: i32, callee: Option<Func>| {
-            let instance = caller.data().loading.instance(handle)?;
-            let name = caller.data_mut().loading.take_name()?;
-            let function = instance
-                .get_func(&mut caller, &name)
-                .ok_or_else(|| format_err!("the instance exports no function {name}"))?;
-            call_values(&mut caller, &function, &[Val::FuncRef(callee)])
-        },
-    )?;
+
     Ok(())
 }
 
@@ -797,9 +786,6 @@ fn instantiate(mut caller: Caller<'_, Host>, namespace: i32, module: i32) -> was
         .data_mut()
         .loading
         .add_instance(namespace, name, instance)?;
-    if instance.get_func(&mut caller, "main").is_some() {
-        run_export(&mut caller, &instance, "main")?;
-    }
     Ok(handle)
 }
 

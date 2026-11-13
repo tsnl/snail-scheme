@@ -1,6 +1,6 @@
 // One loader and replacement transaction for every browser application.
 // Engines supply device imports and reset their presentation before each run.
-import {createWasi, instantiate, linkedFileImports, linkProgram, relinkProgram, runMain, runProgram} from './load.mjs';
+import {createWasi, instantiate, linkedFileImports, linkProgram, relinkProgram} from './load.mjs';
 import {applicationEntry, HIDDEN} from './runtime.mjs';
 
 export const running = [];
@@ -24,7 +24,6 @@ async function instantiateApplication(application, url) {
   const linked = linkedFileImports(fetchRead(url), module, () => application.runtime.execution.tasks);
   const instance = await instantiate(module, {...wasi.getImportObject(), ...application.imports, ...linked});
   wasi.initialize(instance);
-  runMain(instance.exports);
   application.program = instance;
 }
 
@@ -32,7 +31,6 @@ async function linkApplication(application, manifest, read) {
   const wasi = createWasi({print: printer(application)});
   application.program = await linkProgram(read, manifest, wasi, application.imports,
                                           () => application.runtime.execution.tasks);
-  runProgram(application.program);
 }
 
 // Only a cold restoration failure before boot may discard saved bytes.
@@ -42,9 +40,10 @@ async function startCold(application) {
   const run = runtime.start(entry);
   try { await run.ready.promise; }
   catch (error) {
-    await run.done;
-    if (application.strictRestore) throw error;
+    const stopped = await run.done;
+    if (application.strictRestore) { stopped.release(); throw error; }
     if (run.boot !== null || run.loaded == null) { reportApplicationError(error); return; }
+    stopped.release();
     console.warn('discarding an incompatible save:', error.message);
     application.reset();
     const retry = runtime.start(entry, null, {restore: null});
@@ -86,7 +85,7 @@ function printer(application) {
 
 // A full page reload first lets every loop save and return.
 export function saveAll() {
-  return Promise.all(running.map(async application => { await application.startup; return application.runtime.stop(); }));
+  return Promise.all(running.map(async application => { await application.startup; const saved = await application.runtime.stop(); saved.release(); return saved; }));
 }
 
 // `manifest` is the modules.json of the build to relink from, which the
@@ -96,27 +95,32 @@ export async function relinkAll(from, fresh, manifest) {
   for (const application of running) await relinkApplication(application, from, fresh, manifest);
 }
 
-// No Snail-Core stack remains while modules relink. Keep the old program and its
+// No Snail Scheme stack remains while modules relink. Keep the old program and its
 // immutable handover until the candidate finishes its initial presentation.
 // Rejected migration restarts the old entry; host resources outlive both.
 async function relinkApplication(application, from, fresh, manifest) {
   await application.startup;
   const {runtime, program: previous} = application;
   application.capture = [];
-  const {state, saved} = await runtime.stop();
+  const handover = await runtime.stop();
+  const {state, saved} = handover;
+  let candidate = null;
   try {
     const program = await relinkProgram(previous, from, manifest, fetchRead(manifest));
     application.reset();
-    const run = runtime.start(applicationEntry(program), fresh ? null : state, {restore: fresh ? null : saved});
-    await run.ready.promise;
+    candidate = runtime.start(applicationEntry(program), fresh ? null : state, {restore: fresh ? null : saved});
+    await candidate.ready.promise;
     application.program = program;
   } catch (error) {
-    await runtime.execution.done;
+    if (candidate) (await candidate.done).release();
     application.reset();
     const rollback = runtime.start(applicationEntry(previous), state, {restore: saved});
+    // A failed rollback remains the current run. Keep its checkpoint for
+    // the next repair, just as after a cold first-frame failure.
     try { await rollback.ready.promise; } catch { await rollback.done; }
     throw new Error(application.capture.join('\n') || error.message);
   } finally {
+    handover.release();
     application.capture = null;
   }
 }

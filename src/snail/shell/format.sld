@@ -236,89 +236,91 @@
       (Special ((distinguished I64)))
       (LetRule))
 
-    ;; Conventional Scheme indentation and Snail-Core's forms. Binding names
+    ;; Conventional Scheme indentation and Snail Scheme's forms. Binding names
     ;; follow the let/-let and let*/-let* convention below, without a table entry.
 
-    (define rules (→ (List (Pair String Rule)))
-      (concatenate
-       (list (map (lambda (name) (Pair name (Special 0)))
-                  (list "begin"
-                        "delay"
-                        "make-environment"
-                        "match-lambda"
-                        "match-lambda*"
-                        "sequence"
-                        "with-output-to-string"))
-             (map (lambda (name) (Pair name (Special 1)))
-                  (list "access-components"
-                        "assignment-components"
-                        "call-with-input-file"
-                        "call-with-output-file"
-                        "call-with-port"
-                        "call-with-values"
-                        "case"
-                        "combination-components"
-                        "comment-components"
-                        "conditional-components"
-                        "declaration-components"
-                        "define-library"
-                        "define-record-type"
-                        "define-values"
-                        "definition-components"
-                        "delay-components"
-                        "disjunction-components"
-                        "element"
-                        "eval-when"
-                        "in-package"
-                        "in-package-components"
-                        "lambda"
-                        "lambda-components"
-                        "lambda-components*"
-                        "lambda-components**"
-                        "letrec"
-                        "letrec*"
-                        "letrec-syntax"
-                        "let-syntax"
-                        "let*-values"
-                        "let-values"
-                        "library"
-                        "list-search-negative"
-                        "list-search-positive"
-                        "list-transform-negative"
-                        "list-transform-positive"
-                        "local-declare"
-                        "macro"
-                        "make"
-                        "match-letrec"
-                        "mode"
-                        "named-lambda"
-                        "open-block-components"
-                        "parameterize"
-                        "pathname-components"
-                        "procedure-components"
-                        "root"
-                        "sequence-components"
-                        "style"
-                        "unassigned?-components"
-                        "unbound?-components"
-                        "unless"
-                        "using-syntax"
-                        "variable-components"
-                        "when"
-                        "with-input-from-file"
-                        "with-input-from-port"
-                        "with-input-from-string"
-                        "with-mode"
-                        "with-output-to-file"
-                        "with-output-to-port" "with-syntax" "with-values" "λ"))
-             (map (lambda (name) (Pair name (Special 2)))
-                  (list "do" "receive" "syntax-case" "syntax-table-define"))
-             (list (Pair "dynamic-wind" (Special 3))
-                   (Pair "scheme-define" (Definition))
-                   (Pair "syntax-rules" (Definition)))
-             (map (lambda (name) (Pair name (Special 1)))
-                  (list "fn" "struct" "enum" "typeclass" "instance" "effect" "match" "guard"))
-             (list (Pair "handle" (Special 2))))))
+    (define (known-rule (name String)) (→ (Option Rule))
+      (case name
+        (("begin"
+          "delay"
+          "make-environment"
+          "match-lambda"
+          "match-lambda*"
+          "sequence"
+          "with-output-to-string")
+         (Some (Special 0)))
+        (("access-components"
+          "assignment-components"
+          "call-with-input-file"
+          "call-with-output-file"
+          "call-with-port"
+          "call-with-values"
+          "case"
+          "combination-components"
+          "comment-components"
+          "conditional-components"
+          "declaration-components"
+          "define-library"
+          "define-record-type"
+          "define-values"
+          "definition-components"
+          "delay-components"
+          "disjunction-components"
+          "element"
+          "eval-when"
+          "in-package"
+          "in-package-components"
+          "lambda"
+          "lambda-components"
+          "lambda-components*"
+          "lambda-components**"
+          "letrec"
+          "letrec*"
+          "letrec-syntax"
+          "let-syntax"
+          "let*-values"
+          "let-values"
+          "library"
+          "list-search-negative"
+          "list-search-positive"
+          "list-transform-negative"
+          "list-transform-positive"
+          "local-declare"
+          "macro"
+          "make"
+          "match-letrec"
+          "mode"
+          "named-lambda"
+          "open-block-components"
+          "parameterize"
+          "pathname-components"
+          "procedure-components"
+          "root"
+          "sequence-components"
+          "style"
+          "unassigned?-components"
+          "unbound?-components"
+          "unless"
+          "using-syntax"
+          "variable-components"
+          "when"
+          "with-input-from-file"
+          "with-input-from-port"
+          "with-input-from-string"
+          "with-mode"
+          "with-output-to-file"
+          "with-output-to-port"
+          "with-syntax"
+          "with-values"
+          "λ")
+         (Some (Special 1)))
+        (("do" "receive" "syntax-case" "syntax-table-define") (Some (Special 2)))
+        (("dynamic-wind") (Some (Special 3)))
+        (("scheme-define") (Some (Definition)))
+        (("syntax-rules") (Some (Definition)))
+        (("fn" "struct" "enum" "typeclass" "instance" "effect" "match" "guard") (Some (Special 1)))
+        (("handle") (Some (Special 2)))
+        (else (None))))
 
     ;; A binding macro advertises its layout in its name. A name without a
     ;; rule that starts with `def` (case insensitive) is a definition.
@@ -327,7 +329,7 @@
       (cond ((binding-name? name "let") (LetRule))
             ((binding-name? name "let*") (Special 1))
             (else
-             (match (assoc-ref rules name)
+             (match (known-rule name)
                ((Some rule) rule)
                ((None)
                 (if (and (> (string-length name) 3) (def-prefix? name)) (Definition) (Call)))))))
@@ -1027,7 +1029,7 @@
     ;; The outermost of `candidates` that `eligible` accepts, the leftmost
     ;; of those equally deep.
 
-    (define (outermost (candidates (List Candidate)) (eligible (dyn (Fn Candidate → Bool))))
+    (define (outermost (candidates (List Candidate)) (eligible (Fn Candidate → Bool)))
       (→ (Option Candidate))
       (fold-left (lambda (best candidate)
                    (if (and (eligible candidate)

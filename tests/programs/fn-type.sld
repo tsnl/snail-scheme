@@ -21,6 +21,7 @@
 ;; Calling an Fn calls its code.
 (define (press (button Button) (count I64)) (→ String)
   ((● button on-press) count))
+
 ;; ANCHOR_END: fn-type
 
 ;; A signature or an annotation also gives a function the type Fn.
@@ -39,7 +40,7 @@
 
 ;; A call through an Fn may yield to a control handler.
 (effect Stop
-  ((ctl stop (dyn (Fn I64 → Unit)))))
+  ((ctl stop (Fn I64 → Unit))))
 
 (define (stop-at-two (n I64)) (→ Unit) (! Stop output-port)
   (write-line (string-append "checked " (i64->string n)))
@@ -52,8 +53,10 @@
     (check 3)
     -1))
 
-(for-each (lambda (button) (write-line (press button 3))) buttons)
-(for-each (lambda (n) (write-line (i64->string n)))
-          (apply-all (list twice (ann (fn (x) (+ x 1)) (fn I64 → I64))) 10))
-(log-with write-line)
-(write-line (string-append "stopped at " (i64->string (until-stop stop-at-two))))
+(define (main) (→ Unit) (! output-port)
+  (for-each (lambda (button) (write-line (press button 3))) buttons)
+  (for-each (lambda (n) (write-line (i64->string n)))
+            (apply-all (list twice (ann (fn (x) (+ x 1)) (fn I64 → I64))) 10))
+  (log-with write-line)
+  (write-line (string-append "stopped at " (i64->string (until-stop stop-at-two))))
+  (unit))

@@ -53,7 +53,7 @@
 ;; An object with each member's value replaced by what `change` makes of
 ;; it, in order; anything else as it is.
 
-(define (with-members (json Json) (change (dyn (Fn String Json → Json)))) (→ Json)
+(define (with-members (json Json) (change (Fn String Json → Json))) (→ Json)
   (match json
     ((JsonObject members)
      (JsonObject (map (lambda (member)
@@ -161,7 +161,7 @@
 ;; The index of the first character from `start` that `keep?` refuses, or
 ;; the text's length.
 
-(define (count-while (text String) (start I64) (keep? (dyn (Fn Char → Bool)))) (→ I64)
+(define (count-while (text String) (start I64) (keep? (Fn Char → Bool))) (→ I64)
   (if (and (< start (string-length text)) (keep? (string-ref text start)))
       (count-while text (+ start 1) keep?)
       start))
@@ -217,12 +217,14 @@
     ((None) (string-join (reverse lines) "\n"))
     ((Some line) (read-input (Cons line lines)))))
 
-(match (command-line)
-  ((Cons _ (Cons "supports" (Cons renderer (Nil))))
-   (unless (string=? renderer "html")
-     (panic (string-append "the book's highlighter supports the html renderer, not " renderer))))
-  ((Cons _ (Nil))
-   (match (string->json (read-input (Nil)))
-     ((Some input) (write-string (json->string (highlight-book input))))
-     ((None) (panic "the book's highlighter expected JSON on its standard input"))))
-  (_ (panic "usage: highlight-book [supports RENDERER]")))
+(define (main) (→ Unit) (! input-port output-port)
+  (match (command-line)
+    ((Cons _ (Cons "supports" (Cons renderer (Nil))))
+     (unless (string=? renderer "html")
+       (panic (string-append "the book's highlighter supports the html renderer, not " renderer))))
+    ((Cons _ (Nil))
+     (match (string->json (read-input (Nil)))
+       ((Some input) (write-string (json->string (highlight-book input))))
+       ((None) (panic "the book's highlighter expected JSON on its standard input"))))
+    (_ (panic "usage: highlight-book [supports RENDERER]")))
+  (unit))

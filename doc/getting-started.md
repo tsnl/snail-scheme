@@ -14,7 +14,7 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | Tool | CI's version | Used for |
 | --- | --- | --- |
 | Git, a POSIX shell and GNU Make | | The checkout, `./snail` and the Makefile. |
-| Chibi Scheme, with its libraries | 0.12 | Running the compiler's source for the first bootstrap, and the build scripts. |
+| Chez Scheme | 10.4.1 | Running the compiler's source for the first bootstrap, and the build scripts. |
 | Rustup | Rust 1.95.0 | The runtime services linked into every program, and the assembler/linker. `rust-toolchain.toml` names the version and the `wasm32-wasip1` target, which rustup installs on first use. |
 | Node.js | 26 | Running programs under WASI, and `snail dev`. |
 | nixfmt | 1.4 | `make check`'s formatting of `shell.nix`. |
@@ -22,9 +22,9 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | Chromium | | `make test-browser` and `tests/browser/page.mjs`. Set `CHROMIUM` to its path when it isn't `chromium`. |
 
 The first four compile and run programs, including the Scheme formatter used
-by `make check`; the rest format Nix and build or test the site. An older Chibi
-may lack libraries the compiler uses. The [source recipes](#source-recipes)
-build the versions CI uses.
+by `make check`; the rest format Nix and build or test the site. `CHEZ` can
+name a particular Chez executable; it defaults to `scheme`. The pinned Nix
+environment supplies the version used by CI.
 
 ## With Nix
 
@@ -55,86 +55,19 @@ podman and checks it whenever its inputs change.
 
 ## With a package manager
 
-Each block installs what its packages provide. Commands marked unverified
-haven't been run on that system.
+Install the tools in the table using your platform's packages, then check their
+versions against the repository's pinned environment. Use the executable from
+Chez Scheme, rather than another interpreter also named `scheme`; set `CHEZ`
+if necessary. The compiler's explicit stage-zero adapter handles its library
+syntax and typed forms. No R7RS library installation is needed.
 
-<details>
-<summary>Ubuntu 24.04 — apt</summary>
-
-```sh
-sudo apt update
-sudo apt install git curl ca-certificates build-essential
-```
-
-Ubuntu's Chibi package is older than CI's: build it from
-the [source recipes](#source-recipes). Install Node 26 from
-[nodejs.org](https://nodejs.org/en/download) and rustup from
-[rustup.rs](https://rustup.rs/). Unverified.
-
-</details>
-
-<details>
-<summary>Fedora — dnf</summary>
-
-```sh
-sudo dnf install git curl ca-certificates gcc make rustup
-rustup-init
-```
-
-Build Chibi from the [source recipes](#source-recipes), and
-install Node 26 from [nodejs.org](https://nodejs.org/en/download) if Fedora
-doesn't package it yet. Unverified.
-
-</details>
-
-<details>
-<summary>Arch Linux — pacman</summary>
-
-```sh
-sudo pacman -Syu --needed base-devel git curl rustup nodejs
-```
-
-Arch's `nodejs` follows upstream releases. Build Chibi from
-the [source recipe](#source-recipes). Unverified.
-
-</details>
-
-<details>
-<summary>macOS — Homebrew</summary>
-
-```sh
-xcode-select --install
-brew install git make chibi-scheme node rustup
-export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
-```
-
-Follow Homebrew's instructions for putting rustup on your `PATH`. Unverified.
-
-</details>
-
-### Source recipes
-
-<details>
-<summary>Chibi Scheme 0.12</summary>
-
-Needs a C compiler and Make. This installs Chibi and its libraries in
-`~/.local`, as the [upstream instructions](https://github.com/ashinn/chibi-scheme/tree/0.12)
-describe:
-
-```sh
-mkdir -p ~/.local/src
-git clone --depth 1 --branch 0.12 https://github.com/ashinn/chibi-scheme.git ~/.local/src/chibi-scheme-0.12
-make -C ~/.local/src/chibi-scheme-0.12 PREFIX="$HOME/.local"
-make -C ~/.local/src/chibi-scheme-0.12 PREFIX="$HOME/.local" install
-export PATH="$HOME/.local/bin:$PATH"
-export LD_LIBRARY_PATH="$HOME/.local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-```
-
-</details>
+Node must support WasmGC and WebAssembly tail calls. Rustup reads the pinned
+Rust release and Wasm target from `rust-toolchain.toml`. If a platform's packages
+are older, the Nix environment is the reproducible route used by CI.
 
 ## On Windows
 
-Use WSL2 with Ubuntu, so the scripts and Chibi's subprocesses run on Linux.
+Use WSL2 with Ubuntu, so the scripts and Chez's subprocesses run on Linux.
 In an administrator PowerShell:
 
 ```powershell
@@ -156,15 +89,14 @@ From the checkout:
 ```sh
 make fetch
 ./scripts/snail-tool run examples/fibonacci.sld
-./scripts/snail-tool run examples/scheme-fibonacci.sld
 ```
 
 `make fetch` downloads the Rust crates in each `Cargo.lock` once; builds and
 tests then run offline. The first run bootstraps the compiler, which takes
-about a minute: Chibi runs the compiler's source once, and the compiled
-compiler then rebuilds itself whenever its source changes. The first program
-prints `832040`. The second is the same program in Scheme, compiled through
-`(scheme base)`, and prints `75025` and two more lines.
+a source compilation with Chez followed by self-compilation. The compiled
+compiler rebuilds itself whenever its source changes. The example prints
+`832040`. Runtime work belongs in its `main` function; libraries contain
+functions, types and pure compile-time values.
 
 ## The checks
 
@@ -173,12 +105,13 @@ make test          # the formatter, the compiler, the programs and the games
 make check         # formatting
 cargo test --manifest-path crates/snail-core-support/Cargo.toml --offline
 cargo test --manifest-path crates/snail/Cargo.toml --offline
-make test-chibi    # the suite with the compiler's source running on Chibi
-make bootstrap     # the compiler rebuilt from Chibi alone, to a fixpoint
+make test-chez    # the suite with the compiler's source running on Chez
+make bootstrap     # the compiler rebuilt from Chez alone, to a fixpoint
+make test-wasmtime # linked programs on the native Wasmtime host
 make test-browser  # hot reload and the IDE in headless Chromium
 ```
 
 CI runs the first four, and `cargo fmt --check` on both crates. A change to
-the compiler also needs `make test-chibi` and `make bootstrap`, and a change
+the compiler also needs `make test-chez` and `make bootstrap`, and a change
 to the browser host or the IDE `make test-browser`. The [tour](book/snail-core/compilers.md)
 introduces the compiler.

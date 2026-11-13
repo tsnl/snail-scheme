@@ -2,4 +2,7 @@
  (snail core base)
  (snail shell artifact))
 
-(artifact-bundle "client")
+(define main
+  (lambda ()
+    (artifact-bundle "client")
+    (unit)))

@@ -5,10 +5,7 @@
    (snail core io))
   (begin
     (define (message (text String))
-      (→ (dyn (FnOnce → Unit ! output-port)))
+      (→ (FnOnce → Unit ! output-port))
       (once (lambda () (write-line text))))
 
-    (define (run (work (dyn (FnOnce → Unit ! output-port))))
-      (→ Unit)
-      (! output-port)
-      (call-once work))))
+    (define (run (work (FnOnce → Unit ! output-port))) (→ Unit) (! output-port) (call-once work))))

@@ -2,7 +2,7 @@
 ;; WebAssembly text, or to the schemas of its wire types. In a one-off
 ;; compile each pass's output is the next pass's only input; a session,
 ;; (snail shell compiler session), also keeps what each library became in the
-;; build before. The typed driver serves both compiler entries: Chibi runs
+;; build before. The typed driver serves both compiler entries: Chez runs
 ;; the source as stage 0, and Node runs the compiler compiled to Wasm.
 (define-library (snail shell compiler)
   (export
@@ -33,11 +33,11 @@
 
     (define (source->expanded (directories (List String))
                               (source String)
-                              (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                              (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                               (inputs Inputs))
       (→ ExpandedProgram)
       (! fs compile)
-      (expand-program directories generate inputs source empty-expansion))
+      (expand-program directories generate inputs source))
 
     ;; A program compiled to one module: its text, and the files it links,
     ;; which ship beside it.
@@ -47,7 +47,7 @@
 
     (define (source->wat (directories (List String))
                          (source String)
-                         (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                         (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                          (inputs Inputs))
       (→ WholeProgram)
       (! mut fs compile)
@@ -63,7 +63,7 @@
 
     (define (source->modules (directories (List String))
                              (source String)
-                             (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                              (inputs Inputs))
       (→ (List Built))
       (! mut fs compile)
@@ -71,7 +71,7 @@
 
     (define (source->schemas (directories (List String))
                              (source String)
-                             (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                              (inputs Inputs))
       (→ String)
       (! fs compile)

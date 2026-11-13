@@ -47,31 +47,32 @@
   (write-line (string-append label " -> " (changes before after)))
   after)
 
-(remove-tree root)
-(make-directories (at "src/lib"))
-(make-directories (at "build"))
-(write-file (at "src/main.sld") "one")
-(write-file (at "src/lib/util.sld") "util")
-
-(let* ((first (take (unit)))
-       (_ (report "from nothing" empty-inventory first))
-       (same (report "unchanged" first (take (unit))))
-       (saved (begin
-                (save "src/main.sld" "three")
-                (report "saved by rename" same (take (unit)))))
-       (again (begin
-                (save "src/main.sld" "eleven")
-                (report "saved by rename again" saved (take (unit)))))
-       (built (begin
-                (write-file (at "build/output") "out")
-                (report "written under build" again (take (unit)))))
-       (made (begin
-               (make-directory (at "src/new"))
-               (write-file (at "src/new/added.sld") "added")
-               (report "made" built (take (unit)))))
-       (removed (begin
-                  (remove-file (at "src/lib/util.sld"))
-                  (report "removed" made (take (unit))))))
-  (report "back to nothing" removed empty-inventory)
+(define (main) (→ Unit) (! fs output-port)
   (remove-tree root)
+  (make-directories (at "src/lib"))
+  (make-directories (at "build"))
+  (write-file (at "src/main.sld") "one")
+  (write-file (at "src/lib/util.sld") "util")
+  (let* ((first (take (unit)))
+         (_ (report "from nothing" empty-inventory first))
+         (same (report "unchanged" first (take (unit))))
+         (saved (begin
+                  (save "src/main.sld" "three")
+                  (report "saved by rename" same (take (unit)))))
+         (again (begin
+                  (save "src/main.sld" "eleven")
+                  (report "saved by rename again" saved (take (unit)))))
+         (built (begin
+                  (write-file (at "build/output") "out")
+                  (report "written under build" again (take (unit)))))
+         (made (begin
+                 (make-directory (at "src/new"))
+                 (write-file (at "src/new/added.sld") "added")
+                 (report "made" built (take (unit)))))
+         (removed (begin
+                    (remove-file (at "src/lib/util.sld"))
+                    (report "removed" made (take (unit))))))
+    (report "back to nothing" removed empty-inventory)
+    (remove-tree root)
+    (unit))
   (unit))
