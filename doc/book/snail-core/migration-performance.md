@@ -1,27 +1,24 @@
 # Migration measurements
 
-The heap-object and ownership migration increases the cost of retained record
-lists and incremental expansion. The measured arithmetic loop is faster;
-nested record updates and arrays are near parity, and Siegework's simulation
-is slightly faster. These are measurements of the combined migration,
-including callable simplification, counted ownership, constant evaluation and
-compiler optimizations. They do not isolate boxing alone.
+The migration reduces measured arithmetic, vector-growth and Siegework simulation
+time. Retained record lists, pre-sized vectors and incremental expansion cost
+more. Nested record updates remain close. These measurements cover the combined
+migration: heap objects, counted ownership, callable simplification, constant
+evaluation, mutable vectors, compiler optimizations and application changes.
+They do not isolate boxing alone.
 
 The comparison is between baseline
 [`a1790f347`](https://github.com/tsnl/snail-scheme/commit/a1790f3474a70b14c14196c2c46544265b99e3c8)
 and migration
-[`ea158b23d`](https://github.com/tsnl/snail-scheme/commit/ea158b23d6074ff9058975fe4a671afaf7664822),
-measured on 2026-11-12 UTC, with Siegework repeated on 2026-11-13 UTC.
+[`d1e321b0f`](https://github.com/tsnl/snail-scheme/commit/d1e321b0feec346aade403f582edf690ad9a8fa5),
+measured on 2026-11-13 UTC, including a separate Siegework confirmation.
 [Raw samples, compiler hashes and workload artifact hashes](measurements/java-style-20261112.json)
 record every observation.
 
-The orchestration script was first committed with this report in
-[`b9c7ace25`](https://github.com/tsnl/snail-scheme/commit/b9c7ace250e779cf8742438e6ca4182d2125871c).
-Its compiler and workload sources are those from the measured implementation
-revision above. The final harness is
-[`bb1568398`](https://github.com/tsnl/snail-scheme/commit/bb1568398d0057387cb8d419314b2d1591235cc3),
-which balances the simulation warm-ups. Use those benchmark scripts when
-reproducing the experiment, rather than looking for the driver at `ea158b23d`.
+The driver, workload sources and migration compiler sources are all from the
+measured migration revision. Its preceding implementation commit is
+[`022e4350e`](https://github.com/tsnl/snail-scheme/commit/022e4350e1e3106cc2ff347dc831af9032648c00);
+`d1e321b0f` adds artifact and workload provenance to the driver.
 
 ## Runtime
 
@@ -34,22 +31,31 @@ medians from 21 alternating baseline/current repetitions, or 11 for Siegework.
 
 | Workload | Baseline | Migration | Time ratio |
 | --- | ---: | ---: | ---: |
-| Scalar arithmetic, 20 million iterations | 41.042 ms | 14.342 ms | 0.35× |
-| Nested record updates, 5 million | 16.398 ms | 16.131 ms | 0.98× |
-| Build and fold a retained list of 300,000 records | 1.673 ms | 2.412 ms | 1.44× |
-| Allocate, fill and sum 2 million array elements | 2.409 ms | 2.065 ms | 0.86× |
-| Siegework, 32 deterministic colonies | 491.016 ms | 476.997 ms | 0.97× |
+| Scalar arithmetic, 20 million iterations | 41.231 ms | 13.908 ms | 0.34× |
+| Nested record updates, 5 million | 15.960 ms | 16.482 ms | 1.03× |
+| Build and fold a retained list of 300,000 records | 1.673 ms | 2.423 ms | 1.45× |
+| Allocate, fill and sum 2 million pre-sized elements | 1.981 ms | 2.965 ms | 1.50× |
+| Append and read 1 million elements | 9.520 ms | 6.335 ms | 0.67× |
+| Siegework, 32 deterministic colonies | 491.840 ms | 341.376 ms | 0.69× |
 
-The array samples overlap: baseline 1.919–2.519 ms and migration
-1.982–2.646 ms. Treat that result as near parity rather than a reliable
-14% improvement. Record updates also overlap. The record-list workload has
-the largest measured regression among these value workloads.
+Pre-sized vectors have the largest measured value-workload regression: about
+50% more time than the old array API. Those samples range from 1.913–2.510 ms
+before and 2.494–3.088 ms after. Growing a vector takes about 33% less time than
+the old mutable-vector API. Record updates cost about 3% more in this run;
+retained record lists cost about 45% more.
 
-Siegework uses the same compiled artifacts in its repeated measurement, with
-checksum discovery included in the baseline's three warm-ups. The raw data
-retains the superseded samples, which had one extra baseline warm-up, separately.
+Siegework's roughly 31% reduction was confirmed in a separate process using
+the same linked artifacts and 11 alternating repetitions: 491.352 ms before,
+340.884 ms after. The raw data keeps both runs. The simulation migration removes
+three conversion copies of fresh local buffers in `distance-field`, `crowding`
+and `lit-cells`. Some run repeatedly during simulation. That makes a gain
+plausible, but these measurements cannot attribute it among those copy removals,
+representation changes and compiler changes.
 
-The microbenchmarks use identical source and verify checksums on every call.
+The microbenchmarks use equivalent logical workloads and verify checksums on
+every call. The driver translates the pre-sized workload to baseline `Array`
+operations and the growth workload to baseline `MutVector` operations; both
+use the single mutable `Vector` in the migration. They are not identical source.
 Siegework runs the corresponding revision's simulation libraries with identical
 seed/order logic, advances each colony until its outcome or 2,000 ticks, and
 verifies the same checksum. It excludes rendering, browser events and startup;
@@ -68,7 +74,7 @@ their tail-call behavior.
 Compiling `tests/benchmarks/value-model.sld` to Wasm text takes a median
 **170 ms on both revisions**, including a fresh Node process and compiler
 instantiation. GNU time reports in 10 ms increments. The median peak process
-RSS is 106,568 KiB before and 103,096 KiB after. These are five measured runs
+RSS is 106,772 KiB before and 104,176 KiB after. These are five measured runs
 after two discarded runs, alternating revisions; assembly and linking are
 excluded.
 
@@ -80,17 +86,18 @@ rounds after ten warm-up rounds; file edits and printing are outside each
 measurement.
 
 Each variant runs its 50 rounds in one Node/Wasm process, creating a fresh
-compiler session each round. All baseline rounds precede all migration rounds;
-these measurements are not interleaved, so small differences may include drift.
+compiler session each round. Within each fixture, all baseline rounds precede
+all migration rounds; these measurements are not interleaved, so small
+differences may include drift.
 
 | Session operation | Baseline | Migration |
 | --- | ---: | ---: |
-| Ordinary helper: cold | 3.933 ms | 4.132 ms |
-| Ordinary helper: unchanged | 0.968 ms | 1.693 ms |
-| Ordinary helper: body edited | 3.177 ms | 3.939 ms |
-| Instance provider: cold | 4.282 ms | 3.806 ms |
-| Instance provider: unchanged | 0.962 ms | 1.799 ms |
-| Instance provider: body edited | 3.640 ms | 4.245 ms |
+| Ordinary helper: cold | 4.307 ms | 4.029 ms |
+| Ordinary helper: unchanged | 0.951 ms | 1.712 ms |
+| Ordinary helper: body edited | 3.101 ms | 3.995 ms |
+| Instance provider: cold | 3.969 ms | 4.429 ms |
+| Instance provider: unchanged | 0.968 ms | 1.819 ms |
+| Instance provider: body edited | 3.694 ms | 4.452 ms |
 
 Unchanged builds still reuse every checked module and Wasm string, but now
 expand current declarations. An ordinary body edit rebuilds all three modules
@@ -109,34 +116,36 @@ These are medians of five process high-water RSS observations, in KiB:
 
 | Workload | Baseline | Migration |
 | --- | ---: | ---: |
-| Scalar loop | 67,284 | 67,356 |
-| Record updates | 69,184 | 69,108 |
-| Retained record list | 109,208 | 110,396 |
-| Arrays | 83,644 | 83,620 |
+| Scalar loop | 67,248 | 67,284 |
+| Record updates | 69,256 | 69,164 |
+| Retained record list | 109,292 | 110,412 |
+| Pre-sized vector | 83,492 | 83,576 |
+| Growing vector | 120,080 | 92,376 |
 
 RSS includes V8, JIT code and allocator capacity. It does not measure live
-WasmGC heap size or total allocated bytes, so these close totals do not establish
-that individual boxed records use the same memory as inline records.
+WasmGC heap size or total allocated bytes. The growing-vector process uses about
+23% less peak RSS; the other totals remain close. This does not establish that
+individual boxed records use the same memory as inline records.
 
 | Linked Wasm artifact | Baseline bytes | Migration bytes |
 | --- | ---: | ---: |
-| Microbenchmark | 190,451 | 182,991 |
-| Siegework simulation benchmark | 407,742 | 387,537 |
-| Self-hosted compiler | 2,817,339 | 3,270,751 |
+| Microbenchmark | 192,543 | 184,415 |
+| Siegework simulation benchmark | 407,742 | 389,031 |
+| Self-hosted compiler | 2,817,339 | 3,297,329 |
 
-The compiler grows about 16%. The representation, field-access, borrow and
+The compiler grows about 17%. The representation, field-access, borrow and
 callable paths lose machinery, while compile-time evaluation and deterministic
 shared ownership add machinery. The combined change does not make the whole
 compiler smaller.
 
 ## Migration scope and reproduction
 
-At the measured revision, the migration changes 952 tracked files, with
-20,641 lines added and 18,531 removed. Twenty compiler modules change; the
-remaining work spans core/shell libraries, both applications, hosts, bootstrap,
+At the measured revision, excluding this report and its raw-data artifact, the
+migration changes 968 tracked files, with 21,376 lines added and 18,758 removed.
+Twenty compiler modules change; the remaining work spans core/shell libraries,
+both applications, hosts, bootstrap,
 fixtures, tooling and the book. Most changed files are test migrations.
-These counts precede this report and its raw-data artifact. README work and
-effect-name capitalization remain separate roadmap items.
+README work and effect-name capitalization remain separate roadmap items.
 
 In the repository's `nix-shell`, prepare the current compiler, native linker
 and scalar runtime by building the small benchmark once. Supply an existing
