@@ -1,0 +1,13 @@
+"ERROR first\n  \n  last\n  "
+WARNING warning
+INFO information
+… context
+"INFO λ 😀\t"
+(27 91 51 49 59 49 109 69 82 82 79 82 27 91 48 109 32)
+(27 91 51 51 59 49 109 87 65 82 78 73 78 71 27 91 48 109 32)
+(27 91 51 52 59 49 109 73 78 70 79 27 91 48 109 32)
+(27 91 57 48 109 8230 27 91 48 109 32)
+"ERROR main.sld:3:7: expected I64, found String\nERROR library.sld: first\n  \n  last \"quoted\"\t"
+{"severity":"error","message":"expected I64, found String","source":{"file":"main.sld","line":3,"column":7}}
+{"severity":"error","message":"library.sld: first\n\nlast \"quoted\"\t\r\u0000","source":null}
+{"severity":"error","message":"line\n\"quoted\"\\\u001b","source":null}

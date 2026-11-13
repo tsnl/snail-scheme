@@ -8,9 +8,9 @@
 
 use crate::{
     fail_message,
-    host::{Port, flush_standard_output},
+    host::{Port, flush_standard_output, write_standard_error},
 };
-use std::{cell::RefCell, collections::BTreeMap, path::Path};
+use std::{cell::RefCell, collections::BTreeMap, io::IsTerminal, path::Path};
 
 const STANDARD_OUTPUT: u32 = (-2_i32) as u32;
 const STANDARD_INPUT: u32 = (-3_i32) as u32;
@@ -188,6 +188,24 @@ pub extern "C" fn write_string(id: u32, count: u32) {
         }
     });
     checked(result);
+}
+
+#[unsafe(export_name = "snail:io/write-error")]
+pub extern "C" fn write_error(count: u32) {
+    checked(staged_text(count).and_then(|text| write_standard_error(&text)));
+}
+
+#[unsafe(export_name = "snail:io/error-terminal")]
+pub extern "C" fn error_terminal() -> i32 {
+    i32::from(std::io::stderr().is_terminal())
+}
+
+// An intentional CLI failure has already been reported. Flush all ports
+// and preserve its status; panic formatting must not touch its output.
+#[unsafe(export_name = "snail:process/exit")]
+pub extern "C" fn exit(status: i32) {
+    close_all();
+    std::process::exit(status)
 }
 
 /// The console effect's default: one scalar to buffered standard output.

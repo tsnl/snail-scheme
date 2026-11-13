@@ -735,9 +735,11 @@ producer-input requests have no source record; internal no-location sentinels
 are unlocated. A failing dependency reports its own origin. Printed
 producer programs report their actual scratch source, while decoded generated
 syntax retains the recipe location already established by expansion. No source
-mapping is invented. The command-line driver prints each diagnostic as the
-compiler always has, `FILE:LINE:COLUMN: MESSAGE`, or `FILE: MESSAGE` for the
-file as a whole, a line each, and exits with status 1. A reply carries every
+mapping is invented. The command-line driver exits with status 1 and prints
+each diagnostic with an `ERROR` label and `FILE:LINE:COLUMN: MESSAGE`, or
+`FILE: MESSAGE` for the file as a whole. With `--error-format=json`, it emits
+the structured records as JSON lines on stderr; see [diagnostic output](toolchain.md).
+A reply carries every
 diagnostic of the failed compile, which reports each failed body of the
 library that failed to expand, or each failed definition and statement of
 the library that failed to check. These operations are implemented and tested.

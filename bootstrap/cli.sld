@@ -21,11 +21,9 @@
 (import
  (snail core base)
  (snail core io)
+ (snail shell diagnostic)
  (only (snail shell compiler read)
-       Loc
-       SourceDiagnostic
        diagnostics->list
-       diagnostic->string
        loc->string)
  (snail shell json)
  (snail shell json read)
@@ -42,41 +40,53 @@
   ((tools Tools)
    (run? Bool)
    (mode Mode)
+   (error-format ErrorFormat)
    (project String)
    (target String)
    (arguments (List String))))
 
 (define usage (→ String)
-  "usage: snail build [--release] PROJECT BUILD-TARGET | snail run PROJECT RUN-TARGET [ARGUMENT ...]")
+  "usage: snail build [--release] [--error-format=text|json] PROJECT BUILD-TARGET | snail run [--error-format=text|json] PROJECT RUN-TARGET [ARGUMENT ...]")
 
-(define (request (arguments (List String))) (→ Job)
+(define (request (arguments (List String))) (→ Job) (! mut)
   (match arguments
     ((Cons _ (Cons root (Cons runtime (Cons action rest))))
      (let ((tools (Tools root runtime (match (environment-variable "NODE")
                                         ((Some node) node)
                                         ((None) "node")))))
-       (cond ((string=? action "build") (build-request tools rest))
-             ((string=? action "run") (run-request tools rest))
+       (cond ((string=? action "build") (build-request tools (Debug) (TextErrors) rest))
+             ((string=? action "run") (run-request tools (TextErrors) rest))
              ((string=? action "resident") (resident-request tools rest))
-             (else (panic usage)))))
-    (_ (panic usage))))
+             (else (report-error (TextErrors) usage)))))
+    (_ (report-error (TextErrors) usage))))
 
-(define (build-request (tools Tools) (arguments (List String))) (→ Job)
+(define (build-request (tools Tools) (mode Mode) (format ErrorFormat) (arguments (List String)))
+  (→ Job) (! mut)
   (match arguments
-    ((Cons "--release" (Cons project (Cons target (Nil))))
-     (Job tools #f (Release) (resolved project) target (Nil)))
-    ((Cons project (Cons target (Nil))) (Job tools #f (Debug) (resolved project) target (Nil)))
-    (_ (panic usage))))
+    ((Cons "--release" rest) (build-request tools (Release) format rest))
+    ((Cons "--error-format=json" rest) (build-request tools mode (JsonErrors) rest))
+    ((Cons "--error-format=text" rest) (build-request tools mode (TextErrors) rest))
+    ((Cons project (Cons target (Nil)))
+     (Job tools #f mode format (project-path format project) target (Nil)))
+    (_ (report-error format usage))))
 
-(define (run-request (tools Tools) (arguments (List String))) (→ Job)
+(define (run-request (tools Tools) (format ErrorFormat) (arguments (List String))) (→ Job) (! mut)
   (match arguments
-    ((Cons project (Cons target rest)) (Job tools #t (Debug) (resolved project) target rest))
-    (_ (panic usage))))
+    ((Cons "--error-format=json" rest) (run-request tools (JsonErrors) rest))
+    ((Cons "--error-format=text" rest) (run-request tools (TextErrors) rest))
+    ((Cons project (Cons target rest))
+     (Job tools #t (Debug) format (project-path format project) target rest))
+    (_ (report-error format usage))))
 
 (define (resident-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
-    ((Cons project (Nil)) (Job tools #f (Development) (resolved project) "" (Nil)))
+    ((Cons project (Nil)) (Job tools #f (Development) (TextErrors) (resolved project) "" (Nil)))
     (_ (panic "usage: snail resident PROJECT"))))
+
+(define (project-path (format ErrorFormat) (argument String)) (→ String) (! mut)
+  (if (and (> (string-length argument) 0) (char=? (string-ref argument 0) #\-))
+      (report-error format (string-append "unknown option " argument))
+      (resolved argument)))
 
 ;; A path made absolute against the working directory, without empty or
 ;; "." components, and with each ".." taking the component before it.
@@ -121,14 +131,19 @@
                            (scratch job)
                            ".snail-"
                            (Nil)) first)
-    ((Err failure) (panic (failure->string failure)))
+    ((Err failure) (report-failure (● job error-format) failure))
     ((Ok candidate)
      (match (publish-project candidate)
-       ((Err message) (panic message))
+       ((Err message) (report-error (● job error-format) message))
        ((Ok _) (generation-of candidate target))))))
 
 (define (scratch (job Job)) (→ String)
   (string-append (● (● job tools) root) "/build/snail-run"))
+
+(define (report-failure (format ErrorFormat) (failure Failure)) (→ A) (! mut) (∀ A)
+  (match failure
+    ((CompileFailure diagnostics) (report-diagnostics format diagnostics))
+    ((BuildFailure message) (report-error format message))))
 
 (define (generation-of (candidate Candidate) (target String)) (→ String)
   (match (find (lambda (output) (string=? (● output name) target))
@@ -144,7 +159,8 @@
 (define (run-target (job Job) (description Project)) (→ Unit) (! mut fs clock process)
   (match (find (lambda (run) (string=? (● run name) (● job target)))
                (● description runs))
-    ((None) (panic (string-append "unknown project run target " (● job target))))
+    ((None) (report-error (● job error-format)
+                          (string-append "unknown project run target " (● job target))))
     ((Some run)
      (let* ((generation (build-and-publish job
                                            description
@@ -157,7 +173,8 @@
                                                 (string-append generation "/program.wasm"))
                                           (append (● run arguments) (● job arguments)))
                                   "."))))
-       (panic (string-append "cannot run " (● tools node) ": " (● error code)))))))
+       (report-error (● job error-format)
+                     (string-append "cannot run " (● tools node) ": " (● error code)))))))
 
 ;; ---- The resident builder ----
 
@@ -376,27 +393,6 @@
     ((CompileFailure diagnostics) (map source-diagnostic->json (diagnostics->list diagnostics)))
     ((BuildFailure message) (list (diagnostic->json message (JsonNull))))))
 
-;; A location in line 0 is not a point: one about a file as a whole, such
-;; as a missing source, names the file in its message.
-
-(define (source-diagnostic->json (diagnostic SourceDiagnostic)) (→ Json)
-  (let ((loc (● diagnostic loc)))
-    (cond ((= (string-length (● loc file)) 0)
-           (diagnostic->json (● diagnostic message) (JsonNull)))
-          ((and (> (● loc line) 0) (> (● loc column) 0))
-           (diagnostic->json (● diagnostic message) (source->json loc)))
-          (else (diagnostic->json (diagnostic->string diagnostic) (JsonNull))))))
-
-(define (source->json (loc Loc)) (→ Json)
-  (JsonObject (list (Pair "file" (JsonString (● loc file)))
-                    (Pair "line" (JsonInteger (● loc line)))
-                    (Pair "column" (JsonInteger (● loc column))))))
-
-(define (diagnostic->json (message String) (source Json)) (→ Json)
-  (JsonObject (list (Pair "severity" (JsonString "error"))
-                    (Pair "message" (JsonString message))
-                    (Pair "source" source))))
-
 ;; ---- The development service ----
 
 ;; The service's setup, from `dev`'s arguments after the command line's
@@ -434,7 +430,7 @@
     ((Development) (serve (Resident job (Nil) (None))))
     (_
      (match (read-project (● job project))
-       ((Err failure) (panic (failure->string failure)))
+       ((Err failure) (report-failure (● job error-format) failure))
        ((Ok description)
         (if (● job run?)
             (run-target job description)

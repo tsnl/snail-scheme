@@ -168,6 +168,10 @@ pub(crate) fn flush_standard_output() -> Result<(), String> {
     write_patiently(&mut output, &bytes).map_err(|e| e.to_string())
 }
 
+pub(crate) fn write_standard_error(text: &str) -> Result<(), String> {
+    write_patiently(&mut std::io::stderr().lock(), text.as_bytes()).map_err(|e| e.to_string())
+}
+
 // A host may hand over standard output as a non-blocking pipe, which
 // refuses writes while it is full, as when a program prints faster than
 // its reader reads. Waiting a moment and writing the rest keeps the output

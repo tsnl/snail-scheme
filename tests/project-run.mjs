@@ -32,13 +32,13 @@ try {
     (build-target program (program (entry "main.sld")))
     (run-target app (run program (args ("configured" "" "λ")))))`);
   await writeFile(join(project, 'main.sld'), source('(unit)'));
-  const execution = run('app', ['--flag', 'quote" with spaces', '$(shell-looking)']);
+  const execution = run('app', ['--flag', '--error-format=json', 'quote" with spaces', '$(shell-looking)']);
   execution.child.stdin.end('from stdin\n');
   const result = await execution, lines = result.stdout.split('\n');
   const first = await realpath(join(project, 'build/program'));
   assert.equal(lines[0], join(first, 'program.wasm'), 'argv names the exact generation');
   assert.match(dirname(lines[0]), /\/\.snail-[^/]+$/);
-  assert.deepEqual(lines.slice(1), ['configured', '', 'λ', '--flag', 'quote" with spaces', '$(shell-looking)', 'from stdin', '']);
+  assert.deepEqual(lines.slice(1), ['configured', '', 'λ', '--flag', '--error-format=json', 'quote" with spaces', '$(shell-looking)', 'from stdin', '']);
   assert.equal(result.stderr, '');
   assert.equal(await readFile(join(caller, 'run-cwd.txt'), 'utf8'), 'caller');
 
@@ -61,6 +61,13 @@ try {
   const beforeFailure = await realpath(join(project, 'build/program'));
   await writeFile(join(project, 'main.sld'), '(import (snail core base)) (define (main) (→ Unit) (missing-function))');
   await assert.rejects(run('app'), error => error.code === 1 && error.stdout === '' && /missing-function/.test(error.stderr));
+  await assert.rejects(execute(join(root, 'snail'), ['run', '--error-format=json', project, 'app'],
+    {cwd: caller, timeout: 120_000}), error => {
+      assert.equal(error.code, 1);
+      assert.equal(error.stdout, '');
+      assert.match(JSON.parse(error.stderr.trim()).message, /missing-function/);
+      return true;
+    });
   assert.equal(await realpath(join(project, 'build/program')), beforeFailure, 'failed rebuild never runs the preceding output');
   for (const name of ['missing', 'program']) {
     await assert.rejects(run(name), error => error.code === 1 && error.stdout === '' && /unknown project run target/.test(error.stderr));

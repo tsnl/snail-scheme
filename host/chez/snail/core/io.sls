@@ -1,9 +1,19 @@
 ;; The source compiler uses text files and byte vectors through this boundary.
 (library (snail core io)
-  (export read-file read-bytes write-file file-exists? command-line write-string write-line newline)
+  (export read-file read-bytes write-file file-exists? command-line write-string write-line newline
+          write-error error-terminal? environment-variable exit)
   (import
    (chezscheme)
-   (only (snail core base) vector-generate))
+   (only (snail core base) vector-generate Some None))
+  (define loaded-libc (load-shared-object #f))
+  (define isatty (foreign-procedure "isatty" (int) int))
+  (define (error-terminal?) (= (isatty 2) 1))
+  (define (environment-variable name)
+    (let ((value (and (not (string=? name "SNAIL_CWD")) (getenv name))))
+      (if value (Some value) (None))))
+  (define (write-error text)
+    (put-string (current-error-port) text)
+    (flush-output-port (current-error-port)))
   (define (read-file path) (call-with-input-file path get-string-all))
   (define (read-bytes path)
     (let ((bytes (call-with-port (open-file-input-port path) get-bytevector-all)))
