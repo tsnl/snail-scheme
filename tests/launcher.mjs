@@ -49,7 +49,7 @@ try {
   put('node', node);
   for (const name of ['snail', 'scripts/snail-tool', 'node']) chmodSync(at(name), 0o755);
   for (const name of ['src/a.sld', 'bootstrap/cli.sld', 'host/ide/ide.sld', 'host/browser/reload.sld',
-    'host/browser/host.mjs', 'host/ide/project.datum', 'host/ide/public/ide.css', 'host/chibi/driver.sld', 'scripts/snail.scm', 'rust-toolchain.toml',
+    'host/browser/host.mjs', 'host/ide/project.datum', 'host/ide/public/ide.css', 'host/chez/driver.sld', 'scripts/snail.scm', 'rust-toolchain.toml',
     'crates/snail-core-support/Cargo.toml', 'crates/snail-core-support/src/lib.rs']) put(name);
 
   const snail = (...args) => spawnSync(at('snail'), args, {env: {...process.env, NODE: at('node')}, encoding: 'utf8'});
@@ -63,7 +63,7 @@ try {
   assert.match(calls('node.calls')[0], new RegExp(`${at('build/cli.wasm')} ${root} ${at('build/runtime.wasm')} build project target$`));
   assert.equal(build(), 1, 'the second reuses its answer');
 
-  for (const input of ['src/a.sld', 'host/ide/ide.sld', 'crates/snail-core-support/src/lib.rs', 'rust-toolchain.toml', 'host/chibi/driver.sld']) {
+  for (const input of ['src/a.sld', 'host/ide/ide.sld', 'crates/snail-core-support/src/lib.rs', 'rust-toolchain.toml', 'host/chez/driver.sld']) {
     const before = calls('stage0.calls').length;
     touch(input);
     assert.equal(build(), before + 1, `an edit to ${input} asks again`);

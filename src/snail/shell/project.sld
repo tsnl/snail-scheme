@@ -165,7 +165,7 @@
       (→ (Option T))
       (! compile)
       (∀ T)
-      (⊨ (Copy T))
+      (⊨ (Copy T) (Drop (!) T))
       (match previous
         ((Some _) (compile-error loc (string-append "duplicate option " name)))
         ((None) (Some value))))
@@ -293,8 +293,8 @@
    (snail-tests
     (export test-project)
     (import
-     (only (scheme base) car cdr)
-     (only (chibi string) string-contains)
+     (only (chezscheme) car cdr)
+     (only (snail stage0 system) string-contains)
      (snail stage0 testing))
     (begin
       (define project-error
@@ -414,5 +414,5 @@
                              "duplicate run target x")
                             ("((run-target x (shell \"echo hello\")))" "expected (run BUILD-NAME")
                             ("((build-target x (program (entry \"x\"))) . tail)"
-                             "dotted lists are not part of Snail-Core")))))))
+                             "dotted lists are not part of Snail Scheme")))))))
    (else)))

@@ -14,4 +14,7 @@
     (lambda (handle) (match handle
                        ((Handle name) (write-line (string-append "released " name)))))))
 
-(discard (Handle "h"))
+(define main
+  (lambda ()
+    (discard (Handle "h"))
+    (unit)))

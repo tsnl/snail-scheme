@@ -10,4 +10,7 @@
 (instance (Drop (! output-port) Handle)
   (define drop (lambda (handle) (match handle ((Handle id) (display id))))))
 
-(write (Handle 1))
+(define main
+  (lambda ()
+    (write (Handle 1))
+    (unit)))

@@ -1,1 +1,1 @@
-error-any-control-function.sld:14:23: an Any does not record what a function performs, so type-convert cannot take (impl (Fn → I64 ! Gen))
+an Any does not record what a function performs, so type-convert cannot take (Fn → I64 ! Gen)

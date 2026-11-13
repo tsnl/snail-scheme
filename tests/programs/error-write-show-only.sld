@@ -8,4 +8,7 @@
 (instance (Show (!) Presented)
   (define show (lambda (value) "presentation")))
 
-(write (Presented))
+(define main
+  (lambda ()
+    (write (Presented))
+    (unit)))

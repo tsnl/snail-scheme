@@ -25,10 +25,13 @@
               (newline))
             (● bundle files)))
 
-;; These local values must not capture the imported macro's constructors.
-(let ((ArtifactBundle "shadow") (ArtifactFile "shadow") (Cons "shadow") (Nil "shadow"))
-  (print-bundle (bundle "client")))
-(print-bundle (admin))
-(print-bundle generated-bundle)
-(print-bundle (client-bundle))
-(print-bundle (generic-bundle "another specialization"))
+(define main
+  (lambda ()
+    ;; These local values must not capture the imported macro's constructors.
+    (let ((ArtifactBundle "shadow") (ArtifactFile "shadow") (Cons "shadow") (Nil "shadow"))
+      (print-bundle (bundle "client")))
+    (print-bundle (admin))
+    (print-bundle generated-bundle)
+    (print-bundle (client-bundle))
+    (print-bundle (generic-bundle "another specialization"))
+    (unit)))

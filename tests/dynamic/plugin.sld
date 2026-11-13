@@ -8,7 +8,7 @@
  (cell)
  (project))
 
-;; Set when the plugin's main runs, which loading it must do first.
+;; A pure compile-time value; loading the plugin runs no initializer.
 (define label (→ String) (string-append "summary of " "the project"))
 
 (define (summarize (project Project)) (→ Report)
@@ -17,3 +17,6 @@
           (fold-left + 0 (● project estimates))))
 
 (expose summarize "summarize" dynamic)
+
+;; A normal entry is present but was not exposed with the dynamic ABI.
+(define (main) (→ Unit) (unit))

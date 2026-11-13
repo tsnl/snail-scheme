@@ -5,8 +5,11 @@
 ;; A default has its operation's type: it may perform only the effects
 ;; that type names, which its performer is charged.
 (effect Clock
-  ((now (dyn (Fn → I64))))
+  ((now (Fn → I64)))
   (default
     ((now (lambda () (write-line "now") 0)))))
 
-(now)
+(define main
+  (lambda ()
+    (now)
+    (unit)))

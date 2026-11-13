@@ -1,4 +1,4 @@
-//! Path services for the Snail-Core library: the names a filesystem keeps,
+//! Path services for the Snail Scheme library: the names a filesystem keeps,
 //! where `io` serves the files behind them. Directories are made, listed and
 //! removed, paths renamed and examined, and symbolic links made and read. A
 //! file's whole text is read and written here too, as one value whose
@@ -27,7 +27,7 @@ use std::{
 
 // ---- Errors ----
 
-/// Why a path operation failed, as Snail-Core's `FileError` names it. The
+/// Why a path operation failed, as Snail Scheme's `FileError` names it. The
 /// discriminants are the codes the operations answer, so the two enums agree
 /// by number. What the runtime does not classify is `Other`, as is a host
 /// with no filesystem, such as a page's.
@@ -113,7 +113,7 @@ pub extern "C" fn remove_file(count: u32) -> i32 {
     done(std::fs::remove_file(checked(staged_path(count))))
 }
 
-/// An empty directory. Removing a tree is Snail-Core's, from listings.
+/// An empty directory. Removing a tree is Snail Scheme's, from listings.
 #[unsafe(export_name = "snail:io/remove-directory")]
 pub extern "C" fn remove_directory(count: u32) -> i32 {
     done(std::fs::remove_dir(checked(staged_path(count))))
@@ -244,7 +244,7 @@ pub extern "C" fn read_symbolic_link(count: u32) -> i32 {
 // A service that reads and saves files for an editor answers each failure,
 // so these take a file's text as one value and fail with a code. Reading
 // refuses, besides a `PathError`, what is not one version of a text file;
-// Snail-Core's `TextError` numbers these after `FileError`'s.
+// Snail Scheme's `TextError` numbers these after `FileError`'s.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(i32)]
 enum Refusal {
@@ -313,7 +313,7 @@ pub extern "C" fn read_text(limit: i64, count: u32) -> i32 {
     }
 }
 
-/// Modes agree with Snail-Core's WriteMode: exclusive create, existing only,
+/// Modes agree with Snail Scheme's WriteMode: exclusive create, existing only,
 /// or either. OpenOptions performs the existence check and open atomically.
 fn write_whole(path: String, text: String, mode: i32) -> Result<i32, PathError> {
     let mut options = std::fs::OpenOptions::new();
@@ -337,7 +337,7 @@ pub extern "C" fn write_text(mode: i32, count: u32) -> i32 {
 // ---- Replies ----
 
 // An operation that finds text, a directory's names or a link's target,
-// leaves it here as scalars and answers their count; Snail-Core reads them
+// leaves it here as scalars and answers their count; Snail Scheme reads them
 // one at a time before it performs another path operation. Like `datum`'s
 // real text, the reply is scratch owned by the runtime instance, with no
 // handle and no cleanup, and the next reply replaces it.

@@ -188,137 +188,128 @@
                 (Reconciled (Ok (unit)))
                 (PublishReplied 1 (None)))))
 
-;; ---- Scenarios ----
+(define (main) (→ Unit) (! output-port)
+  ;; ---- Scenarios ----
 
-(scenario "edits coalesce into one attempt"
-          (append started
-                  (list (BuildReplied 1 (succeeded "a"))
-                        (Reconciled (Ok (unit)))
-                        (PublishReplied 1 (None))
-                        (Touched (list "/r/apps/p/main.sld"))
-                        (Touched (list "/r/src/snail/core/base.sld"))
-                        (TimerFired)
-                        (TimerFired))))
-
-(scenario "an input edited while building supersedes the attempt"
-          (append started
-                  (list (Touched (list "/r/apps/p/lib/util.sld"))
-                        (BuildReplied 1 (succeeded "a"))
-                        (Reconciled (Ok (unit)))
-                        (DiscardReplied 1)
-                        (TimerFired))))
-
-(scenario "a file the build does not read does not"
-          (append started
-                  (list (Touched (list "/r/apps/p/notes.txt"))
-                        (BuildReplied 1 (succeeded "a"))
-                        (Reconciled (Ok (unit)))
-                        (PublishReplied 1 (None)))))
-
-(scenario "a public file is an input once a reply names the directory"
-          (list (ResidentStarted)
-                (Reconciled (Ok (unit)))
-                (Touched (list "/r/apps/p/public/index.html"))
-                (TimerFired)
-                (Touched (list "/r/apps/p/public/index.html"))
-                (BuildReplied 1 (succeeded "a"))
-                (Reconciled (Ok (unit)))))
-
-(scenario "a linked file is an input once a published program links it"
-          (append started
-                  (list (Touched (list "/r/apps/p/art.bin"))
-                        (BuildReplied 1 (linking "/r/apps/p/art.bin"))
-                        (Reconciled (Ok (unit)))
-                        (PublishReplied 1 (None))
-                        (Touched (list "/r/apps/p/art.bin"))
-                        (TimerFired))))
-
-(scenario "a reply for another epoch is fatal"
-          (append first-published
-                  (list (Touched (list "/r/apps/p/main.sld"))
-                        (TimerFired)
-                        (BuildReplied 1 failed))))
-
-(scenario "a publication that fails releases the attempt and reports it"
-          (append started
-                  (list (BuildReplied 1 (succeeded "a"))
-                        (Reconciled (Ok (unit)))
-                        (PublishReplied 1 (Some "cannot rename build/server")))))
-
-(scenario "a failed build reports its diagnostics and keeps what was published"
-          (append first-published
-                  (list (Touched (list "/r/apps/p/main.sld"))
-                        (TimerFired)
-                        (BuildReplied 2 failed)
-                        (Reconciled (Ok (unit))))))
-
-(scenario "a disk that cannot be read discards the candidate until it can"
-          (append started
-                  (list (BuildReplied 1 (succeeded "a"))
-                        (Reconciled (Err "cannot reconcile /r/apps/p"))
-                        (DiscardReplied 1)
-                        (Uncertain (Some "still failing"))
-                        (Uncertain (None))
-                        (TimerFired))))
-
-(scenario "a disk that cannot be read at start-up waits for it"
-          (list (ResidentStarted)
-                (RequestBuild)
-                (Reconciled (Err "cannot reconcile /r/apps/p"))
-                (Uncertain (Some "still failing"))
-                (Uncertain (None))
-                (TimerFired)))
-
-(scenario "closing with an attempt in flight abandons it, and nothing after"
-          (append started
-                  (list (Close) (BuildReplied 1 (succeeded "a")) (StartRun "app") (Close))))
-
-(scenario "closing while publishing releases"
-          (append started (list (BuildReplied 1 (succeeded "a")) (Reconciled (Ok (unit))) (Close))))
-
-(scenario "the resident's exit is fatal"
-          (append started
-                  (list (ResidentExited "status 1: snail: out of memory")
-                        (ResidentExited "again"))))
-
-(scenario "the resident's exit before the first reconciliation stays what failed"
-          (list (ResidentStarted) (ResidentExited "SIGKILL") (Reconciled (Ok (unit))) (TimerFired)))
-
-(scenario "run targets follow what is wanted and what is published"
-          (append first-published
-                  (list (StartRun "app")
-                        (StartRun "app")
-                        (Touched (list "/r/apps/p/main.sld"))
-                        (TimerFired)
-                        (BuildReplied 2 (succeeded "b"))
-                        (Reconciled (Ok (unit)))
-                        (PublishReplied 2 (None))
-                        (Touched (list "/r/apps/p/main.sld"))
-                        (TimerFired)
-                        (BuildReplied 3 (succeeded "b"))
-                        (Reconciled (Ok (unit)))
-                        (PublishReplied 3 (None))
-                        (RestartRun "app")
-                        (StopRun "app")
-                        (StartRun "nope")
-                        (StartRun "app")
-                        (Touched (list "/r/apps/p/project.datum"))
-                        (TimerFired)
-                        (BuildReplied 4 without-runs)
-                        (Reconciled (Ok (unit)))
-                        (PublishReplied 4 (None))
-                        (StartRun "app")
-                        (StopRun "app"))))
-
-(scenario "generations stay while recent or while a run runs from one"
-          (concatenate
-           (list started
-                 (list (BuildReplied 1 (built-in "g1" "a"))
-                       (Reconciled (Ok (unit)))
-                       (PublishReplied 1 (None))
-                       (StartRun "app"))
-                 (rebuilt 2 (built-in "g2" "a"))
-                 (rebuilt 3 (built-in "g3" "a"))
-                 (list (StopRun "app") (StartRun "app"))
-                 (rebuilt 4 (built-in "g4" "b"))
-                 (rebuilt 5 (built-in "g5" "b")))))
+  (scenario "edits coalesce into one attempt"
+            (append started
+                    (list (BuildReplied 1 (succeeded "a"))
+                          (Reconciled (Ok (unit)))
+                          (PublishReplied 1 (None))
+                          (Touched (list "/r/apps/p/main.sld"))
+                          (Touched (list "/r/src/snail/core/base.sld"))
+                          (TimerFired)
+                          (TimerFired))))
+  (scenario "an input edited while building supersedes the attempt"
+            (append started
+                    (list (Touched (list "/r/apps/p/lib/util.sld"))
+                          (BuildReplied 1 (succeeded "a"))
+                          (Reconciled (Ok (unit)))
+                          (DiscardReplied 1)
+                          (TimerFired))))
+  (scenario "a file the build does not read does not"
+            (append started
+                    (list (Touched (list "/r/apps/p/notes.txt"))
+                          (BuildReplied 1 (succeeded "a"))
+                          (Reconciled (Ok (unit)))
+                          (PublishReplied 1 (None)))))
+  (scenario "a public file is an input once a reply names the directory"
+            (list (ResidentStarted)
+                  (Reconciled (Ok (unit)))
+                  (Touched (list "/r/apps/p/public/index.html"))
+                  (TimerFired)
+                  (Touched (list "/r/apps/p/public/index.html"))
+                  (BuildReplied 1 (succeeded "a"))
+                  (Reconciled (Ok (unit)))))
+  (scenario "a linked file is an input once a published program links it"
+            (append started
+                    (list (Touched (list "/r/apps/p/art.bin"))
+                          (BuildReplied 1 (linking "/r/apps/p/art.bin"))
+                          (Reconciled (Ok (unit)))
+                          (PublishReplied 1 (None))
+                          (Touched (list "/r/apps/p/art.bin"))
+                          (TimerFired))))
+  (scenario "a reply for another epoch is fatal"
+            (append first-published
+                    (list (Touched (list "/r/apps/p/main.sld"))
+                          (TimerFired)
+                          (BuildReplied 1 failed))))
+  (scenario "a publication that fails releases the attempt and reports it"
+            (append started
+                    (list (BuildReplied 1 (succeeded "a"))
+                          (Reconciled (Ok (unit)))
+                          (PublishReplied 1 (Some "cannot rename build/server")))))
+  (scenario "a failed build reports its diagnostics and keeps what was published"
+            (append first-published
+                    (list (Touched (list "/r/apps/p/main.sld"))
+                          (TimerFired)
+                          (BuildReplied 2 failed)
+                          (Reconciled (Ok (unit))))))
+  (scenario "a disk that cannot be read discards the candidate until it can"
+            (append started
+                    (list (BuildReplied 1 (succeeded "a"))
+                          (Reconciled (Err "cannot reconcile /r/apps/p"))
+                          (DiscardReplied 1)
+                          (Uncertain (Some "still failing"))
+                          (Uncertain (None))
+                          (TimerFired))))
+  (scenario "a disk that cannot be read at start-up waits for it"
+            (list (ResidentStarted)
+                  (RequestBuild)
+                  (Reconciled (Err "cannot reconcile /r/apps/p"))
+                  (Uncertain (Some "still failing"))
+                  (Uncertain (None))
+                  (TimerFired)))
+  (scenario "closing with an attempt in flight abandons it, and nothing after"
+            (append started
+                    (list (Close) (BuildReplied 1 (succeeded "a")) (StartRun "app") (Close))))
+  (scenario "closing while publishing releases"
+            (append started
+                    (list (BuildReplied 1 (succeeded "a")) (Reconciled (Ok (unit))) (Close))))
+  (scenario "the resident's exit is fatal"
+            (append started
+                    (list (ResidentExited "status 1: snail: out of memory")
+                          (ResidentExited "again"))))
+  (scenario "the resident's exit before the first reconciliation stays what failed"
+            (list (ResidentStarted)
+                  (ResidentExited "SIGKILL")
+                  (Reconciled (Ok (unit)))
+                  (TimerFired)))
+  (scenario "run targets follow what is wanted and what is published"
+            (append first-published
+                    (list (StartRun "app")
+                          (StartRun "app")
+                          (Touched (list "/r/apps/p/main.sld"))
+                          (TimerFired)
+                          (BuildReplied 2 (succeeded "b"))
+                          (Reconciled (Ok (unit)))
+                          (PublishReplied 2 (None))
+                          (Touched (list "/r/apps/p/main.sld"))
+                          (TimerFired)
+                          (BuildReplied 3 (succeeded "b"))
+                          (Reconciled (Ok (unit)))
+                          (PublishReplied 3 (None))
+                          (RestartRun "app")
+                          (StopRun "app")
+                          (StartRun "nope")
+                          (StartRun "app")
+                          (Touched (list "/r/apps/p/project.datum"))
+                          (TimerFired)
+                          (BuildReplied 4 without-runs)
+                          (Reconciled (Ok (unit)))
+                          (PublishReplied 4 (None))
+                          (StartRun "app")
+                          (StopRun "app"))))
+  (scenario "generations stay while recent or while a run runs from one"
+            (concatenate
+             (list started
+                   (list (BuildReplied 1 (built-in "g1" "a"))
+                         (Reconciled (Ok (unit)))
+                         (PublishReplied 1 (None))
+                         (StartRun "app"))
+                   (rebuilt 2 (built-in "g2" "a"))
+                   (rebuilt 3 (built-in "g3" "a"))
+                   (list (StopRun "app") (StartRun "app"))
+                   (rebuilt 4 (built-in "g4" "b"))
+                   (rebuilt 5 (built-in "g5" "b")))))
+  (unit))

@@ -374,9 +374,9 @@
     ;; a path, each sent a character at a time, and a number; the host
     ;; answers with a number, -1 for a failure. Only Node implements it.
     (effect modes
-      ((mode-character (dyn (Fn Char → Unit)))
-       (mode-end (dyn (Fn → Unit)))
-       (mode-command (dyn (Fn I32 → I32))))
+      ((mode-character (Fn Char → Unit))
+       (mode-end (Fn → Unit))
+       (mode-command (Fn I32 → I32)))
       (default ((mode-character host-argument-character)
                 (mode-end host-argument-end)
                 (mode-command host-command))))

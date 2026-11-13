@@ -3,7 +3,7 @@
  (snail core io))
 
 (typeclass (ReadValue e T)
-  (: read-value (impl (Fn T → String ! e))))
+  (: read-value (Fn T → String ! e)))
 
 (instance (ReadValue (! output-port) String)
   (define read-value

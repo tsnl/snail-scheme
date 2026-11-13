@@ -1,5 +1,6 @@
 (import
  (snail core base)
+ (only (snail core forms) host)
  (snail core io)
  (snail shell task)
  (snail shell future)
@@ -9,14 +10,18 @@
  (snail shell ui)
  (snail shell ide application))
 
+(struct Race
+  ((injected Bool)))
+
 ;; A DOM edit can precede its input message. Change the live field after
 ;; formatting was scheduled but before its command runs. Neither replacement
 ;; nor scroll restoration may act on the obsolete field snapshot.
-(define (snapshot (session (Borrow Session))) (→ Ide)
+(define (snapshot (session Session)) (→ Ide) (! mut host)
   (● session ide))
 
-(define (finished (session Session)) (→ Ide) (! mut)
-  (match session ((Session ide pending) (drop pending) ide)))
+(define (finished (session Session)) (→ Ide) (! mut host)
+  (close-session! session)
+  (● session ide))
 
 (define (replace-field (changed-path Bool)) (→ Unit) (! dom)
   (match (Pair (element-by-id "text-0") (element-by-id "editor-0"))
@@ -28,16 +33,16 @@
   (unit))
 
 (define (race-update (changed-path Bool)
-                     (injected (Ref Bool))
+                     (race Race)
                      (session Session)
                      (message (Option Msg)))
   (→ Session)
-  (! mut completion dom fetch)
+  (! mut host completion dom fetch tasks)
   (let ((next (update-session session message)))
     ;; The first completion applies the named command and queues formatting.
     ;; Change the DOM before that queued task gets its next scheduler turn.
-    (when (and (match message ((None) #t) (_ #f)) (not (ref-get injected)))
-      (ref-set! injected #t)
+    (when (and (match message ((None) #t) (_ #f)) (not (● race injected)))
+      (set! (● race injected) #t)
       (replace-field changed-path))
     next))
 
@@ -48,7 +53,7 @@
      (write-line (show (number-property scroller "scrollTop"))))
     (_ (panic "missing editor"))))
 
-(define (run (changed-path Bool)) (→ Unit) (! mut output-port tasks)
+(define (run (changed-path Bool)) (→ Unit) (! mut host completion output-port tasks)
   (handle fetch
       ((request (lambda (method url headers body)
                   (Ok (Reply 200 "{\"text\":\"(a   b)\",\"revision\":\"first\"}"))))
@@ -60,29 +65,29 @@
                                         (finished
                                          (run-reactor (begin-session initial)
                                                       (list (Open "main.sld"))
-                                                      (ann update-session
-                                                           (dyn (Fn Session
-                                                                    (Option Msg)
-                                                                    → Session
-                                                                    ! mut completion output-port dom fetch)))
-                                                      session-view session-window snapshot
+                                                      (lambda (model message)
+                                                        (update-session model message))
+                                                      (lambda (model) (session-view model))
+                                                      (lambda (model) (session-window model))
+                                                      (lambda (model) (snapshot model))
                                                       (lambda (model) (unit))
                                                       (lambda (model) (unit)))))) first))
-          (injected (ref #f)))
+          (race (Race #f)))
       (with-memory-dom (Nil)
                        (lambda ()
-                         (drop (run-reactor (begin-session loaded)
-                                            (list (DispatchCommand "format-buffer"))
-                                            (ann (lambda (model msg)
-                                                   (race-update changed-path injected model msg))
-                                                 (dyn (Fn Session
-                                                          (Option Msg)
-                                                          → Session
-                                                          ! mut completion output-port dom fetch)))
-                                            session-view session-window snapshot
-                                            (lambda (model) (unit)) (lambda (model) (unit))))
+                         (close-session! (run-reactor (begin-session loaded)
+                                                      (list (DispatchCommand "format-buffer"))
+                                                      (lambda (model msg)
+                                                        (race-update changed-path race model msg))
+                                                      (lambda (model) (session-view model))
+                                                      (lambda (model) (session-window model))
+                                                      (lambda (model) (snapshot model))
+                                                      (lambda (model) (unit))
+                                                      (lambda (model) (unit))))
                          (report-editor)))
-      (unless (ref-get injected) (panic "the formatting race was not exercised"))
+      (unless (● race injected) (panic "the formatting race was not exercised"))
       (unit))))
 
-(dispatch-local (once (lambda () (run #f) (run #t))))
+(define (main) (→ Unit) (! host mut output-port completion tasks)
+  (dispatch-local (once (lambda () (run #f) (run #t))))
+  (unit))

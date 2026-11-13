@@ -222,8 +222,8 @@
    (snail-tests
     (export test-inputs)
     (import
-     (only (scheme base) list)
-     (only (chibi string) string-contains)
+     (only (chezscheme) list)
+     (only (snail stage0 system) string-contains)
      (snail stage0 testing))
     (begin
       (define input-error

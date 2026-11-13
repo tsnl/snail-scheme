@@ -1,3 +1,1 @@
-type mismatch
-I64
-Any
+type mismatch: expected (Cell I64), found (Cell Any)

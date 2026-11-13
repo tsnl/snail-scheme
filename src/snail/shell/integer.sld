@@ -161,13 +161,15 @@
     ;; a copy local to this call.
 
     (define (carry-limbs (sums (Vector I64))) (→ (Vector I64))
-      (let ((limbs (vector->array sums)))
-        (let loop ((index 0) (carry 0))
-          (when (< index (array-length limbs))
-            (let* ((value (+ (array-ref limbs index) carry)) (low (modulo value base)))
-              (array-set! limbs index low)
-              (loop (+ index 1) (quotient (- value low) base)))))
-        (array->vector limbs)))
+      (unsafe-total (lambda ()
+                      (let ((limbs (vector-copy sums)))
+                        (let loop ((index 0) (carry 0))
+                          (when (< index (vector-length limbs))
+                            (let* ((value (+ (vector-ref limbs index) carry))
+                                   (low (modulo value base)))
+                              (vector-set! limbs index low)
+                              (loop (+ index 1) (quotient (- value low) base)))))
+                        limbs))))
 
     (define (integer-add (a Integer) (b Integer)) (→ Integer)
       (cond ((= (bool->sign (● a negative)) (bool->sign (● b negative)))
@@ -190,18 +192,21 @@
     ;; product is carried at once so sums stay far below 2^63.
 
     (define (multiply-magnitudes (a (Vector I64)) (b (Vector I64))) (→ (Vector I64))
-      (let ((product (make-array (+ (vector-length a) (vector-length b)) 0)))
-        (vector-for-each
-         (lambda (i)
-           (let loop ((j 0) (carry 0))
-             (if (< j (vector-length b))
-                 (let ((value (+ (array-ref product (+ i j))
-                                 (+ (* (vector-ref a i) (vector-ref b j)) carry))))
-                   (array-set! product (+ i j) (remainder value base))
-                   (loop (+ j 1) (quotient value base)))
-                 (array-set! product (+ i j) (+ (array-ref product (+ i j)) carry)))))
-         (list->vector (iota (vector-length a))))
-        (array->vector product)))
+      (unsafe-total (lambda ()
+                      (let ((product (make-vector (+ (vector-length a) (vector-length b)) 0)))
+                        (vector-for-each
+                         (lambda (i)
+                           (let loop ((j 0) (carry 0))
+                             (if (< j (vector-length b))
+                                 (let ((value (+ (vector-ref product (+ i j))
+                                                 (+ (* (vector-ref a i) (vector-ref b j)) carry))))
+                                   (vector-set! product (+ i j) (remainder value base))
+                                   (loop (+ j 1) (quotient value base)))
+                                 (vector-set! product
+                                              (+ i j)
+                                              (+ (vector-ref product (+ i j)) carry)))))
+                         (list->vector (iota (vector-length a))))
+                        product))))
 
     (define (integer-multiply (a Integer) (b Integer)) (→ Integer)
       (canonical (not (= (bool->sign (● a negative)) (bool->sign (● b negative))))

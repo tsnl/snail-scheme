@@ -1,87 +1,66 @@
 # Bootstrap and self-hosting
 
-The compiler is a Snail-Core program that compiles itself, and Chibi Scheme runs
-that same source as stage 0. Both are possible because of one property of
-Snail-Core's core: delete its typed forms, replacing them with untyped R7RS
-equivalents, and the result is an R7RS program with the same behavior
-whenever the Snail-Core program does not trap or overflow.
+The compiler is a Snail Scheme program that compiles itself. Chez Scheme
+runs that same source for stage zero through a deliberately small host
+adapter. This does not make Snail Scheme an R6RS or R7RS implementation:
+only the compiler's explicit source closure has an erased host equivalent.
 
-| Snail-Core | R7RS after erasure |
+## The stage-zero boundary
+
+`host/chez/load.scm` loads the compiler's `.sld` library envelopes as native
+Chez libraries. `host/chez/` supplies `(snail core base)`, `(snail core table)`,
+`(snail core io)` and the typed-form adapter, plus the build driver. Compiler
+modules come from `src/snail/shell/compiler/`. An application library outside
+that closure is rejected. Test mode additionally admits the test support and
+project parser/planner fixtures.
+
+| Snail Scheme source | Chez execution |
 | --- | --- |
-| `(struct (Vec3 T) ((x T) (y T) (z T)))` | `(define-record-type Vec3 (Vec3 x y z) Vec3? (x Vec3-x) (y Vec3-y) (z Vec3-z))` |
-| `(enum (Option T) (Some ((value T))) (None))` | One record type per case (`Some`, `None`) and a predicate `Option?` that tests the cases. |
-| `(: ...)`, `(type ...)` | Removed, including effect rows. |
-| `(effect Log ((log T)) ...)` | A parameter holding a record of implementations and the outer record, and a procedure per operation that calls the current implementation with the parameter rebound to the outer record. The shim supplies host defaults. |
-| `(handle Log ((log impl)) body ...)` | `(parameterize ((Log (make-Log impl))) body ...)` |
-| `(ann e T)`, `(type-convert e T)` | `e` |
-| `(match e ((Some v) a) ((None) b))` | `(let ((x e)) (cond ((Some? x) (let ((v (Some-value x))) a)) ((None? x) b)))` |
-| Typeclass method | A generic procedure that dispatches on its first argument's record predicate. |
-| `I64`, `F64` literals | Exact integers and flonums. |
+| Typed `define` headers | Parameter names and function bodies, with type/effect clauses erased. |
+| `struct` and `enum` | Distinct constructor identities with mutable fields; pure replacement copies the outer object. |
+| `(● object field ...)`, `set!`, `replace!` | Registered field slots, with ordinary object aliasing. |
+| `match` | Case tests and field bindings. |
+| Types, quantifiers and constraints | Erased after the host adapter has recognized their syntax. |
+| Compiler failure effects | Host handlers with a delimited escape to the compiler's error boundary. |
+| Compiler tables | Host tables whose externally visible traversal order agrees with the typed library. |
 
-Each `define-record-type` creates a fresh runtime type, so struct identities and
-enum cases stay distinct after erasure.
+Chez's host control facilities are implementation details of this adapter.
+They do not expose `call/cc`, `dynamic-wind`, a borrow checker or a numeric
+tower to Snail programs. The adapter need only execute the effects used by
+the compiler; arbitrary source handlers are interpreted or compiled by the
+compiler itself.
 
-**The compiler is written in that core.** No host-specific code appears in the
-passes. Hosts differ only in library implementations, which is ordinary
-in Scheme, where every implementation provides its own `(scheme base)`:
+Compile-time evaluation's scalar services use the same Rust implementations
+on both hosts. `host/chez/snail/shell/compiler/constant-scalars.sls` loads the
+native support library, while compiled Snail calls its Wasm counterpart.
+This keeps numeric and Unicode behavior at that boundary consistent.
 
-- **On Snail-Core.** The typed forms are built in, and the compiler's libraries,
-  `(snail core base)`, `(snail core table)` and `(snail core io)`, are Snail-Core libraries backed by
-  WASI.
-- **On Chibi.** `host/chibi/` implements the same three libraries with
-  Chibi's own procedures, and `(snail stage0 forms)` defines `:`, `struct`, `enum`,
-  `type` and `match` as erasing macros. The compiler defines no typeclass
-  instances of its own, so nothing dispatches at run time for field paths.
-  The `(● receiver label ...)` macro traverses nominal struct fields by name;
-  Chibi's macro performs the same lookup from the recorded struct layouts.
-  `base` re-exports this generic macro; adding a field needs no new host binding.
-  - **Effects.** `effect` and `handle` implement control effects whose
-    operations are never resumed, which is all the compiler's failures need
-    ([#552](https://github.com/tsnl/snail-scheme/issues/552)). An effect is
-    a parameter holding its innermost handler. An operation escapes to its
-    `handle` with `call/cc`, so no guard in between can intercept it, and
-    runs its implementation there, outside the handler. An operation whose
-    answer is `Never` takes no `resume`; any other is handed one that
-    errors with "stage 0 cannot resume". Ordinary operations, and `host` and
-    `default` clauses, are refused. A successful compile performs no
-    operation, so the two hosts' output stays identical.
+The compiler must not depend on differences in host integer overflow,
+argument evaluation order or table iteration. Stateful sibling operations
+are explicitly sequenced; generated identifiers and declaration order are
+deterministic. The bootstrap checks the resulting text, not just whether
+both outputs run.
 
-The shared driver reads its arguments and files through `(snail core io)`, and both
-entries publish missing-input requests after unwinding.
+## Stages and checks
 
-Stage 0's only search root is `bootstrap/chibi-include/`: one symlink per
-library the compiler's own load closure reaches, and nothing else, so no other
-library under `src/` can enter the bootstrap by accident. Reaching for one
-fails with `couldn't find import`, which is how `make test-chibi` and
-`make bootstrap` catch a compiler module that starts importing the standard
-library.
+1. A working previous compiled compiler produces stage one. For a clean
+   bootstrap, Chez executes the source to produce it instead.
+2. Stage one compiles the source to stage two.
+3. Stage two compiles the source again to stage three.
+4. Stages two and three must have exactly identical Wasm text.
+5. When Chez produced stage one, stages one and two must also have exactly
+   identical text: the source host and compiled compiler ran the same input.
 
-The hosts disagree on integer overflow, argument evaluation order and the
-order of table keys, so the compiler's output must not depend on them. The
-places that once did are closed: every generated name derives from what it
-names — a lambda from the hash of its own text, a string from its content,
-an import from its module and symbol — and a pass that expands, specializes
-or emits sibling subexpressions sequences them rather than letting the host
-choose. Declarations are listed by name. So the two hosts emit the same text
-for the same program, and the build checks it: `make test` compares them on
-`examples/fibonacci.sld`, and `make bootstrap` compares them on the compiler
-itself. The compiled compiler runs on two engines, V8 and wasmtime, and
-`make test-wasmtime`, which runs the suite on wasmtime, compares those on
-Siegework.
+`make bootstrap` removes the old compiler output and starts from Chez.
+`./scripts/snail-tool bootstrap` can reuse a working compiled compiler.
+Ordinary tool invocations rebuild stale compiler sources automatically.
+Set `CHEZ` to the Chez `scheme` executable when it is not on `PATH`.
 
-**Bootstrap.**
-
-1. Stage 0 is the previous compiled compiler, or, the first time, the
-   compiler's source running on Chibi.
-2. Stage 0 compiles the source to Wasm, giving stage 1.
-3. Stage 1 compiles stage 2.
-4. Stage 2 must reproduce its own text exactly.
-5. When Chibi was stage 0, stage 1's text must be stage 2's as well: the two
-   hosts ran the same source on the same input.
-
-The driver repeats this whenever the compiler's source changes, so a pinned
-Wasm build bootstraps without Chibi. Chibi remains the host of the first
-bootstrap and of `make test-chibi`.
+`make test` exercises compiler units and linked programs with the compiled
+compiler. `make test-chez` compiles the suite from source on Chez.
+`make test-wasmtime` uses Wasmtime for supported compiles and executions and
+checks agreement with V8. `make check` verifies source formatting. There is
+no Chibi test or bootstrap path.
 
 ## The native executable
 
@@ -99,7 +78,7 @@ input, having written its `request.datum` first.
 only WASI, the files it links and loading modules
 (`crates/snail/src/program.rs`).
 PROGRAM is one linked module, or the `modules.json` of a per-library build,
-which the engine runs: `(snail shell engine)`, a Snail-Core program stage 0
+which the engine runs: `(snail shell engine)`, a Snail Scheme program stage 0
 builds to `build/engine/engine.wasm` (`bootstrap/engine.sld`), which both
 hosts start with the manifest in `SNAIL_MANIFEST`, or at
 `SNAIL_ENGINE_MODULE`. The engine reads the runtime and each module from
@@ -107,11 +86,11 @@ the store the manifest names, by digest, through its `linked-content-store`
 effect, which this entry handles by reading files. It links them through
 the Wasm primitives of `(snail shell wasm)`, the runtime first and each
 library's module after those it imports from, names the runtime
-`snail.core.support` so the host stages Bytes in its memory, runs each
-`main` in program order, and serves the files the program links, each
+`snail.core.support` so the host stages Bytes in its memory, calls the root program
+`main`, and serves the files the program links, each
 read in a task of its own that wakes the reading task's ticket. Linking is
 the engine's first task: the host turns the engine once after its `main`,
-which links the program and runs its mains, and then reads
+which links the program and calls its entry, and then reads
 `engine:status`. The engine's own scheduler and the program's are turned
 as one through its `engine:turn`, `engine:wake`, `engine:close-tasks`,
 `engine:running` and `engine:live`, which the host calls in place of
@@ -141,7 +120,7 @@ that uses sockets, processes, file modes or watches runs on Node.
 Node is still the default engine. `SNAIL_ENGINE=wasmtime` runs every compile
 on `build/snail` instead, the bootstrap's stages included, and every program
 the driver runs that imports neither of those modules: `program-command`
-in `host/chibi/snail/stage0/build.sld` asks `build/snail imports PROGRAM`,
+in `host/chez/snail/stage0/build.sld` asks `build/snail imports PROGRAM`,
 which reads the import sections without compiling them, and runs the rest
 on Node. Stage 0 also uses this executable for assembly and static linking,
 so the driver builds it with Cargo when stale regardless of the selected
@@ -154,35 +133,12 @@ compiler, which saves each compile about 0.7 s. The file belongs to one
 wasmtime version, configuration and CPU, so it is a build output and is
 never committed.
 
-The engine is opt-in because it is slow. Wasmtime's one working collector,
-deferred reference counting, collects whenever its list of possible stack
-roots doubles past 1,024 entries, a constant in the code Cranelift
-generates. Each collection walks every global of a GC type, resolving its
-type, and the compiler has 1,539 of them; that and the collector's
-free-list allocator take most of a compile. Warm, in seconds:
+Node remains the default for compiler execution. Wasmtime provides an
+independent engine and is exercised by `make test-wasmtime`. Performance
+comparisons must identify the compiler revision and distinguish engine
+startup, compilation of Wasm to native code, and execution; the language's
+boxed records and counted ownership change those costs substantially.
 
-| Compile | Node | wasmtime | wasmtime, no collector |
-| --- | --- | --- | --- |
-| `tests/programs/wire.sld` | 0.10 | 0.94 | 0.08 |
-| `tests/programs/http.sld` | 0.14 | 2.0 | 0.15 |
-| Siegework | 0.36 | 10.1 | 0.87 |
-| The compiler itself | 1.31 | 47 | 4.75 |
-
-Without collecting at all, wasmtime matches Node on small compiles but takes
-3.6 times as long on the compiler, since each allocation and each read of a
-function reference stored in a GC object is a call into the runtime; it then
-needs 2.2 GB, of a GC heap wasmtime addresses with 32 bits. Switching the
-default waits for a compile within three times Node's, the gate
-[#562](https://github.com/tsnl/snail-scheme/issues/562) sets. The
-backend emitting fewer globals of GC types would cut each collection's cost
-directly.
-
-Programs show the same split. A short one, such as `examples/fibonacci.sld`,
-runs in about 15 ms on `build/snail` against Node's 55, which pays for
-starting V8; one that allocates much runs 10 to 35 times as long, such as
-Siegework's terrain test, 17.5 s against 0.53, and the formatter checking
-every tracked Scheme file, 12 s against 0.9.
-
-**Proposed** in #562, not implemented: one `snail` executable that embeds the compiler and the
-project builder as precompiled images, replacing the shell, Node and Chibi
-chain for `snail build` and `snail run`, with Chibi kept for stage 0.
+The standalone executable and its embedded project tooling remain the
+subject of [#562](https://github.com/tsnl/snail-scheme/issues/562). Chez is
+needed for a clean source bootstrap, not to execute a compiled program.

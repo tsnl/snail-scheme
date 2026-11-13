@@ -1,6 +1,6 @@
 (import
  (snail core base))
-(effect audit ((note (dyn (Fn → Unit)))))
+(effect audit ((note (Fn → Unit))))
 (struct Resource
   ((name String)))
 (instance (Drop (! audit) Resource) (define drop (lambda (resource) (note))))

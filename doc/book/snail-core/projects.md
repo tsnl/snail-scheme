@@ -30,7 +30,7 @@ python3 -m http.server 4191 --directory build/siegework
 ./snail dev .
 ```
 
-Snail-Scheme uses one root `project.datum` for the whole repository. Its
+Snail Scheme uses one root `project.datum` for the whole repository. Its
 `siegework` and `hearsay` targets name entries, library roots and public files
 under `apps/`. Opening the root with `snail dev .` makes the compiler, IDE,
 libraries and applications available in one editor session. Files need not
@@ -80,7 +80,7 @@ backslashes, colons and NUL. The whole spelling `"."` may name a directory but
 cannot be an entry file. This lexical rule is not a filesystem sandbox: parsing
 does not resolve symlinks, check existence or read source files.
 
-`(snail shell project)` uses the compiler's located reader on Chibi and Wasm.
+`(snail shell project)` uses the compiler's located reader on Chez and Wasm.
 `parse-project` takes text and its filename and returns ordered typed build and
 run lists. A resolved `RunTarget` contains a `ProgramBuild`; callers need not
 recheck its existence or kind. Builds are collected before runs are resolved,

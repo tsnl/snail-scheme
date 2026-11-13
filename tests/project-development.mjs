@@ -126,8 +126,8 @@ async function throughTheService() {
     // The consumer fails after client compiled. Nothing is published, and the
     // attempt removes every generation it created.
     const beforeFailure = outputs(), accepted = fs.realpathSync(join(project, 'build/server'));
-    write('server.sld', `${source}\n(missing-function)\n`);
-    write('client.sld', '(import (snail core base)) (ann 42 I64)');
+    write('server.sld', `${source}\n(define (broken) (→ Unit) (missing-function))\n`);
+    write('client.sld', '(import (snail core base)) (define (main) (→ Unit) (drop (ann 42 I64)))');
     write('client-public/nested/data.bin', Buffer.from([90, 0, 255]));
     const failed = await service.rebuilt('failed');
     assert.match(failed.diagnostics[0].message, /missing-function/);
@@ -149,7 +149,7 @@ async function throughTheService() {
     // participate in that decision; the compiler checks artifact bytes itself.
     const description = libraries => `((build-target server (program (entry "main.sld") (library-roots ("${libraries}")))))`;
     const library = value => `(define-library (sample message) (export message) (import (snail core base)) (begin (define message (→ String) "${value}")))`;
-    write('main.sld', '(import (snail core base) (snail core io) (sample message)) (write-line message)');
+    write('main.sld', '(import (snail core base) (snail core io) (sample message)) (define (main) (→ Unit) (! output-port) (write-line message))');
     write('one/sample/message.sld', library('one'));
     write('two/sample/message.sld', library('two'));
     for (const name of ['one', 'two']) {
@@ -174,7 +174,7 @@ async function throughTheService() {
     // and exceed the filesystem limit for an otherwise valid source filename.
     const longName = 'x'.repeat(200);
     write(`two/${longName}.sld`, `(define-library (${longName}) (export message) (import (snail core base)) (begin (define message (→ String) "long name")))`);
-    write('main.sld', `(import (snail core base) (snail core io) (${longName})) (write-line message)`);
+    write('main.sld', `(import (snail core base) (snail core io) (${longName})) (define (main) (→ Unit) (! output-port) (write-line message))`);
     assert.equal(execute(target(await service.rebuilt(), 'server').directory), 'long name\n');
 
     // A save that renames a new file over the source, as `sed -i` and many
@@ -184,7 +184,7 @@ async function throughTheService() {
     // touches it.
     for (const name of ['renamed once', 'renamed twice']) {
       const before = (await service.status()).id;
-      write('next.sld', `(import (snail core base) (snail core io)) (write-line "${name}")`, parent);
+      write('next.sld', `(import (snail core base) (snail core io)) (define (main) (→ Unit) (! output-port) (write-line "${name}"))`, parent);
       fs.renameSync(join(parent, 'next.sld'), join(project, 'main.sld'));
       assert.equal(execute(target(await service.settled(before), 'server').directory), `${name}\n`);
     }

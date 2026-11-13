@@ -1,1 +1,1 @@
-an FnMut call requires exclusive access to its receiver
+a reusable procedure cannot capture a linear value

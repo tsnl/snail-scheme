@@ -68,12 +68,12 @@
 
     ;; ---- Typed replies ----
 
-    (define (decoded-reply (decode (dyn (Fn Json → (Option T))))
+    (define (decoded-reply (decode (Fn Json → (Option T)))
                            (subject String)
                            (reply (Result Json Failure)))
       (→ (Result T Failure))
       (∀ T)
-      (⊨ (Copy T))
+      (⊨ (Copy T) (Drop (!) T))
       (match reply
         ((Err failure) (Err failure))
         ((Ok json)

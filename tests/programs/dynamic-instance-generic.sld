@@ -18,22 +18,25 @@
   (→ String)
   (! e)
   (∀ T e)
-  (⊨ (Describe e T) (Copy T))
+  (⊨ (Describe e T) (Copy T) (Drop e T))
   (string-append (describe value) (describe value)))
-
-(write-line (twice (Wrapper 7)))
-(handle dyn-cast ((conversion-failed (lambda (_) (write-line "caught generic instance"))))
-  (write-line (twice (Wrapper (ann "ok" Any))))
-  (write-line (twice (Wrapper (ann #t Any))))
-  (write-line "unreachable"))
 
 ;; An explicit generic presentation propagates its element's row.
 (instance (Show (! e) (List T))
-  (⊨ (Show e T))
+  (⊨ (Show e T) (Copy T) (Drop e T))
   (define show (lambda (items)
                  (string-append "(" (string-join (map show items) " ") ")"))))
 
 (instance (Show (! dyn-cast) Any) (dispatch I64 String))
-(handle dyn-cast ((conversion-failed (lambda (_) (write-line "caught list show"))))
-  (write-line (show (list (ann 7 Any) (ann "ok" Any))))
-  (write-line (show (list (ann #t Any)))))
+
+(define main
+  (lambda ()
+    (write-line (twice (Wrapper 7)))
+    (handle dyn-cast ((conversion-failed (lambda (_) (write-line "caught generic instance"))))
+      (write-line (twice (Wrapper (ann "ok" Any))))
+      (write-line (twice (Wrapper (ann #t Any))))
+      (write-line "unreachable"))
+    (handle dyn-cast ((conversion-failed (lambda (_) (write-line "caught list show"))))
+      (write-line (show (list (ann 7 Any) (ann "ok" Any))))
+      (write-line (show (list (ann #t Any)))))
+    (unit)))

@@ -1,8 +1,8 @@
-//! WebAssembly assembly and static linking for tools written in Snail-Core: the
+//! WebAssembly assembly and static linking for tools written in Snail Scheme: the
 //! toolchain's runtime only, behind the `assembler` feature.
 //!
 //! Requests arrive through the compiler's String/Bytes staging. The result
-//! stays here until the next request, and Snail-Core reads it a byte at a
+//! stays here until the next request, and Snail Scheme reads it a byte at a
 //! time. No guest value is held across calls.
 
 use std::cell::RefCell;

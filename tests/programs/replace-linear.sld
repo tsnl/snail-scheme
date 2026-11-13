@@ -11,10 +11,11 @@
 (struct Job
   ((name String)
    (attempts I64)
-   (work (dyn (FnOnce → Unit ! output-port)))))
+   (work (FnOnce → Unit ! output-port))))
 
 (define (retry (job Job)) (→ Job)
   (Job-attempts-set job (+ (● job attempts) 1)))
+
 ;; ANCHOR_END: retry
 
 (define (run (job Job)) (→ Unit) (! output-port)
@@ -33,14 +34,16 @@
   (Labelled-label-set labelled "relabelled"))
 
 ;; A replacement is a function too, and consumes the record it is given.
-(define (bump (replace (dyn (Fn Job I64 → Job))) (job Job)) (→ Job)
+(define (bump (replace (Fn Job I64 → Job)) (job Job)) (→ Job)
   (replace job 5))
 
-(run (retry (retry (Job "build" 0 (once (lambda () (write-line "built")))))))
-(run (bump Job-attempts-set (Job "deploy" 0 (once (lambda () (write-line "deployed"))))))
-(let* ((original (Labelled 1 "original")) (changed (relabel original)))
-  (write-line (string-append (● original label) ", " (● changed label))))
-(match (relabel (Labelled (Job "test" 0 (once (lambda () (write-line "tested")))) "job"))
-  ((Labelled job label)
-   (write-line label)
-   (run job)))
+(define (main) (→ Unit) (! output-port)
+  (run (retry (retry (Job "build" 0 (once (lambda () (write-line "built")))))))
+  (run (bump Job-attempts-set (Job "deploy" 0 (once (lambda () (write-line "deployed"))))))
+  (let* ((original (Labelled 1 "original")) (changed (relabel original)))
+    (write-line (string-append (● original label) ", " (● changed label))))
+  (match (relabel (Labelled (Job "test" 0 (once (lambda () (write-line "tested")))) "job"))
+    ((Labelled job label)
+     (write-line label)
+     (run job)))
+  (unit))

@@ -2,4 +2,7 @@
  (snail core base)
  (snail core io))
 
-(display (list "my string input"))
+(define main
+  (lambda ()
+    (display (list "my string input"))
+    (unit)))

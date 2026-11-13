@@ -29,7 +29,7 @@
       (Failed))
 
     (effect files
-      ((read-file (dyn (Fn String I32 → (Result Bytes FileError) ! mut tasks))))
+      ((read-file (Fn String I32 → (Result Bytes FileError) ! mut tasks)))
       (default ((read-file native-read))))
 
     ;; ---- Pending request ownership ----

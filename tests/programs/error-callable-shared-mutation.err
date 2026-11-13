@@ -1,1 +1,1 @@
-mutating an owned capture requires an FnMut receiver
+a reusable procedure cannot capture a linear value

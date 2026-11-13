@@ -4,7 +4,7 @@
 
 (typeclass (Op e A B)
   (type Output)
-  (: op (impl (Fn A B → Output ! e))))
+  (: op (Fn A B → Output ! e)))
 (define-instance-set sources
   (instance (Op (!) I64 I64)
     (type Output I64)

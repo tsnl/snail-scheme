@@ -3,55 +3,54 @@
  (snail core io))
 
 (struct Counter
-  ((value (Ref I64))))
+  ((value I64)))
+
 (instance (Drop (! mut output-port) Counter)
   (define drop
     (lambda (counter) (match counter
                         ((Counter value)
-                         (write-line (string-append "released " (show (ref-get value)))))))))
+                         (write-line (string-append "released " (show value))))))))
 
-(let* ((counter (Counter (ref 0)))
-       (advance (ann (lambda (amount)
-                       (set! (ref-get (● counter value)) (+ (ref-get (● counter value)) amount))
-                       (ref-get (● counter value)))
-                     (impl (FnMut I64 → I64 ! mut output-port)))))
-  (write-line (show (advance 3)))
-  (write-line (show (advance 4)))
-  (drop advance))
-
-;; An exclusive callable can reborrow its owned exclusive callback.
-(let* ((counter (Counter (ref 0)))
-       (inner (ann (lambda (amount)
-                     (set! (ref-get (● counter value)) (+ (ref-get (● counter value)) amount))
-                     (ref-get (● counter value)))
-                   (impl (FnMut I64 → I64 ! mut output-port))))
-       (outer (ann (lambda (amount) (inner amount))
-                   (impl (FnMut I64 → I64 ! mut output-port)))))
-  (write-line (show (outer 2)))
-  (drop outer))
-
-(define (consume (function F) (value I64))
+(define (consume (function (FnOnce I64 → I64 ! mut output-port)) (value I64))
   (→ I64)
   (! mut output-port)
-  (∀ F)
-  (⊨ (FnOnce F I64 → I64 ! mut output-port))
   (function value))
 
-;; Consuming an exclusive implementation runs its capture cleanup once.
-(let* ((counter (Counter (ref 0)))
-       (advance (ann (lambda (amount)
-                       (set! (ref-get (● counter value)) amount)
-                       (ref-get (● counter value)))
-                     (impl (FnMut I64 → I64 ! mut output-port)))))
-  (write-line (show (consume advance 9))))
-
 (struct Work
-  ((run (dyn (FnMut I64 → I64 ! mut output-port)))))
+  ((run (Fn I64 → I64 ! mut output-port))))
 
-;; An erased exclusive receiver can be called through its owner's field.
-(let* ((counter (Counter (ref 0)))
-       (work (Work (lambda (amount)
-                     (set! (ref-get (● counter value)) amount)
-                     (ref-get (● counter value))))))
-  (write-line (show ((● work run) 12)))
-  (drop work))
+(define main
+  (lambda ()
+    (let* ((counter (rc (Counter 0)))
+           (advance (ann (lambda (amount)
+                           (set! (● counter value) (+ (● counter value) amount))
+                           (● counter value))
+                         (Fn I64 → I64 ! mut output-port))))
+      (write-line (show (advance 3)))
+      (write-line (show (advance 4)))
+      (drop advance))
+    ;; A reusable procedure can keep another counted procedure.
+    (let* ((counter (rc (Counter 0)))
+           (inner (ann (lambda (amount)
+                         (set! (● counter value) (+ (● counter value) amount))
+                         (● counter value))
+                       (Fn I64 → I64 ! mut output-port)))
+           (outer (ann (lambda (amount) (inner amount))
+                       (Fn I64 → I64 ! mut output-port))))
+      (write-line (show (outer 2)))
+      (drop outer))
+    ;; Wrapping a counted procedure in once transfers one of its owners.
+    (let* ((counter (rc (Counter 0)))
+           (advance (ann (lambda (amount)
+                           (set! (● counter value) amount)
+                           (● counter value))
+                         (Fn I64 → I64 ! mut output-port))))
+      (write-line (show (consume (once advance) 9))))
+    ;; A procedure stored in a field remains callable through each alias.
+    (let* ((counter (rc (Counter 0)))
+           (work (Work (lambda (amount)
+                         (set! (● counter value) amount)
+                         (● counter value)))))
+      (write-line (show ((● work run) 12)))
+      (drop work))
+    (unit)))

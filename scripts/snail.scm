@@ -1,9 +1,7 @@
 ;; Internal compiler commands: source execution, inspection and bootstrap.
 (import
- (scheme base)
- (scheme cxr)
- (scheme process-context)
- (chibi process)
+ (chezscheme)
+ (snail stage0 system)
  (snail stage0 build))
 
 ;; ---- Requests ----
@@ -14,12 +12,12 @@
 ;; Returns an association list of the options, the source and its arguments.
 (define (request arguments)
   (unless (and (pair? arguments) (member (car arguments) '("compile" "run" "wat" "schema")))
-    (error usage))
+    (error 'snail usage))
   (let loop ((rest (cdr arguments)) (options (list (cons 'action (car arguments)))))
-    (cond ((null? rest) (error usage))
+    (cond ((null? rest) (error 'snail usage))
           ((string=? (car rest) "--release") (loop (cdr rest) options))
           ((member (car rest) '("-I" "-o"))
-           (when (null? (cdr rest)) (error usage))
+           (when (null? (cdr rest)) (error 'snail usage))
            (loop (cddr rest)
                  (cons
                   (cons (if (string=? (car rest) "-I") 'library 'output) (absolute (cadr rest)))
@@ -60,7 +58,7 @@
                                             source
                                             output
                                             (build-runtime root #f)))))
-     ((string=? action "compile") (error "source compilation requires -o FILE"))
+     ((string=? action "compile") (error 'snail "source compilation requires -o FILE"))
      ;; Without -o the program lives as long as its run, in a directory of
      ;; its own, so runs at once in one checkout never share a file.
      (else (with-private-directory root
@@ -82,7 +80,7 @@
 
 ;; The program inherits standard input and output; its status is returned.
 (define (run-program root program arguments)
-  (let ((status (cadr (apply system (append (program-command root program) arguments)))))
+  (let ((status (run-command-status (append (program-command root program) arguments))))
     (quotient status 256)))
 
 ;; Tools in the order their shell launcher consumes them, one path a line.

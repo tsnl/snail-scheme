@@ -1,6 +1,6 @@
-//! Scalar host services linked into Snail-Core's Wasm programs.
+//! Scalar host services linked into Snail Scheme's Wasm programs.
 //!
-//! Managed values remain in compiled Snail-Core. Rust owns streams behind scalar
+//! Managed values remain in compiled Snail Scheme. Rust owns streams behind scalar
 //! IDs and synchronous text-conversion and path-reply scratch; it never holds
 //! guest GC roots.
 
@@ -21,7 +21,7 @@ mod unicode;
 
 // Export a reactor initializer so wasm-ld does not wrap each exported function
 // in constructor/destructor calls. The linked Wasm entry calls it once, before
-// Snail-Core or Rust runs. All callable Rust services share this runtime.
+// Snail Scheme or Rust runs. All callable Rust services share this runtime.
 #[cfg(target_arch = "wasm32")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn _initialize() {

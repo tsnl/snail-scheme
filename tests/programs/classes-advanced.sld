@@ -4,7 +4,7 @@
 
 ;; Two class parameters, chosen together.
 (typeclass (Convert A B)
-  (: convert (impl (Fn A → B))))
+  (: convert (Fn A → B)))
 
 (instance (Convert I64 String)
   (define convert (lambda (n) (string-append "#" (show n)))))
@@ -14,7 +14,7 @@
 
 ;; A method with a type variable of its own.
 (typeclass (Collection C)
-  (: collect (∀ (A) (impl (Fn C (dyn (Fn I64 → A)) → (List A))))))
+  (: collect (∀ (A) (Fn C (Fn I64 → A) → (List A)))))
 
 (struct Range
   ((start I64)
@@ -30,10 +30,12 @@
 (define (describe-all (collection C)) (→ (List String)) (∀ C) (⊨ (Collection C))
   (collect collection (lambda (n) (ann (convert n) String))))
 
-(write-line (ann (convert 5) String))
-(display (* 2.0 (ann (convert 5) F64)))
-(newline)
-(write (collect (Range 3 6) (lambda (n) (* n n))))
-(newline)
-(write (describe-all (Range 1 4)))
-(newline)
+(define (main) (→ Unit) (! output-port)
+  (write-line (ann (convert 5) String))
+  (display (* 2.0 (ann (convert 5) F64)))
+  (newline)
+  (write (collect (Range 3 6) (lambda (n) (* n n))))
+  (newline)
+  (write (describe-all (Range 1 4)))
+  (newline)
+  (unit))

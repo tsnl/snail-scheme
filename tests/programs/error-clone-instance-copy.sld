@@ -6,7 +6,7 @@
 ;; the halves. Used at a Handle, the two halves would release one handle
 ;; twice.
 (effect log
-  ((say (dyn (Fn String → Unit)))))
+  ((say (Fn String → Unit))))
 
 (struct Handle
   ((name String)))
@@ -29,6 +29,9 @@
   (match (clone (Wrapper (Handle "h")))
     ((Pair a b) (drop a) (drop b))))
 
-(handle log
-    ((say (lambda (text) (write-line text))))
-  (demo))
+(define main
+  (lambda ()
+    (handle log
+        ((say (lambda (text) (write-line text))))
+      (demo))
+    (unit)))

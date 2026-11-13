@@ -77,6 +77,8 @@
     ((CheckFiles paths) (check-files (● request width) paths))
     ((WriteFiles paths) (format-files (● request width) #t paths) (unit))))
 
-(match (command-line)
-  ((Cons _ arguments) (perform (request arguments)))
-  (_ (panic "format-scheme: missing command line")))
+(define (main) (→ Unit) (! fs input-port output-port)
+  (match (command-line)
+    ((Cons _ arguments) (perform (request arguments)))
+    (_ (panic "format-scheme: missing command line")))
+  (unit))

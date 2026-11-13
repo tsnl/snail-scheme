@@ -1,1 +1,1 @@
-dynamic-cast makes a function of data, not a (dyn (Fn (dyn (Fn I64 → I64)) I64 → I64))
+dynamic-cast makes a function of data, not a (Fn (Fn I64 → I64) I64 → I64)

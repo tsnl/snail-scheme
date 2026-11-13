@@ -6,4 +6,7 @@
   (once (lambda () (unit)))
   (unit))
 
-(forget)
+(define main
+  (lambda ()
+    (forget)
+    (unit)))

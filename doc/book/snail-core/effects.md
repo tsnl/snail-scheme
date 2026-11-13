@@ -54,8 +54,9 @@ fails to compile:
 {{#include ../../../tests/programs/error-effect.err}}
 ```
 
-`mut` covers reading and writing cells, `Ref`'s content and the places in
-it, and arrays. `(snail core io)` declares `input-port`, `output-port`, `fs` and `clock`, and other
+`mut` covers writes to object fields and mutable sequence operations.
+Reading a record field is pure, including through `Rc`. A function can still
+perform cleanup effects when it releases the last counted owner. `(snail core io)` declares `input-port`, `output-port`, `fs` and `clock`, and other
 libraries declare their own, such as `tcp` in `(snail shell socket)`. A
 program declares more with `effect`, in the [next section](#handlers). Traps
 and non-termination are not tracked: a total function may still panic or
@@ -106,7 +107,7 @@ Some signatures have no body to hold them to. An instance method keeps its
 class method's row, which one instance may need less of than another:
 in `tests/programs/declared-effects.sld`, the `Bool` instance of
 `announce` performs nothing and keeps `! output-port`. A default is held to
-its row all the same ([defaults](#defaults-in-snail-core)). `extern`
+its row all the same ([defaults](#defaults-in-snail-scheme)). `extern`
 declarations, class method signatures and definitions whose value is not
 a lambda are not compared either. A signature that a macro writes is held to each
 expansion. Application entries avoid duplicating such signatures: the selected
@@ -130,7 +131,7 @@ squared 9
 
 Here `e` is `output-port`; with a total `action`, `repeat` is total. `map` in
 `(snail core base)` has the same shape:
-`(∀ (A B e) (dyn (Fn (dyn (Fn A → B ! e)) (List A) → (List B) ! e)))`.
+`(∀ (A B e) (Fn (Fn A → B ! e) (List A) → (List B) ! e))`.
 
 A class may take a row as a parameter too, so that each of its instances
 performs its own ([rows as parameters](types.md#rows-as-parameters)).
@@ -159,11 +160,9 @@ sum 14
 The checker accepts such a body when nothing the function can reach from
 outside can hold mutable storage: not its parameters, not its result, and
 not any name it reads, including effect operations. Holding storage means
-being an `Array`, an `Any` or a `Ref`, or data with a field of such a type,
-or a function that performs `mut`. Building a struct or a cell does not
-perform `mut`. Primitives,
-constructors and field operations, the cell operations among them, are
-always allowed. A helper defined elsewhere that mutates its argument is
+being an array, `Any`, a mutable aggregate or a callable that can reach
+mutable storage. Every record is mutable, so the proof is deliberately
+conservative. Allocation and field reads do not perform `mut`. A helper defined elsewhere that mutates its argument is
 therefore rejected even when the argument is local; define it inside the
 function. `unsafe-total` runs a thunk and discards all its effects without a
 check, for the cases this rule rejects; each use says in a comment why
@@ -173,10 +172,10 @@ nothing escapes. A `gc` effect, "may allocate traced memory", is proposed in
 ### Defaults from the host
 
 `input-port`, `output-port`, `fs` and `clock` need no handler. Each operation has a
-[default](#defaults-in-snail-core) implementation that reaches host services
+[default](#defaults-in-snail-scheme) implementation that reaches host services
 through `extern` imports. An operation performed where no handler of its
 effect is in scope calls that implementation. That is why the programs above call
-`report` at their top level with no handler around them.
+`report` from `main` without installing a handler.
 
 Every platform effect is declared the same way. `(snail core io)` declares
 its externs beside its effects, since core imports nothing; a shell
@@ -199,8 +198,8 @@ default must be handled: performing it where no handler is in scope is an
 error (`tests/programs/error-unhandled.sld`).
 
 `host` is the row of code that may run anything the host implements, such
-as a program's top level, which may perform `mut` and every effect with
-defaults, and a task scheduler. It is a builtin effect, like `mut`, imported
+as a program's entry function and its task scheduler. It admits `mut` and
+effects with host defaults. It is a builtin effect, like `mut`, imported
 from `(snail core forms)`; no handler implements it, and a function whose
 row names it can be called only where `host` is in the row too. Work closed
 over its handlers performs it ([below](#closing-over-handlers)).
@@ -217,7 +216,7 @@ caller its effect:
 {{#include ../../../tests/programs/effects-handlers.sld:declare}}
 ```
 
-`log`'s type is `(dyn (Fn String → Unit))`, and calling it adds `Log` to the row,
+`log`'s type is `(Fn String → Unit)`, and calling it adds `Log` to the row,
 so `total`'s row is `Log`. `Log` has no default, so something must say what
 logging means before `total` can run. Effects take no type parameters, and
 operations are monomorphic ([notable omissions](omissions.md)): a handler
@@ -234,11 +233,11 @@ following `!` request implicit provider arguments. Dedicated `effect` and
 sugar must elaborate to this model. One typed application, such as
 `(Emit I64)`, fixes the parameters of a provider.
 
-Using the [callable classes](types.md#callable-classes):
+Using the [built-in function types](types.md#functions):
 
 ```scheme
 (typeclass (Ask T)
-  (: ask (impl (Fn → T))))
+  (: ask (Fn → T)))
 
 
 (define (greet) (→ String) (! (Ask String))
@@ -253,17 +252,16 @@ Using the [callable classes](types.md#callable-classes):
 
 These forms are illustrative extensions, not accepted syntax today. The
 local instance supplies an anonymous concrete provider whose `ask` method
-captures `name`. Its associated callable type is inferred from that method
-definition and checked against `impl (Fn → T)`. `greet` receives the selected
-provider as an implicit argument; compilation makes `welcome`'s supplied
-argument explicit. Its captured string is runtime data, while its method
-code and callable type are statically selected.
+captures `name`. Its method is checked against `(Fn → T)`. `greet` receives
+the selected provider as an implicit argument; compilation makes `welcome`'s
+supplied argument explicit. Its captured string is runtime data, while its
+method code is statically selected.
 
 A parameterized emitting capability has the same interface mechanism:
 
 ```scheme
 (typeclass (Emit T)
-  (: emit (impl (Fn T → Unit))))
+  (: emit (Fn T → Unit)))
 
 
 (define (produce) (→ Unit) (! (Emit I64))
@@ -496,7 +494,7 @@ as well as ordinary effect labels.
 Use an **explicit job package with a closed sum of adapter types** at the
 queue boundary. Each adapter supplies the operation result and handles the
 delimiter answer to satisfy a common job interface. Its captures include a
-concrete saved resumption. Argument-position `impl Fn` alone does not create
+concrete saved resumption. A source `Fn` type alone does not create
 this package. The package names its invocation and cleanup bounds; packing
 checks both, including nested transition requirements.
 
@@ -512,7 +510,7 @@ Saved resumptions use
 [tagged GC frame chains](compilers.md#saved-frame-representation) whose types
 do not grow with stack depth. The queue stores managed references to packaged
 jobs; it does not create an array of inline struct values or erase arbitrary
-source `Fn` and `Ref` implementations. A new package variant rebuilds the
+source closures and object references. A new package variant rebuilds the
 affected dispatchers. Unknown runtime-loaded variants require another ABI
 and are outside this design.
 
@@ -521,7 +519,7 @@ and are outside this design.
 The implemented compiler preserves control rows during monomorphization
 and uses a may-yield analysis. The proposal instead uses a memoized emitter
 after type checking. It builds
-[structured Wasm directly](compilers.md#proposed-specialization-directly-to-wasmgc),
+[structured Wasm directly](compilers.md#effects-control-and-frames),
 using the instantiated checked contracts as conservative control bounds.
 Functions, provider methods, continuation entries and cleanup routines use
 the same reservation and emission mechanism. Source contracts remain
@@ -647,7 +645,7 @@ handlers outside `from-disk`'s, here the host, so `from-disk`'s row names
 
 An instance of a program runs on one thread, so a handler's implementation
 may capture mutable state and change it. That includes a cell, an alias of
-a procedure that reaches one, a global, or a callback passed in
+a procedure that reaches one, or a callback passed in
 (`tests/programs/handler-shared-state.sld`):
 
 ```scheme
@@ -660,10 +658,10 @@ because they cannot capture a one-shot value. Fresh storage allocated
 inside an invocation, and the operation's arguments, belong to that
 invocation (`tests/programs/handler-captures.sld`).
 
-### Defaults in Snail-Core
+### Defaults in Snail Scheme
 
 After its operations, an effect's declaration may give a `default` clause,
-which implements operations in Snail-Core as a handler does:
+which implements operations in Snail Scheme as a handler does:
 
 ```scheme
 {{#include ../../../tests/programs/effects-handlers.sld:default}}
@@ -686,13 +684,11 @@ default to it, at its entry
 (`tests/programs/error-default-unperformed.sld`). A default is a lambda or
 a function's name, and an operation has at most one.
 
-A control operation has no default, so a program's statements could not
-perform one, were they not run under a handler. An effect declared with an
-`(around-main)` clause after its operations says the host handles it around
-a program's body: `tasks` is, since a program's statements run as its first
-task ([tasks](../runtimes/tasks.md)), so a program may `yield` or `sleep` at
-its top level, while a library's definitions, which are initialized before
-any task runs, still may not.
+A control operation has no default. An effect declared with `(around-main)`
+says the runtime supplies a delimiter around the root entry. `tasks` uses
+this facility: `main` runs as a scheduled task and can yield or wait.
+Libraries have no runtime initialization phase. Their nonfunction top-level
+values must be pure compile-time computations.
 
 ## Control handlers
 
@@ -753,7 +749,7 @@ added 1
 failed: negative: -2
 ```
 
-`(absurd never)`, of type `(∀ (A) (dyn (Fn Never → A)))`, gives the call whatever
+`(absurd never)`, of type `(∀ (A) (Fn Never → A))`, gives the call whatever
 type the code around it needs, here `checked`'s `I64`. It is a `match` with
 no clauses, which only a value of a type with no cases may have
 (`tests/programs/error-match-empty.sld`). An implementation of such an
@@ -877,8 +873,8 @@ These are how a scheduler closes each step of a task
 
 `resume` takes the operation's result and returns the handler's answer,
 and it performs the row of the code around the `handle`, its **context
-row**. For `(ctl yield (dyn (Fn I64 → I64)))` handled in a function of row `Log`,
-whose handler answers `Step`, `resume` is `(dyn (FnOnce I64 → Step ! Log))`.
+row**. For `(ctl yield (Fn I64 → I64))` handled in a function of row `Log`,
+whose handler answers `Step`, `resume` is `(FnOnce I64 → Step ! Log)`.
 
 Calling `resume` runs under the caller's handlers everything the `handle`
 would perform outward: the rest of the body, and, since the handler is
@@ -895,7 +891,7 @@ effect once more. Both are in the context row. So a `Step` that stores
 {{#include ../../../tests/programs/error-control-resume-row.err}}
 ```
 
-Typed `(dyn (FnOnce I64 → Step ! Log))`, the stored `next` is resumed under a
+Typed `(FnOnce I64 → Step ! Log)`, the stored `next` is resumed under a
 `Log` handler, the one where it is called, and the `rest` left unrun is
 dropped under one too, since dropping a resumption performs its row
 ([Drops that may run](ownership.md#drops-that-may-run))
@@ -913,7 +909,7 @@ counts every effect of its signature as performed, so the
 [unused-effect rule](#claiming-only-what-the-body-performs) cannot flag
 one there. A row of the `handle`'s own, the body's and the
 implementations' effects alone, would need row inclusion that the checker,
-which decides inclusion by unification, cannot state once a rigid tail
+must preserve once a rigid tail
 such as `e` is involved.
 
 ### Loops in constant stack
@@ -955,7 +951,7 @@ be reachable twice, a cost paid by code that never captures one.
 
 ```scheme
 (effect dyn-cast
-  ((ctl conversion-failed (dyn (Fn CastError → Never)))))
+  ((ctl conversion-failed (Fn CastError → Never))))
 ```
 
 Both explicit and inserted fallible Any conversions require this effect.
@@ -1164,6 +1160,6 @@ done at 1006
 
 The runtime's own tasks follow this pattern. `(snail shell task)` runs
 each task under its own handler of `tasks`, whose control operations hand
-the rest of the task to a scheduler written in Snail-Core, and a host
+the rest of the task to a scheduler written in Snail Scheme, and a host
 operation's default awaits a ticket on the caller's `tasks`
 ([task operations](../runtimes/tasks.md)).

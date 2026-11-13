@@ -1,3 +1,7 @@
 (import
  (snail core base))
-(type-convert (once (lambda () (unit))) Any)
+
+(define main
+  (lambda ()
+    (type-convert (once (lambda () (unit))) Any)
+    (unit)))

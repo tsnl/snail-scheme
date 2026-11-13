@@ -21,15 +21,18 @@
     ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))
     ((Err _) (panic "parsing a project asked for an input"))))
 
-(for-each (lambda (target) (write-line (target-name target))) (● project builds))
-(for-each
- (lambda (run)
-   (write-line
-    (string-append (● run name) " -> " (● (● run program) name)))
-   (match (● (● run program) entry)
-     ((SourceEntry path) (write-line (● path text)))
-     (_ (panic "expected a source entry")))
-   (write-line (string-join (● run arguments) "|"))
-   (for-each (lambda (path) (write-line (● path text)))
-             (● (● run program) libraries)))
- (● project runs))
+(define main
+  (lambda ()
+    (for-each (lambda (target) (write-line (target-name target))) (● project builds))
+    (for-each
+     (lambda (run)
+       (write-line
+        (string-append (● run name) " -> " (● (● run program) name)))
+       (match (● (● run program) entry)
+         ((SourceEntry path) (write-line (● path text)))
+         (_ (panic "expected a source entry")))
+       (write-line (string-join (● run arguments) "|"))
+       (for-each (lambda (path) (write-line (● path text)))
+                 (● (● run program) libraries)))
+     (● project runs))
+    (unit)))

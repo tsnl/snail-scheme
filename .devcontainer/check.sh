@@ -2,7 +2,7 @@
 # A quick check that the devcontainer works, run inside it from the root of
 # the checkout. It runs what the devcontainer runs when it is created, then
 # uses each kind of tool once: the Rust crates offline, a program through
-# Chibi, the Rust backend and Node, and Chromium. CI runs it in the image podman
+# Chez, the Rust backend and Node, and Chromium. CI runs it in the image podman
 # builds (.github/workflows/devcontainer.yml).
 set -euo pipefail
 

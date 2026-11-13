@@ -20,10 +20,10 @@
     (extern assemble-staged
             "snail.core.support"
             "snail:assembler/assemble"
-            (impl (Fn String → I32)))
-    (extern link-staged "snail.core.support" "snail:assembler/link" (impl (Fn I32 Bytes → I32)))
-    (extern output-length "snail.core.support" "snail:assembler/output-length" (impl (Fn → I32)))
-    (extern output-byte "snail.core.support" "snail:assembler/output-byte" (impl (Fn I32 → I32)))
+            (Fn String → I32))
+    (extern link-staged "snail.core.support" "snail:assembler/link" (Fn I32 Bytes → I32))
+    (extern output-length "snail.core.support" "snail:assembler/output-length" (Fn → I32))
+    (extern output-byte "snail.core.support" "snail:assembler/output-byte" (Fn I32 → I32))
 
     ;; The binary module `text` describes, or the parser's message, which
     ;; names the line and column of the problem.

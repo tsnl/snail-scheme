@@ -19,15 +19,15 @@
 
     ;; ---- Properties ----
 
-    (extern char-upcase "snail.core.support" "snail:text/upcase" (impl (Fn Char → Char)))
-    (extern char-downcase "snail.core.support" "snail:text/downcase" (impl (Fn Char → Char)))
-    (extern char-foldcase "snail.core.support" "snail:text/foldcase" (impl (Fn Char → Char)))
-    (extern lowercase-flag "snail.core.support" "snail:text/lowercase" (impl (Fn Char → I32)))
-    (extern uppercase-flag "snail.core.support" "snail:text/uppercase" (impl (Fn Char → I32)))
-    (extern digit-flag "snail.core.support" "snail:text/digit-value" (impl (Fn Char → I32)))
-    (extern alphabetic-flag "snail.core.support" "snail:text/alphabetic" (impl (Fn Char → I32)))
-    (extern numeric-flag "snail.core.support" "snail:text/numeric" (impl (Fn Char → I32)))
-    (extern whitespace-flag "snail.core.support" "snail:datum/whitespace" (impl (Fn Char → I32)))
+    (extern char-upcase "snail.core.support" "snail:text/upcase" (Fn Char → Char))
+    (extern char-downcase "snail.core.support" "snail:text/downcase" (Fn Char → Char))
+    (extern char-foldcase "snail.core.support" "snail:text/foldcase" (Fn Char → Char))
+    (extern lowercase-flag "snail.core.support" "snail:text/lowercase" (Fn Char → I32))
+    (extern uppercase-flag "snail.core.support" "snail:text/uppercase" (Fn Char → I32))
+    (extern digit-flag "snail.core.support" "snail:text/digit-value" (Fn Char → I32))
+    (extern alphabetic-flag "snail.core.support" "snail:text/alphabetic" (Fn Char → I32))
+    (extern numeric-flag "snail.core.support" "snail:text/numeric" (Fn Char → I32))
+    (extern whitespace-flag "snail.core.support" "snail:datum/whitespace" (Fn Char → I32))
 
     (define (char-unicode-alphabetic? (char Char)) (→ Bool)
       (= (alphabetic-flag char) 1))
@@ -64,11 +64,11 @@
 
     ;; Full case folding, which may expand one scalar into several, as "ß"
     ;; into "ss"; folded strings compare equal ignoring case.
-    (extern fold-length "snail.core.support" "snail:text/full-fold-length" (impl (Fn Char → I32)))
+    (extern fold-length "snail.core.support" "snail:text/full-fold-length" (Fn Char → I32))
     (extern fold-scalar
             "snail.core.support"
             "snail:text/full-fold-scalar"
-            (impl (Fn Char I32 → Char)))
+            (Fn Char I32 → Char))
 
     (define (string-foldcase (text String)) (→ String)
       (string-concatenate

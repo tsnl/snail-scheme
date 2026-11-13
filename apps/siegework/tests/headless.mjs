@@ -36,7 +36,6 @@ async function instantiateGame(path, host, saved) {
   const program = await instantiate(await WebAssembly.compile(await readFile(path)),
     {...wasi.getImportObject(), ...runtime.imports, 'snail.runtime.browser.screen': host.imports});
   wasi.initialize(program);
-  program.exports.main();
   await runtime.start(applicationEntry(program)).ready.promise;
   return runtime;
 }
@@ -142,12 +141,13 @@ await send(game, ELAPSED, 0);
 assert.notDeepEqual(host.frames.at(-1).camera, resting, 'the drag moves the camera');
 
 // Save, restore into a fresh instance, and compare what each shows.
-const {saved: bytes} = await game.stop();
+const checkpoint = await game.stop(), bytes = checkpoint.saved;
+checkpoint.release();
 const other = screen();
 const started = performance.now();
 const restored = await instantiateGame(path, other, bytes);
 const elapsed = performance.now() - started;
 assert.deepEqual(readouts(other), readouts(host));
 assert.deepEqual(other.frames.at(-1).camera, host.frames.at(-1).camera, 'the restored game looks where the saved one did');
-await restored.stop();
+(await restored.stop()).release();
 console.log(`a journal of ${bytes.length} bytes replays the same colony in ${elapsed.toFixed(0)} ms`);

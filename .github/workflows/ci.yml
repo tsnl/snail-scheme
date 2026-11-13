@@ -65,7 +65,7 @@ jobs:
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: build/compiler/snailc.wasm
-          key: compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'bootstrap/**', 'scripts/**', 'host/chibi/**', 'host/native/**', 'host/browser/**', 'src/snail/core/**', 'src/snail/shell/compiler.sld', 'src/snail/shell/compiler/**', 'crates/*/Cargo.*', 'crates/*/src/**') }}
+          key: compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'bootstrap/**', 'scripts/**', 'host/chez/**', 'host/native/**', 'host/browser/**', 'src/snail/core/**', 'src/snail/shell/compiler.sld', 'src/snail/shell/compiler/**', 'crates/*/Cargo.*', 'crates/*/src/**') }}
       - name: Mark the exact compiler cache current
         if: steps.compiler-cache.outputs.cache-hit == 'true'
         # Checkout gives unchanged sources new mtimes. The exact content key

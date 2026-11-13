@@ -92,9 +92,9 @@
       (Dismiss)
       (Reconnected))
 
-    (type CommandResult (dyn (Fn State → Step)))
+    (type CommandResult (Fn State → Step))
     (struct Command
-      ((work (dyn (FnOnce → CommandResult ! tasks dom fetch)))
+      ((work (FnOnce → CommandResult ! tasks dom fetch))
        (interrupted CommandResult)))
 
     (struct Step

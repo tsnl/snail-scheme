@@ -4,7 +4,10 @@
 ;; An operation that answers Never is never resumed, so its implementation
 ;; takes the operation's arguments alone.
 (effect Fail
-  ((ctl fail (dyn (Fn String → Never)))))
+  ((ctl fail (Fn String → Never))))
 
-(handle Fail ((fail (lambda (message resume) 0)))
-  (absurd (fail "no")))
+(define main
+  (lambda ()
+    (handle Fail ((fail (lambda (message resume) 0)))
+      (absurd (fail "no")))
+    (unit)))

@@ -1,4 +1,5 @@
 (import
+ (only (snail core forms) host)
  (snail core base)
  (rename (snail core io) (write write-value))
  (snail shell task)
@@ -17,71 +18,73 @@
           ((Some chunk) (loop (vector-append bytes chunk)))
           ((None) (panic "unexpected EOF"))))))
 
-;; A program waits on sockets from a task, which the scheduler runs once
-;; main returns.
-(dispatch-local
- (once (lambda ()
-         (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
-                (client
-                 (require (connect (require (endpoint "127.0.0.1" (● listener port))))))
-                (server (require (accept listener))))
-           (require (close-listener listener))
-           (require (close-listener listener))
-           (display (require (write client #u8(0 255 128 1))))
-           (newline)
-           (write-value (vector->list (receive-four server)))
-           (newline)
-           ;; A read takes 1 to 65,536 bytes, and a grace is not negative.
-           (for-each (lambda (maximum)
-                       (match (read server maximum)
+(define (main) (→ Unit) (! host mut output-port tcp tasks)
+  ;; A program waits on sockets from a task, which the scheduler runs once
+  ;; main returns.
+  (dispatch-local
+   (once (lambda ()
+           (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
+                  (client
+                   (require (connect (require (endpoint "127.0.0.1" (● listener port))))))
+                  (server (require (accept listener))))
+             (require (close-listener listener))
+             (require (close-listener listener))
+             (display (require (write client #u8(0 255 128 1))))
+             (newline)
+             (write-value (vector->list (receive-four server)))
+             (newline)
+             ;; A read takes 1 to 65,536 bytes, and a grace is not negative.
+             (for-each (lambda (maximum)
+                         (match (read server maximum)
+                           ((Err error) (write-line (● error code)))
+                           ((Ok _) (panic "a read out of bounds was started"))))
+                       (list (ann 0 I32) (ann 65537 I32)))
+             (match (finish-connection server -1)
+               ((Err error) (write-line (● error code)))
+               ((Ok _) (panic "a negative grace was accepted")))
+             (require (close-connection client))
+             (require (close-connection server))
+             (require (close-connection server))
+             (match (read server 1)
+               ((Err error) (write-line (● error code)))
+               ((Ok _) (panic "closed socket was read"))))
+
+           ;; Only `endpoint` makes an Endpoint: four decimal octets without
+           ;; leading zeros, and a port from 0 to 65535.
+           (for-each (lambda (address)
+                       (match (endpoint address 80)
                          ((Err error) (write-line (● error code)))
-                         ((Ok _) (panic "a read out of bounds was started"))))
-                     (list (ann 0 I32) (ann 65537 I32)))
-           (match (finish-connection server -1)
+                         ((Ok _) (panic (string-append "accepted " address)))))
+                     (list "localhost"
+                           "1.2.3"
+                           "1.2.3.4.5"
+                           "256.1.1.1"
+                           "01.2.3.4"
+                           "1..3.4"
+                           ""
+                           "1.2.3.4 "))
+           (for-each (lambda (port)
+                       (match (endpoint "127.0.0.1" port)
+                         ((Err error) (write-line (● error code)))
+                         ((Ok _) (panic "a port out of range was accepted"))))
+                     (list -1 65536))
+           (write-line (Endpoint-address (require (endpoint "0.0.0.0" 65535))))
+           (write-line (Endpoint-address (require (endpoint "255.255.255.255" 0))))
+
+           ;; A token from a replacement handler cannot masquerade as a native handle.
+           (match (close-connection (Connection (type-convert (ann 1 I32) Any)))
              ((Err error) (write-line (● error code)))
-             ((Ok _) (panic "a negative grace was accepted")))
-           (require (close-connection client))
-           (require (close-connection server))
-           (require (close-connection server))
-           (match (read server 1)
-             ((Err error) (write-line (● error code)))
-             ((Ok _) (panic "closed socket was read"))))
+             ((Ok _) (panic "a fake token was accepted")))
 
-         ;; Only `endpoint` makes an Endpoint: four decimal octets without
-         ;; leading zeros, and a port from 0 to 65535.
-         (for-each (lambda (address)
-                     (match (endpoint address 80)
-                       ((Err error) (write-line (● error code)))
-                       ((Ok _) (panic (string-append "accepted " address)))))
-                   (list "localhost"
-                         "1.2.3"
-                         "1.2.3.4.5"
-                         "256.1.1.1"
-                         "01.2.3.4"
-                         "1..3.4"
-                         ""
-                         "1.2.3.4 "))
-         (for-each (lambda (port)
-                     (match (endpoint "127.0.0.1" port)
-                       ((Err error) (write-line (● error code)))
-                       ((Ok _) (panic "a port out of range was accepted"))))
-                   (list -1 65536))
-         (write-line (Endpoint-address (require (endpoint "0.0.0.0" 65535))))
-         (write-line (Endpoint-address (require (endpoint "255.255.255.255" 0))))
+           ;; Returning from main must close even a delivered listener left open by user code.
+           (require (listen (require (endpoint "127.0.0.1" 0))))
 
-         ;; A token from a replacement handler cannot masquerade as a native handle.
-         (match (close-connection (Connection (type-convert (ann 1 I32) Any)))
-           ((Err error) (write-line (● error code)))
-           ((Ok _) (panic "a fake token was accepted")))
-
-         ;; Returning from main must close even a delivered listener left open by user code.
-         (require (listen (require (endpoint "127.0.0.1" 0))))
-
-         (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
-                (client
-                 (require (connect (require (endpoint "127.0.0.1" (● listener port))))))
-                (server (require (accept listener))))
-           (require (close-listener listener))
-           (dispatch-local (once (lambda () (require (finish-connection server 1000)))))
-           (require (finish-connection client 1000))
-           (write-line "finished")))))
+           (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
+                  (client
+                   (require (connect (require (endpoint "127.0.0.1" (● listener port))))))
+                  (server (require (accept listener))))
+             (require (close-listener listener))
+             (dispatch-local (once (lambda () (require (finish-connection server 1000)))))
+             (require (finish-connection client 1000))
+             (write-line "finished")))))
+  (unit))

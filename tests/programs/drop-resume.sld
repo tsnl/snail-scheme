@@ -7,10 +7,10 @@
 ;; FnOnce's own row. The book's ownership chapter includes the text between
 ;; ANCHOR and ANCHOR_END.
 (effect audit
-  ((note (dyn (Fn String → Unit)))))
+  ((note (Fn String → Unit))))
 
 (effect Ask
-  ((ctl ask (dyn (Fn → I64)))))
+  ((ctl ask (Fn → I64))))
 
 (struct Handle
   ((name String)))
@@ -37,6 +37,7 @@
               (drop resume)
               -1)))
     (use-after-ask)))
+
 ;; ANCHOR_END: cancelled
 
 ;; A once lambda whose row allows `audit` may capture the handle; dropping
@@ -46,8 +47,10 @@
     (let ((work (once (lambda () (drop handle)))))
       (drop work))))
 
-(handle audit
-    ((note (lambda (text) (write-line text))))
-  (write-line (show (cancelled)))
-  (unrun)
-  (write-line "done"))
+(define (main) (→ Unit) (! output-port)
+  (handle audit
+      ((note (lambda (text) (write-line text))))
+    (write-line (show (cancelled)))
+    (unrun)
+    (write-line "done"))
+  (unit))

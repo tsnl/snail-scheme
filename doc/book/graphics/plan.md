@@ -2,14 +2,14 @@
 
 **Proposed.** Applications send `Frame` values to
 `host/browser/renderer.mjs`, a fixed JavaScript renderer. This design replaces
-it with two layers written in Snail-Core: a `gpu` effect that is a thin wrapper
+it with two layers written in Snail Scheme: a `gpu` effect that is a thin wrapper
 around WebGPU, and `(snail shell graphics ...)` libraries of pipelines and
 packers on top of it. Delivery is tracked in
 [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
 Device requests, decoding, pipeline creation and readbacks need only ordinary
 handlers and the runtime's waits. Those waits are an ordinary effect,
-scheduled in Snail-Core ([task operations](../runtimes/tasks.md)), so nothing
+scheduled in Snail Scheme ([task operations](../runtimes/tasks.md)), so nothing
 here depends on an engine extension.
 
 ## WebGPU through an effect
@@ -19,23 +19,23 @@ using it reads like WebGPU:
 
 ```scheme
 (effect gpu
-  ((create-buffer (dyn (Fn BufferDescriptor → GpuBuffer)))
-   (write-buffer (dyn (Fn GpuBuffer I64 Bytes → Unit)))
-   (create-texture (dyn (Fn TextureDescriptor → GpuTexture)))
-   (write-texture (dyn (Fn TextureCopy Bytes → Unit)))
-   (create-shader-module (dyn (Fn ShaderSource → GpuShaderModule)))
-   (create-render-pipeline (dyn (Fn RenderPipelineDescriptor → GpuRenderPipeline)))
-   (create-bind-group (dyn (Fn BindGroupDescriptor → GpuBindGroup)))
-   (create-command-encoder (dyn (Fn → GpuCommandEncoder)))
-   (begin-render-pass (dyn (Fn GpuCommandEncoder RenderPassDescriptor → GpuRenderPass)))
-   (set-pipeline (dyn (Fn GpuRenderPass GpuRenderPipeline → Unit)))
-   (set-bind-group (dyn (Fn GpuRenderPass I32 GpuBindGroup → Unit)))
-   (draw-indexed-indirect (dyn (Fn GpuRenderPass GpuBuffer I64 → Unit)))
-   (end-pass (dyn (Fn GpuRenderPass → Unit)))
-   (finish (dyn (Fn GpuCommandEncoder → GpuCommandBuffer)))
-   (submit (dyn (Fn (List GpuCommandBuffer) → Unit)))
-   (current-texture (dyn (Fn → GpuTexture)))
-   (destroy (dyn (Fn GpuObject → Unit)))))
+  ((create-buffer (Fn BufferDescriptor → GpuBuffer))
+   (write-buffer (Fn GpuBuffer I64 Bytes → Unit))
+   (create-texture (Fn TextureDescriptor → GpuTexture))
+   (write-texture (Fn TextureCopy Bytes → Unit))
+   (create-shader-module (Fn ShaderSource → GpuShaderModule))
+   (create-render-pipeline (Fn RenderPipelineDescriptor → GpuRenderPipeline))
+   (create-bind-group (Fn BindGroupDescriptor → GpuBindGroup))
+   (create-command-encoder (Fn → GpuCommandEncoder))
+   (begin-render-pass (Fn GpuCommandEncoder RenderPassDescriptor → GpuRenderPass))
+   (set-pipeline (Fn GpuRenderPass GpuRenderPipeline → Unit))
+   (set-bind-group (Fn GpuRenderPass I32 GpuBindGroup → Unit))
+   (draw-indexed-indirect (Fn GpuRenderPass GpuBuffer I64 → Unit))
+   (end-pass (Fn GpuRenderPass → Unit))
+   (finish (Fn GpuCommandEncoder → GpuCommandBuffer))
+   (submit (Fn (List GpuCommandBuffer) → Unit))
+   (current-texture (Fn → GpuTexture))
+   (destroy (Fn GpuObject → Unit))))
 ```
 
 The calls are procedural; effects keep them reasonable. A `! gpu` row says
@@ -70,7 +70,7 @@ application decides what to pack, when to copy, and how to stitch passes
 together. A higher-level operation such as drawing a sphere is a helper that
 prepares the buffers a pipeline expects, not a call into a renderer.
 
-**The ABI is not stable, on purpose.** A pipeline's interface is a Snail-Core
+**The ABI is not stable, on purpose.** A pipeline's interface is a Snail Scheme
 struct deriving `Pod`, and it changes when the pipeline does. Nothing is hidden
 behind a renderer object: every pass, buffer and layout is a value the
 application can read, replace or extend.
@@ -117,7 +117,7 @@ G-buffer fills the default 32. Texture heaps start uncompressed; a later
 ## Design choices
 
 - Images are decoded by the host behind `decode-image`, a host operation
-  that waits, rather than in Snail-Core.
+  that waits, rather than in Snail Scheme.
 - `update` stays total: prefetching happens from `view`.
 - Open: shader sources as S-expression files compiled by `generate-library`
-  recipes, the default here, or as S-expressions built in Snail-Core code.
+  recipes, the default here, or as S-expressions built in Snail Scheme code.

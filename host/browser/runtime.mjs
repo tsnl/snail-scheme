@@ -91,7 +91,7 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
   // application protocol. Other tasks must not consume its input or replace
   // checkpoint bytes while its storage operation is outstanding.
   function applicationRun() {
-    if (!current || Number(current.entry.tasks['tasks:running']()) !== current.loop) {
+    if (!current || current.tasks.running() !== current.loop) {
       throw new Error('application events and checkpoint storage belong to the root task');
     }
     return current;
@@ -152,7 +152,7 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       'finish-store': ticket => applicationRun().tasks.finish(Number(ticket)),
     },
   };
-  function finish(run, state, error) {
+  function finish(run, state, error, releaseState) {
     clearTimeout(run.saveTimer);
     const unread = run.queue.close();
     if (run.accepted) pending.unshift(...unread);
@@ -161,49 +161,67 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       if (run.accepted) reportError(error);
     } else if (!run.accepted) run.ready.reject(new Error(run.boot === null ?
       'the new program could not take over the running state' : 'the application stopped before startup completed'));
-    return {state, error};
+    // The caller owns one checkpoint credit until replacement or rollback
+    // has adopted it. Clearing before release makes repeated release harmless.
+    const result = {state, error, release() {
+      const held = result.state;
+      result.state = null;
+      if (held !== null) releaseState(held);
+    }};
+    return result;
   }
-  // A trap in the loop ends the run, keeping its last checkpoint; a trap in
-  // another task ends only that task.
-  function trapped(run, error, task) {
-    if (task !== run.loop) reportError(error);
-    else run.failure ??= error instanceof Error ? error : new Error('application failed', {cause: error});
+  // Wasm traps do not unwind source ownership. A trap in any task ends this
+  // generation; recovery starts a new task from its last completed checkpoint.
+  function trapped(run, error) {
+    run.failure ??= error instanceof Error ? error : new Error('application failed', {cause: error});
   }
   function completionError(run) {
     if (run.failure) return run.failure;
-    return run.entry.app.app_done() === 0 ? new Error('the application loop stopped without answering') : null;
+    return run.entry.app.app_done(run.page) === 0 ? new Error('the application loop stopped without answering') : null;
   }
   function start(entry, handover = null, {restore, transfer = false} = {}) {
     if (current && !current.queue.closed) throw new Error('application entries must not overlap');
     if (!transfer) stopping = null;
     const ready = Promise.withResolvers(), queue = createEventQueue(transfer ? null : frames);
     const run = {entry, ready, queue, restore, transfer, tasks: null, accepted: false, saved: null, loaded: null,
-                 event: null, boot: null, loop: null, failure: null, root: null, done: null, saveTimer: null};
+                 event: null, boot: null, loop: null, page: null, failure: null, root: null, done: null, saveTimer: null};
     run.tasks = createTasks(() => entry.tasks, {reportError: (error, task) => trapped(run, error, task)});
     ready.promise.catch(() => {});
     current = run;
     if (transfer) queue.reload();
     else for (const event of initial()) queue.push(...event);
-    // `app_main` dispatches the loop and answers its task; the turns run it.
-    run.loop = Number(entry.main(handover));
-    const answered = () => run.failure !== null || entry.app.app_done() !== 0;
-    run.root = run.tasks.drive(answered).then(() => completionError(run), error => error);
+    // A new PageRun belongs to this invocation even when linked libraries
+    // are reused. The scheduler owns pending work; the page owns recovery data.
+    run.page = entry.app.app_create(handover);
+    try {
+      run.loop = Number(run.tasks.call(entry.main, run.page));
+      const answered = () => run.failure !== null || entry.app.app_done(run.page) !== 0;
+      run.root = run.tasks.drive(answered).then(() => completionError(run), error => error);
+    } catch (error) { run.root = Promise.resolve(error); }
     run.done = run.root.then(async error => {
-      // Capture the root's checkpoint before draining children or allowing
-      // another entry to reset the shared page module.
-      const state = error && run.boot === null ? handover : entry.app.app_state();
-      // After the sole event consumer returns, an unpresented application
-      // can never become ready. Its children cannot complete startup for it.
-      if (error || !run.accepted) run.tasks.close();
-      else await run.tasks.drive().catch(reportError);
-      return finish(run, state, error);
+      // Acquire the checkpoint's host credit before closing the scheduler.
+      const getter = error && run.boot === null ? 'app_incoming' : 'app_state';
+      let state = null;
+      try {
+        state = entry.app[getter](run.page);
+        if (error || !run.accepted) run.tasks.close();
+        else await run.tasks.drive().catch(failure => { run.failure ??= failure; });
+      } catch (failure) {
+        error ??= failure;
+      } finally {
+        const page = run.page;
+        run.page = null;
+        try { run.tasks.close(); } catch (failure) { error ??= failure; }
+        try { entry.app['app_create:release-result'](page); } catch (failure) { error ??= failure; }
+      }
+      return finish(run, state, error ?? run.failure, entry.app[`${getter}:release-result`]);
     });
     return run;
   }
   async function stopRun(run) {
     run.queue.reload();
     await run.root; // The application saves its checkpoint before teardown.
-    run.tasks.close();
+    try { run.tasks.close(); } catch (error) { trapped(run, error); }
     return run.done;
   }
   async function stopCurrent() {
@@ -213,10 +231,13 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       // Transfer the checkpoint through old code without replaying the event
       // or view that trapped. The shared page lifecycle saves without
       // entering either engine in this invocation.
-      run = start(run.entry, result.state, {transfer: true});
+      const previous = result;
+      try { run = start(run.entry, previous.state, {transfer: true}); }
+      finally { previous.release(); }
       result = await stopRun(run);
     }
-    return {state: result.state, saved: run.saved, error: result.error};
+    result.saved = run.saved;
+    return result;
   }
   function stop() { return stopping ??= stopCurrent(); }
   function send(...event) {

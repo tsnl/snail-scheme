@@ -4,8 +4,11 @@
  (snail shell async))
 
 (effect pause
-  ((ctl stop (dyn (Fn → Unit)))))
+  ((ctl stop (Fn → Unit))))
 
-(handle pause
-    ((stop (lambda (resume) (resume (unit)))))
-  (drop (dispatch (once (lambda () (stop))))))
+(define main
+  (lambda ()
+    (handle pause
+        ((stop (lambda (resume) (resume (unit)))))
+      (drop (dispatch (once (lambda () (stop))))))
+    (unit)))

@@ -5,6 +5,7 @@
   (export FuturesApplication)
   (import
    (snail core base)
+   (only (snail core forms) host)
    (snail shell task)
    (snail shell future)
    (snail shell async)
@@ -23,10 +24,13 @@
       (Waiting)
       (deriving Serialize Deserialize))
 
+    (struct PendingWork
+      ((future (Option (Future (Result String String))))))
+
     (struct Model
       ((display Display)
        (clicks I64)
-       (pending (Option (Future (Result String String))))))
+       (pending (Rc PendingWork))))
 
     (struct Save
       ((display Display)
@@ -38,44 +42,43 @@
       (Cancel)
       (Click))
 
-    (define (update (model Model) (message (Option Msg))) (→ Model) (! mut completion fetch)
-      (match model
-        ((Model display clicks pending)
-         (match message
-           ((Some (Load))
-            (drop pending)
-            (Model (Waiting) clicks (Some (dispatch (once load-text)))))
-           ((Some (Cancel))
-            (drop pending)
-            (Model (Showing "canceled") clicks (None)))
-           ((Some (Click)) (collect display (+ clicks 1) pending))
-           ((None) (collect display clicks pending))))))
+    (define (update (model Model) (message (Option Msg)))
+      (→ Model) (! mut host completion fetch tasks)
+      (match message
+        ((Some (Load))
+         (drop (replace! (● model pending future) (Some (dispatch (once load-text)))))
+         (set! (● model display) (Waiting)))
+        ((Some (Cancel))
+         (cancel! model)
+         (set! (● model display) (Showing "canceled")))
+        ((Some (Click)) (set! (● model clicks) (+ (● model clicks) 1)) (collect model))
+        ((None) (collect model)))
+      model)
 
     (define (load-text) (→ (Result String String)) (! fetch tasks)
       (match (request "GET" "/api/text" (Nil) "")
         ((Ok reply) (Ok (● reply body)))
         ((Err why) (Err why))))
 
-    (define (collect (display Display)
-                     (clicks I64)
-                     (pending (Option (Future (Result String String)))))
-      (→ Model)
-      (! mut)
-      (match pending
-        ((None) (Model display clicks (None)))
+    (define (collect (model Model)) (→ Unit) (! mut host)
+      (match (replace! (● model pending future) (None))
+        ((None) (unit))
         ((Some future)
          (match (poll future)
-           ((Pending future) (Model display clicks (Some future)))
-           ((Ready (Completed (Ok text))) (Model (Showing text) clicks (None)))
-           ((Ready (Completed (Err why))) (Model (Showing why) clicks (None)))
-           ((Ready (Abandoned)) (Model (Showing "abandoned") clicks (None)))))))
+           ((Pending future) (drop (replace! (● model pending future) (Some future))))
+           ((Ready (Completed (Ok text))) (set! (● model display) (Showing text)))
+           ((Ready (Completed (Err why))) (set! (● model display) (Showing why)))
+           ((Ready (Abandoned)) (set! (● model display) (Showing "abandoned")))))))
+
+    (define (cancel! (model Model)) (→ Unit) (! mut host)
+      (drop (replace! (● model pending future) (None))))
 
     (define (button (id String) (label String) (message Msg)) (→ (Html Msg))
       (Element "button"
                (list (Attr "id" id) (On "click" (Nil) (Allow) (lambda (event) message)))
                (list (Text label))))
 
-    (define (view (model (Borrow Model))) (→ (Html Msg))
+    (define (view (model Model)) (→ (Html Msg)) (! mut host)
       (Element "main"
                (list (Attr "aria-busy" (match (● model display)
                                          ((Waiting) "true")
@@ -96,48 +99,46 @@
         ((Showing text) text)
         ((Waiting) "loading")))
 
-    (define (window (model (Borrow Model))) (→ (List (Attribute Msg)))
+    (define (window (model Model)) (→ (List (Attribute Msg))) (! mut host)
       (Nil))
 
-    (define (save (model (Borrow Model))) (→ Save)
+    (define (save (model Model)) (→ Save) (! mut host)
       (Save (● model display) (● model clicks)))
 
     (define (restore (saved Save)) (→ Model)
       (Model (match (● saved display)
                ((Waiting) (Showing "interrupted"))
                (display display))
-             (● saved clicks) (None)))
+             (● saved clicks) (rc (PendingWork (None)))))
 
     (struct FuturesApplication
       ())
 
     (define-page-state Save)
 
-    (instance (Application (! mut events storage tasks) FuturesApplication)
+    (instance (Application (! mut host completion events storage tasks page) FuturesApplication)
       (define start
         (lambda (entry)
           (run-page (lambda () (Save (Showing "idle") 0)) serialize deserialize present))))
 
-    ;; Only Save enters the shared lifecycle. Construct the linear model inside
-    ;; the repeatable host binders, then keep it owned by the reactor's loop.
-    (define (present (saved Save) (checkpoint (dyn (Fn Save → Unit ! events storage tasks))))
+    ;; Save is detached recovery data. The model shares an explicit pending
+    ;; owner; returning from the loop cancels it even if another alias remains.
+    (define (present (saved Save) (checkpoint (Fn Save → Unit ! events storage tasks)))
       (→ Unit)
-      (! mut events storage tasks)
+      (! mut host completion events storage tasks page)
       (with-page-dom
        (lambda ()
          (with-page-fetch
           (lambda ()
-            (drop (run-reactor (restore saved) (Nil)
-                               (ann update
-                                    (dyn (Fn Model
-                                             (Option Msg)
-                                             → Model
-                                             ! mut completion events storage dom fetch)))
-                               view window save
-                               (ann commit (dyn (Fn Save → Unit ! mut events storage dom fetch)))
-                               (lambda (saved) (checkpoint saved)))))))))
+            (cancel! (run-reactor (restore saved) (Nil)
+                                  (lambda (model message) (update model message))
+                                  (lambda (model) (view model))
+                                  (lambda (model) (window model))
+                                  (lambda (model) (save model))
+                                  (lambda (saved) (commit saved))
+                                  (lambda (saved) (checkpoint saved)))))))))
 
-    (define (commit (saved Save)) (→ Unit) (! mut events)
+    (define (commit (saved Save)) (→ Unit) (! mut events page)
       (commit-page saved)
       (report-ready))
     ))

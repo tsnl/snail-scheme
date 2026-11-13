@@ -2,12 +2,11 @@
 
 ## Standard library
 
-The libraries come in four families, each with a rule for what it may
-import ([#566](https://github.com/tsnl/snail-scheme/issues/566)):
-core imports nothing, the runtime interfaces only core, and the shell both. Only
-`(snail core …)` runs on Chibi, through shims over R7RS; the shell, the
-runtime interfaces and Scheme are compiled by the compiler. `(snail stage0
-…)` is Chibi's own: the build driver, its tool runner and the test helpers.
+The language libraries live under `src/`, with paths matching their names.
+Core imports only core; runtime interfaces import core; the shell builds on
+both. The compiler is among the shell libraries and is itself typed Snail
+Scheme. Chez stage zero executes only its explicit host-adapted source
+closure, not arbitrary shell or application libraries.
 
 ### Core
 
@@ -24,32 +23,31 @@ its `base`, `table` and `io`, so it can compile itself.
 
 ### Shell: data and text
 
-`(snail shell …)` is everything else, written in Snail-Core over core and
+`(snail shell …)` is everything else, written in Snail Scheme over core and
 the runtime interfaces.
 
 | Library | Contents |
 | --- | --- |
 | `(snail shell math)` | Elementary functions on `F64`. |
-| `(snail shell text)` | Unicode character properties, case mapping and decimal digit values, from the runtime's tables. `(scheme runtime)` is built on it, so Scheme's character procedures are Unicode's. |
+| `(snail shell text)` | Unicode character properties, case mapping and decimal digit values from the runtime's tables. |
 | `(snail shell random)` | A deterministic generator as a value. |
 | `(snail shell utf8)` | `string->utf8`, and `utf8->string`, which rejects ill-formed bytes as a fatal `TextDecoder` does, giving the offset of the first bad sequence. |
 | `(snail shell compiler sha256)` | `sha256` over bytes, giving the 32-byte digest, and `bytes->hex`, the lowercase hex Node's `digest('hex')` writes; the compiler names linked files with it, the same on stage 0 as in Wasm. |
 | `(snail shell json)` | The `Json` value, with integer numbers and objects as ordered members, and `json->string`, which writes what `JSON.stringify` writes for the same value. |
 | `(snail shell json read)` | `string->json`, which reads JSON text whose numbers are integers back as a `Json`, and `json-member`. A library of its own, so that a program that only writes JSON does not carry it. |
 | `(snail shell wire)` | `Serialize`, `Deserialize` and the byte encoding. |
-| `(snail shell integer)`, `(snail shell rational)`, `(snail shell number)` | Exact integers of any size, rationals, and Scheme numbers. |
-| `(snail shell datum)`, `(snail shell read)`, `(snail shell write)` | Scheme data and its external representation. |
+| `(snail shell integer)`, `(snail shell rational)` | Explicit typed APIs for arbitrary-precision integers and rationals. |
 | `(snail shell syntax)` | The syntax a `generate-library` recipe returns, and the bytes its producer writes. |
 
 ### Shell: system and network
 
 | Library | Contents |
 | --- | --- |
-| `(snail shell task)` | The `tasks` effect and its scheduler, written in Snail-Core: one-shot local dispatch, cooperative yield, timer and ticket waits, waiting on the host, and `Mailbox` queues between tasks ([task operations](../runtimes/tasks.md)). |
+| `(snail shell task)` | The `tasks` effect and its scheduler, written in Snail Scheme: one-shot local dispatch, cooperative yield, timer and ticket waits, waiting on the host, and `Mailbox` queues between tasks ([task operations](../runtimes/tasks.md)). |
 | `(snail shell future)` | Linear `Promise` and `Future` endpoints, nonblocking `poll`, and completion notifications; independent of scheduling ([futures](../runtimes/tasks.md)). |
 | `(snail shell async)` | `dispatch` returns a future, `await-future` suspends its task, and `after` creates a timer future. Built over `(snail shell task)` and `(snail shell future)`. |
 | `(snail shell async-files)` | Explicit native `files` capability for bounded asynchronous reads, backed by Linux `io_uring` or Node's asynchronous filesystem APIs ([file reads](../runtimes/tasks.md#native-asynchronous-file-reads)). |
-| `(snail shell slot)` | `UnsafeSlot`, the one shared place a linear value rests between frames: `take!` and `put!`, each trapping when the slot is in the other state. The scheduler's queues and the mailboxes of `(snail shell task)` are built on it; a cell holds no linear value. |
+| `(snail shell slot)` | `UnsafeSlot`, the one shared place a linear value rests between frames: `take!` and `put!`, each trapping when the slot is in the other state. The scheduler's queues and the mailboxes of `(snail shell task)` are built on it; an `Rc` payload can own linear values. |
 | `(snail shell process)` | Child processes with piped standard streams, through the `process` effect: `spawn`, reading output, writing and closing input, signals and exit, `run` to run a command to its end, and `exec` to replace the program with one; and `termination`, SIGINT or SIGTERM as a value, through the `signals` effect ([child processes](../runtimes/networking.md#child-processes)). |
 | `(snail shell gitignore)` | Immutable snapshots of ignored disk paths from installed Git, with tracked files preserved ([Git ignore snapshots](#git-ignore-snapshots)). |
 | `(snail shell socket)` | TCP listeners and connections and UDP sockets, through the `tcp` and `udp` effects, each wait by ticket, and `endpoint`, which parses an IPv4 address and a port once ([native networking](../runtimes/networking.md)). |
@@ -57,7 +55,7 @@ the runtime interfaces.
 | `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource`, which a task waits on, through the `resource` effect ([linked files](types.md#linked-files)). |
 | `(snail shell watch)` | `inventory`, each path under some directories with a fingerprint of its kind, size and modification time, and `inventory-changes`, the paths two inventories disagree on: what a watcher reconciles when a native watch may have missed an edit. `watch-tree` and `next-hint` are Node's recursive watch of a tree, as hints that something under it changed, which only say when to take the next inventory (the `hints` effect, on Node only). |
 | `(snail shell wasm)` | Loading WebAssembly modules and plugins while a program runs ([below](#loading-webassembly)). |
-| `(snail shell engine)` | The engine: `run-manifest` links a program compiled one library at a time from its `modules.json`, through `(snail shell wasm)`, and runs it, reading each object through the `linked-content-store` effect, `read-object : (dyn (Fn String → (Option Bytes) ! tasks))`, which each entry program handles once. Linking and each read of a linked file are tasks of the engine's own scheduler, which `engine-turn` and its siblings drive together with the program's. The native entry, `bootstrap/engine.sld`, reads files; stage 0 builds it, and Node and wasmtime start it for a manifest ([the native executable](bootstrap.md#the-native-executable)). |
+| `(snail shell engine)` | The engine: `run-manifest` links a program compiled one library at a time from its `modules.json`, through `(snail shell wasm)`, and runs it, reading each object through the `linked-content-store` effect, `read-object : (Fn String → (Option Bytes) ! tasks)`, which each entry program handles once. Linking and each read of a linked file are tasks of the engine's own scheduler, which `engine-turn` and its siblings drive together with the program's. The native entry, `bootstrap/engine.sld`, reads files; stage 0 builds it, and Node and wasmtime start it for a manifest ([the native executable](bootstrap.md#the-native-executable)). |
 
 ### Shell: applications
 
@@ -72,7 +70,7 @@ the runtime interfaces.
 | `(snail shell dom page)` | `with-page-dom`, the handler of `dom` over the browser page's document (`host/browser/dom.mjs`), delivering the events its listeners fire, wakes, hiding and reloads from the page's event queue. |
 | `(snail shell fetch)` | The `fetch` effect: `request method url headers body`, answering a `Reply` or why there was none, and streams of server-sent events of the kinds named, `stream-open`, `stream-next`, which answers a `StreamEvent`, and `stream-close`; a stream that names `error` hears each dropped connection. |
 | `(snail shell fetch page)` | `with-page-fetch`, the handler of `fetch` over the page's `fetch` and `EventSource` (`host/browser/fetch.mjs`). |
-| `(snail shell ui)` | [Document interfaces](applications.md#document-interfaces): `Html` and `Attribute` trees, the keyed reconciler, and `run-ui`, which runs a model, `view` and `update` with commands as tasks, the window's listeners, and messages to start with, commits completed presentations, and saves on request, hiding or close. `run-reactor` uses owned models, borrowed views and futures, with separate snapshots for commit and storage. |
+| `(snail shell ui)` | [Document interfaces](applications.md#document-interfaces): `Html` and `Attribute` trees, the keyed reconciler, and `run-ui`, which runs a model, `view` and `update` with commands as tasks, the window's listeners, and messages to start with, commits completed presentations, and saves on request, hiding or close. `run-reactor` uses shared models with explicit `Rc` owners for futures and detached snapshots for commit and storage. |
 | `(snail shell ui page)` | The `Interface` class with associated `Message` type, `InterfaceApplication` adapter, and `Command`, the type of its commands. |
 | `(snail shell ui commands)` | An ordered vector of named actions, independent of keyboard policy. `register` rejects duplicate names; `named` retrieves an action. Actions can be Scheme functions with effects. |
 | `(snail shell ui shortcuts)` | Chords mapped to command names. Registration checks duplicate chords and unknown commands; `matching` retrieves a name and `chords` supplies a window listener. |
@@ -86,7 +84,7 @@ the runtime interfaces.
 
 | Library | Contents |
 | --- | --- |
-| `(snail shell compiler)`, `(snail shell compiler …)` | The compiler, written in Snail-Core: its passes from a program's source to WebAssembly text or its wire schemas, and a session that rebuilds only what an edit changed ([compiler architecture](compilers.md)). |
+| `(snail shell compiler)`, `(snail shell compiler …)` | The compiler, written in Snail Scheme: its passes from a program's source to WebAssembly text or its wire schemas, and a session that rebuilds only what an edit changed ([compiler architecture](compilers.md)). |
 | `(snail shell assembler)` | `assemble`, WebAssembly text to a binary module in-process, or the parser's message naming the line and column. Only a tool linked with the toolchain's runtime can use it: the plain runtime leaves the parser out, since a development build copies the runtime whole. |
 | `(snail shell artifact)` | `artifact-bundle`, the files of a named project build, embedded when the compiler expands it ([projects](projects.md)). |
 | `(snail shell format)` | The shared CLI and IDE formatter: conventional Scheme indentation, each import and field on its own line, and each line whose code runs past 100 columns broken, a call before its arguments and a binding form before each binding and body form. Names `let`, `let*`, `*-let` and `*-let*` use binding layout. It never joins lines. |
@@ -120,19 +118,14 @@ host](effects.md#defaults-from-the-host)).
 | `(snail runtime resource)` | A linked file's bytes, read on every host when a task asks for them. |
 | `(snail runtime wasm)` | Compiling and instantiating modules, and finding their exports, on Node. |
 
-### Scheme
-
-| Library | Contents |
-| --- | --- |
-| `(scheme base)` | R7RS names (`cons`, `car`, `vector`, `char=?` ...) over the typed language. |
-| `(scheme compiler)`, `(scheme runtime)` | The R7RS translator, and the standard procedures its output calls. |
+There are no `(scheme …)` compatibility libraries or dynamic numeric tower.
 
 `(list-sort before? items)` in `(snail core base)` sorts an immutable list
 with a pure strict comparator. It is stable: items for which neither
 precedes the other retain their input order. Comparison reads the items,
 so their type must satisfy `Copy`. A merge sort bounds comparisons and
 traversal by O(n log n); the compiler, project builder and editor use this
-same operation. Stage 0 supplies the corresponding stable sort on Chibi.
+same operation. Stage 0 supplies the corresponding stable sort on Chez.
 
 ## Current input and output ports
 
@@ -175,7 +168,7 @@ and `Pair` require an explicit presentation instance.
 `(write value)` prints its `Repr` representation: strings keep quotes and
 escapes, characters use `#\` notation, and containers represent their
 elements recursively. Both perform `output-port` and append no newline;
-`(newline)` adds one. `(scheme base)` also exports both operations.
+`(newline)` adds one.
 The socket library has its own `write`; import `(except (snail core io) write)`
 when only the socket operation is needed, or rename one of them.
 
@@ -286,7 +279,7 @@ Missing Git or an undiscoverable worktree yields `Ok None`. The library does not
 interpret `.gitignore` in non-Git folders. Once a worktree is found, failures are
 `Err` and no partial snapshot is accepted. Each query owns its process and drains
 both pipes concurrently, yielding while it waits; stdout is bounded to 16 MiB and
-stderr to 64 KiB. This is Snail-Core over `(snail shell process)`, without IDE types,
+stderr to 64 KiB. This is Snail Scheme over `(snail shell process)`, without IDE types,
 a persistent child, or a second glob matcher.
 
 Repositories embedded within the project, including submodules, keep their
@@ -315,17 +308,17 @@ declarations.
   (SignatureMismatch ((name String)))) ; compiled with other types
 
 ;; Exported function contracts (summary notation, not declarations):
-;; load-module: (impl (Fn String String → (Result Module LoadError) ! wasm fs))
-;; module-export: (impl (Fn Module String → (Result Funcref LoadError) ! wasm))
-;; unsafe-cast: (∀ (A) (impl (Fn Funcref → A)))
-;; load-plugin: (impl (Fn String → (Result Plugin LoadError) ! wasm fs))
-;; plugin-function: (∀ (A) (impl (Fn Plugin String → (Result A LoadError) ! wasm)))
-;; compile-bytes: (impl (Fn Bytes → (Option Compiled) ! wasm))
-;; module-imports: (impl (Fn Compiled → (List Import) ! wasm)) ; (Import from name kind)
-;; link-module: (impl (Fn String Compiled (List Provider) → (Result Module LoadError) ! wasm))
-;; name-instance: (impl (Fn Module String → Bool ! wasm))
-;; replace-instances: (impl (Fn (List (Pair String Module)) → Bool ! wasm))
-;; run-export: (impl (Fn Module String I64 → (Result I64 LoadError) ! wasm))
+;; load-module: (Fn String String → (Result Module LoadError) ! wasm fs)
+;; module-export: (Fn Module String → (Result Funcref LoadError) ! wasm)
+;; unsafe-cast: (∀ (A) (Fn Funcref → A))
+;; load-plugin: (Fn String → (Result Plugin LoadError) ! wasm fs)
+;; plugin-function: (∀ (A) (Fn Plugin String → (Result A LoadError) ! wasm))
+;; compile-bytes: (Fn Bytes → (Option Compiled) ! wasm)
+;; module-imports: (Fn Compiled → (List Import) ! wasm) ; (Import from name kind)
+;; link-module: (Fn String Compiled (List Provider) → (Result Module LoadError) ! wasm)
+;; name-instance: (Fn Module String → Bool ! wasm)
+;; replace-instances: (Fn (List (Pair String Module)) → Bool ! wasm)
+;; run-export: (Fn Module String I64 → (Result I64 LoadError) ! wasm)
 ```
 
 `(load-module name file)` links the module in `file` into the program's

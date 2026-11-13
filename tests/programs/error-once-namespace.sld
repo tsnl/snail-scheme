@@ -1,4 +1,8 @@
 (import
  (snail core base)
  (rename (prim) (once pretend-once)))
-(unit)
+
+(define main
+  (lambda ()
+    (unit)
+    (unit)))

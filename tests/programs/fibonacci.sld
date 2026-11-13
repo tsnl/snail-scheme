@@ -5,5 +5,7 @@
 (define (fibonacci (n I64)) (→ I64)
   (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
 
-(display (fibonacci 30))
-(newline)
+(define (main) (→ Unit) (! output-port)
+  (display (fibonacci 30))
+  (newline)
+  (unit))

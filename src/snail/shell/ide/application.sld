@@ -1,16 +1,23 @@
-;; The browser IDE as a host-independent application. A linear session owns
-;; command futures beside immutable display data. Update polls without
-;; suspending; view borrows the session. Pages and Scheme tests exercise the
+;; The browser IDE as a host-independent application. A session shares an
+;; explicit Rc owner for command futures beside ordinary display data. Update
+;; polls without suspending; views read the display data. Pages and tests exercise the
 ;; same loop over DOM and fetch effects; host/ide/ide.sld supplies the page.
 (define-library (snail shell ide application)
   (export Ide Msg initial update view window kept restored Connect Boot
           DispatchCommand Typed Open PaletteEvent
-          Session begin-session update-session session-view session-window session-snapshot
+          Session
+          begin-session
+          close-session!
+          update-session
+          session-view
+          session-window
+          session-snapshot
           Command CommandResult Step Recovery TabbedRecovery read-recovery
           Buffer
           Snapshot buffer-at dirty? conflict?)
   (import
    (snail core base)
+   (only (snail core forms) host)
    (only (snail shell text) string-upcase string-downcase)
    (only (snail shell task) tasks)
    (snail shell future)
@@ -32,8 +39,8 @@
    (prefix (snail shell ui shortcuts) shortcut-))
   (begin
     (struct Command
-      ((work (dyn (FnOnce → CommandResult ! tasks dom fetch)))
-       (interrupted (dyn (Fn Ide → Step)))))
+      ((work (FnOnce → CommandResult ! tasks dom fetch))
+       (interrupted (Fn Ide → Step))))
 
     ;; ---- Text ----
 
@@ -861,12 +868,12 @@
       (Control ((action String))))
 
     (struct CommandResult
-      ((accept (dyn (FnOnce → (dyn (Fn Ide → Step)))))))
+      ((accept (FnOnce → (Fn Ide → Step)))))
 
     ;; A command owns its transition in a one-shot thunk and unwraps it
     ;; only at the point it is applied to the current editor state.
 
-    (define (command-result (transition (dyn (Fn Ide → Step)))) (→ CommandResult)
+    (define (command-result (transition (Fn Ide → Step))) (→ CommandResult)
       (CommandResult (once (lambda () transition))))
 
     (define (apply-result (result CommandResult) (ide Ide)) (→ Step)
@@ -878,29 +885,33 @@
     (type Step
           (Pair Ide (List Command)))
 
-    ;; Pending work has exactly one owner. Display data stays immutable and
-    ;; shareable; the session itself cannot be copied or checkpointed.
+    ;; The counted pending-work owner is separate from ordinary display data.
+    ;; Polling moves its linear list out with replace!, leaving a valid empty
+    ;; state. Views only read display data; snapshots contain no resource owner.
     (struct PendingCommand
       ((future (Future CommandResult))
-       (interrupted (dyn (Fn Ide → Step)))))
+       (interrupted (Fn Ide → Step))))
+
+    (struct PendingWork
+      ((items (List PendingCommand))))
 
     (struct Session
       ((ide Ide)
-       (pending (List PendingCommand))))
+       (pending (Rc PendingWork))))
 
     (define interrupted-request (→ Failure)
       (Failure 0 "Request interrupted; its server-side outcome may be unknown."))
 
     (define (begin-session (ide Ide)) (→ Session)
-      (Session ide (Nil)))
+      (Session ide (rc (PendingWork (Nil)))))
 
-    (define (session-view (session (Borrow Session))) (→ (Html Msg))
+    (define (session-view (session Session)) (→ (Html Msg)) (! mut host)
       (view (● session ide)))
 
-    (define (session-window (session (Borrow Session))) (→ (List (Attribute Msg)))
+    (define (session-window (session Session)) (→ (List (Attribute Msg))) (! mut host)
       (window (● session ide)))
 
-    (define (session-snapshot (session (Borrow Session))) (→ TabbedRecovery)
+    (define (session-snapshot (session Session)) (→ TabbedRecovery) (! mut host)
       (kept (● session ide)))
 
     ;; Input invalidates old intentions before any result is accepted. Only
@@ -908,16 +919,26 @@
     ;; until a later turn, even if it could complete immediately.
 
     (define (update-session (session Session) (message (Option Msg)))
-      (→ Session)
-      (! mut completion dom fetch)
-      (match session
-        ((Session ide pending)
-         (match (match message ((Some message) (update ide message)) ((None) (stay ide)))
-           ((Pair next commands) (collect-results next pending (dispatch-commands commands)))))))
+      (→ Session) (! mut host completion dom fetch tasks)
+      (let* ((ide (● session ide))
+             (pending (replace! (● session pending items) (Nil)))
+             (step (match message ((Some message) (update ide message)) ((None) (stay ide)))))
+        (match step
+          ((Pair next commands)
+           (match (collect-results next pending (dispatch-commands commands))
+             ((Pair next waiting)
+              (set! (● session ide) next)
+              (drop (replace! (● session pending items) waiting))
+              session))))))
+
+    ;; Explicit close cancels observation even if another view retains a
+    ;; session alias. Final release also drops any work that still remains.
+    (define (close-session! (session Session)) (→ Unit) (! mut host)
+      (drop (replace! (● session pending items) (Nil))))
 
     (define (dispatch-commands (commands (List Command)))
       (→ (List PendingCommand))
-      (! mut completion dom fetch)
+      (! mut host completion dom fetch tasks)
       (match commands
         ((Nil) (Nil))
         ((Cons (Command work interrupted) rest)
@@ -926,10 +947,10 @@
     (define (collect-results (ide Ide)
                              (pending (List PendingCommand))
                              (waiting (List PendingCommand)))
-      (→ Session)
-      (! mut completion dom fetch)
+      (→ (Pair Ide (List PendingCommand)))
+      (! mut host completion dom fetch tasks)
       (match pending
-        ((Nil) (Session ide waiting))
+        ((Nil) (Pair ide waiting))
         ((Cons (PendingCommand future interrupted) rest)
          (match (poll future)
            ((Pending future)
@@ -942,8 +963,8 @@
     (define (continue-results (step Step)
                               (rest (List PendingCommand))
                               (waiting (List PendingCommand)))
-      (→ Session)
-      (! mut completion dom fetch)
+      (→ (Pair Ide (List PendingCommand)))
+      (! mut host completion dom fetch tasks)
       (match (then step reconcile-palette)
         ((Pair next commands)
          (collect-results next rest (append waiting (dispatch-commands commands))))))
@@ -951,7 +972,7 @@
     (define (stay (model Ide)) (→ Step)
       (Pair model (Nil)))
 
-    (define (then (step Step) (next (dyn (Fn Ide → Step)))) (→ Step)
+    (define (then (step Step) (next (Fn Ide → Step))) (→ Step)
       (match step
         ((Pair model commands)
          (match (next model)
@@ -1771,7 +1792,7 @@
               (map (lambda (held) (Chord spelling (+ held extra))) (list control-key meta-key)))
             (delete-duplicates string=? (list (string-upcase key) (string-downcase key))))))
 
-    (define commands (→ (command-Registry (dyn (Fn Ide → Step))))
+    (define commands (→ (command-Registry (Fn Ide → Step)))
       (match (command-register
               (ann (list->vector (list (command-Command "command-palette"
                                                         (lambda (model)
@@ -1823,7 +1844,7 @@
                                        (command-Command "split-down"
                                                         (lambda (model) (divided model "column")))
                                        (command-Command "close-editor" closing)))
-                   (Vector (command-Command (dyn (Fn Ide → Step))))))
+                   (Vector (command-Command (Fn Ide → Step)))))
         ((Ok registry) registry)
         ((Err message) (panic message))))
 
@@ -1874,7 +1895,7 @@
             ((Some name) (update model (DispatchCommand name)))
             ((None) (stay model)))))
 
-    (define (invoked (model Ide) (run (dyn (Fn Ide → Step)))) (→ Step)
+    (define (invoked (model Ide) (run (Fn Ide → Step))) (→ Step)
       (then (run (search-invalidated model))
             (lambda (next)
               (if (palette-visible? (● next palette)) (stay next)
@@ -2871,7 +2892,7 @@
           (deserialize bytes)))
 
     (define (recovery-tag (bytes Bytes)) (→ I32)
-      (unsafe-total (lambda () (decode-case-id (Decoder bytes (ref 0))))))
+      (unsafe-total (lambda () (decode-case-id (Decoder bytes 0)))))
 
     (define (kept (model Ide)) (→ TabbedRecovery)
       (TabbedRecovery

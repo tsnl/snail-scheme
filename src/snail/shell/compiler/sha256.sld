@@ -3,7 +3,7 @@
 ;; file it links by this digest, so stage 0 computes it too, and both hosts
 ;; must agree on every word: a word is an I64 holding an unsigned 32-bit
 ;; value, and each sum and left shift is masked back to 32 bits, where Wasm's
-;; i32 arithmetic would wrap and Chibi's integers would grow.
+;; i32 arithmetic would wrap and Chez's integers would grow.
 (define-library (snail shell compiler sha256)
   (export
    sha256
@@ -124,14 +124,16 @@
     ;; four earlier ones. The array is local to this call.
 
     (define (schedule (bytes Bytes) (start I64)) (→ (Vector I64))
-      (let ((words (make-array 64 (ann 0 I64))))
-        (do ((t 0 (+ t 1))) ((= t 64) (array->vector words))
-          (array-set! words t (if (< t 16)
-                                  (block-word bytes start t)
-                                  (wrap (+ (+ (small-sigma1 (array-ref words (- t 2)))
-                                              (array-ref words (- t 7)))
-                                           (+ (small-sigma0 (array-ref words (- t 15)))
-                                              (array-ref words (- t 16))))))))))
+      (unsafe-total (lambda ()
+                      (let ((words (make-vector 64 (ann 0 I64))))
+                        (do ((t 0 (+ t 1))) ((= t 64) words)
+                          (vector-set! words t (if (< t 16)
+                                                   (block-word bytes start t)
+                                                   (wrap
+                                                    (+ (+ (small-sigma1 (vector-ref words (- t 2)))
+                                                          (vector-ref words (- t 7)))
+                                                       (+ (small-sigma0 (vector-ref words (- t 15)))
+                                                          (vector-ref words (- t 16))))))))))))
 
     ;; §6.2.2 steps 2 to 4: 64 rounds over eight working words, which are
     ;; then added to the state.

@@ -101,12 +101,12 @@
     ;; failure runs, so a yield to this effect saves no frames. `attempt`
     ;; turns the work into a Result.
     (effect building
-      ((ctl stop (dyn (Fn Failure → Never)))))
+      ((ctl stop (Fn Failure → Never))))
 
     (define (fail-build (message String)) (→ A) (! building) (∀ A)
       (absurd (stop (BuildFailure message))))
 
-    (define (attempt (work (dyn (Fn → T ! building e)))) (→ (Result T Failure)) (! e) (∀ T e)
+    (define (attempt (work (Fn → T ! building e))) (→ (Result T Failure)) (! e) (∀ T e)
       (handle building
           ((stop (lambda (failure) (Err failure))))
         (Ok (work))))
@@ -115,7 +115,11 @@
     ;; supplies every input a phase needs before it runs, so a compile that
     ;; asks for one names a need the planner missed.
 
-    (define (compiled (work (dyn (Fn → T ! compile e)))) (→ T) (! building e) (∀ T e) (⊨ (Copy T))
+    (define (compiled (work (Fn → T ! compile e)))
+      (→ T)
+      (! building e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
       (match (compiling work)
         ((Ok value) value)
         ((Err (Failed diagnostics)) (absurd (stop (CompileFailure diagnostics))))
@@ -195,13 +199,15 @@
            file))))
 
     (define (application-source (browser? Bool) (library (List String)) (name String)) (→ String)
+      ;; The lambda's row follows the selected Application instance, just as
+      ;; define-page-entry's does. Importing the entry performs no work.
       (string-append "(import (snail core base) (snail shell application) "
                      (if browser? "(snail shell page) " "")
                      "(prefix (" (string-join library " ") ") selected:))\n"
                      (if browser?
                          "(define-page-entry selected:"
-                         "(start (ann (Entry) (Entry selected:")
-                     name (if browser? ")\n" ")))\n")))
+                         "(define main (lambda () (start (ann (Entry) (Entry selected:")
+                     name (if browser? ")\n" ")))))\n")))
 
     (define (in-project (builder Builder) (path ProjectPath)) (→ String)
       (if (string=? (● path text) ".")
@@ -539,7 +545,7 @@
     ;; `work`'s value; when it fails, `directory` goes before the failure
     ;; does.
 
-    (define (removing (directory String) (work (dyn (Fn → T ! building e))))
+    (define (removing (directory String) (work (Fn → T ! building e)))
       (→ T)
       (! fs building e)
       (∀ T e)
@@ -616,7 +622,7 @@
 
     ;; `work` in a directory of its own in the build's scratch, removed after.
 
-    (define (in-working (builder Builder) (node I64) (work (dyn (Fn String → T ! fs e))))
+    (define (in-working (builder Builder) (node I64) (work (Fn String → T ! fs e)))
       (→ T)
       (! fs e)
       (∀ T e)
@@ -1251,7 +1257,7 @@
       (→ Unit)
       (! building)
       (∀ T)
-      (⊨ (Copy T))
+      (⊨ (Copy T) (Drop (!) T))
       (match result
         ((Ok _) (unit))
         ((Err error) (fail-build (string-append failure ": " (show error))))))

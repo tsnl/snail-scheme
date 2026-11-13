@@ -1,1 +1,0 @@
-a closure cannot capture a Borrow or a frozen owner

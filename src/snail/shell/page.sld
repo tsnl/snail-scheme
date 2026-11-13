@@ -25,6 +25,9 @@
    storage
    load-save
    store-save
+   page
+   PageRun
+   make-page
    start-page
    PageState
    define-page-state
@@ -33,6 +36,7 @@
    define-page-entry)
   (import
    (snail core base)
+   (only (snail core forms) host)
    (prefix (snail runtime browser events) host-)
    (prefix (snail runtime browser storage) host-)
    (snail shell application)
@@ -50,17 +54,17 @@
     ;; Waiting for an event, like loading and storing a save below, starts
     ;; on the host and waits by ticket ((snail shell task)'s `through-host`).
     (effect events
-      ((poll-event (dyn (Fn → I32)))
-       (wait-event (dyn (Fn → Unit ! tasks)))
-       (event-field (dyn (Fn I32 → I32)))
-       (random-seed (dyn (Fn → I32)))
-       (canvas-width (dyn (Fn → I32)))
-       (canvas-height (dyn (Fn → I32)))
-       (report-boot (dyn (Fn I32 → Unit)))
-       (report-ready (dyn (Fn → Unit)))
-       (checkpoint-root (dyn (Fn → Unit)))
-       (handover-only (dyn (Fn → I32)))
-       (save-after (dyn (Fn I32 → Unit))))
+      ((poll-event (Fn → I32))
+       (wait-event (Fn → Unit ! tasks))
+       (event-field (Fn I32 → I32))
+       (random-seed (Fn → I32))
+       (canvas-width (Fn → I32))
+       (canvas-height (Fn → I32))
+       (report-boot (Fn I32 → Unit))
+       (report-ready (Fn → Unit))
+       (checkpoint-root (Fn → Unit))
+       (handover-only (Fn → I32))
+       (save-after (Fn I32 → Unit)))
       (default
         ((poll-event host-poll)
          (wait-event (lambda () (through-host host-start-wait host-finish-wait)))
@@ -79,9 +83,9 @@
     ;; The root task owns this checkpoint protocol. Detached tasks
     ;; need their own storage binding; they cannot replace the loop's save.
     (effect storage
-      ((load-count (dyn (Fn → I32 ! tasks)))
-       (loaded-byte (dyn (Fn I32 → U8)))
-       (store-save (dyn (Fn Bytes → Unit ! tasks))))
+      ((load-count (Fn → I32 ! tasks))
+       (loaded-byte (Fn I32 → U8))
+       (store-save (Fn Bytes → Unit ! tasks)))
       (default
         ((load-count (lambda () (through-host host-start-load host-finish-load)))
          (loaded-byte host-byte)
@@ -102,10 +106,24 @@
     ;; return, independently of readiness and the optional checkpoint below.
     ;; Suspension or failure never sets it.
 
-    (define completed (→ (Ref Bool)) (ref #f))
 
-    (define (page-done) (→ I32) (! mut)
-      (if (ref-get completed) 1 0))
+
+    (struct PageRun
+      ((completed Bool)
+       (incoming (Option Any))
+       (current (Option Any))))
+
+    ;; The host owns one context per invocation. It holds recovery values,
+    ;; never a scheduler or pending work. Saved handlers keep this context
+    ;; attached to its generation when the presentation suspends.
+    (effect page
+      ((current-page (Fn → PageRun))))
+
+    (define (make-page (handover (Option Any))) (→ PageRun)
+      (PageRun #f handover (None)))
+
+    (define (page-done (context PageRun)) (→ I32)
+      (if (● context completed) 1 0))
 
     ;; ---- Checkpointed pages ----
 
@@ -113,8 +131,8 @@
     ;; effects in a function. Engines request this ordinary evidence rather
     ;; than weakening the compiler's Any boundary.
     (typeclass (PageState S)
-      (: pack-state (impl (Fn S → Any)))
-      (: unpack-state (impl (Fn Any → (Option S)))))
+      (: pack-state (Fn S → Any))
+      (: unpack-state (Fn Any → (Option S))))
 
     (define-syntax define-page-state
       (syntax-rules ()
@@ -126,36 +144,40 @@
                ((Ok state) (Some state))
                ((Err _) (None))))))))
 
-    ;; The host retains these opaque immutable values across replacement.
+    ;; The host retains these opaque saved values across replacement.
     ;; Only a completed presentation commits; boot keeps an initial recovery
     ;; point without declaring the page ready. The host checks root
     ;; ownership before a caller can replace the checkpoint.
 
-    (define incoming (→ (Ref (Option Any))) (ref (None)))
 
-    (define current (→ (Ref (Option Any))) (ref (None)))
 
-    (define (commit-page (state S)) (→ Unit) (! mut events) (∀ S) (⊨ (PageState S) (Copy S))
+
+
+    (define (commit-page (state S))
+      (→ Unit)
+      (! mut events page)
+      (∀ S)
+      (⊨ (PageState S) (Copy S) (Drop (!) S))
       (checkpoint-root)
-      (ref-set! current (Some (pack-state state))))
+      (set! (● (current-page) current) (Some (pack-state state))))
 
     (define (restore-page (cold? Bool)
-                          (initialize (dyn (Fn → S ! events)))
-                          (decode (dyn (Fn Bytes → S))))
+                          (initialize (Fn → S ! events))
+                          (decode (Fn Bytes → S)))
       (→ (Option (Pair S I32)))
       (! events storage tasks)
       (∀ S)
-      (⊨ (PageState S) (Copy S))
+      (⊨ (PageState S) (Copy S) (Drop (!) S))
       (match (load-save)
         ((Some bytes) (Some (Pair (decode bytes) 1)))
         ((None) (if cold? (Some (Pair (initialize) 2)) (None)))))
 
-    (define (boot-page (initialize (dyn (Fn → S ! events))) (decode (dyn (Fn Bytes → S))))
+    (define (boot-page (context PageRun) (initialize (Fn → S ! events)) (decode (Fn Bytes → S)))
       (→ (Option (Pair S I32)))
-      (! mut events storage tasks)
+      (! events storage tasks)
       (∀ S)
-      (⊨ (PageState S) (Copy S))
-      (match (ref-get incoming)
+      (⊨ (PageState S) (Copy S) (Drop (!) S))
+      (match (● context incoming)
         ((Some previous)
          (match (unpack-state previous)
            ((Some state) (Some (Pair state 0)))
@@ -165,40 +187,45 @@
     ;; Engines own presentation and event reduction. This shared boundary
     ;; owns restore/refusal, the boot checkpoint and durable save encoding.
 
-    (define (run-page (initialize (dyn (Fn → S ! events)))
-                      (encode (dyn (Fn S → Bytes)))
-                      (decode (dyn (Fn Bytes → S)))
-                      (run (dyn (Fn S (dyn (Fn S → Unit ! events storage tasks)) → Unit ! e))))
+    (define (run-page (initialize (Fn → S ! events))
+                      (encode (Fn S → Bytes))
+                      (decode (Fn Bytes → S))
+                      (run (Fn S (Fn S → Unit ! events storage tasks) → Unit ! e)))
       (→ Unit)
-      (! mut events storage tasks e)
+      (! mut events storage tasks page e)
       (∀ S e)
-      (⊨ (PageState S) (Copy S))
-      (match (boot-page initialize decode)
-        ((Some (Pair state kind))
-         (commit-page state)
-         (ref-set! incoming (None))
-         (report-boot kind)
-         (if (= (handover-only) 1)
-             (store-save (encode state))
-             (begin
-               (save-after 5000)
-               (run state (lambda (state) (store-save (encode state)) (save-after 5000))))))
-        ((None) (unit))))
+      (⊨ (PageState S) (Copy S) (Drop (!) S))
+      (let ((context (current-page)))
+        (match (boot-page context initialize decode)
+          ((Some (Pair state kind))
+           (commit-page state)
+           (set! (● context incoming) (None))
+           (report-boot kind)
+           (if (= (handover-only) 1)
+               (store-save (encode state))
+               (begin
+                 (save-after 5000)
+                 (run state (lambda (state) (store-save (encode state)) (save-after 5000))))))
+          ((None) (unit)))))
 
-    (define (start-page (handover (Option Any)) (work (dyn (FnOnce → Unit ! mut tasks e))))
-      (→ I64)
-      (! mut e)
-      (∀ e)
-      (ref-set! incoming handover)
-      (ref-set! current (None))
-      (ref-set! completed #f)
-      (dispatch-task (once (lambda () (work) (ref-set! completed #t)))))
+    (define (start-page (context PageRun) (scheduler Scheduler)
+                        (work (FnOnce → Unit ! mut tasks page e)))
+      (→ I64) (! mut host e) (∀ e)
+      (handle page ((current-page (lambda () context)))
+        (dispatch-in scheduler
+                     (once (lambda ()
+                             (work)
+                             (set! (● context completed) #t))))))
 
-    ;; Both normal return and failure hand over this same checkpoint. An
-    ;; unadopted incoming value is never mistaken for the root's own state.
+    ;; Only a published checkpoint is the page's state. If loading traps
+    ;; before boot, the host can recover the incoming value separately.
+    ;; Each getter transfers one credit to its host caller.
 
-    (define (page-state) (→ (Option Any)) (! mut)
-      (ref-get current))
+    (define (page-state (context PageRun)) (→ (Option Any))
+      (● context current))
+
+    (define (page-incoming (context PageRun)) (→ (Option Any))
+      (● context incoming))
 
     ;; The only generated browser scaffolding is an ordinary Application
     ;; call. Its selected instance determines the effect row, without an
@@ -208,10 +235,14 @@
         ((_ App)
          (begin
            (define page-main
-             (lambda (handover)
-               (start-page (ann handover (Option Any))
+             (lambda (scheduler page)
+               (start-page (ann page PageRun) (ann scheduler Scheduler)
                            (once (lambda () (start (ann (Entry) (Entry App))))))))
            (expose page-main "app_main")))))
 
+    (expose make-page "app_create")
     (expose page-done "app_done")
-    (expose page-state "app_state")))
+    (expose page-state "app_state")
+    (expose page-incoming "app_incoming")
+
+    ))

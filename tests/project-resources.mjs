@@ -20,7 +20,7 @@ import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {createWasi, instantiate, linkedFileImports} from '../host/browser/load.mjs';
+import {createWasi, instantiate, linkedFileImports, runMain} from '../host/browser/load.mjs';
 import {createTasks, taskExports} from '../host/browser/tasks.mjs';
 import {startDevelopment} from './development-service.mjs';
 
@@ -59,8 +59,9 @@ async function pageOutput(directory) {
     const tasks = createTasks(() => instance && taskExports({exports: instance.exports}));
     instance = await instantiate(module, {...wasi.getImportObject(), ...linkedFileImports(read, module, () => tasks)});
     wasi.initialize(instance);
-    instance.exports.main();
-    await tasks.drive();
+    runMain(instance.exports, tasks);
+    try { await tasks.drive(); }
+    finally { tasks.close(); }
     return {output: lines.join('\n'), fetched};
   } finally { server.close(); }
 }
@@ -70,8 +71,9 @@ try {
     (begin (define hero (→ Resource) (link-file "art/hero.bin")) (define villain (→ Resource) (link-file "art/villain.bin"))))`);
   await write('src/assets/art/hero.bin', hero);
   await write('src/assets/art/villain.bin', villain);
-  await write('main.sld', `(import (snail core base) (snail core io) (only (snail shell task) tasks dispatch-local) (snail shell resource) (assets sprites))
-(dispatch-local (once (lambda () (write-line (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list (read-resource hero))) ",")))))\n`);
+  await write('main.sld', `(import (snail core base) (snail core io) (only (snail shell task) tasks) (snail shell resource) (assets sprites))
+(define (main) (→ Unit) (! output-port resource tasks)
+  (write-line (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list (read-resource hero))) ",")))\n`);
   await write('public/index.html', '<!doctype html><title>Resources</title>');
   await write('project.datum', `((build-target cli (program (entry "main.sld") (library-roots ("src"))))
  (build-target page (browser (entry "main.sld") (library-roots ("src")) (public "public"))))`);

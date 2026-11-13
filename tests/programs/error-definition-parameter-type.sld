@@ -5,4 +5,7 @@
   (→ I64)
   value)
 
-(identity #t)
+(define main
+  (lambda ()
+    (identity #t)
+    (unit)))

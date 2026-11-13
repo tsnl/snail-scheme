@@ -55,23 +55,26 @@
 
 (define end (Run "end" (EndRound)))
 
-(let ((ledger (new-ledger 7)))
-  (show-board ledger)
-  (show-board (fold-left run-step ledger
-                         (list (Run "job 2" (Work 2))
-                               (Run "meet ivo" (Meet 0))
-                               (Run "accept 4" (Accept 4))
-                               (Run "accept 7" (Accept 7))
-                               end
-                               (Run "honor 2" (Honor 2))
-                               (Run "accept 99" (Accept 99))
-                               end
-                               end
-                               (Board)
-                               end
-                               end
-                               end
-                               end
-                               end
-                               end
-                               end))))
+(define main
+  (lambda ()
+    (let ((ledger (new-ledger 7)))
+      (show-board ledger)
+      (show-board (fold-left run-step ledger
+                             (list (Run "job 2" (Work 2))
+                                   (Run "meet ivo" (Meet 0))
+                                   (Run "accept 4" (Accept 4))
+                                   (Run "accept 7" (Accept 7))
+                                   end
+                                   (Run "honor 2" (Honor 2))
+                                   (Run "accept 99" (Accept 99))
+                                   end
+                                   end
+                                   (Board)
+                                   end
+                                   end
+                                   end
+                                   end
+                                   end
+                                   end
+                                   end))))
+    (unit)))

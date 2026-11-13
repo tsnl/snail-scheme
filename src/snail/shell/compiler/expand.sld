@@ -1,12 +1,12 @@
 ;; Located syntax to the core program. The expander is the only pass that knows
-;; Snail-Core's binding forms. It loads libraries, resolves every identifier to a
+;; Snail Scheme's binding forms. It loads libraries, resolves every identifier to a
 ;; binding, runs `syntax-rules` macros, records declared entities in the
 ;; program tables, and emits core expressions with unique names.
 (define-library (snail shell compiler expand)
   (export
    ExpandedProgram
-   empty-expansion
    library-key
+   instance-interfaces
    expand-program
    ArtifactUse
    discover-artifacts
@@ -200,14 +200,9 @@
     ;; it as plain data: a step takes the context and hands back the one it
     ;; learned in. Its fields fall into three kinds.
     ;;
-    ;; What the build is given, which never changes: `predecessor` holds the
-    ;; libraries of the build before, which this one replays where their
-    ;; declarations and their imports' interfaces are unchanged, and a
-    ;; one-off compile has none; `directories` are searched for libraries;
-    ;; `generate` runs a producer program the build did not supply for
-    ;; `generate-library`, given the libraries loading when it was reached,
-    ;; and returns the bytes of the syntax it writes; the driver supplies it,
-    ;; because running a program means compiling one; `inputs` holds what
+    ;; What the build is given, which never changes: `directories` are
+    ;; searched for libraries;
+    ;; `inputs` holds what
     ;; the build supplies in memory: completed targets' files and producers'
     ;; outputs; and `recipe`, in a producer program, is the recipe its
     ;; printed copy stands for.
@@ -227,8 +222,7 @@
     ;;
     ;; What the build has learned, which flows forward out of every library:
     ;; `program` is the program built so far, and `expanded` holds each
-    ;; library this build has expanded, with what a later build needs to
-    ;; replay it. `artifacts` says where an `artifact-files` use finds its
+    ;; library this build has expanded, with its exports and content key. `artifacts` says where an `artifact-files` use finds its
     ;; files; a discovery records there each use it reaches. `counter`
     ;; numbers fresh names. `scopes` holds the environments that marks refer
     ;; to, by number, and `scope-count` is the next number; `tops` holds
@@ -236,9 +230,7 @@
     ;; key. `deriving` is the scope derived instances resolve in, once one
     ;; is made.
     (struct Context
-      ((predecessor (Table Expanded))
-       (directories (List String))
-       (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+      ((directories (List String))
        (inputs Inputs)
        (recipe (Option Recipe))
        (prefix String)
@@ -265,9 +257,7 @@
     ;; it.
 
     (define (resumed (outer Context) (inner Context)) (→ Context)
-      (Context (● outer predecessor)
-               (● outer directories)
-               (● outer generate)
+      (Context (● outer directories)
                (● outer inputs)
                (● outer recipe)
                (● outer prefix)
@@ -307,11 +297,11 @@
     ;; `step` over each item in order, threading the context and collecting
     ;; the values, so a sequence of steps is itself one step.
 
-    (define (each (cx Context) (step (dyn (Fn Context A → (Pair B Context) ! e))) (items (List A)))
+    (define (each (cx Context) (step (Fn Context A → (Pair B Context) ! e)) (items (List A)))
       (→ (Pair (List B) Context))
       (! e)
       (∀ A B e)
-      (⊨ (Copy B))
+      (⊨ (Copy B) (Drop e B))
       (let ((done (fold-left (lambda (done item)
                                (match (step (● done second) item)
                                  ((Pair value cx) (Pair (Cons value (● done first)) cx))))
@@ -367,86 +357,28 @@
          (Pair (Nil)
                (Context-artifacts-set cx (Discovering (Cons (ArtifactUse name loc (Nil)) uses)))))))
 
-    ;; A library as a build expanded it: its build key, the canonical text
-    ;; of its declarations with the interfaces of its imports, which decides
-    ;; whether a later build may replay it; its own interface; its exports;
-    ;; everything it added to the program; the targets whose files it
-    ;; embeds; the files it links; and what it derived instances against,
-    ;; if it did.
+    ;; Expansion is fresh for each build. Only semantic content keys,
+    ;; exports used by this build's imports, and linked files survive it.
     (struct Expanded
-      ((key String)
-       (body-key String)
-       (interface String)
+      ((interface String)
        (exports Exports)
-       (delta Program)
-       (artifacts (List ArtifactUse))
-       (links (List LinkedFile))
-       (derives (Option Derivation))))
+       (links (List LinkedFile))))
 
-    ;; A library's derived instances are made of the implicit libraries'
-    ;; names, so they hold while those libraries' interfaces do (#546).
-    ;; `loc` is the declaration whose deriving clause loaded them, which
-    ;; loads them again when the library is replayed.
-    (struct Derivation
-      ((loc Loc)
-       (interfaces String)))
-
-    ;; What a build expanded: the program, its libraries, and the counters,
-    ;; scopes and top levels a later build continues from, so that the names
-    ;; and marks of the libraries it replays stay unique and resolve as they
-    ;; did.
     (struct ExpandedProgram
       ((program Program)
-       (libraries (Table Expanded))
-       (counter I64)
-       (scope-count I64)
-       (scopes (Table Env))
-       (tops (Table (Table Binding)))
-       (top-count I64)))
+       (libraries (Table Expanded))))
 
-    ;; The build before the first, or before a one-off compile: it expanded
-    ;; nothing, so nothing is replayed.
 
-    (define empty-expansion (→ ExpandedProgram)
-      (ExpandedProgram empty-program empty-table 0 0 empty-table empty-table 0))
 
     (define (new-context (directories (List String))
-                         (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
                          (inputs Inputs)
-                         (artifacts ArtifactSource)
-                         (predecessor ExpandedProgram))
+                         (artifacts ArtifactSource))
       (→ Context)
-      (Context (● predecessor libraries)
-               directories
-               generate
-               inputs
-               (None)
-               ""
-               (Nil)
-               (Nil)
-               (Nil)
-               (Nil)
-               (Nil)
-               (None)
-               empty-program
-               empty-table
-               artifacts
-               (● predecessor counter)
-               (● predecessor scopes)
-               (● predecessor scope-count)
-               (● predecessor tops)
-               (● predecessor top-count)
-               (None)))
-
-    ;; What a finished build hands the next: everything it learned.
+      (Context directories inputs (None) "" (Nil) (Nil) (Nil) (Nil) (Nil) (None)
+               empty-program empty-table artifacts 0 empty-table 0 empty-table 0 (None)))
 
     (define (expanded-program (cx Context)) (→ ExpandedProgram)
-      (ExpandedProgram (● cx program)
-                       (● cx expanded)
-                       (● cx counter)
-                       (● cx scope-count)
-                       (● cx scopes)
-                       (● cx tops) (● cx top-count)))
+      (ExpandedProgram (● cx program) (● cx expanded)))
 
     ;; Each addition hands back the context with a larger program, except
     ;; that an item joins the library's own items until its run is done.
@@ -558,7 +490,7 @@
 
     (define (load-library (cx Context) (name (List String)) (loc Loc))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (let ((key (string-join name ".")))
         (cond ((builtin-library? key) (Pair (core-library) cx))
               ((member? key (● cx loading))
@@ -573,7 +505,7 @@
 
     (define (read-library (cx Context) (name (List String)) (loc Loc))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (let ((path (library-path (● cx directories) name loc)))
         (expand-library-file cx name (file-library name (read-source path) path))))
 
@@ -642,7 +574,7 @@
 
     (define (expand-library-file (cx Context) (name (List String)) (file LibraryFile))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (match file
         ((DefinedLibrary sections)
          (expand-sections (Context-prefix-set cx (string-join name ".")) sections))
@@ -650,14 +582,17 @@
          (expand-library-file cx name (output-library-file name (generated-bytes cx forms) loc)))))
 
     ;; What a producer wrote: the output the build supplied for it, or else
-    ;; what the driver's provider makes of it. The producer is compiled while
-    ;; this library loads, so the provider is given the loading stack, which
-    ;; `load-library` began with this library's key.
+    ;; what the driver's handler produces. The context owns only plain data;
+    ;; generator policy belongs to this invocation's handler. A request keeps
+    ;; the exact loading stack, so recursive compilation still detects cycles.
 
-    (define (generated-bytes (cx Context) (forms (List Syntax))) (→ Bytes) (! fs compile)
+    (effect generator
+      ((run-generator (Fn (List String) (List Syntax) → Bytes ! fs compile))))
+
+    (define (generated-bytes (cx Context) (forms (List Syntax))) (→ Bytes) (! generator fs compile)
       (match (generated-output (● cx inputs) (producer-text (● cx directories) forms))
         ((Some bytes) bytes)
-        ((None) ((● cx generate) (● cx loading) forms))))
+        ((None) (run-generator (● cx loading) forms))))
 
     ;; The producer imports what the recipe imports, names the recipe's
     ;; file, and writes the syntax its expression returns, a
@@ -677,9 +612,12 @@
                                               loc))))
                     loc)
               (Form (list (Ident "recipe" (None) loc) (Atom (DString recipe) loc)) loc)
-              (Form (list write-library
-                          (Form (list (Ident "lambda" (None) loc) (Form (Nil) loc) expression) loc))
-                    loc))))
+              (Form (list (Ident "define" (None) loc) (Ident "main" (None) loc)
+                          (Form (list (Ident "lambda" (None) loc) (Form (Nil) loc)
+                                      (Form (list write-library
+                                                  (Form (list (Ident "lambda" (None) loc)
+                                                              (Form (Nil) loc) expression) loc))
+                                            loc)) loc)) loc))))
 
     ;; ---- Sources ----
 
@@ -835,13 +773,6 @@
     (define (file-digest (path String)) (→ String) (! fs)
       (bytes->hex (sha256 (read-bytes path))))
 
-    ;; A replayed library's files must hold the bytes it was expanded with,
-    ;; since its module names their digests.
-
-    (define (linked-file-current? (file LinkedFile)) (→ Bool) (! fs)
-      (and (file-exists? (● file path))
-           (string=? (file-digest (● file path)) (● file digest))))
-
     ;; The digests enter the library's keys: its module names them, and so
     ;; does an importer's that specializes a generic function calling one
     ;; of its handles.
@@ -869,26 +800,20 @@
         (concatenate (map (lambda (library) (library-links expansion (● library first)))
                           (library-items program (program-items program))))))
 
-    ;; Loads the imports, then replays the library from the build before
-    ;; where it may, or expands it; either way the library is recorded for
-    ;; the next build. What it uses and makes starts empty, after its
-    ;; imports have loaded with their own.
+    ;; Load imports once per build, then expand current declarations. What
+    ;; this library uses and makes starts empty after its imports have loaded.
+    ;; Checked code and Wasm may be reused later, under completed content keys.
 
     (define (expand-sections (cx Context) (sections (List (Pair String (List Syntax)))))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((env (import-env (section-items sections "import"))))
                  (let* ((key (sections-key cx sections))
                         (cx (Context-derives-set
-                             (Context-items-set (Context-links-set (Context-artifact-uses-set cx
-                                                                                              (Nil))
-                                                                   (Nil))
-                                                (Nil))
+                             (Context-items-set (Context-links-set
+                                                 (Context-artifact-uses-set cx (Nil)) (Nil)) (Nil))
                              (None))))
-                   (expanding cx ((previous (replayable key)))
-                              (match previous
-                                ((Some entry) (replay cx entry))
-                                ((None) (expand-recorded cx sections env key)))))))
+                   (expand-recorded cx sections env key))))
 
     ;; The primitive library's body is its declarations, which add no items,
     ;; so it records no run and has no module.
@@ -897,7 +822,7 @@
                                  (sections (List (Pair String (List Syntax))))
                                  (env Env))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (let* ((forms (section-items sections "begin"))
              (cx (if (primitive-library? cx)
                      (fold-left (lambda (cx form) (declare-primitive cx env form)) cx forms)
@@ -913,51 +838,21 @@
 
     (define (expand-library-run (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
-      (! fs compile)
+      (! fs compile generator)
       (let* ((cx (expand-top-level cx env forms))
-             (cx (if (string=? (● cx prefix) "main") (with-one-body cx) cx)))
+             (cx (if (string=? (● cx prefix) "main") (with-entry cx) cx)))
         (Context-program-set cx
                              (program-with-library (● cx program)
                                                    (● cx prefix)
                                                    (● cx items)))))
 
-    ;; A program's statements are one body, a function of no arguments the
-    ;; one statement left calls, which runs after the definitions are
-    ;; initialized, in their order. A function, so a yield in a statement
-    ;; saves the rest of the program as a frame when the body runs as the
-    ;; program's first task ((snail shell task)'s `start-main`). `items`
-    ;; are newest first.
-
-    (define (with-one-body (cx Context)) (→ Context)
-      (let ((items (● cx items))
-            (statements (reverse (concatenate (map (lambda (item)
-                                                     (match item
-                                                       ((Do value) (list value))
-                                                       (_ (Nil))))
-                                                   (● cx items))))))
-        (match statements
-          ((Nil) cx)
-          ((Cons first rest)
-           (let ((name (string-append (● cx prefix) ":%body")) (loc (● first loc)))
-             (add-value (Context-items-set cx
-                                           (Cons
-                                            (Do (expr (App (expr (Var name (Nil) (Nil)) loc) (Nil))
-                                                      loc))
-                                            (Cons (Define name
-                                                    (expr (Lambda (Nil) (sequence first rest) #f)
-                                                          loc))
-                                                  (filter (lambda (item)
-                                                            (match item
-                                                              ((Do _) #f)
-                                                              (_ #t)))
-                                                          items))))
-                        name
-                        (Defined (None) (None) #t)))))))
-
-    (define (sequence (first Expr) (rest (List Expr))) (→ Expr)
-      (match rest
-        ((Nil) first)
-        ((Cons next more) (expr (Seq first (sequence next more)) (● first loc)))))
+    ;; Only the root program's own main is an entry. An imported function
+    ;; called main remains an ordinary function, with no startup behavior.
+    (define (with-entry (cx Context)) (→ Context)
+      (match (find (lambda (item)
+                     (match item ((Define "main:main" _) #t) (_ #f))) (● cx items))
+        ((Some (Define name value)) (add-item cx (Entry name (● value loc))))
+        (_ cx)))
 
     ;; Each declaration is a section of imports, exports or definitions, or a
     ;; `cond-expand` choosing more declarations.
@@ -974,7 +869,7 @@
         (_
          (compile-error (syntax-loc declaration) "expected import, export, begin or cond-expand"))))
 
-    ;; The declarations of the first clause whose requirement holds. Snail-Core's
+    ;; The declarations of the first clause whose requirement holds. Snail Scheme's
     ;; only feature is `snail-core`.
 
     (define (cond-expand-sections (clauses (List Syntax)))
@@ -1004,22 +899,22 @@
             (filter (lambda (section) (string=? (● section first) kind)) sections))))
 
     ;; A program is a sequence of imports followed by a body, which counts as
-    ;; a library named `main` that exports nothing. A build replays what it
-    ;; can of `predecessor`, the build before. A producer program begins
+    ;; a library named `main` that exports nothing. Every build starts with
+    ;; fresh names and scopes. A producer program begins
     ;; with `(generating ...)`, and its imports load inside the libraries
     ;; that form names, so one that leads back to them is a cycle.
 
     (define (expand-program (directories (List String))
-                            (generate (dyn (Fn (List String) (List Syntax) → Bytes ! fs compile)))
+                            (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                             (inputs Inputs)
-                            (path String)
-                            (predecessor ExpandedProgram))
+                            (path String))
       (→ ExpandedProgram)
       (! fs compile)
-      (expanded-program
-       (expand-source (new-context directories generate inputs (Supplied) predecessor) path)))
+      (handle generator ((run-generator generate))
+        (expanded-program
+         (expand-source (new-context directories inputs (Supplied)) path))))
 
-    (define (expand-source (cx Context) (path String)) (→ Context) (! fs compile)
+    (define (expand-source (cx Context) (path String)) (→ Context) (! fs compile generator)
       (let* ((source (generating-stack (read-source path)))
              (parts (program-parts (● source second)))
              (body (producer-body path (● source first) (● parts second)))
@@ -1183,155 +1078,57 @@
     (define (discover-artifacts (directories (List String)) (inputs Inputs) (path String))
       (→ (List ArtifactUse))
       (! fs compile)
-      (match (● (expand-source (new-context directories
-                                            unsupplied-producer
-                                            inputs
-                                            (Discovering (Nil))
-                                            empty-expansion)
-                               path) artifacts)
-        ((Discovering uses) (reverse uses))
-        ((Supplied) (Nil))))
+      (handle generator ((run-generator unsupplied-producer))
+        (match (● (expand-source (new-context directories
+                                              inputs
+                                              (Discovering (Nil)))
+                                 path) artifacts)
+          ((Discovering uses) (reverse uses))
+          ((Supplied) (Nil)))))
 
     (define (unsupplied-producer (loading (List String)) (forms (List Syntax))) (→ Bytes)
       (panic "internal error: discovery reached a producer whose output was not supplied"))
 
-    ;; ---- Replaying libraries ----
+    ;; ---- Expansion fingerprints ----
 
-    ;; Ordinary source/import eligibility is checked before these requests:
-    ;; a changed body may have removed an old dependency. Every candidate
-    ;; replay still requires the recorded inputs and compares exact file
-    ;; contents. Removing an invocation must not require its obsolete input.
+    ;; Artifacts may change without any source edit. Their stamp is content,
+    ;; never a fresh-name counter: expansion restarts those counters each build.
+    (define (artifact-stamp (uses (List ArtifactUse))) (→ String)
+      (i64->string (fnv-1a (string-join (map artifact-key uses) "\n"))))
 
-    (define (artifacts-current? (cx Context) (uses (List ArtifactUse)))
-      (→ (Pair Bool Context))
-      (! compile)
-      (match uses
-        ((Nil) (Pair #t cx))
-        ((Cons use rest)
-         (expanding cx ((files (artifact-files (● use name) (● use loc))))
-                    (if (artifact-files=? (● use files) files)
-                        (artifacts-current? cx rest)
-                        (Pair #f cx))))))
-
-    (define (artifact-files=? (left ArtifactFiles) (right ArtifactFiles)) (→ Bool)
-      (match (Pair left right)
-        ((Pair (Nil) (Nil)) #t)
-        ((Pair (Cons a rest-a) (Cons b rest-b))
-         (and (string=? (● a first) (● b first))
-              (bytes=? (● a second) (● b second))
-              (artifact-files=? rest-a rest-b)))
-        (_ #f)))
-
-    ;; The library as the build before expanded it, if this build may replay
-    ;; it: its declarations and its imports' interfaces are unchanged, the
-    ;; instances it derived still hold, its embedded files are current and
-    ;; its linked files hold the bytes they did.
-
-    (define (replayable (cx Context) (key String))
-      (→ (Pair (Option Expanded) Context))
-      (! fs compile)
-      (match (table-ref (● cx predecessor) (● cx prefix))
-        ((Some entry)
-         (if (string=? (● entry key) key)
-             (expanding cx ((derived (derived-as-before? entry))
-                            (current (artifacts-current? (● entry artifacts))))
-                        (Pair (if (and derived
-                                       current
-                                       (every? linked-file-current? (● entry links)))
-                                  (Some entry)
-                                  (None))
-                              cx))
-             (Pair (None) cx)))
-        ((None) (Pair (None) cx))))
-
-    ;; Whether the implicit libraries' interfaces are those the library
-    ;; derived its instances against. Its declarations are unchanged, so it
-    ;; derives them again either way, and loading the implicit libraries is
-    ;; what its replay or its expansion would do first.
-
-    (define (derived-as-before? (cx Context) (entry Expanded))
-      (→ (Pair Bool Context))
-      (! fs compile)
-      (match (● entry derives)
-        ((Some derivation)
-         (let ((cx (● (deriving-scope cx (● derivation loc)) second)))
-           (Pair (string=? (implicit-interfaces cx) (● derivation interfaces)) cx)))
-        ((None) (Pair #t cx))))
-
-    ;; A library replayed adds what it added in the build before, after the
-    ;; implicit libraries if it derived instances, since its run follows
-    ;; them, as it did when it was expanded. The generation handoff is
-    ;; functional: `expand-program` takes the previous generation as an
-    ;; argument, `(● scope predecessor)` holds it read-only, and
-    ;; `program-with` unions persistent tables, so a replayed library's
-    ;; values alias the ones it produced before rather than being rebuilt.
-
-    (define (replay (cx Context) (entry Expanded)) (→ (Pair Exports Context)) (! fs compile)
-      (let ((cx (match (● entry derives)
-                  ((Some derivation) (● (deriving-scope cx (● derivation loc)) second))
-                  ((None) cx))))
-        (Pair (● entry exports)
-              (record
-               (Context-program-set cx (program-with (● cx program) (● entry delta)))
-               entry))))
-
-    ;; The fresh artifact stamp identifies each new artifact-bearing
-    ;; expansion. The counter continues from the last
-    ;; successful build; replay keeps its old stamp. It enters both the
-    ;; checked-body key and importers' interface keys, including generic
-    ;; importers that specialize this library's body into their own module.
-    ;; Stamps identify entries in one session lineage, not global content.
-
-    (define (artifact-stamp (cx Context) (uses (List ArtifactUse))) (→ (Pair String Context))
-      (if (null? uses) (Pair "" cx) (fresh cx " artifact-")))
+    (define (artifact-key (use ArtifactUse)) (→ String)
+      (string-append (datum->string (DString (● use name))) " "
+                     (string-join
+                      (map (lambda (file)
+                             (string-append (datum->string (DString (● file first))) " "
+                                            (syntax->key (Atom (DBytes (● file second))
+                                                               (● use loc)))))
+                           (● use files)) " ")))
 
     (define (expand-recorded (cx Context)
                              (sections (List (Pair String (List Syntax))))
-                             (env Env)
-                             (key String))
+                             (env Env) (key String))
       (→ (Pair Exports Context))
-      (! fs compile)
-      (expanding cx ((exports (expand-library-body sections env)))
-                 (let* ((uses (● cx artifact-uses))
-                        (derivation (derivation-of cx))
-                        (derived (derivation-key derivation)))
-                   (expanding cx ((stamp (artifact-stamp uses))
-                                  (links (bind-links (reverse (● cx links)))))
-                              (Pair exports
-                                    (record cx
-                                            (Expanded key
-                                                      (string-append key
-                                                                     derived
-                                                                     stamp
-                                                                     (links-stamp links))
-                                                      (string-append (interface-hash cx sections)
-                                                                     derived
-                                                                     stamp
-                                                                     (links-stamp links))
-                                                      exports
-                                                      (library-delta cx)
-                                                      uses
-                                                      links
-                                                      derivation)))))))
+      (! fs compile generator)
+      (expanding cx ((exports (expand-library-body sections env))
+                     (links (bind-links (reverse (● cx links)))))
+                 (Pair exports
+                       (record cx (Expanded
+                                   (string-append (interface-hash cx key)
+                                                  (derivation-key cx)
+                                                  " artifacts-"
+                                                  (artifact-stamp (● cx artifact-uses))
+                                                  (links-stamp links))
+                                   exports links)))))
 
-    ;; What the library's instances were derived against, if it derived any.
-
-    (define (derivation-of (cx Context)) (→ (Option Derivation))
+    ;; Derived code depends on the implicit libraries loaded at the deriving
+    ;; clause, even when the source did not import those libraries explicitly.
+    (define (derivation-key (cx Context)) (→ String)
       (match (● cx derives)
-        ((Some loc) (Some (Derivation loc (implicit-interfaces cx))))
-        ((None) (None))))
-
-    ;; A derivation enters the checked-body key and importers' interface
-    ;; keys as the artifact stamp does: a change to the implicit libraries'
-    ;; interfaces derives the instances again, and the instances' code is
-    ;; then new to whatever checked or specialized it.
-
-    (define (derivation-key (derivation (Option Derivation))) (→ String)
-      (match derivation
-        ((Some derivation) (string-append " derived " (● derivation interfaces)))
+        ((Some _) (string-append " derived " (implicit-interfaces cx)))
         ((None) "")))
 
-    ;; What the library added, which a later build replays.
+    ;; The declarations introduced by this library, for its identity key.
 
     (define (library-delta (cx Context)) (→ Program)
       (if (primitive-library? cx)
@@ -1405,13 +1202,35 @@
         ((Some entry) (● entry interface))
         ((None) "builtin")))
 
+    ;; Checking sees the final program's instances, including sibling
+    ;; providers outside a library's imports. Their implementations and
+    ;; imports enter every checked-code key. Named policies participate too.
+    ;; Expansion itself always uses the current program, so it caches no
+    ;; choices made under a partially loaded instance environment.
+    (define (instance-interfaces (program Program) (libraries (Table Expanded))) (→ String)
+      (let ((owners (list-sort string<?
+                               (delete-duplicates string=?
+                                                  (map (lambda (instance)
+                                                         (name-owner (● instance name)))
+                                                       (concatenate
+                                                        (table-values (● program instances))))))))
+        (string-join (map (lambda (owner)
+                            (string-append owner " "
+                                           (match (table-ref libraries owner)
+                                             ((Some entry) (● entry interface))
+                                             ((None)
+                                              (panic
+                                               "internal error: an instance provider was not expanded")))))
+                          owners)
+                     "\n")))
+
     ;; The key a build expanded a library under. Anything made from the
     ;; library's expansion, such as its checked items, stays valid while its
-    ;; key is unchanged.
+    ;; completed interface key is unchanged, including its own fresh names.
 
     (define (library-key (expansion ExpandedProgram) (name String)) (→ String)
       (match (table-ref (● expansion libraries) name)
-        ((Some entry) (● entry body-key))
+        ((Some entry) (● entry interface))
         ((None) "")))
 
     (define (spec-library (spec Syntax)) (→ Syntax)
@@ -1420,25 +1239,14 @@
          (if (member? keyword (list "only" "except" "prefix" "rename")) (spec-library inner) spec))
         (_ spec)))
 
-    ;; What importers depend on: every declaration except the bodies of
-    ;; definitions whose signatures are not generic, which only the
-    ;; library's own module uses; and its imports' interfaces, since its
-    ;; generic code carries theirs into importers.
-
-    (define (interface-hash (cx Context) (sections (List (Pair String (List Syntax)))))
-      (→ String)
-      (! compile)
-      (let* ((forms (section-items sections "begin")) (signed (monomorphic-signatures forms)))
-        (i64->string (fnv-1a (string-append (forms-text (section-items sections "import"))
-                                            "\n"
-                                            (forms-text (section-items sections "export"))
-                                            "\n"
-                                            (string-join
-                                             (map (lambda (form) (interface-form cx form signed))
-                                                  forms)
-                                             "\n")
-                                            "\n" (imports-interfaces cx sections)
-                                            "\n" (library-identities cx))))))
+    ;; Any function can run while forcing a constant, even a monomorphic
+    ;; function under a local handler. Importers therefore depend on every
+    ;; implementation body through its transitive source key. The final
+    ;; counter certifies local-name stability when an earlier library changes;
+    ;; global declaration identities certify generated types and imports.
+    (define (interface-hash (cx Context) (key String)) (→ String)
+      (i64->string (fnv-1a (string-append key "\n" (i64->string (● cx counter))
+                                          "\n" (library-identities cx)))))
 
     ;; Instance methods and macro-introduced globals have fresh names after
     ;; expansion. Importers must not retain checked evidence or Wasm imports
@@ -1448,55 +1256,22 @@
       (let ((delta (library-delta cx)))
         (string-join
          (list-sort string<?
-                    (append (table-keys (item-definitions (program-items delta)))
-                            (map (lambda (record) (● record name))
-                                 (concatenate (table-values (● delta instances))))))
+                    (concatenate (list (table-keys (● delta values))
+                                       (table-keys (● delta types))
+                                       (table-keys (● delta classes))
+                                       (table-keys (● delta effects))
+                                       (map (lambda (record) (● record name))
+                                            (concatenate (table-values (● delta instances)))))))
          "\n")))
-
-    (define (interface-form (cx Context) (form Syntax) (signed (List String)))
-      (→ String)
-      (! compile)
-      (match form
-        ((Form (Cons (Ident "define" _ _) items) loc)
-         (let* ((definition (parse-definition form)) (header (● definition header))
-                (name (Ident-name (● definition name))))
-           (cond ((and (match (● header result) ((Some _) #t) (_ #f))
-                       (monomorphic-definition? cx definition))
-                  (syntax->key (Form (Cons (Ident "define" (None) loc)
-                                           (take items
-                                                 (- (length items) (length (● definition body)))))
-                                     loc)))
-                 ((member? name signed) (string-append "(define " name ")"))
-                 (else (syntax->key form)))))
-        (_ (syntax->key form))))
-
-    ;; Resolving a signature can introduce variables for impl arguments,
-    ;; even without an explicit ∀ header. Importers specialize those bodies.
-    (define (monomorphic-definition? (cx Context) (definition Definition)) (→ Bool)
-      (match (program-value (● cx program) (unique-name cx (● definition name)))
-        ((Some (Defined (Some scheme) _ _))
-         (and (null? (● scheme vars)) (null? (● scheme constraints))))
-        (_ #f)))
-
-    (define (monomorphic-signatures (forms (List Syntax))) (→ (List String))
-      (concatenate (map (lambda (form)
-                          (match form
-                            ((Form (Cons (Ident ":" _ _)
-                                         (Cons (Ident name _ _)
-                                               (Cons (Form (Cons (Ident "∀" _ _) _) _) _)))
-                                   _)
-                             (Nil))
-                            ((Form (Cons (Ident ":" _ _) (Cons (Ident name _ _) (Cons _ _))) _)
-                             (list name))
-                            (_ (Nil))))
-                        forms)))
 
     ;; ---- Imports and exports ----
 
     ;; A top level over the bindings the specs provide, each loaded and
     ;; merged in turn.
 
-    (define (import-env (cx Context) (specs (List Syntax))) (→ (Pair Env Context)) (! fs compile)
+    (define (import-env (cx Context) (specs (List Syntax)))
+      (→ (Pair Env Context))
+      (! fs compile generator)
       (let loop ((cx cx) (specs specs) (imports empty-table))
         (match specs
           ((Nil) (new-top cx imports))
@@ -1521,7 +1296,9 @@
 
     ;; The (name . binding) entries an import set provides.
 
-    (define (import-set (cx Context) (spec Syntax)) (→ (Pair Exports Context)) (! fs compile)
+    (define (import-set (cx Context) (spec Syntax))
+      (→ (Pair Exports Context))
+      (! fs compile generator)
       (match spec
         ((Form (Cons (Ident "only" _ _) (Cons inner idents)) _)
          (let ((names (ident-names idents)))
@@ -1559,7 +1336,7 @@
 
     (define (checked-import-set (cx Context) (spec Syntax) (idents (List Syntax)))
       (→ (Pair Exports Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((entries (import-set spec)))
                  (for-each (lambda (ident)
                              (match (assoc-ref entries (Ident-name ident))
@@ -1739,12 +1516,11 @@
     (define (definition-callable-type (parameters (List (Pair Syntax Syntax)))
               (result Syntax) (effects (List Syntax)) (loc Loc))
       (→ Syntax)
-      (let* ((arguments (map (lambda (record) (● record second)) parameters))
-             (returns (list (Ident "→" (None) loc) result))
-             (performs (if (null? effects) (Nil) (Cons (Ident "!" (None) loc) effects)))
-             (arrow (Form (Cons (Ident "Fn" (None) loc)
-                                (concatenate (list arguments returns performs))) loc)))
-        (Form (list (Ident "impl" (None) loc) arrow) loc)))
+      (let ((arguments (map (lambda (record) (● record second)) parameters))
+            (performs (if (null? effects) (Nil) (Cons (Ident "!" (None) loc) effects))))
+        (Form (Cons (Ident "Fn" (None) loc)
+                    (append arguments (Cons (Ident "→" (None) loc) (Cons result performs))))
+              loc)))
 
     (define (definition-scope (cx Context) (env Env) (definition Definition)) (→ Env) (! compile)
       (let* ((header (● definition header)) (variables (● header variables))
@@ -1771,7 +1547,7 @@
 
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms)))
                  (let* ((pending (concatenate scanned))
                         (signatures
@@ -1790,7 +1566,7 @@
     ;; it, since pass 1 bound every name. The library then fails with what
     ;; every failed body found, in order, and is never checked.
 
-    (define (expand-bodies (cx Context) (bodies (List (dyn (Fn Context → Context ! compile)))))
+    (define (expand-bodies (cx Context) (bodies (List (Fn Context → Context ! compile))))
       (→ Context)
       (! compile)
       (let ((run (fold-left (lambda (run body)
@@ -1830,7 +1606,7 @@
 
     (define (scan-top-level (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((form (expand-head env form)))
                  (let* ((parsed (declaration-annotations cx env form)) (bare (● parsed first))
                         (owner (if (null? (● parsed second)) (None)
@@ -1865,7 +1641,7 @@
 
     (define (scan-top-level-form (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
-      (! fs compile)
+      (! fs compile generator)
       (match (head-binding cx env form)
         ((Some (Core "begin"))
          (expanding cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
@@ -1903,7 +1679,7 @@
 
     (define (scan-instance-set (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
-      (! fs compile)
+      (! fs compile generator)
       (match (form-tail form)
         ((Cons name declarations)
          (let* ((name (expect-ident name "an instance set name")) (id (unique-name cx name))
@@ -1963,7 +1739,7 @@
 
     (define (scan-declared (cx Context) (env Env) (keyword String) (form Syntax))
       (→ (Pair (List Pending) Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((then (scan-declaration env keyword form)))
                  (if (or (string=? keyword "struct") (string=? keyword "enum"))
                      (expanding cx ((derived (derived-instances form (string=? keyword "enum")))
@@ -1982,7 +1758,7 @@
                           "expected (define name value) or (define (name (parameter Type) ...) (→ Result) body ...)"))))
 
     (define (declare (cx Context) (signatures (Table (Pair Scheme (Option Loc)))) (pending Pending))
-      (→ (Pair (List (dyn (Fn Context → Context ! compile))) Context))
+      (→ (Pair (List (Fn Context → Context ! compile)) Context))
       (! compile)
       (let ((form (● pending form)) (env (● pending env)))
         (case (● pending keyword)
@@ -2006,10 +1782,8 @@
              (_ (panic "internal error: unparsed definition"))))
           (("expose") (Pair (list (lambda (cx) (add-item cx (expose-item cx env form)))) cx))
           (("expression")
-           (Pair (list (lambda (cx)
-                         (expanding cx ((value (expand-expr env form)))
-                                    (add-item cx (Do (scope-instance-value cx env value))))))
-                 cx))
+           (compile-error (syntax-loc form)
+                          "top-level expressions are not allowed; put runtime work in main"))
           (else (Pair (Nil) cx)))))
 
     ;; `(expose name "symbol")` exports a top-level function to the host;
@@ -2268,36 +2042,28 @@
              (cx (bind-fields cx env name (● parsed fields) #f)))
         (with-name-annotations cx name (● parsed annotations))))
 
-    ;; A field as written: `(name type)`, or `(name mut type)` for a
-    ;; mutable one, optionally followed by an annotation list.
+    ;; A field is `(name type)`, optionally followed by annotations.
+    ;; All fields are mutable; there is no second field grammar.
     (struct FieldSyntax
       ((name Syntax)
-       (mutable? Bool)
        (type Syntax)
        (annotations (List Annotation))))
 
     (define (parse-field (field Syntax)) (→ FieldSyntax) (! compile)
-      (let* ((required (match field
-                         ((Form (Cons _ (Cons (Ident "mut" _ _) _)) _) 3)
-                         (_ 2)))
-             (parsed (split-annotations field required))
-             (annotations (● parsed second)))
+      (let ((parsed (split-annotations field 2)))
         (match (● parsed first)
-          ((Form (Cons name (Cons type (Nil))) _) (FieldSyntax name #f type annotations))
-          ((Form (Cons name (Cons (Ident "mut" _ _) (Cons type (Nil)))) _)
-           (FieldSyntax name #t type annotations))
+          ((Form (Cons name (Cons type (Nil))) _)
+           (FieldSyntax name type (● parsed second)))
           (_ (compile-error (syntax-loc field)
-                            "expected (field type) or (field mut type), optionally with (annotations ...)")))))
+                            "expected (field type), optionally with (annotations ...)")))))
 
-    ;; A field's generated names, by `field-suffixes`; a pure struct's
+    ;; A field's generated names, by `field-suffixes`; a struct's
     ;; accessor name is reserved instead of bound.
 
     (define (bind-fields (cx Context) (env Env) (name Syntax) (fields (List Syntax)) (struct? Bool))
       (→ Context)
       (! compile)
-      (let* ((parsed (map parse-field fields))
-             (pure? (not (any? (lambda (record) (● record mutable?)) parsed))))
-        (for-each (lambda (field) (check-mutable-field cx field)) parsed)
+      (let ((parsed (map parse-field fields)))
         (fold-left (lambda (cx field)
                      (let ((cx (Context-program-set cx
                                                     (program-with-field-annotations
@@ -2313,11 +2079,11 @@
                                                  (field-ident name
                                                               (● field name)
                                                               suffix)))
-                                  (if (and struct? pure?) (reserve-field-read cx env name field) cx)
-                                  (field-suffixes field struct? pure?))))
+                                  (if struct? (reserve-field-read cx env name field) cx)
+                                  (field-suffixes struct?))))
                    cx parsed)))
 
-    ;; A pure struct's field is read by path, but its accessor still exists
+    ;; A struct's field is read by path, but its accessor still exists
     ;; in the program under `Name-field` for the checker's resolved call,
     ;; so that name is bound as syntax that refuses use: a read
     ;; through it says to use the path, and a definition of it is a
@@ -2331,36 +2097,12 @@
     (define field-read-message (→ String)
       "a struct's field is read by path, (● s field), not through an accessor")
 
-    ;; `Ref` is the struct with a mutable field, declared in (snail core
-    ;; base), and the runtime's `UnsafeSlot` in (snail shell slot) the
-    ;; other: every other struct is a value, and a program holds one in a
-    ;; cell to write its fields, `(set! (● r count) 1)`.
 
-    (define (check-mutable-field (cx Context) (field FieldSyntax)) (→ Unit) (! compile)
-      (when (and (● field mutable?)
-                 (not (member? (● cx prefix) (list "snail.core.base" "snail.shell.slot"))))
-        (compile-error (syntax-loc (● field name))
-                       "only Ref and the runtime's UnsafeSlot have a mutable field; hold the struct in a cell and write its fields with set!")))
 
-    ;; The suffixes of the names a field binds. A struct whose fields are
-    ;; all immutable is a value read by path, `(● s field)`, so it binds
-    ;; only the pure replacement `Name-field-set`; its accessor exists in the
-    ;; program for the checker's resolved call. A mutable field, which
-    ;; only Ref and UnsafeSlot have, is read by `Name-field` and written by
-    ;; `Name-field-set!` and `Name-field-replace!`, and its struct has
-    ;; identity, so no pure replacements. An enum's fields stay immutable
-    ;; and a case's partial accessor `Case-field`
-    ;; reads them, or a pattern does.
-
-    (define (field-suffixes (field FieldSyntax) (struct? Bool) (pure? Bool))
-      (→ (List String))
-      (! compile)
-      (cond ((and (● field mutable?) (not struct?))
-             (compile-error (syntax-loc (● field name))
-                            "an enum's fields cannot be mutable; hold a struct with a mutable field in the case"))
-            ((● field mutable?) (list "" "-set!" "-replace!"))
-            ((and struct? pure?) (list "-set"))
-            (else (list ""))))
+    ;; Every field has a setter and swapper. Struct reads use nominal paths
+    ;; and offer pure replacement; enum reads name their partial case accessor.
+    (define (field-suffixes (struct? Bool)) (→ (List String))
+      (if struct? (list "-set" "-set!" "-replace!") (list "" "-set!" "-replace!")))
 
     ;; A field identifier shares the mark of its type's name, so a struct a
     ;; macro introduces has accessors only that expansion sees.
@@ -2474,23 +2216,11 @@
     (define (resolve-field (cx Context) (scope Env) (field Syntax)) (→ Field) (! compile)
       (let ((parsed (parse-field field)))
         (Field (Ident-name (expect-ident (● parsed name) "a field name"))
-               (stored-type cx scope (● parsed type))
-               (● parsed mutable?))))
+               (resolve-type cx scope (● parsed type)))))
 
-    (define (stored-type (cx Context) (env Env) (syntax Syntax)) (→ Type) (! compile)
-      (let ((type (resolve-type cx env syntax)))
-        (check-stored-type type (syntax-loc syntax))
-        type))
 
-    (define (check-stored-type (type Type) (loc Loc)) (→ Unit) (! compile)
-      (when (impl-callable? type)
-        (compile-error loc
-                       "stored and returned callable types require explicit dyn; impl is a definition or argument contract"))
-      (match type
-        ((TCon _ args) (for-each (lambda (arg) (check-stored-type arg loc)) args))
-        ((TFun params result _) (for-each (lambda (part) (check-stored-type part loc))
-                                          (Cons result params)))
-        (_ (unit))))
+
+
 
     (define (constructor-name (cx Context) (env Env) (ident Syntax)) (→ String) (! compile)
       (match (resolve cx env ident)
@@ -2499,11 +2229,8 @@
         (_ (compile-error (syntax-loc ident)
                           (string-append "not a constructor: " (Ident-name ident))))))
 
-    ;; A case's constructor, then each field's operations, as `bind-fields`
-    ;; names them. Constructing is pure, even for a struct with identity,
-    ;; and so is reading an immutable field; reading or writing a mutable
-    ;; one performs `mut`.
-
+    ;; Construction and field reads are pure. Setters and swappers perform
+    ;; mut; ownership decides whether overwritten content may be released.
     (define (with-case-values (program Program) (data DataType) (case Case) (struct? Bool))
       (→ Program)
       (let* ((params (● data params)) (self (TCon (● data name) (map TRigid params)))
@@ -2514,55 +2241,48 @@
                                                (TFun (map (lambda (record) (● record type))
                                                           (● case fields))
                                                      self
-                                                     empty-row))))
-             (pure?
-              (and struct? (not (any? (lambda (record) (● record mutable?)) (● case fields))))))
+                                                     empty-row)))))
         (fold-left (lambda (program indexed)
                      (with-field-values program
                                         data
                                         case
                                         (● indexed first)
                                         (● indexed second)
-                                        pure?))
+                                        struct?))
                    (program-with-value program (● case name) constructor)
                    (zip (iota (length (● case fields))) (● case fields)))))
 
-    (define (with-field-values (program Program)
-                               (data DataType)
-                               (case Case)
-                               (index I64)
-                               (field Field)
-                               (pure? Bool))
+    (define (with-field-values (program Program) (data DataType) (case Case)
+                               (index I64) (field Field) (struct? Bool))
       (→ Program)
-      (let* ((params (● data params))
-             (self (TCon (● data name) (map TRigid params)))
-             (type (● field type))
-             (accessor (string-append (● case name) "-" (● field name)))
-             (program (program-with-value
-                       program
-                       accessor
-                       (Accessor case
-                                 index
-                                 (field-scheme params
-                                               (list self)
-                                               type
-                                               (if (● field mutable?) mut-row empty-row))))))
-        (cond ((● field mutable?)
-               (program-with-value
-                (program-with-value
-                 program
-                 (string-append accessor "-set!")
-                 (Setter case
-                         index
-                         (field-scheme params (list self type) (TCon "Unit" (Nil)) mut-row)))
-                (string-append accessor "-replace!")
-                (Swapper case index (field-scheme params (list self type) type mut-row))))
-              (pure?
-               (program-with-value
-                program
-                (string-append accessor "-set")
-                (Replacer case index (field-scheme params (list self type) self empty-row))))
-              (else program))))
+      (let* ((params (● data params)) (self (TCon (● data name) (map TRigid params)))
+             (type (● field type)) (name (string-append (● case name) "-" (● field name)))
+             (program (program-with-value program name
+                                          (Accessor case
+                                                    index
+                                                    (field-scheme params
+                                                                  (list self)
+                                                                  type
+                                                                  empty-row))))
+             (program (if struct?
+                          (program-with-value program (string-append name "-set")
+                                              (Replacer case
+                                                        index
+                                                        (field-scheme params
+                                                                      (list self type)
+                                                                      self
+                                                                      empty-row)))
+                          program)))
+        (program-with-value
+         (program-with-value program (string-append name "-set!")
+                             (Setter case
+                                     index
+                                     (field-scheme params
+                                                   (list self type)
+                                                   (TCon "Unit" (Nil))
+                                                   mut-row)))
+         (string-append name "-replace!")
+         (Swapper case index (field-scheme params (list self type) type mut-row)))))
 
     (define (field-scheme (params (List String)) (arguments (List Type)) (result Type) (row Type))
       (→ Scheme)
@@ -2634,8 +2354,8 @@
                                                                      methods)))))))
 
     ;; The parameters the class's methods perform as rows, `e` in
-    ;; `(: fetch-object (impl (Fn S String → String ! e)))`, in order; a row's kind
-    ;; is found from its use, as `All`'s variables' are. A parameter a
+    ;; `(: fetch-object (Fn S String → String ! e))`, in order; a row's kind
+    ;; is found from its use, as quantified variables are. A parameter a
     ;; method also writes as a type could not be both.
 
     (define (class-rows (program Program) (params (List String)) (methods (List String)) (loc Loc))
@@ -2702,7 +2422,7 @@
     ;; Returns one step per method, which expands its definition.
 
     (define (declare-instance (cx Context) (env Env) (form Syntax))
-      (→ (Pair (List (dyn (Fn Context → Context ! compile))) Context))
+      (→ (Pair (List (Fn Context → Context ! compile)) Context))
       (! compile)
       (match form
         ((Form (Cons _ (Cons (Form (Cons class-ident type-args) _) body)) loc)
@@ -2731,7 +2451,7 @@
          (compile-error (syntax-loc form) "expected (instance (Class type ...) definition ...)"))))
 
     (define (declare-dynamic-instances (cx Context) (env Env) (form Syntax))
-      (→ (Pair (List (dyn (Fn Context → Context ! compile))) Context))
+      (→ (Pair (List (Fn Context → Context ! compile)) Context))
       (! compile)
       (match (Pair (form-tail form) (instance-owner env))
         ((Pair (Cons name domain) (Some owner))
@@ -2758,7 +2478,7 @@
                                         (class Class)
                                         (generated GeneratedInstance)
                                         (loc Loc))
-      (→ (Pair (List (dyn (Fn Context → Context ! compile))) Context))
+      (→ (Pair (List (Fn Context → Context ! compile)) Context))
       (! compile)
       (let* ((instance (● generated instance))
              (cx (fold-left (lambda (cx method)
@@ -2780,12 +2500,8 @@
       (→ (Pair Class Context)) (! compile)
       (match (resolve cx env class-ident)
         ((Some (ClassName id))
-         (when (callable-class? id)
-           (compile-error (syntax-loc class-ident)
-                          "callable instances are established by the compiler from receiver access and captures"))
-         (when (string=? id "snail.core.base:Unboxed")
-           (compile-error (syntax-loc class-ident)
-                          "Unboxed is decided by a type's representation; no instance can be declared"))
+
+
          (Pair (program-class (● cx program) id) cx))
         (_ (compile-error (syntax-loc class-ident)
                           "instance of something that is not a typeclass"))))
@@ -3168,7 +2884,7 @@
     (struct MethodDefinition
       ((method String)
        (global String)
-       (expand (dyn (Fn Context → Context ! compile)))))
+       (expand (Fn Context → Context ! compile))))
 
     (define (instance-method (cx Context)
                              (env Env)
@@ -3323,11 +3039,11 @@
         (_ #t)))
 
     ;; Operations perform their effect. A `default` clause after them names
-    ;; Snail-Core implementations, whose definitions expand with the
+    ;; Snail Scheme implementations, whose definitions expand with the
     ;; library's bodies, in the steps this returns.
 
     (define (declare-effect (cx Context) (env Env) (form Syntax))
-      (→ (Pair (List (dyn (Fn Context → Context ! compile))) Context))
+      (→ (Pair (List (Fn Context → Context ! compile)) Context))
       (! compile)
       (match form
         ((Form (Cons _ (Cons name (Cons operations clauses))) loc)
@@ -3445,12 +3161,12 @@
           (compile-error loc "an operation has at most one default"))
         defaults))
 
-    ;; One Snail-Core default: its operation, the global that holds its
+    ;; One Snail Scheme default: its operation, the global that holds its
     ;; definition, and the step that expands it.
     (struct DefaultDefinition
       ((operation String)
        (global String)
-       (expand (dyn (Fn Context → Context ! compile)))))
+       (expand (Fn Context → Context ! compile))))
 
     ;; `(default ((operation implementation) ...))` defines each
     ;; implementation as a function of this library whose type is its
@@ -3579,15 +3295,18 @@
     ;; FnOnce evidence determines the result's erased calling convention.
 
     (define (resolve-primitive-scheme (cx Context) (env Env) (global String) (syntax Syntax))
-      (→ Scheme)
-      (! compile)
-      (if (and (string=? global "prim:once")
-               (match syntax ((Ident "callable-once" _ _) #t) (_ #f)))
-          (let ((receiver (TRigid "F")) (signature (TRigid "Signature")))
-            (Scheme (list "F" "Signature")
-                    (list (Constraint (callable-class "FnOnce") (list receiver signature)))
-                    (Nil) (TFun (list receiver) (TCon "FnOnce" (list signature)) empty-row)))
-          (operational-scheme (resolve-scheme cx env syntax))))
+      (→ Scheme) (! compile)
+      (cond ((string=? global "prim:once")
+             (let ((signature (TRigid "F")))
+               (Scheme (list "F") (Nil) (Nil)
+                       (TFun (list signature) (TCon "FnOnce" (list signature)) empty-row))))
+            ((string=? global "prim:weak-rc-upgrade")
+             (let ((value (TRigid "T")))
+               (Scheme (list "T") (Nil) (Nil)
+                       (TFun (list (TCon "WeakRc" (list value)))
+                             (TCon "snail.core.base:Option" (list (TCon "Rc" (list value))))
+                             mut-row))))
+            (else (operational-scheme (resolve-scheme cx env syntax)))))
 
     ;; ---- Types ----
 
@@ -3601,7 +3320,7 @@
        (env Env)))
 
     (define (resolve-scheme (cx Context) (env Env) (syntax Syntax)) (→ Scheme) (! compile)
-      (callable-scheme (resolve-raw-scheme cx env syntax) (syntax-loc syntax)))
+      (resolve-raw-scheme cx env syntax))
 
     ;; A primitive, method or operation describes executable code, rather
     ;; than introducing a source closure identity of its own.
@@ -3625,55 +3344,6 @@
              (_ (compile-error loc
                                "expected (∀ (variable ...) [(⊨ constraint ...)] type)")))))
         (_ (mono-scheme (resolve-type cx env syntax)))))
-
-    ;; Argument-position impl introduces a caller-chosen type and evidence.
-    ;; The outer impl belongs to this definition; checking gives it the
-    ;; definition's concrete identity. Results and storage use explicit dyn.
-
-    (define (callable-scheme (scheme Scheme) (loc Loc)) (→ Scheme) (! compile)
-      (let ((type (● scheme type)))
-        (match (callable-arrow type)
-          ((Some arrow)
-           (match (callable-signature-parameters arrow scheme loc)
-             ((Pair arrow found)
-              (Scheme (● found vars) (● found constraints) (● found copy)
-                      (match type
-                        ((TFun _ _ _) arrow)
-                        ((TCon name _) (TCon name (list arrow)))
-                        (_ type))))))
-          ((None) scheme))))
-
-    (define (callable-signature-parameters (arrow Type) (found Scheme) (loc Loc))
-      (→ (Pair Type Scheme))
-      (! compile)
-      (match arrow
-        ((TFun params result row)
-         (when (impl-callable? result)
-           (compile-error loc
-                          "a returned callable needs explicit dyn storage; impl is an argument or definition contract"))
-         (let ((parts (fold-left (lambda (parts param)
-                                   (match (callable-parameter param (● parts second))
-                                     ((Pair param found)
-                                      (Pair (Cons param (● parts first)) found))))
-                                 (Pair (Nil) found) params)))
-           (for-each (lambda (part) (check-stored-type part loc))
-                     (Cons result (● parts first)))
-           (Pair (TFun (reverse (● parts first)) result row) (● parts second))))
-        (_ (panic "internal error: a callable contract has a function signature"))))
-
-    (define (callable-parameter (type Type) (found Scheme)) (→ (Pair Type Scheme))
-      (if (impl-callable? type)
-          (let* ((name (string-append "$callable-argument." (i64->string (length (● found vars)))))
-                 (receiver (TRigid name)))
-            (match (Pair (callable-kind type) (callable-arrow type))
-              ((Pair (Some kind) (Some arrow))
-               (Pair receiver (Scheme (append (● found vars) (list name))
-                                      (append (● found constraints)
-                                              (list (Constraint (callable-class kind)
-                                                                (list receiver arrow))))
-                                      (● found copy) (● found type))))
-              (_ (panic "internal error: an impl parameter has a callable signature"))))
-          (Pair type found)))
 
     (define (resolve-requirements (cx Context)
                                   (env Env)
@@ -3721,26 +3391,11 @@
         ((Form (Cons class types) loc)
          (match (resolve cx env (expect-ident class "a typeclass"))
            ((Some (ClassName id))
-            (if (callable-class? id)
-                (resolve-callable-constraint cx env id types loc)
-                (checked-constraint cx env id types index loc)))
+            (checked-constraint cx env id types index loc))
            (_ (compile-error loc "expected a typeclass constraint"))))
         (_ (compile-error (syntax-loc syntax) "expected (Class type ...)"))))
 
-    (define (resolve-callable-constraint (cx Context)
-                                         (env Env)
-                                         (class String)
-                                         (items (List Syntax))
-                                         (loc Loc))
-      (→ Constraint)
-      (! compile)
-      (match items
-        ((Cons receiver signature)
-         (Constraint class
-                     (list (resolve-type cx env receiver)
-                           (resolve-callable-arrow cx env signature (Nil) loc))))
-        (_ (compile-error loc
-                          "a callable requirement names its receiver type before its arguments"))))
+
 
     ;; The constraint of a class at resolved types, checked against the
     ;; class's parameters.
@@ -3809,20 +3464,11 @@
     (define (resolve-type (cx Context) (env Env) (syntax Syntax)) (→ Type) (! compile)
       (match syntax
         ((Ident _ _ loc) (resolve-type-name cx env syntax (Nil) loc))
-        ((Form (Cons (Ident "impl" _ _) (Cons contract (Nil))) loc)
-         (resolve-callable-contract cx env contract #f loc))
-        ((Form (Cons (Ident "dyn" _ _) (Cons contract (Nil))) loc)
-         (resolve-callable-contract cx env contract #t loc))
-        ((Form (Cons (Ident "fn" _ _) items) loc)
-         (TCon "fn" (list (resolve-callable-arrow cx env items (Nil) loc))))
-        ((Form (Cons (Ident "->" _ _) _) loc)
-         (compile-error loc
-                        "use (impl (Fn arguments → result ! effects)) for a callable contract, or dyn for storage"))
         ((Form (Cons (Ident "!" _ _) labels) loc) (resolve-row cx env labels loc))
-        ((Form (Cons (Ident kind _ _) _) loc)
-         (if (member? kind (list "Fn" "FnMut" "FnOnce"))
-             (compile-error loc
-                            "a callable type requires impl or dyn around its Fn, FnMut or FnOnce contract")
+        ((Form (Cons (Ident kind _ _) items) loc)
+         (if (member? kind (list "Fn" "FnOnce" "fn"))
+             (let ((arrow (resolve-callable-arrow cx env items (Nil) loc)))
+               (if (string=? kind "Fn") arrow (TCon kind (list arrow))))
              (resolve-type-application cx env syntax loc)))
         ((Form (Cons head args) loc)
          (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
@@ -3836,22 +3482,7 @@
          (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
         (_ (compile-error loc "expected a type application"))))
 
-    (define (resolve-callable-contract (cx Context)
-                                       (env Env)
-                                       (contract Syntax)
-                                       (erased? Bool)
-                                       (loc Loc))
-      (→ Type)
-      (! compile)
-      (match contract
-        ((Form (Cons (Ident kind _ _) items) _)
-         (unless (member? kind (list "Fn" "FnMut" "FnOnce"))
-           (compile-error loc "impl and dyn require an Fn, FnMut or FnOnce contract"))
-         (let ((arrow (resolve-callable-arrow cx env items (Nil) loc)))
-           (if erased?
-               (if (string=? kind "Fn") arrow (TCon kind (list arrow)))
-               (TCon (string-append "$impl." kind) (list arrow)))))
-        (_ (compile-error loc "expected (impl (Fn argument ... → result ! effects)) or dyn"))))
+
 
     (define (resolve-type-name (cx Context) (env Env) (ident Syntax) (args (List Syntax)) (loc Loc))
       (→ Type)
@@ -3912,9 +3543,8 @@
         ((Frame _ _ rest) (enclosing-requirements rest))
         ((Top _ _) (Nil))))
 
-    ;; Callable contracts separate their parameters from one result with
-    ;; `→`; only `!` may follow that result. Representation and receiver
-    ;; mode are decisions of the enclosing former, not of this parser.
+    ;; Function formers separate their parameters from one result with
+    ;; `→`; only `!` and the effect row may follow that result.
 
     (define (resolve-callable-arrow (cx Context)
                                     (env Env)
@@ -3949,6 +3579,8 @@
          (TFun params (resolve-type cx env result) (resolve-row cx env labels loc)))
         (_ (compile-error loc
                           "expected one result type after →, optionally followed by ! effects"))))
+
+
 
     (define (resolve-row (cx Context) (env Env) (items (List Syntax)) (loc Loc))
       (→ Type)
@@ -4413,7 +4045,7 @@
 
     (define (derived-instances (cx Context) (form Syntax) (enum? Bool))
       (→ (Pair (List Syntax) Context))
-      (! fs compile)
+      (! fs compile generator)
       (let* ((head (declaration-head form)) (loc (syntax-loc form))
              (cases (if enum?
                         (map (lambda (form)
@@ -4421,12 +4053,7 @@
                                  (Pair (● case name) (length (● case fields)))))
                              (enum-cases form))
                         (list (Pair (declared-name head) (length (struct-fields form)))))))
-        (when (and (not enum?)
-                   (not (null? (derived-instance-classes form)))
-                   (any? (lambda (field) (● (parse-field field) mutable?))
-                         (struct-fields form)))
-          (compile-error loc
-                         "a struct with a mutable field has identity, so it cannot derive an instance"))
+
         (each cx
               (lambda (cx class)
                 (match class
@@ -4440,9 +4067,9 @@
     ;; The scope derived instances resolve in, made at the build's first
     ;; deriving clause, which loads the implicit libraries, and shared by
     ;; every later one. The library notes the declaration at `loc`, so that
-    ;; replaying it loads them too.
+    ;; each expansion loads their current declarations.
 
-    (define (deriving-scope (cx Context) (loc Loc)) (→ (Pair I64 Context)) (! fs compile)
+    (define (deriving-scope (cx Context) (loc Loc)) (→ (Pair I64 Context)) (! fs compile generator)
       (let ((cx (Context-derives-set cx (Some loc))))
         (match (● cx deriving)
           ((Some scope) (Pair scope cx))
@@ -4507,7 +4134,10 @@
                                     (map (lambda (param)
                                            (let ((requirement (f d (list (w d class) param))))
                                              (if (string=? class "Repr")
-                                                 (list (f d (list (w d "Copy") param)) requirement)
+                                                 (list (f d (list (w d "Copy") param))
+                                                       (f d (list (w d "Drop")
+                                                                  (f d (list (w d "!"))) param))
+                                                       requirement)
                                                  (list requirement))))
                                          params)))))))))
 
@@ -4521,7 +4151,7 @@
     ;; Constructor notation is ordinary pure code, with no runtime reflection.
     (define (repr-instance (cx Context) (head Syntax) (cases (List (Pair Syntax I64))) (loc Loc))
       (→ (Pair Syntax Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((scope (deriving-scope loc)))
                  (let* ((d (Deriver scope loc)) (value (w d "value"))
                         (body (f d (Cons (w d "match")
@@ -4551,7 +4181,7 @@
                                 (cases (List (Pair Syntax I64)))
                                 (loc Loc))
       (→ (Pair Syntax Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((scope (deriving-scope loc)))
                  (let* ((d (Deriver scope loc)) (value (w d "value")) (encoder (w d "encoder")))
                    (Pair (f d (append (instance-head d "Serialize" head)
@@ -4584,7 +4214,7 @@
                                   (cases (List (Pair Syntax I64)))
                                   (loc Loc))
       (→ (Pair Syntax Context))
-      (! fs compile)
+      (! fs compile generator)
       (expanding cx ((scope (deriving-scope loc)))
                  (let* ((d (Deriver scope loc)) (decoder (w d "decoder")) (id (w d "id")))
                    (Pair (f d (append (instance-head d "Deserialize" head)
@@ -5018,8 +4648,8 @@
    (snail-tests
     (export test-expand)
     (import
-     (only (chibi filesystem) create-directory*)
-     (only (chibi string) string-contains string-cursor->index)
+     (only (snail stage0 system) create-directory*)
+     (only (snail stage0 system) string-contains)
      (snail stage0 testing)
      (only (snail shell compiler inputs) no-inputs supply-generated))
     (begin
@@ -5061,8 +4691,7 @@
 
       (define callable-signature
         (lambda (text)
-          (let* ((cx (new-context (Nil) (lambda (loading forms) (panic "unexpected producer"))
-                                  no-inputs (Supplied) empty-expansion))
+          (let* ((cx (new-context (Nil) no-inputs (Supplied)))
                  (imports (fold-left (lambda (table entry)
                                        (table-set table (● entry first) (● entry second)))
                                      empty-table (core-library)))
@@ -5070,7 +4699,7 @@
             (match (read-text text "callable.sld")
               ((Cons (Form items loc) (Nil)) (resolve-callable-arrow cx env items (Nil) loc))))))
 
-      ;; Metadata follows canonical declarations through imports and replay.
+      ;; Metadata follows canonical declarations through imports and repeated builds.
       ;; Updating only a field's documentation does not change its wire or
       ;; dynamic type identity, and equal field names have distinct owners.
       (define test-annotation-metadata
@@ -5079,20 +4708,19 @@
                       (module (string-append directory "/sample/docs.sld"))
                       (directories (list directory library)))
                   (write-file source
-                              "(import (prefix (sample docs) renamed-)) (renamed-Entry \"ok\")")
+                              "(import (snail core forms) (prefix (sample docs) renamed-)) (define example (renamed-Entry \"ok\"))")
                   (write-file module (annotation-library "original"))
                   (let* ((first (expand-program directories
                                                 annotation-generator
                                                 no-inputs
-                                                source
-                                                empty-expansion))
-                         (replayed
-                          (expand-program directories annotation-generator no-inputs source first))
-                         (program (● replayed program))
+                                                source))
+                         (repeated
+                          (expand-program directories annotation-generator no-inputs source))
+                         (program (● repeated program))
                          (entry (program-type program "sample.docs:Entry")))
                     (expect
                      (annotation-documentation (program-annotations program "sample.docs:Entry"))
-                     (Some "A record.\nIts fields are immutable."))
+                     (Some "A record.\nIts fields are mutable."))
                     (expect (annotation-documentation
                              (program-field-annotations program "sample.docs:Entry" "value"))
                             (Some "original"))
@@ -5117,8 +4745,7 @@
                             (expand-program directories
                                             annotation-generator
                                             no-inputs
-                                            source
-                                            replayed))
+                                            source))
                            (next (● changed program)))
                       (expect (annotation-documentation
                                (program-field-annotations next "sample.docs:Entry" "value"))
@@ -5139,12 +4766,12 @@
                                  "(define-library (sample docs) (export Entry) (import (snail core base)) (begin\n"
                                  "(struct Entry ((value String (annotations (doc "
                                  (datum->string (DString documentation))
-                                 ")))) (annotations (doc \"A record.\") (doc \"Its fields are immutable.\")))\n"
+                                 ")))) (annotations (doc \"A record.\") (doc \"Its fields are mutable.\")))\n"
                                  "(struct Other ((value I64 (annotations (doc \"A different field.\")))))\n"
                                  "(enum Readiness (Waiting (annotations (doc \"No value yet.\"))))\n"
                                  "(define count (→ I64) (annotations (doc \"An inline definition.\")) 0)\n"
-                                 "(typeclass (Named T) (: label (dyn (Fn T → String)) (annotations (doc \"Name this value.\"))))\n"
-                                 "(effect names ((read-name (dyn (Fn Unit → String)) (annotations (doc \"Read a name.\")))))\n"
+                                 "(typeclass (Named T) (: label (Fn T → String) (annotations (doc \"Name this value.\"))))\n"
+                                 "(effect names ((read-name (Fn Unit → String) (annotations (doc \"Read a name.\")))))\n"
                                  "))")))
 
       ;; A producer names its recipe after its imports, as the path the
@@ -5175,7 +4802,7 @@
                                                                                    0)
                                                                          "/sample/made.sld")))
                                                         ")")
-                                         "(write-generated-library (lambda () (unit)))")))))
+                                         "(define main (lambda () (write-generated-library (lambda () (unit)))))")))))
 
       (define test-library-closure
         (lambda (directories)
@@ -5237,7 +4864,7 @@
                 (write-file (string-append root "/sample/linked.sld")
                             "(define-library (sample linked) (export pixel) (import (snail core forms)) (begin (define pixel (link-handle \"data/./x/../pixel.bin\"))))")
                 (let ((expansion (link-expansion root
-                                                 "(import (snail core forms) (sample linked)) (define notes (link-handle \"notes.txt\")) (link-handle \"notes.txt\") (link-handle \"copy.txt\")")))
+                                                 "(import (snail core forms) (sample linked)) (define notes (link-handle \"notes.txt\")) (define other (link-handle \"notes.txt\")) (define copy (link-handle \"copy.txt\"))")))
                   (expect (map (lambda (record) (● record digest)) (program-links expansion))
                           (list "3f8d7379e2f0f7d0c845a06f7b67ef80cacce0c686254aced769c1698f3fe59a"
                                 "ab5aa97074c454a0632057e704220d9a6678fbf773a0a5806fc09b8173b07309"))
@@ -5260,22 +4887,20 @@
                 (expand-program (list root)
                                 (lambda (loading forms) (panic "unexpected producer"))
                                 no-inputs
-                                (string-append root "/main.sld")
-                                empty-expansion)))
+                                (string-append root "/main.sld"))))
 
       (define link-error
         (lambda (root path) (let ((message (compile-failure
                                             (lambda ()
                                               (link-expansion root
                                                               (string-append
-                                                               "(import (snail core forms)) (link-handle \""
+                                                               "(import (snail core forms)) (define linked (link-handle \""
                                                                path
-                                                               "\")"))))))
+                                                               "\"))"))))))
                               (if message
                                   (substring message
-                                             (+ (string-cursor->index message
-                                                                      (string-contains message
-                                                                                       ": "))
+                                             (+ (string-contains message
+                                                                 ": ")
                                                 2)
                                              (string-length message))
                                   "accepted"))))
@@ -5287,23 +4912,22 @@
       (define test-primitives
         (lambda (root library) (create-directory* root)
                 (write-file (string-append root "/main.sld")
-                            "(import (snail core primitive)) (unit)")
+                            "(import (snail core forms) (snail core primitive)) (define (main) (→ Unit) (unit))")
                 (let ((program (● (expand-program (list root library)
                                                   (lambda (loading forms)
                                                     (panic "unexpected producer"))
                                                   no-inputs
-                                                  (string-append root "/main.sld")
-                                                  empty-expansion) program)))
+                                                  (string-append root "/main.sld")) program)))
                   (expect (primitive-scheme program "vector-ref")
-                          (list (list "A") "(dyn (Fn (Vector A) I64 → A))"))
+                          (list (list "A") "(Fn (Vector A) I64 → A)"))
                   (expect (primitive-scheme program "vector-generate")
                           (list (list "A" "e")
-                                "(dyn (Fn I64 (dyn (Fn I64 → A ! e)) → (Vector A) ! e))"))
-                  (expect (primitive-scheme program "array-ref")
-                          (list (list "A") "(dyn (Fn (Array A) I64 → A ! mut))"))
+                                "(Fn I64 (Fn I64 → A ! e) → (Vector A) ! e)"))
+                  (expect (primitive-scheme program "vector-ref")
+                          (list (list "A") "(Fn (Vector A) I64 → A)"))
                   (expect (primitive-scheme program "inherit-handlers")
                           (list (list "A" "e")
-                                "(dyn (Fn (dyn (FnOnce → A ! e)) → (dyn (FnOnce → A ! host)) ! e))"))
+                                "(Fn (FnOnce → A ! e) → (FnOnce → A ! host) ! e)"))
                   (expect (map (lambda (record) (● record first))
                                (library-items program (program-items program)))
                           (list "main")))))
@@ -5312,8 +4936,8 @@
       ;; it at its first deriving clause, and the wire's run of items comes
       ;; before the library's, not inside it: each run holds only the
       ;; definitions of the library it names, and the library's are the two
-      ;; methods it derived. Replaying the library, when nothing else
-      ;; imports the wire, loads it first again.
+      ;; methods it derived. Repeating expansion preserves that order,
+      ;; including when nothing else imports the wire.
       (define test-deriving-runs
         (lambda (root library) (create-directory* (string-append root "/sample"))
                 (write-file (string-append root "/sample/shape.sld")
@@ -5321,18 +4945,18 @@
                              "(define-library (sample shape) (export Shape) (import (snail core base))"
                              " (begin (struct Shape ((side I64)) (deriving Serialize Deserialize))))"))
                 (write-file (string-append root "/main.sld")
-                            "(import (snail core base) (sample shape)) (Shape 2)")
-                (let* ((expand (lambda (predecessor)
+                            "(import (snail core base) (sample shape)) (define example (Shape 2))")
+                (let* ((expand (lambda ()
                                  (expand-program (list root library)
                                                  (lambda (loading forms)
                                                    (panic "unexpected producer"))
                                                  no-inputs
-                                                 (string-append root "/main.sld") predecessor)))
-                       (first (expand empty-expansion)))
+                                                 (string-append root "/main.sld"))))
+                       (first (expand)))
                   (expect (every? own-run? (expansion-runs first)) #t)
                   (expect (run-length first "sample.shape") 2)
                   (expect (deriving-order first) (list "snail.shell.wire" "sample.shape" "main"))
-                  (expect (deriving-order (expand first))
+                  (expect (deriving-order (expand))
                           (list "snail.shell.wire" "sample.shape" "main")))))
 
       ;; A library's derived instances hold while the implicit libraries'
@@ -5340,7 +4964,7 @@
       ;; interface, so the library that derives is expanded under a new
       ;; key, though its text is the same. A body edit also re-expands the
       ;; wire's instance methods with fresh identities; derived evidence
-      ;; must follow them. An unchanged build still replays. The wire is a
+      ;; must follow them. An unchanged build keeps its key. The wire is a
       ;; copy of the standard one, found first.
       (define test-deriving-key
         (lambda (root library)
@@ -5351,13 +4975,12 @@
                                           " (begin (: wire-marker I64) (define wire-marker "
                                           value
                                           ")))\n")))
-                 (expand (lambda (text predecessor)
+                 (expand (lambda (text)
                            (write-file (string-append root "/snail/shell/wire.sld") text)
                            (expand-program (list root library)
                                            (lambda (loading forms) (panic "unexpected producer"))
                                            no-inputs
-                                           (string-append root "/main.sld")
-                                           predecessor)))
+                                           (string-append root "/main.sld"))))
                  (key (lambda (expansion) (library-key expansion "sample.shape"))))
             (expect (substring wire end (string-length wire)) ")\n")
             (create-directory* (string-append root "/sample"))
@@ -5367,11 +4990,11 @@
                          "(define-library (sample shape) (export Shape) (import (snail core base))"
                          " (begin (struct Shape ((side I64)) (deriving Serialize))))"))
             (write-file (string-append root "/main.sld")
-                        "(import (snail core base) (sample shape)) (Shape 2)")
-            (let* ((first (expand wire empty-expansion))
-                   (second (expand (marked "1") first))
-                   (third (expand (marked "2") second))
-                   (fourth (expand (marked "2") third)))
+                        "(import (snail core base) (sample shape)) (define example (Shape 2))")
+            (let* ((first (expand wire))
+                   (second (expand (marked "1")))
+                   (third (expand (marked "2")))
+                   (fourth (expand (marked "2"))))
               (expect (string=? (key first) (key second)) #f)
               (expect (string=? (key second) (key third)) #f)
               (expect (key fourth) (key third))))))

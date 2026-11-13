@@ -2,8 +2,10 @@
 
 ## Programs and libraries
 
-A program is a file of `import` forms followed by definitions and expressions,
-which run in order. A library is an R7RS `define-library` with `import`,
+A program is a file of `import` forms followed by declarations and definitions.
+Its root `main` starts runtime work. Top-level values are pure compile-time
+computations, forced lazily with cycle detection; importing a library runs no
+source initializer. A library uses `define-library` with `import`,
 `export` and `begin` sections, stored at a path that matches its name:
 `(sample geometry)` lives in `sample/geometry.sld` under a search directory.
 Import sets may use `only`, `except`, `prefix` and `rename`.
@@ -17,8 +19,8 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
 (define (fibonacci (n I64)) (→ I64)
   (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
 
-(display (fibonacci 30))
-(newline)
+(define (main) (→ Unit) (! output-port)
+  (write-line (show (fibonacci 30))))
 ```
 
 `src/` is always on the search path. `./scripts/snail-tool run -I DIR program.sld` adds more.
@@ -41,8 +43,8 @@ value is the library's `define-library` form, as a `Syntax` from
 
 The program writes the syntax as bytes that the compiler decodes, so no text
 is printed or parsed in between, and a `BytesSyntax` reaches the compiler
-as the bytes it holds. `datum->syntax` from `(snail shell datum)` turns a Scheme
-datum into syntax. Every generated form is located at the recipe.
+as the bytes it holds. Construct syntax explicitly with `(snail shell syntax)`.
+Every generated form is located at the recipe.
 
 A recipe names the files it reads relative to itself, with the forms any
 library uses: `(include-bytes "data/table.txt")` puts a file's bytes in the
@@ -73,7 +75,7 @@ a library directory finds its data from any working directory.
 | `(type (Name param ...) type)` | Transparent alias. |
 | `(typeclass (Class param ...) (: method type) ...)` | Class of types with methods. |
 | `(instance (Class type ...) [(⊨ constraint ...)] (define ...) ...)` | Instance. |
-| `(effect Name ((operation type) ...) [(default ((operation implementation) ...))])` | Effect with operations and optional Snail-Core defaults, each a lambda or a function's or extern's name. `(ctl operation type)` declares a control operation, which has no default ([effects and handlers](effects.md)). |
+| `(effect Name ((operation type) ...) [(default ((operation implementation) ...))])` | Effect with operations and optional Snail Scheme defaults, each a lambda or a function's or extern's name. `(ctl operation type)` declares a control operation, which has no default ([effects and handlers](effects.md)). |
 | `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`; a control operation's implementation also takes `resume`. |
 | `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
 | `(primitive name type)` | An operation the backend implements, bound to the global `prim:name`. Accepted only in `(snail core primitive)`. |
@@ -91,7 +93,7 @@ functions may be mutually recursive. A local body is sequential: a definition
 is visible to the forms after it, and a local function is also visible to
 itself. Write mutually recursive helpers at the top level.
 
-Functions have fixed arity. Where Scheme uses variadic procedures, Snail-Core
+Functions have fixed arity. Where Scheme uses variadic procedures, Snail Scheme
 uses macros (`list`, `string-append`) or lists.
 
 ## Proposed surface design
@@ -103,25 +105,23 @@ they do not require every source operation to use the same punctuation.
 Familiar projection syntax such as `a.b.c` should be considered on its
 own merits, alongside bindings, calls, signatures and callback bodies.
 
-The implemented [callable signatures](types.md#callable-classes) use
-`impl` and `dyn` around `Fn`, `FnMut`, or `FnOnce`, with `→` separating
-the result and `!` introducing effects. Named function definitions require
-typed parameter pairs and may carry result, effect, generic and constraint
-clauses inline. Value definitions retain their initializer form. Definitions
-continue to use `define`.
-Direct field selection is implemented as `(● receiver label ...)`: the
-receiver's nominal struct type supplies stored fields, and paths traverse
-`Ref` values between labels while preserving a final `Ref`. Field classes
-and computed field overloads are not part of this contract.
+The implemented [function types](types.md#function-types) are `Fn` and
+`FnOnce`, with `→` separating the result and `!` introducing effects. Named
+functions use typed parameter pairs and inline result, effect, generic and
+constraint clauses. Definitions continue to use `define`.
+
+Direct field selection is `(● receiver label ...)`: each nominal struct type
+supplies its stored fields, and paths follow heap references, including `Rc`
+payloads. Use a projection in `set!` or `replace!` to write its final field.
+Every field is mutable. Computed getters are ordinary functions.
+
 Direct-style suspension remains available: the compiler turns the remaining
-computation into a one-shot callable. Callable contracts expose continuation
+computation into a one-shot callable. Callable types expose continuation
 boundaries, including through wrapper calls. A separate checked call-site
-marker remains open; examples use ordinary operation names and `!` retains
+marker remains open; examples use ordinary operation names, and `!` retains
 its mutation convention. [Effect transitions](effects.md#resumption-effects-and-effect-transitions)
-describe entry and resumption requirements. The proposed
-[places and locators](types.md#proposed-places-and-locators) remain a proposal
-for typed place syntax beyond the implemented field path. Dot notation need
-not expose a runtime offset.
+describe entry and resumption requirements. Dot notation need not expose a
+runtime offset or change ownership.
 
 Evaluate candidates by rewriting complete examples: the tour's counter,
 a nested update in an application, a higher-order collection operation,
@@ -173,7 +173,7 @@ define square(n(I64)) (→ I64)
 ```
 
 Its expansion is the parenthesized definition in
-[callable signatures](types.md#callable-classes). Sweet syntax
+[function signatures](types.md#functions). Sweet syntax
 only changes how forms are written. Dot projection and typed locators also require their own rules;
 adopting this reader does not itself specify field access.
 
@@ -206,8 +206,8 @@ comments, quote forms and advanced markers. The formatter and editor must
 agree with the compiler on mode and indentation; changing source syntax
 must not silently change a program's data-reading protocol.
 
-Chibi reads the compiler's source directly during stage 0. Adding sweet
-syntax to Snail's reader alone does not let Chibi load a converted compiler.
+Chez reads the compiler's source directly during stage 0. Adding sweet
+syntax to Snail's reader alone does not let Chez load a converted compiler.
 Bootstrap-loaded sources need an explicit, tested header/reader adapter
 or preprocessing solution with source mapping before source migration.
 Claim SRFI 110 conformance only when its required reader behavior and APIs
@@ -236,14 +236,11 @@ the same semantics so generated code can express it without dot syntax.
 The reader-created form must have a defined hygienic binding; a local
 variable must not accidentally change what punctuation means.
 
-For a concrete place receiver, the checked projection composes its static
-path and produces another concrete place implementing the `Ref` capability
-described in [places](types.md#proposed-places-and-locators).
-The reader preserves the path without resolving field types or offsets.
-Later checking establishes writable-field evidence and lowering resolves
-the layout. Whether projection on an ordinary immutable value reads the
-selected value, and how a place is read in a value context, remain explicit
-design questions. A computed getter must not become writable by accident.
+The translation should preserve the existing nominal projection semantics:
+read `(● object field ...)`, or use that projection in `set!` / `replace!`.
+Each step follows one object reference. Field lookup is resolved during
+checking, and every stored field is mutable. Computed getters are ordinary
+functions and do not become writable by punctuation.
 
 Projection should compose left to right with calls, so `make().b.c` has
 one receiver evaluation. Its lexical rules must distinguish decimal
@@ -272,7 +269,7 @@ remains proposed.
 | Application process | An OS process running a program. A browser frontend is a client of a server process, not a run target. |
 | Runtime | The scheduler and effect bindings executing a program's tasks. It is distinct from both the compiler session and the OS process. |
 | Host | The platform environment, such as Node or a browser, providing APIs to the runtime. |
-| Worker | A separate execution agent used for CPU work, such as a Node worker thread; it is not a browser Service Worker or a Snail-Core task. |
+| Worker | A separate execution agent used for CPU work, such as a Node worker thread; it is not a browser Service Worker or a Snail Scheme task. |
 | Working state | In-memory values used by the running application, including changes not yet saved. |
 | Persisted data | The application's chosen representation committed to storage independently of the running code. It need not encode every transient resource or cache. |
 

@@ -104,7 +104,7 @@
 
     ;; `art` gives the bytes of each sheet the cast wears; main.sld passes
     ;; the embedded ones, and tests may pass none.
-    (define (view-shell (shell Shell) (art (dyn (Fn String → (Option Source))))) (→ Frame)
+    (define (view-shell (shell Shell) (art (Fn String → (Option Source)))) (→ Frame)
       (match (● shell screen)
         ((Menu) (empty-frame (Nil)))
         ((Rumors screen) (view-mill-screen screen art))

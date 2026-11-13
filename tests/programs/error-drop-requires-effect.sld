@@ -4,7 +4,7 @@
 ;; Dropping a labelled handle performs the handle's row too, which this
 ;; signature does not allow.
 (effect audit
-  ((note (dyn (Fn String → Unit)))))
+  ((note (Fn String → Unit))))
 
 (struct Handle
   ((name String)))

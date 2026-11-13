@@ -22,7 +22,8 @@
     ;; ---- Dealing ----
 
     ;; One item of a list, and the generator after the draw.
-    (define (deal (random Random) (items (List T))) (→ (Pair T Random)) (∀ T) (⊨ (Copy T))
+    (define (deal (random Random) (items (List T)))
+      (→ (Pair T Random)) (∀ T) (⊨ (Copy T) (Drop (!) T))
       (Pair (list-ref items (random-below random (length items))) (random-next random)))
 
     (define (names->dyes (names (List String))) (→ (List Dye))

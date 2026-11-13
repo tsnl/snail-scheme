@@ -1,4 +1,9 @@
 (import
  (snail core base))
+
 (define value (→ Any) "bad")
-(ann value I64)
+
+(define main
+  (lambda ()
+    (ann value I64)
+    (unit)))

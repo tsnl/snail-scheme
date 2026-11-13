@@ -1,5 +1,5 @@
 //! Scalar real mathematics, with scalar C signatures for Wasm.
-//! No Snail-Core roots, allocation, callbacks or resource state cross this boundary.
+//! No Snail Scheme roots, allocation, callbacks or resource state cross this boundary.
 
 // ---- Binary64 trigonometry ----
 

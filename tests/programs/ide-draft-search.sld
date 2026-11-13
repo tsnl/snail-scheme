@@ -16,19 +16,24 @@
      (write-line (string-append (show (length hits)) " " (show limited))))
     (_ (panic "draft search failed"))))
 
-(dispatch-local
- (once (lambda ()
-         (handle fetch
-             ((request (lambda (method url headers body) (panic "draft search must not use HTTP")))
-              (stream-open (lambda (url kinds) (panic "stream")))
-              (stream-next (lambda (stream) (panic "stream")))
-              (stream-close (lambda (stream) (panic "stream"))))
-           (run "😀 a.*Z\r\nÉb a.*z\rEND" "A.*z")
-           (match (search-run (search-CurrentDraft (search-Draft "large" (make-string 205 #\x)))
-                              "x")
-             ((Ok (search-DraftResults _ hits limited))
-              (write-line (string-append (show (length hits)) " " (show limited))))
-             (_ (panic "bounded search")))
-           (match (search-run (search-CurrentDraft (search-Draft "draft" "anything")) "bad\nquery")
-             ((Err _) (write-line "multiline query rejected"))
-             (_ (panic "query accepted")))))))
+(define main
+  (lambda ()
+    (dispatch-local
+     (once (lambda ()
+             (handle fetch
+                 ((request
+                   (lambda (method url headers body) (panic "draft search must not use HTTP")))
+                  (stream-open (lambda (url kinds) (panic "stream")))
+                  (stream-next (lambda (stream) (panic "stream")))
+                  (stream-close (lambda (stream) (panic "stream"))))
+               (run "😀 a.*Z\r\nÉb a.*z\rEND" "A.*z")
+               (match (search-run (search-CurrentDraft (search-Draft "large" (make-string 205 #\x)))
+                                  "x")
+                 ((Ok (search-DraftResults _ hits limited))
+                  (write-line (string-append (show (length hits)) " " (show limited))))
+                 (_ (panic "bounded search")))
+               (match (search-run (search-CurrentDraft (search-Draft "draft" "anything"))
+                                  "bad\nquery")
+                 ((Err _) (write-line "multiline query rejected"))
+                 (_ (panic "query accepted")))))))
+    (unit)))

@@ -6,4 +6,5 @@
  (snail core io)
  (snail shell compiler driver))
 
-(compile-command-line)
+(define (main) (→ Unit) (! mut fs)
+  (compile-command-line))

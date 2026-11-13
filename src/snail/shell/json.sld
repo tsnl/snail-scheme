@@ -97,7 +97,7 @@
 
     ;; Items with a comma between each two, and no spaces anywhere.
 
-    (define (separated (write (dyn (Fn T (List String) → (List String))))
+    (define (separated (write (Fn T (List String) → (List String)))
                        (items (List T))
                        (pieces (List String)))
       (→ (List String))

@@ -12,7 +12,7 @@ import {dead, delay, spawnDevelopment, startDevelopment} from './development-ser
 
 const root = process.argv[2], project = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-http-')));
 const source = join(project, 'main.sld'), pipe = join(project, 'slow.sld'), notes = join(project, 'notes.txt');
-const program = text => `(import (snail core base) (snail core io)) (write-line "${text}")`;
+const program = text => `(import (snail core base) (snail core io)) (define (main) (→ Unit) (! output-port) (write-line "${text}"))`;
 const config = '((build-target main (program (entry "main.sld") (library-roots (".")))) (run-target dev (run main)))';
 fs.writeFileSync(join(project, 'project.datum'), config);
 fs.writeFileSync(source, program('initial'));
@@ -153,7 +153,7 @@ try {
   await stream.close();
   const long = 'x'.repeat(200_000);
   let before = (await service.status()).id;
-  fs.writeFileSync(source, `(import (snail core base))\n(${long})\n`);
+  fs.writeFileSync(source, `(import (snail core base))\n(define (main) (→ Unit) (${long}))\n`);
   await service.settled(before, 'failed');
   const large = await service.events();
   await service.until(opened(large), 'a large first status');
@@ -175,7 +175,7 @@ try {
   // answered from the compiler's thread would therefore deadlock here rather
   // than answer late, so the deadline distinguishes wedged from slow.
   assert.equal(spawnSync('mkfifo', [pipe]).status, 0);
-  fs.writeFileSync(source, '(import (snail core base) (snail core io) (slow)) (write-line message)');
+  fs.writeFileSync(source, '(import (snail core base) (snail core io) (slow)) (define (main) (→ Unit) (! output-port) (write-line message))');
   await service.until(() => {
     try { writer = fs.openSync(pipe, fs.constants.O_WRONLY | fs.constants.O_NONBLOCK); return true; }
     catch (error) { if (error.code === 'ENXIO') return false; throw error; }
@@ -223,7 +223,7 @@ try {
   assert.equal((await control('stop')).status, 204);
   before = (await service.status()).id;
   fs.writeFileSync(join(project, 'project.datum'), config);
-  fs.writeFileSync(source, '(import (snail core base) (snail core io) (snail shell task)) (write-line "running") (dispatch-local (once (lambda () (sleep 600000))))');
+  fs.writeFileSync(source, '(import (snail core base) (snail core io) (snail shell task)) (define (main) (→ Unit) (! output-port tasks) (write-line "running") (sleep 600000))');
   await service.settled(before);
   assert.equal((await run()).wanted, false);
   assert.equal((await control('start')).status, 204);
@@ -236,7 +236,7 @@ try {
   await runReconnect.close();
 
   before = (await service.status()).id;
-  fs.writeFileSync(source, '(import (snail core base)) (missing)');
+  fs.writeFileSync(source, '(import (snail core base)) (define (main) (→ Unit) (missing))');
   await service.settled(before, 'failed');
   assert.equal((await run()).attempt.pid, livePid);
   assert.equal((await control('restart')).status, 204, 'a compiler failure does not disable accepted controls');

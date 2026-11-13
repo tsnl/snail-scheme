@@ -13,7 +13,7 @@
 
     ;; ---- Recovery ----
 
-    (define (try-dynamic (work (dyn (Fn → A ! dyn-cast e)))) (→ (Result A CastError)) (! e) (∀ A e)
+    (define (try-dynamic (work (Fn → A ! dyn-cast e))) (→ (Result A CastError)) (! e) (∀ A e)
       (handle dyn-cast
           ((conversion-failed (lambda (error) (Err error))))
         (Ok (work))))
@@ -34,7 +34,7 @@
     ;; starts. Returning the failure lets a script choose failure status,
     ;; or an interactive caller continue with its next evaluation.
 
-    (define (run-dynamic (work (dyn (Fn → A ! dyn-cast e))))
+    (define (run-dynamic (work (Fn → A ! dyn-cast e)))
       (→ (Result A CastError))
       (! output-port e)
       (∀ A e)

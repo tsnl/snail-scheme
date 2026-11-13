@@ -50,6 +50,7 @@ export async function startInterface({url, container, storageKey, session = fals
       // intentional navigation requires an explicit successful write.
       await store(stopped.saved);
       dom.allowUnload();
+      stopped.release();
       location.reload();
     } catch (error) {
       deferred = true;
@@ -58,6 +59,7 @@ export async function startInterface({url, container, storageKey, session = fals
         // Reconstruct from the application's save, so canceled commands do
         // not leave in-flight flags or dead handles in the resumed model.
         const restarted = runtime.start(applicationEntry(application.program), null, {restore: stopped.saved});
+        stopped.release();
         await restarted.ready.promise;
       }
       const notice = document.createElement('div');
@@ -72,6 +74,8 @@ export async function startInterface({url, container, storageKey, session = fals
       container.inert = false;
       dispatchEvent(new Event('snail-refresh-failed'));
       for (const type of ['keydown', 'beforeinput', 'click']) removeEventListener(type, block, true);
+      // Without saved bytes or a replacement, the stopped run still owns
+      // the checkpoint that a later source repair must recover.
     }
   }
   application.refresh = refresh;

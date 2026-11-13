@@ -1,6 +1,6 @@
 (import
  (snail core base))
-(effect audit ((note (dyn (Fn → Unit)))))
+(effect audit ((note (Fn → Unit))))
 (struct Resource
   ((value Any)))
 (instance (Drop (! dyn-cast) Resource)

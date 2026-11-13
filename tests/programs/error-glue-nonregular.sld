@@ -16,4 +16,7 @@
   ((item T)
    (deeper (Option (Nest (Pair T T))))))
 
-(drop (Nest (Handle "h") (None)))
+(define main
+  (lambda ()
+    (drop (Nest (Handle "h") (None)))
+    (unit)))

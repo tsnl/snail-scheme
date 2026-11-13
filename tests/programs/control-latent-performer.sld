@@ -6,17 +6,20 @@
 ;; inner one, which is in scope where fetch is performed, and not to the
 ;; one outside Io's handler, where fetch's implementation was installed.
 (effect Async
-  ((ctl await (dyn (Fn I64 → I64)))))
+  ((ctl await (Fn I64 → I64))))
 
 (effect Io
-  ((fetch (dyn (Fn I64 → I64 ! Async)))))
+  ((fetch (Fn I64 → I64 ! Async))))
 
-(write-line
- (show
-  (handle Async
-      ((await (lambda (ticket resume) (write-line "outer Async") (resume (+ ticket 1000)))))
-    (handle Io
-        ((fetch (lambda (ticket) (await ticket))))
+(define main
+  (lambda ()
+    (write-line
+     (show
       (handle Async
-          ((await (lambda (ticket resume) (write-line "inner Async") (resume (+ ticket 1)))))
-        (fetch 10))))))
+          ((await (lambda (ticket resume) (write-line "outer Async") (resume (+ ticket 1000)))))
+        (handle Io
+            ((fetch (lambda (ticket) (await ticket))))
+          (handle Async
+              ((await (lambda (ticket resume) (write-line "inner Async") (resume (+ ticket 1)))))
+            (fetch 10))))))
+    (unit)))

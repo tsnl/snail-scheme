@@ -67,38 +67,34 @@
     ((Err (Failed diagnostics)) (diagnostics->string diagnostics))
     ((Err (Requested _)) "the reader asked for an input")))
 
-;; ---- Samples ----
+(define (main) (→ Unit) (! output-port)
+  ;; ---- Samples ----
 
-;; A definition's name, a comment, a number and the core forms.
-(show-reading "(define (twice (x I64)) (→ I64) ; doubles\n  (* 2 x))")
-(show-reading "(define label (→ String) \"label\")")
-(show-reading "(define ((adder n) x) (+ n x))")
-(show-reading "(struct Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
-(show-reading
- "(effect ask (ctl ask (dyn (Fn Unit → I64)))) (handle ask ((ask (lambda (resume) 1))) body)")
-
-;; Block comments nest.
-(show-reading "#| outer #| inner |# still outer |#x")
-
-;; Escapes stay inside their string; `#\` takes the character after it,
-;; whatever it is.
-(show-reading "\"line\\n quote\\\" slash\\\\ \\x41;\" #\\( #\\space #\\x41 #\\)")
-
-;; Byte vectors, quotes, booleans and numbers; `+x` is a name.
-(show-reading "#u8(0 255) 'x '(a b) #t #false 1.5e3 -7 +x")
-
-;; `#;` comments out the datum after it, and two of them two data. A
-;; commented list runs to its own closing bracket, past the comments, the
-;; strings and the `#;` inside it.
-(show-reading "#;(skip me) kept #; #; a 'b c")
-(show-reading "(f #;(a ; note\n #;b \"(\" c) d)")
-
-;; A delimiter ends a token wherever it is: the quote mark in `x'y`, the
-;; string after `"s"`, and the comment after `a`.
-(show-reading "(x'y \"s\"t #\\) a;b\n[c])")
-
-;; What the reader rejects still classifies.
-(show-tokens ". #foo (a) ]")
-(show-tokens "\"unterminated\n(still a string")
-(show-tokens "#| unterminated")
-(show-tokens "(#; )")
+  ;; A definition's name, a comment, a number and the core forms.
+  (show-reading "(define (twice (x I64)) (→ I64) ; doubles\n  (* 2 x))")
+  (show-reading "(define label (→ String) \"label\")")
+  (show-reading "(define (adder (n I64)) (→ (Fn I64 → I64)) (lambda (x) (+ n x)))")
+  (show-reading "(struct Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
+  (show-reading
+   "(effect ask ((ctl ask (Fn → I64)))) (handle ask ((ask (lambda (resume) (resume 1)))) body)")
+  ;; Block comments nest.
+  (show-reading "#| outer #| inner |# still outer |#x")
+  ;; Escapes stay inside their string; `#\` takes the character after it,
+  ;; whatever it is.
+  (show-reading "\"line\\n quote\\\" slash\\\\ \\x41;\" #\\( #\\space #\\x41 #\\)")
+  ;; Byte vectors, quotes, booleans and numbers; `+x` is a name.
+  (show-reading "#u8(0 255) 'x '(a b) #t #false 1.5e3 -7 +x")
+  ;; `#;` comments out the datum after it, and two of them two data. A
+  ;; commented list runs to its own closing bracket, past the comments, the
+  ;; strings and the `#;` inside it.
+  (show-reading "#;(skip me) kept #; #; a 'b c")
+  (show-reading "(f #;(a ; note\n #;b \"(\" c) d)")
+  ;; A delimiter ends a token wherever it is: the quote mark in `x'y`, the
+  ;; string after `"s"`, and the comment after `a`.
+  (show-reading "(x'y \"s\"t #\\) a;b\n[c])")
+  ;; What the reader rejects still classifies.
+  (show-tokens ". #foo (a) ]")
+  (show-tokens "\"unterminated\n(still a string")
+  (show-tokens "#| unterminated")
+  (show-tokens "(#; )")
+  (unit))

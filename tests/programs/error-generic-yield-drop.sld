@@ -4,10 +4,10 @@
 ;; A generic function may hold a value of its type variable across a yield,
 ;; so a use that may yield must allow dropping each linear type it binds.
 (effect audit
-  ((note (dyn (Fn String → Unit)))))
+  ((note (Fn String → Unit))))
 
 (effect Ask
-  ((ctl ask (dyn (Fn → I64)))))
+  ((ctl ask (Fn → I64))))
 
 (struct Handle
   ((name String)))
@@ -17,7 +17,7 @@
     (lambda (handle) (match handle
                        ((Handle name) (note name))))))
 
-(define (hold (value A) (action (dyn (Fn → Unit ! e)))) (→ A) (! e) (∀ A e)
+(define (hold (value A) (action (Fn → Unit ! e))) (→ A) (! e) (∀ A e)
   (action)
   value)
 

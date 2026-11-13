@@ -1,12 +1,18 @@
-# Snail-Core
+# Snail Scheme
 
-Snail-Core is a typed, pure-by-default functional language with Scheme syntax. It
-compiles to WasmGC. Scheme does not compile directly: its macros and
-libraries expand it into Snail-Core, and checking, specialization and code
-generation all happen there, so Scheme ships as libraries over the typed
-language. The compiler is a Snail-Core program and compiles itself. Erasing
-Snail-Core's typed forms leaves an R7RS program with the same behavior, which is
-how stage 0 runs that source; [Bootstrap](bootstrap.md) explains it.
+**Scheme, but statically typed.** Snail Scheme has S-expressions, hygienic
+macros, explicit types and effects, and exact-once ownership. Records are
+mutable heap objects; primitive values stay unboxed. `Rc` and `WeakRc`
+provide counted resource lifetime without source borrows. Functions use
+`Fn` and `FnOnce` type formers with the Unicode `→` separator.
+
+Top-level values are pure compile-time computations. Runtime state belongs
+to functions and explicit application owners. Constant reads construct fresh
+object graphs, so they cannot become writable module globals.
+
+This is one language, with no R7RS compatibility layer, `call/cc` or
+`dynamic-wind`. The compiler emits WasmGC and compiles itself; a small Chez
+adapter runs its source for the first [bootstrap](bootstrap.md).
 
 The chapters describe implemented behavior and mark proposed toolchain changes:
 
@@ -15,8 +21,8 @@ The chapters describe implemented behavior and mark proposed toolchain changes:
   files and dynamic values.
 - [Effects and handlers](effects.md): effect rows, handlers, control
   operations with a one-shot `resume`, and latent rows.
-- [Macros and Scheme libraries](macros.md): hygienic macros, generated
-  libraries and Scheme on Snail-Core.
+- [Macros and generated libraries](macros.md): hygienic expansion and explicit
+  build-time producers.
 - [Bootstrap and self-hosting](bootstrap.md): the erasure property, the two
   hosts and the stages that make the compiler compile itself.
 - [Libraries](libraries.md): the standard library and wire types.

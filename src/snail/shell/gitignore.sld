@@ -8,6 +8,7 @@
    ignored?)
   (import
    (snail core base)
+   (only (snail core forms) host)
    (snail core table)
    (snail shell process)
    (snail shell task)
@@ -30,7 +31,7 @@
 
     (define (read-gitignore (directory String))
       (→ (Result (Option IgnoreSnapshot) String))
-      (! mut tasks process)
+      (! mut host tasks process)
       (match (git-output directory (list "rev-parse" "--is-inside-work-tree" "--show-prefix"))
         ((Err message) (Err message))
         ((Ok (None)) (Ok (None)))
@@ -82,7 +83,7 @@
 
     (define (query-ignored (directory String) (prefix String))
       (→ (Result (Option IgnoreSnapshot) String))
-      (! mut tasks process)
+      (! mut host tasks process)
       (match (git-output directory (list "-C" (back-to-root prefix) "--literal-pathspecs"
                                          "ls-files" "--others" "--ignored" "--exclude-standard"
                                          "--directory"
@@ -142,7 +143,7 @@
 
     (define (git-output (directory String) (arguments (List String)))
       (→ (Result (Option Captured) String))
-      (! mut tasks process)
+      (! mut host tasks process)
       (match (spawn (Command "git" arguments directory))
         ((Err error)
          (if (string=? (● error code) "ENOENT") (Ok (None))
@@ -153,7 +154,7 @@
 
     (define (collect-git (child Process))
       (→ (Result (Option Captured) String))
-      (! mut tasks process)
+      (! mut host tasks process)
       (let ((errors (make-mailbox)))
         (dispatch-local
          (once (lambda () (mailbox-post errors (read-pipe child (Stderr) 65536 (Nil))))))

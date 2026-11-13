@@ -285,7 +285,7 @@
         (i64->i32 (+ (* 32 (code (● screen selected))) (code (● screen hover))))))
 
     ;; `art` gives the bytes of each sheet the cast wears.
-    (define (view-mill-screen (screen MillScreen) (art (dyn (Fn String → (Option Source)))))
+    (define (view-mill-screen (screen MillScreen) (art (Fn String → (Option Source))))
       (→ Frame)
       (Frame (camera-of screen) sunlight backdrop 1.0
              (list (Batch 0 0 (Solid) tie-items)

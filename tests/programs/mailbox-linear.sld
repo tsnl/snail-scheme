@@ -1,5 +1,6 @@
 (import
  (snail core base)
+ (only (snail core forms) host)
  (snail core io)
  (snail shell task))
 
@@ -8,22 +9,25 @@
 ;; receiver that takes it, so it runs exactly once. The consumer starts
 ;; first and parks, so the first item reaches it by waking it, and the
 ;; second is posted after the producer yields.
-(type Work (dyn (FnOnce → Unit ! output-port)))
+(type Work (FnOnce → Unit ! output-port))
 
 (define (say (text String)) (→ Work)
   (once (lambda () (write-line text))))
 
-(define (produce (mailbox (Mailbox Work))) (→ Unit) (! mut tasks)
+(define (produce (mailbox (Mailbox Work))) (→ Unit) (! host mut tasks output-port)
   (mailbox-post mailbox (say "one"))
   (yield)
   (mailbox-post mailbox (say "two")))
 
-(define (consume (mailbox (Mailbox Work)) (count I64)) (→ Unit) (! output-port mut tasks)
+(define (consume (mailbox (Mailbox Work)) (count I64)) (→ Unit) (! host output-port mut tasks)
   (when (> count 0)
     (call-once (mailbox-receive mailbox))
     (consume mailbox (- count 1))))
 
-(let ((mailbox (make-mailbox)))
-  (dispatch-local (once (lambda () (consume mailbox 2))))
-  (dispatch-local (once (lambda () (produce mailbox))))
-  (write-line "main returns"))
+(define main
+  (lambda ()
+    (let ((mailbox (make-mailbox)))
+      (dispatch-local (once (lambda () (consume mailbox 2))))
+      (dispatch-local (once (lambda () (produce mailbox))))
+      (write-line "main returns"))
+    (unit)))

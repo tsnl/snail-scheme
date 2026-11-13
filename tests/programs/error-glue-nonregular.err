@@ -1,1 +1,1 @@
-glue cannot drop (Nest (Pair Handle Handle)), which contains itself at other type arguments; give Nest a Drop instance
+type expansion exceeds the compiler limit of 4096 type nodes

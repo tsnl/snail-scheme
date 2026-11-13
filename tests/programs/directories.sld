@@ -10,7 +10,7 @@
 (define (at (name String)) (→ String)
   (string-append root "/" name))
 
-(define (answer (describe (dyn (Fn T → String))) (result (Result T FileError))) (→ String) (∀ T)
+(define (answer (describe (Fn T → String)) (result (Result T FileError))) (→ String) (∀ T)
   (match result
     ((Ok value)
      (let ((text (describe value))) (if (string=? text "") "ok" (string-append "ok " text))))
@@ -38,85 +38,81 @@
 (define (names (entries (List String))) (→ String)
   (string-append "(" (string-join entries " ") ")"))
 
-;; A run removes what an earlier one may have left.
-(remove-tree root)
+(define (main) (→ Unit) (! clock fs output-port)
+  ;; A run removes what an earlier one may have left.
+  (remove-tree root)
+  ;; ---- Making directories ----
 
-;; ---- Making directories ----
+  (report "make root with its parents" (answer done (make-directories root)))
+  (report "make root again" (answer done (make-directory root)))
+  (report "make without a parent" (answer done (make-directory (at "a/b"))))
+  (report "make with parents" (answer done (make-directories (at "a/b/c"))))
+  (report "make with parents again" (answer done (make-directories (at "a/b"))))
+  (report "make with parents and a trailing slash" (answer done (make-directories (at "a/b/s/t/"))))
+  (report "make with parents and a doubled slash"
+          (answer done (make-directories (at "a/b/g/m//n"))))
+  (write-file (at "a/four.txt") "four")
+  (report "make with parents over a file" (answer done (make-directories (at "a/four.txt"))))
+  ;; ---- Listing and status ----
 
-(report "make root with its parents" (answer done (make-directories root)))
-(report "make root again" (answer done (make-directory root)))
-(report "make without a parent" (answer done (make-directory (at "a/b"))))
-(report "make with parents" (answer done (make-directories (at "a/b/c"))))
-(report "make with parents again" (answer done (make-directories (at "a/b"))))
-(report "make with parents and a trailing slash" (answer done (make-directories (at "a/b/s/t/"))))
-(report "make with parents and a doubled slash" (answer done (make-directories (at "a/b/g/m//n"))))
-(write-file (at "a/four.txt") "four")
-(report "make with parents over a file" (answer done (make-directories (at "a/four.txt"))))
+  (report "list root" (answer names (list-directory root)))
+  (write-file (at "a/B.txt") "B")
+  (report "list a" (answer names (list-directory (at "a"))))
+  (report "list a missing directory" (answer names (list-directory (at "missing"))))
+  (report "list a file" (answer names (list-directory (at "a/four.txt"))))
+  (report "status of a file" (answer status-text (file-status (at "a/four.txt"))))
+  (report "status of a directory" (answer status-text (file-status (at "a"))))
+  (report "status of a missing path" (answer status-text (file-status (at "missing"))))
+  ;; ---- Renaming ----
 
-;; ---- Listing and status ----
+  (report "rename" (answer done (rename-file (at "a/four.txt") (at "a/renamed.txt"))))
+  (report "old name exists" (show (file-exists? (at "a/four.txt"))))
+  (report "new name reads" (read-file (at "a/renamed.txt")))
+  (report "rename over an existing file"
+          (answer done (rename-file (at "a/renamed.txt") (at "a/B.txt"))))
+  (report "replaced file reads" (read-file (at "a/B.txt")))
+  (report "rename a missing path" (answer done (rename-file (at "missing") (at "a/elsewhere"))))
+  (make-directory (at "full"))
+  (write-file (at "full/inside") "")
+  (report "rename over a full directory" (answer done (rename-file (at "a/b") (at "full"))))
+  (report "rename a file over a directory" (answer done (rename-file (at "a/B.txt") (at "full"))))
+  ;; ---- Removing ----
 
-(report "list root" (answer names (list-directory root)))
-(write-file (at "a/B.txt") "B")
-(report "list a" (answer names (list-directory (at "a"))))
-(report "list a missing directory" (answer names (list-directory (at "missing"))))
-(report "list a file" (answer names (list-directory (at "a/four.txt"))))
-(report "status of a file" (answer status-text (file-status (at "a/four.txt"))))
-(report "status of a directory" (answer status-text (file-status (at "a"))))
-(report "status of a missing path" (answer status-text (file-status (at "missing"))))
+  (report "remove a full directory" (answer done (remove-directory (at "full"))))
+  (report "remove a directory as a file" (answer done (remove-file (at "full"))))
+  (report "remove a missing file" (answer done (remove-file (at "missing"))))
+  (report "remove a file" (answer done (remove-file (at "full/inside"))))
+  (report "remove the emptied directory" (answer done (remove-directory (at "full"))))
+  ;; ---- Symbolic links ----
 
-;; ---- Renaming ----
+  (report "link" (answer done (make-symbolic-link "a/B.txt" (at "link"))))
+  (report "link again" (answer done (make-symbolic-link "a/B.txt" (at "link"))))
+  (report "status of the link" (answer status-text (file-status (at "link"))))
+  (report "read the link" (answer (lambda (target) target) (read-symbolic-link (at "link"))))
+  (report "read through the link" (read-file (at "link")))
+  (report "followed status of the link" (answer status-text (followed-status (at "link"))))
+  (report "link to nothing" (answer done (make-symbolic-link "missing" (at "dangling"))))
+  (report "status of the link to nothing" (answer status-text (file-status (at "dangling"))))
+  (report "followed status of the link to nothing"
+          (answer status-text (followed-status (at "dangling"))))
+  (report "remove the link to nothing" (answer done (remove-file (at "dangling"))))
+  (report "read a file as a link"
+          (answer (lambda (target) target) (read-symbolic-link (at "a/B.txt"))))
+  (report "remove the link" (answer done (remove-file (at "link"))))
+  (report "its target remains" (show (file-exists? (at "a/B.txt"))))
+  ;; ---- Removing a tree ----
 
-(report "rename" (answer done (rename-file (at "a/four.txt") (at "a/renamed.txt"))))
-(report "old name exists" (show (file-exists? (at "a/four.txt"))))
-(report "new name reads" (read-file (at "a/renamed.txt")))
-(report "rename over an existing file"
-        (answer done (rename-file (at "a/renamed.txt") (at "a/B.txt"))))
-(report "replaced file reads" (read-file (at "a/B.txt")))
-(report "rename a missing path" (answer done (rename-file (at "missing") (at "a/elsewhere"))))
-(make-directory (at "full"))
-(write-file (at "full/inside") "")
-(report "rename over a full directory" (answer done (rename-file (at "a/b") (at "full"))))
-(report "rename a file over a directory" (answer done (rename-file (at "a/B.txt") (at "full"))))
+  (make-symbolic-link "a" (at "a/b/c/up"))
+  (report "list root before" (answer names (list-directory root)))
+  (report "remove the tree" (answer done (remove-tree root)))
+  (report "root exists" (show (file-exists? root)))
+  (report "remove the tree again" (answer done (remove-tree root)))
+  ;; ---- Clock ----
 
-;; ---- Removing ----
-
-(report "remove a full directory" (answer done (remove-directory (at "full"))))
-(report "remove a directory as a file" (answer done (remove-file (at "full"))))
-(report "remove a missing file" (answer done (remove-file (at "missing"))))
-(report "remove a file" (answer done (remove-file (at "full/inside"))))
-(report "remove the emptied directory" (answer done (remove-directory (at "full"))))
-
-;; ---- Symbolic links ----
-
-(report "link" (answer done (make-symbolic-link "a/B.txt" (at "link"))))
-(report "link again" (answer done (make-symbolic-link "a/B.txt" (at "link"))))
-(report "status of the link" (answer status-text (file-status (at "link"))))
-(report "read the link" (answer (lambda (target) target) (read-symbolic-link (at "link"))))
-(report "read through the link" (read-file (at "link")))
-(report "followed status of the link" (answer status-text (followed-status (at "link"))))
-(report "link to nothing" (answer done (make-symbolic-link "missing" (at "dangling"))))
-(report "status of the link to nothing" (answer status-text (file-status (at "dangling"))))
-(report "followed status of the link to nothing"
-        (answer status-text (followed-status (at "dangling"))))
-(report "remove the link to nothing" (answer done (remove-file (at "dangling"))))
-(report "read a file as a link"
-        (answer (lambda (target) target) (read-symbolic-link (at "a/B.txt"))))
-(report "remove the link" (answer done (remove-file (at "link"))))
-(report "its target remains" (show (file-exists? (at "a/B.txt"))))
-
-;; ---- Removing a tree ----
-
-(make-symbolic-link "a" (at "a/b/c/up"))
-(report "list root before" (answer names (list-directory root)))
-(report "remove the tree" (answer done (remove-tree root)))
-(report "root exists" (show (file-exists? root)))
-(report "remove the tree again" (answer done (remove-tree root)))
-
-;; ---- Clock ----
-
-(let* ((first (monotonic-nanoseconds)) (second (monotonic-nanoseconds)))
-  (report "clock never runs back" (show (>= second first))))
-(report "clock from a handler"
-        (show (handle clock
-                  ((monotonic-nanoseconds (lambda () 42)))
-                (monotonic-nanoseconds))))
+  (let* ((first (monotonic-nanoseconds)) (second (monotonic-nanoseconds)))
+    (report "clock never runs back" (show (>= second first))))
+  (report "clock from a handler"
+          (show (handle clock
+                    ((monotonic-nanoseconds (lambda () 42)))
+                  (monotonic-nanoseconds))))
+  (unit))

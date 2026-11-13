@@ -8,7 +8,7 @@ autotests = false
 [lib]
 crate-type = ["rlib"]
 
-# The toolchain's runtime: tools written in Snail-Core, such as the `snail`
+# The toolchain's runtime: tools written in Snail Scheme, such as the `snail`
 # command line, assemble and link modules in-process with this feature. Programs never need it, and a development build copies its
 # runtime whole, so the plain runtime leaves it out.
 [features]

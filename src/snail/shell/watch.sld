@@ -153,10 +153,10 @@
     ;; sent a character at a time, as `modes` sends paths in
     ;; (snail shell project files); waiting is by ticket.
     (effect hints
-      ((hint-character (dyn (Fn Char → Unit)))
-       (hint-end (dyn (Fn → Unit)))
-       (hint-command (dyn (Fn I32 → I32)))
-       (next-hint-of (dyn (Fn I32 → Bool ! tasks))))
+      ((hint-character (Fn Char → Unit))
+       (hint-end (Fn → Unit))
+       (hint-command (Fn I32 → I32))
+       (next-hint-of (Fn I32 → Bool ! tasks)))
       (default
         ((hint-character host-argument-character)
          (hint-end host-argument-end)

@@ -1,6 +1,5 @@
 ;; The standard prelude: core forms, derived syntax, numeric classes, text,
-;; the immutable collections, and cells. Reading and writing arrays and
-;; cells performs `mut`.
+;; collections and mutable heap objects. Writes perform `mut`; reads are pure.
 (define-library (snail core base)
   (export
    ●
@@ -10,7 +9,6 @@
    define-instance-set
    with-instances
    match
-   with-borrow borrow-copy
    ann
    type-convert
    try-convert
@@ -19,7 +17,8 @@
    effect
    handle
    expose
-   Any U8 I32 I64 F32 F64 Bool Char Unit String Array Vector Ref Bytes FnOnce FnMut Fn Borrow mut
+   Any U8 I32 I64 F32 F64 Bool Char Unit String Vector Bytes FnOnce Fn Rc WeakRc mut
+   rc rc-get rc-downgrade weak-rc-upgrade
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
    not unit panic unsafe-total once call-once Drop drop Clone clone
@@ -74,54 +73,13 @@
    vector-concatenate
    subvector
    vector-map vector-for-each vector-fold vector->list list->vector
-   make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!
-   set! replace! Unboxed
-   MutVector mut-vector mut-vector-length mut-vector-ref mut-vector-set! mut-vector-push!
-   mut-vector-pop! mut-vector->vector
-   Ref-contents
-   Ref-contents-set!
-   Ref-contents-replace!
-   (rename Ref ref)
-   (rename Ref-contents ref-get)
-   (rename Ref-contents-set! ref-set!)
-   (rename Ref-contents-replace! ref-replace!))
+   vector vector-set! vector-copy vector-copy! vector-push! vector-pop!
+   set! replace!)
   (import
    (snail core forms)
-   (except (snail core primitive)
-           make-array
-           array-length
-           array-ref
-           array-set!
-           array->vector
-           vector->array
-           array-copy!
-           vector-copy!)
-   (rename (only (snail core primitive)
-                 make-array
-                 array-length
-                 array-ref
-                 array-set!
-                 array->vector
-                 vector->array
-                 array-copy!
-                 vector-copy!)
-           (make-array primitive-make-array)
-           (array-length primitive-array-length)
-           (array-ref primitive-array-ref)
-           (array-set! primitive-array-set!)
-           (array->vector primitive-array->vector)
-           (vector->array primitive-vector->array)
-           (array-copy! primitive-array-copy!)
-           (vector-copy! primitive-vector-copy!))
+   (snail core primitive)
    (rename (only (snail core primitive) string-append) (string-append append-two-strings)))
   (begin
-
-    ;; ---- Lexical borrowing ----
-
-    (define-syntax with-borrow
-      (syntax-rules ()
-        ((_ (name owner) body ...)
-         (let ((name (borrow owner))) body ...))))
 
     ;; ---- Derived syntax ----
 
@@ -198,30 +156,30 @@
     ;; ---- Numbers ----
 
     (typeclass (Num e T)
-      (: + (dyn (Fn T T → T ! e)))
-      (: - (dyn (Fn T T → T ! e)))
-      (: * (dyn (Fn T T → T ! e)))
-      (: negate (dyn (Fn T → T ! e))))
+      (: + (Fn T T → T ! e))
+      (: - (Fn T T → T ! e))
+      (: * (Fn T T → T ! e))
+      (: negate (Fn T → T ! e)))
 
     (typeclass (Ord e T)
-      (: = (dyn (Fn T T → Bool ! e)))
-      (: < (dyn (Fn T T → Bool ! e)))
-      (: <= (dyn (Fn T T → Bool ! e)))
-      (: > (dyn (Fn T T → Bool ! e)))
-      (: >= (dyn (Fn T T → Bool ! e))))
+      (: = (Fn T T → Bool ! e))
+      (: < (Fn T T → Bool ! e))
+      (: <= (Fn T T → Bool ! e))
+      (: > (Fn T T → Bool ! e))
+      (: >= (Fn T T → Bool ! e)))
 
     (typeclass (Integral e T)
-      (: quotient (dyn (Fn T T → T ! e)))
-      (: remainder (dyn (Fn T T → T ! e)))
-      (: modulo (impl (Fn T T → T ! e))))
+      (: quotient (Fn T T → T ! e))
+      (: remainder (Fn T T → T ! e))
+      (: modulo (Fn T T → T ! e)))
 
     (typeclass (Fractional e T)
-      (: / (dyn (Fn T T → T ! e)))
-      (: sqrt (dyn (Fn T → T ! e)))
-      (: floor (dyn (Fn T → T ! e)))
-      (: ceiling (dyn (Fn T → T ! e)))
-      (: round (dyn (Fn T → T ! e)))
-      (: truncate (dyn (Fn T → T ! e))))
+      (: / (Fn T T → T ! e))
+      (: sqrt (Fn T → T ! e))
+      (: floor (Fn T → T ! e))
+      (: ceiling (Fn T → T ! e))
+      (: round (Fn T → T ! e))
+      (: truncate (Fn T → T ! e)))
 
     (instance (Num (!) U8)
       (define + (lambda (a b) (i32->u8 (i32-add (u8->i32 a) (u8->i32 b)))))
@@ -343,13 +301,25 @@
       (define round f64-round)
       (define truncate f64-truncate))
 
-    (define (abs (x T)) (→ T) (! e) (∀ T e) (⊨ (Num e T) (Ord e T) (Copy T))
+    (define (abs (x T))
+      (→ T)
+      (! e)
+      (∀ T e)
+      (⊨ (Num e T) (Ord e T) (Copy T) (Drop e T))
       (if (< x (- x x)) (negate x) x))
 
-    (define (min (a T) (b T)) (→ T) (! e) (∀ T e) (⊨ (Ord e T) (Copy T))
+    (define (min (a T) (b T))
+      (→ T)
+      (! e)
+      (∀ T e)
+      (⊨ (Ord e T) (Copy T) (Drop e T))
       (if (< b a) b a))
 
-    (define (max (a T) (b T)) (→ T) (! e) (∀ T e) (⊨ (Ord e T) (Copy T))
+    (define (max (a T) (b T))
+      (→ T)
+      (! e)
+      (∀ T e)
+      (⊨ (Ord e T) (Copy T) (Drop e T))
       (if (< a b) b a))
 
     ;; Bytes are packed one per array slot.
@@ -368,21 +338,6 @@
     (struct (Pair A B)
       ((first A)
        (second B)))
-
-    ;; A cell is the one struct with a mutable field, as OCaml's `ref` is;
-    ;; every other struct is a value, and a program that changes one holds
-    ;; it in a cell. The content lies in the cell: a `(Ref Counter)` is one
-    ;; object whose slots are the counter's, and `(set! (● r count) 1)`
-    ;; writes one of them. The field's operations are exported
-    ;; under short names too: `ref` builds a cell, purely; `ref-get` and
-    ;; `ref-set!` read and write its content whole; and `ref-replace!`
-    ;; swaps in a new value and hands back the old. Being the field's own
-    ;; operations, they keep its rules: the handle is unrestricted even
-    ;; when the content is linear, which only a swap may move out, and a
-    ;; function whose type has no `mut` may still use them on a cell it
-    ;; allocates.
-    (struct (Ref A)
-      ((contents mut A)))
 
     ;; The type with no values. An operation that answers Never never
     ;; returns to its performer, so its handler is handed no `resume`, and
@@ -411,31 +366,16 @@
        (argument I64)))
 
     (effect dyn-cast
-      ((ctl conversion-failed (dyn (Fn CastError → Never)))))
-
-    ;; ---- Callable contracts ----
-
-    ;; The compiler establishes these contracts for concrete callables and
-    ;; erased callable storage. Signature carries arguments, result and
-    ;; effects together. Receiver access implies Fn -> FnMut -> FnOnce;
-    ;; none of these classes implies Copy or a total effect row.
-    (typeclass (Fn F Signature))
-    (typeclass (FnMut F Signature))
-    (typeclass (FnOnce F Signature))
+      ((ctl conversion-failed (Fn CastError → Never))))
 
     ;; ---- Releasing ----
 
-    ;; `drop` releases a value without using it, and performs what
-    ;; releasing it does, found from its type: nothing for an unrestricted
-    ;; value, a FnOnce, or data with nothing linear in it; the method of the
-    ;; type's instance, which names its row in its head; and otherwise a
-    ;; drop of each linear field. A definition that drops a value of a type
-    ;; variable A requires (Drop e A), with `e` in its row:
-    ;;
-    ;;     (instance (Drop (! log) Handle)
-    ;;       (define drop (lambda (handle) ...)))
+    ;; `drop` consumes a linear value or releases one shared owner. The
+    ;; final shared owner releases its fields; Rc runs its payload finalizer.
+    ;; A FnOnce drops its uncalled captures. Uncounted values need no cleanup.
+    ;; The Drop constraint records the effects this cleanup may perform.
     (typeclass (Drop e T)
-      (: drop (impl (Fn T → Unit ! e))))
+      (: drop (Fn T → Unit ! e)))
 
     ;; ---- Cloning ----
 
@@ -447,7 +387,7 @@
     ;; made linear has one only by an instance. A definition that clones a
     ;; value of a type variable A requires (Clone e A).
     (typeclass (Clone e T)
-      (: clone (impl (Fn T → (Pair T T) ! e))))
+      (: clone (Fn T → (Pair T T) ! e)))
 
     ;; ---- Lists ----
 
@@ -460,12 +400,20 @@
         ((_) (Nil))
         ((_ item rest ...) (Cons item (list rest ...)))))
 
-    (define (null? (items (List T))) (→ Bool) (∀ T) (⊨ (Copy T))
+    (define (null? (items (List T)))
+      (→ Bool)
+      (! e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
       (match items
         ((Nil) #t)
         ((Cons _ _) #f)))
 
-    (define (length (items (List T))) (→ I64) (∀ T) (⊨ (Copy T))
+    (define (length (items (List T)))
+      (→ I64)
+      (! e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
       (fold-left (lambda (count item) (+ count 1)) 0 items))
 
     (define (reverse (items (List T))) (→ (List T)) (∀ T)
@@ -477,119 +425,134 @@
     (define (concatenate (lists (List (List T)))) (→ (List T)) (∀ T)
       (fold-right append (Nil) lists))
 
-    (define (map (f Callback) (items (List A)))
+    (define (map (f (Fn A → B ! e)) (items (List A)))
       (→ (List B))
       (! e)
-      (∀ A B e Callback)
-      (⊨ (Copy Callback) (Fn Callback A → B ! e))
+      (∀ A B e)
       (reverse (fold-left (lambda (mapped item) (Cons (f item) mapped)) (Nil) items)))
 
-    (define (map-indexed (f Callback) (items (List A)))
+    (define (map-indexed (f (Fn I64 A → B ! e)) (items (List A)))
       (→ (List B))
       (! e)
-      (∀ A B e Callback)
-      (⊨ (Copy Callback) (Fn Callback I64 A → B ! e))
+      (∀ A B e)
       (let loop ((items items) (index 0) (mapped (Nil)))
         (match items
           ((Nil) (reverse mapped))
           ((Cons item rest) (loop rest (+ index 1) (Cons (f index item) mapped))))))
 
-    (define (for-each (f Callback) (items (List A)))
+    (define (for-each (f (Fn A → Unit ! e)) (items (List A)))
       (→ Unit)
       (! e)
-      (∀ A e Callback)
-      (⊨ (Copy Callback) (Fn Callback A → Unit ! e))
+      (∀ A e)
       (match items
         ((Nil) (unit))
         ((Cons item rest) (f item) (for-each f rest))))
 
-    (define (filter (keep? Callback) (items (List A)))
+    (define (filter (keep? (Fn A → Bool ! e)) (items (List A)))
       (→ (List A))
       (! e)
-      (∀ A e Callback)
-      (⊨ (Copy A) (Copy Callback) (Fn Callback A → Bool ! e))
+      (∀ A e)
+      (⊨ (Copy A) (Drop e A))
       (reverse
        (fold-left (lambda (kept item) (if (keep? item) (Cons item kept) kept)) (Nil) items)))
 
-    (define (fold-left (f Callback) (initial B) (items (List A)))
+    (define (fold-left (f (Fn B A → B ! e)) (initial B) (items (List A)))
       (→ B)
       (! e)
-      (∀ A B e Callback)
-      (⊨ (Copy Callback) (Fn Callback B A → B ! e))
+      (∀ A B e)
       (match items
         ((Nil) initial)
         ((Cons item rest) (fold-left f (f initial item) rest))))
 
-    (define (fold-right (f Callback) (initial B) (items (List A)))
+    (define (fold-right (f (Fn A B → B ! e)) (initial B) (items (List A)))
       (→ B)
       (! e)
-      (∀ A B e Callback)
-      (⊨ (Copy Callback) (Fn Callback A B → B ! e))
+      (∀ A B e)
       (fold-left (lambda (result item) (f item result)) initial (reverse items)))
 
-    (define (list-tail (items (List T)) (index I64)) (→ (List T)) (∀ T) (⊨ (Copy T))
+    (define (list-tail (items (List T)) (index I64))
+      (→ (List T))
+      (! e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
       (if (= index 0)
           items
           (match items
             ((Cons _ rest) (list-tail rest (- index 1)))
             ((Nil) (panic "list-tail: index out of range")))))
 
-    (define (list-ref (items (List T)) (index I64)) (→ T) (∀ T) (⊨ (Copy T))
+    (define (list-ref (items (List T)) (index I64))
+      (→ T)
+      (! e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
       (match (list-tail items index)
         ((Cons item _) item)
         ((Nil) (panic "list-ref: index out of range"))))
 
-    (define (any? (test Callback) (items (List A)))
+    (define (any? (test (Fn A → Bool ! e)) (items (List A)))
       (→ Bool)
       (! e)
-      (∀ A e Callback)
-      (⊨ (Copy A) (Copy Callback) (Fn Callback A → Bool ! e))
+      (∀ A e)
+      (⊨ (Copy A) (Drop e A))
       (match items
         ((Nil) #f)
         ((Cons item rest) (if (test item) #t (any? test rest)))))
 
-    (define (every? (test Callback) (items (List A)))
+    (define (every? (test (Fn A → Bool ! e)) (items (List A)))
       (→ Bool)
       (! e)
-      (∀ A e Callback)
-      (⊨ (Copy A) (Copy Callback) (Fn Callback A → Bool ! e))
+      (∀ A e)
+      (⊨ (Copy A) (Drop e A))
       (match items
         ((Nil) #t)
         ((Cons item rest) (if (test item) (every? test rest) #f))))
 
-    (define (find (test Callback) (items (List A)))
+    (define (find (test (Fn A → Bool ! e)) (items (List A)))
       (→ (Option A))
       (! e)
-      (∀ A e Callback)
-      (⊨ (Copy A) (Copy Callback) (Fn Callback A → Bool ! e))
+      (∀ A e)
+      (⊨ (Copy A) (Drop e A))
       (match items
         ((Nil) (None))
         ((Cons item rest) (if (test item) (Some item) (find test rest)))))
 
-    (define (member? (value A) (items (List A))) (→ Bool) (! e) (∀ A e) (⊨ (Ord e A) (Copy A))
+    (define (member? (value A) (items (List A)))
+      (→ Bool)
+      (! e)
+      (∀ A e)
+      (⊨ (Ord e A) (Copy A) (Drop e A))
       (any? (lambda (item) (= item value)) items))
 
     ;; Keeps the first of each group of equal items.
 
-    (define (delete-duplicates (same? Callback) (items (List A)))
+    (define (delete-duplicates (same? (Fn A A → Bool ! e)) (items (List A)))
       (→ (List A))
       (! e)
-      (∀ A e Callback)
-      (⊨ (Copy A) (Copy Callback) (Fn Callback A A → Bool ! e))
+      (∀ A e)
+      (⊨ (Copy A) (Drop e A))
       (reverse (fold-left (lambda (kept item)
                             (if (any? (lambda (other) (same? other item)) kept)
                                 kept
                                 (Cons item kept)))
                           (Nil) items)))
 
-    (define (take (items (List T)) (count I64)) (→ (List T)) (∀ T) (⊨ (Copy T))
+    (define (take (items (List T)) (count I64))
+      (→ (List T))
+      (! e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
       (let loop ((items items) (count count) (taken (Nil)))
         (match items
           ((Cons item rest)
            (if (= count 0) (reverse taken) (loop rest (- count 1) (Cons item taken))))
           ((Nil) (reverse taken)))))
 
-    (define (list-drop (items (List T)) (count I64)) (→ (List T)) (∀ T) (⊨ (Copy T))
+    (define (list-drop (items (List T)) (count I64))
+      (→ (List T))
+      (! e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
       (if (= count 0)
           items
           (match items
@@ -600,10 +563,11 @@
     ;; merge takes the left item first when neither precedes the other.
     ;; Comparing and splitting read the items, so their type must be Copy.
 
-    (define (list-sort (before? Callback) (items (List T)))
+    (define (list-sort (before? (Fn T T → Bool ! e)) (items (List T)))
       (→ (List T))
-      (∀ T Callback)
-      (⊨ (Copy T) (Copy Callback) (Fn Callback T T → Bool))
+      (! e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
       (let ((half (quotient (length items) 2)))
         (if (= half 0)
             items
@@ -611,29 +575,33 @@
                           (list-sort before? (take items half))
                           (list-sort before? (list-drop items half))))))
 
-    (define (merge-sorted (before? Callback) (left (List T)) (right (List T)))
-      (→ (List T))
-      (∀ T Callback)
-      (⊨ (Copy T) (Copy Callback) (Fn Callback T T → Bool))
-      (match (Pair left right)
-        ((Pair (Nil) _) right)
-        ((Pair _ (Nil)) left)
-        ((Pair (Cons a rest-a) (Cons b rest-b))
-         (if (before? b a)
-             (Cons b (merge-sorted before? left rest-b))
-             (Cons a (merge-sorted before? rest-a right))))))
+    (define (merge-sorted (before? (Fn T T → Bool ! e)) (left (List T)) (right (List T)))
+      (→ (List T)) (! e) (∀ T e) (⊨ (Copy T) (Drop e T))
+      ;; The merge is linear in the list length, but uses constant stack.
+      ;; Equal elements come from the left run first, preserving stability.
+      (let loop ((left left) (right right) (reversed (Nil)))
+        (match (Pair left right)
+          ((Pair (Nil) _) (fold-left (lambda (rest item) (Cons item rest)) right reversed))
+          ((Pair _ (Nil)) (fold-left (lambda (rest item) (Cons item rest)) left reversed))
+          ((Pair (Cons a rest-a) (Cons b rest-b))
+           (if (before? b a) (loop left rest-b (Cons b reversed))
+               (loop rest-a right (Cons a reversed)))))))
 
-    (define (last (items (List T))) (→ (Option T)) (∀ T) (⊨ (Copy T))
+    (define (last (items (List T)))
+      (→ (Option T))
+      (! e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
       (match items
         ((Nil) (None))
         ((Cons item (Nil)) (Some item))
         ((Cons _ rest) (last rest))))
 
-    (define (list-index (test Callback) (items (List A)))
+    (define (list-index (test (Fn A → Bool ! e)) (items (List A)))
       (→ (Option I64))
       (! e)
-      (∀ A e Callback)
-      (⊨ (Copy A) (Copy Callback) (Fn Callback A → Bool ! e))
+      (∀ A e)
+      (⊨ (Copy A) (Drop e A))
       (let loop ((items items) (index 0))
         (match items
           ((Nil) (None))
@@ -645,7 +613,7 @@
       (→ (Option V))
       (! e)
       (∀ K V e)
-      (⊨ (Ord e K) (Copy K) (Copy V))
+      (⊨ (Ord e K) (Copy K) (Copy V) (Drop e K) (Drop e V))
       (match entries
         ((Nil) (None))
         ((Cons entry rest)
@@ -653,7 +621,11 @@
 
     ;; Pairs the items of two lists, stopping at the end of the shorter.
 
-    (define (zip (as (List A)) (bs (List B))) (→ (List (Pair A B))) (∀ A B) (⊨ (Copy A) (Copy B))
+    (define (zip (as (List A)) (bs (List B)))
+      (→ (List (Pair A B)))
+      (! e)
+      (∀ A B e)
+      (⊨ (Copy A) (Copy B) (Drop e A) (Drop e B))
       (let loop ((as as) (bs bs) (pairs (Nil)))
         (match as
           ((Nil) (reverse pairs))
@@ -666,240 +638,102 @@
       (let loop ((index (- count 1)) (items (Nil)))
         (if (< index 0) items (loop (- index 1) (Cons index items)))))
 
-    ;; ---- Unboxed elements ----
+    ;; ---- Vectors ----
 
-    ;; An array element is one Wasm slot, so the array operations require
-    ;; `(Unboxed A)`: a scalar; a reference, such as a String, a Vector, a
-    ;; cell, a closure, an enum or an Any; or a struct of one unboxed field.
-    ;; A struct of several fields would be boxed in every element, so it is
-    ;; refused: keep a struct of arrays instead, as typed arrays do. The
-    ;; checker decides the class from a type's representation (check.sld,
-    ;; "Solving"), and no instance can be declared. The operations are the
-    ;; primitives under the requirement; mono replaces each with its target.
-    (typeclass (Unboxed T))
-
-    (define make-array
-      (→ (dyn (Fn I64 A → (Array A) ! mut)))
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      primitive-make-array)
-
-    (define array-length
-      (→ (dyn (Fn (Array A) → I64)))
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      primitive-array-length)
-
-    (define array-ref
-      (→ (dyn (Fn (Array A) I64 → A ! mut)))
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      primitive-array-ref)
-
-    (define array-set!
-      (→ (dyn (Fn (Array A) I64 A → Unit ! mut)))
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      primitive-array-set!)
-
-    (define array->vector
-      (→ (dyn (Fn (Array A) → (Vector A) ! mut)))
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      primitive-array->vector)
-
-    (define vector->array
-      (→ (dyn (Fn (Vector A) → (Array A) ! mut)))
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      primitive-vector->array)
-
-    (define array-copy!
-      (→ (dyn (Fn (Array A) I64 (Array A) I64 I64 → Unit ! mut)))
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      primitive-array-copy!)
-
-    (define vector-copy!
-      (→ (dyn (Fn (Array A) I64 (Vector A) I64 I64 → Unit ! mut)))
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      primitive-vector-copy!)
-
-    ;; ---- Vectors and arrays ----
-
-    (define (vector-map (f Callback) (items (Vector A)))
+    (define (vector-map (f (Fn A → B ! e)) (items (Vector A)))
       (→ (Vector B))
       (! e)
-      (∀ A B e Callback)
-      (⊨ (Copy A) (Copy B) (Copy Callback) (Fn Callback A → B ! e))
+      (∀ A B e)
+      (⊨ (Copy A) (Copy B) (Drop e A))
       (vector-generate (vector-length items) (lambda (index) (f (vector-ref items index)))))
 
-    (define (vector-for-each (f Callback) (items (Vector A)))
+    (define (vector-for-each (f (Fn A → Unit ! e)) (items (Vector A)))
       (→ Unit)
       (! e)
-      (∀ A e Callback)
-      (⊨ (Copy A) (Copy Callback) (Fn Callback A → Unit ! e))
+      (∀ A e)
+      (⊨ (Copy A) (Drop e A))
       (let loop ((index 0))
         (when (< index (vector-length items))
           (f (vector-ref items index))
           (loop (+ index 1)))))
 
-    (define (vector-fold (f Callback) (initial B) (items (Vector A)))
+    (define (vector-fold (f (Fn B A → B ! e)) (initial B) (items (Vector A)))
       (→ B)
       (! e)
-      (∀ A B e Callback)
-      (⊨ (Copy A) (Copy Callback) (Fn Callback B A → B ! e))
+      (∀ A B e)
+      (⊨ (Copy A) (Drop e A))
       (let loop ((index 0) (result initial))
         (if (< index (vector-length items))
             (loop (+ index 1) (f result (vector-ref items index)))
             result)))
 
-    (define (vector->list (items (Vector T))) (→ (List T)) (∀ T) (⊨ (Copy T))
+    (define (vector->list (items (Vector T)))
+      (→ (List T))
+      (! e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
       (let loop ((index (- (vector-length items) 1)) (result (Nil)))
         (if (< index 0) result (loop (- index 1) (Cons (vector-ref items index) result)))))
 
-    ;; The elements are taken in order from a cursor local to this call, so
-    ;; the conversion is total and needs no array, whose elements would have
-    ;; to be unboxed.
+    ;; Local cursors give generation a sequential input without exposing
+    ;; mutable storage outside these total conversions.
+    (struct (ListCursor A)
+      ((remaining (List A))))
 
-    (define (list->vector (items (List T))) (→ (Vector T)) (∀ T) (⊨ (Copy T))
-      (let ((rest (Ref items)))
-        (vector-generate (length items)
-                         (lambda (index)
-                           (match (Ref-contents rest)
-                             ((Cons first remaining)
-                              (Ref-contents-set! rest remaining)
-                              first)
-                             ((Nil) (panic "list->vector: too few items")))))))
+    (define (list->vector (items (List T)))
+      (→ (Vector T))
+      (! e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
+      (unsafe-total (ann (lambda () (let ((cursor (ListCursor items)))
+                                      (vector-generate (length items)
+                                                       (lambda (index)
+                                                         (match (● cursor remaining)
+                                                           ((Cons first rest)
+                                                            (set! (● cursor remaining) rest)
+                                                            first)
+                                                           ((Nil)
+                                                            (panic
+                                                             "list->vector: too few items")))))))
+                         (Fn → (Vector T) ! mut e))))
 
-    ;; One vector of the total length, filled from a cursor over the vectors
-    ;; that skips the empty ones; the cursor is local to this call.
+    (struct (VectorCursor A)
+      ((vectors (List (Vector A)))
+       (offset I64)))
 
-    (define (vector-concatenate (vectors (List (Vector T)))) (→ (Vector T)) (∀ T) (⊨ (Copy T))
-      (let ((cursor (Ref (Pair vectors 0))))
-        (vector-generate
-         (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors)
-         (lambda (index)
-           (let next ()
-             (match (Ref-contents cursor)
-               ((Pair (Cons items rest) offset)
-                (if (< offset (vector-length items))
-                    (begin
-                      (Ref-contents-set! cursor (Pair (Cons items rest) (+ offset 1)))
-                      (vector-ref items offset))
-                    (begin
-                      (Ref-contents-set! cursor (Pair rest 0))
-                      (next))))
-               ((Pair (Nil) _) (panic "vector-concatenate: too few elements"))))))))
+    (define (vector-concatenate (vectors (List (Vector T))))
+      (→ (Vector T))
+      (! e)
+      (∀ T e)
+      (⊨ (Copy T) (Drop e T))
+      (unsafe-total (ann (lambda () (let ((cursor (VectorCursor vectors 0)))
+                                      (vector-generate
+                                       (fold-left
+                                        (lambda (total items) (+ total (vector-length items)))
+                                        0
+                                        vectors)
+                                       (lambda (index)
+                                         (let next ()
+                                           (match (● cursor vectors)
+                                             ((Cons items rest)
+                                              (let ((offset (● cursor offset)))
+                                                (if (< offset (vector-length items))
+                                                    (begin
+                                                      (set! (● cursor offset) (+ offset 1))
+                                                      (vector-ref items offset))
+                                                    (begin
+                                                      (set! (● cursor vectors) rest)
+                                                      (set! (● cursor offset) 0)
+                                                      (next)))))
+                                             ((Nil)
+                                              (panic "vector-concatenate: too few elements"))))))))
+                         (Fn → (Vector T) ! mut e))))
 
-    ;; ---- Growable vectors ----
-
-    ;; A MutVector grows at its end, as Rust's Vec does, over an array it
-    ;; replaces with one twice as long when full. The handle is a value
-    ;; holding one cell, so two names for a vector see the same writes, and
-    ;; its elements are unboxed, as every array's are.
-    (struct (MutVector A)
-      ((state (Ref (Grown A)))))
-
-    ;; The elements in use and the array holding them, None before the first
-    ;; push, since an array needs an element to start from.
-    (struct (Grown A)
-      ((length I64)
-       (items (Option (Array A)))))
-
-    (define (mut-vector) (→ (MutVector A)) (∀ A) (⊨ (Copy A) (Unboxed A))
-      (MutVector (Ref (Grown 0 (None)))))
-
-    (define (mut-vector-length (vector (MutVector A)))
-      (→ I64)
-      (! mut)
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      (● (Ref-contents (● vector state)) length))
-
-    (define (mut-vector-ref (vector (MutVector A)) (index I64))
-      (→ A)
-      (! mut)
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      (array-ref (mut-vector-items vector index) index))
-
-    (define (mut-vector-set! (vector (MutVector A)) (index I64) (item A))
-      (→ Unit)
-      (! mut)
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      (array-set! (mut-vector-items vector index) index item))
-
-    ;; The array, once `index` is in use.
-
-    (define (mut-vector-items (vector (MutVector A)) (index I64))
-      (→ (Array A))
-      (! mut)
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      (match (Ref-contents (● vector state))
-        ((Grown length (Some items))
-         (if (and (<= 0 index) (< index length))
-             items
-             (panic "mut-vector: index out of range")))
-        ((Grown _ (None)) (panic "mut-vector: index out of range"))))
-
-    (define (mut-vector-push! (vector (MutVector A)) (item A))
-      (→ Unit)
-      (! mut)
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      (let ((cell (● vector state)))
-        (match (Ref-contents cell)
-          ((Grown length held)
-           (let ((items (room-for length held item)))
-             (array-set! items length item)
-             (Ref-contents-set! cell (Grown (+ length 1) (Some items))))))))
-
-    ;; An array with room at `length`: the one held, a longer copy of it, or
-    ;; the first array, started from the element being pushed.
-
-    (define (room-for (length I64) (held (Option (Array A))) (item A))
-      (→ (Array A))
-      (! mut)
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      (match held
-        ((None) (make-array 4 item))
-        ((Some items)
-         (if (< length (array-length items))
-             items
-             (let ((longer (make-array (* 2 (array-length items)) item)))
-               (array-copy! longer 0 items 0 length)
-               longer)))))
-
-    (define (mut-vector-pop! (vector (MutVector A)))
-      (→ (Option A))
-      (! mut)
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      (let ((cell (● vector state)))
-        (match (Ref-contents cell)
-          ((Grown length (Some items))
-           (if (> length 0)
-               (begin
-                 (Ref-contents-set! cell (Grown (- length 1) (Some items)))
-                 (Some (array-ref items (- length 1))))
-               (None)))
-          ((Grown _ (None)) (None)))))
-
-    (define (mut-vector->vector (vector (MutVector A)))
-      (→ (Vector A))
-      (! mut)
-      (∀ A)
-      (⊨ (Copy A) (Unboxed A))
-      (match (Ref-contents (● vector state))
-        ((Grown length (Some items))
-         (vector-generate length (lambda (index) (array-ref items index))))
-        ((Grown _ (None))
-         (vector-generate 0 (lambda (index) (panic "mut-vector->vector: empty"))))))
+    ;; Empty pop is ordinary control flow. The primitive moves the last slot
+    ;; out and clears it before returning, so the result owns that element.
+    (define (vector-pop! (items (Vector A)))
+      (→ (Option A)) (! mut e) (∀ A e) (⊨ (Copy A) (Drop e A))
+      (if (= (vector-length items) 0) (None) (Some (vector-take-last! items))))
 
     ;; ---- Characters and text ----
 
@@ -941,14 +775,21 @@
     ;; is local to this call.
 
     (define (string-concatenate (texts (List String))) (→ String)
-      (let ((chars
-             (make-array (fold-left (lambda (total text) (+ total (string-length text))) 0 texts)
-                         #\space)))
-        (fold-left (lambda (offset text)
-                     (vector-copy! chars offset (string->vector text) 0 (string-length text))
-                     (+ offset (string-length text)))
-                   0 texts)
-        (vector->string (array->vector chars))))
+      (unsafe-total (lambda () (let ((chars
+                                      (make-vector (fold-left (lambda (total text)
+                                                                (+ total (string-length text)))
+                                                              0
+                                                              texts)
+                                                   #\space)))
+                                 (fold-left (lambda (offset text)
+                                              (vector-copy! chars
+                                                            offset
+                                                            (string->vector text)
+                                                            0
+                                                            (string-length text))
+                                              (+ offset (string-length text)))
+                                            0 texts)
+                                 (vector->string chars)))))
 
     (define (string-join (texts (List String)) (separator String)) (→ String)
       (match texts
@@ -969,7 +810,7 @@
     ;; ---- Showing values ----
 
     (typeclass (Show e T)
-      (: show (dyn (Fn T → String ! e))))
+      (: show (Fn T → String ! e)))
 
     (define (i64->string (n I64)) (→ String)
       (cond ((= n 0) "0")
@@ -1031,11 +872,11 @@
 
     ;; Copy the runtime's scratch text before returning. string-generate calls
     ;; only this private reader, so no user conversion can overwrite it.
-    (extern real-text "snail.core.support" "snail:datum/real-text" (impl (Fn F64 → I32)))
+    (extern real-text "snail.core.support" "snail:datum/real-text" (Fn F64 → I32))
     (extern text-character
             "snail.core.support"
             "snail:datum/text-character"
-            (impl (Fn I32 → Char)))
+            (Fn I32 → Char))
 
     (define (f64->string (value F64)) (→ String)
       (string-generate (i32->i64 (real-text value))
@@ -1046,7 +887,7 @@
     ;; Representations are pure. Containers preserve their elements' notation,
     ;; including quotes and escapes; displaying a value still uses Show.
     (typeclass (Repr T)
-      (: repr (impl (Fn T → String))))
+      (: repr (Fn T → String)))
 
     (instance (Repr I64)
       (define repr i64->string))
@@ -1096,7 +937,7 @@
                      (string-append "(" (string-join (map repr items) " ") ")"))))
 
     (instance (Repr (Vector T))
-      (⊨ (Repr T) (Copy T))
+      (⊨ (Repr T) (Copy T) (Drop (!) T))
       (define repr (lambda (items)
                      (string-append "#(" (string-join (map repr (vector->list items)) " ") ")"))))
 

@@ -1,19 +1,28 @@
 (import
  (snail core base)
  (snail core io))
+
 (struct (Box A)
   ((value A)))
-(typeclass (Extract A) (type Output) (: extract (impl (Fn A → Output))))
+
+(typeclass (Extract A) (type Output) (: extract (Fn A → Output)))
+
 (instance (Extract I64) (type Output I64) (define extract (lambda (value) value)))
+
 (instance (Extract Bool)
   (type Output String)
   (define extract (lambda (value) (if value "yes" "no"))))
+
 (typeclass (Combine A)
   (type Output)
-  (: combine (∀ (B) (⊨ (Extract B)) (impl (Fn A B → (Pair Output (Extract.Output B)))))))
+  (: combine (∀ (B) (⊨ (Extract B)) (Fn A B → (Pair Output (Extract.Output B))))))
+
 (instance (Combine (Box A))
   (⊨ (Extract A))
   (type Output (Extract.Output A))
   (define combine (lambda (a b) (match a ((Box value) (Pair (extract value) (extract b)))))))
-(match (combine (Box (ann 1 I64)) #t)
-  ((Pair a b) (display a) (newline) (write-line b)))
+
+(define (main) (→ Unit) (! output-port)
+  (match (combine (Box (ann 1 I64)) #t)
+    ((Pair a b) (display a) (newline) (write-line b)))
+  (unit))

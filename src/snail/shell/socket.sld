@@ -109,14 +109,14 @@
       ((code String)))
 
     (effect tcp
-      ((listen (dyn (Fn Endpoint → (Result Listener SocketError) ! tasks)))
-       (connect (dyn (Fn Endpoint → (Result Connection SocketError) ! tasks)))
-       (accept (dyn (Fn Listener → (Result Connection SocketError) ! tasks)))
-       (read (dyn (Fn Connection I32 → (Result (Option Bytes) SocketError) ! tasks)))
-       (write (dyn (Fn Connection Bytes → (Result I32 SocketError) ! tasks)))
-       (finish-connection (dyn (Fn Connection I32 → (Result Unit SocketError) ! tasks)))
-       (close-listener (dyn (Fn Listener → (Result Unit SocketError))))
-       (close-connection (dyn (Fn Connection → (Result Unit SocketError)))))
+      ((listen (Fn Endpoint → (Result Listener SocketError) ! tasks))
+       (connect (Fn Endpoint → (Result Connection SocketError) ! tasks))
+       (accept (Fn Listener → (Result Connection SocketError) ! tasks))
+       (read (Fn Connection I32 → (Result (Option Bytes) SocketError) ! tasks))
+       (write (Fn Connection Bytes → (Result I32 SocketError) ! tasks))
+       (finish-connection (Fn Connection I32 → (Result Unit SocketError) ! tasks))
+       (close-listener (Fn Listener → (Result Unit SocketError)))
+       (close-connection (Fn Connection → (Result Unit SocketError))))
       (default
         ((listen (lambda (endpoint)
                    (native (lambda (ticket)
@@ -159,10 +159,10 @@
                              (answered (host-close-tcp (connection-handle connection)) done))))))
 
     (effect udp
-      ((bind (dyn (Fn Endpoint → (Result UdpSocket SocketError) ! tasks)))
-       (send (dyn (Fn UdpSocket Endpoint Bytes → (Result I32 SocketError) ! tasks)))
-       (receive (dyn (Fn UdpSocket I32 → (Result Datagram SocketError) ! tasks)))
-       (close-udp (dyn (Fn UdpSocket → (Result Unit SocketError)))))
+      ((bind (Fn Endpoint → (Result UdpSocket SocketError) ! tasks))
+       (send (Fn UdpSocket Endpoint Bytes → (Result I32 SocketError) ! tasks))
+       (receive (Fn UdpSocket I32 → (Result Datagram SocketError) ! tasks))
+       (close-udp (Fn UdpSocket → (Result Unit SocketError))))
       (default
         ((bind (lambda (endpoint)
                  (native (lambda (ticket)
@@ -236,7 +236,7 @@
     ;; An operation that waits on the host: `start` starts it under its
     ;; ticket, and `success` reads its answer when it did not fail.
 
-    (define (native (start (dyn (Fn I64 → Unit))) (success (dyn (Fn I32 → T))))
+    (define (native (start (Fn I64 → Unit)) (success (Fn I32 → T)))
       (→ (Result T SocketError))
       (! tasks)
       (∀ T)
@@ -246,7 +246,7 @@
     ;; ((snail runtime native socket) has the table); a failure holds its
     ;; code. A handle in an answer is the shell's from then on.
 
-    (define (answered (answer I32) (success (dyn (Fn I32 → T)))) (→ (Result T SocketError)) (∀ T)
+    (define (answered (answer I32) (success (Fn I32 → T))) (→ (Result T SocketError)) (∀ T)
       (if (< answer 0)
           (Err (SocketError (held-text 0)))
           (Ok (success answer))))

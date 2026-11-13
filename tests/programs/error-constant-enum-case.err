@@ -1,0 +1,1 @@
+field access selects the wrong enum case during constant evaluation

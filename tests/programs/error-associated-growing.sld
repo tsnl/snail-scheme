@@ -3,9 +3,14 @@
 
 (typeclass (Grow A)
   (type Output)
-  (: grow (impl (Fn A → Output))))
+  (: grow (Fn A → Output)))
+
 (instance (Grow A)
   (⊨ (Grow (List A)))
   (type Output (Grow.Output (List A)))
   (define grow (lambda (value) (grow (list value)))))
-(grow (ann 1 I64))
+
+(define main
+  (lambda ()
+    (grow (ann 1 I64))
+    (unit)))

@@ -18,43 +18,48 @@
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-;; A program waits on sockets from a task, which the scheduler runs once
-;; main returns.
-;; Mutable test state travels in operation arguments, not the reusable
-;; handler's captures. A dispatched task inherits this handler across waits.
-(dispatch-local
- (once (lambda ()
-         (handle tcp
-             ((listen
-               (lambda (endpoint)
-                 (Ok (Listener (type-convert endpoint Any) (Endpoint-port endpoint)))))
-              (connect (lambda (_) (Ok (Connection (type-convert (ref #u8()) Any)))))
-              (accept (lambda (_) (Ok (Connection (type-convert (ref #u8()) Any)))))
-              (read (lambda (connection _)
-                      (Ok
-                       (Some
-                        (ref-get (fixture-convert (● connection token) (Ref Bytes)))))))
-              (write (lambda (connection bytes)
-                       (sleep 1)
-                       (ref-set! (fixture-convert (● connection token) (Ref Bytes)) bytes)
-                       (Ok (i64->i32 (vector-length bytes)))))
-              (close-listener (lambda (_) (Ok (unit))))
-              (finish-connection (lambda (connection grace)
-                                   (sleep 1)
-                                   (display grace)
-                                   (newline)
-                                   (ref-set!
-                                    (fixture-convert (● connection token) (Ref Bytes))
-                                    #u8())
-                                   (Ok (unit))))
-              (close-connection (lambda (_) (Ok (unit)))))
-           (let ((connection (require (connect (require (endpoint "192.0.2.1" 0))))))
-             (dispatch-local
-              (once (lambda ()
-                      (require (write connection #u8(7 8)))
-                      (match (require (read connection 2))
-                        ((Some bytes) (write-value (vector->list bytes)))
-                        ((None) (panic "unexpected EOF")))
-                      (newline)
-                      (require (finish-connection connection 250))))))))))
-(write-line "main returns")
+(struct Buffer
+  ((bytes Bytes)))
+
+(define main
+  (lambda ()
+    ;; A program waits on sockets from a task, which the scheduler runs once
+    ;; main returns.
+    ;; Mutable test state travels in operation arguments, not the reusable
+    ;; handler's captures. A dispatched task inherits this handler across waits.
+    (dispatch-local
+     (once (lambda ()
+             (handle tcp
+                 ((listen
+                   (lambda (endpoint)
+                     (Ok (Listener (type-convert endpoint Any) (Endpoint-port endpoint)))))
+                  (connect (lambda (_) (Ok (Connection (type-convert (Buffer #u8()) Any)))))
+                  (accept (lambda (_) (Ok (Connection (type-convert (Buffer #u8()) Any)))))
+                  (read (lambda (connection _)
+                          (Ok
+                           (Some
+                            (● (fixture-convert (● connection token) Buffer) bytes)))))
+                  (write (lambda (connection bytes)
+                           (sleep 1)
+                           (set! (● (fixture-convert (● connection token) Buffer) bytes) bytes)
+                           (Ok (i64->i32 (vector-length bytes)))))
+                  (close-listener (lambda (_) (Ok (unit))))
+                  (finish-connection (lambda (connection grace)
+                                       (sleep 1)
+                                       (display grace)
+                                       (newline)
+                                       (set! (● (fixture-convert (● connection token) Buffer) bytes)
+                                             #u8())
+                                       (Ok (unit))))
+                  (close-connection (lambda (_) (Ok (unit)))))
+               (let ((connection (require (connect (require (endpoint "192.0.2.1" 0))))))
+                 (dispatch-local
+                  (once (lambda ()
+                          (require (write connection #u8(7 8)))
+                          (match (require (read connection 2))
+                            ((Some bytes) (write-value (vector->list bytes)))
+                            ((None) (panic "unexpected EOF")))
+                          (newline)
+                          (require (finish-connection connection 250))))))))))
+    (write-line "main returns")
+    (unit)))

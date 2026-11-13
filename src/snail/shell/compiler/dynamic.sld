@@ -323,7 +323,7 @@
                       (type=? result (TRigid (list-ref (● class outputs) 0)))
                       (type=? row (TRow (Nil) (Some (TRigid (list-ref (● class rows) 0))))))
            (compile-error loc
-                          "dynamic-instances needs methods of type (dyn (Fn A B → Output ! e))")))
+                          "dynamic-instances needs methods of type (Fn A B → Output ! e)")))
         (_
          (compile-error loc "dynamic-instances does not support independent method requirements"))))
 

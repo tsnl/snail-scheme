@@ -4,17 +4,19 @@
  (owned work))
 
 (struct Job
-  ((work (dyn (FnOnce → Unit ! output-port)))))
+  ((work (FnOnce → Unit ! output-port))))
+
 (enum Bundle
   (Full ((job Job) (tag I64)))
   (Empty))
+
 (enum Chain
-  (Link ((work (dyn (FnOnce → Unit ! output-port))) (rest Chain)))
+  (Link ((work (FnOnce → Unit ! output-port)) (rest Chain)))
   (End))
 
-(effect Probe ((ping (dyn (Fn → Unit)))))
+(effect Probe ((ping (Fn → Unit))))
 
-(effect Abort ((ctl abort (dyn (Fn String → Never)))))
+(effect Abort ((ctl abort (Fn String → Never))))
 
 (define (drain (chain Chain)) (→ Unit) (! output-port)
   (match chain
@@ -25,33 +27,35 @@
 ;; result is linear. Calling that procedure still produces one owned value.
 (define (preserve (value A)) (→ A) (∀ A) value)
 
-(let ((work (message "moved"))) (run work))
-(let ((work (message "branch"))) (if #t (call-once work) (call-once work)))
-;; A path that cannot return need not consume what it holds: one that
-;; panics, or reaches a value of type Never, as an abortive operation
-;; answers. What it held is abandoned.
-(let ((work (message "diverging branch"))) (if #f (panic "unreachable") (call-once work)))
-(handle Abort ((abort (lambda (reason) (write-line reason))))
-  (let ((work (message "must not run")))
-    (absurd (abort "aborted"))))
-(let* ((inner (message "capture")) (outer (once (lambda () (call-once inner)))))
-  (call-once outer))
-(let ((unused (message "must not run")))
-  (drop unused)
-  (write-line "dropped"))
-(match (Full (Job (message "matched")) 2)
-  ((Full (Job work) 1) (call-once work))
-  ((Full (Job work) _) (call-once work))
-  ((Empty) (unit)))
-(match (Full (Job (message "must not run")) 2)
-  ((Full (Job work) 1) (call-once work))
-  ((Full (Job work) _)
-   (drop work)
-   (write-line "wildcard"))
-  ((Empty) (unit)))
-(drain (Link (message "first") (Link (message "last") (End))))
-(let ((unused (Job (handle Probe ((ping (lambda () (unit)))) (message "must not run")))))
-  (match unused
-    ((Job work) (drop work)))
-  (write-line "handled drop"))
-(call-once ((preserve message) "specialized"))
+(define (main) (→ Unit) (! output-port)
+  (let ((work (message "moved"))) (run work))
+  (let ((work (message "branch"))) (if #t (call-once work) (call-once work)))
+  ;; A path that cannot return need not consume what it holds: one that
+  ;; panics, or reaches a value of type Never, as an abortive operation
+  ;; answers. What it held is abandoned.
+  (let ((work (message "diverging branch"))) (if #f (panic "unreachable") (call-once work)))
+  (handle Abort ((abort (lambda (reason) (write-line reason))))
+    (let ((work (message "must not run")))
+      (absurd (abort "aborted"))))
+  (let* ((inner (message "capture")) (outer (once (lambda () (call-once inner)))))
+    (call-once outer))
+  (let ((unused (message "must not run")))
+    (drop unused)
+    (write-line "dropped"))
+  (match (Full (Job (message "matched")) 2)
+    ((Full (Job work) 1) (call-once work))
+    ((Full (Job work) _) (call-once work))
+    ((Empty) (unit)))
+  (match (Full (Job (message "must not run")) 2)
+    ((Full (Job work) 1) (call-once work))
+    ((Full (Job work) _)
+     (drop work)
+     (write-line "wildcard"))
+    ((Empty) (unit)))
+  (drain (Link (message "first") (Link (message "last") (End))))
+  (let ((unused (Job (handle Probe ((ping (lambda () (unit)))) (message "must not run")))))
+    (match unused
+      ((Job work) (drop work)))
+    (write-line "handled drop"))
+  (call-once ((preserve message) "specialized"))
+  (unit))

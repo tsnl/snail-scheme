@@ -65,10 +65,13 @@
                                    generate
                                    (inputs #u8(90 0 255))) first))))
 
-(match (command-line)
-  ((Cons _ (Cons source (Cons output directories)))
-   (match (reader:compiling (lambda () (compile-all source output directories)))
-     ((Ok _) (unit))
-     ((Err (reader:Failed diagnostics)) (panic (reader:diagnostics->string diagnostics)))
-     ((Err (reader:Requested _)) (panic "the compiles asked for an input they were supplied"))))
-  (_ (panic "usage: compiler SOURCE OUTPUT LIBRARY ...")))
+(define main
+  (lambda ()
+    (match (command-line)
+      ((Cons _ (Cons source (Cons output directories)))
+       (match (reader:compiling (lambda () (compile-all source output directories)))
+         ((Ok _) (unit))
+         ((Err (reader:Failed diagnostics)) (panic (reader:diagnostics->string diagnostics)))
+         ((Err (reader:Requested _)) (panic "the compiles asked for an input they were supplied"))))
+      (_ (panic "usage: compiler SOURCE OUTPUT LIBRARY ...")))
+    (unit)))

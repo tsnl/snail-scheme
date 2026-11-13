@@ -7,10 +7,10 @@
 ;; is whatever dropping the item performs. The book's ownership chapter
 ;; includes the text between ANCHOR and ANCHOR_END.
 (effect log
-  ((say (dyn (Fn String → Unit)))))
+  ((say (Fn String → Unit))))
 
 (effect audit
-  ((note (dyn (Fn String → Unit)))))
+  ((note (Fn String → Unit))))
 
 (struct Handle
   ((name String)))
@@ -32,6 +32,7 @@
                          ((Labelled label item)
                           (say (string-append "releasing " label))
                           (drop item))))))
+
 ;; ANCHOR_END: labelled
 
 ;; A generic drop of a labelled box performs `log` and its item's row.
@@ -48,8 +49,11 @@
   (release (Labelled "generic" (Handle "e")))
   (say "done"))
 
-(handle log
-    ((say (lambda (text) (write-line text))))
-  (handle audit
-      ((note (lambda (text) (write-line (string-append "  " text)))))
-    (demo)))
+(define main
+  (lambda ()
+    (handle log
+        ((say (lambda (text) (write-line text))))
+      (handle audit
+          ((note (lambda (text) (write-line (string-append "  " text)))))
+        (demo)))
+    (unit)))

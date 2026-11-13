@@ -1,5 +1,6 @@
 (import
  (snail core base)
+ (only (snail core forms) host)
  (snail core io)
  (snail shell task)
  (snail shell dom)
@@ -9,6 +10,17 @@
  (snail shell ui)
  (snail shell ide application)
  (prefix (snail shell ide palette) palette-))
+
+(struct Requests
+  ((reads I64)
+   (completed I64)
+   (events Bool)
+   (hides I64)))
+
+(struct Request
+  ((issued I64)))
+
+
 
 (enum Delivery
   (Input ((message Msg)))
@@ -23,57 +35,57 @@
 
 (define (jobs (delayed Bool)
               (gate (Mailbox Unit))
-              (completed (Ref I64))
-              (reads (Ref I64))
+              (state Requests)
               (commands (List Command)))
-  (→ (List (dyn (FnOnce → Delivery ! mut output-port tasks dom fetch))))
+  (→ (List (FnOnce → Delivery ! mut host output-port tasks dom fetch)))
+  (! mut host)
   (match commands
     ((Nil) (Nil))
     ((Cons (Command work _) rest)
      (Cons (once (lambda ()
                    (when delayed
                      (mailbox-receive gate)
-                     (ref-set! completed (+ 1 (ref-get completed))))
-                   (observed work reads)))
-           (jobs delayed gate completed reads rest)))))
+                     (set! (● state completed) (+ 1 (● state completed))))
+                   (observed work state)))
+           (jobs delayed gate state rest)))))
 
 ;; Record the request identity at its boundary, before it can suspend.
-(define (observed (work (dyn (FnOnce → CommandResult ! tasks dom fetch))) (reads (Ref I64)))
+(define (observed (work (FnOnce → CommandResult ! tasks dom fetch)) (state Requests))
   (→ Delivery)
   (! mut tasks dom fetch)
-  (let ((issued (ref (ann 0 I64))))
+  (let ((issued (Request 0)))
     (let ((result
            (handle fetch
                ((request (lambda (method url headers body)
                            (when (and (>= (string-length url) 10)
                                       (string=? (substring url 0 10) "/api/file?"))
-                             (ref-set! issued (+ 1 (ref-get reads))))
+                             (set! (● issued issued) (+ 1 (● state reads))))
                            (request method url headers body)))
                 (stream-open (lambda (url kinds) (stream-open url kinds)))
                 (stream-next (lambda (stream) (stream-next stream)))
                 (stream-close (lambda (stream) (stream-close stream))))
              (work))))
-      (Produced (ref-get issued) result))))
+      (Produced (● issued issued) result))))
 
 (define (update-test (delayed-read Bool)
                      (gate (Mailbox Unit))
-                     (completed (Ref I64))
-                     (reads (Ref I64))
+                     (state Requests)
                      (model Model)
                      (message Delivery))
   (→ (Pair Model
-           (List (dyn (FnOnce → Delivery ! mut output-port tasks dom fetch)))))
+           (List (FnOnce → Delivery ! mut host output-port tasks dom fetch))))
+  (! mut host)
   (match message
     ((Input message)
      (match (update (● model ide) message)
        ((Pair next commands)
-        (Pair (Model next (● model answers)) (jobs #f gate completed reads commands)))))
+        (Pair (Model next (● model answers)) (jobs #f gate state commands)))))
     ((Produced read (CommandResult accept))
      (let ((transition (accept)))
        (match (transition (● model ide))
          ((Pair next commands)
           (Pair (Model next (+ (● model answers) (if (> read 0) 1 0)))
-                (jobs (and (not delayed-read) (= read 2)) gate completed reads commands))))))))
+                (jobs (and (not delayed-read) (= read 2)) gate state commands))))))))
 
 (define (shown (model Model)) (→ (Html Delivery))
   (map-html Input (view (● model ide))))
@@ -86,6 +98,7 @@
 (define (input (text String))
   (→ Cue)
   (Fire "command-query" "input" (Event-value-set no-event text)))
+
 (define enter (→ Cue) (Fire "command-query" "keydown" (Event-key-set no-event "Enter")))
 
 (define (verify-focus (result (Pair Node Document))) (→ Unit)
@@ -97,13 +110,8 @@
       ((Some line) (unless (string=? line expected) (panic "old task stole focus")))
       ((None) (panic "no focus")))))
 
-(define (run (delayed-read Bool)) (→ Unit) (! mut output-port tasks)
-  (let ((reads (ref 0))
-        (answers (ref 0))
-        (completed (ref 0))
-        (events (ref #f))
-        (gate (make-mailbox))
-        (hides (ref 0)))
+(define (run (delayed-read Bool)) (→ Unit) (! mut host output-port tasks)
+  (let ((state (Requests 0 0 #f 0)) (gate (make-mailbox)))
     (handle fetch
         ((request (lambda (method url headers body)
                     (cond ((string=? url "/api/project")
@@ -113,17 +121,17 @@
                            (Ok (Reply 200
                                       "{\"hits\":[{\"path\":\"notes.txt\",\"revision\":\"r\",\"line\":2,\"column\":1,\"snippet\":\"needle\"}],\"skipped\":0,\"limited\":false}")))
                           (else
-                           (ref-set! reads (+ 1 (ref-get reads)))
-                           (if (and delayed-read (= 2 (ref-get reads)))
+                           (set! (● state reads) (+ 1 (● state reads)))
+                           (if (and delayed-read (= 2 (● state reads)))
                                (begin (mailbox-receive gate)
-                                      (ref-set! completed (+ 1 (ref-get completed)))
+                                      (set! (● state completed) (+ 1 (● state completed)))
                                       (Err "obsolete failed read"))
                                (Ok
                                 (Reply 200 "{\"text\":\"line\\nneedle\",\"revision\":\"r\"}")))))))
          (stream-open (lambda (url kinds) (Stream 1)))
          (stream-next (lambda (stream)
-                        (if (ref-get events) (None)
-                            (begin (ref-set! events #t) (Some (StreamEvent "open" ""))))))
+                        (if (● state events) (None)
+                            (begin (set! (● state events) #t) (Some (StreamEvent "open" ""))))))
          (stream-close (lambda (stream) (unit))))
       (verify-focus (with-memory-dom
                      (list (FireWindow "keydown" (Event-key-set no-event "F1"))
@@ -138,19 +146,18 @@
                                             (lambda (model message)
                                               (update-test delayed-read
                                                            gate
-                                                           completed
-                                                           reads
+                                                           state
                                                            model
                                                            message))
                                             shown
                                             window-test
                                             (lambda (model) (unit))
                                             (lambda (model)
-                                              (ref-set! hides (+ 1 (ref-get hides)))
-                                              (if (= (ref-get hides) 1)
+                                              (set! (● state hides) (+ 1 (● state hides)))
+                                              (if (= (● state hides) 1)
                                                   (sleep 150)
                                                   (mailbox-post gate (unit)))))))
-                         (unless (= (ref-get reads) (● final answers))
+                         (unless (= (● state reads) (● final answers))
                            (panic "the delayed read did not finish")))
                        (match (element-by-id "text-0")
                          ((Some field) (write-line (show (● (selection-range field) first))))
@@ -158,9 +165,11 @@
                        (match (element-by-id (if delayed-read "text-0" "text-1"))
                          ((Some node) node)
                          ((None) (panic "missing expected editor"))))))
-      (unless (= (ref-get completed) 1)
+      (unless (= (● state completed) 1)
         (panic "the delayed operation did not finish"))
       (write-line (if delayed-read "obsolete failure cannot reveal cached coordinates"
                       "queued reveal cannot steal focus after a split")))))
 
-(dispatch-local (once (lambda () (run #t) (run #f))))
+(define (main) (→ Unit) (! host mut output-port tasks)
+  (dispatch-local (once (lambda () (run #t) (run #f))))
+  (unit))

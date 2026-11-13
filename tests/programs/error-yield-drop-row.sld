@@ -5,10 +5,10 @@
 ;; dropped resumption would drop it, performing `audit`, which this
 ;; function's row does not allow.
 (effect audit
-  ((note (dyn (Fn String → Unit)))))
+  ((note (Fn String → Unit))))
 
 (effect Ask
-  ((ctl ask (dyn (Fn → I64)))))
+  ((ctl ask (Fn → I64))))
 
 (struct Handle
   ((name String)))

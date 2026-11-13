@@ -43,36 +43,36 @@
     (extern start-listen
             "snail.runtime.native.socket"
             "start-listen"
-            (impl (Fn I64 I32 I32 I32 → Unit)))
+            (Fn I64 I32 I32 I32 → Unit))
     (extern start-connect
             "snail.runtime.native.socket"
             "start-connect"
-            (impl (Fn I64 I32 I32 → Unit)))
-    (extern start-accept "snail.runtime.native.socket" "start-accept" (impl (Fn I64 I32 → Unit)))
-    (extern start-read "snail.runtime.native.socket" "start-read" (impl (Fn I64 I32 I32 → Unit)))
+            (Fn I64 I32 I32 → Unit))
+    (extern start-accept "snail.runtime.native.socket" "start-accept" (Fn I64 I32 → Unit))
+    (extern start-read "snail.runtime.native.socket" "start-read" (Fn I64 I32 I32 → Unit))
     (extern start-write
             "snail.runtime.native.socket"
             "start-write"
-            (impl (Fn I64 I32 Bytes → Unit)))
+            (Fn I64 I32 Bytes → Unit))
     (extern start-finish-connection
             "snail.runtime.native.socket"
             "start-finish-connection"
-            (impl (Fn I64 I32 I32 → Unit)))
+            (Fn I64 I32 I32 → Unit))
     (extern start-bind
             "snail.runtime.native.socket"
             "start-bind"
-            (impl (Fn I64 I32 I32 I32 → Unit)))
+            (Fn I64 I32 I32 I32 → Unit))
     (extern start-send
             "snail.runtime.native.socket"
             "start-send"
-            (impl (Fn I64 I32 I32 I32 Bytes → Unit)))
+            (Fn I64 I32 I32 I32 Bytes → Unit))
     (extern start-receive
             "snail.runtime.native.socket"
             "start-receive"
-            (impl (Fn I64 I32 I32 → Unit)))
-    (extern finish "snail.runtime.native.socket" "finish" (impl (Fn I64 → I32)))
-    (extern close-tcp "snail.runtime.native.socket" "close-tcp" (impl (Fn I32 → I32)))
-    (extern close-udp "snail.runtime.native.socket" "close-udp" (impl (Fn I32 → I32)))
-    (extern held-number "snail.runtime.native.socket" "held-number" (impl (Fn → I32)))
-    (extern held-length "snail.runtime.native.socket" "held-length" (impl (Fn I32 → I32)))
-    (extern held-byte "snail.runtime.native.socket" "held-byte" (impl (Fn I32 I32 → I32)))))
+            (Fn I64 I32 I32 → Unit))
+    (extern finish "snail.runtime.native.socket" "finish" (Fn I64 → I32))
+    (extern close-tcp "snail.runtime.native.socket" "close-tcp" (Fn I32 → I32))
+    (extern close-udp "snail.runtime.native.socket" "close-udp" (Fn I32 → I32))
+    (extern held-number "snail.runtime.native.socket" "held-number" (Fn → I32))
+    (extern held-length "snail.runtime.native.socket" "held-length" (Fn I32 → I32))
+    (extern held-byte "snail.runtime.native.socket" "held-byte" (Fn I32 I32 → I32))))

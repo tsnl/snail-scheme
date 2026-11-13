@@ -74,7 +74,7 @@ Expect field are unsupported, decided before a caller waits for any body.
 `HttpError` distinguishes `Malformed`, `Unsupported`, `HeadTooLarge`,
 `BodyTooLarge` and `InvalidResponse`. The reason/feature strings are diagnostics;
 the codec does not choose HTTP error responses. Public records remain ordinary
-constructible Snail-Core values. The parser guarantees its own outputs, rather than
+constructible Snail Scheme values. The parser guarantees its own outputs, rather than
 making a claim about records created elsewhere.
 
 ## Response parts
@@ -130,9 +130,9 @@ Import `(snail shell http exchange)` and call `serve-one` with an exclusively us
 ```scheme
 ;; serve-one contract (summary notation):
 ;; (∀ (E e)
-;;   (impl (Fn Connection I32
-;;       (dyn (Fn Request → (Result Response E) ! e))
-;;       → (Result Unit (ExchangeError E)) ! tcp e)))
+;;   (Fn Connection I32
+;;       (Fn Request → (Result Response E) ! e)
+;;       → (Result Unit (ExchangeError E)) ! tcp e))
 ```
 
 `Request` contains `head : RequestHead` and `body : Bytes`. The callback returns
@@ -169,7 +169,7 @@ This grace is for completion only. There is no request-idle deadline yet.
 Exclusive use is a calling convention, not linear ownership. The caller must not
 use another alias during the exchange. Cancellation of active native socket I/O
 closes that socket. An uncatchable trap or cancellation while the callback waits
-on an unrelated effect cannot execute the Snail-Core cleanup branch; runtime shutdown
+on an unrelated effect cannot execute the Snail Scheme cleanup branch; runtime shutdown
 cleans the remaining native resource. `serve-one` does not introduce a task scope
 or stronger unwinding guarantee.
 
