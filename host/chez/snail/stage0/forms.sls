@@ -15,10 +15,7 @@
 
   (meta scheme-define (header-clause? form)
         (syntax-case form ()
-          [(name . rest)
-           (let ([name (syntax->datum #'name)] [rest (syntax->datum #'rest)])
-             (or (memq name '(→ ! ∀ ⊨))
-                 (and (eq? name 'annotations) (or (null? rest) (pair? (car rest))))))]
+          [(name . rest) (memq (syntax->datum #'name) '(→ ! ∀ ⊨))]
           [_ #f]))
 
   (meta scheme-define (definition-body forms)
@@ -74,12 +71,6 @@
                                                       suffix))))
   (meta scheme-define (field-name field)
         (syntax-case field () [(name . rest) #'name]))
-  (meta scheme-define (without-metadata forms)
-        (filter (lambda (form)
-                  (syntax-case form ()
-                    [(name . rest) (not (eq? (syntax->datum #'name) 'annotations))]
-                    [_ #t])) forms))
-
   (meta scheme-define (field-definitions name field index)
         (with-syntax ([replace (joined-name name field "-set")]
                       [index (datum->syntax name index)])
@@ -112,17 +103,12 @@
                     #,@(apply append
                               (map (lambda (case)
                                      (syntax-case case ()
-                                       [(name . parts)
-                                        (let ([fields (without-metadata (syntax-list #'parts))])
-                                          (record-definitions #'name
-                                                              (if (null? fields)
-                                                                  '()
-                                                                  (syntax-list (car fields)))
-                                                              #f))]))
-                                   (filter (lambda (case)
-                                             (not (eq? (syntax->datum (car (syntax-list case)))
-                                                       'annotations)))
-                                           (syntax-list #'cases))))))])))
+                                       [(name) (record-definitions #'name '() #f)]
+                                       [(name (field ...))
+                                        (record-definitions #'name
+                                                            (syntax-list #'(field ...))
+                                                            #f)]))
+                                   (syntax-list #'cases)))))])))
 
   (define-syntax ●
     (syntax-rules ()
@@ -230,7 +216,7 @@
          #`(begin (scheme-define name (gensym))
                   #,@(map (lambda (operation)
                             (syntax-case operation (ctl)
-                              [(ctl method signature . annotations)
+                              [(ctl method signature)
                                (let* ([signature (syntax->datum #'signature)]
                                       [answer (memq '→ signature)])
                                  #`(scheme-define (method . arguments)
@@ -238,7 +224,7 @@
                                               #,(if (and answer (eq? (cadr answer) 'Never))
                                                     #'arguments
                                                     #'(append arguments (list cannot-resume))))))]
-                              [(method signature . annotations)
+                              [(method signature)
                                #'(scheme-define (method . arguments)
                                    (perform-returning name 'method arguments))]
                               [_ (syntax-error operation "expected an effect operation")]))
@@ -249,7 +235,7 @@
     ((label String)
      (value I64)))
   (enum Documented (Present ((value I64)))
-        (Absent (annotations (doc "No payload."))))
+        (Absent))
   (effect Stop ((ctl stop (Fn I64 → Never))))
   (effect Read ((read-value (Fn → I64))))
   (effect Observe ((observe-value (Fn → I64))))

@@ -28,7 +28,6 @@
        (locals (Table Type))
        (givens (List Constraint))
        (copy (List String))
-       (instances (List String))
        (resolving (List Constraint))
        (signed (Option I64))
        (counter I64)
@@ -67,7 +66,6 @@
                (● outer locals)
                (● outer givens)
                (● outer copy)
-               (● outer instances)
                (● outer resolving)
                (● outer signed)
                (● inner counter)
@@ -103,9 +101,8 @@
       (table-ref (● solution evidence) (identity-key id)))
 
     ;; A class constraint keeps the givens in scope where it arose, and the
-    ;; type variables declared ω there, which decide what a drop releases
-    ;; and a clone shares;
-    ;; a Copy requirement keeps those variables too.
+    ;; Copy variables there, which decide what a drop releases.
+    ;; A Copy requirement keeps those variables too.
     ;; A selection waiting for its receiver's nominal type. The result and
     ;; surrounding row participate in inference; Copy determines whether a
     ;; field can be read without moving it out of its aggregate.
@@ -129,13 +126,11 @@
         (givens (List Constraint))
         (copy (List String))))
       (WantField ((projection Projection)))
-      (WantClass
-       ((constraint Constraint)
-        (hole I64)
-        (givens (List Constraint))
-        (copy (List String))
-        (instances (List String))
-        (loc Loc)))
+      (WantClass ((constraint Constraint)
+                  (hole I64)
+                  (givens (List Constraint))
+                  (copy (List String))
+                  (loc Loc)))
       (WantCleanup
        ((type Type)
         (row Type)
@@ -463,12 +458,7 @@
     (define (want-class (ck Checker) (constraint Constraint) (loc Loc)) (→ (Pair Evidence Checker))
       (learning ck ((hole (fresh-identity))
                     (then
-                     (want (WantClass constraint
-                                      hole
-                                      (● ck givens)
-                                      (● ck copy)
-                                      (● ck instances)
-                                      loc))))
+                     (want (WantClass constraint hole (● ck givens) (● ck copy) loc))))
                 (Pair (EvHole hole) ck)))
 
     ;; A use of a variable: its type, the types its quantified variables
@@ -616,8 +606,7 @@
                          (rest (infer rest row)))
                      (Pair (Expr (Seq first rest) (● rest type) loc) ck)))
           ((Match scrutinee clauses) (infer-match ck scrutinee clauses row loc))
-          ((ScopedInstances sets body)
-           (scoped ck (instance-scope ck sets loc) body row))
+
           ((Ann inner type)
            (learning ck ((inner (check-value inner type row)))
                      (fit ck type inner row loc)))
@@ -631,11 +620,6 @@
                      (Pair (Expr (Downcast inner target)
                                  (TCon "snail.core.base:Option" (list target)) loc) ck)))
           )))
-
-    (define (instance-scope (ck Checker) (sets (List String)) (loc Loc)) (→ Checker) (! compile)
-      (let ((sets (delete-duplicates string=? (append sets (● ck instances)))))
-        (check-active-instances (program-of ck) sets loc)
-        (Checker-instances-set ck sets)))
 
     (define (infer-lambda (ck Checker)
                           (params (List String))
@@ -681,9 +665,7 @@
       (→ (Pair Expr Checker))
       (! compile)
       (match (Pair (● expr term) (prune (solution ck) type))
-        ((Pair (ScopedInstances sets body) _)
-         (within ck (instance-scope ck sets (● expr loc))
-                 (lambda (inner) (check-value inner body type row))))
+
         ((Pair (App callee args) _)
          (infer-app-at ck callee args row (● expr loc) (Some type)))
         ((Pair (If test consequent alternative) _)
@@ -1474,8 +1456,8 @@
     ;; destruction row; filtering an unresolved tail would retain them later.
     (define (solve-pending-class (ck Checker) (want Wanted)) (→ Checker) (! compile)
       (match want
-        ((WantClass constraint hole givens copy sets loc)
-         (resumed ck (solve-class (Checker-instances-set ck sets)
+        ((WantClass constraint hole givens copy loc)
+         (resumed ck (solve-class ck
                                   constraint hole givens copy loc)))
         (_ ck)))
 
@@ -1586,11 +1568,11 @@
                             (loc Loc))
       (→ (Pair Evidence Checker))
       (! compile)
-      (if (lifecycle-class? (● constraint class))
-          (lifecycle-evidence ck constraint givens copy context loc)
+      (if (drop-class? (● constraint class))
+          (drop-evidence ck constraint givens copy context loc)
           (determined-evidence ck constraint givens copy context loc)))
 
-    ;; A row class other than Drop and Clone is chosen as any class is, by
+    ;; A row class other than Drop is chosen as any class is, by
     ;; its types alone: the requirement given for them, or the one instance
     ;; whose head matches them. What that performs at each row parameter is
     ;; charged to the constraint's row there.
@@ -1701,19 +1683,19 @@
                                               (● constraint types)))
                      "; add a signature or an annotation"))
 
-    ;; A lifecycle class's row, as `(Drop e T)`'s, is found from T, not
-    ;; matched: dropping or cloning a T runs what the type says
-    ;; (`lifecycle-rows`), and each row that performs is performed in `e`.
+    ;; The row in `(Drop e T)` is derived from T: dropping a T runs what
+    ;; the type says
+    ;; (`drop-rows`), and each row that performs is performed in `e`.
     ;; Mono finds what runs again from the ground type, so the evidence only
     ;; records the plan charged. `context` is the row of the call the
     ;; constraint was raised in, when it is solved there.
 
-    (define (lifecycle-evidence (ck Checker)
-                                (constraint Constraint)
-                                (givens (List Constraint))
-                                (copy (List String))
-                                (context (Option Type))
-                                (loc Loc))
+    (define (drop-evidence (ck Checker)
+                           (constraint Constraint)
+                           (givens (List Constraint))
+                           (copy (List String))
+                           (context (Option Type))
+                           (loc Loc))
       (→ (Pair Evidence Checker))
       (! compile)
       (match (● constraint types)
@@ -1721,18 +1703,18 @@
          (let ((type (resolve-type (solution ck) type))
                (class (● constraint class))
                (program (program-of ck)))
-           (unless (lifecycle-input-known? ck class type)
+           (unless (class-input-known? ck class type)
              (compile-error loc (ambiguous-constraint ck constraint)))
-           (match (lifecycle-rows program class copy givens type)
+           (match (drop-rows program copy givens type)
              ((Ok rows)
-              (Pair (EvDerived (checked-plan program class copy type))
+              (Pair (EvDerived (checked-drop-plan program copy type))
                     (fold-left (lambda (ck performed) (charge ck performed row context loc))
                                ck
                                rows)))
              ((Err message) (compile-error loc message)))))
-        (_ (panic "internal error: a lifecycle class has a row and a type"))))
+        (_ (panic "internal error: Drop has a row and a type"))))
 
-    ;; A drop or a clone performs `performed` in its own row. When that row
+    ;; A drop performs `performed` in its own row. When that row
     ;; has joined the call's context, as it has when the method is called
     ;; there or handed to a callee that calls it, the context performs it
     ;; too, which a signed body counts (`record-performed`); one only
@@ -1753,7 +1735,7 @@
     ;; A row is charged where it is written: once a call is checked, each
     ;; constraint of a row class raised in it whose types are known by now
     ;; is solved in the call's scope, so a signed body is seen to perform
-    ;; what its drops, clones and methods do. One whose types a later use
+    ;; what its drops and methods do. One whose types a later use
     ;; decides waits for `solve-pending`.
 
     (define (solve-found-rows (ck Checker) (before I64) (context Type)) (→ Checker) (! compile)
@@ -1781,8 +1763,8 @@
              (let ((before (● ck pending-count)))
                (let ((done
                       (match want
-                        ((WantClass constraint hole givens copy sets loc)
-                         (resumed ck (solve-found (Checker-instances-set ck sets)
+                        ((WantClass constraint hole givens copy loc)
+                         (resumed ck (solve-found ck
                                                   constraint hole givens copy (Some context) loc)))
                         ((WantCleanup type row handled givens copy shared-only? loc)
                          (resumed ck (charge-disposal
@@ -1794,10 +1776,10 @@
 
     (define (known-class-inputs? (ck Checker) (want Wanted)) (→ Bool)
       (match want
-        ((WantClass constraint _ _ _ _ _)
+        ((WantClass constraint _ _ _ _)
          (let ((class (● constraint class)))
            (and (determined-class? ck class)
-                (every? (lambda (type) (lifecycle-input-known? ck class type))
+                (every? (lambda (type) (class-input-known? ck class type))
                         (type-arguments (program-class (program-of ck) class)
                                         (● constraint types))))))
         ((WantCleanup type _ _ _ _ _ _) (disposal-known? (resolve-type (solution ck) type)))
@@ -1806,7 +1788,7 @@
     ;; Callable destruction depends on its effect row, never its arguments
     ;; or result. A handler's answer may still be unknown when it drops its
     ;; resumption; waiting for that answer would close the call row too soon.
-    (define (lifecycle-input-known? (ck Checker) (class String) (type Type)) (→ Bool)
+    (define (class-input-known? (ck Checker) (class String) (type Type)) (→ Bool)
       (let ((type (resolve-type (solution ck) type)))
         (if (string=? class drop-class)
             (match (fn-arrow type)
@@ -1838,7 +1820,7 @@
                              (map (lambda (type) (resolve-type (solution ck) type))
                                   (list (● projection record type) (● projection result)
                                         (● projection row))))
-                            ((WantClass constraint _ _ _ _ _)
+                            ((WantClass constraint _ _ _ _)
                              (map (lambda (type) (resolve-type (solution ck) type))
                                   (● constraint types)))
                             (_ (Nil)))) wanted)))
@@ -1846,10 +1828,10 @@
     (define (improve-output (ck Checker) (want Wanted)) (→ Checker) (! compile)
       (match want
         ((WantField projection) (improve-projection ck projection))
-        ((WantClass constraint _ givens copy sets loc)
+        ((WantClass constraint _ givens copy loc)
          (let ((class (program-class (program-of ck) (● constraint class))))
            (if (and (not (null? (● class outputs))) (known-class-inputs? ck want))
-               (resumed ck (● (determined-source (Checker-instances-set ck sets) class
+               (resumed ck (● (determined-source ck class
                                                  (map
                                                   (lambda (type) (resolve-type (solution ck) type))
                                                   (● constraint types)) givens copy loc) second))
@@ -1897,7 +1879,7 @@
       (→ (Pair Instance Substitution))
       (! compile)
       (let loop ((instances
-                  (visible-instances (program-of ck) (● class name) (● ck instances))))
+                  (class-instances (program-of ck) (● class name))))
         (match instances
           ((Nil)
            (compile-error loc
@@ -2057,7 +2039,7 @@
                       (map (lambda (clause) (Clause (zonk-pattern solution (● clause pattern))
                                                     (zonk-expr solution (● clause body))))
                            clauses)))
-              ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
+
               ((Ann inner type) (Ann (zonk-expr solution inner) (zonk solution type)))
               ((BoxAny inner) (BoxAny (zonk-expr solution inner)))
               ((Downcast inner target) (Downcast (zonk-expr solution inner) (zonk solution target)))
@@ -2236,7 +2218,7 @@
       (refuse-function-reference form type loc))
 
     (define (refuse-hidden-disposal (program Program) (type Type) (loc Loc)) (→ Unit) (! compile)
-      (match (lifecycle-rows program drop-class (Nil) (Nil) type)
+      (match (drop-rows program (Nil) (Nil) type)
         ((Ok rows)
          (unless (every? (lambda (row)
                            (let ((flat (flatten-row empty-solution row)))
@@ -2296,7 +2278,7 @@
         ((Var name types evidence)
          (match (program-value (program-of ck) name)
            ((Some (Method class _))
-            (if (lifecycle-class? class) empty-row
+            (if (drop-class? class) empty-row
                 (cleanup-arrow-row ck
                                    (cleanup-method-type ck
                                                         class
@@ -2418,7 +2400,7 @@
                                   "the disposal effects of this value are ambiguous; add a type annotation")))
               ((and shared-only? (linear? ck type)) ck)
               (else
-               (match (lifecycle-rows (program-of ck) drop-class (● ck copy) (● ck givens) type)
+               (match (drop-rows (program-of ck) (● ck copy) (● ck givens) type)
                  ((Err problem) (compile-error loc problem))
                  ((Ok rows)
                   (fold-left (lambda (ck drop-row)
@@ -2496,11 +2478,7 @@
       (→ Checker) (! compile)
       (fold-left (lambda (ck owner)
                    (let ((type (resolve-type (solution ck) (● owner second))))
-                     (match (lifecycle-rows (program-of ck)
-                                            drop-class
-                                            (● ck copy)
-                                            (● ck givens)
-                                            type)
+                     (match (drop-rows (program-of ck) (● ck copy) (● ck givens) type)
                        ((Ok _) (charge-disposal ck type handled row loc #f #t))
                        ((Err _) ck)))) ck scope))
 
@@ -2828,7 +2806,7 @@
          (concatenate (map (lambda (type) (free-metas solution type))
                            (list (● projection record type) (● projection result)
                                  (● projection row)))))
-        ((WantClass constraint _ _ _ _ _)
+        ((WantClass constraint _ _ _ _)
          (concatenate
           (map (lambda (type) (free-metas solution type)) (● constraint types))))
         ((WantCleanup type row _ _ _ _ _)
@@ -3020,7 +2998,7 @@
     ;; Its cleanup must be supported there even when the caller first closes
     ;; the object: a convention does not change the result's static type.
     (define (check-result-disposal (ck Checker) (type Type) (loc Loc)) (→ Unit) (! compile)
-      (match (lifecycle-rows (program-of ck) drop-class (Nil) (Nil) type)
+      (match (drop-rows (program-of ck) (Nil) (Nil) type)
         ((Err problem) (compile-error loc problem))
         ((Ok rows)
          (for-each (lambda (row)
@@ -3104,7 +3082,6 @@
       (! compile)
       (let ((ck (Checker program
                          empty-table
-                         (Nil)
                          (Nil)
                          (Nil)
                          (Nil)

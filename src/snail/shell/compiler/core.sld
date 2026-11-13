@@ -26,8 +26,7 @@
    any-type?
    never-type?
    drop-class
-   clone-class
-   lifecycle-class?
+   drop-class?
    local-name
    string-type?
    bytes-type?
@@ -54,7 +53,6 @@
    Trivial
    Implemented
    Glue
-   Refused
    Expr
    Term
    Lit
@@ -67,7 +65,6 @@
    Seq
    Match
    Ann
-   ScopedInstances
    Handle
    BoxAny
    Downcast
@@ -119,18 +116,12 @@
    Program-items-set
    empty-program
    primitive-global
-   program-annotations
-   program-field-annotations
-   program-with-annotations
-   program-with-field-annotations
    program-value
    program-type
    program-class
    program-effect
    class-instances
-   visible-instances
    check-instance-overlap
-   check-active-instances
    selected-method-arguments
    program-with-value
    program-with-type
@@ -154,8 +145,7 @@
   (import
    (snail core base)
    (snail core table)
-   (snail shell compiler read)
-   (snail shell compiler annotations))
+   (snail shell compiler read))
   (begin
 
     ;; ---- Types ----
@@ -256,8 +246,6 @@
             "type"
             "typeclass"
             "instance"
-            "define-instance-set"
-            "with-instances"
             "match"
             "●"
             "ann"
@@ -385,18 +373,14 @@
         ((TCon "snail.core.base:Never" (Nil)) #t)
         (_ #f)))
 
-    ;; The lifecycle classes, whose methods release a value, `(Drop e T)`,
-    ;; and copy one, `(Clone e T)`, performing `e` for a T. What they run,
-    ;; and so their rows, is found from T's structure, glue for a type
-    ;; without an instance, rather than chosen by matching instances, so the
-    ;; checker and mono treat them apart from other classes over a row.
+    ;; `(Drop e T)` releases a T, performing e. Without a declared instance,
+    ;; its implementation and row come from T's fields. The checker and
+    ;; specialization derive this plan rather than matching ordinary instances.
 
     (define drop-class (→ String) "snail.core.base:Drop")
 
-    (define clone-class (→ String) "snail.core.base:Clone")
-
-    (define (lifecycle-class? (class String)) (→ Bool)
-      (or (string=? class drop-class) (string=? class clone-class)))
+    (define (drop-class? (class String)) (→ Bool)
+      (string=? class drop-class))
 
     (define (string-type? (type Type)) (→ Bool)
       (match type
@@ -564,7 +548,7 @@
 
     ;; Evidence says which instance satisfies a constraint: an instance applied
     ;; to type arguments and the evidence for its requirements, or the
-    ;; enclosing definition's own requirement at `index`. A Drop or Clone
+    ;; enclosing definition's own requirement at `index`. A Drop
     ;; constraint's is derived: the checker records the plan it charged,
     ;; or None for a type variable, whose instantiation's plan its caller
     ;; charged, and mono finds the plan again from the ground type and
@@ -582,16 +566,13 @@
       (EvHole
        ((id I64))))
 
-    ;; What a drop or a clone of a type runs: nothing but a discard or a
-    ;; share, an instance's method, or glue, which takes the value apart, or
-    ;; why it cannot run (`lifecycle-plan` in capabilities.sld).
+    ;; What dropping a type runs: a discard, its instance's method, or
+    ;; glue that releases its fields (`drop-plan` in capabilities.sld).
     (enum Plan
       (Trivial)
       (Implemented
        ((instance Instance)))
-      (Glue)
-      (Refused
-       ((reason String))))
+      (Glue))
 
     ;; ---- Expressions ----
 
@@ -642,9 +623,6 @@
       (Match
        ((scrutinee Expr)
         (clauses (List Clause))))
-      (ScopedInstances
-       ((sets (List String))
-        (body Expr)))
       (Ann
        ((expr Expr)
         (type Type)))
@@ -694,7 +672,7 @@
         ((Let _ value body) (list value body))
         ((Seq first rest) (list first rest))
         ((Match scrutinee clauses) (Cons scrutinee (map (lambda (record) (● record body)) clauses)))
-        ((ScopedInstances _ body) (list body))
+
         ((Ann inner _) (list inner))
         ((BoxAny inner) (list inner))
         ((Downcast inner _) (list inner))
@@ -734,8 +712,7 @@
     ;; ---- Declared entities ----
 
     ;; A struct is a data type with one case named after it. An `owned?`
-    ;; type is linear by its declaration, whatever its fields: it says
-    ;; `(deriving Move)`, or has a Drop instance.
+    ;; type has a Drop instance and is linear regardless of its fields.
     (struct DataType
       ((name String)
        (params (List String))
@@ -843,8 +820,7 @@
        (types (List Type))
        (requires (List Constraint))
        (copy (List String))
-       (methods (List (Pair String String)))
-       (set (Option String))))
+       (methods (List (Pair String String)))))
 
     (struct Import
       ((module String)
@@ -972,14 +948,6 @@
 
     ;; ---- Programs ----
 
-    ;; Metadata belongs to a canonical declaration. Fields belong to their
-    ;; canonical constructor and field name, not to the generated accessor
-    ;; functions. Accessor/Setter/Replacer already carry that origin as a
-    ;; Case and field index. Metadata never enters type identity or layout.
-    (struct Metadata
-      ((annotations (List Annotation))
-       (fields (Table (List Annotation)))))
-
     ;; A program is a value: the expander threads it through expansion,
     ;; handing each addition the newest, and the later passes only read it.
     ;; Items are kept newest first. `libraries` names each library, newest
@@ -993,54 +961,11 @@
        (classes (Table Class))
        (instances (Table (List Instance)))
        (effects (Table Effect))
-       (metadata (Table Metadata))
        (items (List Item))
        (libraries (List (Pair String I64)))))
 
     (define empty-program (→ Program)
-      (Program empty-table empty-table empty-table empty-table empty-table empty-table (Nil) (Nil)))
-
-    (define (metadata-of (program Program) (name String)) (→ Metadata)
-      (match (table-ref (● program metadata) name)
-        ((Some metadata) metadata)
-        ((None) (Metadata (Nil) empty-table))))
-
-    (define (program-annotations (program Program) (name String)) (→ (List Annotation))
-      (● (metadata-of program name) annotations))
-
-    (define (program-field-annotations (program Program) (constructor String) (field String))
-      (→ (List Annotation))
-      (match (table-ref (● (metadata-of program constructor) fields) field)
-        ((Some annotations) annotations)
-        ((None) (Nil))))
-
-    (define (program-with-annotations (program Program)
-                                      (name String)
-                                      (annotations (List Annotation)))
-      (→ Program)
-      (let ((before (metadata-of program name)))
-        (if (null? annotations)
-            program
-            (Program-metadata-set program
-                                  (table-set (● program metadata) name
-                                             (Metadata
-                                              (append (● before annotations) annotations)
-                                              (● before fields)))))))
-
-    (define (program-with-field-annotations (program Program)
-                                            (constructor String)
-                                            (field String)
-                                            (annotations (List Annotation)))
-      (→ Program)
-      (let ((before (metadata-of program constructor)))
-        (if (null? annotations)
-            program
-            (Program-metadata-set program
-                                  (table-set (● program metadata) constructor
-                                             (Metadata (● before annotations)
-                                                       (table-set (● before fields)
-                                                                  field
-                                                                  annotations)))))))
+      (Program empty-table empty-table empty-table empty-table empty-table (Nil) (Nil)))
 
     (define (program-value (program Program) (name String)) (→ (Option Value))
       (table-ref (● program values) name))
@@ -1067,27 +992,6 @@
       (match (table-ref (● program instances) class)
         ((Some instances) instances)
         ((None) (Nil))))
-
-    ;; Named instances are available only inside an explicit lexical scope.
-    ;; All instances remain in the program: selected evidence names them
-    ;; even when a later caller has a different active policy.
-
-    (define (visible-instances (program Program) (class String) (sets (List String)))
-      (→ (List Instance))
-      (filter (lambda (instance)
-                (match (● instance set)
-                  ((None) #t)
-                  ((Some name) (member? name sets))))
-              (class-instances program class)))
-
-    (define (check-active-instances (program Program) (sets (List String)) (loc Loc))
-      (→ Unit)
-      (! compile)
-      (for-each (lambda (class)
-                  (let ((visible (visible-instances program (● class name) sets)))
-                    (for-each (lambda (instance)
-                                (check-instance-overlap program instance visible loc)) visible)))
-                (table-values (● program classes))))
 
     (define (check-instance-overlap (program Program)
                                     (instance Instance)
@@ -1171,16 +1075,6 @@
     (define (program-with-library (program Program) (name String) (items (List Item))) (→ Program)
       (Program-libraries-set (Program-items-set program (append items (● program items)))
                              (Cons (Pair name (length items)) (● program libraries))))
-
-
-
-
-
-
-
-
-
-
 
     ;; `table` with every entry of `additions`, which win where both have a
     ;; key.
@@ -1489,8 +1383,6 @@
     ;; What the primitive library adds to a program: its values alone.
     ;; It has no module, since the backend
     ;; implements everything it declares, so it records no run of items.
-
-
 
     )
 

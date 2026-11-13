@@ -93,8 +93,6 @@
                                    (Lowered (Nil) state) items)))
           (Lowered-items-set lowered (reverse (● lowered items))))))
 
-
-
     ;; Keep the original body in specialization's contextual analysis. A
     ;; computed procedure's initializer is pure; calling its result may yield.
     (define (initializer-function (item Item)) (→ Item)
@@ -512,7 +510,7 @@
                           callees
                           scrutinee
                           (lambda (scrutinee) (rebuild (Match scrutinee clauses))))))
-          ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
+
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((Ann inner type)
            (naming count ((inner (normal callees inner))) (Pair (rebuild (Ann inner type)) count)))
@@ -725,8 +723,6 @@
             (_ #f))
           (any? holds-once? (expr-children expr))))
 
-
-
     ;; Owners assigned to this expression, newest binding first. Splitting
     ;; the scope keeps each owner in exactly one continuation; the list
     ;; fixes cleanup order without depending on table iteration order.
@@ -765,7 +761,7 @@
                          (droppers callees (taken-scope callees scope scrutinee) scrutinee))
                         (clauses (dropper-clauses callees after clauses)))
                        (Pair (rebuild (Match scrutinee clauses)) state))))
-          ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
+
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((Ann inner type)
            (cleaning state ((inner (droppers callees scope inner)))

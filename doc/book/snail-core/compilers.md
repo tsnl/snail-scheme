@@ -44,10 +44,6 @@ It decodes generated-library syntax directly from bytes. The `compile`
 effect carries either diagnostics or a typed request for a missing input;
 `compiling` handles that boundary for each compiler entry.
 
-`annotations.sld` parses documentation metadata once. The expander attaches
-it to canonical declarations, fields and methods. It affects neither type
-identity nor object layout.
-
 `core.sld` defines `Type`, `Scheme`, class evidence, expressions, patterns,
 declarations and the program tables shared by the passes. `expr-children`
 is the common structural inventory; each analysis still decides which
@@ -93,20 +89,14 @@ the last owner.
 `conversions.sld` resolves concrete `Any` boundaries. Packaging preserves a
 value's type identity; extraction checks it and performs `dyn-cast` on a
 mismatch. It does not promote numbers or reinterpret collections.
-`dynamic.sld` expands explicitly declared finite instance dispatch into
-ordinary type tests, conversions and calls. The old dynamic Scheme runtime
-and numeric-tower libraries are gone; typed code needs none of those adapters.
-
 A top-level nonfunction initializer must have an empty effect row. A handler
 can discharge an effect locally, and an intentional `unsafe-total` can hide
 private mutation. The resulting initializer is compiled as ordinary runtime code.
 
 ### Ownership and lifetimes
 
-`capabilities.sld` determines whether a type is linear and how it is dropped
-or cloned. Every stored field participates. A struct or enum with a linear
-member is linear, regardless of its mutability. Explicit `Move` or `Drop`
-instances can also make a type linear. A generic parameter is linear unless
+`capabilities.sld` determines whether a type is linear and how it is dropped. Every stored field participates. A struct or enum with a linear
+member is linear, regardless of its mutability. A `Drop` instance also makes a type linear. A generic parameter is linear unless
 its contract requires `Copy`.
 
 `Rc T` is the sole owning exception: it can share a linear `T` without
@@ -589,8 +579,7 @@ key and requests it. The producer names its recipe after its imports,
 than the printed copy (`written-in` in `expand.sld`), so a recipe links files
 beside itself wherever its producer is printed. The recipe's path is part of
 the producer's text, and so of its key, since the files it links depend on
-it. The recipe's `include-bytes` were replaced when it was read, so their
-bytes are in the text already. The producer computes the recipe's
+it. The producer computes the recipe's
 expression in a task, as `(write-generated-library (lambda () EXPR))`, so
 the expression may read what the recipe links with `read-resource`. The project builder reads a printed producer back
 (`printed-producer-text`), checks that it has the key it was printed under,

@@ -371,7 +371,7 @@
              ;; handled abort may return even when the body does not.
              (Path-returns-set (Path-row-set (check inner body) (● path row))
                                (● path returns))))
-          ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
+
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((Ann inner _)
            (check path inner))
@@ -405,8 +405,7 @@
     (define (check-call (path Path) (callee Expr) (args (List Expr))) (→ Path) (! compile)
       (match (Pair (● callee term) args)
         ((Pair (Var "prim:rc" _ _) (Cons value (Nil)))
-         (match (lifecycle-rows (● path program) drop-class (● path copy)
-                                (● path constraints) (● value type))
+         (match (drop-rows (● path program) (● path copy) (● path constraints) (● value type))
            ((Err problem) (compile-error (● value loc) problem))
            ((Ok _) (unit)))
          (check path value))
@@ -563,7 +562,7 @@
       (match allowed
         ((Some row)
          (when (ground-type? type)
-           (match (lifecycle-rows (● path program) drop-class (● path copy) (Nil) type)
+           (match (drop-rows (● path program) (● path copy) (Nil) type)
              ((Ok rows)
               (for-each (lambda (performed)
                           (unless (row-within? performed row)

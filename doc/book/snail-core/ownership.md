@@ -16,7 +16,7 @@ A struct or enum containing a linear field is itself linear, including when
 that field can be mutated. Substituting type arguments can therefore change a
 container's grade: `(List I64)` can be shared, while `(List (FnOnce → Unit))`
 is linear. An enum's grade describes all its variants, even when the current
-variant has no fields. A user `Drop` instance or `(deriving Move)` also makes
+variant has no fields. A user `Drop` instance also makes
 a nominal type linear.
 
 `Rc` is the only owning type that can hold linear content without becoming
@@ -185,13 +185,12 @@ Fatal panic, a terminal Wasm trap, and divergence are different from handled
 control flow. They do not promise source-level unwinding. Hosts close the
 failed run or instance; they do not continue an interrupted source activation.
 
-## Cloning
+## Sharing
 
-Sharing a `Copy` value preserves its identity. `clone` is a separate operation,
-selected by `(Clone e T)`, that produces the two owners specified by its class
-contract. For an unrestricted value it can share the value. A linear resource
-needs an explicit cloning implementation or derived cloning of its fields.
-There is no implicit deep clone when a record is assigned to another local.
+Sharing a `Copy` value preserves its identity. The compiler retains counted
+owners when a copy needs its own credit and releases that credit when it is no
+longer needed. There is no general `Clone` class or implicit deep copy. Construct
+a new record or copy a vector when independent mutable state is needed.
 
 Top-level lazy values follow the same sharing rule. Their initializer runs once,
 and every read observes its cached object graph. Copy a vector or construct a

@@ -3,7 +3,10 @@
 
 (struct Handle
   ((id I64))
-  (deriving Move))
+  )
+(instance (Drop (!) Handle)
+  (define (drop (value Handle)) (→ Unit)
+    (match value ((Handle _) (unit)))))
 
 (struct Wrapper
   ((handle Handle))

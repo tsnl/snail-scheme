@@ -47,13 +47,10 @@ as the bytes it holds. Construct syntax explicitly with `(snail shell syntax)`.
 Every generated form is located at the recipe.
 
 A recipe names the files it reads relative to itself, with the forms any
-library uses: `(include-bytes "data/table.txt")` puts a file's bytes in the
-recipe as a byte vector literal, and `(link-file "data/table.txt")` links the
-file for the producer to read with `read-resource`, since the producer
-computes the recipe's expression in a task. Both resolve against the
-recipe's file wherever the build prints and runs its producer, so a recipe in
-a library directory finds its data from any working directory.
-`tests/programs/lib/sample/blob.sld` uses both.
+library uses: `(link-file "data/table.txt")` declares a packaged resource,
+and `read-resource` reads its bytes when the producer runs. A producer can emit
+those bytes as a byte literal in its generated library.
+`tests/programs/lib/sample/blob.sld` demonstrates this flow.
 
 ## Forms
 

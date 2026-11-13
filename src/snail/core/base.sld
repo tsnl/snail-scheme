@@ -6,8 +6,6 @@
    define lambda fn if begin let define-syntax syntax-rules quote : struct enum type
    typeclass
    instance
-   define-instance-set
-   with-instances
    match
    ann
    downcast
@@ -19,7 +17,7 @@
    rc rc-get rc-downgrade weak-rc-upgrade
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
-   not unit panic unsafe-total once call-once Drop drop Clone clone
+   not unit panic unsafe-total once call-once Drop drop
    Num + - * negate abs
    Ord = < <= > >= min max
    Integral quotient remainder modulo
@@ -352,18 +350,6 @@
     ;; The Drop constraint records the effects this cleanup may perform.
     (typeclass (Drop e T)
       (: drop (Fn T → Unit ! e)))
-
-    ;; ---- Cloning ----
-
-    ;; `clone` duplicates a value, the one it is handed and a copy, and
-    ;; performs what copying it does, found from its type as a drop's is:
-    ;; nothing for an unrestricted value, which both halves share; the
-    ;; method of the type's instance; and otherwise a clone of each linear
-    ;; field. A FnOnce runs once, so it has none, and a type its library
-    ;; made linear has one only by an instance. A definition that clones a
-    ;; value of a type variable A requires (Clone e A).
-    (typeclass (Clone e T)
-      (: clone (Fn T → (Pair T T) ! e)))
 
     ;; ---- Lists ----
 

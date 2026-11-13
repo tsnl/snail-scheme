@@ -5,7 +5,10 @@
 
 (struct Model
   ((title String))
-  (deriving Move))
+  )
+(instance (Drop (!) Model)
+  (define (drop (value Model)) (→ Unit)
+    (match value ((Model _) (unit)))))
 
 ;; A suspended closure owns a counted copy of its model. Dropping the
 ;; caller's copy before it runs cannot invalidate that capture.

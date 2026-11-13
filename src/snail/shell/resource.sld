@@ -1,7 +1,6 @@
 ;; Files a library links instead of embedding, as Python's
 ;; importlib.resources names a package's data. `(link-file "path")` ties
-;; the file beside the library's source to the library, as `include-bytes`
-;; names one, but as a dependency rather than as bytes: the build ships the
+;; the file beside the library's source to the library as a dependency. The build ships the
 ;; file beside the payload, and the program holds a Resource, a handle. A
 ;; host reads a file only when the program asks for it, by
 ;; `read-resource`, which performs `resource` and waits for the host as a

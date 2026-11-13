@@ -15,7 +15,6 @@
  (only (snail stage0 forms) test-forms)
  (only (snail core base) test-base)
  (only (snail shell compiler read) test-read)
- (only (snail shell compiler annotations) test-annotations)
  (only (snail shell compiler inputs) test-inputs)
  (only (snail shell compiler expand) test-expand)
  (only (snail shell compiler core) test-core)
@@ -362,8 +361,6 @@
           ((not (= (caddr trapped) 512))
            (report "compiler run" "a trap must be status 2" (cadr trapped)))
           (else #t))))
-
-
 
 (define (tool-run root command program)
   (capture-process
@@ -792,7 +789,6 @@
   (test-forms)
   (test-base)
   (test-read)
-  (test-annotations)
   (test-inputs)
   (test-build root)
   (test-process root)

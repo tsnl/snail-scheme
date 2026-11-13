@@ -3,8 +3,6 @@
    Combine
    Combine.Output
    combine
-   addition
-   description
    generic
    make-adder)
   (import
@@ -13,14 +11,12 @@
     (typeclass (Combine A B)
       (type Output)
       (: combine (Fn A B → Output)))
-    (define-instance-set addition
-      (instance (Combine I64 I64)
-        (type Output I64)
-        (define combine (lambda (a b) (+ a b)))))
-    (define-instance-set description
-      (instance (Combine I64 I64)
-        (type Output String)
-        (define combine (lambda (a b) (string-append (show a) ":" (show b))))))
+    (instance (Combine I64 I64)
+      (type Output I64)
+      (define combine (lambda (a b) (+ a b))))
+    (instance (Combine String String)
+      (type Output String)
+      (define combine (lambda (a b) (string-append a ":" b))))
 
     (define (generic (a A) (b B))
       (→ (Combine.Output A B))
@@ -28,7 +24,5 @@
       (⊨ (Combine A B))
       (combine a b))
 
-    (with-instances (addition)
-                    (define (make-adder (a I64))
-                      (→ (Fn I64 → I64))
-                      (lambda (b) (generic a b))))))
+    (define (make-adder (a I64)) (→ (Fn I64 → I64))
+      (lambda (b) (generic a b)))))

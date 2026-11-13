@@ -25,10 +25,10 @@ String/vector conversions copy character storage in both directions, so changing
 the vector cannot change the string. Use lists to accumulate values of an
 unknown count, then convert once when indexed access is needed.
 
-A byte vector literal, `#u8(137 80 78 71)`, embeds exactly those bytes.
-`(include-bytes "pixel.png")` reads bytes relative to its source file during
-reading; macros cannot compute that path. Use [linked files](#linked-files)
-for large assets that should be read on demand.
+A byte vector literal, `#u8(137 80 78 71)`, embeds exactly those bytes. Use
+[linked files](#linked-files) for external assets. A library producer may read a
+linked resource and emit a byte literal when embedding is appropriate; the
+reader performs no file inclusion.
 
 A reusable closure has type `(Fn Param ... → Result)`, with an optional
 [effect row](effects.md) after `!`. A consuming closure has type
@@ -38,8 +38,7 @@ spellings in arguments, fields, collections and results; there is no `dyn`,
 `impl`, `FnMut` or callable-class hierarchy.
 A named function carries its type where it is defined. Every parameter has a
 mandatory `(name Type)` annotation, and every named function must state its result
-with `(→ Result)`. Optional effect, generic-variable, constraint and
-documentation clauses follow the parameter list at the start of the
+with `(→ Result)`. Optional effect, generic-variable and constraint clauses follow the parameter list at the start of the
 definition, before its body:
 
 ```scheme
@@ -177,49 +176,6 @@ Patterns are `_`, variables, literals (numbers, characters, strings,
 booleans) and constructor patterns, nested freely. `(List T)` is an ordinary
 enum with cases `Nil` and `Cons`.
 
-## Annotations
-
-A separate type declaration (`:`), `struct`, `enum`, `type`, `typeclass`,
-`effect`, `extern`, a struct or enum field, an enum case, a typeclass member
-or an effect operation can end with an optional
-`(annotations ...)` list. Omitting it and writing an empty list both leave
-the declaration undocumented. Each entry is an annotation application;
-its own parser establishes its argument types and meaning.
-
-```scheme
-{{#include ../../../tests/programs/annotations.sld:annotations}}
-```
-
-The first supported annotation is `(doc "text")`. Its argument must be a
-literal string. Repeated `doc` entries retain their source order and are
-joined with a newline when displayed. Comments are not documentation
-metadata, and annotation arguments are not evaluated. Unknown names and
-malformed arguments are compile errors; adding another annotation requires
-an argument parser, allowed targets and a consumer. Library-defined annotation
-kinds and executable attribute macros are not implemented.
-
-Metadata belongs to the canonical declaration; import prefixes and renames
-do not change its owner. A field belongs to its declaring constructor and
-field name, independently of the generated replacement functions. Those
-functions already carry their field origin, which tooling can follow for
-documentation. Metadata is retained when a library is reused by an
-incremental build and does not contribute to type identity, wire schemas,
-ownership, field order or runtime layout.
-
-Function and value documentation belongs in the definition's leading header,
-after its type clauses and before its initializer or body. For example,
-`(define count (→ I64) (annotations (doc "A count.")) 3)` puts metadata
-before the initializer. A macro can emit that annotated definition. For
-no-body declarations such as class methods and foreign functions, metadata
-stays on their separate declaration. Raw macro arguments and ordinary
-expressions are not annotation slots: a function named `annotations` remains
-an ordinary function. In a leading definition header, `(annotations)` or a
-list of annotation applications is metadata. Wrap a call of that same shape
-in `begin` to use it as the first body expression or initializer. The reader is unchanged; `:` is an identifier bound to
-the signature form, not special punctuation. In an enum's final clause,
-`annotations` is reserved for its metadata container, like `deriving` is
-reserved for derived instances.
-
 ## Typeclasses
 
 A typeclass declares methods over its parameters; instances may be generic
@@ -273,10 +229,9 @@ decide:
 
 Fetching from a `(Logged Table)` performs `log`, and from a
 `(Logged Directory)`, `log` and `output-port`. Ordinary class rows may name control
-effects; specialization and control lowering preserve them. `Drop` and `Clone` are classes over a row too
-([releasing](ownership.md#releasing)), whose rows are found from a type's
-structure where it has no instance. These lifecycle classes still prohibit
-control effects, since cleanup must finish.
+effects; specialization and control lowering preserve them. `Drop` is also a class over a row
+([releasing](ownership.md#releasing)), derived from the type's structure when
+it has no instance. Cleanup must finish, so its row cannot contain control effects.
 
 Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
 `Fractional`; `Show` converts values to text. These classes all take a
@@ -352,34 +307,6 @@ Members have kind `Type`. Associated parameters, defaults, effect-row
 members, and higher-kinded members are not supported. A concrete projection
 without an enclosing requirement is also currently rejected; this is not
 a general type-function evaluator.
-
-### Named instance sets
-
-```scheme
-(define-instance-set mixed-addition
-  (instance (Add (!) I64 F64)
-    (type Output F64)
-    (define add (lambda (a b) (+ (i64->f64 a) b)))))
-
-(with-instances (mixed-addition)
-  (add (ann 1 I64) 2.5))
-```
-
-A set is an importable, exportable syntax binding. Importing it does not
-activate its instances. `with-instances` activates sets for its expression
-body or top-level declaration group. Activation adds to the enclosing
-scope; it does not shadow instances. Repeating the same set is harmless.
-Distinct active heads that overlap on inputs are errors, even if their
-outputs or rows differ. Inactive alternatives may coexist. A set's methods see their containing set
-and any surrounding active sets.
-
-Unnamed instances remain available as before and cannot be overridden by
-a set. A matching generic requirement supplies its existing evidence.
-Concrete choices in a checked definition, including a returned closure,
-remain fixed when callers activate another set; generic requirements
-receive the evidence chosen by each caller. Activation itself performs no
-effects and grants no effect permission. `Drop` and `Clone` cannot be placed
-in sets, and the compiler's structural `Copy` rule remains unchanged.
 
 ## Effects
 
@@ -493,7 +420,7 @@ package's data, and the library reads it when it needs it:
 ```
 
 - **Found beside the library.** The path is relative to the file the form is
-  written in, as `include-bytes`'s is, a `generate-library` recipe's for a
+  written in, or the `generate-library` recipe's directory for a
   producer's own forms, and may not leave its directory: `.`
   and `..` are resolved, and an absolute path, an empty name or a path that
   climbs out is an error. A file that is missing fails the build with the

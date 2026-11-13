@@ -747,7 +747,7 @@
           ((Handle effect implementations body) (emit-handle fn expr effect implementations body))
           ((BoxAny inner) (list (to-any (● fn module) (● inner type) (emit1 fn inner))))
           ((Downcast inner target) (list (emit-downcast fn inner target (● expr type))))
-          ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
+
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((Ann inner _) (emit fn inner tail?)))))
 
@@ -1433,8 +1433,6 @@
         ((Node (Cons (Word head) _)) (or (string=? head "local.get") (string=? head "global.get")))
         (_ #f)))
 
-
-
     ;; The program value a callee names, when it is neither a local nor a
     ;; definition.
 
@@ -1728,8 +1726,6 @@
     (define (sequence-raw-type (m Module) (type Type)) (→ String) (! mut)
       (array-type m (element-rep m (sequence-element type))))
 
-
-
     (define (sequence-type (m Module) (element Type)) (→ String) (! mut)
       (let ((array (array-type m (element-rep m element)))
             (key (string-append "vector." (type-key element))))
@@ -1748,8 +1744,6 @@
                                                                              (ref-wat
                                                                               array))))))))))))))
 
-
-
     (define (sequence-data (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
       (let ((element (sequence-element type)))
         (if (shared-type? (program-of m) element)
@@ -1759,16 +1753,12 @@
     (define (sequence-length (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
       (wat "array.len" (sequence-data m type value)))
 
-
-
     (define (sequence-owned (m Module) (type Type) (data Wat)) (→ Wat) (! mut)
       (let ((element (sequence-element type)))
         (if (shared-type? (program-of m) element)
             (wat "struct.new" (id (sequence-type m element))
                  (wat "i64.const" (int 1)) (code-of m (sequence-destructor m element)) data)
             data)))
-
-
 
     (define (sequence-copied (m Module) (type Type) (data Wat)) (→ Wat) (! mut)
       (let ((element (sequence-element type)))
@@ -2021,8 +2011,6 @@
                                                (sequence-data m (TCon "Vector" (list element))
                                                               (wat "local.get" (Word "$from"))))))
                                   (vector-storage-bindings m element)))))
-
-
 
     ;; ---- Fields ----
 
@@ -3059,8 +3047,6 @@
                               (Pair "copier" (evidence-copy-type m))
                               (Pair "retain" (retain-helper m)))))
 
-
-
     ;; Handled frames contain another owned continuation. Both entries read
     ;; that same object, so updating it establishes both execution and
     ;; cancellation contexts together. Source values in captures stay intact.
@@ -3131,7 +3117,6 @@
                               (Pair "retain" (retain-helper m))
                               (Pair "frames" (activate-continuation m))
                               (Pair "release" (release-activation m)))))
-
 
     (define (evidence-copy-type (m Module)) (→ String) (! mut)
       (match (known-type m "evidence.copy")
@@ -3261,8 +3246,6 @@
                          (implementations (List (Pair String Expr))) (body Expr))
       (→ (List Wat)) (! mut)
       (emit-control-handle fn expr effect implementations body))
-
-
 
     ;; A new evidence node in a local: the local's name, and the instruction
     ;; that sets it to the node holding the handler.
