@@ -1,7 +1,7 @@
 {
   "base_commit": "084ad1188967c2604f64d099b30ba1eb8fb3b5c2",
   "cpu_affinity": "2",
-  "scope": "V8 microbenchmarks of local wrappers; includes wrapper allocation, initial misses, steady calls and final release. Scalar keys. Not a whole-compiler speedup claim.",
+  "scope": "V8 microbenchmarks of local wrappers; includes wrapper allocation, initial misses, steady calls and final release. Scalar keys. Not a whole-compiler speedup claim. LRU capacity fits all keys; no eviction pressure. Forced GC is outside timing; eventual GC reclamation is not measured.",
   "artifacts": {
     "fixture": {
       "path": "tests/benchmarks/function-cache.sld",
@@ -1577,5 +1577,7 @@
         }
       ]
     }
-  ]
+  ],
+  "implementation_commit": "4c378550ba8dace822524d1372a204cd0c3cce78",
+  "implementation_tree": "dc0f1ad7c497e2e88ee685983c35a0963cb37544"
 }
