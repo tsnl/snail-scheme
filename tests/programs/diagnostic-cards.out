@@ -1,5 +1,0 @@
-"╭─ notice\n│\n│  λ 😀\ttext\n╰─"
-"╭─ \n│\n│  \n╰─"
-"╭─ two\n│  lines\n│\n│  body\n╰─"
-"╭─ error\n│\n│  main.sld:3:7: expected I64, found String\n╰─\n\n╭─ error\n│\n│  library.sld: first line\n│  \n│  last line\n│  \n╰─"
-"main.sld:3:7: expected I64, found String\nlibrary.sld: first line\n\nlast line\n"

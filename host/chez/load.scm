@@ -22,7 +22,8 @@
     (cond [(file-exists? (string-append root "/host/chez/" path ".sld"))
            (string-append root "/host/chez/" path ".sld")]
           [(or (equal? name '(snail shell compiler))
-               (equal? name '(snail shell console))
+               (equal? name '(snail shell log))
+               (equal? name '(snail shell json))
                (equal? name '(snail shell diagnostic))
                (and (>= (length name) 3) (equal? (list-head name 3) '(snail shell compiler))))
            (string-append root "/src/" path ".sld")]

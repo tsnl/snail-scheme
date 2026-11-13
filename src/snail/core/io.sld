@@ -56,7 +56,10 @@
    monotonic-nanoseconds
    command-line
    environment-variable
-   working-directory)
+   working-directory
+   write-error
+   error-terminal?
+   exit)
   (import
    (snail core base))
   (begin
@@ -611,6 +614,27 @@
                                 (lambda (position)
                                   (argument-character argument (i64->i32 position))))))
            (iota (i32->i64 (argument-count)))))
+
+    ;; ---- Diagnostics and exit ----
+
+    ;; Diagnostics have their own stream. A deliberate exit flushes owned
+    ;; ports through the runtime, without the panic reporter's decoration.
+    (extern support-write-error
+            "snail.core.support"
+            "snail:io/write-error"
+            (Fn String → Unit ! mut))
+    (extern support-error-terminal "snail.core.support" "snail:io/error-terminal" (Fn → I32))
+    (extern support-exit "snail.core.support" "snail:process/exit" (Fn I32 → Unit ! mut))
+
+    (define (write-error (text String)) (→ Unit) (! mut)
+      (support-write-error text))
+
+    (define (error-terminal?) (→ Bool)
+      (= (support-error-terminal) 1))
+
+    (define (exit (status I32)) (→ A) (! mut) (∀ A)
+      (support-exit status)
+      (panic "internal error: process exit returned"))
 
     ;; ---- Environment ----
 

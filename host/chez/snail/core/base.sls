@@ -30,6 +30,7 @@
    not
    unit panic drop unsafe-total
    i64-and i64-or i64-xor i64-shift-left i64-shift-right/logical
+   i32-and i32-shift-right/logical char->i32
    i64->string string->i64 u8->i32 i32->u8 i32->i64 i64->i32 digit-value
    Option Some None Result Ok Err Never absurd Pair
    Cons Nil list null? length reverse append map map-indexed for-each filter fold-left fold-right
@@ -105,6 +106,10 @@
   (define (i64-xor a b) (bitwise-xor a b))
   (define (i64-shift-left a n) (bitwise-arithmetic-shift a n))
   (define (i64-shift-right/logical a n) (bitwise-arithmetic-shift a (- 0 n)))
+  (define i32-and bitwise-and)
+  (define char->i32 char->integer)
+  (define (i32-shift-right/logical a n)
+    (bitwise-arithmetic-shift (modulo a 4294967296) (- 0 (modulo n 32))))
 
   (define (i64->string n) (number->string n))
 

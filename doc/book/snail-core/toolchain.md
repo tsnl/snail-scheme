@@ -17,14 +17,35 @@ compiler-generated WAT; it does not provide project publication guarantees.
 Source-level `run` uses a private build directory by default and removes it when
 the process finishes.
 
-Compiler invocations and project build failures print one console card per
-source error, preserving its file, line and column before the message. The pure
-`(snail shell console)` library draws the cards; `(snail shell diagnostic)`
-adapts the compiler's structured diagnostics. Cards use Unicode box drawing
-with an open right edge so long lines and wide characters need no display-width
-calculation. They contain no ANSI escapes, so redirected output stays readable.
-The compiler's plain diagnostic strings and the editor's structured reports
-are unchanged.
+Compiler invocations and project build failures use the small text style of
+[`tsnl/log`](https://github.com/tsnl/log/blob/main/include/tsnl/log.hpp), using
+full `ERROR`, `WARNING` and `INFO` labels and an ellipsis (`…`) for notes, with continuation lines
+indented two spaces. `(snail shell log)` owns this width-independent formatter;
+`(snail shell diagnostic)` adapts the compiler's errors. Only the marker is
+colored: red for errors, yellow for warnings, blue for information and gray for notes.
+Color is automatic on stderr terminals; `NO_COLOR` disables it, `FORCE_COLOR=1`
+forces it, and `FORCE_COLOR=0` or `TERM=dumb` disables automatic color.
+The compiler currently emits errors; the logger's other levels are available
+to callers without adding compiler warning or information passes.
+
+`snail build`, `snail run`, and contributor commands such as
+`scripts/snail-tool wat` accept `--error-format=text|json` before the project or
+source. `--release` and the format flag can appear in either order for a build.
+The default is text. JSON writes one compact object per diagnostic to stderr,
+with no prefixes or colors, and retains exit status 1:
+
+```json
+{"severity":"error","message":"unbound identifier missing","source":{"file":"main.sld","line":3,"column":7}}
+```
+
+The schema is the resident builder's: `severity`, the original `message`, and
+`source`, either a file/line/column point or `null`. A file-wide diagnostic
+includes the file in its message and has `source: null`. JSON escapes embedded
+newlines and control characters, so each record occupies one physical line.
+Successful stdout (build paths, WAT or schemas) keeps its existing format.
+Arguments after a run target or source remain application arguments, including
+any that resemble compiler flags. The resident builder/editor protocol and
+plain diagnostic-string API keep their existing formats.
 
 Compiler contributors also have `build/snail`, which Cargo builds from
 `crates/snail`: a native executable that embeds wasmtime. Its subcommands

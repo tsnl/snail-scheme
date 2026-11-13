@@ -24,15 +24,24 @@
 
     (define (compile-command-line) (→ Unit) (! mut fs)
       (match (command-line)
-        ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
+        ((Cons _ arguments) (compile-arguments (TextErrors) arguments))
+        (_ (report-error (TextErrors) "compiler command line is missing"))))
+
+    (define (compile-arguments (format ErrorFormat) (arguments (List String)))
+      (→ Unit) (! mut fs)
+      (match arguments
+        ((Cons "--error-format=json" rest) (compile-arguments (JsonErrors) rest))
+        ((Cons "--error-format=text" rest) (compile-arguments (TextErrors) rest))
+        ((Cons mode (Cons source (Cons output (Cons generated directories))))
          (match (compiling (lambda () (compile-mode mode source output generated directories)))
            ((Ok _) (unit))
            ((Err (Requested request))
             (publish-request generated request)
-            (panic "compiler requires an input"))
+            (report-error format "compiler requires an input"))
            ((Err (Failed diagnostics))
-            (panic (string-append "compilation failed\n\n" (diagnostics->console diagnostics))))))
-        (_ (panic "usage: compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]"))))
+            (report-diagnostics format diagnostics))))
+        (_ (report-error format
+                         "usage: compile [--error-format=text|json] wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]"))))
 
     ;; Writes what `mode` asks for: the program's schemas, a module for each
     ;; library, or the whole program.

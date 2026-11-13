@@ -34,6 +34,8 @@ the runtime interfaces.
 | `(snail shell utf8)` | `string->utf8`, and `utf8->string`, which rejects ill-formed bytes as a fatal `TextDecoder` does, giving the offset of the first bad sequence. |
 | `(snail shell compiler sha256)` | `sha256` over bytes, giving the 32-byte digest, and `bytes->hex`, the lowercase hex Node's `digest('hex')` writes; the compiler names linked files with it, the same on stage 0 as in Wasm. |
 | `(snail shell json)` | The `Json` value, with integer numbers and objects as ordered members, and `json->string`, which writes what `JSON.stringify` writes for the same value. |
+| `(snail shell log)` | `Level` (`Error`, `Warning`, `Info`, `Note`), the pure width-independent `log->string` formatter, and `log-color?`, the terminal/environment color policy. |
+| `(snail shell diagnostic)` | Text and JSON-lines rendering of source errors, the resident builder's JSON schema, and explicit stderr reporting and failure exit ([toolchain diagnostics](toolchain.md)). |
 | `(snail shell json read)` | `string->json`, which reads JSON text whose numbers are integers back as a `Json`, and `json-member`. A library of its own, so that a program that only writes JSON does not carry it. |
 | `(snail shell wire)` | `Serialize`, `Deserialize` and the byte encoding. |
 | `(snail shell integer)`, `(snail shell rational)` | Explicit typed APIs for arbitrary-precision integers and rationals. |
@@ -258,6 +260,14 @@ time, but Rust's standard library exposes them on WASI only as unstable
 API, so `FileStatus` has none of these yet.
 `(monotonic-nanoseconds)`, of the `clock` effect, reads WASI's monotonic
 clock, from an origin the host chooses; only differences mean anything.
+
+For command-line boundaries, `(write-error text)` writes directly to stderr
+and `(exit status)` flushes owned ports and pending stdout before terminating
+the invocation. Both have effect `mut`; an intentional exit adds no panic
+message. `(error-terminal?)` reads whether inherited stderr is a terminal.
+The logger uses this query alongside `NO_COLOR`, `FORCE_COLOR` and `TERM` to
+choose color. These operations belong to `(snail core io)` and have the same
+contract on Chez and WASI hosts.
 
 ## Git ignore snapshots
 
