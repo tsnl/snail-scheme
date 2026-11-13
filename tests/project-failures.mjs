@@ -22,6 +22,21 @@ async function throughTheCommandLine() {
   write('project.datum', '((build-target main (program (entry "main.sld"))))');
   write('main.sld', '(import (snail core base)) (define (main) (→ Unit) (drop (ann "wrong type" I64)))');
   await assert.rejects(build('main'), /expected I64, found String/);
+  // Each recovered error has a card of its own; redirected stderr contains
+  // ordinary Unicode text without terminal escape sequences.
+  write('main.sld', `(import (snail core base))
+    (define (first) (→ I64) (missing-first))
+    (define (second) (→ I64) (missing-second))`);
+  await assert.rejects(build('main'), error => {
+    assert.equal(error.code, 1);
+    assert.equal(error.stdout, '');
+    assert.match(error.stderr, /^snail: build failed\n\n╭─ error\n/);
+    assert.equal(error.stderr.match(/╭─ error/g)?.length, 2);
+    assert.equal(error.stderr.match(/╰─/g)?.length, 2);
+    assert.match(error.stderr, /main\.sld:2:.*missing-first[\s\S]*main\.sld:3:.*missing-second/);
+    assert.ok(!error.stderr.includes('\x1b'));
+    return true;
+  });
   for (const name of ['error-control-implementation', 'error-once-capture']) {
     write('main.sld', fs.readFileSync(join(root, `tests/programs/${name}.sld`), 'utf8'));
     const expected = fs.readFileSync(join(root, `tests/programs/${name}.err`), 'utf8').trim();
