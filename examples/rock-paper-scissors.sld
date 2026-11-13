@@ -10,28 +10,25 @@
   (Scissors))
 
 (instance (Show (!) Action)
-  (define (show action)
+  (define (show (action Action)) (→ String)
     (match action
       ((Rock) "Rock")
       ((Paper) "Paper")
       ((Scissors) "Scissors"))))
 
-(: decode-action (impl (Fn I64 -> Action)))
-(define (decode-action raw-action)
+(define (decode-action (raw-action I64)) (→ Action)
   (match raw-action
     (0 (Rock))
     (1 (Paper))
     (2 (Scissors))
     (_ (panic "Invalid raw-action"))))
 
-(: random-action (impl (Fn Random -> Action)))
-(define (random-action rng)
+(define (random-action (rng Random)) (→ Action)
   (let* ((action (modulo (random-value rng) 3))
          (action (decode-action action)))
     action))
 
-(: main (impl (Fn -> Unit ! console)))
-(define (main)
+(define (main) (→ Unit) (! input-port output-port)
   (let* ((rng (make-random 128))
 
          (_ (display (random-action rng)))
@@ -60,10 +57,7 @@
 
          (_ (display "Enter a string: "))
          (text (read-line))
-         (_ (display (datum->string (DString text))))
-         (_ (display "\n"))
-         )
+         (_ (display (repr text)))
+         (_ (display "\n")))
 
     (display "Hello, world\n")))
-
-(main)
