@@ -394,7 +394,7 @@
       (match type
         ((TCon "Rc" _)
          (compile-error loc
-                        "cache and lru-cache do not support Rc results; return WeakRc instead. Dedicated weak-entry rc-cache / lru-Rc-cache wrappers are proposed, not implemented"))
+                        "cache and lru-cache do not support Rc results; return WeakRc instead. Dedicated weak-entry rc-cache / lru-rc-cache wrappers are proposed, not implemented"))
         (_ (check-cache-value program type loc))))
 
     (define (check-cache-value (program Program) (type Type) (loc Loc)) (→ Unit) (! compile)

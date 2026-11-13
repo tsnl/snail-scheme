@@ -148,7 +148,7 @@ a key wins, and each call returns its own computed result. There is no in-progre
 entry or recursive-cycle guard. Wrapping a function does not redirect its original
 recursive references through the wrapper.
 
-**Possible follow-up, not implemented:** dedicated `rc-cache` and `lru-Rc-cache`
+**Possible follow-up, not implemented:** dedicated `rc-cache` and `lru-rc-cache`
 wrappers could support `Rc T` results without keeping their payloads alive. Their
 maps would store only `WeakRc T`: upgrade a live hit to a strong result, or
 recompute after a dead hit. A miss holds and returns the callback's strong result
