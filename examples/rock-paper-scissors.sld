@@ -2,7 +2,6 @@
  (snail core base)
  (snail core io)
  (snail shell random)
- (snail shell compiler)
  (snail shell text))
 
 (enum Action
