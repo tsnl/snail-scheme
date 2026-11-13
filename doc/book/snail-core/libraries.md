@@ -53,7 +53,7 @@ the runtime interfaces.
 | `(snail shell http)`, `(snail shell http exchange)` | An HTTP/1.1 subset: request heads and targets, response and stream heads, and one exchange over a connection ([HTTP protocol](http.md)). |
 | `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource`, which a task waits on, through the `resource` effect ([linked files](types.md#linked-files)). |
 | `(snail shell watch)` | `inventory`, each path under some directories with a fingerprint of its kind, size and modification time, and `inventory-changes`, the paths two inventories disagree on: what a watcher reconciles when a native watch may have missed an edit. `watch-tree` and `next-hint` are Node's recursive watch of a tree, as hints that something under it changed, which only say when to take the next inventory (the `hints` effect, on Node only). |
-| `(snail shell wasm)` | Loading WebAssembly modules and plugins while a program runs ([below](#loading-webassembly)). |
+| `(snail shell wasm)` | Explicit WebAssembly linking for the engine ([below](#loading-webassembly)). |
 | `(snail shell engine)` | The engine: `run-manifest` links a program compiled one library at a time from its `modules.json`, through `(snail shell wasm)`, and runs it, reading each object through the `linked-content-store` effect, `read-object : (Fn String → (Option Bytes) ! tasks)`, which each entry program handles once. Linking and each read of a linked file are tasks of the engine's own scheduler, which `engine-turn` and its siblings drive together with the program's. The native entry, `bootstrap/engine.sld`, reads files; stage 0 builds it, and Node and wasmtime start it for a manifest ([the native executable](bootstrap.md#the-native-executable)). |
 
 ### Shell: applications
@@ -288,79 +288,17 @@ has no watcher or mutable cache.
 
 ## Loading WebAssembly
 
-`(snail shell wasm)` loads modules while a program runs, on the Node runner,
-into a program compiled one library at a time ([loading modules at run
-time](compilers.md#loading-modules-at-run-time)). Every failure is a
-`LoadError`, and `load-error-message` describes one. The contracts below
-summarize exported functions; they are comment notation, not separate `(:)`
-declarations.
+`(snail shell wasm)` supplies the engine's explicit linker on Node, browser and
+Wasmtime. Compile bytes with `compile-bytes`, inspect `module-imports`, then
+supply `link-module` with one provider per import. `(ExportOf instance name)`
+selects an export, `(HostProvided)` selects a host service, `(ConstantOf n)`
+provides a constant function, and `(Unprovided)` traps if called.
 
-```scheme
-(enum LoadError
-  (Unreadable ((file String)))         ; no such file
-  (InvalidManifest ((file String)))    ; not a modules.json
-  (InvalidModule ((file String)))      ; not a WebAssembly module
-  (NameTaken ((name String)))          ; a module of that name is linked
-  (LinkFailed ((name String)))         ; an import has no provider of its type
-  (MissingExport ((name String)))
-  (NotDynamic ((name String)))         ; exported, but not with `dynamic`
-  (SignatureMismatch ((name String)))) ; compiled with other types
-
-;; Exported function contracts (summary notation, not declarations):
-;; load-module: (Fn String String → (Result Module LoadError) ! wasm fs)
-;; module-export: (Fn Module String → (Result Funcref LoadError) ! wasm)
-;; unsafe-cast: (∀ (A) (Fn Funcref → A))
-;; load-plugin: (Fn String → (Result Plugin LoadError) ! wasm fs)
-;; plugin-function: (∀ (A) (Fn Plugin String → (Result A LoadError) ! wasm))
-;; compile-bytes: (Fn Bytes → (Option Compiled) ! wasm)
-;; module-imports: (Fn Compiled → (List Import) ! wasm) ; (Import from name kind)
-;; link-module: (Fn String Compiled (List Provider) → (Result Module LoadError) ! wasm)
-;; name-instance: (Fn Module String → Bool ! wasm)
-;; replace-instances: (Fn (List (Pair String Module)) → Bool ! wasm)
-;; run-export: (Fn Module String I64 → (Result I64 LoadError) ! wasm)
-```
-
-`(load-module name file)` links the module in `file` into the program's
-own namespace under the library name `name` and runs its `main`;
-`module-export` gives a function it exports, which `unsafe-cast` makes a
-function of the expected type, unchecked. `(load-plugin manifest)` links a
-plugin, the program a `modules.json` names, into a namespace of its own,
-sharing the runtime. `(plugin-function plugin name)` gives the function the
-plugin exposes as `name` with `(expose name "symbol" dynamic)`, at the
-expected type, a function of data; it refuses a function whose signature
-is not that type's. Values cross by reference. A dynamic export is pure,
-a plugin's `main` runs under its effects' defaults, and a trap in a plugin
-ends the program. A loader that chooses a module's providers itself, as an
-engine linking a program would, compiles the bytes, lists the imports, and
-links with one `Provider` per import in import order: `(ExportOf instance
-name)`, `(HostProvided)` for a function of the host's own, `(ConstantOf n)`
-for a function answering `n`, or `(Unprovided)` for one that fails if
-called; `run-export` calls an export of no argument or one `I64`, such as
-`main`, for its result
-([linking by hand](compilers.md#linking-by-hand)).
-
-`replace-instances` publishes a complete library namespace in one synchronous
-step, on both JavaScript hosts and Wasmtime. Link the candidate modules first,
-then supply every name that should remain visible. Omitted names disappear;
-an empty list clears all library names. Existing instances and imports retain
-their identity and remain usable through their handles. Publication does not
-link, initialize or invoke an instance, and does not transfer application state.
-
-Empty names, duplicate names, invalid instance handles and reserved names
-(`snail.runtime.*` and `snail.core.support`) reject the entire replacement and
-return false, leaving the previous namespace intact. The runtime binding and
-private plugin namespaces live outside this replacement. The scalar host
-protocol stages one candidate with `prepare-names` and `provide-instance`, then
-consumes it with `replace-names`. A rejected entry discards the candidate;
-committing an absent candidate fails. The default handler stages without
-suspension or callbacks into loaded code, so overlapping candidates need no
-registry. A fresh preparation discards any previous candidate.
-
-This operation is a prerequisite for the browser engine migration tracked in
-[#660](https://github.com/tsnl/snail-scheme/issues/660). The current browser
-reload path still uses its existing host loader; adopting this publication
-boundary in the engine is separate work. `tests/programs/wasm-replacement.sld`
-exercises the contract on Node, Wasmtime and Chromium.
+`module-export` returns a `Funcref`; `unsafe-cast` constructs an `Fn` at the
+caller's asserted type. `run-export` calls a scalar export directly.
+`LoadError` has two cases: `LinkFailed` and `MissingExport`.
+`loading-program` refers to the loader, and `bind-runtime` selects the loaded
+program's runtime for staging memory. See [linking by hand](compilers.md#linking-by-hand).
 
 ## Wire types
 

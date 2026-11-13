@@ -138,8 +138,6 @@
    type-id
    case-type-id
    any-type-id
-   wide-hash
-   wide-type-id
    wire-schemas
    strong-components)
   (import
@@ -172,8 +170,7 @@
 
     (define empty-row (→ Type) (TRow (Nil) (None)))
 
-    ;; The signature a callable holds, including `(fn A → B ! e)` code; any
-    ;; other type is its own.
+    ;; The signature a callable holds; any other type is its own.
 
     (define (fn-arrow (type Type)) (→ Type)
       (match (callable-arrow type)
@@ -182,14 +179,14 @@
 
     ;; ---- Procedure types ----
 
-    ;; Fn is a reusable closure, FnOnce consumes its captures, and fn is
-    ;; capture-free code. Each contains the same argument/result/effect shape.
+    ;; Fn is a reusable closure; FnOnce consumes its captures. Both contain
+    ;; the same argument/result/effect shape.
 
     (define (callable-kind (type Type)) (→ (Option String))
       (match type
         ((TFun _ _ _) (Some "Fn"))
         ((TCon "FnOnce" _) (Some "FnOnce"))
-        ((TCon "fn" _) (Some "Fn"))
+
         (_ (None))))
 
     (define (callable-arrow (type Type)) (→ (Option Type))
@@ -233,7 +230,6 @@
     (define core-keywords (→ (List String))
       (list "define"
             "lambda"
-            "fn"
             "if"
             "begin"
             "let"
@@ -275,7 +271,7 @@
             (Pair "Vector" 1)
             (Pair "FnOnce" 1)
             (Pair "Fn" 0)
-            (Pair "fn" 1)))
+            ))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source
     ;; name. Text is scanned as a vector of characters, which both hosts index
@@ -324,8 +320,7 @@
         ((TFun params result row) (arrow->string "Fn" params result row))
         ((TCon "FnOnce" (Cons (TFun params result row) (Nil)))
          (arrow->string "FnOnce" params result row))
-        ((TCon "fn" (Cons (TFun params result row) (Nil)))
-         (arrow->string "fn" params result row))
+
         ((TCon name (Nil)) (short-name name))
         ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
         ((TRow _ _) (string-append "{" (row->string type) " }"))
@@ -591,15 +586,10 @@
        ((name String)
         (types (List Type))
         (evidence (List Evidence))))
-      ;; A closure. `captures?` says whether it may read the locals around
-      ;; it: the surface `lambda` may, a `fn` may not, and neither may a
-      ;; top-level function, which has none around it. The checker refuses a
-      ;; closure that reads one it may not (`check-closed`), so a closure
-      ;; marked so has no environment wherever it is compiled.
       (Lambda
        ((params (List String))
         (body Expr)
-        (captures? Bool)))
+        ))
       (App
        ((callee Expr)
         (args (List Expr))))
@@ -655,7 +645,7 @@
 
     (define (lambda-expr? (expr Expr)) (→ Bool)
       (match (● expr term)
-        ((Lambda _ _ _) #t)
+        ((Lambda _ _ ) #t)
         (_ #f)))
 
     ;; Immediate structural children, in source order, including lambda
@@ -665,7 +655,7 @@
       (match (● expr term)
         ((Lit _) (Nil))
         ((Var _ _ _) (Nil))
-        ((Lambda _ body _) (list body))
+        ((Lambda _ body ) (list body))
         ((App callee args) (Cons callee args))
         ((FieldRead record _ _) (list record))
         ((If test then otherwise) (list test then otherwise))
@@ -848,8 +838,7 @@
     ;; What a unique value name denotes. A definition's scheme is its
     ;; signature's, or none until it is inferred, and `signature` is where
     ;; that `(: name type)` was written; `function?` says its value is a
-    ;; lambda, which a top-level definition's has no environment around, so
-    ;; its name has type fn where one is expected. An instance method has
+    ;; lambda, whose code can be called directly. An instance method has
     ;; its class method's scheme and no signature of its own, and like a
     ;; default no program names it. Internal field operations describe
     ;; path reads, pure struct copies, writes and swaps. Only the pure
@@ -921,9 +910,7 @@
 
     ;; Definitions contain functions or lazy runtime values. Entry names the
     ;; root program's optional main; libraries have no startup phase. An
-    ;; exposed function is exported under `symbol`; a `dynamic` one is
-    ;; exported instead for programs that load it while they run, behind a
-    ;; wrapper that takes and returns Any values, beside its signature.
+    ;; exposed function is exported under `symbol` through a host adapter.
     (enum Item
       (Define
         ((name String)
@@ -934,7 +921,6 @@
       (Expose
        ((name String)
         (symbol String)
-        (dynamic Bool)
         (loc Loc))))
 
     ;; The value of each definition among `items`, by name.
@@ -1141,37 +1127,8 @@
     (define (any-type-id (program Program) (type Type)) (→ I64)
       (type-id (type-identity program type)))
 
-    ;; The same identity in 64 bits, for a dynamic export's signature: it is
-    ;; compared once, when a program looks the function up, rather than
-    ;; carried by every value.
-
-    (define (wide-type-id (program Program) (type Type)) (→ I64)
-      (wide-hash (type-identity program type)))
-
     (define (type-identity (program Program) (type Type)) (→ String)
       (string-append (type-key type) "\n" (type-schema program type (Nil) (Nil))))
-
-    ;; FNV-1a in 64 bits over the code points, as a signed I64. The state is
-    ;; two unsigned 32-bit halves, high and low, so that every product stays
-    ;; below 2^42 and both hosts compute the same value; the prime is
-    ;; 2^40 + 435, whose 2^40 shifts the low half eight bits into the high.
-
-    (define (wide-hash (text String)) (→ I64)
-      (let ((state (vector-fold (lambda (state c) (wide-step state (char->integer c)))
-                                (Pair 3421674724 2216829733)
-                                (string->vector text))))
-        (+ (* (if (>= (● state first) 2147483648)
-                  (- (● state first) 4294967296)
-                  (● state first))
-              4294967296)
-           (● state second))))
-
-    (define (wide-step (state (Pair I64 I64)) (code I64)) (→ (Pair I64 I64))
-      (let* ((low (i64-xor (● state second) code)) (product (* low 435)))
-        (Pair (i64-and (+ (+ (* (● state first) 435) (quotient product 4294967296))
-                          (* (i64-and low 16777215) 256))
-                       4294967295)
-              (i64-and product 4294967295))))
 
     (define (case-schema (program Program) (case Case) (visiting (List String))) (→ String)
       (let* ((data (program-type program (● case type)))
@@ -1397,9 +1354,7 @@
       (define test-core
         (lambda () (expect (short-name "snail.core.base:map") "map")
                 (expect (label-union (list "b" "d") (list "c" "a" "b")) (list "a" "b" "c" "d"))
-                (expect (wide-hash "") -3750763034362895579)
-                (expect (wide-hash "a") -5808556873153909620)
-                (expect (wide-hash "foobar") -8821353812377114648)
+
                 (test-type-identities)
                 (test-hidden-effects)
                 (test-references)))
@@ -1431,7 +1386,7 @@
                           (wrap (lambda (term) (Expr term unchecked at)))
                           (read (lambda (name) (wrap (Var name (Nil) (Nil)))))
                           (body (wrap (App (read "later") (list (read "first") (read "last")))))
-                          (handler (wrap (Lambda (list "unused") (read "first") #t)))
+                          (handler (wrap (Lambda (list "unused") (read "first") )))
                           (expr (wrap (Handle "effect" (list (Pair "operation" handler)) body))))
                      (expect (expr-references expr) (list "first" "later" "last")))))
 

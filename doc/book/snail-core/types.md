@@ -32,8 +32,7 @@ reader performs no file inclusion.
 
 A reusable closure has type `(Fn Param ... → Result)`, with an optional
 [effect row](effects.md) after `!`. A consuming closure has type
-`(FnOnce Param ... → Result)`. Lowercase `(fn Param ... → Result)` is a
-noncapturing code pointer. These are built-in type formers, with the same
+`(FnOnce Param ... → Result)`. These are built-in type formers, with the same
 spellings in arguments, fields, collections and results; there is no `dyn`,
 `impl`, `FnMut` or callable-class hierarchy.
 A named function carries its type where it is defined. Every parameter has a
@@ -346,13 +345,6 @@ converted with `once` and called or dropped. The wrapper owns that one counted
 reference, not every alias of the environment. A handler's `resume` is also a
 `FnOnce`; there are no source loans or borrow restrictions on storing it.
 
-### Code pointers
-
-`(fn A → B ! e)` is a noncapturing code pointer. A `fn` expression or a
-named top-level function can provide it; a capturing lambda cannot. Its
-representation remains separate at storage and foreign boundaries. Wrap a
-code pointer in a lambda when a `Fn` closure is needed.
-
 ## Foreign functions
 
 `extern` declares a total foreign function; the declaration is the boundary's
@@ -394,10 +386,8 @@ crosses the host. See
 `unsafe-cast` is unchecked, like `unsafe-total`
 ([local mutation](effects.md#local-mutation)): it turns a `Funcref`, a
 function another module exports, into a function of whatever type the
-context expects (`(snail shell wasm)`). `dynamic-cast` is its checked
-counterpart, for a function a plugin exposes with `dynamic`: it makes the
-function only if the policy it is given accepts the signature of the
-expected type ([plugins](compilers.md#plugins)).
+context expects (`(snail shell wasm)`). The engine verifies its WebAssembly
+representation; the caller must establish its Snail Scheme type contract.
 
 ## Linked files
 

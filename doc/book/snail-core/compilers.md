@@ -56,7 +56,7 @@ sets, expands hygienic `syntax-rules`, assigns unique names and converts
 forms into expressions and declarations. Top-level names are discovered
 before their bodies, allowing recursive functions and references to later
 constants. Local bodies remain sequential. Typed define headers are parsed
-here; `Fn`, `FnOnce` and lowercase `fn` are type formers, not classes.
+here; `Fn` and `FnOnce` are built-in callable type formers.
 
 Struct field paths remain unresolved only while the receiver type is
 unknown. Once its nominal type is known, checking substitutes the record's
@@ -86,9 +86,10 @@ callback row too early or granting effects absent from its implementation.
 Finalizers contribute their effects at the scope or write that can release
 the last owner.
 
-`conversions.sld` resolves concrete `Any` boundaries. Packaging preserves a
-value's type identity; extraction checks it and performs `dyn-cast` on a
-mismatch. It does not promote numbers or reinterpret collections.
+Explicit `(Any value)` and `(downcast T boxed)` become `BoxAny` and
+`Downcast` terms. Packaging preserves type identity; extraction returns `Some`
+only for the requested type, and `None` on mismatch. Neither inserts conversions
+at unrelated boundaries or performs an effect.
 A top-level nonfunction initializer must have an empty effect row. A handler
 can discharge an effect locally, and an intentional `unsafe-total` can hide
 private mutation. The resulting initializer is compiled as ordinary runtime code.
@@ -352,13 +353,10 @@ identical group, and the engine's canonicalization makes them one type
 across modules. A case of an enum without fields declares no type of its
 own, since only the modules that build or match it would declare one.
 
-Snail Scheme types are checked at compile time, each library against the
-interfaces it imports. Nothing checks them at load time: every module of a
-link comes from one build of one session, which recompiles importers
-whenever an interface changes. The engine still checks the WebAssembly
-type of every import, and a value that crosses as `Any` keeps its own
-check at `type-convert`. A plugin comes from another build, so its
-functions are checked when they are looked up ([plugins](#plugins)).
+Snail Scheme types are checked at compile time, each library against its
+imports. Every rebuild checks and emits the complete dependency closure. The
+engine also checks the WebAssembly type of every import. A value crossing as
+`Any` keeps its nominal type identity for explicit `downcast` checks.
 
 Replacing a library's module means linking it and every module after it
 in program order again (`relinkProgram` in `load.mjs`); the modules before
@@ -367,162 +365,38 @@ costs the instantiation of a few modules, and keeps debug code free of the
 indirection that a table of mutable globals, like ELF's global offset
 table, would add to every call across libraries.
 
-### Loading modules at run time
-
-`(snail shell wasm)` is `dlopen` and `dlsym`. `load-module` loads a module
-from a file into the program's own namespace, linked against the runtime,
-the program's modules and the modules loaded before it, by name, and runs
-its `main`. A function the module exports comes out as a `Funcref`, and
-`unsafe-cast` makes it a function of the type the context expects:
-
-```scheme
-(match (load-module "cell" "build/cell.wasm")
-  ((Ok cell)
-   (match (module-export cell "cell:run")
-     ((Ok run) ((ann (unsafe-cast run) (Fn I64 → I64)) 41))
-     ((Err error) (panic (load-error-message error)))))
-  ((Err error) (panic (load-error-message error))))
-```
-
-`unsafe-cast` is a primitive. It wraps the reference in a closure whose
-code casts it to the WebAssembly type of a Snail Scheme function of the
-expected type, which takes the evidence first, and calls it with the
-handlers in scope where the closure is called. At an `Fn`, `(ann
-(unsafe-cast run) (fn I64 → I64))`, the cast is the whole value, with no
-closure around it. The cast is the only check: the engine traps when the
-WebAssembly types differ, and nothing compares Snail Scheme types, so the
-unsafe assumption is visible where it is made.
-
 ### Linking by hand
 
-`load-module` and `load-plugin` link by the host's rules: the runtime, the
-modules of the namespace by name, the host's services, and a stub for a
-host function the host lacks. A loader written in Snail Scheme, such as an
-engine linking a program from its manifest
-([#660](https://github.com/tsnl/snail-scheme/issues/660)), decides those
-rules itself with four operations, which the two hosts must answer alike
-(`tests/programs/wasm-linking.sld` runs on both). `compile-bytes` compiles
-a module; `module-imports` lists what it imports, each a module and field
-name with its kind, function, table, memory or global, which the host
-holds and Snail Scheme reads back a character at a time, as names go the
-other way; `link-module` links it against one `Provider` per import, in
-import order, an export of an instance, the host's own function of that
-name, a function answering a constant, as a linked file's handle is
-imported, or nothing, a function that fails if called, and answers the
-instance, initialized when it exports `_initialize`, or `LinkFailed` when
-a provider is missing or not of the import's type; `run-export` calls an
-export of no argument or one `I64`, such as `main` or a scheduler's
-`tasks:turn`, for its result. `loading-program` is the instance of the
-program that loads, whose exports a loaded module may import, and
-`name-instance` puts a linked instance in the program's namespace, where
-`load-module` sees it. Nothing but initialization runs when a module is
-linked this way: the loader runs its `main` when it chooses.
+The engine uses `(snail shell wasm)` to link a program from its manifest.
+`compile-bytes` compiles a module, `module-imports` lists its imports, and
+`link-module` accepts one explicit `Provider` per import in order. A provider
+is an instance's export, a host service, a constant function, or a function
+that fails if called. Missing or incompatible providers return `LinkFailed`.
+Linking runs `_initialize` when present; the engine starts `main` separately.
 
-### Plugins
+`module-export` returns an untyped `Funcref`. `unsafe-cast` wraps it in an `Fn`
+closure at the requested type, passing the caller's effect evidence. The Wasm
+cast checks representation, not Snail Scheme nominal identity: the caller
+must establish that contract. `run-export` calls a scalar export by name.
 
-A plugin is a program built apart from the one that loads it, compiled one
-library at a time and named by its `modules.json`. Types cannot be loaded:
-the plugin and the program share the types they pass by importing one
-declaration of them, and only functions cross. The plugin marks each
-function it offers:
+`loading-program` identifies the loader. `bind-runtime` selects the loaded
+program's runtime for staging bytes and reporting errors without changing the
+loader's identity. The engine carries library providers in a local list; no
+second host registry or plugin namespace participates in linking.
 
-```scheme
-
-(define (summarize (project Project)) (→ Report) ...)
-(expose summarize "summarize" dynamic)
-```
-
-and the program looks it up at the type it expects:
-
-```scheme
-(match (load-plugin "build/plugin/modules.json")
-  ((Ok plugin)
-   (match (ann (plugin-function plugin "summarize") (Result (Fn Project → Report) LoadError))
-     ((Ok summarize) (summarize project))
-     ((Err error) (panic (load-error-message error)))))
-  ((Err error) (panic (load-error-message error))))
-```
-
-The backend emits two exports for a dynamic function. `"summarize"` takes
-the evidence and an `Any` for each parameter, takes each argument out of
-its `Any`, which tests its TypeId, calls the definition and returns the
-result as an `Any`; every dynamic export of one arity has one WebAssembly
-type. `"summarize:signature"` returns the signature as a `(Vector I64)`:
-the arity, then the identity of each parameter's type and of the result's,
-in 64 bits (`wide-type-id`, FNV-1a over the same text as the 32-bit TypeId,
-kept in two halves so that both hosts compute it alike). The signature is
-compared once, when the function is looked up, so it is worth the wider
-hash; the TypeId an `Any` carries is tested on every call.
-
-The checker adds two rules to `expose`'s for a dynamic function. Its
-parameters and result are data, with no function, `Funcref` or `Any`
-inside: a function type's TypeId says only that it is a function, and an
-`Any`'s nothing of what it holds. And it is pure. Specialization erases every effect
-but the control effects before the backend runs, so neither side's backend
-knows the function's effects and the signature cannot carry them; a
-program that declared fewer effects than the plugin performs would go
-unchecked. Passing the importer's evidence is mechanical once effect
-identities, with their operations' types, reach the backend.
-
-`load-plugin` reads the manifest, makes a namespace and links the plugin's
-modules there in program order, each against those before it, then the
-runtime the program shares with it and the host's modules, as a
-child-first class loader resolves, and runs each module's `main`. The
-namespace is private: a library's module text depends on the program it
-was compiled for, its set of control effects among it, so a plugin has its
-own instances, and its own globals, even of a library the program imports
-too. So a plugin that imports `(snail shell task)` has its own scheduler,
-which no host drives: a task its top level dispatches never runs, and its
-dynamic functions, being pure, cannot dispatch one. The runtime its
-manifest names is not loaded.
-
-`plugin-function` finds `NAME` and `NAME:signature` in the plugin's own
-module, its program's, and calls the signature through `unsafe-cast`: that
-an export so named is a signature is the boundary's one unsafe assumption.
-Then the primitive `dynamic-cast` calls a policy with the signature of the
-type the context expects and, if the policy accepts it, holds the export
-in a closure of that type, which passes each argument as an `Any` and
-takes the result out of one. The policy is a Snail Scheme function,
-`same-signature?`, so loosening it is a library change: strict identity,
-under which a plugin built from another declaration of `Project` is
-refused with `SignatureMismatch` before anything is called. A versioned
-identity, as the JVM's binary compatibility allows, would need every type
-to be non-final, its history kept in source and an append-only checker,
-and an enum could never gain a case, since an old exhaustive `match` would
-reach `unreachable`.
-
-Values cross by reference, with no copy. Every module that declares a type
-declares the same recursion group, so the engine makes them one type across
-the namespaces, and the plugin's casts succeed on the program's values.
-Both checks are needed: WebAssembly's equality is only shape, so
-`Point {x, y}` and `Range {lo, hi}` are one WebAssembly type, while their
-TypeIds differ. `wire` is for where references cannot go: workers, Rust in
-linear memory, native code, disks and networks.
-
-A failure is a `LoadError` value: a file that cannot be read, a manifest
-or module that is not one, a name already linked, an import with no
-provider of its type, an export that is missing or not dynamic, and a
-signature that differs. There is no fault isolation: a trap inside a
-plugin, its `main` included, ends the program.
+`tests/programs/wasm-linking.sld` checks provider selection and failures.
+`wasm-instance-identity.sld` verifies that existing imports keep their original
+provider when a new link uses another instance, and that linking consumers
+does not initialize their providers again. Both run on Node and Wasmtime;
+the identity test also runs in Chromium.
 
 ### Hosts
 
-The host keeps the operations only it can do, as the `wasm` effect: it
-compiles a module from the Bytes the program read, makes a namespace,
-instantiates a module in one under a library name and runs its `main`, and
-finds the functions an instance exports (`wasmImports` in `load.mjs`).
-Namespace 0 is the program's own. Each answers a failure with a negative
-code rather than a throw. A `main` runs inside the host call, so it cannot
-wait for a task, and a plugin cannot yet read the files it links.
-
-The Node runner provides the `wasm` effect for both builds. A statically
-linked program exports nothing of its runtime, so what it loads can link
-only against the host, and it cannot load a plugin. Browser hosts do not
-provide it yet: loading is synchronous, and a page reads files
-asynchronously. `tests/dynamic/host.sld` loads a library's module from a
-plugin's build, and the plugin itself built twice, once from a stale
-declaration of the type it takes; `tests/programs/wasm.sld` loads modules
-it writes itself.
+The host compiles bytes, lists imports, binds explicit providers and finds
+exports. Node and Wasmtime install these operations for the engine. The browser
+adapter also implements them and is exercised by the Chromium fixture; normal
+browser applications still use the JavaScript manifest loader. Resource fetching
+and scheduling remain explicit responsibilities of the engine or browser host.
 
 Every import module a host provides is named for the runtime interface it
 implements, `snail.runtime.…` (#566): `snail.runtime.link` and

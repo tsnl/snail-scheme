@@ -451,8 +451,7 @@
               (append (map (lambda (entry)
                              (Pair (● entry first)
                                    (TypeName (● entry first) (● entry second) (None))))
-                           (filter (lambda (entry) (not (string=? (● entry first) "fn")))
-                                   builtin-types))
+                           builtin-types)
                       (list (Pair "mut" (EffectName "mut")) (Pair "host" (EffectName "host"))))))
 
     (define (builtin-library? (key String)) (→ Bool)
@@ -1492,15 +1491,11 @@
                           "top-level expressions are not allowed; put runtime work in main"))
           (else (Pair (Nil) cx)))))
 
-    ;; `(expose name "symbol")` exports a top-level function to the host;
-    ;; `(expose name "symbol" dynamic)` exports it for programs that load it
-    ;; while they run, through (snail shell wasm).
-
     (define (expose-item (cx Context) (env Env) (form Syntax)) (→ Item) (! compile)
       (match form
-        ((Form (Cons _ (Cons name (Cons (Atom (DString symbol) _) flags))) loc)
+        ((Form (Cons _ (Cons name (Cons (Atom (DString symbol) _) (Nil)))) loc)
          (match (resolve cx env (expect-ident name "a function name"))
-           ((Some (Global global)) (Expose global symbol (dynamic-flag? form flags) loc))
+           ((Some (Global global)) (Expose global symbol loc))
            (_ (compile-error (syntax-loc name)
                              (string-append "only a top-level function can be exposed: "
                                             (match name
@@ -1509,15 +1504,7 @@
                                               (_ (panic "internal error: expected Ident"))))))))
         (_ (compile-error (syntax-loc form) expose-usage))))
 
-    (define (dynamic-flag? (form Syntax) (flags (List Syntax))) (→ Bool) (! compile)
-      (match flags
-        ((Nil) #f)
-        ((Cons (Ident "dynamic" _ _) (Nil)) #t)
-        (_ (compile-error (syntax-loc form) expose-usage))))
-
-    (define expose-usage
-      (→ String)
-      "expected (expose name \"symbol\") or (expose name \"symbol\" dynamic)")
+    (define expose-usage (→ String) "expected (expose name \"symbol\")")
 
     (define (define-top-level (cx Context)
               (signatures (Table (Pair Scheme (Option Loc))))
@@ -1535,8 +1522,7 @@
                                                 (Defined (None) (None) (lambda-expr? value)))))))
                    (add-item cx
                              (Define name
-                               (top-level-value
-                                value))))))
+                               value)))))
 
     ;; A signature's constraints, checked once every class the library
     ;; declares is in the program.
@@ -1560,7 +1546,7 @@
                           scope
                           (map (lambda (record) (● record first)) parameters)
                           (● definition body)
-                          #t
+
                           (● definition loc)))
           ((None) (expand-expr cx scope (list-ref (● definition body) 0))))))
 
@@ -1572,15 +1558,6 @@
         ((Some _)
          (expr (Ann value (● (resolve-scheme cx env (definition-type definition)) type))
                (● definition loc)))))
-
-    ;; No local is in scope where a top-level function is written, so it is
-    ;; marked as one that may not capture, and every global function is
-    ;; known to have no environment.
-
-    (define (top-level-value (value Expr)) (→ Expr)
-      (match (● value term)
-        ((Lambda params body _) (Expr (Lambda params body #f) (● value type) (● value loc)))
-        (_ value)))
 
     ;; ---- Declarations ----
 
@@ -2468,11 +2445,10 @@
                                                              (definition-value env parsed)))
                                                         (add-item cx
                                                                   (Define global
-                                                                    (top-level-value
-                                                                     (annotated-definition-value cx
-                                                                                                 env
-                                                                                                 parsed
-                                                                                                 value)))))))
+                                                                    (annotated-definition-value cx
+                                                                                                env
+                                                                                                parsed
+                                                                                                value))))))
                          cx))))
 
     (define (instance-method-scheme (program Program)
@@ -2786,7 +2762,7 @@
       (! compile)
       (expanding cx ((value (expand-expr env syntax)))
                  (match (● value term)
-                   ((Lambda _ _ _) (add-item cx (Define global (top-level-value value))))
+                   ((Lambda _ _ ) (add-item cx (Define global value)))
                    ((Var _ _ _)
                     (expanding cx ((value (eta-expand value (operation-arity cx operation) loc)))
                                (add-item cx (Define global value))))
@@ -2800,7 +2776,7 @@
                                                  (lambda (name) (expr (Var name (Nil) (Nil)) loc))
                                                  names))
                                            loc)
-                                     #f)
+                                     )
                              loc)
                        cx)))
 
@@ -3006,7 +2982,7 @@
         ((Ident _ _ loc) (resolve-type-name cx env syntax (Nil) loc))
         ((Form (Cons (Ident "!" _ _) labels) loc) (resolve-row cx env labels loc))
         ((Form (Cons (Ident kind _ _) items) loc)
-         (if (member? kind (list "Fn" "FnOnce" "fn"))
+         (if (member? kind (list "Fn" "FnOnce"))
              (let ((arrow (resolve-callable-arrow cx env items (Nil) loc)))
                (if (string=? kind "Fn") arrow (TCon kind (list arrow))))
              (resolve-type-application cx env syntax loc)))
@@ -3335,15 +3311,9 @@
         (("lambda")
          (match items
            ((Cons _ (Cons params body))
-            (expand-lambda cx env (form-items params "a parameter list") body #t loc))
+            (expand-lambda cx env (form-items params "a parameter list") body  loc))
            (_ (compile-error loc "expected (lambda (parameter ...) body ...)"))))
-        ;; A function that may not capture: it reads only its parameters,
-        ;; its own locals and globals, so it has no environment.
-        (("fn")
-         (match items
-           ((Cons _ (Cons params body))
-            (expand-lambda cx env (form-items params "a parameter list") body #f loc))
-           (_ (compile-error loc "expected (fn (parameter ...) body ...)"))))
+
         (("if")
          ;; `then` is `expanding`'s own keyword, so the branches are named
          ;; otherwise.
@@ -3395,13 +3365,13 @@
                            (env Env)
                            (params (List Syntax))
                            (body (List Syntax))
-                           (captures? Bool)
+
                            (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
       (expanding cx ((locals (bind-locals env params))
                      (body (expand-body (● locals first) body loc)))
-                 (Pair (expr (Lambda (● locals second) body captures?) loc) cx)))
+                 (Pair (expr (Lambda (● locals second) body ) loc) cx)))
 
     ;; Binds each identifier to a fresh local, in order; returns the longer
     ;; environment and the unique names.
@@ -3487,8 +3457,7 @@
                                       ((Some _) #t)
                                       ((None)
                                        (let ((value (list-ref (● definition body) 0)))
-                                         (or (core-form? cx scope value "lambda")
-                                             (core-form? cx scope value "fn")))))))
+                                         (core-form? cx scope value "lambda"))))))
                      (expanding cx ((value (definition-value (if function? inner scope) definition))
                                     (body (expand-body-forms inner rest (None) loc)))
                                 (Pair (expr (Let name
@@ -3546,7 +3515,7 @@
                         (loop (expand-lambda (extend env ident (Local name))
                                              (map binding-name bindings)
                                              body
-                                             #t
+
                                              loc))
                         (initial
                          (each (lambda (cx binding) (expand-expr cx env (binding-value binding)))

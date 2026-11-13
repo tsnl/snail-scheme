@@ -137,7 +137,7 @@
       (let ((rebuild (lambda (term) (Expr term (● expr type) (● expr loc)))))
         (match (● expr term)
           ((Var name _ _) (Pair (if (global? state name) expr (retained state expr)) state))
-          ((Lambda _ _ _) (lower-function state expr #f))
+          ((Lambda _ _ ) (lower-function state expr #f))
           ((App callee args) (lower-call state expr callee args))
           ((Ann inner type)
            (lowering state ((inner (lower inner))) (Pair (rebuild (Ann inner type)) state)))
@@ -171,7 +171,7 @@
     ;; usual. A direct top-level function has no closure argument.
     (define (lower-function (state Counting) (expr Expr) (top? Bool)) (→ (Pair Expr Counting))
       (match (Pair (● expr term) (fn-arrow (● expr type)))
-        ((Pair (Lambda params body captures?) (TFun types _ _))
+        ((Pair (Lambda params body ) (TFun types _ _))
          (let ((owners (reverse (concatenate
                                  (map (lambda (pair)
                                         (owned-local state
@@ -179,7 +179,7 @@
                                                      (● pair second)
                                                      (● expr loc)))
                                       (zip params types)))))
-               (closure? (and (not top?) (not (match (● expr type) ((TCon "fn" _) #t) (_ #f))))))
+               (closure? (not top?)))
            (if closure?
                (lowering state ((self (fresh (fn-arrow (● expr type)) (● expr loc)))
                                 (body (lower-exit body (append owners (list self)) #t)))
@@ -187,10 +187,10 @@
                                              (bind self
                                                    (intrinsic "prim:current-closure" (Nil)
                                                               (● self type) (● expr loc))
-                                                   body) captures?) (● expr type) (● expr loc))
+                                                   body) ) (● expr type) (● expr loc))
                                state))
                (lowering state ((body (lower-exit body owners #t)))
-                         (Pair (Expr (Lambda params body captures?) (● expr type) (● expr loc))
+                         (Pair (Expr (Lambda params body ) (● expr type) (● expr loc))
                                state)))))
         (_ (lower state expr))))
 
@@ -264,10 +264,6 @@
                             (_ (None)))))
            (lowering state ((callee (lower callee)) (args (lower-all args)))
                      (lower-observation state expr callee args operation))))))
-
-
-
-
 
     (define (lower-observation (state Counting) (expr Expr) (callee Expr) (args (List Expr))
                                (operation (Option Value)))

@@ -1,5 +1,5 @@
 ;; Compiler-owned properties of types, found from their structure: whether a
-;; type is first-order data, whether it is linear, what dropping
+;; type is linear, what dropping
 ;; one of its values runs, and whether a struct contains itself. A
 ;; procedure's arrow does not describe its captured environment.
 (define-library (snail shell compiler capabilities)
@@ -10,7 +10,6 @@
    copy-declaration
    copy-refusal
    instance-copy-refusal
-   first-order-type?
    contains-itself?
    drop-plan
    checked-drop-plan
@@ -25,51 +24,6 @@
    (snail core table)
    (snail shell compiler core))
   (begin
-
-    ;; ---- Data ----
-
-    ;; A type is first-order data when nothing inside it, through type
-    ;; arguments and declared fields, is a function, a Funcref or an Any.
-    ;; Its TypeId then names all of it: a function type's says only that it
-    ;; is one, and an Any's nothing of what it holds. The search returns the
-    ;; declarations it has entered, each once, as the search for linear
-    ;; fields below does, or None once it finds something that is not data.
-
-    (define (first-order-type? (program Program) (type Type)) (→ Bool)
-      (match (first-order-search program type (Some (Nil)))
-        ((Some _) #t)
-        ((None) #f)))
-
-    ;; Arguments are searched before a recursive declaration is cut by name.
-
-    (define (first-order-search (program Program) (type Type) (entered (Option (List String))))
-      (→ (Option (List String)))
-      (match (Pair type entered)
-        ((Pair _ (None)) (None))
-        ((Pair (TCon name args) _)
-         (match (fold-left (lambda (found arg) (first-order-search program arg found))
-                           entered
-                           args)
-           ((Some names)
-            (cond ((member? name (list "Any" "Funcref")) (None))
-                  ((or (member? name names)
-                       (any? (lambda (entry) (string=? name (● entry first))) builtin-types))
-                   (Some names))
-                  (else (first-order-fields program name args (Cons name names)))))
-           ((None) (None))))
-        ((Pair (TRow _ _) _) entered)
-        (_ (None))))
-
-    (define (first-order-fields (program Program)
-                                (name String)
-                                (args (List Type))
-                                (entered (List String)))
-      (→ (Option (List String)))
-      (let* ((data (program-type program name)) (bindings (zip (● data params) args)))
-        (fold-left (lambda (found field)
-                     (first-order-search program (substitute bindings (● field type)) found))
-                   (Some entered)
-                   (concatenate (map (lambda (record) (● record fields)) (● data cases))))))
 
     ;; ---- Shared ownership ----
 
@@ -87,7 +41,7 @@
         ((TCon "Any" _) #t)
         ((TCon "WeakRc" _) #f)
         ((TCon "FnOnce" _) #f)
-        ((TCon "fn" _) #f)
+
         ((TCon name args)
          (cond ((member? name (list "Vector"))
                 (any? (lambda (arg) (shared-content? program arg seen)) args))

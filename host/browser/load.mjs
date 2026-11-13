@@ -260,19 +260,6 @@ export async function relinkProgram(program, from, manifest, read) {
 
 // ---- Loading while the program runs ----
 
-// The `wasm` effect of (snail shell wasm), which reads the files and decides
-// what to link; the host only does what it cannot. `compile` takes the
-// bytes of a module, `namespace` makes an empty namespace, `instantiate`
-// links a module in one under a library name and runs its main, and
-// `has-export` and `export-function` find what an instance exports by name.
-// Namespace 0 is the program's own, its linked modules; a name already
-// there is refused, since the modules that import it keep the instance they
-// have. Another namespace holds a plugin's modules: each sees the modules
-// before it there, then the runtime and the host's modules, as a
-// child-first class loader resolves, and none of the files the program
-// links, so a plugin that links files cannot read them yet. A failure
-// answers a negative code, which (snail shell wasm) names; a trap in a
-// module's main still ends the program, and a main cannot wait.
 // A loader that chooses a module's providers itself lists the imports
 // with `import-count` and `import-at`, which holds the import's module and
 // field names for `held-length` and `held-char`, the reverse of the
@@ -289,24 +276,22 @@ export async function relinkProgram(program, from, manifest, read) {
 // loaded module given `snail.runtime.wasm` gets these same operations
 // over the program's runtime, whose memory stages its Bytes. Instance 0
 // is the loading program, `program().loader`, or its runtime, whose
-// exports a loaded module may import; `name-instance` puts an instance in
-// the program's namespace under a staged name, and naming one
-// `snail.core.support` makes it the program's runtime; `call-export`
+// exports a loaded module may import. `bind-runtime` selects the program's
+// runtime for staging memory, independently of its loader. `call-export`
 // calls an export of no argument or one i64, such as `main` or
 // `tasks:turn`, for its result as an i64. The program waits for each
 // operation, so they are synchronous. `program()` gives the program that
 // loads, which the host links after making these imports; `memory()`
 // gives the memory the caller's Bytes are staged in, the loader's own
 // when there is one.
-const INVALID_MODULE = -1, NAME_TAKEN = -1, LINK_FAILED = -2;
+const INVALID_MODULE = -1, LINK_FAILED = -2;
 const IMPORT_KINDS = ['function', 'table', 'memory', 'global'];
 const WASI = 'wasi_snapshot_preview1', PLATFORM = 'snail.platform', LOADING = 'snail.runtime.wasm';
 
 export function wasmImports(program, memory = () => (program().loader ?? program().runtime).exports.memory) {
-  const modules = [], instances = [null], namespaces = [], strings = stagedStrings();
-  const namespace = handle => (handle === 0 ? program().linked : namespaces[handle - 1]);
+  const modules = [], instances = [null], strings = stagedStrings();
   const instance = handle => (handle === 0 ? program().loader ?? program().runtime : instances[handle]);
-  let held = ['', ''], prepared = null, loaded = null, preparedNames = null;
+  let held = ['', ''], prepared = null, loaded = null;
   // The import the next provider is for.
   function current() {
     const entry = prepared?.imports[prepared.bound];
@@ -343,15 +328,6 @@ export function wasmImports(program, memory = () => (program().loader ?? program
       try { return modules.push(new WebAssembly.Module(byteSnapshot(memory(), address))) - 1; }
       catch (error) { if (error instanceof WebAssembly.CompileError) return INVALID_MODULE; throw error; }
     },
-    namespace: () => namespaces.push(new Map()),
-    instantiate(handle, module) {
-      const [name] = strings.take(), linked = namespace(handle);
-      if (linked.has(name) || hostProvided(name)) return NAME_TAKEN;
-      const instance = linkedInstance(handle === 0 ? program() : {...program(), linked, links: {}, files: []}, modules[module]);
-      if (!instance) return LINK_FAILED;
-      linked.set(name, instance);
-      return instances.push(instance) - 1;
-    },
     'has-export': handle => typeof instance(handle).exports[strings.take()[0]] === 'function',
     'export-function': handle => instance(handle).exports[strings.take()[0]],
     'import-count': module => WebAssembly.Module.imports(modules[module]).length,
@@ -380,30 +356,7 @@ export function wasmImports(program, memory = () => (program().loader ?? program
       else link.instance.exports._initialize?.();
       return instances.push(link.instance) - 1;
     },
-    'name-instance'(handle) {
-      const [name] = strings.take(), linked = program().linked;
-      if (name === 'snail.core.support') { program().runtime = instance(handle); return 1; }
-      if (linked.has(name) || hostProvided(name)) return 0;
-      linked.set(name, instance(handle));
-      return 1;
-    },
-    // The language stages one complete candidate synchronously. A bad entry
-    // discards the candidate, so ignoring its false result cannot publish a
-    // valid prefix. Commit never links, initializes or calls application code.
-    'prepare-names'() { preparedNames = new Map(); },
-    'provide-instance'(handle) {
-      const [name] = strings.take(), value = instance(handle);
-      if (!preparedNames || typeof name !== 'string' || !name || hostProvided(name)
-          || preparedNames.has(name) || !value) { preparedNames = null; return 0; }
-      preparedNames.set(name, value);
-      return 1;
-    },
-    'replace-names'() {
-      const names = preparedNames; preparedNames = null;
-      if (!names) return 0;
-      program().linked = names;
-      return 1;
-    },
+    'bind-runtime'(handle) { program().runtime = instance(handle); },
     'call-export'(handle, argument) {
       const result = instance(handle).exports[strings.take()[0]](argument);
       return typeof result === 'bigint' ? result : BigInt(result ?? 0);
@@ -421,13 +374,6 @@ export function runMain(exports, tasks) {
   }
   if (!exports.main) throw new Error('the program has no main function');
   return exports.main();
-}
-
-// An instance of the module, linked as a module of `program` is, or null
-// if an import has no provider of its type.
-function linkedInstance(program, module) {
-  try { return new WebAssembly.Instance(module, moduleImports(program, new Set(['snail.core.support', ...program.linked.keys()]), module)); }
-  catch (error) { if (error instanceof WebAssembly.LinkError || error instanceof TypeError) return null; throw error; }
 }
 
 // ---- Host commands ----

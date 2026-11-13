@@ -358,10 +358,10 @@
       (match term
         ((Lit value) (Pair (Lit value) state))
         ((Var name types evidence) (Pair (Var name types evidence) state))
-        ((Lambda params body captures?)
+        ((Lambda params body )
          (specializing state
                        ((body (copy-expr inst body)))
-                       (Pair (Lambda params body captures?) state)))
+                       (Pair (Lambda params body ) state)))
         ((App callee args)
          (specializing state ((callee (copy-expr inst callee)) (args (copy-exprs inst args)))
                        (counted-construction state callee args)))
@@ -549,7 +549,7 @@
                                             (● data cases))))
                       (Pair
                        (Expr
-                        (Lambda (list "glue%value") (Expr (Match value clauses) unit-type loc) #f)
+                        (Lambda (list "glue%value") (Expr (Match value clauses) unit-type loc) )
                         (TFun (list subject) unit-type empty-row) loc)
                        state))))
 
@@ -747,7 +747,7 @@
 
     (define (root-item (state State) (item Item)) (→ (Pair (List String) State))
       (match item
-        ((Expose name _ _ _) (Pair (Nil) (requested state name)))
+        ((Expose name _ _) (Pair (Nil) (requested state name)))
         ((Entry name _) (Pair (Nil) (requested state name)))
         ((Define name value)
          (if (null? (● (scheme-of state name) vars))

@@ -24,6 +24,6 @@
   (let* ((constructor once)
          (single (constructor (read-resource "first-class abandoned"))))
     (drop single))
-  (let ((single (once (lambda (value) ((ann (fn (n) (+ n 1)) (fn I64 → I64)) value)))))
+  (let ((single (once (lambda (value) ((ann (lambda (n) (+ n 1)) (Fn I64 → I64)) value)))))
     (write-line (show (single 4))))
   (unit))

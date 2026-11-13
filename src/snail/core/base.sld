@@ -3,7 +3,7 @@
 (define-library (snail core base)
   (export
    ●
-   define lambda fn if begin let define-syntax syntax-rules quote : struct enum type
+   define lambda if begin let define-syntax syntax-rules quote : struct enum type
    typeclass
    instance
    match

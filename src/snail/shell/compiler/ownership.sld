@@ -91,7 +91,7 @@
         ((BoxAny inner) (surviving-references program inner #f))
         ((Downcast inner _) (surviving-references program inner #f))
         ((Ann inner _) (surviving-references program inner tail?))
-        ((Lambda _ _ _) (expr-references expr))
+        ((Lambda _ _ ) (expr-references expr))
         ((Let name value body)
          (let ((names (surviving-references program body tail?)))
            (if (member? name names)
@@ -128,7 +128,7 @@
     (define (stable-aliases (program Program) (value Expr)) (→ (List String))
       (match (● value term)
         ((Var name _ _) (list name))
-        ((Lambda _ _ _) (expr-references value))
+        ((Lambda _ _ ) (expr-references value))
         ((Ann inner _) (stable-aliases program inner))
         (_ (Nil))))
 
@@ -350,7 +350,7 @@
         (match (● expr term)
           ((Lit _) path)
           ((Var name _ _) (check-reference path expr name))
-          ((Lambda _ _ _) (check-lambda path expr))
+          ((Lambda _ _ ) (check-lambda path expr))
           ((App callee args) (check-call path callee args))
           ((If test then otherwise)
            (let ((path (check path test)))
@@ -454,7 +454,7 @@
         ;; Checking may inspect cleanup before deferred selections are resolved.
         ;; Reading a field observes its receiver, just as a direct accessor does.
         ((FieldRead _ _ _) (Nil))
-        ((Lambda params body _)
+        ((Lambda params body )
          (let ((types (expr-reference-types body)))
            (filter (lambda (name)
                      (and (not (member? name params))
@@ -882,7 +882,7 @@
       (→ Unit)
       (! compile)
       (match (Pair (● expr term) (fn-arrow (● expr type)))
-        ((Pair (Lambda params body _) (TFun types _ row))
+        ((Pair (Lambda params body ) (TFun types _ row))
          (let* ((empty
                  (Path (● path program) (● path copy) (● path constraints) (Nil) #t (Some row)))
                 (start

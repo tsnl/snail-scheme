@@ -3,11 +3,8 @@
  (snail core io)
  (snail shell wasm))
 
-;; A module loaded while the program runs, and the function it exports
-;; called at the type the program expects: as a closure, or as an Fn,
-;; which is the code itself. The program writes the module itself: each of
-;; its bytes is below 128, so its text is its binary. Its function takes
-;; the evidence first, as a Snail Scheme function does.
+;; Link a module from bytes and call its export through an Fn closure.
+;; Its function takes evidence first, as a Snail Scheme function does.
 ;; The bytes encode the nullable internal reference ABI. Evidence
 ;; includes the owner header and the forwarding/copy links used by resumptions;
 ;; an older three-field evidence type is not interchangeable with this one.
@@ -110,24 +107,17 @@
         124
         11))
 
-(define path "build/tests/adder.wasm")
-
 (define (use-adder (module Module)) (→ Unit) (! wasm output-port)
   (match (module-export module "add")
     ((Ok function)
-     (let ((add (ann (unsafe-cast function) (Fn I64 I64 → I64)))
-           (code (ann (unsafe-cast function) (fn I64 I64 → I64))))
+     (let ((add (ann (unsafe-cast function) (Fn I64 I64 → I64))))
        (display (add 40 2))
        (newline)
        (display (fold-left (lambda (total n) (add total n)) 0 (list 1 2 3)))
-       (newline)
-       (display (code 40 1))
        (newline)))
     ((Err error) (write-line (load-error-message error)))))
 
-;; Failures are values: a name linked already, a file that is missing, one
-;; that is not a module, and a module that imports the runtime's memory as
-;; a function.
+;; A module importing the runtime's memory as a function fails to link.
 ;;   (module (import "snail.core.support" "memory" (func)))
 (define mislinked (→ (List I32))
   (list 0 97 115 109 1 0 0 0
@@ -135,27 +125,21 @@
         2 29 1 18 115 110 97 105 108 46 99 111 114 101 46 115 117 112 112 111 114 116
         6 109 101 109 111 114 121 0 0))
 
-(define text-path "build/tests/adder.txt")
-
-(define mislinked-path "build/tests/mislinked.wasm")
-
-(define (main) (→ Unit) (! fs output-port wasm)
-  (write-file path (list->string (map i32->char adder)))
-  (match (load-module "adder" path)
-    ((Ok module)
-     (use-adder module)
-     (match (module-export module "subtract")
-       ((Ok _) (write-line "subtract is exported"))
-       ((Err error) (write-line (load-error-message error)))))
-    ((Err error) (write-line (load-error-message error))))
-  (write-file text-path "not a module")
-  (write-file mislinked-path (list->string (map i32->char mislinked)))
-  (for-each (lambda (entry)
-              (match (load-module (● entry first) (● entry second))
-                ((Ok _) (write-line "loaded"))
-                ((Err error) (write-line (load-error-message error)))))
-            (list (Pair "adder" path)
-                  (Pair "missing" "build/tests/missing.wasm")
-                  (Pair "text" text-path)
-                  (Pair "mislinked" mislinked-path)))
+(define (main) (→ Unit) (! output-port wasm)
+  (let ((adder (compiled adder)) (mislinked (compiled mislinked)))
+    (match (link-module "adder" adder (Nil))
+      ((Ok module)
+       (use-adder module)
+       (match (module-export module "subtract")
+         ((Ok _) (write-line "subtract is exported"))
+         ((Err error) (write-line (load-error-message error)))))
+      ((Err error) (write-line (load-error-message error))))
+    (match (link-module "mislinked" mislinked (list (ExportOf loading-program "memory")))
+      ((Ok _) (write-line "linked incompatible import"))
+      ((Err error) (write-line (load-error-message error)))))
   (unit))
+
+(define (compiled (bytes (List I32))) (→ Compiled) (! wasm)
+  (match (compile-bytes (list->vector (map i32->u8 bytes)))
+    ((Some module) module)
+    ((None) (panic "invalid fixture binary"))))

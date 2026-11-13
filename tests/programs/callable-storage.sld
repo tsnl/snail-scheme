@@ -6,7 +6,7 @@
   (list (lambda (value) (+ value 1))
         (lambda (value) (* value 2))))
 
-(define code (→ (fn I64 → I64))
+(define code (→ (Fn I64 → I64))
   (lambda (value) (+ value 10)))
 
 (define (consume (function (FnOnce I64 → I64)))

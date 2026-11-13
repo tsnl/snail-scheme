@@ -318,7 +318,7 @@
         (("dynamic-wind") (Some (Special 3)))
         (("scheme-define") (Some (Definition)))
         (("syntax-rules") (Some (Definition)))
-        (("fn" "struct" "enum" "typeclass" "instance" "effect" "match" "guard") (Some (Special 1)))
+        (("struct" "enum" "typeclass" "instance" "effect" "match" "guard") (Some (Special 1)))
         (("handle") (Some (Special 2)))
         (else (None))))
 

@@ -58,7 +58,6 @@ those bytes as a byte literal in its generated library.
 | --- | --- |
 | `(define name [header ...] value)`, `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Value or typed function definition. Every named function parameter has a type and every named function declares its result; optional effect, generic, constraint and annotation clauses precede the body. |
 | `(lambda (param ...) body ...)` | Function with a fixed number of parameters. |
-| `(fn (param ...) body ...)` | Function without an environment: it reads no local of the code around it ([ownership](ownership.md#closures-without-an-environment)). |
 | `(if test then [else])` | `test` is `Bool`; without `else` the result is `Unit`. |
 | `(begin form ...)` | A body: definitions and expressions in order. |
 | `(let ((name value) ...) body ...)`, `(let loop ((name value) ...) body ...)` | Local bindings and loops. |
@@ -77,7 +76,6 @@ those bytes as a byte literal in its generated library.
 | `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
 | `(primitive name type)` | An operation the backend implements, bound to the global `prim:name`. Accepted only in `(snail core primitive)`. |
 | `(expose name "symbol")` | Exports a monomorphic top-level function to the host; its arguments and result must be unrestricted. |
-| `(expose name "symbol" dynamic)` | Exports it instead for programs that load it as a plugin's (`plugin-function` in `(snail shell wasm)`): behind a wrapper of `Any` values, beside `"symbol:signature"`. Its arguments and result must be data, with no function or `Any` inside, and it must be pure ([plugins](compilers.md#plugins)). |
 | `(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` | Hygienic macro. |
 
 `(snail core base)` adds `let*`, `letrec`, `cond`, `case`, `when`, `unless`, `and`,

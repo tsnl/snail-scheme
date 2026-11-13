@@ -1,10 +1,8 @@
 //! The Wasm primitives of (snail shell wasm), as host/browser/load.mjs
 //! provides them on Node and in the page: compiling modules, linking one
-//! against providers a loader chooses, instantiating one by name in a
-//! namespace, and finding what an instance exports. The engine
-//! ((snail shell engine)) links a program compiled one library at a time
-//! through them; `load-module` and `load-plugin` load modules while a
-//! program runs.
+//! against providers a loader chooses, and finding what an instance exports.
+//! The engine ((snail shell engine)) links a program compiled one library at
+//! a time through them.
 //!
 //! A per-library build is named by its modules.json, which `build-modules`
 //! in host/chez/snail/stage0/build.sld writes beside the modules:
@@ -12,12 +10,11 @@
 //! where an OBJECT is `{"digest": DIGEST, "size": SIZE}` naming a file of the
 //! store, the libraries in program order; `snail imports` reads it.
 
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde_json::Value;
-use wasmtime::{AsContext, AsContextMut, Caller, Extern, ExternType, Func, ImportType};
+use wasmtime::{Caller, Extern, ExternType, Func};
 use wasmtime::{Instance, Linker, Module, Val, ValType};
 use wasmtime::{Trap, bail, format_err};
 
@@ -120,64 +117,6 @@ fn report_error(mut caller: Caller<'_, Host>, pointer: i32, length: i32) -> wasm
         .call(&mut caller, (pointer, length))
 }
 
-// ---- What a module sees ----
-
-// A library's module and a module loaded while the program runs link the
-// same way, as host/browser/load.mjs's `moduleImports` links both. A module
-// in `namespace` sees the runtime as "snail.core.support", the modules of its
-// namespace under their library names, and the host's `wasm` effect; in the
-// program's namespace, also the files the program links. A function it
-// imports from any other module links to one that fails if called: a
-// library's module holds all of its functions, so it may import host
-// services, such as the screen, that this host lacks and the program never
-// calls, as a statically linked program would have left them out. What it
-// imports from the runtime, from a module of its namespace, or from one of
-// the `later` libraries not linked yet, still fails to link.
-fn resolve(
-    mut store: impl AsContextMut<Data = Host>,
-    namespace: usize,
-    module: &Module,
-    later: &[&str],
-) -> Result<Vec<Extern>, String> {
-    let provide = |import: ImportType| {
-        let provided = provider(&mut store, namespace, &import, later);
-        provided.ok_or_else(|| format!("{} {}", import.module(), import.name()))
-    };
-    module.imports().map(provide).collect()
-}
-
-fn provider(
-    store: &mut impl AsContextMut<Data = Host>,
-    namespace: usize,
-    import: &ImportType,
-    later: &[&str],
-) -> Option<Extern> {
-    let (from, name, loading) = (
-        import.module(),
-        import.name(),
-        &store.as_context().data().loading,
-    );
-    if let Some(library) = loading.library(namespace, from) {
-        return library.get_export(&mut *store, name);
-    }
-    if let Some(Ok(host)) = loading
-        .host(namespace, from)
-        .map(|host| host.get(&mut *store, from, name))
-    {
-        return Some(host);
-    }
-    let (ExternType::Func(ty), false) = (import.ty(), later.contains(&from)) else {
-        return None;
-    };
-    let missing = missing_host(from, name);
-    Some(
-        Func::new(&mut *store, ty, move |_, _, _| {
-            Err(format_err!("{missing}"))
-        })
-        .into(),
-    )
-}
-
 fn missing_host(from: &str, name: &str) -> String {
     if NODE_ONLY.contains(&from) {
         format!("{from} {name} runs on Node")
@@ -188,20 +127,6 @@ fn missing_host(from: &str, name: &str) -> String {
 
 // ---- Loading while the program runs ----
 
-// The `wasm` effect of (snail shell wasm), which reads the files and decides
-// what to link; the host only does what it cannot. `compile` takes the
-// bytes of a module, `namespace` makes an empty namespace, `instantiate`
-// links a module in one under a library name and runs its main, and
-// `has-export` and `export-function` find what an instance exports by name.
-// Names cross a character at a time, staged until the operation that takes
-// them. Namespace 0 is the program's own, its linked libraries; a name
-// already there is refused, since the modules that import it keep the
-// instance they have. Another namespace holds a plugin's modules: each sees
-// the modules before it there, then the runtime and the host's modules, as
-// a child-first class loader resolves, and none of the files the program
-// links. A failure answers a negative code, which (snail shell wasm) names;
-// a trap in a module's main still ends the program.
-//
 // A loader that chooses a module's providers itself lists the imports
 // with `import-count` and `import-at`, which holds the import's module and
 // field names for `held-length` and `held-char`, the reverse of the
@@ -214,13 +139,11 @@ fn missing_host(from: &str, name: &str) -> String {
 // `_initialize`. A provider that is not found provides nothing, and the
 // loader gives another or the link fails. Instance 0 is the loading
 // program's runtime, whose exports a loaded module may import;
-// `name-instance` puts an instance in the program's namespace under a
-// staged name, and naming one `snail.core.support` makes it the program's
-// runtime, whose memory stages the Bytes the host reads; `call-export`
+// `bind-runtime` selects the program's runtime for staging bytes, without
+// changing the loader exposed as handle zero. `call-export`
 // calls an export of no argument or one i64, such as `main` or
 // `tasks:turn`, for its result as an i64.
 const INVALID_MODULE: i32 = -1;
-const NAME_TAKEN: i32 = -1;
 const LINK_FAILED: i32 = -2;
 
 /// What a program has loaded, and the host's imports for what it loads
@@ -231,12 +154,10 @@ pub struct Loading {
     runtime: Option<Instance>,
     modules: Vec<Module>,
     instances: Vec<Instance>,
-    namespaces: Vec<HashMap<String, Instance>>,
     current: String,
     staged: Option<String>,
     held: [String; 2],
     prepared: Option<Prepared>,
-    prepared_names: Option<HashMap<String, Instance>>,
 }
 
 /// A link under way: the module, its imports, and the providers given so
@@ -294,12 +215,10 @@ impl Loading {
             runtime: None,
             modules: Vec::new(),
             instances: Vec::new(),
-            namespaces: vec![HashMap::new()],
             current: String::new(),
             staged: None,
             held: [String::new(), String::new()],
             prepared: None,
-            prepared_names: None,
         }
     }
 
@@ -335,71 +254,6 @@ impl Loading {
         self.staged
             .take()
             .ok_or_else(|| format_err!("no name is staged"))
-    }
-
-    // Only a complete valid map may reach publication. One invalid entry
-    // drops the candidate; commit cannot accidentally publish its prefix.
-    fn provide_instance(&mut self, handle: i32) -> bool {
-        let name = self.take_name().ok();
-        let instance = self.instance(handle).ok();
-        match (self.prepared_names.as_mut(), name, instance) {
-            (Some(names), Some(name), Some(instance))
-                if !name.is_empty() && !host_provided(&name) && !names.contains_key(&name) =>
-            {
-                names.insert(name, instance);
-                true
-            }
-            _ => {
-                self.prepared_names = None;
-                false
-            }
-        }
-    }
-
-    // The namespace and the compiled module `instantiate` names.
-    fn target(&self, namespace: i32, module: i32) -> wasmtime::Result<(usize, Module)> {
-        let index = usize::try_from(namespace)
-            .ok()
-            .filter(|index| *index < self.namespaces.len());
-        let compiled = usize::try_from(module)
-            .ok()
-            .and_then(|handle| self.modules.get(handle));
-        match (index, compiled) {
-            (Some(index), Some(compiled)) => Ok((index, compiled.clone())),
-            (None, _) => bail!("no namespace {namespace}"),
-            (_, None) => bail!("no compiled module {module}"),
-        }
-    }
-
-    // The instance a module in `namespace` imports from as `from`: the
-    // runtime, or one of the namespace's modules.
-    fn library(&self, namespace: usize, from: &str) -> Option<Instance> {
-        if from == "snail.core.support" {
-            self.runtime
-        } else {
-            self.namespaces[namespace].get(from).copied()
-        }
-    }
-
-    // The host's imports, when `from` is one of the host's modules a
-    // loaded module in `namespace` sees.
-    fn host(&self, namespace: usize, from: &str) -> Option<Arc<Linker<Host>>> {
-        let files = from == "snail.runtime.link" || from == "snail.runtime.resource";
-        (from == "snail.runtime.wasm"
-            || from == "snail.runtime.native.async-files"
-            || (namespace == 0 && files))
-            .then(|| Arc::clone(&self.linker))
-    }
-
-    // The instance's handle, once it is in its namespace under `name`.
-    fn add_instance(
-        &mut self,
-        namespace: usize,
-        name: String,
-        instance: Instance,
-    ) -> wasmtime::Result<i32> {
-        self.namespaces[namespace].insert(name, instance);
-        self.hold(instance)
     }
 
     // Handles count from 1: handle 0 is the loading program's runtime.
@@ -473,16 +327,6 @@ pub fn define_loading(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
     linker.func_wrap("snail.runtime.wasm", "compile", compile)?;
     linker.func_wrap(
         "snail.runtime.wasm",
-        "namespace",
-        |mut caller: Caller<'_, Host>| {
-            let namespaces = &mut caller.data_mut().loading.namespaces;
-            namespaces.push(HashMap::new());
-            i32::try_from(namespaces.len() - 1).unwrap_or(i32::MAX)
-        },
-    )?;
-    linker.func_wrap("snail.runtime.wasm", "instantiate", instantiate)?;
-    linker.func_wrap(
-        "snail.runtime.wasm",
         "has-export",
         |mut caller: Caller<'_, Host>, handle: i32| {
             let instance = caller.data().loading.instance(handle)?;
@@ -505,34 +349,6 @@ pub fn define_loading(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
 // ---- Linking by hand ----
 
 fn define_linking(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
-    linker.func_wrap(
-        "snail.runtime.wasm",
-        "prepare-names",
-        |mut caller: Caller<'_, Host>| {
-            caller.data_mut().loading.prepared_names = Some(HashMap::new());
-        },
-    )?;
-    linker.func_wrap(
-        "snail.runtime.wasm",
-        "provide-instance",
-        |mut caller: Caller<'_, Host>, handle: i32| {
-            i32::from(caller.data_mut().loading.provide_instance(handle))
-        },
-    )?;
-    linker.func_wrap(
-        "snail.runtime.wasm",
-        "replace-names",
-        |mut caller: Caller<'_, Host>| {
-            let loading = &mut caller.data_mut().loading;
-            match loading.prepared_names.take() {
-                Some(names) => {
-                    loading.namespaces[0] = names;
-                    1
-                }
-                None => 0,
-            }
-        },
-    )?;
     linker.func_wrap(
         "snail.runtime.wasm",
         "import-count",
@@ -664,20 +480,11 @@ fn define_linking(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
     )?;
     linker.func_wrap(
         "snail.runtime.wasm",
-        "name-instance",
+        "bind-runtime",
         |mut caller: Caller<'_, Host>, handle: i32| {
             let instance = caller.data().loading.instance(handle)?;
-            let name = caller.data_mut().loading.take_name()?;
-            let loading = &mut caller.data_mut().loading;
-            if name == "snail.core.support" {
-                loading.set_runtime(instance);
-                return Ok(1);
-            }
-            if loading.namespaces[0].contains_key(&name) || host_provided(&name) {
-                return Ok(0);
-            }
-            loading.namespaces[0].insert(name, instance);
-            Ok(1)
+            caller.data_mut().loading.set_runtime(instance);
+            wasmtime::Result::<()>::Ok(())
         },
     )?;
     linker.func_wrap(
@@ -771,39 +578,6 @@ fn byte_snapshot(caller: &mut Caller<'_, Host>, address: u32) -> wasmtime::Resul
     Ok(bytes
         .ok_or_else(|| format_err!("Bytes at {address} lie outside memory"))?
         .to_vec())
-}
-
-fn instantiate(mut caller: Caller<'_, Host>, namespace: i32, module: i32) -> wasmtime::Result<i32> {
-    let name = caller.data_mut().loading.take_name()?;
-    let (namespace, module) = caller.data().loading.target(namespace, module)?;
-    if caller.data().loading.namespaces[namespace].contains_key(&name) || host_provided(&name) {
-        return Ok(NAME_TAKEN);
-    }
-    let Some(instance) = link_loaded(&mut caller, namespace, &module)? else {
-        return Ok(LINK_FAILED);
-    };
-    let handle = caller
-        .data_mut()
-        .loading
-        .add_instance(namespace, name, instance)?;
-    Ok(handle)
-}
-
-// An instance of the module, or None when an import has no provider of
-// its type. A trap while instantiating still ends the program.
-fn link_loaded(
-    caller: &mut Caller<'_, Host>,
-    namespace: usize,
-    module: &Module,
-) -> wasmtime::Result<Option<Instance>> {
-    let Ok(imports) = resolve(&mut *caller, namespace, module, &[]) else {
-        return Ok(None);
-    };
-    match Instance::new(&mut *caller, module, &imports) {
-        Ok(instance) => Ok(Some(instance)),
-        Err(error) if error.downcast_ref::<Trap>().is_some() => Err(error),
-        Err(_) => Ok(None),
-    }
 }
 
 // ---- Tests ----

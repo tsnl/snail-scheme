@@ -196,7 +196,7 @@ Top-level lazy values follow the same sharing rule. Their initializer runs once,
 and every read observes its cached object graph. Copy a vector or construct a
 new record explicitly when a caller needs independent mutable state.
 
-## Closures without an environment
+## Closures
 
 `(Fn A → B ! e)` and `(FnOnce A → B ! e)` are built-in callable type formers.
 `Fn` is reusable and may capture only non-linear values. Wrapping a linear owner
@@ -205,9 +205,9 @@ one-shot callable and can move linear captures into it. Applying `once` to an
 existing reusable closure owns one reference to that closure; its other aliases
 remain usable.
 
-`(fn A → B ! e)` is noncapturing code. A `fn` expression cannot refer to an outer
-local, and named top-level functions have no capture environment. There are no
-callable classes, `FnMut`, `dyn`, or `impl` forms.
+A named top-level function has no capture environment. The backend represents
+any closure without captures as an immutable global. There is no separate code
+pointer type, callable class, `FnMut`, `dyn`, or `impl` form.
 
 ## Representation
 

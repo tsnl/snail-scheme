@@ -586,7 +586,7 @@
                                  (● use type)
                                  loc)
                            ck)))
-          ((Lambda params body captures?) (infer-lambda ck params body captures? loc))
+          ((Lambda params body ) (infer-lambda ck params body  loc))
           ((App callee args) (infer-app ck callee args row loc))
           ((FieldRead record label _) (infer-field-read ck record label row loc))
           ;; `then` is `learning`'s own keyword, so the branches are named
@@ -624,18 +624,18 @@
     (define (infer-lambda (ck Checker)
                           (params (List String))
                           (body Expr)
-                          (captures? Bool)
+
                           (loc Loc))
       (→ (Pair Expr Checker)) (! compile)
       (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params)))
-                (infer-lambda-at ck params body captures? types loc)))
+                (infer-lambda-at ck params body  types loc)))
 
     ;; A lambda whose parameter types are known before its body is seen.
 
     (define (infer-lambda-at (ck Checker)
                              (params (List String))
                              (body Expr)
-                             (captures? Bool)
+
                              (types (List Type))
                              (loc Loc))
       (→ (Pair Expr Checker))
@@ -644,7 +644,7 @@
                     (body (scoped (bind-locals ck params types) body body-row))
                     (then (cleanup-lambda params types body body-row)))
                 (Pair
-                 (Expr (Lambda params body captures?) (TFun types (● body type) body-row) loc)
+                 (Expr (Lambda params body ) (TFun types (● body type) body-row) loc)
                  ck)))
 
     ;; A sub-check under `inner`'s scope, resumed in this checker's. `inner`
@@ -685,17 +685,14 @@
                    (Pair (Expr (Seq first rest) type (● expr loc)) ck)))
         ((Pair (Match scrutinee clauses) _)
          (infer-match-at ck scrutinee clauses type row (● expr loc)))
-        ((Pair (Lambda params body captures?) (TFun param-types result body-row))
+        ((Pair (Lambda params body ) (TFun param-types result body-row))
          (if (= (length params) (length param-types))
-             (check-lambda ck expr params body captures? type param-types result body-row)
+             (check-lambda ck expr params body  type param-types result body-row)
              (infer ck expr row)))
-        ;; A function at a fn is checked at its signature, then given the fn.
-        ((Pair _ (TCon "fn" (Cons arrow (Nil))))
-         (learning ck ((value (check-value expr arrow row)))
-                   (fit ck type value row (● value loc))))
-        ((Pair (Lambda params body captures?)
+
+        ((Pair (Lambda params body )
                (TCon "FnOnce" (Cons (TFun types result effects) (Nil))))
-         (check-lambda ck expr params body captures? type types result effects))
+         (check-lambda ck expr params body  type types result effects))
         (_ (infer ck expr row))))
 
     ;; Infer with the expected type, then unify the resulting type.
@@ -712,7 +709,7 @@
     ;; perform. Writes always charge mut, including writes to fresh objects.
 
     (define (check-lambda (ck Checker) (expr Expr) (params (List String))
-                          (body Expr) (captures? Bool) (type Type) (param-types (List Type))
+                          (body Expr)  (type Type) (param-types (List Type))
                           (result Type) (body-row Type))
       (→ (Pair Expr Checker)) (! compile)
       (let ((outer ck))
@@ -725,7 +722,7 @@
                                                   (then
                                                    (cleanup-lambda params param-types body row)))
                                            (Pair body inner))))))
-                  (Pair (Expr (Lambda params body captures?) type (● expr loc))
+                  (Pair (Expr (Lambda params body ) type (● expr loc))
                         (finish-lambda-scope outer ck)))))
 
     ;; A nested function's effects do not replace what its enclosing body
@@ -852,56 +849,18 @@
                       (TFun (map (lambda (record) (● record type)) args) result latent)
                       loc)))
         ;; Calling a `FnOnce` calls the procedure it holds; ownership consumes
-        ;; it. Calling an `Fn` calls the code it is.
+        ;; it.
         ((TCon "FnOnce" (Cons procedure (Nil)))
          (unify-call ck procedure args result latent context loc))
-        ((TCon "fn" (Cons procedure (Nil)))
-         (unify-call ck procedure args result latent context loc))
+
         (other (compile-error loc (string-append "not a function: " (type->string other))))))
 
     ;; Checking a value never changes its representation. Any is boxed and
     ;; extracted explicitly; all ordinary type boundaries unify.
 
     (define (fit (ck Checker) (expected Type) (expr Expr) (row Type) (loc Loc))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (match (Pair (prune (solution ck) expected) (prune (solution ck) (● expr type)))
-        ((Pair (TCon "fn" (Cons arrow (Nil))) (TFun _ _ _))
-         (unless (environment-free? ck expr)
-           (compile-error loc
-                          (string-append "only a fn or a top-level function has type "
-                                         (type->string (resolve-type (solution ck) expected))
-                                         "; a lambda, or a local bound to one, may capture")))
-         (Pair (Expr (● expr term) expected (● expr loc))
-               (unify ck arrow (● expr type) loc)))
-        ((Pair (TFun _ _ _) (TCon "fn" _))
-         (compile-error loc
-                        "an Fn is not a closure, and does not become one; wrap it in a lambda, as (lambda (x) (f x))"))
-        (_ (Pair expr (unify ck expected (● expr type) loc)))))
-
-    (define (fit-code-pointer (ck Checker) (expected Type) (arrow Type) (expr Expr) (loc Loc))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (if (match (prune (solution ck) (● expr type)) ((TCon "fn" _) #t) (_ #f))
-          (Pair expr (unify ck expected (● expr type) loc))
-          (begin
-            (unless (environment-free? ck expr)
-              (compile-error loc
-                             (string-append "only a fn or a top-level function has type "
-                                            (type->string
-                                             (resolve-type (solution ck) expected))
-                                            "; a lambda, or a local bound to one, may capture")))
-            (Pair (Expr (● expr term) expected (● expr loc))
-                  (unify ck arrow (fn-arrow (● expr type)) loc)))))
-
-    (define (environment-free? (ck Checker) (expr Expr)) (→ Bool)
-      (match (● expr term)
-        ((Lambda _ _ captures?) (not captures?))
-        ((Var name _ _)
-         (match (program-value (program-of ck) name)
-           ((Some (Defined _ _ function?)) function?)
-           (_ #f)))
-        (_ #f)))
+      (→ (Pair Expr Checker)) (! compile)
+      (Pair expr (unify ck expected (● expr type) loc)))
 
     ;; A function's own name is visible in its body, with a monomorphic type.
 
@@ -921,7 +880,7 @@
       (match (● value term)
         ((Ann inner type)
          (if (local-function? inner) (Pair type ck) (fresh-meta ck)))
-        ((Lambda params _ _)
+        ((Lambda params _ )
          (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params))
                        (result (fresh-meta)) (row (fresh-meta)))
                    (Pair (TFun types result row) ck)))
@@ -950,8 +909,8 @@
       (→ (Pair Expr Checker))
       (! compile)
       (match (Pair (● value term) (fn-arrow type))
-        ((Pair (Lambda params body captures?) (TFun types _ _))
-         (learning ck ((value (infer-lambda-at params body captures? types (● value loc)))
+        ((Pair (Lambda params body ) (TFun types _ _))
+         (learning ck ((value (infer-lambda-at params body  types (● value loc)))
                        (then (unify (fn-arrow type) (● value type) (● value loc))))
                    (Pair (Expr (● value term) type (● value loc)) ck)))
         (_ (panic "internal error: a local lambda has a reserved signature"))))
@@ -1112,9 +1071,9 @@
       (→ (Pair Expr Checker))
       (! compile)
       (match (Pair (● value term) expected)
-        ((Pair (Lambda params body captures?) (TFun types result _))
+        ((Pair (Lambda params body ) (TFun types result _))
          (if (= (length params) (length types))
-             (learning ck ((value (infer-lambda-at params body captures? types (● value loc))))
+             (learning ck ((value (infer-lambda-at params body  types (● value loc))))
                        (fit-lambda-result ck value result))
              (infer ck value row)))
         (_ (infer ck value row))))
@@ -1126,10 +1085,10 @@
       (→ (Pair Expr Checker))
       (! compile)
       (match (Pair (● value term) (● value type))
-        ((Pair (Lambda params body captures?) (TFun types _ row))
+        ((Pair (Lambda params body ) (TFun types _ row))
          (learning ck ((body (fit result body row (● body loc))))
                    (Pair
-                    (Expr (Lambda params body captures?) (TFun types result row) (● value loc))
+                    (Expr (Lambda params body ) (TFun types result row) (● value loc))
                     ck)))
         (_ (panic "internal error: fitting the result of a non-lambda"))))
 
@@ -2019,7 +1978,7 @@
                (Var name
                     (map (lambda (type) (zonk solution type)) types)
                     (map (lambda (e) (zonk-evidence solution e)) evidence)))
-              ((Lambda params body captures?) (Lambda params (zonk-expr solution body) captures?))
+              ((Lambda params body ) (Lambda params (zonk-expr solution body) ))
               ((App callee args)
                (App (zonk-expr solution callee) (map (lambda (arg) (zonk-expr solution arg)) args)))
               ((FieldRead _ _ (Some hole))
@@ -2082,7 +2041,7 @@
 
     (define (binders (expr Expr)) (→ (List String))
       (append (match (● expr term)
-                ((Lambda params _ _) params)
+                ((Lambda params _ ) params)
                 ((Let name _ _) (list name))
                 ((Match _ clauses)
                  (concatenate
@@ -2144,60 +2103,11 @@
         ((Some (Accessor case index _)) (Ok (list-ref (● case fields) index)))
         (_ (Err not-a-place))))
 
-    ;; ---- Closed functions ----
-
-    ;; A closure that may not capture reads no local of the code around it:
-    ;; only its parameters, the locals it binds, globals, and, when a `let`
-    ;; binds it, its own name, which the backend reads from the closure
-    ;; itself. Names are unique, so a read of a name it does not bind is a
-    ;; read from outside, and one the program does not know is a local.
-
-    (define (check-closed-item (program Program) (item Item)) (→ Unit) (! compile)
-      (match item
-        ((Define _ value) (check-closed program (Nil) value))
-        (_ (unit))))
-
-    ;; `own` is the name a `let` binds the closure to, if it does.
-
-    (define (check-closed (program Program) (own (List String)) (expr Expr)) (→ Unit) (! compile)
-      (match (● expr term)
-        ((Lambda _ _ captures?)
-         (unless captures?
-           (match (filter (lambda (read) (captured-read? program own read)) (outside-reads expr))
-             ((Cons read _)
-              (compile-error (● read loc)
-                             (string-append "a fn has no environment, so it cannot read the local "
-                                            (local-name (var-name read))
-                                            "; use lambda")))
-             ((Nil) (unit)))))
-        (_ (unit)))
-      (match (● expr term)
-        ((Let name value body)
-         (check-closed program (list name) value)
-         (check-closed program (Nil) body))
-        (_ (for-each (lambda (child) (check-closed program (Nil) child)) (expr-children expr)))))
-
-    (define (captured-read? (program Program) (own (List String)) (read Expr)) (→ Bool)
-      (let ((name (var-name read)))
-        (and (not (member? name own))
-             (match (program-value program name)
-               ((Some _) #f)
-               ((None) #t)))))
-
-    (define (var-name (read Expr)) (→ String)
-      (match (● read term)
-        ((Var name _ _) name)
-        (_ (panic "internal error: a read is a variable"))))
-
     ;; ---- Explicit Any ----
 
-    ;; An Any's TypeId keys its type without rows, so converting a function
-    ;; that performs effects would let a caller forget them: a call through
-    ;; the converted function would be charged nothing, and never tested for
-    ;; a yield. Once a library's types are final, and before specialization
-    ;; erases ordinary effects, each conversion refuses such a type, so an
-    ;; Any never holds a function with effects and the rows a TypeId leaves
-    ;; out are empty.
+    ;; Check boxed types before specialization erases ordinary effect rows.
+    ;; A box must not hide a disposal obligation or a callable's effects.
+    ;; Boxing and downcasting themselves introduce no effects.
 
     (define (check-boxing (program Program) (item Item)) (→ Unit) (! compile)
       (match item
@@ -2215,7 +2125,7 @@
       (→ Unit) (! compile)
       (refuse-hidden-effects form type loc)
       (refuse-hidden-disposal program type loc)
-      (refuse-function-reference form type loc))
+      )
 
     (define (refuse-hidden-disposal (program Program) (type Type) (loc Loc)) (→ Unit) (! compile)
       (match (drop-rows program (Nil) (Nil) type)
@@ -2227,20 +2137,6 @@
            (compile-error loc "Any cannot hide disposal effects; keep this value's static type")))
         ((Err _)
          (compile-error loc "Any requires a value whose disposal is known to be effect-free"))))
-
-    ;; An Any holds a reference to a GC object, and a fn's code reference
-    ;; is not one, so neither side of a conversion is an Fn. Data holding
-    ;; one is an object, and crosses.
-
-    (define (refuse-function-reference (form String) (type Type) (loc Loc)) (→ Unit) (! compile)
-      (match type
-        ((TCon "fn" _)
-         (compile-error loc
-                        (string-append form
-                                       " cannot take "
-                                       (type->string type)
-                                       ": an Any holds no function reference; wrap it in a lambda")))
-        (_ (unit))))
 
     (define (refuse-hidden-effects (form String) (type Type) (loc Loc)) (→ Unit) (! compile)
       (match (hidden-effects type)
@@ -2342,7 +2238,7 @@
 
     (define (cleanup-yields (ck Checker) (expr Expr)) (→ (List String))
       (match (● expr term)
-        ((Lambda _ _ _) (Nil))
+        ((Lambda _ _ ) (Nil))
 
         ((App callee args)
          (label-union (cleanup-control ck (cleanup-row ck callee))
@@ -2353,7 +2249,7 @@
                                    (let ((value (● entry second)))
                                      (label-union effects
                                                   (match (● value term)
-                                                    ((Lambda _ body _) (cleanup-yields ck body))
+                                                    ((Lambda _ body ) (cleanup-yields ck body))
                                                     (_ (cleanup-control ck
                                                                         (cleanup-row ck value)))))))
                                  (Nil) implementations)))
@@ -2433,7 +2329,7 @@
          (if (or (any? (lambda (entry) (string=? name (● entry first))) scope)
                  (match (program-value (program-of ck) name) ((Some _) #t) (_ #f))) ck
                  (charge-disposal ck (● value type) handled row (● value loc) #t #t)))
-        ((Lambda _ _ _) ck)
+        ((Lambda _ _ ) ck)
         ((Ann inner _) (charge-temporary ck scope inner handled row))
         (_ (charge-disposal ck (● value type) handled row (● value loc) #t #t))))
 
@@ -2528,7 +2424,7 @@
                               (handled (List String)) (expr Expr) (row Type) (tail? Bool))
       (→ Checker) (! compile)
       (match (● expr term)
-        ((Lambda _ _ _) ck)
+        ((Lambda _ _ ) ck)
         ((Let name value body)
          (let* ((ck (infer-cleanup ck scope handled value row))
                 (owner (Pair name (● value type)))
@@ -2967,7 +2863,7 @@
     ;; What is exposed is a definition's code: a foreign function, a
     ;; constructor or an operation has none.
 
-    (define (check-exposed (ck Checker) (name String) (dynamic Bool) (loc Loc))
+    (define (check-exposed (ck Checker) (name String) (loc Loc))
       (→ Checker)
       (! compile)
       (match (program-value (program-of ck) name)
@@ -2975,13 +2871,13 @@
         (_ (compile-error loc "an exposed function must be defined")))
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) _ type))
-         (check-exposed-type ck (resolve-type (solution ck) type) dynamic loc))
+         (check-exposed-type ck (resolve-type (solution ck) type) loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
 
     ;; Inferred values may still name their solved metavariable here. Host
     ;; exports obey the same boundary whether their type was written or inferred.
 
-    (define (check-exposed-type (ck Checker) (type Type) (dynamic Bool) (loc Loc))
+    (define (check-exposed-type (ck Checker) (type Type) (loc Loc))
       (→ Checker)
       (! compile)
       (unit)
@@ -2989,7 +2885,7 @@
         ((TFun params result row)
          (when (any? (lambda (type) (linear? ck type)) (Cons result params))
            (compile-error loc "an exposed function cannot take or return a linear value"))
-         (when dynamic (check-dynamic ck (Cons result params) row loc))
+
          (check-result-disposal ck result loc)
          (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
@@ -3007,24 +2903,6 @@
                        (compile-error loc "an exposed result must have known disposal effects"))
                      (check-host-effects ck row loc)
                      (unit)) rows))))
-
-    ;; A program that loads a dynamic export trusts nothing of it but its
-    ;; signature, which names each type by its TypeId, so every parameter
-    ;; and the result must be data that a TypeId describes. Effects are
-    ;; erased before the backend writes the signature, so a program that
-    ;; loads the function could not check them: a dynamic export is pure.
-
-    (define (check-dynamic (ck Checker) (types (List Type)) (row Type) (loc Loc))
-      (→ Unit)
-      (! compile)
-      (unless (every?
-               (lambda (type) (first-order-type? (program-of ck) (resolve-type (solution ck) type)))
-               types)
-        (compile-error loc
-                       "a dynamic export takes and returns only data, with no function or Any inside"))
-      (unless (null? (● (flatten-row (solution ck) row) first))
-        (compile-error loc
-                       "a dynamic export cannot perform effects: the program that loads it could not check them")))
 
     ;; Effects performed at program start need defaults for every
     ;; operation; the builtin effects are the host's own.
@@ -3117,14 +2995,14 @@
     (define (check-final-item (program Program) (schemes (Table Scheme)) (item Item))
       (→ Unit)
       (! compile)
-      (check-closed-item program item)
+
       (check-places-item program item)
       (check-item-ownership program schemes item))
 
     (define (check-exposures (ck Checker) (items (List Item))) (→ Checker) (! compile)
       (fold-left (lambda (ck item)
                    (match item
-                     ((Expose name _ dynamic loc) (check-exposed ck name dynamic loc))
+                     ((Expose name _ loc) (check-exposed ck name loc))
                      ((Entry name loc) (check-entry ck name loc))
                      (_ ck)))
                  ck items))
@@ -3145,7 +3023,7 @@
       (! compile)
       (let* ((exposed (concatenate (map (lambda (item)
                                           (match item
-                                            ((Expose name _ _ _) (list name))
+                                            ((Expose name _ _) (list name))
                                             ((Entry name _) (list name))
                                             (_ (Nil))))
                                         items)))
@@ -3190,7 +3068,7 @@
     (define (item-references (item Item)) (→ (List String))
       (match item
         ((Define name value) (Cons name (expr-references value)))
-        ((Expose name _ _ _) (list name))
+        ((Expose name _ _) (list name))
         ((Entry name _) (list name))))
 
     (define (unannotated-groups (ck Checker) (items (List Item))) (→ (List (List Item)))
