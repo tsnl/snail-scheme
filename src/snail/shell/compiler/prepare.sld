@@ -678,13 +678,10 @@
 
     ;; ---- Droppers ----
 
-    ;; A frame holds the linear locals live across its yield point, and a
-    ;; once lambda the linear values it captured; whoever drops the resume,
-    ;; or the lambda unrun, drops them (ownership.sld, "Drops that may
-    ;; run"). Each gets a dropper, a thunk closed over the same locals that
-    ;; drops them in order, which the backend stores beside the frame's or
-    ;; the closure's code: a let whose value may yield wraps the value in
-    ;; `with-dropper`, and `once` of a lambda with linear captures becomes
+    ;; A frame owns the linear and counted locals assigned to its yield
+    ;; point. `with-cleanup` carries their ordered cancellation code; the
+    ;; backend emits it over the frame's own environment. A once lambda
+    ;; keeps a separate thunk for its linear captures, so `once` becomes
     ;; `once-dropping`. Cleanup references are reserved immediately in the
     ;; specialization worklist; their bodies are completed by the next batch.
     ;; Cleanup is built in one rewriting traversal, threading that registry
@@ -834,7 +831,7 @@
 
     ;; A let whose value may yield saves its body as a frame holding the
     ;; owners retained by its caller, even when an aborting body never
-    ;; reads them: the let's value is marked with their dropper.
+    ;; reads them: the let's value carries their ordered cleanup code.
 
     (define (dropper-let (state State) (callees Callees)
                          (scope (List (Pair String Type))) (expr Expr)
@@ -844,7 +841,7 @@
         (cleaning state
                   ((value (droppers callees (taken-scope callees scope value) value))
                    (body (droppers callees (Cons (Pair name (● value type)) after) body))
-                   (value (with-dropper value
+                   (value (with-cleanup value
                                         (if (null? (yields callees value)) (Nil)
                                             (owned-locals callees after)))))
                   (Pair (Expr (Let name value body) (● expr type) (● expr loc)) state))))
@@ -897,7 +894,7 @@
                                         (string-join (map (lambda (record) (● record first)) live)
                                                      "|")))
                    (result (Expr (Var name (Nil) (Nil)) (● value type) (● value loc))))
-              (cleaning state ((value (with-dropper value live)))
+              (cleaning state ((value (with-cleanup value live)))
                         (Pair (bind name value result) state))))))
 
     (define (lambda-captures (callees Callees) (scope (List (Pair String Type))) (procedure Expr))
@@ -934,15 +931,17 @@
                   (or (linear-type? program (Nil) type) (shared-type? program type)))) scope))
 
     ;; Mark a value with the cleanup of the owners its continuation keeps.
+    ;; This is code for the frame's cancellation entry, not a second closure
+    ;; owning backup copies. Resume and cancel consume the same environment.
 
-    (define (with-dropper (state State) (value Expr) (live (List (Pair String Type))))
+    (define (with-cleanup (state State) (value Expr) (live (List (Pair String Type))))
       (→ (Pair Expr State))
       (if (null? live) (Pair value state)
-          (cleaning state ((thunk (dropper live (● value loc))))
+          (cleaning state ((cleanup (drop-body live (● value loc))))
                     (let ((type (● value type)) (loc (● value loc)))
-                      (Pair (Expr (App (Expr (Var "prim:with-dropper" (Nil) (Nil))
-                                             (TFun (list type (● thunk type)) type empty-row) loc)
-                                       (list value thunk)) type loc) state)))))
+                      (Pair (Expr (App (Expr (Var "prim:with-cleanup" (Nil) (Nil))
+                                             (TFun (list type unit-type) type empty-row) loc)
+                                       (list value cleanup)) type loc) state)))))
 
     (define (once-dropping (state State) (expr Expr) (callee Expr)
                            (procedure Expr) (captured (List (Pair String Type))))

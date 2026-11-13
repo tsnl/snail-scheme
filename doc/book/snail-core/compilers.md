@@ -154,8 +154,8 @@ finite specialization budget again.
 
 `prepare.sld` closes each newly discovered batch before inspecting its
 original concrete bodies. It folds constants, checks control restrictions,
-lowers ownership lifetimes, names yield points, and builds cancellation
-closures. Cleanup can request more definitions; those form the next batch.
+inserts reference counts, names yield points, and builds cancellation
+code. Cleanup can request more definitions; those form the next batch.
 An old definition's body and call contract do not change while another batch
 is being checked.
 
@@ -163,12 +163,13 @@ Control lowering uses a subset of the same expression language, not a
 separate CPS language. A call that may yield stays in tail position or is
 named by a `let`; operands that execute before it are named first. The
 backend can therefore test for a pending yield before executing the rest
-of the expression. `with-dropper` records which live owners belong to that
-suspended scope. A one-shot closure carries the cleanup for captures not
+of the expression. `with-cleanup` carries ordered cancellation code for that
+suspended scope; its second operand is code, not an evaluated argument.
+A one-shot closure carries the cleanup for captures not
 transferred into its body.
 
 Cleanup uses one rewriting traversal of each body. It requests a concrete `Drop`
-reference when it encounters an owned capture and builds the cleanup thunk
+reference when it encounters an owned capture and builds the cleanup code
 immediately. The specialization registry reserves the name and signature;
 later batches build the requested body. Branches share the same initial
 lexical scope while threading that registry, so requests deduplicate without
@@ -266,11 +267,20 @@ outside the matching handler. Latent effects get forwarding evidence from
 the performer. Handler identity is never a specialization key.
 
 A control operation sets a yield record. As execution returns through named
-yield points, the remainder of each scope becomes a frame holding code,
-locals, evidence and cancellation cleanup. The matching handler receives
+yield points, the remainder of each scope becomes a frame holding resume and
+cancel entry points, evidence, and one environment. Its captures include both
+the continuation's reads and cleanup-only owners that a `Never` continuation
+does not mention. Each owner moves into the frame once; execution and cancellation
+consume the same credits on mutually exclusive paths. There is no backup
+cancellation closure or extra retain/release pair for its captures.
+The matching handler receives
 a one-shot resumption. Calling it executes the frames from inside out;
 dropping it runs their cleanup without executing their continuation code.
 A handled scope saved among those frames preserves its delimiter.
+Both paths detach the frames before calling user code. Cancellation uses the
+frame's renewed evidence and preserves cleanup order; evidence stays owned
+until the chosen entry finishes. An abort that cannot resume runs cleanup
+directly, without allocating a frame or cleanup closure.
 
 Resumption creates a fresh handler activation whose outside context is the
 caller of `resume`. A memoized renewal walks parent and forwarding-origin
