@@ -35,14 +35,14 @@
    (only (snail shell compiler check) Typed)
    (only (snail shell compiler ownership) consumed-references)
    (snail shell compiler specialize)
-   (snail shell compiler constants)
    (snail shell compiler lifetimes))
   (begin
 
     ;; ---- Prepared code ----
 
-    ;; Fixed declarations and concrete functions consumed by emission.
-    ;; No initializer, source body cache or worklist crosses this boundary.
+    ;; Fixed declarations and concrete function bodies consumed by emission.
+    ;; A value binding keeps function? false; its body is a zero-argument
+    ;; initializer lowered by the same passes as an ordinary function.
     (struct Prepared
       ((declarations Declarations)
        (definitions (List Item))
@@ -77,42 +77,35 @@
         ((Pair definitions state)
          (let ((items (append roots definitions)))
            (if (null? items) (Lowered (reverse done) state)
-               (match (fold-constants state items prepare-constant-body)
-                 ((Pair items state)
-                  ;; Imported constant bodies and cleanup requests can open
-                  ;; the graph again. Close it before control analysis; keep
-                  ;; the newly completed bodies for the next preparation batch.
-                  (match (complete-specializations state)
-                    ((Pair discovered state)
-                     (let ((lowered (prepare-batch state items)))
-                       (prepare-batches (● lowered state) discovered
-                                        (append (reverse (● lowered items)) done))))))))))))
+               (let ((lowered (prepare-batch state items)))
+                 (prepare-batches (● lowered state) (Nil)
+                                  (append (reverse (● lowered items)) done))))))))
 
     (define (prepare-batch (state State) (items (List Item))) (→ Lowered) (! compile)
       (let ((callees (specialization-callees state)))
         (for-each (lambda (item) (check-item callees item)) items)
-        (let* ((declarations (constant-declarations (specialization-declarations state)))
-               (items (map (lambda (item) (lower-lifetimes declarations item)) items))
+        (let* ((declarations (specialization-declarations state))
+               (items
+                (map (lambda (item) (lower-lifetimes declarations (initializer-function item)))
+                     items))
                (lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
                                    (Lowered (Nil) state) items)))
           (Lowered-items-set lowered (reverse (● lowered items))))))
 
 
 
-    ;; Constant execution consumes the same lifetime and cancellation evidence
-    ;; as Wasm. The evaluator supplies source closure recipes separately.
-    (define (prepare-constant-body (state State) (name String) (body Expr))
-      (→ (Pair Expr State)) (! compile)
-      (let* ((callees (declaration-callees (specialization-declarations state)))
-             (item (Define name body)))
-        (check-item callees item)
-        (let ((item (lower-lifetimes (specialization-declarations state) item)))
-          (match (lower-droppers state callees (control-item callees item))
-            ((Pair (Define _ value) state) (Pair value state))
-            (_ (panic "internal error: preparation changed a constant definition"))))))
+    ;; Keep the original body in specialization's contextual analysis. A
+    ;; computed procedure's initializer is pure; calling its result may yield.
+    (define (initializer-function (item Item)) (→ Item)
+      (match item
+        ((Define name value)
+         (if (lambda-expr? value) item
+             (Define name (Expr (Lambda (Nil) value #f)
+                                (TFun (Nil) (● value type) empty-row) (● value loc)))))
+        (_ item)))
 
     (define (prepared (state State) (items (List Item)) (exported (List String))) (→ Prepared)
-      (Prepared (constant-declarations (specialization-declarations state))
+      (Prepared (specialization-declarations state)
                 (filter (lambda (item)
                           (match item ((Define _ value) (lambda-expr? value)) (_ #f))) items)
                 (match (find (lambda (item) (match item ((Entry _ _) #t) (_ #f))) items)
@@ -629,30 +622,33 @@
                                     final
                                     (● entry first)))
                               -1 (zip (iota (length operands)) operands))))
-        (bind-from count final 0 operands)))
+        (bind-from count callees final 0 operands)))
 
-    (define (bind-from (count I64) (final I64) (index I64) (operands (List Expr)))
+    (define (bind-from (count I64) (callees Callees) (final I64) (index I64) (operands (List Expr)))
       (→ (Pair Bound I64))
       (match operands
         ((Cons operand rest)
-         (if (and (<= index final) (or (= index final) (not (inert? operand))))
+         (if (and (<= index final) (or (= index final) (not (inert? callees operand))))
              (let ((name (temporary-name count)) (next (+ count 1)))
-               (naming next ((bound (bind-from final (+ index 1) rest)))
+               (naming next ((bound (bind-from callees final (+ index 1) rest)))
                        (Pair (Bound (Cons (Pair name operand) (● bound lets))
                                     (Cons (temporary name operand) (● bound operands)))
                              next)))
-             (naming count ((bound (bind-from final (+ index 1) rest)))
+             (naming count ((bound (bind-from callees final (+ index 1) rest)))
                      (Pair (Bound (● bound lets) (Cons operand (● bound operands)))
                            count))))
         ((Nil) (Pair (Bound (Nil) (Nil)) count))))
 
-    ;; Evaluating a literal, a variable or a lambda has no effect a yield
-    ;; could reorder.
+    ;; A value global may initialize or panic. Preserve that read before a
+    ;; later yielding operand; ordinary locals and function references are inert.
 
-    (define (inert? (expr Expr)) (→ Bool)
+    (define (inert? (callees Callees) (expr Expr)) (→ Bool)
       (match (● expr term)
         ((Lit _) #t)
-        ((Var _ _ _) #t)
+        ((Var name _ _)
+         (match (table-ref (● (● callees declarations) bindings) name)
+           ((Some binding) (● binding function?))
+           ((None) #t)))
         ((Lambda _ _ _) #t)
         (_ #f)))
 

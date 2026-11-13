@@ -4,15 +4,15 @@
    (snail core base))
   (begin
 
-    ;; Constants are forced through dependencies, including forward ones.
+    ;; Lazy values follow dependencies, including forward ones.
     (define second (→ I64) (+ first 2))
     (define first (→ I64) (+ origin 1))
     (define origin (→ I64) 0)
 
-    ;; Each specialization instantiates the same fully evaluated constant,
-    ;; including references from another library.
+    ;; Stateless templates expand at each type; allocating generic values
+    ;; are ordinary constructor functions, including across libraries.
     (define empty-values (→ (List A)) (∀ A) (⊨ (Copy A)) (Nil))
-    (define nested-values (→ (List (List A))) (∀ A) (⊨ (Copy A)) (Cons empty-values (Nil)))
+    (define (nested-values) (→ (List (List A))) (∀ A) (⊨ (Copy A)) (Cons empty-values (Nil)))
 
     ;; Both specializations reserve their names before discovering the
     ;; back-edge. Repeated references reuse the reserved implementation.
