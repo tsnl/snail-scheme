@@ -17,12 +17,17 @@ const median = values => values.toSorted((a, b) => a - b)[Math.floor(values.leng
 // A separate affinity-pinned process measures only calls into warmed modules.
 if (args[0] === '--reads') {
   assert(globalThis.gc);
+  async function fresh(module) {
+    const wasi = new WASI({version: 'preview1', args: [], env: {}, preopens: {}});
+    const instance = await WebAssembly.instantiate(module, wasi.getImportObject());
+    wasi.initialize(instance);
+    assert.equal(instance.exports.main(), 0);
+    return instance.exports;
+  }
   const modules = [];
   for (const [index, file] of args.slice(1).entries()) {
-    const wasi = new WASI({version: 'preview1', args: [], env: {}, preopens: {}});
-    const {instance} = await WebAssembly.instantiate(readFileSync(file), wasi.getImportObject());
-    wasi.initialize(instance);
-    modules.push({name: index ? 'current' : 'baseline', exports: instance.exports});
+    const module = await WebAssembly.compile(readFileSync(file));
+    modules.push({name: index ? 'current' : 'baseline', module, exports: await fresh(module)});
   }
   const report = [];
   for (const [name, count, value] of [['scalar-read', 20000000n, 2016n], ['aggregate-read', 100000n, 63n]]) {
@@ -43,6 +48,24 @@ if (args[0] === '--reads') {
       baseline_ms: times('baseline'), current_ms: times('current'),
       ratio: times('current') / times('baseline'), samples});
   }
+  // Keep module instantiation untimed, but force a fresh cache on every call.
+  // Warm the engine using discarded instances; never warm the measured cache.
+  for (const module of modules) for (let warm = 0; warm < 3; ++warm)
+    assert.equal((await fresh(module.module))['first-load'](), 199990000n);
+  const samples = [];
+  for (let repeat = 0; repeat < 21; ++repeat) {
+    for (const module of repeat % 2 ? [...modules].reverse() : modules) {
+      globalThis.gc();
+      const entry = await fresh(module.module);
+      const start = performance.now(), value = entry['first-load']();
+      const milliseconds = performance.now() - start;
+      assert.equal(value, 199990000n);
+      samples.push({variant: module.name, repeat, milliseconds});
+    }
+  }
+  const times = variant => median(samples.filter(s => s.variant === variant).map(s => s.milliseconds));
+  report.push({case: 'first-load', count: '20000', checksum: '199990000',
+    baseline_ms: times('baseline'), current_ms: times('current'), samples});
   console.log(JSON.stringify(report));
   process.exit(0);
 }
@@ -74,6 +97,8 @@ const compileArgs = (v, source, target) => ['--no-warnings', join(root, 'host/na
 const report = {date: new Date().toISOString(), node: process.version, v8: process.versions.v8,
   cpu: cpus()[Number(cpu)]?.model, affinity: cpu, platform: process.platform, arch: process.arch,
   harness: artifact(fileURLToPath(import.meta.url)), scalar_runtime: artifact(runtime),
+  drivers: Object.fromEntries(['benchmark-values.mjs', 'benchmark-siege.mjs'].map(name =>
+    [name, artifact(join(root, 'scripts', name))])),
   sources: Object.fromEntries(Object.entries(sources).map(([key, name]) =>
     [key, artifact(join(root, 'tests/benchmarks', name))])), variants: []};
 for (const variant of variants) {
@@ -96,13 +121,15 @@ report.siege = JSON.parse(run('taskset', [...pinnedNode('scripts/benchmark-siege
 report.reads = JSON.parse(run('taskset', [...pinnedNode('scripts/benchmark-lazy-values.mjs'),
   '--reads', variants[0].lazy, variants[1].lazy]));
 report.compilation = [];
-for (let repeat = 0; repeat < 9; ++repeat) {
-  for (const variant of repeat % 2 ? [...variants].reverse() : variants) {
-    const timing = join(output, 'time.txt'), target = join(output, `${variant.name}-timed.wat`);
-    run('time', ['-f', '%e %U %S %M', '-o', timing, 'taskset', '-c', cpu, 'node',
-      ...compileArgs(variant, join(root, 'tests/benchmarks/value-model.sld'), target)], variant.root);
-    const [elapsed_s, user_s, system_s, peak_rss_kib] = readFileSync(timing, 'utf8').trim().split(' ').map(Number);
-    report.compilation.push({variant: variant.name, repeat, elapsed_s, user_s, system_s, peak_rss_kib});
+for (const fixture of ['values', 'lazy']) {
+  for (let repeat = 0; repeat < 9; ++repeat) {
+    for (const variant of repeat % 2 ? [...variants].reverse() : variants) {
+      const timing = join(output, 'time.txt'), target = join(output, `${variant.name}-timed.wat`);
+      run('time', ['-f', '%e %U %S %M', '-o', timing, 'taskset', '-c', cpu, 'node',
+        ...compileArgs(variant, join(root, 'tests/benchmarks', sources[fixture]), target)], variant.root);
+      const [elapsed_s, user_s, system_s, peak_rss_kib] = readFileSync(timing, 'utf8').trim().split(' ').map(Number);
+      report.compilation.push({fixture, variant: variant.name, repeat, elapsed_s, user_s, system_s, peak_rss_kib});
+    }
   }
 }
 writeFileSync(join(output, 'results.json'), JSON.stringify(report, null, 2) + '\n');
