@@ -42,8 +42,8 @@ each can return if a program needs it.
 Snail Scheme deliberately omits R7RS compatibility, `call/cc`, `dynamic-wind`,
 a dynamic numeric tower, source borrows, callable classes, `dyn`, `impl`,
 `FnMut` and inline records. These are design decisions, not compatibility
-bugs waiting for implementation. Mutable top-level state is also excluded:
-compile-time values are forced lazily and read as fresh graphs.
+bugs waiting for implementation. Top-level statements are excluded, but
+value definitions lazily cache shared runtime values, including mutable objects.
 
 Mutually recursive local functions, class superclasses, literals at generic
 numeric types and overflow-checked arithmetic remain possible future work.

@@ -1,5 +1,9 @@
 # Migration measurements
 
+The first comparison records the Java-style migration in #754. The
+[lazy runtime follow-up](#lazy-runtime-follow-up) below measures the subsequent
+replacement of compile-time evaluation with shared runtime caches.
+
 The migration reduces measured arithmetic, vector-growth and Siegework simulation
 time. Retained record lists, pre-sized vectors and incremental expansion cost
 more. Nested record updates remain close. These measurements cover the combined
@@ -168,3 +172,102 @@ checkout. The baseline session fixture uses its required `dyn` spelling and
 explicit top-level entry call; the migration fixture uses `Fn` and the root
 function entry. Their benchmark operations are otherwise the same. No Chibi
 tests or bootstrap were used to obtain these results.
+
+## Lazy runtime follow-up
+
+The follow-up removes the compile-time interpreter and graph reconstruction.
+Top-level values now initialize once on first read and share the result.
+Initializers still require an empty effect row. Cyclic initialization panics;
+ordinary recursive functions remain ordinary code. The change also replaces
+an evaluator-only enum-case diagnostic with an explicit runtime tag check,
+including cases with identical Wasm layouts.
+
+This compares the landed #754 tree at
+[`b3b591ae8`](https://github.com/tsnl/snail-scheme/commit/b3b591ae8704833fd2c268a45f2ab6434ace74f2)
+with implementation and harness
+[`7b77a209e`](https://github.com/tsnl/snail-scheme/commit/7b77a209ee8e8f88a8d03a46bb2159d39d54c037),
+measured on 2026-11-13 UTC.
+[Raw observations, confirmation runs and hashes](measurements/lazy-runtime-20261112.json)
+retain the evidence. Both revisions use identical workload sources and the same
+Rust scalar runtime; Siegework's application sources are unchanged.
+
+| Footprint | #754 | Lazy runtime |
+| --- | ---: | ---: |
+| Linked compiler, including names | 3,297,329 bytes | 2,899,936 bytes |
+| Compiler Wasm code-section payload | 1,054,871 bytes | 901,943 bytes |
+| Ordinary value-workload module | 184,415 bytes | 184,415 bytes |
+| Siegework workload module | 389,031 bytes | 394,611 bytes |
+| Lazy-value workload module | 181,083 bytes | 185,949 bytes |
+
+The compiler is **12.05% smaller**, with **14.50% less code-section payload**.
+Runtime initializers and guards can enlarge an application's module: Siegework
+adds 1.43% here. Across compiler and Chez sources the patch adds 200 lines and
+removes 2,757, a net reduction of 2,557. Excluding this report and its raw data,
+the change touches 88 files, adding 820 and removing 2,967 lines. The interpreter,
+freezing/copying machinery, evaluation budgets and evaluator scalar bridge are
+gone; ordinary lifetime/control lowering now handles initializer bodies.
+
+The machine and V8 version match the earlier experiment. Execution is pinned
+to CPU 2. Steady-state medians use 21 alternating pairs after three warm-ups;
+Siegework uses 11 pairs. Compilation, instantiation, entry and forced GC are
+outside runtime timing. Every call verifies its checksum.
+
+| Workload | #754 | Lazy runtime |
+| --- | ---: | ---: |
+| 20 million scalar-global reads | 4.151 ms | 10.925 ms |
+| 100,000 reads from a 64-element aggregate global | 2.360 ms | 0.134 ms |
+| Siegework, 32 deterministic colonies | 341.388 ms | 351.025 ms |
+| First force of a sum over 20,000 list elements | 0.883 µs | 68.548 µs |
+
+The scalar loop exposes guard overhead, about **2.63×** in this tiny operation.
+Aggregate access takes about **0.057×** the time because it reads shared storage
+instead of rebuilding a graph. This is an intentional semantic change, not a
+measurement of getter dispatch alone. First-force measurements use a fresh
+instance for each sample but reuse a warmed compiled module. The old compiler
+already computed the sum; its first read is near the timing floor. The new
+initializer performs the actual computation. These are first-force costs,
+not total startup costs.
+
+Separate processes with reversed module instantiation order confirm the
+changed workloads: scalar reads 4.150/11.427 ms, aggregate reads 2.370/0.133 ms,
+first force 0.877/68.617 µs, and Siegework 340.901/350.547 ms (before/after).
+Siegework is about **2.8% slower** in both runs; this does not isolate lazy
+reads from the accompanying enum-case checks. The raw confirmation records
+map the harness's positional labels back to the actual compiler variants.
+
+The ordinary arithmetic/record/vector workload is a control: both compilers
+emit **byte-identical Wasm**. Its timings still vary between instances. For
+example, pre-sized-vector medians are 2.489/2.978 ms, with overlapping ranges
+of 2.447–3.076/2.443–3.057 ms. Those differences cannot establish a compiler
+regression; the raw samples are retained without attributing speed changes.
+
+Nine alternating pairs of cold compilations per fixture include process startup and
+compiler instantiation, but exclude linking. All nine observations contribute
+to each median; GNU time resolves elapsed time in 10 ms increments.
+
+| Compile to Wasm text | #754 time / peak RSS | Lazy runtime time / peak RSS |
+| --- | ---: | ---: |
+| Ordinary value workload | 170 ms / 103,940 KiB | 170 ms / 103,452 KiB |
+| Lazy-value fixture, including the 20,000-element sum | 440 ms / 179,312 KiB | 170 ms / 103,280 KiB |
+
+RSS is the compiler process's peak, not live managed heap. Runtime heap usage
+and whole-program startup are unmeasured. Cached aggregates and counted owners
+now live with their module instance; see [lazy runtime values](types.md#lazy-runtime-values)
+for sharing, finalization and relink lifetime rules.
+
+To reproduce, create checkouts at the two revisions named in this section:
+`BASE_ROOT` is `b3b591ae8`, and the follow-up checkout is `7b77a209e`.
+In each checkout's `nix-shell`, run `make fetch` and `make bootstrap` with Chez.
+This prepares the compilers, native linker and scalar runtime. Then run from
+the follow-up checkout on a quiet machine:
+
+```sh
+node --no-warnings scripts/benchmark-lazy-values.mjs \
+  BASE_ROOT BASE_ROOT/build/compiler/snailc.wasm build/compiler/snailc.wasm
+```
+
+The default output is `build/migration/lazy-benchmark/results.json`. For the
+independent confirmation, run `scripts/benchmark-siege.mjs` and the driver's
+`--reads` mode under `taskset -c 2 node --no-warnings --expose-gc`, passing the
+current artifact before the baseline artifact. The raw file retains that
+argument order explicitly. No Chibi tests or bootstrap were used.

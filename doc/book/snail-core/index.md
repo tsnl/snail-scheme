@@ -6,9 +6,9 @@ mutable heap objects; primitive values stay unboxed. `Rc` and `WeakRc`
 provide counted resource lifetime without source borrows. Functions use
 `Fn` and `FnOnce` type formers with the Unicode `→` separator.
 
-Top-level values are pure compile-time computations. Runtime state belongs
-to functions and explicit application owners. Constant reads construct fresh
-object graphs, so they cannot become writable module globals.
+Top-level values initialize lazily at runtime. Their initializers must be
+effect-free; each module instance evaluates once and shares the cached result,
+including mutable objects. Reentrant initialization panics.
 
 This is one language, with no R7RS compatibility layer, `call/cc` or
 `dynamic-wind`. The compiler emits WasmGC and compiles itself; a small Chez

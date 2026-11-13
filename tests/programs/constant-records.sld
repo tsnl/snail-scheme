@@ -12,7 +12,7 @@
    (previous I64)))
 
 ;; Scratch mutation is confined by an explicit trusted boundary. The
-;; evaluator preserves aliases inside the resulting fresh constant graph.
+;; initializer preserves aliases inside the shared cached graph.
 (define prepared (→ Shared)
   (unsafe-total
    (lambda ()

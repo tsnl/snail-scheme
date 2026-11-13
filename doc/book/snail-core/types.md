@@ -82,25 +82,22 @@ generic definitions. A library is checked before its importers, so a use in
 another library never determines an exported value's type: `(define key-left 1)`
 is `I64`; an `I32` constant needs `(define key-left (→ I32) 1)`.
 
-## Compile-time values
+## Lazy runtime values
 
-A top-level form declares a function, type, macro, class, effect or other
-compile-time definition. Runtime expressions belong in functions. A program
-starts by calling its root `main`; importing a library executes no source
-initializers. In particular, top-level `set!`, printing, opening a resource
-and scheduling work are errors.
+A top-level form declares a function, type, macro, class, effect or value.
+Top-level statements such as `set!`, printing and scheduling work are errors;
+a program starts by calling its root `main`. Importing or linking a library
+runs no source initializer.
 
-A value definition such as `(define size (→ I64) (+ 20 22))` must be
-effect-free and fully evaluable by the compiler. Values are forced when
-needed, independently of source order. Forcing a value already being forced
-reports the cycle. Recursive function definitions remain ordinary code;
-recursion is not a constant-forcing cycle.
+A value definition such as `(define size (→ I64) (+ 20 22))` must have an
+empty effect row. Its ordinary compiled initializer runs on the first read,
+independently of source order. The defining module instance caches the result
+and every later read returns that same value. Reentering an initializer before
+it finishes panics with the binding's name. An unused cycle never runs.
+Recursive function definitions remain ordinary code, outside this guard.
 
-Each read of an aggregate constant constructs a fresh object graph. Aliases
-and mutable cycles *inside* that graph are preserved. Two reads share no
-writable state, including through closure captures, vectors, `Rc` or `WeakRc`.
-For example, mutating a record obtained from `origin` below does not change
-a later read of `origin`:
+Records, vectors and closure captures are shared across reads. For example,
+changing `origin` below changes the object observed by every later read:
 
 ```scheme
 (struct Point
@@ -109,21 +106,30 @@ a later read of `origin`:
 (define origin (→ Point) (Point 0 0))
 ```
 
-Effect-free initialization can call pure functions, perform local mutation
-inside a justified `unsafe-total`, and handle effects locally. The evaluator
-uses the same ownership and cleanup decisions as runtime code. It supports
-the compiler's deterministic scalar services, not arbitrary foreign calls or
-host I/O. It bounds evaluation at ten million steps and one million heap
-cells, reporting a compile error on exhaustion. Emitting a fresh runtime graph
-has a separate limit of 512 construction steps: one per object and one per
-field or element. Packed byte vectors emit as data segments, so their bytes do
-not count as individual construction steps. Larger intermediate values can still
-be computed and reduced to a small result. Use an ordinary runtime function to construct a larger
-returned graph; runtime vectors have no fixed size. This emission limit protects
-recursive compiler passes and is an implementation limit, not a type rule.
-Linear top-level values are
-rejected; a function can construct a fresh linear owner when called. An
-unfinished interpreter resumption cannot escape into a constant.
+Initializers may call pure functions and handle effects locally. Private
+mutation can be hidden inside a justified `unsafe-total`; that assertion does
+not make mutation of a shared global pure. Runtime work with an observable
+effect belongs in a function with its effect row declared. There is no separate
+interpreter, freezing step or constant-evaluation budget.
+
+Linear globals are rejected. A cache may own an `Rc`, including one wrapping
+a linear resource. Each read retains its own credit; dropping that credit
+does not release the cache's owner. Replacing a counted field releases its
+previous value normally. Cache roots last for the module instance's lifetime.
+WasmGC collection and module replacement do not run source finalizers; host
+resource cleanup still runs at the owning run's teardown. An old closure kept
+across a relink may keep accessing its original cache. A new module instance
+starts with empty caches, so persistent application state belongs in Save.
+These WasmGC values are not shared between threads, so guards need no mutex.
+
+Polymorphic functions and their aliases remain supported. A quantified value
+may also be a scalar/string literal or a nullary enum template, such as
+`(define empty (→ (List A)) (∀ A) (Nil))`. These have no mutable state to share.
+Other polymorphic values are rejected: specializing an allocating value in
+each importer would give separate compilation different sharing semantics.
+Use a zero-argument generic function for fresh values, or concrete monomorphic
+value definitions for shared state. Byte vectors and empty growable vectors
+are mutable objects, not stateless templates.
 
 ## Data
 

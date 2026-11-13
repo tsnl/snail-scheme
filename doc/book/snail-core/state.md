@@ -117,8 +117,8 @@ may suspend; an unrelated application wait cannot keep a transaction open.
 Returned values must satisfy the structural data restriction too. No cursor,
 transaction token, mutable storage view or effectful closure escapes. Static
 checking must also reject hidden captures that can mutate the transaction.
-The language has no writable module globals or source borrows. The arrows above do
-not, by themselves, establish those restrictions. `define-view` and named
+Shared mutable module values also need consideration; source borrows do not
+exist. The arrows above do not, by themselves, establish those restrictions. `define-view` and named
 action declarations are possible checking boundaries; this is a compiler gap
 to settle before implementing the API.
 

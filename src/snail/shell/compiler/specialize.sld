@@ -13,8 +13,6 @@
    specialization-declarations
    specialization-program
    specialization-definitions
-   constant-binding?
-   constant-body
    start-specialization
    complete-specializations
    request-drops
@@ -270,22 +268,6 @@
                      ((Imported) bodies)
                      (_ (panic "internal error: analysis requires completed definitions"))))
                  empty-table (table-keys (● state bindings))))
-
-    ;; Constants keep their checked value types until preparation turns
-    ;; their uses into calls to fresh-value factories. Interpreting an
-    ;; imported function requests its body without changing its runtime
-    ;; import; dependencies discovered while doing so join the usual queue.
-    (define (constant-binding? (state State) (name String)) (→ Bool)
-      (match (table-ref (● state bindings) name)
-        ((Some binding) (not (● binding function?)))
-        ((None) #f)))
-
-    (define (constant-body (state State) (name String)) (→ (Pair Expr State))
-      (match (● (binding-of state name) body)
-        ((SourceBody _ value) (Pair value state))
-        ((Imported) (instantiate-body state (SourceRecipe name (Nil) (Nil))))
-        ((GlueBody value) (Pair value state))
-        (recipe (instantiate-body state recipe))))
 
     ;; ---- Copying ----
 
@@ -898,11 +880,16 @@
                                            evidence
                                            (● state control))
                             value))))
-          (_ (if (external? state name types)
-                 (Pair (Expr (Var name (Nil) (Nil)) type loc)
-                       (import-definition state name value))
-                 (specializing state ((spec (request name types evidence)))
-                               (Pair (Expr (Var spec (Nil) (Nil)) type loc) state)))))))
+          (_ (cond
+              ;; The checker permits only stateless templates here, such as
+              ;; empty-table. They need no cache with an importer-local identity.
+              ((and (not (lambda-expr? value)) (not (null? (● (scheme-of state name) vars))))
+               (copy-expr state (instantiation state name types evidence) value))
+              ((external? state name types)
+               (Pair (Expr (Var name (Nil) (Nil)) type loc)
+                     (import-definition state name value)))
+              (else (specializing state ((spec (request name types evidence)))
+                                  (Pair (Expr (Var spec (Nil) (Nil)) type loc) state))))))))
 
     (define (alias-cycle? (state State) (name String) (seen (List String))) (→ Bool)
       (or (member? name seen)
@@ -925,7 +912,7 @@
 
     (define (external? (state State) (name String) (types (List Type))) (→ Bool)
       (match (● state owner)
-        ((Some owner) (and (null? types) (lambda-expr? (definition state name))
+        ((Some owner) (and (null? types)
                            (not (string=? (name-owner name) owner))))
         ((None) #f)))
 
@@ -944,8 +931,8 @@
                       (filter (lambda (effect) (not (null? (● effect control))))
                               (table-values (● program effects))))))
 
-    ;; Library modules export monomorphic functions. Whole programs keep
-    ;; only functions reached from main or an explicitly exposed function.
+    ;; Library modules export monomorphic functions and lazy value getters.
+    ;; Whole programs keep only definitions reached from an entry or exposure.
     (define (start-specialization (state State) (items (List Item))) (→ (Pair (List String) State))
       (specializing state ((exports (each root-item items)))
                     (Pair (concatenate exports) state)))
@@ -955,7 +942,7 @@
         ((Expose name _ _ _) (Pair (Nil) (requested state name)))
         ((Entry name _) (Pair (Nil) (requested state name)))
         ((Define name value)
-         (if (and (null? (● (scheme-of state name) vars)) (lambda-expr? value))
+         (if (null? (● (scheme-of state name) vars))
              (match (● state owner)
                ((Some _) (Pair (list name) (requested state name)))
                ((None) (Pair (Nil) state)))

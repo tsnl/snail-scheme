@@ -203,13 +203,13 @@
     (import
      (only (snail stage0 system) create-directory*)
      (only (snail stage0 system) string-contains)
-     (only (chezscheme) delete-file)
+     (only (chezscheme) delete-file equal?)
      (snail stage0 testing)
      (only (snail shell compiler inputs) supply-artifact))
     (begin
 
       ;; A session rebuilds changed implementations and their importers:
-      ;; any function body may contribute to a compile-time value. The libraries use only
+      ;; content keys conservatively include all bodies. The libraries use only
       ;; primitives, so the session runs quickly on Chez. The sources are
       ;; written into `directory`; `library` holds the standard libraries,
       ;; (snail core primitive) among them.
@@ -292,9 +292,8 @@
                                                                         no-inputs))
                                          (list "sample.policy" "main"))))))
 
-      ;; A constant depends on function implementations across libraries,
-      ;; even when their public signatures do not change. Its importer freezes
-      ;; the new result, with exactly the same text as a cold compilation.
+      ;; A lazy initializer calls the current provider implementation. Cached
+      ;; builds must agree with cold compilation after a provider body changes.
       (define (test-constant-cache directory library)
         (let ((main (string-append directory "/constants.sld"))
               (helper (string-append directory "/sample/constant-helper.sld")))
@@ -319,10 +318,9 @@
                       (list "sample.constant-helper" "sample.constant" "main"))
               (expect (map (lambda (built) (● built text)) (● warm first))
                       (map (lambda (built) (● built text)) (● cold first)))
-              (expect (and (string-contains (● (list-ref (reverse (● warm first)) 0) text)
-                                            "(i64.const 43)")
-                           #t)
-                      #t)))))
+              (expect (equal? (map (lambda (built) (● built text)) (● first first))
+                              (map (lambda (built) (● built text)) (● warm first)))
+                      #f)))))
 
       ;; An unnamed instance can come from an earlier sibling, outside the
       ;; constant library's explicit imports. Its provider enters every key.
@@ -353,10 +351,9 @@
               (expect (member? "sample.answer" (compiled-names warm)) #t)
               (expect (map (lambda (built) (● built text)) (● warm first))
                       (map (lambda (built) (● built text)) (● cold first)))
-              (expect (and (string-contains (● (list-ref (reverse (● warm first)) 0) text)
-                                            "(i64.const 43)")
-                           #t)
-                      #t)))))
+              (expect (equal? (map (lambda (built) (● built text)) (● first first))
+                              (map (lambda (built) (● built text)) (● warm first)))
+                      #f)))))
 
       ;; Dynamic dispatch captures source instances during expansion. An
       ;; earlier sibling can replace their identities without changing the
@@ -450,7 +447,7 @@
 
       ;; Polymorphic bodies specialize in their importers. Monomorphic code
       ;; remains in its library, but both edits invalidate importers because
-      ;; either function could contribute to a compile-time value.
+      ;; conservative content keys include either function's body.
       (define test-header-interfaces
         (lambda (directory library)
           (test-header-edit directory library

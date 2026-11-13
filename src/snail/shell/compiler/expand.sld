@@ -1239,9 +1239,8 @@
          (if (member? keyword (list "only" "except" "prefix" "rename")) (spec-library inner) spec))
         (_ spec)))
 
-    ;; Any function can run while forcing a constant, even a monomorphic
-    ;; function under a local handler. Importers therefore depend on every
-    ;; implementation body through its transitive source key. The final
+    ;; Conservative content keys include every implementation body and its
+    ;; transitive imports, even when only a monomorphic body changed. The final
     ;; counter certifies local-name stability when an earlier library changes;
     ;; global declaration identities certify generated types and imports.
     (define (interface-hash (cx Context) (key String)) (→ String)

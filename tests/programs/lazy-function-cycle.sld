@@ -6,7 +6,6 @@
 
 (define (compute) (→ I64) answer)
 
-(define main
-  (lambda ()
-    (display answer)
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+  (display answer)
+  (unit))

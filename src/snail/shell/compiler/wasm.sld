@@ -1,4 +1,4 @@
-;; Prepared concrete code to WasmGC. Declarations and initializer order are
+;; Prepared concrete code to WasmGC. Declarations and initializer bodies are
 ;; fixed before emission; no source specialization or validation happens here.
 ;; This backend decides representations:
 ;; scalars are Wasm numbers, enums whose cases have no fields are i32 tags,
@@ -664,6 +664,54 @@
                                            code)))))
         (_ (panic "internal error: not a function"))))
 
+    ;; ---- Lazy values ----
+
+    ;; A defining module owns the cache for its lifetime. Initializers are
+    ;; ordinary compiled bodies, never startup work. WasmGC values here are
+    ;; not shared between threads: the guard detects reentry, not races.
+    ;; Cache publication consumes the initializer's result; every read returns
+    ;; its own credit. Discarding an instance does not run source finalizers.
+    (define (emit-lazy-value! (m Module) (name String) (function Expr)) (→ Unit) (! mut)
+      (match (● function term)
+        ((Lambda (Nil) body _)
+         (let* ((fn (Fn-exit-set (new-fn m) (function-exit (● function type))))
+                (type (● body type)) (result (rep m type))
+                (state (wasm-id (string-append "%lazy.state." name)))
+                (value (wasm-id (string-append "%lazy.value." name))))
+           (push! (● m globals) (wat "global" (id state) (wat "mut" (Word "i32"))
+                                     (wat "i32.const" (int 0))))
+           (push! (● m globals) (wat "global" (id value) (wat "mut" (nullable result))
+                                     (default-value result)))
+           (let ((code (lazy-body fn name body state value)))
+             (push-function! m (wasm-id name)
+                             (function-wat fn
+                                           (wasm-id name)
+                                           (list (evidence-param m))
+                                           result
+                                           code)))))
+        (_ (panic "internal error: a lazy initializer must take no arguments"))))
+
+    ;; State 1 is installed before entering user code. State 2 proves the
+    ;; cached reference is non-null. A fatal trap leaves state 1 in place;
+    ;; there is no retry contract. Non-tail emission must publish the result.
+    (define (lazy-body (fn Fn) (name String) (body Expr) (state String) (value String))
+      (→ (List Wat)) (! mut)
+      (let* ((m (● fn module)) (type (● body type)) (result (rep m type))
+             (read (wat "global.get" (id value)))
+             (read (if (scalar? result) read (wat "ref.as_non_null" read)))
+             (code (emit fn body #f)))
+        (list
+         (wat "if" (wat "i32.eq" (wat "global.get" (id state)) (wat "i32.const" (int 1)))
+              (wat "then" (wat "call" (id (panic-helper m))
+                               (string-literal m (string-append "initialization cycle: " name)))))
+         (wat "if" (wat "i32.eqz" (wat "global.get" (id state)))
+              (wat "then"
+                   (wat "global.set" (id state) (wat "i32.const" (int 1)))
+                   (wat "global.set" (id value)
+                        (wat* "block" (Cons (wat "result" (rep->wat result)) code)))
+                   (wat "global.set" (id state) (wat "i32.const" (int 2)))))
+         (retain-value m type read))))
+
     ;; ---- Expressions ----
 
     ;; A list of instructions that leave one value on the stack.
@@ -827,8 +875,7 @@
                ((and (● definition function?) (fn-type? type))
                 (code-of m (function-id m name)))
                ((● definition function?) (function-value m name type))
-               ((scalar? (fn-rep fn type)) (wat "global.get" (id (global-id m name type))))
-               (else (wat "ref.as_non_null" (wat "global.get" (id (global-id m name type)))))))
+               (else (wat "call" (id (value-id m name type)) (● fn evidence)))))
              ((None)
               (match (program-value (program-of m) name)
                 ((Some (Constructor case _))
@@ -860,14 +907,11 @@
              (wasm-id name)))
         ((None) (wasm-id name))))
 
-    ;; Another library's value is a mutable global of its module, imported.
-
-    (define (global-id (m Module) (name String) (type Type)) (→ String) (! mut)
+    ;; Every importer calls the defining instance's getter, sharing its cache.
+    (define (value-id (m Module) (name String) (type Type)) (→ String) (! mut)
       (if (external-definition? m name)
-          (import-once! m (string-append "global:" name) (wasm-id (string-append "global:" name))
-                        (lambda (global)
-                          (wat "import" (wat-string (name-owner name)) (wat-string name)
-                               (wat "global" (id global) (wat "mut" (nullable (rep m type)))))))
+          (import! m (Import (name-owner name) name)
+                   (list (evidence-rep m)) (Some (rep m type)))
           (wasm-id name)))
 
     (define (scalar? (rep Rep)) (→ Bool)
@@ -1668,51 +1712,6 @@
         ((TCon "Rc" (Cons content (Nil))) (record-through m content (rc-payload m type value)))
         (_ value)))
 
-    ;; ---- Constant graph factories ----
-
-    ;; These intrinsics are produced only after constant evaluation. Shell
-    ;; fields hold immortal inert placeholders until every object is allocated.
-    ;; Ordinary setters can release them without calling source code. The root
-    ;; is published only after every slot holds its real owning value.
-    (define (constant-case (m Module) (name Expr)) (→ Case)
-      (match (● name term)
-        ((Lit (DString constructor))
-         (match (program-value (program-of m) constructor)
-           ((Some (Constructor case _)) case)
-           (_ (panic "internal error: constant constructor"))))
-        (_ (panic "internal error: constant constructor name"))))
-
-    (define (constant-record (m Module) (type Type) (case Case)) (→ Wat) (! mut)
-      (wat* "struct.new" (Cons (id (field-holder m type case))
-                               (append (data-owner m type #f)
-                                       (append (if (● (data-type-of m (type-name type)) enum?)
-                                                   (list (wat "i32.const" (int (● case tag))))
-                                                   (Nil))
-                                               (map (lambda (field)
-                                                      (placeholder m field (Loc "constant" 0 0)))
-                                                    (case-field-types m type case)))))))
-
-
-
-    (define (constant-vector-shell (m Module) (type Type) (size Wat)) (→ Wat) (! mut)
-      (sequence-owned m type
-                      (wat "array.new" (id (sequence-raw-type m type))
-                           (placeholder m (sequence-element type) (Loc "constant" 0 0))
-                           (index size))))
-
-    (define (constant-vector-fill (m Module) (type Type) (values (List Wat)))
-      (→ (List Wat)) (! mut)
-      (let ((array (sequence-raw-type m type)) (data (sequence-data m type (list-ref values 0))))
-        (append (map-indexed (lambda (position value)
-                               (wat "array.set"
-                                    (id array)
-                                    data
-                                    (wat "i32.const" (int position))
-                                    value))
-                             (list-drop values 1))
-                (list (wat "i32.const" (int 0))))))
-
-
     ;; ---- Vectors ----
 
     ;; Every vector has stable identity, a logical length and replaceable
@@ -2102,7 +2101,33 @@
 
     (define (field-record (fn Fn) (case Case) (record Expr)) (→ Wat) (! mut)
       (let* ((m (● fn module)) (type (record-type (● record type))))
-        (wat "ref.cast" (wat "ref" (id (field-holder m type case))) (record-value fn record))))
+        (case-record m type case (record-value fn record))))
+
+    ;; Wasm types are structural: two cases with equal fields can share a
+    ;; subtype. The source tag establishes the nominal case before casting.
+    (define (case-record (m Module) (type Type) (case Case) (record Wat)) (→ Wat) (! mut)
+      (let ((holder (field-holder m type case)))
+        (if (● (data-type-of m (● case type)) enum?)
+            (wat "call" (id (case-check m type case)) record)
+            (wat "ref.cast" (wat "ref" (id holder)) record))))
+
+    (define (case-check (m Module) (type Type) (case Case)) (→ String) (! mut)
+      (let ((base (data-type m type)) (holder (field-holder m type case)))
+        (helper! m "case-check" holder
+                 (lambda (name)
+                   (wat "func" (id name)
+                        (wat "param" (Word "$record") (wat "ref" (id base)))
+                        (wat "result" (wat "ref" (id holder)))
+                        (wat "if"
+                             (wat "i32.ne"
+                                  (wat "struct.get" (id base) (int (data-offset m type))
+                                       (wat "local.get" (Word "$record")))
+                                  (wat "i32.const" (int (● case tag))))
+                             (wat "then"
+                                  (wat "call" (id (panic-helper m))
+                                       (string-literal m "wrong enum case"))))
+                        (wat "ref.cast" (wat "ref" (id holder))
+                             (wat "local.get" (Word "$record"))))))))
 
     ;; Wasm evaluates the receiver before the incoming value, each once.
     (define (set-field (fn Fn) (case Case) (index I64) (record Expr) (content Expr))
@@ -2114,8 +2139,8 @@
     (define (swap-field (fn Fn) (case Case) (index I64) (record Expr) (content Expr))
       (→ Wat) (! mut)
       (let* ((m (● fn module)) (type (record-type (● record type))))
-        (wat "call" (id (swap-helper m (data-type m type) (field-holder m type case)
-                                     (+ index (field-offset m type)) (rep m (● content type))))
+        (wat "call" (id (swap-helper m type case (+ index (field-offset m type))
+                                     (rep m (● content type))))
              (record-value fn record) (emit1 fn content))))
 
     ;; Checking has resolved a place to an actual mutable field. The target
@@ -2148,9 +2173,10 @@
     ;; The content moves without a copy, so the caller is its only owner,
     ;; and a mutable field may hold a linear value.
 
-    (define (swap-helper (m Module) (base String) (holder String) (index I64) (content Rep))
+    (define (swap-helper (m Module) (record-type Type) (case Case) (index I64) (content Rep))
       (→ String) (! mut)
-      (let ((type (rep->wat content)))
+      (let ((type (rep->wat content)) (base (data-type m record-type))
+            (holder (field-holder m record-type case)))
         (helper! m "swap" (string-append holder "." (i64->string index))
                  (lambda (function-id)
                    (wat "func" (id function-id)
@@ -2159,8 +2185,7 @@
                         (wat "result" type)
                         (wat "local" (Word "$case") (wat "ref" (id holder)))
                         (wat "local.set" (Word "$case")
-                             (wat "ref.cast" (wat "ref" (id holder))
-                                  (wat "local.get" (Word "$record"))))
+                             (case-record m record-type case (wat "local.get" (Word "$record"))))
                         (wat "struct.get" (id holder) (int index) (wat "local.get" (Word "$case")))
                         (wat "struct.set" (id holder) (int index)
                              (wat "local.get" (Word "$case"))
@@ -2184,7 +2209,7 @@
                           (list (wat "drop" (release-value m (● replacement type)
                                                            (wat "call"
                                                                 (id (swap-helper m
-                                                                                 holder holder
+                                                                                 type case
                                                                                  (+ index offset)
                                                                                  (rep m
                                                                                       (● replacement
@@ -3880,7 +3905,7 @@
                    (dropper-null)))))))
 
     ;; An expired weak value has count zero. A temporary strong placeholder
-    ;; is immortal instead, so filling a constant shell may safely release it.
+    ;; is immortal and inert while control unwinds through inactive slots.
     (define (rc-placeholder (m Module) (payload Type) (count I64)
                             (seen (List String)) (loc Loc)) (→ Wat) (! mut)
                             (wat "struct.new" (id (rc-type m payload))
@@ -4997,17 +5022,6 @@
              (sequence (lambda (t) (sequence-raw-type m t)))
              (data (lambda (n) (sequence-data m (list-ref types n) (arg n)))))
         (case operation
-          (("constant-record") (list (constant-record m type (constant-case m (first-arg args)))))
-
-          (("constant-vector-shell") (list (constant-vector-shell m type (arg 0))))
-          (("constant-vector-fill") (constant-vector-fill m (first-type types) code))
-          (("constant-dead-weak") (list (placeholder-value m type (Nil) (Loc "constant" 0 0))))
-          (("constant-vector")
-           (list (sequence-owned m
-                                 type
-                                 (wat* "array.new_fixed"
-                                       (Cons (id (sequence type))
-                                             (Cons (int (length code)) code))))))
           (("rc-new") (list (new-rc m type (arg 0) (arg 1))))
           (("rc-get") (list (rc-payload m (first-type types) (arg 0))))
           (("rc-downgrade") (list (arg 0)))
@@ -5425,14 +5439,20 @@
 
     ;; ---- Modules ----
 
-    ;; The prepared input contains functions, explicit host exports and an
-    ;; optional program entry. Every builder sees the same fixed declarations.
+    ;; The prepared input contains functions and initializer functions,
+    ;; explicit host exports and an optional program entry. Bindings preserve
+    ;; which functions initialize cached values rather than being source code.
 
     (define (emit-module (prepared Prepared)) (→ Wat) (! mut)
       (let ((m (new-module (● prepared declarations))))
         (for-each (lambda (item)
                     (match item
-                      ((Define name value) (emit-function! m name value))
+                      ((Define name value)
+                       (match (definition-of m name)
+                         ((Some binding)
+                          (if (● binding function?) (emit-function! m name value)
+                              (emit-lazy-value! m name value)))
+                         ((None) (panic "internal error: an emitted definition has no binding"))))
                       (_ (panic "internal error: a prepared function must be a definition"))))
                   (● prepared definitions))
         (for-each (lambda (item) (emit-exposure! m item)) (● prepared exposed))
@@ -5466,8 +5486,7 @@
         ((Some definition)
          (push! (● m exports)
                 (wat "export" (wat-string name)
-                     (wat (if (● definition function?) "func" "global")
-                          (id (wasm-id name))))))
+                     (wat "func" (id (wasm-id name))))))
         ((None) (panic (string-append "internal error: nothing to export for " name)))))
 
     ;; The fields in the order Wasm requires: types in their recursion

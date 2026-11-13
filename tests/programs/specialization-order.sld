@@ -19,11 +19,11 @@
     (write-line (round-trip "again" 99))
     (write-line (show (round-trip 23 2)))
     (write-line (show (fixed 41)))
-    ;; Each imported generic constant has its dependencies fully evaluated.
-    (match (ann nested-values (List (List I64)))
+    ;; Generic constructors can use imported stateless templates.
+    (match (ann (nested-values) (List (List I64)))
       ((Cons values _) (write-line (show (length values))))
       ((Nil) (panic "missing integer list")))
-    (match (ann nested-values (List (List String)))
+    (match (ann (nested-values) (List (List String)))
       ((Cons values _) (write-line (show (length values))))
       ((Nil) (panic "missing string list")))
     (unit)))

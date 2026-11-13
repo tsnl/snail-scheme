@@ -8,7 +8,7 @@
  (cell)
  (project))
 
-;; A pure compile-time value; loading the plugin runs no initializer.
+;; A lazy runtime value; loading the plugin runs no initializer.
 (define label (→ String) (string-append "summary of " "the project"))
 
 (define (summarize (project Project)) (→ Report)

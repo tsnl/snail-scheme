@@ -40,10 +40,11 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   linear. `WeakRc` observes that ownership without retaining the payload.
   There are no source borrows or borrow checker. The ownership pass checks
   exact-once use and inserts retain/release for shared owners.
-- Top-level values are pure compile-time computations, forced lazily with
-  cycle detection. Each read creates a fresh mutable graph while preserving
-  aliases inside that graph. Runtime initialization belongs in functions,
-  including the root `main`; never restore writable module globals.
+- Top-level value initializers must be effect-free. They run lazily at runtime,
+  once per defining module instance, and all reads share the cached result.
+  Reentrant initialization panics; ordinary recursive functions need no guard.
+  The cache owns its value for the instance's lifetime; each counted read
+  retains a caller credit. No mutex is needed for non-shared WasmGC values.
   Keep typed define headers and `(Fn ... → ...)` / `(FnOnce ... → ...)`.
 
 - Use type checking to prove invariants that enable optimization. Preserve
@@ -162,10 +163,10 @@ target's URL to see an edit land. Each build first runs the producers of the
 [application model](doc/book/snail-core/applications.md) gives the reload
 rules; what matters when writing code:
 
-- Runtime state has an explicit application owner. Only the application's
+- A replaced module starts with empty lazy caches. Only the application's
   state crosses a relink, as it is while its type is unchanged and through
   `save` and `restore` otherwise, so keep what should survive an edit in the
-  Save. There are no writable module globals.
+  Save. Escaped old closures still see their original module's caches.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give constants their signatures.
 - A program runs as a project's `run-target`, restarted from each accepted

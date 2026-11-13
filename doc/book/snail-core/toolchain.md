@@ -160,8 +160,8 @@ retains a successful compiler Session per target, even through a build that
 fails after it; changing its entry or ordered library roots starts a new
 Session. Producers run again each attempt, once each. The
 [compiler chapter](compilers.md#separate-compilation) explains reuse: a change
-to any function body recompiles its library and importers, since the body can
-contribute to a compile-time constant. Each build expands current sources;
+to any function body currently recompiles its library and importers: the
+content keys conservatively include all implementation bodies. Each build expands current sources;
 unchanged content keys reuse checked code and Wasm. Expanded declaration
 identities and fresh-name counters enter those keys. Instance-provider edits
 invalidate every checked library because providers can be selected outside

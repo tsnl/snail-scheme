@@ -6,7 +6,6 @@
 
 (define b (→ I64) a)
 
-(define main
-  (lambda ()
-    (display a)
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+  (display a)
+  (unit))

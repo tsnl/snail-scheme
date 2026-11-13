@@ -1,1 +1,0 @@
-constant initialization cycle: main:a → main:b → main:a

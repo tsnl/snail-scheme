@@ -50,6 +50,12 @@
       (or (table-contains? (● state globals) name)
           (match (program-value (● state program) name) ((Some _) #t) ((None) #f))))
 
+    ;; A value global is a getter, even when its result is a procedure.
+    (define (direct-function? (state Lifetime) (name String)) (→ Bool)
+      (match (table-ref (● state globals) name)
+        ((Some binding) (● binding function?))
+        ((None) (global? state name))))
+
     (define (fresh (state Lifetime) (type Type) (loc Loc)) (→ (Pair Expr Lifetime))
       (Pair (local (string-append "%lifetime." (i64->string (● state next))) type loc)
             (Lifetime-next-set state (+ (● state next) 1))))
@@ -263,7 +269,7 @@
                            (args (List Expr))
                            (owners (List Expr)))
       (→ (Pair Expr Lifetime))
-      (let ((direct? (match (● callee term) ((Var name _ _) (global? state name)) (_ #f))))
+      (let ((direct? (match (● callee term) ((Var name _ _) (direct-function? state name)) (_ #f))))
         (lowering state ((named (name-values (if direct? args (Cons callee args)))))
                   (let* ((values (● named reads))
                          (call (if direct?
