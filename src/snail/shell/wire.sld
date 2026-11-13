@@ -31,16 +31,16 @@
 
     ;; ---- Byte streams ----
 
-    ;; The encoder appends bytes; the decoder reads forward.
+    ;; The encoder collects bytes in reverse; the decoder reads forward.
     (struct Encoder
-      ((bytes Bytes)))
+      ((bytes (List U8))))
 
     (struct Decoder
       ((bytes Bytes)
        (position I64)))
 
     (define (encode-byte (encoder Encoder) (byte U8)) (→ Unit) (! mut)
-      (vector-push! (● encoder bytes) byte))
+      (set! (● encoder bytes) (Cons byte (● encoder bytes))))
 
     (define (decode-byte (decoder Decoder)) (→ U8) (! mut)
       (let ((position (● decoder position)))
@@ -54,9 +54,9 @@
     (define (serialize (value T)) (→ Bytes) (∀ (T)) (⊨ (Serialize T) (Copy T) (Drop (!) T))
       (unsafe-total
        (lambda ()
-         (let ((encoder (Encoder (vector))))
+         (let ((encoder (Encoder (Nil))))
            (encode value encoder)
-           (● encoder bytes)))))
+           (list->vector (reverse (● encoder bytes)))))))
 
     ;; Panics if the bytes were not written for this type. The decoder's
     ;; position is local to this call.

@@ -7,14 +7,13 @@
  (snail shell page)
  (snail shell wire))
 
-;; A mismatch here is a broken test-host invariant. Guest conversions that
-;; are expected to fail use dyn-cast handlers in the dedicated fixtures.
+;; A mismatch here is a broken test-host invariant.
 (define-syntax fixture-convert
   (syntax-rules ()
     ((_ value target)
-     (match (try-convert value target)
-       ((Ok checked) checked)
-       ((Err _) (panic "fixture payload has the wrong type"))))))
+     (match (downcast target value)
+       ((Some checked) checked)
+       ((None) (panic "fixture payload has the wrong type"))))))
 
 ;; Each task retains the private handler across its waits on storage and
 ;; events. Its default, the host's, lets the runner detect a leaked handler
@@ -123,7 +122,7 @@
   (● (fixture-convert state Counter) resizes))
 
 (define (other-state) (→ Any)
-  (type-convert (ann 5 I64) Any))
+  (Any (ann 5 I64)))
 
 (define (read-marker) (→ I32) (! Marker)
   (marker))

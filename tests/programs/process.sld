@@ -92,7 +92,7 @@
                (require (close-process child))
                (report-error (read-output child (Stdout) 1))
                (report-error (wait-exit child)))
-             (report-error (close-process (Process (type-convert (ann 1 I32) Any) 0)))
+             (report-error (close-process (Process (Any (ann 1 I32)) 0)))
 
              ;; Ending the program must kill a child left running.
              (shell "exec sleep 10")

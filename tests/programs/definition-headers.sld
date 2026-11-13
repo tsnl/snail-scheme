@@ -31,11 +31,11 @@
     (if (= value 0) 36 (countdown (- value 1))))
   (define (boxed-countdown (value I64))
     (→ Any)
-    (if (= value 0) "done" (boxed-countdown (- value 1))))
+    (if (= value 0) (Any "done") (boxed-countdown (- value 1))))
   (add-offset
-   (match (try-convert (boxed-countdown 2) String)
-     ((Ok _) (countdown 3))
-     ((Err _) 0))))
+   (match (downcast String (boxed-countdown 2))
+     ((Some _) (countdown 3))
+     ((None) 0))))
 
 (define (answer)
   (→ I64)

@@ -4,14 +4,13 @@
  (snail shell task)
  (snail shell socket))
 
-;; A mismatch here is a broken test-host invariant. Guest conversions that
-;; are expected to fail use dyn-cast handlers in the dedicated fixtures.
+;; A mismatch here is a broken test-host invariant.
 (define-syntax fixture-convert
   (syntax-rules ()
     ((_ value target)
-     (match (try-convert value target)
-       ((Ok checked) checked)
-       ((Err _) (panic "fixture payload has the wrong type"))))))
+     (match (downcast target value)
+       ((Some checked) checked)
+       ((None) (panic "fixture payload has the wrong type"))))))
 
 (define (require (result (Result T SocketError))) (→ T) (∀ (T))
   (match result
@@ -30,7 +29,7 @@
              (handle udp
                  ((bind (lambda (endpoint)
                           (Ok
-                           (UdpSocket (type-convert (PendingPacket (Datagram endpoint #u8())) Any)
+                           (UdpSocket (Any (PendingPacket (Datagram endpoint #u8())))
                                       (Endpoint-port endpoint)))))
                   (send (lambda (socket peer bytes)
                           (sleep 1)

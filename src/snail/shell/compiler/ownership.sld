@@ -55,8 +55,7 @@
                                      "prim:rc" "prim:rc-new" "prim:set!" "prim:replace!"
                                      "prim:retain" "prim:release")))
                  (not (and (= index 2)
-                           (member? name (list "prim:vector-set!" "prim:vector-set"))))
-                 (not (and (= index 1) (string=? name "prim:vector-push!")))))
+                           (member? name (list "prim:vector-set!" "prim:vector-set"))))))
            (_ #f)))
         ((Some (Foreign _ _)) #t)
         (_ #f)))
@@ -89,7 +88,8 @@
     (define (surviving-references (program Program) (expr Expr) (tail? Bool)) (→ (List String))
       (match (● expr term)
         ((Var name _ _) (list name))
-        ((Convert inner _) (surviving-references program inner #f))
+        ((BoxAny inner) (surviving-references program inner #f))
+        ((Downcast inner _) (surviving-references program inner #f))
         ((Ann inner _) (surviving-references program inner tail?))
         ((Lambda _ _ _) (expr-references expr))
         ((Let name value body)
@@ -375,10 +375,8 @@
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((Ann inner _)
            (check path inner))
-          ((Convert inner target) (check-conversion path expr inner target))
-          ((TryConvert _ _)
-           (panic "internal error: try-convert must be lowered before ownership checking"))
-          ((TypeTest inner target) (check-conversion path expr inner target)))))
+          ((BoxAny inner) (check-boxing path expr inner (● inner type)))
+          ((Downcast inner target) (check-boxing path expr inner target)))))
 
     ;; The body must consume every linear owner introduced by its binding.
 
@@ -932,11 +930,11 @@
         ((Some (Constructor case _)) (● case fields))
         (_ (panic "internal error: a pattern names a constructor"))))
 
-    (define (check-conversion (path Path) (expr Expr) (inner Expr) (target Type))
+    (define (check-boxing (path Path) (expr Expr) (inner Expr) (target Type))
       (→ Path)
       (! compile)
       (when (or (linear? path (● inner type)) (linear? path target))
-        (compile-error (● expr loc) "a linear value cannot cross a dynamic type boundary"))
+        (compile-error (● expr loc) "Any requires a non-linear payload"))
       (check path inner))
 
     ;; A statement's value is discarded, so it cannot be linear.

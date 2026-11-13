@@ -516,12 +516,12 @@
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((Ann inner type)
            (naming count ((inner (normal callees inner))) (Pair (rebuild (Ann inner type)) count)))
-          ((Convert inner target)
+          ((BoxAny inner)
            (naming count ((inner (normal callees inner)))
-                   (named count callees inner (lambda (inner) (rebuild (Convert inner target))))))
-          ((TypeTest inner target)
+                   (named count callees inner (lambda (inner) (rebuild (BoxAny inner))))))
+          ((Downcast inner target)
            (naming count ((inner (normal callees inner)))
-                   (named count callees inner (lambda (inner) (rebuild (TypeTest inner target))))))
+                   (named count callees inner (lambda (inner) (rebuild (Downcast inner target))))))
           ((Handle effect implementations body)
            (normal-handle count callees expr effect implementations body))
           (_ (Pair expr count)))))
@@ -713,8 +713,7 @@
         (_ (Pair item state))))
 
     ;; Most definitions own no continuation or one-shot closure. Avoid
-    ;; building ownership scopes for them; the base library declares dyn-cast
-    ;; even in programs that never use it.
+    ;; building ownership scopes for bodies that cannot yield or own one.
 
     (define (needs-droppers? (callees Callees) (expr Expr)) (→ Bool)
       (or (not (yield-free? callees expr)) (holds-once? expr)))
@@ -771,12 +770,12 @@
           ((Ann inner type)
            (cleaning state ((inner (droppers callees scope inner)))
                      (Pair (rebuild (Ann inner type)) state)))
-          ((Convert inner target)
+          ((BoxAny inner)
            (cleaning state ((inner (droppers callees scope inner)))
-                     (Pair (rebuild (Convert inner target)) state)))
-          ((TypeTest inner target)
+                     (Pair (rebuild (BoxAny inner)) state)))
+          ((Downcast inner target)
            (cleaning state ((inner (droppers callees scope inner)))
-                     (Pair (rebuild (TypeTest inner target)) state)))
+                     (Pair (rebuild (Downcast inner target)) state)))
           ((Handle effect implementations body)
            (cleaning state
                      ((values (droppers-all callees scope

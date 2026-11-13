@@ -6,14 +6,13 @@
  (snail shell http)
  (snail shell http exchange))
 
-;; A mismatch here is a broken test-host invariant. Guest conversions that
-;; are expected to fail use dyn-cast handlers in the dedicated fixtures.
+;; A mismatch here is a broken test-host invariant.
 (define-syntax fixture-convert
   (syntax-rules ()
     ((_ value target)
-     (match (try-convert value target)
-       ((Ok checked) checked)
-       ((Err _) (panic "fixture payload has the wrong type"))))))
+     (match (downcast target value)
+       ((Some checked) checked)
+       ((None) (panic "fixture payload has the wrong type"))))))
 
 (define (assert (condition Bool))
   (→ Unit)
@@ -83,7 +82,7 @@
   (→ (Result Unit (ExchangeError String)))
   (! tcp tasks e)
   (∀ (e))
-  (serve-one (Connection (type-convert state Any)) 250 handler))
+  (serve-one (Connection (Any state)) 250 handler))
 
 (define (echo (request Request)) (→ (Result Response String)) (! tasks)
   (sleep 1)
@@ -129,7 +128,7 @@
                ;; serve-one's halves, with a decision between them: the request is read
                ;; before the server chooses how to answer it.
                (let* ((state (stream request 7 5 ""))
-                      (connection (Connection (type-convert state Any))))
+                      (connection (Connection (Any state))))
                  (match (ann (read-request connection) (Result Request (ExchangeError String)))
                    ((Err _) (panic "read-request failed"))
                    ((Ok received)
@@ -146,13 +145,13 @@
                                       "HTTP/1.1 201 \r\nConnection: close\r\nContent-Length: 4\r\nx-body: 4\r\n\r\nbody")))))
                ;; A failure from either half leaves the connection to the caller.
                (let ((state (stream (ascii "GET / HTTP/1.1\r\n") 100 100 "")))
-                 (assert (match (ann (read-request (Connection (type-convert state Any)))
+                 (assert (match (ann (read-request (Connection (Any state)))
                                      (Result Request (ExchangeError String)))
                            ((Err (TruncatedHead)) #t)
                            (_ #f)))
                  (assert (= (● state ended) 0)))
                (let* ((state (stream request 100 100 ""))
-                      (connection (Connection (type-convert state Any))))
+                      (connection (Connection (Any state))))
                  (match (ann (read-request connection) (Result Request (ExchangeError String)))
                    ((Err _) (panic "read-request failed"))
                    ((Ok received)
@@ -167,7 +166,7 @@
                     (assert (string=? (output state) "")))))
                ;; A request that could not be read can still be answered.
                (let* ((state (stream (ascii "GET / HTTP/1.1\r\nHost: test\r\r\n\r\n") 100 100 ""))
-                      (connection (Connection (type-convert state Any))))
+                      (connection (Connection (Any state))))
                  (assert
                   (match (ann (read-request connection) (Result Request (ExchangeError String)))
                     ((Err (ProtocolFailure _)) #t)

@@ -36,7 +36,6 @@ the runtime interfaces.
 | `(snail shell json)` | The `Json` value, with integer numbers and objects as ordered members, and `json->string`, which writes what `JSON.stringify` writes for the same value. |
 | `(snail shell json read)` | `string->json`, which reads JSON text whose numbers are integers back as a `Json`, and `json-member`. A library of its own, so that a program that only writes JSON does not carry it. |
 | `(snail shell wire)` | `Serialize`, `Deserialize` and the byte encoding. |
-| `(snail shell integer)`, `(snail shell rational)` | Explicit typed APIs for arbitrary-precision integers and rationals. |
 | `(snail shell syntax)` | The syntax a `generate-library` recipe returns, and the bytes its producer writes. |
 
 ### Shell: system and network

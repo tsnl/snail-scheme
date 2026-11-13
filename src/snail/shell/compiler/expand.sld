@@ -417,35 +417,36 @@
       (→ Context)
       (! compile)
       (match ident
-        ((Ident identifier-name identifier-mark identifier-loc) (match env
-                                                                  ((InstanceScope _ rest)
-                                                                   (bind-top cx rest ident binding))
-                                                                  ((InstanceOwner _ rest)
-                                                                   (bind-top cx rest ident binding))
-                                                                  ((Top top _)
-                                                                   (let ((definitions (top-definitions
-                                                                                       cx
-                                                                                       top)))
-                                                                     (when (table-contains?
-                                                                            definitions
-                                                                            (ident-key ident))
-                                                                       (compile-error
-                                                                        (syntax-loc ident)
-                                                                        (string-append
-                                                                         "duplicate top-level definition "
-                                                                         identifier-name)))
-                                                                     (Context-tops-set cx
-                                                                                       (table-set
-                                                                                        (● cx tops)
-                                                                                        top
-                                                                                        (table-set
-                                                                                         definitions
-                                                                                         (ident-key
-                                                                                          ident)
-                                                                                         binding)))))
-                                                                  (_
-                                                                   (panic
-                                                                    "internal error: not a top level"))))
+        ((Ident identifier-name _ _)
+         (match env
+           ((InstanceScope _ rest)
+            (bind-top cx rest ident binding))
+           ((InstanceOwner _ rest)
+            (bind-top cx rest ident binding))
+           ((Top top _)
+            (let ((definitions (top-definitions
+                                cx
+                                top)))
+              (when (table-contains?
+                     definitions
+                     (ident-key ident))
+                (compile-error
+                 (syntax-loc ident)
+                 (string-append
+                  "duplicate top-level definition "
+                  identifier-name)))
+              (Context-tops-set cx
+                                (table-set
+                                 (● cx tops)
+                                 top
+                                 (table-set
+                                  definitions
+                                  (ident-key
+                                   ident)
+                                  binding)))))
+           (_
+            (panic
+             "internal error: not a top level"))))
         (_ (panic "internal error: expected Ident"))))
 
     ;; ---- The core library ----
@@ -1175,7 +1176,7 @@
       (expanding cx ((entries (import-set spec)))
                  (for-each (lambda (ident)
                              (match ident
-                               ((Ident identifier-name identifier-mark identifier-loc)
+                               ((Ident identifier-name _ _)
                                 (match (assoc-ref entries identifier-name)
                                   ((Some _) (unit))
                                   ((None) (compile-error (syntax-loc ident)
@@ -1214,7 +1215,7 @@
       (→ Binding)
       (! compile)
       (match ident
-        ((Ident identifier-name identifier-mark identifier-loc)
+        ((Ident identifier-name _ _)
          (match (resolve cx env (expect-ident ident "an identifier"))
            ((Some binding) binding)
            ((None)
@@ -1225,7 +1226,7 @@
 
     (define (global-binding (cx Context) (env Env) (ident Syntax)) (→ String) (! compile)
       (match ident
-        ((Ident identifier-name identifier-mark identifier-loc)
+        ((Ident identifier-name _ _)
          (match (defined-binding cx env ident "undefined name")
            ((Global name) name)
            (_ (compile-error (syntax-loc ident)
@@ -1453,7 +1454,8 @@
              (compile-error (syntax-loc name)
                             (string-append "the struct "
                                            (match name
-                                             ((Ident identifier-name _ _) identifier-name)
+                                             ((Ident identifier-name _ _)
+                                              identifier-name)
                                              (_ (panic "internal error: expected Ident")))
                                            " can never be built: each of its values would contain another"))))
           (_ (panic "internal error: struct")))))
@@ -1645,7 +1647,8 @@
            (_ (compile-error (syntax-loc name)
                              (string-append "only a top-level function can be exposed: "
                                             (match name
-                                              ((Ident identifier-name _ _) identifier-name)
+                                              ((Ident identifier-name _ _)
+                                               identifier-name)
                                               (_ (panic "internal error: expected Ident"))))))))
         (_ (compile-error (syntax-loc form) expose-usage))))
 
@@ -1813,7 +1816,8 @@
 
     (define (associated-name (form Syntax)) (→ String) (! compile)
       (match (associated-identifier form)
-        ((Ident identifier-name _ _) identifier-name)
+        ((Ident identifier-name _ _)
+         identifier-name)
         (_ (panic "internal error: expected Ident"))))
 
     (define (scan-class-member (cx Context) (env Env) (class Syntax) (form Syntax))
@@ -1949,7 +1953,7 @@
 
     (define (suffixed-ident (name Syntax) (text String) (loc Loc)) (→ Syntax)
       (match name
-        ((Ident identifier-name identifier-mark identifier-loc)
+        ((Ident identifier-name identifier-mark _)
          (Ident (string-append identifier-name text)
                 (match identifier-mark
                   ((Some mark)
@@ -2016,7 +2020,7 @@
 
     (define (type-scope (env Env) (params (List Syntax))) (→ Env)
       (fold-left (lambda (scope param) (match param
-                                         ((Ident identifier-name identifier-mark identifier-loc)
+                                         ((Ident identifier-name _ _)
                                           (extend scope param (TypeVar (TRigid identifier-name))))
                                          (_ (panic "internal error: expected Ident"))))
                  env
@@ -2063,18 +2067,19 @@
 
     (define (constructor-name (cx Context) (env Env) (ident Syntax)) (→ String) (! compile)
       (match ident
-        ((Ident identifier-name identifier-mark identifier-loc) (match (resolve cx env ident)
-                                                                  ((Some (Global name)) name)
-                                                                  ((Some (TypeName _
-                                                                                   _
-                                                                                   (Some
-                                                                                    constructor)))
-                                                                   constructor)
-                                                                  (_
-                                                                   (compile-error (syntax-loc ident)
-                                                                                  (string-append
-                                                                                   "not a constructor: "
-                                                                                   identifier-name)))))
+        ((Ident identifier-name _ _)
+         (match (resolve cx env ident)
+           ((Some (Global name)) name)
+           ((Some (TypeName _
+                            _
+                            (Some
+                             constructor)))
+            constructor)
+           (_
+            (compile-error (syntax-loc ident)
+                           (string-append
+                            "not a constructor: "
+                            identifier-name)))))
         (_ (panic "internal error: expected Ident"))))
 
     ;; Construction and field reads are pure. Setters and swappers perform
@@ -2187,8 +2192,8 @@
                                   (filter associated-form? (list-drop (form-tail form) 1)))))
              (self (Constraint id (map (lambda (param) (match param
                                                          ((Ident identifier-name
-                                                                 identifier-mark
-                                                                 identifier-loc)
+                                                                 _
+                                                                 _)
                                                           (TRigid identifier-name))
                                                          (_ (panic
                                                              "internal error: expected Ident"))))
@@ -2663,7 +2668,8 @@
               (match (find (lambda (method)
                              (string=? (short-name method)
                                        (match ident
-                                         ((Ident identifier-name _ _) identifier-name)
+                                         ((Ident identifier-name _ _)
+                                          identifier-name)
                                          (_ (panic "internal error: expected Ident")))))
                            (● class methods))
                 ((Some method) method)
@@ -2671,7 +2677,8 @@
                  (compile-error (syntax-loc ident)
                                 (string-append "not a method of this class: "
                                                (match ident
-                                                 ((Ident identifier-name _ _) identifier-name)
+                                                 ((Ident identifier-name _ _)
+                                                  identifier-name)
                                                  (_ (panic "internal error: expected Ident")))))))))
         (expanding cx ((global (fresh-global (short-name method)))
                        (then (add-value global
@@ -3255,81 +3262,82 @@
       (→ Type)
       (! compile)
       (match ident
-        ((Ident identifier-name identifier-mark identifier-loc) (match (resolve cx env ident)
-                                                                  ((Some (TypeName name arity _))
-                                                                   (unless (= arity (length args))
-                                                                     (compile-error loc
-                                                                                    (string-append
-                                                                                     "wrong number of type arguments: "
-                                                                                     identifier-name)))
-                                                                   (TCon name
-                                                                         (map (lambda (arg)
-                                                                                (resolve-type cx
-                                                                                              env
-                                                                                              arg))
-                                                                              args)))
-                                                                  ((Some (Associated class member))
-                                                                   (resolve-projection env
-                                                                                       class
-                                                                                       member
-                                                                                       (map
-                                                                                        (lambda (arg)
-                                                                                          (resolve-type
-                                                                                           cx
-                                                                                           env
-                                                                                           arg))
-                                                                                        args)
-                                                                                       (program-class
-                                                                                        (● cx
-                                                                                           program)
-                                                                                        class)
-                                                                                       loc))
-                                                                  ((Some (TypeVar type))
-                                                                   (if (null? args)
-                                                                       type
-                                                                       (compile-error loc
-                                                                                      "a type variable takes no arguments")))
-                                                                  ((Some (Alias name
-                                                                                params
-                                                                                body
-                                                                                alias-env))
-                                                                   (unless (= (length params)
-                                                                              (length args))
-                                                                     (compile-error loc
-                                                                                    (string-append
-                                                                                     "wrong number of alias arguments: "
-                                                                                     identifier-name)))
-                                                                   (when (member? name
-                                                                                  (● cx aliases))
-                                                                     (compile-error loc
-                                                                                    (string-append
-                                                                                     "type alias refers to itself: "
-                                                                                     identifier-name)))
-                                                                   (let ((scope
-                                                                          (fold-left
-                                                                           (lambda (scope pair)
-                                                                             (extend scope
-                                                                                     (● pair first)
-                                                                                     (TypeVar
-                                                                                      (resolve-type
-                                                                                       cx
-                                                                                       env
-                                                                                       (● pair
-                                                                                          second)))))
-                                                                           alias-env
-                                                                           (zip params args))))
-                                                                     (resolve-type
-                                                                      (Context-aliases-set cx
-                                                                                           (Cons
-                                                                                            name
-                                                                                            (● cx
-                                                                                               aliases)))
-                                                                      scope
-                                                                      body)))
-                                                                  (_ (compile-error loc
-                                                                                    (string-append
-                                                                                     "not a type: "
-                                                                                     identifier-name)))))
+        ((Ident identifier-name _ _)
+         (match (resolve cx env ident)
+           ((Some (TypeName name arity _))
+            (unless (= arity (length args))
+              (compile-error loc
+                             (string-append
+                              "wrong number of type arguments: "
+                              identifier-name)))
+            (TCon name
+                  (map (lambda (arg)
+                         (resolve-type cx
+                                       env
+                                       arg))
+                       args)))
+           ((Some (Associated class member))
+            (resolve-projection env
+                                class
+                                member
+                                (map
+                                 (lambda (arg)
+                                   (resolve-type
+                                    cx
+                                    env
+                                    arg))
+                                 args)
+                                (program-class
+                                 (● cx
+                                    program)
+                                 class)
+                                loc))
+           ((Some (TypeVar type))
+            (if (null? args)
+                type
+                (compile-error loc
+                               "a type variable takes no arguments")))
+           ((Some (Alias name
+                         params
+                         body
+                         alias-env))
+            (unless (= (length params)
+                       (length args))
+              (compile-error loc
+                             (string-append
+                              "wrong number of alias arguments: "
+                              identifier-name)))
+            (when (member? name
+                           (● cx aliases))
+              (compile-error loc
+                             (string-append
+                              "type alias refers to itself: "
+                              identifier-name)))
+            (let ((scope
+                   (fold-left
+                    (lambda (scope pair)
+                      (extend scope
+                              (● pair first)
+                              (TypeVar
+                               (resolve-type
+                                cx
+                                env
+                                (● pair
+                                   second)))))
+                    alias-env
+                    (zip params args))))
+              (resolve-type
+               (Context-aliases-set cx
+                                    (Cons
+                                     name
+                                     (● cx
+                                        aliases)))
+               scope
+               body)))
+           (_ (compile-error loc
+                             (string-append
+                              "not a type: "
+                              identifier-name)))))
         (_ (panic "internal error: expected Ident"))))
 
     (define (resolve-projection (env Env)
@@ -3417,7 +3425,8 @@
              (_ (compile-error (syntax-loc item)
                                (string-append "not an effect: "
                                               (match item
-                                                ((Ident identifier-name _ _) identifier-name)
+                                                ((Ident identifier-name _ _)
+                                                 identifier-name)
                                                 (_
                                                  (panic "internal error: expected Ident")))))))))))
 
@@ -3485,6 +3494,12 @@
         ((Form (Cons head args) _)
          (match (head-binding cx env syntax)
            ((Some (Core keyword)) (expand-core cx env keyword (Cons head args) loc))
+           ((Some (TypeName "Any" _ _))
+            (match args
+              ((Cons value (Nil))
+               (expanding cx ((value (expand-expr env value)))
+                          (Pair (expr (BoxAny value) loc) cx)))
+              (_ (compile-error loc "expected (Any expression)"))))
            (_ (expanding cx ((callee (expand-expr env head))
                              (arguments (expand-each env args)))
                          (Pair (expr (App callee arguments) loc) cx)))))
@@ -3497,44 +3512,45 @@
 
     (define (expand-reference (cx Context) (env Env) (ident Syntax) (loc Loc)) (→ Expr) (! compile)
       (match ident
-        ((Ident identifier-name identifier-mark identifier-loc) (match (resolve cx env ident)
-                                                                  ((Some (Local name))
-                                                                   (expr (Var name (Nil) (Nil))
-                                                                         loc))
-                                                                  ((Some (Global name))
-                                                                   (match (program-value
-                                                                           (● cx program)
-                                                                           name)
-                                                                     ((Some (Replacer case _ _))
-                                                                      (check-own-library cx
-                                                                                         (● case
-                                                                                            type)
-                                                                                         loc
-                                                                                         "replace its fields"))
-                                                                     (_ (unit)))
-                                                                   (expr (Var name (Nil) (Nil))
-                                                                         loc))
-                                                                  ((Some (TypeName _
-                                                                                   _
-                                                                                   (Some
-                                                                                    constructor)))
-                                                                   (expr
-                                                                    (Var constructor (Nil) (Nil))
-                                                                    loc))
-                                                                  ((Some (TypeName _ _ (None)))
-                                                                   (compile-error loc
-                                                                                  (string-append
-                                                                                   "a type is not a value: "
-                                                                                   identifier-name)))
-                                                                  ((None)
-                                                                   (compile-error loc
-                                                                                  (string-append
-                                                                                   "unbound identifier "
-                                                                                   identifier-name)))
-                                                                  (_ (compile-error loc
-                                                                                    (string-append
-                                                                                     "syntax used as a value: "
-                                                                                     identifier-name)))))
+        ((Ident identifier-name _ _)
+         (match (resolve cx env ident)
+           ((Some (Local name))
+            (expr (Var name (Nil) (Nil))
+                  loc))
+           ((Some (Global name))
+            (match (program-value
+                    (● cx program)
+                    name)
+              ((Some (Replacer case _ _))
+               (check-own-library cx
+                                  (● case
+                                     type)
+                                  loc
+                                  "replace its fields"))
+              (_ (unit)))
+            (expr (Var name (Nil) (Nil))
+                  loc))
+           ((Some (TypeName _
+                            _
+                            (Some
+                             constructor)))
+            (expr
+             (Var constructor (Nil) (Nil))
+             loc))
+           ((Some (TypeName _ _ (None)))
+            (compile-error loc
+                           (string-append
+                            "a type is not a value: "
+                            identifier-name)))
+           ((None)
+            (compile-error loc
+                           (string-append
+                            "unbound identifier "
+                            identifier-name)))
+           (_ (compile-error loc
+                             (string-append
+                              "syntax used as a value: "
+                              identifier-name)))))
         (_ (panic "internal error: expected Ident"))))
 
     ;; The receiver is expanded once. Each label selects a real struct slot;
@@ -3602,24 +3618,12 @@
                        (Pair (expr (Ann value (resolve-type cx env type)) loc) cx)))
            (_ (compile-error loc "expected (ann expression type)"))))
         (("handle") (expand-handle cx env items loc))
-        (("type-convert")
+        (("downcast")
          (match items
-           ((Cons _ (Cons value (Cons type (Nil))))
+           ((Cons _ (Cons type (Cons value (Nil))))
             (expanding cx ((value (expand-expr env value)))
-                       (Pair (expr (Convert value (resolve-type cx env type)) loc) cx)))
-           (_ (compile-error loc "expected (type-convert expression type)"))))
-        (("try-convert")
-         (match items
-           ((Cons _ (Cons value (Cons type (Nil))))
-            (expanding cx ((value (expand-expr env value)))
-                       (Pair (expr (TryConvert value (resolve-type cx env type)) loc) cx)))
-           (_ (compile-error loc "expected (try-convert expression type)"))))
-        (("type-test")
-         (match items
-           ((Cons _ (Cons value (Cons type (Nil))))
-            (expanding cx ((value (expand-expr env value)))
-                       (Pair (expr (TypeTest value (resolve-type cx env type)) loc) cx)))
-           (_ (compile-error loc "expected (type-test expression type)"))))
+                       (Pair (expr (Downcast value (resolve-type cx env type)) loc) cx)))
+           (_ (compile-error loc "expected (downcast type expression)"))))
         (("case-id")
          (match items
            ((Cons _ (Cons constructor (Nil)))
@@ -3723,7 +3727,8 @@
       (! compile)
       (let* ((definition (parse-definition form)) (ident (● definition name)))
         (expanding cx ((name (fresh (match ident
-                                      ((Ident identifier-name _ _) identifier-name)
+                                      ((Ident identifier-name _ _)
+                                       identifier-name)
                                       (_ (panic "internal error: expected Ident"))))))
                    (let ((inner (extend scope ident (Local name)))
                          (function? (match (● definition parameters)
@@ -3784,7 +3789,7 @@
       (→ (Pair Expr Context))
       (! compile)
       (match ident
-        ((Ident identifier-name identifier-mark identifier-loc)
+        ((Ident identifier-name _ _)
          (expanding cx ((name (fresh identifier-name))
                         (loop (expand-lambda (extend env ident (Local name))
                                              (map binding-name bindings)
@@ -4020,7 +4025,8 @@
       (let* ((fields (field-idents d (● case second)))
              (open (Atom (DString (string-append "("
                                                  (match (● case first)
-                                                   ((Ident identifier-name _ _) identifier-name)
+                                                   ((Ident identifier-name _ _)
+                                                    identifier-name)
                                                    (_ (panic "internal error: expected Ident")))))
                          (● d loc)))
              (space (Atom (DString " ") (● d loc)))
@@ -4159,22 +4165,23 @@
       (let ((variables (pattern-idents syntax)))
         (for-each (lambda (variable)
                     (match variable
-                      ((Ident identifier-name identifier-mark identifier-loc) (when (< 1
-                                                                                       (length
-                                                                                        (filter
-                                                                                         (lambda (other)
-                                                                                           (string=?
-                                                                                            (ident-key
-                                                                                             other)
-                                                                                            (ident-key
-                                                                                             variable)))
-                                                                                         variables)))
-                                                                                (compile-error
-                                                                                 (syntax-loc
-                                                                                  variable)
-                                                                                 (string-append
-                                                                                  "pattern variable bound twice: "
-                                                                                  identifier-name))))
+                      ((Ident identifier-name _ _)
+                       (when (< 1
+                                (length
+                                 (filter
+                                  (lambda (other)
+                                    (string=?
+                                     (ident-key
+                                      other)
+                                     (ident-key
+                                      variable)))
+                                  variables)))
+                         (compile-error
+                          (syntax-loc
+                           variable)
+                          (string-append
+                           "pattern variable bound twice: "
+                           identifier-name))))
                       (_ (panic "internal error: expected Ident"))))
                   variables)
         variables))
@@ -4346,27 +4353,28 @@
     (define (same-binding? (cx Context) (env Env) (input Syntax) (macro-env Env) (literal Syntax))
       (→ Bool)
       (match literal
-        ((Ident identifier-name identifier-mark identifier-loc) (match input
-                                                                  ((Ident name _ _)
-                                                                   (match (resolve cx env input)
-                                                                     ((Some a)
-                                                                      (match (resolve cx
-                                                                                      macro-env
-                                                                                      literal)
-                                                                        ((Some b)
-                                                                         (string=?
-                                                                          (binding-identity a)
-                                                                          (binding-identity b)))
-                                                                        ((None) #f)))
-                                                                     ((None)
-                                                                      (match (resolve cx
-                                                                                      macro-env
-                                                                                      literal)
-                                                                        ((Some _) #f)
-                                                                        ((None)
-                                                                         (string=? name
-                                                                                   identifier-name))))))
-                                                                  (_ #f)))
+        ((Ident identifier-name _ _)
+         (match input
+           ((Ident name _ _)
+            (match (resolve cx env input)
+              ((Some a)
+               (match (resolve cx
+                               macro-env
+                               literal)
+                 ((Some b)
+                  (string=?
+                   (binding-identity a)
+                   (binding-identity b)))
+                 ((None) #f)))
+              ((None)
+               (match (resolve cx
+                               macro-env
+                               literal)
+                 ((Some _) #f)
+                 ((None)
+                  (string=? name
+                            identifier-name))))))
+           (_ #f)))
         (_ (panic "internal error: expected Ident"))))
 
     (define (match-items (cx Context)
@@ -4516,15 +4524,16 @@
 
     (define (rename-ident (ident Syntax) (expansion Expansion)) (→ Syntax)
       (match ident
-        ((Ident identifier-name identifier-mark identifier-loc) (Ident identifier-name
-                                                                       (Some
-                                                                        (Mark (string-append
-                                                                               (ident-key ident)
-                                                                               "%"
-                                                                               (● expansion stamp))
-                                                                              ident
-                                                                              (● expansion scope)))
-                                                                       (● expansion loc)))
+        ((Ident identifier-name _ _)
+         (Ident identifier-name
+                (Some
+                 (Mark (string-append
+                        (ident-key ident)
+                        "%"
+                        (● expansion stamp))
+                       ident
+                       (● expansion scope)))
+                (● expansion loc)))
         (_ (panic "internal error: expected Ident"))))
 
     )
@@ -4739,9 +4748,10 @@
                                                              (panic "expected GeneratedLibrary"))))
                                            (generated-library-bytes assets-output)))
                  (uses (discover-artifacts directories inputs (string-append root "/main.sld"))))
-            (expect (map (lambda (record) (● record name)) uses) (list "admin" "client"))
+            (expect (map (lambda (record) (● record name)) uses) (list "admin" "client" "client"))
             (expect (map (lambda (use) (● (● use loc) file)) uses)
                     (list (string-append root "/sample/assets.sld")
+                          (string-append root "/main.sld")
                           (string-append root "/main.sld"))))))
 
       ;; A linked path is made canonical against its library's directory,

@@ -6,14 +6,13 @@
          (send udp-send)
          (receive udp-receive)))
 
-;; A mismatch here is a broken test-host invariant. Guest conversions that
-;; are expected to fail use dyn-cast handlers in the dedicated fixtures.
+;; A mismatch here is a broken test-host invariant.
 (define-syntax fixture-convert
   (syntax-rules ()
     ((_ value target)
-     (match (try-convert value target)
-       ((Ok checked) checked)
-       ((Err _) (panic "fixture payload has the wrong type"))))))
+     (match (downcast target value)
+       ((Some checked) checked)
+       ((None) (panic "fixture payload has the wrong type"))))))
 
 ;; ---- Requests ----
 
@@ -118,7 +117,7 @@
   (require (fixture-convert answer (Result I32 SocketError))))
 
 (define (overwrite) (→ Bool) (! tcp tasks)
-  (match (write (Connection (type-convert (ann 1 I32) Any)) #u8(9 8 7))
+  (match (write (Connection (Any (ann 1 I32))) #u8(9 8 7))
     ((Err error) (string=? (● error code) "EBADF"))
     ((Ok _) #f)))
 
@@ -145,17 +144,17 @@
     ((Ok _) #f)))
 
 (define (begin-open (scheduler Scheduler) (requests Requests)) (→ I64) (! mut host tcp udp)
-  (request scheduler requests (once (lambda () (type-convert (open) Any)))))
+  (request scheduler requests (once (lambda () (Any (open))))))
 
 (define (begin-dial (scheduler Scheduler) (requests Requests) (port I32))
   (→ I64)
   (! mut host tcp udp)
-  (request scheduler requests (once (lambda () (type-convert (dial port) Any)))))
+  (request scheduler requests (once (lambda () (Any (dial port))))))
 
 (define (begin-take (scheduler Scheduler) (requests Requests) (listener Listener))
   (→ I64)
   (! mut host tcp udp)
-  (request scheduler requests (once (lambda () (type-convert (take listener) Any)))))
+  (request scheduler requests (once (lambda () (Any (take listener))))))
 
 (define (begin-receive (scheduler Scheduler)
                        (requests Requests)
@@ -163,20 +162,20 @@
                        (count I32))
   (→ I64)
   (! mut host tcp udp)
-  (request scheduler requests (once (lambda () (type-convert (receive connection count) Any)))))
+  (request scheduler requests (once (lambda () (Any (receive connection count))))))
 
 (define (begin-send (scheduler Scheduler) (requests Requests) (connection Connection))
   (→ I64)
   (! mut host tcp udp)
-  (request scheduler requests (once (lambda () (type-convert (send connection) Any)))))
+  (request scheduler requests (once (lambda () (Any (send connection))))))
 
 (define (begin-overwrite (scheduler Scheduler) (requests Requests)) (→ I64) (! mut host tcp udp)
-  (request scheduler requests (once (lambda () (type-convert (overwrite) Any)))))
+  (request scheduler requests (once (lambda () (Any (overwrite))))))
 
 (define (begin-finish (scheduler Scheduler) (requests Requests) (connection Connection) (grace I32))
   (→ I64)
   (! mut host tcp udp)
-  (request scheduler requests (once (lambda () (type-convert (finish connection grace) Any)))))
+  (request scheduler requests (once (lambda () (Any (finish connection grace))))))
 
 (expose begin-open "begin-open")
 (expose listener "listener")
@@ -225,17 +224,17 @@
 (define (stop-udp (socket UdpSocket)) (→ Unit) (! udp) (require (close-udp socket)))
 
 (define (begin-open-udp (scheduler Scheduler) (requests Requests)) (→ I64) (! mut host tcp udp)
-  (request scheduler requests (once (lambda () (type-convert (open-udp) Any)))))
+  (request scheduler requests (once (lambda () (Any (open-udp))))))
 
 (define (begin-send-udp (scheduler Scheduler) (requests Requests) (socket UdpSocket) (port I32))
   (→ I64)
   (! mut host tcp udp)
-  (request scheduler requests (once (lambda () (type-convert (send-udp socket port) Any)))))
+  (request scheduler requests (once (lambda () (Any (send-udp socket port))))))
 
 (define (begin-receive-udp (scheduler Scheduler) (requests Requests) (socket UdpSocket) (count I32))
   (→ I64)
   (! mut host tcp udp)
-  (request scheduler requests (once (lambda () (type-convert (receive-udp socket count) Any)))))
+  (request scheduler requests (once (lambda () (Any (receive-udp socket count))))))
 
 (expose begin-open-udp "begin-open-udp")
 (expose udp-socket "udp-socket")

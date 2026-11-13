@@ -138,11 +138,9 @@
       (syntax-rules ()
         ((_ State)
          (instance (PageState State)
-           (define (pack-state (state State)) (→ Any) (type-convert state Any))
+           (define (pack-state (state State)) (→ Any) (Any state))
            (define (unpack-state (previous Any)) (→ (Option State))
-             (match (try-convert previous State)
-               ((Ok state) (Some state))
-               ((Err _) (None))))))))
+             (downcast State previous))))))
 
     ;; The host retains these opaque saved values across replacement.
     ;; Only a completed presentation commits; boot keeps an initial recovery

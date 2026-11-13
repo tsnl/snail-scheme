@@ -111,9 +111,9 @@
     (write-line
      (string-join (map show (map (lambda (record) (● record x)) (list (Point 1 0) (Point 2 0))))
                   " "))
-    (write-line (show-point (match (try-convert (type-convert (Point 9 9) Any) Point)
-                              ((Ok value) value)
-                              ((Err _) (panic "point round trip failed")))))
+    (write-line (show-point (match (downcast Point (Any (Point 9 9)))
+                              ((Some value) value)
+                              ((None) (panic "point round trip failed")))))
     (write-line (show-segment (handle Ask
                                   ((ask (lambda (resume) (resume 1))))
                                 (build))))

@@ -214,12 +214,12 @@ callable classes, `FnMut`, `dyn`, or `impl` forms.
 
 Every nominal aggregate is a WasmGC object. A field contains one scalar or one
 managed reference; nested structs are never flattened into their owners.
-Vectors have runtime lengths and may contain boxed aggregate elements. Their
-stable heap object owns the live prefix of its backing storage. Growth transfers
-that prefix without duplicating element ownership. Pop transfers the final slot
-to its result and clears the slot; spare capacity owns nothing. A vector of
-counted elements counts aliases of the vector itself and releases its live
-elements when the last alias leaves. Primitive vectors need no owner counter.
+Vectors have fixed runtime lengths and may contain boxed aggregate elements.
+A vector of counted elements counts aliases of the vector itself and releases
+all its elements when the last owner leaves. Uncounted vectors are raw GC arrays
+and need no owner counter. Elements must be `Copy`; use `Rc` to put a linear
+resource in a slot. Replacement installs the incoming owner before releasing
+the old element, and overlapping copies retain a snapshot before changing slots.
 
 The reference-counting pass makes ownership operations explicit after specialization.
 Reads of counted owners retain, calls transfer their owned operands, and scope

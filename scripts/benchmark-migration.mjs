@@ -49,12 +49,8 @@ const report = {date: new Date().toISOString(), node: process.version, v8: proce
     compiler_sha256: hash(v.compiler), compiler_bytes: statSync(v.compiler).size})),
   scalar_runtime_sha256: hash(join(root, 'build/wasm-snail-core-support/wasm32-wasip1/release/snail_core_support.wasm'))};
 const valueSource = readFileSync(join(root, 'tests/benchmarks/value-model.sld'), 'utf8');
-const growthStart = valueSource.indexOf('(define (grow '), growthEnd = valueSource.indexOf('\n(expose scalar');
-assert(growthStart > 0 && growthEnd > growthStart);
-const legacyValues = valueSource.slice(0, growthStart)
-  .replaceAll('make-vector', 'make-array').replaceAll('vector-set!', 'array-set!').replaceAll('vector-ref', 'array-ref')
-  + valueSource.slice(growthStart, growthEnd).replaceAll('(vector)', '(mut-vector)').replaceAll('vector-', 'mut-vector-')
-  + valueSource.slice(growthEnd);
+const legacyValues = valueSource.replaceAll('make-vector', 'make-array')
+  .replaceAll('vector-set!', 'array-set!').replaceAll('vector-ref', 'array-ref');
 writeFileSync(join(output, 'legacy-values.sld'), legacyValues);
 for (const variant of variants) {
   console.error(`Compiling ${variant.name} workloads`);
@@ -79,7 +75,7 @@ console.error('Measuring process memory');
 report.memory = [];
 for (let repeat = 0; repeat < 5; ++repeat) {
   for (const variant of repeat % 2 ? [...variants].reverse() : variants) {
-    for (const kind of ['scalar', 'records', 'record_list', 'vectors', 'grow']) {
+    for (const kind of ['scalar', 'records', 'record_list', 'vectors']) {
       const sample = JSON.parse(run('taskset', ['-c', cpu, 'node', '--no-warnings', '--expose-gc',
         join(root, 'scripts/benchmark-values.mjs'), '--memory', variant.values, kind]));
       report.memory.push({variant: variant.name, repeat, ...sample});

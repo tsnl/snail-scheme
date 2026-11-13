@@ -69,9 +69,8 @@
    Ann
    ScopedInstances
    Handle
-   Convert
-   TryConvert
-   TypeTest
+   BoxAny
+   Downcast
    Clause
    Pattern
    PWild
@@ -268,9 +267,7 @@
             "handle"
             "expose"
             "case-id"
-            "type-convert"
-            "try-convert"
-            "type-test"
+            "downcast"
             "artifact-files" "link-handle"))
 
     (define builtin-types (→ (List (Pair String I64)))
@@ -655,13 +652,8 @@
        ((effect String)
         (implementations (List (Pair String Expr)))
         (body Expr)))
-      (Convert
-       ((expr Expr)
-        (target Type)))
-      (TryConvert
-       ((expr Expr)
-        (target Type)))
-      (TypeTest
+      (BoxAny ((expr Expr)))
+      (Downcast
        ((expr Expr)
         (target Type))))
 
@@ -704,9 +696,8 @@
         ((Match scrutinee clauses) (Cons scrutinee (map (lambda (record) (● record body)) clauses)))
         ((ScopedInstances _ body) (list body))
         ((Ann inner _) (list inner))
-        ((Convert inner _) (list inner))
-        ((TryConvert inner _) (list inner))
-        ((TypeTest inner _) (list inner))
+        ((BoxAny inner) (list inner))
+        ((Downcast inner _) (list inner))
         ((Handle _ implementations body)
          (append (map (lambda (record) (● record second)) implementations) (list body)))))
 
@@ -1331,7 +1322,22 @@
                             (string-concatenate
                              (map (lambda (case) (case-schema program case visiting))
                                   (● (program-type program name) cases))))))
-        (_ "fn")))
+        ((TFun arguments result row)
+         (string-append "Fn("
+                        (string-join (map (lambda (argument)
+                                            (type-schema program argument params visiting))
+                                          arguments) ",")
+                        "→" (type-schema program result params visiting)
+                        (type-schema program row params visiting) ")"))
+        ((TRow _ _)
+         (let ((parts (row-parts type (Nil))))
+           (string-append "!(" (string-join (● parts first) ",")
+                          (match (● parts second)
+                            ((None) "")
+                            ((Some tail)
+                             (string-append "|" (type-schema program tail params visiting))))
+                          ")")))
+        (_ (panic "internal error: unresolved type in a schema"))))
 
     ;; ---- Wire schemas ----
 
@@ -1502,8 +1508,29 @@
                 (expect (wide-hash "") -3750763034362895579)
                 (expect (wide-hash "a") -5808556873153909620)
                 (expect (wide-hash "foobar") -8821353812377114648)
+                (test-type-identities)
                 (test-hidden-effects)
                 (test-references)))
+
+      ;; A boxed closure may cross a relink. Its nominal parameter/result
+      ;; schemas and nested callback effects must change its identity even
+      ;; when all involved Wasm layouts remain identical.
+      (define (identity-fixture (label String) (field Type)) (→ Program)
+        (program-with-type empty-program
+                           (DataType "test:Payload" (Nil)
+                                     (list (Case "test:Payload" "test:Payload" 0
+                                                 (list (Field label field)))) #f #f)))
+
+      (define (test-type-identities) (→ Unit)
+        (let* ((i64 (TCon "I64" (Nil))) (payload (TCon "test:Payload" (Nil)))
+               (callback (TFun (list payload) payload empty-row))
+               (old (identity-fixture "before" i64))
+               (changed (identity-fixture "after" i64))
+               (pure (identity-fixture "call" (TFun (Nil) i64 empty-row)))
+               (effectful
+                (identity-fixture "call" (TFun (Nil) i64 (TRow (list "test:Log") (None))))))
+          (expect (= (any-type-id old callback) (any-type-id changed callback)) #f)
+          (expect (= (any-type-id pure callback) (any-type-id effectful callback)) #f)))
 
       ;; Structural traversal enters latent lambda bodies and handler
       ;; implementations, preserving first occurrence while deduplicating.

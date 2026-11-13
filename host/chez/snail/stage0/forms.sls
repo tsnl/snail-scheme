@@ -1,7 +1,7 @@
 ;; The typed source forms erased for the Chez bootstrap. This host executes
 ;; compiler code only; source programs are checked and compiled to WasmGC.
 (library (snail stage0 forms)
-  (export define : type ann type-convert struct enum match effect handle ● set! replace! test-forms)
+  (export define : type ann struct enum match effect handle ● set! replace! test-forms)
   (import
    (rename (chezscheme) (define scheme-define) (set! scheme-set!)))
 
@@ -43,7 +43,6 @@
 
   (define-syntax : (syntax-rules () [(_ . rest) (begin)]))
   (define-syntax ann (syntax-rules () [(_ expression type) expression]))
-  (define-syntax type-convert (syntax-rules () [(_ expression type) expression]))
   (define-syntax type
     (lambda (form)
       (syntax-case form ()

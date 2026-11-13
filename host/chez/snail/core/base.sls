@@ -5,7 +5,7 @@
    ● test-base
    define lambda if begin let let* letrec cond case when unless and or do
    define-syntax syntax-rules quote else => _ ...
-   : type ann type-convert struct enum match effect handle
+   : type ann struct enum match effect handle
    +
    -
    *
@@ -62,7 +62,7 @@
    vector-concatenate
    subvector
    vector-map vector-for-each vector-fold vector->list list->vector
-   vector vector-set! vector-copy vector-copy! vector-push! vector-pop!
+   vector vector-set! vector-copy vector-copy!
    set! replace!
    )
   (import
@@ -70,7 +70,9 @@
            char-whitespace? char-numeric? char-alphabetic?
            vector make-vector vector-length vector-ref vector-set! vector-copy vector-copy!
            vector-append vector-map vector-for-each vector->list list->vector)
-   (prefix (only (chezscheme) make-vector vector-length vector-ref vector-set! vector-copy!) raw:)
+   (prefix
+    (only (chezscheme) make-vector vector-length vector-ref vector-set! vector-copy! list->vector)
+    raw:)
    (snail stage0 forms))
 
 
@@ -254,14 +256,10 @@
 
   ;; ---- Vectors ----
 
-  ;; Native vectors are private storage. All source aliases share this holder.
-  (define-record-type (source-vector wrap-vector source-vector?)
-    (fields (mutable size vector-size vector-size-set!)
-            (mutable data vector-data vector-data-set!)))
-
-  (define (vector) (wrap-vector 0 (raw:make-vector 0)))
-  (define (make-vector size value) (wrap-vector size (raw:make-vector size value)))
-  (define (vector-length items) (vector-size items))
+  ;; Native vectors have the same fixed length and shared mutable slots.
+  (define (vector) (raw:make-vector 0))
+  (define (make-vector size value) (raw:make-vector size value))
+  (define (vector-length items) (raw:vector-length items))
 
   (define (vector-range items start count)
     (unless (and (<= 0 start (vector-length items))
@@ -270,28 +268,15 @@
 
   (define (vector-ref items index)
     (vector-range items index 1)
-    (raw:vector-ref (vector-data items) index))
+    (raw:vector-ref items index))
 
   (define (vector-set! items index value)
     (vector-range items index 1)
-    (raw:vector-set! (vector-data items) index value))
+    (raw:vector-set! items index value))
 
-  (define (vector-push! items value)
-    (let* ((size (vector-length items)) (data (vector-data items)))
-      (when (= size (raw:vector-length data))
-        (let ((larger (raw:make-vector (max 4 (* size 2)) #f)))
-          (raw:vector-copy! data 0 larger 0 size)
-          (vector-data-set! items larger)))
-      (raw:vector-set! (vector-data items) size value)
-      (vector-size-set! items (+ size 1))))
 
-  (define (vector-pop! items)
-    (let ((size (vector-length items)))
-      (if (= size 0) (None)
-          (let ((value (vector-ref items (- size 1))))
-            (raw:vector-set! (vector-data items) (- size 1) #f)
-            (vector-size-set! items (- size 1))
-            (Some value)))))
+
+
 
   (define (vector-generate count f)
     (let ((items (make-vector count #f)))
@@ -301,7 +286,7 @@
   (define (vector-copy! to at from start count)
     (vector-range to at count)
     (vector-range from start count)
-    (raw:vector-copy! (vector-data from) start (vector-data to) at count))
+    (raw:vector-copy! from start to at count))
 
   (define (subvector items start end)
     (vector-range items start (- end start))
@@ -342,8 +327,7 @@
     (let loop ((index (- (vector-length items) 1)) (result '()))
       (if (< index 0) result (loop (- index 1) (cons (vector-ref items index) result)))))
 
-  (define (list->vector items)
-    (let ((result (vector))) (for-each (lambda (item) (vector-push! result item)) items) result))
+  (define (list->vector items) (raw:list->vector items))
 
   (define (string->vector text) (list->vector (string->list text)))
   (define (vector->string chars) (list->string (vector->list chars)))
@@ -380,17 +364,4 @@
        (58 #f #f #f) (64 #f #f #f) (65 #f #f #t) (90 #f #f #t) (91 #f #f #f)
        (96 #f #f #f) (97 #f #f #t) (122 #f #f #t) (123 #f #f #f)
        (160 #f #f #f) (233 #f #f #f) (1633 #f #f #f) (8195 #f #f #f))))
-  ;; Stage-zero assertions compare source values, never backing capacity.
-  (record-type-equal-procedure
-   (record-type-descriptor source-vector)
-   (lambda (left right same?)
-     (and (= (vector-size left) (vector-size right))
-          (let loop ((index 0))
-            (or (= index (vector-size left))
-                (and (same? (raw:vector-ref (vector-data left) index)
-                            (raw:vector-ref (vector-data right) index))
-                     (loop (+ index 1))))))))
-
-
-
   )

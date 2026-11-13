@@ -221,11 +221,10 @@ registry across separately compiled libraries, so they are deliberately absent.
 `wasm.sld` selects one representation per concrete type. Numeric primitives
 and booleans are Wasm scalars. A struct is always a GC struct reference;
 its field is one scalar or reference slot. An enum has a tagged base and
-case subtypes. Every vector has a stable holder containing its logical length
-and replaceable backing array. The active prefix owns its scalar or reference
-elements; spare reference slots are null. Growth replaces the backing array,
-and pop clears its removed slot. Source code cannot name that storage or its
-capacity. There is no inline struct flattening or reconstruction on field writes.
+case subtypes. A vector is an exact-sized GC array. Only vectors with counted
+elements add a holder: an ownership header and an immutable reference to that
+array. Its length comes from the array; there is no capacity or replaceable
+storage. There is no inline struct flattening or reconstruction on field writes.
 
 Completed source references are non-null. Internal Wasm storage and signatures
 admit null so uninitialized slots and suspended results need no fabricated

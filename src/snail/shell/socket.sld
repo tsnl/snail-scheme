@@ -209,21 +209,21 @@
 
     (define (listener-handle (listener Listener)) (→ I32)
       (let ((token (● listener token)))
-        (match (try-convert token NativeListener)
-          ((Ok native) (● native handle))
-          ((Err _) 0))))
+        (match (downcast NativeListener token)
+          ((Some native) (● native handle))
+          ((None) 0))))
 
     (define (connection-handle (connection Connection)) (→ I32)
       (let ((token (● connection token)))
-        (match (try-convert token NativeConnection)
-          ((Ok native) (● native handle))
-          ((Err _) 0))))
+        (match (downcast NativeConnection token)
+          ((Some native) (● native handle))
+          ((None) 0))))
 
     (define (udp-handle (socket UdpSocket)) (→ I32)
       (let ((token (● socket token)))
-        (match (try-convert token NativeUdpSocket)
-          ((Ok native) (● native handle))
-          ((Err _) 0))))
+        (match (downcast NativeUdpSocket token)
+          ((Some native) (● native handle))
+          ((None) 0))))
 
     ;; An endpoint crosses to the host as two I32s, its port and its
     ;; address, whose octets the host reads as the I32's unsigned bits.
@@ -262,13 +262,13 @@
                        (lambda (index) (i32->char (host-held-byte position (i64->i32 index))))))
 
     (define (listening (handle I32)) (→ Listener)
-      (Listener (type-convert (NativeListener handle) Any) (host-held-number)))
+      (Listener (Any (NativeListener handle)) (host-held-number)))
 
     (define (connected (handle I32)) (→ Connection)
-      (Connection (type-convert (NativeConnection handle) Any)))
+      (Connection (Any (NativeConnection handle))))
 
     (define (bound (handle I32)) (→ UdpSocket)
-      (UdpSocket (type-convert (NativeUdpSocket handle) Any) (host-held-number)))
+      (UdpSocket (Any (NativeUdpSocket handle)) (host-held-number)))
 
     (define (held-read (answer I32)) (→ (Option Bytes))
       (if (= answer 0) (None) (Some (held-bytes 0))))

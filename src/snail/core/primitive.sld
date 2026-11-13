@@ -45,7 +45,7 @@
    string-generate
    string->vector vector->string
    vector-length vector-ref vector-append subvector make-vector vector-set vector-generate
-   vector vector-set! vector-copy vector-copy! vector-push! vector-take-last!
+   vector vector-set! vector-copy vector-copy!
    set!
    replace!)
   (import
@@ -270,8 +270,8 @@
     (primitive vector-copy (∀ (A) (⊨ (Copy A)) (Fn (Vector A) → (Vector A))))
     (primitive vector-copy!
                (∀ (A) (⊨ (Copy A)) (Fn (Vector A) I64 (Vector A) I64 I64 → Unit ! mut)))
-    (primitive vector-push! (∀ (A) (⊨ (Copy A)) (Fn (Vector A) A → Unit ! mut)))
-    (primitive vector-take-last! (∀ (A) (⊨ (Copy A)) (Fn (Vector A) → A ! mut)))
+
+
 
     ;; `set!` writes a place and `replace!` swaps a value into one and
     ;; answers the old. A place is a declared field, `(● record count)`,

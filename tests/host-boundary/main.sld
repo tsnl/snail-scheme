@@ -2,14 +2,13 @@
  (snail core base)
  (boundary value))
 
-;; A mismatch here is a broken test-host invariant. Guest conversions that
-;; are expected to fail use dyn-cast handlers in the dedicated fixtures.
+;; A mismatch here is a broken test-host invariant.
 (define-syntax fixture-convert
   (syntax-rules ()
     ((_ value target)
-     (match (try-convert value target)
-       ((Ok checked) checked)
-       ((Err _) (panic "fixture payload has the wrong type"))))))
+     (match (downcast target value)
+       ((Some checked) checked)
+       ((None) (panic "fixture payload has the wrong type"))))))
 
 (extern note-text "snail.test" "text" (Fn String → I32))
 (extern note-bytes "snail.test" "bytes" (Fn I32 Bytes → I32))
@@ -18,7 +17,7 @@
 (struct Checkpoint
   ((value Any)))
 
-(define (create) (→ Checkpoint) (Checkpoint (ann 42 Any)))
+(define (create) (→ Checkpoint) (Checkpoint (Any 42)))
 (expose create "create")
 
 (define (state (checkpoint Checkpoint)) (→ Any)
@@ -40,11 +39,9 @@
 (define (empty) (→ I32)
   (note-bytes 0 #u8()))
 
-(define (grown) (→ I32) (! mut)
-  (let ((bytes #u8(1)))
-    (vector-push! bytes (ann 2 U8))
-    (vector-push! bytes (ann 3 U8))
-    (match (vector-pop! bytes) ((Some byte) (unit)) ((None) (panic "missing byte")))
+(define (updated) (→ I32) (! mut)
+  (let ((bytes #u8(1 0)))
+    (vector-set! bytes 1 (ann 2 U8))
     (note-bytes 9 bytes)))
 
 (define (discard (handover (Option Any))) (→ Unit)
@@ -58,7 +55,7 @@
 (expose value "value")
 (expose binary "binary")
 (expose empty "empty")
-(expose grown "grown")
+(expose updated "updated")
 (expose discard "discard")
 (expose fail "fail")
 
@@ -87,6 +84,6 @@
 ;; export signature. Application scaffolding relies on the same ordinary rule.
 (define inferred-entry
   (lambda (checkpoint value)
-    (set! (● checkpoint value) (type-convert (ann value I64) Any))
+    (set! (● checkpoint value) (Any (ann value I64)))
     (state checkpoint)))
 (expose inferred-entry "inferred")

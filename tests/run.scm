@@ -21,7 +21,6 @@
  (only (snail shell compiler core) test-core)
  (only (snail shell compiler sha256) test-sha256)
  (only (snail shell compiler check) test-check)
- (only (snail shell compiler conversions) test-conversions)
  (only (snail shell compiler specialize) test-specialize)
  (only (snail shell compiler prepare) test-prepare)
  (only (snail shell compiler wasm) test-wasm)
@@ -284,7 +283,7 @@
                                        (write-string
                                         (string-append "(import (snail core base))\n(enum Phase "
                                                        cases
-                                                       ")\n(define (main) (→ Unit) (drop (type-convert (Day) Any)))\n")
+                                                       ")\n(define (main) (→ Unit) (drop (Any (Day))))\n")
                                         port)))
     (let* ((text (program->wat root (standard-directories root) source))
            (start (+ (text-index text marker 0) (string-length marker))))
@@ -631,11 +630,10 @@
     ("tests/programs" "closures")
     ("tests/programs" "classes-advanced")
     ("tests/programs" "data")
-    ("tests/programs" "dynamic")
+    ("tests/programs" "explicit-any")
     ("tests/programs" "wire")
     ("tests/programs" "deriving-libraries")
     ("tests/programs" "tables")
-    ("tests/programs" "implicit-any")
     ("tests/programs" "libraries")
     ("tests/programs" "specialization-order")
     ("tests/programs" "specialization-drop")
@@ -801,7 +799,6 @@
   (test-core)
   (test-sha256)
   (test-check)
-  (test-conversions)
   (test-specialize)
   (test-prepare)
   (test-wasm)

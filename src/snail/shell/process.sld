@@ -162,9 +162,9 @@
 
     (define (process-handle (child Process)) (→ I32)
       (let ((token (● child token)))
-        (match (try-convert token NativeProcess)
-          ((Ok native) (● native handle))
-          ((Err _) 0))))
+        (match (downcast NativeProcess token)
+          ((Some native) (● native handle))
+          ((None) 0))))
 
     ;; The host reads a command a character at a time: its directory, the
     ;; program's path, the name it is run as, then its arguments.
@@ -269,7 +269,7 @@
                        (lambda (index) (i32->char (host-held-byte position (i64->i32 index))))))
 
     (define (spawned (handle I32)) (→ Process)
-      (Process (type-convert (NativeProcess handle) Any) (host-held-number)))
+      (Process (Any (NativeProcess handle)) (host-held-number)))
 
     (define (held-read (answer I32)) (→ (Option Bytes))
       (if (= answer 0) (None) (Some (held-bytes 0))))

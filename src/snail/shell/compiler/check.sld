@@ -14,8 +14,7 @@
    (snail shell compiler read)
    (snail shell compiler core)
    (snail shell compiler capabilities)
-   (snail shell compiler ownership)
-   (snail shell compiler conversions))
+   (snail shell compiler ownership))
   (begin
 
     ;; ---- Checker state ----
@@ -624,20 +623,14 @@
                      (fit ck type inner row loc)))
           ((Handle effect implementations body)
            (infer-handle ck effect implementations body row loc))
-          ;; The direction is decided once types are ground: to Any, from
-          ;; Any, or nothing when the types already agree.
-          ((Convert inner target)
+          ((BoxAny inner)
            (learning ck ((inner (infer inner row)))
-                     (fit ck target inner row loc)))
-          ((TryConvert inner target)
-           (learning ck ((inner (infer inner row))
-                         (inner (fit (TCon "Any" (Nil)) inner row (● inner loc))))
-                     (Pair (Expr (TryConvert inner target) (cast-result-type target) loc) ck)))
-          ;; Whether an Any holds a value of the target type.
-          ((TypeTest inner target)
-           (learning ck ((inner (infer inner row))
-                         (inner (fit (TCon "Any" (Nil)) inner row (● inner loc))))
-                     (Pair (Expr (TypeTest inner target) (TCon "Bool" (Nil)) loc) ck))))))
+                     (Pair (Expr (BoxAny inner) (TCon "Any" (Nil)) loc) ck)))
+          ((Downcast inner target)
+           (learning ck ((inner (check-result inner (TCon "Any" (Nil)) row)))
+                     (Pair (Expr (Downcast inner target)
+                                 (TCon "snail.core.base:Option" (list target)) loc) ck)))
+          )))
 
     (define (instance-scope (ck Checker) (sets (List String)) (loc Loc)) (→ Checker) (! compile)
       (let ((sets (delete-duplicates string=? (append sets (● ck instances)))))
@@ -723,7 +716,7 @@
          (check-lambda ck expr params body captures? type types result effects))
         (_ (infer ck expr row))))
 
-    ;; Check with the expected type before inserting any required conversion.
+    ;; Infer with the expected type, then unify the resulting type.
 
     (define (check-result (ck Checker) (expr Expr) (type Type) (row Type))
       (→ (Pair Expr Checker))
@@ -860,8 +853,7 @@
                                          (i64->string (length params))
                                          " arguments, found "
                                          (i64->string (length args)))))
-         (learning ck ((then (fit-known-arguments params args context))
-                       (args (each (lambda (ck pair)
+         (learning ck ((args (each (lambda (ck pair)
                                      (fit ck
                                           (● pair first)
                                           (● pair second)
@@ -885,46 +877,13 @@
          (unify-call ck procedure args result latent context loc))
         (other (compile-error loc (string-append "not a function: " (type->string other))))))
 
-    ;; Concrete arguments constrain shared type variables before an Any
-    ;; can instantiate one. This changes inference order, never evaluation
-    ;; order: `(f boxed 1)` and `(f 1 boxed)` both select f at I64 when its
-    ;; two parameters share a type. With only Any arguments it selects Any.
-
-    (define (fit-known-arguments (ck Checker) (params (List Type)) (args (List Expr)) (row Type))
-      (→ Checker)
-      (! compile)
-      (fold-left (lambda (ck pair)
-                   (let ((arg (● pair second)))
-                     (if (any-type? (prune (solution ck) (● arg type)))
-                         ck
-                         (● (fit ck (● pair first) arg row (● arg loc)) second))))
-                 ck (zip params args)))
-
-    ;; A value meets the type it is checked at: a parameter's, an
-    ;; annotation's or a signature's. At a fn, a `fn` or the name of a
-    ;; top-level function is given that type, since neither has an
-    ;; environment: `check-closed` proves it of a `fn`, and the expander
-    ;; records which globals are functions. No other value has type fn
-    ;; unless it already does. Any crosses this boundary through an explicit
-    ;; Convert in the checked IR. Variables still unify normally; a rigid
-    ;; variable is not a runtime type to test. The final conversion and
-    ;; ownership checks enforce the same restrictions as explicit casts.
+    ;; Checking a value never changes its representation. Any is boxed and
+    ;; extracted explicitly; all ordinary type boundaries unify.
 
     (define (fit (ck Checker) (expected Type) (expr Expr) (row Type) (loc Loc))
       (→ (Pair Expr Checker))
       (! compile)
       (match (Pair (prune (solution ck) expected) (prune (solution ck) (● expr type)))
-        ((Pair (TCon "Any" (Nil)) (TCon "Any" (Nil))) (Pair expr ck))
-        ((Pair (TCon "Any" (Nil)) (TVar _))
-         (fit-any-literal ck expected expr (● expr type) row loc))
-        ((Pair (TVar _) (TCon "Any" (Nil)))
-         (fit-any-literal ck expected expr expected row loc))
-        ((Pair (TVar _) _) (Pair expr (unify ck expected (● expr type) loc)))
-        ((Pair _ (TVar _)) (Pair expr (unify ck expected (● expr type) loc)))
-        ((Pair (TCon "Any" (Nil)) _)
-         (convert-value ck expr expected row loc))
-        ((Pair _ (TCon "Any" (Nil)))
-         (convert-value ck expr expected row loc))
         ((Pair (TCon "fn" (Cons arrow (Nil))) (TFun _ _ _))
          (unless (environment-free? ck expr)
            (compile-error loc
@@ -952,58 +911,6 @@
                                             "; a lambda, or a local bound to one, may capture")))
             (Pair (Expr (● expr term) expected (● expr loc))
                   (unify ck arrow (fn-arrow (● expr type)) loc)))))
-
-    ;; A numeric literal's variable is already constrained to a number.
-    ;; Keep that constraint across an Any boundary: ordinary literal
-    ;; defaulting (or a later use) chooses its concrete type, not Any.
-
-    (define (fit-any-literal (ck Checker)
-                             (expected Type)
-                             (expr Expr)
-                             (type Type)
-                             (row Type)
-                             (loc Loc))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (if (any? (lambda (want)
-                  (match want
-                    ((WantLiteral _ literal _)
-                     (same-meta? (prune (solution ck) type) (prune (solution ck) literal)))
-                    (_ #f)))
-                (● ck pending))
-          (convert-value ck expr expected row loc)
-          (Pair expr (unify ck expected (● expr type) loc))))
-
-    ;; Only an established Any boundary reaches here. An unconstrained
-    ;; variable unified in fit; a literal's variable is known to be numeric,
-    ;; so extracting it from Any is fallible before its width is chosen.
-
-    (define (convert-value (ck Checker) (value Expr) (target Type) (row Type) (loc Loc))
-      (→ (Pair Expr Checker))
-      (! compile)
-      ;; Reject known ineligible endpoints before a later host-row error
-      ;; can hide the boundary. Final validation repeats this with solved
-      ;; types; zonk here only closes unknowns for this negative check.
-      (for-each (lambda (type)
-                  (refuse-hidden-effects "type-convert" type loc)
-                  (refuse-function-reference "type-convert" type loc))
-                (list (zonk (solution ck) (● value type)) (zonk (solution ck) target)))
-      (let ((ck (if (and (any-type? (prune (solution ck) (● value type)))
-                         (not (any-type? (prune (solution ck) target))))
-                    (require-conversion ck target row loc)
-                    ck)))
-        (Pair (Expr (Convert value target) target loc) ck)))
-
-    (define (require-conversion (ck Checker) (target Type) (row Type) (loc Loc))
-      (→ Checker)
-      (! compile)
-      (let ((flat (flatten-row (solution ck) row)))
-        (unless (or (member? dyn-cast-label (● flat first)) (meta-tail? (● flat second)))
-          (compile-error loc
-                         (string-append "conversion from Any to "
-                                        (type->string (resolve-type (solution ck) target))
-                                        " requires dyn-cast; handle or declare dyn-cast, or use try-convert")))
-        (perform ck (TRow (list dyn-cast-label) (None)) row loc)))
 
     (define (environment-free? (ck Checker) (expr Expr)) (→ Bool)
       (match (● expr term)
@@ -2152,10 +2059,8 @@
                            clauses)))
               ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
               ((Ann inner type) (Ann (zonk-expr solution inner) (zonk solution type)))
-              ((Convert inner target) (Convert (zonk-expr solution inner) (zonk solution target)))
-              ((TryConvert inner target)
-               (TryConvert (zonk-expr solution inner) (zonk solution target)))
-              ((TypeTest inner target) (TypeTest (zonk-expr solution inner) (zonk solution target)))
+              ((BoxAny inner) (BoxAny (zonk-expr solution inner)))
+              ((Downcast inner target) (Downcast (zonk-expr solution inner) (zonk solution target)))
               ((Handle effect implementations body)
                (Handle effect
                        (map (lambda (entry)
@@ -2302,7 +2207,7 @@
         ((Var name _ _) name)
         (_ (panic "internal error: a read is a variable"))))
 
-    ;; ---- Conversions ----
+    ;; ---- Explicit Any ----
 
     ;; An Any's TypeId keys its type without rows, so converting a function
     ;; that performs effects would let a caller forget them: a call through
@@ -2312,33 +2217,23 @@
     ;; Any never holds a function with effects and the rows a TypeId leaves
     ;; out are empty.
 
-    (define (check-conversions (program Program) (item Item)) (→ Unit) (! compile)
+    (define (check-boxing (program Program) (item Item)) (→ Unit) (! compile)
       (match item
-        ((Define _ value) (check-expression-conversions program value))
+        ((Define _ value) (check-expression-boxing program value))
         (_ (unit))))
 
-    (define (check-expression-conversions (program Program) (expr Expr)) (→ Unit) (! compile)
+    (define (check-expression-boxing (program Program) (expr Expr)) (→ Unit) (! compile)
       (match (● expr term)
-        ((Convert inner target)
-         (refuse-hidden-disposal program (● inner type) (● expr loc))
-         (refuse-hidden-disposal program target (● expr loc))
-         (refuse-hidden-effects "type-convert" (● inner type) (● expr loc))
-         (refuse-hidden-effects "type-convert" target (● expr loc))
-         (refuse-function-reference "type-convert" (● inner type) (● expr loc))
-         (refuse-function-reference "type-convert" target (● expr loc))
-         (check-through-any (● inner type) target (● expr loc)))
-        ((TryConvert inner target)
-         (refuse-hidden-disposal program target (● expr loc))
-         (refuse-hidden-effects "try-convert" target (● expr loc))
-         (refuse-function-reference "try-convert" target (● expr loc))
-         (check-through-any (● inner type) target (● expr loc)))
-        ((TypeTest _ target)
-         (unit)
-         (refuse-hidden-disposal program target (● expr loc))
-         (refuse-hidden-effects "type-test" target (● expr loc))
-         (refuse-function-reference "type-test" target (● expr loc)))
+        ((BoxAny inner) (check-boxed-type program "Any" (● inner type) (● expr loc)))
+        ((Downcast _ target) (check-boxed-type program "downcast" target (● expr loc)))
         (_ (unit)))
-      (for-each (lambda (child) (check-expression-conversions program child)) (expr-children expr)))
+      (for-each (lambda (child) (check-expression-boxing program child)) (expr-children expr)))
+
+    (define (check-boxed-type (program Program) (form String) (type Type) (loc Loc))
+      (→ Unit) (! compile)
+      (refuse-hidden-effects form type loc)
+      (refuse-hidden-disposal program type loc)
+      (refuse-function-reference form type loc))
 
     (define (refuse-hidden-disposal (program Program) (type Type) (loc Loc)) (→ Unit) (! compile)
       (match (lifecycle-rows program drop-class (Nil) (Nil) type)
@@ -2350,21 +2245,6 @@
            (compile-error loc "Any cannot hide disposal effects; keep this value's static type")))
         ((Err _)
          (compile-error loc "Any requires a value whose disposal is known to be effect-free"))))
-
-    ;; A conversion changes nothing, or boxes into Any, or checks a value out
-    ;; of it: there is no other representation change for it to make.
-
-    (define (check-through-any (source Type) (target Type) (loc Loc)) (→ Unit) (! compile)
-      (unit)
-      (unit)
-      (unless (or (string=? (type-key source) (type-key target))
-                  (any-type? source)
-                  (any-type? target))
-        (compile-error loc
-                       (string-append "type-convert converts to or from Any, not from "
-                                      (type->string source)
-                                      " to "
-                                      (type->string target)))))
 
     ;; An Any holds a reference to a GC object, and a fn's code reference
     ;; is not one, so neither side of a conversion is an Fn. Data holding
@@ -2481,11 +2361,7 @@
     (define (cleanup-yields (ck Checker) (expr Expr)) (→ (List String))
       (match (● expr term)
         ((Lambda _ _ _) (Nil))
-        ((Convert inner target)
-         (label-union (cleanup-yields ck inner)
-                      (if (and (any-type? (resolve-type (solution ck) (● inner type)))
-                               (not (any-type? (resolve-type (solution ck) target))))
-                          (list dyn-cast-label) (Nil))))
+
         ((App callee args)
          (label-union (cleanup-control ck (cleanup-row ck callee))
                       (cleanup-yields-all ck (Cons callee args))))
@@ -2714,9 +2590,7 @@
                 (ck (cleanup-observation ck scope callee args handled row))
                 (ck (cleanup-write ck callee args handled row (● expr loc))))
            (charge-escape ck (cleanup-scope ck scope expr #f) handled expr row)))
-        ((Convert inner _)
-         (let ((ck (infer-cleanup ck scope handled inner row)))
-           (charge-escape ck (cleanup-scope ck scope inner #f) handled expr row)))
+
         (_ (fold-left (lambda (ck child) (infer-cleanup ck scope handled child row))
                       ck (expr-children expr)))))
 
@@ -2750,7 +2624,8 @@
                       (then (generalize-group definitions before exposed)))
                   (Pair (map (lambda (pair)
                                (Define (match (● pair first)
-                                         ((Define definition-name _) definition-name)
+                                         ((Define definition-name _)
+                                          definition-name)
                                          (_ (panic "internal error: expected Define")))
                                  (● (● pair second) first)))
                              (zip definitions results))
@@ -2758,7 +2633,7 @@
                                           (append (map (lambda (definition)
                                                          (match definition
                                                            ((Define definition-name
-                                                              definition-value)
+                                                              _)
                                                             definition-name)
                                                            (_ (panic
                                                                "internal error: expected Define"))))
@@ -2795,7 +2670,7 @@
                               (exposed (List String)))
       (→ Checker)
       (if (every? (lambda (definition) (match definition
-                                         ((Define definition-name definition-value)
+                                         ((Define _ definition-value)
                                           (lambda-expr? definition-value))
                                          (_ (panic "internal error: expected Define"))))
                   definitions)
@@ -2811,24 +2686,25 @@
       (→ (Pair (Pair Expr Type) Checker))
       (! compile)
       (match definition
-        ((Define definition-name definition-value) (learning ck ((row (fresh-meta))
-                                                                 (value (infer-definition-value
-                                                                         definition-value
-                                                                         (scheme-type ck
-                                                                                      definition-name)
-                                                                         row))
-                                                                 (then (infer-cleanup (Nil)
-                                                                                      (Nil)
-                                                                                      value
-                                                                                      row))
-                                                                 (then (unify (scheme-type ck
-                                                                                           definition-name)
-                                                                              (● value type)
-                                                                              (● value loc))))
-                                                             (unless (total? (solution ck) row)
-                                                               (compile-error (● value loc)
-                                                                              "a top-level value must be effect-free; put runtime work in a function"))
-                                                             (Pair (Pair value row) ck)))
+        ((Define definition-name definition-value)
+         (learning ck ((row (fresh-meta))
+                       (value (infer-definition-value
+                               definition-value
+                               (scheme-type ck
+                                            definition-name)
+                               row))
+                       (then (infer-cleanup (Nil)
+                                            (Nil)
+                                            value
+                                            row))
+                       (then (unify (scheme-type ck
+                                                 definition-name)
+                                    (● value type)
+                                    (● value loc))))
+                   (unless (total? (solution ck) row)
+                     (compile-error (● value loc)
+                                    "a top-level value must be effect-free; put runtime work in a function"))
+                   (Pair (Pair value row) ck)))
         (_ (panic "internal error: expected Define"))))
 
     (define (infer-definition-value (ck Checker) (value Expr) (type Type) (row Type))
@@ -2866,7 +2742,7 @@
                                                (concatenate (map (lambda (d)
                                                                    (match d
                                                                      ((Define definition-name
-                                                                        definition-value)
+                                                                        _)
                                                                       (free-metas (solution ck)
                                                                                   (scheme-type ck
                                                                                                definition-name)))
@@ -2883,18 +2759,19 @@
                                ck (zip metas names))))
         (fold-left (lambda (ck definition)
                      (match definition
-                       ((Define definition-name definition-value) (let ((name definition-name))
-                                                                    (set-scheme ck
-                                                                                name
-                                                                                (Scheme names
-                                                                                        (Nil)
-                                                                                        (Nil)
-                                                                                        (resolve-type
-                                                                                         (solution
-                                                                                          ck)
-                                                                                         (scheme-type
-                                                                                          ck
-                                                                                          name))))))
+                       ((Define definition-name _)
+                        (let ((name definition-name))
+                          (set-scheme ck
+                                      name
+                                      (Scheme names
+                                              (Nil)
+                                              (Nil)
+                                              (resolve-type
+                                               (solution
+                                                ck)
+                                               (scheme-type
+                                                ck
+                                                name))))))
                        (_ (panic "internal error: expected Define"))))
                    bound definitions)))
 
@@ -2907,15 +2784,16 @@
       (concatenate
        (map (lambda (definition)
               (match definition
-                ((Define definition-name definition-value) (if (member? definition-name exposed)
-                                                               (match (fn-arrow
-                                                                       (resolve-type (solution ck)
-                                                                                     (scheme-type ck
-                                                                                                  definition-name)))
-                                                                 ((TFun _ _ row)
-                                                                  (free-metas (solution ck) row))
-                                                                 (_ (Nil)))
-                                                               (Nil)))
+                ((Define definition-name _)
+                 (if (member? definition-name exposed)
+                     (match (fn-arrow
+                             (resolve-type (solution ck)
+                                           (scheme-type ck
+                                                        definition-name)))
+                       ((TFun _ _ row)
+                        (free-metas (solution ck) row))
+                       (_ (Nil)))
+                     (Nil)))
                 (_ (panic "internal error: expected Define")))) definitions)))
 
     (define (meta-id (meta Type)) (→ I64)
@@ -2979,7 +2857,7 @@
       (→ (Pair Item Checker))
       (! compile)
       (match definition
-        ((Define definition-name definition-value)
+        ((Define _ definition-value)
          (check-associated-givens (program-of ck) (● scheme constraints)
                                   (● definition-value loc))
          (within ck
@@ -3245,11 +3123,9 @@
                          (Typed program
                                 (map (lambda (item) (zonk-item (solution ck) item)) typed)
                                 (final-schemes ck items))))
-                    (for-each (lambda (item) (check-conversions program item)) (● result items))
-                    (let ((result
-                           (Typed-items-set result (lower-conversions (● result items)))))
-                      (check-final result)
-                      result)))))
+                    (for-each (lambda (item) (check-boxing program item)) (● result items))
+                    (check-final result)
+                    result))))
 
     ;; Check each item at its final types and report failures in source order.
 
@@ -3301,7 +3177,7 @@
                                      (lambda (group)
                                        (map (lambda (definition)
                                               (match definition
-                                                ((Define definition-name definition-value)
+                                                ((Define definition-name _)
                                                  definition-name)
                                                 (_ (panic "internal error: expected Define"))))
                                             group))
@@ -3309,7 +3185,7 @@
                                      (unannotated-groups ck items)))
              (results (fold-left
                        (lambda (results result) (match result
-                                                  ((Define definition-name definition-value)
+                                                  ((Define definition-name _)
                                                    (table-set results definition-name result))
                                                   (_ (panic "internal error: expected Define"))))
                        empty-table (concatenate (● groups values))))
@@ -3326,7 +3202,7 @@
 
     (define (group-references (definitions (List Item))) (→ (List String))
       (concatenate (map (lambda (definition) (match definition
-                                               ((Define definition-name definition-value)
+                                               ((Define _ definition-value)
                                                 (expr-references definition-value))
                                                (_ (panic "internal error: expected Define"))))
                         definitions)))
@@ -3468,7 +3344,8 @@
              (numbers (fold-left (lambda (table index)
                                    (table-set table
                                               (match (vector-ref nodes index)
-                                                ((Define definition-name _) definition-name)
+                                                ((Define definition-name _)
+                                                 definition-name)
                                                 (_ (panic "internal error: expected Define")))
                                               index))
                                  empty-table (iota (vector-length nodes)))))

@@ -10,9 +10,7 @@
    with-instances
    match
    ann
-   type-convert
-   try-convert
-   type-test
+   downcast
    extern
    effect
    handle
@@ -32,8 +30,6 @@
    Show show i64->string string->i64 f64->string
    Repr repr
    Option Some None Result Ok Err Pair Never absurd
-   dyn-cast conversion-failed CastError
-   CastReason TypeMismatch UnsupportedInstance ArgumentMismatch
    List
    Cons
    Nil
@@ -73,7 +69,7 @@
    vector-concatenate
    subvector
    vector-map vector-for-each vector-fold vector->list list->vector
-   vector vector-set! vector-copy vector-copy! vector-push! vector-pop!
+   vector vector-set! vector-copy vector-copy!
    set! replace!)
   (import
    (snail core forms)
@@ -347,26 +343,6 @@
 
     (define (absurd (never Never)) (→ A) (∀ (A))
       (match never))
-
-    ;; ---- Dynamic conversions ----
-
-    (enum CastReason
-      (TypeMismatch)
-      (UnsupportedInstance)
-      (ArgumentMismatch))
-
-    ;; Identities describe the mismatch without keeping its original value
-    ;; alive. The expected names are known at the conversion boundary.
-    (struct CastError
-      ((reason CastReason)
-       (expected (List String))
-       (actual I64)
-       (origin String)
-       (method String)
-       (argument I64)))
-
-    (effect dyn-cast
-      ((ctl conversion-failed (Fn CastError → Never))))
 
     ;; ---- Releasing ----
 
@@ -728,12 +704,6 @@
                                              ((Nil)
                                               (panic "vector-concatenate: too few elements"))))))))
                          (Fn → (Vector T) ! mut e))))
-
-    ;; Empty pop is ordinary control flow. The primitive moves the last slot
-    ;; out and clears it before returning, so the result owns that element.
-    (define (vector-pop! (items (Vector A)))
-      (→ (Option A)) (! mut e) (∀ (A e)) (⊨ (Copy A) (Drop e A))
-      (if (= (vector-length items) 0) (None) (Some (vector-take-last! items))))
 
     ;; ---- Characters and text ----
 

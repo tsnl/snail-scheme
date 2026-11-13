@@ -9,7 +9,7 @@
 
 (define main
   (lambda ()
-    (match (try-convert (ann #f Any) Owned)
-      ((Ok value) (drop value))
+    (match (downcast Owned (Any #f))
+      ((Some value) (drop value))
       (_ (unit)))
     (unit)))
